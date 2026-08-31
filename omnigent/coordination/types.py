@@ -1,0 +1,166 @@
+"""Domain types for Agent-to-Agent Coordination and Control Plane (coordination.v1)."""
+
+from __future__ import annotations
+
+import time
+import uuid
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
+
+MessageKind = Literal["content", "command", "event"]
+MessageState = Literal["queued", "active", "cancelled", "expired"]
+DeliveryState = Literal["pending", "leased", "injected", "confirmed", "failed", "unknown"]
+DeliveryMode = Literal["live", "breakpoint", "next_turn", "terminal_best_effort", "offline"]
+ConsumptionState = Literal["unconsumed", "consumed", "acknowledged", "rejected"]
+RunStatus = Literal[
+    "draft",
+    "running",
+    "paused",
+    "waiting_user",
+    "waiting_peer",
+    "reconciling",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "needs_attention",
+]
+TaskStatus = Literal[
+    "draft",
+    "queued",
+    "assigned",
+    "running",
+    "blocked",
+    "waiting_user",
+    "waiting_peer",
+    "waiting_review",
+    "reconciling",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "needs_attention",
+]
+
+
+def generate_coordination_id(prefix: str) -> str:
+    """Generate a stable, human-readable identifier with the given prefix."""
+    return f"{prefix}_{uuid.uuid4().hex[:16]}"
+
+
+@dataclass
+class AgentMessage:
+    """A durable, auditable peer message sent between agents (or user/orchestrator)."""
+
+    message_id: str = field(default_factory=lambda: generate_coordination_id("msg"))
+    schema_version: str = "coordination.v1"
+    root_session_id: str = ""
+    run_id: str | None = None
+    task_id: str | None = None
+    sender_session_id: str = ""
+    sender_role: str = "general"
+    recipient_session_id: str = ""
+    recipient_role: str | None = None
+    kind: MessageKind = "content"
+    intent: str = "task.request"
+    payload: dict[str, Any] = field(default_factory=dict)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
+    correlation_id: str | None = None
+    in_reply_to: str | None = None
+    idempotency_key: str | None = None
+    message_state: MessageState = "queued"
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class DeliveryAttempt:
+    """A delivery dispatch record for an AgentMessage."""
+
+    attempt_id: str = field(default_factory=lambda: generate_coordination_id("att"))
+    message_id: str = ""
+    target_session_id: str = ""
+    target_harness: str | None = None
+    delivery_mode: DeliveryMode = "next_turn"
+    delivery_state: DeliveryState = "pending"
+    injection_receipt: dict[str, Any] | None = None
+    error: str | None = None
+    attempt_count: int = 1
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class CoordinationRun:
+    """A multi-agent coordination execution lifecycle."""
+
+    run_id: str = field(default_factory=lambda: generate_coordination_id("run"))
+    title: str = "Collaborative Coding Run"
+    root_session_id: str = ""
+    template: str = "plan_implement_review"
+    status: RunStatus = "running"
+    budget: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class CoordinationTask:
+    """A distinct task unit in a multi-agent coordination DAG."""
+
+    task_id: str = field(default_factory=lambda: generate_coordination_id("ctask"))
+    run_id: str = ""
+    title: str = ""
+    status: TaskStatus = "queued"
+    assignee_session_id: str | None = None
+    assignee_role: str | None = None
+    dependencies: list[str] = field(default_factory=list)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class CoordinationEvent:
+    """An immutable audit/timeline event emitted during multi-agent coordination."""
+
+    event_id: str = field(default_factory=lambda: generate_coordination_id("cevt"))
+    root_session_id: str = ""
+    run_id: str | None = None
+    task_id: str | None = None
+    actor_session_id: str | None = None
+    event_type: str = "message.sent"
+    payload: dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class OutboxItem:
+    """A durable outbox record waiting for asynchronous capability-aware delivery."""
+
+    item_id: str = field(default_factory=lambda: generate_coordination_id("out"))
+    message_id: str = ""
+    target_session_id: str = ""
+    status: DeliveryState = "pending"
+    payload_json: str = "{}"
+    retry_count: int = 0
+    next_retry_at: float = field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
