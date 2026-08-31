@@ -552,9 +552,9 @@ export function RetryIndicator({
  */
 export function CompactionMarker() {
   return (
-    <div className="flex items-center gap-2 text-muted-foreground text-sm italic">
-      <ShrinkIcon className="size-3" />
-      <span>Conversation compacted</span>
+    <div className="flex items-center gap-2 text-muted-foreground text-sm italic py-1">
+      <ShrinkIcon className="size-3.5 text-emerald-500" />
+      <span>✓ 对话上下文已完成自动压缩 (Context compacted)</span>
     </div>
   );
 }

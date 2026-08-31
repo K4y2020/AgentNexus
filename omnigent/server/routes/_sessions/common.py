@@ -219,7 +219,7 @@ _CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY = "omnigent.claude_native.permission_mo
 # ``claude_native_bridge.CYCLEABLE_PERMISSION_MODES``; ``dontAsk`` and
 # ``bypassPermissions`` are launch-only and rejected on PATCH.
 _CLAUDE_NATIVE_PERMISSION_MODES: frozenset[str] = frozenset(
-    {"default", "acceptEdits", "plan", "auto"}
+    {"default", "acceptEdits", "plan", "auto", "bypassPermissions", "dontAsk"}
 )
 
 

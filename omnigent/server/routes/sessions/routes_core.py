@@ -1682,14 +1682,6 @@ def register_core_routes(
             )
             if conv_for_permission_mode is None:
                 raise _session_not_found()
-            if (
-                conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
-                != _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
-            ):
-                raise OmnigentError(
-                    "permission_mode is only supported for claude-native sessions",
-                    code=ErrorCode.INVALID_INPUT,
-                )
             requested_claude_permission_mode = body.permission_mode
         labels_to_set = dict(body.labels or {})
         # Pins are per-user. The client writes the canonical ``omnigent.pinned``
@@ -1969,39 +1961,38 @@ def register_core_routes(
                 _codex_plan_enabled,
                 _runner_result,
             )
-        if requested_claude_permission_mode is not None and live_forward:
-            _mode_result = await _forward_session_change_to_runner(
-                session_id,
-                runner_router,
-                {
-                    "type": "permission_mode_change",
-                    "permission_mode": requested_claude_permission_mode,
-                },
+        if requested_claude_permission_mode is not None:
+            is_claude_native = (
+                conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
+                == _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
             )
-            # Raises unless the runner confirms the switch, so the label can
-            # never claim a mode Claude isn't in. Stores the mode it reached.
-            _confirmed_permission_mode = _require_permission_mode_forward(
-                session_id,
-                requested_claude_permission_mode,
-                _mode_result,
-            )
-            labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = _confirmed_permission_mode
-            # The launcher restores the mode from terminal_launch_args, not the
-            # label above, so reflect the confirmed mode there too — otherwise a
-            # relaunch reverts to the launch --permission-mode. Merge against
-            # ``updated`` (the post-write row), not the pre-update snapshot, so a
-            # combined PATCH that also set terminal_launch_args keeps those. Only
-            # rewrites an existing --permission-mode; mirrors the shift+tab path.
-            _merged_permission_args = _merge_claude_permission_launch_args(
-                updated.terminal_launch_args,
-                _confirmed_permission_mode,
-            )
-            if updated.terminal_launch_args != _merged_permission_args:
-                await asyncio.to_thread(
-                    conversation_store.update_conversation,
+            if is_claude_native and live_forward:
+                _mode_result = await _forward_session_change_to_runner(
                     session_id,
-                    terminal_launch_args=_merged_permission_args,
+                    runner_router,
+                    {
+                        "type": "permission_mode_change",
+                        "permission_mode": requested_claude_permission_mode,
+                    },
                 )
+                _confirmed_permission_mode = _require_permission_mode_forward(
+                    session_id,
+                    requested_claude_permission_mode,
+                    _mode_result,
+                )
+                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = _confirmed_permission_mode
+                _merged_permission_args = _merge_claude_permission_launch_args(
+                    updated.terminal_launch_args,
+                    _confirmed_permission_mode,
+                )
+                if updated.terminal_launch_args != _merged_permission_args:
+                    await asyncio.to_thread(
+                        conversation_store.update_conversation,
+                        session_id,
+                        terminal_launch_args=_merged_permission_args,
+                    )
+            else:
+                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = requested_claude_permission_mode
         # Some labels are cleared by DELETE, not by upserting an empty value:
         # the project membership (empty = "remove from project") and the pinned
         # flag (empty = "unpin"). Split any empty-valued clear keys out before

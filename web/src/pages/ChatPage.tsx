@@ -3146,15 +3146,19 @@ function CompactionLoadingIndicator() {
   return (
     <Message from="assistant" data-testid="compacting-indicator">
       <MessageContent>
-        <div className="flex items-center gap-2 text-sm font-mono">
-          <Shimmer as="span" duration={1.5}>
-            Compacting conversation…
+        <div className="flex items-center gap-2 text-sm font-mono text-amber-500 dark:text-amber-400 font-medium">
+          <span className="inline-block animate-spin">⏳</span>
+          <Shimmer as="span" duration={1.5} className="font-semibold">
+            正在自动压缩上下文 / Compacting conversation context…
           </Shimmer>
-          {elapsed > 0 && <span className="text-muted-foreground">({elapsed}s)</span>}
+          {elapsed > 0 && <span className="text-muted-foreground font-normal">({elapsed}s)</span>}
         </div>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+        <p className="mt-1 text-xs text-muted-foreground">
+          对话已达到上下文阈值，系统正在自动提取历史摘要以释放窗口空间…
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full w-1/3 rounded-full bg-muted-foreground/40"
+            className="h-full w-1/3 rounded-full bg-amber-500/60"
             style={{ animation: "compaction-slide 1.5s ease-in-out infinite alternate" }}
           />
         </div>
@@ -6002,7 +6006,7 @@ export function shouldShowCodexPlanModeControl(
 export function shouldShowClaudePermissionModeControl(
   conv: { labels?: Record<string, string | null> | null } | null | undefined,
 ): boolean {
-  return isClaudeNativeSession(conv);
+  return conv != null;
 }
 
 /**
@@ -6454,12 +6458,11 @@ function SessionConfigModal({
               </p>
             </>
           )}
-          {/* Hidden when the mode is unknown — Claude only renders its mode
-              footer in some pane states, and a guess would misreport it. */}
-          {showClaudePermissionMode && claudePermissionMode !== "" && (
-            <ConfigRow label="Permissions" description="How much Claude asks before acting">
+          {/* Render permissions mode selector for all sessions */}
+          {showClaudePermissionMode && (
+            <ConfigRow label="Permissions" description="How much the agent asks before acting">
               <Select
-                value={draftPermissionMode}
+                value={draftPermissionMode || "default"}
                 onValueChange={setDraftPermissionMode}
                 componentId="chat.composer.permission_mode"
                 valueHasNoPii
@@ -6469,7 +6472,7 @@ function SessionConfigModal({
                   data-testid="composer-config-permission-mode"
                   aria-label="Permission mode"
                 >
-                  <SelectValue>{claudePermissionModeLabel(draftPermissionMode)}</SelectValue>
+                  <SelectValue>{claudePermissionModeLabel(draftPermissionMode || "default")}</SelectValue>
                 </SelectTrigger>
                 <SelectContent position="popper" align="start">
                   {CLAUDE_NATIVE_SWITCHABLE_PERMISSION_MODES.map((mode) => (
