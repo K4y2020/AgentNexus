@@ -172,9 +172,13 @@ function buildTree(files: WorkspaceFile[], sort: ChangedSort = "alpha"): TreeNod
  */
 const expandedPathsCache = new Map<string, Set<string>>();
 
-/** Cache key for one conversation's tree at one browsed root. */
-function expandedCacheKey(conversationId: string, browseLocation: string): string {
-  return `${conversationId}\u0000${browseLocation}`;
+/** Cache key for one conversation's physical workspace and browsed root. */
+function expandedCacheKey(
+  conversationId: string,
+  workspaceRoot: string,
+  browseLocation: string,
+): string {
+  return `${conversationId}\u0000${workspaceRoot}\u0000${browseLocation}`;
 }
 
 /** Compute the default open set: all non-lazy dirs start expanded. */
@@ -214,6 +218,7 @@ export function FolderTree({
   isSearching = false,
   isSearchError = false,
   searchError = null,
+  workspaceRoot = "",
   browseLocation = "",
   onNavigateDir,
 }: {
@@ -245,6 +250,8 @@ export function FolderTree({
   isSearchError?: boolean;
   /** Error from a failed search request. */
   searchError?: Error | null;
+  /** Absolute physical workspace root; distinguishes in-place worktree switches. */
+  workspaceRoot?: string;
   /**
    * Absolute path currently browsed, or "" for the workspace root. Lazy
    * directory expansion resolves node paths against it.
@@ -259,7 +266,9 @@ export function FolderTree({
 }) {
   // Initialise from the module-level cache so expanded state survives
   // unmount/remount (e.g. opening the FileViewer and navigating back).
-  const cacheKey = conversationId ? expandedCacheKey(conversationId, browseLocation) : null;
+  const cacheKey = conversationId
+    ? expandedCacheKey(conversationId, workspaceRoot, browseLocation)
+    : null;
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     if (!cacheKey) return new Set();
     const cached = expandedPathsCache.get(cacheKey);

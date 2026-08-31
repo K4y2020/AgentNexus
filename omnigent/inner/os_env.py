@@ -7,6 +7,7 @@ import base64
 import codecs
 import contextlib
 import json
+import locale
 import os
 import shutil
 import subprocess
@@ -27,6 +28,7 @@ from omnigent.runner.identity import (
     strip_runner_auth_secrets,
 )
 
+from ._proc import kill_tree, spawn_kwargs
 from .async_utils import run_sync_on_thread
 from .credential_proxy import (
     CredentialProxyRuntime,
@@ -488,6 +490,12 @@ class _HelperProcessClient:
                 # ``oa_cred_*`` tokens) into the scratch dir and point the
                 # tool at them. No real secret is written to the sandbox.
                 _write_credential_proxy_files(env, credential_runtime.sandbox_files, self._tmpdir)
+        elif IS_WINDOWS:
+            # Windows delivers the helper config through a short-lived file
+            # because subprocess ``pass_fds`` is unavailable. An inactive
+            # sandbox previously skipped tmpdir creation, then asserted below
+            # while handling ordinary sys_os_read/sys_os_shell requests.
+            self._tmpdir = create_private_tmpdir()
 
         # Start L7 egress proxy if rules are configured. The proxy
         # listens on a Unix socket in the scratch tmpdir; the helper
@@ -948,11 +956,18 @@ def create_os_environment(spec: OSEnvSpec | None) -> OSEnvironment | None:
             "os_env.start_in_scratch requires an active sandbox; "
             f"resolved sandbox type {sandbox.backend_type!r} is inactive"
         )
-    shell_path = shutil.which("bash") or shutil.which("sh")
-    if shell_path is None:
-        # No POSIX shell on PATH. On Windows fall back to cmd.exe; elsewhere
-        # keep the historical /bin/sh default.
-        shell_path = os.environ.get("COMSPEC", "cmd.exe") if IS_WINDOWS else "/bin/sh"
+    if IS_WINDOWS:
+        # ``bash.exe`` on Windows is commonly the WSL launcher. Selecting it
+        # moves commands into a different path namespace where ``U:\\...``
+        # workspaces are unreadable. Prefer a native PowerShell and fall back
+        # to cmd.exe so helper I/O stays in the Windows filesystem.
+        shell_path = (
+            shutil.which("pwsh")
+            or shutil.which("powershell")
+            or os.environ.get("COMSPEC", "cmd.exe")
+        )
+    else:
+        shell_path = shutil.which("bash") or shutil.which("sh") or "/bin/sh"
     egress_rules = spec.sandbox.egress_rules if spec.sandbox else None
     egress_allow_private = (
         spec.sandbox.egress_allow_private_destinations if spec.sandbox else False
@@ -1451,50 +1466,60 @@ def _shell_impl(
         characters.
     """
     argv = _shell_argv(shell_path, command)
-    try:
-        completed = subprocess.run(
-            argv,
-            cwd=str(cwd),
-            env=_child_shell_env(),
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired as exc:
-        # ``subprocess.TimeoutExpired.stdout``/``stderr`` are ``str | bytes
-        # | None`` from the stdlib; widening the op result at this boundary
-        # would leak ``None`` into a JSON-serialized field that downstream
-        # consumers treat as a plain string.
-        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
-        return {
-            "stdout": _truncate_output(stdout, "stdout", max_output),
-            "stderr": _truncate_output(stderr, "stderr", max_output),
-            "exit_code": None,
-            "timed_out": True,
-            "error": f"Command timed out after {timeout} seconds",
-            "shell": shell_path,
-            "cwd": str(cwd),
-        }
-    except OSError as exc:
-        return {"error": f"Failed to run shell command: {exc}"}
+    encoding = locale.getpreferredencoding(False)
+    with (
+        tempfile.TemporaryFile(mode="w+", encoding=encoding, errors="replace") as stdout_file,
+        tempfile.TemporaryFile(mode="w+", encoding=encoding, errors="replace") as stderr_file,
+    ):
+        try:
+            process = subprocess.Popen(
+                argv,
+                cwd=str(cwd),
+                env=_child_shell_env(),
+                stdout=stdout_file,
+                stderr=stderr_file,
+                **spawn_kwargs(),
+            )
+        except OSError as exc:
+            return {"error": f"Failed to run shell command: {exc}"}
 
-    stdout = _truncate_output(completed.stdout, "stdout", max_output)
-    stderr = _truncate_output(completed.stderr, "stderr", max_output)
+        try:
+            returncode = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_tree(process)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=5)
+            stdout_file.seek(0)
+            stderr_file.seek(0)
+            return {
+                "stdout": _truncate_output(stdout_file.read(), "stdout", max_output),
+                "stderr": _truncate_output(stderr_file.read(), "stderr", max_output),
+                "exit_code": None,
+                "timed_out": True,
+                "error": f"Command timed out after {timeout} seconds",
+                "shell": shell_path,
+                "cwd": str(cwd),
+            }
+
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = _truncate_output(stdout_file.read(), "stdout", max_output)
+        stderr = _truncate_output(stderr_file.read(), "stderr", max_output)
+
     result: OpResult = {
         "stdout": stdout,
         "stderr": stderr,
-        "exit_code": completed.returncode,
+        "exit_code": returncode,
         "timed_out": False,
         "shell": shell_path,
         "cwd": str(cwd),
     }
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip()
+    if returncode != 0:
+        detail = stderr.strip() or stdout.strip()
         if detail:
-            result["error"] = f"Command exited with status {completed.returncode}: {detail}"
+            result["error"] = f"Command exited with status {returncode}: {detail}"
         else:
-            result["error"] = f"Command exited with status {completed.returncode}"
+            result["error"] = f"Command exited with status {returncode}"
     return result
 
 

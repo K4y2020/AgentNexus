@@ -10,6 +10,7 @@ parser; config + ambient are isolated so resolution is deterministic.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ import yaml
 
 from omnigent.codex_native_app_server import resolve_native_codex_launch
 from omnigent.errors import OmnigentError
+from omnigent.inner import codex_executor
 from omnigent.inner.codex_executor import _provider_codex_config_overrides
 from omnigent.spec.types import AgentSpec, ExecutorSpec, ProviderAuth
 
@@ -56,6 +58,16 @@ def _write_codex_login(home: Path, *, logged_in: bool) -> None:
     (codex_dir / "auth.json").write_text(content, encoding="utf-8")
 
 
+def _assert_static_key_auth(joined: str, key: str) -> None:
+    """Assert the platform-appropriate static-key credential helper."""
+    assert key in joined
+    if os.name == "nt":
+        assert "import sys; sys.stdout.write(sys.argv[1])" in joined
+        assert 'command="sh"' not in joined
+    else:
+        assert f"printf %s {key}" in joined
+
+
 def test_provider_codex_overrides_coerce_chat_wire_to_responses() -> None:
     """A ``chat`` provider wire is coerced to ``responses`` in the override.
 
@@ -79,8 +91,27 @@ def test_provider_codex_overrides_coerce_chat_wire_to_responses() -> None:
     # chat is coerced to responses; codex >= 0.137 rejects a chat config.
     assert 'wire_api="responses"' in joined
     assert 'wire_api="chat"' not in joined
-    # The token command is embedded as the sh auth command.
-    assert "printf %s sk-or-test" in joined
+    # Static tokens use a shell-independent Python helper, so this also works
+    # on Windows hosts where ``sh`` is unavailable.
+    assert "import sys; sys.stdout.write(sys.argv[1])" in joined
+    assert "sk-or-test" in joined
+
+
+def test_provider_codex_overrides_use_powershell_for_dynamic_auth_on_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dynamic credential helpers use PowerShell instead of missing ``sh``."""
+    monkeypatch.setattr(codex_executor.os, "name", "nt")
+    overrides = _provider_codex_config_overrides(
+        model="gpt-5.6-sol",
+        base_url="https://provider.invalid/v1",
+        auth_command="credential-helper --token",
+        wire_api="responses",
+    )
+    joined = "\n".join(overrides)
+    assert 'command="powershell.exe"' in joined
+    assert '"-NoProfile", "-NonInteractive", "-Command"' in joined
+    assert "credential-helper --token" in joined
 
 
 def test_provider_codex_overrides_preserve_responses_wire() -> None:
@@ -135,7 +166,7 @@ def test_resolve_native_codex_launch_key_default_routes_via_overrides(
     assert launch.model == "gpt-5.5"
     joined = "\n".join(launch.config_overrides)
     assert 'base_url="https://api.openai.com/v1"' in joined
-    assert "printf %s sk-oai-default" in joined
+    _assert_static_key_auth(joined, "sk-oai-default")
 
 
 def test_resolve_native_codex_launch_openrouter_coerces_chat_wire(_isolated: Path) -> None:
@@ -274,7 +305,7 @@ def test_resolve_native_codex_launch_subscription_no_login_falls_through_to_key(
     assert launch.model == "gpt-5.5"
     joined = "\n".join(launch.config_overrides)
     assert 'base_url="https://api.openai.com/v1"' in joined
-    assert "printf %s sk-oai-real" in joined
+    _assert_static_key_auth(joined, "sk-oai-real")
 
 
 def test_resolve_native_codex_launch_subscription_no_login_no_alternative_uses_login(
@@ -345,7 +376,7 @@ def test_resolve_native_codex_launch_ambient_key_routes(
     assert launch.profile is None
     joined = "\n".join(launch.config_overrides)
     assert 'base_url="https://api.openai.com/v1"' in joined
-    assert "printf %s sk-oai-ambient" in joined
+    _assert_static_key_auth(joined, "sk-oai-ambient")
 
 
 def test_resolve_native_codex_launch_cli_config_default_pins_provider(
@@ -553,7 +584,7 @@ def test_spec_provider_auth_routes_when_machine_has_nothing(_isolated: Path) -> 
 
     joined = "\n".join(launch.config_overrides)
     assert 'base_url="https://spec.example.com/v1"' in joined
-    assert "printf %s sk-spec" in joined
+    _assert_static_key_auth(joined, "sk-spec")
     assert launch.model == "spec-model"
     assert "Codex CLI login" not in launch.summary
 

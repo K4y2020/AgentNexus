@@ -121,6 +121,10 @@ vi.mock("@/hooks/useConversations", async (importOriginal) => ({
 }));
 // The harness-label catalog is not under test here. Keep it synchronous so
 // create-session fetch assertions only observe the POST/PATCH calls they own.
+// Tests that DO exercise model pinning mutate this record (harness id → flag).
+const { MOCK_MODEL_ARGS } = vi.hoisted(() => ({
+  MOCK_MODEL_ARGS: {} as Record<string, string>,
+}));
 vi.mock("@/lib/agentLabels", async (importOriginal) => ({
   ...(await importOriginal<typeof AgentLabelsModule>()),
   // Mirrors the real hook: the "auto" sentinel leads the map only when the
@@ -156,6 +160,11 @@ vi.mock("@/lib/agentLabels", async (importOriginal) => ({
       },
     ],
   }),
+  // No harness in this suite pins a model, so the config modal's Model row
+  // never renders and the catalog query (the real hook would fetch
+  // /v1/harnesses on modal mount, upsetting fetch-count assertions) stays
+  // unsubscribed. Model-pinning tests mutate MOCK_MODEL_ARGS (vi.hoisted above).
+  useHarnessModelArgs: () => MOCK_MODEL_ARGS,
 }));
 // Partial mock: only spy on the first-message handoff so the "@"-mention
 // tests can assert the prepended attachment marker. Everything else
@@ -278,8 +287,8 @@ describe("resolveThisMachineHostId", () => {
 
 // Workspace validation contract — pins the same shape the server
 // validator enforces (per designs/SESSION_WORKSPACE_SELECTION.md):
-// tilde-prefixed and relative paths are rejected; only
-// fully-absolute paths starting with `/` are accepted. If this
+// tilde-prefixed and relative paths are rejected; fully-absolute
+// POSIX and Windows drive paths are accepted. If this
 // drifts out of sync with the server, the submit button would
 // either let through requests the server rejects (opaque 400) or
 // block requests the server would accept (button stuck disabled).
@@ -298,6 +307,12 @@ describe("isValidWorkspace", () => {
     // Browsers paste with stray whitespace; trim must run before
     // the shape check or "  /Users/corey  " would be rejected.
     expect(isValidWorkspace("  /Users/corey  ")).toBe(true);
+  });
+
+  it("accepts Windows drive-qualified paths", () => {
+    expect(isValidWorkspace("U:/AI/MultiAgent")).toBe(true);
+    expect(isValidWorkspace("U:\\AI\\MultiAgent")).toBe(true);
+    expect(isValidWorkspace("U:relative")).toBe(false);
   });
 
   it("rejects empty string", () => {
@@ -341,6 +356,8 @@ describe("normalizeWorkspacePath", () => {
     // Root is preserved, not collapsed away.
     ["/", "/"],
     ["///", "/"],
+    ["U:\\AI\\MultiAgent\\", "U:/AI/MultiAgent"],
+    ["U:/", "U:/"],
     // Blank → null (no path) — must NOT become "/", or an empty input would
     // spuriously match a session whose workspace is the root.
     ["", null],
@@ -4124,6 +4141,40 @@ describe("NewChatLandingScreen Auto harness", () => {
     // No permission field of any spelling rides along.
     expect(raw).not.toContain("permission");
     expect(raw).not.toContain("plan");
+  });
+
+  it("pins a model for a brain harness whose CLI takes a model flag", async () => {
+    // Polly's brain harness is pi; pretend the pi row declares a model flag.
+    // The mechanism under test is model_arg → Model row → create
+    // model_override, not any vendor's id list — the server derives the flag
+    // from the harness catalog (codebuddy is the row that ships one).
+    MOCK_MODEL_ARGS.pi = "--model";
+    authenticatedFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "conv_pinned" }),
+    } as unknown as Response);
+    renderLanding({ smart_routing_enabled: true });
+    await waitFor(() =>
+      expect(screen.getByTestId("new-chat-landing-workspace-chip").textContent).toContain("repo"),
+    );
+    openAgentConfig("ag_polly");
+    // No harness picked → the row reads the agent's own harness (pi), which
+    // now declares a flag, so the Model input is offered on the vendor default.
+    const modelInput = screen.getByTestId("new-chat-landing-config-model");
+    expect((modelInput as HTMLInputElement).value).toBe("");
+    fireEvent.change(modelInput, { target: { value: "glm-5.3" } });
+    saveConfig();
+    const { body } = await submitAndReadBody();
+    // Left on the agent's own harness, so no override rides — but the model does.
+    expect(body.harness_override).toBeUndefined();
+    expect(body.model_override).toBe("glm-5.3");
+    delete MOCK_MODEL_ARGS.pi;
+  });
+
+  it("offers no Model row for a brain harness without a model flag", () => {
+    renderLanding({ smart_routing_enabled: true });
+    openAgentConfig("ag_polly");
+    expect(screen.queryByTestId("new-chat-landing-config-model")).toBeNull();
   });
 });
 

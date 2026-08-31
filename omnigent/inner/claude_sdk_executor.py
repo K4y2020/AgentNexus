@@ -944,8 +944,21 @@ def _find_system_claude() -> str | None:
     the SDK's bundled CLI because the bundled version may be older and send
     beta flags the Databricks gateway doesn't support. Returns the absolute
     path, or ``None`` if not found.
+
+    On Windows, an npm-installed claude resolves to a ``.cmd`` shim, which
+    the claude-agent-sdk refuses to execute (batch scripts run via cmd.exe
+    with no reliable argument escaping). Returning ``None`` there makes the
+    SDK fall back to its bundled native ``claude.exe``.
     """
-    return resolve_cli_binary("claude", env_var=_CLAUDE_PATH_ENV)
+    resolved = resolve_cli_binary("claude", env_var=_CLAUDE_PATH_ENV)
+    if resolved and sys.platform == "win32" and resolved.lower().endswith((".cmd", ".bat")):
+        logger.info(
+            "System claude is a batch shim (%s); the SDK refuses .cmd on Windows — "
+            "falling back to the bundled CLI",
+            resolved,
+        )
+        return None
+    return resolved
 
 
 # DATABRICKS-PATCH(claude-sdk-live-model-discovery)

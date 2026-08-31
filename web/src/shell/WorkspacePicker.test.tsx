@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   basename,
+  isAbsoluteHostPath,
   joinPath,
   listingFilter,
   normalizeTypedPath,
@@ -82,6 +83,12 @@ describe("parentOf", () => {
     // wrongly include the trailing-empty segment.
     expect(parentOf("/Users/corey/")).toBe("/Users");
   });
+
+  it("handles Windows drive roots and nested directories", () => {
+    expect(parentOf("U:/")).toBeNull();
+    expect(parentOf("U:/AI")).toBe("U:/");
+    expect(parentOf("U:\\AI\\MultiAgent")).toBe("U:/AI");
+  });
 });
 
 describe("normalizeTypedPath", () => {
@@ -111,6 +118,12 @@ describe("normalizeTypedPath", () => {
     // "/" is the only place where a trailing slash is valid; it
     // must round-trip so the user can navigate back to root.
     expect(normalizeTypedPath("/")).toBe("/");
+  });
+
+  it("accepts and canonicalizes Windows drive paths", () => {
+    expect(normalizeTypedPath("U:\\AI\\MultiAgent\\")).toBe("U:/AI/MultiAgent");
+    expect(normalizeTypedPath("u:/AI//MultiAgent")).toBe("u:/AI/MultiAgent");
+    expect(normalizeTypedPath("U:/")).toBe("U:/");
   });
 
   it("returns null for empty input", () => {
@@ -162,6 +175,15 @@ describe("normalizeTypedPath", () => {
     // ~root, ~alice, etc. would require a server round-trip to
     // resolve. Out of scope for v1 — fall through to "invalid".
     expect(normalizeTypedPath("~root/foo", "/Users/corey")).toBeNull();
+  });
+});
+
+describe("isAbsoluteHostPath", () => {
+  it("recognizes POSIX and Windows drive-qualified paths", () => {
+    expect(isAbsoluteHostPath("/Users/corey")).toBe(true);
+    expect(isAbsoluteHostPath("U:/AI/MultiAgent")).toBe(true);
+    expect(isAbsoluteHostPath("U:\\AI\\MultiAgent")).toBe(true);
+    expect(isAbsoluteHostPath("AI/MultiAgent")).toBe(false);
   });
 });
 

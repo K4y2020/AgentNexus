@@ -151,6 +151,12 @@ class TestModelFamilyMismatch:
             ("native-codex", "system.ai.glm-5-2"),
             ("codex-native", "databricks-kimi-k2-6"),
             ("codex", "kimi-for-coding"),
+            # Wrapped codex speaks the configured gateway's Responses API; the
+            # gateway vocabulary is authoritative even when an id does not
+            # carry a GPT/GLM/Kimi token.
+            ("codex", "hy4-preview"),
+            ("codex", "databricks-meta-llama-3.3-70b-instruct"),
+            ("codex", "glmqlfit-eval"),
             ("openai-agents", "gpt-5.4-mini"),
             # openai-agents is multi-model like pi (a live SDK probe completed a
             # Claude tool-calling turn over the chat wire), so it accepts the
@@ -201,13 +207,6 @@ class TestModelFamilyMismatch:
                 "only runs codex-compatible models",
             ),
             ("native-codex", "claude-opus-4-8", "only runs codex-compatible models"),
-            (
-                "codex",
-                "databricks-meta-llama-3.3-70b-instruct",
-                "only runs codex-compatible models",
-            ),
-            # A segment merely containing the letters is not the GLM family.
-            ("codex", "glmqlfit-eval", "only runs codex-compatible models"),
             # antigravity is Gemini-native: syntactically valid non-Gemini ids
             # must fail loud at the dispatch gate rather than be persisted as
             # model_override and land in HARNESS_ANTIGRAVITY_MODEL only to fail

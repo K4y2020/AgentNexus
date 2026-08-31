@@ -70,6 +70,15 @@ describe("buildHostFilesystemUrl", () => {
     // slash we'd hit the no-path route which forwards ~ instead.
     expect(buildHostFilesystemUrl("host_abc", "/")).toBe("/v1/hosts/host_abc/filesystem/");
   });
+
+  it("encodes Windows drive paths without inventing a POSIX root", () => {
+    expect(buildHostFilesystemUrl("host_abc", "U:/AI/MultiAgent")).toBe(
+      "/v1/hosts/host_abc/filesystem/U%3A/AI/MultiAgent",
+    );
+    expect(buildHostFilesystemUrl("host_abc", "U:\\AI\\MultiAgent")).toBe(
+      "/v1/hosts/host_abc/filesystem/U%3A/AI/MultiAgent",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

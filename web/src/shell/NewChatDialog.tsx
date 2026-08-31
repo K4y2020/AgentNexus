@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Command,
   CommandEmpty,
@@ -106,7 +107,12 @@ import { appendPromptHistoryEntry } from "@/hooks/usePromptHistory";
 import { useIsCoarsePointer } from "@/hooks/useIsCoarsePointer";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { CliCommandBlock, renderTextWithInlineCode } from "./CliCommandBlock";
-import { WorkspacePicker, isNavigablePath } from "./WorkspacePicker";
+import {
+  WorkspacePicker,
+  isAbsoluteHostPath,
+  isNavigablePath,
+  normalizePathSeparators,
+} from "./WorkspacePicker";
 import {
   initialPrefillState,
   prefillDone,
@@ -136,6 +142,7 @@ import {
   isAutoHarness,
   SMART_ROUTING_LABEL,
   useBrainHarnessLabels,
+  useHarnessModelArgs,
 } from "@/lib/agentLabels";
 import {
   SMART_ROUTING_ARMS,
@@ -432,7 +439,7 @@ export function ConnectHostInstructions({
  * Return true when ``workspace`` is acceptable to send to the backend.
  *
  * Per designs/SESSION_WORKSPACE_SELECTION.md: only fully-absolute
- * paths (starting with ``/``) are accepted. Tilde-prefixed and
+ * POSIX or Windows drive paths are accepted. Tilde-prefixed and
  * relative paths are rejected because the server never expands ``~``
  * — that's the host's job, and the workspace request body must be
  * an unambiguous absolute path. Empty / whitespace-only input is
@@ -440,10 +447,10 @@ export function ConnectHostInstructions({
  * has typed something usable.
  *
  * @param workspace Value the user typed in the workspace input.
- * @returns true when ``workspace.trim()`` starts with ``/``.
+ * @returns true when the trimmed value is a host-absolute path.
  */
 export function isValidWorkspace(workspace: string): boolean {
-  return workspace.trim().startsWith("/");
+  return isAbsoluteHostPath(workspace);
 }
 
 /**
@@ -459,8 +466,9 @@ export function isValidWorkspace(workspace: string): boolean {
  * @returns The normalized path, e.g. ``"/Users/me/repo"``; ``null`` for blank.
  */
 export function normalizeWorkspacePath(path: string): string | null {
-  const trimmed = path.trim();
+  const trimmed = normalizePathSeparators(path.trim());
   if (trimmed === "") return null;
+  if (/^[A-Za-z]:\/+$/i.test(trimmed)) return `${trimmed.slice(0, 2)}/`;
   const stripped = trimmed.replace(/\/+$/, "");
   // All-slashes input (e.g. "///") collapses to the root.
   return stripped === "" ? "/" : stripped;
@@ -1465,6 +1473,12 @@ function HarnessConfigModal({
   const isCodex = entryHarness === "codex-native";
   const brainDefault =
     agent.harness != null && agent.harness in brainHarnessLabels ? agent.harness : null;
+  // A brain harness whose CLI takes a model flag (e.g. codebuddy's ``--model``)
+  // accepts a pinned model; the Model row renders only for those. Server
+  // derived — a new pinning-capable row is one field on the harness, no
+  // frontend change. The auto sentinels aren't in the map, so Smart Routing
+  // (which owns the model) drops the row on its own.
+  const modelArgs = useHarnessModelArgs();
 
   // Local draft — seeded from the live state each time the modal opens so
   // Cancel can discard and re-opening always reflects the committed state.
@@ -1477,6 +1491,9 @@ function HarnessConfigModal({
   const [draftBypass, setDraftBypass] = useState(bypassSandbox);
   const [draftHarness, setDraftHarness] = useState<string | null>(pickedHarness);
   const [draftRouting, setDraftRouting] = useState<CostControlMode>(costControlMode);
+  const effectiveBrainHarness = draftHarness ?? brainDefault;
+  const draftModelArg =
+    effectiveBrainHarness != null ? (modelArgs[effectiveBrainHarness] ?? null) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -1585,6 +1602,10 @@ function HarnessConfigModal({
     } else if (brainDefault) {
       // Picking the spec default clears the override so the session tracks it.
       setPickedHarness(draftHarness === brainDefault ? null : draftHarness, agent.id);
+      // A pinning-capable harness rides the model pick too; empty = vendor
+      // default (omitted from the create). Harnesses without a model flag
+      // never commit one, so a stale pick can't ride a harness switch.
+      setPickedModel(draftModelArg ? draftModel.trim() : "");
     }
     // Smart Routing rides the Model dropdown on both routable harnesses
     // (Claude Code and Codex), so commit it outside the per-capability branches.
@@ -1893,6 +1914,24 @@ function HarnessConfigModal({
                   ))}
                 </SelectContent>
               </Select>
+            </ConfigRow>
+          )}
+
+          {/* Model pinning for a brain harness whose CLI takes a model flag
+          (e.g. CodeBuddy's ``--model``). Free text on purpose: the valid ids
+          are the vendor CLI's curated list, which Omnigent's catalog doesn't
+          mirror — the vendor rejects unknown ids loudly at launch. Smart
+          Routing owns the model, so the row drops while routing is the pick. */}
+          {!autoRouting && brainDefault && draftModelArg && (
+            <ConfigRow label="Model" description={`Pinned on launch via ${draftModelArg}`}>
+              <Input
+                value={draftModel}
+                onChange={(event) => setDraftModel(event.target.value)}
+                placeholder="Vendor default"
+                data-testid="new-chat-landing-config-model"
+                aria-label="Model"
+                className="w-full"
+              />
             </ConfigRow>
           )}
 
@@ -2243,6 +2282,9 @@ export function NewChatLandingScreen() {
   // the gated `brainHarnessLabels` below, which drops the fully-auto row when
   // neither router can back both arms.
   const brainHarnessLabelsAll = useBrainHarnessLabels(smartRoutingEnabled);
+  // Which brain harnesses accept a pinned model (harness id → CLI flag). Gates
+  // the config modal's Model row and whether the create carries the pick.
+  const harnessModelArgs = useHarnessModelArgs();
   // Provider-named label for the sandbox option (e.g. "Modal Sandbox"),
   // falling back to the generic "New Sandbox" when the server names no
   // provider.
@@ -4073,11 +4115,19 @@ export function NewChatLandingScreen() {
             // Model + reasoning effort, persisted on the session row before
             // the runner launches. Claude, Codex, and Pi read model_override at
             // terminal launch; an unselected ("") knob is omitted so the
-            // harness keeps its own configured/default model.
+            // harness keeps its own configured/default model. A bundle agent
+            // whose brain harness takes a model flag (model_arg in the harness
+            // catalog, e.g. CodeBuddy) pins it the same way — the runner copies
+            // the override onto executor.model, where the ACP row's builder
+            // turns it into the CLI's --model argv.
             model_override:
               !smartRoutingHarnessSelected &&
               !routingOwnsModel &&
-              (agentSupportsModelPicker || nativeAgent?.harness === "codex-native") &&
+              ((agentSupportsModelPicker || nativeAgent?.harness === "codex-native") ||
+                (!nativeAgent &&
+                  !!pickedModel &&
+                  (pickedHarness ?? selectedAgent?.harness) != null &&
+                  harnessModelArgs[(pickedHarness ?? selectedAgent?.harness) as string] != null)) &&
               pickedModel
                 ? pickedModel
                 : undefined,

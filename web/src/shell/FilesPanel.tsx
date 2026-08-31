@@ -300,6 +300,19 @@ export function FilesPanel({
     setBrowseLocation((conversationId && browseLocationCache.get(conversationId)) || null);
     setBrowseError(null);
   }, [conversationId]);
+  // A worktree switch keeps the conversation id but changes the physical
+  // root. Any cached browse location belongs to the old tree, so return to the
+  // new root rather than requesting an old absolute/subdirectory path there.
+  const workspaceRootRef = useRef(workspaceRoot);
+  useEffect(() => {
+    if (workspaceRoot === null) return;
+    const previous = workspaceRootRef.current;
+    workspaceRootRef.current = workspaceRoot;
+    if (previous === null || previous === workspaceRoot) return;
+    if (conversationId) browseLocationCache.delete(conversationId);
+    setBrowseLocation(null);
+    setBrowseError(null);
+  }, [conversationId, workspaceRoot]);
   const workingDir = browseLocation ?? workspaceRoot;
   // The wire form: "" means the workspace root (the historical relative
   // contract). A location INSIDE the workspace is sent relative to it, and
@@ -591,6 +604,7 @@ export function FilesPanel({
             isSearching={treeSearchQuery.isFetching}
             isSearchError={treeSearchQuery.isError}
             searchError={treeSearchQuery.error instanceof Error ? treeSearchQuery.error : null}
+            workspaceRoot={workspaceRoot ?? ""}
             browseLocation={locationParam}
             onNavigateDir={navigateToChild}
           />

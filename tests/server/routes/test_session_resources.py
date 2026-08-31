@@ -1063,6 +1063,41 @@ async def test_list_terminals_forwards_pagination_params_to_runner(
     assert fake_runner.get_params == [{"order": "asc", "limit": "1000"}]
 
 
+@pytest.mark.asyncio
+async def test_list_terminals_offline_ok_returns_empty_list(
+    client: httpx.AsyncClient,
+) -> None:
+    """The UI mount seed can probe an offline Runner without a console 503."""
+    path = "/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/resources/terminals"
+    fake_runner = _FakeRunnerClient(
+        responses={
+            path: (
+                503,
+                {
+                    "error": {
+                        "code": "runner_unavailable",
+                        "message": "Runner is offline",
+                    }
+                },
+            )
+        }
+    )
+    set_runner_router(_FakeRunnerRouter(fake_runner))  # type: ignore[arg-type]
+
+    resp = await client.get(f"{path}?order=asc&limit=1000&offline_ok=true")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "object": "list",
+        "data": [],
+        "first_id": None,
+        "last_id": None,
+        "has_more": False,
+    }
+    # offline_ok is consumed by the server and never forwarded to the runner.
+    assert fake_runner.get_params == [{"order": "asc", "limit": "1000"}]
+
+
 def _terminals_only_payload() -> dict[str, object]:
     return {
         "object": "list",
@@ -2825,6 +2860,33 @@ async def test_filesystem_path_omits_absent_cursors(
 
 
 @pytest.mark.asyncio
+async def test_filesystem_path_missing_ok_returns_empty_list(
+    client: httpx.AsyncClient,
+) -> None:
+    """Speculative path probes turn an expected runner 404 into an empty 200."""
+    fake_runner = _FakeRunnerClient(
+        payload={"error": {"message": "Directory not found"}},
+        status_code=404,
+    )
+    set_runner_router(_FakeRunnerRouter(fake_runner))  # type: ignore[arg-type]
+
+    resp = await client.get(
+        "/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/resources/environments/default"
+        "/filesystem/verified?limit=1000&order=asc&missing_ok=true",
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "object": "list",
+        "base": "verified",
+        "data": [],
+        "first_id": None,
+        "last_id": None,
+        "has_more": False,
+    }
+
+
+@pytest.mark.asyncio
 async def test_filesystem_base_host_forwards_an_absolute_path(
     client: httpx.AsyncClient,
 ) -> None:
@@ -2850,6 +2912,25 @@ async def test_filesystem_base_host_forwards_an_absolute_path(
     # The runner receives an absolute path: the leading slash re-added and
     # sent as %2F, interior slashes literal.
     assert "/filesystem/%2FUsers/me/reports?" in forwarded_url
+
+
+@pytest.mark.asyncio
+async def test_filesystem_windows_absolute_path_preserves_drive(
+    client: httpx.AsyncClient,
+) -> None:
+    """A stale client drive path stays absolute instead of becoming /U:\\..."""
+    fake_runner = _FakeRunnerClient(payload=_fs_list_payload())
+    set_runner_router(_FakeRunnerRouter(fake_runner))  # type: ignore[arg-type]
+
+    resp = await client.get(
+        "/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/resources/environments/default"
+        "/filesystem/U%3A%5CAI%5Cseedance-v3%5Cscripts%5CCLEANUP.md",
+    )
+
+    assert resp.status_code == 200
+    forwarded_url = fake_runner.calls[0][1]
+    assert "/filesystem/U%3A%5CAI%5Cseedance-v3%5Cscripts%5CCLEANUP.md?" in forwarded_url
+    assert "/filesystem/%2FU%3A" not in forwarded_url
 
 
 @pytest.mark.asyncio

@@ -55,8 +55,10 @@ export function buildHostFilesystemUrl(hostId: string, absolutePath: string): st
   if (absolutePath === "") {
     return base;
   }
-  // Strip the single leading slash; the route handler re-adds it.
-  const stripped = absolutePath.startsWith("/") ? absolutePath.slice(1) : absolutePath;
+  // Canonical forward slashes keep Windows drive paths segment-encodable.
+  const normalized = absolutePath.replace(/\\/g, "/");
+  // Strip a POSIX leading slash; Windows drive paths keep their drive prefix.
+  const stripped = normalized.startsWith("/") ? normalized.slice(1) : normalized;
   if (stripped === "") {
     // The user navigated to "/" exactly. Keep a trailing slash so
     // the route still matches /filesystem/{path:path}.

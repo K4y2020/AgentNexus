@@ -3158,6 +3158,84 @@ async def test_sys_session_send_reuses_existing_child_session(
 
 
 @pytest.mark.asyncio
+async def test_sys_session_send_applies_saved_model_to_existing_sdk_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Partner picker change affects the next turn of a reused SDK child."""
+    from omnigent.runner import app as runner_app
+    from omnigent.runner.tool_dispatch import execute_tool
+
+    patched: list[dict[str, Any]] = []
+    event_posts: list[dict[str, Any]] = []
+    monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
+    monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
+    session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+    async def _server_handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_switch":
+            return httpx.Response(200, json={"labels": {}})
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_switch/labels"
+        ):
+            return httpx.Response(
+                200,
+                json={"labels": {"subagent.model.worker": "hy4-preview"}},
+            )
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_switch/child_sessions"
+        ):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "conv_existing_switch",
+                            "tool": "worker",
+                            "session_name": "review",
+                            "busy": False,
+                        }
+                    ]
+                },
+            )
+        if request.method == "PATCH" and request.url.path == "/v1/sessions/conv_existing_switch":
+            patched.append(json.loads(request.content))
+            return httpx.Response(200, json={"id": "conv_existing_switch"})
+        if (
+            request.method == "POST"
+            and request.url.path == "/v1/sessions/conv_existing_switch/events"
+        ):
+            event_posts.append(json.loads(request.content))
+            return httpx.Response(202, json={"queued": True})
+        return httpx.Response(404, json={"error": str(request.url)})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(_server_handler),
+        base_url="http://server",
+    ) as server_client:
+        try:
+            output = await execute_tool(
+                tool_name="sys_session_send",
+                arguments=json.dumps(
+                    {"agent": "worker", "title": "review", "args": "continue"}
+                ),
+                server_client=server_client,
+                conversation_id="conv_parent_switch",
+                agent_spec=_spec_with_subagent_harness("codex"),
+                session_inbox=session_inbox,
+            )
+        finally:
+            runner_app.unregister_subagent_work("conv_existing_switch")
+            runner_app._session_inboxes_ref.pop("conv_parent_switch", None)
+
+    payload = json.loads(output)
+    assert payload["status"] == "launching"
+    assert patched == [{"model_override": "hy4-preview", "silent": True}]
+    assert len(event_posts) == 1
+
+
+@pytest.mark.asyncio
 async def test_sys_session_send_named_child_retries_without_rejected_actor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -3877,8 +3955,9 @@ async def _dispatch_model_send(
     monkeypatch: pytest.MonkeyPatch,
     *,
     agent_spec: Any,
-    model: str,
+    model: str | None,
     conv_id: str,
+    labels: dict[str, str] | None = None,
 ) -> _ModelSendResult:
     """
     Drive one fresh-create ``sys_session_send`` carrying ``args.model``.
@@ -3899,6 +3978,8 @@ async def _dispatch_model_send(
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         """Serve fresh-create child lookup, create, and message POSTs."""
+        if request.method == "GET" and request.url.path == f"/v1/sessions/{conv_id}/labels":
+            return httpx.Response(200, json={"labels": labels or {}})
         if (
             request.method == "GET"
             and request.url.path == f"/v1/sessions/{conv_id}/child_sessions"
@@ -3916,13 +3997,16 @@ async def _dispatch_model_send(
         base_url="http://server",
     ) as server_client:
         try:
+            message_args: dict[str, Any] = {"input": "do the task"}
+            if model is not None:
+                message_args["model"] = model
             output = await execute_tool(
                 tool_name="sys_session_send",
                 arguments=json.dumps(
                     {
                         "agent": "worker",
                         "title": "task",
-                        "args": {"input": "do the task", "model": model},
+                        "args": message_args,
                     }
                 ),
                 server_client=server_client,
@@ -3934,6 +4018,26 @@ async def _dispatch_model_send(
             runner_app.unregister_subagent_work("conv_child_norm")
             runner_app._session_inboxes_ref.pop(conv_id, None)
     return _ModelSendResult(output=output, create_bodies=create_bodies)
+
+
+@pytest.mark.asyncio
+async def test_sys_session_send_uses_parent_subagent_model_preference(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A saved per-agent preference supplies model when dispatch omits it."""
+    _isolate_model_providers(monkeypatch, tmp_path, "")
+    result = await _dispatch_model_send(
+        monkeypatch,
+        agent_spec=_spec_with_real_subagent("claude-sdk"),
+        model=None,
+        conv_id="conv_parent_preferred_model",
+        labels={"subagent.model.worker": "claude-sonnet-4-6"},
+    )
+
+    payload = json.loads(result.output)
+    assert payload["status"] == "launching"
+    assert result.create_bodies[0]["model_override"] == "claude-sonnet-4-6"
 
 
 @pytest.mark.asyncio

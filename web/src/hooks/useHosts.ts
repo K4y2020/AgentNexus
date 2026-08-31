@@ -93,8 +93,25 @@ async function fetchHostModelOptions(
     `/v1/hosts/${encodeURIComponent(hostId)}/harnesses/${encodeURIComponent(harness)}/model-options`,
   );
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const body = (await res.json()) as { models?: NativeModelOption[]; error?: string };
-  const models = body.models ?? [];
+  const body = (await res.json()) as {
+    models?: NativeModelOption[];
+    routable_models?: string[];
+    error?: string;
+  };
+  const nativeModels = body.models ?? [];
+  // SDK/gateway harnesses have no vendor-native model picker to probe, but
+  // the host still reports every exact model id its configured provider can
+  // route. Promote those ids into the same option shape so in-session SDK
+  // model switching uses the real host catalog rather than a hardcoded list.
+  const models =
+    nativeModels.length > 0
+      ? nativeModels
+      : (body.routable_models ?? []).map((id, index) => ({
+          id,
+          model: id,
+          displayName: id,
+          isDefault: index === 0,
+        }));
   // An honest empty answer names its reason (the host's probe failed);
   // surface it as the query error so the picker can say WHY it is empty.
   if (models.length === 0 && body.error) throw new Error(body.error);

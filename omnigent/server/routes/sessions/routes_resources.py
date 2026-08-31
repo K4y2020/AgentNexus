@@ -507,10 +507,28 @@ def register_resources_routes(
         :returns: ``(absolute, path)`` — ``path`` carries a leading slash iff
             ``absolute``.
         """
-        absolute = request.query_params.get("base") == "host" or client_path.startswith("/")
+        windows_absolute = ntpath.isabs(client_path) and not client_path.startswith("/")
+        absolute = (
+            request.query_params.get("base") == "host"
+            or client_path.startswith("/")
+            or windows_absolute
+        )
         if absolute:
+            if windows_absolute:
+                return True, client_path
             return True, "/" + client_path.lstrip("/")
         return False, client_path
+
+    def _runner_browse_segment(path: str, *, absolute: bool) -> str:
+        """Encode one browse path for the runner without corrupting drives."""
+        if not absolute:
+            return path
+        # A Windows drive path is already absolute without a leading slash.
+        # Adding the POSIX %2F marker would turn ``U:\\repo`` into
+        # ``/U:\\repo``, which pathlib no longer recognizes as the drive path.
+        if ntpath.isabs(path) and not path.startswith("/"):
+            return urllib.parse.quote(path)
+        return "%2F" + urllib.parse.quote(path.lstrip("/"))
 
     async def _authorize_absolute_browse(
         conversation: Conversation,
@@ -837,6 +855,7 @@ def register_resources_routes(
     async def list_session_terminals(
         request: Request,
         session_id: str,
+        offline_ok: bool = Query(default=False),
     ) -> dict[str, Any]:
         """
         Return only terminal resources for a session.
@@ -851,6 +870,9 @@ def register_resources_routes(
         :param request: The incoming FastAPI request (for auth and the
             forwarded query params).
         :param session_id: Session/conversation identifier.
+        :param offline_ok: Return an empty terminal list instead of 503 while
+            the Runner is offline. Used by the UI's speculative mount seed;
+            live SSE fills the list when the Runner starts.
         :returns: ``PaginatedList`` of terminal resources.
         """
         conv = await _validate_session(session_id, request, LEVEL_READ)
@@ -860,12 +882,38 @@ def register_resources_routes(
             for key, value in request.query_params.items()
             if key in ("limit", "after", "before", "order")
         }
-        page = await _proxy_get_to_runner(
-            session_id,
-            path,
-            conv,
-            params=forwarded or None,
-        )
+        try:
+            page = await _proxy_get_to_runner(
+                session_id,
+                path,
+                conv,
+                params=forwarded or None,
+            )
+        except OmnigentError as exc:
+            if not offline_ok or exc.code != ErrorCode.RUNNER_UNAVAILABLE:
+                raise
+            page = {
+                "object": "list",
+                "data": [],
+                "first_id": None,
+                "last_id": None,
+                "has_more": False,
+            }
+        except HTTPException as exc:
+            # The generic resource proxy normalizes an absent/unreachable
+            # Runner (including its own 503 response) to 502. The terminal
+            # mount seed already treats both as soft, so offline_ok mirrors
+            # that contract server-side and keeps expected misses out of the
+            # browser console.
+            if not offline_ok or exc.status_code not in (502, 503):
+                raise
+            page = {
+                "object": "list",
+                "data": [],
+                "first_id": None,
+                "last_id": None,
+                "has_more": False,
+            }
         await _annotate_direct_attach(page, session_id, request)
         return page
 
@@ -1927,7 +1975,7 @@ def register_resources_routes(
         qs = urllib.parse.urlencode(params)
         suffix = ""
         if path:
-            suffix = "/" + ("%2F" + urllib.parse.quote(path.lstrip("/")) if absolute else path)
+            suffix = "/" + _runner_browse_segment(path, absolute=absolute)
         runner_path = (
             f"/v1/sessions/{session_id}/resources/environments"
             f"/{environment_id}/search{suffix}?{qs}"
@@ -2031,6 +2079,7 @@ def register_resources_routes(
         after: str | None = Query(default=None),
         before: str | None = Query(default=None),
         order: str = Query(default="desc", pattern="^(asc|desc)$"),
+        missing_ok: bool = Query(default=False),
     ) -> Any:
         """
         Read a file or list a directory in an environment.
@@ -2044,6 +2093,9 @@ def register_resources_routes(
         :param after: Cursor entry id for forward pagination.
         :param before: Cursor entry id for backward pagination.
         :param order: Sort order, ``"asc"`` or ``"desc"``.
+        :param missing_ok: Return an empty listing instead of 404 when the
+            path is absent. Used by speculative chat-path existence probes so
+            expected misses do not appear as browser console errors.
         :returns: File content or directory listing.
         """
         params: dict[str, str] = {"limit": str(limit), "order": order}
@@ -2065,9 +2117,7 @@ def register_resources_routes(
         qs = urllib.parse.urlencode(params)
         # Encode only the leading slash: a literal "//" is what proxies
         # collapse, while interior slashes travel fine and keep logs readable.
-        runner_rel = (
-            "%2F" + urllib.parse.quote(relative_path.lstrip("/")) if absolute else relative_path
-        )
+        runner_rel = _runner_browse_segment(relative_path, absolute=absolute)
         path = (
             f"/v1/sessions/{session_id}/resources/environments"
             f"/{environment_id}/filesystem/{runner_rel}?{qs}"
@@ -2083,9 +2133,8 @@ def register_resources_routes(
         )
         # The session is already validated above at the browse level, which is
         # stricter than main's plain LEVEL_READ for an absolute path.
-        return _skip_gzip_for_binary(
-            request,
-            await _fs_get_with_host_fallback(
+        try:
+            payload = await _fs_get_with_host_fallback(
                 session_id,
                 conv,
                 op="list_or_read",
@@ -2098,8 +2147,19 @@ def register_resources_routes(
                 },
                 runner_path=path,
                 host_workspace_resolver=resolver,
-            ),
-        )
+            )
+        except OmnigentError as exc:
+            if not missing_ok or exc.code != ErrorCode.NOT_FOUND:
+                raise
+            payload = {
+                "object": "list",
+                "base": relative_path,
+                "data": [],
+                "first_id": None,
+                "last_id": None,
+                "has_more": False,
+            }
+        return _skip_gzip_for_binary(request, payload)
 
     @router.put(
         "/sessions/{session_id}/resources/environments"

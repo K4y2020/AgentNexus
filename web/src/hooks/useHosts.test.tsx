@@ -390,6 +390,26 @@ describe("useHostModelOptions", () => {
     expect(result.current.data?.map((model) => model.displayName)).toEqual(["Sonnet 4.6"]);
   });
 
+  it("promotes SDK routable model ids when no native catalog exists", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        models: [],
+        routable_models: ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
+      }),
+    );
+
+    const { result } = renderHook(() => useHostModelOptions("host_1", "claude-sdk"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toEqual([
+      expect.objectContaining({ id: "claude-opus-4-8", isDefault: true }),
+      expect.objectContaining({ id: "claude-sonnet-4-6", isDefault: false }),
+      expect.objectContaining({ id: "claude-haiku-4-5", isDefault: false }),
+    ]);
+  });
+
   it("does not fetch without a selected host", async () => {
     renderHook(() => useHostModelOptions(null, "claude-native"), { wrapper });
     await Promise.resolve();

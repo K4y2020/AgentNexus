@@ -43,6 +43,10 @@ interface HarnessCatalogRow {
   // Declared capability profile. Only ``integration_mode`` is read here, to
   // recognize the generic-ACP family without hardcoding vendor ids.
   capabilities?: { integration_mode?: string | null } | null;
+  // The CLI flag that pins a model on this harness's launch argv (e.g.
+  // codebuddy's ``--model``). Set only for harnesses that accept a pinned
+  // model; absent means the harness runs its account-default model.
+  model_arg?: string | null;
 }
 
 /** ``capabilities.integration_mode`` of every generic-ACP harness. */
@@ -62,6 +66,8 @@ interface HarnessCatalog {
   setupSteps: Record<string, SetupStepWire[]>;
   /** ids the server declares generic-ACP — see {@link useAcpHarnessIds}. */
   acpHarnesses: ReadonlySet<string>;
+  /** harness id → the CLI flag that pins a model (see {@link useHarnessModelArgs}). */
+  modelArgs: Record<string, string>;
 }
 
 async function fetchHarnessCatalog(): Promise<HarnessCatalog> {
@@ -70,16 +76,18 @@ async function fetchHarnessCatalog(): Promise<HarnessCatalog> {
   const body = (await res.json()) as HarnessCatalogWire;
   const labels: Record<string, string> = { ...BRAIN_HARNESS_LABELS };
   const acpHarnesses = new Set<string>();
+  const modelArgs: Record<string, string> = {};
   for (const row of body.data ?? []) {
     if (typeof row.id !== "string") continue;
     if (typeof row.label === "string") labels[row.id] = row.label;
     if (row.capabilities?.integration_mode === ACP_INTEGRATION_MODE) acpHarnesses.add(row.id);
+    if (typeof row.model_arg === "string" && row.model_arg) modelArgs[row.id] = row.model_arg;
   }
   // The server keys setup_steps by every spelling (codex-native, opencode, …)
   // so the dialog resolves whatever harness the session declares.
   const setupSteps =
     body.setup_steps && typeof body.setup_steps === "object" ? body.setup_steps : {};
-  return { labels, setupSteps, acpHarnesses };
+  return { labels, setupSteps, acpHarnesses, modelArgs };
 }
 
 // Every hook below shares one request + cache entry, each selecting its own
@@ -154,6 +162,20 @@ export function useHarnessSetupSteps(): Record<string, SetupStepWire[]> {
 /** harness id → picker label, exactly as the server names it. */
 export function useHarnessLabels(enabled = true): Record<string, string> {
   return useHarnessCatalog((c) => c.labels, BRAIN_HARNESS_LABELS, enabled);
+}
+
+const NO_MODEL_ARGS: Record<string, string> = {};
+
+/**
+ * harness id → the CLI flag that pins a model on its launch argv (e.g.
+ * codebuddy's ``--model``). A harness absent from this map runs its
+ * account-default model — a client model pick is not wired for it. Server
+ * derived on purpose: a new pinning-capable row is one field on
+ * ``omnigent/acp_cli_harnesses.py``'s harness, no frontend change. Empty
+ * until the catalog loads.
+ */
+export function useHarnessModelArgs(): Record<string, string> {
+  return useHarnessCatalog((c) => c.modelArgs, NO_MODEL_ARGS);
 }
 
 const NO_ACP_HARNESSES: ReadonlySet<string> = new Set<string>();

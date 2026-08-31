@@ -103,8 +103,9 @@ import {
   liveCandidateAssistantIndex,
 } from "@/lib/renderItems";
 import { getCurrentAuthorId } from "@/lib/identity";
-import { retrySession } from "@/lib/sessionsApi";
+import { retrySession, updateSession } from "@/lib/sessionsApi";
 import { codexEffortLevelsForModel, findNativeModelOption } from "@/lib/codexNativeModels";
+import { agentRootName } from "@/lib/forkHarness";
 import {
   composerAttachmentKey,
   consumePendingInitialPrompt,
@@ -204,6 +205,7 @@ import { ChatPlanAccordion } from "@/shell/ChatPlanAccordion";
 import { UNTITLED_CONVERSATION_LABEL } from "@/shell/sidebarNav";
 import { NewChatLandingScreen } from "@/shell/NewChatDialog";
 import { ResumeWithDirectoryDialog } from "@/shell/ResumeWithDirectoryDialog";
+import { SwitchWorkspaceDialog } from "@/shell/SwitchWorkspaceDialog";
 import { ReconnectSessionDialog } from "@/shell/ReconnectSessionDialog";
 import { useTerminalFirst } from "@/shell/TerminalFirstContext";
 import { useForkDialog } from "@/shell/ForkDialogContext";
@@ -1183,7 +1185,9 @@ export function ChatPage() {
       ? "codex-native"
       : fallbackPickerKind === "claude"
         ? "claude-native"
-        : null;
+        : activeSession?.harness === "claude-sdk"
+          ? "claude-sdk"
+          : null;
   const { data: hostProbeOptions } = useHostModelOptions(
     activeSession?.hostId ?? null,
     hostProbeHarness ?? "",
@@ -1296,7 +1300,13 @@ export function ChatPage() {
   const capabilitySource = {
     labels: activeSession ? (activeSession.labels ?? {}) : (activeConv?.labels ?? {}),
   };
-  const modelPickerKind = modelPickerKindForConv(capabilitySource);
+  const nativeModelPickerKind = modelPickerKindForConv(capabilitySource);
+  // SDK sessions have no vendor-native picker, but a configured host gateway
+  // exposes exact routable model ids. Treat that catalog as an SDK picker so
+  // the same session model_override path becomes reachable from the composer.
+  const modelPickerKind: NativeModelPickerKind | null =
+    nativeModelPickerKind ??
+    (activeSession?.harness === "claude-sdk" && codexModelOptions.length > 0 ? "sdk" : null);
   // Effort ladders key on the model the session is actually on — the
   // reported `llmModel` — falling back to the sticky preference only
   // before the first report lands.
@@ -3956,9 +3966,11 @@ function ComposerStatusLine({
   goal,
   isSubAgentSession,
   onHostReconnect,
+  switchDisabled,
 }: {
   goal: Goal | null;
   isSubAgentSession: boolean;
+  switchDisabled: boolean;
   /**
    * Opens the reconnect help dialog, handed to the host badge — which turns
    * itself into a clickable reconnect affordance when its bound host is
@@ -3979,6 +3991,13 @@ function ComposerStatusLine({
   // from the same source the badge does so the tray's render guard matches.
   const { session } = useSession(conversationId);
   const isHostBound = !!session?.hostId;
+  const [switchWorkspaceOpen, setSwitchWorkspaceOpen] = useState(false);
+  const canSwitchWorkspace =
+    !!conversationId &&
+    !isSubAgentSession &&
+    isOwnerLevel(session?.permissionLevel ?? null) &&
+    !!session?.hostId &&
+    !!session.workspace;
 
   const showBranch = !!conversationId && !!gitBranch;
   // Host indicator (green/red dot + host name), left of the worktree branch.
@@ -4015,14 +4034,28 @@ function ComposerStatusLine({
         {showHost && conversationId && (
           <HostBadge sessionId={conversationId} onReconnect={onHostReconnect} />
         )}
-        {showBranch && (
+        {showBranch && canSwitchWorkspace ? (
+          <button
+            type="button"
+            disabled={switchDisabled}
+            onClick={() => setSwitchWorkspaceOpen(true)}
+            aria-label={`Switch worktree (current: ${gitBranch})`}
+            data-testid="composer-git-branch-switch"
+            className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <GitBranchIcon className="ui-icon" />
+            <span data-testid="composer-git-branch" className="min-w-0 truncate" title={gitBranch}>
+              {gitBranch}
+            </span>
+          </button>
+        ) : showBranch ? (
           <span className="flex min-w-0 items-center gap-1.5">
             <GitBranchIcon className="ui-icon" />
             <span data-testid="composer-git-branch" className="min-w-0 truncate" title={gitBranch}>
               {gitBranch}
             </span>
           </span>
-        )}
+        ) : null}
       </div>
       {/* Right: model/effort and context ring, never shrinks. */}
       <div className="flex min-w-0 shrink-0 items-center gap-3">
@@ -4038,6 +4071,15 @@ function ComposerStatusLine({
         {showGoal && goal && <GoalStatusPill goal={goal} />}
         {showRing && <ContextRing contextWindow={contextWindow} tokensUsed={tokensUsed} />}
       </div>
+      {switchWorkspaceOpen && conversationId && session?.hostId && session.workspace && (
+        <SwitchWorkspaceDialog
+          open
+          onOpenChange={setSwitchWorkspaceOpen}
+          sessionId={conversationId}
+          hostId={session.hostId}
+          workspace={session.workspace}
+        />
+      )}
     </div>
   );
 }
@@ -5518,14 +5560,34 @@ export function Composer({
               />
             )}
             <div className="flex min-h-9 min-w-0 items-center rounded-lg transition-colors empty:hidden md:min-h-8 has-[button:not([aria-disabled=true])]:hover:bg-muted dark:has-[button:not([aria-disabled=true])]:hover:bg-muted/50 [&>button]:bg-transparent!">
-              <ComposerModelEffortLabel
-                showModels={showModels}
-                showEffort={showEffort}
-                modelPickerKind={modelPickerKind}
-                codexModelOptions={codexModelOptions}
-                costRoutingEligible={costRoutingEligible}
-                harnessLabel={harnessLabel}
-              />
+              {showModels ? (
+                <button
+                  type="button"
+                  disabled={isReadOnly || unreachable}
+                  onClick={() => setPickerOpenNonce((n) => n + 1)}
+                  data-testid="composer-model-picker-trigger"
+                  aria-label="Switch model"
+                  className="flex min-w-0 cursor-pointer items-center rounded-l-lg hover:text-foreground disabled:cursor-default disabled:opacity-50"
+                >
+                  <ComposerModelEffortLabel
+                    showModels={showModels}
+                    showEffort={showEffort}
+                    modelPickerKind={modelPickerKind}
+                    codexModelOptions={codexModelOptions}
+                    costRoutingEligible={costRoutingEligible}
+                    harnessLabel={harnessLabel}
+                  />
+                </button>
+              ) : (
+                <ComposerModelEffortLabel
+                  showModels={showModels}
+                  showEffort={showEffort}
+                  modelPickerKind={modelPickerKind}
+                  codexModelOptions={codexModelOptions}
+                  costRoutingEligible={costRoutingEligible}
+                  harnessLabel={harnessLabel}
+                />
+              )}
               <ComposerConfigGear
                 harnessLabel={harnessLabel}
                 showModels={showModels}
@@ -5581,6 +5643,7 @@ export function Composer({
         goal={goal}
         isSubAgentSession={subAgentLabel != null}
         onHostReconnect={onShowReconnectHelp}
+        switchDisabled={status !== "idle" || isWorking || disabled}
       />
     </form>
   );
@@ -5814,7 +5877,7 @@ const PI_NATIVE_EFFORT_LEVELS = [
   "max",
 ] as const;
 
-type NativeModelPickerKind = "claude" | "codex" | "cursor" | "kiro" | "opencode" | "pi";
+type NativeModelPickerKind = "claude" | "codex" | "cursor" | "kiro" | "opencode" | "pi" | "sdk";
 
 type LabelSource = { labels?: Record<string, string | null> | null } | null | undefined;
 
@@ -5986,6 +6049,8 @@ function formatEffortLabel(effort: string): string {
 /** Gear-modal row governing the routing of sub-agents the session spawns. */
 const SUBAGENT_ROUTING_LABEL = "Subagent routing";
 const SUBAGENT_ROUTING_DESCRIPTION = "Model routing for subagents this session spawns";
+const CLAUDE_PARTNER_MODEL_LABEL = "subagent.model.claude";
+const GPT_PARTNER_MODEL_LABEL = "subagent.model.gpt";
 
 /**
  * In-session run-config modal opened from the composer's gear icon. The
@@ -6031,6 +6096,20 @@ function SessionConfigModal({
   const costControlModeOverride = useChatStore((s) => s.costControlModeOverride);
   const subagentRoutingOverride = useChatStore((s) => s.subagentRoutingOverride);
   const conversationId = useChatStore((s) => s.conversationId);
+  const { session } = useSession(conversationId);
+  const debbySession = agentRootName(session?.agentName ?? "").toLowerCase() === "debby";
+  const { data: claudePartnerOptions } = useHostModelOptions(
+    session?.hostId ?? null,
+    "claude-sdk",
+    open && debbySession,
+  );
+  const { data: gptPartnerOptions } = useHostModelOptions(
+    session?.hostId ?? null,
+    "codex",
+    open && debbySession,
+  );
+  const liveClaudePartnerModel = session?.labels?.[CLAUDE_PARTNER_MODEL_LABEL] ?? null;
+  const liveGptPartnerModel = session?.labels?.[GPT_PARTNER_MODEL_LABEL] ?? null;
   const { llmModel, usesServerModelOptions, modelOptions, pickerSelectedModel, modelLabel } =
     useResolvedComposerModel(modelPickerKind, codexModelOptions);
 
@@ -6058,6 +6137,22 @@ function SessionConfigModal({
   const [draftEffort, setDraftEffort] = useState<string | null>(selectedEffort);
   const [draftRoutingOn, setDraftRoutingOn] = useState(liveRoutingOn);
   const [draftPermissionMode, setDraftPermissionMode] = useState(claudePermissionMode);
+  const [draftClaudePartnerModel, setDraftClaudePartnerModel] = useState<string | null>(
+    liveClaudePartnerModel,
+  );
+  const [draftGptPartnerModel, setDraftGptPartnerModel] = useState<string | null>(
+    liveGptPartnerModel,
+  );
+  const [committedClaudePartnerModel, setCommittedClaudePartnerModel] = useState<string | null>(
+    liveClaudePartnerModel,
+  );
+  const [committedGptPartnerModel, setCommittedGptPartnerModel] = useState<string | null>(
+    liveGptPartnerModel,
+  );
+  useEffect(() => {
+    setCommittedClaudePartnerModel(liveClaudePartnerModel);
+    setCommittedGptPartnerModel(liveGptPartnerModel);
+  }, [conversationId, liveClaudePartnerModel, liveGptPartnerModel]);
   // The sub-agent row is stored as a PICK, not a pre-seeded draft:
   // `undefined` means "untouched", so the row mirrors the live stored value for
   // as long as the user hasn't chosen anything. A draft seeded once per open
@@ -6073,6 +6168,8 @@ function SessionConfigModal({
     setDraftEffort(selectedEffort);
     setDraftRoutingOn(liveRoutingOn);
     setDraftPermissionMode(claudePermissionMode);
+    setDraftClaudePartnerModel(committedClaudePartnerModel);
+    setDraftGptPartnerModel(committedGptPartnerModel);
     setPickedSubagentRouting(undefined);
     // Nothing pushes a routing-switch change to the client (no SSE event, and
     // the session query never goes stale), so re-read them here — otherwise the
@@ -6195,6 +6292,21 @@ function SessionConfigModal({
           pickedSubagentRouting !== (store.subagentRoutingOverride ?? "off")
         )
           await store.setSubagentRouting(pickedSubagentRouting);
+        if (
+          debbySession &&
+          (draftClaudePartnerModel !== committedClaudePartnerModel ||
+            draftGptPartnerModel !== committedGptPartnerModel)
+        ) {
+          await updateSession(conversationId!, {
+            labels: {
+              [CLAUDE_PARTNER_MODEL_LABEL]: draftClaudePartnerModel ?? "",
+              [GPT_PARTNER_MODEL_LABEL]: draftGptPartnerModel ?? "",
+            },
+            silent: true,
+          });
+          setCommittedClaudePartnerModel(draftClaudePartnerModel);
+          setCommittedGptPartnerModel(draftGptPartnerModel);
+        }
       } catch {
         // Individual setters already roll back their optimistic state; a failed
         // PATCH shouldn't wedge the modal open.
@@ -6293,6 +6405,54 @@ function SessionConfigModal({
                 </SelectContent>
               </Select>
             </ConfigRow>
+          )}
+          {debbySession && (
+            <>
+              <ConfigRow
+                label="Claude partner"
+                description="Default model for new Claude partner threads"
+              >
+                <RoutingModelSelect
+                  value={draftClaudePartnerModel ?? MODEL_SELECT_DEFAULT}
+                  onValueChange={(value) =>
+                    setDraftClaudePartnerModel(value === MODEL_SELECT_DEFAULT ? null : value)
+                  }
+                  offerSmartRouting={false}
+                  testId="composer-config-claude-partner-model"
+                  models={(claudePartnerOptions ?? []).map((option) => ({
+                    id: option.id,
+                    label: option.displayName ?? option.id,
+                  }))}
+                  defaultLabel="Provider default"
+                  activeModelId={draftClaudePartnerModel}
+                  componentId="chat.composer.claude_partner_model"
+                />
+              </ConfigRow>
+              <ConfigRow
+                label="GPT partner"
+                description="Default model for new GPT partner threads"
+              >
+                <RoutingModelSelect
+                  value={draftGptPartnerModel ?? MODEL_SELECT_DEFAULT}
+                  onValueChange={(value) =>
+                    setDraftGptPartnerModel(value === MODEL_SELECT_DEFAULT ? null : value)
+                  }
+                  offerSmartRouting={false}
+                  testId="composer-config-gpt-partner-model"
+                  models={(gptPartnerOptions ?? []).map((option) => ({
+                    id: option.id,
+                    label: option.displayName ?? option.id,
+                  }))}
+                  defaultLabel="Provider default"
+                  activeModelId={draftGptPartnerModel}
+                  componentId="chat.composer.gpt_partner_model"
+                />
+              </ConfigRow>
+              <p className="text-xs text-muted-foreground">
+                Partner choices apply to new threads and the next turn of existing SDK partner
+                conversations.
+              </p>
+            </>
           )}
           {/* Hidden when the mode is unknown — Claude only renders its mode
               footer in some pane states, and a guess would misreport it. */}
@@ -6594,7 +6754,8 @@ function useResolvedComposerModel(
     modelPickerKind === "cursor" ||
     modelPickerKind === "kiro" ||
     modelPickerKind === "pi" ||
-    modelPickerKind === "opencode";
+    modelPickerKind === "opencode" ||
+    modelPickerKind === "sdk";
   const modelOptions: readonly {
     id: string;
     label?: string;
@@ -6727,11 +6888,11 @@ function ComposerModelEffortLabel({
   const model = showModels || modelPickerKind === null ? modelLabel : null;
   // SDK/bundle agents (e.g. Polly) that resolve no model/effort fall back to
   // the harness identity ("Polly (Pi)") so the slot isn't empty. Scoped to
-  // SDK/bundle (modelPickerKind === null): native wrappers keep an empty label
-  // when their model is unresolved rather than surfacing the bare vendor name,
-  // which the gear tooltip already shows.
+  // SDK/bundle (no picker or the synthetic "sdk" picker): native wrappers keep
+  // an empty label when their model is unresolved rather than surfacing the
+  // bare vendor name, which the gear tooltip already shows.
   if (!model && !effortLabel) {
-    if (modelPickerKind !== null || !harnessLabel) return null;
+    if ((modelPickerKind !== null && modelPickerKind !== "sdk") || !harnessLabel) return null;
     return (
       <span
         data-testid="composer-model-effort-label"

@@ -2200,7 +2200,10 @@ def _show_acp_cli_harness(name: str) -> None:
         console.print(f"    Sign in with:\n        [bold]{row.login_command}[/bold]")
     if row.install.auth_hint:
         console.print(f"    {row.install.auth_hint}")
-    console.print(f"    Launch with: [bold]omnigent run --harness {name}[/bold]\n")
+    launch = f"omnigent run --harness {name}"
+    if row.model_arg:
+        launch += f" {row.model_arg} <model>"
+    console.print(f"    Launch with: [bold]{launch}[/bold]\n")
 
 
 def _manage_goose_harness() -> None:

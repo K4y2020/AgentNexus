@@ -273,13 +273,18 @@ Using OpenClaw? See the [OpenClaw integration guide](docs/openclaw.md) to import
 its coding agents or drive a live OpenClaw Gateway session over ACP.
 
 <details>
-<summary>Grok Build and Devin</summary>
+<summary>CodeBuddy, Grok Build and Devin</summary>
 
-Two more coding agents are built in but have no `omnigent <name>` launcher of
+Three more coding agents are built in but have no `omnigent <name>` launcher of
 their own, because each ships a CLI that holds its own login. Install the vendor
 CLI, log in with it, then name the harness:
 
 ```bash
+# CodeBuddy Code (Tencent) — the CLI behind the WorkBuddy desktop app
+npm install -g @tencent-ai/codebuddy-code
+codebuddy /login                     # browser OAuth; credential stays on disk
+omnigent run --harness codebuddy     # 'workbuddy' also works
+
 # Grok Build (xAI)
 curl -fsSL https://x.ai/cli/install.sh | bash
 grok login --device-auth              # xAI OAuth
@@ -291,11 +296,22 @@ devin auth login
 omnigent run --harness devin
 ```
 
-Both speak the [Agent Client Protocol](https://agentclientprotocol.com) over
-stdio, and Omnigent stores no credential for either — each CLI reads back the
-login it wrote to disk. That also means `--model` is refused rather than
-silently dropped: both run their account-default model. To pin one, configure an
-`acp:` agent whose command passes the vendor's own model flag.
+All three speak the [Agent Client Protocol](https://agentclientprotocol.com) over
+stdio, and Omnigent stores no credential for any of them — each CLI reads back the
+login it wrote to disk. Model selection is the row's too: by default each runs its
+account-default model. CodeBuddy's launch argv takes `--model`, so a spec-pinned
+model reaches it — `omnigent run --harness codebuddy --model glm-5.3`, or `model:`
+in an agent YAML (the vendor-curated id list wins over whatever Omnigent knows).
+Grok Build and Devin run their account-default model: `--model` is refused rather
+than silently dropped. To pin a model on those, configure an `acp:` agent whose
+command passes the vendor's own model flag.
+
+CodeBuddy keeps its login in `~/.codebuddy` — the store the WorkBuddy desktop app
+writes — so if you already use WorkBuddy on this machine the CLI is usually signed
+in already and `/login` is only the fallback. Point the harness at a copy that is not
+on `PATH` with `OMNIGENT_CODEBUDDY_PATH` — WorkBuddy's own bundled copy
+(`resources/app.asar.unpacked/cli/bin/codebuddy`) is a node script, so on Windows
+point that variable at a `.cmd` wrapper running `node "<that path>" %*`.
 
 Use the vendor login rather than an API key. A builtin ACP row has no
 `env_passthrough` of its own, and `XAI_API_KEY` is not in the host-to-runner

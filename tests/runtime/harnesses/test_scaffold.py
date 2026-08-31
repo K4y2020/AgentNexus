@@ -40,6 +40,7 @@ import pytest
 
 from omnigent.errors import ErrorCode, OmnigentError
 from omnigent.runtime.harnesses import _HARNESS_MODULES
+from omnigent.runtime.harnesses import _scaffold as scaffold_module
 from omnigent.runtime.harnesses._scaffold import HarnessApp, TurnContext
 from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
 from omnigent.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES
@@ -243,6 +244,36 @@ async def test_build_terminal_event_preserves_stream_task_cancellation() -> None
         run_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await run_task
+
+
+@pytest.mark.asyncio
+async def test_pending_tool_call_refreshes_idle_watchdog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A bounded long-running tool must not look like a wedged turn."""
+
+    monkeypatch.setattr(scaffold_module, "_TURN_IDLE_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(scaffold_module, "_TURN_ABSOLUTE_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(scaffold_module, "_TOOL_DISPATCH_WATCHDOG_REFRESH_S", 0.02)
+
+    class _SlowToolHarness(HarnessApp):
+        async def run_turn(self, request: CreateResponseRequest, ctx: TurnContext) -> None:
+            await ctx.dispatch_tool(
+                call_id="call_slow",
+                name="sys_os_shell",
+                arguments='{"timeout": 30}',
+                agent="test-agent",
+            )
+
+    ctx = TurnContext("resp_slow_tool", asyncio.Queue(), asyncio.Event())
+
+    async def _complete_later() -> None:
+        while "call_slow" not in ctx._pending_tool_calls:
+            await asyncio.sleep(0)
+        await asyncio.sleep(0.25)
+        assert ctx._complete_tool("call_slow", '{"ok": true}')
+
+    completion = asyncio.create_task(_complete_later())
+    await _SlowToolHarness()._guarded_run_turn(None, ctx)  # type: ignore[arg-type]
+    await completion
 
 
 @pytest.fixture

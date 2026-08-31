@@ -106,7 +106,7 @@ function statusLine(): Element | null {
 /** Bind the active session to an online host named `name` so HostBadge shows. */
 function bindHost(name: string) {
   useSessionMock.mockReturnValue({
-    session: { hostId: "host_a1b2" },
+    session: { hostId: "host_a1b2", workspace: "/repo/.worktrees/geist", permissionLevel: 4 },
     isLoading: false,
     error: null,
   });
@@ -316,6 +316,17 @@ describe("Composer status line (branch + context ring)", () => {
     expect(host).toHaveTextContent("mac-laptop");
     expect(host.compareDocumentPosition(branch) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("makes the worktree branch clickable for the session owner", () => {
+    bindHost("mac-laptop");
+    useChatStore.setState({ gitBranch: "geist" });
+    renderComposer();
+
+    expect(screen.getByTestId("composer-git-branch-switch")).toHaveAttribute(
+      "aria-label",
+      "Switch worktree (current: geist)",
     );
   });
 

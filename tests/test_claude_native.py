@@ -31,6 +31,10 @@ from omnigent import claude_native
 from omnigent._runner_startup import RunnerStartupProgress
 from omnigent._startup_profile import StartupProfiler
 from omnigent._terminal_picker_theme import PICKER_ACCENT, PICKER_MUTED
+from omnigent.claude_api_key_helper import (
+    CLAUDE_API_KEY_HELPER_TOKEN_ENV,
+    claude_api_key_helper_command,
+)
 from omnigent.databricks_model_discovery import DatabricksClaudeCatalog
 from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
 from omnigent.runtime import tool_result_replay as trc
@@ -7543,9 +7547,11 @@ def test_provider_config_for_native_claude_key_injects_base_url_and_helper(
         "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
         "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+        CLAUDE_API_KEY_HELPER_TOKEN_ENV: "sk-ant-test",
     }
     # Static key delivered via the apiKeyHelper, never the env (allowlist).
-    assert cfg.api_key_helper == "printf %s sk-ant-test"
+    assert cfg.api_key_helper == claude_api_key_helper_command()
+    assert "sk-ant-test" not in cfg.api_key_helper
     assert cfg.model == "claude-sonnet-4-6"
     assert cfg.routable_models == ("claude-sonnet-4-6",)
 
@@ -7859,7 +7865,8 @@ def test_resolve_native_claude_config_spec_provider_default(
     cfg = claude_native.resolve_native_claude_config(spec=_no_auth_claude_spec())
     assert cfg is not None
     assert cfg.env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
-    assert cfg.api_key_helper == "printf %s sk-ant-default"
+    assert cfg.api_key_helper == claude_api_key_helper_command()
+    assert cfg.env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] == "sk-ant-default"
 
 
 def test_resolve_native_claude_config_subscription_uses_cli_login(
@@ -7960,7 +7967,8 @@ def test_resolve_native_claude_config_ambient_key(
     assert cfg is not None
     assert cfg.env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
     # Resolved from the env ref, delivered via the helper (no secret in env).
-    assert cfg.api_key_helper == "printf %s sk-ant-ambient"
+    assert cfg.api_key_helper == claude_api_key_helper_command()
+    assert cfg.env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] == "sk-ant-ambient"
 
 
 def test_resolve_native_claude_config_ambient_prefixed_key(
@@ -7981,7 +7989,8 @@ def test_resolve_native_claude_config_ambient_prefixed_key(
     # The ambient entry's declared default pins its own family alias too —
     # one behavior for every provider-entry shape.
     assert cfg.env.get("ANTHROPIC_DEFAULT_OPUS_MODEL") == cfg.model
-    assert cfg.api_key_helper == "printf %s sk-ant-prefixed"
+    assert cfg.api_key_helper == claude_api_key_helper_command()
+    assert cfg.env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] == "sk-ant-prefixed"
 
 
 def test_bedrock_config_auth_command_failure_returns_none() -> None:

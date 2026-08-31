@@ -11,6 +11,23 @@ import { useChatStore } from "@/store/chatStore";
 import { clearSessionDrafts, hasSessionDraft } from "@/lib/sessionDrafts";
 import { setOmnigentHostConfig } from "@/lib/host";
 
+const { useSessionMock, useHostModelOptionsMock } = vi.hoisted(() => ({
+  useSessionMock: vi.fn(() => ({
+    session: {
+      hostId: null as string | null,
+      agentName: null as string | null,
+      labels: {} as Record<string, string>,
+    },
+    isLoading: false,
+    error: null,
+  })),
+  useHostModelOptionsMock: vi.fn(
+    (_hostId: string | null, _harness: string, _enabled?: boolean) => ({
+      data: [] as { id: string; displayName?: string }[],
+    }),
+  ),
+}));
+
 // Composer reads workspace files via a TanStack query hook (for "@"-file
 // mentions). These slash-command tests don't exercise that, so stub the hook
 // to avoid needing a QueryClientProvider around every bare render.
@@ -27,11 +44,13 @@ vi.mock("@/hooks/useWorkspaceChangedFiles", async (importOriginal) => {
 // (no host bound) without needing a QueryClient provider around these renders.
 vi.mock("@/hooks/useSession", async (importOriginal) => ({
   ...(await importOriginal<typeof UseSessionModule>()),
-  useSession: () => ({ session: { hostId: null }, isLoading: false, error: null }),
+  useSession: () => useSessionMock(),
 }));
 vi.mock("@/hooks/useHosts", async (importOriginal) => ({
   ...(await importOriginal<typeof UseHostsModule>()),
   useHosts: () => ({ data: [] }),
+  useHostModelOptions: (hostId: string | null, harness: string, enabled?: boolean) =>
+    useHostModelOptionsMock(hostId, harness, enabled),
 }));
 vi.mock("@/hooks/RunnerHealthProvider", async (importOriginal) => ({
   ...(await importOriginal<typeof RunnerHealthProviderModule>()),
@@ -59,6 +78,15 @@ import {
   SlashCommandMenu,
   slashCommandMatches,
 } from "@/components/SlashCommandMenu";
+
+beforeEach(() => {
+  useSessionMock.mockReset().mockReturnValue({
+    session: { hostId: null, agentName: null, labels: {} },
+    isLoading: false,
+    error: null,
+  });
+  useHostModelOptionsMock.mockReset().mockReturnValue({ data: [] });
+});
 
 // These tests pin the slash-command suggestions menu UX in the composer:
 // (1) the first match is highlighted as soon as the menu opens, so Tab/Enter
@@ -911,6 +939,116 @@ describe("Composer model/effort label", () => {
       />,
     );
     expect(label()).toHaveTextContent("Polly (Pi)");
+  });
+
+  it("opens the model configuration when the SDK identity label is clicked", async () => {
+    useChatStore.setState({
+      selectedModel: null,
+      selectedEffort: null,
+      llmModel: null,
+      sessionModelOverride: null,
+      sessionHarness: "claude-sdk",
+    });
+    renderWithTooltips(
+      <Composer
+        {...composerProps({
+          agents: [{ id: "a1", name: "debby" }],
+          selectedAgentId: "a1",
+          modelPickerKind: "sdk",
+          showModels: true,
+          showEffort: false,
+          codexModelOptions: [
+            { id: "claude-opus-4-8", isDefault: true },
+            { id: "claude-sonnet-4-6" },
+            { id: "claude-haiku-4-5" },
+          ],
+        })}
+      />,
+    );
+
+    expect(label()).toHaveTextContent("Debby (Claude SDK)");
+    fireEvent.click(screen.getByTestId("composer-model-picker-trigger"));
+    expect(await screen.findByTestId("composer-config-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("composer-config-model")).toBeInTheDocument();
+  });
+
+  it("shows independent Claude and GPT partner model rows for Debby", async () => {
+    useSessionMock.mockReturnValue({
+      session: {
+        hostId: "host_1",
+        agentName: "debby",
+        labels: {},
+      },
+      isLoading: false,
+      error: null,
+    });
+    useHostModelOptionsMock.mockImplementation((_hostId: string | null, harness: string) => ({
+      data:
+        harness === "claude-sdk"
+          ? [{ id: "claude-opus-4-8" }, { id: "claude-sonnet-4-6" }]
+          : [{ id: "gpt-5.6-sol" }, { id: "gpt-5.6-terra" }],
+    }));
+    useChatStore.setState({
+      conversationId: "conv_test",
+      sessionHarness: "claude-sdk",
+      sessionModelOverride: null,
+      llmModel: null,
+    });
+    renderWithTooltips(
+      <Composer
+        {...composerProps({
+          agents: [{ id: "a1", name: "debby" }],
+          selectedAgentId: "a1",
+          modelPickerKind: "sdk",
+          showModels: true,
+          showEffort: false,
+          codexModelOptions: [{ id: "claude-opus-4-8", isDefault: true }],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("composer-model-picker-trigger"));
+    expect(await screen.findByTestId("composer-config-claude-partner-model")).toBeInTheDocument();
+    expect(screen.getByTestId("composer-config-gpt-partner-model")).toBeInTheDocument();
+    expect(screen.getByText(/next turn of existing SDK partner/i)).toBeInTheDocument();
+    expect(useHostModelOptionsMock).toHaveBeenCalledWith("host_1", "codex", true);
+  });
+
+  it("uses every model returned by the GPT partner gateway without prefix filtering", async () => {
+    useSessionMock.mockReturnValue({
+      session: { hostId: "host_1", agentName: "debby", labels: {} },
+      isLoading: false,
+      error: null,
+    });
+    useHostModelOptionsMock.mockImplementation((_hostId: string | null, harness: string) => ({
+      data:
+        harness === "codex"
+          ? [{ id: "gpt-5.6-sol" }, { id: "gemini-3.7-flash" }]
+          : [{ id: "claude-opus-4-8" }],
+    }));
+    useChatStore.setState({
+      conversationId: "conv_test",
+      sessionHarness: "claude-sdk",
+      sessionModelOverride: null,
+      llmModel: null,
+    });
+    renderWithTooltips(
+      <Composer
+        {...composerProps({
+          agents: [{ id: "a1", name: "debby" }],
+          selectedAgentId: "a1",
+          modelPickerKind: "sdk",
+          showModels: true,
+          showEffort: false,
+          codexModelOptions: [{ id: "claude-opus-4-8", isDefault: true }],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("composer-model-picker-trigger"));
+    fireEvent.click(await screen.findByTestId("composer-config-gpt-partner-model"));
+    expect(await screen.findByText("gpt-5.6-sol")).toBeInTheDocument();
+    expect(screen.getByText("gemini-3.7-flash")).toBeInTheDocument();
   });
 
   it("names the vendor, not the Task subagent_type, on a Claude Code sub-agent", () => {

@@ -17,7 +17,7 @@ from omnigent.entities.environment_filesystem import FilesystemPathNotFound
 from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 from omnigent.inner.os_env import create_os_environment
 from omnigent.runner import create_runner_app
-from omnigent.runner.environment_filesystem import CallerProcessFilesystem
+from omnigent.runner.environment_filesystem import CallerProcessFilesystem, is_absolute_request
 from omnigent.runner.resource_registry import SessionResourceRegistry
 from tests.runner.helpers import NullServerClient
 
@@ -34,6 +34,21 @@ def workspace(tmp_path: Path) -> Path:
     # exercise the base64 binary-read path.
     (ws / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x01\x02\xff")
     return ws
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/etc/hosts", True),
+        (r"U:\AI\seedance-v3\scripts\CLEANUP.md", True),
+        ("U:/AI/seedance-v3/scripts/CLEANUP.md", True),
+        (r"scripts\CLEANUP.md", False),
+        ("scripts/CLEANUP.md", False),
+    ],
+)
+def test_is_absolute_request_is_cross_platform(path: str, expected: bool) -> None:
+    """The runner recognizes Windows drive paths even on a POSIX test host."""
+    assert is_absolute_request(path) is expected
 
 
 @pytest.fixture

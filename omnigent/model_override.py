@@ -75,6 +75,13 @@ def validate_model_override(value: str) -> str:
 _CLAUDE_FAMILY_HARNESSES: frozenset[str] = frozenset(
     {"claude-native", "native-claude", "claude-sdk", "claude_sdk"}
 )
+# The wrapped Codex executor is an OpenAI-compatible Responses client whose
+# configured gateway owns the model vocabulary. A gateway may legitimately
+# advertise ids such as ``hy4-preview`` or ``gemini-3.7-flash-high``; rejecting
+# them by name after the user selected them from that gateway's /v1/models list
+# makes the picker cosmetic. Native Codex keeps the conservative family guard
+# because its own live CLI catalog, not the provider endpoint, is authoritative.
+_PROVIDER_VOCABULARY_CODEX_HARNESSES: frozenset[str] = frozenset({"codex"})
 # CODEX_CANONICAL_HARNESSES is restricted to the codex-compatible families
 # (see is_codex_compatible_model): the gateway serves codex over the
 # Anthropic-incompatible Responses wire, and codex >= 0.137 dropped the
@@ -182,7 +189,11 @@ def model_family_mismatch(harness: str, model: str) -> str | None:
             "Kimi models or the pi / openai-agents worker for any other "
             "gateway model."
         )
-    if canon in CODEX_CANONICAL_HARNESSES and not is_codex_compatible_model(model):
+    if (
+        canon in CODEX_CANONICAL_HARNESSES
+        and canon not in _PROVIDER_VOCABULARY_CODEX_HARNESSES
+        and not is_codex_compatible_model(model)
+    ):
         return (
             f"harness {canon!r} only runs codex-compatible models (id naming "
             f"'gpt', 'codex', 'glm', or 'kimi'); got {model!r}. Use the "

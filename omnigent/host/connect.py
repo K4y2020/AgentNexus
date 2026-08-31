@@ -2502,17 +2502,36 @@ class HostProcess:
                 error_code="invalid_workspace",
                 error=f"workspace path expansion failed: {exc}",
             )
-        if not os.path.isdir(expanded):
+        target = Path(expanded)
+        params = dict(frame.params or {})
+        if target.is_file():
+            # An authorized absolute browse may name the file itself. The
+            # host reader is directory-rooted, so serve that target by rooting
+            # it at the parent and translating the empty browse path to the
+            # basename. This keeps offline Host fallback equivalent to the
+            # runner, which accepts an absolute file directly.
+            if frame.op != "list_or_read" or str(params.get("path", "")):
+                return HostFsResultFrame(
+                    request_id=frame.request_id,
+                    status="error",
+                    error_status=400,
+                    error_code="invalid_request",
+                    error="an absolute file target supports only an empty list_or_read request",
+                )
+            reader_root = target.parent
+            params["path"] = target.name
+        elif target.is_dir():
+            reader_root = target
+        else:
             return HostFsResultFrame(
                 request_id=frame.request_id,
                 status="error",
                 error_status=404,
                 error_code="not_found",
-                error="workspace directory does not exist on host",
+                error="workspace path does not exist on host",
             )
 
-        reader = WorkspaceReader(Path(expanded))
-        params = frame.params or {}
+        reader = WorkspaceReader(reader_root)
         try:
             payload = self._dispatch_fs_op(reader, frame.op, frame.session_id, params)
         except WorkspaceReaderError as exc:
@@ -2661,6 +2680,44 @@ class HostProcess:
                 models=pi_models,
             )
 
+        if harness == "codex":
+            # Gateway-truth lane for the wrapped Codex partner. Unlike the
+            # native CLI picker above, this list comes from the active OpenAI
+            # provider's /v1/models endpoint and remains unfiltered and in
+            # endpoint order. The bearer credential stays inside the host-side
+            # request made by model_catalog and is never serialized here.
+            try:
+                from omnigent.model_catalog import list_provider_models_for_worker
+                from omnigent.spec.types import AgentSpec, ExecutorSpec
+
+                codex_spec = AgentSpec(
+                    spec_version=1,
+                    name="codex-gateway-prelaunch",
+                    executor=ExecutorSpec(
+                        type="omnigent",
+                        config={"harness": "codex"},
+                    ),
+                )
+                listing = await asyncio.to_thread(
+                    list_provider_models_for_worker,
+                    codex_spec,
+                    "codex",
+                )
+            except Exception:
+                _logger.exception("Failed to resolve pre-launch Codex gateway model options")
+                return HostModelOptionsResultFrame(
+                    request_id=frame.request_id,
+                    status="failed",
+                    error="failed to resolve Codex gateway model options",
+                )
+            return HostModelOptionsResultFrame(
+                request_id=frame.request_id,
+                status="ok",
+                models=[{"id": model.id, "displayName": model.id} for model in listing.models],
+                routable_models=[model.id for model in listing.models],
+                error=listing.note if not listing.models else None,
+            )
+
         if is_claude_sdk_harness_name(harness):
             # SDK-mode Claude is a pass-through client with no model catalog
             # of its own, so the endpoint listing IS the harness truth — the
@@ -2691,10 +2748,22 @@ class HostProcess:
                 # (its aliases resolve inside the harness) are the truth here.
                 probed = await self._probed_claude_model_options()
                 if probed is not None:
+                    models = probed.models
+                    if not models and probed.routable_models:
+                        # A mapping proxy such as CCSwitch may advertise only
+                        # its downstream target ids from /v1/models even though
+                        # the configured Claude aliases are valid inputs. When
+                        # the CLI probe has no display rows, its exact configured
+                        # routable set is still truthful picker data; expose
+                        # those ids instead of returning an unusable empty list.
+                        models = [
+                            {"id": model_id, "displayName": model_id}
+                            for model_id in probed.routable_models
+                        ]
                     return HostModelOptionsResultFrame(
                         request_id=frame.request_id,
                         status="ok",
-                        models=probed.models,
+                        models=models,
                         routable_models=probed.routable_models,
                     )
             return HostModelOptionsResultFrame(
@@ -3513,8 +3582,12 @@ class HostProcess:
         for runner_id, error in list(self._unreported_exits.items()):
             del self._unreported_exits[runner_id]
             await self._report_runner_exit(runner_id, error)
+        # Keep daemon status output ASCII-safe. Detached Windows processes can
+        # inherit a GBK/cp1252 stdout even when the server and runners use
+        # UTF-8; a decorative checkmark here used to raise UnicodeEncodeError
+        # after a successful handshake and immediately tear the tunnel down.
         print(
-            f"✓ Connected as {self._identity.name!r} "
+            f"Connected as {self._identity.name!r} "
             f"({self._identity.host_id}), {len(hello.runners)} live runner(s). "
             "Listening for sessions — Ctrl-C to disconnect.",
             flush=True,

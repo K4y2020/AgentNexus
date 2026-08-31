@@ -195,7 +195,7 @@ const SOFT_TERMINAL_LIST_STATUSES = new Set([404, 409, 502, 503]);
  */
 export async function fetchTerminals(conversationId: string): Promise<TerminalInfo[]> {
   const res = await authenticatedFetch(
-    `/v1/sessions/${encodeURIComponent(conversationId)}/resources/terminals?order=asc&limit=1000`,
+    `/v1/sessions/${encodeURIComponent(conversationId)}/resources/terminals?order=asc&limit=1000&offline_ok=true`,
   );
   if (SOFT_TERMINAL_LIST_STATUSES.has(res.status)) return [];
   if (!res.ok) throw new Error(`terminals fetch failed: ${res.status} ${res.statusText}`);

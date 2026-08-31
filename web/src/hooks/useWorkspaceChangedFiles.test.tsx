@@ -840,6 +840,34 @@ describe("toWorkspaceRelativePath", () => {
     ["/home/u/ws/foo.md#L12", ROOT, HOME, null, "absolute with #fragment → unresolvable"],
     ["/home/u/ws/foo.md?x=1", ROOT, HOME, null, "absolute with ?query → unresolvable"],
     ["https://example.com/x", ROOT, HOME, null, "URL → unresolvable"],
+    [
+      "U:\\AI\\seedance-v3\\scripts\\CLEANUP.md",
+      "U:\\AI\\seedance-v3",
+      "C:\\Users\\Kay",
+      "scripts/CLEANUP.md",
+      "Windows absolute path under root → slash-normalized relative",
+    ],
+    [
+      "u:\\ai\\seedance-v3\\README.md",
+      "U:\\AI\\seedance-v3",
+      "C:\\Users\\Kay",
+      "README.md",
+      "Windows drive paths compare case-insensitively",
+    ],
+    [
+      "C:\\Windows\\win.ini",
+      "U:\\AI\\seedance-v3",
+      "C:\\Users\\Kay",
+      null,
+      "Windows absolute path outside root → unresolvable",
+    ],
+    [
+      "scripts\\CLEANUP.md",
+      "U:\\AI\\seedance-v3",
+      "C:\\Users\\Kay",
+      "scripts/CLEANUP.md",
+      "Windows relative separators normalize for the filesystem API",
+    ],
   ])("%o (root=%o, home=%o) → %o (%s)", (text, root, home, expected, _why) => {
     expect(
       toWorkspaceRelativePath(text as string, root as string | null, home as string | null),
@@ -959,6 +987,7 @@ describe("useWorkspaceFileExists", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await flushMicrotasks();
+    expect(fetchMock.mock.calls[0][0]).toContain("missing_ok=true");
     expect(results.length).toBeGreaterThan(0);
     expect(results).not.toContain(true);
     expect(results.at(-1)).toBe(false);
@@ -1100,6 +1129,22 @@ describe("browse-location listings normalize to paths relative to the location",
     expect(onPaths).toHaveBeenLastCalledWith(["summary.md", "q3.csv"]);
   });
 
+  it("normalizes Windows separators before stripping the echoed prefix", async () => {
+    fetchMock
+      .mockResolvedValueOnce(environmentResponse())
+      .mockResolvedValueOnce(entries("apps\\api", "apps\\worker"));
+    const onPaths = vi.fn();
+
+    render(
+      <Wrap>
+        <AllFilesPathsProbe id="conv_windows_rel" location="apps" onPaths={onPaths} />
+      </Wrap>,
+    );
+    await waitFor(() => expect(onPaths).toHaveBeenCalled());
+
+    expect(onPaths).toHaveBeenLastCalledWith(["api", "worker"]);
+  });
+
   it("leaves an absolute location's already-bare paths alone", async () => {
     fetchMock
       .mockResolvedValueOnce(environmentResponse())
@@ -1134,6 +1179,21 @@ describe("browse-location listings normalize to paths relative to the location",
     await waitFor(() => expect(onPaths).toHaveBeenCalled());
 
     expect(onPaths).toHaveBeenLastCalledWith(["quarterly/q3.csv"]);
+  });
+
+  it("keeps lazy Windows directory paths relative to the browsed location", async () => {
+    fetchMock.mockResolvedValueOnce(entries("apps\\worker\\src"));
+    const onPaths = vi.fn();
+
+    render(
+      <Wrap>
+        <DirectoryPathsProbe id="conv_windows_dir" path="worker" location="apps" onPaths={onPaths} />
+      </Wrap>,
+    );
+    await waitFor(() => expect(onPaths).toHaveBeenCalled());
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/filesystem/apps/worker?");
+    expect(onPaths).toHaveBeenLastCalledWith(["worker/src"]);
   });
 });
 

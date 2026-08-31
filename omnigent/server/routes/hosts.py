@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import secrets
 from typing import Any
 
@@ -69,7 +70,22 @@ _LIST_DIR_MAX_LIMIT = 1000
 # fast syscall on the host side; 5s matches list_dir and is generous
 # for transient network slowness without making the picker feel hung.
 _CREATE_DIR_TIMEOUT_S = 5.0
-_MODEL_OPTIONS_TIMEOUT_S = 15.0
+# A Claude SDK lookup can legitimately take both nested budgets in sequence:
+# the provider /v1/models request (10s) may time out, after which the host falls
+# back to the Claude CLI probe (20s). The tunnel deadline must contain both
+# operations plus scheduling/serialization headroom; 15s produced a false 504
+# while the host returned a valid catalog a fraction of a second later.
+_MODEL_OPTIONS_TIMEOUT_S = 40.0
+_WINDOWS_DRIVE_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _restore_host_filesystem_path(path: str) -> str:
+    """Restore a routed host path without corrupting Windows drive paths."""
+    if path.startswith("~") or _WINDOWS_DRIVE_PATH_RE.match(path):
+        return path
+    return "/" + path
+
+
 # Per-call timeout for host.install_harness round-trips. The host runs
 # `npm install -g <pkg>` — install_harness_cli caps that subprocess at 300s —
 # then recomputes readiness and sends the result back over the tunnel. The
@@ -681,12 +697,15 @@ def create_hosts_router(
         request: Request,
         host_id: str,
         harness: str,
-    ) -> dict[str, list[Any]]:
+    ) -> dict[str, Any]:
         """Return pre-launch model choices resolved by the selected host.
 
         A preview of the host's ambient default catalog, not a binding
         snapshot: launch re-resolves with the session's agent spec, and the
         in-session picker reflects that launch snapshot once the runner is up.
+        ``error`` is a string reason when the catalog is empty — it must not
+        be constrained to a list, or the honest-empty-answer payload fails
+        response validation.
         """
         user_id = require_user(request, auth_provider)
         host = await asyncio.to_thread(host_store.get_host, host_id)
@@ -1079,8 +1098,7 @@ def create_hosts_router(
         # FastAPI's :path converter strips the leading slash from
         # the URL match. Re-add it unless the path is tilde-prefixed
         # (~/foo stays tilde-prefixed; /Users/x becomes Users/x → /Users/x).
-        if not path.startswith("~"):
-            path = "/" + path
+        path = _restore_host_filesystem_path(path)
         return await _list_host_filesystem(
             request=request,
             host_id=host_id,

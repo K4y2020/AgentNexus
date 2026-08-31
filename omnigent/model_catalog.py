@@ -837,6 +837,29 @@ def list_models_for_worker(
     return replace(listing, models=filtered)
 
 
+def list_provider_models_for_worker(
+    spec: object,
+    harness: str,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> ModelListing:
+    """Enumerate the resolved provider's exact, unfiltered model catalog.
+
+    Unlike :func:`list_models_for_worker`, this preview intentionally does
+    not infer compatibility from model-id spelling. It is used by UI pickers
+    whose source of truth is the configured gateway's ``/v1/models`` response:
+    every id is returned in endpoint order, including models whose vendor
+    family cannot be derived from their name.
+
+    :param spec: The worker spec used to resolve the active provider.
+    :param harness: Harness whose provider should be resolved, e.g. ``"codex"``.
+    :param transport: Optional HTTP transport override for tests.
+    :returns: The provider's unfiltered :class:`ModelListing`.
+    """
+    provider = resolve_model_provider(spec, harness)
+    return _listing_for_provider(provider, transport=transport)
+
+
 def catalog_for_spec(
     spec: object,
     *,

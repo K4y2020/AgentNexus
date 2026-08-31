@@ -306,7 +306,7 @@ describe("fetchTerminals", () => {
     // terminal (created first) out of the first tab slot; asc keeps
     // the seed consistent with SSE created-deltas appending at the end.
     expect(fetchMock).toHaveBeenCalledWith(
-      "/v1/sessions/conv_abc/resources/terminals?order=asc&limit=1000",
+      "/v1/sessions/conv_abc/resources/terminals?order=asc&limit=1000&offline_ok=true",
       expect.anything(),
     );
     expect(out).toEqual([

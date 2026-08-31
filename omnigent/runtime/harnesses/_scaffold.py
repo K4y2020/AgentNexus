@@ -129,6 +129,10 @@ _TURN_IDLE_TIMEOUT_S = float(os.environ.get("HARNESS_TURN_TIMEOUT_S", "600"))
 # long turn. ``<= 0`` disables. Whichever of (idle, absolute) trips first.
 _TURN_ABSOLUTE_TIMEOUT_S = float(os.environ.get("HARNESS_TURN_ABSOLUTE_TIMEOUT_S", "3600"))
 
+# A dispatched tool owns its own execution timeout. Refresh the turn's idle
+# deadline while that bounded operation is still pending.
+_TOOL_DISPATCH_WATCHDOG_REFRESH_S = 30.0
+
 
 @dataclass(frozen=True)
 class PolicyVerdictPayload:
@@ -461,6 +465,19 @@ class TurnContext:
             self._reset_idle_watchdog()
         self._event_queue.put_nowait(event)
 
+    async def _await_tool_result(self, future: asyncio.Future[str]) -> str:
+        """Wait for a dispatched tool while keeping the idle watchdog current."""
+        while not future.done():
+            done, _pending = await asyncio.wait(
+                {future},
+                timeout=_TOOL_DISPATCH_WATCHDOG_REFRESH_S,
+            )
+            if done:
+                break
+            if self._reset_idle_watchdog is not None:
+                self._reset_idle_watchdog()
+        return future.result()
+
     async def dispatch_tool(self, call_id: str, name: str, arguments: str, agent: str) -> str:
         """
         Emit a server-dispatched tool call and park until the result.
@@ -506,7 +523,7 @@ class TurnContext:
         }
         self.emit(OutputItemDoneEvent(type="response.output_item.done", item=item))
         try:
-            result = await future
+            result = await self._await_tool_result(future)
             item["status"] = "completed"
             self.emit(OutputItemDoneEvent(type="response.output_item.done", item=item))
             self.emit(

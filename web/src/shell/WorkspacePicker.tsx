@@ -18,6 +18,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCreateHostDirectory, useHostFilesystem } from "@/hooks/useHostFilesystem";
 
+const WINDOWS_DRIVE_PATH = /^[A-Za-z]:\//;
+const WINDOWS_DRIVE_ROOT = /^[A-Za-z]:\/$/;
+
+/** Convert host-native Windows separators to the picker's canonical form. */
+export function normalizePathSeparators(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
+/** True for POSIX absolute paths and Windows drive-qualified paths. */
+export function isAbsoluteHostPath(path: string): boolean {
+  const normalized = normalizePathSeparators(path.trim());
+  return normalized.startsWith("/") || WINDOWS_DRIVE_PATH.test(normalized);
+}
+
 /**
  * Join a directory path and a new child name into an absolute path.
  *
@@ -32,11 +46,12 @@ import { useCreateHostDirectory, useHostFilesystem } from "@/hooks/useHostFilesy
  * @returns The joined absolute path, e.g. ``"/Users/me/new-app"``.
  */
 export function joinPath(dir: string, name: string): string {
+  const normalizedDir = normalizePathSeparators(dir);
   const trimmedName = name.trim();
-  if (dir === "/") {
-    return `/${trimmedName}`;
+  if (normalizedDir === "/" || WINDOWS_DRIVE_ROOT.test(normalizedDir)) {
+    return `${normalizedDir}${trimmedName}`;
   }
-  const base = dir.endsWith("/") ? dir.slice(0, -1) : dir;
+  const base = normalizedDir.endsWith("/") ? normalizedDir.slice(0, -1) : normalizedDir;
   return `${base}/${trimmedName}`;
 }
 
@@ -51,11 +66,15 @@ export function joinPath(dir: string, name: string): string {
  * @returns Parent path, or ``null`` if there is no further parent.
  */
 export function parentOf(absolutePath: string): string | null {
-  if (absolutePath === "" || absolutePath === "/") {
+  const normalizedPath = normalizePathSeparators(absolutePath);
+  if (normalizedPath === "" || normalizedPath === "/" || WINDOWS_DRIVE_ROOT.test(normalizedPath)) {
     return null;
   }
-  const stripped = absolutePath.endsWith("/") ? absolutePath.slice(0, -1) : absolutePath;
+  const stripped = normalizedPath.endsWith("/") ? normalizedPath.slice(0, -1) : normalizedPath;
   const idx = stripped.lastIndexOf("/");
+  if (/^[A-Za-z]:\//.test(stripped) && idx === 2) {
+    return `${stripped.slice(0, 2)}/`;
+  }
   if (idx <= 0) {
     return "/";
   }
@@ -87,7 +106,7 @@ export function parentOf(absolutePath: string): string | null {
  *   ``null`` when the input isn't usable.
  */
 export function normalizeTypedPath(input: string, home: string | null = null): string | null {
-  const trimmed = input.trim();
+  const trimmed = normalizePathSeparators(input.trim());
   if (trimmed === "") {
     return null;
   }
@@ -95,12 +114,12 @@ export function normalizeTypedPath(input: string, home: string | null = null): s
   if (trimmed === "~") {
     // Bare tilde — go home if we know where that is.
     if (home === null) return null;
-    absolute = home;
+    absolute = normalizePathSeparators(home);
   } else if (trimmed.startsWith("~/")) {
     // ~/foo → <home>/foo. Reject when home isn't resolved yet.
     if (home === null) return null;
-    absolute = `${home}/${trimmed.slice(2)}`;
-  } else if (trimmed.startsWith("/")) {
+    absolute = `${normalizePathSeparators(home)}/${trimmed.slice(2)}`;
+  } else if (isAbsoluteHostPath(trimmed)) {
     absolute = trimmed;
   } else {
     // Relative paths and ~user forms are not supported — the host
@@ -110,8 +129,8 @@ export function normalizeTypedPath(input: string, home: string | null = null): s
   // Collapse runs of slashes ("//" → "/") so a typo doesn't
   // produce a path the host can't list.
   const collapsed = absolute.replace(/\/+/g, "/");
-  if (collapsed === "/") {
-    return "/";
+  if (collapsed === "/" || WINDOWS_DRIVE_ROOT.test(collapsed)) {
+    return collapsed;
   }
   // Drop trailing slash so parent calc stays stable.
   return collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed;
@@ -127,14 +146,18 @@ export function normalizeTypedPath(input: string, home: string | null = null): s
  *   root, or ``"~"`` when the path is still the empty placeholder.
  */
 export function basename(absolutePath: string): string {
-  if (absolutePath === "") {
+  const normalizedPath = normalizePathSeparators(absolutePath);
+  if (normalizedPath === "") {
     return "~";
   }
-  if (absolutePath === "/") {
+  if (normalizedPath === "/") {
     return "/";
   }
-  const parts = absolutePath.split("/").filter((p) => p.length > 0);
-  return parts[parts.length - 1] ?? absolutePath;
+  if (WINDOWS_DRIVE_ROOT.test(normalizedPath)) {
+    return normalizedPath;
+  }
+  const parts = normalizedPath.split("/").filter((p) => p.length > 0);
+  return parts[parts.length - 1] ?? normalizedPath;
 }
 
 /**
@@ -147,8 +170,8 @@ export function basename(absolutePath: string): string {
  * @returns Whether the picker can navigate to it.
  */
 export function isNavigablePath(path: string): boolean {
-  const trimmed = path.trim();
-  return trimmed.startsWith("/") || trimmed === "~" || trimmed.startsWith("~/");
+  const trimmed = normalizePathSeparators(path.trim());
+  return isAbsoluteHostPath(trimmed) || trimmed === "~" || trimmed.startsWith("~/");
 }
 
 /**
@@ -172,7 +195,7 @@ export function listingFilter(
   currentAbsolute: string,
   home: string | null = null,
 ): string | null {
-  const trimmed = pathInput.trim();
+  const trimmed = normalizePathSeparators(pathInput.trim());
   if (trimmed === "") return null;
   const slash = trimmed.lastIndexOf("/");
   if (slash === -1) {
@@ -388,14 +411,8 @@ export function WorkspacePicker({
     if (resolvedHome !== null || homeIsPlaceholder || !homeData || homeData.entries.length === 0) {
       return;
     }
-    const first = homeData.entries[0];
-    // first.path is "/Users/corey/x" → parent is "/Users/corey".
-    const idx = first.path.lastIndexOf("/");
-    if (idx > 0) {
-      setResolvedHome(first.path.slice(0, idx));
-    } else if (idx === 0) {
-      setResolvedHome("/");
-    }
+    const parent = parentOf(homeData.entries[0].path);
+    if (parent !== null) setResolvedHome(parent);
   }, [resolvedHome, homeData, homeIsPlaceholder]);
 
   // Absolute path of the directory currently shown, derived from the
@@ -411,13 +428,17 @@ export function WorkspacePicker({
   // as-is; "" (home) or a "~"-relative path uses the absolute the host
   // resolved it to, falling back to the raw path until the listing
   // arrives (so the breadcrumb stays put rather than flashing empty).
-  const currentAbsolute = path.startsWith("/") ? path : (listedAbsolute ?? path);
+  const currentAbsolute = isAbsoluteHostPath(path)
+    ? normalizePathSeparators(path)
+    : (listedAbsolute ?? path);
+  const normalizedWorkspacePath =
+    workspacePath === undefined ? undefined : normalizePathSeparators(workspacePath);
 
   // Other live agents working in the directory currently shown. Only a
   // resolved absolute path can match a stored workspace; the home view ("")
   // and unresolved paths report no conflict.
   const occupiedCount =
-    occupancyForPath && currentAbsolute.startsWith("/") ? occupancyForPath(currentAbsolute) : 0;
+    occupancyForPath && isAbsoluteHostPath(currentAbsolute) ? occupancyForPath(currentAbsolute) : 0;
 
   // Mirror navigation into the path input so it reflects where the
   // listing came from (the user can still overwrite it). Skip while
@@ -434,7 +455,7 @@ export function WorkspacePicker({
   const onNavigateRef = useRef(onNavigate);
   onNavigateRef.current = onNavigate;
   useEffect(() => {
-    if (currentAbsolute.startsWith("/")) {
+    if (isAbsoluteHostPath(currentAbsolute)) {
       onNavigateRef.current?.(currentAbsolute);
     }
   }, [currentAbsolute]);
@@ -466,7 +487,7 @@ export function WorkspacePicker({
     // A click/commit supersedes any in-progress typing; let the
     // mirror effect refill the bar from the new listing.
     userEditedRef.current = false;
-    setPath(next);
+    setPath(isAbsoluteHostPath(next) ? normalizePathSeparators(next) : next);
   }
 
   function commitPathInput() {
@@ -499,7 +520,7 @@ export function WorkspacePicker({
   // listing has loaded, otherwise creating the first folder in an empty
   // home would be impossible. Stays null while loading so the button is
   // disabled until we know what home resolves to.
-  const createBaseDir = currentAbsolute.startsWith("/")
+  const createBaseDir = isAbsoluteHostPath(currentAbsolute)
     ? currentAbsolute
     : path === "" && !isLoading && !isPlaceholderData
       ? "~"
@@ -548,12 +569,12 @@ export function WorkspacePicker({
           disabled={parent === null}
           testId="workspace-picker-up"
         />
-        {workspacePath !== undefined && (
+        {normalizedWorkspacePath !== undefined && (
           <PickerIconButton
             label="Workspace root"
             icon={<FolderDotIcon className="size-4" />}
-            onClick={() => navigateTo(workspacePath)}
-            disabled={currentAbsolute === workspacePath}
+            onClick={() => navigateTo(normalizedWorkspacePath)}
+            disabled={currentAbsolute === normalizedWorkspacePath}
             testId="workspace-picker-workspace"
           />
         )}

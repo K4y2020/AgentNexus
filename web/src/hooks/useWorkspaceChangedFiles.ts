@@ -339,11 +339,23 @@ function mapFilesystemEntries(
   target = "",
   prefix = "",
 ): WorkspaceFile[] {
-  const echoed = target && !target.startsWith("/") ? `${target}/` : "";
+  // Windows runners serialize workspace-relative entry paths with `\\`
+  // separators (for example `apps\\worker`) while browse locations in the
+  // web client always use `/`. Normalize the wire value before comparing it
+  // with the echoed target; otherwise browsing `apps` leaves the `apps\\`
+  // prefix attached and the lazy tree later requests `apps/apps/worker`.
+  const normalizedTarget = target.replaceAll("\\", "/");
+  const normalizedPrefix = prefix.replaceAll("\\", "/");
+  const echoed = normalizedTarget && !browseLocationBase(normalizedTarget)
+    ? `${normalizedTarget}/`
+    : "";
   return json.data.map((e) => {
-    const relative = echoed && e.path.startsWith(echoed) ? e.path.slice(echoed.length) : e.path;
+    const normalizedPath = e.path.replaceAll("\\", "/");
+    const relative = echoed && normalizedPath.startsWith(echoed)
+      ? normalizedPath.slice(echoed.length)
+      : normalizedPath;
     return {
-      path: joinBrowseLocation(prefix, relative),
+      path: joinBrowseLocation(normalizedPrefix, relative),
       name: e.name,
       type: e.type === "directory" ? "directory" : "file",
       bytes: e.bytes,
@@ -451,7 +463,8 @@ export function browseLocationSegment(location: string): string {
   // front door among them — merge back to a single "/", silently turning an
   // absolute path into a workspace-relative one and listing a nonexistent
   // path under the workspace.
-  return location.replace(/^\//, "").split("/").map(encodeURIComponent).join("/");
+  const normalized = location.replaceAll("\\", "/");
+  return normalized.replace(/^\//, "").split("/").map(encodeURIComponent).join("/");
 }
 
 /**
@@ -463,7 +476,7 @@ export function browseLocationSegment(location: string): string {
  * @returns ``"host"`` when absolute, else ``null``.
  */
 export function browseLocationBase(location: string): "host" | null {
-  return location.startsWith("/") ? "host" : null;
+  return location.startsWith("/") || /^[A-Za-z]:[\\/]/.test(location) ? "host" : null;
 }
 
 /**
@@ -671,23 +684,34 @@ export function toWorkspaceRelativePath(
   // any stripping so a "trusted" absolute path doesn't carry these markers
   // past the existence-check heuristic and trigger a fetch that can't match.
   if (text.includes("://") || text.includes("?") || text.includes("#")) return null;
-  let p = text;
+  // Normalize Windows separators before classifying the path. Without this,
+  // ``U:\\repo\\src\\a.ts`` looks like a plain relative string in the
+  // browser and is sent verbatim; the runner then correctly rejects the drive
+  // path as an absolute path smuggled into a workspace-relative request.
+  let p = text.replaceAll("\\", "/");
+  const normalizedRoot = root?.replaceAll("\\", "/") ?? null;
+  const normalizedHome = home?.replaceAll("\\", "/") ?? null;
   if (home && (p === "~" || p.startsWith("~/"))) {
     // Strip a trailing slash off home so "/" home (root user) doesn't
     // double up: "/" + "/ws" → "//ws".
-    p = home.replace(/\/+$/, "") + p.slice(1);
+    p = normalizedHome!.replace(/\/+$/, "") + p.slice(1);
   }
-  if (!p.startsWith("/")) {
+  const windowsAbsolute = /^[A-Za-z]:\//.test(p);
+  if (!p.startsWith("/") && !windowsAbsolute) {
     // A leftover "~" means home-relative with no home to expand → unresolvable.
     if (p.startsWith("~")) return null;
     return hasUnsafeSegments(p) ? null : p; // plain relative path
   }
   // Absolute: must live under the workspace root to be openable.
-  if (!root) return null;
-  const normRoot = root.replace(/\/+$/, "");
-  if (p === normRoot) return null; // the root directory itself, not a file
+  if (!normalizedRoot) return null;
+  const normRoot = normalizedRoot.replace(/\/+$/, "");
+  const caseInsensitive = windowsAbsolute || /^[A-Za-z]:\//.test(normRoot);
+  const comparablePath = caseInsensitive ? p.toLowerCase() : p;
+  const comparableRoot = caseInsensitive ? normRoot.toLowerCase() : normRoot;
+  if (comparablePath === comparableRoot) return null; // the root directory itself, not a file
   const prefix = `${normRoot}/`;
-  if (!p.startsWith(prefix)) return null; // absolute but outside the workspace
+  const comparablePrefix = `${comparableRoot}/`;
+  if (!comparablePath.startsWith(comparablePrefix)) return null; // absolute but outside workspace
   const rel = p.slice(prefix.length);
   // The stripped tail may still contain interior traversal (e.g.
   // "/root/ws/../etc/hosts" → "../etc/hosts"). Reject it so the resolved
@@ -712,8 +736,9 @@ async function fetchDirEntriesTolerant(
   // ``foo.md`` resolves to a "" parent).
   const base = `/v1/sessions/${encodeURIComponent(conversationId)}/resources/environments/${DEFAULT_ENVIRONMENT_ID}/filesystem`;
   const encodedPath = dirPath.split("/").map(encodeURIComponent).join("/");
+  const params = new URLSearchParams({ limit: "1000", order: "asc", missing_ok: "true" });
   const res = await authenticatedFetch(
-    dirPath === "" ? `${base}?limit=1000&order=asc` : `${base}/${encodedPath}?limit=1000&order=asc`,
+    dirPath === "" ? `${base}?${params}` : `${base}/${encodedPath}?${params}`,
   );
   // 404 = the directory (or the whole OS environment) is absent, so the file
   // can't exist. Degrade to "no entries" rather than surfacing an error.

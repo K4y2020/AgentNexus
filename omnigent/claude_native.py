@@ -15,7 +15,6 @@ import logging
 import os
 import re
 import secrets
-import shlex
 import shutil
 import signal
 import subprocess
@@ -78,6 +77,10 @@ from omnigent._wrapper_labels import (
 )
 from omnigent._wrapper_labels import (
     WRAPPER_LABEL_KEY as _WRAPPER_LABEL_KEY,
+)
+from omnigent.claude_api_key_helper import (
+    CLAUDE_API_KEY_HELPER_TOKEN_ENV,
+    claude_api_key_helper_command,
 )
 from omnigent.claude_launcher import resolve_claude_launch
 from omnigent.claude_model_vocabulary import (
@@ -836,6 +839,12 @@ def _claude_model_probe_invocation(
     if claude_config is not None and claude_config.api_key_helper:
         args.extend(("--settings", json.dumps({"apiKeyHelper": claude_config.api_key_helper})))
     command, launch_args = resolve_claude_launch("claude", args)
+    # Windows CreateProcess does not resolve PATHEXT shims: npm installs
+    # `claude` as a .cmd wrapper, so the bare name is a FileNotFoundError
+    # for create_subprocess_exec. Resolve the real shim path up front.
+    resolved = shutil.which(command)
+    if resolved:
+        command = resolved
     env = dict(os.environ)
     env.update(build_native_claude_terminal_env(claude_config))
     env.update(
@@ -2718,13 +2727,16 @@ def _provider_config_for_native_claude(entry: ProviderEntry) -> ClaudeNativeUcod
         )
         return None
     # Token delivery mirrors the claude-sdk executor: a dynamic auth_command
-    # is used verbatim; a static key becomes a ``printf`` apiKeyHelper (the
-    # runner env allowlist excludes ANTHROPIC_API_KEY, so the key must reach
-    # Claude Code via the helper, not the environment).
+    # is used verbatim; a static key is carried in a dedicated environment
+    # variable and a cross-platform Python apiKeyHelper reads it. The runner
+    # env allowlist excludes ANTHROPIC_API_KEY, so the credential must reach
+    # Claude Code through this explicit launch config.
+    static_api_key: str | None = None
     if family.auth_command:
         api_key_helper = family.auth_command
     elif family.api_key:
-        api_key_helper = f"printf %s {shlex.quote(family.api_key)}"
+        api_key_helper = claude_api_key_helper_command()
+        static_api_key = family.api_key
     else:
         _logger.warning(
             "native-claude: provider %r is the Claude default but has no usable "
@@ -2759,6 +2771,11 @@ def _provider_config_for_native_claude(entry: ProviderEntry) -> ClaudeNativeUcod
     return ClaudeNativeUcodeConfig(
         env={
             _UCODE_CLAUDE_BASE_URL_ENV: family.base_url,
+            **(
+                {CLAUDE_API_KEY_HELPER_TOKEN_ENV: static_api_key}
+                if static_api_key is not None
+                else {}
+            ),
             **pin_env,
             # Disable beta flags gateways reject (400 "invalid beta flag");
             # skip when CLAUDE_CODE_USE_GATEWAY=1 to keep tool search enabled.

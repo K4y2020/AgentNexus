@@ -206,7 +206,7 @@ def create_host_tunnel_router(
         # host_id owned by another collides inside ``upsert_on_connect`` —
         # but only AFTER accept(), as an opaque IntegrityError that drops
         # the tunnel post-handshake while the host keeps printing
-        # "✓ Connected" and reconnect-loops. Catching it here makes the
+        # "Connected" and reconnect-loops. Catching it here makes the
         # refusal clean and fatal. Skipped for the single-user local server
         # (allow_host_id_reown re-owns in place); the IntegrityError stays
         # the backstop for the connect/connect race this can't lock.

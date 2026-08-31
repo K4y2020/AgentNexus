@@ -344,6 +344,26 @@ async def test_list_filesystem_returns_paginated_entries(
     assert types == ["directory", "file"]
 
 
+async def test_list_filesystem_preserves_windows_drive_path(
+    fs_setup: tuple[
+        FastAPI,
+        HostRegistry,
+        ApplicationCommunicator,
+        dict[str, dict[str, Any]],
+        asyncio.Task[None],
+    ],
+) -> None:
+    """A drive-qualified path reaches the Windows host without a leading slash."""
+    app, _reg, _comm, replies, _drain = fs_setup
+    replies["U:/AI/MultiAgent"] = {"entries": [], "has_more": False}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(f"/v1/hosts/{_HOST_ID}/filesystem/U%3A/AI/MultiAgent")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"] == []
+
+
 async def test_list_filesystem_root_forwards_tilde(
     fs_setup: tuple[
         FastAPI,

@@ -12,9 +12,12 @@ filesystem service.
 from __future__ import annotations
 
 import base64
+import ntpath
 import os
 import re
 import stat
+import subprocess
+import sys
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, ParamSpec
@@ -68,6 +71,16 @@ def _shell_quote(s: str) -> str:
     :returns: Single-quoted shell-safe string.
     """
     return "'" + s.replace("'", "'\\''") + "'"
+
+
+def _shell_quote_for(shell_path: str, value: str) -> str:
+    """Quote one argument for the helper's selected shell."""
+    shell_name = Path(shell_path).name.lower()
+    if shell_name in ("powershell.exe", "powershell", "pwsh.exe", "pwsh"):
+        return "'" + value.replace("'", "''") + "'"
+    if shell_name in ("cmd.exe", "cmd"):
+        return subprocess.list2cmdline([value])
+    return _shell_quote(value)
 
 
 def _glob_to_regex(pattern: str) -> str:
@@ -247,8 +260,10 @@ def is_absolute_request(path: str) -> bool:
     """Whether a client-supplied path names an absolute location.
 
     The filesystem routes accept either a workspace-relative path (the
-    historical contract) or an absolute one. A path is absolute exactly
-    when it starts with ``/`` — the same rule the filesystem itself uses.
+    historical contract) or an absolute one. The check deliberately uses
+    ``ntpath`` on every platform so both POSIX roots and Windows drive/UNC
+    paths remain absolute even when the server and runner differ in OS/path
+    syntax.
     ``~`` is deliberately NOT expanded here: the environment metadata
     already reports ``home``, so the caller expands it and sends a real
     path rather than relying on whose home the runner would guess.
@@ -257,7 +272,7 @@ def is_absolute_request(path: str) -> bool:
         ``"/etc/hosts"``.
     :returns: ``True`` for absolute paths.
     """
-    return path.startswith("/")
+    return ntpath.isabs(path)
 
 
 def resolve_browse_target(
@@ -392,6 +407,15 @@ class CallerProcessFilesystem:
         else:
             self._roots = reachable_roots(self._root, policy)
             self._unconfined = is_unconfined(policy)
+
+    def _python_script_command(self, script: str) -> str:
+        """Build a Python command in the helper's native shell syntax."""
+        shell_path = getattr(self._os_env, "shell_path", "")
+        executable = _shell_quote_for(shell_path, sys.executable)
+        script_arg = _shell_quote_for(shell_path, script)
+        shell_name = Path(shell_path).name.lower()
+        invoke = "& " if shell_name in ("powershell.exe", "powershell", "pwsh.exe", "pwsh") else ""
+        return f"{invoke}{executable} -c {script_arg}"
 
     @property
     def reach(self) -> tuple[list[ReachableRoot], bool]:
@@ -580,7 +604,7 @@ class CallerProcessFilesystem:
         )
         result = await _run_os_env_async(
             self._os_env.shell,
-            f"python3 -c {_shell_quote(_script)}",
+            self._python_script_command(_script),
         )
         if "error" in result:
             raise FilesystemPathNotFound(f"Directory {path!r} not found or not accessible")
@@ -735,7 +759,7 @@ class CallerProcessFilesystem:
         )
         result = await _run_os_env_async(
             self._os_env.shell,
-            f"python3 -c {_shell_quote(_script)}",
+            self._python_script_command(_script),
         )
         if "error" in result:
             raise FilesystemPathNotFound(f"Root directory not accessible: {result['error']}")
@@ -940,7 +964,7 @@ class CallerProcessFilesystem:
         )
         result = await _run_os_env_async(
             self._os_env.shell,
-            f"python3 -c {_shell_quote(_script)}",
+            self._python_script_command(_script),
         )
         if "error" in result or result.get("exit_code", 1) != 0:
             raise FilesystemPathNotFound(f"Path {path!r} not found")
@@ -1062,7 +1086,7 @@ class CallerProcessFilesystem:
         )
         result = await _run_os_env_async(
             self._os_env.shell,
-            f"python3 -c {_shell_quote(_script)}",
+            self._python_script_command(_script),
         )
         if "error" in result or result.get("exit_code", 1) != 0:
             raise FilesystemPathNotFound(f"Path {validated!r} not found")
@@ -1094,7 +1118,7 @@ class CallerProcessFilesystem:
         )
         check = await _run_os_env_async(
             self._os_env.shell,
-            f"python3 -c {_shell_quote(_script)}",
+            self._python_script_command(_script),
         )
         count = int(check.get("stdout", "0").strip() or "0")
         return count > 0

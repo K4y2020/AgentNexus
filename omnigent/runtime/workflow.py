@@ -25,6 +25,10 @@ if TYPE_CHECKING:
     # import annotations`` is in effect).
     from omnigent.inner.datamodel import OSEnvSpec
 
+from omnigent.claude_api_key_helper import (
+    CLAUDE_API_KEY_HELPER_TOKEN_ENV,
+    claude_api_key_helper_command,
+)
 from omnigent.cli_invocation import cli_invocation
 from omnigent.entities import (
     NON_CONTENT_ITEM_TYPES,
@@ -748,7 +752,14 @@ def _apply_provider_family(
     env[cfg.base_url_key] = family.base_url
     env[cfg.host_key] = _origin_of(family.base_url)
     if cfg.auth_key is not None:
-        env[cfg.auth_key] = _provider_auth_command(family)
+        if harness_type == "claude-sdk" and family.api_key is not None:
+            # Claude invokes apiKeyHelper via the platform shell. Keep the
+            # secret in the child environment and use a Python helper command
+            # so Windows never tries to execute POSIX ``printf``.
+            env[cfg.auth_key] = claude_api_key_helper_command()
+            env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] = family.api_key
+        else:
+            env[cfg.auth_key] = _provider_auth_command(family)
     # Model precedence: spec model (already in env via _resolve_spec_model) >
     # provider ``models.default`` > catalog family default > fail loud.
     if cfg.model_key not in env and family.default_model:
@@ -1208,7 +1219,8 @@ def _build_claude_sdk_spawn_env(
         if auth_from_spec is None:
             auth_from_spec = _load_global_auth()
         if isinstance(auth_from_spec, ApiKeyAuth) and auth_from_spec.api_key:
-            _key_cmd = f"printf %s {shlex.quote(auth_from_spec.api_key)}"
+            _key_cmd = claude_api_key_helper_command()
+            env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] = auth_from_spec.api_key
             env["HARNESS_CLAUDE_SDK_API_KEY_HELPER"] = _key_cmd
             if auth_from_spec.base_url:
                 env["HARNESS_CLAUDE_SDK_GATEWAY_BASE_URL"] = auth_from_spec.base_url
@@ -1522,9 +1534,13 @@ def _build_acp_cli_spawn_env(
     shared ``omnigent/inner/acp_harness.py`` wrap; this maps a row + spec to
     the ``HARNESS_ACP_*`` vars it reads. Like goose/acp, a vendor ACP CLI owns
     its own auth and model, so no provider/gateway credential and no model var
-    is wired. The binary resolves via the ``OMNIGENT_<NAME>_PATH`` env
-    override, then the config ``harness.<name>.command`` path, then PATH plus
-    the common global install dirs.
+    is wired — except that a row declaring ``model_arg`` accepts a spec-pinned
+    model (``model:`` / ``--model``) on its launch argv; gateway ids
+    (``databricks-*``) are not valid vendor model ids and are dropped, like the
+    user-configured acp builder. The binary resolves via the
+    ``OMNIGENT_<NAME>_PATH`` env override, then the config
+    ``harness.<name>.command`` path, then PATH plus the common global install
+    dirs.
 
     :param spec: The agent spec.
     :param harness: The catalog row key, e.g. ``"grok"``.
@@ -1546,8 +1562,16 @@ def _build_acp_cli_spawn_env(
         or resolve_cli_binary(row.binary)
         or row.binary
     )
+    argv = [executable, *row.args]
+    # A row defaults to its vendor account model. A row that declares a model
+    # flag (e.g. codebuddy's ``--model``) pins the spec model on the launch
+    # argv instead; databricks gateway ids are not valid vendor model ids, so
+    # they are dropped (same rule as the user-configured acp builder).
+    model = _resolve_spec_model(spec)
+    if row.model_arg and model and not model.startswith(("databricks-", "databricks/")):
+        argv += [row.model_arg, model]
     env = {
-        "HARNESS_ACP_COMMAND": shlex.join([executable, *row.args]),
+        "HARNESS_ACP_COMMAND": shlex.join(argv),
         "HARNESS_ACP_NAME": row.label,
     }
     # Session workspace (selected working folder). ``None`` lets the wrap fall

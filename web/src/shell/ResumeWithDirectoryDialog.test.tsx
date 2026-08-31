@@ -23,7 +23,9 @@ vi.mock("./WorkspacePathField", () => ({
 }));
 vi.mock("./WorkspacePicker", () => ({
   WorkspacePicker: () => <div data-testid="mock-workspace-picker" />,
+  isAbsoluteHostPath: (path: string) => /^([A-Za-z]:[\\/]|\/)/.test(path.trim()),
   isNavigablePath: () => false,
+  normalizePathSeparators: (path: string) => path.replace(/\\/g, "/"),
 }));
 vi.mock("@/hooks/useHosts", () => ({ useHosts: vi.fn() }));
 vi.mock("@/hooks/useDirectorySessions", () => ({ useDirectorySessions: vi.fn() }));
@@ -305,6 +307,30 @@ describe("ResumeWithDirectoryDialog (host-less session)", () => {
     // No source means no mismatch/CLI-fallback machinery.
     expect(screen.queryByTestId("resume-dir-mismatch-warning")).toBeNull();
     expect(screen.queryByTestId("resume-dir-cli-fallback")).toBeNull();
+  });
+
+  it("enables resume for a Windows drive workspace", async () => {
+    useHostsMock.mockReturnValue({
+      data: [{ host_id: "host_windows", name: "desktop", owner: "me", status: "online" }],
+    } as unknown as ReturnType<typeof useHosts>);
+
+    renderHostless({
+      hostId: "host_windows",
+      workspace: "U:\\AI\\seedance-v3\\.claude\\worktrees\\great-almeida-81019b",
+    });
+
+    const bindBtn = await screen.findByTestId("resume-dir-bind-button");
+    await waitFor(() => expect((bindBtn as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(bindBtn);
+
+    await waitFor(() =>
+      expect(launchRunnerMock).toHaveBeenCalledWith(
+        "host_windows",
+        "conv_imported",
+        "U:/AI/seedance-v3/.claude/worktrees/great-almeida-81019b",
+        undefined,
+      ),
+    );
   });
 
   it("defaults the host to the caller's current online machine when the recorded host is gone", async () => {

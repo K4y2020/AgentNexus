@@ -1745,7 +1745,7 @@ def _databricks_codex_config_overrides(
     :returns: Codex TOML-fragment override strings.
     """
     provider_name = "omnigent_databricks"
-    auth_command_json = json.dumps(auth_command)
+    auth_executable, auth_args = _codex_auth_command_argv(auth_command)
     return [
         f"model={json.dumps(model)}",
         f'model_provider="{provider_name}"',
@@ -1754,8 +1754,8 @@ def _databricks_codex_config_overrides(
             "model_providers.omnigent_databricks="
             '{name="Omnigent Databricks",'
             f"base_url={json.dumps(base_url)},"
-            'auth={command="sh",'
-            f'args=["-c",{auth_command_json}],'
+            f"auth={{command={json.dumps(auth_executable)},"
+            f"args={json.dumps(auth_args)},"
             "timeout_ms=5000,"
             f"refresh_interval_ms={auth_refresh_interval_ms or _GATEWAY_AUTH_REFRESH_MS}"
             "},"
@@ -1796,7 +1796,7 @@ def _provider_codex_config_overrides(
     :returns: Codex TOML-fragment override strings.
     """
     provider_name = "omnigent_provider"
-    auth_command_json = json.dumps(auth_command)
+    auth_executable, auth_args = _codex_auth_command_argv(auth_command)
     # codex >= 0.137 removed the chat/completions wire from its config schema:
     # any provider block carrying wire_api="chat" makes codex hard-fail config
     # load ("wire_api = \"chat\" is no longer supported"), which broke OSS /
@@ -1815,14 +1815,43 @@ def _provider_codex_config_overrides(
         f"model_providers.{provider_name}="
         '{name="Omnigent Provider",'
         f"base_url={json.dumps(base_url)},"
-        'auth={command="sh",'
-        f'args=["-c",{auth_command_json}],'
+        f"auth={{command={json.dumps(auth_executable)},"
+        f"args={json.dumps(auth_args)},"
         "timeout_ms=5000,"
         f"refresh_interval_ms={_GATEWAY_AUTH_REFRESH_MS}"
         "},"
         f'wire_api="{effective_wire_api}"}}'
     )
     return overrides
+
+
+def _codex_auth_command_argv(auth_command: str) -> tuple[str, list[str]]:
+    """Return a cross-platform Codex provider auth command.
+
+    Static provider keys arrive as ``printf %s <shell-quoted-token>``.  On
+    Windows, run those through this Python interpreter directly because
+    neither ``sh`` nor ``printf`` is available by default. Dynamic credential
+    helpers use PowerShell on Windows; POSIX keeps the existing ``sh`` path.
+
+    :param auth_command: Command that prints a bearer token to stdout.
+    :returns: Executable and argument vector for Codex's provider ``auth``
+        block.
+    """
+    try:
+        parts = shlex.split(auth_command)
+    except ValueError:
+        parts = []
+    if os.name == "nt" and len(parts) == 3 and parts[:2] == ["printf", "%s"]:
+        return (
+            sys.executable,
+            ["-c", "import sys; sys.stdout.write(sys.argv[1])", parts[2]],
+        )
+    if os.name == "nt":
+        return (
+            "powershell.exe",
+            ["-NoProfile", "-NonInteractive", "-Command", auth_command],
+        )
+    return "sh", ["-c", auth_command]
 
 
 def _parse_optional_int(value: str | None) -> int | None:

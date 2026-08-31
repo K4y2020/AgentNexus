@@ -1189,6 +1189,13 @@ def harness_catalog() -> list[dict[str, object]]:
         capability = capabilities.get(harness)
         if capability is not None:
             row["capabilities"] = capability.as_dict()
+        # A builtin ACP row whose launch argv takes a model flag advertises it,
+        # so a client can offer model pinning for exactly the rows that accept
+        # one (see AcpCliHarness.model_arg). Native harnesses pin models via
+        # their own model-options pipeline and don't set this.
+        acp_cli_row = ACP_CLI_HARNESSES.get(harness)
+        if acp_cli_row is not None and acp_cli_row.model_arg is not None:
+            row["model_arg"] = acp_cli_row.model_arg
         if ui_setup_steps is not None:
             row["setup_steps"] = [step.as_dict() for step in ui_setup_steps(harness)]
         rows.append(row)

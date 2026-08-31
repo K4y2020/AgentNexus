@@ -4,6 +4,7 @@ import asyncio
 import base64
 import contextlib
 import json
+import os
 import stat
 import tempfile
 import unittest
@@ -152,7 +153,8 @@ class TestCodexExecutor(unittest.TestCase):
         self.assertIn("model_supports_reasoning_summaries=true", overrides)
         self.assertTrue(any("/ai-gateway/codex/v1" in item for item in overrides))
         self.assertFalse(any("/serving-endpoints" in item for item in overrides))
-        self.assertTrue(any('auth={command="sh"' in item for item in overrides))
+        expected_command = "powershell.exe" if os.name == "nt" else "sh"
+        self.assertTrue(any(f'auth={{command="{expected_command}"' in item for item in overrides))
         self.assertTrue(any("databricks auth token --host" in item for item in overrides))
         self.assertTrue(any("refresh_interval_ms=900000" in item for item in overrides))
         self.assertFalse(any('env_key="DATABRICKS_TOKEN"' in item for item in overrides))
@@ -180,7 +182,12 @@ class TestCodexExecutor(unittest.TestCase):
         self.assertEqual(parsed["model"], payload)
         # The injected auth command did not survive — the legit one did.
         provider = parsed["model_providers"]["omnigent_databricks"]
-        self.assertEqual(provider["auth"]["args"], ["-c", real_auth])
+        expected_args = (
+            ["-NoProfile", "-NonInteractive", "-Command", real_auth]
+            if os.name == "nt"
+            else ["-c", real_auth]
+        )
+        self.assertEqual(provider["auth"]["args"], expected_args)
 
     def test_constructor_databricks_flag_with_profile(self):
         with (

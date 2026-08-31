@@ -6,9 +6,12 @@ import asyncio
 import base64
 import os
 import shutil
+import sys
+import time
 import tracemalloc
 from pathlib import Path
 
+import psutil
 import pytest
 
 from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
@@ -146,6 +149,43 @@ def test_shell_impl_timeout_includes_exit_code(tmp_path: Path) -> None:
     assert result["exit_code"] is None
     assert result["timed_out"] is True
     assert result["error"] == "Command timed out after 1 seconds"
+
+
+def test_shell_impl_does_not_wait_for_detached_child_pipe(tmp_path: Path) -> None:
+    """A background descendant cannot keep a completed shell call open."""
+    pid_file = tmp_path / "child.pid"
+    child_code = "import time; time.sleep(5)"
+    parent_code = (
+        "import subprocess, sys; "
+        f"p=subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        f"open({str(pid_file)!r}, 'w').write(str(p.pid)); "
+        "print('launched', flush=True)"
+    )
+
+    started = time.monotonic()
+    try:
+        result = _shell_impl(
+            command=parent_code,
+            timeout=1,
+            shell_path=sys.executable,
+            cwd=tmp_path,
+        )
+        elapsed = time.monotonic() - started
+
+        assert elapsed < 2.0
+        assert result["timed_out"] is False
+        assert result["exit_code"] == 0
+        assert result["stdout"].strip() == "launched"
+        assert pid_file.exists()
+        assert psutil.pid_exists(int(pid_file.read_text()))
+    finally:
+        if pid_file.exists():
+            try:
+                child = psutil.Process(int(pid_file.read_text()))
+                child.kill()
+                child.wait(timeout=2)
+            except psutil.NoSuchProcess:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -394,10 +434,34 @@ def test_shell_command_does_not_see_omnigent_project_root(
     )
     assert os_env is not None
     try:
-        result = asyncio.run(os_env.shell("echo PP=$PYTHONPATH"))
+        command = (
+            'Write-Output ("PP=" + $env:PYTHONPATH)' if os.name == "nt" else "echo PP=$PYTHONPATH"
+        )
+        result = asyncio.run(os_env.shell(command))
     finally:
         os_env.close()
 
     out = result.get("stdout", "")
     assert project_entry in out
     assert str(_project_root()) not in out
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows config-file transport regression")
+def test_inactive_helper_reads_file_on_windows(tmp_path: Path) -> None:
+    """An unsandboxed Windows helper still creates its config transport dir."""
+    target = tmp_path / "hello.txt"
+    target.write_text("WINDOWS_HELPER_OK", encoding="utf-8")
+    os_env = create_os_environment(
+        OSEnvSpec(
+            type="caller_process",
+            cwd=str(tmp_path),
+            sandbox=OSEnvSandboxSpec(type="none"),
+        )
+    )
+    assert os_env is not None
+    try:
+        result = asyncio.run(os_env.read("hello.txt"))
+    finally:
+        os_env.close()
+
+    assert result.get("content") == "WINDOWS_HELPER_OK"

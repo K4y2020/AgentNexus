@@ -53,6 +53,7 @@ def _spec(
     os_env: OSEnvSpec | None = None,
     *,
     permission_mode: str | None = None,
+    model: str | None = None,
 ) -> AgentSpec:
     config: dict[str, object] = {"harness": harness}
     if permission_mode is not None:
@@ -61,7 +62,7 @@ def _spec(
         spec_version=1,
         name=f"test-{harness}",
         instructions="Test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config),
+        executor=ExecutorSpec(type="omnigent", config=config, model=model),
         os_env=os_env,
     )
 
@@ -185,6 +186,12 @@ def test_catalog_row_is_fully_registered(name: str) -> None:
     # user who hasn't installed the CLI. Without one the row would say "Not
     # installed" with no way to fix it.
     assert row.install.install_hint or row.install.package
+    # The /v1/harnesses catalog advertises model_arg exactly for rows whose
+    # launch argv pins a model — the client's signal to offer model pinning.
+    from omnigent.harness_plugins import harness_catalog
+
+    payload = {r["id"]: r for r in harness_catalog()}
+    assert payload[name].get("model_arg") == row.model_arg
 
 
 @pytest.mark.parametrize("name", sorted(ACP_CLI_HARNESSES))
@@ -266,3 +273,58 @@ def test_spawn_env_forwards_permission_mode(monkeypatch: pytest.MonkeyPatch) -> 
     assert "HARNESS_ACP_PERMISSION_MODE" not in _build_acp_cli_spawn_env(
         _spec("fakecli"), harness="fakecli"
     )
+
+
+@pytest.mark.parametrize(
+    ("harness", "expected_argv_tail"),
+    [
+        ("codebuddy", ["--model", "glm-5.3"]),
+        # devin/grok run their account-default model: no flag may sprout.
+        ("devin", []),
+        ("grok", []),
+    ],
+)
+def test_spawn_env_pins_spec_model_only_for_rows_with_model_arg(
+    monkeypatch: pytest.MonkeyPatch, harness: str, expected_argv_tail: list[str]
+) -> None:
+    """
+    A spec model reaches the launch argv only when the row declares ``model_arg``.
+
+    CodeBuddy's argv takes ``--model <id>`` (vendor-curated ids), so the
+    spec's ``model:`` / ``--model`` must land on the launch command. Devin and
+    Grok Build run their account-default model — silently appending a flag
+    their binary would reject (or ignore) is the failure mode the row opt-in
+    exists to prevent.
+    """
+    monkeypatch.setattr(
+        "omnigent._platform.resolve_cli_binary", lambda _b, **k: f"/usr/bin/{_b}"
+    )
+    env = _build_acp_cli_spawn_env(_spec(harness, model="glm-5.3"), harness=harness)
+    argv = shlex.split(env["HARNESS_ACP_COMMAND"])
+    if expected_argv_tail:
+        assert argv[-len(expected_argv_tail) :] == expected_argv_tail
+        # The ACP server args must still be present alongside the model flag.
+        assert set(ACP_CLI_HARNESSES[harness].args) <= set(argv)
+    else:
+        assert "--model" not in argv
+
+
+def test_spawn_env_drops_gateway_model_for_model_arg_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A databricks gateway id is not a valid vendor model id — drop it."""
+    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
+    env = _build_acp_cli_spawn_env(
+        _spec("codebuddy", model="databricks-claude-opus-4-8"), harness="codebuddy"
+    )
+    argv = shlex.split(env["HARNESS_ACP_COMMAND"])
+    assert argv == ["/usr/bin/cb", "--acp"]
+
+
+def test_spawn_env_omits_model_flag_when_spec_has_no_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No spec model -> the row runs its account-default model, argv untouched."""
+    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
+    env = _build_acp_cli_spawn_env(_spec("codebuddy"), harness="codebuddy")
+    assert shlex.split(env["HARNESS_ACP_COMMAND"]) == ["/usr/bin/cb", "--acp"]

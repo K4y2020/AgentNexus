@@ -34,6 +34,8 @@ from omnigent.host.frames import (
     HostCreateDirResultFrame,
     HostDetectCredentialsFrame,
     HostDetectCredentialsResultFrame,
+    HostFsRequestFrame,
+    HostFsResultFrame,
     HostHarnessReadinessFrame,
     HostHelloFrame,
     HostImportLocalFrame,
@@ -3990,6 +3992,76 @@ async def test_handle_model_options_serves_claude_sdk_endpoint_listing(
     _cleanup_host(host)
 
 
+async def test_handle_fs_request_reads_an_absolute_file_target(tmp_path: Path) -> None:
+    """Offline host fallback can root an authorized browse at a file."""
+    target = tmp_path / "CLEANUP.md"
+    target.write_text("# cleanup\nready\n", encoding="utf-8")
+    host = _make_host_process()
+
+    result = host._handle_fs_request(
+        HostFsRequestFrame(
+            request_id="req_file_root",
+            op="list_or_read",
+            workspace=str(target),
+            session_id="conv_file_root",
+            params={"path": ""},
+        )
+    )
+
+    assert isinstance(result, HostFsResultFrame)
+    assert result.status == "ok"
+    assert result.payload is not None
+    assert result.payload["object"] == "session.environment.filesystem.file_content"
+    assert str(result.payload["content"]).splitlines() == ["# cleanup", "ready"]
+    _cleanup_host(host)
+
+
+async def test_handle_model_options_serves_exact_codex_gateway_listing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The wrapped Codex partner sees the gateway's complete ordered catalog."""
+    from omnigent.model_catalog import ModelEntry, ModelListing
+
+    def _fake_listing(spec: object, harness: str) -> ModelListing:
+        assert harness == "codex"
+        return ModelListing(
+            source="openai-compatible",
+            verified=True,
+            models=(
+                ModelEntry(id="gpt-5.6-sol", family="openai"),
+                ModelEntry(id="gemini-3.7-flash", family="other"),
+                ModelEntry(id="image-generation-model", family="other"),
+            ),
+            note="test gateway catalog",
+        )
+
+    monkeypatch.setattr(
+        "omnigent.model_catalog.list_provider_models_for_worker",
+        _fake_listing,
+    )
+    host = _make_host_process()
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_codex_gateway", harness="codex"),
+    )
+
+    assert result == HostModelOptionsResultFrame(
+        request_id="req_codex_gateway",
+        status="ok",
+        models=[
+            {"id": "gpt-5.6-sol", "displayName": "gpt-5.6-sol"},
+            {"id": "gemini-3.7-flash", "displayName": "gemini-3.7-flash"},
+            {"id": "image-generation-model", "displayName": "image-generation-model"},
+        ],
+        routable_models=[
+            "gpt-5.6-sol",
+            "gemini-3.7-flash",
+            "image-generation-model",
+        ],
+    )
+    _cleanup_host(host)
+
+
 async def test_handle_model_options_claude_sdk_rides_the_probe_when_endpoints_list_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -4031,6 +4103,57 @@ async def test_handle_model_options_claude_sdk_rides_the_probe_when_endpoints_li
         status="ok",
         models=[{"id": "sonnet", "model": "claude-sonnet-5", "displayName": "Sonnet 5"}],
         routable_models=[],
+    )
+    _cleanup_host(host)
+
+
+async def test_handle_model_options_claude_sdk_uses_configured_routable_aliases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mapping proxies can hide valid Claude input aliases from /v1/models."""
+    from omnigent.host.connect import ModelOptionsResult
+    from omnigent.model_catalog import ModelListing
+
+    monkeypatch.setattr(
+        "omnigent.model_catalog.list_models_for_worker",
+        lambda _spec, harness: ModelListing(
+            source="openai-compatible",
+            verified=True,
+            models=(),
+            note=f"no {harness} ids reported by mapping proxy",
+        ),
+    )
+    host = _make_host_process()
+
+    async def _configured_aliases() -> ModelOptionsResult:
+        return ModelOptionsResult(
+            models=[],
+            routable_models=[
+                "claude-opus-4-8",
+                "claude-sonnet-4-6",
+                "claude-haiku-4-5",
+            ],
+        )
+
+    monkeypatch.setattr(host, "_probed_claude_model_options", _configured_aliases)
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_sdk_aliases", harness="claude-sdk"),
+    )
+
+    assert result == HostModelOptionsResultFrame(
+        request_id="req_sdk_aliases",
+        status="ok",
+        models=[
+            {"id": "claude-opus-4-8", "displayName": "claude-opus-4-8"},
+            {"id": "claude-sonnet-4-6", "displayName": "claude-sonnet-4-6"},
+            {"id": "claude-haiku-4-5", "displayName": "claude-haiku-4-5"},
+        ],
+        routable_models=[
+            "claude-opus-4-8",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5",
+        ],
     )
     _cleanup_host(host)
 
