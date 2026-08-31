@@ -105,7 +105,7 @@ def test_spawn_env_forwards_cwd_sandbox_and_quotes_command(
         "stdio",
     ]
     assert env["HARNESS_ACP_NAME"] == "Fake CLI"
-    assert env["HARNESS_ACP_CWD"] == "/work/space"
+    assert env["HARNESS_ACP_CWD"] == str(Path("/work/space"))
     assert json.loads(env["HARNESS_ACP_OS_ENV"]) == dataclasses.asdict(os_env)
     # Rows own their model selection: no model var may ride along.
     assert "HARNESS_ACP_MODEL" not in env

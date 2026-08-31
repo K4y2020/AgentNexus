@@ -65,7 +65,7 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Codex",
     iconKind: "codex",
     sortRank: 20,
-    capabilities: ["permissionMode", "approvalMode"],
+    capabilities: ["approvalMode"],
     fullySupported: true,
   },
   {
@@ -96,7 +96,7 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Cursor",
     iconKind: "cursor",
     sortRank: 30,
-    capabilities: ["permissionMode", "cursorMode"],
+    capabilities: ["cursorMode"],
   },
   {
     key: "pi",
@@ -106,7 +106,7 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Pi",
     iconKind: "pi",
     sortRank: 40,
-    capabilities: ["permissionMode", "modelPicker"],
+    capabilities: ["modelPicker"],
   },
   {
     key: "kiro",
@@ -116,7 +116,6 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Kiro",
     iconKind: "kiro",
     sortRank: 50,
-    capabilities: ["permissionMode"],
   },
   {
     // Antigravity's native CLI (Gemini-family). Mirrors the server's
@@ -135,7 +134,7 @@ export const NATIVE_CODING_AGENTS = [
     // agy's only pre-emptive control is the all-or-nothing
     // `--dangerously-skip-permissions`, so it gets a two-value toggle rather
     // than Claude's graded permissionMode selector.
-    capabilities: ["permissionMode", "skipPermissions"],
+    capabilities: ["skipPermissions"],
   },
   {
     key: "goose",
@@ -145,7 +144,6 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Goose",
     iconKind: "goose",
     sortRank: 60,
-    capabilities: ["permissionMode"],
   },
   {
     // qwen has no brand glyph yet, so it falls back to the generic bot icon
@@ -159,7 +157,6 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Qwen Code",
     iconKind: "qwen",
     sortRank: 60,
-    capabilities: ["permissionMode"],
   },
   {
     key: "kimi",
@@ -169,7 +166,6 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Kimi",
     iconKind: "kimi",
     sortRank: 70,
-    capabilities: ["permissionMode"],
   },
   {
     // hermes has no brand glyph yet, so it falls back to the generic bot icon
@@ -183,7 +179,6 @@ export const NATIVE_CODING_AGENTS = [
     displayName: "Hermes",
     iconKind: "hermes",
     sortRank: 80,
-    capabilities: ["permissionMode"],
   },
 ] as const satisfies readonly NativeCodingAgentSpec[];
 

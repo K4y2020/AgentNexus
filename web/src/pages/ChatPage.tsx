@@ -6458,8 +6458,8 @@ function SessionConfigModal({
               </p>
             </>
           )}
-          {/* Render permissions mode selector for all sessions */}
-          {showClaudePermissionMode && (
+          {/* Render permissions mode selector when mode is known */}
+          {showClaudePermissionMode && claudePermissionMode !== "" && (
             <ConfigRow label="Permissions" description="How much the agent asks before acting">
               <Select
                 value={draftPermissionMode || "default"}
@@ -6657,19 +6657,21 @@ function ComposerConfigGear({
           )}
         </Tooltip>
       </TooltipProvider>
-      <SessionConfigModal
-        open={open}
-        onOpenChange={setOpen}
-        harnessLabel={harnessLabel}
-        showModels={showModels}
-        showEffort={showEffort}
-        showClaudePermissionMode={showClaudePermissionMode}
-        effortLevels={effortLevels}
-        modelPickerKind={modelPickerKind}
-        codexModelOptions={codexModelOptions}
-        costRoutingEligible={costRoutingEligible}
-        subagentRoutingEligible={subagentRoutingEligible}
-      />
+      {open && (
+        <SessionConfigModal
+          open={open}
+          onOpenChange={setOpen}
+          harnessLabel={harnessLabel}
+          showModels={showModels}
+          showEffort={showEffort}
+          showClaudePermissionMode={showClaudePermissionMode}
+          effortLevels={effortLevels}
+          modelPickerKind={modelPickerKind}
+          codexModelOptions={codexModelOptions}
+          costRoutingEligible={costRoutingEligible}
+          subagentRoutingEligible={subagentRoutingEligible}
+        />
+      )}
     </>
   );
 }

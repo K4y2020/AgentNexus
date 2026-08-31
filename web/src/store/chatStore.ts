@@ -2977,7 +2977,7 @@ function sessionBindingPatch(
     codexPlanMode: codexPlanModeFromSession(session),
     claudePermissionMode: isNativeTerminalSessionFn(session)
       ? (claudePermissionModeFromSession(session) ?? "")
-      : "",
+      : (claudePermissionModeFromSession(session) ?? "default"),
     contextWindow: session.contextWindow ?? null,
     gitBranch: session.gitBranch ?? null,
     skills: session.skills ?? [],
