@@ -1375,7 +1375,7 @@ def create_app(
             # inside shutdown_all().
             await _mcp_pool.shutdown_all()
 
-    app = FastAPI(title="Omnigent Server", lifespan=_lifespan)
+    app = FastAPI(title="AgentNexus Server", lifespan=_lifespan)
     from omnigent.runtime import telemetry
 
     telemetry.instrument_fastapi_app(app)

@@ -12,7 +12,7 @@ export function PoweredByOmnigent() {
     >
       <span>Powered by</span>
       <OttoEyes className="h-3.5 w-auto opacity-60 transition-opacity duration-300 ease-out group-hover:opacity-100" />
-      <span>Omnigent</span>
+      <span>AgentNexus</span>
     </div>
   );
 }

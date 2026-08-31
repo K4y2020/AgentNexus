@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "omnigent"
 # Keep in sync with omnigent/version.py's VERSION constant.
 version = "0.12.0.dev0"
-description = "Omnigent: declarative agent authoring and runtime framework"
+description = "AgentNexus: declarative agent authoring and runtime framework"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
@@ -372,12 +372,10 @@ dev = [
 ]
 
 [project.scripts]
-# Unified entry point. `omnigent` is the click-based CLI that absorbs
-# the legacy argparse commands from `omnigent/inner/cli.py` plus the
-# omnigent `ap` subcommands. See designs/UNIFICATION.md § CLI
-# absorption. `omni` is installed as a short alias — both resolve to
-# the same entry point. (No former-name aliases: only `omnigent` and
-# `omni` ship, internal and OSS alike.)
+# Unified entry point. `agentnexus` / `nexus` are primary CLI entry points,
+# with `omnigent` / `omni` maintained as backward-compatible aliases.
+agentnexus = "omnigent.cli:main"
+nexus = "omnigent.cli:main"
 omnigent = "omnigent.cli:main"
 omni = "omnigent.cli:main"
 
