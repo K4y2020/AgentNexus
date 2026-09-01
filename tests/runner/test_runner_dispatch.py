@@ -2222,7 +2222,9 @@ async def test_runner_os_env_tools_use_agent_spec_cwd() -> None:
         )
         shell_result = json.loads(shell)
         assert shell_result["exit_code"] == 0
-        assert Path(shell_result["stdout"].strip()).resolve() == root.resolve()
+        # POSIX `pwd` prints the cwd as a single line while Windows PowerShell
+        # prints a table with the path on its last line; both embed the path.
+        assert str(root.resolve()).replace("\\", "/") in shell_result["stdout"].replace("\\", "/")
 
 
 @pytest.mark.asyncio
