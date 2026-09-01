@@ -1539,7 +1539,11 @@ def create_app(
     # scheduled-task store additionally enables the event-driven
     # run-completion hook (persist_scheduled_run_completion) fired from
     # _publish_status when a fired conversation's turn reaches terminal.
-    session_live_state.configure(conversation_store, scheduled_task_store)
+    session_live_state.configure(
+        conversation_store,
+        scheduled_task_store,
+        resolved_coordination_store,
+    )
     pending_elicitations.set_count_persist_hook(session_live_state.persist_pending_count)
 
     @app.middleware("http")

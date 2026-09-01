@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -3736,6 +3737,123 @@ async def test_publish_status_keeps_failed_sticky_against_trailing_idle(
     assert [event["status"] for event in published] == ["failed", "running", "idle"]
     # The final idle (after running) is honored, so the cache is current.
     assert cache_after == "idle"
+
+
+def _wait_for_a2a(predicate, timeout_s: float = 10.0) -> None:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.005)
+
+
+class _TerminalConversationStore:
+    def __init__(self) -> None:
+        self.status_writes: list[tuple[str, str]] = []
+        self.pending_writes: list[tuple[str, int]] = []
+
+    def set_session_live_status(self, conversation_id: str, status: str) -> None:
+        self.status_writes.append((conversation_id, status))
+
+    def set_pending_elicitation_count(self, conversation_id: str, count: int) -> None:
+        self.pending_writes.append((conversation_id, count))
+
+
+class _FakeCoordinationStore:
+    def __init__(self) -> None:
+        self.messages: dict[str, dict[str, Any]] = {}
+        self.events: list[dict[str, Any]] = []
+        self.receipts: list[tuple[str, str, dict[str, Any] | None]] = []
+
+    def save_message_and_outbox(self, message: Any) -> tuple[Any, Any]:
+        self.messages[message.message_id] = message.to_dict()
+        return message, message
+
+    def update_message_state(self, message_id: str, state: str) -> None:
+        self.messages[message_id]["message_state"] = state
+
+    def list_active_unconsumed_for_recipient(
+        self, recipient_session_id: str
+    ) -> list[Any]:
+        return [
+            type("Message", (), row)()
+            for row in self.messages.values()
+            if row["recipient_session_id"] == recipient_session_id
+            and row["message_state"] == "active"
+            and row["consumption_state"] == "unconsumed"
+        ]
+
+    def record_consumption_receipt(
+        self,
+        message_id: str,
+        state: str,
+        receipt: dict[str, Any] | None = None,
+    ) -> Any:
+        self.receipts.append((message_id, state, receipt))
+        row = self.messages[message_id]
+        row["consumption_state"] = state
+        row["consumption_receipt"] = receipt
+        return type("Message", (), row)()
+
+    def record_event(self, event: Any) -> Any:
+        self.events.append(event.to_dict())
+        return event
+
+
+async def test_terminal_idle_persists_a2a_consumption_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A real terminal ``idle`` marks delivered A2A messages consumed.
+
+    This is the P2 control-plane receipt: once the recipient's turn ends
+    without failure, every active/unconsumed message addressed to it gets a
+    ``turn_completed`` receipt and a ``message.consumed`` timeline event.
+    A failed turn must NOT auto-consume (the recipient may never have seen
+    the queued message), and a queued/undelivered message must not either.
+    """
+    from omnigent.coordination.types import AgentMessage
+    from omnigent.server import session_live_state
+    from omnigent.server.routes import sessions as sessions_module
+
+    coordination = _FakeCoordinationStore()
+    conversation = _TerminalConversationStore()
+    sid = "conv_coder_a2a_receipt"
+    msg = AgentMessage(
+        root_session_id="conv_root_a2a",
+        sender_session_id="conv_planner",
+        recipient_session_id=sid,
+        intent="task.request",
+        payload={"prompt": "review the diff"},
+    )
+    coordination.save_message_and_outbox(msg)
+    coordination.update_message_state(msg.message_id, "active")
+    session_live_state.configure(conversation, None, coordination)  # type: ignore[arg-type]
+    sessions_module._session_status_cache.pop(sid, None)
+    try:
+        sessions_module._publish_status(sid, "idle", response_id="resp_turn_7")
+        _wait_for_a2a(
+            lambda: len(coordination.receipts) == 1
+            and len(coordination.events) == 1
+            and bool(conversation.status_writes)
+        )
+    finally:
+        session_live_state.configure(None)
+        sessions_module._session_status_cache.pop(sid, None)
+
+    assert coordination.receipts == [
+        (
+            msg.message_id,
+            "consumed",
+            {
+                "source": "turn_completed",
+                "mode": "terminal_idle",
+                "response_id": "resp_turn_7",
+            },
+        )
+    ]
+    assert coordination.messages[msg.message_id]["consumption_state"] == "consumed"
+    assert coordination.events[0]["event_type"] == "message.consumed"
+    assert conversation.status_writes == [(sid, "idle")]
 
 
 async def test_publish_status_tracks_in_flight_response_id(

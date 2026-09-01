@@ -592,6 +592,48 @@ def test_coordination_message_consumption_receipt_store(
     }
 
 
+def test_list_active_unconsumed_for_recipient_filters(
+    memory_store: CoordinationStore,
+) -> None:
+    def _message(message_id: str, recipient: str) -> AgentMessage:
+        return AgentMessage(
+            message_id=message_id,
+            root_session_id="conv_root_unconsumed",
+            sender_session_id="conv_planner",
+            recipient_session_id=recipient,
+            intent="task.request",
+            payload={"prompt": f"msg {message_id}"},
+        )
+
+    # Delivered but still unconsumed → the receipt cursor must return it.
+    pending = _message("msg_pending", "conv_coder")
+    memory_store.save_message_and_outbox(pending)
+    memory_store.update_message_state(pending.message_id, "active")
+    # Delivered and already consumed → must be excluded.
+    consumed = _message("msg_consumed", "conv_coder")
+    memory_store.save_message_and_outbox(consumed)
+    memory_store.update_message_state(consumed.message_id, "active")
+    memory_store.record_consumption_receipt(
+        consumed.message_id, "consumed", {"source": "turn_completed"}
+    )
+    # Queued but not yet delivered → must be excluded.
+    queued = _message("msg_queued", "conv_coder")
+    memory_store.save_message_and_outbox(queued)
+    # Addressed to another recipient → must be excluded.
+    other = _message("msg_other", "conv_reviewer")
+    memory_store.save_message_and_outbox(other)
+    memory_store.update_message_state(other.message_id, "active")
+
+    got = memory_store.list_active_unconsumed_for_recipient("conv_coder")
+    assert [m.message_id for m in got] == ["msg_pending"]
+    assert got[0].consumption_state == "unconsumed"
+
+    memory_store.record_consumption_receipt(
+        pending.message_id, "consumed", {"source": "turn_completed"}
+    )
+    assert memory_store.list_active_unconsumed_for_recipient("conv_coder") == []
+
+
 @pytest.mark.asyncio
 async def test_plan_implement_review_workflow_engine(
     memory_store: CoordinationStore, tmp_path: Path

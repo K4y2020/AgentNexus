@@ -29,6 +29,12 @@ also enqueues a row write here. Writes are:
   replica.
 - **deduplicated** — re-publishing an unchanged status / count is a
   no-op, so chatty relays don't turn into row churn.
+- **A2A receipts** — when a recipient session reaches a real terminal
+  ``idle`` edge, its delivered-but-unconsumed coordination messages are
+  marked ``consumed`` with a ``turn_completed`` receipt on the same
+  ordered worker. This is the control-plane "turn ended" receipt the
+  Communication view can trust; it never claims the model read a
+  message or that a failed turn consumed one.
 
 No-op until :func:`configure` wires a store (the server app does this at
 startup); the runner process and unit tests that never configure it are
@@ -43,9 +49,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
+from omnigent.coordination.types import CoordinationEvent
 from omnigent.db.enum_codecs import SESSION_LIVE_STATUS
 
 if TYPE_CHECKING:
+    from omnigent.coordination.store import CoordinationStore
     from omnigent.stores import ConversationStore
     from omnigent.stores.scheduled_task_store import ScheduledTaskStore
 
@@ -63,6 +71,10 @@ _store: ConversationStore | None = None
 # alongside ``_store`` by :func:`configure`; ``None`` disables the hook (the
 # runner process and unit tests that never configure it are unaffected).
 _scheduled_task_store: ScheduledTaskStore | None = None
+# Coordination store for best-effort terminal A2A consumption receipts.
+# Wired alongside the other stores by :func:`configure`; ``None`` disables
+# the hook (runner process and unit tests that never wire it unaffected).
+_coordination_store: CoordinationStore | None = None
 # Single worker => writes apply in submission order (see module docstring).
 _executor: ThreadPoolExecutor | None = None
 # Last status seen per session, for dedupe — the value whose write was
@@ -77,6 +89,7 @@ _last_pending: dict[str, int] = {}
 def configure(
     store: ConversationStore | None,
     scheduled_task_store: ScheduledTaskStore | None = None,
+    coordination_store: CoordinationStore | None = None,
 ) -> None:
     """
     Wire (or clear) the stores live-state writes go to.
@@ -86,10 +99,14 @@ def configure(
     :param scheduled_task_store: The server's scheduled-task store, enabling
         the event-driven run-completion hook
         (:func:`persist_scheduled_run_completion`); ``None`` disables it.
+    :param coordination_store: The server's coordination store, enabling
+        automatic terminal consumption receipts
+        (:func:`persist_a2a_turn_completed`); ``None`` disables it.
     """
-    global _store, _scheduled_task_store
+    global _store, _scheduled_task_store, _coordination_store
     _store = store
     _scheduled_task_store = scheduled_task_store
+    _coordination_store = coordination_store
     _last_status.clear()
     _last_pending.clear()
 
@@ -235,6 +252,67 @@ def persist_scheduled_run_completion(
         )
 
     _submit("scheduled_run_completion", _transition)
+
+
+def persist_a2a_turn_completed(
+    session_id: str,
+    response_id: str | None = None,
+) -> None:
+    """Record terminal control-plane receipts for a recipient's A2A messages.
+
+    Called from ``_publish_status`` whenever a session reaches a genuine
+    terminal ``idle`` edge. The worker query finds every message already
+    injected into that session (``message_state == "active"``) that still
+    carries no receipt (``consumption_state == "unconsumed"``), marks each
+    ``consumed`` with a ``turn_completed`` receipt, and appends
+    ``message.consumed`` timeline events. This is the honest server-side
+    acknowledgement: it states the recipient's turn ended and the message
+    was in its turn queue — it does not claim the model read it.
+
+    Runs on the SAME ordered background worker as the other live-state
+    writes (see :func:`_submit`), so multi-tenant ``workspace_scope`` is
+    carried and the receipts cannot block the SSE/status hot path.
+    Failed turns intentionally do NOT auto-consume: a broken turn may
+    never have surfaced the queued message, so unconfirmed stays visible.
+
+    :param session_id: The session whose turn just completed.
+    :param response_id: Optional response id of the terminal turn.
+    """
+    store = _coordination_store
+    if store is None:
+        return
+
+    def _record() -> None:
+        # ``record_consumption_receipt`` persists each row; the query is
+        # re-issued by the worker so a message consumed between publish and
+        # execution is simply skipped (idempotent re-publish).
+        messages = store.list_active_unconsumed_for_recipient(session_id)
+        for message in messages:
+            receipt: dict[str, object] = {
+                "source": "turn_completed",
+                "mode": "terminal_idle",
+                "response_id": response_id,
+            }
+            store.record_consumption_receipt(
+                message.message_id,
+                "consumed",
+                receipt,
+            )
+            store.record_event(
+                CoordinationEvent(
+                    root_session_id=message.root_session_id,
+                    run_id=message.run_id,
+                    task_id=message.task_id,
+                    actor_session_id=session_id,
+                    event_type="message.consumed",
+                    payload={
+                        "message_id": message.message_id,
+                        "receipt": receipt,
+                    },
+                )
+            )
+
+    _submit("a2a_turn_completed", _record)
 
 
 def persist_pending_count(conversation_id: str, count: int) -> None:

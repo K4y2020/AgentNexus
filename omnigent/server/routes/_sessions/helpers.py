@@ -4164,6 +4164,11 @@ def _publish_status(
     # edges are skipped entirely so the hot path pays nothing mid-turn.
     if status == "idle":
         session_live_state.persist_scheduled_run_completion(session_id, "succeeded")
+        # Terminal control-plane receipts for A2A messages injected into this
+        # session. The hook queries only delivered-but-unconsumed messages and
+        # writes ``consumed`` receipts on the background live-state worker; it
+        # never marks failed turns or un-injected messages as consumed.
+        session_live_state.persist_a2a_turn_completed(session_id, response_id)
     elif status == "failed":
         # Canonical server-side broken-turn signal: every server-originated
         # failed turn (runner disconnect mid-turn, setup/dispatch failure,

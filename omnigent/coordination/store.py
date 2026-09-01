@@ -541,6 +541,29 @@ class CoordinationStore:
             stmt = stmt.order_by(SqlAgentMessage.created_at.asc())
             return [_row_to_message(row) for row in sess.scalars(stmt)]
 
+    def list_active_unconsumed_for_recipient(
+        self, recipient_session_id: str
+    ) -> list[AgentMessage]:
+        """Return delivered-but-unconsumed A2A messages addressed to a session.
+
+        Terminal turn completion uses this as the control-plane receipt
+        cursor: each active message (already injected, not yet cancelled or
+        expired) that still has no consumption receipt is one the recipient
+        is expected to acknowledge when its next real turn ends.
+        """
+        with self._session("list_active_unconsumed_for_recipient") as sess:
+            stmt = (
+                select(SqlAgentMessage)
+                .where(
+                    SqlAgentMessage.workspace_id == current_workspace_id(),
+                    SqlAgentMessage.recipient_session_id == recipient_session_id,
+                    SqlAgentMessage.message_state == "active",
+                    SqlAgentMessage.consumption_state == "unconsumed",
+                )
+                .order_by(SqlAgentMessage.created_at.asc())
+            )
+            return [_row_to_message(row) for row in sess.scalars(stmt)]
+
     # ── Outbox Delivery Operations ──────────────────────────────
 
     def fetch_pending_outbox(self, limit: int = 20) -> list[OutboxItem]:
