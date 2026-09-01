@@ -831,7 +831,13 @@ def register_resources_routes(
 
         from omnigent.inner.sandbox import reach_payload
 
-        metadata: dict[str, Any] = {"root": conversation.workspace}
+        # The reachable roots below are resolved to a canonical absolute path
+        # (on Windows a POSIX-looking stored value is drive-normalized), so the
+        # advertised root must use the same canonical path or the file panel
+        # sees a root that does not match what browsing may reach.
+        metadata: dict[str, Any] = {
+            "root": str(Path(conversation.workspace).resolve(strict=False))
+        }
         # Advertise the same reach the runner would. Without it the file
         # panel reads "nothing else reachable" and silently drops its
         # navigation affordance the moment the agent sleeps -- even though

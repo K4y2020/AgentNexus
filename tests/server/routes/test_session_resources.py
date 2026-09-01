@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -5552,10 +5553,11 @@ async def test_offline_environment_advertises_the_same_reach_as_the_runner(
 
     assert resp.status_code == 200, resp.text
     metadata = resp.json()["metadata"]
-    assert metadata["root"] == _OFFLINE_WORKSPACE
+    canonical_workspace = str(Path(_OFFLINE_WORKSPACE).resolve(strict=False))
+    assert metadata["root"] == canonical_workspace
     assert metadata["reachable"] == {
         "unconfined": True,
-        "roots": [{"path": _OFFLINE_WORKSPACE, "access": "write", "origin": "cwd"}],
+        "roots": [{"path": canonical_workspace, "access": "write", "origin": "cwd"}],
     }
 
 
