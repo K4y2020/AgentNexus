@@ -232,6 +232,36 @@ def compose_injection_prompt(binding: BehaviorPackBinding) -> tuple[str, ...]:
     return (_MODE_INSTRUCTIONS[binding.mode], _SAFETY_BOUNDARY)
 
 
+def workflow_behavior_payload(
+    *,
+    role: str | None = None,
+    workflow_mode: BehaviorMode | None = None,
+    explicit_authorization: bool = False,
+) -> dict[str, Any]:
+    """Build the durable behavior fact recorded on every workflow message.
+
+    The returned payload is stored alongside the composed prompt so a run can
+    prove which pack/digest/mode was requested, which resolved binding was
+    applied, and which channel carried the injection. Instructions are also
+    exposed so the Inspector can show exact text without replaying harness
+    state.
+    """
+    resolved = resolve_behavior_pack(
+        role=role,
+        workflow_mode=workflow_mode,
+        explicit_authorization=explicit_authorization,
+        scope="workflow_node",
+    )
+    return {
+        "workflow_node": role or "stage",
+        "requested_mode": workflow_mode if workflow_mode is not None else "role_default",
+        "injection_channel": (
+            "none" if resolved.binding.mode == "off" else resolved.binding.injection
+        ),
+        "resolved": resolved.to_dict(),
+    }
+
+
 def is_lean_engineering_pack(binding: BehaviorPackBinding) -> bool:
     """Return whether a binding points at the first-party reference pack."""
     return (

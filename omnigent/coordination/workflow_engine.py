@@ -16,6 +16,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal
 
+from omnigent.coordination.behavior import BehaviorMode, workflow_behavior_payload
 from omnigent.coordination.store import (
     CoordinationStore,
     StateTransitionConflict,
@@ -73,6 +74,7 @@ class WorkflowDagTaskSpec:
     intent: str = "task.request"
     acceptance_criteria: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
+    behavior_mode: BehaviorMode | None = None
 
 
 class CoordinationWorkflowEngine:
@@ -97,6 +99,7 @@ class CoordinationWorkflowEngine:
         user_prompt: str,
         workspace_path: str = ".",
         budget: dict[str, object] | None = None,
+        behavior_modes: dict[str, BehaviorMode] | None = None,
     ) -> CoordinationRun:
         """Initialize and kick off the fixed Plan -> Implement -> Review -> Fix -> Test run."""
         run = CoordinationRun(
@@ -114,6 +117,7 @@ class CoordinationWorkflowEngine:
                 "stage": "planning",
                 "fix_cycles": 0,
                 "template_version": "1.0",
+                "behavior_modes": dict(behavior_modes or {}),
             },
         )
         await asyncio.to_thread(self.store.create_run, run)
@@ -180,6 +184,14 @@ class CoordinationWorkflowEngine:
             await asyncio.to_thread(self.store.create_task, task)
 
         # Planner receives the durable kickoff message immediately.
+        kickoff_payload: dict[str, object] = {
+            "stage": "planning",
+            "prompt": (
+                f"Please analyze and create an implementation plan for: {user_prompt}"
+                f"\n\n{_RESULT_LINE}"
+            ),
+        }
+        self._inject_behavior(run, t_plan, kickoff_payload)
         kickoff_msg = AgentMessage(
             root_session_id=root_session_id,
             run_id=run.run_id,
@@ -189,13 +201,7 @@ class CoordinationWorkflowEngine:
             recipient_session_id=planner_session_id,
             recipient_role="planner",
             intent="task.request",
-            payload={
-                "stage": "planning",
-                "prompt": (
-                    f"Please analyze and create an implementation plan for: {user_prompt}"
-                    f"\n\n{_RESULT_LINE}"
-                ),
-            },
+            payload=kickoff_payload,
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, kickoff_msg)
 
@@ -264,6 +270,7 @@ class CoordinationWorkflowEngine:
                         "assignee_role": task.assignee_role,
                         "prompt": task.prompt,
                         "intent": task.intent,
+                        "behavior_mode": task.behavior_mode,
                     }
                     for task in tasks
                 },
@@ -651,6 +658,46 @@ class CoordinationWorkflowEngine:
                 from_statuses=["running", "waiting_peer", "reconciling"],
             )
             await self._record(run, task, "workflow.succeeded", {"task_id": task.task_id})
+
+    def _workflow_behavior_mode(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+    ) -> BehaviorMode | None:
+        """Return the workflow-node behavior override for one task, if any."""
+        mode: object = None
+        if run.template.startswith(DAG_TEMPLATE_PREFIX):
+            spec = dict(
+                run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {}
+            )
+            mode = spec.get("behavior_mode")
+        else:
+            modes = dict(run.metadata.get("behavior_modes") or {})
+            role = task.assignee_role or ""
+            mode = modes.get(role)
+        if mode in ("off", "advisory", "lean", "strict"):
+            return mode  # type: ignore[return-value]
+        return None
+
+    def _inject_behavior(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+        payload: dict[str, object],
+    ) -> None:
+        """Resolve and persist the node's Behavior Pack fact on a message."""
+        behavior = workflow_behavior_payload(
+            role=task.assignee_role,
+            workflow_mode=self._workflow_behavior_mode(run, task),
+        )
+        payload["behavior_binding"] = behavior
+        instructions = behavior["resolved"].get("instructions") or []
+        if instructions:
+            prompt = payload.get("prompt") or ""
+            block = "Behavior instructions:\n" + "".join(
+                f"- {line}\n" for line in instructions
+            )
+            payload["prompt"] = f"{block}{prompt}"
 
     async def _dispatch_ready_tasks(self, run: CoordinationRun) -> None:
         """Dispatch every queued DAG stage whose dependencies are terminal."""
@@ -1243,6 +1290,7 @@ class CoordinationWorkflowEngine:
                 payload["attempt"] = attempt
             if previous_assignee is not None:
                 payload["previous_assignee"] = previous_assignee
+            self._inject_behavior(run, task, payload)
             message = AgentMessage(
                 root_session_id=run.root_session_id,
                 run_id=run.run_id,
@@ -1316,6 +1364,7 @@ class CoordinationWorkflowEngine:
         if previous_assignee is not None:
             payload["previous_assignee"] = previous_assignee
 
+        self._inject_behavior(run, task, payload)
         message = AgentMessage(
             root_session_id=run.root_session_id,
             run_id=run.run_id,
@@ -1400,6 +1449,7 @@ class CoordinationWorkflowEngine:
         intent: str,
         payload: dict[str, object],
     ) -> None:
+        self._inject_behavior(run, task, payload)
         msg = AgentMessage(
             root_session_id=run.root_session_id,
             run_id=run.run_id,

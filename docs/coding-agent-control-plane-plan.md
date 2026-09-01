@@ -705,7 +705,10 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
 - 2026-09-01：BEHAVIOR-001/002 已落地为纯领域模块 `omnigent/coordination/behavior.py`：
   digest 固定、模式优先级（user > workflow > role default）、strict workflow 授权门
   和安全边界；`compose_injection_prompt` 只生成注入文本，不直接改 Harness 状态。
-  注入 receipt、Inspector 徽章和真实 Prompt Composer 仍属于 BEHAVIOR-003。
+  固定与模板 Workflow 的 kickoff/派发/重试/改派消息已通过
+  `workflow_behavior_payload` 持久化 `behavior_binding`，并把解析后的
+  指令文本前置到 Message prompt。Harness 注入 receipt 与 Inspector 模式徽章
+  仍属于 BEHAVIOR-003，未完成。
 
 ## 12. Workspace 与 Git 协调
 
@@ -1026,6 +1029,14 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > `control-plane-reliability.yml` 手工派发时可选择 `include_windows`，
 > 在原生 Windows runner 上跑同一基线；每周自动运行仍保持 Ubuntu 低成本。
 > 真实付费 API 的 100 次样本与 24h soak 仍属于 P6 环境门禁。
+>
+> 2026-09-01 BEHAVIOR-003 的 Prompt Composer 链路已接入 Workflow 消息：
+> 固定启动与模板 DAG 的 kickoff、派发、重试和改派消息都会解析并持久化
+> `behavior_binding`（requested_mode、resolved version/digest/mode、注入渠道、
+> 指令原文与降级原因）；未授权 strict 模板节点自动降级 advisory 且不隐藏事实。
+> `/workflows/plan-implement-review` 接受 `behavior_modes`，
+> `/workflows/template` 接受 `tasks[].behavior_mode`。Harness 注入 receipt
+> 与 Inspector 模式徽章仍未完成，不能按 BEHAVIOR-003 全量验收计分。
 >
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine

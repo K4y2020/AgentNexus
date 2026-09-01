@@ -7,6 +7,7 @@ from omnigent.coordination.behavior import (
     compose_injection_prompt,
     is_lean_engineering_pack,
     resolve_behavior_pack,
+    workflow_behavior_payload,
 )
 
 
@@ -88,3 +89,17 @@ def test_resolved_behavior_serializes_without_list_as_tuple_leak() -> None:
     assert isinstance(payload["instructions"], list)
     assert payload["binding"]["mode"] == "lean"
     assert payload["binding"]["digest"] == LEAN_ENGINEERING_PACK.digest
+
+
+def test_workflow_behavior_payload_records_requested_and_downgrade() -> None:
+    payload = workflow_behavior_payload(
+        role="implementer",
+        workflow_mode="strict",
+    )
+
+    assert payload["workflow_node"] == "implementer"
+    assert payload["requested_mode"] == "strict"
+    assert payload["injection_channel"] == "composed_per_turn"
+    resolved = payload["resolved"]
+    assert resolved["binding"]["mode"] == "advisory"
+    assert "explicit task authorization" in resolved["binding"]["reason"]

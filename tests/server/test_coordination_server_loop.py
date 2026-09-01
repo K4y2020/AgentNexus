@@ -509,3 +509,99 @@ def test_template_workflow_rejects_cycles(app: FastAPI) -> None:
         )
         assert resp.status_code == 400
         assert "cycle" in resp.json()["detail"]
+
+
+def test_server_fixed_workflow_composes_node_behavior_instruction(
+    app: FastAPI,
+) -> None:
+    """A fixed workflow records the resolved Behavior binding on every turn."""
+    root, planner, implementer, reviewer = _seed_coordination_tree(app)
+    store = app.state.coordination_store
+    assert store is not None
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/v1/coordination/workflows/plan-implement-review",
+            json={
+                "title": "Behavior Fixed",
+                "root_session_id": root.id,
+                "planner_session_id": planner.id,
+                "implementer_session_id": implementer.id,
+                "reviewer_session_id": reviewer.id,
+                "user_prompt": "Build the control plane.",
+                "workspace_path": ".",
+                "behavior_modes": {"planner": "lean"},
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+    kickoff = next(
+        message
+        for message in store.list_messages(root.id)
+        if message.recipient_session_id == planner.id
+    )
+    binding = kickoff.payload["behavior_binding"]
+    assert binding["workflow_node"] == "planner"
+    assert binding["requested_mode"] == "lean"
+    assert binding["resolved"]["binding"]["mode"] == "lean"
+    assert binding["resolved"]["binding"]["digest"].startswith("sha256:")
+    composed = kickoff.payload["prompt"]
+    assert "Behavior instructions:" in composed
+    assert composed.index("Behavior instructions:") < composed.index(
+        "Please analyze and create an implementation plan"
+    )
+    assert "End your reply with exactly [WORKFLOW_RESULT: succeeded]" in composed
+
+
+def test_server_template_dag_downgrades_strict_behavior(
+    app: FastAPI,
+) -> None:
+    """An unapproved strict template node downgrades to advisory and stays visible."""
+    root, _planner, _implementer, _reviewer = _seed_coordination_tree(app)
+    store = app.state.coordination_store
+    conversation_store = app.state.conversation_store
+    assert store is not None
+    assert conversation_store is not None
+    worker = conversation_store.create_conversation(
+        parent_conversation_id=root.id,
+        kind="sub_agent",
+        title="behavior:worker",
+    )
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/v1/coordination/workflows/template",
+            json={
+                "title": "Behavior DAG",
+                "root_session_id": root.id,
+                "tasks": [
+                    {
+                        "name": "implement",
+                        "title": "Implement",
+                        "assignee_session_id": worker.id,
+                        "assignee_role": "implementer",
+                        "prompt": "Implement the task.",
+                        "behavior_mode": "strict",
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 200, resp.text
+
+        _wait_until(
+            lambda: any(
+                message.recipient_session_id == worker.id
+                for message in store.list_messages(root.id)
+            )
+        )
+
+    message = next(
+        message
+        for message in store.list_messages(root.id)
+        if message.recipient_session_id == worker.id
+    )
+    binding = message.payload["behavior_binding"]
+    assert binding["requested_mode"] == "strict"
+    assert binding["resolved"]["binding"]["mode"] == "advisory"
+    assert "explicit task authorization" in binding["resolved"]["binding"]["reason"]
+    assert "Behavior instructions:" in message.payload["prompt"]

@@ -22,7 +22,10 @@ from omnigent.coordination.types import (
     CoordinationTask,
     DeliveryAttempt,
 )
-from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.coordination.workflow_engine import (
+    CoordinationWorkflowEngine,
+    WorkflowDagTaskSpec,
+)
 from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from omnigent.db.db_models import InvalidUuidError
 from omnigent.debug_logging import current_user_id_scope
@@ -888,6 +891,71 @@ async def test_workflow_duplicate_advance_is_idempotent(
         m for m in memory_store.list_tasks(run.run_id) if m.assignee_role == "implementer"
     )
     assert implementer.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_workflow_fixed_node_persists_behavior_binding_and_injection(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    await engine.start_plan_implement_review_run(
+        title="Behavior Run",
+        root_session_id="conv_root_behavior",
+        planner_session_id="conv_planner_behavior",
+        implementer_session_id="conv_coder_behavior",
+        reviewer_session_id="conv_reviewer_behavior",
+        user_prompt="Build with lean behavior",
+        workspace_path=str(tmp_path),
+        behavior_modes={"planner": "lean"},
+    )
+    kickoff = memory_store.list_messages("conv_root_behavior")[0]
+    binding = kickoff.payload["behavior_binding"]
+
+    assert binding["workflow_node"] == "planner"
+    assert binding["requested_mode"] == "lean"
+    assert binding["injection_channel"] == "composed_per_turn"
+    resolved = binding["resolved"]["binding"]
+    assert resolved["mode"] == "lean"
+    assert resolved["digest"].startswith("sha256:")
+    composed = kickoff.payload["prompt"]
+    assert "Behavior instructions:" in composed
+    assert composed.index("Behavior instructions:") < composed.index(
+        "Please analyze and create an implementation plan"
+    )
+    assert (
+        "End your reply with exactly [WORKFLOW_RESULT: succeeded]" in composed
+    )
+
+
+@pytest.mark.asyncio
+async def test_dag_workflow_downgrades_unapproved_strict_behavior(
+    memory_store: CoordinationStore,
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    await engine.start_dag_workflow_run(
+        title="DAG Behavior",
+        root_session_id="conv_root_dag_behavior",
+        tasks=[
+            WorkflowDagTaskSpec(
+                name="implement",
+                title="Implement",
+                assignee_session_id="conv_impl_behavior",
+                assignee_role="implementer",
+                prompt="Implement the task.",
+                behavior_mode="strict",
+            )
+        ],
+    )
+    # Root DAG stages are dispatched by the workflow recovery poller, the
+    # same path the server lifespan uses through CoordinationWorkflowScheduler.
+    assert await engine.reconcile_missing_dispatches() == 1
+    message = memory_store.list_messages("conv_root_dag_behavior")[0]
+    binding = message.payload["behavior_binding"]
+
+    assert binding["requested_mode"] == "strict"
+    assert binding["resolved"]["binding"]["mode"] == "advisory"
+    assert "explicit task authorization" in binding["resolved"]["binding"]["reason"]
+    assert "Behavior instructions:" in message.payload["prompt"]
 
 
 @pytest.mark.asyncio

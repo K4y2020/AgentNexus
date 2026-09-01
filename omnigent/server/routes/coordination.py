@@ -283,6 +283,9 @@ class StartWorkflowRequest(BaseModel):
     user_prompt: str
     workspace_path: str = "."
     budget: dict[str, Any] = Field(default_factory=dict)
+    behavior_modes: dict[
+        str, Literal["off", "advisory", "lean", "strict"]
+    ] = Field(default_factory=dict)
 
 
 class AdvanceWorkflowRequest(BaseModel):
@@ -308,6 +311,7 @@ class StartTemplateWorkflowTask(BaseModel):
     intent: str = "task.request"
     acceptance_criteria: list[str] = Field(default_factory=list)
     dependencies: list[str] = Field(default_factory=list)
+    behavior_mode: Literal["off", "advisory", "lean", "strict"] | None = None
 
 
 class StartTemplateWorkflowRequest(BaseModel):
@@ -694,6 +698,7 @@ async def start_plan_implement_review_workflow(
         user_prompt=req.user_prompt,
         workspace_path=req.workspace_path,
         budget=req.budget,
+        behavior_modes=req.behavior_modes,
     )
     tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
     return {"run": run.to_dict(), "tasks": [t.to_dict() for t in tasks]}
@@ -744,6 +749,7 @@ async def start_template_workflow(
                 intent=task.intent,
                 acceptance_criteria=task.acceptance_criteria,
                 dependencies=task.dependencies,
+                behavior_mode=task.behavior_mode,
             )
             for task in req.tasks
         ],
