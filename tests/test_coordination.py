@@ -13,9 +13,12 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from omnigent.coordination.dispatcher import CoordinationDispatcher
+from omnigent.coordination.policy_gate import CoordinationPolicyGate
 from omnigent.coordination.reconciliation import reconcile_effect_unknown
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import (
+    DEFAULT_MAX_HOPS,
+    DEFAULT_MAX_PAYLOAD_BYTES,
     AgentMessage,
     CoordinationArtifact,
     CoordinationRun,
@@ -30,7 +33,9 @@ from omnigent.coordination.workflow_scheduler import CoordinationWorkflowSchedul
 from omnigent.db.db_models import InvalidUuidError
 from omnigent.debug_logging import current_user_id_scope
 from omnigent.errors import ErrorCode, OmnigentError
+from omnigent.policies.types import PolicyResult
 from omnigent.server.routes.coordination import _require_coordination_acl, router
+from omnigent.spec.types import PolicyAction
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 
@@ -159,6 +164,34 @@ class FakeRunnerRouter:
     def client_for_session_resources(self, session_id: str) -> FakeRoutedRunner:
         self.called_session_ids.append(session_id)
         return FakeRoutedRunner("runner_abc", self.client)
+
+
+class FixedPolicyEngine:
+    """Minimal engine double returning one composed verdict."""
+
+    def __init__(self, result: PolicyResult) -> None:
+        self.result = result
+
+    async def evaluate(self, _ctx: Any, **_kwargs: Any) -> PolicyResult:
+        return self.result
+
+
+class RecordingPolicyGateFactory:
+    """Engine factory that records stage order and returns fixed veredicts."""
+
+    def __init__(
+        self,
+        results: dict[str, PolicyResult] | None = None,
+        *,
+        default: PolicyResult | None = None,
+    ) -> None:
+        self.results = results or {}
+        self.default = default or PolicyResult(action=PolicyAction.ALLOW)
+        self.calls: list[tuple[str, str]] = []
+
+    async def __call__(self, stage: str, session_id: str):
+        self.calls.append((stage, session_id))
+        return FixedPolicyEngine(self.results.get(stage, self.default))
 
 
 @pytest.fixture
@@ -316,6 +349,9 @@ def test_atomic_message_and_outbox_persistence(memory_store: CoordinationStore) 
     saved_msg, outbox = memory_store.save_message_and_outbox(msg)
 
     assert saved_msg.message_id.startswith("msg_")
+    assert saved_msg.hop_count == 0
+    assert saved_msg.max_hops == DEFAULT_MAX_HOPS
+    assert saved_msg.ttl_seconds is None
     assert outbox.item_id.startswith("out_")
     assert outbox.status == "pending"
     assert outbox.target_sequence == 1
@@ -336,9 +372,16 @@ def test_atomic_message_and_outbox_persistence(memory_store: CoordinationStore) 
         recipient_session_id="conv_coder",
         intent="task.request",
         payload={"instruction": "Next item"},
+        hop_count=2,
+        max_hops=5,
+        ttl_seconds=60.0,
     )
     _, outbox2 = memory_store.save_message_and_outbox(msg2)
     assert outbox2.target_sequence == 2
+    reloaded = memory_store.list_messages("conv_root_123")[1]
+    assert reloaded.hop_count == 2
+    assert reloaded.max_hops == 5
+    assert reloaded.ttl_seconds == 60.0
 
 
 @pytest.mark.asyncio
@@ -2354,6 +2397,218 @@ def test_coordination_api_artifact_endpoints(
 
     missing = client.get("/v1/coordination/artifacts/art_missing")
     assert missing.status_code == 404
+
+
+def test_coordination_policy_gate_runs_stages_in_order(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    factory = RecordingPolicyGateFactory()
+    app.state.coordination_policy_gate = CoordinationPolicyGate(factory)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "run_id": "run_gate_order",
+            "intent": "task.request",
+            "payload": {"prompt": "run the gate"},
+        },
+    )
+
+    assert res.status_code == 200, res.text
+    assert factory.calls == [
+        ("root", "conv_root_api"),
+        ("source", "conv_p1"),
+        ("target", "conv_c1"),
+        ("run", "conv_root_api"),
+        ("server_default", "conv_root_api"),
+    ]
+    messages = memory_store.list_messages("conv_root_api")
+    assert messages
+    assert messages[0].run_id == "run_gate_order"
+
+
+def test_coordination_message_deny_is_not_persisted(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    factory = RecordingPolicyGateFactory(
+        {
+            "source": PolicyResult(
+                action=PolicyAction.DENY,
+                reason="source session blocks peer routing",
+            )
+        }
+    )
+    app.state.coordination_policy_gate = CoordinationPolicyGate(factory)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "intent": "task.request",
+            "payload": {"prompt": "must not survive"},
+        },
+    )
+
+    assert res.status_code == 403
+    assert "source session blocks peer routing" in res.json()["detail"]
+    assert memory_store.list_messages("conv_root_api") == []
+    events = memory_store.list_events("conv_root_api")
+    assert any(e.event_type == "policy.deny.coordination_message" for e in events)
+    assert any(e.event_type == "message.task.request" for e in events) is False
+
+
+def test_coordination_message_ask_requires_manage_acl(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    factory = RecordingPolicyGateFactory(
+        {
+            "target": PolicyResult(
+                action=PolicyAction.ASK,
+                reason="target approval required",
+            )
+        }
+    )
+    app.state.coordination_policy_gate = CoordinationPolicyGate(factory)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "intent": "task.request",
+            "payload": {"prompt": "ask gate"},
+        },
+    )
+
+    assert res.status_code == 403
+    assert "manage" in res.json()["detail"]
+    assert memory_store.list_messages("conv_root_api") == []
+
+
+def test_coordination_workspace_and_merge_gates_fail_closed(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    workspace_root: Path,
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    factory = RecordingPolicyGateFactory(
+        {
+            "server_default": PolicyResult(
+                action=PolicyAction.DENY,
+                reason="default policy blocks workspace ops",
+            )
+        }
+    )
+    app.state.coordination_policy_gate = CoordinationPolicyGate(factory)
+    client = TestClient(app)
+
+    lease = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root_api",
+            "workspace_path": str(workspace_root),
+            "holder_session_id": "conv_c1",
+            "mode": "write",
+        },
+    )
+    assert lease.status_code == 403
+
+    preview = client.post(
+        "/v1/coordination/workspaces/merge-previews",
+        json={
+            "root_session_id": "conv_root_api",
+            "holder_session_id": "conv_c1",
+            "repo_path": str(workspace_root / "repo_does_not_exist"),
+            "source_branch": "feature",
+            "target_branch": "main",
+        },
+    )
+    assert preview.status_code == 403
+
+
+def test_coordination_send_message_rejects_over_limit_envelopes(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+    base = {
+        "root_session_id": "conv_root_api",
+        "sender_session_id": "conv_p1",
+        "recipient_session_id": "conv_c1",
+        "intent": "task.request",
+        "payload": {"prompt": "ok"},
+    }
+
+    too_many_hops = client.post("/v1/coordination/messages", json={**base, "max_hops": 9})
+    assert too_many_hops.status_code == 400
+
+    exhausted_hop = client.post(
+        "/v1/coordination/messages",
+        json={**base, "hop_count": 8, "max_hops": 8},
+    )
+    assert exhausted_hop.status_code == 400
+
+    bad_ttl = client.post(
+        "/v1/coordination/messages", json={**base, "ttl_seconds": 0}
+    )
+    assert bad_ttl.status_code == 400
+
+    oversized = client.post(
+        "/v1/coordination/messages",
+        json={**base, "payload": {"blob": "x" * (DEFAULT_MAX_PAYLOAD_BYTES + 1)}},
+    )
+    assert oversized.status_code == 413
+    assert "artifact" in oversized.json()["detail"]
+    assert memory_store.list_messages("conv_root_api") == []
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_expires_ttl_message_before_delivery(
+    memory_store: CoordinationStore,
+) -> None:
+    msg = AgentMessage(
+        root_session_id="conv_root_ttl",
+        sender_session_id="conv_planner_ttl",
+        recipient_session_id="conv_coder_ttl",
+        intent="task.request",
+        payload={"prompt": "expire me"},
+        ttl_seconds=1,
+        created_at=time.time() - 100,
+    )
+    memory_store.save_message_and_outbox(msg)
+
+    dispatcher = CoordinationDispatcher(memory_store)
+    count = await dispatcher.dispatch_once()
+    assert count == 1
+
+    stored = memory_store.get_message(msg.message_id)
+    assert stored is not None
+    assert stored.message_state == "expired"
+    outbox = memory_store.list_outbox_items(message_id=msg.message_id)[0]
+    assert outbox.status == "failed"
+    attempts = memory_store.list_delivery_attempts(msg.message_id)
+    assert attempts[0].delivery_state == "failed"
+    assert "TTL" in attempts[0].error
+    assert any(
+        event.event_type == "message.expired"
+        for event in memory_store.list_events("conv_root_ttl")
+    )
 
 
 def test_coordination_api_message_cancel(

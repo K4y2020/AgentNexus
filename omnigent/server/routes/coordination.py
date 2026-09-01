@@ -12,6 +12,15 @@ from omnigent.coordination.behavior import (
     resolve_behavior_pack,
     session_behavior_mode_from_labels,
 )
+from omnigent.coordination.limits import (
+    DEFAULT_MAX_HOPS,
+    CoordinationLimitError,
+    validate_message_envelope,
+)
+from omnigent.coordination.policy_gate import (
+    CoordinationPolicyDecision,
+    CoordinationPolicyGate,
+)
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
     AgentMessage,
@@ -24,6 +33,11 @@ from omnigent.coordination.types import (
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine, WorkflowDagTaskSpec
 from omnigent.debug_logging import current_user_id
+from omnigent.runtime import get_agent_cache, get_caps, get_policy_store
+from omnigent.runtime.policies.builder import (
+    build_default_policy_engine,
+    build_session_policy_engine,
+)
 from omnigent.server.auth import LEVEL_MANAGE, LEVEL_READ
 from omnigent.server.routes._auth_helpers import require_access as _require_access
 from omnigent.server.routes._coordination_workspace import (
@@ -32,6 +46,7 @@ from omnigent.server.routes._coordination_workspace import (
     is_path_within,
     managed_workspace_boundaries,
 )
+from omnigent.spec.types import Phase, PolicyAction
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 router = APIRouter(prefix="/v1/coordination", tags=["Coordination"])
@@ -81,6 +96,138 @@ def _request_workflow_engine(request: Request) -> CoordinationWorkflowEngine:
         _request_store(request),
         _request_workspace_coord(request),
     )
+
+
+async def _load_agent_spec_for_coordination(
+    request: Request,
+    conversation: Any,
+) -> Any:
+    """Load the parsed agent spec for a coordination session, if bound."""
+    agent_store = getattr(request.app.state, "agent_store", None)
+    if agent_store is None or getattr(conversation, "agent_id", None) is None:
+        return None
+    agent = await asyncio.to_thread(agent_store.get, conversation.agent_id)
+    if agent is None:
+        return None
+    agent_cache = get_agent_cache()
+    loaded = await asyncio.to_thread(
+        lambda: agent_cache.load(
+            agent.id,
+            agent.bundle_location,
+            expand_env=agent.session_id is None,
+        )
+    )
+    return loaded.spec
+
+
+def _request_coordination_policy_gate(request: Request) -> CoordinationPolicyGate | None:
+    """Resolve the policy gate for one coordination request.
+
+    Tests and embedded apps can bind ``app.state.coordination_policy_gate``
+    to a deterministic gate. Production uses runtime stores and builds
+    stage-scoped engines lazily.
+    """
+    override = getattr(request.app.state, "coordination_policy_gate", None)
+    if override is not None:
+        return override
+    conversation_store = getattr(request.app.state, "conversation_store", None)
+    if conversation_store is None:
+        return None
+    agent_store = getattr(request.app.state, "agent_store", None)
+    policy_store = get_policy_store() or getattr(request.app.state, "policy_store", None)
+    if agent_store is None and policy_store is None:
+        return None
+    caps = get_caps()
+    server_llm = caps.llm
+    host_connection = (
+        caps.policy_llm_connection_factory()
+        if caps.policy_llm_connection_factory
+        else None
+    )
+    default_policies = getattr(caps, "default_policies", None)
+
+    async def engine_factory(stage: str, session_id: str):
+        if stage == "server_default":
+            return await asyncio.to_thread(
+                build_default_policy_engine,
+                conversation_id=session_id,
+                conversation_store=conversation_store,
+                default_policies=default_policies,
+                policy_store=policy_store,
+                server_llm=server_llm,
+                host_connection=host_connection,
+            )
+        conversation = await asyncio.to_thread(
+            conversation_store.get_conversation, session_id
+        )
+        if conversation is None:
+            return None
+        spec = await _load_agent_spec_for_coordination(request, conversation)
+        return await asyncio.to_thread(
+            build_session_policy_engine,
+            conversation_id=session_id,
+            conversation_store=conversation_store,
+            conversation=conversation,
+            spec=spec,
+            policy_store=policy_store,
+            server_llm=server_llm,
+            host_connection=host_connection,
+        )
+
+    return CoordinationPolicyGate(engine_factory)
+
+
+async def _evaluate_coordination_policy(
+    request: Request,
+    *,
+    phase: Phase,
+    root_session_id: str,
+    content: dict[str, Any],
+    source_session_id: str | None = None,
+    target_session_id: str | None = None,
+    run_id: str | None = None,
+    tool_name: str | None = None,
+    actor_session_id: str | None = None,
+) -> CoordinationPolicyDecision | None:
+    """Run the §14.2 policy pipeline and record an audit event."""
+    gate = _request_coordination_policy_gate(request)
+    if gate is None:
+        return None
+    decision = await gate.evaluate(
+        phase=phase,
+        root_session_id=root_session_id,
+        content=content,
+        source_session_id=source_session_id,
+        target_session_id=target_session_id,
+        run_id=run_id,
+        tool_name=tool_name,
+    )
+    store = _request_store(request)
+    event = CoordinationEvent(
+        root_session_id=root_session_id,
+        run_id=run_id,
+        actor_session_id=actor_session_id,
+        event_type=f"policy.{decision.action.value}.{phase.value}",
+        payload={
+            "stage": decision.stage,
+            "reason": decision.reason,
+            "deciding_policies": list(decision.deciding_policies or []),
+            "required_acl_level": decision.required_acl_level,
+        },
+    )
+    await asyncio.to_thread(store.record_event, event)
+    if not decision.allowed:
+        detail = (
+            decision.reason
+            or f"coordination {phase.value} denied at {decision.stage or 'policy'}"
+        )
+        if decision.action == PolicyAction.ASK:
+            detail = (
+                f"{detail}; explicit {decision.required_acl_level or 'manage'} "
+                "approval is required and was not granted"
+            )
+        raise HTTPException(status_code=403, detail=detail)
+    return decision
 
 
 async def _require_coordination_acl(
@@ -249,11 +396,16 @@ class SendMessageRequest(BaseModel):
     recipient_role: str | None = None
     kind: MessageKind = "content"
     intent: str = "task.request"
+    run_id: str | None = None
+    task_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
     correlation_id: str | None = None
     in_reply_to: str | None = None
     idempotency_key: str | None = None
+    hop_count: int = 0
+    max_hops: int = DEFAULT_MAX_HOPS
+    ttl_seconds: float | None = None
 
 
 class CreateRunRequest(BaseModel):
@@ -412,8 +564,45 @@ async def send_coordination_message(
             status_code=403,
             detail="user_orchestrator messages must be sent by root_session_id",
         )
+    try:
+        validate_message_envelope(
+            hop_count=req.hop_count,
+            max_hops=req.max_hops,
+            ttl_seconds=req.ttl_seconds,
+            payload=req.payload,
+            artifacts=req.artifacts,
+        )
+    except CoordinationLimitError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    payload_preview = str(req.payload)
+    await _evaluate_coordination_policy(
+        request,
+        phase=Phase.COORDINATION_MESSAGE,
+        root_session_id=req.root_session_id,
+        source_session_id=req.sender_session_id,
+        target_session_id=req.recipient_session_id,
+        run_id=req.run_id,
+        tool_name="coordination.message",
+        actor_session_id=req.sender_session_id,
+        content={
+            "sender": req.sender_session_id,
+            "recipient": req.recipient_session_id,
+            "kind": req.kind,
+            "intent": req.intent,
+            "payload_size": len(payload_preview),
+            "payload_preview": payload_preview[:4096],
+            "artifacts": [
+                a.get("artifact_id") or a.get("uri") for a in req.artifacts
+            ],
+            "hop_count": req.hop_count,
+            "max_hops": req.max_hops,
+            "ttl_seconds": req.ttl_seconds,
+        },
+    )
     msg = AgentMessage(
         root_session_id=req.root_session_id,
+        run_id=req.run_id,
+        task_id=req.task_id,
         sender_session_id=req.sender_session_id,
         sender_role=req.sender_role,
         recipient_session_id=req.recipient_session_id,
@@ -425,6 +614,9 @@ async def send_coordination_message(
         correlation_id=req.correlation_id,
         in_reply_to=req.in_reply_to,
         idempotency_key=req.idempotency_key,
+        hop_count=req.hop_count,
+        max_hops=req.max_hops,
+        ttl_seconds=req.ttl_seconds,
     )
     store = _request_store(request)
     saved_msg, outbox = await asyncio.to_thread(store.save_message_and_outbox, msg)
@@ -1022,6 +1214,21 @@ async def acquire_workspace_lease(req: AcquireLeaseRequest, request: Request) ->
         requested_path=req.workspace_path,
         field_name="workspace_path",
     )
+    await _evaluate_coordination_policy(
+        request,
+        phase=Phase.WORKSPACE_OPERATION,
+        root_session_id=req.root_session_id,
+        source_session_id=req.holder_session_id,
+        target_session_id=req.holder_session_id,
+        tool_name="coordination.workspace.lease",
+        actor_session_id=req.holder_session_id,
+        content={
+            "workspace_path": canonical_path,
+            "mode": req.mode,
+            "duration_s": req.duration_s,
+            "holder": req.holder_session_id,
+        },
+    )
     lease_mgr = _request_lease_manager(request)
     try:
         lease = lease_mgr.acquire(
@@ -1048,6 +1255,21 @@ async def create_merge_preview(
         holder_session_id=req.holder_session_id,
         requested_path=req.repo_path,
         field_name="repo_path",
+    )
+    await _evaluate_coordination_policy(
+        request,
+        phase=Phase.GIT_MERGE,
+        root_session_id=req.root_session_id,
+        source_session_id=req.holder_session_id,
+        target_session_id=req.holder_session_id,
+        tool_name="coordination.git.merge_preview",
+        actor_session_id=req.holder_session_id,
+        content={
+            "repo_path": canonical_repo_path,
+            "source_branch": req.source_branch,
+            "target_branch": req.target_branch,
+            "holder": req.holder_session_id,
+        },
     )
     coordinator = _request_workspace_coord(request)
     store = _request_store(request)
@@ -1119,6 +1341,23 @@ async def execute_merge_preview(
         raise HTTPException(status_code=404, detail=f"Merge operation {operation_id} not found")
     await _require_coordination_tree(
         request, operation.root_session_id, operation.holder_session_id
+    )
+    await _evaluate_coordination_policy(
+        request,
+        phase=Phase.GIT_MERGE,
+        root_session_id=operation.root_session_id,
+        source_session_id=operation.holder_session_id,
+        target_session_id=operation.holder_session_id,
+        tool_name="coordination.git.merge_execute",
+        actor_session_id=operation.holder_session_id,
+        content={
+            "repo_path": operation.repo_path,
+            "source_branch": operation.source_branch,
+            "target_branch": operation.target_branch,
+            "operation_id": operation_id,
+            "fencing_token": req.fencing_token,
+            "holder": operation.holder_session_id,
+        },
     )
     coordinator = _request_workspace_coord(request)
     try:

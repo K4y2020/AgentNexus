@@ -1156,6 +1156,17 @@ class Phase(str, Enum):
       the raw model output before tool-call extraction or
       post-processing. Mirrors ``LLM_REQUEST`` in firing
       frequency (once per successful round-trip).
+
+    Control-plane phases (namespaced coordination/v1 gates, fired
+    on the server before a peer message, workspace operation or
+    git merge is committed):
+
+    - ``COORDINATION_MESSAGE``: peer AgentMessage envelope before
+      durable outbox insertion.
+    - ``WORKSPACE_OPERATION``: managed workspace lease/mutation
+      requests before the host operation is issued.
+    - ``GIT_MERGE``: merge preview/execute operations before the
+      git transaction is performed.
     """
 
     REQUEST = "request"
@@ -1164,6 +1175,9 @@ class Phase(str, Enum):
     RESPONSE = "response"
     LLM_REQUEST = "llm_request"
     LLM_RESPONSE = "llm_response"
+    COORDINATION_MESSAGE = "coordination_message"
+    WORKSPACE_OPERATION = "workspace_operation"
+    GIT_MERGE = "git_merge"
 
 
 class PolicyAction(str, Enum):

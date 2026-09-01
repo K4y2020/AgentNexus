@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 from omnigent.coordination.reconciliation import reconcile_effect_unknown
@@ -85,6 +86,13 @@ class CoordinationDispatcher:
             try:
                 msg_dict = json.loads(item.payload_json)
                 msg = AgentMessage(**msg_dict)
+                if self._message_expired(msg):
+                    await asyncio.to_thread(
+                        self.store.expire_message,
+                        msg.message_id,
+                        "message TTL elapsed before delivery",
+                    )
+                    continue
                 await self._deliver_message(
                     item.item_id,
                     msg,
@@ -107,6 +115,12 @@ class CoordinationDispatcher:
                 )
                 await asyncio.to_thread(self.store.requeue_outbox, item.item_id)
         return len(items)
+
+    def _message_expired(self, msg: AgentMessage) -> bool:
+        """Return whether a message's TTL elapsed before injection."""
+        if msg.ttl_seconds is None:
+            return False
+        return time.time() - msg.created_at > msg.ttl_seconds
 
     async def _deliver_message(
         self,

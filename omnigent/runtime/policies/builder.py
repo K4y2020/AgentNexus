@@ -272,6 +272,7 @@ def build_policy_engine(
     policy_store: PolicyStore | None = None,
     server_llm: LLMConfig | None = None,
     host_connection: dict[str, str] | None = None,
+    include_db_default_policies: bool = True,
 ) -> PolicyEngine:
     """
     Construct the :class:`PolicyEngine` for one workflow.
@@ -353,6 +354,11 @@ def build_policy_engine(
         calls are billed to the request caller rather than a static
         service credential. ``None`` falls back to the server-level
         connection.
+    :param include_db_default_policies: When ``False``, DB-backed
+        server-wide default policies are not appended to this engine.
+        Coordination policy gates use this so session/agent policies can
+        run before the server-default stage, preserving the fixed
+        §14.2 evaluation order.
     :returns: A :class:`PolicyEngine` ready for evaluation.
     """
     guardrails = spec.guardrails
@@ -389,7 +395,9 @@ def build_policy_engine(
     )
     tree = verified.rows
     root_conversation_id = verified.root_conversation_id
-    db_default_policy_specs = _load_default_policy_specs(policy_store)
+    db_default_policy_specs = (
+        _load_default_policy_specs(policy_store) if include_db_default_policies else []
+    )
     admin_policy_specs: list[PolicySpec] = db_default_policy_specs + list(default_policies or [])
     all_policy_specs = session_policy_specs + agent_policy_specs + admin_policy_specs
 
@@ -612,6 +620,112 @@ def build_policy_engine(
         conversation_store=conversation_store,
         root_conversation_id=root_conversation_id,
         llm_client=llm_client,
+    )
+
+
+def build_policy_engine_from_specs(
+    *,
+    specs: list[PolicySpec],
+    conversation_id: str,
+    conversation_store: ConversationStore,
+    server_llm: LLMConfig | None = None,
+    host_connection: dict[str, str] | None = None,
+) -> PolicyEngine:
+    """Build a standalone engine from an explicit :class:`PolicySpec` list.
+
+    Used by the coordination control-plane gate when a session has no
+    agent spec (legacy sessions still carrying session policies) and for
+    the final server-default stage. The engine skips spec label seeding
+    (there is no ``LabelDef`` schema here) but still seeds labels,
+    session_state and usage from the conversation row so policies see
+    the same context as normal per-session engines.
+    """
+    if not specs:
+        return _build_noop_engine(
+            conversation_id=conversation_id,
+            conversation_store=conversation_store,
+        )
+    server_connection = _resolve_server_llm_connection(server_llm)
+    policy_connection = host_connection or server_connection
+    return PolicyEngine(
+        policies=[
+            _instantiate_policy(
+                spec,
+                agent_llm=None,
+                connection_override=server_connection,
+            )
+            for spec in specs
+        ],
+        label_defs={},
+        ask_timeout=DEFAULT_ASK_TIMEOUT,
+        conversation_id=conversation_id,
+        initial_labels=_load_existing_labels(conversation_id, conversation_store),
+        initial_session_state=_load_session_state(conversation_id, conversation_store),
+        initial_usage=_policy_usage_seed(conversation_id, conversation_store),
+        conversation_store=conversation_store,
+        llm_client=_build_policy_llm_client(server_llm, policy_connection),
+    )
+
+
+def build_session_policy_engine(
+    *,
+    conversation_id: str,
+    conversation_store: ConversationStore,
+    conversation: Conversation | None = None,
+    spec: AgentSpec | None = None,
+    policy_store: PolicyStore | None = None,
+    server_llm: LLMConfig | None = None,
+    host_connection: dict[str, str] | None = None,
+) -> PolicyEngine:
+    """Build the session/agent policy engine for one conversation.
+
+    When an agent spec is available the normal builder is used with DB
+    default policies excluded; server-wide defaults are evaluated later
+    as their own stage. When no spec is available (legacy/unbound rows)
+    but session policies exist, they are evaluated standalone.
+    """
+    if spec is not None:
+        return build_policy_engine(
+            spec=spec,
+            conversation_id=conversation_id,
+            conversation_store=conversation_store,
+            conversation=conversation,
+            expected_agent_id=conversation.agent_id if conversation is not None else None,
+            default_policies=[],
+            policy_store=policy_store,
+            server_llm=server_llm,
+            host_connection=host_connection,
+            include_db_default_policies=False,
+        )
+    return build_policy_engine_from_specs(
+        specs=_load_session_policy_specs(conversation_id, policy_store),
+        conversation_id=conversation_id,
+        conversation_store=conversation_store,
+        server_llm=server_llm,
+        host_connection=host_connection,
+    )
+
+
+def build_default_policy_engine(
+    *,
+    conversation_id: str,
+    conversation_store: ConversationStore,
+    default_policies: list[PolicySpec] | None = None,
+    policy_store: PolicyStore | None = None,
+    server_llm: LLMConfig | None = None,
+    host_connection: dict[str, str] | None = None,
+) -> PolicyEngine:
+    """Build the server-default policy engine for the control-plane gate.
+
+    Combines DB-backed default policies with YAML admin policies and runs
+    after source/target/run session policies, per plan §14.2.
+    """
+    return build_policy_engine_from_specs(
+        specs=_load_default_policy_specs(policy_store) + list(default_policies or []),
+        conversation_id=conversation_id,
+        conversation_store=conversation_store,
+        server_llm=server_llm,
+        host_connection=host_connection,
     )
 
 
@@ -1545,7 +1659,10 @@ def _stored_policy_to_spec(policy: StoredPolicy) -> PolicySpec:
 
 
 __all__ = [
+    "build_default_policy_engine",
     "build_policy_engine",
+    "build_policy_engine_from_specs",
+    "build_session_policy_engine",
     "invalidate_default_policy_specs_cache",
     "invalidate_session_policy_specs_cache",
 ]

@@ -1694,6 +1694,9 @@ class SqlAgentMessage(OmnigentBase):
     correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     in_reply_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    hop_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
+    max_hops: Mapped[int] = mapped_column(Integer, nullable=False, server_default="8", default=8)
+    ttl_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     message_state: Mapped[str] = mapped_column(String(16), nullable=False)
     consumption_state: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="unconsumed"

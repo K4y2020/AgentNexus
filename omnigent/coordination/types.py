@@ -15,6 +15,10 @@ ConsumptionState = Literal["unconsumed", "consumed", "acknowledged", "rejected"]
 MergeOperationStatus = Literal["preview", "executing", "merged", "conflict", "failed", "cancelled"]
 ArtifactKind = Literal["plan", "patch", "diff", "report", "test_result", "log", "other"]
 ArtifactStatus = Literal["published", "updated", "invalidated"]
+DEFAULT_MAX_HOPS = 8
+DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024
+DEFAULT_MAX_ARTIFACT_REFERENCES = 32
+DEFAULT_MAX_TTL_SECONDS = 7 * 24 * 60 * 60
 RunStatus = Literal[
     "draft",
     "running",
@@ -69,6 +73,9 @@ class AgentMessage:
     correlation_id: str | None = None
     in_reply_to: str | None = None
     idempotency_key: str | None = None
+    hop_count: int = 0
+    max_hops: int = DEFAULT_MAX_HOPS
+    ttl_seconds: float | None = None
     message_state: MessageState = "queued"
     consumption_state: ConsumptionState = "unconsumed"
     consumption_receipt: dict[str, Any] | None = None

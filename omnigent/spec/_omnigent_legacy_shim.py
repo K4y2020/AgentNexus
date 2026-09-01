@@ -80,6 +80,9 @@ _PHASE_TO_LEGACY_STR: dict[Phase, str] = {
     Phase.TOOL_RESULT: "tool_result",
     Phase.LLM_REQUEST: "llm_request",
     Phase.LLM_RESPONSE: "llm_response",
+    Phase.COORDINATION_MESSAGE: "coordination_message",
+    Phase.WORKSPACE_OPERATION: "workspace_operation",
+    Phase.GIT_MERGE: "git_merge",
 }
 
 
@@ -436,7 +439,14 @@ def _legacy_content(ctx: EvaluationContext) -> object:
     :param ctx: The evaluation context.
     :returns: Content in the legacy shape.
     """
-    if ctx.phase in (Phase.REQUEST, Phase.RESPONSE, Phase.TOOL_CALL):
+    if ctx.phase in (
+        Phase.REQUEST,
+        Phase.RESPONSE,
+        Phase.TOOL_CALL,
+        Phase.COORDINATION_MESSAGE,
+        Phase.WORKSPACE_OPERATION,
+        Phase.GIT_MERGE,
+    ):
         return ctx.content
     # TOOL_RESULT — JSON-parse the string so legacy callables
     # branching on ``isinstance(content, dict)`` keep working.

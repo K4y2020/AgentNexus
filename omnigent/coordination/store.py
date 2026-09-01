@@ -24,6 +24,7 @@ from omnigent.coordination.types import (
     DeliveryAttempt,
     OutboxItem,
     WorkspaceMergeOperation,
+    generate_coordination_id,
 )
 from omnigent.db.db_models import (
     SqlAgentMessage,
@@ -132,6 +133,9 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
         correlation_id=row.correlation_id,
         in_reply_to=row.in_reply_to,
         idempotency_key=row.idempotency_key,
+        hop_count=row.hop_count,
+        max_hops=row.max_hops,
+        ttl_seconds=row.ttl_seconds,
         message_state=row.message_state,
         consumption_state=row.consumption_state,  # type: ignore[arg-type]
         consumption_receipt=(
@@ -458,6 +462,9 @@ class CoordinationStore:
                         correlation_id=message.correlation_id,
                         in_reply_to=message.in_reply_to,
                         idempotency_key=message.idempotency_key,
+                        hop_count=message.hop_count,
+                        max_hops=message.max_hops,
+                        ttl_seconds=message.ttl_seconds,
                         message_state=message.message_state,
                         consumption_state=message.consumption_state,
                         consumption_receipt_json=(
@@ -569,6 +576,66 @@ class CoordinationStore:
                 )
                 .values(message_state=state, updated_at=time.time())
             )
+
+    def expire_message(self, message_id: str, reason: str) -> AgentMessage | None:
+        """Mark a TTL-expired message and its outbox item terminal."""
+        with self._session_immediate("expire_message") as sess:
+            row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
+            if row is None:
+                return None
+            now = time.time()
+            row.message_state = "expired"
+            row.updated_at = now
+            attempt = DeliveryAttempt(
+                message_id=row.message_id,
+                target_session_id=row.recipient_session_id,
+                delivery_mode="offline",
+                delivery_state="failed",
+                error=reason,
+                attempt_count=1,
+                created_at=now,
+                updated_at=now,
+            )
+            sess.add(
+                SqlDeliveryAttempt(
+                    attempt_id=attempt.attempt_id,
+                    message_id=attempt.message_id,
+                    target_session_id=attempt.target_session_id,
+                    target_sequence=attempt.target_sequence,
+                    target_harness=attempt.target_harness,
+                    delivery_mode=attempt.delivery_mode,
+                    delivery_state=attempt.delivery_state,
+                    injection_receipt_json=None,
+                    error=attempt.error,
+                    attempt_count=attempt.attempt_count,
+                    created_at=attempt.created_at,
+                    updated_at=attempt.updated_at,
+                )
+            )
+            sess.add(
+                SqlCoordinationEvent(
+                    event_id=generate_coordination_id("cevt"),
+                    root_session_id=row.root_session_id,
+                    run_id=row.run_id,
+                    task_id=row.task_id,
+                    actor_session_id=row.sender_session_id,
+                    event_type="message.expired",
+                    payload_json=json.dumps(
+                        {"message_id": row.message_id, "reason": reason}
+                    ),
+                    created_at=now,
+                )
+            )
+            sess.execute(
+                update(SqlCoordinationOutbox)
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlCoordinationOutbox.message_id == message_id,
+                    SqlCoordinationOutbox.status.in_(("pending", "leased")),
+                )
+                .values(status="failed", updated_at=now)
+            )
+        return self.get_message(message_id)
 
     def cancel_message(self, message_id: str) -> AgentMessage | None:
         """Cancel a queued message; injected/active messages cannot be cancelled."""

@@ -201,10 +201,19 @@ class PolicyEvent(TypedDict, total=False):
     - ``"llm_response"``: ``data`` is a dict with the LLM response
       metadata: ``model``, ``text_preview``, ``tool_calls_count``,
       and optionally ``usage``. Fires per round-trip.
+    - ``"coordination_message"``: ``data`` is a dict with the peer
+      AgentMessage envelope (root/sender/recipient, intent, kind and
+      a redacted payload preview) before durable outbox insertion.
+    - ``"workspace_operation"``: ``data`` is a dict with the managed
+      workspace operation (lease holder, canonical path, mode/duration)
+      before the host op is issued.
+    - ``"git_merge"``: ``data`` is a dict with the merge operation
+      (holder, repo path, source/target branches) before git runs.
 
     :param type: Enforcement phase — ``"request"``, ``"tool_call"``,
-        ``"tool_result"``, ``"response"``, ``"llm_request"``, or
-        ``"llm_response"``.
+        ``"tool_result"``, ``"response"``, ``"llm_request"``,
+        ``"llm_response"``, ``"coordination_message"``,
+        ``"workspace_operation"``, or ``"git_merge"``.
     :param target: Tool name on ``tool_call`` / ``tool_result``,
         ``None`` on ``request`` / ``response``.
     :param data: Phase-specific payload. See above.
@@ -233,6 +242,9 @@ class PolicyEvent(TypedDict, total=False):
         "response",
         "llm_request",
         "llm_response",
+        "coordination_message",
+        "workspace_operation",
+        "git_merge",
     ]
     target: str | None
     data: object
