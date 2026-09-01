@@ -654,6 +654,54 @@ class RoutingDecisionData(BaseModel):
         return stripped
 
 
+class ModelFactData(BaseModel):
+    """
+    Data payload for a per-turn model fact chain.
+
+    Recorded by the server relay at every terminal turn (completed,
+    failed, cancelled, etc.) so the Agent Inspector can show
+    ``requested_model`` / ``resolved_model`` / ``upstream_model``
+    without guessing from a model name. A ``None`` field means the
+    layer is Unknown and must carry a corresponding
+    ``*_unknown_reason`` so the UI never presents a bare, unreasoned
+    "Unknown" (P1 transparency acceptance).
+
+    :param requested_model: User/workflow selection for this turn,
+        e.g. ``"databricks-gpt-5-6-sol"``. ``None`` when no explicit
+        selection exists (the layer is Unknown with
+        ``requested_unknown_reason``).
+    :param requested_unknown_reason: Why ``requested_model`` is
+        unknown, e.g. ``"no_explicit_selection"``.
+    :param resolved_model: The model the harness actually sent to the
+        provider per harness-reported usage, e.g.
+        ``"databricks-claude-opus-4-8"``. ``None`` when the harness did
+        not report a usage model.
+    :param resolved_unknown_reason: Why ``resolved_model`` is unknown,
+        e.g. ``"harness_reported_no_model"``.
+    :param upstream_model: Gateway final mapped/billing model when the
+        provider/gateway reports one, e.g. ``"gpt-5-6"``. ``None`` when
+        the Gateway did not provide it.
+    :param upstream_unknown_reason: Why ``upstream_model`` is unknown,
+        e.g. ``"gateway_model_unavailable"``.
+    :param harness: Harness the fact belongs to, e.g. ``"claude-sdk"``
+        or ``"codex"``. ``None`` when the relay could not resolve one.
+    :param status: Terminal turn status, e.g. ``"completed"`` or
+        ``"failed"``.
+    :param source: Which path recorded the fact, e.g.
+        ``"runner_relay"``.
+    """
+
+    requested_model: str | None = None
+    requested_unknown_reason: str | None = None
+    resolved_model: str | None = None
+    resolved_unknown_reason: str | None = None
+    upstream_model: str | None = None
+    upstream_unknown_reason: str | None = None
+    harness: str | None = None
+    status: str = "completed"
+    source: str | None = None
+
+
 class SlashCommandData(BaseModel):
     """
     Data payload for a slash-command invocation observed in a
@@ -697,6 +745,7 @@ ItemData = (
     | NativeToolData
     | ResourceEventData
     | RoutingDecisionData
+    | ModelFactData
     | SlashCommandData
     | TerminalCommandData
 )
@@ -711,6 +760,7 @@ ITEM_TYPE_TO_DATA_CLS: dict[str, type[BaseModel]] = {
     "native_tool": NativeToolData,
     "resource_event": ResourceEventData,
     "routing_decision": RoutingDecisionData,
+    "model_fact": ModelFactData,
     "slash_command": SlashCommandData,
     "terminal_command": TerminalCommandData,
 }
@@ -722,6 +772,7 @@ NON_CONTENT_ITEM_TYPES: frozenset[str] = frozenset(
     {
         "compaction",
         "error",
+        "model_fact",
         "resource_event",
         "routing_decision",
         "slash_command",

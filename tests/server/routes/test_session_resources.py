@@ -3696,6 +3696,97 @@ async def test_relay_drops_malformed_routing_decision() -> None:
 
 
 @pytest.mark.asyncio
+async def test_relay_persists_model_fact_on_completed_turn() -> None:
+    """A terminal relay turn records the requested/resolved/upstream chain.
+
+    The model fact must be durable so the Agent Inspector renders the
+    three layers after reload without guessing. ``upstream_model`` is
+    only recorded when the runner/gateway actually provides it.
+    """
+    from omnigent.server.routes.sessions import _relay_runner_stream
+
+    store = _ConversationStore()
+    store._conversations["79b22ebd2309e48fdeb450c65611d51b"].model_override = (
+        "databricks-claude-opus-4-8"
+    )
+    client = _FakeStreamingRunnerClient(
+        [
+            _sse_frame({"type": "response.in_progress", "response": {"id": "resp_turn"}}),
+            _sse_frame(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_turn",
+                        "model": "claude_code",
+                        "usage": {
+                            "model": "databricks-claude-opus-4-8",
+                            "upstream_model": "claude-opus-4-8",
+                        },
+                    },
+                }
+            ),
+            "data: [DONE]\n\n",
+        ]
+    )
+
+    await _relay_runner_stream("79b22ebd2309e48fdeb450c65611d51b", client, store)  # type: ignore[arg-type]
+
+    facts = [i for i in store.appended_items if i.type == "model_fact"]
+    assert len(facts) == 1, f"expected 1 model_fact item, got {store.appended_items}"
+    fact = facts[0]
+    assert fact.response_id == "resp_turn"
+    assert fact.data.requested_model == "databricks-claude-opus-4-8"
+    assert fact.data.resolved_model == "databricks-claude-opus-4-8"
+    assert fact.data.upstream_model == "claude-opus-4-8"
+    assert fact.data.status == "completed"
+    assert fact.data.requested_unknown_reason is None
+    assert fact.data.resolved_unknown_reason is None
+    assert fact.data.upstream_unknown_reason is None
+
+
+@pytest.mark.asyncio
+async def test_relay_persists_model_fact_unknown_reasons_on_failure() -> None:
+    """A failed turn without harness usage still records an honest chain.
+
+    Every layer stays Unknown with a specific reason; the Inspector must
+    not fill them in from session defaults or model-name heuristics.
+    """
+    from omnigent.server.routes.sessions import _relay_runner_stream
+
+    store = _ConversationStore()
+    client = _FakeStreamingRunnerClient(
+        [
+            _sse_frame({"type": "response.in_progress", "response": {"id": "resp_fail"}}),
+            _sse_frame(
+                {
+                    "type": "response.failed",
+                    "response": {
+                        "id": "resp_fail",
+                        "model": "claude_code",
+                        "error": {"code": "tool_error", "message": "boom"},
+                    },
+                }
+            ),
+            "data: [DONE]\n\n",
+        ]
+    )
+
+    await _relay_runner_stream("79b22ebd2309e48fdeb450c65611d51b", client, store)  # type: ignore[arg-type]
+
+    facts = [i for i in store.appended_items if i.type == "model_fact"]
+    assert len(facts) == 1, f"expected 1 model_fact item, got {store.appended_items}"
+    fact = facts[0]
+    assert fact.response_id == "resp_fail"
+    assert fact.data.requested_model is None
+    assert fact.data.requested_unknown_reason == "no_explicit_selection"
+    assert fact.data.resolved_model is None
+    assert fact.data.resolved_unknown_reason == "harness_reported_no_model"
+    assert fact.data.upstream_model is None
+    assert fact.data.upstream_unknown_reason == "gateway_model_unavailable"
+    assert fact.data.status == "failed"
+
+
+@pytest.mark.asyncio
 async def test_relay_does_not_persist_session_level_response_error() -> None:
     """The relay does not persist a startup ``response.error`` orphan.
 
@@ -4738,8 +4829,8 @@ async def test_relay_flushes_partial_text_on_failed_turn_before_error_item() -> 
         # (or missing the message) means the failed-turn flush regressed and
         # reload shows the error without the text the user watched stream.
         types = [i.type for i in store.appended_items]
-        assert types == ["message", "error"], types
-        message, error = store.appended_items
+        assert types == ["message", "error", "model_fact"], types
+        message, error, model_fact = store.appended_items
         assert "".join(b["text"] for b in message.data.content) == (
             "Drafting the plan. Now running checks."
         )
@@ -4748,6 +4839,7 @@ async def test_relay_flushes_partial_text_on_failed_turn_before_error_item() -> 
         assert error.response_id == "resp_fail"
         assert error.data.code == "llm_error"
         assert error.data.message == "LLM exploded"
+        assert model_fact.type == "model_fact"
         # Populated before the terminal: proves the clear below is a real
         # transition, not "the index was never fed".
         assert inflight_after_deltas == [
@@ -5131,6 +5223,7 @@ async def test_relay_interleaves_text_segments_with_tool_calls() -> None:
             "function_call",
             "function_call_output",
             "message",
+            "model_fact",
         ], types
 
         # Three SEPARATE messages, each its own segment — not one run-on.

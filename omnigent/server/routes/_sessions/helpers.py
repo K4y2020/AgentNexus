@@ -6908,6 +6908,79 @@ def _routing_decision_item_from_sse(
     )
 
 
+def _model_fact_item_from_turn(
+    event: dict[str, Any],
+    *,
+    requested_model: str | None = None,
+    requested_unknown_reason: str | None = None,
+    harness: str | None = None,
+    response_id: str | None = None,
+    turn_status: str = "completed",
+    source: str = "runner_relay",
+) -> NewConversationItem:
+    """Build a durable per-turn ``model_fact`` conversation item.
+
+    The relay records this at every terminal turn so the Agent
+    Inspector can show the three-layer model fact chain (requested /
+    resolved / upstream) after reload. ``None`` layers are preserved as
+    Unknown and must carry a matching ``*_unknown_reason`` — the UI
+    never substitutes a guessed model name.
+
+    :param event: Parsed runner SSE terminal event (``response.completed``,
+        ``response.failed``, etc.).
+    :param requested_model: User/workflow selection persisted on the
+        conversation, e.g. ``conv.model_override``. ``None`` when no
+        explicit selection exists.
+    :param requested_unknown_reason: Why the requested layer is Unknown.
+    :param harness: Harness the fact belongs to, e.g. ``"claude-sdk"``.
+    :param response_id: Turn-scoped response id, or ``None`` to mint a
+        fresh one.
+    :param turn_status: Terminal status, e.g. ``"completed"``.
+    :param source: Which path recorded the fact, e.g. ``"runner_relay"``.
+    :returns: A ``model_fact`` :class:`NewConversationItem`.
+    """
+    import uuid
+
+    response = event.get("response")
+    if not isinstance(response, dict):
+        response = {}
+    usage = response.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+
+    def _s(value: object) -> str | None:
+        return value if isinstance(value, str) and value.strip() else None
+
+    requested = _s(requested_model)
+    resolved = _s(usage.get("model"))
+    upstream = _s(usage.get("upstream_model")) or _s(response.get("upstream_model"))
+    item_data: dict[str, Any] = {
+        "requested_model": requested,
+        "requested_unknown_reason": (
+            None
+            if requested is not None
+            else (requested_unknown_reason or "no_explicit_selection")
+        ),
+        "resolved_model": resolved,
+        "resolved_unknown_reason": (
+            None if resolved is not None else "harness_reported_no_model"
+        ),
+        "upstream_model": upstream,
+        "upstream_unknown_reason": (
+            None if upstream is not None else "gateway_model_unavailable"
+        ),
+        "harness": harness,
+        "status": turn_status,
+        "source": source,
+    }
+    parsed = parse_item_data("model_fact", item_data)
+    return NewConversationItem(
+        type="model_fact",
+        response_id=response_id or f"turn_{uuid.uuid4().hex}",
+        data=parsed,
+    )
+
+
 def _error_item_from_sse(
     event: dict[str, Any],
     response_id: str | None = None,
@@ -10103,6 +10176,7 @@ __all__ = [
     "_merge_claude_permission_launch_args",
     "_merge_pending_file_blocks",
     "_message_text",
+    "_model_fact_item_from_turn",
     "_model_options_from_wire",
     "_model_usage_bucket",
     "_multipart_missing_detail",

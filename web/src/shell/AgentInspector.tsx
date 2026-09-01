@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { shortModelName } from "@/components/CostRoutingControl";
 import { useSession } from "@/hooks/useSession";
+import { isModelFactItem, type ModelFactItem } from "@/lib/conversationItems";
 import { authenticatedFetch } from "@/lib/identity";
+import { fetchSessionItemsPage } from "@/lib/sessionsApi";
 import { claudePermissionModeFromSession, claudePermissionModeLabel } from "@/lib/claudePermissionMode";
 
 export interface AgentInspectorProps {
@@ -50,6 +52,29 @@ const BEHAVIOR_MODE_LABEL: Record<string, string> = {
 };
 const BEHAVIOR_MODE_LABEL_KEY = "omnigent.behavior_mode";
 
+function ModelFactBadge({
+  value,
+  reason,
+  variant,
+}: {
+  value: string | null;
+  reason: string | null | undefined;
+  variant: "outline" | "secondary";
+}) {
+  return (
+    <span className="flex min-w-0 items-center justify-end gap-1.5">
+      <Badge variant={variant} className="shrink-0 font-mono text-[11px]">
+        {value ? shortModelName(value) : "Unknown"}
+      </Badge>
+      {!value && reason ? (
+        <span className="truncate text-[10px] text-muted-foreground" title={reason}>
+          {reason}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function AgentInspector({
   conversationId,
   rootSessionId,
@@ -58,6 +83,16 @@ export function AgentInspector({
   const [behaviorSaving, setBehaviorSaving] = useState(false);
   const [behaviorSaveError, setBehaviorSaveError] = useState<string | null>(null);
   const { session } = useSession(conversationId);
+  const { data: modelFactItem } = useQuery<ModelFactItem | null>({
+    queryKey: ["modelFacts", conversationId],
+    queryFn: async () => {
+      const page = await fetchSessionItemsPage(conversationId, { limit: 50 });
+      return page.items.filter(isModelFactItem).at(-1) ?? null;
+    },
+    enabled: Boolean(conversationId),
+    retry: false,
+    staleTime: 30_000,
+  });
   const {
     data: behaviorFacts,
     isLoading: behaviorLoading,
@@ -84,9 +119,27 @@ export function AgentInspector({
     );
   }
 
-  const requestedModel = session.modelOverride ?? "Unknown";
-  const resolvedModel = session.llmModel ?? "Unknown";
-  const upstreamModel = session.labels?.["omnigent.upstream_model"] ?? "Unknown";
+  const latestFact = modelFactItem ?? null;
+  const requestedModel: string | null = latestFact
+    ? (latestFact.requested_model ?? null)
+    : (session.modelOverride ?? null);
+  const resolvedModel: string | null = latestFact
+    ? (latestFact.resolved_model ?? null)
+    : (session.llmModel ?? null);
+  const upstreamModel: string | null = latestFact ? (latestFact.upstream_model ?? null) : null;
+  const requestedUnknownReason = latestFact
+    ? (latestFact.requested_unknown_reason ?? null)
+    : requestedModel
+      ? null
+      : "no_explicit_selection_recorded";
+  const resolvedUnknownReason = latestFact
+    ? (latestFact.resolved_unknown_reason ?? null)
+    : resolvedModel
+      ? null
+      : "harness_model_not_reported_yet";
+  const upstreamUnknownReason = latestFact
+    ? (latestFact.upstream_unknown_reason ?? null)
+    : "gateway_model_not_available";
   const harness = session.harness ?? "Unknown";
   const role = session.labels?.["omnigent.role"] ?? "Unknown";
   const branch = session.gitBranch ?? "Unknown";
@@ -137,21 +190,27 @@ export function AgentInspector({
         <CardContent className="flex flex-col gap-2 pt-0">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Requested Model:</span>
-            <Badge variant="outline" className="font-mono text-[11px]">
-              {shortModelName(requestedModel)}
-            </Badge>
+            <ModelFactBadge
+              value={requestedModel}
+              reason={requestedUnknownReason}
+              variant="outline"
+            />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Resolved Model:</span>
-            <Badge variant="secondary" className="font-mono text-[11px]">
-              {shortModelName(resolvedModel)}
-            </Badge>
+            <ModelFactBadge
+              value={resolvedModel}
+              reason={resolvedUnknownReason}
+              variant="secondary"
+            />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Upstream Gateway:</span>
-            <Badge variant="outline" className="font-mono text-[11px]">
-              {shortModelName(upstreamModel)}
-            </Badge>
+            <ModelFactBadge
+              value={upstreamModel}
+              reason={upstreamUnknownReason}
+              variant="outline"
+            />
           </div>
         </CardContent>
       </Card>

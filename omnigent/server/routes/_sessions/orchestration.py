@@ -244,6 +244,7 @@ from omnigent.server.routes._sessions.helpers import (
     _mcp_ok_response,
     _merge_pending_file_blocks,
     _message_text,
+    _model_fact_item_from_turn,
     _model_usage_bucket,
     _native_coding_agent_for_session,
     _native_subagent_wrapper_labels_from_spec,
@@ -6283,6 +6284,54 @@ async def _relay_runner_stream_once(
                             conversation_store,
                             session_id,
                             error_item,
+                        )
+
+                    # Persist the per-turn model fact chain on ANY terminal
+                    # event so the Agent Inspector can show requested /
+                    # resolved / upstream truth after reload. The fact lands
+                    # after the durable error item, so a failed turn keeps the
+                    # existing "narration then error" transcript order.
+                    # Layers without an authoritative value are recorded as
+                    # None and carry an unknown_reason; the UI never fills
+                    # them in from a model-name guess.
+                    if (
+                        evt_type in _TERMINAL_RESPONSE_EVENT_TYPES
+                        and conversation_store is not None
+                    ):
+                        _fact_conv = await asyncio.to_thread(
+                            conversation_store.get_conversation,
+                            session_id,
+                        )
+                        _term_resp_obj = event.get("response")
+                        _term_rid = (
+                            _term_resp_obj.get("id")
+                            if isinstance(_term_resp_obj, dict)
+                            else None
+                        )
+                        _model_fact_item = _model_fact_item_from_turn(
+                            event,
+                            requested_model=(
+                                _fact_conv.model_override
+                                if _fact_conv is not None
+                                else None
+                            ),
+                            requested_unknown_reason=(
+                                "no_explicit_selection"
+                                if _fact_conv is None or not _fact_conv.model_override
+                                else None
+                            ),
+                            harness=(
+                                _fact_conv.harness_override
+                                if _fact_conv is not None
+                                else None
+                            ),
+                            response_id=current_response_id or _term_rid,
+                            turn_status=evt_type.split(".", 1)[1],
+                        )
+                        await _relay_persist(
+                            conversation_store,
+                            session_id,
+                            _model_fact_item,
                         )
 
                     # Persist resource lifecycle events

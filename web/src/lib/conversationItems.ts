@@ -169,6 +169,24 @@ export interface RoutingDecisionItem extends BaseItem {
   agent?: string;
 }
 
+/**
+ * A per-turn model fact chain, recorded by the server relay at each
+ * terminal turn. A null layer means Unknown and should render with its
+ * corresponding `*_unknown_reason` instead of a guessed model name.
+ */
+export interface ModelFactItem extends BaseItem {
+  type: "model_fact";
+  requested_model?: string | null;
+  requested_unknown_reason?: string | null;
+  resolved_model?: string | null;
+  resolved_unknown_reason?: string | null;
+  upstream_model?: string | null;
+  upstream_unknown_reason?: string | null;
+  harness?: string | null;
+  status: string;
+  source?: string | null;
+}
+
 export type ConversationItem =
   | MessageItem
   | FunctionCallItem
@@ -179,6 +197,7 @@ export type ConversationItem =
   | CompactionItem
   | SlashCommandItem
   | RoutingDecisionItem
+  | ModelFactItem
   | TerminalCommandItem
   | (BaseItem & Record<string, unknown>);
 
@@ -216,6 +235,10 @@ export function isSlashCommandItem(item: ConversationItem): item is SlashCommand
 
 export function isRoutingDecisionItem(item: ConversationItem): item is RoutingDecisionItem {
   return item.type === "routing_decision";
+}
+
+export function isModelFactItem(item: ConversationItem): item is ModelFactItem {
+  return item.type === "model_fact";
 }
 
 export function isTerminalCommandItem(item: ConversationItem): item is TerminalCommandItem {

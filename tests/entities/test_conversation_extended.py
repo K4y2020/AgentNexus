@@ -359,6 +359,7 @@ def test_non_content_item_types_complete() -> None:
     expected = {
         "compaction",
         "error",
+        "model_fact",
         "resource_event",
         "routing_decision",
         "slash_command",
@@ -382,6 +383,7 @@ def test_item_type_map_covers_all_types() -> None:
         "error",
         "reasoning",
         "compaction",
+        "model_fact",
         "native_tool",
         "resource_event",
         "routing_decision",

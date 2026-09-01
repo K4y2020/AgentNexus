@@ -7,6 +7,9 @@ evidence below proves it, not when a page or code path merely exists.
 Updated 2026-09-02 with independent UI event delivery, runner relaunch, and
 host tunnel reconnect p95 samples.
 
+Updated 2026-09-02 with the per-turn model fact chain: durable relay facts,
+SQLite migration + store round-trip, and Inspector Unknown-with-reason rendering.
+
 ## Quality checks (fresh, this machine)
 
 | Check | Result |
@@ -21,7 +24,9 @@ host tunnel reconnect p95 samples.
 | UI event delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 32.8ms / p99 33.5ms |
 | Runner relaunch benchmark (mock LLM, 30 samples) | 30/30 passed, p95 16754.1ms / p99 16754.1ms |
 | Host tunnel reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 5958.5ms / p99 6036.2ms |
+| Model fact chain backend targeted | 10/10 passed |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
+| AgentInspector vitest (model fact + behavior facts) | 8/8 passed |
 | Web production build (`vite build`) | Succeeded (42s) |
 | Electron desktop tests (`node --test`) | 366/366 passed |
 | Linux desktop smoke | AppImage + deb built in WSL Ubuntu (SHA256 recorded) |
@@ -46,6 +51,15 @@ host tunnel reconnect p95 samples.
 ### P1 transparent cockpit
 - Behavior pack resolve/injection/requested-vs-resolved + delivery receipt
   endpoints and tests exist; Inspector distinguishes unconfirmed injection.
+- The runner relay now persists one `model_fact` item per terminal turn:
+  requested (`session.model_override`), resolved (`usage.model`), and
+  upstream (`usage.upstream_model` / `response.upstream_model`), with
+  machine-readable `*_unknown_reason` when a layer is genuinely unknown.
+  The type is a stable item code (12) admitted by an Alembic migration and
+  verified through real SQLite store round-trip.
+- AgentInspector reads the latest fact from the items endpoint and renders
+  Unknown only with its stated reason; before any fact exists it no longer
+  guesses upstream from `omnigent.upstream_model` labels.
 - Remaining: real-world model/tool observability soak on a candidate build.
 
 ### P2 durable agent bus

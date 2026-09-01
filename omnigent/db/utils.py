@@ -784,6 +784,7 @@ _ITEM_TYPES: frozenset[str] = frozenset(
         "slash_command",
         "terminal_command",
         "routing_decision",
+        "model_fact",
     }
 )
 
@@ -1093,6 +1094,18 @@ def extract_search_text(item: NewConversationItem) -> str:
         # Index model + rationale so FTS can find a router verdict by
         # the model it picked or its one-line explanation.
         return " ".join(part for part in (data.get("model"), data.get("rationale")) if part)
+    if item.type == "model_fact":
+        # Index the fact chain's model ids so FTS can find a turn by
+        # any known layer without dumping reasons into search text.
+        return " ".join(
+            part
+            for part in (
+                data.get("requested_model") or "",
+                data.get("resolved_model") or "",
+                data.get("upstream_model") or "",
+            )
+            if part
+        )
     raise ValueError(f"unknown item type: {item.type!r}")
 
 

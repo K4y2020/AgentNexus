@@ -745,6 +745,25 @@ def test_extract_search_text_routing_decision() -> None:
     assert extract_search_text(item) == "databricks-claude-opus-4-8 Deep design work."
 
 
+def test_extract_search_text_model_fact() -> None:
+    """model_fact items must index the known model chain, not fail append."""
+    item = NewConversationItem.model_validate(
+        {
+            "type": "model_fact",
+            "response_id": "resp_x",
+            "data": {
+                "requested_model": "databricks-claude-opus-4-8",
+                "resolved_model": "databricks-claude-opus-4-8",
+                "upstream_model": "claude-opus-4-8",
+            },
+        }
+    )
+    assert (
+        extract_search_text(item)
+        == "databricks-claude-opus-4-8 databricks-claude-opus-4-8 claude-opus-4-8"
+    )
+
+
 def test_build_search_snippet_short_text_returned_whole() -> None:
     """A match within a short line yields the whole (collapsed) line, no ellipsis."""
     assert (

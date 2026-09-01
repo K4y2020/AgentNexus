@@ -12,6 +12,7 @@ from omnigent.entities import (
     FunctionCallData,
     FunctionCallOutputData,
     MessageData,
+    ModelFactData,
     NewConversationItem,
     ReasoningData,
 )
@@ -27,6 +28,43 @@ from omnigent.stores.conversation_store.sqlalchemy_store import (
 from omnigent.stores.host_store import HostStore
 
 # ── CRUD ──────────────────────────────────────────────
+
+
+def test_model_fact_item_round_trips_through_sqlite(
+    conversation_store: SqlAlchemyConversationStore,
+) -> None:
+    """A ``model_fact`` item persists under the widened type CHECK."""
+    conv = conversation_store.create_conversation(title="model fact")
+    conversation_store.append(
+        conv.id,
+        [
+            NewConversationItem(
+                type="model_fact",
+                response_id="resp_1",
+                data=ModelFactData(
+                    requested_model=None,
+                    requested_unknown_reason="no_explicit_selection",
+                    resolved_model="gpt-5.2",
+                    resolved_unknown_reason=None,
+                    upstream_model=None,
+                    upstream_unknown_reason="gateway_model_unavailable",
+                    harness="codex",
+                    status="completed",
+                    source="relay",
+                ),
+            )
+        ],
+    )
+
+    page = conversation_store.list_items(conv.id)
+    assert len(page.data) == 1
+    item = page.data[0]
+    assert item.type == "model_fact"
+    assert item.response_id == "resp_1"
+    assert isinstance(item.data, ModelFactData)
+    assert item.data.resolved_model == "gpt-5.2"
+    assert item.data.requested_unknown_reason == "no_explicit_selection"
+    assert item.data.upstream_unknown_reason == "gateway_model_unavailable"
 
 
 def test_fork_drops_import_provenance_labels(

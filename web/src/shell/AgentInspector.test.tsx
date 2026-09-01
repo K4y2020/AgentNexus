@@ -22,6 +22,27 @@ function jsonResponse(body: unknown, { ok = true, status = 200 } = {}): Response
   } as unknown as Response;
 }
 
+function itemsPage(items: unknown[] = []): Response {
+  return jsonResponse({
+    object: "list",
+    data: items,
+    first_id: null,
+    last_id: null,
+    has_more: false,
+  });
+}
+
+function mockBehavior(body: unknown, items: unknown[] = []): void {
+  vi.mocked(identity.authenticatedFetch).mockImplementation(async (url, init) => {
+    const raw = String(url);
+    if (raw.includes("/items?") && !init?.method) return itemsPage(items);
+    if (raw.includes("/v1/sessions/conv_child") && init?.method === "PATCH") {
+      return jsonResponse({});
+    }
+    return jsonResponse(body);
+  });
+}
+
 function mockSession() {
   vi.mocked(useSessionModule.useSession).mockReturnValue({
     session: {
@@ -63,26 +84,24 @@ describe("AgentInspector behavior facts", () => {
   });
 
   it("renders a confirmed lean binding without inventing facts", async () => {
-    vi.mocked(identity.authenticatedFetch).mockResolvedValue(
-      jsonResponse({
-        session_id: "conv_child",
-        binding: {
-          workflow_node: "planner",
-          requested_mode: "lean",
-          injection_channel: "composed_per_turn",
-          resolved: {
-            binding: {
-              mode: "lean",
-              digest: "sha256:abcdef1234567890",
-              version: "1.0.0",
-            },
+    mockBehavior({
+      session_id: "conv_child",
+      binding: {
+        workflow_node: "planner",
+        requested_mode: "lean",
+        injection_channel: "composed_per_turn",
+        resolved: {
+          binding: {
+            mode: "lean",
+            digest: "sha256:abcdef1234567890",
+            version: "1.0.0",
           },
         },
-        delivery_state: "confirmed",
-        consumption_state: "consumed",
-        reason: "confirmed_injection",
-      }),
-    );
+      },
+      delivery_state: "confirmed",
+      consumption_state: "consumed",
+      reason: "confirmed_injection",
+    });
 
     renderInspector();
     expect(await screen.findByText("Lean")).toBeInTheDocument();
@@ -92,20 +111,18 @@ describe("AgentInspector behavior facts", () => {
   });
 
   it("shows queued explicitly instead of confirming a pending injection", async () => {
-    vi.mocked(identity.authenticatedFetch).mockResolvedValue(
-      jsonResponse({
-        session_id: "conv_child",
-        binding: {
-          workflow_node: "implementer",
-          requested_mode: "off",
-          injection_channel: "none",
-          resolved: { binding: { mode: "off" } },
-        },
-        delivery_state: "queued",
-        consumption_state: "unconsumed",
-        reason: "recorded_pending_delivery",
-      }),
-    );
+    mockBehavior({
+      session_id: "conv_child",
+      binding: {
+        workflow_node: "implementer",
+        requested_mode: "off",
+        injection_channel: "none",
+        resolved: { binding: { mode: "off" } },
+      },
+      delivery_state: "queued",
+      consumption_state: "unconsumed",
+      reason: "recorded_pending_delivery",
+    });
 
     renderInspector();
     expect(await screen.findByText("Off")).toBeInTheDocument();
@@ -114,15 +131,13 @@ describe("AgentInspector behavior facts", () => {
   });
 
   it("renders no binding rather than a fake agent_default", async () => {
-    vi.mocked(identity.authenticatedFetch).mockResolvedValue(
-      jsonResponse({
-        session_id: "conv_child",
-        binding: null,
-        delivery_state: "none",
-        consumption_state: "none",
-        reason: "no_workflow_behavior_binding",
-      }),
-    );
+    mockBehavior({
+      session_id: "conv_child",
+      binding: null,
+      delivery_state: "none",
+      consumption_state: "none",
+      reason: "no_workflow_behavior_binding",
+    });
 
     renderInspector();
     expect(await screen.findByText("Not recorded")).toBeInTheDocument();
@@ -130,16 +145,14 @@ describe("AgentInspector behavior facts", () => {
   });
 
   it("shows a requested session mode as not yet injected", async () => {
-    vi.mocked(identity.authenticatedFetch).mockResolvedValue(
-      jsonResponse({
-        session_id: "conv_child",
-        binding: null,
-        session_mode: { binding: { mode: "advisory" } },
-        delivery_state: "none",
-        consumption_state: "none",
-        reason: "session_mode_not_yet_injected",
-      }),
-    );
+    mockBehavior({
+      session_id: "conv_child",
+      binding: null,
+      session_mode: { binding: { mode: "advisory" } },
+      delivery_state: "none",
+      consumption_state: "none",
+      reason: "session_mode_not_yet_injected",
+    });
 
     renderInspector();
     await waitFor(() => {
@@ -152,7 +165,7 @@ describe("AgentInspector behavior facts", () => {
   });
 
   it("persists a session behavior mode through the session labels API", async () => {
-    vi.mocked(identity.authenticatedFetch).mockResolvedValue(jsonResponse({}));
+    mockBehavior({});
 
     renderInspector();
     const select = (await screen.findByTestId("session-behavior-mode")) as HTMLSelectElement;
@@ -161,7 +174,10 @@ describe("AgentInspector behavior facts", () => {
     await waitFor(() => {
       const patchCall = vi
         .mocked(identity.authenticatedFetch)
-        .mock.calls.find(([url]) => String(url).includes("/v1/sessions/conv_child"));
+        .mock.calls.find(
+          ([url, init]) =>
+            String(url).includes("/v1/sessions/conv_child") && init?.method === "PATCH",
+        );
       expect(patchCall).toBeDefined();
       expect(JSON.parse(String(patchCall![1]!.body))).toEqual({
         labels: { "omnigent.behavior_mode": "strict" },
@@ -175,5 +191,55 @@ describe("AgentInspector behavior facts", () => {
     renderInspector();
     expect(await screen.findByText("Behavior facts unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Not recorded")).not.toBeInTheDocument();
+  });
+});
+
+describe("AgentInspector model facts", () => {
+  beforeEach(() => {
+    mockSession();
+  });
+
+  it("renders the latest model_fact chain with Unknown reasons", async () => {
+    mockBehavior(
+      {
+        session_id: "conv_child",
+        binding: null,
+        delivery_state: "none",
+        consumption_state: "none",
+        reason: "no_workflow_behavior_binding",
+      },
+      [
+        {
+          id: "fact_1",
+          type: "model_fact",
+          response_id: "resp_1",
+          status: "completed",
+          requested_model: null,
+          requested_unknown_reason: "no_explicit_selection",
+          resolved_model: "databricks-gpt-5-6-sol",
+          upstream_model: null,
+          upstream_unknown_reason: "gateway_model_unavailable",
+        },
+      ],
+    );
+
+    renderInspector();
+    expect(await screen.findByText("no_explicit_selection")).toBeInTheDocument();
+    expect(screen.getByText("gpt-5-6-sol")).toBeInTheDocument();
+    expect(screen.getByText("gateway_model_unavailable")).toBeInTheDocument();
+  });
+
+  it("does not guess upstream from labels before a fact exists", async () => {
+    mockBehavior({
+      session_id: "conv_child",
+      binding: null,
+      delivery_state: "none",
+      consumption_state: "none",
+      reason: "no_workflow_behavior_binding",
+    });
+
+    renderInspector();
+    expect(await screen.findByText("gateway_model_not_available")).toBeInTheDocument();
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
   });
 });
