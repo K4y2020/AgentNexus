@@ -1203,6 +1203,9 @@ macOS/Linux 正式安装包、完整自动升级回滚和企业离线包进入 P
 - 保留并更新 NOTICE 和第三方归属。
 - 标记本产品包含基于 Omnigent 的修改。
 - 替换名称、包名、图标、域名、配置目录和安装器标识。
+- Electron 打包元数据已完成首轮迁移：name/productName/appId/仓库作者/更新地址
+  已改为 AgentNexus（ai.agentnexus.desktop、GitHub Releases feed）；内部
+  omnigent:// 协议、IPC 通道和 ~/.omnigent 数据目录仍作为兼容迁移项保留。
 - 发布前单独核查商标、第三方素材和 Vendor CLI 的分发条款。
 - 第一方 `lean-engineering` 使用独立文本、代码、测试、模式名称和指标，不复制 Ponytail 的原文、Hooks、Logo 或宣传数据。
 - 用户显式安装的外部 Ponytail Pack 保留原始 MIT License、版本、来源和 digest；若未来 vendoring 其任何实质内容，必须进入第三方许可证/NOTICE。

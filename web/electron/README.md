@@ -1,7 +1,7 @@
-# Omnigent Desktop (Electron)
+# AgentNexus Desktop (Electron)
 
 A thin [Electron](https://www.electronjs.org) desktop shell around the
-existing Omnigent web UI. It shows the **same** UI you get in a browser, but
+existing AgentNexus web UI. It shows the **same** UI you get in a browser, but
 adds native niceties:
 
 - **OS-native desktop notifications** (via the main-process `Notification`
@@ -35,7 +35,7 @@ adds native niceties:
   servers" below). Notifications and the dock badge are app-wide (one badge
   for all windows); a notification click focuses the window that fired it.
 - **macOS Managed Preferences for MDM-provided servers.** Administrators can
-  publish an HTTPS `serverUrls` list in the `ai.omnigent.desktop` preference
+  publish an HTTPS `serverUrls` list in the `ai.agentnexus.desktop` preference
   domain. The connect screen and in-app switcher show those choices under
   **Provided by your organization** without auto-connecting or preventing a
   manually entered server. See [Managed Preferences](docs/managed-preferences.md).

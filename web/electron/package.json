@@ -1,18 +1,18 @@
 {
-  "name": "omnigent-desktop-electron",
-  "productName": "Omnigent",
+  "name": "agentnexus-desktop-electron",
+  "productName": "AgentNexus",
   "version": "0.12.0-dev.0",
-  "description": "Omnigent desktop shell (Electron edition) — a thin native wrapper around the server-served web UI.",
+  "description": "AgentNexus desktop shell (Electron edition) - a thin native wrapper around the server-served web UI.",
   "private": true,
   "main": "src/main.js",
-  "homepage": "https://omnigent.ai",
+  "homepage": "https://github.com/K4y2020/AgentNexus",
   "repository": {
     "type": "git",
-    "url": "https://github.com/omnigent-ai/omnigent.git"
+    "url": "https://github.com/K4y2020/AgentNexus.git"
   },
   "author": {
-    "name": "Databricks, Inc.",
-    "email": "support@omnigent.ai"
+    "name": "K4y2020",
+    "url": "https://github.com/K4y2020"
   },
   "scripts": {
     "start": "electron .",
@@ -38,14 +38,14 @@
     "playwright": "^1.62.1"
   },
   "build": {
-    "appId": "ai.omnigent.desktop",
-    "productName": "Omnigent",
+    "appId": "ai.agentnexus.desktop",
+    "productName": "AgentNexus",
     "directories": {
       "output": "dist"
     },
     "protocols": [
       {
-        "name": "Omnigent session link",
+        "name": "AgentNexus session link",
         "schemes": [
           "omnigent"
         ]
@@ -54,7 +54,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://omnigent.ai/_desktop/updates/"
+        "url": "https://github.com/K4y2020/AgentNexus/releases/latest/download/"
       }
     ],
     "afterPack": "build/afterPack.js",
@@ -80,12 +80,12 @@
       "category": "public.app-category.developer-tools",
       "icon": "icons/icon.icns",
       "artifactName": "${productName}-${version}-${arch}-mac.${ext}",
-      "identity": "Databricks, Inc. (8RMX4WU6F8)",
+      "identity": null,
       "hardenedRuntime": true,
       "entitlements": "signing/entitlements.mac.plist",
       "entitlementsInherit": "signing/entitlements.mac.inherit.plist",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Omnigent uses the microphone for voice dictation in the message composer.",
+        "NSMicrophoneUsageDescription": "AgentNexus uses the microphone for voice dictation in the message composer.",
         "CFBundleIconName": "AppIcon"
       },
       "gatekeeperAssess": false,
@@ -109,7 +109,7 @@
       "publish": [
         {
           "provider": "generic",
-          "url": "https://omnigent.ai/_desktop/updates/"
+          "url": "https://github.com/K4y2020/AgentNexus/releases/latest/download/"
         }
       ]
     },
@@ -137,7 +137,7 @@
     "linux": {
       "icon": "icons/icon.png",
       "category": "Development",
-      "maintainer": "Databricks, Inc. <support@omnigent.ai>",
+      "maintainer": "K4y2020",
       "target": [
         "AppImage",
         "deb"
@@ -145,7 +145,7 @@
       "publish": [
         {
           "provider": "generic",
-          "url": "https://omnigent.ai/_desktop/updates/"
+          "url": "https://github.com/K4y2020/AgentNexus/releases/latest/download/"
         }
       ]
     },
@@ -157,7 +157,7 @@
       "publish": [
         {
           "provider": "generic",
-          "url": "https://omnigent.ai/_desktop/updates/"
+          "url": "https://github.com/K4y2020/AgentNexus/releases/latest/download/"
         }
       ]
     }

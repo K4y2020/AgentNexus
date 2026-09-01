@@ -1,3 +1,3 @@
 provider: generic
-url: https://omnigent.ai/_desktop/updates/
-updaterCacheDirName: omnigent-desktop-electron-updater-dev
+url: https://github.com/K4y2020/AgentNexus/releases/latest/download/
+updaterCacheDirName: agentnexus-desktop-electron-updater-dev
