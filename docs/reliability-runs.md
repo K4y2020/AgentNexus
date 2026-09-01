@@ -50,3 +50,54 @@ measurement. The plan's public-beta exit criterion is still operational: at
 least 100 independent runs on real machines/providers with an infrastructure
 failure rate below 2%, plus the 24-hour soak and real-user gates described in
 `docs/coding-agent-control-plane-plan.md`.
+
+## Real CLI cross-harness handoff E2E
+
+The mock baseline above proves the control-plane plumbing. As a complementary
+real-credential check, AgentNexus also validates that the actual `claude` and
+`codex` CLIs can collaborate on one shared checkout without the user copying
+text between them: Claude plans, Codex implements, Claude reviews, Codex fixes,
+and the loop converges to an approved verdict.
+
+This is a **direct-CLI handoff** (each agent reads the repository state the
+previous one left), not the server/runner/Dispatcher path. It is the
+real-credential complement; the control-plane-native real run remains a
+separate follow-up.
+
+### Procedure
+
+Run from a fresh scratch git repo (a throwaway directory is safest):
+
+```bash
+# 1. Plan - Claude
+cd $SCRATCH && claude -p --permission-mode acceptEdits \
+  "Write PLAN.md with an exact spec, acceptance criteria, and test list."
+
+# 2. Implement - Codex (uses the CLI's configured provider/credentials)
+codex exec --skip-git-repo-check -s workspace-write \
+  "Implement per PLAN.md; write the code and tests, then run them."
+
+# 3. Review - Claude
+claude -p --permission-mode acceptEdits \
+  "Read PLAN.md and the implementation; check every acceptance criterion; write REVIEW.md with APP/REJ."
+
+# 4. Fix loop - feed REJECTED findings back to Codex, then re-review with Claude.
+
+# 5. Independent verification
+python -m pytest -q
+```
+
+No secrets are baked into this repo or the runbook; credentials come from the
+CLIs' own login/config (`~/.claude`, `~/.codex`). Providers and models are read
+from the invoker's CLI config, so the exact backend is environment-specific.
+
+### Known caveats (Windows)
+
+- The Codex CLI `workspace-write` sandbox can fail to launch on Windows when
+  many skills/plugins push the sandbox-setup command line past the 32k
+  `CreateProcessW` limit (OS error 206). In a throwaway scratch directory this
+  is worked around with `--dangerously-bypass-approvals-and-sandbox`; keep it
+  out of any shared or trusted checkout.
+- A configured local/aggregator gateway may transiently return HTTP 429 after
+  heavy runs; retry after the rate-limit window. This is infrastructure
+  throttling, not an AgentNexus defect.
