@@ -498,7 +498,10 @@ def test_initialize_or_verify_schema_reports_manual_retry_when_auto_migration_fa
         f"Error message must include the literal upgrade command "
         f"the operator can run manually. Got: {msg!r}"
     )
-    assert uri in msg, (
+    # The URL is embedded into the shell command via ``{uri!r}``, so on
+    # Windows its backslashes arrive doubled (``C:\\Users``). Compare the
+    # un-escaped form so the copy-pastable argument check holds everywhere.
+    assert uri in msg.replace("\\\\", "\\"), (
         f"Error message must include the database URL so the "
         f"command is copy-pastable. Got: {msg!r}"
     )

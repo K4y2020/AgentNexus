@@ -98,7 +98,7 @@ def test_no_migration_uses_sqlite_unsafe_raw_ddl() -> None:
     )
     offenders: dict[str, list[tuple[str, int]]] = {}
     for path in version_files:
-        raw = _raw_unsafe_op_calls(path.read_text())
+        raw = _raw_unsafe_op_calls(path.read_text(encoding="utf-8"))
         if raw:
             offenders[path.name] = raw
     assert offenders == {}, (
