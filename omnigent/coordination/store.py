@@ -22,6 +22,7 @@ from omnigent.coordination.types import (
     CoordinationTask,
     DeliveryAttempt,
     OutboxItem,
+    WorkspaceMergeOperation,
 )
 from omnigent.db.db_models import (
     SqlAgentMessage,
@@ -31,6 +32,7 @@ from omnigent.db.db_models import (
     SqlCoordinationTask,
     SqlDeliveryAttempt,
     SqlWorkspaceLease,
+    SqlWorkspaceMergeOperation,
     current_workspace_id,
 )
 from omnigent.db.utils import get_or_create_engine, make_named_managed_session_maker
@@ -146,6 +148,26 @@ def _row_to_lease(row: SqlWorkspaceLease) -> object:
         fencing_token=row.fencing_token,
         acquired_at=row.acquired_at,
         expires_at=row.expires_at,
+    )
+
+
+def _row_to_merge_operation(row: SqlWorkspaceMergeOperation) -> WorkspaceMergeOperation:
+    return WorkspaceMergeOperation(
+        operation_id=row.operation_id,
+        root_session_id=row.root_session_id,
+        holder_session_id=row.holder_session_id,
+        repo_path=row.repo_path,
+        source_branch=row.source_branch,
+        target_branch=row.target_branch,
+        expected_source_head=row.expected_source_head,
+        expected_target_head=row.expected_target_head,
+        dirty_hash=row.dirty_hash,
+        fencing_token=row.fencing_token,
+        status=row.status,  # type: ignore[arg-type]
+        preview=json.loads(row.preview_json),
+        result=json.loads(row.result_json) if row.result_json else None,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
     )
 
 
@@ -684,3 +706,78 @@ class CoordinationStore:
                 )
                 .values(status="released", updated_at=time.time())
             )
+
+    # ── Workspace Merge Operation Persistence ──────────────────
+
+    def create_merge_operation(
+        self, operation: WorkspaceMergeOperation
+    ) -> WorkspaceMergeOperation:
+        """Persist a new user-confirmed merge operation."""
+        with self._session("create_merge_operation") as sess:
+            sess.add(
+                SqlWorkspaceMergeOperation(
+                    operation_id=operation.operation_id,
+                    root_session_id=operation.root_session_id,
+                    holder_session_id=operation.holder_session_id,
+                    repo_path=operation.repo_path,
+                    source_branch=operation.source_branch,
+                    target_branch=operation.target_branch,
+                    expected_source_head=operation.expected_source_head,
+                    expected_target_head=operation.expected_target_head,
+                    dirty_hash=operation.dirty_hash,
+                    fencing_token=operation.fencing_token,
+                    status=operation.status,
+                    preview_json=json.dumps(operation.preview),
+                    result_json=(
+                        json.dumps(operation.result) if operation.result is not None else None
+                    ),
+                    created_at=operation.created_at,
+                    updated_at=operation.updated_at,
+                )
+            )
+        return operation
+
+    def get_merge_operation(self, operation_id: str) -> WorkspaceMergeOperation | None:
+        """Load one merge operation by id."""
+        with self._session("get_merge_operation") as sess:
+            row = sess.get(SqlWorkspaceMergeOperation, (current_workspace_id(), operation_id))
+            return _row_to_merge_operation(row) if row else None
+
+    def list_merge_operations(
+        self, root_session_id: str | None = None
+    ) -> list[WorkspaceMergeOperation]:
+        """List merge operations, optionally scoped to a coordination root."""
+        with self._session("list_merge_operations") as sess:
+            stmt = select(SqlWorkspaceMergeOperation).where(
+                SqlWorkspaceMergeOperation.workspace_id == current_workspace_id()
+            )
+            if root_session_id:
+                stmt = stmt.where(
+                    SqlWorkspaceMergeOperation.root_session_id == root_session_id
+                )
+            stmt = stmt.order_by(SqlWorkspaceMergeOperation.created_at.desc())
+            return [_row_to_merge_operation(row) for row in sess.scalars(stmt)]
+
+    def update_merge_operation(
+        self,
+        operation_id: str,
+        *,
+        status: str | None = None,
+        result: dict[str, object] | None = None,
+    ) -> WorkspaceMergeOperation | None:
+        """Update merge operation status/result and return the fresh row."""
+        values: dict[str, object] = {"updated_at": time.time()}
+        if status is not None:
+            values["status"] = status
+        if result is not None:
+            values["result_json"] = json.dumps(result)
+        with self._session_immediate("update_merge_operation") as sess:
+            sess.execute(
+                update(SqlWorkspaceMergeOperation)
+                .where(
+                    SqlWorkspaceMergeOperation.workspace_id == current_workspace_id(),
+                    SqlWorkspaceMergeOperation.operation_id == operation_id,
+                )
+                .values(**values)
+            )
+        return self.get_merge_operation(operation_id)

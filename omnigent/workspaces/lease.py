@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import threading
@@ -10,6 +11,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+
+from omnigent.coordination.types import WorkspaceMergeOperation
 
 LeaseMode = Literal["read", "write"]
 
@@ -191,3 +194,156 @@ class WorkspaceCoordinator:
             "diff_stat": stat_res.stdout.strip(),
             "diff_content": diff_res.stdout[:50000],  # bounded preview
         }
+
+    @staticmethod
+    def _git(repo: str | Path, *args: str) -> subprocess.CompletedProcess[str]:
+        """Run git against a repository without raising on non-zero exits."""
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def _branch_head(self, repo: str | Path, branch: str) -> str:
+        res = self._git(repo, "rev-parse", "--verify", branch)
+        if res.returncode != 0:
+            raise RuntimeError(f"branch {branch!r} not found: {res.stderr.strip()[:200]}")
+        return res.stdout.strip()
+
+    def _dirty_hash(self, repo: str | Path) -> str:
+        res = self._git(repo, "status", "--porcelain=v1")
+        return hashlib.sha256(res.stdout.encode("utf-8")).hexdigest()
+
+    def prepare_merge_preview(
+        self,
+        store: Any,
+        *,
+        root_session_id: str,
+        holder_session_id: str,
+        repo_path: str | Path,
+        source_branch: str,
+        target_branch: str = "main",
+    ) -> WorkspaceMergeOperation:
+        """Capture branch heads/dirty state and persist a user-confirmable merge preview."""
+        repo = str(repo_path)
+        lease = self.lease_manager.get_lease(repo)
+        if (
+            lease is None
+            or lease.holder_session_id != holder_session_id
+            or lease.mode != "write"
+        ):
+            raise RuntimeError(
+                "active write lease required before creating a merge preview"
+            )
+
+        source_head = self._branch_head(repo, source_branch)
+        target_head = self._branch_head(repo, target_branch)
+        dirty_hash = self._dirty_hash(repo)
+
+        diff_cmd = ["git", "-C", repo, "diff", f"{target_branch}...{source_branch}"]
+        diff_res = subprocess.run(diff_cmd, capture_output=True, text=True, check=False)
+        stat_cmd = ["git", "-C", repo, "diff", "--stat", f"{target_branch}...{source_branch}"]
+        stat_res = subprocess.run(stat_cmd, capture_output=True, text=True, check=False)
+
+        preview: dict[str, object] = {
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+            "can_merge": diff_res.returncode == 0,
+            "diff_stat": stat_res.stdout.strip(),
+            "diff_content": diff_res.stdout[:50000],  # bounded preview
+        }
+        operation = WorkspaceMergeOperation(
+            root_session_id=root_session_id,
+            holder_session_id=holder_session_id,
+            repo_path=repo,
+            source_branch=source_branch,
+            target_branch=target_branch,
+            expected_source_head=source_head,
+            expected_target_head=target_head,
+            dirty_hash=dirty_hash,
+            fencing_token=lease.fencing_token,
+            preview=preview,
+        )
+        store.create_merge_operation(operation)
+        return operation
+
+    def execute_merge(
+        self,
+        store: Any,
+        *,
+        operation_id: str,
+        fencing_token: int,
+    ) -> WorkspaceMergeOperation:
+        """Execute a previewed merge only if the lease, heads and worktree still match."""
+        operation = store.get_merge_operation(operation_id)
+        if operation is None:
+            raise RuntimeError(f"merge operation {operation_id!r} not found")
+        if operation.status != "preview":
+            raise RuntimeError(
+                f"merge operation {operation_id!r} already has status {operation.status}"
+            )
+
+        lease = self.lease_manager.get_lease(operation.repo_path)
+        if (
+            lease is None
+            or lease.holder_session_id != operation.holder_session_id
+            or lease.mode != "write"
+        ):
+            raise RuntimeError("active write lease required to execute a merge")
+        if lease.fencing_token != fencing_token:
+            raise RuntimeError(
+                f"fencing token mismatch: expected {lease.fencing_token}, got {fencing_token}"
+            )
+
+        current_branch = self._git(operation.repo_path, "branch", "--show-current").stdout.strip()
+        if current_branch != operation.target_branch:
+            raise RuntimeError(
+                f"target branch {operation.target_branch!r} is not checked out "
+                f"(current: {current_branch or 'detached'})"
+            )
+
+        source_head = self._branch_head(operation.repo_path, operation.source_branch)
+        target_head = self._branch_head(operation.repo_path, operation.target_branch)
+        if operation.expected_source_head and source_head != operation.expected_source_head:
+            raise RuntimeError("source branch advanced since preview; create a new preview")
+        if operation.expected_target_head and target_head != operation.expected_target_head:
+            raise RuntimeError("target branch advanced since preview; create a new preview")
+        if (
+            operation.dirty_hash is not None
+            and self._dirty_hash(operation.repo_path) != operation.dirty_hash
+        ):
+            raise RuntimeError("worktree changed since preview; create a new preview")
+
+        store.update_merge_operation(operation.operation_id, status="executing")
+        merge_res = self._git(
+            operation.repo_path,
+            "merge",
+            "--no-ff",
+            operation.source_branch,
+            "-m",
+            f"AgentNexus: merge {operation.source_branch} into {operation.target_branch}",
+        )
+        if merge_res.returncode != 0:
+            self._git(operation.repo_path, "merge", "--abort")
+            status = "conflict" if "CONFLICT" in merge_res.stderr else "failed"
+            store.update_merge_operation(
+                operation.operation_id,
+                status=status,
+                result={"error": merge_res.stderr.strip()[:2000]},
+            )
+            return store.get_merge_operation(operation.operation_id) or operation
+
+        head = self._branch_head(operation.repo_path, "HEAD")
+        store.update_merge_operation(
+            operation.operation_id,
+            status="merged",
+            result={
+                "source_branch": operation.source_branch,
+                "target_branch": operation.target_branch,
+                "expected_source_head": operation.expected_source_head,
+                "expected_target_head": operation.expected_target_head,
+                "merge_head": head,
+            },
+        )
+        return store.get_merge_operation(operation.operation_id) or operation

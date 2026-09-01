@@ -12,6 +12,7 @@ MessageState = Literal["queued", "active", "cancelled", "expired"]
 DeliveryState = Literal["pending", "leased", "injected", "confirmed", "failed", "unknown"]
 DeliveryMode = Literal["live", "breakpoint", "next_turn", "terminal_best_effort", "offline"]
 ConsumptionState = Literal["unconsumed", "consumed", "acknowledged", "rejected"]
+MergeOperationStatus = Literal["preview", "executing", "merged", "conflict", "failed", "cancelled"]
 RunStatus = Literal[
     "draft",
     "running",
@@ -159,6 +160,36 @@ class OutboxItem:
     payload_json: str = "{}"
     retry_count: int = 0
     next_retry_at: float = field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class WorkspaceMergeOperation:
+    """A user-confirmed, lease-guarded git merge transaction.
+
+    ``expected_source_head``, ``expected_target_head`` and ``dirty_hash`` are
+    captured when the preview is created and re-checked before execution, so
+    a stale preview (branches advanced or the worktree changed underneath it)
+    can never merge silently.
+    """
+
+    operation_id: str = field(default_factory=lambda: generate_coordination_id("mop"))
+    root_session_id: str = ""
+    holder_session_id: str = ""
+    repo_path: str = ""
+    source_branch: str = ""
+    target_branch: str = "main"
+    expected_source_head: str | None = None
+    expected_target_head: str | None = None
+    dirty_hash: str | None = None
+    fencing_token: int | None = None
+    status: MergeOperationStatus = "preview"
+    preview: dict[str, Any] = field(default_factory=dict)
+    result: dict[str, Any] | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 

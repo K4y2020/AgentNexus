@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,36 @@ def make_api_app(
     )
     app.include_router(router)
     return app
+
+
+def init_merge_repo(tmp_path: Path, *, feature_change: str = "base\nfeature\n") -> Path:
+    """Create a tiny main + feature git repo with feature checked out then main restored."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str, cwd: Path = repo) -> subprocess.CompletedProcess[str]:
+        res = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert res.returncode == 0, res.stderr
+        return res
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test User")
+    (repo / "a.txt").write_text("base\n", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-m", "base")
+    git("switch", "-c", "feature")
+    (repo / "a.txt").write_text(feature_change, encoding="utf-8")
+    git("add", ".")
+    git("commit", "-m", "feature")
+    git("switch", "main")
+    return repo
 
 
 def test_coordination_run_and_task_crud(memory_store: CoordinationStore) -> None:
@@ -327,6 +358,135 @@ def test_workspace_lease_manager_persists_restart(
     lease2 = mgr2.acquire(ws_path, "session_coder_2", mode="write")
     assert lease2.holder_session_id == "session_coder_2"
     assert lease2.fencing_token > lease1.fencing_token
+
+
+def test_workspace_merge_operation_store_crud(memory_store: CoordinationStore) -> None:
+    from omnigent.coordination.types import WorkspaceMergeOperation
+
+    op = WorkspaceMergeOperation(
+        root_session_id="conv_root_merge",
+        holder_session_id="conv_coder_1",
+        repo_path=r"U:\worktrees\repo",
+        source_branch="feature",
+        target_branch="main",
+        expected_source_head="deadbeef",
+        expected_target_head="cafebabe",
+        dirty_hash="aa" * 32,
+        fencing_token=7,
+        preview={"can_merge": True},
+    )
+    memory_store.create_merge_operation(op)
+
+    loaded = memory_store.get_merge_operation(op.operation_id)
+    assert loaded is not None
+    assert loaded.root_session_id == "conv_root_merge"
+    assert loaded.preview == {"can_merge": True}
+    assert loaded.fencing_token == 7
+
+    updated = memory_store.update_merge_operation(
+        op.operation_id, status="merged", result={"merge_head": "a1b2c3d4"}
+    )
+    assert updated is not None
+    assert updated.status == "merged"
+    assert updated.result == {"merge_head": "a1b2c3d4"}
+
+    listed = memory_store.list_merge_operations("conv_root_merge")
+    assert len(listed) == 1
+    assert listed[0].operation_id == op.operation_id
+
+
+def test_workspace_coordinator_previews_and_executes_merge(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    repo = init_merge_repo(tmp_path)
+    mgr = WorkspaceLeaseManager(memory_store)
+    lease = mgr.acquire(repo, "conv_coder_1", mode="write")
+    coordinator = WorkspaceCoordinator(mgr)
+
+    op = coordinator.prepare_merge_preview(
+        memory_store,
+        root_session_id="conv_root_api",
+        holder_session_id="conv_coder_1",
+        repo_path=repo,
+        source_branch="feature",
+        target_branch="main",
+    )
+    assert op.status == "preview"
+    assert op.expected_source_head is not None
+    assert op.expected_source_head != op.expected_target_head
+    assert op.fencing_token == lease.fencing_token
+    assert op.preview["can_merge"] is True
+
+    merged = coordinator.execute_merge(
+        memory_store,
+        operation_id=op.operation_id,
+        fencing_token=lease.fencing_token,
+    )
+    assert merged.status == "merged"
+    assert merged.result is not None
+    assert merged.result["merge_head"] != merged.expected_target_head
+
+    log = subprocess.run(
+        ["git", "-C", str(repo), "log", "--oneline", "main", "-3"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert log.returncode == 0
+    assert "feature" in log.stdout
+
+
+def test_workspace_coordinator_rejects_stale_preview(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    repo = init_merge_repo(tmp_path)
+    mgr = WorkspaceLeaseManager(memory_store)
+    lease = mgr.acquire(repo, "conv_coder_1", mode="write")
+    coordinator = WorkspaceCoordinator(mgr)
+
+    op = coordinator.prepare_merge_preview(
+        memory_store,
+        root_session_id="conv_root_api",
+        holder_session_id="conv_coder_1",
+        repo_path=repo,
+        source_branch="feature",
+        target_branch="main",
+    )
+
+    # Advance the source branch after the preview was captured.
+    git = subprocess.run(
+        ["git", "-C", str(repo), "switch", "feature"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert git.returncode == 0
+    (repo / "a.txt").write_text("base\nfeature\nmore\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "."],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "more feature"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "switch", "main"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    with pytest.raises(RuntimeError, match="advanced since preview"):
+        coordinator.execute_merge(
+            memory_store,
+            operation_id=op.operation_id,
+            fencing_token=lease.fencing_token,
+        )
 
 
 @pytest.mark.asyncio
@@ -634,3 +794,93 @@ def test_coordination_api_session_acl(
         json={"title": "Missing root", "root_session_id": "missing_root", "template": "standard"},
     )
     assert res4.status_code == 404
+
+
+def test_coordination_api_merge_preview_requires_lease_and_fencing(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    tmp_path: Path,
+) -> None:
+    repo = init_merge_repo(tmp_path)
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    # Preview without an active write lease is refused.
+    res = client.post(
+        "/v1/coordination/workspaces/merge-previews",
+        json={
+            "root_session_id": "conv_root_api",
+            "holder_session_id": "conv_c1",
+            "repo_path": str(repo),
+            "source_branch": "feature",
+            "target_branch": "main",
+        },
+    )
+    assert res.status_code == 409
+    assert "write lease required" in res.json()["detail"]
+
+    # Cross-tree holder is rejected before any lease/merge logic runs.
+    res = client.post(
+        "/v1/coordination/workspaces/merge-previews",
+        json={
+            "root_session_id": "conv_root_api",
+            "holder_session_id": "other_sender",
+            "repo_path": str(repo),
+            "source_branch": "feature",
+            "target_branch": "main",
+        },
+    )
+    assert res.status_code == 403
+
+    lease_res = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root_api",
+            "workspace_path": str(repo),
+            "holder_session_id": "conv_c1",
+            "mode": "write",
+        },
+    )
+    assert lease_res.status_code == 200
+    fencing_token = lease_res.json()["lease"]["fencing_token"]
+
+    res_preview = client.post(
+        "/v1/coordination/workspaces/merge-previews",
+        json={
+            "root_session_id": "conv_root_api",
+            "holder_session_id": "conv_c1",
+            "repo_path": str(repo),
+            "source_branch": "feature",
+            "target_branch": "main",
+        },
+    )
+    assert res_preview.status_code == 200
+    operation = res_preview.json()["operation"]
+    assert operation["status"] == "preview"
+
+    res_bad_token = client.post(
+        f"/v1/coordination/workspaces/merge-previews/{operation['operation_id']}/execute",
+        json={"fencing_token": fencing_token + 1},
+    )
+    assert res_bad_token.status_code == 409
+    assert "token mismatch" in res_bad_token.json()["detail"]
+
+    res_exec = client.post(
+        f"/v1/coordination/workspaces/merge-previews/{operation['operation_id']}/execute",
+        json={"fencing_token": fencing_token},
+    )
+    assert res_exec.status_code == 200
+    assert res_exec.json()["operation"]["status"] == "merged"
+
+    listed = client.get(
+        "/v1/coordination/workspaces/merge-previews",
+        params={"root_session_id": "conv_root_api"},
+    )
+    assert listed.status_code == 200
+    assert listed.json()["operations"][0]["operation_id"] == operation["operation_id"]
+
+    fetched = client.get(
+        f"/v1/coordination/workspaces/merge-previews/{operation['operation_id']}"
+    )
+    assert fetched.status_code == 200
+    assert fetched.json()["operation"]["status"] == "merged"

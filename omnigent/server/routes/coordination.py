@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
     AgentMessage,
+    CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
     MessageKind,
@@ -171,6 +172,18 @@ class AcquireLeaseRequest(BaseModel):
     holder_session_id: str
     mode: str = "write"
     duration_s: float = 600.0
+
+
+class CreateMergePreviewRequest(BaseModel):
+    root_session_id: str
+    holder_session_id: str
+    repo_path: str
+    source_branch: str
+    target_branch: str = "main"
+
+
+class ExecuteMergeRequest(BaseModel):
+    fencing_token: int
 
 
 # ── Message Endpoints ─────────────────────────────────────────
@@ -391,18 +404,108 @@ async def acquire_workspace_lease(req: AcquireLeaseRequest, request: Request) ->
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/workspaces/merge-preview")
-async def get_merge_preview(
+@router.post("/workspaces/merge-previews")
+async def create_merge_preview(
+    req: CreateMergePreviewRequest,
     request: Request,
-    repo_path: str = Query(..., description="Local repo root path"),
-    source_branch: str = Query(..., description="Worktree source branch"),
-    target_branch: str = Query("main", description="Target merge branch"),
 ) -> dict[str, Any]:
-    """Generate merge preview diff and statistics."""
-    coordinator = _request_workspace_coord(request)
-    return await asyncio.to_thread(
-        coordinator.generate_merge_preview, repo_path, source_branch, target_branch
+    """Capture branch heads and dirty state for a user-confirmable merge operation."""
+    await _require_coordination_tree(
+        request, req.root_session_id, req.holder_session_id
     )
+    coordinator = _request_workspace_coord(request)
+    store = _request_store(request)
+    try:
+        operation = await asyncio.to_thread(
+            coordinator.prepare_merge_preview,
+            store,
+            root_session_id=req.root_session_id,
+            holder_session_id=req.holder_session_id,
+            repo_path=req.repo_path,
+            source_branch=req.source_branch,
+            target_branch=req.target_branch,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    event = CoordinationEvent(
+        root_session_id=req.root_session_id,
+        actor_session_id=req.holder_session_id,
+        event_type="workspace.merge_preview.created",
+        payload={
+            "operation_id": operation.operation_id,
+            "repo_path": operation.repo_path,
+            "source_branch": operation.source_branch,
+            "target_branch": operation.target_branch,
+        },
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"operation": operation.to_dict()}
+
+
+@router.get("/workspaces/merge-previews")
+async def list_merge_previews(
+    request: Request,
+    root_session_id: str = Query(..., description="The parent/root conversation id"),
+) -> dict[str, Any]:
+    """List merge operations visible to a coordination root."""
+    await _require_coordination_tree(request, root_session_id)
+    store = _request_store(request)
+    operations = await asyncio.to_thread(store.list_merge_operations, root_session_id)
+    return {"operations": [o.to_dict() for o in operations]}
+
+
+@router.get("/workspaces/merge-previews/{operation_id}")
+async def get_merge_preview(
+    operation_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Retrieve one merge operation by id."""
+    store = _request_store(request)
+    operation = await asyncio.to_thread(store.get_merge_operation, operation_id)
+    if operation is None:
+        raise HTTPException(status_code=404, detail=f"Merge operation {operation_id} not found")
+    await _require_coordination_tree(
+        request, operation.root_session_id, operation.holder_session_id
+    )
+    return {"operation": operation.to_dict()}
+
+
+@router.post("/workspaces/merge-previews/{operation_id}/execute")
+async def execute_merge_preview(
+    operation_id: str,
+    req: ExecuteMergeRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Execute a previewed merge after re-validating lease, heads and dirty state."""
+    store = _request_store(request)
+    operation = await asyncio.to_thread(store.get_merge_operation, operation_id)
+    if operation is None:
+        raise HTTPException(status_code=404, detail=f"Merge operation {operation_id} not found")
+    await _require_coordination_tree(
+        request, operation.root_session_id, operation.holder_session_id
+    )
+    coordinator = _request_workspace_coord(request)
+    try:
+        updated = await asyncio.to_thread(
+            coordinator.execute_merge,
+            store,
+            operation_id=operation_id,
+            fencing_token=req.fencing_token,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    event = CoordinationEvent(
+        root_session_id=operation.root_session_id,
+        actor_session_id=operation.holder_session_id,
+        event_type=f"workspace.merge.{updated.status}",
+        payload={
+            "operation_id": operation_id,
+            "source_branch": operation.source_branch,
+            "target_branch": operation.target_branch,
+        },
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"operation": updated.to_dict()}
 
 
 # ── Timeline & Audit Events ───────────────────────────────────

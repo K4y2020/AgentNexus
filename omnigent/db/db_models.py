@@ -1822,3 +1822,43 @@ class SqlWorkspaceLease(OmnigentBase):
     __table_args__ = (
         Index("ix_workspace_leases_path", "workspace_id", "workspace_path", "status"),
     )
+
+
+class SqlWorkspaceMergeOperation(OmnigentBase):
+    """SQLAlchemy model for ``workspace_merge_operations`` (safe merge transactions)."""
+
+    __tablename__ = "workspace_merge_operations"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    operation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    holder_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    repo_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_branch: Mapped[str] = mapped_column(String(256), nullable=False)
+    target_branch: Mapped[str] = mapped_column(String(256), nullable=False)
+    expected_source_head: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_target_head: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dirty_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fencing_token: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="preview")
+    preview_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="{}"
+    )
+    result_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_workspace_merge_ops_root",
+            "workspace_id",
+            "root_session_id",
+            "created_at",
+        ),
+    )
