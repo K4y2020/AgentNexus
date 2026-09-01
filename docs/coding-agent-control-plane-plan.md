@@ -702,6 +702,10 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
 - 若用户显式选择外部 Ponytail Pack，固定 tag/commit/digest，并保留其 MIT License 与来源记录。
 - 产品默认分发的是独立编写的 `lean-engineering`；不运行 GitHub 最新分支的第三方 Node Hook，不修改用户全局 Claude/Codex 配置。
 - 第三方 Benchmark 只作为实验方法参考；收益必须在本产品、目标模型和 Demo 仓库重新测量。
+- 2026-09-01：BEHAVIOR-001/002 已落地为纯领域模块 `omnigent/coordination/behavior.py`：
+  digest 固定、模式优先级（user > workflow > role default）、strict workflow 授权门
+  和安全边界；`compose_injection_prompt` 只生成注入文本，不直接改 Harness 状态。
+  注入 receipt、Inspector 徽章和真实 Prompt Composer 仍属于 BEHAVIOR-003。
 
 ## 12. Workspace 与 Git 协调
 
