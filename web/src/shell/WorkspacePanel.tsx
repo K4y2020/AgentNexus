@@ -37,6 +37,9 @@ import { FilesPanel } from "./FilesPanel";
 import { FileViewer } from "./FileViewer";
 import type { ChangedSort } from "./FlatFileList";
 import { SubagentsPanel } from "./SubagentsPanel";
+import { AgentInspector } from "./AgentInspector";
+import { CommunicationPanel } from "./CommunicationPanel";
+import { MessageSquareShareIcon } from "lucide-react";
 import { useTerminalStatuses } from "./useTerminalStatuses";
 import { type RightRailTab, TAB_BADGE_BASE } from "./railTabs";
 import { Button } from "../components/ui/button";
@@ -813,6 +816,16 @@ export function WorkspacePanel({
                 </span>
               </TabsTrigger>
             </WorkspaceTabTooltip>
+            <WorkspaceTabTooltip label="Coordination (A2A & Inspector)">
+              <TabsTrigger
+                value="coordination"
+                aria-label="Coordination"
+                className="size-6 shrink-0 p-0 hover:border-1 hover:border-muted rounded-md!"
+              >
+                <MessageSquareShareIcon className="size-3.5" />
+                <span className="sr-only">Coordination</span>
+              </TabsTrigger>
+            </WorkspaceTabTooltip>
             {showBrowserTab && (
               <WorkspaceTabTooltip label="Browser">
                 <TabsTrigger
@@ -938,6 +951,13 @@ export function WorkspacePanel({
           <BrowserPane conversationId={conversationId} className="min-h-0 flex-1" />
         ) : rightRailTab === "subagents" && rootSessionId ? (
           <SubagentsPanel conversationId={conversationId} rootSessionId={rootSessionId} />
+        ) : rightRailTab === "coordination" ? (
+          <div className="flex flex-col h-full overflow-y-auto">
+            <AgentInspector conversationId={conversationId} />
+            <div className="border-t flex-1">
+              <CommunicationPanel conversationId={conversationId} />
+            </div>
+          </div>
         ) : (
           showFilesPanel && (
             <FilesPanel

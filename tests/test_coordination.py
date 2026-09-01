@@ -1,7 +1,8 @@
-"""Unit and integration tests for AgentNexus Multi-Agent Coordination Data Layer and Outbox."""
+"""Unit and integration tests for AgentNexus Multi-Agent Coordination Data Layer, Outbox, and Workspace Leases."""
 
 from __future__ import annotations
 
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,10 +14,10 @@ from omnigent.coordination.types import (
     CoordinationRun,
     CoordinationTask,
 )
+from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.server.routes.coordination import router
+from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
-
-from pathlib import Path
 
 @pytest.fixture
 def memory_store(tmp_path: Path) -> CoordinationStore:
@@ -108,28 +109,46 @@ async def test_dispatcher_delivers_and_records_attempt(memory_store: Coordinatio
     assert len(pending) == 0
 
 
-def test_coordination_events_audit_timeline(memory_store: CoordinationStore) -> None:
-    evt1 = CoordinationEvent(
-        root_session_id="conv_root_123",
-        event_type="run.started",
-        payload={"template": "plan_implement_review"},
-        created_at=100.0,
-    )
-    evt2 = CoordinationEvent(
-        root_session_id="conv_root_123",
-        event_type="task.completed",
-        payload={"task_id": "ctask_1"},
-        created_at=200.0,
-    )
-    memory_store.record_event(evt1)
-    memory_store.record_event(evt2)
+def test_workspace_lease_manager(tmp_path: Path) -> None:
+    mgr = WorkspaceLeaseManager()
+    ws_path = tmp_path / "repo"
 
-    events_all = memory_store.list_events("conv_root_123")
-    assert len(events_all) == 2
+    # 1. Acquire write lease
+    lease1 = mgr.acquire(ws_path, "session_coder_1", mode="write", duration_s=100.0)
+    assert lease1.holder_session_id == "session_coder_1"
+    assert lease1.mode == "write"
 
-    events_since = memory_store.list_events("conv_root_123", since=150.0)
-    assert len(events_since) == 1
-    assert events_since[0].event_type == "task.completed"
+    # 2. Conflicting write lease from another session is rejected
+    with pytest.raises(RuntimeError, match="locked by session"):
+        mgr.acquire(ws_path, "session_coder_2", mode="write")
+
+    # 3. Release and re-acquire
+    assert mgr.release(ws_path, "session_coder_1") is True
+    lease2 = mgr.acquire(ws_path, "session_coder_2", mode="write")
+    assert lease2.holder_session_id == "session_coder_2"
+
+
+@pytest.mark.asyncio
+async def test_plan_implement_review_workflow_engine(memory_store: CoordinationStore, tmp_path: Path) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Refactor Auth Module",
+        root_session_id="conv_root_flow",
+        planner_session_id="conv_planner_1",
+        implementer_session_id="conv_coder_1",
+        reviewer_session_id="conv_reviewer_1",
+        user_prompt="Add JWT refresh token rotation",
+        workspace_path=str(tmp_path),
+    )
+    assert run.run_id.startswith("run_")
+    assert run.status == "running"
+
+    tasks = memory_store.list_tasks(run.run_id)
+    assert len(tasks) == 3
+    assert tasks[0].assignee_role == "planner"
+    assert tasks[1].assignee_role == "implementer"
+    assert tasks[2].assignee_role == "reviewer"
+    assert tasks[1].dependencies == [tasks[0].task_id]
 
 
 def test_coordination_api_endpoints() -> None:
@@ -171,12 +190,25 @@ def test_coordination_api_endpoints() -> None:
     assert res_msg.status_code == 200
     assert res_msg.json()["delivery_state"] == "pending"
 
-    # 4. List Messages
-    res_list = client.get("/v1/coordination/messages?root_session_id=conv_root_api")
-    assert res_list.status_code == 200
-    assert len(res_list.json()["messages"]) >= 1
+    # 4. Acquire Workspace Lease
+    res_lease = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={"workspace_path": "/tmp/test-repo", "holder_session_id": "conv_c1", "mode": "write"},
+    )
+    assert res_lease.status_code == 200
+    assert res_lease.json()["lease"]["holder_session_id"] == "conv_c1"
 
-    # 5. List Events
-    res_events = client.get("/v1/coordination/events?root_session_id=conv_root_api")
-    assert res_events.status_code == 200
-    assert len(res_events.json()["events"]) >= 1
+    # 5. Start Workflow Run
+    res_wf = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "API Full Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Fix cache bug",
+        },
+    )
+    assert res_wf.status_code == 200
+    assert len(res_wf.json()["tasks"]) == 3

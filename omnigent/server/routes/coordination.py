@@ -17,9 +17,14 @@ from omnigent.coordination.types import (
     RunStatus,
     TaskStatus,
 )
+from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 router = APIRouter(prefix="/v1/coordination", tags=["Coordination"])
 _store = CoordinationStore(get_default_coordination_db_path())
+_lease_mgr = WorkspaceLeaseManager()
+_ws_coord = WorkspaceCoordinator(_lease_mgr)
+_workflow_engine = CoordinationWorkflowEngine(_store, _ws_coord)
 
 
 def get_coordination_store() -> CoordinationStore:
@@ -59,6 +64,23 @@ class CreateTaskRequest(BaseModel):
     assignee_role: str | None = None
     dependencies: list[str] = Field(default_factory=list)
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class StartWorkflowRequest(BaseModel):
+    title: str = "Plan -> Implement -> Review Workflow"
+    root_session_id: str
+    planner_session_id: str
+    implementer_session_id: str
+    reviewer_session_id: str
+    user_prompt: str
+    workspace_path: str = "."
+
+
+class AcquireLeaseRequest(BaseModel):
+    workspace_path: str
+    holder_session_id: str
+    mode: str = "write"
+    duration_s: float = 600.0
 
 
 # ── Message Endpoints ─────────────────────────────────────────
@@ -158,6 +180,56 @@ async def list_coordination_tasks(run_id: str = Query(..., description="Run ID")
     """List all tasks associated with a coordination run."""
     tasks = await asyncio.to_thread(_store.list_tasks, run_id)
     return {"tasks": [t.to_dict() for t in tasks]}
+
+
+# ── Workflows DAG Execution ───────────────────────────────────
+
+
+@router.post("/workflows/plan-implement-review")
+async def start_plan_implement_review_workflow(req: StartWorkflowRequest) -> dict[str, Any]:
+    """Kick off an end-to-end Plan -> Implement -> Review 3-stage multi-agent coding run."""
+    run = await _workflow_engine.start_plan_implement_review_run(
+        title=req.title,
+        root_session_id=req.root_session_id,
+        planner_session_id=req.planner_session_id,
+        implementer_session_id=req.implementer_session_id,
+        reviewer_session_id=req.reviewer_session_id,
+        user_prompt=req.user_prompt,
+        workspace_path=req.workspace_path,
+    )
+    tasks = await asyncio.to_thread(_store.list_tasks, run.run_id)
+    return {"run": run.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+# ── Workspace Lease & Merge Preview ───────────────────────────
+
+
+@router.post("/workspaces/lease")
+async def acquire_workspace_lease(req: AcquireLeaseRequest) -> dict[str, Any]:
+    """Acquire a concurrency lease on a workspace path to prevent conflicting writes."""
+    try:
+        lease = _lease_mgr.acquire(
+            workspace_path=req.workspace_path,
+            holder_session_id=req.holder_session_id,
+            mode="write" if req.mode == "write" else "read",
+            duration_s=req.duration_s,
+        )
+        return {"lease": lease.to_dict()}
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/workspaces/merge-preview")
+async def get_merge_preview(
+    repo_path: str = Query(..., description="Local repo root path"),
+    source_branch: str = Query(..., description="Worktree source branch"),
+    target_branch: str = Query("main", description="Target merge branch"),
+) -> dict[str, Any]:
+    """Generate merge preview diff and statistics."""
+    preview = await asyncio.to_thread(
+        _ws_coord.generate_merge_preview, repo_path, source_branch, target_branch
+    )
+    return preview
 
 
 # ── Timeline & Audit Events ───────────────────────────────────
