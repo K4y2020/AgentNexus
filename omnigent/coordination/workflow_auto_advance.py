@@ -84,6 +84,22 @@ def declared_outcome(
     return None, None
 
 
+def _stage_artifacts(text: str, role: str | None) -> list[dict[str, object]]:
+    """Wrap a stage's declared assistant output as a durable artifact."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    role_kind = {
+        "planner": "plan",
+        "implementer": "diff",
+        "fixer": "diff",
+        "reviewer": "report",
+        "tester": "report",
+    }
+    kind = role_kind.get(role or "", "report")
+    return [{"name": f"stage-{role or 'output'}-text", "kind": kind, "content": text}]
+
+
 class WorkflowAutoAdvancer:
     """Turn a declared terminal assistant result into one durable workflow advance."""
 
@@ -147,12 +163,14 @@ class WorkflowAutoAdvancer:
                 message.message_id,
             )
             return
+        artifacts = _stage_artifacts(text, task.assignee_role)
         asyncio.run(
             self.engine.advance(
                 run_id=message.run_id,
                 task_id=message.task_id,
                 outcome=outcome,
                 review_decision=review_decision,
+                artifacts=artifacts,
             )
         )
         _logger.info(

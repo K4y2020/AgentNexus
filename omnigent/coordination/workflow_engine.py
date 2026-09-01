@@ -448,14 +448,16 @@ class CoordinationWorkflowEngine:
             impl = await self._stage_task(run.run_id, "implementer")
             if impl:
                 await self._move_task(impl.task_id, "running", from_statuses=["queued", "running"])
+                prior_artifacts = await self._prior_artifacts_payload(run, task.task_id)
                 await self._send(
                     run,
                     impl,
                     "task.request",
                     {
                         "stage": "implementation",
+                        "prior_artifacts": prior_artifacts,
                         "prompt": (
-                            "Implement the plan above; run the tests you add or update. "
+                            "Implement per prior_artifacts; run the tests you add or update. "
                             + _RESULT_LINE
                         ),
                     },
@@ -475,14 +477,16 @@ class CoordinationWorkflowEngine:
                 await self._move_task(
                     reviewer.task_id, "running", from_statuses=["queued", "running"]
                 )
+                prior_artifacts = await self._prior_artifacts_payload(run, task.task_id)
                 await self._send(
                     run,
                     reviewer,
                     "review.request",
                     {
                         "stage": "review",
+                        "prior_artifacts": prior_artifacts,
                         "prompt": (
-                            "Review the implementation diff and report approved or "
+                            "Review the diff in prior_artifacts; report approved or "
                             "changes_requested. " + _REVIEW_LINE
                         ),
                         "impl_task_id": task.task_id,
@@ -505,14 +509,16 @@ class CoordinationWorkflowEngine:
                     await self._move_task(
                         fixer.task_id, "running", from_statuses=["queued", "running"]
                     )
+                    prior_artifacts = await self._prior_artifacts_payload(run, task.task_id)
                     await self._send(
                         run,
                         fixer,
                         "review.feedback",
                         {
                             "stage": "fix",
+                            "prior_artifacts": prior_artifacts,
                             "prompt": (
-                                "Address the reviewer feedback and re-run relevant tests. "
+                                "Address reviewer feedback in prior_artifacts; re-run tests. "
                                 + _RESULT_LINE
                             ),
                             "review_task_id": task.task_id,
@@ -539,14 +545,21 @@ class CoordinationWorkflowEngine:
                 await self._move_task(
                     tester.task_id, "running", from_statuses=["queued", "running"]
                 )
+                impl = await self._stage_task(run.run_id, "implementer")
+                prior_artifacts = (
+                    await self._prior_artifacts_payload(run, impl.task_id)
+                    if impl is not None
+                    else []
+                )
                 await self._send(
                     run,
                     tester,
                     "test.request",
                     {
                         "stage": "test",
+                        "prior_artifacts": prior_artifacts,
                         "prompt": (
-                            "Run the full acceptance suite and report succeeded or failed. "
+                            "Run acceptance suite per prior_artifacts; report succeeded/failed. "
                             + _RESULT_LINE
                         ),
                     },
@@ -568,14 +581,16 @@ class CoordinationWorkflowEngine:
                 await self._move_task(
                     reviewer.task_id, "running", from_statuses=["waiting_review", "running"]
                 )
+                prior_artifacts = await self._prior_artifacts_payload(run, task.task_id)
                 await self._send(
                     run,
                     reviewer,
                     "review.request",
                     {
                         "stage": "re_review",
+                        "prior_artifacts": prior_artifacts,
                         "prompt": (
-                            "Re-review the fix artifacts and report approved or "
+                            "Re-review fix artifacts in prior_artifacts; report approved or "
                             "changes_requested. " + _REVIEW_LINE
                         ),
                         "fix_task_id": task.task_id,
@@ -1401,6 +1416,29 @@ class CoordinationWorkflowEngine:
                 },
             )
             await asyncio.to_thread(self.store.create_artifact, artifact)
+
+    async def _prior_artifacts_payload(
+        self,
+        run: CoordinationRun,
+        task_id: str,
+    ) -> list[dict[str, object]]:
+        """Serialize a completed stage's persisted artifacts for the next stage."""
+        artifacts = await asyncio.to_thread(
+            self.store.list_artifacts,
+            run.root_session_id,
+            run_id=run.run_id,
+            task_id=task_id,
+        )
+        return [
+            {
+                "kind": a.kind,
+                "name": (a.metadata or {}).get("name") or "",
+                "content": (a.metadata or {}).get("content"),
+                "uri": a.uri,
+                "digest": a.digest,
+            }
+            for a in artifacts
+        ]
 
     async def _send(
         self,

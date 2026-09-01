@@ -17,6 +17,7 @@ import pytest
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.workflow_auto_advance import (
     WorkflowAutoAdvancer,
+    _stage_artifacts,
     assistant_text_from_items,
     declared_outcome,
 )
@@ -354,3 +355,45 @@ async def test_dispatched_workflow_message_auto_advances_on_turn_completed(
 
     assert store.get_task(tasks["planner"].task_id).status == "succeeded"
     assert store.get_message(kickoff.message_id).consumption_state == "consumed"
+
+
+def test_stage_artifacts_wraps_assistant_text_by_role() -> None:
+    assert _stage_artifacts("my plan text", "planner") == [
+        {"name": "stage-planner-text", "kind": "plan", "content": "my plan text"}
+    ]
+    assert _stage_artifacts("  ", "implementer") == []
+    assert _stage_artifacts("the review", "reviewer")[0]["kind"] == "report"
+
+
+@pytest.mark.asyncio
+async def test_planner_plan_artifact_flows_to_implementer_payload(tmp_path: object) -> None:
+    store = CoordinationStore(tmp_path / "handoff.db")
+    engine = CoordinationWorkflowEngine(store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Handoff",
+        root_session_id="conv_root_handoff",
+        planner_session_id="conv_planner_handoff",
+        implementer_session_id="conv_coder_handoff",
+        reviewer_session_id="conv_reviewer_handoff",
+        user_prompt="Build it",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in store.list_tasks(run.run_id)}
+    await engine.advance(
+        run_id=run.run_id,
+        task_id=tasks["planner"].task_id,
+        outcome="succeeded",
+        artifacts=[{"name": "plan", "kind": "plan", "content": "THE PLAN BODY"}],
+    )
+    impl_msgs = [
+        m
+        for m in store.list_messages(run.root_session_id)
+        if m.recipient_session_id == "conv_coder_handoff"
+    ]
+    assert impl_msgs, "implementer stage message was not dispatched"
+    prior = impl_msgs[0].payload.get("prior_artifacts")
+    assert prior, "implementer payload must carry prior stage artifacts"
+    assert any(
+        a.get("kind") == "plan" and a.get("content") == "THE PLAN BODY" for a in prior
+    )
+
