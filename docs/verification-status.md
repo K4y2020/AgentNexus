@@ -4,7 +4,8 @@ Status snapshot taken 2026-09-02 at `cdf88b84` (main). This file tracks the
 plan's gates with authoritative evidence only; a row is marked done when the
 evidence below proves it, not when a page or code path merely exists.
 
-Updated 2026-09-02 with the independent live A2A delivery latency sample.
+Updated 2026-09-02 with independent UI event delivery, runner relaunch, and
+host tunnel reconnect p95 samples.
 
 ## Quality checks (fresh, this machine)
 
@@ -14,9 +15,12 @@ Updated 2026-09-02 with the independent live A2A delivery latency sample.
 | Coordination/behavior/model/workflow tests | 90/90 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
-| Full-turn benchmark journey smoke | 8/8 journey types passed on Windows (7-runner suite + A2A delivery smoke) |
+| Full-turn benchmark journey smoke | 9/9 runner journey types passed on Windows |
 | A2A delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 565.6ms / p99 568.4ms |
 | Server/UI stream reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 780.5ms / p99 801.6ms |
+| UI event delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 32.8ms / p99 33.5ms |
+| Runner relaunch benchmark (mock LLM, 30 samples) | 30/30 passed, p95 16754.1ms / p99 16754.1ms |
+| Host tunnel reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 5958.5ms / p99 6036.2ms |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
 | Web production build (`vite build`) | Succeeded (42s) |
 | Electron desktop tests (`node --test`) | 366/366 passed |
@@ -31,6 +35,11 @@ Updated 2026-09-02 with the independent live A2A delivery latency sample.
   shell fixes all have regression coverage.
 - Doctor/diagnose CLI exists; upstream synced; `ruff`/`tsc` internal gates
   green.
+- UI event delivery, runner relaunch, and host tunnel reconnect now have
+  independent 30-sample mock-LLM benchmarks on this machine, below their plan
+  gates: `ui_event_running` p95 32.8ms (<500ms), `session_cold_restart` p95
+  16754.1ms (<30s), and `host_tunnel_reconnect` p95 5958.5ms (<15s), all 0
+  failures.
 - Remaining: repeated clean-machine cold boot/restart/wake matrix and the
   24h soak still need operator time on candidate builds.
 

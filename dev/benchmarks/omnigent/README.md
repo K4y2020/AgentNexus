@@ -101,21 +101,26 @@ drift negligible (~2 ms/turn).
 | --- | --- |
 | `session_cold_start` | Create a new host-bound session and time its fresh runner launch through the first token — the full new-conversation cold path |
 | `session_cold_restart` | With an existing session's runner stopped before the sample, post a user message and time the automatic runner relaunch to first token |
+| `host_tunnel_reconnect` | Restart the server (dropping the host daemon's WebSocket) and time until the host's row reports online again |
 | `warm_turn` | Drive a turn on an already-warm session — steady-state dispatch overhead |
 | `time_to_first_token` | Post a turn; time to the first streamed `output_text` delta |
+| `ui_event_running` | Post a user message; time to the first `running`/`waiting` session status event |
 | `interrupt` | Interrupt a running (gated) turn; time to cancellation |
 | `read_runner_file` | `GET .../environments/default/filesystem/{path}` — server → runner filesystem read proxy |
 | `a2a_message_delivery` | `POST /v1/coordination/messages` → durable outbox → Dispatcher → runner injection → harness `consumed` receipt |
 | `server_stream_reconnect` | Drop a live session stream, reconnect mid-turn, and await the first output delta — server/UI stream reattach |
 
-The two cold journeys use a real `omni host` daemon. `session_cold_start`
+The host-backed journeys use a real `omni host` daemon. `session_cold_start`
 creates a new host-bound session per sample, while `session_cold_restart`
 creates one session up front and sends `stop_session` before each sample. That
 control event preserves the conversation but stops its runner; the timed user
 message then follows the production auto-relaunch path. In both cases the host
 spawns a fresh runner with its own binding token and reverse tunnel, so the
 latency includes process startup, tunnel registration, and first-token
-dispatch. The daemon reaps any remaining runners when the benchmark exits.
+dispatch. `host_tunnel_reconnect` exercises the daemon itself: restarting the
+server closes the daemon's WebSocket, and the timed span is the daemon's own
+reconnect loop until its row is online again. The daemon reaps any remaining
+runners when the benchmark exits.
 
 `read_runner_file` needs a runner but does **not** drive a turn or call the LLM:
 its setup plants a file via `PUT`, and the timed op is the proxied read (a
@@ -135,6 +140,21 @@ in flight: the harness drops an open stream, posts a gated message, reconnects,
 releases the mock gate once the runner's LLM call is parked, and stops at the
 first `response.output_text.delta`. Model block time is excluded; the number is
 stream re-registration plus live event delivery through the running turn.
+
+`ui_event_running` measures the UI's "turn started" signal directly: one SSE
+stream is attached once and kept open for the whole journey, a message is
+posted per sample, and the timed span ends on the first `session.status`
+`running`/`waiting` event. No model output is awaited, so it isolates the
+control-plane event delivery portion of the UI path over an already-attached
+stream. Stream (re)connect cost is deliberately excluded here; it is measured
+separately by `server_stream_reconnect`.
+
+`host_tunnel_reconnect` runs the production recovery path behind the Host
+tunnel SLI: the bench server process is stopped and restarted on the same port,
+which closes the real host daemon's WebSocket, and the timed span ends on the
+first host listing that reports the daemon online again. Server restart is the
+repeatable drop cause; daemon process spawn is not part of the span because the
+same daemon process reconnects through its own loop.
 
 **Only measure what we control.** Full-turn journeys always use the
 **`openai-agents`** SDK harness, which runs **in-process** (a call into the

@@ -52,12 +52,12 @@ import sys
 import tempfile
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, cast
 
 import httpx
 
-from .environment import BenchEnvironment, ServerRequestSnapshot
+from .environment import BenchEnvironment, ServerRequestSnapshot, _sse_session_status
 from .measure import RunResult
 
 # Per-journey context returned by ``setup`` and threaded to ``measure``. Its
@@ -547,6 +547,16 @@ _A2A_REPLY = "Received the benchmark A2A request."
 _RECONNECT_MAX_ITERATIONS = 30
 _RECONNECT_REPLY = "Reconnected benchmark response."
 
+# UI event delivery samples: time from user message to the session's first
+# running/waiting status event on the SSE stream — the UI "turn started" signal.
+_UI_EVENT_MAX_ITERATIONS = 30
+_UI_EVENT_TIMEOUT_S = 30.0
+
+# Host-daemon tunnel reconnects after a server restart. Each sample costs the
+# server process restart + host reattach, so the cap keeps a full-geometry run
+# inside the CI time budget while still giving a 30-sample p95.
+_HOST_RECONNECT_MAX_ITERATIONS = 30
+
 # Iteration cap for the runner filesystem read. It's a proxied localhost read,
 # not a full turn, so it's far cheaper than the drive-a-turn journeys — a higher
 # cap gives a usable p50/p99 while staying well within the CI time budget.
@@ -673,6 +683,26 @@ async def _measure_session_cold_restart(env: BenchEnvironment, ctx: JourneyConte
     """Post to an existing session with a dead runner; await first token."""
     session_id = cast(str, ctx)  # _setup_cold_restart_session
     await env.cold_restart_first_delta(session_id, _TURN_PROMPT)
+
+
+async def _prepare_host_tunnel_reconnect(
+    env: BenchEnvironment, _ctx: JourneyContext
+) -> None:
+    """Ensure the host daemon is online before the sample drops its tunnel."""
+    await asyncio.to_thread(env._wait_host_online)
+
+
+async def _measure_host_tunnel_reconnect(
+    env: BenchEnvironment, _ctx: JourneyContext
+) -> None:
+    """Restart the server and time until the host daemon's tunnel is back online.
+
+    The daemon's WebSocket is closed by the server process exit; the timed
+    span ends on the first ``GET /v1/hosts`` read that reports the daemon
+    online again. This exercises the host reconnect loop end to end with the
+    real server and daemon processes.
+    """
+    await asyncio.to_thread(env.restart_server_and_wait_host)
 
 
 async def _measure_warm_turn(env: BenchEnvironment, ctx: JourneyContext) -> None:
@@ -922,6 +952,102 @@ async def _measure_server_stream_reconnect(
     finally:
         with contextlib.suppress(httpx.HTTPError):
             await env._mock_post("/gate/release", {})
+
+
+@dataclass
+class _UIEventContext:
+    """Warm session plus one long-lived SSE stream reused by every sample."""
+
+    session_id: str
+    reader: asyncio.Task[None] | None = None
+    connected: asyncio.Event = field(default_factory=asyncio.Event)
+    running: asyncio.Event = field(default_factory=asyncio.Event)
+    outcome: dict[str, str] = field(default_factory=dict)
+
+
+async def _setup_ui_event_session(env: BenchEnvironment) -> _UIEventContext:
+    """Create the warm session; the stream reader starts on first prepare."""
+    session_id = await _setup_streaming_session(env)
+    return _UIEventContext(session_id=session_id)
+
+
+async def _prepare_ui_event_running(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Settle the prior turn, clear queue pollution, and reuse the attached stream.
+
+    The stream is attached once and kept open for the whole journey, so each
+    measured op isolates POST /events -> first ``session.status`` running edge.
+    Stream (re)connect is deliberately NOT on this timer; it has its own
+    benchmark (``server_stream_reconnect``).
+    """
+    ui = cast(_UIEventContext, ctx)
+    await env._wait_idle(ui.session_id, timeout=_UI_EVENT_TIMEOUT_S)
+    await env.configure_mock([], key="default")
+    ui.running.clear()
+    ui.outcome.clear()
+    if ui.reader is None:
+
+        async def _read_stream() -> None:
+            try:
+                async with env.client.stream(  # type: ignore[union-attr]
+                    "GET",
+                    f"/v1/sessions/{ui.session_id}/stream",
+                    timeout=_UI_EVENT_TIMEOUT_S,
+                ) as resp:
+                    ui.connected.set()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        status = _sse_session_status(line[len("data:") :].strip())
+                        if status in ("running", "waiting"):
+                            ui.running.set()
+                        elif status == "failed":
+                            ui.outcome["failed"] = "turn failed before running"
+                            ui.running.set()
+            except httpx.HTTPError as exc:
+                ui.outcome["error"] = repr(exc)
+                ui.connected.set()
+                ui.running.set()
+
+        ui.reader = asyncio.create_task(_read_stream())
+        await asyncio.wait_for(ui.connected.wait(), timeout=_UI_EVENT_TIMEOUT_S)
+
+
+async def _measure_ui_event_running(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Time a user message to the first running/waiting SSE event on the live stream."""
+    assert env.client is not None
+    ui = cast(_UIEventContext, ctx)
+    posted = await env.client.post(
+        f"/v1/sessions/{ui.session_id}/events",
+        json={
+            "type": "message",
+            "data": {"role": "user", "content": [{"type": "input_text", "text": "Start."}]},
+        },
+    )
+    posted.raise_for_status()
+    try:
+        await asyncio.wait_for(ui.running.wait(), timeout=_UI_EVENT_TIMEOUT_S)
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"no running/waiting status event within {_UI_EVENT_TIMEOUT_S}s "
+            f"(session {ui.session_id}; outcome={ui.outcome})"
+        ) from exc
+    if "error" in ui.outcome:
+        raise RuntimeError(f"ui stream error: {ui.outcome['error']}")
+    if "failed" in ui.outcome:
+        raise RuntimeError(f"ui turn failed before running: {ui.outcome['failed']}")
+
+
+async def _teardown_ui_event_running(
+    _env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Cancel the journey's long-lived stream reader."""
+    ui = cast(_UIEventContext, ctx)
+    if ui.reader is not None:
+        ui.reader.cancel()
 
 
 async def _a2a_recipient_snapshot(
@@ -1290,6 +1416,17 @@ ALL_JOURNEYS: dict[str, Journey] = {
             "POST message → automatic runner relaunch → first token.",
         ),
         Journey(
+            name="host_tunnel_reconnect",
+            kind="latency",
+            measure=_measure_host_tunnel_reconnect,
+            prepare=_prepare_host_tunnel_reconnect,
+            needs_runner=True,
+            needs_host=True,
+            max_iterations=_HOST_RECONNECT_MAX_ITERATIONS,
+            description="Restart the server and time until the host daemon's tunnel "
+            "reconnects and its row reports online.",
+        ),
+        Journey(
             name="warm_turn",
             kind="latency",
             measure=_measure_warm_turn,
@@ -1345,6 +1482,18 @@ ALL_JOURNEYS: dict[str, Journey] = {
             max_iterations=_RECONNECT_MAX_ITERATIONS,
             description="Drop a live session stream, reconnect mid-turn, and "
             "await the first output delta — server/UI reconnect latency.",
+        ),
+        Journey(
+            name="ui_event_running",
+            kind="latency",
+            measure=_measure_ui_event_running,
+            setup=_setup_ui_event_session,
+            prepare=_prepare_ui_event_running,
+            teardown=_teardown_ui_event_running,
+            needs_runner=True,
+            max_iterations=_UI_EVENT_MAX_ITERATIONS,
+            description="Post a user message and time to the first running/waiting "
+            "session status event — UI event delivery latency.",
         ),
         Journey(
             name="native_hook_spawn",

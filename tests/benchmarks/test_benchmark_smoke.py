@@ -533,13 +533,15 @@ _RUNNER_JOURNEYS = [
     "session_cold_restart",
     "warm_turn",
     "time_to_first_token",
+    "ui_event_running",
     "interrupt",
     "read_runner_file",
     "server_stream_reconnect",
+    "host_tunnel_reconnect",
 ]
 
 
-@pytest.mark.timeout(300)
+@pytest.mark.timeout(600)
 async def test_benchmark_smoke_runner_journeys() -> None:
     """Run each full-turn journey once through server + runner + mock LLM.
 

@@ -211,6 +211,10 @@ class BenchEnvironment:
         self._server_proc: subprocess.Popen[bytes] | None = None
         self._runner_proc: subprocess.Popen[bytes] | None = None
         self._host_proc: subprocess.Popen[bytes] | None = None
+        self._server_port: int | None = None
+        self._server_spawn_env: dict[str, str] | None = None
+        self._server_binding_token: str | None = None
+        self._server_artifact_dir: Path | None = None
         # Base env retained so the host daemon is built identically to the boot
         # runner's server-facing env (worktree source, mock LLM routing).
         self._runner_base_env: dict[str, str] = {}
@@ -275,6 +279,9 @@ class BenchEnvironment:
         port = _find_free_port()
         self.base_url = f"http://localhost:{port}"
         binding_token = uuid.uuid4().hex
+        self._server_port = port
+        self._server_binding_token = binding_token
+        self._server_artifact_dir = artifact_dir
 
         base_env = {**os.environ}
         if self.with_runner:
@@ -287,6 +294,7 @@ class BenchEnvironment:
         # Retained so the host daemon (with_host) is built with the same
         # server-facing env as the boot runner.
         self._runner_base_env = base_env
+        self._server_spawn_env = {**base_env}
 
         self._server_proc = self._spawn_server(port, base_env, binding_token, artifact_dir)
         if self.with_runner:
@@ -574,18 +582,54 @@ class BenchEnvironment:
             time.sleep(0.1)
         raise RuntimeError(f"mock LLM not ready within {_MOCK_TIMEOUT_S}s; logs in {self._tmp}")
 
-    def _wait_ready(self) -> None:
+    def _wait_ready(self, *, require_runner: bool = True) -> None:
         """Wait for ``/health`` (and, in runner mode, the runner online)."""
         deadline = time.monotonic() + _HEALTH_TIMEOUT_S
         while time.monotonic() < deadline:
             try:
                 health = httpx.get(f"{self.base_url}/health", timeout=2)
-                if health.status_code == 200 and self._runner_ready():
+                if health.status_code == 200 and (
+                    not require_runner or self._runner_ready()
+                ):
                     return
             except httpx.HTTPError:
                 pass
             time.sleep(_POLL_INTERVAL_S)
         raise RuntimeError(f"server not ready within {_HEALTH_TIMEOUT_S}s; logs in {self._tmp}")
+
+    def restart_server_and_wait_host(
+        self, *, host_online_timeout: float = _HOST_ONLINE_TIMEOUT_S
+    ) -> None:
+        """Stop the bench server and restart it on the same port, then wait until the
+        host daemon's tunnel reconnects.
+
+        The real host daemon sees its WebSocket tunnel close when the server
+        process exits and runs its production reconnect loop against the new
+        server. This is the recovery path behind the
+        ``host_tunnel_reconnect`` benchmark: server restart is the repeatable
+        drop cause, and the timed span ends when ``GET /v1/hosts`` reports the
+        daemon online again.
+        """
+        if self._server_proc is None or self._server_port is None:
+            raise RuntimeError("restart_server_and_wait_host requires a started server")
+        if self._server_proc.poll() is None:
+            self._server_proc.send_signal(signal.SIGTERM)
+            try:
+                self._server_proc.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                self._server_proc.kill()
+                self._server_proc.wait(timeout=5)
+        self._server_proc = self._spawn_server(
+            self._server_port,
+            self._server_spawn_env or {},
+            self._server_binding_token or "",
+            self._server_artifact_dir or self._tmp / "artifacts",
+        )
+        # Only the server needs to accept requests before the host can reattach;
+        # the boot runner's own tunnel may reconnect on its own schedule and is
+        # not part of this host-reconnect measurement.
+        self._wait_ready(require_runner=False)
+        self._wait_host_online(host_online_timeout)
 
     def _runner_ready(self) -> bool:
         """Whether the boot runner reports online (always ``True`` server-only)."""
@@ -594,14 +638,18 @@ class BenchEnvironment:
         status = httpx.get(f"{self.base_url}/v1/runners/{self.runner_id}/status", timeout=2)
         return status.status_code == 200 and status.json().get("online") is True
 
-    def _wait_host_online(self) -> None:
+    def _wait_host_online(
+        self, host_online_timeout: float | None = None
+    ) -> None:
         """Block until the host daemon's row reads ``status=online``.
 
         Polls ``GET /v1/hosts`` (the single-user owner is ``local``) until the
         daemon we spawned has connected its tunnel and been upserted online, so
         a host-bound session-create has a live launch target.
         """
-        deadline = time.monotonic() + _HOST_ONLINE_TIMEOUT_S
+        deadline = time.monotonic() + (
+            host_online_timeout or _HOST_ONLINE_TIMEOUT_S
+        )
         while time.monotonic() < deadline:
             if self._host_proc is not None and self._host_proc.poll() is not None:
                 raise RuntimeError(
