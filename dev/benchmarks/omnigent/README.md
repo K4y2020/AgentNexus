@@ -106,6 +106,7 @@ drift negligible (~2 ms/turn).
 | `interrupt` | Interrupt a running (gated) turn; time to cancellation |
 | `read_runner_file` | `GET .../environments/default/filesystem/{path}` — server → runner filesystem read proxy |
 | `a2a_message_delivery` | `POST /v1/coordination/messages` → durable outbox → Dispatcher → runner injection → harness `consumed` receipt |
+| `server_stream_reconnect` | Drop a live session stream, reconnect mid-turn, and await the first output delta — server/UI stream reattach |
 
 The two cold journeys use a real `omni host` daemon. `session_cold_start`
 creates a new host-bound session per sample, while `session_cold_restart`
@@ -128,6 +129,12 @@ terminal-idle `consumed` receipt. The mock LLM is zero-latency, so model wait
 time is excluded. Its setup also clears any mock responses queued by an earlier
 journey (the `interrupt` gate can otherwise leave the recipient stuck on a
 `block=True` default), which the smoke test covers explicitly.
+
+`server_stream_reconnect` times the web client's reattach path while a turn is
+in flight: the harness drops an open stream, posts a gated message, reconnects,
+releases the mock gate once the runner's LLM call is parked, and stops at the
+first `response.output_text.delta`. Model block time is excluded; the number is
+stream re-registration plus live event delivery through the running turn.
 
 **Only measure what we control.** Full-turn journeys always use the
 **`openai-agents`** SDK harness, which runs **in-process** (a call into the

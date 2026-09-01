@@ -628,6 +628,12 @@ class BenchEnvironment:
             resp = await client.post(f"{self.mock_url}{path}", json=body)
             resp.raise_for_status()
 
+    async def _mock_get(self, path: str) -> dict[str, object]:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{self.mock_url}{path}")
+            resp.raise_for_status()
+            return resp.json()
+
     async def configure_mock(
         self,
         responses: list[dict[str, object]],

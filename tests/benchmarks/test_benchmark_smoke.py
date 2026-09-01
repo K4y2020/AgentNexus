@@ -535,6 +535,7 @@ _RUNNER_JOURNEYS = [
     "time_to_first_token",
     "interrupt",
     "read_runner_file",
+    "server_stream_reconnect",
 ]
 
 

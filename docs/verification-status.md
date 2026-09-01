@@ -14,8 +14,9 @@ Updated 2026-09-02 with the independent live A2A delivery latency sample.
 | Coordination/behavior/model/workflow tests | 90/90 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
-| Full-turn benchmark runner smoke | 7/7 journeys passed on Windows (cold start, cold restart, warm, TTFT, interrupt, runner file read, A2A delivery) |
+| Full-turn benchmark runner smoke | 8/8 journeys passed on Windows (cold start, cold restart, warm, TTFT, interrupt, runner file read, A2A delivery, stream reconnect) |
 | A2A delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 565.6ms / p99 568.4ms |
+| Server/UI stream reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 780.5ms / p99 801.6ms |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
 | Web production build (`vite build`) | Succeeded (42s) |
 | Electron desktop tests (`node --test`) | 366/366 passed |
@@ -53,8 +54,11 @@ Updated 2026-09-02 with the independent live A2A delivery latency sample.
 - The full-turn benchmark harness now uses the OS temp dir for its throwaway
   workspace; on Windows a drive-relative `\tmp\...` path previously failed
   session-create validation with HTTP 400, blocking the cold-start journeys.
-- Server/UI reconnect p95 still has no independent sample; the reliability
-  loop remains the proxy evidence.
+- Server/UI stream reconnect p95 now has an independent 30-sample mock-LLM
+  benchmark (`server_stream_reconnect` in `dev/benchmarks/omnigent/journeys.py`):
+  p95 780.5ms, p99 801.6ms, 0 failures on this machine, below the <5s gate.
+  The sample drops an open stream, posts a gated turn, reattaches, releases the
+  mock gate, and times to the first output delta with model block time excluded.
 
 ### P3 workspace/git coordination
 - Persistent lease (SQLAlchemy), fencing token, managed-path validation,

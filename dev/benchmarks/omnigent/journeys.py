@@ -541,6 +541,12 @@ _A2A_TIMEOUT_S = 30.0
 _A2A_POLL_INTERVAL_S = 0.02
 _A2A_REPLY = "Received the benchmark A2A request."
 
+# Server/UI stream reconnect samples. Each sample drops a warm stream, posts a
+# gated turn, reconnects, then releases the mock gate so the timed span is
+# reconnect registration + event delivery, not model wait.
+_RECONNECT_MAX_ITERATIONS = 30
+_RECONNECT_REPLY = "Reconnected benchmark response."
+
 # Iteration cap for the runner filesystem read. It's a proxied localhost read,
 # not a full turn, so it's far cheaper than the drive-a-turn journeys — a higher
 # cap gives a usable p50/p99 while staying well within the CI time budget.
@@ -793,6 +799,129 @@ async def _measure_a2a_message_delivery(
         f"message={last_message}; recipient_session={a2a.recipient_session_id}; "
         f"recipient_snapshot={snapshot}"
     )
+
+
+@dataclass
+class _StreamReconnectContext:
+    """Warm bound session reused for every reconnect sample."""
+
+    session_id: str
+
+
+async def _setup_stream_reconnect_session(env: BenchEnvironment) -> _StreamReconnectContext:
+    """Create a warm bound session so the reconnect op is steady-state."""
+    agent_id = await _setup_turn_agent(env, stream=True)
+    session_id = await env.create_bound_session(agent_id)
+    await env.drive_turn(session_id, _TURN_PROMPT)
+    return _StreamReconnectContext(session_id=session_id)
+
+
+async def _prepare_stream_reconnect(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Settle the prior turn and arm one gated, streaming mock response."""
+    context = cast(_StreamReconnectContext, ctx)
+    await env._wait_idle(context.session_id, timeout=_A2A_TIMEOUT_S)
+    # Clear any regular queue left by an earlier journey (e.g. interrupt's
+    # block=True default entry), then arm exactly one response for this sample.
+    await env.configure_mock([], key="default")
+    with contextlib.suppress(httpx.HTTPError):
+        await env._mock_post("/gate/release", {})
+    await env.configure_mock(
+        [{"text": _RECONNECT_REPLY, "block": True, "stream": True}]
+    )
+
+
+async def _measure_server_stream_reconnect(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Drop a live UI stream, reconnect mid-turn, and await the first delta.
+
+    Mirrors the web client's reconnect loop: an existing stream is open and
+    then closed, a user message starts a gated turn, a fresh stream reattaches,
+    the mock gate is released, and the measured span ends on the first
+    ``response.output_text.delta``. The mock LLM has zero latency after the
+    gate, so the number is stream re-registration + live event delivery.
+    """
+    assert env.client is not None
+    context = cast(_StreamReconnectContext, ctx)
+    session_id = context.session_id
+
+    # Phase 1: the UI starts with a live stream, then loses it.
+    try:
+        async with env.client.stream(  # type: ignore[union-attr]
+            "GET", f"/v1/sessions/{session_id}/stream", timeout=_A2A_TIMEOUT_S
+        ) as resp:
+            async for line in resp.aiter_lines():
+                if line:
+                    break
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"initial stream failed: {exc}") from exc
+
+    # Phase 2: post a turn while no stream is attached (the drop window).
+    posted = await env.client.post(
+        f"/v1/sessions/{session_id}/events",
+        json={
+            "type": "message",
+            "data": {"role": "user", "content": [{"type": "input_text", "text": "Reconnect."}]},
+        },
+    )
+    posted.raise_for_status()
+
+    # Phase 3: reconnect and time from the fresh stream to the first delta.
+    # The stream and the gate release must live in one coroutine: a background
+    # reader on ``env.client`` stalled at the first line on Windows whenever the
+    # main coroutine opened a separate mock client before the stream drained.
+    gate_released = False
+    raw_tail: list[str] = []
+    deadline = time.monotonic() + _A2A_TIMEOUT_S
+    try:
+        async with env.client.stream(  # type: ignore[union-attr]
+            "GET", f"/v1/sessions/{session_id}/stream", timeout=_A2A_TIMEOUT_S
+        ) as resp:
+            async for line in resp.aiter_lines():
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(
+                        f"reconnected stream produced no output signal within "
+                        f"{_A2A_TIMEOUT_S}s (session {session_id}; "
+                        f"raw_tail={raw_tail!r})"
+                    )
+                raw_tail.append(line)
+                if len(raw_tail) > 20:
+                    raw_tail.pop(0)
+                if not line.startswith("event:"):
+                    continue
+                etype = line[len("event:") :].strip()
+                # The reconnect is attached once the ready heartbeat arrives.
+                # Only then wait for the mock's blocked LLM request and release
+                # it, so the measured span excludes model block time.
+                if not gate_released and etype == "session.heartbeat":
+                    while time.monotonic() < deadline:
+                        pending = await env._mock_get("/gate/pending")
+                        if pending.get("pending") is True:
+                            gate_released = True
+                            await env._mock_post("/gate/release", {})
+                            break
+                        await asyncio.sleep(_A2A_POLL_INTERVAL_S)
+                    if not gate_released:
+                        raise RuntimeError(
+                            f"mock gate never became pending within {_A2A_TIMEOUT_S}s "
+                            f"(session {session_id})"
+                        )
+                if etype in ("response.output_text.delta", "response.output_item.done"):
+                    return
+                if etype in ("response.completed", "response.failed", "response.cancelled"):
+                    raise RuntimeError(
+                        f"reconnected stream reached {etype} before any output "
+                        f"(session {session_id}; raw_tail={raw_tail!r})"
+                    )
+            raise RuntimeError(
+                f"reconnected stream ended before any output signal "
+                f"(session {session_id}; raw_tail={raw_tail!r})"
+            )
+    finally:
+        with contextlib.suppress(httpx.HTTPError):
+            await env._mock_post("/gate/release", {})
 
 
 async def _a2a_recipient_snapshot(
@@ -1205,6 +1334,17 @@ ALL_JOURNEYS: dict[str, Journey] = {
             max_iterations=_A2A_MAX_ITERATIONS,
             description="POST /v1/coordination/messages → outbox → runner → "
             "harness consumed receipt — live A2A delivery latency.",
+        ),
+        Journey(
+            name="server_stream_reconnect",
+            kind="latency",
+            measure=_measure_server_stream_reconnect,
+            setup=_setup_stream_reconnect_session,
+            prepare=_prepare_stream_reconnect,
+            needs_runner=True,
+            max_iterations=_RECONNECT_MAX_ITERATIONS,
+            description="Drop a live session stream, reconnect mid-turn, and "
+            "await the first output delta — server/UI reconnect latency.",
         ),
         Journey(
             name="native_hook_spawn",
