@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from functools import cache
 
@@ -149,6 +150,11 @@ _CLI_BINARY_BY_HARNESS: dict[str, str | None] = {p.harness: p.cli_binary for p i
 
 def _cli_probe_args(binary: str) -> list[str]:
     """Return a cheap command that proves *binary* is runnable."""
+    path = shutil.which(binary)
+    if sys.platform == "win32" and path and path.lower().endswith((".cmd", ".bat")):
+        # npm-installed CLIs resolve to a .cmd shim on Windows, which
+        # CreateProcess cannot execute directly; run it through cmd.exe.
+        return ["cmd", "/d", "/s", "/c", path, "--version"]
     if binary == "pi":
         # ``shutil.which("pi")`` alone is not enough: pi's npm package
         # may be installed under an older Node version than the package

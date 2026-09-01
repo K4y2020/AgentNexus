@@ -213,6 +213,30 @@ def test_create_worktree_from_base_branch(git_repo: Path) -> None:
     assert _rev_parse(Path(created.worktree_path)) != _rev_parse(git_repo, "main")
 
 
+def test_parallel_implementer_worktrees_are_isolated(git_repo: Path) -> None:
+    """Two implementers on distinct branches write into distinct worktrees."""
+    first = create_worktree(repo_path=str(git_repo), branch_name="implementer/one")
+    second = create_worktree(repo_path=str(git_repo), branch_name="implementer/two")
+    assert first.worktree_path != second.worktree_path
+
+    first_path = Path(first.worktree_path)
+    second_path = Path(second.worktree_path)
+    (first_path / "answer.txt").write_text("one", encoding="utf-8")
+    (second_path / "answer.txt").write_text("two", encoding="utf-8")
+    _git(first_path, "add", "answer.txt")
+    _git(second_path, "add", "answer.txt")
+    _git(first_path, "commit", "-q", "-m", "implementer one")
+    _git(second_path, "commit", "-q", "-m", "implementer two")
+
+    assert (first_path / "answer.txt").read_text(encoding="utf-8") == "one"
+    assert (second_path / "answer.txt").read_text(encoding="utf-8") == "two"
+    entries = list_worktrees(repo_path=str(git_repo))
+    seen = {str(Path(entry.path).resolve()) for entry in entries}
+    assert str(Path(first.worktree_path).resolve()) in seen
+    assert str(Path(second.worktree_path).resolve()) in seen
+    assert len(entries) == 3
+
+
 def test_create_worktree_unknown_base_branch_fails(git_repo: Path) -> None:
     """An unresolvable base ref fails loud (after the best-effort fetch)."""
     with pytest.raises(WorktreeError) as exc:
@@ -276,6 +300,13 @@ def test_create_worktree_non_repo_fails(tmp_path: Path) -> None:
     """A directory that isn't a git repo is rejected."""
     plain = tmp_path / "plain"
     plain.mkdir()
+    probe = subprocess.run(
+        ["git", "-C", str(plain), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode == 0:
+        pytest.skip("tmp_path is inside an existing git worktree; cannot build a non-repo fixture")
     with pytest.raises(WorktreeError) as exc:
         create_worktree(repo_path=str(plain), branch_name="x")
     assert "not a git repository" in exc.value.message
@@ -321,7 +352,7 @@ def test_list_worktrees_returns_main_first(git_repo: Path) -> None:
     result = list_worktrees(repo_path=str(git_repo))
     assert len(result) == 1
     main = result[0]
-    assert main.path == str(git_repo)
+    assert str(Path(main.path).resolve()) == str(git_repo.resolve())
     assert main.branch == "main"
     assert main.is_main is True
     assert main.detached is False
@@ -334,7 +365,7 @@ def test_list_worktrees_includes_linked(git_repo: Path) -> None:
     # Main first, then the linked worktree.
     assert result[0].is_main is True
     linked = next(w for w in result if not w.is_main)
-    assert linked.path == created.worktree_path
+    assert str(Path(linked.path).resolve()) == str(Path(created.worktree_path).resolve())
     assert linked.branch == "feature/login"
     assert linked.detached is False
 
@@ -344,9 +375,9 @@ def test_list_worktrees_from_linked_resolves_same_list(git_repo: Path) -> None:
     created = create_worktree(repo_path=str(git_repo), branch_name="feature/a")
     # Query from the linked worktree — should still see BOTH worktrees.
     result = list_worktrees(repo_path=created.worktree_path)
-    paths = {w.path for w in result}
-    assert str(git_repo) in paths
-    assert created.worktree_path in paths
+    paths = {str(Path(w.path).resolve()) for w in result}
+    assert str(git_repo.resolve()) in paths
+    assert str(Path(created.worktree_path).resolve()) in paths
 
 
 def test_list_worktrees_reports_detached_head(git_repo: Path) -> None:
@@ -357,7 +388,7 @@ def test_list_worktrees_reports_detached_head(git_repo: Path) -> None:
     # Add a worktree checked out at a bare commit → detached HEAD.
     _git(git_repo, "worktree", "add", "--detach", str(wt), head)
     result = list_worktrees(repo_path=str(git_repo))
-    detached = next(w for w in result if w.path == str(wt))
+    detached = next(w for w in result if str(Path(w.path).resolve()) == str(wt.resolve()))
     assert detached.branch is None
     assert detached.detached is True
 
@@ -366,6 +397,13 @@ def test_list_worktrees_non_git_path_fails(tmp_path: Path) -> None:
     """A non-git directory fails loud (the route maps this to 'no worktrees')."""
     plain = (tmp_path / "plain").resolve()
     plain.mkdir()
+    probe = subprocess.run(
+        ["git", "-C", str(plain), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode == 0:
+        pytest.skip("tmp_path is inside an existing git worktree; cannot build a non-repo fixture")
     with pytest.raises(WorktreeError):
         list_worktrees(repo_path=str(plain))
 

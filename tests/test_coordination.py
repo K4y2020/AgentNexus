@@ -1121,6 +1121,74 @@ async def test_workflow_reassign_active_unconsumed_rejects_and_resends(
 
 
 @pytest.mark.asyncio
+async def test_template_upgrade_does_not_mutate_running_run(
+    memory_store: CoordinationStore,
+) -> None:
+    """A newer template instance must not rewrite a running run's snapshot."""
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run_v1 = await engine.start_dag_workflow_run(
+        title="Upgrade V1",
+        root_session_id="conv_root_upgrade_v1",
+        tasks=[
+            WorkflowDagTaskSpec(
+                name="plan",
+                title="V1 Plan",
+                assignee_session_id="conv_plan_a",
+                assignee_role="planner",
+                prompt="Plan v1.",
+            ),
+            WorkflowDagTaskSpec(
+                name="build",
+                title="V1 Build",
+                assignee_session_id="conv_build_a",
+                assignee_role="implementer",
+                prompt="Build v1.",
+                dependencies=["plan"],
+            ),
+        ],
+    )
+    v1_tasks_before = {task.task_id for task in memory_store.list_tasks(run_v1.run_id)}
+    v1_template_before = run_v1.template
+    v1_metadata_before = dict(run_v1.metadata)
+
+    await engine.start_dag_workflow_run(
+        title="Upgrade V2",
+        root_session_id="conv_root_upgrade_v2",
+        tasks=[
+            WorkflowDagTaskSpec(
+                name="plan",
+                title="V2 Plan",
+                assignee_session_id="conv_plan_b",
+                assignee_role="planner",
+                prompt="Plan v2.",
+            ),
+            WorkflowDagTaskSpec(
+                name="build",
+                title="V2 Build",
+                assignee_session_id="conv_build_b",
+                assignee_role="implementer",
+                prompt="Build v2.",
+                dependencies=["plan"],
+            ),
+            WorkflowDagTaskSpec(
+                name="ship",
+                title="V2 Ship",
+                assignee_session_id="conv_ship_b",
+                assignee_role="reviewer",
+                prompt="Ship v2.",
+                dependencies=["build"],
+            ),
+        ],
+    )
+
+    run_v1_after = memory_store.get_run(run_v1.run_id)
+    assert run_v1_after is not None
+    assert run_v1_after.template == v1_template_before
+    assert run_v1_after.metadata == v1_metadata_before
+    assert {task.task_id for task in memory_store.list_tasks(run_v1.run_id)} == v1_tasks_before
+
+
+@pytest.mark.asyncio
 async def test_workflow_reassign_rejects_acknowledged_work(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:

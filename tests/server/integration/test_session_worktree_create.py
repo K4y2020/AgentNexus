@@ -313,6 +313,35 @@ async def test_create_with_existing_worktree_persists_without_creating(
     assert body["workspace"] == _SOURCE_REPO
 
 
+async def test_two_parallel_implementer_sessions_use_distinct_worktrees(
+    register_worktree_host: RegisterHost,
+    client: httpx.AsyncClient,
+) -> None:
+    """Two implementer sessions on one repo get distinct branches/worktrees."""
+    cap = register_worktree_host()
+    agent = await create_test_agent(client, name="wt-parallel-agent")
+
+    first = await _create_git_session(
+        client, agent["id"], {"branch_name": "implementer/one"}
+    )
+    second = await _create_git_session(
+        client, agent["id"], {"branch_name": "implementer/two"}
+    )
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+
+    first_body = first.json()
+    second_body = second.json()
+    assert first_body["git_branch"] == "implementer/one"
+    assert second_body["git_branch"] == "implementer/two"
+    assert first_body["workspace"] != second_body["workspace"]
+    assert len(cap.create) == 2
+    assert {frame.branch_name for frame in cap.create} == {
+        "implementer/one",
+        "implementer/two",
+    }
+
+
 async def test_create_with_invalid_existing_worktree_branch_fails_400(
     register_worktree_host: RegisterHost,
     client: httpx.AsyncClient,
