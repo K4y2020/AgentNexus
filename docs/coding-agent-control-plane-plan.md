@@ -1018,6 +1018,15 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > web/electron 等路径）与 main push 触发。仍需要真实 Apple 签名/公证证书
 > 与正式包验收才能关闭 P6。
 >
+> 2026-09-01 原生 Windows 可靠性基线已补齐
+> （`scripts/run_control_plane_reliability.ps1`）：与 bash 版等价，支持
+> `-Runs N`、`RUNS`/`AGENTNEXUS_RELIABILITY_RUNS` 和
+> `RELIABILITY_ARTIFACTS`，在同一 `.reliability-results/reliability.xml`
+> 布局输出 JUnit；本机已实跑 3 样本全部通过，且无可靠性/回测残留进程。
+> `control-plane-reliability.yml` 手工派发时可选择 `include_windows`，
+> 在原生 Windows runner 上跑同一基线；每周自动运行仍保持 Ubuntu 低成本。
+> 真实付费 API 的 100 次样本与 24h soak 仍属于 P6 环境门禁。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

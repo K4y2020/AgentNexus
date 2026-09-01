@@ -19,6 +19,20 @@ The default is 100 samples. Pytest JUnit XML is written to
 `.github/workflows/control-plane-reliability.yml` runs the 100-sample baseline
 weekly and on manual dispatch.
 
+Native Windows/PowerShell users can run the same baseline with:
+
+```powershell
+$env:RUNS = 5
+.\scripts\run_control_plane_reliability.ps1
+```
+
+The PowerShell entry point accepts `-Runs N` for an explicit override and
+`RELIABILITY_ARTIFACTS` for the artifact directory. It writes the same
+`.reliability-results/reliability.xml` layout as the bash script. The
+`.github/workflows/control-plane-reliability.yml` workflow can also run the
+Windows leg on manual dispatch (`include_windows: true`); the weekly scheduled
+run stays Ubuntu to keep the regression baseline inexpensive.
+
 ## What each sample verifies
 
 - One workflow run reaches `succeeded` with Planner, Implementer, Reviewer,
