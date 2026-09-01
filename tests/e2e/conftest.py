@@ -632,6 +632,31 @@ def live_server(
         "OPENAI_API_KEY": llm_api_key,
         "OMNIGENT_BUILTIN_AGENT_DIRS": str(builtin_sdk_chat_spec),
     }
+    if using_mock_llm and mock_llm_server_url is not None:
+        # Codex agents route through the ``providers:`` config, not a raw
+        # api_key auth block. Seed one named provider so the live cross-harness
+        # A2A test can pin ``executor.auth: {type: provider, name: mock-openai}``
+        # instead of falling back to the host machine's real Codex login.
+        provider_config_home = tmp_path_factory.mktemp("e2e_provider_cfg")
+        (provider_config_home / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "providers": {
+                        "mock-openai": {
+                            "kind": "key",
+                            "openai": {
+                                "base_url": f"{mock_llm_server_url}/v1",
+                                "api_key": "mock-key",
+                                "wire_api": "responses",
+                                "models": {"default": "gpt-5.6-sol"},
+                            },
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        env["OMNIGENT_CONFIG_HOME"] = str(provider_config_home)
     # Prepend the worktree so the server imports the branch's source (see
     # comment above). Dropped in compat mode so the pinned older server in
     # the compat venv resolves instead of being shadowed by main.
@@ -916,6 +941,7 @@ def register_inline_agent(
     profile: str,
     prompt: str,
     mock_llm_base_url: str | None = None,
+    provider_name: str | None = None,
     builtin_tools: list[str] | None = None,
     extra_config: dict[str, Any] | None = None,
 ) -> str:
@@ -937,6 +963,10 @@ def register_inline_agent(
     :param mock_llm_base_url: When set, bake an ``auth.type: api_key``
         block into the executor so the harness hits the mock server
         instead of ``api.openai.com``.
+    :param provider_name: When set, bake an ``auth.type: provider`` block
+        referencing a named ``providers:`` entry. Takes precedence over
+        *mock_llm_base_url* for harnesses whose spawn-env builder consumes
+        provider entries (e.g. ``codex``).
     :param builtin_tools: When set, add a ``tools.builtins`` list to
         the agent spec, e.g. ``["list_files", "upload_file"]``.
     :param extra_config: When set, top-level keys shallow-merged into
@@ -957,7 +987,12 @@ def register_inline_agent(
         "model": resolve_model(model),
         "profile": profile,
     }
-    if mock_llm_base_url is not None:
+    if provider_name is not None:
+        executor["auth"] = {
+            "type": "provider",
+            "name": provider_name,
+        }
+    elif mock_llm_base_url is not None:
         executor["auth"] = {
             "type": "api_key",
             "api_key": "mock-key",
@@ -1043,7 +1078,7 @@ def register_dir_agent_with_mock_llm(
     if attempt > 0:
         name = f"{name}-r{attempt}"
 
-    config = yaml.safe_load((agent_dir / "config.yaml").read_text())
+    config = yaml.safe_load((agent_dir / "config.yaml").read_text(encoding="utf-8"))
     config["name"] = name
     executor = config.setdefault("executor", {})
     executor["model"] = resolve_model(model)
@@ -1169,7 +1204,7 @@ def _add_dir_with_model_rewrite(
         if entry.suffix.lower() not in {".yaml", ".yml"}:
             tar.add(str(entry), arcname=rel)
             continue
-        raw = entry.read_text()
+        raw = entry.read_text(encoding="utf-8")
         try:
             config = yaml.safe_load(raw)
         except yaml.YAMLError:
@@ -1227,7 +1262,7 @@ def _materialize_builtin_sdk_chat_spec(
         gets an ``auth`` block pointing at this URL (without ``/v1``).
     :returns: Path to the written ``sdk-chat-builtin.yaml``.
     """
-    config = yaml.safe_load(_SDK_CHAT_BUILTIN_SPEC.read_text())
+    config = yaml.safe_load(_SDK_CHAT_BUILTIN_SPEC.read_text(encoding="utf-8"))
     if databricks_workspace_host is not None:
         _rewrite_yaml_models(config, profile, spread_key=_SDK_CHAT_BUILTIN_SPEC.stem)
     if mock_llm_server_url is not None:
@@ -1239,7 +1274,10 @@ def _materialize_builtin_sdk_chat_spec(
             "base_url": mock_llm_server_url,
         }
     dest = dest_dir / _SDK_CHAT_BUILTIN_SPEC.name
-    dest.write_text(yaml.safe_dump(config, sort_keys=False))
+    dest.write_text(
+        yaml.safe_dump(config, sort_keys=False),
+        encoding="utf-8",
+    )
     return dest
 
 

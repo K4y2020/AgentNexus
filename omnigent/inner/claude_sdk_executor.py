@@ -1335,17 +1335,18 @@ class _ResolvedSkills:
     That auto-default loads ``~/.claude/skills/`` and the cwd's
     ancestor ``.claude/skills/`` chain into the system prompt
     listing even when the ``Skill`` tool itself is suppressed.
-    Hermetic agents need to explicitly override
-    ``setting_sources=[]`` to actually hide host skills from the
-    model's view of its own skill listing.
+    Managed sessions explicitly pin ``setting_sources=[]`` so the
+    CLI cannot apply ambient user/project settings (including an
+    ``env`` block that would hijack the gateway transport), while
+    the ``Skill`` tool remains exposed via ``allowed_tools`` and
+    bundled skills remain visible through ``--plugin-dir``.
 
     :param skills: Value for ``ClaudeAgentOptions.skills``:
         ``"all"`` / list of names / empty list for hermetic mode.
     :param setting_sources: Value for
-        ``ClaudeAgentOptions.setting_sources``: ``None`` to let
-        the SDK pick its default (``["user", "project"]``), or
-        an explicit list (e.g. ``[]`` for hermetic mode where we
-        don't want any scope-based discovery).
+        ``ClaudeAgentOptions.setting_sources``: an explicit list
+        (``[]`` in managed sessions; the SDK otherwise auto-defaults
+        to ``["user", "project"]``).
     """
 
     skills: str | list[str]
@@ -1362,21 +1363,19 @@ def _resolve_skills_option(
 
     Three meaningful filter values produce three distinct SDK
     configurations:
-
-    - ``"all"`` → ``skills="all"``, ``setting_sources=None`` (SDK
-      auto-defaults to ``["user", "project"]``). All host skills
-      from ``~/.claude/skills/`` and ``<cwd>/.claude/skills/``
-      (walking up the cwd tree) appear in the model's listing.
+    - ``"all"`` → ``skills="all"``, ``setting_sources=[]``.
+      ``Skill`` stays invokable and the SDK's auto-default is
+      suppressed, so ambient user/project settings (and their
+      ``env`` overrides) never bleed into the managed session.
     - ``"none"`` → ``skills=[]``, ``setting_sources=[]``. Both
       the ``Skill`` tool listing AND the scope-based discovery
       are suppressed: no host skills appear in the system
       prompt or as invokable. Bundled skills (loaded via
       ``--plugin-dir``) are unaffected by ``setting_sources``
       and remain visible.
-    - ``list[str]`` → ``skills=[names]``, ``setting_sources=None``.
-      Only the named subset is in the model's listing; the SDK's
-      auto-default still loads user and project sources for
-      CLAUDE.md and other settings.
+    - ``list[str]`` → ``skills=[names]``, ``setting_sources=[]``.
+      Only the named subset is in the model's listing; scope
+      discovery stays hermetic like ``"all"``.
 
     :param skills_filter: ``"all"`` / ``"none"`` / list of skill
         names from :class:`AgentSpec.skills_filter`.
@@ -1385,7 +1384,7 @@ def _resolve_skills_option(
         ``"all"`` semantics.
     """
     if skills_filter == "all":
-        return _ResolvedSkills(skills="all", setting_sources=None)
+        return _ResolvedSkills(skills="all", setting_sources=[])
     if skills_filter == "none":
         # Empty ``skills`` suppresses the listing AND empty
         # ``setting_sources`` skips the SDK's auto-default that
@@ -1393,7 +1392,7 @@ def _resolve_skills_option(
         # system prompt anyway.
         return _ResolvedSkills(skills=[], setting_sources=[])
     if isinstance(skills_filter, list):
-        return _ResolvedSkills(skills=list(skills_filter), setting_sources=None)
+        return _ResolvedSkills(skills=list(skills_filter), setting_sources=[])
     return None
 
 
@@ -2363,11 +2362,12 @@ class ClaudeSDKExecutor(Executor):
         # Build options.
         #
         # ``skills="all"`` makes the Claude Agent SDK auto-configure
-        # the ``Skill`` tool in ``allowed_tools`` and default
-        # ``setting_sources`` to ``["user", "project"]`` so the CLI
-        # discovers user-installed skills under ``~/.claude/skills/``
-        # and project-local skills under ``<cwd>/.claude/skills/``.
-        # See ``claude_agent_sdk._internal.transport.subprocess_cli.
+        # the ``Skill`` tool in ``allowed_tools``. ``_resolve_skills_option``
+        # also pins ``setting_sources=[]`` so the SDK does not auto-default
+        # to ``["user", "project"]``: a ``~/.claude/settings.json`` env block
+        # (e.g. ``ANTHROPIC_BASE_URL`` / ``ANTHROPIC_AUTH_TOKEN`` from a
+        # host proxy) must not override the executor's gateway transport or
+        # leak ambient user/project CLAUDE.md into managed agents.
         # _apply_skills_defaults`` for the auto-derivation.
         #
         # ``tools`` is the model's BASE tool set; ``allowed_tools``
@@ -2397,7 +2397,7 @@ class ClaudeSDKExecutor(Executor):
         # field is malformed (the parser already validates, so
         # this is belt-and-suspenders).
         resolved = _resolve_skills_option(self._skills_filter) or _ResolvedSkills(
-            skills="all", setting_sources=None
+            skills="all", setting_sources=[]
         )
         # Bundle skills are exposed via the SDK's plugin mechanism.
         # The bundle's ``<bundle>/skills/<dir>/SKILL.md`` files are
@@ -2427,14 +2427,9 @@ class ClaudeSDKExecutor(Executor):
             "max_buffer_size": 10 * 1024 * 1024,
         }
         # Only forward ``setting_sources`` when explicitly set.
-        # ``None`` lets the SDK apply its default
-        # (``["user", "project"]`` when ``skills`` is non-None).
-        # An empty list — produced by ``"none"`` — is forwarded
-        # verbatim so the SDK doesn't auto-default it back to
-        # ``["user", "project"]``, which would re-load host
-        # skills into the model's system prompt despite
-        # ``skills=[]`` (the live regression that prompted this
-        # branch).
+        # ``None`` is retained for compatibility with directly constructed
+        # values. Managed skill filters always produce an explicit list;
+        # ``[]`` prevents the SDK from loading ambient user/project settings.
         if resolved.setting_sources is not None:
             options_kwargs["setting_sources"] = resolved.setting_sources
         try:

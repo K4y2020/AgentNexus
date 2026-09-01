@@ -1783,23 +1783,24 @@ class TestSkillsFilterTranslation(unittest.TestCase):
     ``skills:`` field and the SDK's documented ``skills`` knob.
     """
 
-    def test_all_lets_sdk_default_setting_sources(self) -> None:
+    def test_all_pins_settings_sources_hermetic(self) -> None:
         """
-        ``"all"`` → SDK ``skills="all"`` and
-        ``setting_sources=None`` (the SDK's default-derivation
-        kicks in, producing ``["user", "project"]``).
+        ``"all"`` becomes ``skills="all"`` plus
+        ``setting_sources=[]``.
 
-        Claim: setting_sources is ``None`` (not ``[]``), letting
-        the SDK fill it in. A regression that hardcoded an
-        explicit list here would freeze the default and miss
-        future SDK changes.
+        The SDK defaults ``setting_sources`` to ``["user", "project"]``
+        when ``skills`` is non-None. Managed sessions must override that
+        default: a user ``~/.claude/settings.json`` env block can
+        otherwise set ``ANTHROPIC_BASE_URL`` / ``ANTHROPIC_AUTH_TOKEN``
+        and hijack the executor gateway transport. ``Skill`` stays
+        invokable because the SDK injects it into ``allowed_tools``.
         """
         from omnigent.inner.claude_sdk_executor import _resolve_skills_option
 
         result = _resolve_skills_option("all")
         assert result is not None
         self.assertEqual(result.skills, "all")
-        self.assertIsNone(result.setting_sources)
+        self.assertEqual(result.setting_sources, [])
 
     def test_none_zeros_skills_and_setting_sources(self) -> None:
         """
@@ -1824,14 +1825,14 @@ class TestSkillsFilterTranslation(unittest.TestCase):
         self.assertEqual(result.skills, [])
         self.assertEqual(result.setting_sources, [])
 
-    def test_list_lets_sdk_default_setting_sources(self) -> None:
-        """A list of names round-trips and uses the SDK default."""
+    def test_list_pins_settings_sources_hermetic(self) -> None:
+        """A list of names round-trips and stays hermetic like ``"all"``."""
         from omnigent.inner.claude_sdk_executor import _resolve_skills_option
 
         result = _resolve_skills_option(["foo", "bar:baz"])
         assert result is not None
         self.assertEqual(result.skills, ["foo", "bar:baz"])
-        self.assertIsNone(result.setting_sources)
+        self.assertEqual(result.setting_sources, [])
 
     def test_unknown_string_returns_none_for_caller_fallback(self) -> None:
         """
@@ -1843,6 +1844,99 @@ class TestSkillsFilterTranslation(unittest.TestCase):
         from omnigent.inner.claude_sdk_executor import _resolve_skills_option
 
         self.assertIsNone(_resolve_skills_option("bogus"))
+
+    def test_managed_gateway_run_pins_empty_setting_sources(self) -> None:
+        """The real options built for a gateway run never load user settings.
+
+        A user settings file with an ``ANTHROPIC_BASE_URL`` /
+        ``ANTHROPIC_AUTH_TOKEN`` env block would otherwise win over the
+        executor gateway and make the mock test hit a host proxy.
+        """
+        from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+
+        captured_options = []
+
+        class _ResultMessage:
+            def __init__(self, session_id, result):
+                self.session_id = session_id
+                self.result = result
+
+        class _FakeSDK:
+            AssistantMessage = type("AssistantMessage", (), {})
+            UserMessage = type("UserMessage", (), {})
+            SystemMessage = type("SystemMessage", (), {})
+            ResultMessage = _ResultMessage
+            StreamEvent = type("StreamEvent", (), {})
+            ClaudeAgentOptions = type(
+                "ClaudeAgentOptions",
+                (),
+                {"__init__": lambda self, **kwargs: self.__dict__.update(kwargs)},
+            )
+
+            class ClaudeSDKClient:
+                def __init__(self, options):
+                    captured_options.append(options)
+
+                async def connect(self):
+                    return None
+
+                async def query(self, prompt, session_id="default"):
+                    return None
+
+                async def receive_response(self):
+                    yield _ResultMessage("default", "ok")
+
+                async def disconnect(self):
+                    return None
+
+        def _resolve_gateway_env(
+            profile=None,
+            *,
+            host_override=None,
+            base_url_override=None,
+            auth_command_override=None,
+            auth_refresh_interval_ms=None,
+        ):
+            return {
+                "ANTHROPIC_BASE_URL": base_url_override or "https://host/ai-gateway/anthropic",
+                "OMNIGENT_CLAUDE_API_KEY_HELPER": "printf token",
+                "CLAUDE_CODE_API_KEY_HELPER_TTL_MS": "900000",
+                "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+            }
+
+        async def _t():
+            with (
+                patch(
+                    "omnigent.inner.claude_sdk_executor._resolve_gateway_env",
+                    _resolve_gateway_env,
+                ),
+                patch("omnigent.inner.claude_sdk_executor._ensure_sdk", return_value=_FakeSDK),
+            ):
+                executor = ClaudeSDKExecutor(
+                    gateway=True,
+                    gateway_host="https://host",
+                    base_url_override="https://host/ai-gateway/anthropic",
+                    gateway_auth_command="printf token",
+                )
+                events = [
+                    e
+                    async for e in executor.run_turn(
+                        [{"role": "user", "content": "hello"}],
+                        [],
+                        "",
+                    )
+                ]
+            self.assertEqual(len(events), 1)
+            self.assertIsNotNone(executor._gateway_shim)
+            await executor._gateway_shim.aclose()
+
+        _run(_t())
+
+        self.assertEqual(len(captured_options), 1)
+        self.assertEqual(captured_options[0].setting_sources, [])
+        self.assertTrue(
+            captured_options[0].env["ANTHROPIC_BASE_URL"].startswith("http://127.0.0.1:")
+        )
 
 
 # ---------------------------------------------------------------------------

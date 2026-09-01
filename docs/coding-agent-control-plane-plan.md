@@ -933,8 +933,11 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 2026-09-01 进一步补齐真实链路证据：新增 live integration tests（mock LLM），
 > Dispatcher 在 Server lifespan 中启动，经正式会话事件路由注入 Runner/SDK Harness，
 > terminal-idle 回执回调把 Outbox 消息标为 consumed；Plan→Implement→Review→Test
-> 四个阶段可在真实 runner/harness 回路中自动推进。注意：这是 mock-LLM 链路证据，
-> Claude ↔ Codex 真实双 Harness E2E、通用 DAG 调度和 Windows 发布体系仍未完成。
+> 四个阶段可在真实 runner/harness 回路中自动推进。Claude ↔ Codex 跨 Harness
+> E2E 也已跑通：Claude SDK 负责 Planner/Reviewer/Test，Codex CLI 负责 Implementer，
+> 四个消息回执全部进入 consumed，且 mock 捕获证明 Claude 走 /v1/messages、
+> Codex 走 /v1/responses。注意：当前证据依赖 mock LLM 与 seeding 的 OpenAI provider，
+> 真实付费 API E2E、通用 DAG 调度和 Windows 发布体系仍未完成。
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
