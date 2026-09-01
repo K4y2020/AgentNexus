@@ -170,6 +170,30 @@ That is infrastructure throttling from the local cc-switch routing, not a
 control-plane defect. The real-provider 100-run sample remains gated on a
 healthy provider route.
 
+### Real local Codex provider control-plane E2E (2026-09-02)
+
+The control-plane-native workflow was rerun against a real local Codex
+provider (the machine's own `~/.codex` config, `provider: custom`) with no
+mock LLM auth. `tests/integration/test_real_provider_control_plane.py` is an
+operator-gated acceptance test (`OMNIGENT_REAL_PROVIDER_E2E=1`) that
+registers four Codex harness agents with no `mock_llm_base_url`, so every
+LLM call comes from the real CLI login/config.
+
+Verified outcome on Windows (`--harness codex --model
+gemini-3.7-flash-high`, no secrets passed):
+
+- `run_0ad00931f77646f9` reached `succeeded`; Planner, Implementer,
+  Reviewer, Fixer, and Tester all `succeeded`.
+- `consumption_states` showed `consumed: 4`; every outbox delivery received
+  a `terminal_idle` receipt from a real Codex turn.
+- The run carried 4 artifacts and the test finished in about 9m43s because
+  the Codex turns ran real commands/tests instead of canned mock text.
+
+This is real Provider -> Runner -> Harness -> receipt evidence, not just
+SQLite writes plus UI events. The earlier 429 verifies the machine's
+aggregator route for `claude` is throttled, while `codex`'s local provider is
+healthy.
+
 ## Soak driver
 
 For the candidate-release 24h soak acceptance, AgentNexus ships

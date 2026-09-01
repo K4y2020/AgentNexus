@@ -35,7 +35,10 @@ evidence below proves it, not when a page or code path merely exists.
 ### P2 durable agent bus
 - SQLAlchemy coordination store, outbox, dispatcher, receipts, idempotency,
   ACL/tree validation, and a real `claude-sdk` control-plane E2E that
-  converged to `accepted` are verified.
+  converged to `accepted` are verified. On 2026-09-02 a real local Codex
+  custom-provider control-plane run also reached `succeeded` with
+  `consumed: 4` and terminal-idle receipts from real Codex turns
+  (`tests/integration/test_real_provider_control_plane.py`).
 - `live message` p95 and Server/UI reconnect p95 have no independent
   sample yet; the reliability loop is the proxy evidence.
 
@@ -53,7 +56,8 @@ evidence below proves it, not when a page or code path merely exists.
 ### P4 recoverable workflow
 - Fixed Plan -> Implement -> Review -> Test auto-advance, artifacts,
   pause/resume/cancel/retry/reassign, deadlines, DAG template, and behavior
-  overrides exist; control-plane-native real E2E converged.
+  overrides exist; control-plane-native real E2E converged both on the
+  documented Claude SDK smoke and on a fresh real local Codex provider run.
 - Template upgrade isolation is covered: a newer DAG template instance
   leaves an already-running run's template, metadata and task set unchanged
   (`tests/test_coordination.py`).
@@ -80,5 +84,6 @@ evidence below proves it, not when a page or code path merely exists.
   explicitly launched by the operator. An attempted real `claude-sdk` smoke
   was blocked by the local aggregator's 429 rate limit
   (`All credentials for model gemini-3.7-flash-high are cooling down`), not
-  by the control plane.
+  by the control plane; the machine's real local Codex provider route is
+  healthy and completed an operator-gated control-plane workflow.
 - 24h soak and Gate D require wall-clock time and real machines/users.
