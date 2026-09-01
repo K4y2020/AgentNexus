@@ -35,6 +35,7 @@ const PINNED_ORIGIN = "https://server.example";
  * @param {Array<{response: number}>} [opts.dialogResponses] Queued dialog answers.
  * @param {() => string} [opts.getCurrentVersion] Display-version override.
  * @param {Error} [opts.backupRejects] Force the pre-upgrade backup to fail.
+ * @param {Error} [opts.recordRejects] Force the upgrade marker write to fail.
  */
 function makeUpdater({
   settings = {},
@@ -44,6 +45,7 @@ function makeUpdater({
   dialogResponses = [{ response: 1 }],
   getCurrentVersion,
   backupRejects,
+  recordRejects,
 } = {}) {
   let store = { ...settings };
   const calls = {
@@ -55,6 +57,7 @@ function makeUpdater({
     intervals: [],
     clearedIntervals: 0,
     preUpgradeBackup: 0,
+    upgradeStart: [],
   };
 
   const win = {
@@ -118,6 +121,10 @@ function makeUpdater({
       calls.preUpgradeBackup += 1;
       if (backupRejects) throw backupRejects;
       return { root: "/tmp/agentnexus-backup" };
+    },
+    recordUpgradeStart: async (state) => {
+      calls.upgradeStart.push(state);
+      if (recordRejects) throw recordRejects;
     },
   };
 
@@ -391,6 +398,13 @@ describe("desktop_updater — install handoff", () => {
     await h.ipcHandlers.get("omnigent:update-install")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
     assert.equal(h.calls.preUpgradeBackup, 1);
+    assert.deepEqual(h.calls.upgradeStart, [
+      {
+        previousVersion: "0.3.0",
+        pendingVersion: "0.4.0",
+        backupDir: "/tmp/agentnexus-backup",
+      },
+    ]);
     assert.equal(h.updater.installPending, true);
     assert.equal(h.calls.appQuit, 1);
 
@@ -410,6 +424,7 @@ describe("desktop_updater — install handoff", () => {
     assert.equal(h.updater.installPending, false);
     assert.equal(h.calls.appQuit, 0);
     assert.equal(h.calls.preUpgradeBackup, 0);
+    assert.deepEqual(h.calls.upgradeStart, []);
     // Nothing pending → the before-quit handoff is a no-op.
     assert.equal(h.updater.quitAndInstallIfPending(), false);
     assert.deepEqual(h.calls.quitAndInstall, []);
@@ -427,10 +442,33 @@ describe("desktop_updater — install handoff", () => {
 
     await assert.rejects(
       h.ipcHandlers.get("omnigent:update-install")(h.event),
-      /Pre-upgrade backup failed: disk full/,
+      /Pre-upgrade preparation failed: disk full/,
     );
 
     assert.equal(h.calls.preUpgradeBackup, 1);
+    assert.deepEqual(h.calls.upgradeStart, []);
+    assert.equal(h.updater.installPending, false);
+    assert.equal(h.calls.appQuit, 0);
+    assert.deepEqual(h.calls.quitAndInstall, []);
+  });
+
+  it("does not arm an install when the upgrade marker cannot be written", async () => {
+    const h = makeUpdater({
+      forceDevUpdateConfig: true,
+      settings: { update_mode: "manual" },
+      recordRejects: new Error("no marker space"),
+    });
+    h.updater.init();
+    h.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
+    h.updater.registerIpc();
+
+    await assert.rejects(
+      h.ipcHandlers.get("omnigent:update-install")(h.event),
+      /Pre-upgrade preparation failed: no marker space/,
+    );
+
+    assert.equal(h.calls.preUpgradeBackup, 1);
+    assert.equal(h.calls.upgradeStart.length, 1);
     assert.equal(h.updater.installPending, false);
     assert.equal(h.calls.appQuit, 0);
     assert.deepEqual(h.calls.quitAndInstall, []);

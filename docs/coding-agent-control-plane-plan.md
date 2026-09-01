@@ -958,6 +958,15 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 路径永不清理。新增 backup/installer/DAG 定向测试。仍需要真实 Windows
 > 签名证书、干净机 15 分钟首次协作验收与候选发布 24 小时 soak 才能关闭 P5。
 >
+> 2026-09-01 P6 可仓库交付部分已启动：升级守卫
+> （`web/electron/src/upgrade_guard.js`）记录 pre-upgrade backup + 新旧版本对，
+> 新版本启动后清除标记、升级未生效时在 server 启动前自动恢复备份、恢复失败
+> 保留标记；`desktop-release.yml` 提供 Windows NSIS+zip 发布流水线，配置
+> `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` 后自动签名，未配置时明确产出 unsigned
+> 工件；新增 migration guide / privacy / support matrix 公开文档，README 已链接。
+> 剩余 P6 仍依赖真实环境：签名证书验收、100 次独立可靠性 Run、三项 24 小时
+> soak、macOS/Linux 正式包、完整自动升级回滚与企业离线包、公开 Beta 指标。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

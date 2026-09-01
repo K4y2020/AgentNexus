@@ -66,6 +66,10 @@ const {
 const omnigentCli = require("./omnigent_cli");
 const serverManager = require("./server_manager");
 const { createPreUpgradeBackup } = require("./update_backup");
+const {
+  reconcileUpgradeState,
+  recordUpgradeStart,
+} = require("./upgrade_guard");
 
 /** OS deep-link prefixes: branded scheme first, legacy second. */
 const DEEP_LINK_PREFIXES = ["agentnexus://", "omnigent://"];
@@ -777,6 +781,13 @@ const updater = createDesktopUpdater({
       version: currentDesktopVersion,
     });
   },
+  recordUpgradeStart: (state) =>
+    recordUpgradeStart({
+      userDataDir: app.getPath("userData"),
+      previousVersion: state.previousVersion,
+      pendingVersion: state.pendingVersion,
+      backupDir: state.backupDir,
+    }),
   // Dev builds use dev-app-update.yml, which mirrors the production HTTPS
   // endpoint; packaged builds always use their baked app-update.yml. Tying
   // this to !app.isPackaged — not an env var — ensures a packaged app can
@@ -3113,6 +3124,21 @@ if (!gotLock) {
   app.whenReady().then(() => {
     // App User Model ID so Windows attributes notifications/taskbar correctly.
     if (process.platform === "win32") app.setAppUserModelId("ai.agentnexus.desktop");
+    // Reconcile a pending desktop upgrade BEFORE any window/server work. If
+    // the previous version is running (the update never took effect), restore
+    // the pre-upgrade snapshot so data matches the executable; if the new
+    // version booted, clear the marker and keep the backup for manual restore.
+    const upgradeRecovery = reconcileUpgradeState({
+      userDataDir: app.getPath("userData"),
+      currentVersion: currentDesktopVersion,
+    });
+    if (upgradeRecovery.action !== "none") {
+      console.log(
+        `[omnigent] upgrade recovery: ${upgradeRecovery.action}${
+          upgradeRecovery.error ? ` (${upgradeRecovery.error})` : ""
+        }`,
+      );
+    }
     applyDockIcon();
     registerPermissions();
     registerLocalhostAccess();

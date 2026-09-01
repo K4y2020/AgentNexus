@@ -89,6 +89,9 @@ function isUpdateSecurityError(message) {
  * @param {() => Promise<{root?: string | null}>} [deps.createPreUpgradeBackup]
  *   Snapshot settings + local server data before an approved upgrade. A
  *   rejection aborts the install (fail-closed).
+ * @param {(state: {previousVersion: string, pendingVersion: string, backupDir: string | null}) => Promise<void>} [deps.recordUpgradeStart]
+ *   Persist the pre-upgrade backup + version pair so a failed install can be
+ *   rolled back on the next launch. A rejection aborts the install.
  * @returns {{
  *   getConfig: () => { mode: string, autoInstall: boolean, skippedVersion: string | null },
  *   setConfig: (patch?: object) => { mode: string, autoInstall: boolean, skippedVersion: string | null },
@@ -117,6 +120,7 @@ function createDesktopUpdater({
   getCurrentVersion = () => app.getVersion(),
   onInstallReadyChange = () => {},
   createPreUpgradeBackup = async () => ({ root: null }),
+  recordUpgradeStart = async () => {},
 }) {
   let updateCheckTimer = null;
   let currentUpdateStatus = { state: "idle" };
@@ -259,9 +263,9 @@ function createDesktopUpdater({
   }
 
   /**
-   * Approve + start the install. A pre-upgrade backup is mandatory: if the
-   * snapshot cannot be written, the app stays running and the install is not
-   * armed, so an upgrade can never destroy history silently.
+   * Approve + start the install. A pre-upgrade backup and its upgrade marker
+   * are mandatory: if either cannot be written, the app stays running and the
+   * install is not armed, so an upgrade can never destroy history silently.
    *
    * @returns {Promise<boolean>}
    */
@@ -272,15 +276,20 @@ function createDesktopUpdater({
     }
     if (currentUpdateStatus.state !== "downloaded") return false;
     try {
-      await createPreUpgradeBackup();
+      const backup = await createPreUpgradeBackup();
+      await recordUpgradeStart({
+        previousVersion: getCurrentVersion(),
+        pendingVersion: currentUpdateStatus.info?.version ?? getCurrentVersion(),
+        backupDir: backup?.root ?? null,
+      });
     } catch (err) {
       broadcast({
         state: "downloaded",
         currentVersion: getCurrentVersion(),
         info: currentUpdateStatus.info,
-        lastError: `Pre-upgrade backup failed: ${String(err?.message ?? err)}`,
+        lastError: `Pre-upgrade preparation failed: ${String(err?.message ?? err)}`,
       });
-      throw new Error(`Pre-upgrade backup failed: ${String(err?.message ?? err)}`, {
+      throw new Error(`Pre-upgrade preparation failed: ${String(err?.message ?? err)}`, {
         cause: err,
       });
     }

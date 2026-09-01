@@ -429,7 +429,11 @@ Output lands in `electron/dist/` (the DMG is named
 `AgentNexus-<version>-<arch>.dmg`; Windows builds are
 `AgentNexus-<version>-<arch>-setup.exe` plus a portable zip). See
 [`docs/windows-installer.md`](docs/windows-installer.md) for the Windows
-upgrade-backup, restore, and uninstall behavior.
+upgrade-backup, restore, and uninstall behavior,
+[`docs/migration-guide.md`](docs/migration-guide.md) for upgrade/migration
+recovery, [`docs/privacy.md`](docs/privacy.md) for local storage and redaction,
+and [`docs/support-matrix.md`](docs/support-matrix.md) for supported platforms
+and known limitations.
 
 ## macOS code signing & notarization
 

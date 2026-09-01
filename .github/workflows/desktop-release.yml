@@ -1,0 +1,105 @@
+# Build the AgentNexus Windows desktop installer + portable zip and publish
+# them to the GitHub Release for a version tag.
+#
+# Code signing is environment-driven, not hard-coded:
+#   - When WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD exist in repo secrets,
+#     electron-builder signs the installer and the app.
+#   - Without a certificate the build still runs and produces an UNSIGNED
+#     installer/zip; the workflow artifact name states that. P5/P6 acceptance
+#     requires a real signing certificate to be attached to those secrets
+#     before the artifacts are used for a public beta.
+
+name: Desktop Release (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to build (main, a tag, or a SHA)."
+        required: false
+        default: main
+        type: string
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.event.inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    if: github.repository == 'K4y2020/AgentNexus'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Install web + desktop dependencies
+        run: pnpm install --frozen-lockfile --filter web --filter agentnexus-desktop-electron
+
+      - name: Build the shell-owned update overlay
+        run: pnpm --filter web run build:overlay
+
+      - name: Report signing mode
+        id: signing
+        run: |
+          if [ -n "$WIN_CSC_LINK" ] && [ -n "$WIN_CSC_KEY_PASSWORD" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Installer will be code-signed with the configured Windows certificate." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "No Windows certificate configured. Building an UNSIGNED installer/zip for CI testing and local validation." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+        shell: bash
+
+      - name: Build NSIS installer + portable zip
+        working-directory: web/electron
+        run: pnpm run build:win
+
+      - name: Assert artifacts exist
+        working-directory: web/electron/dist
+        run: |
+          ls -1
+          test -n "$(ls *.exe 2>/dev/null)" && test -n "$(ls *.zip 2>/dev/null)"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agentnexus-windows-${{ steps.signing.outputs.signed == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
+          path: web/electron/dist/*.exe
+          if-no-files-found: error
+
+      - name: Upload portable zip artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agentnexus-windows-portable-${{ steps.signing.outputs.signed == 'true' && 'signed' || 'unsigned' }}-${{ github.sha }}
+          path: web/electron/dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach artifacts to the GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: web/electron/dist
+        run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --draft --title "${GITHUB_REF_NAME}" \
+              --notes "AgentNexus Windows desktop artifacts. Review the signing summary before publishing."
+          fi
+          gh release upload "${GITHUB_REF_NAME}" *.exe *.zip --clobber
+          echo "Attached AgentNexus Windows artifacts to ${GITHUB_REF_NAME}." | tee -a "$GITHUB_STEP_SUMMARY"

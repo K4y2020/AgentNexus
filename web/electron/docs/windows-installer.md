@@ -40,6 +40,13 @@ the copied `chat.db*` files are consistent and no live WAL write can race the
 backup. The restart dialog also tells the user that connected agents and the
 local server are stopped as part of the update.
 
+After the backup, an upgrade marker maps the previous version, pending version,
+and backup directory. If the pending version launches, the marker clears and
+the snapshot stays available for manual restore. If the previous version is
+still running because the update never took effect, launch restores the
+snapshot before the local server starts and clears the marker. A failed restore
+keeps the marker instead of pretending recovery happened.
+
 ### Restore after a failed upgrade
 
 1. Stop AgentNexus and the local server.
