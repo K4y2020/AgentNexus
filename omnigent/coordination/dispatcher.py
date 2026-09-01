@@ -73,11 +73,40 @@ class CoordinationDispatcher:
         return len(items)
 
     async def _deliver_message(self, _outbox_item_id: str, msg: AgentMessage) -> None:
-        """Deliver one message and record its attempt and receipt."""
-        # Try live stream publication if stream module is available
+        """Deliver one message through RunnerRouter to target runner and record receipt."""
         delivered_mode: DeliveryMode = "next_turn"
         receipt: dict[str, Any] = {"status": "inbox_queued"}
 
+        # 1. Attempt real delivery to live target Runner via RunnerRouter
+        try:
+            from omnigent.server.routes._sessions.common import get_server_runner_router
+
+            router = get_server_runner_router()
+            if router is not None:
+                routed = router.client_for_session_resources(msg.recipient_session_id)
+                prompt_text = (
+                    msg.payload.get("prompt")
+                    or msg.payload.get("instruction")
+                    or json.dumps(msg.payload)
+                )
+                prefix = f"[A2A {msg.intent} from {msg.sender_role}]: "
+                event_payload = {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "text", "text": f"{prefix}{prompt_text}"}],
+                }
+                resp = await routed.client.post(
+                    f"/v1/sessions/{msg.recipient_session_id}/events",
+                    json=event_payload,
+                    timeout=10.0,
+                )
+                if resp.status_code < 400:
+                    delivered_mode = "live"
+                    receipt = {"status": "runner_injected", "status_code": resp.status_code}
+        except Exception as exc:  # noqa: BLE001
+            _logger.debug("Runner injection skipped for %s: %s", msg.recipient_session_id, exc)
+
+        # 2. Publish to session_stream for live Web UI timeline
         try:
             from omnigent.runtime import session_stream as _session_stream
 
@@ -93,12 +122,11 @@ class CoordinationDispatcher:
                     "artifacts": msg.artifacts,
                 },
             )
-            delivered_mode = "live"
-            receipt = {"status": "stream_published"}
+            if delivered_mode != "live":
+                delivered_mode = "next_turn"
+                receipt = {"status": "stream_published"}
         except Exception:  # noqa: BLE001
-            _logger.debug(
-                "Session stream publish skipped or unavailable for %s", msg.recipient_session_id
-            )
+            _logger.debug("Session stream publish skipped: %s", msg.recipient_session_id)
 
         attempt = DeliveryAttempt(
             message_id=msg.message_id,

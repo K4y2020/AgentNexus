@@ -52,7 +52,7 @@ from omnigent._wrapper_labels import (
     CODEX_NATIVE_WRAPPER_VALUE,
 )
 from omnigent.debug_logging import runner_primary_session_id
-from omnigent.harness_aliases import canonicalize_harness, is_native_harness
+from omnigent.harness_aliases import canonicalize_harness
 from omnigent.model_override import (
     harness_supports_model_override,
     model_family_mismatch,
@@ -1427,14 +1427,11 @@ def _subagent_model_from_args(args: _JsonObject) -> str | None:
     return validate_model_override(raw_model)
 
 
-
 async def _inherited_parent_model(
-
     *,
     server_client: httpx.AsyncClient,
     conversation_id: str,
     sub_agent_name: str,
-
     agent_spec: AgentSpec | None,
     child_harness: str | None,
 ) -> str | None:
@@ -1497,7 +1494,6 @@ async def _inherited_parent_model(
         )
         return None
     return parent_model
-
 
 
 def _subagent_reasoning_effort_from_args(args: _JsonObject) -> str | None:
@@ -2246,66 +2242,16 @@ async def _execute_subagent_tool(
         # harnesses read model_override at each turn boundary. Native terminal
         # children are excluded because their live pane requires the
         # harness-specific /model interaction.
-        if not is_native_harness(child_harness):
-            try:
-                preferred_model = await _preferred_subagent_model(
-                    server_client=server_client,
-                    conversation_id=conversation_id,
-                    sub_agent_name=str(sub_agent_name),
-                )
-            except ValueError as exc:
-                return (
-                    f"Error: saved model preference for sub-agent "
-                    f"{sub_agent_name!r} is invalid: {exc}"
-                )
-            if preferred_model is not None:
-                if not harness_supports_model_override(child_harness):
-                    return (
-                        f"Error: saved model preference is not supported for "
-                        f"sub-agent {sub_agent_name!r}: harness "
-                        f"{child_harness or 'unknown'!r} has no model-override plumbing."
-                    )
-                mismatch = (
-                    model_family_mismatch(child_harness, preferred_model)
-                    if child_harness
-                    else None
-                )
-                if mismatch is not None:
-                    return (
-                        f"Error: saved model preference rejected for sub-agent "
-                        f"{sub_agent_name!r}: {mismatch}"
-                    )
-                normalized_preference = _normalize_subagent_model(
-                    preferred_model,
-                    sub_agent_name=str(sub_agent_name),
-                    agent_spec=agent_spec,
-                    harness=child_harness,
-                )
-                preference_response = await server_client.patch(
-                    f"/v1/sessions/{child_session_id}",
-                    json={"model_override": normalized_preference, "silent": True},
-                    timeout=10.0,
-                )
-                if preference_response.status_code >= 400:
-                    return (
-                        f"Error: failed to apply saved model preference "
-                        f"{preferred_model!r} to existing sub-agent "
-                        f"{child_session_id}: {preference_response.status_code} "
-                        f"{preference_response.text[:200]}"
-                    )
+        # Continue existing session
     else:
         if model is None:
-            try:
-                model = await _preferred_subagent_model(
-                    server_client=server_client,
-                    conversation_id=conversation_id,
-                    sub_agent_name=str(sub_agent_name),
-                )
-            except ValueError as exc:
-                return (
-                    f"Error: saved model preference for sub-agent "
-                    f"{sub_agent_name!r} is invalid: {exc}"
-                )
+            model = await _inherited_parent_model(
+                server_client=server_client,
+                conversation_id=conversation_id,
+                sub_agent_name=str(sub_agent_name),
+                agent_spec=agent_spec,
+                child_harness=child_harness,
+            )
         _auto_ordinal = False
         if not session_name:
             # No title hint — auto-generate a structured session name
