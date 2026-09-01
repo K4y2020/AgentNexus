@@ -938,6 +938,14 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 四个消息回执全部进入 consumed，且 mock 捕获证明 Claude 走 /v1/messages、
 > Codex 走 /v1/responses。注意：当前证据依赖 mock LLM 与 seeding 的 OpenAI provider，
 > 真实付费 API E2E、通用 DAG 调度和 Windows 发布体系仍未完成。
+>
+> 2026-09-01 通用模板 DAG 调度已落地：`POST /v1/coordination/workflows/template`
+> 接受 `tasks[].name/dependencies/assignee/intent/prompt`，无依赖节点立即出队，
+> 任务报告成功后按“依赖全部 succeeded”出队下一批（支持分叉/汇合）；失败节点把
+> Run 移到 `needs_attention` 且不再出队下游；环、重复名、未知依赖在启动前拒绝。
+> 它复用固定工作流的 Outbox、Dispatcher、terminal-idle 回执和 report/retry/reassign
+> 链路。剩余缺口收敛为：真实付费 API E2E、Windows 安装/升级/备份/卸载产品化和
+> P6 100 次可靠性 Run。
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

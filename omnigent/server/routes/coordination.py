@@ -18,7 +18,7 @@ from omnigent.coordination.types import (
     CoordinationTask,
     MessageKind,
 )
-from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine, WorkflowDagTaskSpec
 from omnigent.debug_logging import current_user_id
 from omnigent.server.auth import LEVEL_MANAGE, LEVEL_READ
 from omnigent.server.routes._auth_helpers import require_access as _require_access
@@ -299,12 +299,55 @@ class ReportWorkflowTaskRequest(BaseModel):
     summary: str | None = None
 
 
+class StartTemplateWorkflowTask(BaseModel):
+    name: str
+    title: str
+    assignee_session_id: str
+    assignee_role: str
+    prompt: str
+    intent: str = "task.request"
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
+
+
+class StartTemplateWorkflowRequest(BaseModel):
+    title: str = "Custom DAG Workflow"
+    root_session_id: str
+    tasks: list[StartTemplateWorkflowTask]
+    budget: dict[str, Any] = Field(default_factory=dict)
+
+
 class AcquireLeaseRequest(BaseModel):
     root_session_id: str
     workspace_path: str
     holder_session_id: str
     mode: str = "write"
     duration_s: float = 600.0
+
+
+def _reject_dag_cycles(tasks: list[StartTemplateWorkflowTask]) -> None:
+    """Raise HTTP 400 when the caller-supplied workflow graph has a cycle."""
+    indegree: dict[str, int] = {task.name: 0 for task in tasks}
+    dependents: dict[str, list[str]] = {task.name: [] for task in tasks}
+    for task in tasks:
+        for dep in task.dependencies:
+            indegree[task.name] += 1
+            dependents[dep].append(task.name)
+    ready = [name for name, degree in indegree.items() if degree == 0]
+    visited = 0
+    while ready:
+        name = ready.pop()
+        visited += 1
+        for dependent in dependents[name]:
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                ready.append(dependent)
+    if visited != len(tasks):
+        cyclic = [name for name, degree in indegree.items() if degree > 0]
+        raise HTTPException(
+            status_code=400,
+            detail=f"dag tasks form a cycle involving {cyclic}",
+        )
 
 
 class CreateMergePreviewRequest(BaseModel):
@@ -646,6 +689,60 @@ async def start_plan_implement_review_workflow(
         reviewer_session_id=req.reviewer_session_id,
         user_prompt=req.user_prompt,
         workspace_path=req.workspace_path,
+        budget=req.budget,
+    )
+    tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
+    return {"run": run.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/workflows/template")
+async def start_template_workflow(
+    req: StartTemplateWorkflowRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Start a caller-defined task DAG (template workflow).
+
+    ``tasks`` define stage keys, assignee sessions, prompts and dependency
+    keys. Root stages are dispatched immediately; every other stage starts as
+    soon as its dependencies have succeeded, using the same durable outbox,
+    consumption receipts and report/retry/reassign endpoint as the fixed
+    workflow. Cycles, duplicate keys and unknown dependency keys are rejected.
+    """
+    names = [task.name for task in req.tasks]
+    if len(names) != len(set(names)):
+        raise HTTPException(status_code=400, detail="duplicate dag task names")
+    known = set(names)
+    for task in req.tasks:
+        unknown = [dep for dep in task.dependencies if dep not in known]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"task {task.name!r} depends on unknown {unknown}",
+            )
+    _reject_dag_cycles(req.tasks)
+    await _require_coordination_tree(
+        request,
+        req.root_session_id,
+        *(task.assignee_session_id for task in req.tasks),
+    )
+    engine = _request_workflow_engine(request)
+    store = _request_store(request)
+    run = await engine.start_dag_workflow_run(
+        title=req.title,
+        root_session_id=req.root_session_id,
+        tasks=[
+            WorkflowDagTaskSpec(
+                name=task.name,
+                title=task.title,
+                assignee_session_id=task.assignee_session_id,
+                assignee_role=task.assignee_role,
+                prompt=task.prompt,
+                intent=task.intent,
+                acceptance_criteria=task.acceptance_criteria,
+                dependencies=task.dependencies,
+            )
+            for task in req.tasks
+        ],
         budget=req.budget,
     )
     tasks = await asyncio.to_thread(store.list_tasks, run.run_id)

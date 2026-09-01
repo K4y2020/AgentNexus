@@ -234,3 +234,278 @@ def test_server_lifespan_runner_rejection_stays_unconfirmed(
             assert len(fake_router.client.posted) >= 1
     finally:
         session_live_state.configure(None)
+
+
+def test_server_lifespan_template_dag_dispatches_on_dependencies(
+    app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A template DAG forks, joins and only dispatches ready stages."""
+    root, _planner, _implementer, _reviewer = _seed_coordination_tree(app)
+    store = app.state.coordination_store
+    assert store is not None
+    conversation_store = app.state.conversation_store
+
+    analysis = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+    diag = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+    code = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+    cleanup = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+
+    fake_router = _RunnerRouter()
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        lambda: fake_router,
+    )
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/v1/coordination/workflows/template",
+                json={
+                    "title": "Fork Join DAG",
+                    "root_session_id": root.id,
+                    "tasks": [
+                        {
+                            "name": "analysis",
+                            "title": "Analyze",
+                            "assignee_session_id": analysis.id,
+                            "assignee_role": "analyst",
+                            "prompt": "Analyze the problem.",
+                        },
+                        {
+                            "name": "diag",
+                            "title": "Diagnose",
+                            "assignee_session_id": diag.id,
+                            "assignee_role": "diagnoser",
+                            "prompt": "Diagnose the issue.",
+                            "dependencies": ["analysis"],
+                        },
+                        {
+                            "name": "code",
+                            "title": "Implement",
+                            "assignee_session_id": code.id,
+                            "assignee_role": "coder",
+                            "prompt": "Implement the fix.",
+                            "dependencies": ["analysis"],
+                        },
+                        {
+                            "name": "cleanup",
+                            "title": "Verify & cleanup",
+                            "assignee_session_id": cleanup.id,
+                            "assignee_role": "validator",
+                            "prompt": "Run verification and cleanup.",
+                            "dependencies": ["diag", "code"],
+                        },
+                    ],
+                },
+            )
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            run_id = body["run"]["run_id"]
+            assert len(body["tasks"]) == 4
+            by_session = {
+                task["assignee_session_id"]: task["status"] for task in body["tasks"]
+            }
+            assert by_session[analysis.id] == "assigned"
+            assert by_session[diag.id] == "queued"
+            assert by_session[code.id] == "queued"
+            assert by_session[cleanup.id] == "queued"
+            _wait_until(
+                lambda: any(
+                    msg.recipient_session_id == analysis.id
+                    and msg.message_state == "active"
+                    for msg in store.list_messages(root.id)
+                )
+            )
+
+            analysis_msg = next(
+                msg
+                for msg in store.list_messages(root.id)
+                if msg.recipient_session_id == analysis.id
+            )
+            app.state.conversation_store.append(
+                analysis.id,
+                [
+                    NewConversationItem(
+                        type="message",
+                        response_id="resp_dag_analysis",
+                        data=MessageData(
+                            role="assistant",
+                            content=[
+                                {
+                                    "type": "output_text",
+                                    "text": "Done.\n[WORKFLOW_RESULT: succeeded]",
+                                }
+                            ],
+                            agent="analyst",
+                        ),
+                    )
+                ],
+            )
+            session_live_state.persist_a2a_turn_completed(analysis.id, "resp_dag_analysis")
+            def _analysis_consumed() -> bool:
+                current = store.get_message(analysis_msg.message_id)
+                return current is not None and current.consumption_state == "consumed"
+
+            _wait_until(_analysis_consumed)
+
+            def _forked() -> bool:
+                current = {t.assignee_session_id: t.status for t in store.list_tasks(run_id)}
+                return (
+                    current.get(diag.id) == "running"
+                    and current.get(code.id) == "running"
+                    and current.get(cleanup.id) == "queued"
+                )
+
+            _wait_until(_forked)
+            diag_task = next(
+                task
+                for task in store.list_tasks(run_id)
+                if task.assignee_session_id == diag.id
+            )
+            code_task = next(
+                task
+                for task in store.list_tasks(run_id)
+                if task.assignee_session_id == code.id
+            )
+            for session_id, task_id in (
+                (diag.id, diag_task.task_id),
+                (code.id, code_task.task_id),
+            ):
+                report = client.post(
+                    f"/v1/coordination/workflows/{run_id}/tasks/{task_id}/report",
+                    json={
+                        "actor_session_id": session_id,
+                        "outcome": "succeeded",
+                    },
+                )
+                assert report.status_code == 200, report.text
+
+            def _joined() -> bool:
+                cleanup_task = next(
+                    task
+                    for task in store.list_tasks(run_id)
+                    if task.assignee_session_id == cleanup.id
+                )
+                return cleanup_task.status == "running"
+
+            _wait_until(_joined)
+    finally:
+        session_live_state.configure(None)
+
+
+def test_server_lifespan_template_dag_failure_blocks_dependents(
+    app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed DAG stage moves the run to needs_attention, not downstream."""
+    root, _planner, _implementer, _reviewer = _seed_coordination_tree(app)
+    store = app.state.coordination_store
+    assert store is not None
+    conversation_store = app.state.conversation_store
+    first = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+    second = conversation_store.create_conversation(
+        parent_conversation_id=root.id, kind="sub_agent"
+    )
+    fake_router = _RunnerRouter()
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        lambda: fake_router,
+    )
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/v1/coordination/workflows/template",
+                json={
+                    "title": "Fail Stop DAG",
+                    "root_session_id": root.id,
+                    "tasks": [
+                        {
+                            "name": "one",
+                            "title": "One",
+                            "assignee_session_id": first.id,
+                            "assignee_role": "worker",
+                            "prompt": "Do one.",
+                        },
+                        {
+                            "name": "two",
+                            "title": "Two",
+                            "assignee_session_id": second.id,
+                            "assignee_role": "worker",
+                            "prompt": "Do two.",
+                            "dependencies": ["one"],
+                        },
+                    ],
+                },
+            )
+            assert resp.status_code == 200, resp.text
+            run_id = resp.json()["run"]["run_id"]
+            first_task = next(
+                task
+                for task in store.list_tasks(run_id)
+                if task.assignee_session_id == first.id
+            )
+            report = client.post(
+                f"/v1/coordination/workflows/{run_id}/tasks/{first_task.task_id}/report",
+                json={
+                    "actor_session_id": first.id,
+                    "outcome": "failed",
+                    "summary": "could not proceed",
+                },
+            )
+            assert report.status_code == 200, report.text
+            assert store.get_run(run_id).status == "needs_attention"
+            second_task = next(
+                task
+                for task in store.list_tasks(run_id)
+                if task.assignee_session_id == second.id
+            )
+            assert second_task.status == "queued"
+            assert not any(
+                msg.recipient_session_id == second.id
+                for msg in store.list_messages(root.id)
+            )
+    finally:
+        session_live_state.configure(None)
+
+
+def test_template_workflow_rejects_cycles(app: FastAPI) -> None:
+    """Dependency cycles fail closed before any run/task is created."""
+    root, _planner, _implementer, _reviewer = _seed_coordination_tree(app)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/v1/coordination/workflows/template",
+            json={
+                "title": "Cycle DAG",
+                "root_session_id": root.id,
+                "tasks": [
+                    {
+                        "name": "a",
+                        "title": "A",
+                        "assignee_session_id": root.id,
+                        "assignee_role": "worker",
+                        "prompt": "A.",
+                        "dependencies": ["b"],
+                    },
+                    {
+                        "name": "b",
+                        "title": "B",
+                        "assignee_session_id": root.id,
+                        "assignee_role": "worker",
+                        "prompt": "B.",
+                        "dependencies": ["a"],
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 400
+        assert "cycle" in resp.json()["detail"]

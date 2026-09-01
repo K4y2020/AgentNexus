@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2Icon, GitBranchIcon, PlayIcon, XCircleIcon } from "lucide-react";
+import {
+  CheckCircle2Icon,
+  GitBranchIcon,
+  NetworkIcon,
+  PlayIcon,
+  XCircleIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +47,17 @@ interface WorkflowDetailDTO {
   tasks: WorkflowTaskDTO[];
 }
 
+interface DagTaskSpecDTO {
+  name: string;
+  title: string;
+  assignee_session_id: string;
+  assignee_role: string;
+  prompt: string;
+  intent?: string;
+  acceptance_criteria?: string[];
+  dependencies?: string[];
+}
+
 const REPORTABLE_STATUSES = new Set(["assigned", "running", "waiting_peer", "waiting_review"]);
 
 export function WorkflowPanel({
@@ -63,6 +80,9 @@ export function WorkflowPanel({
     reviewer?: string;
   }>({});
   const [starting, setStarting] = useState(false);
+  const [dagOpen, setDagOpen] = useState(false);
+  const [dagJson, setDagJson] = useState("");
+  const [startingDag, setStartingDag] = useState(false);
 
   useEffect(() => {
     if (childSessions.length < 3) return;
@@ -176,6 +196,38 @@ export function WorkflowPanel({
     }
   };
 
+  const startDagWorkflow = async () => {
+    if (startingDag || !dagJson.trim()) return;
+    let tasks: DagTaskSpecDTO[];
+    try {
+      tasks = JSON.parse(dagJson) as DagTaskSpecDTO[];
+    } catch {
+      console.warn("Custom DAG JSON is invalid");
+      return;
+    }
+    setStartingDag(true);
+    try {
+      const res = await authenticatedFetch("/v1/coordination/workflows/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Custom DAG Workflow",
+          root_session_id: rootSessionId,
+          tasks,
+        }),
+      });
+      if (!res.ok) {
+        console.warn("Custom DAG start refused:", res.status, await res.text());
+      } else {
+        setDagJson("");
+      }
+      await fetchWorkflow();
+      onUpdated?.();
+    } finally {
+      setStartingDag(false);
+    }
+  };
+
   if (!detail) {
     return (
       <Card size="sm" className="border-border" data-testid="workflow-start-panel">
@@ -232,6 +284,57 @@ export function WorkflowPanel({
             <PlayIcon className="size-3.5" />
             Start
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full h-7"
+            onClick={() => setDagOpen((open) => !open)}
+          >
+            <NetworkIcon className="size-3.5" />
+            Custom DAG
+          </Button>
+          {dagOpen && (
+            <div className="space-y-2">
+              <textarea
+                value={dagJson}
+                onChange={(event) => setDagJson(event.target.value)}
+                placeholder={JSON.stringify(
+                  [
+                    {
+                      name: "analyze",
+                      title: "Analyze",
+                      assignee_session_id: childSessions[0]?.id ?? "",
+                      assignee_role: "analyst",
+                      prompt: "Analyze the request.",
+                    },
+                    {
+                      name: "implement",
+                      title: "Implement",
+                      assignee_session_id: childSessions[1]?.id ?? "",
+                      assignee_role: "implementer",
+                      prompt: "Implement the findings.",
+                      dependencies: ["analyze"],
+                    },
+                  ],
+                  null,
+                  2
+                )}
+                className="h-48 w-full resize-y rounded border border-border bg-background p-2 font-mono text-[10px] text-foreground focus:outline-none"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="w-full h-7"
+                loading={startingDag}
+                disabled={!dagJson.trim()}
+                onClick={() => void startDagWorkflow()}
+              >
+                <NetworkIcon className="size-3.5" />
+                Start DAG
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

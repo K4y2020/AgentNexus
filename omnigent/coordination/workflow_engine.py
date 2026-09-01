@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Literal
 
 from omnigent.coordination.store import (
@@ -26,6 +27,7 @@ from omnigent.coordination.types import (
     CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
+    generate_coordination_id,
 )
 from omnigent.workspaces.lease import WorkspaceCoordinator
 
@@ -52,6 +54,25 @@ _TASK_ACCEPTANCE: dict[str, list[str]] = {
     "fixer": ["Every reviewer feedback item is resolved or explicitly waived"],
     "tester": ["Full acceptance suite passes", "No regressions in the diff"],
 }
+
+# Runs created from a caller-supplied template carry this marker. Generic DAG
+# runs advance purely from task dependencies instead of the fixed five-stage
+# role machine; the dispatcher, receipts, retries and report API stay shared.
+DAG_TEMPLATE_PREFIX = "dag:"
+
+
+@dataclass
+class WorkflowDagTaskSpec:
+    """One caller-defined stage in a template DAG."""
+
+    name: str
+    title: str
+    assignee_session_id: str
+    assignee_role: str
+    prompt: str
+    intent: str = "task.request"
+    acceptance_criteria: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
 
 
 class CoordinationWorkflowEngine:
@@ -196,6 +217,105 @@ class CoordinationWorkflowEngine:
         )
         return run
 
+    async def start_dag_workflow_run(
+        self,
+        *,
+        title: str,
+        root_session_id: str,
+        tasks: list[WorkflowDagTaskSpec],
+        budget: dict[str, object] | None = None,
+    ) -> CoordinationRun:
+        """Start a caller-defined task DAG (P4 template workflow).
+
+        Each spec names a stage key; ``dependencies`` reference those keys.
+        Root stages (no dependencies) are dispatched immediately and every
+        later stage is dispatched by :meth:`_dispatch_ready_tasks` once all
+        of its dependencies have succeeded. Result reporting, receipts,
+        pause/resume/cancel, retry and reassign use the same durable path as
+        the fixed workflow.
+        """
+        if not tasks:
+            raise ValueError("dag workflow requires at least one task")
+        seen: dict[str, str] = {}
+        for task in tasks:
+            if not task.name:
+                raise ValueError("every dag task needs a non-empty name")
+            if task.name in seen:
+                raise ValueError(f"duplicate dag task name {task.name!r}")
+            seen[task.name] = task.name
+
+        template_name = f"{DAG_TEMPLATE_PREFIX}{'-'.join(t.name for t in tasks)}"
+        name_to_id: dict[str, str] = {}
+        for task in tasks:
+            name_to_id[task.name] = generate_coordination_id("ctask")
+        run = CoordinationRun(
+            title=title,
+            root_session_id=root_session_id,
+            template=template_name,
+            status="running",
+            budget=dict(budget or {}),
+            metadata={
+                "template": "generic_dag",
+                "template_version": "1.0",
+                "dag_task_specs": {
+                    name_to_id[task.name]: {
+                        "title": task.title,
+                        "name": task.name,
+                        "assignee_role": task.assignee_role,
+                        "prompt": task.prompt,
+                        "intent": task.intent,
+                    }
+                    for task in tasks
+                },
+            },
+        )
+        await asyncio.to_thread(self.store.create_run, run)
+
+        task_deadline_s = dict(budget or {}).get("task_deadline_s")
+        task_deadline: float | None = None
+        if task_deadline_s:
+            try:
+                task_deadline = time.time() + float(task_deadline_s)
+            except (TypeError, ValueError):
+                task_deadline = None
+
+        created: list[CoordinationTask] = []
+        for task in tasks:
+            for dep in task.dependencies:
+                if dep not in name_to_id:
+                    raise ValueError(f"dag task {task.name!r} depends on unknown {dep!r}")
+            coordination_task = CoordinationTask(
+                run_id=run.run_id,
+                title=task.title,
+                status="assigned" if not task.dependencies else "queued",
+                assignee_session_id=task.assignee_session_id,
+                assignee_role=task.assignee_role,
+                dependencies=[name_to_id[dep] for dep in task.dependencies],
+                acceptance_criteria=task.acceptance_criteria,
+                deadline=task_deadline,
+            )
+            coordination_task.task_id = name_to_id[task.name]
+            await asyncio.to_thread(self.store.create_task, coordination_task)
+            created.append(coordination_task)
+
+        await self._dispatch_ready_tasks(run)
+        await asyncio.to_thread(
+            self.store.record_event,
+            CoordinationEvent(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                actor_session_id=root_session_id,
+                event_type="workflow.started",
+                payload={
+                    "run_id": run.run_id,
+                    "title": title,
+                    "template": template_name,
+                    "task_count": len(created),
+                },
+            ),
+        )
+        return run
+
     async def advance(
         self,
         *,
@@ -283,6 +403,14 @@ class CoordinationWorkflowEngine:
         role = task.assignee_role or ""
         if artifacts:
             await self._persist_artifacts(run, task, artifacts)
+        if run.template.startswith(DAG_TEMPLATE_PREFIX):
+            await self._advance_generic_task(
+                run=run,
+                task=task,
+                outcome=outcome,
+                artifacts=artifacts,
+            )
+            return
         if outcome != "succeeded":
             await self._move_task(
                 task.task_id,
@@ -473,6 +601,108 @@ class CoordinationWorkflowEngine:
             await self._update_run_metadata(run.run_id, metadata)
             await self._record(run, task, "workflow.succeeded", {"test_task_id": task.task_id})
             return
+
+    async def _advance_generic_task(
+        self,
+        *,
+        run: CoordinationRun,
+        task: CoordinationTask,
+        outcome: WorkflowOutcome,
+        artifacts: list[dict[str, object]] | None,
+    ) -> None:
+        """Advance one caller-defined DAG stage by dependencies.
+
+        A failed task moves the run to ``needs_attention``; a successful task
+        is terminal, and every queued stage whose dependencies are all
+        terminal-successful is dispatched immediately. The run succeeds only
+        when every task has succeeded, matching the P4 stage-board contract.
+        """
+        if outcome != "succeeded":
+            await self._move_task(
+                task.task_id,
+                "failed",
+                from_statuses=["running", "assigned", "waiting_review"],
+                artifacts=artifacts or [],
+            )
+            await asyncio.to_thread(
+                self.store.transition_run_status,
+                run.run_id,
+                "needs_attention",
+                from_statuses=["running", "waiting_peer", "reconciling"],
+            )
+            await self._record(run, task, "task.failed", {"task_id": task.task_id})
+            return
+
+        if task.status in ("succeeded", "cancelled"):
+            return
+        await self._move_task(
+            task.task_id,
+            "succeeded",
+            from_statuses=["running", "assigned", "waiting_review"],
+            artifacts=artifacts or [],
+        )
+        await self._record(run, task, "workflow.stage.advanced", {"task_id": task.task_id})
+        await self._dispatch_ready_tasks(run)
+        if await self._all_tasks_succeeded(run.run_id):
+            await asyncio.to_thread(
+                self.store.transition_run_status,
+                run.run_id,
+                "succeeded",
+                from_statuses=["running", "waiting_peer", "reconciling"],
+            )
+            await self._record(run, task, "workflow.succeeded", {"task_id": task.task_id})
+
+    async def _dispatch_ready_tasks(self, run: CoordinationRun) -> None:
+        """Dispatch every queued DAG stage whose dependencies are terminal."""
+        if run.status not in ("running", "waiting_peer", "reconciling"):
+            return
+        tasks = await asyncio.to_thread(self.store.list_tasks, run.run_id)
+        successful: set[str] = set()
+        for task in tasks:
+            if task.status == "succeeded":
+                successful.add(task.task_id)
+        ready = [
+            task
+            for task in tasks
+            if task.status == "queued"
+            and task.assignee_session_id
+            and all(dep in successful for dep in task.dependencies)
+        ]
+        for task in ready:
+            if not await self._move_task(
+                task.task_id,
+                "running",
+                from_statuses=["queued", "running"],
+            ):
+                continue
+            spec = dict(run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {})
+            prompt = str(spec.get("prompt") or task.title or "Proceed with the assigned task.")
+            intent = str(spec.get("intent") or "task.request")
+            payload: dict[str, object] = {
+                "stage": task.assignee_role or "stage",
+                "prompt": prompt,
+            }
+            if task.acceptance_criteria:
+                payload["acceptance_criteria"] = list(task.acceptance_criteria)
+            if task.assignee_role == "reviewer":
+                payload["prompt"] = f"{prompt}\n\n{_REVIEW_LINE}"
+            else:
+                payload["prompt"] = f"{prompt}\n\n{_RESULT_LINE}"
+            await self._send(run, task, intent, payload)
+            await self._record(
+                run,
+                task,
+                "workflow.stage.dispatched",
+                {
+                    "task_id": task.task_id,
+                    "dependencies": task.dependencies,
+                    "message_intent": intent,
+                },
+            )
+
+    async def _all_tasks_succeeded(self, run_id: str) -> bool:
+        tasks = await asyncio.to_thread(self.store.list_tasks, run_id)
+        return bool(tasks) and all(task.status == "succeeded" for task in tasks)
 
     def _deadline_exceeded(self, run: CoordinationRun) -> bool:
         deadline = run.budget.get("deadline_s")
@@ -996,6 +1226,37 @@ class CoordinationWorkflowEngine:
     ) -> AgentMessage:
         """Re-queue the durable stage prompt for a retried/reassigned task."""
         role = task.assignee_role or ""
+        if run.template.startswith(DAG_TEMPLATE_PREFIX):
+            spec = dict(
+                run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {}
+            )
+            prompt = str(spec.get("prompt") or task.title or "Proceed with the assigned task.")
+            if role == "reviewer":
+                prompt = f"{prompt}\n\n{_REVIEW_LINE}"
+            else:
+                prompt = f"{prompt}\n\n{_RESULT_LINE}"
+            payload: dict[str, object] = {
+                "stage": role or "stage",
+                "prompt": prompt,
+            }
+            if attempt != "retry":
+                payload["attempt"] = attempt
+            if previous_assignee is not None:
+                payload["previous_assignee"] = previous_assignee
+            message = AgentMessage(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                task_id=task.task_id,
+                sender_session_id=run.root_session_id,
+                sender_role="user_orchestrator",
+                recipient_session_id=task.assignee_session_id or run.root_session_id,
+                recipient_role=role,
+                intent=str(spec.get("intent") or "task.request"),
+                payload=payload,
+                correlation_id=f"{attempt}/{task.task_id}",
+            )
+            await asyncio.to_thread(self.store.save_message_and_outbox, message)
+            return message
         if role == "planner":
             payload: dict[str, object] = {
                 "stage": "planning_retry",
