@@ -10,6 +10,7 @@ evidence below proves it, not when a page or code path merely exists.
 |---|---|
 | Ruff (whole repo) | All checks passed |
 | Coordination/behavior/model/workflow tests | 90/90 passed |
+| P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
 | Web production build (`vite build`) | Succeeded (42s) |
@@ -50,8 +51,12 @@ evidence below proves it, not when a page or code path merely exists.
   (`tests/host/test_git_worktree.py`) and a server integration test that
   creates two parallel worktree sessions off one repo
   (`tests/server/integration/test_session_worktree_create.py`).
-- Remaining: a real two-implementer demo flow and real-merge acceptance on a
-  candidate build.
+- Real-git two-implementer acceptance is now proven through the full server
+  API: each implementer commits in a distinct real worktree, the write lease
+  is required, the persisted merge preview rejects a stale fencing token, and
+  only the explicit confirm/execute POST merges both branches into `main`
+  (`tests/server/integration/test_two_implementer_real_merge.py`).
+- Remaining: a candidate desktop build manual walkthrough of the same flow.
 
 ### P4 recoverable workflow
 - Fixed Plan -> Implement -> Review -> Test auto-advance, artifacts,
@@ -61,7 +66,12 @@ evidence below proves it, not when a page or code path merely exists.
 - Template upgrade isolation is covered: a newer DAG template instance
   leaves an already-running run's template, metadata and task set unchanged
   (`tests/test_coordination.py`).
-- Remaining: resume-after-crash acceptance runs.
+- Resume-after-crash acceptance is now proven at server level: a fresh app and
+  fresh store object rebuild after a torn dispatch (implementer running with
+  no durable message), the workflow scheduler re-queues exactly the missing
+  stage, and the dispatcher delivers it through RunnerRouter while a consumed
+  receipt is never replayed (`tests/server/integration/test_workflow_restart_recovery.py`).
+- Remaining: a wall-clock crash drill on the signed candidate build.
 
 ### P5 signed Windows internal beta
 - Electron shell, update overlay, backup/upgrade guard, uninstall flow and

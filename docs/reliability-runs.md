@@ -194,6 +194,28 @@ SQLite writes plus UI events. The earlier 429 verifies the machine's
 aggregator route for `claude` is throttled, while `codex`'s local provider is
 healthy.
 
+## P3/P4 acceptance evidence (2026-09-02)
+
+Two new server-level acceptance tests pin the remaining control-plane gaps
+without paid providers:
+
+- `tests/server/integration/test_workflow_restart_recovery.py` creates a
+  workflow run, cancels the durable dispatch, advances the implementer task to
+  `running`, then builds a brand-new app/store as if the server crashed and
+  restarted. A fresh lifespan scheduler re-queues exactly the missing
+  implementer stage, the outbox delivers it through RunnerRouter, and a second
+  restart never replays the message after its consumption receipt is stored.
+- `tests/server/integration/test_two_implementer_real_merge.py` creates two
+  real git worktrees off one source repo, commits separate files in each,
+  persists a merge preview per branch, rejects a stale fencing token, and
+  merges both branches into `main` only after the explicit confirm/execute
+  POST. The final `main` tree contains both files.
+
+Combined with the earlier real Codex provider workflow run, these close the
+P4 resume-after-crash and P3 real-merge acceptance gaps at the automated
+server level. The remaining P6 gates still require real-provider samples,
+wall-clock soak, and real users.
+
 ## Soak driver
 
 For the candidate-release 24h soak acceptance, AgentNexus ships
