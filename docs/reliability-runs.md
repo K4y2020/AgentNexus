@@ -17,9 +17,11 @@ consumed receipts, and `effect_unknown_count == 0`. The independent 100-run
 P6 sample is still outstanding and should be collected as a nightly/CI batch
 rather than ad hoc.
 
-Updated on 2026-09-02: an additional **40/40** batch (5m52s class per-sample
-cost, 12m17s wall clock) and a **4/4** re-check both passed, so the cumulative
-Windows mock baseline is **67/67** with zero `effect_unknown`.
+Updated on 2026-09-02: additional **40/40** (12m17s), **4/4**, and **33/33**
+(9m49s) batches all passed, bringing the cumulative Windows mock baseline to
+**100/100** with zero `effect_unknown`. This meets the P6 independent-sample
+target for the credential-free mock leg; the real-provider 100-run sample and
+24h soak remain open gates.
 
 ## Run the baseline
 
@@ -173,6 +175,12 @@ soak with a non-zero exit.
 
 Verified on 2026-09-02 (Windows, 1-minute window, 1 sample per iteration):
 **2/2 passed, leaks=0**, and `summary.json` recorded both iterations.
+
+CI automation runs a nightly 30-minute Windows soak from
+`.github/workflows/control-plane-reliability.yml` (cron `15 2 * * *`,
+manual-dispatch `soak_minutes` overrides the window). The full candidate-release
+gate remains a 24h soak on the signed Windows build.
+
 
 ### Readiness waits
 
