@@ -23,6 +23,7 @@
     "build:mac:release": "OMNIGENT_NOTARIZE_DMG=true electron-builder --mac -c.mac.notarize=true -c.dmg.sign=true",
     "build:linux": "electron-builder --linux",
     "build:win": "electron-builder --win",
+    "build:win:portable": "electron-builder --win zip",
     "build:overlay": "pnpm --filter web run build:overlay",
     "predev": "pnpm run build:overlay",
     "prestart": "pnpm run build:overlay",
@@ -47,6 +48,7 @@
       {
         "name": "AgentNexus session link",
         "schemes": [
+          "agentnexus",
           "omnigent"
         ]
       }
@@ -152,14 +154,28 @@
     "win": {
       "icon": "icons/icon.ico",
       "target": [
-        "nsis"
+        "nsis",
+        "zip"
       ],
+      "artifactName": "${productName}-${version}-${arch}-win.${ext}",
       "publish": [
         {
           "provider": "generic",
           "url": "https://github.com/K4y2020/AgentNexus/releases/latest/download/"
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}",
+      "uninstallDisplayName": "${productName} ${version}",
+      "shortcutName": "AgentNexus",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "include": "build/installer.nsh"
     }
   },
   "dependencies": {

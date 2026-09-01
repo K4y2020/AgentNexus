@@ -667,9 +667,10 @@ describe("deep-link ingestion wiring (src/main.js)", () => {
   it("scans second-instance argv for omnigent:// and enqueues as live code", () => {
     assert.match(
       liveCode,
-      /app\.on\("second-instance"[\s\S]{0,220}startsWith\("omnigent:\/\/"\)[\s\S]{0,60}enqueueDeepLink\(/,
+      /app\.on\("second-instance"[\s\S]{0,220}(?:isDeepLinkArg|startsWith\("omnigent:\/\/"\))[\s\S]{0,80}enqueueDeepLink\(/,
       [
-        "main.js no longer scans second-instance argv for omnigent://. Windows/Linux",
+        "main.js no longer scans second-instance argv for agentnexus:// (or legacy",
+        "omnigent://). Windows/Linux",
         "warm-start deep links (a second launch funneled by the single-instance lock)",
         "would be ignored. Restore the argv scan → enqueueDeepLink inside second-instance.",
       ].join(" "),

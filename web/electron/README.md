@@ -421,11 +421,15 @@ pnpm run build             # current platform
 pnpm run build:mac         # .dmg + .zip (signed if an identity is available, not notarized)
 pnpm run build:mac:release # .dmg + .zip; app and DMG signed + notarized (see below)
 pnpm run build:linux       # AppImage + .deb
-pnpm run build:win         # NSIS installer
+pnpm run build:win         # NSIS installer + portable zip
+pnpm run build:win:portable # portable zip only
 ```
 
 Output lands in `electron/dist/` (the DMG is named
-`Omnigent-<version>-<arch>.dmg`).
+`AgentNexus-<version>-<arch>.dmg`; Windows builds are
+`AgentNexus-<version>-<arch>-setup.exe` plus a portable zip). See
+[`docs/windows-installer.md`](docs/windows-installer.md) for the Windows
+upgrade-backup, restore, and uninstall behavior.
 
 ## macOS code signing & notarization
 
@@ -667,7 +671,7 @@ hand-add its origin to `settings.json`:
 ```
 
 (`settings.json` lives in Electron's per-user `userData` dir — on macOS,
-`~/Library/Application Support/Omnigent/settings.json`.)
+`~/Library/Application Support/AgentNexus/settings.json`.)
 
 ## Multiple servers
 
@@ -682,12 +686,14 @@ count and notification titles are prefixed with the firing server's hostname.
 
 ## Deep links
 
-An `omnigent://<hostname>/c/<session_id>` URL opens that session on that
-server in the desktop app — the way a browser deep link opens a page:
+An `agentnexus://<hostname>/c/<session_id>` URL (the legacy
+`omnigent://<hostname>/c/<session_id>` spelling still works) opens that
+session on that server in the desktop app — the way a browser deep link opens
+a page:
 
 ```
-omnigent://localhost:8000/c/conv_abc              → http://localhost:8000/c/conv_abc
-omnigent://my-workspace.cloud.databricks.com/c/x → https://…/omnigent/c/x
+agentnexus://localhost:8000/c/conv_abc              → http://localhost:8000/c/conv_abc
+agentnexus://my-workspace.cloud.databricks.com/c/x → https://…/omnigent/c/x
 ```
 
 The link names a server by **host** (with port if non-default) and carries no

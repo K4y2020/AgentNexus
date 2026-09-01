@@ -13,6 +13,17 @@ const assert = require("node:assert/strict");
 const { parseOmnigentDeepLink, chooseDeepLinkStrategy } = require("../src/deepLink");
 
 describe("parseOmnigentDeepLink", () => {
+  it("accepts the branded agentnexus scheme and the legacy omnigent scheme", () => {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc"), {
+      origin: "http://localhost:8000",
+      path: "/c/conv_abc",
+    });
+    assert.deepEqual(parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc"), {
+      origin: "http://localhost:8000",
+      path: "/c/conv_abc",
+    });
+  });
+
   it("parses a loopback host with a port as http", () => {
     assert.deepEqual(parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc"), {
       origin: "http://localhost:8000",

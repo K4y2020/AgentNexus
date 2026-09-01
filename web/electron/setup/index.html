@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Omnigents — Connect</title>
+    <title>AgentNexus — Connect</title>
     <style>
       /* Design tokens lifted from web/src/index.css (:root and .dark) so
          this bundled page matches the web UI it hands off to. */
@@ -211,7 +211,7 @@
       #start-local:hover:not(:disabled) {
         background: color-mix(in srgb, var(--primary) 90%, transparent);
       }
-      /* Settings gear (top-right) — opens the Omnigent CLI modal. no-drag so it's
+      /* Settings gear (top-right) — opens the AgentNexus server CLI modal. no-drag so it's
          clickable over the drag strip. */
       .gear-btn {
         position: fixed;
@@ -352,8 +352,8 @@
       type="button"
       id="cli-gear"
       class="gear-btn"
-      aria-label="Configure the Omnigent CLI"
-      title="Configure the Omnigent CLI"
+      aria-label="Configure the AgentNexus server CLI"
+      title="Configure the AgentNexus server CLI"
       hidden
     >
       <svg
@@ -380,9 +380,9 @@
           srcset="../../platform-assets/logos/omnigents-logo-reverse.svg"
           media="(prefers-color-scheme: dark)"
         />
-        <img class="logo" src="../../platform-assets/logos/omnigents-logo.svg" alt="Omnigents" />
+        <img class="logo" src="../../platform-assets/logos/omnigents-logo.svg" alt="AgentNexus" />
       </picture>
-      <p class="sub">Run an Omnigent server on this machine, or connect to an existing one.</p>
+      <p class="sub">Run an AgentNexus server on this machine, or connect to an existing one.</p>
       <div id="local-section">
         <!-- Always enabled: when the CLI is missing this opens the settings
              modal (install / set path) instead of failing to start. -->
@@ -412,10 +412,10 @@
       </div>
     </div>
 
-    <!-- Omnigent CLI settings, opened from the gear. Hidden by default. -->
+    <!-- AgentNexus server CLI settings, opened from the gear. Hidden by default. -->
     <div class="modal-overlay" id="cli-modal" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Omnigent CLI settings">
-        <p class="modal-title">Omnigent CLI</p>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="AgentNexus server CLI settings">
+        <p class="modal-title">AgentNexus Server CLI</p>
         <p class="cli-note" id="cli-status"></p>
         <div id="cli-install" hidden>
           <p>
@@ -423,13 +423,13 @@
               href="https://omnigent.ai/quickstart/install#install-omnigent"
               target="_blank"
               rel="noreferrer"
-              >Install the Omnigent CLI ↗</a
+              >Install the AgentNexus Server CLI ↗</a
             >
           </p>
           <p>Already installed it? Re-detect, or set the path below.</p>
           <button type="button" id="cli-redetect">Re-detect</button>
         </div>
-        <p id="cli-path-label">Path to the Omnigent CLI</p>
+        <p id="cli-path-label">Path to the AgentNexus server CLI</p>
         <div class="path-row">
           <input
             id="cli-path"
@@ -632,8 +632,8 @@
         cliStatus.textContent = installed
           ? status.version
             ? `Found: ${status.version}`
-            : "Omnigent CLI found."
-          : "Omnigent CLI not found.";
+            : "AgentNexus server CLI found."
+          : "AgentNexus server CLI not found.";
         cliPathInput.placeholder = status.path || "/path/to/omni";
         // Draw the eye to the (otherwise quiet) gear when the CLI is missing.
         cliGear.classList.toggle("attention", !installed);
@@ -657,7 +657,7 @@
         if (result && result.accepted) {
           cliPathNote.textContent = result.version
             ? `Found: ${result.version}`
-            : "Found the Omnigent CLI.";
+            : "Found the AgentNexus server CLI.";
           // Clear the value so the field reverts to showing the (now-updated)
           // resolved path as its placeholder.
           cliPathInput.value = "";
@@ -665,7 +665,7 @@
           return true;
         }
         cliPathNote.className = "cli-note bad";
-        cliPathNote.textContent = "That path is not a runnable Omnigent CLI.";
+        cliPathNote.textContent = "That path is not a runnable AgentNexus server CLI.";
         return false;
       }
 

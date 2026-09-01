@@ -1,4 +1,4 @@
-// Desktop auto-update orchestration for the Omnigent Electron shell.
+// Desktop auto-update orchestration for the AgentNexus Electron shell.
 //
 // Everything the shell needs to check for, download, and install its own
 // updates via `electron-updater` lives here, behind a small factory API. The
@@ -86,6 +86,9 @@ function isUpdateSecurityError(message) {
  *   Defaults to Electron's real app version.
  * @param {(installReady: boolean) => void} [deps.onInstallReadyChange]
  *   Called when a downloaded update becomes ready or stops being ready.
+ * @param {() => Promise<{root?: string | null}>} [deps.createPreUpgradeBackup]
+ *   Snapshot settings + local server data before an approved upgrade. A
+ *   rejection aborts the install (fail-closed).
  * @returns {{
  *   getConfig: () => { mode: string, autoInstall: boolean, skippedVersion: string | null },
  *   setConfig: (patch?: object) => { mode: string, autoInstall: boolean, skippedVersion: string | null },
@@ -113,6 +116,7 @@ function createDesktopUpdater({
   forceDevUpdateConfig = false,
   getCurrentVersion = () => app.getVersion(),
   onInstallReadyChange = () => {},
+  createPreUpgradeBackup = async () => ({ root: null }),
 }) {
   let updateCheckTimer = null;
   let currentUpdateStatus = { state: "idle" };
@@ -254,12 +258,32 @@ function createDesktopUpdater({
       });
   }
 
-  function installUpdateNow() {
+  /**
+   * Approve + start the install. A pre-upgrade backup is mandatory: if the
+   * snapshot cannot be written, the app stays running and the install is not
+   * armed, so an upgrade can never destroy history silently.
+   *
+   * @returns {Promise<boolean>}
+   */
+  async function installUpdateNow() {
     if (!canUseFeed()) {
       reportUnavailableInDev();
       return false;
     }
     if (currentUpdateStatus.state !== "downloaded") return false;
+    try {
+      await createPreUpgradeBackup();
+    } catch (err) {
+      broadcast({
+        state: "downloaded",
+        currentVersion: getCurrentVersion(),
+        info: currentUpdateStatus.info,
+        lastError: `Pre-upgrade backup failed: ${String(err?.message ?? err)}`,
+      });
+      throw new Error(`Pre-upgrade backup failed: ${String(err?.message ?? err)}`, {
+        cause: err,
+      });
+    }
     installPending = true;
     app.quit();
     return true;
@@ -300,21 +324,22 @@ function createDesktopUpdater({
 
     const copy = {
       download: {
-        message: "Download an Omnigent update?",
+        message: "Download an AgentNexus update?",
         detail:
-          `${host} wants to download a desktop update for this Omnigent app.\n\n` +
+          `${host} wants to download a desktop update for this AgentNexus app.\n\n` +
           `Only allow servers you trust.`,
       },
       install: {
-        message: "Restart Omnigent to install an update?",
+        message: "Restart AgentNexus to install an update?",
         detail:
-          `${host} wants to restart Omnigent and install the downloaded desktop update.\n\n` +
+          `${host} wants to restart AgentNexus and install the downloaded desktop update.\n\n` +
+          "The local server and connected agents are stopped first, then your chats and local data are backed up before the restart.\n\n" +
           `Only allow servers you trust.`,
       },
       config: {
-        message: "Change Omnigent update settings?",
+        message: "Change AgentNexus update settings?",
         detail:
-          `${host} wants to change how this Omnigent app checks for and installs updates.\n\n` +
+          `${host} wants to change how this AgentNexus app checks for and installs updates.\n\n` +
           `Only allow servers you trust.`,
       },
     }[action];
@@ -324,7 +349,7 @@ function createDesktopUpdater({
     const { response } = await dialog.showMessageBox(win, {
       type: "warning",
       icon: icon.isEmpty() ? undefined : icon,
-      title: "Omnigent",
+      title: "AgentNexus",
       message: copy.message,
       detail: copy.detail,
       buttons: ["Don't Allow", "Allow Once"],
@@ -384,7 +409,7 @@ function createDesktopUpdater({
       if (!(await confirmControl(win, "install"))) {
         throw new Error("Update install wasn't approved for this server.");
       }
-      if (!installUpdateNow()) {
+      if (!(await installUpdateNow())) {
         throw new Error("No downloaded update is ready to install.");
       }
     });

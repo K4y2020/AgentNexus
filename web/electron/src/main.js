@@ -65,6 +65,14 @@ const {
 } = require("./settingsNavigation");
 const omnigentCli = require("./omnigent_cli");
 const serverManager = require("./server_manager");
+const { createPreUpgradeBackup } = require("./update_backup");
+
+/** OS deep-link prefixes: branded scheme first, legacy second. */
+const DEEP_LINK_PREFIXES = ["agentnexus://", "omnigent://"];
+
+function isDeepLinkArg(value) {
+  return typeof value === "string" && DEEP_LINK_PREFIXES.some((prefix) => value.startsWith(prefix));
+}
 
 /** Absolute path to the bundled setup page (the "connect to server" form). */
 const SETUP_PAGE = path.join(__dirname, "..", "setup", "index.html");
@@ -753,6 +761,22 @@ const updater = createDesktopUpdater({
   iconPath: ICON_PNG,
   getCurrentVersion: () => currentDesktopVersion,
   onInstallReadyChange: () => buildMenu(),
+  // Before an approved upgrade, stop the owned local server + hosts first so
+  // the snapshot is not raced by live SQLite writes, then snapshot the shell
+  // settings plus the local server's DB/config/auth/daemon state. A failure
+  // must abort the install, so the updater treats a rejection as fail-closed.
+  createPreUpgradeBackup: async () => {
+    await serverManager.shutdown(resolvedCliPath());
+    return createPreUpgradeBackup({
+      userDataDir: app.getPath("userData"),
+      runtimeDirs: [
+        { name: "data", dir: omnigentCli.localDataDir() },
+        { name: "config", dir: omnigentCli.localConfigDir() },
+        { name: "state", dir: omnigentCli.stateDir() },
+      ],
+      version: currentDesktopVersion,
+    });
+  },
   // Dev builds use dev-app-update.yml, which mirrors the production HTTPS
   // endpoint; packaged builds always use their baked app-update.yml. Tying
   // this to !app.isPackaged — not an env var — ensures a packaged app can
@@ -1188,7 +1212,7 @@ function createWindow(targetUrl, opts = {}) {
     // Tall enough that the bundled setup page (logo, Start-locally, divider,
     // URL field, Connect, and a few recents) fits without overflowing.
     minHeight: 600,
-    title: "Omnigent",
+    title: "AgentNexus",
     backgroundColor: "#0b0b0c",
     // macOS: hide the native title bar but keep the traffic lights, inset
     // into the content. The web layer provides the drag surface + clearance
@@ -1727,8 +1751,8 @@ async function confirmHostEnrollment(win) {
   const { response } = await dialog.showMessageBox(win, {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
-    title: "Omnigent",
-    message: `Allow ${host} to manage Omnigent on this machine?`,
+    title: "AgentNexus",
+    message: `Allow ${host} to manage AgentNexus on this machine?`,
     detail:
       `${pinned} wants to connect this machine as a runner. While connected, it ` +
       `can execute agent code and commands here on its behalf.\n\n` +
@@ -1989,16 +2013,16 @@ function buildMenu() {
           if (status.state === "none") {
             await dialog.showMessageBox(activeWindow(), {
               type: "info",
-              title: "Omnigent Desktop",
+              title: "AgentNexus Desktop",
               message: "You're up to date!",
-              detail: `Omnigent Desktop ${currentDesktopVersion} is the latest version.`,
+              detail: `AgentNexus Desktop ${currentDesktopVersion} is the latest version.`,
               buttons: ["OK"],
             });
           }
         } catch (err) {
           await dialog.showMessageBox(activeWindow(), {
             type: "warning",
-            title: "Omnigent",
+            title: "AgentNexus",
             message: "Couldn't check for updates",
             detail: String(err?.message ?? err),
             buttons: ["OK"],
@@ -2011,12 +2035,22 @@ function buildMenu() {
       label: "Restart to Update",
       visible: updater.getStatus().state === "downloaded",
       click: async () => {
-        if (!updater.installUpdateNow()) {
+        try {
+          if (!(await updater.installUpdateNow())) {
+            await dialog.showMessageBox(activeWindow(), {
+              type: "info",
+              title: "AgentNexus",
+              message: "No update is ready to install",
+              detail: "Check for updates first, then download the new version.",
+              buttons: ["OK"],
+            });
+          }
+        } catch (err) {
           await dialog.showMessageBox(activeWindow(), {
-            type: "info",
-            title: "Omnigent",
-            message: "No update is ready to install",
-            detail: "Check for updates first, then download the new version.",
+            type: "warning",
+            title: "AgentNexus",
+            message: "Couldn't install the update",
+            detail: String(err?.message ?? err),
             buttons: ["OK"],
           });
         }
@@ -2593,7 +2627,7 @@ function registerIpc() {
     }
     const win = BrowserWindow.fromWebContents(event.sender) ?? activeWindow();
     const result = await dialog.showOpenDialog(win ?? undefined, {
-      title: "Locate the Omnigent CLI binary",
+      title: "Locate the AgentNexus server CLI binary",
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -2855,10 +2889,10 @@ async function confirmOpenDeepLink(parent, targetOrigin) {
   const { response } = await dialog.showMessageBox(parent, {
     type: "warning",
     icon: icon.isEmpty() ? undefined : icon,
-    title: "Omnigent",
-    message: `Open this Omnigent link?`,
+    title: "AgentNexus",
+    message: `Open this AgentNexus link?`,
     detail:
-      `This link will connect Omnigent to ${host} and open a conversation.\n\n` +
+      `This link will connect AgentNexus to ${host} and open a conversation.\n\n` +
       `Only open links from a server you trust — once connected, it can show ` +
       `notifications and (when you allow it) manage this machine as a runner.`,
     buttons: ["Cancel", "Open"],
@@ -3024,7 +3058,7 @@ async function handleDeepLink(raw) {
 // ---------------------------------------------------------------------------
 
 // Name drives the macOS app menu title and the notification source name.
-app.setName("Omnigent");
+app.setName("AgentNexus");
 
 // Single-instance: focus the existing window instead of opening a second.
 const gotLock = app.requestSingleInstanceLock();
@@ -3040,7 +3074,7 @@ if (!gotLock) {
   // `npm start -- 'omnigent://...'` exercise the real code path on macOS too.
   // Safe: a packaged macOS launch has no omnigent:// in argv, so no double-handling.
   for (const arg of process.argv) {
-    if (typeof arg === "string" && arg.startsWith("omnigent://")) enqueueDeepLink(arg);
+    if (isDeepLinkArg(arg)) enqueueDeepLink(arg);
   }
 
   // macOS: `open-url` fires for omnigent:// links, including BEFORE
@@ -3062,7 +3096,7 @@ if (!gotLock) {
     // scan above). A plain second launch (no URL) just focuses an existing window.
     let handledUrl = false;
     for (const arg of argv) {
-      if (typeof arg === "string" && arg.startsWith("omnigent://")) {
+      if (isDeepLinkArg(arg)) {
         enqueueDeepLink(arg);
         handledUrl = true;
       }
@@ -3078,7 +3112,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     // App User Model ID so Windows attributes notifications/taskbar correctly.
-    if (process.platform === "win32") app.setAppUserModelId("ai.omnigent.desktop");
+    if (process.platform === "win32") app.setAppUserModelId("ai.agentnexus.desktop");
     applyDockIcon();
     registerPermissions();
     registerLocalhostAccess();
@@ -3106,6 +3140,10 @@ if (!gotLock) {
     // per-install registration that survives reinstalls; this lets dev
     // (`electron .`) clicks route to the running dev instance too. No-op
     // (returns false) when another app is already the default handler.
+    // Register the branded scheme first, then keep the legacy `omnigent`
+    // registration for installs that predate the rename. No-op when another
+    // app already owns the scheme.
+    app.setAsDefaultProtocolClient("agentnexus");
     app.setAsDefaultProtocolClient("omnigent");
     // If a deep link arrived before ready (macOS open-url, or Windows/Linux
     // argv), open it instead of the default launch window; the drain's

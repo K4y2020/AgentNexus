@@ -142,6 +142,9 @@ function loadMainHarness({
       resolveCliPath: () => null,
       localHostId: () => "host_test",
       getCliStatus: () => ({ installed: false }),
+      localDataDir: () => path.join(userData, "omnigent-data"),
+      localConfigDir: () => path.join(userData, "omnigent-config"),
+      stateDir: () => path.join(userData, "omnigent-state"),
     },
     "./server_manager": {
       shutdown: () => serverShutdown(),
@@ -382,7 +385,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-download",
         args: [],
-        message: "Download an Omnigent update?",
+        message: "Download an AgentNexus update?",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.calls.downloadUpdate, 1);
@@ -391,7 +394,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:update-install",
         args: [],
-        message: "Restart Omnigent to install an update?",
+        message: "Restart AgentNexus to install an update?",
         prepare: (harness) => {
           harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
         },
@@ -403,7 +406,7 @@ describe("auto-update main-process wiring", () => {
       {
         channel: "omnigent:set-update-config",
         args: [{ mode: "manual" }],
-        message: "Change Omnigent update settings?",
+        message: "Change AgentNexus update settings?",
         prepare: () => {},
         assertRan: (harness) => {
           assert.equal(harness.readSettings().update_mode, "manual");
@@ -427,7 +430,7 @@ describe("auto-update main-process wiring", () => {
 
       assert.equal(harness.calls.showMessageBox.length, 1, item.channel);
       assert.equal(harness.calls.showMessageBox[0].win, harness.api.windows.keys().next().value);
-      assert.equal(harness.calls.showMessageBox[0].options.title, "Omnigent");
+      assert.equal(harness.calls.showMessageBox[0].options.title, "AgentNexus");
       assert.equal(harness.calls.showMessageBox[0].options.message, item.message);
       assert.deepEqual(plain(harness.calls.showMessageBox[0].options.buttons), [
         "Don't Allow",
@@ -522,6 +525,28 @@ describe("auto-update main-process wiring", () => {
 
     harness.runMainImmediates();
     assert.deepEqual(harness.calls.quitAndInstall, [[false, true]]);
+    assert.equal(harness.calls.appQuit, 1);
+  });
+
+  it("stops the local server before snapshotting pre-upgrade data", async (t) => {
+    let shutdowns = 0;
+    const harness = loadMainHarness({
+      forceDevUpdateConfig: true,
+      settings: { update_mode: "manual" },
+      serverShutdown: () => {
+        shutdowns += 1;
+        return Promise.resolve();
+      },
+    });
+    t.after(harness.cleanup);
+    harness.api.updater.init();
+    harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
+    harness.api.registerIpc();
+
+    await harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned);
+
+    assert.equal(shutdowns, 1);
+    assert.equal(harness.api.updater.installPending, true);
     assert.equal(harness.calls.appQuit, 1);
   });
 
@@ -752,10 +777,10 @@ describe("auto-update main-process wiring", () => {
     development.autoUpdater.emit("update-not-available");
     development.api.buildMenu();
     await findMenuItem(development.calls.setApplicationMenu.at(-1), "check_for_updates").click();
-    assert.equal(development.calls.showMessageBox.at(-1).options.title, "Omnigent Desktop");
+    assert.equal(development.calls.showMessageBox.at(-1).options.title, "AgentNexus Desktop");
     assert.equal(
       development.calls.showMessageBox.at(-1).options.detail,
-      "Omnigent Desktop 0.2.0 is the latest version.",
+      "AgentNexus Desktop 0.2.0 is the latest version.",
     );
 
     const packaged = loadMainHarness({

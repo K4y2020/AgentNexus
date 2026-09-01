@@ -200,9 +200,9 @@ function createUpdateOverlay({
       guard(event);
       await updater.downloadUpdate();
     });
-    ipcMain.handle("omnigent:overlay-update-install", (event) => {
+    ipcMain.handle("omnigent:overlay-update-install", async (event) => {
       guard(event);
-      if (!updater.installUpdateNow()) {
+      if (!(await updater.installUpdateNow())) {
         throw new Error("No downloaded update is ready to install.");
       }
     });

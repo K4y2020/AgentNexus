@@ -7,6 +7,8 @@
 const { describe, it, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 const {
   normalizeServerUrl,
@@ -85,17 +87,19 @@ describe("candidatePaths", () => {
   it("probes both the omnigent name and the omni alias in each location", () => {
     const paths = candidatePaths();
     // Every well-known dir contributes an `omnigent` and an `omni` entry.
-    assert.ok(paths.some((p) => p.endsWith("/.local/bin/omnigent")));
-    assert.ok(paths.some((p) => p.endsWith("/.local/bin/omni")));
-    assert.ok(paths.includes("/opt/homebrew/bin/omnigent"));
-    assert.ok(paths.includes("/opt/homebrew/bin/omni"));
-    assert.ok(paths.includes("/usr/local/bin/omni"));
+    assert.ok(
+      paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "omnigent")),
+    );
+    assert.ok(paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "omni")));
+    assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "omnigent")));
+    assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "omni")));
+    assert.ok(paths.includes(path.join("/usr", "local", "bin", "omni")));
   });
 
   it("lists the canonical omnigent name before the omni alias within a dir", () => {
     const paths = candidatePaths();
-    const og = paths.indexOf("/opt/homebrew/bin/omnigent");
-    const omni = paths.indexOf("/opt/homebrew/bin/omni");
+    const og = paths.indexOf(path.join("/opt", "homebrew", "bin", "omnigent"));
+    const omni = paths.indexOf(path.join("/opt", "homebrew", "bin", "omni"));
     assert.ok(og !== -1 && omni !== -1 && og < omni);
   });
 });

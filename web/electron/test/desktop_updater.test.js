@@ -34,6 +34,7 @@ const PINNED_ORIGIN = "https://server.example";
  * @param {boolean} [opts.pinnedSender] Whether IPC calls count as trusted.
  * @param {Array<{response: number}>} [opts.dialogResponses] Queued dialog answers.
  * @param {() => string} [opts.getCurrentVersion] Display-version override.
+ * @param {Error} [opts.backupRejects] Force the pre-upgrade backup to fail.
  */
 function makeUpdater({
   settings = {},
@@ -42,6 +43,7 @@ function makeUpdater({
   pinnedSender = true,
   dialogResponses = [{ response: 1 }],
   getCurrentVersion,
+  backupRejects,
 } = {}) {
   let store = { ...settings };
   const calls = {
@@ -52,6 +54,7 @@ function makeUpdater({
     quitAndInstall: [],
     intervals: [],
     clearedIntervals: 0,
+    preUpgradeBackup: 0,
   };
 
   const win = {
@@ -111,6 +114,11 @@ function makeUpdater({
     iconPath: "/icons/icon.png",
     forceDevUpdateConfig,
     getCurrentVersion,
+    createPreUpgradeBackup: async () => {
+      calls.preUpgradeBackup += 1;
+      if (backupRejects) throw backupRejects;
+      return { root: "/tmp/agentnexus-backup" };
+    },
   };
 
   const updater = createDesktopUpdater(deps);
@@ -347,7 +355,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.registerIpc();
     await h.ipcHandlers.get("omnigent:update-download")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
-    assert.equal(h.calls.showMessageBox[0].options.message, "Download an Omnigent update?");
+    assert.equal(h.calls.showMessageBox[0].options.message, "Download an AgentNexus update?");
     assert.equal(h.calls.downloadUpdate, 1);
 
     // set-config
@@ -355,7 +363,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.init();
     h.updater.registerIpc();
     await h.ipcHandlers.get("omnigent:set-update-config")(h.event, { mode: "manual" });
-    assert.equal(h.calls.showMessageBox[0].options.message, "Change Omnigent update settings?");
+    assert.equal(h.calls.showMessageBox[0].options.message, "Change AgentNexus update settings?");
     assert.equal(h.readSettings().update_mode, "manual");
   });
 
@@ -382,6 +390,7 @@ describe("desktop_updater — install handoff", () => {
 
     await h.ipcHandlers.get("omnigent:update-install")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
+    assert.equal(h.calls.preUpgradeBackup, 1);
     assert.equal(h.updater.installPending, true);
     assert.equal(h.calls.appQuit, 1);
 
@@ -400,8 +409,30 @@ describe("desktop_updater — install handoff", () => {
     );
     assert.equal(h.updater.installPending, false);
     assert.equal(h.calls.appQuit, 0);
+    assert.equal(h.calls.preUpgradeBackup, 0);
     // Nothing pending → the before-quit handoff is a no-op.
     assert.equal(h.updater.quitAndInstallIfPending(), false);
+    assert.deepEqual(h.calls.quitAndInstall, []);
+  });
+
+  it("does not arm an install when the pre-upgrade backup fails", async () => {
+    const h = makeUpdater({
+      forceDevUpdateConfig: true,
+      settings: { update_mode: "manual" },
+      backupRejects: new Error("disk full"),
+    });
+    h.updater.init();
+    h.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
+    h.updater.registerIpc();
+
+    await assert.rejects(
+      h.ipcHandlers.get("omnigent:update-install")(h.event),
+      /Pre-upgrade backup failed: disk full/,
+    );
+
+    assert.equal(h.calls.preUpgradeBackup, 1);
+    assert.equal(h.updater.installPending, false);
+    assert.equal(h.calls.appQuit, 0);
     assert.deepEqual(h.calls.quitAndInstall, []);
   });
 });

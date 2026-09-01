@@ -946,6 +946,18 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 它复用固定工作流的 Outbox、Dispatcher、terminal-idle 回执和 report/retry/reassign
 > 链路。剩余缺口收敛为：真实付费 API E2E、Windows 安装/升级/备份/卸载产品化和
 > P6 100 次可靠性 Run。
+>
+> 2026-09-01 P5 Windows 发布体系已补齐可自动化部分：NSIS 安装器改为
+> assisted/per-user/可选安装目录，并同时产出 portable zip；安装清单注册
+> `agentnexus://` 主协议并保留 `omnigent://` 兼容协议；升级前自动备份
+> Electron `settings.json` 与本地 server 的
+> `chat.db*`/`config.yaml`/`auth_tokens.json`/`daemons` 到
+> `%APPDATA%\AgentNexus\update-backups`（保留最近 5 份，备份失败则不安装，
+> `restoreFromBackup` 可显式恢复）；Windows 卸载默认保留用户数据，assisted
+> 卸载时明确询问是否清理 `%APPDATA%\AgentNexus` 与 `~/.omnigent`，静默/更新
+> 路径永不清理。新增 backup/installer/DAG 定向测试。仍需要真实 Windows
+> 签名证书、干净机 15 分钟首次协作验收与候选发布 24 小时 soak 才能关闭 P5。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
