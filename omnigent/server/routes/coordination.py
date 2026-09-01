@@ -209,6 +209,10 @@ class ReportConsumptionRequest(BaseModel):
     receipt: dict[str, Any] = Field(default_factory=dict)
 
 
+class ReassignTaskRequest(BaseModel):
+    assignee_session_id: str
+
+
 # ── Message Endpoints ─────────────────────────────────────────
 
 
@@ -547,6 +551,37 @@ async def retry_coordination_task(task_id: str, request: Request) -> dict[str, A
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
     return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/tasks/{task_id}/reassign")
+async def reassign_coordination_task(
+    task_id: str,
+    req: ReassignTaskRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Redirect an active stage task to another assignee in the same tree."""
+    store = _request_store(request)
+    task = await asyncio.to_thread(store.get_task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    run = await asyncio.to_thread(store.get_run, task.run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {task.run_id} not found")
+    await _require_coordination_tree(
+        request, run.root_session_id, req.assignee_session_id
+    )
+    try:
+        updated, changed = await _request_workflow_engine(request).reassign_task(
+            task_id, req.assignee_session_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
+    return {
+        "run": updated.to_dict(),
+        "tasks": [t.to_dict() for t in tasks],
+        "reassigned": changed,
+    }
 
 
 # ── Workspace Lease & Merge Preview ───────────────────────────

@@ -386,6 +386,18 @@ class CoordinationStore:
             row.updated_at = time.time()
             return True
 
+    def reassign_task(self, task_id: str, assignee_session_id: str) -> bool:
+        """Redirect a task to another assignee session (idempotent)."""
+        with self._session_immediate("reassign_task") as sess:
+            row = sess.get(SqlCoordinationTask, (current_workspace_id(), task_id))
+            if row is None:
+                return False
+            if row.assignee_session_id == assignee_session_id:
+                return False
+            row.assignee_session_id = assignee_session_id
+            row.updated_at = time.time()
+            return True
+
     def list_tasks(self, run_id: str) -> list[CoordinationTask]:
         with self._session("list_tasks") as sess:
             stmt = (
@@ -578,6 +590,28 @@ class CoordinationStore:
                 .values(status="failed", updated_at=now)
             )
         return self.get_message(message_id)
+
+    def redirect_message_recipient(
+        self, message_id: str, recipient_session_id: str
+    ) -> bool:
+        """Redirect a still-queued message and its outbox to a new recipient."""
+        with self._session_immediate("redirect_message_recipient") as sess:
+            row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
+            if row is None:
+                return False
+            row.recipient_session_id = recipient_session_id
+            row.updated_at = time.time()
+            now = time.time()
+            sess.execute(
+                update(SqlCoordinationOutbox)
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlCoordinationOutbox.message_id == message_id,
+                    SqlCoordinationOutbox.status.in_(("pending", "leased")),
+                )
+                .values(target_session_id=recipient_session_id, updated_at=now)
+            )
+            return True
 
     def record_consumption_receipt(
         self,

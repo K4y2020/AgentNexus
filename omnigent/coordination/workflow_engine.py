@@ -607,18 +607,153 @@ class CoordinationWorkflowEngine:
         )
         return await self._current_run(run.run_id)
 
+    async def reassign_task(
+        self, task_id: str, assignee_session_id: str
+    ) -> tuple[CoordinationRun, bool]:
+        """Redirect an active stage task to another assignee.
+
+        Queued task messages are redirected in place so the durable outbox
+        still delivers exactly one request, now to the new assignee. An
+        injected-but-unconsumed message is rejected with an explicit receipt
+        and a fresh stage request is queued for the replacement assignee.
+        Already-acknowledged work is never silently yanked: it must be
+        cancelled or retried before a reassignment.
+        """
+        task = await asyncio.to_thread(self.store.get_task, task_id)
+        if task is None:
+            raise ValueError(f"task {task_id!r} not found")
+        run = await asyncio.to_thread(self.store.get_run, task.run_id)
+        if run is None:
+            raise ValueError(f"run {task.run_id!r} not found")
+        if task.status in ("succeeded", "cancelled"):
+            raise ValueError(f"task {task_id} is {task.status}; cannot reassign")
+        if not assignee_session_id:
+            raise ValueError("assignee_session_id is required")
+
+        messages = await asyncio.to_thread(
+            self.store.list_messages, run.root_session_id
+        )
+        task_messages = [
+            message
+            for message in messages
+            if message.task_id == task.task_id
+            and message.recipient_session_id == task.assignee_session_id
+        ]
+        acknowledged = [
+            message
+            for message in task_messages
+            if message.consumption_state in ("consumed", "acknowledged")
+        ]
+        if acknowledged:
+            raise ValueError(
+                f"task {task_id} work is already acknowledged; "
+                "cancel/retry before reassigning"
+            )
+
+        old_assignee = task.assignee_session_id
+        changed = await asyncio.to_thread(
+            self.store.reassign_task, task_id, assignee_session_id
+        )
+        if not changed:
+            return await self._current_run(run.run_id), False
+
+        # The engine continues to own the in-memory task cursor after the row
+        # moved; later stage prompts must target the new assignee.
+        task.assignee_session_id = assignee_session_id
+        active_rejected = False
+        for message in task_messages:
+            if message.message_state == "queued":
+                await asyncio.to_thread(
+                    self.store.redirect_message_recipient,
+                    message.message_id,
+                    assignee_session_id,
+                )
+                await asyncio.to_thread(
+                    self.store.record_event,
+                    CoordinationEvent(
+                        root_session_id=run.root_session_id,
+                        run_id=run.run_id,
+                        task_id=task.task_id,
+                        actor_session_id=run.root_session_id,
+                        event_type="message.redirected",
+                        payload={
+                            "message_id": message.message_id,
+                            "from_session_id": old_assignee,
+                            "to_session_id": assignee_session_id,
+                            "source": "task_reassigned",
+                        },
+                    ),
+                )
+            elif (
+                message.message_state == "active"
+                and message.consumption_state == "unconsumed"
+            ):
+                await asyncio.to_thread(
+                    self.store.record_consumption_receipt,
+                    message.message_id,
+                    "rejected",
+                    {
+                        "source": "task_reassigned",
+                        "new_assignee": assignee_session_id,
+                    },
+                )
+                await asyncio.to_thread(
+                    self.store.record_event,
+                    CoordinationEvent(
+                        root_session_id=run.root_session_id,
+                        run_id=run.run_id,
+                        task_id=task.task_id,
+                        actor_session_id=run.root_session_id,
+                        event_type="message.rejected",
+                        payload={
+                            "message_id": message.message_id,
+                            "reason": "task_reassigned",
+                            "new_assignee": assignee_session_id,
+                        },
+                    ),
+                )
+                active_rejected = True
+
+        sent: AgentMessage | None = None
+        if active_rejected:
+            sent = await self._resend_stage_request(
+                run,
+                task,
+                attempt="reassign",
+                previous_assignee=old_assignee,
+            )
+        await self._record(
+            run,
+            task,
+            "workflow.task.reassigned",
+            {
+                "task_id": task_id,
+                "from_session_id": old_assignee,
+                "to_session_id": assignee_session_id,
+                "queued_redirected": sum(
+                    1 for m in task_messages if m.message_state == "queued"
+                ),
+                "active_rejected": active_rejected,
+                "message_id": sent.message_id if sent else None,
+            },
+        )
+        return await self._current_run(run.run_id), True
+
     async def _resend_stage_request(
         self,
         run: CoordinationRun,
         task: CoordinationTask,
+        *,
+        attempt: str = "retry",
+        previous_assignee: str | None = None,
     ) -> AgentMessage:
-        """Re-queue the durable stage prompt for a retried task."""
+        """Re-queue the durable stage prompt for a retried/reassigned task."""
         role = task.assignee_role or ""
         if role == "planner":
             payload: dict[str, object] = {
                 "stage": "planning_retry",
                 "prompt": (
-                    "Previous planning attempt failed; analyze and create an "
+                    "Previous planning attempt was not accepted; analyze and create an "
                     "implementation plan for the original request."
                 ),
             }
@@ -627,7 +762,7 @@ class CoordinationWorkflowEngine:
             payload = {
                 "stage": "implementation_retry",
                 "prompt": (
-                    "Previous implementation attempt failed; implement the plan "
+                    "Previous implementation attempt was not accepted; implement the plan "
                     "above and run tests you add or update."
                 ),
             }
@@ -636,7 +771,7 @@ class CoordinationWorkflowEngine:
             payload = {
                 "stage": "review_retry",
                 "prompt": (
-                    "Previous review attempt failed; review the implementation "
+                    "Previous review attempt was not accepted; review the implementation "
                     "diff and report approved or changes_requested."
                 ),
             }
@@ -645,7 +780,7 @@ class CoordinationWorkflowEngine:
             payload = {
                 "stage": "fix_retry",
                 "prompt": (
-                    "Previous fix attempt failed; address the reviewer feedback "
+                    "Previous fix attempt was not accepted; address the reviewer feedback "
                     "and re-run relevant tests."
                 ),
                 "retry": True,
@@ -655,13 +790,18 @@ class CoordinationWorkflowEngine:
             payload = {
                 "stage": "test_retry",
                 "prompt": (
-                    "Previous test attempt failed; run the full acceptance suite "
+                    "Previous test attempt was not accepted; run the full acceptance suite "
                     "and report succeeded or failed."
                 ),
             }
             intent = "test.request"
         else:
             raise ValueError(f"task {task.task_id} has unsupported role {role!r}")
+
+        if attempt != "retry":
+            payload["attempt"] = attempt
+        if previous_assignee is not None:
+            payload["previous_assignee"] = previous_assignee
 
         message = AgentMessage(
             root_session_id=run.root_session_id,
@@ -673,7 +813,7 @@ class CoordinationWorkflowEngine:
             recipient_role=task.assignee_role,
             intent=intent,
             payload=payload,
-            correlation_id=f"retry/{task.task_id}",
+            correlation_id=f"{attempt}/{task.task_id}",
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, message)
         return message

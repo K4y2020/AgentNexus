@@ -907,9 +907,10 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 
 > 已落地：/runs（创建/列表/详情）、/runs/{id}/pause|resume|cancel、
 > /workflows/plan-implement-review、/workflows/{run}/tasks/{task}/advance、
-> /tasks/{task}/retry、/messages（发送/回执/取消）、/artifacts（CRUD）、
+> /tasks/{task}/retry、/tasks/{task}/reassign、/messages（发送/回执/取消）、/artifacts（CRUD）、
 > /events、/workspaces/lease 与 merge-previews 执行。状态迁移全部使用
-> SQL CAS，重复 advance/cancel/retry 幂等，不会重复派发下一阶段。
+> SQL CAS，重复 advance/cancel/retry 幂等，不会重复派发下一阶段；改派会重定向
+> 未消费的排队投递或拒绝未确认活动消息，已确认的工作必须 cancel/retry 后才能改派。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge
 ```

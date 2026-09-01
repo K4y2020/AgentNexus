@@ -87,6 +87,7 @@ def default_conversations() -> dict[str, FakeConversation]:
     return {
         root_id: FakeConversation(root_id, root_conversation_id=root_id),
         "conv_p1": FakeConversation("conv_p1", root_conversation_id=root_id),
+        "conv_p2": FakeConversation("conv_p2", root_conversation_id=root_id),
         "conv_c1": FakeConversation("conv_c1", root_conversation_id=root_id),
         "conv_r1": FakeConversation("conv_r1", root_conversation_id=root_id),
         "other_root": FakeConversation("other_root", root_conversation_id="other_root"),
@@ -782,6 +783,118 @@ async def test_workflow_retry_failed_task_resends_stage(
 
 
 @pytest.mark.asyncio
+async def test_workflow_reassign_queued_kickoff_redirects_outbox(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Reassign Queued",
+        root_session_id="conv_root_reassign_q",
+        planner_session_id="conv_planner_a",
+        implementer_session_id="conv_coder_a",
+        reviewer_session_id="conv_reviewer_a",
+        user_prompt="Reassign queued",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    kickoff = memory_store.list_messages("conv_root_reassign_q")[0]
+    assert kickoff.message_state == "queued"
+
+    updated, changed = await engine.reassign_task(
+        tasks["planner"].task_id, "conv_planner_b"
+    )
+    assert changed is True
+    assert updated.status == "running"
+    assert (
+        memory_store.get_task(tasks["planner"].task_id).assignee_session_id
+        == "conv_planner_b"
+    )
+    assert (
+        memory_store.get_message(kickoff.message_id).recipient_session_id
+        == "conv_planner_b"
+    )
+    assert (
+        memory_store.list_outbox_items(message_id=kickoff.message_id)[0].target_session_id
+        == "conv_planner_b"
+    )
+    events = memory_store.list_events("conv_root_reassign_q")
+    assert any(e.event_type == "workflow.task.reassigned" for e in events)
+
+    _, noop = await engine.reassign_task(
+        tasks["planner"].task_id, "conv_planner_b"
+    )
+    assert noop is False
+
+
+@pytest.mark.asyncio
+async def test_workflow_reassign_active_unconsumed_rejects_and_resends(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Reassign Active",
+        root_session_id="conv_root_reassign_a",
+        planner_session_id="conv_planner_a",
+        implementer_session_id="conv_coder_a",
+        reviewer_session_id="conv_reviewer_a",
+        user_prompt="Reassign active",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    kickoff = memory_store.list_messages("conv_root_reassign_a")[0]
+    memory_store.update_message_state(kickoff.message_id, "active")
+
+    updated, changed = await engine.reassign_task(
+        tasks["planner"].task_id, "conv_planner_b"
+    )
+    assert changed is True
+    assert updated.status == "running"
+    old_kickoff = memory_store.get_message(kickoff.message_id)
+    assert old_kickoff.consumption_state == "rejected"
+    assert old_kickoff.consumption_receipt["source"] == "task_reassigned"
+
+    resent = memory_store.list_messages("conv_root_reassign_a")[-1]
+    assert resent.task_id == tasks["planner"].task_id
+    assert resent.recipient_session_id == "conv_planner_b"
+    assert resent.payload["attempt"] == "reassign"
+    assert resent.payload["previous_assignee"] == "conv_planner_a"
+    assert resent.correlation_id == f"reassign/{tasks['planner'].task_id}"
+
+    events = memory_store.list_events("conv_root_reassign_a")
+    assert any(e.event_type == "message.rejected" for e in events)
+    assert any(e.event_type == "message.redirected" for e in events) is False
+
+
+@pytest.mark.asyncio
+async def test_workflow_reassign_rejects_acknowledged_work(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Reassign Ack",
+        root_session_id="conv_root_reassign_ack",
+        planner_session_id="conv_planner_a",
+        implementer_session_id="conv_coder_a",
+        reviewer_session_id="conv_reviewer_a",
+        user_prompt="Reassign acknowledged",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    kickoff = memory_store.list_messages("conv_root_reassign_ack")[0]
+    memory_store.update_message_state(kickoff.message_id, "active")
+    memory_store.record_consumption_receipt(
+        kickoff.message_id, "acknowledged", {"response_id": "resp_1"}
+    )
+
+    with pytest.raises(ValueError, match="already acknowledged"):
+        await engine.reassign_task(tasks["planner"].task_id, "conv_planner_b")
+    assert (
+        memory_store.get_task(tasks["planner"].task_id).assignee_session_id
+        == "conv_planner_a"
+    )
+
+
+@pytest.mark.asyncio
 async def test_workflow_cancel_run_marks_messages_and_tasks(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:
@@ -1121,6 +1234,60 @@ def test_coordination_api_run_lifecycle_endpoints(
     rejected = client.post(f"/v1/coordination/tasks/{tasks_by_role['planner']}/retry")
     assert rejected.status_code == 200
     assert rejected.json()["run"]["status"] == "cancelled"
+
+
+def test_coordination_api_reassign_endpoint(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Reassign API Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Reassign via API",
+        },
+    )
+    assert res.status_code == 200
+    wf = res.json()
+    planner_id = next(
+        t["task_id"] for t in wf["tasks"] if t["assignee_role"] == "planner"
+    )
+
+    cross_tree = client.post(
+        f"/v1/coordination/tasks/{planner_id}/reassign",
+        json={"assignee_session_id": "other_sender"},
+    )
+    assert cross_tree.status_code == 403
+
+    reassigned = client.post(
+        f"/v1/coordination/tasks/{planner_id}/reassign",
+        json={"assignee_session_id": "conv_p2"},
+    )
+    assert reassigned.status_code == 200, reassigned.text
+    assert reassigned.json()["reassigned"] is True
+    assert next(
+        t for t in reassigned.json()["tasks"] if t["task_id"] == planner_id
+    )["assignee_session_id"] == "conv_p2"
+
+    # Acknowledged work cannot be reassigned without cancel/retry first.
+    kickoff = memory_store.list_messages("conv_root_api")[0]
+    memory_store.update_message_state(kickoff.message_id, "active")
+    memory_store.record_consumption_receipt(
+        kickoff.message_id, "acknowledged", {"response_id": "resp_api"}
+    )
+    acked = client.post(
+        f"/v1/coordination/tasks/{planner_id}/reassign",
+        json={"assignee_session_id": "conv_r1"},
+    )
+    assert acked.status_code == 409
+    assert "already acknowledged" in acked.json()["detail"]
 
 
 def test_coordination_api_session_acl(
