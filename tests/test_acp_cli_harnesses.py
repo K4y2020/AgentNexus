@@ -296,9 +296,7 @@ def test_spawn_env_pins_spec_model_only_for_rows_with_model_arg(
     their binary would reject (or ignore) is the failure mode the row opt-in
     exists to prevent.
     """
-    monkeypatch.setattr(
-        "omnigent._platform.resolve_cli_binary", lambda _b, **k: f"/usr/bin/{_b}"
-    )
+    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: f"/usr/bin/{_b}")
     env = _build_acp_cli_spawn_env(_spec(harness, model="glm-5.3"), harness=harness)
     argv = shlex.split(env["HARNESS_ACP_COMMAND"])
     if expected_argv_tail:

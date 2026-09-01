@@ -3217,9 +3217,7 @@ async def test_sys_session_send_applies_saved_model_to_existing_sdk_child(
         try:
             output = await execute_tool(
                 tool_name="sys_session_send",
-                arguments=json.dumps(
-                    {"agent": "worker", "title": "review", "args": "continue"}
-                ),
+                arguments=json.dumps({"agent": "worker", "title": "review", "args": "continue"}),
                 server_client=server_client,
                 conversation_id="conv_parent_switch",
                 agent_spec=_spec_with_subagent_harness("codex"),

@@ -1,10 +1,9 @@
-"""Multi-Agent Coordination Workflow Engine for Plan -> Implement -> Review DAGs (FLOW-001, FLOW-002)."""
+"""Multi-Agent Coordination Workflow Engine for Plan->Implement->Review DAGs."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
@@ -112,5 +111,7 @@ class CoordinationWorkflowEngine:
         )
         await asyncio.to_thread(self.store.record_event, evt)
 
-        _logger.info("Started Plan->Implement->Review run %s for session %s", run.run_id, root_session_id)
+        _logger.info(
+            "Started Plan->Implement->Review run %s for session %s", run.run_id, root_session_id
+        )
         return run

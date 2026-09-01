@@ -1,8 +1,9 @@
-"""Unit and integration tests for AgentNexus Multi-Agent Coordination Data Layer, Outbox, and Workspace Leases."""
+"""Tests for Multi-Agent Coordination Data Layer and Outbox."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,7 +11,6 @@ from omnigent.coordination.dispatcher import CoordinationDispatcher
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import (
     AgentMessage,
-    CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
 )
@@ -129,7 +129,9 @@ def test_workspace_lease_manager(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_plan_implement_review_workflow_engine(memory_store: CoordinationStore, tmp_path: Path) -> None:
+async def test_plan_implement_review_workflow_engine(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
     engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
     run = await engine.start_plan_implement_review_run(
         title="Refactor Auth Module",

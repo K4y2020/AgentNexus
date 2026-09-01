@@ -14,8 +14,6 @@ from omnigent.coordination.types import (
     CoordinationRun,
     CoordinationTask,
     MessageKind,
-    RunStatus,
-    TaskStatus,
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
@@ -176,7 +174,9 @@ async def create_coordination_task(req: CreateTaskRequest) -> dict[str, Any]:
 
 
 @router.get("/tasks")
-async def list_coordination_tasks(run_id: str = Query(..., description="Run ID")) -> dict[str, Any]:
+async def list_coordination_tasks(
+    run_id: str = Query(..., description="Run ID"),
+) -> dict[str, Any]:
     """List all tasks associated with a coordination run."""
     tasks = await asyncio.to_thread(_store.list_tasks, run_id)
     return {"tasks": [t.to_dict() for t in tasks]}
@@ -216,7 +216,7 @@ async def acquire_workspace_lease(req: AcquireLeaseRequest) -> dict[str, Any]:
         )
         return {"lease": lease.to_dict()}
     except Exception as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/workspaces/merge-preview")
@@ -226,10 +226,9 @@ async def get_merge_preview(
     target_branch: str = Query("main", description="Target merge branch"),
 ) -> dict[str, Any]:
     """Generate merge preview diff and statistics."""
-    preview = await asyncio.to_thread(
+    return await asyncio.to_thread(
         _ws_coord.generate_merge_preview, repo_path, source_branch, target_branch
     )
-    return preview
 
 
 # ── Timeline & Audit Events ───────────────────────────────────

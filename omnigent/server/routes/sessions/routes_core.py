@@ -1983,10 +1983,15 @@ def register_core_routes(
                         _mode_result,
                     )
                 except Exception as _fwd_err:
-                    _logger.warning("Forwarding permission mode to runner failed, keeping requested: %s", _fwd_err)
+                    _logger.warning(
+                        "Forwarding permission mode to runner failed, keeping requested: %s",
+                        _fwd_err,
+                    )
                     _confirmed_permission_mode = requested_claude_permission_mode
 
-                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = _confirmed_permission_mode
+                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = (
+                    _confirmed_permission_mode
+                )
                 _merged_permission_args = _merge_claude_permission_launch_args(
                     updated.terminal_launch_args,
                     _confirmed_permission_mode,
@@ -1998,7 +2003,9 @@ def register_core_routes(
                         terminal_launch_args=_merged_permission_args,
                     )
             else:
-                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = requested_claude_permission_mode
+                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = (
+                    requested_claude_permission_mode
+                )
         # Some labels are cleared by DELETE, not by upserting an empty value:
         # the project membership (empty = "remove from project") and the pinned
         # flag (empty = "unpin"). Split any empty-valued clear keys out before

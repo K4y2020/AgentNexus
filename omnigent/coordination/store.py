@@ -6,7 +6,6 @@ import json
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any
 
 from omnigent.coordination.types import (
     AgentMessage,
@@ -14,13 +13,7 @@ from omnigent.coordination.types import (
     CoordinationRun,
     CoordinationTask,
     DeliveryAttempt,
-    DeliveryMode,
-    DeliveryState,
-    MessageKind,
-    MessageState,
     OutboxItem,
-    RunStatus,
-    TaskStatus,
 )
 
 
@@ -47,7 +40,7 @@ class CoordinationStore:
                 try:
                     conn.execute("PRAGMA journal_mode=WAL;")
                     conn.execute("PRAGMA busy_timeout=5000;")
-                except Exception:
+                except Exception:  # noqa: BLE001
                     pass
             self._local.conn = conn
             self._init_schema(conn)
@@ -229,7 +222,8 @@ class CoordinationStore:
         conn = self._get_conn()
         if root_session_id:
             cur = conn.execute(
-                "SELECT * FROM coordination_runs WHERE root_session_id = ? ORDER BY created_at DESC",
+                "SELECT * FROM coordination_runs WHERE root_session_id = ? "
+                "ORDER BY created_at DESC",
                 (root_session_id,),
             )
         else:
@@ -319,9 +313,7 @@ class CoordinationStore:
 
     # ── Message & Outbox Operations (Transactional) ─────────────
 
-    def save_message_and_outbox(
-        self, message: AgentMessage
-    ) -> tuple[AgentMessage, OutboxItem]:
+    def save_message_and_outbox(self, message: AgentMessage) -> tuple[AgentMessage, OutboxItem]:
         """Atomically persist an AgentMessage and queue its Outbox delivery item."""
         conn = self._get_conn()
         outbox = OutboxItem(

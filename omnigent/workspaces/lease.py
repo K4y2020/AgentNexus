@@ -65,10 +65,7 @@ class WorkspaceLeaseManager:
                     existing.expires_at = now + duration_s
                     return existing
                 if mode == "write" or existing.mode == "write":
-                    raise RuntimeError(
-                        f"Workspace {norm_path} is currently locked by session {existing.holder_session_id} "
-                        f"until {time.ctime(existing.expires_at)} (mode={existing.mode})"
-                    )
+                    raise RuntimeError(f"Workspace locked by {existing.holder_session_id}")
 
             counter = self._fencing_counters.get(norm_path, 0) + 1
             self._fencing_counters[norm_path] = counter
@@ -118,11 +115,29 @@ class WorkspaceCoordinator:
         worktree_dir.parent.mkdir(parents=True, exist_ok=True)
 
         if not worktree_dir.exists():
-            cmd = ["git", "-C", str(repo), "worktree", "add", "-B", branch_name, str(worktree_dir), base_branch]
+            cmd = [
+                "git",
+                "-C",
+                str(repo),
+                "worktree",
+                "add",
+                "-B",
+                branch_name,
+                str(worktree_dir),
+                base_branch,
+            ]
             res = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if res.returncode != 0:
                 # Fallback to existing branch or simple worktree add
-                cmd_fb = ["git", "-C", str(repo), "worktree", "add", str(worktree_dir), branch_name]
+                cmd_fb = [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "worktree",
+                    "add",
+                    str(worktree_dir),
+                    branch_name,
+                ]
                 res_fb = subprocess.run(cmd_fb, capture_output=True, text=True, check=False)
                 if res_fb.returncode != 0:
                     raise RuntimeError(f"Failed to create worktree: {res.stderr or res_fb.stderr}")
