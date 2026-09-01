@@ -70,6 +70,7 @@ const {
   reconcileUpgradeState,
   recordUpgradeStart,
 } = require("./upgrade_guard");
+const { createCrashReporter } = require("./crash_reporter");
 
 /** OS deep-link prefixes: branded scheme first, legacy second. */
 const DEEP_LINK_PREFIXES = ["agentnexus://", "omnigent://"];
@@ -806,6 +807,16 @@ const updateOverlay = createUpdateOverlay({
   preloadPath: path.join(__dirname, "update_overlay_preload.js"),
 });
 
+// Desktop crash diagnostics: when a renderer dies or the app sees an
+// unexpected process event, write a small redacted bundle under the per-user
+// data dir (see crash_reporter.js). Registered for every window and for app
+// level child/process-gone surfaces.
+const crashReporter = createCrashReporter({
+  app,
+  userDataDir: () => app.getPath("userData"),
+  getCurrentVersion: () => currentDesktopVersion,
+});
+
 // Shell-owned "return to your server?" banner: offered when a window has sat
 // on a foreign page (e.g. an SSO login) instead of its pinned server — see
 // away_banner.js. Like the update overlay it ships with the desktop app so it
@@ -1297,6 +1308,11 @@ function createWindow(targetUrl, opts = {}) {
     badgeCount: 0,
     // Per-conversation embedded-browser view registry for this window.
     browserRegistry: createBrowserRegistryForWindow(win),
+  });
+  crashReporter.attach(win, {
+    origin: destinationOrigin,
+    serverUrl: destination ? serverUrl : null,
+    serverManifest: () => windowServerManifest(win),
   });
   registerWorkspaceRootBounce(win.webContents, () => pinnedOrigin(win));
   // Show the return banner when the window navigates away from its server
@@ -2064,6 +2080,23 @@ function buildMenu() {
             detail: String(err?.message ?? err),
             buttons: ["OK"],
           });
+        }
+      },
+    },
+    { type: "separator" },
+    {
+      id: "open_diagnostics_folder",
+      label: "Open Diagnostics Folder…",
+      click: () => {
+        // Open the per-user crash-bundle directory (created lazily). No data
+        // is uploaded anywhere — the folder is local to this machine.
+        const target = crashReporter.getDiagnosticsDir();
+        if (typeof shell.openPath === "function") {
+          shell.openPath(target).catch(() => {
+            console.warn("[omnigent] could not open diagnostics folder:", target);
+          });
+        } else {
+          console.warn("[omnigent] shell.openPath unavailable; diagnostics at:", target);
         }
       },
     },
@@ -3144,6 +3177,7 @@ if (!gotLock) {
     registerLocalhostAccess();
     registerSessionExpiryAccess();
     registerIpc();
+    crashReporter.registerAppEvents();
     buildMenu();
     // Patch PATH for GUI-launched Electron on macOS/Linux:
     // A desktop launcher inherits a minimal system PATH that omits directories like

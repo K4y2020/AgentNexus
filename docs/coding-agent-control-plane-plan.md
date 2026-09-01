@@ -967,6 +967,16 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 剩余 P6 仍依赖真实环境：签名证书验收、100 次独立可靠性 Run、三项 24 小时
 > soak、macOS/Linux 正式包、完整自动升级回滚与企业离线包、公开 Beta 指标。
 >
+> 2026-09-01 P6 崩溃诊断已补齐 Electron 主进程侧
+> （`web/electron/src/crash_reporter.js`）：renderer 崩溃（`render-process-gone`）、
+> app 级 `child-process-gone`/`process-gone` 以及 unresponsive/responsive 都会
+> 在 `<userData>/diagnostics/` 落一份脱敏 bundle：记录桌面版本/平台/架构、崩溃
+> 事件细节、来源 host 与脱敏 server URL 和 manifest（仅保留
+> apiVersion/name/product/version/serverVersion 白名单），查询串、凭据与
+> 常见 secret 值形状一律掩码，保留最近 20 份并轮换；Server 菜单新增
+> “Open Diagnostics Folder…” 打开本地诊断目录，不上传任何数据。定向单测
+> 6 例覆盖脱敏、URL 清洗、manifest 白名单、renderer 崩溃落盘与轮换和 app 事件订阅。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
