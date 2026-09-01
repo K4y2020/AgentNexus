@@ -81,6 +81,7 @@ from omnigent.runner.app import (
     _forward_harness_response,
     _resolve_harness_config,
 )
+from omnigent.process_logging import process_log_reference
 from omnigent.runtime.harnesses import _HARNESS_MODULES
 from omnigent.runtime.harnesses._executor_adapter import (
     _ORPHAN_RESYNC_THRESHOLD,
@@ -1459,7 +1460,8 @@ async def test_runner_post_returns_503_when_spec_resolver_fails(
     # not leak into the HTTP body (it is logged on the runner instead).
     assert body["error"] == "spec_resolver_failed"
     assert body["detail"] == (
-        f"Request failed on the runner; see the runner log for details: {pinned_runner_log}"
+        "Request failed on the runner; "
+        f"see the runner log for details: {process_log_reference('runner')}"
     )
     assert "spec resolver unavailable" not in body["detail"]
     # The other half of the contract: the raw cause IS logged for operators.
@@ -6896,7 +6898,7 @@ async def test_sys_session_create_bundle_mode_uploads_child_under_caller(
     from omnigent.runner.tool_dispatch import execute_tool
 
     config_text = "name: helper\nprompt: do helpful things\n"
-    (tmp_path / "helper.yaml").write_text(config_text)
+    (tmp_path / "helper.yaml").write_bytes(config_text.encode("utf-8"))
 
     create_requests: list[httpx.Request] = []
     event_bodies: list[dict[str, Any]] = []
