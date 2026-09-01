@@ -601,6 +601,7 @@ async def get_coordination_run_summary(
         task_statuses[role] = task.status
     message_states: dict[str, int] = {}
     consumption_states: dict[str, int] = {}
+    effect_unknown_count = 0
     for message in messages:
         if message.run_id != run_id:
             continue
@@ -610,6 +611,8 @@ async def get_coordination_run_summary(
         consumption_states[message.consumption_state] = consumption_states.get(
             message.consumption_state, 0
         ) + 1
+        if message.effect_unknown_reason is not None:
+            effect_unknown_count += 1
     return {
         "run": run.to_dict(),
         "summary": {
@@ -619,6 +622,7 @@ async def get_coordination_run_summary(
             "fix_cycles": int(run.metadata.get("fix_cycles") or 0),
             "message_states": message_states,
             "consumption_states": consumption_states,
+            "effect_unknown_count": effect_unknown_count,
             "artifact_count": len(artifacts),
         },
     }

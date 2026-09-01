@@ -13,12 +13,14 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from omnigent.coordination.dispatcher import CoordinationDispatcher
+from omnigent.coordination.reconciliation import reconcile_effect_unknown
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import (
     AgentMessage,
     CoordinationArtifact,
     CoordinationRun,
     CoordinationTask,
+    DeliveryAttempt,
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
@@ -1660,6 +1662,54 @@ def test_coordination_api_run_summary_and_budget(
     assert summary2.json()["summary"]["stage"]["planner"] == "succeeded"
     assert summary2.json()["summary"]["stage"]["implementer"] == "running"
     assert summary2.json()["summary"]["artifact_count"] == 1
+
+
+def test_coordination_api_run_summary_reports_effect_unknown_count(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/runs",
+        json={
+            "title": "Effect Unknown Summary",
+            "root_session_id": "conv_root_api",
+            "template": "plan_implement_review",
+        },
+    )
+    assert res.status_code == 200
+    run_id = res.json()["run"]["run_id"]
+
+    msg = AgentMessage(
+        root_session_id="conv_root_api",
+        run_id=run_id,
+        sender_session_id="conv_p1",
+        recipient_session_id="conv_c1",
+        intent="task.request",
+        payload={"prompt": "deliver then go silent"},
+    )
+    memory_store.save_message_and_outbox(msg)
+    memory_store.update_message_state(msg.message_id, "active")
+    stamped_at = time.time() - 301.0
+    memory_store.record_delivery_attempt(
+        DeliveryAttempt(
+            message_id=msg.message_id,
+            target_session_id=msg.recipient_session_id,
+            delivery_state="confirmed",
+            injection_receipt={"status": "runner_injected"},
+            created_at=stamped_at,
+            updated_at=stamped_at,
+        ),
+        mark_outbox_done=True,
+    )
+    report = reconcile_effect_unknown(memory_store, grace_s=300.0)
+    assert report.marked == [msg.message_id]
+
+    summary = client.get(f"/v1/coordination/runs/{run_id}/summary")
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["summary"]["effect_unknown_count"] == 1
 
 
 def test_coordination_api_report_drives_workflow_with_assignee_acl(

@@ -986,6 +986,15 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 验收矩阵模板。示例本身不依赖 AgentNexus 内部实现，可复制成独立公开 demo repo，
 > 供 Gate D 的 3–5 名真实用户和 Harness 对比在同一验收条件下使用。
 >
+> 2026-09-01 `effect_unknown` 对账已落地：Dispatcher 后台循环每约 30 秒扫描仍为
+> `active + unconsumed` 的消息；若最近一次 delivery attempt 是 `confirmed` 或
+> 显式 `unknown` 且超过 300s 宽限期仍无消费回执，就在 `agent_messages` 上一次性
+> 写入 `effect_unknown_reason`（CAS，幂等）并发布
+> `effect.unknown_detected` 时间线事件；`failed/pending/leased/injected` 最近
+> attempt 不误标。Run summary 新增 `effect_unknown_count`。迁移
+> `za4b2c4d5e6f` 幂等添加列，定向测试覆盖超时标记、宽限期、非确认 attempt
+> 忽略、重复扫描不重复写事件和 Dispatcher/API 接入。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

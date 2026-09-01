@@ -72,6 +72,7 @@ class AgentMessage:
     message_state: MessageState = "queued"
     consumption_state: ConsumptionState = "unconsumed"
     consumption_receipt: dict[str, Any] | None = None
+    effect_unknown_reason: str | None = None
     consumed_at: float | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)

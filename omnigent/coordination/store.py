@@ -139,6 +139,7 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
             if row.consumption_receipt_json
             else None
         ),
+        effect_unknown_reason=row.effect_unknown_reason,
         consumed_at=row.consumed_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -634,6 +635,41 @@ class CoordinationStore:
             row.consumed_at = now if state in ("consumed", "acknowledged", "rejected") else None
             row.updated_at = now
         return self.get_message(message_id)
+
+    def mark_message_effect_unknown(
+        self, message_id: str, reason: str
+    ) -> AgentMessage | None:
+        """Mark an active message's delivery effect as unknown, once.
+
+        The CAS (``reason IS NULL``) makes repeated reconciliation scans
+        idempotent: only the first writer stamps the reason, and a later
+        consumption receipt does not see a wrongly mutated row here (that
+        state transition is owned by
+        :meth:`record_consumption_receipt`).
+        """
+        with self._session_immediate("mark_message_effect_unknown") as sess:
+            row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
+            if row is None or row.effect_unknown_reason is not None:
+                return None
+            row.effect_unknown_reason = reason
+            row.updated_at = time.time()
+        return self.get_message(message_id)
+
+    def list_effect_unknown_candidates(self, limit: int = 200) -> list[AgentMessage]:
+        """Return active, unconsumed messages that no reconciler has stamped."""
+        with self._session("list_effect_unknown_candidates") as sess:
+            stmt = (
+                select(SqlAgentMessage)
+                .where(
+                    SqlAgentMessage.workspace_id == current_workspace_id(),
+                    SqlAgentMessage.message_state == "active",
+                    SqlAgentMessage.consumption_state == "unconsumed",
+                    SqlAgentMessage.effect_unknown_reason.is_(None),
+                )
+                .order_by(SqlAgentMessage.created_at.asc())
+                .limit(limit)
+            )
+            return [_row_to_message(row) for row in sess.scalars(stmt)]
 
     def list_messages(
         self, root_session_id: str, recipient_session_id: str | None = None

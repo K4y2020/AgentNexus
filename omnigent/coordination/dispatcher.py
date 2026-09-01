@@ -8,6 +8,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from omnigent.coordination.reconciliation import reconcile_effect_unknown
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import AgentMessage, DeliveryAttempt
 from omnigent.db.db_models import InvalidUuidError
@@ -30,12 +31,16 @@ class CoordinationDispatcher:
         self.conversation_store = conversation_store
         self._running = False
         self._task: asyncio.Task[None] | None = None
+        # Reconciliation cadence: every N poll loops (~30s at 0.5s poll).
+        self._poll_count = 0
+        self.reconcile_every_loops = 60
 
     async def start(self) -> None:
         """Start the background outbox polling loop."""
         if self._running:
             return
         self._running = True
+        self._poll_count = 0
         self._task = asyncio.create_task(self._poll_loop())
         _logger.info("CoordinationDispatcher started")
 
@@ -55,7 +60,22 @@ class CoordinationDispatcher:
                 await self.dispatch_once()
             except Exception:
                 _logger.exception("Error in coordination dispatch loop")
+            self._poll_count += 1
+            if self._poll_count % self.reconcile_every_loops == 0:
+                try:
+                    await self.reconcile_once()
+                except Exception:
+                    _logger.exception("Error in effect-unknown reconciliation")
             await asyncio.sleep(0.5)
+
+    async def reconcile_once(self, *, grace_s: float | None = None) -> object:
+        """Run one effect-unknown reconciliation scan and return its report."""
+        kwargs: dict[str, object] = {}
+        if grace_s is not None:
+            kwargs["grace_s"] = grace_s
+        return await asyncio.to_thread(
+            reconcile_effect_unknown, self.store, **kwargs
+        )
 
     async def dispatch_once(self) -> int:
         """Process one batch of pending outbox messages. Returns number processed."""

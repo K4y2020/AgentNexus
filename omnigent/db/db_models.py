@@ -1702,6 +1702,9 @@ class SqlAgentMessage(OmnigentBase):
     consumption_receipt_json: Mapped[str | None] = mapped_column(
         CompressedText, nullable=True
     )
+    effect_unknown_reason: Mapped[str | None] = mapped_column(
+        String(512), nullable=True
+    )
     consumed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
