@@ -169,6 +169,14 @@ class AdvanceWorkflowRequest(BaseModel):
     review_decision: str | None = None
 
 
+class ReportWorkflowTaskRequest(BaseModel):
+    actor_session_id: str
+    outcome: Literal["succeeded", "failed"] = "succeeded"
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    review_decision: str | None = None
+    summary: str | None = None
+
+
 class AcquireLeaseRequest(BaseModel):
     root_session_id: str
     workspace_path: str
@@ -546,6 +554,80 @@ async def advance_coordination_workflow(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     tasks = await asyncio.to_thread(store.list_tasks, run_id)
     return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/workflows/{run_id}/tasks/{task_id}/report")
+async def report_workflow_task_result(
+    run_id: str,
+    task_id: str,
+    req: ReportWorkflowTaskRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Record a stage result as a durable message, then advance the workflow.
+
+    The result is persisted through the same AgentMessage/Outbox path as an
+    ordinary peer message, so the Control Plane keeps an auditable correlation
+    between the stage task, the result, and the next dispatch. Only the task's
+    assigned session may report; the root orchestrator still controls pause,
+    retry, reassign, and cancel through the existing run endpoints.
+    """
+    store = _request_store(request)
+    run = await asyncio.to_thread(store.get_run, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    task = await asyncio.to_thread(store.get_task, task_id)
+    if task is None or task.run_id != run_id:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found in run {run_id}")
+    await _require_coordination_tree(
+        request,
+        run.root_session_id,
+        req.actor_session_id,
+    )
+    if task.assignee_session_id != req.actor_session_id:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"session {req.actor_session_id!r} is not assigned to task "
+                f"{task_id!r}"
+            ),
+        )
+
+    result_msg = AgentMessage(
+        root_session_id=run.root_session_id,
+        run_id=run.run_id,
+        task_id=task.task_id,
+        sender_session_id=req.actor_session_id,
+        sender_role=task.assignee_role or "agent",
+        recipient_session_id=run.root_session_id,
+        recipient_role="user_orchestrator",
+        kind="event",
+        intent="task.result",
+        payload={
+            "outcome": req.outcome,
+            "review_decision": req.review_decision,
+            "summary": req.summary,
+        },
+        artifacts=req.artifacts,
+        correlation_id=f"workflow:{run.run_id}:task:{task.task_id}",
+    )
+    saved, _outbox = await asyncio.to_thread(store.save_message_and_outbox, result_msg)
+    engine = _request_workflow_engine(request)
+    try:
+        updated = await engine.advance(
+            run_id=run.run_id,
+            task_id=task.task_id,
+            outcome=req.outcome,
+            artifacts=req.artifacts,
+            review_decision=req.review_decision,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
+    return {
+        "message": saved.to_dict(),
+        "run": updated.to_dict(),
+        "tasks": [t.to_dict() for t in tasks],
+    }
 
 
 @router.post("/runs/{run_id}/pause")

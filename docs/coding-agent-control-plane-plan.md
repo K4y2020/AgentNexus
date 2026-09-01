@@ -906,7 +906,7 @@ POST   /v1/sessions/{id}/workspace-switch
 GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 
 > 已落地：/runs（创建/列表/详情/summary）、/runs/{id}/pause|resume|cancel、
-> /workflows/plan-implement-review、/workflows/{run}/tasks/{task}/advance、
+> /workflows/plan-implement-review、/workflows/{run}/tasks/{task}/advance|report、
 > /tasks/{task}/retry、/tasks/{task}/reassign、/messages（发送/回执/取消）、/artifacts（CRUD）、
 > /events、/workspaces/lease 与 merge-previews 执行。状态迁移全部使用
 > SQL CAS，重复 advance/cancel/retry 幂等，不会重复派发下一阶段；改派会重定向
@@ -916,6 +916,9 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > Server 启动 CoordinationWorkflowScheduler，重启后自动补齐 running 阶段缺失的
 > 排队投递，已消费/暂停/取消的工作不会被重放；
 > 每个 Run 固定 template_version 快照，summary 汇总 stage/message/artifact 状态。
+> report 把阶段结果作为 task.result 持久消息写入同一个 AgentMessage/Outbox
+> 链路，校验发送者必须是该任务 assignee，再由 WorkflowEngine 自动派发下一阶段；
+> 用户仍通过 pause/retry/reassign/cancel 控制人工 Gate。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge
 ```

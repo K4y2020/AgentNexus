@@ -1482,6 +1482,125 @@ def test_coordination_api_run_summary_and_budget(
     assert summary2.json()["summary"]["artifact_count"] == 1
 
 
+def test_coordination_api_report_drives_workflow_with_assignee_acl(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Report API Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Drive stages via durable result messages",
+        },
+    )
+    assert res.status_code == 200
+    wf = res.json()
+    run_id = wf["run"]["run_id"]
+    tasks_by_role = {t["assignee_role"]: t["task_id"] for t in wf["tasks"]}
+
+    wrong_actor = client.post(
+        f"/v1/coordination/workflows/{run_id}/tasks/{tasks_by_role['planner']}/report",
+        json={"actor_session_id": "conv_c1", "outcome": "succeeded"},
+    )
+    assert wrong_actor.status_code == 403
+    assert "not assigned" in wrong_actor.json()["detail"]
+
+    reports = [
+        ("planner", "conv_p1", {"outcome": "succeeded"}),
+        ("implementer", "conv_c1", {"outcome": "succeeded"}),
+        ("reviewer", "conv_r1", {"outcome": "succeeded", "review_decision": "approved"}),
+        ("tester", "conv_r1", {"outcome": "succeeded"}),
+    ]
+    for role, actor, body in reports:
+        reported = client.post(
+            f"/v1/coordination/workflows/{run_id}/tasks/{tasks_by_role[role]}/report",
+            json={"actor_session_id": actor, **body},
+        )
+        assert reported.status_code == 200, reported.text
+        assert reported.json()["message"]["intent"] == "task.result"
+        assert reported.json()["message"]["task_id"] == tasks_by_role[role]
+
+    messages = memory_store.list_messages("conv_root_api")
+    result_messages = [m for m in messages if m.intent == "task.result"]
+    assert len(result_messages) == 4
+    final_run = client.get(f"/v1/coordination/runs/{run_id}").json()["run"]
+    assert final_run["status"] == "succeeded"
+    assert all(
+        t["status"] == "succeeded"
+        for t in client.get(f"/v1/coordination/runs/{run_id}").json()["tasks"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_coordination_report_loop_delivers_each_stage_to_target_runner(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Runner Loop Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Prove each stage reaches the target runner",
+        },
+    )
+    assert res.status_code == 200
+    wf = res.json()
+    run_id = wf["run"]["run_id"]
+    tasks_by_role = {t["assignee_role"]: t["task_id"] for t in wf["tasks"]}
+
+    router = FakeRunnerRouter(status_code=200)
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        lambda: router,
+    )
+    dispatcher = CoordinationDispatcher(memory_store)
+
+    stages = [
+        ("planner", "conv_p1", {"outcome": "succeeded"}),
+        ("implementer", "conv_c1", {"outcome": "succeeded"}),
+        ("reviewer", "conv_r1", {"outcome": "succeeded", "review_decision": "approved"}),
+        ("tester", "conv_r1", {"outcome": "succeeded"}),
+    ]
+    for index, (role, actor, body) in enumerate(stages):
+        count = await dispatcher.dispatch_once()
+        expected_count = 1 if index == 0 else 2
+        assert count == expected_count
+        assert router.called_session_ids[-1] == actor
+        reported = client.post(
+            f"/v1/coordination/workflows/{run_id}/tasks/{tasks_by_role[role]}/report",
+            json={"actor_session_id": actor, **body},
+        )
+        assert reported.status_code == 200, reported.text
+
+    final_run = client.get(f"/v1/coordination/runs/{run_id}").json()["run"]
+    assert final_run["status"] == "succeeded"
+    runner_calls = [
+        session_id
+        for session_id in router.called_session_ids
+        if session_id != "conv_root_api"
+    ]
+    assert runner_calls[:4] == [
+        "conv_p1",
+        "conv_c1",
+        "conv_r1",
+        "conv_r1",
+    ]
+
+
 def test_coordination_api_deadline_conflict(
     memory_store: CoordinationStore,
     default_conversations: dict[str, FakeConversation],
