@@ -977,6 +977,15 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > “Open Diagnostics Folder…” 打开本地诊断目录，不上传任何数据。定向单测
 > 6 例覆盖脱敏、URL 清洗、manifest 白名单、renderer 崩溃落盘与轮换和 app 事件订阅。
 >
+> 2026-09-01 Gate D 固定验收样本已加入仓库：
+> `demos/agentnexus-acceptance/` 提供无第三方依赖的示例工程
+> （`sample_repo`，订单定价 helpers + 9 例 unittest 基线）、20 个标准任务
+> （`tasks.json`，每项含 story/acceptance/scope/review_evidence）、统一证据命令
+> `verify_baseline.py`（stdout 输出 JSON，成功即 exit 0）、Plan→Implement→Review
+> 模板 workflow payload（可直接 POST `/v1/coordination/workflows/template`）和
+> 验收矩阵模板。示例本身不依赖 AgentNexus 内部实现，可复制成独立公开 demo repo，
+> 供 Gate D 的 3–5 名真实用户和 Harness 对比在同一验收条件下使用。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

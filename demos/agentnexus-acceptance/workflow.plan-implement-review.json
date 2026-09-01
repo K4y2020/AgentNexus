@@ -1,0 +1,45 @@
+{
+  "title": "Acceptance T01 implement with review",
+  "root_session_id": "REPLACE_WITH_ROOT_SESSION_ID",
+  "tasks": [
+    {
+      "name": "plan",
+      "title": "Plan T01",
+      "assignee_session_id": "REPLACE_WITH_PLANNER_SESSION_ID",
+      "assignee_role": "planner",
+      "intent": "task.request",
+      "prompt": "Read demos/agentnexus-acceptance/tasks.json task T01. Produce a short implementation plan: API shape, edge cases, test list. Do not edit files.",
+      "acceptance_criteria": [
+        "Plan names the function signature and error contract",
+        "Plan lists at least 2 edge-case tests"
+      ]
+    },
+    {
+      "name": "implement",
+      "title": "Implement T01",
+      "assignee_session_id": "REPLACE_WITH_IMPLEMENTER_SESSION_ID",
+      "assignee_role": "implementer",
+      "intent": "task.request",
+      "prompt": "Implement task T01 from demos/agentnexus-acceptance/tasks.json in demos/agentnexus-acceptance/sample_repo. Run the evidence command python demos/agentnexus-acceptance/verify_baseline.py; all tests must pass. Do not commit to the user's main branch and never write secrets to the diff.",
+      "acceptance_criteria": [
+        "Evidence command exits 0 with success=true",
+        "Diff stays inside sample_repo",
+        "No secret-looking values in the diff"
+      ],
+      "dependencies": ["plan"]
+    },
+    {
+      "name": "review",
+      "title": "Review T01",
+      "assignee_session_id": "REPLACE_WITH_REVIEWER_SESSION_ID",
+      "assignee_role": "reviewer",
+      "intent": "task.request",
+      "prompt": "Review the implement stage output for task T01 against demos/agentnexus-acceptance/tasks.json. Run the evidence command yourself, verify the diff stays in sample_repo, and confirm no secret-looking values. Report approve or needs_changes with evidence.",
+      "acceptance_criteria": [
+        "Review cites test output and diff scope",
+        "Review states approve or needs_changes explicitly"
+      ],
+      "dependencies": ["implement"]
+    }
+  ]
+}

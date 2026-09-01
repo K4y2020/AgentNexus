@@ -1,0 +1,249 @@
+{
+  "sample": "agentnexus-acceptance",
+  "version": "1",
+  "purpose": "Fixed acceptance sample for AgentNexus collaborative-coding runs",
+  "evidence_command": "python demos/agentnexus-acceptance/verify_baseline.py",
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Add flat-rate shipping override",
+      "story": "A seller wants to force a fixed shipping cost for selected countries.",
+      "acceptance": [
+        "shipping_flat_rate(country_code, configured_flat) returns the flat rate for known codes",
+        "unknown configured entries fall back to weight-based shipping_cost",
+        "unit tests cover both paths"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T02",
+      "title": "Reject negative prices",
+      "story": "Price feeds occasionally send negative unit prices; pricing must fail loudly.",
+      "acceptance": [
+        "line_total raises ValueError for a negative unit_price",
+        "apply_discount still rejects negative amount",
+        "unit tests cover negative unit_price and quantity"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T03",
+      "title": "Free shipping threshold",
+      "story": "Orders over a configurable amount should ship free.",
+      "acceptance": [
+        "shipping_cost accepts a free_shipping_threshold",
+        "amounts strictly above the threshold return 0.0",
+        "remote surcharge is waived too at/above threshold",
+        "unit tests cover boundary values"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T04",
+      "title": "Remote-area zip prefixes",
+      "story": "Remote shipping should use configurable zip prefixes instead of hardcoded ones.",
+      "acceptance": [
+        "remote_zips are passed as a parameter with a safe default",
+        "prefix matching is case/padding stable",
+        "unit tests cover a configured prefix and the default list"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T05",
+      "title": "Volume surcharge",
+      "story": "Bulky packages cost more to ship.",
+      "acceptance": [
+        "shipping_cost accepts volume_cm3 and adds a surcharge above 5000 cm3",
+        "non-bulky volume adds nothing",
+        "unit tests cover both sides of the boundary"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T06",
+      "title": "Stable money rounding contract",
+      "story": "Rounding must be deterministic across environments.",
+      "acceptance": [
+        "round_money documents and implements half-up rounding to cents",
+        "1.005 and 2.675 round to 1.01 and 2.68",
+        "existing tests stay green"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T07",
+      "title": "Extend tax table",
+      "story": "Two new countries should be covered by default tax rates.",
+      "acceptance": [
+        "tax_rate returns 0.21 for GB and 0.05 for CA when configured",
+        "unknown codes still raise KeyError",
+        "unit tests cover the new codes"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T08",
+      "title": "Discount cap",
+      "story": "A promotion must never discount more than a configurable percentage.",
+      "acceptance": [
+        "apply_discount caps the effective percentage at discount_cap when provided",
+        "lower percentages are unaffected",
+        "unit tests cover below, at, and above the cap"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T09",
+      "title": "Bundle stacking rule",
+      "story": "Bundle discounts must stack with line discounts only when explicitly enabled.",
+      "acceptance": [
+        "line_total accepts a bundle_discount_pct",
+        "stacking applies both discounts when enabled and only line discount otherwise",
+        "unit tests cover both modes"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T10",
+      "title": "Express shipping option",
+      "story": "Checkout needs an express tier with a flat premium.",
+      "acceptance": [
+        "shipping_cost accepts express=True and adds the documented premium",
+        "premium is constant per weight tier",
+        "unit tests cover express and standard"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T11",
+      "title": "Currency formatting",
+      "story": "Totals should render with thousands separators and two decimals.",
+      "acceptance": [
+        "format_money(1234567.891) returns '1,234,567.89'",
+        "negative values keep a '-' prefix",
+        "unit tests cover large and negative values"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T12",
+      "title": "Order status validator",
+      "story": "Status values must be validated before external APIs see them.",
+      "acceptance": [
+        "validate_order_status accepts pending, confirmed, shipped, delivered, cancelled",
+        "other values raise ValueError with the offending value",
+        "unit tests cover the full set"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T13",
+      "title": "Reject zero-unit orders",
+      "story": "An order with a zero quantity should be treated as a data error.",
+      "acceptance": [
+        "line_total rejects quantity == 0 with a distinct ValueError message",
+        "the existing zero-quantity test is updated to the new contract",
+        "all other line totals stay valid"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T14",
+      "title": "Numeric coercion guard",
+      "story": "String prices from legacy feeds must be rejected instead of silently coerced.",
+      "acceptance": [
+        "line_total raises TypeError when unit_price is not int/float",
+        "apply_discount raises TypeError for non-numeric amount",
+        "unit tests cover string and bool inputs"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T15",
+      "title": "Max order weight",
+      "story": "Packages above a weight limit must be refused with a clear error.",
+      "acceptance": [
+        "shipping_cost raises ValueError above max_weight_g when provided",
+        "at-limit packages are accepted",
+        "unit tests cover at and above the limit"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T16",
+      "title": "Discount code normalization",
+      "story": "Discount codes arrive with mixed case and extra whitespace.",
+      "acceptance": [
+        "normalize_discount_code trims and uppercases",
+        "empty codes raise ValueError",
+        "unit tests cover mixed case, padding, and empty input"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T17",
+      "title": "Merge duplicate line items",
+      "story": "Duplicate SKUs should merge quantities instead of producing two rows.",
+      "acceptance": [
+        "merge_lines sums quantities for matching keys and keeps the rest",
+        "input lines are not mutated",
+        "unit tests cover duplicates and distinct lines"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T18",
+      "title": "Minimum shipping charge",
+      "story": "Some routes need a floor price even when weight is tiny.",
+      "acceptance": [
+        "shipping_cost clamps the result to min_charge when provided",
+        "values above the floor are unchanged",
+        "unit tests cover below/above the floor"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T19",
+      "title": "Tax-exempt flag",
+      "story": "Resellers should be able to exempt an order from tax.",
+      "acceptance": [
+        "order_total accepts tax_exempt=True and omits tax",
+        "standard orders still include configured tax",
+        "unit tests cover both flags"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    },
+    {
+      "id": "T20",
+      "title": "Order total summary",
+      "story": "A single call should summarize subtotal, discount, tax, and shipping.",
+      "acceptance": [
+        "order_summary returns a dict with subtotal, discount, tax, shipping, total",
+        "the total equals the sum of components rounded consistently",
+        "unit tests cover a taxed and an exempt order"
+      ],
+      "scope": ["orders/pricing.py", "tests/test_pricing.py"],
+      "review_evidence": ["tests pass", "diff reviewed", "no secrets in diff"]
+    }
+  ]
+}

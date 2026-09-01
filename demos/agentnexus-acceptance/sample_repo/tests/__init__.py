@@ -1,0 +1,1 @@
+"""Acceptance-sample test package."""
