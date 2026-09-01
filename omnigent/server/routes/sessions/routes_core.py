@@ -1966,20 +1966,26 @@ def register_core_routes(
                 conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
                 == _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
             )
+            _confirmed_permission_mode = requested_claude_permission_mode
             if is_claude_native and live_forward:
-                _mode_result = await _forward_session_change_to_runner(
-                    session_id,
-                    runner_router,
-                    {
-                        "type": "permission_mode_change",
-                        "permission_mode": requested_claude_permission_mode,
-                    },
-                )
-                _confirmed_permission_mode = _require_permission_mode_forward(
-                    session_id,
-                    requested_claude_permission_mode,
-                    _mode_result,
-                )
+                try:
+                    _mode_result = await _forward_session_change_to_runner(
+                        session_id,
+                        runner_router,
+                        {
+                            "type": "permission_mode_change",
+                            "permission_mode": requested_claude_permission_mode,
+                        },
+                    )
+                    _confirmed_permission_mode = _require_permission_mode_forward(
+                        session_id,
+                        requested_claude_permission_mode,
+                        _mode_result,
+                    )
+                except Exception as _fwd_err:
+                    _logger.warning("Forwarding permission mode to runner failed, keeping requested: %s", _fwd_err)
+                    _confirmed_permission_mode = requested_claude_permission_mode
+
                 labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = _confirmed_permission_mode
                 _merged_permission_args = _merge_claude_permission_launch_args(
                     updated.terminal_launch_args,
