@@ -15,6 +15,7 @@ evidence below proves it, not when a page or code path merely exists.
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
 | Web production build (`vite build`) | Succeeded (42s) |
 | Electron desktop tests (`node --test`) | 366/366 passed |
+| Linux desktop smoke | AppImage + deb built in WSL Ubuntu (SHA256 recorded) |
 | Windows desktop build | NSIS setup.exe + portable zip built (unsigned) |
 | Launch smoke | `AgentNexus.exe` started and exited cleanly, no orphan |
 
@@ -84,8 +85,14 @@ evidence below proves it, not when a page or code path merely exists.
 - Mock 100-run baseline collected (0 failures); nightly soak job added.
 - Migration, privacy, and support-boundary docs shipped:
   `docs/migration-guide.md`, `docs/privacy.md`, `docs/support-boundaries.md`.
-- Remaining: real-provider 100-run samples, macOS/Linux smoke artifacts,
-  and the real-user Gate D sample (3-5 users, at least 5 repos / 20 runs).
+- Linux smoke artifacts were produced on 2026-09-02 in WSL Ubuntu from main
+  (`71d31bfc`): `AgentNexus-0.12.0-dev.0.AppImage` (124 MB,
+  `dca2a35254bde19542bf7366e5cd8b8af860eec70fe1341d8b9aad685a9899fe`) and
+  `agentnexus-desktop-electron_0.12.0-dev.0_amd64.deb` (97 MB,
+  `0a3873d417675bb7b560dfe78476afd2a80f6e7fda74f6af647f6c2582daff88`),
+  copied to `U:\AI\MultiAgent\artifacts\linux-smoke`.
+- Remaining: real-provider 100-run samples, a macOS smoke artifact, and the
+  real-user Gate D sample (3-5 users, at least 5 repos / 20 runs).
 
 ## External blockers
 
@@ -96,4 +103,9 @@ evidence below proves it, not when a page or code path merely exists.
   (`All credentials for model gemini-3.7-flash-high are cooling down`), not
   by the control plane; the machine's real local Codex provider route is
   healthy and completed an operator-gated control-plane workflow.
+- GitHub Actions jobs currently do not start at all: the provider returned
+  "recent account payments have failed or your spending limit needs to be
+  increased" as an annotation on desktop-cross-platform-smoke run
+  `33548075760`. Until the account billing state is fixed, CI cannot produce
+  the macOS side of the platform smoke gate.
 - 24h soak and Gate D require wall-clock time and real machines/users.

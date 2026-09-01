@@ -216,6 +216,30 @@ P4 resume-after-crash and P3 real-merge acceptance gaps at the automated
 server level. The remaining P6 gates still require real-provider samples,
 wall-clock soak, and real users.
 
+## Linux desktop smoke artifact (2026-09-02)
+
+GitHub Actions is currently unable to start any job because the account has a
+billing/spending-limit block (annotation: "recent account payments have failed
+or your spending limit needs to be increased", desktop-cross-platform-smoke
+run `33548075760`). To still make platform progress, the desktop smoke was
+run locally in WSL Ubuntu 2 from `main` (`71d31bfc`):
+
+```bash
+export PATH="$HOME/.npm-global/bin:$PATH"
+pnpm install --frozen-lockfile --filter web --filter agentnexus-desktop-electron
+cd web/electron && pnpm run build:linux
+```
+
+Artifacts (copied to `U:\AI\MultiAgent\artifacts\linux-smoke`):
+
+- `AgentNexus-0.12.0-dev.0.AppImage`, 124 MB,
+  SHA256 `dca2a35254bde19542bf7366e5cd8b8af860eec70fe1341d8b9aad685a9899fe`.
+- `agentnexus-desktop-electron_0.12.0-dev.0_amd64.deb`, 97 MB,
+  SHA256 `0a3873d417675bb7b560dfe78476afd2a80f6e7fda74f6af647f6c2582daff88`.
+
+This covers the Linux side of the P6 platform-smoke gate. macOS still requires
+a real macOS host or a working GitHub Actions billing state.
+
 ## Soak driver
 
 For the candidate-release 24h soak acceptance, AgentNexus ships
