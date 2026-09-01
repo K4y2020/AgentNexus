@@ -2921,9 +2921,7 @@ def create_runner_app(
         return _session_workspace_cache.get(session_id)
 
     _SESSION_BEHAVIOR_INSTRUCTIONS_TTL_SECONDS = 20.0
-    _session_behavior_instructions_cache: dict[
-        str, tuple[float, tuple[str, ...]]
-    ] = {}
+    _session_behavior_instructions_cache: dict[str, tuple[float, tuple[str, ...]]] = {}
 
     async def _session_behavior_instructions(session_id: str) -> tuple[str, ...]:
         """Best-effort per-turn framework instructions from a session label.
@@ -2939,10 +2937,7 @@ def create_runner_app(
         cached = _session_behavior_instructions_cache.get(session_id)
         if cached is not None:
             cached_at, instructions = cached
-            if (
-                time.monotonic() - cached_at
-                <= _SESSION_BEHAVIOR_INSTRUCTIONS_TTL_SECONDS
-            ):
+            if time.monotonic() - cached_at <= _SESSION_BEHAVIOR_INSTRUCTIONS_TTL_SECONDS:
                 return instructions
             _session_behavior_instructions_cache.pop(session_id, None)
         labels = await _session_labels_for_runner_spawn(

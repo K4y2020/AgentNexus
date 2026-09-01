@@ -34,11 +34,7 @@ def assistant_text_from_items(items: Any, response_id: str | None = None) -> str
     """Return the newest matching assistant message text from a paged item list."""
     rows = list(getattr(items, "data", items) or [])
     if response_id:
-        scoped = [
-            item
-            for item in rows
-            if getattr(item, "response_id", None) == response_id
-        ]
+        scoped = [item for item in rows if getattr(item, "response_id", None) == response_id]
         if scoped:
             rows = scoped
     for item in rows:

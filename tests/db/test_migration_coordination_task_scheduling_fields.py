@@ -64,18 +64,17 @@ def test_scheduling_columns_round_trip(db_engine: Engine) -> None:
                 "status": "running",
                 "created_at": 1.0,
                 "updated_at": 1.0,
-                "acceptance_json": "[\"tests pass\", \"audit log written\"]",
+                "acceptance_json": '["tests pass", "audit log written"]',
                 "deadline": 1234567890.0,
             },
         )
         row = conn.execute(
             sa.text(
-                "SELECT acceptance_json, deadline FROM coordination_tasks "
-                "WHERE task_id = :task_id"
+                "SELECT acceptance_json, deadline FROM coordination_tasks WHERE task_id = :task_id"
             ),
             {"task_id": "task_sched_round"},
         ).one()
-    assert row[0] == "[\"tests pass\", \"audit log written\"]"
+    assert row[0] == '["tests pass", "audit log written"]'
     assert row[1] == 1234567890.0
 
 
@@ -153,7 +152,7 @@ def test_downgrade_removes_scheduling_columns_keeps_rows(tmp_path: Path) -> None
                     "status": "running",
                     "created_at": 1.0,
                     "updated_at": 1.0,
-                    "acceptance_json": "[\"must deploy\"]",
+                    "acceptance_json": '["must deploy"]',
                     "deadline": 1234567890.0,
                 },
             )
@@ -169,10 +168,7 @@ def test_downgrade_removes_scheduling_columns_keeps_rows(tmp_path: Path) -> None
         assert "deadline" not in cols, "deadline must be dropped"
         with engine.connect() as conn:
             row = conn.execute(
-                sa.text(
-                    "SELECT task_id, status FROM coordination_tasks "
-                    "WHERE task_id = :task_id"
-                ),
+                sa.text("SELECT task_id, status FROM coordination_tasks WHERE task_id = :task_id"),
                 {"task_id": "task_sched_downgrade"},
             ).one()
         assert row[0] == "task_sched_downgrade"

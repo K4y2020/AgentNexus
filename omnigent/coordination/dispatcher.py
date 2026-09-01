@@ -73,9 +73,7 @@ class CoordinationDispatcher:
         kwargs: dict[str, object] = {}
         if grace_s is not None:
             kwargs["grace_s"] = grace_s
-        return await asyncio.to_thread(
-            reconcile_effect_unknown, self.store, **kwargs
-        )
+        return await asyncio.to_thread(reconcile_effect_unknown, self.store, **kwargs)
 
     async def dispatch_once(self) -> int:
         """Process one batch of pending outbox messages. Returns number processed."""
@@ -242,9 +240,7 @@ class CoordinationDispatcher:
             injection_receipt=receipt,
             attempt_count=attempt_count,
         )
-        await asyncio.to_thread(
-            self.store.record_delivery_attempt, attempt, True, outbox_item_id
-        )
+        await asyncio.to_thread(self.store.record_delivery_attempt, attempt, True, outbox_item_id)
         await asyncio.to_thread(self.store.update_message_state, msg.message_id, "active")
         self._publish_timeline(msg)
         return True

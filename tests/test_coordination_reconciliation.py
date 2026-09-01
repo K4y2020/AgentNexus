@@ -99,8 +99,7 @@ def test_reconcile_does_not_mark_within_grace(memory_store: CoordinationStore) -
     assert report.marked == []
     assert memory_store.get_message(msg.message_id).effect_unknown_reason is None
     assert all(
-        event.event_type != EVENT_TYPE
-        for event in memory_store.list_events(msg.root_session_id)
+        event.event_type != EVENT_TYPE for event in memory_store.list_events(msg.root_session_id)
     )
 
 
@@ -160,10 +159,13 @@ def test_reconcile_is_idempotent_and_emits_event_once(
     reason = memory_store.get_message(msg.message_id).effect_unknown_reason
     assert reason is not None
     assert memory_store.list_effect_unknown_candidates() == []
-    assert sum(
-        event.event_type == EVENT_TYPE
-        for event in memory_store.list_events(msg.root_session_id)
-    ) == 1
+    assert (
+        sum(
+            event.event_type == EVENT_TYPE
+            for event in memory_store.list_events(msg.root_session_id)
+        )
+        == 1
+    )
 
 
 @pytest.mark.asyncio

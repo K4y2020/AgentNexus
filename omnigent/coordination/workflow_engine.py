@@ -37,8 +37,7 @@ _logger = logging.getLogger(__name__)
 WorkflowOutcome = Literal["succeeded", "failed"]
 
 _RESULT_LINE = (
-    "End your reply with exactly [WORKFLOW_RESULT: succeeded] "
-    "or [WORKFLOW_RESULT: failed]."
+    "End your reply with exactly [WORKFLOW_RESULT: succeeded] or [WORKFLOW_RESULT: failed]."
 )
 _REVIEW_LINE = (
     "End your reply with exactly [REVIEW_DECISION: approved] "
@@ -448,9 +447,7 @@ class CoordinationWorkflowEngine:
             )
             impl = await self._stage_task(run.run_id, "implementer")
             if impl:
-                await self._move_task(
-                    impl.task_id, "running", from_statuses=["queued", "running"]
-                )
+                await self._move_task(impl.task_id, "running", from_statuses=["queued", "running"])
                 await self._send(
                     run,
                     impl,
@@ -486,8 +483,7 @@ class CoordinationWorkflowEngine:
                         "stage": "review",
                         "prompt": (
                             "Review the implementation diff and report approved or "
-                            "changes_requested. "
-                            + _REVIEW_LINE
+                            "changes_requested. " + _REVIEW_LINE
                         ),
                         "impl_task_id": task.task_id,
                     },
@@ -580,8 +576,7 @@ class CoordinationWorkflowEngine:
                         "stage": "re_review",
                         "prompt": (
                             "Re-review the fix artifacts and report approved or "
-                            "changes_requested. "
-                            + _REVIEW_LINE
+                            "changes_requested. " + _REVIEW_LINE
                         ),
                         "fix_task_id": task.task_id,
                     },
@@ -667,9 +662,7 @@ class CoordinationWorkflowEngine:
         """Return the workflow-node behavior override for one task, if any."""
         mode: object = None
         if run.template.startswith(DAG_TEMPLATE_PREFIX):
-            spec = dict(
-                run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {}
-            )
+            spec = dict(run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {})
             mode = spec.get("behavior_mode")
         else:
             modes = dict(run.metadata.get("behavior_modes") or {})
@@ -694,9 +687,7 @@ class CoordinationWorkflowEngine:
         instructions = behavior["resolved"].get("instructions") or []
         if instructions:
             prompt = payload.get("prompt") or ""
-            block = "Behavior instructions:\n" + "".join(
-                f"- {line}\n" for line in instructions
-            )
+            block = "Behavior instructions:\n" + "".join(f"- {line}\n" for line in instructions)
             payload["prompt"] = f"{block}{prompt}"
 
     async def _dispatch_ready_tasks(self, run: CoordinationRun) -> None:
@@ -791,7 +782,6 @@ class CoordinationWorkflowEngine:
             ),
         )
         raise ValueError(f"workflow deadline exceeded for run {run.run_id}")
-
 
     def _task_deadline_exceeded(self, task: CoordinationTask) -> bool:
         if task.deadline is None:
@@ -926,9 +916,7 @@ class CoordinationWorkflowEngine:
         }
         for task in tasks:
             if task.status in non_terminal:
-                await self._move_task(
-                    task.task_id, "cancelled", from_statuses=list(non_terminal)
-                )
+                await self._move_task(task.task_id, "cancelled", from_statuses=list(non_terminal))
         for task in tasks:
             await self._cancel_run_messages(run, task)
         await self._record_run_event(
@@ -972,10 +960,7 @@ class CoordinationWorkflowEngine:
             if message.message_state == "queued":
                 await asyncio.to_thread(self.store.cancel_message, message.message_id)
                 continue
-            if (
-                message.message_state == "active"
-                and message.consumption_state == "unconsumed"
-            ):
+            if message.message_state == "active" and message.consumption_state == "unconsumed":
                 await asyncio.to_thread(
                     self.store.record_consumption_receipt,
                     message.message_id,
@@ -1089,9 +1074,7 @@ class CoordinationWorkflowEngine:
         await self._enforce_deadline(run)
         await self._enforce_task_deadline(run, task)
 
-        messages = await asyncio.to_thread(
-            self.store.list_messages, run.root_session_id
-        )
+        messages = await asyncio.to_thread(self.store.list_messages, run.root_session_id)
         task_messages = [
             message
             for message in messages
@@ -1105,14 +1088,11 @@ class CoordinationWorkflowEngine:
         ]
         if acknowledged:
             raise ValueError(
-                f"task {task_id} work is already acknowledged; "
-                "cancel/retry before reassigning"
+                f"task {task_id} work is already acknowledged; cancel/retry before reassigning"
             )
 
         old_assignee = task.assignee_session_id
-        changed = await asyncio.to_thread(
-            self.store.reassign_task, task_id, assignee_session_id
-        )
+        changed = await asyncio.to_thread(self.store.reassign_task, task_id, assignee_session_id)
         if not changed:
             return await self._current_run(run.run_id), False
 
@@ -1143,10 +1123,7 @@ class CoordinationWorkflowEngine:
                         },
                     ),
                 )
-            elif (
-                message.message_state == "active"
-                and message.consumption_state == "unconsumed"
-            ):
+            elif message.message_state == "active" and message.consumption_state == "unconsumed":
                 await asyncio.to_thread(
                     self.store.record_consumption_receipt,
                     message.message_id,
@@ -1189,9 +1166,7 @@ class CoordinationWorkflowEngine:
                 "task_id": task_id,
                 "from_session_id": old_assignee,
                 "to_session_id": assignee_session_id,
-                "queued_redirected": sum(
-                    1 for m in task_messages if m.message_state == "queued"
-                ),
+                "queued_redirected": sum(1 for m in task_messages if m.message_state == "queued"),
                 "active_rejected": active_rejected,
                 "message_id": sent.message_id if sent else None,
             },
@@ -1211,7 +1186,7 @@ class CoordinationWorkflowEngine:
         for run in runs:
             try:
                 total += await self._heal_run_dispatch(run)
-            except Exception:  
+            except Exception:
                 _logger.exception("recovery failed for run %s", run.run_id)
         return total
 
@@ -1219,9 +1194,7 @@ class CoordinationWorkflowEngine:
         if run.status not in ("running", "waiting_peer"):
             return 0
         tasks = await asyncio.to_thread(self.store.list_tasks, run.run_id)
-        messages = await asyncio.to_thread(
-            self.store.list_messages, run.root_session_id
-        )
+        messages = await asyncio.to_thread(self.store.list_messages, run.root_session_id)
         healed = 0
         for task in tasks:
             if task.status not in ("assigned", "running"):
@@ -1235,20 +1208,14 @@ class CoordinationWorkflowEngine:
                 and message.recipient_session_id == task.assignee_session_id
                 and message.message_state in ("queued", "active")
             ]
+            if any(m.consumption_state in ("consumed", "acknowledged") for m in open_messages):
+                continue
             if any(
-                m.consumption_state in ("consumed", "acknowledged")
+                m.consumption_state == "unconsumed" and m.message_state in ("queued", "active")
                 for m in open_messages
             ):
                 continue
-            if any(
-                m.consumption_state == "unconsumed"
-                and m.message_state in ("queued", "active")
-                for m in open_messages
-            ):
-                continue
-            sent = await self._resend_stage_request(
-                run, task, attempt="recovery"
-            )
+            sent = await self._resend_stage_request(run, task, attempt="recovery")
             await self._record(
                 run,
                 task,
@@ -1274,9 +1241,7 @@ class CoordinationWorkflowEngine:
         """Re-queue the durable stage prompt for a retried/reassigned task."""
         role = task.assignee_role or ""
         if run.template.startswith(DAG_TEMPLATE_PREFIX):
-            spec = dict(
-                run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {}
-            )
+            spec = dict(run.metadata.get("dag_task_specs", {}).get(task.task_id, {}) or {})
             prompt = str(spec.get("prompt") or task.title or "Proceed with the assigned task.")
             if role == "reviewer":
                 prompt = f"{prompt}\n\n{_REVIEW_LINE}"
@@ -1310,8 +1275,7 @@ class CoordinationWorkflowEngine:
                 "stage": "planning_retry",
                 "prompt": (
                     "Previous planning attempt was not accepted; analyze and create an "
-                    "implementation plan for the original request. "
-                    + _RESULT_LINE
+                    "implementation plan for the original request. " + _RESULT_LINE
                 ),
             }
             intent = "task.request"
@@ -1320,8 +1284,7 @@ class CoordinationWorkflowEngine:
                 "stage": "implementation_retry",
                 "prompt": (
                     "Previous implementation attempt was not accepted; implement the plan "
-                    "above and run tests you add or update. "
-                    + _RESULT_LINE
+                    "above and run tests you add or update. " + _RESULT_LINE
                 ),
             }
             intent = "task.request"
@@ -1330,8 +1293,7 @@ class CoordinationWorkflowEngine:
                 "stage": "review_retry",
                 "prompt": (
                     "Previous review attempt was not accepted; review the implementation "
-                    "diff and report approved or changes_requested. "
-                    + _REVIEW_LINE
+                    "diff and report approved or changes_requested. " + _REVIEW_LINE
                 ),
             }
             intent = "review.request"
@@ -1340,8 +1302,7 @@ class CoordinationWorkflowEngine:
                 "stage": "fix_retry",
                 "prompt": (
                     "Previous fix attempt was not accepted; address the reviewer feedback "
-                    "and re-run relevant tests. "
-                    + _RESULT_LINE
+                    "and re-run relevant tests. " + _RESULT_LINE
                 ),
                 "retry": True,
             }
@@ -1351,8 +1312,7 @@ class CoordinationWorkflowEngine:
                 "stage": "test_retry",
                 "prompt": (
                     "Previous test attempt was not accepted; run the full acceptance suite "
-                    "and report succeeded or failed. "
-                    + _RESULT_LINE
+                    "and report succeeded or failed. " + _RESULT_LINE
                 ),
             }
             intent = "test.request"

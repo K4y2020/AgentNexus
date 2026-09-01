@@ -135,9 +135,7 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
         message_state=row.message_state,
         consumption_state=row.consumption_state,  # type: ignore[arg-type]
         consumption_receipt=(
-            json.loads(row.consumption_receipt_json)
-            if row.consumption_receipt_json
-            else None
+            json.loads(row.consumption_receipt_json) if row.consumption_receipt_json else None
         ),
         effect_unknown_reason=row.effect_unknown_reason,
         consumed_at=row.consumed_at,
@@ -596,9 +594,7 @@ class CoordinationStore:
             )
         return self.get_message(message_id)
 
-    def redirect_message_recipient(
-        self, message_id: str, recipient_session_id: str
-    ) -> bool:
+    def redirect_message_recipient(self, message_id: str, recipient_session_id: str) -> bool:
         """Redirect a still-queued message and its outbox to a new recipient."""
         with self._session_immediate("redirect_message_recipient") as sess:
             row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
@@ -636,9 +632,7 @@ class CoordinationStore:
             row.updated_at = now
         return self.get_message(message_id)
 
-    def mark_message_effect_unknown(
-        self, message_id: str, reason: str
-    ) -> AgentMessage | None:
+    def mark_message_effect_unknown(self, message_id: str, reason: str) -> AgentMessage | None:
         """Mark an active message's delivery effect as unknown, once.
 
         The CAS (``reason IS NULL``) makes repeated reconciliation scans
@@ -680,9 +674,7 @@ class CoordinationStore:
                 SqlAgentMessage.root_session_id == root_session_id,
             )
             if recipient_session_id:
-                stmt = stmt.where(
-                    SqlAgentMessage.recipient_session_id == recipient_session_id
-                )
+                stmt = stmt.where(SqlAgentMessage.recipient_session_id == recipient_session_id)
             stmt = stmt.order_by(SqlAgentMessage.created_at.asc())
             return [_row_to_message(row) for row in sess.scalars(stmt)]
 
@@ -829,9 +821,7 @@ class CoordinationStore:
                 row.updated_at = time.time()
                 return
             delay = (
-                next_retry_delay_s
-                if next_retry_delay_s is not None
-                else min(60.0, 2**retry_count)
+                next_retry_delay_s if next_retry_delay_s is not None else min(60.0, 2**retry_count)
             )
             row.status = "pending"
             row.retry_count = retry_count
@@ -1021,9 +1011,7 @@ class CoordinationStore:
                 SqlWorkspaceMergeOperation.workspace_id == current_workspace_id()
             )
             if root_session_id:
-                stmt = stmt.where(
-                    SqlWorkspaceMergeOperation.root_session_id == root_session_id
-                )
+                stmt = stmt.where(SqlWorkspaceMergeOperation.root_session_id == root_session_id)
             stmt = stmt.order_by(SqlWorkspaceMergeOperation.created_at.desc())
             return [_row_to_merge_operation(row) for row in sess.scalars(stmt)]
 
@@ -1100,9 +1088,7 @@ class CoordinationStore:
             stmt = stmt.order_by(SqlCoordinationArtifact.created_at.asc())
             return [_row_to_artifact(row) for row in sess.scalars(stmt)]
 
-    def update_artifact_status(
-        self, artifact_id: str, status: str
-    ) -> CoordinationArtifact | None:
+    def update_artifact_status(self, artifact_id: str, status: str) -> CoordinationArtifact | None:
         """Mark an artifact published/updated/invalidated and return the fresh row."""
         with self._session_immediate("update_artifact_status") as sess:
             sess.execute(

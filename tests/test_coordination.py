@@ -89,12 +89,8 @@ def _acl_request(app: FastAPI, method: str) -> Request:
 @pytest.mark.asyncio
 async def test_coordination_acl_requires_manage_for_mutating_requests() -> None:
     conversations = {
-        "conv_root": FakeConversation(
-            "conv_root", root_conversation_id="conv_root"
-        ),
-        "conv_child": FakeConversation(
-            "conv_child", root_conversation_id="conv_root"
-        ),
+        "conv_root": FakeConversation("conv_root", root_conversation_id="conv_root"),
+        "conv_child": FakeConversation("conv_child", root_conversation_id="conv_root"),
     }
     app = FastAPI()
     app.state.conversation_store = FakeConversationStore(conversations)
@@ -223,9 +219,7 @@ def make_api_app(
     app.state.coordination_store = store
     app.state.conversation_store = FakeConversationStore(conversations)
     app.state.workspace_lease_manager = WorkspaceLeaseManager(store)
-    app.state.workspace_coordinator = WorkspaceCoordinator(
-        app.state.workspace_lease_manager
-    )
+    app.state.workspace_coordinator = WorkspaceCoordinator(app.state.workspace_lease_manager)
     app.state.coordination_workflow_engine = CoordinationWorkflowEngine(
         store, app.state.workspace_coordinator
     )
@@ -393,6 +387,7 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
     assert body["metadata"]["message_id"] == msg.message_id
     assert body["metadata"]["sender_session_id"] == msg.sender_session_id
     assert "review.request" in body["content"][0]["text"]
+
 
 @pytest.mark.asyncio
 async def test_dispatcher_rides_recipient_agent_and_relay_into_delivery(
@@ -868,9 +863,7 @@ async def test_workflow_duplicate_advance_is_idempotent(
     tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
     plan_task = tasks["planner"]
 
-    first = await engine.advance(
-        run_id=run.run_id, task_id=plan_task.task_id, outcome="succeeded"
-    )
+    first = await engine.advance(run_id=run.run_id, task_id=plan_task.task_id, outcome="succeeded")
     messages_after_first = memory_store.list_messages("conv_root_dup")
     second = await engine.advance(
         run_id=run.run_id, task_id=plan_task.task_id, outcome="succeeded"
@@ -879,13 +872,9 @@ async def test_workflow_duplicate_advance_is_idempotent(
 
     assert first.status == "running"
     assert second.status == "running"
-    same_messages = [
-        (m.message_id, m.task_id, m.intent, m.payload)
-        for m in messages_after_first
-    ]
+    same_messages = [(m.message_id, m.task_id, m.intent, m.payload) for m in messages_after_first]
     assert same_messages == [
-        (m.message_id, m.task_id, m.intent, m.payload)
-        for m in messages_after_second
+        (m.message_id, m.task_id, m.intent, m.payload) for m in messages_after_second
     ]
     implementer = next(
         m for m in memory_store.list_tasks(run.run_id) if m.assignee_role == "implementer"
@@ -922,9 +911,7 @@ async def test_workflow_fixed_node_persists_behavior_binding_and_injection(
     assert composed.index("Behavior instructions:") < composed.index(
         "Please analyze and create an implementation plan"
     )
-    assert (
-        "End your reply with exactly [WORKFLOW_RESULT: succeeded]" in composed
-    )
+    assert "End your reply with exactly [WORKFLOW_RESULT: succeeded]" in composed
 
 
 @pytest.mark.asyncio
@@ -1080,19 +1067,11 @@ async def test_workflow_reassign_queued_kickoff_redirects_outbox(
     kickoff = memory_store.list_messages("conv_root_reassign_q")[0]
     assert kickoff.message_state == "queued"
 
-    updated, changed = await engine.reassign_task(
-        tasks["planner"].task_id, "conv_planner_b"
-    )
+    updated, changed = await engine.reassign_task(tasks["planner"].task_id, "conv_planner_b")
     assert changed is True
     assert updated.status == "running"
-    assert (
-        memory_store.get_task(tasks["planner"].task_id).assignee_session_id
-        == "conv_planner_b"
-    )
-    assert (
-        memory_store.get_message(kickoff.message_id).recipient_session_id
-        == "conv_planner_b"
-    )
+    assert memory_store.get_task(tasks["planner"].task_id).assignee_session_id == "conv_planner_b"
+    assert memory_store.get_message(kickoff.message_id).recipient_session_id == "conv_planner_b"
     assert (
         memory_store.list_outbox_items(message_id=kickoff.message_id)[0].target_session_id
         == "conv_planner_b"
@@ -1100,9 +1079,7 @@ async def test_workflow_reassign_queued_kickoff_redirects_outbox(
     events = memory_store.list_events("conv_root_reassign_q")
     assert any(e.event_type == "workflow.task.reassigned" for e in events)
 
-    _, noop = await engine.reassign_task(
-        tasks["planner"].task_id, "conv_planner_b"
-    )
+    _, noop = await engine.reassign_task(tasks["planner"].task_id, "conv_planner_b")
     assert noop is False
 
 
@@ -1124,9 +1101,7 @@ async def test_workflow_reassign_active_unconsumed_rejects_and_resends(
     kickoff = memory_store.list_messages("conv_root_reassign_a")[0]
     memory_store.update_message_state(kickoff.message_id, "active")
 
-    updated, changed = await engine.reassign_task(
-        tasks["planner"].task_id, "conv_planner_b"
-    )
+    updated, changed = await engine.reassign_task(tasks["planner"].task_id, "conv_planner_b")
     assert changed is True
     assert updated.status == "running"
     old_kickoff = memory_store.get_message(kickoff.message_id)
@@ -1168,10 +1143,7 @@ async def test_workflow_reassign_rejects_acknowledged_work(
 
     with pytest.raises(ValueError, match="already acknowledged"):
         await engine.reassign_task(tasks["planner"].task_id, "conv_planner_b")
-    assert (
-        memory_store.get_task(tasks["planner"].task_id).assignee_session_id
-        == "conv_planner_a"
-    )
+    assert memory_store.get_task(tasks["planner"].task_id).assignee_session_id == "conv_planner_a"
 
 
 @pytest.mark.asyncio
@@ -1214,9 +1186,7 @@ async def test_workflow_retry_budget_blocks_exhausted_retries(
         await engine.retry_task(tasks["planner"].task_id)
     events = memory_store.list_events("conv_root_retry_budget")
     assert any(e.event_type == "workflow.retry_limit_reached" for e in events)
-    assert (
-        memory_store.get_task(tasks["planner"].task_id).status == "failed"
-    )
+    assert memory_store.get_task(tasks["planner"].task_id).status == "failed"
 
 
 @pytest.mark.asyncio
@@ -1434,9 +1404,7 @@ async def test_workflow_advances_through_five_stages_to_success(
     )
     assert completed.status == "succeeded"
 
-    durable_artifacts = memory_store.list_artifacts(
-        run.root_session_id, run_id=run.run_id
-    )
+    durable_artifacts = memory_store.list_artifacts(run.root_session_id, run_id=run.run_id)
     assert [a.metadata["name"] for a in durable_artifacts] == [
         "plan.md",
         "patch.diff",
@@ -1606,9 +1574,7 @@ def test_coordination_api_endpoints(
             json=body,
         )
         assert res_adv.status_code == 200, res_adv.text
-    final_run = client.get(
-        f"/v1/coordination/runs/{wf_data['run']['run_id']}"
-    ).json()["run"]
+    final_run = client.get(f"/v1/coordination/runs/{wf_data['run']['run_id']}").json()["run"]
     assert final_run["status"] == "succeeded"
 
 
@@ -1652,9 +1618,9 @@ def test_coordination_api_run_lifecycle_endpoints(
     retried = client.post(f"/v1/coordination/tasks/{tasks_by_role['planner']}/retry")
     assert retried.status_code == 200
     assert retried.json()["run"]["status"] == "running"
-    assert [
-        t["status"] for t in retried.json()["tasks"] if t["assignee_role"] == "planner"
-    ] == ["running"]
+    assert [t["status"] for t in retried.json()["tasks"] if t["assignee_role"] == "planner"] == [
+        "running"
+    ]
 
     cancelled = client.post(f"/v1/coordination/runs/{run_id}/cancel")
     assert cancelled.status_code == 200
@@ -1687,9 +1653,7 @@ def test_coordination_api_reassign_endpoint(
     )
     assert res.status_code == 200
     wf = res.json()
-    planner_id = next(
-        t["task_id"] for t in wf["tasks"] if t["assignee_role"] == "planner"
-    )
+    planner_id = next(t["task_id"] for t in wf["tasks"] if t["assignee_role"] == "planner")
 
     cross_tree = client.post(
         f"/v1/coordination/tasks/{planner_id}/reassign",
@@ -1703,9 +1667,12 @@ def test_coordination_api_reassign_endpoint(
     )
     assert reassigned.status_code == 200, reassigned.text
     assert reassigned.json()["reassigned"] is True
-    assert next(
-        t for t in reassigned.json()["tasks"] if t["task_id"] == planner_id
-    )["assignee_session_id"] == "conv_p2"
+    assert (
+        next(t for t in reassigned.json()["tasks"] if t["task_id"] == planner_id)[
+            "assignee_session_id"
+        ]
+        == "conv_p2"
+    )
 
     # Acknowledged work cannot be reassigned without cancel/retry first.
     kickoff = memory_store.list_messages("conv_root_api")[0]
@@ -1742,9 +1709,7 @@ def test_coordination_api_run_summary_and_budget(
     )
     assert res.status_code == 200
     run_id = res.json()["run"]["run_id"]
-    planner_id = next(
-        t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner"
-    )
+    planner_id = next(t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner")
 
     summary = client.get(f"/v1/coordination/runs/{run_id}/summary")
     assert summary.status_code == 200, summary.text
@@ -1924,9 +1889,7 @@ async def test_coordination_report_loop_delivers_each_stage_to_target_runner(
     final_run = client.get(f"/v1/coordination/runs/{run_id}").json()["run"]
     assert final_run["status"] == "succeeded"
     runner_calls = [
-        session_id
-        for session_id in router.called_session_ids
-        if session_id != "conv_root_api"
+        session_id for session_id in router.called_session_ids if session_id != "conv_root_api"
     ]
     assert runner_calls[:4] == [
         "conv_p1",
@@ -1957,9 +1920,7 @@ def test_coordination_api_deadline_conflict(
     )
     assert res.status_code == 200
     run_id = res.json()["run"]["run_id"]
-    planner_id = next(
-        t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner"
-    )
+    planner_id = next(t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner")
 
     blocked = client.post(
         f"/v1/coordination/workflows/{run_id}/tasks/{planner_id}/advance",
@@ -2113,9 +2074,7 @@ def test_coordination_api_merge_preview_requires_lease_and_fencing(
     assert listed.status_code == 200
     assert listed.json()["operations"][0]["operation_id"] == operation["operation_id"]
 
-    fetched = client.get(
-        f"/v1/coordination/workspaces/merge-previews/{operation['operation_id']}"
-    )
+    fetched = client.get(f"/v1/coordination/workspaces/merge-previews/{operation['operation_id']}")
     assert fetched.status_code == 200
     assert fetched.json()["operation"]["status"] == "merged"
 
@@ -2126,9 +2085,7 @@ def test_coordination_lease_fails_closed_without_managed_workspace(
 ) -> None:
     conversations = {
         "conv_root": FakeConversation("conv_root", root_conversation_id="conv_root"),
-        "conv_holder": FakeConversation(
-            "conv_holder", root_conversation_id="conv_root"
-        ),
+        "conv_holder": FakeConversation("conv_holder", root_conversation_id="conv_root"),
     }
     app = make_api_app(memory_store, conversations)
     client = TestClient(app)
@@ -2372,9 +2329,7 @@ def test_coordination_api_message_cancel(
         )
     )
     memory_store.update_message_state(active_msg.message_id, "active")
-    active_res = client.post(
-        f"/v1/coordination/messages/{active_msg.message_id}/cancel"
-    )
+    active_res = client.post(f"/v1/coordination/messages/{active_msg.message_id}/cancel")
     assert active_res.status_code == 409
     assert "only queued messages" in active_res.json()["detail"]
 
@@ -2432,9 +2387,7 @@ def test_coordination_api_message_receipt(
     )
     assert receipt.status_code == 200
     assert receipt.json()["message"]["consumption_state"] == "acknowledged"
-    assert receipt.json()["message"]["consumption_receipt"] == {
-        "response_id": "resp_abc"
-    }
+    assert receipt.json()["message"]["consumption_receipt"] == {"response_id": "resp_abc"}
 
     # Re-reporting the same state is idempotent.
     again = client.post(

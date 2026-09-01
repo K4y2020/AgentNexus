@@ -25,9 +25,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add scheduling fields to coordination_tasks (idempotent)."""
-    existing = {
-        c["name"] for c in sa.inspect(op.get_bind()).get_columns("coordination_tasks")
-    }
+    existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("coordination_tasks")}
     if "acceptance_json" not in existing:
         op.add_column(
             "coordination_tasks",

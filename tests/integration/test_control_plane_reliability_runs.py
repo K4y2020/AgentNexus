@@ -54,9 +54,7 @@ def test_control_plane_reliability_workflow_run(
             client,
             harness=harness_name,
             model=model_name,
-            mock_llm_base_url=_mock_base_for_harness(
-                mock_llm_server_url, harness=harness_name
-            ),
+            mock_llm_base_url=_mock_base_for_harness(mock_llm_server_url, harness=harness_name),
             runner_id=live_runner_id,
         )
         token = f"RL-{run_index}-{uuid.uuid4().hex[:8]}"

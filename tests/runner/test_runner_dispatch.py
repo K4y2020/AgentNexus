@@ -73,6 +73,7 @@ from omnigent.inner.executor import (
 from omnigent.inner.executor import (
     TurnComplete as _RecoveryTurnComplete,
 )
+from omnigent.process_logging import process_log_reference
 from omnigent.runner import create_runner_app
 from omnigent.runner.app import (
     _RUNNER_TURN_CONTEXT_DESYNC_CODE,
@@ -81,7 +82,6 @@ from omnigent.runner.app import (
     _forward_harness_response,
     _resolve_harness_config,
 )
-from omnigent.process_logging import process_log_reference
 from omnigent.runtime.harnesses import _HARNESS_MODULES
 from omnigent.runtime.harnesses._executor_adapter import (
     _ORPHAN_RESYNC_THRESHOLD,

@@ -25,9 +25,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add the effect_unknown_reason column (idempotent)."""
-    existing = {
-        c["name"] for c in sa.inspect(op.get_bind()).get_columns("agent_messages")
-    }
+    existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("agent_messages")}
     if "effect_unknown_reason" not in existing:
         op.add_column(
             "agent_messages",

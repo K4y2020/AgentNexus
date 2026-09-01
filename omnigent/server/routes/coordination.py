@@ -106,9 +106,7 @@ async def _require_coordination_acl(
             detail="coordination routes require a conversation store",
         )
     required_level = (
-        LEVEL_MANAGE
-        if request.method in {"POST", "PATCH", "PUT", "DELETE"}
-        else LEVEL_READ
+        LEVEL_MANAGE if request.method in {"POST", "PATCH", "PUT", "DELETE"} else LEVEL_READ
     )
     await _require_access(
         current_user_id(),
@@ -177,7 +175,6 @@ async def _require_coordination_tree(
         root_session_id,
         *session_ids,
     )
-
 
 
 async def _require_managed_workspace_path(
@@ -287,9 +284,9 @@ class StartWorkflowRequest(BaseModel):
     user_prompt: str
     workspace_path: str = "."
     budget: dict[str, Any] = Field(default_factory=dict)
-    behavior_modes: dict[
-        str, Literal["off", "advisory", "lean", "strict"]
-    ] = Field(default_factory=dict)
+    behavior_modes: dict[str, Literal["off", "advisory", "lean", "strict"]] = Field(
+        default_factory=dict
+    )
 
 
 class AdvanceWorkflowRequest(BaseModel):
@@ -470,9 +467,7 @@ async def get_session_behavior_facts(
     """
     await _require_coordination_tree(request, root_session_id, session_id)
     store = _request_store(request)
-    messages = await asyncio.to_thread(
-        store.list_messages, root_session_id, session_id
-    )
+    messages = await asyncio.to_thread(store.list_messages, root_session_id, session_id)
     bound = next(
         (m for m in reversed(messages) if "behavior_binding" in m.payload),
         None,
@@ -508,9 +503,7 @@ async def get_session_behavior_facts(
             "consumption_state": "none",
             "reason": "no_workflow_behavior_binding",
         }
-    attempts = await asyncio.to_thread(
-        store.list_delivery_attempts, bound.message_id
-    )
+    attempts = await asyncio.to_thread(store.list_delivery_attempts, bound.message_id)
     latest = attempts[-1] if attempts else None
     delivery_state = (
         latest.delivery_state
@@ -542,17 +535,14 @@ async def cancel_coordination_message(
     message = await asyncio.to_thread(store.get_message, message_id)
     if message is None:
         raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
-    await _require_coordination_tree(
-        request, message.root_session_id, message.sender_session_id
-    )
+    await _require_coordination_tree(request, message.root_session_id, message.sender_session_id)
     if message.message_state in ("cancelled", "expired"):
         return {"message": message.to_dict(), "cancelled": True}
     if message.message_state != "queued":
         raise HTTPException(
             status_code=409,
             detail=(
-                f"message has state {message.message_state}; "
-                "only queued messages can be cancelled"
+                f"message has state {message.message_state}; only queued messages can be cancelled"
             ),
         )
     cancelled = await asyncio.to_thread(store.cancel_message, message_id)
@@ -584,13 +574,8 @@ async def report_message_consumption(
             status_code=403,
             detail="only the recipient agent can report consumption",
         )
-    await _require_coordination_tree(
-        request, message.root_session_id, req.actor_session_id
-    )
-    if (
-        message.consumption_state == req.state
-        and message.consumption_state != "unconsumed"
-    ):
+    await _require_coordination_tree(request, message.root_session_id, req.actor_session_id)
+    if message.consumption_state == req.state and message.consumption_state != "unconsumed":
         return {"message": message.to_dict()}
     if message.message_state != "active":
         raise HTTPException(
@@ -678,9 +663,7 @@ async def get_coordination_run_summary(
     await _require_coordination_tree(request, run.root_session_id)
     tasks = await asyncio.to_thread(store.list_tasks, run_id)
     messages = await asyncio.to_thread(store.list_messages, run.root_session_id)
-    artifacts = await asyncio.to_thread(
-        store.list_artifacts, run.root_session_id, run_id=run_id
-    )
+    artifacts = await asyncio.to_thread(store.list_artifacts, run.root_session_id, run_id=run_id)
     task_statuses: dict[str, str] = {}
     for task in tasks:
         role = task.assignee_role or "unassigned"
@@ -691,12 +674,10 @@ async def get_coordination_run_summary(
     for message in messages:
         if message.run_id != run_id:
             continue
-        message_states[message.message_state] = message_states.get(
-            message.message_state, 0
-        ) + 1
-        consumption_states[message.consumption_state] = consumption_states.get(
-            message.consumption_state, 0
-        ) + 1
+        message_states[message.message_state] = message_states.get(message.message_state, 0) + 1
+        consumption_states[message.consumption_state] = (
+            consumption_states.get(message.consumption_state, 0) + 1
+        )
         if message.effect_unknown_reason is not None:
             effect_unknown_count += 1
     return {
@@ -899,10 +880,7 @@ async def report_workflow_task_result(
     if task.assignee_session_id != req.actor_session_id:
         raise HTTPException(
             status_code=403,
-            detail=(
-                f"session {req.actor_session_id!r} is not assigned to task "
-                f"{task_id!r}"
-            ),
+            detail=(f"session {req.actor_session_id!r} is not assigned to task {task_id!r}"),
         )
 
     result_msg = AgentMessage(
@@ -1015,9 +993,7 @@ async def reassign_coordination_task(
     run = await asyncio.to_thread(store.get_run, task.run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run {task.run_id} not found")
-    await _require_coordination_tree(
-        request, run.root_session_id, req.assignee_session_id
-    )
+    await _require_coordination_tree(request, run.root_session_id, req.assignee_session_id)
     try:
         updated, changed = await _request_workflow_engine(request).reassign_task(
             task_id, req.assignee_session_id
@@ -1038,9 +1014,7 @@ async def reassign_coordination_task(
 @router.post("/workspaces/lease")
 async def acquire_workspace_lease(req: AcquireLeaseRequest, request: Request) -> dict[str, Any]:
     """Acquire a concurrency lease on a workspace path to prevent conflicting writes."""
-    await _require_coordination_tree(
-        request, req.root_session_id, req.holder_session_id
-    )
+    await _require_coordination_tree(request, req.root_session_id, req.holder_session_id)
     canonical_path = await _require_managed_workspace_path(
         request,
         root_session_id=req.root_session_id,
@@ -1067,9 +1041,7 @@ async def create_merge_preview(
     request: Request,
 ) -> dict[str, Any]:
     """Capture branch heads and dirty state for a user-confirmable merge operation."""
-    await _require_coordination_tree(
-        request, req.root_session_id, req.holder_session_id
-    )
+    await _require_coordination_tree(request, req.root_session_id, req.holder_session_id)
     canonical_repo_path = await _require_managed_workspace_path(
         request,
         root_session_id=req.root_session_id,
@@ -1197,9 +1169,7 @@ async def create_coordination_artifact(
     request: Request,
 ) -> dict[str, Any]:
     """Publish a control-plane artifact metadata row for a plan/patch/diff/report."""
-    await _require_coordination_tree(
-        request, req.root_session_id, req.producer_session_id
-    )
+    await _require_coordination_tree(request, req.root_session_id, req.producer_session_id)
     artifact = CoordinationArtifact(
         root_session_id=req.root_session_id,
         run_id=req.run_id,

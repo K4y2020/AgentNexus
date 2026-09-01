@@ -100,8 +100,7 @@ def _is_pytest_process(argv: list[str]) -> bool:
     :returns: ``True`` for ``pytest`` / ``python -m pytest`` invocations.
     """
     return any(
-        arg == "pytest"
-        or os.path.basename(arg).lower().removesuffix(".exe") == "pytest"
+        arg == "pytest" or os.path.basename(arg).lower().removesuffix(".exe") == "pytest"
         for arg in argv
     )
 

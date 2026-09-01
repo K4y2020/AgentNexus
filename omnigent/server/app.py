@@ -1371,9 +1371,7 @@ def create_app(
                     app_inst.state.coordination_workflow_engine
                 )
                 await coordination_workflow_scheduler.start()
-                app_inst.state.coordination_workflow_scheduler = (
-                    coordination_workflow_scheduler
-                )
+                app_inst.state.coordination_workflow_scheduler = coordination_workflow_scheduler
 
         try:
             yield
@@ -1435,12 +1433,8 @@ def create_app(
             resolved_coordination_store = CoordinationStore(storage_location)
     app.state.coordination_store = resolved_coordination_store
     if resolved_coordination_store is not None:
-        app.state.workspace_lease_manager = WorkspaceLeaseManager(
-            resolved_coordination_store
-        )
-        app.state.workspace_coordinator = WorkspaceCoordinator(
-            app.state.workspace_lease_manager
-        )
+        app.state.workspace_lease_manager = WorkspaceLeaseManager(resolved_coordination_store)
+        app.state.workspace_coordinator = WorkspaceCoordinator(app.state.workspace_lease_manager)
         app.state.coordination_workflow_engine = CoordinationWorkflowEngine(
             resolved_coordination_store,
             app.state.workspace_coordinator,

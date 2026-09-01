@@ -132,8 +132,7 @@ def test_server_lifespan_dispatch_receipt_and_workflow_advance(
             )
             assert kickoff.intent == "task.request"
             assert any(
-                post["json"]["metadata"].get("a2a") is True
-                for post in fake_router.client.posted
+                post["json"]["metadata"].get("a2a") is True for post in fake_router.client.posted
             )
 
             app.state.conversation_store.append(
@@ -159,8 +158,7 @@ def test_server_lifespan_dispatch_receipt_and_workflow_advance(
 
             _wait_until(
                 lambda: any(
-                    task.assignee_role == "implementer"
-                    and task.status == "running"
+                    task.assignee_role == "implementer" and task.status == "running"
                     for task in coordination_store.list_tasks(run_id)
                 )
             )
@@ -226,9 +224,7 @@ def test_server_lifespan_runner_rejection_stays_unconfirmed(
             assert message is not None
             assert message.message_state == "queued"
             attempts = coordination_store.list_delivery_attempts(message_id)
-            assert attempts and all(
-                attempt.delivery_state == "failed" for attempt in attempts
-            )
+            assert attempts and all(attempt.delivery_state == "failed" for attempt in attempts)
             item_rows = coordination_store.list_outbox_items(message_id=message_id)
             assert item_rows and all(item.status == "pending" for item in item_rows)
             assert len(fake_router.client.posted) >= 1
@@ -249,12 +245,8 @@ def test_server_lifespan_template_dag_dispatches_on_dependencies(
     analysis = conversation_store.create_conversation(
         parent_conversation_id=root.id, kind="sub_agent"
     )
-    diag = conversation_store.create_conversation(
-        parent_conversation_id=root.id, kind="sub_agent"
-    )
-    code = conversation_store.create_conversation(
-        parent_conversation_id=root.id, kind="sub_agent"
-    )
+    diag = conversation_store.create_conversation(parent_conversation_id=root.id, kind="sub_agent")
+    code = conversation_store.create_conversation(parent_conversation_id=root.id, kind="sub_agent")
     cleanup = conversation_store.create_conversation(
         parent_conversation_id=root.id, kind="sub_agent"
     )
@@ -310,17 +302,14 @@ def test_server_lifespan_template_dag_dispatches_on_dependencies(
             body = resp.json()
             run_id = body["run"]["run_id"]
             assert len(body["tasks"]) == 4
-            by_session = {
-                task["assignee_session_id"]: task["status"] for task in body["tasks"]
-            }
+            by_session = {task["assignee_session_id"]: task["status"] for task in body["tasks"]}
             assert by_session[analysis.id] == "assigned"
             assert by_session[diag.id] == "queued"
             assert by_session[code.id] == "queued"
             assert by_session[cleanup.id] == "queued"
             _wait_until(
                 lambda: any(
-                    msg.recipient_session_id == analysis.id
-                    and msg.message_state == "active"
+                    msg.recipient_session_id == analysis.id and msg.message_state == "active"
                     for msg in store.list_messages(root.id)
                 )
             )
@@ -350,6 +339,7 @@ def test_server_lifespan_template_dag_dispatches_on_dependencies(
                 ],
             )
             session_live_state.persist_a2a_turn_completed(analysis.id, "resp_dag_analysis")
+
             def _analysis_consumed() -> bool:
                 current = store.get_message(analysis_msg.message_id)
                 return current is not None and current.consumption_state == "consumed"
@@ -366,14 +356,10 @@ def test_server_lifespan_template_dag_dispatches_on_dependencies(
 
             _wait_until(_forked)
             diag_task = next(
-                task
-                for task in store.list_tasks(run_id)
-                if task.assignee_session_id == diag.id
+                task for task in store.list_tasks(run_id) if task.assignee_session_id == diag.id
             )
             code_task = next(
-                task
-                for task in store.list_tasks(run_id)
-                if task.assignee_session_id == code.id
+                task for task in store.list_tasks(run_id) if task.assignee_session_id == code.id
             )
             for session_id, task_id in (
                 (diag.id, diag_task.task_id),
@@ -450,9 +436,7 @@ def test_server_lifespan_template_dag_failure_blocks_dependents(
             assert resp.status_code == 200, resp.text
             run_id = resp.json()["run"]["run_id"]
             first_task = next(
-                task
-                for task in store.list_tasks(run_id)
-                if task.assignee_session_id == first.id
+                task for task in store.list_tasks(run_id) if task.assignee_session_id == first.id
             )
             report = client.post(
                 f"/v1/coordination/workflows/{run_id}/tasks/{first_task.task_id}/report",
@@ -465,14 +449,11 @@ def test_server_lifespan_template_dag_failure_blocks_dependents(
             assert report.status_code == 200, report.text
             assert store.get_run(run_id).status == "needs_attention"
             second_task = next(
-                task
-                for task in store.list_tasks(run_id)
-                if task.assignee_session_id == second.id
+                task for task in store.list_tasks(run_id) if task.assignee_session_id == second.id
             )
             assert second_task.status == "queued"
             assert not any(
-                msg.recipient_session_id == second.id
-                for msg in store.list_messages(root.id)
+                msg.recipient_session_id == second.id for msg in store.list_messages(root.id)
             )
     finally:
         session_live_state.configure(None)

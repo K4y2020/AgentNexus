@@ -228,14 +228,8 @@ class WorkspaceCoordinator:
         """Capture branch heads/dirty state and persist a user-confirmable merge preview."""
         repo = str(repo_path)
         lease = self.lease_manager.get_lease(repo)
-        if (
-            lease is None
-            or lease.holder_session_id != holder_session_id
-            or lease.mode != "write"
-        ):
-            raise RuntimeError(
-                "active write lease required before creating a merge preview"
-            )
+        if lease is None or lease.holder_session_id != holder_session_id or lease.mode != "write":
+            raise RuntimeError("active write lease required before creating a merge preview")
 
         source_head = self._branch_head(repo, source_branch)
         target_head = self._branch_head(repo, target_branch)

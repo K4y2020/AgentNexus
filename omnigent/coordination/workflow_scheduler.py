@@ -56,7 +56,7 @@ class CoordinationWorkflowScheduler:
                 healed = await self.engine.reconcile_missing_dispatches()
                 if healed:
                     _logger.info("workflow recovery queued %s dispatch(es)", healed)
-            except Exception:  
+            except Exception:
                 _logger.exception("Error in workflow recovery loop")
             await asyncio.sleep(self.interval_s)
 

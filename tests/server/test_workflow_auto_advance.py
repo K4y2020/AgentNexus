@@ -117,15 +117,11 @@ async def test_terminal_idle_advances_planner_with_declared_result(
     session_live_state.configure(fake, None, store, advancer)  # type: ignore[arg-type]
     try:
         session_live_state.persist_a2a_turn_completed("conv_planner_auto", "resp_auto")
-        _wait_until(
-            lambda: store.get_task(tasks["planner"].task_id).status == "succeeded"
-        )
+        _wait_until(lambda: store.get_task(tasks["planner"].task_id).status == "succeeded")
     finally:
         session_live_state.configure(None)
 
-    _wait_until(
-        lambda: store.get_task(tasks["implementer"].task_id).status == "running"
-    )
+    _wait_until(lambda: store.get_task(tasks["implementer"].task_id).status == "running")
     _wait_until(
         lambda: any(
             message.recipient_session_id == "conv_coder_auto"
@@ -164,9 +160,7 @@ async def test_terminal_idle_without_marker_keeps_manual_gate(
     session_live_state.configure(fake, None, store, advancer)  # type: ignore[arg-type]
     try:
         session_live_state.persist_a2a_turn_completed("conv_planner_manual")
-        _wait_until(
-            lambda: store.get_message(kickoff.message_id).consumption_state == "consumed"
-        )
+        _wait_until(lambda: store.get_message(kickoff.message_id).consumption_state == "consumed")
     finally:
         session_live_state.configure(None)
 
@@ -192,19 +186,13 @@ async def test_terminal_idle_failed_marker_halts_run(tmp_path: object) -> None:
     kickoff = store.list_messages(run.root_session_id)[0]
     store.update_message_state(kickoff.message_id, "active")
 
-    fake = _FakeConversationStore(
-        _assistant_item("[WORKFLOW_RESULT: failed]", "resp_fail")
-    )
+    fake = _FakeConversationStore(_assistant_item("[WORKFLOW_RESULT: failed]", "resp_fail"))
     advancer = WorkflowAutoAdvancer(engine, fake)  # type: ignore[arg-type]
     session_live_state.configure(fake, None, store, advancer)  # type: ignore[arg-type]
     try:
         session_live_state.persist_a2a_turn_completed("conv_planner_fail", "resp_fail")
-        _wait_until(
-            lambda: store.get_task(tasks["planner"].task_id).status == "failed"
-        )
-        _wait_until(
-            lambda: store.get_run(run.run_id).status == "needs_attention"
-        )
+        _wait_until(lambda: store.get_task(tasks["planner"].task_id).status == "failed")
+        _wait_until(lambda: store.get_run(run.run_id).status == "needs_attention")
     finally:
         session_live_state.configure(None)
 
@@ -252,44 +240,30 @@ async def test_workflow_auto_advances_full_fix_loop(tmp_path: object) -> None:
         fake.item = _assistant_item("Plan ready.\n[WORKFLOW_RESULT: succeeded]", "resp_plan")
         _active_for_recipient("conv_planner_full")
         session_live_state.persist_a2a_turn_completed("conv_planner_full", "resp_plan")
-        _wait_until(
-            lambda: store.get_task(tasks["implementer"].task_id).status == "running"
-        )
+        _wait_until(lambda: store.get_task(tasks["implementer"].task_id).status == "running")
 
-        fake.item = _assistant_item(
-            "Implemented.\n[WORKFLOW_RESULT: succeeded]", "resp_impl"
-        )
+        fake.item = _assistant_item("Implemented.\n[WORKFLOW_RESULT: succeeded]", "resp_impl")
         _active_for_recipient("conv_coder_full")
         session_live_state.persist_a2a_turn_completed("conv_coder_full", "resp_impl")
-        _wait_until(
-            lambda: store.get_task(tasks["reviewer"].task_id).status == "running"
-        )
+        _wait_until(lambda: store.get_task(tasks["reviewer"].task_id).status == "running")
 
         fake.item = _assistant_item(
             "Needs cleanup.\n[REVIEW_DECISION: changes_requested]", "resp_review"
         )
         _active_for_recipient("conv_reviewer_full")
         session_live_state.persist_a2a_turn_completed("conv_reviewer_full", "resp_review")
-        _wait_until(
-            lambda: store.get_task(tasks["fixer"].task_id).status == "running"
-        )
+        _wait_until(lambda: store.get_task(tasks["fixer"].task_id).status == "running")
         assert store.get_task(tasks["reviewer"].task_id).status == "waiting_review"
 
         fake.item = _assistant_item("Fixed.\n[WORKFLOW_RESULT: succeeded]", "resp_fix")
         _active_for_recipient("conv_coder_full")
         session_live_state.persist_a2a_turn_completed("conv_coder_full", "resp_fix")
-        _wait_until(
-            lambda: store.get_task(tasks["reviewer"].task_id).status == "running"
-        )
+        _wait_until(lambda: store.get_task(tasks["reviewer"].task_id).status == "running")
 
-        fake.item = _assistant_item(
-            "Approved.\n[REVIEW_DECISION: approved]", "resp_rereview"
-        )
+        fake.item = _assistant_item("Approved.\n[REVIEW_DECISION: approved]", "resp_rereview")
         _active_for_recipient("conv_reviewer_full")
         session_live_state.persist_a2a_turn_completed("conv_reviewer_full", "resp_rereview")
-        _wait_until(
-            lambda: store.get_task(tasks["tester"].task_id).status == "running"
-        )
+        _wait_until(lambda: store.get_task(tasks["tester"].task_id).status == "running")
 
         fake.item = _assistant_item("All green.\n[WORKFLOW_RESULT: succeeded]", "resp_test")
         _active_for_recipient("conv_reviewer_full")
@@ -373,12 +347,8 @@ async def test_dispatched_workflow_message_auto_advances_on_turn_completed(
     advancer = WorkflowAutoAdvancer(engine, fake)  # type: ignore[arg-type]
     session_live_state.configure(fake, None, store, advancer)  # type: ignore[arg-type]
     try:
-        session_live_state.persist_a2a_turn_completed(
-            "conv_planner_dispatch", "resp_dispatch"
-        )
-        _wait_until(
-            lambda: store.get_task(tasks["implementer"].task_id).status == "running"
-        )
+        session_live_state.persist_a2a_turn_completed("conv_planner_dispatch", "resp_dispatch")
+        _wait_until(lambda: store.get_task(tasks["implementer"].task_id).status == "running")
     finally:
         session_live_state.configure(None)
 

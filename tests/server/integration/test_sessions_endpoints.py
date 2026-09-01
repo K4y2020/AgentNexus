@@ -3772,9 +3772,7 @@ class _FakeCoordinationStore:
     def update_message_state(self, message_id: str, state: str) -> None:
         self.messages[message_id]["message_state"] = state
 
-    def list_active_unconsumed_for_recipient(
-        self, recipient_session_id: str
-    ) -> list[Any]:
+    def list_active_unconsumed_for_recipient(self, recipient_session_id: str) -> list[Any]:
         return [
             type("Message", (), row)()
             for row in self.messages.values()
@@ -3832,9 +3830,11 @@ async def test_terminal_idle_persists_a2a_consumption_receipt(
     try:
         sessions_module._publish_status(sid, "idle", response_id="resp_turn_7")
         _wait_for_a2a(
-            lambda: len(coordination.receipts) == 1
-            and len(coordination.events) == 1
-            and bool(conversation.status_writes)
+            lambda: (
+                len(coordination.receipts) == 1
+                and len(coordination.events) == 1
+                and bool(conversation.status_writes)
+            )
         )
     finally:
         session_live_state.configure(None)

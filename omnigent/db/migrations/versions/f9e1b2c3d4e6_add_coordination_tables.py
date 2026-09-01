@@ -49,8 +49,7 @@ def _table_exists(name: str) -> bool:
 
 def _index_exists(table_name: str, index_name: str) -> bool:
     return any(
-        idx.get("name") == index_name
-        for idx in sa.inspect(op.get_bind()).get_indexes(table_name)
+        idx.get("name") == index_name for idx in sa.inspect(op.get_bind()).get_indexes(table_name)
     )
 
 
@@ -58,8 +57,7 @@ def _has_workspace_id(name: str) -> bool:
     if not _table_exists(name):
         return False
     return any(
-        col["name"] == "workspace_id"
-        for col in sa.inspect(op.get_bind()).get_columns(name)
+        col["name"] == "workspace_id" for col in sa.inspect(op.get_bind()).get_columns(name)
     )
 
 

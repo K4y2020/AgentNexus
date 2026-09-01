@@ -1596,6 +1596,7 @@ class SqlScheduledTaskRun(OmnigentBase):
         ),
     )
 
+
 class SqlCoordinationRun(OmnigentBase):
     """SQLAlchemy model for ``coordination_runs``.
 
@@ -1660,9 +1661,7 @@ class SqlCoordinationTask(OmnigentBase):
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
-    __table_args__ = (
-        Index("ix_coord_tasks_run", "workspace_id", "run_id", "status"),
-    )
+    __table_args__ = (Index("ix_coord_tasks_run", "workspace_id", "run_id", "status"),)
 
 
 class SqlAgentMessage(OmnigentBase):
@@ -1699,12 +1698,8 @@ class SqlAgentMessage(OmnigentBase):
     consumption_state: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="unconsumed"
     )
-    consumption_receipt_json: Mapped[str | None] = mapped_column(
-        CompressedText, nullable=True
-    )
-    effect_unknown_reason: Mapped[str | None] = mapped_column(
-        String(512), nullable=True
-    )
+    consumption_receipt_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    effect_unknown_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
     consumed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
@@ -1863,9 +1858,7 @@ class SqlWorkspaceMergeOperation(OmnigentBase):
     dirty_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     fencing_token: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="preview")
-    preview_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="{}"
-    )
+    preview_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
     result_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
@@ -1901,9 +1894,7 @@ class SqlCoordinationArtifact(OmnigentBase):
     digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     uri: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="published")
-    metadata_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="{}"
-    )
+    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
