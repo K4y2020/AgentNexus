@@ -1003,8 +1003,12 @@ def write_advertisement(
     fd, tmp_name = tempfile.mkstemp(dir=bridge_dir, prefix=f"{filename}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            os.fchmod(handle.fileno(), 0o600)
             handle.write(json.dumps(payload))
+            # mkstemp already creates the file mode 0600 on POSIX; the
+            # explicit fchmod keeps that intent in one place. Windows has no
+            # fchmod, so the write itself stays on the cross-platform path.
+            if os.name == "posix":
+                os.fchmod(handle.fileno(), 0o600)
         os.replace(tmp_name, path)
     except BaseException:
         with contextlib.suppress(OSError):

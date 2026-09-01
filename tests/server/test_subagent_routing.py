@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -1199,7 +1200,8 @@ def test_the_recorded_routing_class_survives_until_the_session_ends() -> None:
 def test_router_dir_for_session_is_owner_only(tmp_path: Path) -> None:
     path = router_dir_for_session("conv_router_dir")
     assert path.is_dir()
-    assert path.stat().st_mode & 0o777 == 0o700
+    if os.name == "posix":
+        assert path.stat().st_mode & 0o777 == 0o700
 
 
 def test_ensure_session_router_is_idempotent_and_advertises_everywhere(
