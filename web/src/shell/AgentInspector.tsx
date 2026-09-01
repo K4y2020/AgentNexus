@@ -5,7 +5,8 @@ import {
   GitBranchIcon,
   ListChecksIcon,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { shortModelName } from "@/components/CostRoutingControl";
@@ -31,6 +32,11 @@ interface BehaviorFactDTO {
       };
     };
   } | null;
+  session_mode?: {
+    binding?: {
+      mode?: string;
+    };
+  } | null;
   delivery_state: string;
   consumption_state: string;
   reason: string;
@@ -42,11 +48,15 @@ const BEHAVIOR_MODE_LABEL: Record<string, string> = {
   lean: "Lean",
   strict: "Strict",
 };
+const BEHAVIOR_MODE_LABEL_KEY = "omnigent.behavior_mode";
 
 export function AgentInspector({
   conversationId,
   rootSessionId,
 }: AgentInspectorProps) {
+  const queryClient = useQueryClient();
+  const [behaviorSaving, setBehaviorSaving] = useState(false);
+  const [behaviorSaveError, setBehaviorSaveError] = useState<string | null>(null);
   const { session } = useSession(conversationId);
   const {
     data: behaviorFacts,
@@ -82,9 +92,38 @@ export function AgentInspector({
   const branch = session.gitBranch ?? "Unknown";
   const permissionMode = claudePermissionModeFromSession(session);
   const binding = behaviorError ? null : behaviorFacts?.binding ?? null;
+  const sessionModeMode =
+    behaviorError ? null : (behaviorFacts?.session_mode?.binding?.mode ?? null);
   const resolvedBinding = binding?.resolved?.binding;
   const mode = resolvedBinding?.mode ?? binding?.requested_mode ?? "unknown";
   const injectionState = behaviorFacts?.delivery_state ?? "unknown";
+
+  const handleSessionModeChange = async (value: string) => {
+    setBehaviorSaving(true);
+    setBehaviorSaveError(null);
+    try {
+      const res = await authenticatedFetch(
+        `/v1/sessions/${encodeURIComponent(conversationId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ labels: { [BEHAVIOR_MODE_LABEL_KEY]: value } }),
+        },
+      );
+      if (!res.ok) {
+        setBehaviorSaveError(`Failed to save session mode (${res.status})`);
+      }
+      await queryClient.invalidateQueries({
+        queryKey: ["behaviorFacts", conversationId, rootSessionId],
+      });
+    } catch (err) {
+      setBehaviorSaveError(
+        err instanceof Error ? err.message : "Failed to save session mode",
+      );
+    } finally {
+      setBehaviorSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3 p-3 text-xs" data-testid="agent-inspector">
@@ -135,13 +174,40 @@ export function AgentInspector({
             <>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Mode:</span>
-                <Badge variant="outline" className="text-foreground">
-                  Not recorded
+                <Badge variant="outline" className="font-mono text-[11px]">
+                  {sessionModeMode
+                    ? (BEHAVIOR_MODE_LABEL[sessionModeMode] ?? sessionModeMode)
+                    : "Not recorded"}
                 </Badge>
               </div>
-              <span className="text-[10px] text-muted-foreground">
-                No workflow behavior binding has been addressed to this session.
-              </span>
+              {sessionModeMode ? (
+                <span className="text-[10px] text-muted-foreground">
+                  Requested for this session; not yet injected.
+                </span>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  No workflow behavior binding has been addressed to this session.
+                </span>
+              )}
+              <label htmlFor="session-behavior-mode" className="text-muted-foreground">
+                Session mode
+              </label>
+              <select
+                id="session-behavior-mode"
+                data-testid="session-behavior-mode"
+                value={sessionModeMode ?? "off"}
+                disabled={behaviorSaving}
+                onChange={(e) => void handleSessionModeChange(e.target.value)}
+                className="h-7 w-full rounded-md border border-border bg-background px-2 font-mono text-[11px] text-foreground"
+              >
+                <option value="off">Off</option>
+                <option value="advisory">Advisory</option>
+                <option value="lean">Lean</option>
+                <option value="strict">Strict</option>
+              </select>
+              {behaviorSaveError ? (
+                <span className="text-[10px] text-destructive">{behaviorSaveError}</span>
+              ) : null}
             </>
           ) : (
             <>

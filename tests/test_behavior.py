@@ -7,6 +7,7 @@ from omnigent.coordination.behavior import (
     compose_injection_prompt,
     is_lean_engineering_pack,
     resolve_behavior_pack,
+    session_behavior_mode_from_labels,
     workflow_behavior_payload,
 )
 
@@ -103,3 +104,11 @@ def test_workflow_behavior_payload_records_requested_and_downgrade() -> None:
     resolved = payload["resolved"]
     assert resolved["binding"]["mode"] == "advisory"
     assert "explicit task authorization" in resolved["binding"]["reason"]
+
+
+def test_session_behavior_mode_reads_only_valid_label() -> None:
+    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "lean"}) == "lean"
+    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "strict"}) == "strict"
+    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "bogus"}) is None
+    assert session_behavior_mode_from_labels({}) is None
+    assert session_behavior_mode_from_labels(None) is None

@@ -959,6 +959,43 @@ async def test_dag_workflow_downgrades_unapproved_strict_behavior(
 
 
 @pytest.mark.asyncio
+async def test_concurrent_runs_keep_distinct_behavior_modes(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    """Two sessions with different Behavior modes never leak bindings to each other."""
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    await engine.start_plan_implement_review_run(
+        title="Run A",
+        root_session_id="conv_root_behavior_a",
+        planner_session_id="conv_planner_behavior_a",
+        implementer_session_id="conv_impl_behavior_a",
+        reviewer_session_id="conv_reviewer_behavior_a",
+        user_prompt="Lean run",
+        workspace_path=str(tmp_path),
+        behavior_modes={"planner": "lean"},
+    )
+    await engine.start_plan_implement_review_run(
+        title="Run B",
+        root_session_id="conv_root_behavior_b",
+        planner_session_id="conv_planner_behavior_b",
+        implementer_session_id="conv_impl_behavior_b",
+        reviewer_session_id="conv_reviewer_behavior_b",
+        user_prompt="Strict run",
+        workspace_path=str(tmp_path),
+        behavior_modes={"planner": "strict"},
+    )
+
+    a = memory_store.list_messages("conv_root_behavior_a")[0].payload["behavior_binding"]
+    b = memory_store.list_messages("conv_root_behavior_b")[0].payload["behavior_binding"]
+    assert a["requested_mode"] == "lean"
+    assert a["resolved"]["binding"]["mode"] == "lean"
+    assert b["requested_mode"] == "strict"
+    assert b["resolved"]["binding"]["mode"] == "advisory"
+    assert a["workflow_node"] == "planner"
+    assert b["workflow_node"] == "planner"
+
+
+@pytest.mark.asyncio
 async def test_workflow_pause_resume_lifecycle(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:

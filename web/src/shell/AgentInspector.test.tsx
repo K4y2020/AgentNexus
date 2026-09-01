@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentInspector } from "./AgentInspector";
 import * as identity from "@/lib/identity";
@@ -127,6 +127,46 @@ describe("AgentInspector behavior facts", () => {
     renderInspector();
     expect(await screen.findByText("Not recorded")).toBeInTheDocument();
     expect(screen.queryByText("confirmed")).not.toBeInTheDocument();
+  });
+
+  it("shows a requested session mode as not yet injected", async () => {
+    vi.mocked(identity.authenticatedFetch).mockResolvedValue(
+      jsonResponse({
+        session_id: "conv_child",
+        binding: null,
+        session_mode: { binding: { mode: "advisory" } },
+        delivery_state: "none",
+        consumption_state: "none",
+        reason: "session_mode_not_yet_injected",
+      }),
+    );
+
+    renderInspector();
+    await waitFor(() => {
+      const select = screen.getByTestId("session-behavior-mode") as HTMLSelectElement;
+      expect(select.value).toBe("advisory");
+    });
+    expect(screen.getAllByText("Advisory").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/not yet injected/i)).toBeInTheDocument();
+    expect(screen.queryByText("Not recorded")).not.toBeInTheDocument();
+  });
+
+  it("persists a session behavior mode through the session labels API", async () => {
+    vi.mocked(identity.authenticatedFetch).mockResolvedValue(jsonResponse({}));
+
+    renderInspector();
+    const select = (await screen.findByTestId("session-behavior-mode")) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "strict" } });
+
+    await waitFor(() => {
+      const patchCall = vi
+        .mocked(identity.authenticatedFetch)
+        .mock.calls.find(([url]) => String(url).includes("/v1/sessions/conv_child"));
+      expect(patchCall).toBeDefined();
+      expect(JSON.parse(String(patchCall![1]!.body))).toEqual({
+        labels: { "omnigent.behavior_mode": "strict" },
+      });
+    });
   });
 
   it("does not pretend a fetch failure is a missing binding", async () => {

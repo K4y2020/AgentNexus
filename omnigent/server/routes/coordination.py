@@ -8,6 +8,10 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from omnigent.coordination.behavior import (
+    resolve_behavior_pack,
+    session_behavior_mode_from_labels,
+)
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
     AgentMessage,
@@ -473,10 +477,32 @@ async def get_session_behavior_facts(
         (m for m in reversed(messages) if "behavior_binding" in m.payload),
         None,
     )
+    conversation_store = getattr(request.app.state, "conversation_store", None)
+    session_mode: dict[str, Any] | None = None
+    if conversation_store is not None:
+        conv = await asyncio.to_thread(conversation_store.get_conversation, session_id)
+        if conv is not None:
+            requested = session_behavior_mode_from_labels(getattr(conv, "labels", None))
+            if requested is not None:
+                session_mode = resolve_behavior_pack(
+                    user_mode=requested,
+                    scope="session",
+                ).to_dict()
     if bound is None:
+        if session_mode is not None:
+            return {
+                "session_id": session_id,
+                "binding": None,
+                "session_mode": session_mode,
+                "message_id": None,
+                "delivery_state": "none",
+                "consumption_state": "none",
+                "reason": "session_mode_not_yet_injected",
+            }
         return {
             "session_id": session_id,
             "binding": None,
+            "session_mode": None,
             "message_id": None,
             "delivery_state": "none",
             "consumption_state": "none",
@@ -494,6 +520,7 @@ async def get_session_behavior_facts(
     return {
         "session_id": session_id,
         "binding": bound.payload["behavior_binding"],
+        "session_mode": session_mode,
         "message_id": bound.message_id,
         "delivery_state": delivery_state,
         "consumption_state": bound.consumption_state,

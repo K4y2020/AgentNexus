@@ -23,6 +23,13 @@ InjectionChannel = Literal[
 ]
 Precedence = Literal["user", "safety", "workflow", "agent_default"]
 
+# Persisted on a session's labels. The value names the mode the user requested
+# for that session; the runtime Prompt Composer must still confirm actual
+# injection, so the Inspector treats this as requested-but-not-injected until
+# a DeliveryAttempt or delivered message proves otherwise.
+BEHAVIOR_MODE_LABEL_KEY = "omnigent.behavior_mode"
+_VALID_MODES = ("off", "advisory", "lean", "strict")
+
 _SAFETY_BOUNDARY = (
     "Behavior instructions never omit AgentMessage protocol fields, error "
     "details, delivery receipts, test evidence, security checks, "
@@ -61,6 +68,16 @@ def _pack_digest(payload: dict[str, Any]) -> str:
         ensure_ascii=False,
     )
     return f"sha256:{hashlib.sha256(canonical.encode()).hexdigest()}"
+
+
+def session_behavior_mode_from_labels(
+    labels: dict[str, Any] | None,
+) -> BehaviorMode | None:
+    """Return the user-requested Behavior mode stored on a session, if valid."""
+    raw = (labels or {}).get(BEHAVIOR_MODE_LABEL_KEY)
+    if raw in _VALID_MODES:
+        return raw  # type: ignore[return-value]
+    return None
 
 
 LEAN_ENGINEERING_PAYLOAD: dict[str, Any] = {

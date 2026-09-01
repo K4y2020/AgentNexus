@@ -574,6 +574,32 @@ def test_server_fixed_workflow_composes_node_behavior_instruction(
         assert root_facts.json()["reason"] == "no_workflow_behavior_binding"
 
 
+def test_server_behavior_endpoint_reports_requested_session_mode(app: FastAPI) -> None:
+    """A persisted session mode shows as requested-but-not-yet-injected."""
+    root, _planner, _implementer, _reviewer = _seed_coordination_tree(app)
+    conversation_store = app.state.conversation_store
+    assert conversation_store is not None
+    child = conversation_store.create_conversation(
+        parent_conversation_id=root.id,
+        kind="sub_agent",
+        title="behavior:session",
+    )
+    conversation_store.set_labels(child.id, {"omnigent.behavior_mode": "lean"})
+
+    with TestClient(app) as client:
+        resp = client.get(
+            f"/v1/coordination/behavior/{child.id}",
+            params={"root_session_id": root.id},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["binding"] is None
+        assert body["session_mode"]["binding"]["mode"] == "lean"
+        assert body["session_mode"]["binding"]["precedence"] == "user"
+        assert body["delivery_state"] == "none"
+        assert body["reason"] == "session_mode_not_yet_injected"
+
+
 def test_server_template_dag_downgrades_strict_behavior(
     app: FastAPI,
 ) -> None:
