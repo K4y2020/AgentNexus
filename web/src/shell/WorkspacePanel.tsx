@@ -955,7 +955,10 @@ export function WorkspacePanel({
           <div className="flex flex-col h-full overflow-y-auto">
             <AgentInspector conversationId={conversationId} />
             <div className="border-t flex-1">
-              <CommunicationPanel conversationId={conversationId} />
+              <CommunicationPanel
+                conversationId={conversationId}
+                rootSessionId={rootSessionId ?? conversationId}
+              />
             </div>
           </div>
         ) : (

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useChildSessions } from "@/hooks/useChildSessions";
 import { authenticatedFetch } from "@/lib/identity";
+import { WorkflowPanel } from "@/shell/WorkflowPanel";
 
 export interface AgentMessageDTO {
   message_id: string;
@@ -27,7 +28,13 @@ export interface AgentMessageDTO {
   created_at: number;
 }
 
-export function CommunicationPanel({ conversationId }: { conversationId: string }) {
+export function CommunicationPanel({
+  conversationId,
+  rootSessionId,
+}: {
+  conversationId: string;
+  rootSessionId: string;
+}) {
   const [messages, setMessages] = useState<AgentMessageDTO[]>([]);
   const [draftText, setDraftText] = useState("");
   const { children } = useChildSessions(conversationId);
@@ -35,7 +42,7 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
   const fetchMessages = useCallback(async () => {
     try {
       const res = await authenticatedFetch(
-        `/v1/coordination/messages?root_session_id=${encodeURIComponent(conversationId)}`
+        `/v1/coordination/messages?root_session_id=${encodeURIComponent(rootSessionId)}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -44,7 +51,7 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
     } catch (e) {
       console.warn("Failed to fetch coordination messages:", e);
     }
-  }, [conversationId]);
+  }, [rootSessionId]);
 
   useEffect(() => {
     void fetchMessages();
@@ -91,6 +98,11 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <WorkflowPanel
+          rootSessionId={rootSessionId}
+          actorSessionId={conversationId}
+          onUpdated={() => void fetchMessages()}
+        />
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
             <BotIcon className="size-8 opacity-40 mb-2" />
