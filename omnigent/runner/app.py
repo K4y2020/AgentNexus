@@ -44,6 +44,7 @@ from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
+from omnigent.coordination.behavior import framework_instructions_for_session
 from omnigent.debug_logging import runner_primary_session_id
 from omnigent.entities.session_resources import (
     DEFAULT_ENVIRONMENT_ID,
@@ -2918,6 +2919,42 @@ def create_runner_app(
             if _session_cache_generation_is_current(session_id, generation):
                 _session_workspace_cache[session_id] = snapshot.workspace
         return _session_workspace_cache.get(session_id)
+
+    _SESSION_BEHAVIOR_INSTRUCTIONS_TTL_SECONDS = 20.0
+    _session_behavior_instructions_cache: dict[
+        str, tuple[float, tuple[str, ...]]
+    ] = {}
+
+    async def _session_behavior_instructions(session_id: str) -> tuple[str, ...]:
+        """Best-effort per-turn framework instructions from a session label.
+
+        Reads the persisted ``omnigent.behavior_mode`` label (cached briefly so
+        the hot turn path does not pay an HTTP round-trip every message) and,
+        when set, composes the matching first-party instructions plus the safety
+        boundary as ``framework_instructions`` for the prompt composer. Any
+        lookup or resolution failure degrades to no framework instructions;
+        the Agent Inspector still reports the requested mode as pending until
+        a delivery receipt confirms it was actually injected.
+        """
+        cached = _session_behavior_instructions_cache.get(session_id)
+        if cached is not None:
+            cached_at, instructions = cached
+            if (
+                time.monotonic() - cached_at
+                <= _SESSION_BEHAVIOR_INSTRUCTIONS_TTL_SECONDS
+            ):
+                return instructions
+            _session_behavior_instructions_cache.pop(session_id, None)
+        labels = await _session_labels_for_runner_spawn(
+            server_client=server_client,
+            session_id=session_id,
+        )
+        instructions = tuple(framework_instructions_for_session(labels))
+        _session_behavior_instructions_cache[session_id] = (
+            time.monotonic(),
+            instructions,
+        )
+        return instructions
 
     async def _session_runtime_cwd(session_id: str) -> Path | None:
         workspace = await _session_workspace_value(session_id)
@@ -6568,15 +6605,20 @@ def create_runner_app(
             )
             # Gated harnesses use nullable to avoid the fallback literal.
             _authored_bg = raw_author_instructions(cached_spec) is not None
+            _bg_framework = await _session_behavior_instructions(conv)
             if harness_name in _GATED_COMPOSED_INSTRUCTION_HARNESSES:
                 instructions = build_instructions_nullable(
-                    cached_spec, _raw_per_request_instructions, []
+                    cached_spec,
+                    _raw_per_request_instructions,
+                    [],
+                    framework_instructions=_bg_framework,
                 )
             else:
                 instructions = build_instructions(
                     cached_spec,
                     _raw_per_request_instructions,
                     [],
+                    framework_instructions=_bg_framework,
                 )
             # Warn once per (conversation, harness, delivery) if the agent has
             # authored instructions but the harness can't deliver them.
@@ -7134,10 +7176,14 @@ def create_runner_app(
                     if _instr_spec_ds is not None:
                         _per_req_instr = cast(str | None, body.get("instructions"))
                         _authored_ds = raw_author_instructions(_instr_spec_ds) is not None
+                        _ds_framework = await _session_behavior_instructions(conv_id)
                         _ic_ds = InstructionComposition(
                             authored_present=_authored_ds,
                             composed=build_instructions_nullable(
-                                _instr_spec_ds, _per_req_instr, []
+                                _instr_spec_ds,
+                                _per_req_instr,
+                                [],
+                                framework_instructions=_ds_framework,
                             ),
                         )
                         # Gated harnesses get nullable — skip the fallback literal.
@@ -7149,7 +7195,10 @@ def create_runner_app(
                             _instr_body = {
                                 **body,
                                 "instructions": build_instructions(
-                                    _instr_spec_ds, _per_req_instr, []
+                                    _instr_spec_ds,
+                                    _per_req_instr,
+                                    [],
+                                    framework_instructions=_ds_framework,
                                 ),
                             }
                         if _authored_ds and harness_name:

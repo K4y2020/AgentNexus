@@ -249,6 +249,21 @@ def compose_injection_prompt(binding: BehaviorPackBinding) -> tuple[str, ...]:
     return (_MODE_INSTRUCTIONS[binding.mode], _SAFETY_BOUNDARY)
 
 
+def framework_instructions_for_session(labels: dict[str, Any] | None) -> tuple[str, ...]:
+    """Resolve session labels into additive framework instructions, if any.
+
+    Reads the persisted ``omnigent.behavior_mode`` label on a session and, when
+    it names a valid mode, resolves the first-party binding and composes its
+    injection fragments for per-turn delivery. ``off`` and any missing/invalid
+    value yield no instructions, matching ``compose_injection_prompt``.
+    """
+    mode = session_behavior_mode_from_labels(labels)
+    if mode is None:
+        return ()
+    resolved = resolve_behavior_pack(user_mode=mode, scope="session")
+    return compose_injection_prompt(resolved.binding)
+
+
 def workflow_behavior_payload(
     *,
     role: str | None = None,

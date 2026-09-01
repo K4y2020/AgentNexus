@@ -5,6 +5,7 @@ from __future__ import annotations
 from omnigent.coordination.behavior import (
     LEAN_ENGINEERING_PACK,
     compose_injection_prompt,
+    framework_instructions_for_session,
     is_lean_engineering_pack,
     resolve_behavior_pack,
     session_behavior_mode_from_labels,
@@ -81,6 +82,30 @@ def test_injection_prompt_never_skips_guardrail() -> None:
     assert "smallest correct change" in fragments[0]
     assert "security checks" in fragments[1]
     assert is_lean_engineering_pack(lean.binding)
+
+
+def test_framework_instructions_for_session_label() -> None:
+    assert framework_instructions_for_session(None) == ()
+    assert framework_instructions_for_session({}) == ()
+    assert (
+        framework_instructions_for_session({"omnigent.behavior_mode": "bogus"}) == ()
+    )
+    assert (
+        framework_instructions_for_session({"omnigent.behavior_mode": "off"}) == ()
+    )
+
+    fragments = framework_instructions_for_session(
+        {"omnigent.behavior_mode": "lean"}
+    )
+    assert len(fragments) == 2
+    assert "smallest correct change" in fragments[0]
+    assert "security checks" in fragments[1]
+
+    advisory = framework_instructions_for_session(
+        {"omnigent.behavior_mode": "advisory"}
+    )
+    assert len(advisory) == 2
+    assert advisory[0] != fragments[0]
 
 
 def test_resolved_behavior_serializes_without_list_as_tuple_leak() -> None:

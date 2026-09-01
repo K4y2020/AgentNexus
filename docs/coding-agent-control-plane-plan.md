@@ -711,7 +711,7 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
   （需 root_session_id）返回最新绑定的 requested/resolved/digest/injection
   channel 与真实 delivery/consumption 状态；Agent Inspector 显示模式徽章，
   并明确区分 confirmed、queued、failed 与 unknown，不把未确认注入显示为
-  已生效。BEHAVIOR-003 继续推进：会话级模式现可通过 `omnigent.behavior_mode` label 选择并持久化，Inspector 在未注入前如实显示为 pending，并新增会话级模式/并发隔离测试；但把会话级模式真正写入 Runner Prompt Composer 的按轮注入仍未接通，属 BEHAVIOR-003 未完项。
+  已生效。BEHAVIOR-003 继续推进：会话级模式现可通过 `omnigent.behavior_mode` label 选择并持久化，Inspector 在未注入前如实显示为 pending，并新增会话级模式/并发隔离测试；并把会话级模式按轮写入 Runner Prompt Composer（`framework_instructions`，labels 短缓存，best-effort 降级为空）；Inspector 仍以 delivery/consumption 回执为准，未回执前如实显示 pending。BEHAVIOR-003 剩余：会话级注入的持久回执占位与多环境门禁。
 
 ## 12. Workspace 与 Git 协调
 
