@@ -534,13 +534,16 @@ async def advance_coordination_workflow(
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
     await _require_coordination_tree(request, run.root_session_id)
     engine = _request_workflow_engine(request)
-    updated = await engine.advance(
-        run_id=run_id,
-        task_id=task_id,
-        outcome=req.outcome,
-        artifacts=req.artifacts,
-        review_decision=req.review_decision,
-    )
+    try:
+        updated = await engine.advance(
+            run_id=run_id,
+            task_id=task_id,
+            outcome=req.outcome,
+            artifacts=req.artifacts,
+            review_decision=req.review_decision,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     tasks = await asyncio.to_thread(store.list_tasks, run_id)
     return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
 

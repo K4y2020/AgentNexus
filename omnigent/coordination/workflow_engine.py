@@ -10,7 +10,9 @@ design (P4 will generalize beyond it).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import time
 from typing import Literal
 
 from omnigent.coordination.store import (
@@ -235,6 +237,7 @@ class CoordinationWorkflowEngine:
         artifacts: list[dict[str, object]] | None,
         review_decision: str | None,
     ) -> None:
+        await self._enforce_deadline(run)
         role = task.assignee_role or ""
         if artifacts:
             await self._persist_artifacts(run, task, artifacts)
@@ -418,6 +421,47 @@ class CoordinationWorkflowEngine:
             await self._record(run, task, "workflow.succeeded", {"test_task_id": task.task_id})
             return
 
+    def _deadline_exceeded(self, run: CoordinationRun) -> bool:
+        deadline = run.budget.get("deadline_s")
+        if not deadline:
+            return False
+        try:
+            return time.time() >= float(deadline)
+        except (TypeError, ValueError):
+            return False
+
+    async def _enforce_deadline(self, run: CoordinationRun) -> None:
+        """Stop automatic dispatch once a run's hard deadline has passed."""
+        if not self._deadline_exceeded(run):
+            return
+        if run.status != "needs_attention":
+            with contextlib.suppress(StateTransitionConflict):
+                # Another deadline/cancel owner already moved the run.
+                await asyncio.to_thread(
+                    self.store.transition_run_status,
+                    run.run_id,
+                    "needs_attention",
+                    from_statuses=[
+                        "draft",
+                        "running",
+                        "paused",
+                        "waiting_user",
+                        "waiting_peer",
+                        "reconciling",
+                    ],
+                )
+        await asyncio.to_thread(
+            self.store.record_event,
+            CoordinationEvent(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                actor_session_id=run.root_session_id,
+                event_type="workflow.deadline_exceeded",
+                payload={"run_id": run.run_id, "deadline_s": run.budget.get("deadline_s")},
+            ),
+        )
+        raise ValueError(f"workflow deadline exceeded for run {run.run_id}")
+
     async def _update_run_metadata(self, run_id: str, metadata: dict[str, object]) -> None:
         await asyncio.to_thread(self.store.update_run_metadata, run_id, metadata)
 
@@ -583,6 +627,7 @@ class CoordinationWorkflowEngine:
             return await self._current_run(run.run_id)
         if not task.assignee_session_id:
             raise ValueError(f"task {task_id} has no assignee to retry")
+        await self._enforce_deadline(run)
 
         current = await asyncio.to_thread(self.store.get_run, run.run_id)
         current_metadata = dict(current.metadata if current is not None else run.metadata)
@@ -649,6 +694,7 @@ class CoordinationWorkflowEngine:
             raise ValueError(f"task {task_id} is {task.status}; cannot reassign")
         if not assignee_session_id:
             raise ValueError("assignee_session_id is required")
+        await self._enforce_deadline(run)
 
         messages = await asyncio.to_thread(
             self.store.list_messages, run.root_session_id

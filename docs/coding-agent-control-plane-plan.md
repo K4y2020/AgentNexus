@@ -911,7 +911,8 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > /events、/workspaces/lease 与 merge-previews 执行。状态迁移全部使用
 > SQL CAS，重复 advance/cancel/retry 幂等，不会重复派发下一阶段；改派会重定向
 > 未消费的排队投递或拒绝未确认活动消息，已确认的工作必须 cancel/retry 后才能改派。
-> Workflow 启动接受 budget，max_retries 会在重试前按持久 retry_count 封顶；
+> Workflow 启动接受 budget，max_retries 会在重试前按持久 retry_count 封顶，
+> deadline_s 超时后停止自动派发并把 Run 置为 needs_attention；
 > 每个 Run 固定 template_version 快照，summary 汇总 stage/message/artifact 状态。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -940,6 +941,36 @@ async def test_workflow_retry_budget_blocks_exhausted_retries(
 
 
 @pytest.mark.asyncio
+async def test_workflow_deadline_blocks_further_dispatch(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Deadline Run",
+        root_session_id="conv_root_deadline",
+        planner_session_id="conv_planner_deadline",
+        implementer_session_id="conv_coder_deadline",
+        reviewer_session_id="conv_reviewer_deadline",
+        user_prompt="Deadline gates dispatch",
+        workspace_path=str(tmp_path),
+        budget={"deadline_s": time.time() - 10},
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+
+    with pytest.raises(ValueError, match="deadline exceeded"):
+        await engine.advance(
+            run_id=run.run_id,
+            task_id=tasks["planner"].task_id,
+            outcome="succeeded",
+        )
+    stored = memory_store.get_run(run.run_id)
+    assert stored is not None
+    assert stored.status == "needs_attention"
+    events = memory_store.list_events("conv_root_deadline")
+    assert any(e.event_type == "workflow.deadline_exceeded" for e in events)
+
+
+@pytest.mark.asyncio
 async def test_workflow_cancel_run_marks_messages_and_tasks(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:
@@ -1381,6 +1412,41 @@ def test_coordination_api_run_summary_and_budget(
     assert summary2.json()["summary"]["stage"]["planner"] == "succeeded"
     assert summary2.json()["summary"]["stage"]["implementer"] == "running"
     assert summary2.json()["summary"]["artifact_count"] == 1
+
+
+def test_coordination_api_deadline_conflict(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Deadline API Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Deadline via API",
+            "budget": {"deadline_s": time.time() - 5},
+        },
+    )
+    assert res.status_code == 200
+    run_id = res.json()["run"]["run_id"]
+    planner_id = next(
+        t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner"
+    )
+
+    blocked = client.post(
+        f"/v1/coordination/workflows/{run_id}/tasks/{planner_id}/advance",
+        json={"outcome": "succeeded"},
+    )
+    assert blocked.status_code == 409
+    assert "deadline exceeded" in blocked.json()["detail"]
+    run = client.get(f"/v1/coordination/runs/{run_id}").json()["run"]
+    assert run["status"] == "needs_attention"
 
 
 def test_coordination_api_session_acl(
