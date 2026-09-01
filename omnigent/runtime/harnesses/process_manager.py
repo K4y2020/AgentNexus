@@ -1356,7 +1356,7 @@ class HarnessProcessManager:
         finally:
             if entry.process.returncode is None:
                 try:
-                    entry.process.send_signal(signal.SIGTERM)
+                    _proc.terminate_tree(entry.process)
                     await asyncio.wait_for(entry.process.wait(), timeout=_RELEASE_GRACE_S)
                 except Exception:
                     # Graceful SIGTERM didn't complete — it timed out, or
@@ -1364,8 +1364,8 @@ class HarnessProcessManager:
                     # mid-teardown). Force-kill best-effort; a process that
                     # is already gone is already done.
                     with contextlib.suppress(Exception):
-                        entry.process.kill()
-                        await entry.process.wait()
+                        _proc.kill_tree(entry.process)
+                        await asyncio.wait_for(entry.process.wait(), timeout=_RELEASE_GRACE_S)
             with contextlib.suppress(Exception):
                 close_subprocess_transport(entry.process)
             # Best-effort socket cleanup. uvicorn's atexit usually

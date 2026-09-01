@@ -41,6 +41,7 @@ import httpx
 import pytest
 import yaml
 
+from omnigent.inner import _proc
 from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
 from tests._helpers.compat import (
     apply_runner_env,
@@ -835,18 +836,18 @@ def live_server(
         yield base_url
     finally:
         if runner_proc.poll() is None:
-            runner_proc.send_signal(signal.SIGTERM)
+            _proc.terminate_tree(runner_proc)
             try:
                 runner_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                runner_proc.kill()
+                _proc.kill_tree(runner_proc)
                 runner_proc.wait(timeout=5)
         runner_log_handle.close()
-        proc.send_signal(signal.SIGTERM)
+        _proc.terminate_tree(proc)
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            _proc.kill_tree(proc)
             proc.wait(timeout=5)
         log_handle.close()
 

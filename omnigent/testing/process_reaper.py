@@ -75,8 +75,17 @@ def _cmdline_references_dir(argv: list[str], needle: str) -> bool:
     :param needle: The data-dir path, already stripped of a trailing sep.
     :returns: ``True`` when the command line references the directory.
     """
-    bounded = needle + os.sep
-    return any(arg == needle or arg.endswith(needle) or bounded in arg for arg in argv)
+    # Windows may quote path tokens with ``\`` while a spawned child renders
+    # the same temp dir as ``/`` (or vice versa). Canonicalize to ``/`` so a
+    # leak is found regardless of which separator appears in its command line.
+    needle_repr = needle.replace(os.sep, "/").rstrip("/")
+    bounded = needle_repr + "/"
+    return any(
+        arg.replace(os.sep, "/") == needle_repr
+        or arg.replace(os.sep, "/").endswith(needle_repr)
+        or bounded in arg.replace(os.sep, "/")
+        for arg in argv
+    )
 
 
 def _is_pytest_process(argv: list[str]) -> bool:
@@ -90,7 +99,11 @@ def _is_pytest_process(argv: list[str]) -> bool:
     :param argv: The process's argv.
     :returns: ``True`` for ``pytest`` / ``python -m pytest`` invocations.
     """
-    return any(arg == "pytest" or os.path.basename(arg) == "pytest" for arg in argv)
+    return any(
+        arg == "pytest"
+        or os.path.basename(arg).lower().removesuffix(".exe") == "pytest"
+        for arg in argv
+    )
 
 
 def find_leaked_omnigent_processes(data_dir: Path | str) -> list[psutil.Process]:
@@ -108,9 +121,9 @@ def find_leaked_omnigent_processes(data_dir: Path | str) -> list[psutil.Process]
     :param data_dir: The session's throwaway ``OMNIGENT_DATA_DIR``.
     :returns: Matching processes, excluding the caller.
     """
-    needle = str(data_dir).rstrip(os.sep)
+    needle = str(data_dir).rstrip(os.sep).rstrip("/").rstrip("\\")
     # A blank or root-ish needle would match everything; refuse it.
-    if not needle or needle == os.sep:
+    if not needle or needle in {os.sep, "/", "\\"}:
         return []
     me = os.getpid()
     leaked: list[psutil.Process] = []

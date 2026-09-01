@@ -1005,6 +1005,13 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 上传 JUnit。真实付费 API 的 100 次样本、签名证书和 24h soak 仍属现实环境门禁，
 > 该脚本是复现与归因基础设施，不等于关闭 P6。
 >
+> 2026-09-01 Windows 进程清理已收敛：`live_server` fixture teardown 与
+> `HarnessProcessManager._close_entry` 改为整树终止（超时后强制杀树）；
+> `process_reaper` 按规范化分隔符匹配 Windows 命令行路径、识别 `pytest.exe`，
+> 泄漏回归补充 Windows 上真实 `omnigent server` 子进程探针。可靠性 3 样本
+> 无残留进程，process reaper 14 例和进程泄漏回归均通过；真实环境的
+> 24 小时无 orphan soak 仍属于 P5/P6 验收门禁。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

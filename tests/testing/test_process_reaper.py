@@ -8,6 +8,7 @@ no server, no daemon.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -93,8 +94,13 @@ def test_ignores_processes_without_omnigent_in_cmdline(data_dir: Path) -> None:
     interpreter path can itself contain "omnigent", which would defeat
     the point of this negative case.
     """
+    if os.name == "nt":
+        system_root = os.environ.get("SYSTEMROOT", r"C:\Windows")
+        command = [f"{system_root}\\System32\\timeout.exe", "/t", "120", "/nobreak"]
+    else:
+        command = ["sleep", "120"]
     child = subprocess.Popen(
-        ["sleep", "120"],
+        command,
         env={"OMNIGENT_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

@@ -63,27 +63,90 @@ _NESTED_LEAKY_TEST = '''\
 """Nested probe: a CLI test whose command spawns a real detached daemon."""
 
 import os
+import socket
 
 from click.testing import CliRunner
 
 from omnigent.cli import cli
 
 
+_detached_server = None
+
+
+def _free_loopback_port() -> int:
+    """Reserve then release a loopback port, returning its number."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
 def test_claude_command_spawns_detached_host_daemon(monkeypatch) -> None:
+    global _detached_server
     captured = {}
-    monkeypatch.setattr("omnigent.cli._load_effective_config", dict)
-    monkeypatch.setattr(
-        "omnigent.claude_native.run_claude_native",
-        lambda **kwargs: captured.update(kwargs),
-    )
+    if os.name == "nt":
+        # Windows has no native tmux/PTY ``omnigent claude``, so drive the
+        # same detached-process seam with a real ``omnigent server`` child.
+        import subprocess
+        import sys
+        import time
 
-    result = CliRunner().invoke(
-        cli,
-        ["claude", "--server", os.environ["LEAK_PROBE_SERVER_URL"], "--", "-p", "hi"],
-    )
+        data_dir = os.environ["OMNIGENT_DATA_DIR"]
+        port = _free_loopback_port()
+        kwargs: dict[str, int] = {
+            "creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        }
+        _detached_server = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "omnigent.cli",
+                "server",
+                "--port",
+                str(port),
+                "--database-uri",
+                f"sqlite:///{data_dir}/chat.db",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            **kwargs,
+        )
+        deadline = time.monotonic() + 20.0
+        while time.monotonic() < deadline:
+            if _detached_server.poll() is not None:
+                break
+            try:
+                import urllib.request
 
-    assert result.exit_code == 0, result.output
-    assert captured["server"] == os.environ["LEAK_PROBE_SERVER_URL"]
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{port}/health", timeout=1
+                ):
+                    break
+            except Exception:
+                time.sleep(0.2)
+        assert _detached_server.poll() is None, "detached server exited before teardown"
+        captured["server"] = f"http://127.0.0.1:{port}"
+    else:
+        monkeypatch.setattr("omnigent.cli._load_effective_config", dict)
+        monkeypatch.setattr(
+            "omnigent.claude_native.run_claude_native",
+            lambda **kwargs: captured.update(kwargs),
+        )
+
+        result = CliRunner().invoke(
+            cli,
+            [
+                "claude",
+                "--server",
+                os.environ["LEAK_PROBE_SERVER_URL"],
+                "--",
+                "-p",
+                "hi",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert captured["server"] == os.environ["LEAK_PROBE_SERVER_URL"]
+    assert _detached_server is not None or captured
 '''
 
 # Budget for the nested pytest run: one test, but a cold interpreter that
@@ -203,6 +266,9 @@ def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
     # Confine the nested run's mkdtemp'd OMNIGENT_DATA_DIR to a private
     # TMPDIR so survivors are attributable to THIS run and nothing else.
     env["TMPDIR"] = str(tmp_root)
+    # Windows tempfile honors TMP/TEMP, not TMPDIR.
+    env["TMP"] = str(tmp_root)
+    env["TEMP"] = str(tmp_root)
     env["PYTHONPATH"] = f"{_REPO_ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}"
     # A loopback port with no listener: connection-refused keeps the
     # spawned daemon retrying (alive) instead of exiting on a permanent
