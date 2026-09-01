@@ -450,6 +450,61 @@ async def list_coordination_messages(
     return {"messages": [m.to_dict() for m in messages]}
 
 
+@router.get("/behavior/{session_id}")
+async def get_session_behavior_facts(
+    session_id: str,
+    request: Request,
+    root_session_id: str = Query(..., description="The parent/root conversation id"),
+) -> dict[str, Any]:
+    """Return the latest durable Behavior binding addressed to one session.
+
+    The Inspector badge is only honest when it distinguishes a composed
+    binding from an actually confirmed injection. ``delivery_state`` comes
+    from the latest DeliveryAttempt (or the queued message when the outbox
+    has not picked it up yet), so an unconfirmed payload never renders as
+    active.
+    """
+    await _require_coordination_tree(request, root_session_id, session_id)
+    store = _request_store(request)
+    messages = await asyncio.to_thread(
+        store.list_messages, root_session_id, session_id
+    )
+    bound = next(
+        (m for m in reversed(messages) if "behavior_binding" in m.payload),
+        None,
+    )
+    if bound is None:
+        return {
+            "session_id": session_id,
+            "binding": None,
+            "message_id": None,
+            "delivery_state": "none",
+            "consumption_state": "none",
+            "reason": "no_workflow_behavior_binding",
+        }
+    attempts = await asyncio.to_thread(
+        store.list_delivery_attempts, bound.message_id
+    )
+    latest = attempts[-1] if attempts else None
+    delivery_state = (
+        latest.delivery_state
+        if latest is not None
+        else ("queued" if bound.message_state == "queued" else "unknown")
+    )
+    return {
+        "session_id": session_id,
+        "binding": bound.payload["behavior_binding"],
+        "message_id": bound.message_id,
+        "delivery_state": delivery_state,
+        "consumption_state": bound.consumption_state,
+        "reason": (
+            "confirmed_injection"
+            if latest is not None and latest.delivery_state == "confirmed"
+            else "recorded_pending_delivery"
+        ),
+    }
+
+
 @router.post("/messages/{message_id}/cancel")
 async def cancel_coordination_message(
     message_id: str,

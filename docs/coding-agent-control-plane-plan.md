@@ -707,8 +707,11 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
   和安全边界；`compose_injection_prompt` 只生成注入文本，不直接改 Harness 状态。
   固定与模板 Workflow 的 kickoff/派发/重试/改派消息已通过
   `workflow_behavior_payload` 持久化 `behavior_binding`，并把解析后的
-  指令文本前置到 Message prompt。Harness 注入 receipt 与 Inspector 模式徽章
-  仍属于 BEHAVIOR-003，未完成。
+  指令文本前置到 Message prompt。`GET /v1/coordination/behavior/{session_id}`
+  （需 root_session_id）返回最新绑定的 requested/resolved/digest/injection
+  channel 与真实 delivery/consumption 状态；Agent Inspector 显示模式徽章，
+  并明确区分 confirmed、queued、failed 与 unknown，不把未确认注入显示为
+  已生效。会话级模式选择与并发隔离测试仍属于 BEHAVIOR-003，未完成。
 
 ## 12. Workspace 与 Git 协调
 
@@ -1035,8 +1038,11 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > `behavior_binding`（requested_mode、resolved version/digest/mode、注入渠道、
 > 指令原文与降级原因）；未授权 strict 模板节点自动降级 advisory 且不隐藏事实。
 > `/workflows/plan-implement-review` 接受 `behavior_modes`，
-> `/workflows/template` 接受 `tasks[].behavior_mode`。Harness 注入 receipt
-> 与 Inspector 模式徽章仍未完成，不能按 BEHAVIOR-003 全量验收计分。
+> `/workflows/template` 接受 `tasks[].behavior_mode`。
+> `GET /v1/coordination/behavior/{session_id}` 公开最新 Behavior Binding 与
+> DeliveryAttempt 真实状态，Agent Inspector 显示模式/digest/channel/node，
+> confirmed 与 queued/failed/unknown 严格分开。会话级模式选择、两种模式并发
+> 互不串扰测试仍属于 BEHAVIOR-003，不能全量验收计分。
 >
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine

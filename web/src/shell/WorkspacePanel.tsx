@@ -953,7 +953,10 @@ export function WorkspacePanel({
           <SubagentsPanel conversationId={conversationId} rootSessionId={rootSessionId} />
         ) : rightRailTab === "coordination" ? (
           <div className="flex flex-col h-full overflow-y-auto">
-            <AgentInspector conversationId={conversationId} />
+            <AgentInspector
+              conversationId={conversationId}
+              rootSessionId={rootSessionId ?? conversationId}
+            />
             <div className="border-t flex-1">
               <CommunicationPanel
                 conversationId={conversationId}

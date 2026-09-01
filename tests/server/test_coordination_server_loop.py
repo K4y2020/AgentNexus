@@ -552,6 +552,27 @@ def test_server_fixed_workflow_composes_node_behavior_instruction(
     )
     assert "End your reply with exactly [WORKFLOW_RESULT: succeeded]" in composed
 
+    with TestClient(app) as client:
+        facts = client.get(
+            f"/v1/coordination/behavior/{planner.id}",
+            params={"root_session_id": root.id},
+        )
+        assert facts.status_code == 200, facts.text
+        body = facts.json()
+        assert body["session_id"] == planner.id
+        assert body["binding"]["workflow_node"] == "planner"
+        assert body["binding"]["requested_mode"] == "lean"
+        assert body["delivery_state"] in {"confirmed", "queued", "failed", "unknown"}
+        assert body["consumption_state"] in {"unconsumed", "consumed"}
+
+        root_facts = client.get(
+            f"/v1/coordination/behavior/{root.id}",
+            params={"root_session_id": root.id},
+        )
+        assert root_facts.status_code == 200, root_facts.text
+        assert root_facts.json()["binding"] is None
+        assert root_facts.json()["reason"] == "no_workflow_behavior_binding"
+
 
 def test_server_template_dag_downgrades_strict_behavior(
     app: FastAPI,

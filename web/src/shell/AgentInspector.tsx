@@ -3,19 +3,68 @@ import {
   CpuIcon,
   FolderGit2Icon,
   GitBranchIcon,
+  ListChecksIcon,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { shortModelName } from "@/components/CostRoutingControl";
 import { useSession } from "@/hooks/useSession";
+import { authenticatedFetch } from "@/lib/identity";
 import { claudePermissionModeFromSession, claudePermissionModeLabel } from "@/lib/claudePermissionMode";
 
 export interface AgentInspectorProps {
   conversationId: string;
+  rootSessionId: string;
 }
 
-export function AgentInspector({ conversationId }: AgentInspectorProps) {
+interface BehaviorFactDTO {
+  binding: {
+    workflow_node?: string;
+    requested_mode?: string;
+    injection_channel?: string;
+    resolved?: {
+      binding?: {
+        mode?: string;
+        digest?: string;
+        version?: string;
+      };
+    };
+  } | null;
+  delivery_state: string;
+  consumption_state: string;
+  reason: string;
+}
+
+const BEHAVIOR_MODE_LABEL: Record<string, string> = {
+  off: "Off",
+  advisory: "Advisory",
+  lean: "Lean",
+  strict: "Strict",
+};
+
+export function AgentInspector({
+  conversationId,
+  rootSessionId,
+}: AgentInspectorProps) {
   const { session } = useSession(conversationId);
+  const {
+    data: behaviorFacts,
+    isLoading: behaviorLoading,
+    error: behaviorError,
+  } = useQuery({
+    queryKey: ["behaviorFacts", conversationId, rootSessionId],
+    queryFn: async () => {
+      const res = await authenticatedFetch(
+        `/v1/coordination/behavior/${encodeURIComponent(conversationId)}?root_session_id=${encodeURIComponent(rootSessionId)}`
+      );
+      if (!res.ok) throw new Error(`behavior facts returned ${res.status}`);
+      return (await res.json()) as BehaviorFactDTO;
+    },
+    enabled: Boolean(rootSessionId) && Boolean(conversationId),
+    retry: false,
+    staleTime: 30_000,
+  });
 
   if (!session) {
     return (
@@ -32,6 +81,10 @@ export function AgentInspector({ conversationId }: AgentInspectorProps) {
   const role = session.labels?.["omnigent.role"] ?? "Unknown";
   const branch = session.gitBranch ?? "Unknown";
   const permissionMode = claudePermissionModeFromSession(session);
+  const binding = behaviorError ? null : behaviorFacts?.binding ?? null;
+  const resolvedBinding = binding?.resolved?.binding;
+  const mode = resolvedBinding?.mode ?? binding?.requested_mode ?? "unknown";
+  const injectionState = behaviorFacts?.delivery_state ?? "unknown";
 
   return (
     <div className="flex flex-col gap-3 p-3 text-xs" data-testid="agent-inspector">
@@ -61,6 +114,86 @@ export function AgentInspector({ conversationId }: AgentInspectorProps) {
               {shortModelName(upstreamModel)}
             </Badge>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card size="sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <ListChecksIcon className="size-3.5 text-primary" />
+            Behavior Pack
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 pt-0">
+          {behaviorError ? (
+            <span className="text-muted-foreground">
+              Behavior facts unavailable
+            </span>
+          ) : behaviorLoading ? (
+            <span className="text-muted-foreground">Loading behavior facts...</span>
+          ) : !binding ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Mode:</span>
+                <Badge variant="outline" className="text-foreground">
+                  Not recorded
+                </Badge>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                No workflow behavior binding has been addressed to this session.
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Mode:</span>
+                <Badge
+                  variant={mode === "strict" ? "default" : "outline"}
+                  className="font-mono text-[11px]"
+                >
+                  {BEHAVIOR_MODE_LABEL[mode] ?? mode}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Pack:</span>
+                <span className="font-mono text-foreground">
+                  {resolvedBinding?.digest
+                    ? `${resolvedBinding.digest.slice(0, 16)}…`
+                    : "off"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Channel:</span>
+                <span className="font-mono text-foreground">
+                  {binding.injection_channel ?? "none"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Node:</span>
+                <span className="font-mono text-foreground capitalize">
+                  {binding.workflow_node ?? "stage"}
+                </span>
+              </div>
+              <div
+                className={`flex items-center justify-between ${
+                  injectionState === "confirmed"
+                    ? "text-success"
+                    : "text-foreground"
+                }`}
+              >
+                <span className="text-muted-foreground">Injection:</span>
+                <span className="font-mono">
+                  {injectionState === "confirmed"
+                    ? "confirmed"
+                    : injectionState === "queued"
+                      ? "queued"
+                      : injectionState === "failed"
+                        ? "delivery failed"
+                        : "unconfirmed/unknown"}
+                </span>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
