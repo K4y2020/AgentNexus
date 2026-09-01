@@ -17,6 +17,10 @@ consumed receipts, and `effect_unknown_count == 0`. The independent 100-run
 P6 sample is still outstanding and should be collected as a nightly/CI batch
 rather than ad hoc.
 
+Updated on 2026-09-02: an additional **40/40** batch (5m52s class per-sample
+cost, 12m17s wall clock) and a **4/4** re-check both passed, so the cumulative
+Windows mock baseline is **67/67** with zero `effect_unknown`.
+
 ## Run the baseline
 
 ```bash
@@ -147,3 +151,33 @@ This is the raw proof that the Dispatcher now injects into a live runner, the
 auto-advance moves stages from plan to accepted, and artifact state is carried
 forward. The mock reliability baseline remains the cheap 100-run regression
 gate; this real run is the end-to-end sanity check on a real machine.
+
+## Soak driver
+
+For the candidate-release 24h soak acceptance, AgentNexus ships
+`scripts/run_control_plane_soak.ps1`. It repeatedly runs the mock reliability
+baseline for a fixed wall-clock window, and after every iteration compares a
+process baseline taken before the first sample against the live process
+snapshot to flag orphaned runner/server/harness processes left behind by the
+sampled runs.
+
+```powershell
+.\scripts\run_control_plane_soak.ps1 -DurationMinutes 1440 -SamplesPerIteration 10
+```
+
+Artifacts land in `RELIABILITY_ARTIFACTS` (default `.reliability-results`) under
+a `soak/` directory: one JUnit XML + captured log per iteration and a final
+`summary.json` with iterations, samples run, failures, and leak PIDs. Any
+failed sample or surviving unrelated-to-baseline sampled-run process fails the
+soak with a non-zero exit.
+
+Verified on 2026-09-02 (Windows, 1-minute window, 1 sample per iteration):
+**2/2 passed, leaks=0**, and `summary.json` recorded both iterations.
+
+### Readiness waits
+
+Three shared readiness loops in `tests/e2e/conftest.py` previously retried
+only `httpx.ConnectError`; a slow subprocess boot surfaced as `ConnectTimeout`
+and aborted the whole sample. They now catch `httpx.HTTPError`, so transient
+startup stalls retry until the configured deadline instead of failing the run.
+

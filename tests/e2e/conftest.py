@@ -224,7 +224,7 @@ def wait_for_server(base_url: str, timeout: float = 20.0) -> None:
             resp = httpx.get(f"{base_url}/health", timeout=2.0)
             if resp.status_code == 200:
                 return
-        except httpx.ConnectError:
+        except httpx.HTTPError:
             pass
         time.sleep(POLL_INTERVAL_S)
     raise RuntimeError(f"Server did not respond within {timeout}s")
@@ -328,7 +328,7 @@ def mock_llm_server_url(
             resp = httpx.get(f"{base_url}/stats", timeout=1.0)
             if resp.status_code == 200:
                 break
-        except httpx.ConnectError:
+        except httpx.HTTPError:
             # Expected while the mock server is still booting.
             continue
         time.sleep(0.1)
@@ -803,7 +803,7 @@ def live_server(
                 and status_resp.json()["online"] is True
             ):
                 break
-        except httpx.ConnectError:
+        except httpx.HTTPError:
             pass
         time.sleep(POLL_INTERVAL_S)
     else:
