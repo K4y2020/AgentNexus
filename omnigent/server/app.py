@@ -29,6 +29,7 @@ from omnigent._platform import resolve_repo_symlink
 from omnigent.coordination.dispatcher import CoordinationDispatcher
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from omnigent.db.db_models import InvalidUuidError
 from omnigent.debug_logging import set_current_user_id
 from omnigent.errors import ErrorCode, OmnigentError
@@ -1356,14 +1357,25 @@ def create_app(
             # sweep and no periodic reconcile.
 
         coordination_dispatcher = None
+        coordination_workflow_scheduler = None
         if app_inst.state.coordination_store is not None:
             coordination_dispatcher = CoordinationDispatcher(app_inst.state.coordination_store)
             await coordination_dispatcher.start()
             app_inst.state.coordination_dispatcher = coordination_dispatcher
+            if app_inst.state.coordination_workflow_engine is not None:
+                coordination_workflow_scheduler = CoordinationWorkflowScheduler(
+                    app_inst.state.coordination_workflow_engine
+                )
+                await coordination_workflow_scheduler.start()
+                app_inst.state.coordination_workflow_scheduler = (
+                    coordination_workflow_scheduler
+                )
 
         try:
             yield
         finally:
+            if coordination_workflow_scheduler is not None:
+                await coordination_workflow_scheduler.stop()
             if coordination_dispatcher is not None:
                 await coordination_dispatcher.stop()
             # Run completion is event-driven (the _publish_status hook) plus a

@@ -21,6 +21,7 @@ from omnigent.coordination.types import (
     CoordinationTask,
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from omnigent.db.db_models import InvalidUuidError
 from omnigent.server.routes.coordination import router
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
@@ -968,6 +969,73 @@ async def test_workflow_deadline_blocks_further_dispatch(
     assert stored.status == "needs_attention"
     events = memory_store.list_events("conv_root_deadline")
     assert any(e.event_type == "workflow.deadline_exceeded" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_workflow_reconcile_requeues_missing_dispatch(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Recovery Run",
+        root_session_id="conv_root_recover",
+        planner_session_id="conv_planner_recover",
+        implementer_session_id="conv_coder_recover",
+        reviewer_session_id="conv_reviewer_recover",
+        user_prompt="Recover the dispatch",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    kickoff = memory_store.list_messages("conv_root_recover")[0]
+    cancelled = memory_store.cancel_message(kickoff.message_id)
+    assert cancelled is not None
+    assert cancelled.message_state == "cancelled"
+
+    scheduler = CoordinationWorkflowScheduler(engine)
+    healed = await scheduler.sync_once()
+    assert healed == 1
+
+    messages = memory_store.list_messages("conv_root_recover")
+    resent = messages[-1]
+    assert resent.task_id == tasks["planner"].task_id
+    assert resent.recipient_session_id == "conv_planner_recover"
+    assert resent.message_state == "queued"
+    assert resent.correlation_id == f"recovery/{tasks['planner'].task_id}"
+    events = memory_store.list_events("conv_root_recover")
+    assert any(e.event_type == "workflow.dispatch.healed" for e in events)
+
+    # A second pass sees the queued request and must not duplicate it.
+    again = await scheduler.sync_once()
+    assert again == 0
+    assert len(memory_store.list_messages("conv_root_recover")) == len(messages)
+
+
+@pytest.mark.asyncio
+async def test_workflow_reconcile_never_replays_consumed_or_paused(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Recovery Skip",
+        root_session_id="conv_root_recover_skip",
+        planner_session_id="conv_planner_skip",
+        implementer_session_id="conv_coder_skip",
+        reviewer_session_id="conv_reviewer_skip",
+        user_prompt="Do not replay",
+        workspace_path=str(tmp_path),
+    )
+    kickoff = memory_store.list_messages("conv_root_recover_skip")[0]
+    memory_store.update_message_state(kickoff.message_id, "active")
+    memory_store.record_consumption_receipt(
+        kickoff.message_id, "consumed", {"source": "turn_completed"}
+    )
+    assert await engine.reconcile_missing_dispatches() == 0
+
+    paused = await engine.pause_run(run.run_id)
+    assert paused.status == "paused"
+    active = memory_store.list_messages("conv_root_recover_skip")[-1]
+    memory_store.cancel_message(active.message_id)
+    assert await engine.reconcile_missing_dispatches() == 0
 
 
 @pytest.mark.asyncio

@@ -805,6 +805,71 @@ class CoordinationWorkflowEngine:
         )
         return await self._current_run(run.run_id), True
 
+    async def reconcile_missing_dispatches(self) -> int:
+        """Re-queue stage messages that were lost before/after a restart.
+
+        This is the recovery owner for the fixed workflow: a running stage
+        with no queued or actively delivered request is healed with the same
+        durable envelope path used by retry/reassign. Already-consumed work
+        is never replayed, and paused/cancelled/succeeded runs are skipped.
+        """
+        runs = await asyncio.to_thread(self.store.list_runs, None)
+        total = 0
+        for run in runs:
+            try:
+                total += await self._heal_run_dispatch(run)
+            except Exception:  
+                _logger.exception("recovery failed for run %s", run.run_id)
+        return total
+
+    async def _heal_run_dispatch(self, run: CoordinationRun) -> int:
+        if run.status not in ("running", "waiting_peer"):
+            return 0
+        tasks = await asyncio.to_thread(self.store.list_tasks, run.run_id)
+        messages = await asyncio.to_thread(
+            self.store.list_messages, run.root_session_id
+        )
+        healed = 0
+        for task in tasks:
+            if task.status not in ("assigned", "running"):
+                continue
+            if not task.assignee_session_id:
+                continue
+            open_messages = [
+                message
+                for message in messages
+                if message.task_id == task.task_id
+                and message.recipient_session_id == task.assignee_session_id
+                and message.message_state in ("queued", "active")
+            ]
+            if any(
+                m.consumption_state in ("consumed", "acknowledged")
+                for m in open_messages
+            ):
+                continue
+            if any(
+                m.consumption_state == "unconsumed"
+                and m.message_state in ("queued", "active")
+                for m in open_messages
+            ):
+                continue
+            sent = await self._resend_stage_request(
+                run, task, attempt="recovery"
+            )
+            await self._record(
+                run,
+                task,
+                "workflow.dispatch.healed",
+                {
+                    "task_id": task.task_id,
+                    "message_id": sent.message_id,
+                    "stage": task.assignee_role,
+                    "recipient_session_id": task.assignee_session_id,
+                },
+            )
+            healed += 1
+        return healed
+
     async def _resend_stage_request(
         self,
         run: CoordinationRun,
