@@ -14,7 +14,7 @@ Updated 2026-09-02 with the independent live A2A delivery latency sample.
 | Coordination/behavior/model/workflow tests | 90/90 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
-| Full-turn benchmark runner smoke | 8/8 journeys passed on Windows (cold start, cold restart, warm, TTFT, interrupt, runner file read, A2A delivery, stream reconnect) |
+| Full-turn benchmark journey smoke | 8/8 journey types passed on Windows (7-runner suite + A2A delivery smoke) |
 | A2A delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 565.6ms / p99 568.4ms |
 | Server/UI stream reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 780.5ms / p99 801.6ms |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
