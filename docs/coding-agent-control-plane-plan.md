@@ -1,6 +1,6 @@
 # 可视化 Coding Agent 协作控制台：二开完整计划
 
-> 状态：Proposed
+> 状态：In progress（按 P0–P6 门禁逐项推进，未宣布完成）
 >
 > 基线：Omnigent `0.12.0.dev0` 本地二开分支
 >
