@@ -923,6 +923,9 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 会由活动消息消费回执桥接自动推进；无标记保持人工 report/retry Gate。
 > Coordination 面板现已显示最新 Workflow Run/Task 状态；当前 assignee 可直接
 > 用 succeeded/failed 图标上报阶段结果并触发自动推进。
+> Server lifespan 级 A2A 回归测试已落地：真实 create_app 启动 lifespan，
+> CoordinationDispatcher/WorkflowScheduler 参与投递、回执与自动推进；Runner 503
+> 时消息保持 queued、attempt failed、outbox pending，不会伪造成功。
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
