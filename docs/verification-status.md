@@ -61,9 +61,10 @@ evidence below proves it, not when a page or code path merely exists.
 
 ### P6 public beta hardening
 - Mock 100-run baseline collected (0 failures); nightly soak job added.
+- Migration, privacy, and support-boundary docs shipped:
+  `docs/migration-guide.md`, `docs/privacy.md`, `docs/support-boundaries.md`.
 - Remaining: real-provider 100-run samples, macOS/Linux smoke artifacts,
-  migration/privacy/support docs, and the real-user Gate D sample (3-5
-  users, at least 5 repos / 20 runs).
+  and the real-user Gate D sample (3-5 users, at least 5 repos / 20 runs).
 
 ## External blockers
 
