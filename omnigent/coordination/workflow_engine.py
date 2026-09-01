@@ -33,6 +33,15 @@ _logger = logging.getLogger(__name__)
 
 WorkflowOutcome = Literal["succeeded", "failed"]
 
+_RESULT_LINE = (
+    "End your reply with exactly [WORKFLOW_RESULT: succeeded] "
+    "or [WORKFLOW_RESULT: failed]."
+)
+_REVIEW_LINE = (
+    "End your reply with exactly [REVIEW_DECISION: approved] "
+    "or [REVIEW_DECISION: changes_requested]."
+)
+
 
 class CoordinationWorkflowEngine:
     """Executes and coordinates the fixed five-stage coding workflow."""
@@ -132,7 +141,10 @@ class CoordinationWorkflowEngine:
             intent="task.request",
             payload={
                 "stage": "planning",
-                "prompt": f"Please analyze and create an implementation plan for: {user_prompt}",
+                "prompt": (
+                    f"Please analyze and create an implementation plan for: {user_prompt}"
+                    f"\n\n{_RESULT_LINE}"
+                ),
             },
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, kickoff_msg)
@@ -280,7 +292,10 @@ class CoordinationWorkflowEngine:
                     "task.request",
                     {
                         "stage": "implementation",
-                        "prompt": "Implement the plan above; run the tests you add or update.",
+                        "prompt": (
+                            "Implement the plan above; run the tests you add or update. "
+                            + _RESULT_LINE
+                        ),
                     },
                 )
             await self._record(run, task, "workflow.stage.advanced", {"stage": "implement"})
@@ -306,7 +321,8 @@ class CoordinationWorkflowEngine:
                         "stage": "review",
                         "prompt": (
                             "Review the implementation diff and report approved or "
-                            "changes_requested."
+                            "changes_requested. "
+                            + _REVIEW_LINE
                         ),
                         "impl_task_id": task.task_id,
                     },
@@ -334,7 +350,10 @@ class CoordinationWorkflowEngine:
                         "review.feedback",
                         {
                             "stage": "fix",
-                            "prompt": "Address the reviewer feedback and re-run relevant tests.",
+                            "prompt": (
+                                "Address the reviewer feedback and re-run relevant tests. "
+                                + _RESULT_LINE
+                            ),
                             "review_task_id": task.task_id,
                         },
                     )
@@ -365,7 +384,10 @@ class CoordinationWorkflowEngine:
                     "test.request",
                     {
                         "stage": "test",
-                        "prompt": "Run the full acceptance suite and report succeeded or failed.",
+                        "prompt": (
+                            "Run the full acceptance suite and report succeeded or failed. "
+                            + _RESULT_LINE
+                        ),
                     },
                 )
             await self._record(
@@ -393,7 +415,8 @@ class CoordinationWorkflowEngine:
                         "stage": "re_review",
                         "prompt": (
                             "Re-review the fix artifacts and report approved or "
-                            "changes_requested."
+                            "changes_requested. "
+                            + _REVIEW_LINE
                         ),
                         "fix_task_id": task.task_id,
                     },
@@ -885,7 +908,8 @@ class CoordinationWorkflowEngine:
                 "stage": "planning_retry",
                 "prompt": (
                     "Previous planning attempt was not accepted; analyze and create an "
-                    "implementation plan for the original request."
+                    "implementation plan for the original request. "
+                    + _RESULT_LINE
                 ),
             }
             intent = "task.request"
@@ -894,7 +918,8 @@ class CoordinationWorkflowEngine:
                 "stage": "implementation_retry",
                 "prompt": (
                     "Previous implementation attempt was not accepted; implement the plan "
-                    "above and run tests you add or update."
+                    "above and run tests you add or update. "
+                    + _RESULT_LINE
                 ),
             }
             intent = "task.request"
@@ -903,7 +928,8 @@ class CoordinationWorkflowEngine:
                 "stage": "review_retry",
                 "prompt": (
                     "Previous review attempt was not accepted; review the implementation "
-                    "diff and report approved or changes_requested."
+                    "diff and report approved or changes_requested. "
+                    + _REVIEW_LINE
                 ),
             }
             intent = "review.request"
@@ -912,7 +938,8 @@ class CoordinationWorkflowEngine:
                 "stage": "fix_retry",
                 "prompt": (
                     "Previous fix attempt was not accepted; address the reviewer feedback "
-                    "and re-run relevant tests."
+                    "and re-run relevant tests. "
+                    + _RESULT_LINE
                 ),
                 "retry": True,
             }
@@ -922,7 +949,8 @@ class CoordinationWorkflowEngine:
                 "stage": "test_retry",
                 "prompt": (
                     "Previous test attempt was not accepted; run the full acceptance suite "
-                    "and report succeeded or failed."
+                    "and report succeeded or failed. "
+                    + _RESULT_LINE
                 ),
             }
             intent = "test.request"

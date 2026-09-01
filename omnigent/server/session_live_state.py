@@ -54,6 +54,7 @@ from omnigent.db.enum_codecs import SESSION_LIVE_STATUS
 
 if TYPE_CHECKING:
     from omnigent.coordination.store import CoordinationStore
+    from omnigent.coordination.workflow_auto_advance import WorkflowAutoAdvancer
     from omnigent.stores import ConversationStore
     from omnigent.stores.scheduled_task_store import ScheduledTaskStore
 
@@ -75,6 +76,10 @@ _scheduled_task_store: ScheduledTaskStore | None = None
 # Wired alongside the other stores by :func:`configure`; ``None`` disables
 # the hook (runner process and unit tests that never wire it unaffected).
 _coordination_store: CoordinationStore | None = None
+# Optional bridge that advances fixed workflow stages from declared A2A
+# turn results. Wired alongside the coordination store by :func:`configure`;
+# ``None`` keeps the manual report/retry gates as the only advance path.
+_workflow_advancer: WorkflowAutoAdvancer | None = None
 # Single worker => writes apply in submission order (see module docstring).
 _executor: ThreadPoolExecutor | None = None
 # Last status seen per session, for dedupe — the value whose write was
@@ -90,6 +95,7 @@ def configure(
     store: ConversationStore | None,
     scheduled_task_store: ScheduledTaskStore | None = None,
     coordination_store: CoordinationStore | None = None,
+    workflow_advancer: WorkflowAutoAdvancer | None = None,
 ) -> None:
     """
     Wire (or clear) the stores live-state writes go to.
@@ -102,11 +108,15 @@ def configure(
     :param coordination_store: The server's coordination store, enabling
         automatic terminal consumption receipts
         (:func:`persist_a2a_turn_completed`); ``None`` disables it.
+    :param workflow_advancer: Optional bridge that advances fixed workflow
+        stages from declared A2A turn results after terminal-idle receipts;
+        ``None`` keeps the manual report/retry gates as the only advance path.
     """
-    global _store, _scheduled_task_store, _coordination_store
+    global _store, _scheduled_task_store, _coordination_store, _workflow_advancer
     _store = store
     _scheduled_task_store = scheduled_task_store
     _coordination_store = coordination_store
+    _workflow_advancer = workflow_advancer
     _last_status.clear()
     _last_pending.clear()
 
@@ -311,6 +321,9 @@ def persist_a2a_turn_completed(
                     },
                 )
             )
+        advancer = _workflow_advancer
+        if advancer is not None:
+            advancer.on_turn_completed(session_id, response_id, messages)
 
     _submit("a2a_turn_completed", _record)
 

@@ -28,6 +28,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from omnigent._platform import resolve_repo_symlink
 from omnigent.coordination.dispatcher import CoordinationDispatcher
 from omnigent.coordination.store import CoordinationStore
+from omnigent.coordination.workflow_auto_advance import WorkflowAutoAdvancer
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from omnigent.db.db_models import InvalidUuidError
@@ -1555,6 +1556,14 @@ def create_app(
         conversation_store,
         scheduled_task_store,
         resolved_coordination_store,
+        (
+            WorkflowAutoAdvancer(
+                app.state.coordination_workflow_engine,
+                conversation_store,
+            )
+            if app.state.coordination_workflow_engine is not None
+            else None
+        ),
     )
     pending_elicitations.set_count_persist_hook(session_live_state.persist_pending_count)
 

@@ -919,6 +919,8 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > report 把阶段结果作为 task.result 持久消息写入同一个 AgentMessage/Outbox
 > 链路，校验发送者必须是该任务 assignee，再由 WorkflowEngine 自动派发下一阶段；
 > 用户仍通过 pause/retry/reassign/cancel 控制人工 Gate。
+> Terminal idle 回合若带显式 [WORKFLOW_RESULT]/[REVIEW_DECISION] 标记，
+> 会由活动消息消费回执桥接自动推进；无标记保持人工 report/retry Gate。
 > Coordination 面板现已显示最新 Workflow Run/Task 状态；当前 assignee 可直接
 > 用 succeeded/failed 图标上报阶段结果并触发自动推进。
 POST   /v1/sessions/{id}/workspace/merge-preview
