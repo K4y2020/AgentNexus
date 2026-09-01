@@ -13,7 +13,9 @@ import { UI_FONT_SIZE_DEFAULT, UI_FONT_SIZE_MAX, UI_FONT_SIZE_MIN } from "./lib/
 // URL inside vitest's module graph, so it can't locate the file.
 const indexCssSource = readFileSync("src/index.css", "utf8");
 const generatedPaletteCssSource = readFileSync("src/themePalettes.generated.css", "utf8");
-const cssSource = `${generatedPaletteCssSource}\n${indexCssSource}`;
+// Normalize line endings so rule-order searches don't depend on the checkout's
+// LF/CRLF convention (git autocrlf can convert this file on Windows).
+const cssSource = `${generatedPaletteCssSource}\n${indexCssSource}`.replace(/\r\n/g, "\n");
 
 /* Regression test for the "transparent dropdown in prod" bug.
  *

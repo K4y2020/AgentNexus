@@ -38,6 +38,17 @@ import {
   type Host,
 } from "@/hooks/useHosts";
 import { useAvailableAgents, type AvailableAgent } from "@/hooks/useAvailableAgents";
+
+// jsdom's hidden-browser UA is not guaranteed to match any OS family (it
+// currently reports "(win32)"), but the local-host label assertions below
+// pin the Linux spelling ("This machine"). Keep the platform deterministic
+// for the whole suite so those assertions test the label logic, not the
+// jsdom UA of the day.
+Object.defineProperty(window.navigator, "userAgent", {
+  value:
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  configurable: true,
+});
 import { useHostFilesystem, type HostFilesystemEntry } from "@/hooks/useHostFilesystem";
 import { useHostWorktrees } from "@/hooks/useHostWorktrees";
 import { useDirectorySessions } from "@/hooks/useDirectorySessions";

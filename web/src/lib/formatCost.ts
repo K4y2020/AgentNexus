@@ -9,9 +9,12 @@ export function formatSessionCostUsd(costUsd: number): string {
 /**
  * Compact token-count formatter, e.g. ``842`` -> ``"842"``,
  * ``12_400`` -> ``"12.4K"``, ``1_530_000`` -> ``"1.5M"``.
+ * The locale is pinned to ``en-US`` so the K/M suffixes are stable across
+ * hosts and browsers (the doc comment above is the contract, not whatever
+ * number-format locale the viewer happens to run under).
  */
 export function formatTokenCount(tokens: number): string {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(tokens);

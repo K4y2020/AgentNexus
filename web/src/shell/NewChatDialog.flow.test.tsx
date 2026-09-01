@@ -135,6 +135,9 @@ vi.mock("@/lib/agentLabels", async (importOriginal) => ({
   // Stub so the setup dialog's hook doesn't fire its own /v1/harnesses fetch
   // (which would skew the create-flow call-count assertions here).
   useHarnessSetupSteps: () => ({}),
+  // The landing screen also reads the model-pinning args catalog; keeping it
+  // synchronous avoids a second /v1/harnesses fetch skewing POST counts.
+  useHarnessModelArgs: () => ({}),
 }));
 
 function host(overrides: Partial<Host> = {}): Host {
