@@ -101,3 +101,39 @@ from the invoker's CLI config, so the exact backend is environment-specific.
 - A configured local/aggregator gateway may transiently return HTTP 429 after
   heavy runs; retry after the rate-limit window. This is infrastructure
   throttling, not an AgentNexus defect.
+
+## Control-plane native real A2A + workflow E2E
+
+The direct-CLI handoff above bypasses the server/runner/Dispatcher path. As the
+complementary check, AgentNexus also drives the **control-plane-native** path
+end to end for real: one isolated local server (own chat + conversation DBs),
+a real `claude-sdk` harness session, the RunnerRouter dispatcher, the outbox,
+and terminal-idle receipts, converging a full Plan -> Implement -> Review ->
+Test workflow automatically.
+
+This run was reproduced on Windows with a fully isolated environment:
+
+- Server bound to `127.0.0.1:8769`.
+- Chat DB, conversation DB, artifacts dir, and workspace all under a temp
+  data dir; the production `~/.omnigent/chat.db` is never touched.
+- A real `claude-sdk` session acted as the Implementer/Reviewer/Tester
+  harness so delivery went through the actual runner inbox rather than the
+  mock sender.
+
+Verified outcome:
+
+- Workflow run reached `succeeded` with stage `accepted`; Planner,
+  Implementer, Reviewer, Fixer, and Tester all `succeeded`.
+- `artifact_count` was `4`; `active` messages `4` and `consumed` `4`,
+  proving delivery receipts (not just SQLite writes + UI events).
+- Implementer received `prior_artifacts: ['plan']`; Reviewer and Tester
+  received `prior_artifacts: ['diff']`, confirming cross-stage artifact
+  handoff (commit `63019645`).
+- The workspace produced `answer.py` (`answer() -> 42`) and
+  `test_answer.py`, and pytest actually executed (a `__pycache__` pyc was
+  left behind), so the loop ran real tests.
+
+This is the raw proof that the Dispatcher now injects into a live runner, the
+auto-advance moves stages from plan to accepted, and artifact state is carried
+forward. The mock reliability baseline remains the cheap 100-run regression
+gate; this real run is the end-to-end sanity check on a real machine.
