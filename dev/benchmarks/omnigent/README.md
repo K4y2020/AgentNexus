@@ -105,6 +105,7 @@ drift negligible (~2 ms/turn).
 | `time_to_first_token` | Post a turn; time to the first streamed `output_text` delta |
 | `interrupt` | Interrupt a running (gated) turn; time to cancellation |
 | `read_runner_file` | `GET .../environments/default/filesystem/{path}` — server → runner filesystem read proxy |
+| `a2a_message_delivery` | `POST /v1/coordination/messages` → durable outbox → Dispatcher → runner injection → harness `consumed` receipt |
 
 The two cold journeys use a real `omni host` daemon. `session_cold_start`
 creates a new host-bound session per sample, while `session_cold_restart`
@@ -119,6 +120,14 @@ dispatch. The daemon reaps any remaining runners when the benchmark exits.
 its setup plants a file via `PUT`, and the timed op is the proxied read (a
 localhost round-trip). Being far cheaper than a turn, it uses a higher iteration
 cap (50) than the full-turn journeys.
+
+`a2a_message_delivery` measures only control-plane delivery overhead: it posts
+a peer message to a warm root + child session pair and times from the POST
+through durable outbox, Dispatcher runner injection, and the harness's
+terminal-idle `consumed` receipt. The mock LLM is zero-latency, so model wait
+time is excluded. Its setup also clears any mock responses queued by an earlier
+journey (the `interrupt` gate can otherwise leave the recipient stuck on a
+`block=True` default), which the smoke test covers explicitly.
 
 **Only measure what we control.** Full-turn journeys always use the
 **`openai-agents`** SDK harness, which runs **in-process** (a call into the

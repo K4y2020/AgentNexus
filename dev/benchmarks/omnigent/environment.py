@@ -30,6 +30,7 @@ import socket
 import subprocess
 import sys
 import tarfile
+import tempfile
 import threading
 import time
 import uuid
@@ -203,7 +204,9 @@ class BenchEnvironment:
         self.host_workspace = ""
         self.client: httpx.AsyncClient | None = None
 
-        self._tmp = Path("/tmp") / f"omni-bench-{uuid.uuid4().hex[:8]}"
+        # OS temp dir yields a drive-letter absolute path on Windows; the
+        # session-create validation rejects drive-relative ``\tmp\...`` paths.
+        self._tmp = Path(tempfile.gettempdir()) / f"omni-bench-{uuid.uuid4().hex[:8]}"
         self._mock_proc: subprocess.Popen[bytes] | None = None
         self._server_proc: subprocess.Popen[bytes] | None = None
         self._runner_proc: subprocess.Popen[bytes] | None = None
@@ -721,6 +724,32 @@ class BenchEnvironment:
         """Create an (unbound) session for *agent_id*, returning its id."""
         assert self.client is not None
         created = await self.client.post("/v1/sessions", json={"agent_id": agent_id})
+        created.raise_for_status()
+        return str(created.json()["id"])
+
+    async def create_child_session(
+        self,
+        agent_id: str,
+        parent_session_id: str,
+        *,
+        title: str = "",
+    ) -> str:
+        """Create a child session under a parent coordination room.
+
+        Mirrors the control-plane A2A tree used by live integration tests:
+        the child inherits the parent's room/root identity but keeps its own
+        session id so peer messages can target it explicitly.
+        """
+        assert self.client is not None
+        created = await self.client.post(
+            "/v1/sessions",
+            json={
+                "agent_id": agent_id,
+                "parent_session_id": parent_session_id,
+                "title": title,
+            },
+            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        )
         created.raise_for_status()
         return str(created.json()["id"])
 

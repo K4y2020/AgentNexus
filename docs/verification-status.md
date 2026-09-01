@@ -4,6 +4,8 @@ Status snapshot taken 2026-09-02 at `cdf88b84` (main). This file tracks the
 plan's gates with authoritative evidence only; a row is marked done when the
 evidence below proves it, not when a page or code path merely exists.
 
+Updated 2026-09-02 with the independent live A2A delivery latency sample.
+
 ## Quality checks (fresh, this machine)
 
 | Check | Result |
@@ -12,6 +14,8 @@ evidence below proves it, not when a page or code path merely exists.
 | Coordination/behavior/model/workflow tests | 90/90 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
+| Full-turn benchmark runner smoke | 7/7 journeys passed on Windows (cold start, cold restart, warm, TTFT, interrupt, runner file read, A2A delivery) |
+| A2A delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 565.6ms / p99 568.4ms |
 | Frontend vitest | 6280 passed, 3 expected fail, 1 skipped |
 | Web production build (`vite build`) | Succeeded (42s) |
 | Electron desktop tests (`node --test`) | 366/366 passed |
@@ -41,8 +45,16 @@ evidence below proves it, not when a page or code path merely exists.
   custom-provider control-plane run also reached `succeeded` with
   `consumed: 4` and terminal-idle receipts from real Codex turns
   (`tests/integration/test_real_provider_control_plane.py`).
-- `live message` p95 and Server/UI reconnect p95 have no independent
-  sample yet; the reliability loop is the proxy evidence.
+- `live message` p95 now has an independent 30-sample mock-LLM benchmark
+  (`a2a_message_delivery` in `dev/benchmarks/omnigent/journeys.py`): p95
+  565.6ms, p99 568.4ms, 0 failures on this machine, below the <1s gate.
+  The measured span is POST message → durable outbox → Dispatcher → runner
+  injection → terminal-idle consumption receipt.
+- The full-turn benchmark harness now uses the OS temp dir for its throwaway
+  workspace; on Windows a drive-relative `\tmp\...` path previously failed
+  session-create validation with HTTP 400, blocking the cold-start journeys.
+- Server/UI reconnect p95 still has no independent sample; the reliability
+  loop remains the proxy evidence.
 
 ### P3 workspace/git coordination
 - Persistent lease (SQLAlchemy), fencing token, managed-path validation,

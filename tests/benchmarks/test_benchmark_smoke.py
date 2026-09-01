@@ -566,6 +566,24 @@ async def test_benchmark_smoke_runner_journeys() -> None:
         assert run_rows[0]["n_failures"] == 0, f"{name}: {run_rows[0]['failures']}"
 
 
+@pytest.mark.timeout(240)
+async def test_benchmark_smoke_a2a_delivery_journey() -> None:
+    """A2A delivery still consumes after a mock gate leaves a block=True queue."""
+    report, passed = await bench_run.run_benchmark(
+        _smoke_args(journeys=["interrupt", "a2a_message_delivery"], iterations=1, warmup=0)
+    )
+
+    assert passed
+    block = cast(
+        dict[str, object],
+        _d(report["journeys"])["a2a_message_delivery"],
+    )
+    assert block["needs_runner"] is True
+    runs = cast(list[dict[str, object]], block["runs"])
+    assert runs, "a2a_message_delivery produced no runs"
+    assert runs[0]["n_failures"] == 0, runs[0]["failures"]
+
+
 # ── seeder (direct store, no server) ─────────────────────────
 
 

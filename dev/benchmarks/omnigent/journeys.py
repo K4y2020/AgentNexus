@@ -532,6 +532,15 @@ _TURN_PROMPT = "Say hello."
 # drift negligible.
 _RUNNER_MAX_ITERATIONS = 5
 
+# A2A delivery samples need enough iterations to report a stable p95 without
+# turning the benchmark into a soak. Each sample is a warm-runner message
+# through outbox -> dispatcher -> harness -> receipt, so the cap is kept below
+# the pure HTTP journeys' unlimited budget.
+_A2A_MAX_ITERATIONS = 30
+_A2A_TIMEOUT_S = 30.0
+_A2A_POLL_INTERVAL_S = 0.02
+_A2A_REPLY = "Received the benchmark A2A request."
+
 # Iteration cap for the runner filesystem read. It's a proxied localhost read,
 # not a full turn, so it's far cheaper than the drive-a-turn journeys — a higher
 # cap gives a usable p50/p99 while staying well within the CI time budget.
@@ -691,6 +700,117 @@ async def _setup_runner_file_session(env: BenchEnvironment) -> str:
 async def _measure_read_runner_file(env: BenchEnvironment, ctx: JourneyContext) -> None:
     session_id = cast(str, ctx)  # _setup_runner_file_session
     await env.read_runner_file(session_id, _RUNNER_FILE_PATH)
+
+
+@dataclass
+class _A2ADeliveryContext:
+    """Coordination room reused for every timed A2A delivery sample."""
+
+    root_session_id: str
+    recipient_session_id: str
+
+
+async def _setup_a2a_delivery_tree(env: BenchEnvironment) -> _A2ADeliveryContext:
+    """Create a warm root + child session pair and set a mock reply fallback."""
+    name = await env.ensure_agent()
+    # Clear any queued responses left by an earlier runner journey (e.g. the
+    # interrupt gate's block=True default entry); the fallback below is the
+    # steady-state reply for every timed sample.
+    await env.configure_mock([], key="default")
+    await env.set_mock_fallback(_A2A_REPLY)
+    agent_id = await env.agent_id(name)
+    root_id = await env.create_bound_session(agent_id)
+    recipient_id = await env.create_child_session(
+        agent_id=agent_id,
+        parent_session_id=root_id,
+        title="a2a-recipient",
+    )
+    return _A2ADeliveryContext(
+        root_session_id=root_id,
+        recipient_session_id=recipient_id,
+    )
+
+
+async def _measure_a2a_message_delivery(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Post one peer message and await its harness consumption receipt.
+
+    The measured span is POST /v1/coordination/messages -> durable outbox ->
+    Dispatcher -> runner injection -> terminal-idle receipt. The mock LLM is
+    zero-latency, so the number is control-plane delivery overhead, not model
+    latency; polling is only how the observer learns about the terminal state.
+    """
+    assert env.client is not None
+    a2a = cast(_A2ADeliveryContext, ctx)
+    posted = await env.client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": a2a.root_session_id,
+            "sender_session_id": a2a.root_session_id,
+            "sender_role": "user_orchestrator",
+            "recipient_session_id": a2a.recipient_session_id,
+            "recipient_role": "worker",
+            "intent": "task.request",
+            "payload": {"prompt": "Benchmark A2A delivery."},
+        },
+    )
+    posted.raise_for_status()
+    message_id = str(posted.json()["message"]["message_id"])
+
+    deadline = time.monotonic() + _A2A_TIMEOUT_S
+    last_message: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        listing = await env.client.get(
+            "/v1/coordination/messages",
+            params={
+                "root_session_id": a2a.root_session_id,
+                "recipient_session_id": a2a.recipient_session_id,
+            },
+        )
+        listing.raise_for_status()
+        message = next(
+            (
+                m
+                for m in listing.json()["messages"]
+                if m.get("message_id") == message_id
+            ),
+            None,
+        )
+        last_message = message
+        if message is not None:
+            if message["consumption_state"] == "consumed":
+                return
+            if message["consumption_state"] in ("rejected", "failed"):
+                raise RuntimeError(
+                    f"A2A message {message_id} reached terminal rejection: "
+                    f"{message['consumption_state']}"
+                )
+        await asyncio.sleep(_A2A_POLL_INTERVAL_S)
+    snapshot = await _a2a_recipient_snapshot(env, a2a.recipient_session_id)
+    raise RuntimeError(
+        f"A2A message {message_id} was not consumed within {_A2A_TIMEOUT_S}s; "
+        f"message={last_message}; recipient_session={a2a.recipient_session_id}; "
+        f"recipient_snapshot={snapshot}"
+    )
+
+
+async def _a2a_recipient_snapshot(
+    env: BenchEnvironment, session_id: str
+) -> str:
+    """Fetch a short diagnostic snapshot for a stuck recipient session."""
+    assert env.client is not None
+    try:
+        snap = await env.client.get(f"/v1/sessions/{session_id}")
+        snap.raise_for_status()
+        body = snap.json()
+        return (
+            f"status={body.get('status')!r} "
+            f"runner_online={body.get('runner_online')!r} "
+            f"runner_id={body.get('runner_id')!r}"
+        )
+    except Exception as exc:  # noqa: BLE001 - diagnostics must not hide the timeout
+        return f"unavailable: {exc}"
 
 
 # ── policy evaluate ──────────────────────────────────────────
@@ -1075,6 +1195,16 @@ ALL_JOURNEYS: dict[str, Journey] = {
             needs_runner=True,
             max_iterations=_RUNNER_FS_MAX_ITERATIONS,
             description="GET .../environments/default/filesystem/{path} — runner file read proxy.",
+        ),
+        Journey(
+            name="a2a_message_delivery",
+            kind="latency",
+            measure=_measure_a2a_message_delivery,
+            setup=_setup_a2a_delivery_tree,
+            needs_runner=True,
+            max_iterations=_A2A_MAX_ITERATIONS,
+            description="POST /v1/coordination/messages → outbox → runner → "
+            "harness consumed receipt — live A2A delivery latency.",
         ),
         Journey(
             name="native_hook_spawn",
