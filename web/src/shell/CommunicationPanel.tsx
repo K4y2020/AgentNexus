@@ -101,6 +101,7 @@ export function CommunicationPanel({
         <WorkflowPanel
           rootSessionId={rootSessionId}
           actorSessionId={conversationId}
+          childSessions={children}
           onUpdated={() => void fetchMessages()}
         />
         {messages.length === 0 ? (

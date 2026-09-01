@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2Icon, GitBranchIcon, XCircleIcon } from "lucide-react";
+import { CheckCircle2Icon, GitBranchIcon, PlayIcon, XCircleIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { authenticatedFetch } from "@/lib/identity";
 
 export interface WorkflowTaskDTO {
@@ -38,14 +46,32 @@ const REPORTABLE_STATUSES = new Set(["assigned", "running", "waiting_peer", "wai
 export function WorkflowPanel({
   rootSessionId,
   actorSessionId,
+  childSessions,
   onUpdated,
 }: {
   rootSessionId: string;
   actorSessionId: string;
+  childSessions: { id: string; title: string | null }[];
   onUpdated?: () => void;
 }) {
   const [detail, setDetail] = useState<WorkflowDetailDTO | null>(null);
   const [postingTask, setPostingTask] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [selectedIds, setSelectedIds] = useState<{
+    planner?: string;
+    implementer?: string;
+    reviewer?: string;
+  }>({});
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    if (childSessions.length < 3) return;
+    setSelectedIds((prev) => ({
+      planner: prev.planner ?? childSessions[0]?.id,
+      implementer: prev.implementer ?? childSessions[1]?.id,
+      reviewer: prev.reviewer ?? childSessions[2]?.id,
+    }));
+  }, [childSessions]);
 
   const fetchWorkflow = useCallback(async () => {
     try {
@@ -110,7 +136,106 @@ export function WorkflowPanel({
     }
   };
 
-  if (!detail) return null;
+  const startWorkflow = async () => {
+    if (
+      starting ||
+      !prompt.trim() ||
+      !selectedIds.planner ||
+      !selectedIds.implementer ||
+      !selectedIds.reviewer
+    ) {
+      return;
+    }
+    setStarting(true);
+    try {
+      const res = await authenticatedFetch(
+        "/v1/coordination/workflows/plan-implement-review",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "Plan -> Implement -> Review Workflow",
+            root_session_id: rootSessionId,
+            planner_session_id: selectedIds.planner,
+            implementer_session_id: selectedIds.implementer,
+            reviewer_session_id: selectedIds.reviewer,
+            user_prompt: prompt.trim(),
+            workspace_path: ".",
+          }),
+        }
+      );
+      if (!res.ok) {
+        console.warn("Workflow start refused:", res.status, await res.text());
+      } else {
+        setPrompt("");
+      }
+      await fetchWorkflow();
+      onUpdated?.();
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  if (!detail) {
+    return (
+      <Card size="sm" className="border-border" data-testid="workflow-start-panel">
+        <CardHeader className="p-2 pb-1 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-1.5 font-semibold text-foreground">
+            <PlayIcon className="size-3.5 text-primary" />
+            <span>New Workflow</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-2 pt-1 space-y-2">
+          <Input
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="Workflow prompt"
+            className="h-7 text-xs"
+          />
+          <div className="grid grid-cols-1 gap-1.5">
+            {(["planner", "implementer", "reviewer"] as const).map((role) => (
+              <div key={role} className="flex items-center gap-1.5">
+                <Badge
+                  variant="secondary"
+                  className="w-20 justify-center text-[10px] font-mono capitalize"
+                >
+                  {role}
+                </Badge>
+                <Select
+                  value={selectedIds[role] ?? ""}
+                  onValueChange={(value) =>
+                    setSelectedIds((prev) => ({ ...prev, [role]: value }))
+                  }
+                >
+                  <SelectTrigger size="sm" className="w-full h-7 text-[11px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {childSessions.map((child) => (
+                      <SelectItem key={child.id} value={child.id}>
+                        {child.title ?? child.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="w-full h-7"
+            loading={starting}
+            disabled={!prompt.trim() || !selectedIds.planner || !selectedIds.implementer || !selectedIds.reviewer}
+            onClick={() => void startWorkflow()}
+          >
+            <PlayIcon className="size-3.5" />
+            Start
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card size="sm" className="border-border" data-testid="workflow-panel">
