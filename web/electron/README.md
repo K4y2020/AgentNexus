@@ -758,3 +758,21 @@ The decision logic (parse + window selection) is pure and unit-tested in
 > Historical note: an earlier Tauri-based shell lived in `web/src-tauri`.
 > It was removed in favor of shipping Electron only; `nativeBridge.ts` no
 > longer carries a Tauri code path.
+
+
+## Windows build verification (2026-09-02)
+
+`pnpm run build:win` on Windows (Node 24, pnpm 11) produced, from
+`web/electron`:
+
+- `dist/AgentNexus-0.12.0-dev.0-x64-setup.exe` (100 MB, NSIS, unsigned)
+- `dist/AgentNexus-0.12.0-dev.0-x64-win.zip` (139 MB, portable)
+- `dist/AgentNexus-0.12.0-dev.0-x64-setup.exe.blockmap`
+
+`Get-AuthenticodeSignature` reports `NotSigned`, matching the workflow's
+documented unsigned mode when `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` are not
+installed. A launch smoke of `dist/win-unpacked/AgentNexus.exe` stayed up
+through an 8s probe and exited cleanly on `taskkill /T /F`, with no
+`AgentNexus.exe` orphaned afterward. Signing a public-beta build still
+requires installing the repository secrets and re-running the desktop release
+workflow.
