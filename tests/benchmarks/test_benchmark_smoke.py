@@ -534,6 +534,7 @@ _RUNNER_JOURNEYS = [
     "warm_turn",
     "time_to_first_token",
     "ui_event_running",
+    "tool_call_running",
     "interrupt",
     "read_runner_file",
     "server_stream_reconnect",

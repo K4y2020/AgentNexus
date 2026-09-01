@@ -552,6 +552,17 @@ _RECONNECT_REPLY = "Reconnected benchmark response."
 _UI_EVENT_MAX_ITERATIONS = 30
 _UI_EVENT_TIMEOUT_S = 30.0
 
+# Tool-call visibility samples: time from user message to the first
+# ``response.output_item.done`` carrying a live ``function_call`` on the SSE
+# stream. The adapter emits observed tool calls as ``in_progress`` before the
+# server dispatch flips them to ``action_required`` / ``completed``, so this is
+# the UI's tool-card running signal, not the later durable completion.
+_TOOL_CALL_MAX_ITERATIONS = 30
+_TOOL_CALL_TIMEOUT_S = _UI_EVENT_TIMEOUT_S
+_TOOL_CALL_NAME = "sys_session_list"
+_TOOL_CALL_ARGS = "{}"
+_TOOL_CALL_REPLY = "Tool call benchmark complete."
+
 # Host-daemon tunnel reconnects after a server restart. Each sample costs the
 # server process restart + host reattach, so the cap keeps a full-geometry run
 # inside the CI time budget while still giving a 30-sample p95.
@@ -965,6 +976,18 @@ class _UIEventContext:
     outcome: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass
+class _ToolCallRunningContext:
+    """Warm session plus one long-lived SSE stream reused by every sample."""
+
+    session_id: str
+    reader: asyncio.Task[None] | None = None
+    connected: asyncio.Event = field(default_factory=asyncio.Event)
+    tool_seen: asyncio.Event = field(default_factory=asyncio.Event)
+    outcome: dict[str, str] = field(default_factory=dict)
+    status: str = ""
+
+
 async def _setup_ui_event_session(env: BenchEnvironment) -> _UIEventContext:
     """Create the warm session; the stream reader starts on first prepare."""
     session_id = await _setup_streaming_session(env)
@@ -1046,6 +1069,124 @@ async def _teardown_ui_event_running(
 ) -> None:
     """Cancel the journey's long-lived stream reader."""
     ui = cast(_UIEventContext, ctx)
+    if ui.reader is not None:
+        ui.reader.cancel()
+
+
+async def _setup_tool_call_running_session(
+    env: BenchEnvironment,
+) -> _ToolCallRunningContext:
+    """Create the warm session; the stream reader starts on first prepare."""
+    session_id = await _setup_streaming_session(env)
+    return _ToolCallRunningContext(session_id=session_id)
+
+
+async def _prepare_tool_call_running(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Settle the prior turn, arm one tool-call response, and reuse the stream."""
+    ui = cast(_ToolCallRunningContext, ctx)
+    await env._wait_idle(ui.session_id, timeout=_TOOL_CALL_TIMEOUT_S)
+    await env.configure_mock([], key="default")
+    with contextlib.suppress(httpx.HTTPError):
+        await env._mock_post("/gate/release", {})
+    await env.configure_mock(
+        [
+            {
+                "tool_calls": [
+                    {
+                        "call_id": "bench_tool_call_0001",
+                        "name": _TOOL_CALL_NAME,
+                        "arguments": _TOOL_CALL_ARGS,
+                    }
+                ]
+            },
+            {"text": _TOOL_CALL_REPLY},
+        ]
+    )
+    ui.tool_seen.clear()
+    ui.outcome.clear()
+    ui.status = ""
+    if ui.reader is None:
+
+        async def _read_stream() -> None:
+            try:
+                async with env.client.stream(  # type: ignore[union-attr]
+                    "GET",
+                    f"/v1/sessions/{ui.session_id}/stream",
+                    timeout=_TOOL_CALL_TIMEOUT_S,
+                ) as resp:
+                    ui.connected.set()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        payload = line[len("data:") :].strip()
+                        if payload == "[DONE]":
+                            continue
+                        try:
+                            event = json.loads(payload)
+                        except (ValueError, TypeError):
+                            continue
+                        event_type = event.get("type")
+                        if event_type == "session.status":
+                            status = _sse_session_status(payload)
+                            if status == "failed":
+                                ui.outcome["failed"] = "turn failed before tool call"
+                                ui.tool_seen.set()
+                        elif event_type == "response.output_item.done":
+                            item = event.get("item")
+                            if not isinstance(item, dict):
+                                continue
+                            if (
+                                item.get("type") == "function_call"
+                                and item.get("name") == _TOOL_CALL_NAME
+                                and item.get("status") in ("in_progress", "action_required")
+                            ):
+                                ui.status = str(item.get("status", ""))
+                                ui.tool_seen.set()
+            except httpx.HTTPError as exc:
+                ui.outcome["error"] = repr(exc)
+                ui.connected.set()
+                ui.tool_seen.set()
+
+        ui.reader = asyncio.create_task(_read_stream())
+        await asyncio.wait_for(ui.connected.wait(), timeout=_TOOL_CALL_TIMEOUT_S)
+
+
+async def _measure_tool_call_running(
+    env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Time a user message to the first live tool-call event on the UI stream."""
+    assert env.client is not None
+    ui = cast(_ToolCallRunningContext, ctx)
+    posted = await env.client.post(
+        f"/v1/sessions/{ui.session_id}/events",
+        json={
+            "type": "message",
+            "data": {"role": "user", "content": [{"type": "input_text", "text": "Run the tool."}]},
+        },
+    )
+    posted.raise_for_status()
+    try:
+        await asyncio.wait_for(ui.tool_seen.wait(), timeout=_TOOL_CALL_TIMEOUT_S)
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"no in_progress/action_required {_TOOL_CALL_NAME} function_call within "
+            f"{_TOOL_CALL_TIMEOUT_S}s (session {ui.session_id}; outcome={ui.outcome})"
+        ) from exc
+    if "error" in ui.outcome:
+        raise RuntimeError(f"ui stream error: {ui.outcome['error']}")
+    if "failed" in ui.outcome:
+        raise RuntimeError(f"ui turn failed before tool call: {ui.outcome['failed']}")
+    if ui.status not in ("in_progress", "action_required"):
+        raise RuntimeError(f"unexpected tool-call status: {ui.status!r}")
+
+
+async def _teardown_tool_call_running(
+    _env: BenchEnvironment, ctx: JourneyContext
+) -> None:
+    """Cancel the journey's long-lived stream reader."""
+    ui = cast(_ToolCallRunningContext, ctx)
     if ui.reader is not None:
         ui.reader.cancel()
 
@@ -1494,6 +1635,18 @@ ALL_JOURNEYS: dict[str, Journey] = {
             max_iterations=_UI_EVENT_MAX_ITERATIONS,
             description="Post a user message and time to the first running/waiting "
             "session status event — UI event delivery latency.",
+        ),
+        Journey(
+            name="tool_call_running",
+            kind="latency",
+            measure=_measure_tool_call_running,
+            setup=_setup_tool_call_running_session,
+            prepare=_prepare_tool_call_running,
+            teardown=_teardown_tool_call_running,
+            needs_runner=True,
+            max_iterations=_TOOL_CALL_MAX_ITERATIONS,
+            description="Post a user message and time to the first in_progress/"
+            "action_required function_call output item on the live UI stream.",
         ),
         Journey(
             name="native_hook_spawn",

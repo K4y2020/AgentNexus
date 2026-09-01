@@ -10,6 +10,8 @@ host tunnel reconnect p95 samples.
 Updated 2026-09-02 with the per-turn model fact chain: durable relay facts,
 SQLite migration + store round-trip, and Inspector Unknown-with-reason rendering.
 
+Updated 2026-09-02 with the tool-call UI running p95 benchmark (30 samples).
+
 ## Quality checks (fresh, this machine)
 
 | Check | Result |
@@ -18,10 +20,11 @@ SQLite migration + store round-trip, and Inspector Unknown-with-reason rendering
 | Coordination/behavior/model/workflow tests | 90/90 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
-| Full-turn benchmark journey smoke | 9/9 runner journey types passed on Windows |
+| Full-turn benchmark journey smoke | 10/10 runner journey types passed on Windows |
 | A2A delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 565.6ms / p99 568.4ms |
 | Server/UI stream reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 780.5ms / p99 801.6ms |
 | UI event delivery benchmark (mock LLM, 30 samples) | 30/30 passed, p95 32.8ms / p99 33.5ms |
+| Tool-call UI running benchmark (mock LLM, 30 samples) | 30/30 passed, p95 76.6ms / p99 80.8ms |
 | Runner relaunch benchmark (mock LLM, 30 samples) | 30/30 passed, p95 16754.1ms / p99 16754.1ms |
 | Host tunnel reconnect benchmark (mock LLM, 30 samples) | 30/30 passed, p95 5958.5ms / p99 6036.2ms |
 | Model fact chain backend targeted | 10/10 passed |
@@ -60,6 +63,12 @@ SQLite migration + store round-trip, and Inspector Unknown-with-reason rendering
 - AgentInspector reads the latest fact from the items endpoint and renders
   Unknown only with its stated reason; before any fact exists it no longer
   guesses upstream from `omnigent.upstream_model` labels.
+- Tool calls now have an independent 30-sample mock-LLM benchmark on this
+  machine (`tool_call_running` in `dev/benchmarks/omnigent/journeys.py`):
+  p95 76.6ms, p99 80.8ms, 0 failures, below the <1s gate. The timed span is
+  POST message → runner turn → first `response.output_item.done` carrying a
+  live `function_call` (`in_progress`/`action_required`) on the UI stream,
+  which is the event that paints the tool card as running.
 - Remaining: real-world model/tool observability soak on a candidate build.
 
 ### P2 durable agent bus

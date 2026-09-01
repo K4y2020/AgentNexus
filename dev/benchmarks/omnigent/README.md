@@ -105,6 +105,7 @@ drift negligible (~2 ms/turn).
 | `warm_turn` | Drive a turn on an already-warm session — steady-state dispatch overhead |
 | `time_to_first_token` | Post a turn; time to the first streamed `output_text` delta |
 | `ui_event_running` | Post a user message; time to the first `running`/`waiting` session status event |
+| `tool_call_running` | Post a user message; time to the first live `function_call` item on the UI stream |
 | `interrupt` | Interrupt a running (gated) turn; time to cancellation |
 | `read_runner_file` | `GET .../environments/default/filesystem/{path}` — server → runner filesystem read proxy |
 | `a2a_message_delivery` | `POST /v1/coordination/messages` → durable outbox → Dispatcher → runner injection → harness `consumed` receipt |
@@ -148,6 +149,14 @@ posted per sample, and the timed span ends on the first `session.status`
 control-plane event delivery portion of the UI path over an already-attached
 stream. Stream (re)connect cost is deliberately excluded here; it is measured
 separately by `server_stream_reconnect`.
+
+`tool_call_running` measures the same steady-state delivery path one layer
+closer to the transcripts: a scripted `sys_session_list` call drives a real
+tool turn, and the timed span ends on the first
+`response.output_item.done` carrying `function_call` with
+`in_progress`/`action_required` status — the event that paints the tool card
+while it is still live. Model wait time is zero (mock LLM), so the number is
+turn dispatch + runner event relay + UI stream delivery.
 
 `host_tunnel_reconnect` runs the production recovery path behind the Host
 tunnel SLI: the bench server process is stopped and restarted on the same port,
