@@ -120,6 +120,13 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
         in_reply_to=row.in_reply_to,
         idempotency_key=row.idempotency_key,
         message_state=row.message_state,
+        consumption_state=row.consumption_state,  # type: ignore[arg-type]
+        consumption_receipt=(
+            json.loads(row.consumption_receipt_json)
+            if row.consumption_receipt_json
+            else None
+        ),
+        consumed_at=row.consumed_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -366,6 +373,13 @@ class CoordinationStore:
                         in_reply_to=message.in_reply_to,
                         idempotency_key=message.idempotency_key,
                         message_state=message.message_state,
+                        consumption_state=message.consumption_state,
+                        consumption_receipt_json=(
+                            json.dumps(message.consumption_receipt)
+                            if message.consumption_receipt is not None
+                            else None
+                        ),
+                        consumed_at=message.consumed_at,
                         created_at=message.created_at,
                         updated_at=message.updated_at,
                     )
@@ -492,6 +506,24 @@ class CoordinationStore:
                 )
                 .values(status="failed", updated_at=now)
             )
+        return self.get_message(message_id)
+
+    def record_consumption_receipt(
+        self,
+        message_id: str,
+        state: str,
+        receipt: dict[str, object] | None = None,
+    ) -> AgentMessage | None:
+        """Record an explicit target-agent consumption/ack/reject receipt."""
+        with self._session_immediate("record_consumption_receipt") as sess:
+            row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
+            if row is None:
+                return None
+            now = time.time()
+            row.consumption_state = state
+            row.consumption_receipt_json = json.dumps(receipt) if receipt else None
+            row.consumed_at = now if state in ("consumed", "acknowledged", "rejected") else None
+            row.updated_at = now
         return self.get_message(message_id)
 
     def list_messages(

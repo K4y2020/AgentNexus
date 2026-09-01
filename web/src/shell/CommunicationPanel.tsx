@@ -23,6 +23,7 @@ export interface AgentMessageDTO {
   payload: Record<string, unknown>;
   artifacts: unknown[];
   message_state: string;
+  consumption_state?: string;
   created_at: number;
 }
 
@@ -117,7 +118,10 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
                   {String(m.payload?.prompt || m.payload?.instruction || JSON.stringify(m.payload))}
                 </p>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t text-[10px] text-muted-foreground font-mono">
-                  <span>state: {m.message_state}</span>
+                  <span>
+                    state: {m.message_state} / consumption:{" "}
+                    {m.consumption_state ?? "unconsumed"}
+                  </span>
                   <span>{new Date(m.created_at * 1000).toLocaleTimeString()}</span>
                 </div>
               </CardContent>

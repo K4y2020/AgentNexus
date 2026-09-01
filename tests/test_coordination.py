@@ -257,6 +257,7 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
     assert attempts[0].delivery_state == "confirmed"
     assert attempts[0].target_sequence == 1
     assert attempts[0].injection_receipt is not None
+    assert memory_store.get_message(msg.message_id).consumption_state == "unconsumed"
 
     posted = router.client.posted
     assert len(posted) == 1
@@ -561,6 +562,34 @@ def test_coordination_message_cancel_queued_only(memory_store: CoordinationStore
     remains = memory_store.cancel_message(active_msg.message_id)
     assert remains is not None
     assert remains.message_state == "active"
+
+
+def test_coordination_message_consumption_receipt_store(
+    memory_store: CoordinationStore,
+) -> None:
+    msg = AgentMessage(
+        root_session_id="conv_root_receipt",
+        sender_session_id="conv_planner",
+        recipient_session_id="conv_coder",
+        intent="task.request",
+        payload={"prompt": "read me"},
+    )
+    memory_store.save_message_and_outbox(msg)
+    memory_store.update_message_state(msg.message_id, "active")
+
+    updated = memory_store.record_consumption_receipt(
+        msg.message_id,
+        "acknowledged",
+        {"response_id": "resp_1", "mode": "next_turn"},
+    )
+    assert updated is not None
+    assert updated.message_state == "active"
+    assert updated.consumption_state == "acknowledged"
+    assert updated.consumed_at is not None
+    assert updated.consumption_receipt == {
+        "response_id": "resp_1",
+        "mode": "next_turn",
+    }
 
 
 @pytest.mark.asyncio
@@ -1070,3 +1099,78 @@ def test_coordination_api_message_cancel(
     )
     assert active_res.status_code == 409
     assert "only queued messages" in active_res.json()["detail"]
+
+
+def test_coordination_api_message_receipt(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "sender_role": "planner",
+            "intent": "task.request",
+            "payload": {"prompt": "consume me"},
+        },
+    )
+    assert res.status_code == 200
+    message_id = res.json()["message"]["message_id"]
+
+    wrong_actor = client.post(
+        f"/v1/coordination/messages/{message_id}/receipt",
+        json={
+            "state": "consumed",
+            "actor_session_id": "conv_p1",
+            "receipt": {"source": "sender"},
+        },
+    )
+    assert wrong_actor.status_code == 403
+
+    queued = client.post(
+        f"/v1/coordination/messages/{message_id}/receipt",
+        json={
+            "state": "consumed",
+            "actor_session_id": "conv_c1",
+            "receipt": {"source": "target"},
+        },
+    )
+    assert queued.status_code == 409
+    assert "actively delivered" in queued.json()["detail"]
+
+    memory_store.update_message_state(message_id, "active")
+    receipt = client.post(
+        f"/v1/coordination/messages/{message_id}/receipt",
+        json={
+            "state": "acknowledged",
+            "actor_session_id": "conv_c1",
+            "receipt": {"response_id": "resp_abc"},
+        },
+    )
+    assert receipt.status_code == 200
+    assert receipt.json()["message"]["consumption_state"] == "acknowledged"
+    assert receipt.json()["message"]["consumption_receipt"] == {
+        "response_id": "resp_abc"
+    }
+
+    # Re-reporting the same state is idempotent.
+    again = client.post(
+        f"/v1/coordination/messages/{message_id}/receipt",
+        json={
+            "state": "acknowledged",
+            "actor_session_id": "conv_c1",
+            "receipt": {"response_id": "resp_abc"},
+        },
+    )
+    assert again.status_code == 200
+
+    events = client.get(
+        "/v1/coordination/events",
+        params={"root_session_id": "conv_root_api"},
+    ).json()["events"]
+    assert any(e["event_type"] == "message.acknowledged" for e in events)

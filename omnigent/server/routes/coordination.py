@@ -203,6 +203,12 @@ class UpdateArtifactStatusRequest(BaseModel):
     status: Literal["published", "updated", "invalidated"]
 
 
+class ReportConsumptionRequest(BaseModel):
+    state: Literal["consumed", "acknowledged", "rejected"]
+    actor_session_id: str
+    receipt: dict[str, Any] = Field(default_factory=dict)
+
+
 # ── Message Endpoints ─────────────────────────────────────────
 
 
@@ -296,6 +302,56 @@ async def cancel_coordination_message(
     )
     await asyncio.to_thread(store.record_event, event)
     return {"message": cancelled.to_dict() if cancelled else None, "cancelled": True}
+
+
+@router.post("/messages/{message_id}/receipt")
+async def report_message_consumption(
+    message_id: str,
+    req: ReportConsumptionRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Record an explicit consumption/ack/reject receipt from the recipient agent."""
+    store = _request_store(request)
+    message = await asyncio.to_thread(store.get_message, message_id)
+    if message is None:
+        raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+    if req.actor_session_id != message.recipient_session_id:
+        raise HTTPException(
+            status_code=403,
+            detail="only the recipient agent can report consumption",
+        )
+    await _require_coordination_tree(
+        request, message.root_session_id, req.actor_session_id
+    )
+    if (
+        message.consumption_state == req.state
+        and message.consumption_state != "unconsumed"
+    ):
+        return {"message": message.to_dict()}
+    if message.message_state != "active":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"message has state {message.message_state}; "
+                "a receipt requires an actively delivered message"
+            ),
+        )
+    updated = await asyncio.to_thread(
+        store.record_consumption_receipt,
+        message_id,
+        req.state,
+        req.receipt,
+    )
+    event = CoordinationEvent(
+        root_session_id=message.root_session_id,
+        run_id=message.run_id,
+        task_id=message.task_id,
+        actor_session_id=req.actor_session_id,
+        event_type=f"message.{req.state}",
+        payload={"message_id": message_id, "receipt": req.receipt},
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"message": updated.to_dict() if updated else None}
 
 
 # ── Run Endpoints ─────────────────────────────────────────────

@@ -1692,6 +1692,13 @@ class SqlAgentMessage(OmnigentBase):
     in_reply_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     message_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    consumption_state: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="unconsumed"
+    )
+    consumption_receipt_json: Mapped[str | None] = mapped_column(
+        CompressedText, nullable=True
+    )
+    consumed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 

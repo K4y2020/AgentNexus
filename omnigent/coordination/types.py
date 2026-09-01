@@ -70,6 +70,9 @@ class AgentMessage:
     in_reply_to: str | None = None
     idempotency_key: str | None = None
     message_state: MessageState = "queued"
+    consumption_state: ConsumptionState = "unconsumed"
+    consumption_receipt: dict[str, Any] | None = None
+    consumed_at: float | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
