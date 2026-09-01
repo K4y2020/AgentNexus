@@ -387,7 +387,7 @@ describe("BubbleView dispatch", () => {
     // compaction — it must show its own indicator.
     render(<BubbleView bubble={{ kind: "compaction_loading", itemId: "cmp_1" }} />);
     expect(screen.getByTestId("compacting-indicator")).toHaveTextContent(
-      "Compacting conversation…",
+      "Compacting conversation context…",
     );
   });
 });

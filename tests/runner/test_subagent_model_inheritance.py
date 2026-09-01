@@ -214,23 +214,51 @@ async def test_family_mismatch_blocks_inheritance_quietly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    A Claude parent selection is not forced onto a codex-family worker: the
-    dispatch still succeeds, with no ``model_override`` on the child.
+    A Claude parent selection is not forced onto a native codex worker: the
+    dispatch still succeeds, with no ``model_override`` on the child. The
+    wrapped ``codex`` executor is intentionally excluded here: its configured
+    gateway owns the model vocabulary, so a Claude id selected from that
+    gateway is a valid inherit.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     bodies = await _dispatch_without_model(
         monkeypatch,
-        agent_spec=_spec_with_worker("codex"),
-        conv_id="conv_parent_family_mismatch",
+        agent_spec=_spec_with_worker("codex-native"),
+        conv_id="conv_parent_family_mismatch_native",
         parent_snapshot={
-            "id": "conv_parent_family_mismatch",
+            "id": "conv_parent_family_mismatch_native",
             "agent_id": "ag_parent",
             "model_override": "databricks-claude-sonnet-4-6",
             "llm_model": None,
         },
     )
     assert "model_override" not in bodies[0]
+
+
+@pytest.mark.asyncio
+async def test_wrapped_codex_inherits_parent_claude_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A wrapped ``codex`` worker inherits a Claude parent selection: the codex
+    executor speaks its gateway's Responses API, so a Claude id the user
+    selected from that gateway is valid there.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    """
+    bodies = await _dispatch_without_model(
+        monkeypatch,
+        agent_spec=_spec_with_worker("codex"),
+        conv_id="conv_parent_wrapped_codex_inherit",
+        parent_snapshot={
+            "id": "conv_parent_wrapped_codex_inherit",
+            "agent_id": "ag_parent",
+            "model_override": "databricks-claude-sonnet-4-6",
+            "llm_model": None,
+        },
+    )
+    assert bodies[0]["model_override"] == "databricks-claude-sonnet-4-6"
 
 
 @pytest.mark.asyncio

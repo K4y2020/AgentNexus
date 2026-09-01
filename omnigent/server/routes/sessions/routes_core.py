@@ -1682,6 +1682,14 @@ def register_core_routes(
             )
             if conv_for_permission_mode is None:
                 raise _session_not_found()
+            if (
+                conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
+                != _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
+            ):
+                raise OmnigentError(
+                    "permission_mode is only supported for claude-native sessions",
+                    code=ErrorCode.INVALID_INPUT,
+                )
             requested_claude_permission_mode = body.permission_mode
         labels_to_set = dict(body.labels or {})
         # Pins are per-user. The client writes the canonical ``omnigent.pinned``
@@ -1962,32 +1970,21 @@ def register_core_routes(
                 _runner_result,
             )
         if requested_claude_permission_mode is not None:
-            is_claude_native = (
-                conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
-                == _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
-            )
             _confirmed_permission_mode = requested_claude_permission_mode
-            if is_claude_native and live_forward:
-                try:
-                    _mode_result = await _forward_session_change_to_runner(
-                        session_id,
-                        runner_router,
-                        {
-                            "type": "permission_mode_change",
-                            "permission_mode": requested_claude_permission_mode,
-                        },
-                    )
-                    _confirmed_permission_mode = _require_permission_mode_forward(
-                        session_id,
-                        requested_claude_permission_mode,
-                        _mode_result,
-                    )
-                except Exception as _fwd_err:
-                    _logger.warning(
-                        "Forwarding permission mode to runner failed, keeping requested: %s",
-                        _fwd_err,
-                    )
-                    _confirmed_permission_mode = requested_claude_permission_mode
+            if live_forward:
+                _mode_result = await _forward_session_change_to_runner(
+                    session_id,
+                    runner_router,
+                    {
+                        "type": "permission_mode_change",
+                        "permission_mode": requested_claude_permission_mode,
+                    },
+                )
+                _confirmed_permission_mode = _require_permission_mode_forward(
+                    session_id,
+                    requested_claude_permission_mode,
+                    _mode_result,
+                )
 
                 labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = (
                     _confirmed_permission_mode
@@ -2002,10 +1999,6 @@ def register_core_routes(
                         session_id,
                         terminal_launch_args=_merged_permission_args,
                     )
-            else:
-                labels_to_set[_CLAUDE_NATIVE_PERMISSION_MODE_LABEL_KEY] = (
-                    requested_claude_permission_mode
-                )
         # Some labels are cleared by DELETE, not by upserting an empty value:
         # the project membership (empty = "remove from project") and the pinned
         # flag (empty = "unpin"). Split any empty-valued clear keys out before

@@ -1,16 +1,13 @@
 import {
   ArrowRightIcon,
   BotIcon,
-  CheckCircleIcon,
-  ClockIcon,
   MessageSquareShareIcon,
-  PlusIcon,
   SendIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useChildSessions } from "@/hooks/useChildSessions";
 import { authenticatedFetch } from "@/lib/identity";
@@ -23,22 +20,19 @@ export interface AgentMessageDTO {
   recipient_role: string | null;
   kind: string;
   intent: string;
-  payload: Record<string, any>;
-  artifacts: Array<Record<string, any>>;
+  payload: Record<string, unknown>;
+  artifacts: unknown[];
   message_state: string;
   created_at: number;
 }
 
 export function CommunicationPanel({ conversationId }: { conversationId: string }) {
   const [messages, setMessages] = useState<AgentMessageDTO[]>([]);
-  const [loading, setLoading] = useState(false);
   const [draftText, setDraftText] = useState("");
-  const [selectedRecipient, setSelectedRecipient] = useState<string>("");
   const { children } = useChildSessions(conversationId);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await authenticatedFetch(
         `/v1/coordination/messages?root_session_id=${encodeURIComponent(conversationId)}`
       );
@@ -48,22 +42,20 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
       }
     } catch (e) {
       console.warn("Failed to fetch coordination messages:", e);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [conversationId]);
 
   useEffect(() => {
     void fetchMessages();
     const interval = window.setInterval(fetchMessages, 3000);
     return () => window.clearInterval(interval);
-  }, [conversationId]);
+  }, [fetchMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!draftText.trim()) return;
 
-    const targetRecipient = selectedRecipient || (children[0]?.sessionId ?? conversationId);
+    const targetRecipient = children[0]?.id ?? conversationId;
 
     try {
       await authenticatedFetch("/v1/coordination/messages", {
@@ -97,15 +89,11 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
         </Badge>
       </div>
 
-      {/* Messages Feed */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
             <BotIcon className="size-8 opacity-40 mb-2" />
             <p>No peer messages sent between agents yet.</p>
-            <p className="text-[11px] mt-1">
-              Messages between Planner, Implementer, and Reviewer will appear here.
-            </p>
           </div>
         ) : (
           messages.map((m) => (
@@ -126,13 +114,10 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
               </CardHeader>
               <CardContent className="p-2 pt-1">
                 <p className="text-foreground text-xs whitespace-pre-wrap font-sans">
-                  {m.payload?.prompt || m.payload?.instruction || JSON.stringify(m.payload)}
+                  {String(m.payload?.prompt || m.payload?.instruction || JSON.stringify(m.payload))}
                 </p>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t text-[10px] text-muted-foreground font-mono">
-                  <span className="flex items-center gap-1">
-                    <CheckCircleIcon className="size-2.5 text-emerald-500" />
-                    <span>delivered</span>
-                  </span>
+                  <span>state: {m.message_state}</span>
                   <span>{new Date(m.created_at * 1000).toLocaleTimeString()}</span>
                 </div>
               </CardContent>
@@ -141,10 +126,9 @@ export function CommunicationPanel({ conversationId }: { conversationId: string 
         )}
       </div>
 
-      {/* Manual A2A message composer */}
       <form onSubmit={handleSendMessage} className="border-t p-2 flex gap-1.5 bg-muted/20">
         <Input
-          placeholder="Inject A2A coordination message…"
+          placeholder="Send coordination message..."
           value={draftText}
           onChange={(e) => setDraftText(e.target.value)}
           className="text-xs h-8"

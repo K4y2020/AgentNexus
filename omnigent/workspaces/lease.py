@@ -9,7 +9,7 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 LeaseMode = Literal["read", "write"]
 
@@ -35,12 +35,37 @@ class WorkspaceLease:
 
 
 class WorkspaceLeaseManager:
-    """Manages concurrent read/write leases on local repositories and worktrees."""
+    """Manages concurrent read/write leases on local repositories and worktrees.
 
-    def __init__(self) -> None:
+    When a :class:`~omnigent.coordination.store.CoordinationStore` is injected,
+    leases are persisted in the shared control-plane database, so a server or
+    host restart keeps the fencing token instead of forgetting active writers.
+    Without a store the manager keeps the legacy in-process behavior.
+    """
+
+    def __init__(self, store: Any = None) -> None:
         self._leases: dict[str, WorkspaceLease] = {}
         self._fencing_counters: dict[str, int] = {}
         self._lock = threading.Lock()
+        self._store = store
+
+    def _load_existing(self, norm_path: str) -> WorkspaceLease | None:
+        if self._store is not None:
+            loaded = self._store.load_active_lease(norm_path)
+            if loaded is not None:
+                self._leases[norm_path] = loaded
+                self._fencing_counters[norm_path] = max(
+                    self._fencing_counters.get(norm_path, 0), loaded.fencing_token
+                )
+        return self._leases.get(norm_path)
+
+    def _persist(self, lease: WorkspaceLease, release: bool = False) -> None:
+        if self._store is None:
+            return
+        if release:
+            self._store.expire_lease(lease.workspace_path, lease.holder_session_id)
+        else:
+            self._store.save_lease(lease)
 
     def acquire(
         self,
@@ -51,11 +76,12 @@ class WorkspaceLeaseManager:
     ) -> WorkspaceLease:
         norm_path = os.path.normpath(str(workspace_path))
         with self._lock:
-            existing = self._leases.get(norm_path)
+            existing = self._load_existing(norm_path)
             now = time.time()
 
             # Clean expired lease
             if existing and existing.is_expired:
+                self._persist(existing, release=True)
                 del self._leases[norm_path]
                 existing = None
 
@@ -63,6 +89,7 @@ class WorkspaceLeaseManager:
                 # Same session renewing
                 if existing.holder_session_id == holder_session_id:
                     existing.expires_at = now + duration_s
+                    self._persist(existing)
                     return existing
                 if mode == "write" or existing.mode == "write":
                     raise RuntimeError(f"Workspace locked by {existing.holder_session_id}")
@@ -79,23 +106,26 @@ class WorkspaceLeaseManager:
                 expires_at=now + duration_s,
             )
             self._leases[norm_path] = lease
+            self._persist(lease)
             return lease
 
     def release(self, workspace_path: str | Path, holder_session_id: str) -> bool:
         norm_path = os.path.normpath(str(workspace_path))
         with self._lock:
-            existing = self._leases.get(norm_path)
+            existing = self._load_existing(norm_path)
             if existing and existing.holder_session_id == holder_session_id:
-                del self._leases[norm_path]
+                self._persist(existing, release=True)
+                self._leases.pop(norm_path, None)
                 return True
             return False
 
     def get_lease(self, workspace_path: str | Path) -> WorkspaceLease | None:
         norm_path = os.path.normpath(str(workspace_path))
         with self._lock:
-            lease = self._leases.get(norm_path)
+            lease = self._load_existing(norm_path)
             if lease and lease.is_expired:
-                del self._leases[norm_path]
+                self._persist(lease, release=True)
+                self._leases.pop(norm_path, None)
                 return None
             return lease
 

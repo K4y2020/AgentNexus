@@ -2336,8 +2336,8 @@ export const useChatStore = create<ChatState>((_rootSet, get) => ({
       const confirmed = claudePermissionModeFromSession(session);
       patchSet({ claudePermissionMode: confirmed || mode });
     } catch (err) {
-      console.warn("Failed to persist permission mode:", err);
-      // Keep optimistic mode unless user reloads
+      patchSet({ claudePermissionMode: previous });
+      throw err;
     }
   },
 

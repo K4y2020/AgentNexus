@@ -219,7 +219,6 @@ import { supportsEffortControl } from "@/lib/sessionCapabilities";
 import {
   CLAUDE_NATIVE_SWITCHABLE_PERMISSION_MODES,
   claudePermissionModeLabel,
-  isClaudeNativeSession,
 } from "@/lib/claudePermissionMode";
 import { isCodexNativeSession } from "@/lib/codexPlanMode";
 import { getCliServerUrl } from "@/lib/host";

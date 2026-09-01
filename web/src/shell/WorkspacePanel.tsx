@@ -7,6 +7,7 @@ import {
   GlobeIcon,
   Loader2Icon,
   MaximizeIcon,
+  MessageSquareShareIcon,
   MinimizeIcon,
   PlusIcon,
   TerminalIcon,
@@ -39,7 +40,6 @@ import type { ChangedSort } from "./FlatFileList";
 import { SubagentsPanel } from "./SubagentsPanel";
 import { AgentInspector } from "./AgentInspector";
 import { CommunicationPanel } from "./CommunicationPanel";
-import { MessageSquareShareIcon } from "lucide-react";
 import { useTerminalStatuses } from "./useTerminalStatuses";
 import { type RightRailTab, TAB_BADGE_BASE } from "./railTabs";
 import { Button } from "../components/ui/button";

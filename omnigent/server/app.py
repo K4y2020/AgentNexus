@@ -26,6 +26,9 @@ from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from omnigent._platform import resolve_repo_symlink
+from omnigent.coordination.dispatcher import CoordinationDispatcher
+from omnigent.coordination.store import CoordinationStore
+from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.db.db_models import InvalidUuidError
 from omnigent.debug_logging import set_current_user_id
 from omnigent.errors import ErrorCode, OmnigentError
@@ -64,7 +67,12 @@ from omnigent.server.performance_metrics import (
 )
 from omnigent.server.routes.builtin_agents import create_builtin_agents_router
 from omnigent.server.routes.comments import create_comments_router
-from omnigent.server.routes.coordination import router as coordination_router
+from omnigent.server.routes.coordination import (
+    router as coordination_router,
+)
+from omnigent.server.routes.coordination import (
+    set_coordination_store,
+)
 from omnigent.server.routes.default_policies import create_default_policies_router
 from omnigent.server.routes.dictation import create_dictation_router
 from omnigent.server.routes.harnesses import create_harnesses_router
@@ -101,6 +109,7 @@ from omnigent.stores.permission_store import PermissionStore
 from omnigent.stores.policy_store import PolicyStore
 from omnigent.stores.project_store import ProjectStore
 from omnigent.stores.scheduled_task_store import ScheduledTaskStore
+from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 _logger = logging.getLogger(__name__)
 
@@ -950,6 +959,7 @@ def create_app(
     public_sharing: bool | Callable[[], bool] | None = None,
     server_config: dict[str, Any] | None = None,
     feature_flags: FeatureFlags | None = None,
+    coordination_store: CoordinationStore | None = None,
 ) -> FastAPI:
     """
     Build and return the FastAPI application with all routes mounted.
@@ -964,6 +974,9 @@ def create_app(
         conversation-item persistence.
     :param artifact_store: Store for binary blobs (agent bundles,
         file content).
+    :param coordination_store: Optional control-plane store for runs,
+        A2A messages, outbox, and workspace leases. ``None`` derives one
+        from ``conversation_store.storage_location`` when available.
     :param agent_cache: Cache for loaded agent specs and working
         directories.
     :param runner_tunnel_tokens: Optional allow-list of binding
@@ -1342,9 +1355,17 @@ def create_app(
             # endpoints (see routes/scheduled_tasks.py); there is no startup
             # sweep and no periodic reconcile.
 
+        coordination_dispatcher = None
+        if app_inst.state.coordination_store is not None:
+            coordination_dispatcher = CoordinationDispatcher(app_inst.state.coordination_store)
+            await coordination_dispatcher.start()
+            app_inst.state.coordination_dispatcher = coordination_dispatcher
+
         try:
             yield
         finally:
+            if coordination_dispatcher is not None:
+                await coordination_dispatcher.stop()
             # Run completion is event-driven (the _publish_status hook) plus a
             # lazy-on-read stale backstop — there is no run-reconciler task to
             # cancel. Only the per-job scheduler holds timers that need stopping.
@@ -1385,6 +1406,33 @@ def create_app(
     # and WSTunnelTransport to the same session registry.
     app.state.tunnel_registry = tunnel_registry
     app.state.runner_router = runner_router
+    app.state.conversation_store = conversation_store
+    # Control-plane coordination shares the app's configured database.
+    # ``conversation_store.storage_location`` is the main operational DB URI
+    # (same file/engine used by every SQLAlchemy store). Explicit injection
+    # lets embedded/test apps keep coordination in a per-test database.
+    resolved_coordination_store = coordination_store
+    if resolved_coordination_store is None:
+        storage_location = getattr(conversation_store, "storage_location", None)
+        if isinstance(storage_location, str) and storage_location:
+            resolved_coordination_store = CoordinationStore(storage_location)
+    app.state.coordination_store = resolved_coordination_store
+    if resolved_coordination_store is not None:
+        app.state.workspace_lease_manager = WorkspaceLeaseManager(
+            resolved_coordination_store
+        )
+        app.state.workspace_coordinator = WorkspaceCoordinator(
+            app.state.workspace_lease_manager
+        )
+        app.state.coordination_workflow_engine = CoordinationWorkflowEngine(
+            resolved_coordination_store,
+            app.state.workspace_coordinator,
+        )
+        set_coordination_store(resolved_coordination_store)
+    else:
+        app.state.workspace_lease_manager = None
+        app.state.workspace_coordinator = None
+        app.state.coordination_workflow_engine = None
     app.state.runner_session_initializer = runner_session_initializer
     app.state.background_title_coordinator = background_title_coordinator
     app.state.host_registry = host_registry

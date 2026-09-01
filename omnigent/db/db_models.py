@@ -1595,3 +1595,230 @@ class SqlScheduledTaskRun(OmnigentBase):
             "conversation_id",
         ),
     )
+
+class SqlCoordinationRun(OmnigentBase):
+    """SQLAlchemy model for ``coordination_runs``.
+
+    A multi-agent collaboration run bound to a root conversation. Kept in
+    the operational Omnigent DB with the rest of the control-plane tables so
+    restarts, multi-process servers, and the project's Alembic lineage cover
+    it instead of a side-channel sqlite3 file.
+    """
+
+    __tablename__ = "coordination_runs"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    template: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    budget_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("ix_coord_runs_root", "workspace_id", "root_session_id", "created_at"),
+    )
+
+
+class SqlCoordinationTask(OmnigentBase):
+    """SQLAlchemy model for ``coordination_tasks``."""
+
+    __tablename__ = "coordination_tasks"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    task_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    assignee_session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    assignee_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dependencies_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="[]"
+    )
+    artifacts_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="[]"
+    )
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("ix_coord_tasks_run", "workspace_id", "run_id", "status"),
+    )
+
+
+class SqlAgentMessage(OmnigentBase):
+    """SQLAlchemy model for ``agent_messages`` (durable A2A messages)."""
+
+    __tablename__ = "agent_messages"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    message_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    schema_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sender_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    sender_role: Mapped[str] = mapped_column(String(64), nullable=False)
+    recipient_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    recipient_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    intent: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    artifacts_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="[]"
+    )
+    correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    in_reply_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    message_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "idx_agent_msg_root",
+            "workspace_id",
+            "root_session_id",
+            "recipient_session_id",
+            "created_at",
+        ),
+        Index(
+            "uq_agent_msg_idempotency",
+            "workspace_id",
+            "root_session_id",
+            "idempotency_key",
+            unique=True,
+            sqlite_where=text("idempotency_key IS NOT NULL"),
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
+    )
+
+
+class SqlCoordinationOutbox(OmnigentBase):
+    """SQLAlchemy model for ``coordination_outbox`` (durable delivery queue)."""
+
+    __tablename__ = "coordination_outbox"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    item_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    next_retry_at: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("idx_coord_outbox_pending", "workspace_id", "status", "next_retry_at"),
+    )
+
+
+class SqlDeliveryAttempt(OmnigentBase):
+    """SQLAlchemy model for ``delivery_attempts`` (dispatch audit trail)."""
+
+    __tablename__ = "delivery_attempts"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    attempt_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_harness: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    delivery_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    delivery_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    injection_receipt_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    error: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("idx_delivery_attempts_msg", "workspace_id", "message_id", "created_at"),
+    )
+
+
+class SqlCoordinationEvent(OmnigentBase):
+    """SQLAlchemy model for ``coordination_events`` (audit timeline)."""
+
+    __tablename__ = "coordination_events"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    actor_session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("idx_coord_events_root", "workspace_id", "root_session_id", "created_at"),
+    )
+
+
+class SqlWorkspaceLease(OmnigentBase):
+    """SQLAlchemy model for ``workspace_leases`` (persistent write fencing)."""
+
+    __tablename__ = "workspace_leases"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    lease_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    workspace_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    holder_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    mode: Mapped[str] = mapped_column(String(8), nullable=False)
+    fencing_token: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="active")
+    acquired_at: Mapped[float] = mapped_column(Float, nullable=False)
+    expires_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("ix_workspace_leases_path", "workspace_id", "workspace_path", "status"),
+    )

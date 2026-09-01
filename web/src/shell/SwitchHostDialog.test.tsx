@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import type * as WorkspacePickerModule from "./WorkspacePicker";
 import { SwitchHostDialog } from "./SwitchHostDialog";
 import { useHosts } from "@/hooks/useHosts";
 import { useHostFilesystem } from "@/hooks/useHostFilesystem";
@@ -19,11 +20,15 @@ vi.mock("./WorkspacePathField", () => ({
     />
   ),
 }));
-vi.mock("./WorkspacePicker", () => ({
-  WorkspacePicker: () => <div data-testid="mock-workspace-picker" />,
-  homeFromEntries: () => null,
-  isNavigablePath: () => false,
-}));
+vi.mock("./WorkspacePicker", async (importOriginal) => {
+  const actual = await importOriginal<typeof WorkspacePickerModule>();
+  return {
+    ...actual,
+    WorkspacePicker: () => <div data-testid="mock-workspace-picker" />,
+    homeFromEntries: () => null,
+    isNavigablePath: () => false,
+  };
+});
 vi.mock("./HostLabel", () => ({
   HostLabel: ({ host }: { host: { name: string } }) => <span>{host.name}</span>,
 }));
