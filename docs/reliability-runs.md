@@ -7,6 +7,16 @@ runner, wrapped SDK harness, outbox, dispatcher, and terminal-idle receipt.
 The model provider is the deterministic mock LLM, so a red sample points at
 control-plane, runner, or harness plumbing rather than paid-provider flakiness.
 
+## Latest measured baseline
+
+At AgentNexus `2e6ecf07` (2026-09-02, Windows), the mock reliability
+baseline was measured at **20/20 passed** in 5m52s (`AGENTNEXUS_RELIABILITY_RUNS=20`),
+after a preliminary 3/3 pass in the same environment. Every sampled run reached
+`succeeded` with Planner/Implementer/Reviewer/Tester all green, four or more
+consumed receipts, and `effect_unknown_count == 0`. The independent 100-run
+P6 sample is still outstanding and should be collected as a nightly/CI batch
+rather than ad hoc.
+
 ## Run the baseline
 
 ```bash
