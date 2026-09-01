@@ -1653,6 +1653,10 @@ class SqlCoordinationTask(OmnigentBase):
     artifacts_json: Mapped[str] = mapped_column(
         CompressedText, nullable=False, server_default="[]"
     )
+    acceptance_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="[]"
+    )
+    deadline: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 

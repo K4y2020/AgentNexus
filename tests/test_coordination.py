@@ -199,6 +199,8 @@ def test_coordination_run_and_task_crud(memory_store: CoordinationStore) -> None
         run_id=run.run_id,
         title="Write Plan Artifact",
         assignee_role="planner",
+        acceptance_criteria=["Plan is clear and actionable"],
+        deadline=1234.0,
     )
     task2 = CoordinationTask(
         run_id=run.run_id,
@@ -212,7 +214,13 @@ def test_coordination_run_and_task_crud(memory_store: CoordinationStore) -> None
     tasks = memory_store.list_tasks(run.run_id)
     assert len(tasks) == 2
     assert tasks[0].title == "Write Plan Artifact"
+    assert tasks[0].acceptance_criteria == ["Plan is clear and actionable"]
+    assert tasks[0].deadline == 1234.0
     assert tasks[1].dependencies == [task1.task_id]
+    fetched = memory_store.get_task(task1.task_id)
+    assert fetched is not None
+    assert fetched.acceptance_criteria == ["Plan is clear and actionable"]
+    assert fetched.deadline == 1234.0
 
 
 def test_atomic_message_and_outbox_persistence(memory_store: CoordinationStore) -> None:
@@ -1285,10 +1293,18 @@ def test_coordination_api_endpoints(
     # 2. Create Task
     res_task = client.post(
         "/v1/coordination/tasks",
-        json={"run_id": run_id, "title": "API Task 1", "assignee_role": "implementer"},
+        json={
+            "run_id": run_id,
+            "title": "API Task 1",
+            "assignee_role": "implementer",
+            "acceptance_criteria": ["Tests pass"],
+            "deadline": 1234567890.0,
+        },
     )
     assert res_task.status_code == 200
     assert res_task.json()["task"]["title"] == "API Task 1"
+    assert res_task.json()["task"]["acceptance_criteria"] == ["Tests pass"]
+    assert res_task.json()["task"]["deadline"] == 1234567890.0
 
     # 3. Send Message
     res_msg = client.post(
@@ -1942,6 +1958,36 @@ def test_coordination_worktree_holder_can_lease_root_repo_boundary(
     )
     assert outside.status_code == 403
     assert "outside the managed" in outside.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_task_deadline_blocks_advance(
+    memory_store: CoordinationStore,
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Task Deadline Run",
+        root_session_id="conv_root_deadline",
+        planner_session_id="conv_planner_deadline",
+        implementer_session_id="conv_coder_deadline",
+        reviewer_session_id="conv_reviewer_deadline",
+        user_prompt="Build something before the deadline",
+        budget={"task_deadline_s": -1},
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    planner = tasks["planner"]
+    assert planner.acceptance_criteria
+    assert planner.deadline is not None
+
+    with pytest.raises(ValueError, match="deadline exceeded"):
+        await engine.advance(
+            run_id=run.run_id,
+            task_id=planner.task_id,
+            outcome="succeeded",
+        )
+
+    assert memory_store.get_task(planner.task_id).status == "blocked"
+    assert memory_store.get_run(run.run_id).status == "needs_attention"
 
 
 def test_coordination_api_artifact_endpoints(

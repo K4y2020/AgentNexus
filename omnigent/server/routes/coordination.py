@@ -217,6 +217,8 @@ class CreateTaskRequest(BaseModel):
     assignee_session_id: str | None = None
     assignee_role: str | None = None
     dependencies: list[str] = Field(default_factory=list)
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    deadline: float | None = None
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -544,6 +546,8 @@ async def create_coordination_task(req: CreateTaskRequest, request: Request) -> 
         assignee_session_id=req.assignee_session_id,
         assignee_role=req.assignee_role,
         dependencies=req.dependencies,
+        acceptance_criteria=req.acceptance_criteria,
+        deadline=req.deadline,
         artifacts=req.artifacts,
     )
     created = await asyncio.to_thread(store.create_task, task)

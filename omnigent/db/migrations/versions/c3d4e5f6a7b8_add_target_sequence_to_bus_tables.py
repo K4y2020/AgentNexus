@@ -36,5 +36,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop target_sequence from outbox and delivery attempt tables."""
-    op.drop_column("coordination_outbox", "target_sequence")
-    op.drop_column("delivery_attempts", "target_sequence")
+    with op.batch_alter_table("coordination_outbox") as batch_op:
+        batch_op.drop_column("target_sequence")
+    with op.batch_alter_table("delivery_attempts") as batch_op:
+        batch_op.drop_column("target_sequence")

@@ -42,6 +42,17 @@ _REVIEW_LINE = (
     "or [REVIEW_DECISION: changes_requested]."
 )
 
+# Fixed template acceptance evidence for each stage. These are the durable
+# per-task criteria the workflow engine binds at creation, so a stage result
+# is only trustworthy when the completing agent reports evidence for them.
+_TASK_ACCEPTANCE: dict[str, list[str]] = {
+    "planner": ["Plan includes task breakdown and explicit acceptance criteria"],
+    "implementer": ["Implementation satisfies the plan", "Added/updated tests pass"],
+    "reviewer": ["Review verdict includes evidence and blocking issues if any"],
+    "fixer": ["Every reviewer feedback item is resolved or explicitly waived"],
+    "tester": ["Full acceptance suite passes", "No regressions in the diff"],
+}
+
 
 class CoordinationWorkflowEngine:
     """Executes and coordinates the fixed five-stage coding workflow."""
@@ -86,12 +97,22 @@ class CoordinationWorkflowEngine:
         )
         await asyncio.to_thread(self.store.create_run, run)
 
+        task_deadline_s = dict(budget or {}).get("task_deadline_s")
+        task_deadline: float | None = None
+        if task_deadline_s:
+            try:
+                task_deadline = time.time() + float(task_deadline_s)
+            except (TypeError, ValueError):
+                task_deadline = None
+
         t_plan = CoordinationTask(
             run_id=run.run_id,
             title="Stage 1: Architecture & Task Planning",
             status="assigned",
             assignee_session_id=planner_session_id,
             assignee_role="planner",
+            acceptance_criteria=_TASK_ACCEPTANCE["planner"],
+            deadline=task_deadline,
         )
         t_impl = CoordinationTask(
             run_id=run.run_id,
@@ -100,6 +121,8 @@ class CoordinationWorkflowEngine:
             assignee_session_id=implementer_session_id,
             assignee_role="implementer",
             dependencies=[t_plan.task_id],
+            acceptance_criteria=_TASK_ACCEPTANCE["implementer"],
+            deadline=task_deadline,
         )
         t_rev = CoordinationTask(
             run_id=run.run_id,
@@ -108,6 +131,8 @@ class CoordinationWorkflowEngine:
             assignee_session_id=reviewer_session_id,
             assignee_role="reviewer",
             dependencies=[t_impl.task_id],
+            acceptance_criteria=_TASK_ACCEPTANCE["reviewer"],
+            deadline=task_deadline,
         )
         t_fix = CoordinationTask(
             run_id=run.run_id,
@@ -116,6 +141,8 @@ class CoordinationWorkflowEngine:
             assignee_session_id=implementer_session_id,
             assignee_role="fixer",
             dependencies=[t_rev.task_id],
+            acceptance_criteria=_TASK_ACCEPTANCE["fixer"],
+            deadline=task_deadline,
         )
         t_test = CoordinationTask(
             run_id=run.run_id,
@@ -124,6 +151,8 @@ class CoordinationWorkflowEngine:
             assignee_session_id=reviewer_session_id,
             assignee_role="tester",
             dependencies=[t_fix.task_id],
+            acceptance_criteria=_TASK_ACCEPTANCE["tester"],
+            deadline=task_deadline,
         )
 
         for task in (t_plan, t_impl, t_rev, t_fix, t_test):
@@ -250,6 +279,7 @@ class CoordinationWorkflowEngine:
         review_decision: str | None,
     ) -> None:
         await self._enforce_deadline(run)
+        await self._enforce_task_deadline(run, task)
         role = task.assignee_role or ""
         if artifacts:
             await self._persist_artifacts(run, task, artifacts)
@@ -485,6 +515,67 @@ class CoordinationWorkflowEngine:
         )
         raise ValueError(f"workflow deadline exceeded for run {run.run_id}")
 
+
+    def _task_deadline_exceeded(self, task: CoordinationTask) -> bool:
+        if task.deadline is None:
+            return False
+        try:
+            return time.time() >= float(task.deadline)
+        except (TypeError, ValueError):
+            return False
+
+    async def _enforce_task_deadline(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+    ) -> None:
+        """Stop dispatch on an expired per-task deadline (fail closed)."""
+        if not self._task_deadline_exceeded(task):
+            return
+        if task.status not in ("succeeded", "cancelled"):
+            with contextlib.suppress(StateTransitionConflict):
+                await asyncio.to_thread(
+                    self.store.transition_task_status,
+                    task.task_id,
+                    "blocked",
+                    from_statuses=[
+                        "draft",
+                        "queued",
+                        "assigned",
+                        "running",
+                        "waiting_user",
+                        "waiting_peer",
+                        "waiting_review",
+                        "reconciling",
+                    ],
+                )
+            with contextlib.suppress(StateTransitionConflict):
+                await asyncio.to_thread(
+                    self.store.transition_run_status,
+                    run.run_id,
+                    "needs_attention",
+                    from_statuses=[
+                        "draft",
+                        "running",
+                        "paused",
+                        "waiting_user",
+                        "waiting_peer",
+                        "reconciling",
+                    ],
+                )
+        await asyncio.to_thread(
+            self.store.record_event,
+            CoordinationEvent(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                task_id=task.task_id,
+                actor_session_id=task.assignee_session_id,
+                event_type="workflow.task.deadline_exceeded",
+                payload={"task_id": task.task_id, "deadline": task.deadline},
+            ),
+        )
+        raise ValueError(f"task {task.task_id} deadline exceeded")
+
     async def _update_run_metadata(self, run_id: str, metadata: dict[str, object]) -> None:
         await asyncio.to_thread(self.store.update_run_metadata, run_id, metadata)
 
@@ -651,6 +742,7 @@ class CoordinationWorkflowEngine:
         if not task.assignee_session_id:
             raise ValueError(f"task {task_id} has no assignee to retry")
         await self._enforce_deadline(run)
+        await self._enforce_task_deadline(run, task)
 
         current = await asyncio.to_thread(self.store.get_run, run.run_id)
         current_metadata = dict(current.metadata if current is not None else run.metadata)
@@ -718,6 +810,7 @@ class CoordinationWorkflowEngine:
         if not assignee_session_id:
             raise ValueError("assignee_session_id is required")
         await self._enforce_deadline(run)
+        await self._enforce_task_deadline(run, task)
 
         messages = await asyncio.to_thread(
             self.store.list_messages, run.root_session_id

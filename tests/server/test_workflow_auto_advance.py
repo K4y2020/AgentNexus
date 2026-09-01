@@ -123,6 +123,15 @@ async def test_terminal_idle_advances_planner_with_declared_result(
     finally:
         session_live_state.configure(None)
 
+    _wait_until(
+        lambda: store.get_task(tasks["implementer"].task_id).status == "running"
+    )
+    _wait_until(
+        lambda: any(
+            message.recipient_session_id == "conv_coder_auto"
+            for message in store.list_messages(run.root_session_id)
+        )
+    )
     assert store.get_message(kickoff.message_id).consumption_state == "consumed"
     assert store.get_task(tasks["implementer"].task_id).status == "running"
     assert any(
@@ -193,6 +202,9 @@ async def test_terminal_idle_failed_marker_halts_run(tmp_path: object) -> None:
         _wait_until(
             lambda: store.get_task(tasks["planner"].task_id).status == "failed"
         )
+        _wait_until(
+            lambda: store.get_run(run.run_id).status == "needs_attention"
+        )
     finally:
         session_live_state.configure(None)
 
@@ -219,13 +231,20 @@ async def test_workflow_auto_advances_full_fix_loop(tmp_path: object) -> None:
     session_live_state.configure(fake, None, store, advancer)  # type: ignore[arg-type]
 
     def _active_for_recipient(recipient: str):
-        message = next(
-            message
-            for message in store.list_messages(run.root_session_id)
-            if message.recipient_session_id == recipient
-            and message.message_state == "queued"
-            and message.consumption_state == "unconsumed"
-        )
+        found: list[object] = []
+
+        def _find_queued() -> bool:
+            found[:] = [
+                message
+                for message in store.list_messages(run.root_session_id)
+                if message.recipient_session_id == recipient
+                and message.message_state == "queued"
+                and message.consumption_state == "unconsumed"
+            ]
+            return bool(found)
+
+        _wait_until(_find_queued)
+        message = found[0]
         store.update_message_state(message.message_id, "active")
         return message
 

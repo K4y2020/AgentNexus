@@ -46,6 +46,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop consumption state/receipt columns from agent_messages."""
-    op.drop_column("agent_messages", "consumed_at")
-    op.drop_column("agent_messages", "consumption_receipt_json")
-    op.drop_column("agent_messages", "consumption_state")
+    with op.batch_alter_table("agent_messages") as batch_op:
+        batch_op.drop_column("consumed_at")
+        batch_op.drop_column("consumption_receipt_json")
+        batch_op.drop_column("consumption_state")

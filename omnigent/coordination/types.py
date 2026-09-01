@@ -130,6 +130,8 @@ class CoordinationTask:
     assignee_session_id: str | None = None
     assignee_role: str | None = None
     dependencies: list[str] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    deadline: float | None = None
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
