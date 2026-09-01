@@ -995,6 +995,16 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > `za4b2c4d5e6f` 幂等添加列，定向测试覆盖超时标记、宽限期、非确认 attempt
 > 忽略、重复扫描不重复写事件和 Dispatcher/API 接入。
 >
+> 2026-09-01 P6 的 100 次可靠性 Run 已补上可重复仓库基线：
+> `tests/integration/test_control_plane_reliability_runs.py` 每次样本在真实
+> local server/runner/SDK harness + 确定性 mock LLM 上完整跑一个
+> Plan→Implement→Review→Test 闭环，断言四阶段 succeeded、至少 4 条消息
+> consumed 且 `effect_unknown_count == 0`；
+> `scripts/run_control_plane_reliability.sh` 可设 `RUNS=100` 批量执行，
+> `.github/workflows/control-plane-reliability.yml` 每周/手动跑 100 样本并
+> 上传 JUnit。真实付费 API 的 100 次样本、签名证书和 24h soak 仍属现实环境门禁，
+> 该脚本是复现与归因基础设施，不等于关闭 P6。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

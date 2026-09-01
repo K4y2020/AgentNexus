@@ -1,0 +1,80 @@
+name: Control-Plane Reliability
+
+# Reproducible 100-run reliability baseline for the durable A2A bus and fixed
+# Plan -> Implement -> Review -> Test workflow. Every sample starts a fresh
+# session tree on the real local server/runner/SDK harness and runs with the
+# deterministic mock LLM, so failures are attributable to control-plane,
+# runner, or harness plumbing rather than paid provider flakiness.
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Number of independent workflow samples (P6 baseline = 100)"
+        required: false
+        default: "100"
+
+permissions:
+  contents: read
+
+env:
+  OMNIGENT_SKIP_WEB_UI: "true"
+  ANTHROPIC_API_KEY: ""
+  OPENAI_API_KEY: ""
+  CODEX: ""
+  CLAUDE_CODE: ""
+
+concurrency:
+  group: control-plane-reliability-${{ github.event.inputs.runs || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  reliability:
+    if: github.repository == 'K4y2020/AgentNexus'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      RUNS: ${{ github.event.inputs.runs || '100' }}
+      RELIABILITY_ARTIFACTS: ${{ github.workspace }}/.reliability-results
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version-file: ".python-version"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a  # v3
+        with:
+          enable-cache: true
+
+      - name: Install integration test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep bubblewrap tmux
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Cache virtualenv
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('.python-version') }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: uv sync --locked --extra all --group test
+
+      - name: Run reliability samples
+        shell: bash
+        run: RUNS="$RUNS" RELIABILITY_ARTIFACTS="$RELIABILITY_ARTIFACTS" scripts/run_control_plane_reliability.sh
+
+      - name: Upload reliability results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: control-plane-reliability-${{ github.sha }}
+          path: .reliability-results/**/*
+          if-no-files-found: ignore

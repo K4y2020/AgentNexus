@@ -57,3 +57,7 @@ soak without orphan processes, 100 independent reliability runs at < 2%
 infrastructure failure, five real repositories with 20 collaboration runs, and
 at least three non-author users for a week. Those are operational measurements
 and require real machines and users, not just code checks.
+
+The reproducible mock-LLM 100-run harness lives in `docs/reliability-runs.md`
+and is used for regression attribution, not as a substitute for the
+real-provider sample.
