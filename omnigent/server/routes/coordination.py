@@ -19,6 +19,12 @@ from omnigent.coordination.types import (
     MessageKind,
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.server.routes._coordination_workspace import (
+    CoordinationWorkspaceError,
+    canonical_workspace_path,
+    is_path_within,
+    managed_workspace_boundaries,
+)
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 router = APIRouter(prefix="/v1/coordination", tags=["Coordination"])
@@ -115,6 +121,68 @@ async def _require_coordination_tree(
                 status_code=403,
                 detail=f"session {session_id!r} does not belong to root {root_session_id!r}",
             )
+
+
+
+async def _require_managed_workspace_path(
+    request: Request,
+    *,
+    root_session_id: str,
+    holder_session_id: str,
+    requested_path: str,
+    field_name: str,
+) -> str:
+    """Fail closed unless ``requested_path`` is a managed session workspace.
+
+    Coordination lease/merge operations only touch paths that belong to
+    host-launched sessions in the coordination tree. The holder's workspace is
+    the primary boundary and the root's workspace the secondary boundary, so a
+    merge on the source repo remains valid for agents running in sibling
+    worktrees. Any unmanaged, cross-host, or outside-boundary path is rejected.
+    """
+    store = getattr(request.app.state, "conversation_store", None)
+    if store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="coordination routes require a conversation store",
+        )
+    root = await asyncio.to_thread(store.get_conversation, root_session_id)
+    holder = await asyncio.to_thread(store.get_conversation, holder_session_id)
+    if root is None or holder is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    try:
+        canonical = canonical_workspace_path(requested_path)
+    except CoordinationWorkspaceError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+
+    host_id, boundaries = managed_workspace_boundaries(root, holder)
+    if not host_id or not boundaries:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "workspace operations require a host-managed session with a "
+                "recorded workspace; this session tree has none"
+            ),
+        )
+
+    root_host = getattr(root, "host_id", None)
+    holder_host = getattr(holder, "host_id", None)
+    if root_host and holder_host and root_host != holder_host:
+        raise HTTPException(
+            status_code=403,
+            detail="cross-host coordination trees cannot share workspace operations",
+        )
+
+    if not any(is_path_within(canonical, boundary) for boundary in boundaries):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"{field_name} {requested_path!r} is outside the managed "
+                "workspaces of this session tree"
+            ),
+        )
+    return canonical
 
 
 # ── Pydantic Request / Response Models ────────────────────────
@@ -728,10 +796,17 @@ async def acquire_workspace_lease(req: AcquireLeaseRequest, request: Request) ->
     await _require_coordination_tree(
         request, req.root_session_id, req.holder_session_id
     )
+    canonical_path = await _require_managed_workspace_path(
+        request,
+        root_session_id=req.root_session_id,
+        holder_session_id=req.holder_session_id,
+        requested_path=req.workspace_path,
+        field_name="workspace_path",
+    )
     lease_mgr = _request_lease_manager(request)
     try:
         lease = lease_mgr.acquire(
-            workspace_path=req.workspace_path,
+            workspace_path=canonical_path,
             holder_session_id=req.holder_session_id,
             mode="write" if req.mode == "write" else "read",
             duration_s=req.duration_s,
@@ -750,6 +825,13 @@ async def create_merge_preview(
     await _require_coordination_tree(
         request, req.root_session_id, req.holder_session_id
     )
+    canonical_repo_path = await _require_managed_workspace_path(
+        request,
+        root_session_id=req.root_session_id,
+        holder_session_id=req.holder_session_id,
+        requested_path=req.repo_path,
+        field_name="repo_path",
+    )
     coordinator = _request_workspace_coord(request)
     store = _request_store(request)
     try:
@@ -758,7 +840,7 @@ async def create_merge_preview(
             store,
             root_session_id=req.root_session_id,
             holder_session_id=req.holder_session_id,
-            repo_path=req.repo_path,
+            repo_path=canonical_repo_path,
             source_branch=req.source_branch,
             target_branch=req.target_branch,
         )

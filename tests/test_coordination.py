@@ -32,6 +32,8 @@ class FakeConversation:
     id: str
     root_conversation_id: str | None = None
     parent_conversation_id: str | None = None
+    host_id: str | None = None
+    workspace: str | None = None
 
 
 class FakeConversationStore:
@@ -84,17 +86,46 @@ def memory_store(tmp_path: Path) -> CoordinationStore:
 
 
 @pytest.fixture
-def default_conversations() -> dict[str, FakeConversation]:
+def workspace_root(tmp_path: Path) -> Path:
+    root = tmp_path / "managed"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+@pytest.fixture
+def default_conversations(workspace_root: Path) -> dict[str, FakeConversation]:
     root_id = "conv_root_api"
+    managed = str(workspace_root)
     return {
-        root_id: FakeConversation(root_id, root_conversation_id=root_id),
-        "conv_p1": FakeConversation("conv_p1", root_conversation_id=root_id),
-        "conv_p2": FakeConversation("conv_p2", root_conversation_id=root_id),
-        "conv_c1": FakeConversation("conv_c1", root_conversation_id=root_id),
-        "conv_r1": FakeConversation("conv_r1", root_conversation_id=root_id),
-        "other_root": FakeConversation("other_root", root_conversation_id="other_root"),
+        root_id: FakeConversation(
+            root_id,
+            root_conversation_id=root_id,
+            host_id="host_ws_test",
+            workspace=managed,
+        ),
+        "conv_p1": FakeConversation(
+            "conv_p1", root_conversation_id=root_id, host_id="host_ws_test", workspace=managed
+        ),
+        "conv_p2": FakeConversation(
+            "conv_p2", root_conversation_id=root_id, host_id="host_ws_test", workspace=managed
+        ),
+        "conv_c1": FakeConversation(
+            "conv_c1", root_conversation_id=root_id, host_id="host_ws_test", workspace=managed
+        ),
+        "conv_r1": FakeConversation(
+            "conv_r1", root_conversation_id=root_id, host_id="host_ws_test", workspace=managed
+        ),
+        "other_root": FakeConversation(
+            "other_root",
+            root_conversation_id="other_root",
+            host_id="host_ws_test",
+            workspace=managed,
+        ),
         "other_sender": FakeConversation(
-            "other_sender", root_conversation_id="other_root"
+            "other_sender",
+            root_conversation_id="other_root",
+            host_id="host_ws_test",
+            workspace=managed,
         ),
     }
 
@@ -119,8 +150,8 @@ def make_api_app(
 
 def init_merge_repo(tmp_path: Path, *, feature_change: str = "base\nfeature\n") -> Path:
     """Create a tiny main + feature git repo with feature checked out then main restored."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
+    repo = tmp_path / "managed" / "repo"
+    repo.mkdir(parents=True)
 
     def git(*args: str, cwd: Path = repo) -> subprocess.CompletedProcess[str]:
         res = subprocess.run(
@@ -1237,6 +1268,7 @@ async def test_workflow_changes_requested_loops_through_fixer(
 def test_coordination_api_endpoints(
     memory_store: CoordinationStore,
     default_conversations: dict[str, FakeConversation],
+    workspace_root: Path,
 ) -> None:
     app = make_api_app(memory_store, default_conversations)
     client = TestClient(app)
@@ -1278,7 +1310,7 @@ def test_coordination_api_endpoints(
         "/v1/coordination/workspaces/lease",
         json={
             "root_session_id": "conv_root_api",
-            "workspace_path": "/tmp/test-repo",
+            "workspace_path": str(workspace_root),
             "holder_session_id": "conv_c1",
             "mode": "write",
         },
@@ -1783,6 +1815,133 @@ def test_coordination_api_merge_preview_requires_lease_and_fencing(
     )
     assert fetched.status_code == 200
     assert fetched.json()["operation"]["status"] == "merged"
+
+
+def test_coordination_lease_fails_closed_without_managed_workspace(
+    memory_store: CoordinationStore,
+    tmp_path: Path,
+) -> None:
+    conversations = {
+        "conv_root": FakeConversation("conv_root", root_conversation_id="conv_root"),
+        "conv_holder": FakeConversation(
+            "conv_holder", root_conversation_id="conv_root"
+        ),
+    }
+    app = make_api_app(memory_store, conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root",
+            "workspace_path": str(tmp_path / "somewhere"),
+            "holder_session_id": "conv_holder",
+            "mode": "write",
+        },
+    )
+    assert res.status_code == 403
+    assert "host-managed session" in res.json()["detail"]
+
+
+def test_coordination_lease_rejects_relative_and_outside_paths(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    workspace_root: Path,
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res_rel = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root_api",
+            "workspace_path": "relative/path",
+            "holder_session_id": "conv_c1",
+            "mode": "write",
+        },
+    )
+    assert res_rel.status_code == 400
+    assert "absolute path" in res_rel.json()["detail"]
+
+    res_out = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root_api",
+            "workspace_path": str(workspace_root.parent / "outside"),
+            "holder_session_id": "conv_c1",
+            "mode": "write",
+        },
+    )
+    assert res_out.status_code == 403
+    assert "outside the managed" in res_out.json()["detail"]
+
+
+def test_coordination_merge_preview_rejects_outside_boundary(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    workspace_root: Path,
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workspaces/merge-previews",
+        json={
+            "root_session_id": "conv_root_api",
+            "holder_session_id": "conv_c1",
+            "repo_path": str(workspace_root.parent / "elsewhere"),
+            "source_branch": "feature",
+            "target_branch": "main",
+        },
+    )
+    assert res.status_code == 403
+    assert "outside the managed" in res.json()["detail"]
+
+
+def test_coordination_worktree_holder_can_lease_root_repo_boundary(
+    memory_store: CoordinationStore,
+    workspace_root: Path,
+) -> None:
+    conversations = {
+        "conv_root": FakeConversation(
+            "conv_root",
+            root_conversation_id="conv_root",
+            host_id="host_ws_test",
+            workspace=str(workspace_root / "repo"),
+        ),
+        "conv_holder": FakeConversation(
+            "conv_holder",
+            root_conversation_id="conv_root",
+            host_id="host_ws_test",
+            workspace=str(workspace_root / "repo-worktrees" / "feature"),
+        ),
+    }
+    app = make_api_app(memory_store, conversations)
+    client = TestClient(app)
+
+    lease = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root",
+            "workspace_path": str(workspace_root / "repo"),
+            "holder_session_id": "conv_holder",
+            "mode": "write",
+        },
+    )
+    assert lease.status_code == 200
+    assert lease.json()["lease"]["holder_session_id"] == "conv_holder"
+
+    outside = client.post(
+        "/v1/coordination/workspaces/lease",
+        json={
+            "root_session_id": "conv_root",
+            "workspace_path": str(workspace_root / "sibling"),
+            "holder_session_id": "conv_holder",
+            "mode": "write",
+        },
+    )
+    assert outside.status_code == 403
+    assert "outside the managed" in outside.json()["detail"]
 
 
 def test_coordination_api_artifact_endpoints(

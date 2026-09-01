@@ -923,6 +923,10 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 会由活动消息消费回执桥接自动推进；无标记保持人工 report/retry Gate。
 > Coordination 面板现已显示最新 Workflow Run/Task 状态；当前 assignee 可直接
 > 用 succeeded/failed 图标上报阶段结果并触发自动推进。
+> /workspaces/lease 与 merge-previews 现已 fail-closed 校验受管 workspace：
+> 请求路径必须是 holder/root 会话已记录的 canonical workspace 或其子路径，
+> 且树内 host ownership 一致；相对路径、未托管会话、越界路径和跨 Host
+> 树一律拒绝，不能再对任意路径取租约或执行合并预览。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge
 ```
