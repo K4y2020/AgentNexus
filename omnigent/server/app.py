@@ -1423,6 +1423,7 @@ def create_app(
     app.state.tunnel_registry = tunnel_registry
     app.state.runner_router = runner_router
     app.state.conversation_store = conversation_store
+    app.state.permission_store = permission_store
     # Control-plane coordination shares the app's configured database.
     # ``conversation_store.storage_location`` is the main operational DB URI
     # (same file/engine used by every SQLAlchemy store). Explicit injection

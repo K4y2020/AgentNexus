@@ -930,8 +930,7 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > Dispatcher 在 Server lifespan 中启动，经正式会话事件路由注入 Runner/SDK Harness，
 > terminal-idle 回执回调把 Outbox 消息标为 consumed；Plan→Implement→Review→Test
 > 四个阶段可在真实 runner/harness 回路中自动推进。注意：这是 mock-LLM 链路证据，
-> Claude ↔ Codex 真实双 Harness E2E、权限回归、共享 SQLAlchemy 数据模型、
-> 持久 Workspace Lease 和 Windows 发布体系仍未完成。
+> Claude ↔ Codex 真实双 Harness E2E、通用 DAG 调度和 Windows 发布体系仍未完成。
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
@@ -941,6 +940,9 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 请求路径必须是 holder/root 会话已记录的 canonical workspace 或其子路径，
 > 且树内 host ownership 一致；相对路径、未托管会话、越界路径和跨 Host
 > 树一律拒绝，不能再对任意路径取租约或执行合并预览。
+> Coordination API 现已接入同一 Session ACL：多用户模式下，GET 要求 read，
+> POST/PATCH 等控制操作要求 manage；root/sender/recipient/holder 都先经过
+> 会话树校验和权限检查，只读/编辑级用户不能再伪装 Agent 身份或触发控制面写操作。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge
 ```

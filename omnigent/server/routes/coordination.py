@@ -19,6 +19,9 @@ from omnigent.coordination.types import (
     MessageKind,
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
+from omnigent.debug_logging import current_user_id
+from omnigent.server.auth import LEVEL_MANAGE, LEVEL_READ
+from omnigent.server.routes._auth_helpers import require_access as _require_access
 from omnigent.server.routes._coordination_workspace import (
     CoordinationWorkspaceError,
     canonical_workspace_path,
@@ -76,6 +79,50 @@ def _request_workflow_engine(request: Request) -> CoordinationWorkflowEngine:
     )
 
 
+async def _require_coordination_acl(
+    request: Request,
+    root_session_id: str,
+    *session_ids: str,
+) -> None:
+    """Apply the same session ACL used by the rest of the API.
+
+    Read-only coordination endpoints require ``LEVEL_READ``; mutating control
+    endpoints require ``LEVEL_MANAGE`` so shared read/edit users cannot rewrite
+    agent identity, advance runs, or issue lease/merge commands. The check runs
+    against the root and every sender/recipient/holder named by the request,
+    with sub-agent delegation handled by the shared session-access checker.
+    """
+    permission_store = getattr(request.app.state, "permission_store", None)
+    if permission_store is None:
+        return
+    conversation_store = getattr(request.app.state, "conversation_store", None)
+    if conversation_store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="coordination routes require a conversation store",
+        )
+    required_level = (
+        LEVEL_MANAGE
+        if request.method in {"POST", "PATCH", "PUT", "DELETE"}
+        else LEVEL_READ
+    )
+    await _require_access(
+        current_user_id(),
+        root_session_id,
+        required_level,
+        permission_store,
+        conversation_store,
+    )
+    for session_id in session_ids:
+        await _require_access(
+            current_user_id(),
+            session_id,
+            required_level,
+            permission_store,
+            conversation_store,
+        )
+
+
 async def _require_coordination_tree(
     request: Request,
     root_session_id: str,
@@ -121,6 +168,11 @@ async def _require_coordination_tree(
                 status_code=403,
                 detail=f"session {session_id!r} does not belong to root {root_session_id!r}",
             )
+    await _require_coordination_acl(
+        request,
+        root_session_id,
+        *session_ids,
+    )
 
 
 

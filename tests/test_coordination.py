@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from omnigent.coordination.dispatcher import CoordinationDispatcher
@@ -23,7 +23,9 @@ from omnigent.coordination.types import (
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
 from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from omnigent.db.db_models import InvalidUuidError
-from omnigent.server.routes.coordination import router
+from omnigent.debug_logging import current_user_id_scope
+from omnigent.errors import ErrorCode, OmnigentError
+from omnigent.server.routes.coordination import _require_coordination_acl, router
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 
@@ -44,6 +46,82 @@ class FakeConversationStore:
 
     def get_conversation(self, conversation_id: str) -> FakeConversation | None:
         return self.conversations.get(conversation_id)
+
+
+class FakePermissionStore:
+    """Minimal stand-in for session access grants used by coordination ACL tests."""
+
+    def __init__(self, grants: dict[tuple[str, str], int], admin: bool = False) -> None:
+        self.grants = grants
+        self.admin = admin
+
+    def is_admin(self, user_id: str | None) -> bool:
+        return bool(user_id) and self.admin
+
+    def check_access(
+        self,
+        user_id: str | None,
+        conversation_id: str,
+        required_level: int,
+    ) -> bool:
+        if user_id is None:
+            return False
+        return self.grants.get((user_id, conversation_id), 0) >= required_level
+
+
+def _acl_request(app: FastAPI, method: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": method,
+            "path": "/v1/coordination/messages",
+            "headers": [],
+            "app": app,
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_coordination_acl_requires_manage_for_mutating_requests() -> None:
+    conversations = {
+        "conv_root": FakeConversation(
+            "conv_root", root_conversation_id="conv_root"
+        ),
+        "conv_child": FakeConversation(
+            "conv_child", root_conversation_id="conv_root"
+        ),
+    }
+    app = FastAPI()
+    app.state.conversation_store = FakeConversationStore(conversations)
+    app.state.permission_store = FakePermissionStore(
+        {
+            ("alice", "conv_root"): 1,
+            ("alice", "conv_child"): 1,
+        }
+    )
+
+    with current_user_id_scope("alice"):
+        await _require_coordination_acl(
+            _acl_request(app, "GET"),
+            "conv_root",
+            "conv_child",
+        )
+        with pytest.raises(OmnigentError) as exc:
+            await _require_coordination_acl(
+                _acl_request(app, "POST"),
+                "conv_root",
+                "conv_child",
+            )
+    assert exc.value.code == ErrorCode.FORBIDDEN
+
+    app.state.permission_store.grants[("alice", "conv_root")] = 3
+    app.state.permission_store.grants[("alice", "conv_child")] = 3
+    with current_user_id_scope("alice"):
+        await _require_coordination_acl(
+            _acl_request(app, "POST"),
+            "conv_root",
+            "conv_child",
+        )
 
 
 class FakeRunnerResponse:
