@@ -13,6 +13,8 @@ DeliveryState = Literal["pending", "leased", "injected", "confirmed", "failed", 
 DeliveryMode = Literal["live", "breakpoint", "next_turn", "terminal_best_effort", "offline"]
 ConsumptionState = Literal["unconsumed", "consumed", "acknowledged", "rejected"]
 MergeOperationStatus = Literal["preview", "executing", "merged", "conflict", "failed", "cancelled"]
+ArtifactKind = Literal["plan", "patch", "diff", "report", "test_result", "log", "other"]
+ArtifactStatus = Literal["published", "updated", "invalidated"]
 RunStatus = Literal[
     "draft",
     "running",
@@ -190,6 +192,33 @@ class WorkspaceMergeOperation:
     status: MergeOperationStatus = "preview"
     preview: dict[str, Any] = field(default_factory=dict)
     result: dict[str, Any] | None = None
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class CoordinationArtifact:
+    """A durable reference to a plan, patch, diff, report or test artifact.
+
+    The blob itself lives in the configured artifact store; this row owns the
+    metadata, digest, producer and task/message traceability required by the
+    control plane, so messages can reference artifacts without embedding
+    full diffs or logs in the envelope.
+    """
+
+    artifact_id: str = field(default_factory=lambda: generate_coordination_id("art"))
+    root_session_id: str = ""
+    run_id: str | None = None
+    task_id: str | None = None
+    producer_session_id: str = ""
+    kind: ArtifactKind = "other"
+    digest: str | None = None
+    uri: str | None = None
+    status: ArtifactStatus = "published"
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 

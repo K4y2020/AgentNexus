@@ -16,6 +16,7 @@ from typing import Literal
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
     AgentMessage,
+    CoordinationArtifact,
     CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
@@ -190,6 +191,8 @@ class CoordinationWorkflowEngine:
         review_decision: str | None,
     ) -> None:
         role = task.assignee_role or ""
+        if artifacts:
+            await self._persist_artifacts(run, task, artifacts)
         if outcome != "succeeded":
             await asyncio.to_thread(
                 self.store.update_task_status, task.task_id, "failed", artifacts=artifacts or []
@@ -342,6 +345,56 @@ class CoordinationWorkflowEngine:
             if task.assignee_role == role:
                 return task
         return None
+
+    async def _persist_artifacts(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+        artifacts: list[dict[str, object]],
+    ) -> None:
+        """Persist stage artifacts as durable metadata rows, one per named item."""
+        existing = await asyncio.to_thread(
+            self.store.list_artifacts,
+            run.root_session_id,
+            run_id=run.run_id,
+            task_id=task.task_id,
+        )
+        existing_names = {str(a.metadata.get("name", "")) for a in existing}
+        for item in artifacts:
+            name = str(item.get("name") or item.get("kind") or "artifact")
+            if name in existing_names:
+                continue
+            raw_kind = str(item.get("kind") or name).lower()
+            if any(marker in raw_kind for marker in ("diff", "patch")):
+                kind = "diff"
+            elif "plan" in raw_kind:
+                kind = "plan"
+            elif "report" in raw_kind:
+                kind = "report"
+            elif "test" in raw_kind:
+                kind = "test_result"
+            elif "log" in raw_kind:
+                kind = "log"
+            else:
+                kind = "other"
+            artifact = CoordinationArtifact(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                task_id=task.task_id,
+                producer_session_id=task.assignee_session_id or run.root_session_id,
+                kind=kind,  # type: ignore[arg-type]
+                digest=str(item["digest"]) if item.get("digest") else None,
+                uri=str(item["uri"]) if item.get("uri") else None,
+                metadata={
+                    "name": name,
+                    **{
+                        str(key): value
+                        for key, value in item.items()
+                        if key not in ("name", "kind", "digest", "uri")
+                    },
+                },
+            )
+            await asyncio.to_thread(self.store.create_artifact, artifact)
 
     async def _send(
         self,

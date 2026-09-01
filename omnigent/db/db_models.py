@@ -1862,3 +1862,40 @@ class SqlWorkspaceMergeOperation(OmnigentBase):
             "created_at",
         ),
     )
+
+
+class SqlCoordinationArtifact(OmnigentBase):
+    """SQLAlchemy model for ``coordination_artifacts`` (control-plane artifact metadata)."""
+
+    __tablename__ = "coordination_artifacts"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    producer_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    uri: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="published")
+    metadata_json: Mapped[str] = mapped_column(
+        CompressedText, nullable=False, server_default="{}"
+    )
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_coordination_artifacts_root",
+            "workspace_id",
+            "root_session_id",
+            "created_at",
+        ),
+    )

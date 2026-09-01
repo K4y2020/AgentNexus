@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 
 from omnigent.coordination.types import (
     AgentMessage,
+    CoordinationArtifact,
     CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
@@ -26,6 +27,7 @@ from omnigent.coordination.types import (
 )
 from omnigent.db.db_models import (
     SqlAgentMessage,
+    SqlCoordinationArtifact,
     SqlCoordinationEvent,
     SqlCoordinationOutbox,
     SqlCoordinationRun,
@@ -166,6 +168,23 @@ def _row_to_merge_operation(row: SqlWorkspaceMergeOperation) -> WorkspaceMergeOp
         status=row.status,  # type: ignore[arg-type]
         preview=json.loads(row.preview_json),
         result=json.loads(row.result_json) if row.result_json else None,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _row_to_artifact(row: SqlCoordinationArtifact) -> CoordinationArtifact:
+    return CoordinationArtifact(
+        artifact_id=row.artifact_id,
+        root_session_id=row.root_session_id,
+        run_id=row.run_id,
+        task_id=row.task_id,
+        producer_session_id=row.producer_session_id,
+        kind=row.kind,  # type: ignore[arg-type]
+        digest=row.digest,
+        uri=row.uri,
+        status=row.status,  # type: ignore[arg-type]
+        metadata=json.loads(row.metadata_json),
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -781,3 +800,67 @@ class CoordinationStore:
                 .values(**values)
             )
         return self.get_merge_operation(operation_id)
+
+    # ── Artifact Metadata Operations ───────────────────────────
+
+    def create_artifact(self, artifact: CoordinationArtifact) -> CoordinationArtifact:
+        """Persist one control-plane artifact metadata row."""
+        with self._session("create_artifact") as sess:
+            sess.add(
+                SqlCoordinationArtifact(
+                    artifact_id=artifact.artifact_id,
+                    root_session_id=artifact.root_session_id,
+                    run_id=artifact.run_id,
+                    task_id=artifact.task_id,
+                    producer_session_id=artifact.producer_session_id,
+                    kind=artifact.kind,
+                    digest=artifact.digest,
+                    uri=artifact.uri,
+                    status=artifact.status,
+                    metadata_json=json.dumps(artifact.metadata),
+                    created_at=artifact.created_at,
+                    updated_at=artifact.updated_at,
+                )
+            )
+        return artifact
+
+    def get_artifact(self, artifact_id: str) -> CoordinationArtifact | None:
+        """Load one artifact metadata row by id."""
+        with self._session("get_artifact") as sess:
+            row = sess.get(SqlCoordinationArtifact, (current_workspace_id(), artifact_id))
+            return _row_to_artifact(row) if row else None
+
+    def list_artifacts(
+        self,
+        root_session_id: str,
+        *,
+        run_id: str | None = None,
+        task_id: str | None = None,
+    ) -> list[CoordinationArtifact]:
+        """List artifact metadata for a root, optionally narrowed by run/task."""
+        with self._session("list_artifacts") as sess:
+            stmt = select(SqlCoordinationArtifact).where(
+                SqlCoordinationArtifact.workspace_id == current_workspace_id(),
+                SqlCoordinationArtifact.root_session_id == root_session_id,
+            )
+            if run_id:
+                stmt = stmt.where(SqlCoordinationArtifact.run_id == run_id)
+            if task_id:
+                stmt = stmt.where(SqlCoordinationArtifact.task_id == task_id)
+            stmt = stmt.order_by(SqlCoordinationArtifact.created_at.asc())
+            return [_row_to_artifact(row) for row in sess.scalars(stmt)]
+
+    def update_artifact_status(
+        self, artifact_id: str, status: str
+    ) -> CoordinationArtifact | None:
+        """Mark an artifact published/updated/invalidated and return the fresh row."""
+        with self._session_immediate("update_artifact_status") as sess:
+            sess.execute(
+                update(SqlCoordinationArtifact)
+                .where(
+                    SqlCoordinationArtifact.workspace_id == current_workspace_id(),
+                    SqlCoordinationArtifact.artifact_id == artifact_id,
+                )
+                .values(status=status, updated_at=time.time())
+            )
+        return self.get_artifact(artifact_id)

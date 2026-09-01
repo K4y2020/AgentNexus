@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
 from omnigent.coordination.types import (
     AgentMessage,
+    ArtifactKind,
+    CoordinationArtifact,
     CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
@@ -184,6 +186,21 @@ class CreateMergePreviewRequest(BaseModel):
 
 class ExecuteMergeRequest(BaseModel):
     fencing_token: int
+
+
+class CreateArtifactRequest(BaseModel):
+    root_session_id: str
+    producer_session_id: str
+    run_id: str | None = None
+    task_id: str | None = None
+    kind: ArtifactKind = "other"
+    digest: str | None = None
+    uri: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpdateArtifactStatusRequest(BaseModel):
+    status: Literal["published", "updated", "invalidated"]
 
 
 # ── Message Endpoints ─────────────────────────────────────────
@@ -522,3 +539,105 @@ async def list_coordination_events(
     store = _request_store(request)
     events = await asyncio.to_thread(store.list_events, root_session_id, since)
     return {"events": [e.to_dict() for e in events]}
+
+
+# ── Artifact Metadata ─────────────────────────────────────────
+
+
+@router.post("/artifacts")
+async def create_coordination_artifact(
+    req: CreateArtifactRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Publish a control-plane artifact metadata row for a plan/patch/diff/report."""
+    await _require_coordination_tree(
+        request, req.root_session_id, req.producer_session_id
+    )
+    artifact = CoordinationArtifact(
+        root_session_id=req.root_session_id,
+        run_id=req.run_id,
+        task_id=req.task_id,
+        producer_session_id=req.producer_session_id,
+        kind=req.kind,
+        digest=req.digest,
+        uri=req.uri,
+        metadata=req.metadata,
+    )
+    store = _request_store(request)
+    created = await asyncio.to_thread(store.create_artifact, artifact)
+    event = CoordinationEvent(
+        root_session_id=req.root_session_id,
+        run_id=req.run_id,
+        task_id=req.task_id,
+        actor_session_id=req.producer_session_id,
+        event_type="artifact.published",
+        payload={
+            "artifact_id": artifact.artifact_id,
+            "kind": artifact.kind,
+            "uri": artifact.uri,
+        },
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"artifact": created.to_dict()}
+
+
+@router.get("/artifacts")
+async def list_coordination_artifacts(
+    request: Request,
+    root_session_id: str = Query(..., description="The parent/root conversation id"),
+    run_id: str | None = Query(None, description="Optional run filter"),
+    task_id: str | None = Query(None, description="Optional task filter"),
+) -> dict[str, Any]:
+    """List artifact metadata within a coordination root."""
+    await _require_coordination_tree(request, root_session_id)
+    store = _request_store(request)
+    artifacts = await asyncio.to_thread(
+        store.list_artifacts,
+        root_session_id,
+        run_id=run_id,
+        task_id=task_id,
+    )
+    return {"artifacts": [a.to_dict() for a in artifacts]}
+
+
+@router.get("/artifacts/{artifact_id}")
+async def get_coordination_artifact(
+    artifact_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Retrieve one artifact metadata row by id."""
+    store = _request_store(request)
+    artifact = await asyncio.to_thread(store.get_artifact, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+    await _require_coordination_tree(
+        request, artifact.root_session_id, artifact.producer_session_id
+    )
+    return {"artifact": artifact.to_dict()}
+
+
+@router.patch("/artifacts/{artifact_id}")
+async def update_coordination_artifact_status(
+    artifact_id: str,
+    req: UpdateArtifactStatusRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """Mark an artifact published/updated/invalidated."""
+    store = _request_store(request)
+    artifact = await asyncio.to_thread(store.get_artifact, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+    await _require_coordination_tree(
+        request, artifact.root_session_id, artifact.producer_session_id
+    )
+    updated = await asyncio.to_thread(store.update_artifact_status, artifact_id, req.status)
+    event = CoordinationEvent(
+        root_session_id=artifact.root_session_id,
+        run_id=artifact.run_id,
+        task_id=artifact.task_id,
+        actor_session_id=artifact.producer_session_id,
+        event_type=f"artifact.{req.status}",
+        payload={"artifact_id": artifact_id, "kind": artifact.kind},
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"artifact": updated.to_dict() if updated else None}

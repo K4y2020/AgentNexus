@@ -15,6 +15,7 @@ from omnigent.coordination.dispatcher import CoordinationDispatcher
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import (
     AgentMessage,
+    CoordinationArtifact,
     CoordinationRun,
     CoordinationTask,
 )
@@ -395,6 +396,31 @@ def test_workspace_merge_operation_store_crud(memory_store: CoordinationStore) -
     assert listed[0].operation_id == op.operation_id
 
 
+def test_coordination_artifact_metadata_crud(memory_store: CoordinationStore) -> None:
+    artifact = CoordinationArtifact(
+        root_session_id="conv_root_art",
+        producer_session_id="conv_coder_1",
+        kind="patch",
+        digest="a" * 64,
+        uri="artifact://patch.diff",
+        metadata={"name": "patch.diff", "lines": 42},
+    )
+    memory_store.create_artifact(artifact)
+
+    loaded = memory_store.get_artifact(artifact.artifact_id)
+    assert loaded is not None
+    assert loaded.kind == "patch"
+    assert loaded.metadata == {"name": "patch.diff", "lines": 42}
+
+    updated = memory_store.update_artifact_status(artifact.artifact_id, "invalidated")
+    assert updated is not None
+    assert updated.status == "invalidated"
+
+    listed = memory_store.list_artifacts("conv_root_art")
+    assert len(listed) == 1
+    assert listed[0].artifact_id == artifact.artifact_id
+
+
 def test_workspace_coordinator_previews_and_executes_merge(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:
@@ -577,6 +603,16 @@ async def test_workflow_advances_through_five_stages_to_success(
         artifacts=[{"name": "test-report.md"}],
     )
     assert completed.status == "succeeded"
+
+    durable_artifacts = memory_store.list_artifacts(
+        run.root_session_id, run_id=run.run_id
+    )
+    assert [a.metadata["name"] for a in durable_artifacts] == [
+        "plan.md",
+        "patch.diff",
+        "test-report.md",
+    ]
+    assert {a.kind for a in durable_artifacts} == {"plan", "diff", "report"}
 
 
 @pytest.mark.asyncio
@@ -884,3 +920,57 @@ def test_coordination_api_merge_preview_requires_lease_and_fencing(
     )
     assert fetched.status_code == 200
     assert fetched.json()["operation"]["status"] == "merged"
+
+
+def test_coordination_api_artifact_endpoints(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res_cross = client.post(
+        "/v1/coordination/artifacts",
+        json={
+            "root_session_id": "conv_root_api",
+            "producer_session_id": "other_sender",
+            "kind": "patch",
+            "digest": "b" * 64,
+        },
+    )
+    assert res_cross.status_code == 403
+
+    res = client.post(
+        "/v1/coordination/artifacts",
+        json={
+            "root_session_id": "conv_root_api",
+            "producer_session_id": "conv_p1",
+            "kind": "plan",
+            "digest": "c" * 64,
+            "uri": "artifact://plan.md",
+            "metadata": {"name": "plan.md"},
+        },
+    )
+    assert res.status_code == 200
+    artifact_id = res.json()["artifact"]["artifact_id"]
+
+    got = client.get(f"/v1/coordination/artifacts/{artifact_id}")
+    assert got.status_code == 200
+    assert got.json()["artifact"]["kind"] == "plan"
+
+    listed = client.get(
+        "/v1/coordination/artifacts",
+        params={"root_session_id": "conv_root_api"},
+    )
+    assert listed.status_code == 200
+    assert len(listed.json()["artifacts"]) == 1
+
+    patched = client.patch(
+        f"/v1/coordination/artifacts/{artifact_id}",
+        json={"status": "invalidated"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["artifact"]["status"] == "invalidated"
+
+    missing = client.get("/v1/coordination/artifacts/art_missing")
+    assert missing.status_code == 404
