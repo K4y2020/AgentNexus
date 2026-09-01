@@ -6,11 +6,14 @@ import asyncio
 import contextlib
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omnigent.coordination.store import CoordinationStore
 from omnigent.coordination.types import AgentMessage, DeliveryAttempt
 from omnigent.db.db_models import InvalidUuidError
+
+if TYPE_CHECKING:
+    from omnigent.stores import ConversationStore
 
 _logger = logging.getLogger(__name__)
 
@@ -18,8 +21,13 @@ _logger = logging.getLogger(__name__)
 class CoordinationDispatcher:
     """Dispatches durable outbox messages to target sessions based on harness capability."""
 
-    def __init__(self, store: CoordinationStore) -> None:
+    def __init__(
+        self,
+        store: CoordinationStore,
+        conversation_store: ConversationStore | None = None,
+    ) -> None:
         self.store = store
+        self.conversation_store = conversation_store
         self._running = False
         self._task: asyncio.Task[None] | None = None
 
@@ -98,6 +106,27 @@ class CoordinationDispatcher:
             if router is None:
                 raise RuntimeError("no server runner router configured")
             routed = router.client_for_session_resources(msg.recipient_session_id)
+            recipient = None
+            if self.conversation_store is not None:
+                recipient = await asyncio.to_thread(
+                    self.conversation_store.get_conversation,
+                    msg.recipient_session_id,
+                )
+                # The runner only publishes turn events through a server-side SSE
+                # relay. Without a subscription the dispatched turn completes in
+                # the runner but its terminal session.status never lands here, so
+                # the durable message can never be marked consumed. Subscribe
+                # before injecting (the normal events path does the same).
+                from omnigent.server.routes._sessions.orchestration import (
+                    _ensure_runner_relay_ready,
+                )
+
+                await _ensure_runner_relay_ready(
+                    msg.recipient_session_id,
+                    recipient.runner_id,
+                    routed.client,
+                    self.conversation_store,
+                )
             prompt_text = (
                 msg.payload.get("prompt")
                 or msg.payload.get("instruction")
@@ -117,6 +146,9 @@ class CoordinationDispatcher:
                     "correlation_id": msg.correlation_id,
                 },
             }
+            if recipient is not None:
+                event_payload["agent_id"] = recipient.agent_id
+                event_payload["model"] = recipient.agent_id or ""
             resp = await routed.client.post(
                 f"/v1/sessions/{msg.recipient_session_id}/events",
                 json=event_payload,

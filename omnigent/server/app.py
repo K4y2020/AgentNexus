@@ -1360,7 +1360,10 @@ def create_app(
         coordination_dispatcher = None
         coordination_workflow_scheduler = None
         if app_inst.state.coordination_store is not None:
-            coordination_dispatcher = CoordinationDispatcher(app_inst.state.coordination_store)
+            coordination_dispatcher = CoordinationDispatcher(
+                app_inst.state.coordination_store,
+                conversation_store=app_inst.state.conversation_store,
+            )
             await coordination_dispatcher.start()
             app_inst.state.coordination_dispatcher = coordination_dispatcher
             if app_inst.state.coordination_workflow_engine is not None:

@@ -926,6 +926,12 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > Server lifespan 级 A2A 回归测试已落地：真实 create_app 启动 lifespan，
 > CoordinationDispatcher/WorkflowScheduler 参与投递、回执与自动推进；Runner 503
 > 时消息保持 queued、attempt failed、outbox pending，不会伪造成功。
+> 2026-09-01 进一步补齐真实链路证据：新增 live integration tests（mock LLM），
+> Dispatcher 在 Server lifespan 中启动，经正式会话事件路由注入 Runner/SDK Harness，
+> terminal-idle 回执回调把 Outbox 消息标为 consumed；Plan→Implement→Review→Test
+> 四个阶段可在真实 runner/harness 回路中自动推进。注意：这是 mock-LLM 链路证据，
+> Claude ↔ Codex 真实双 Harness E2E、权限回归、共享 SQLAlchemy 数据模型、
+> 持久 Workspace Lease 和 Windows 发布体系仍未完成。
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为

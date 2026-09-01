@@ -34,6 +34,8 @@ class FakeConversation:
     parent_conversation_id: str | None = None
     host_id: str | None = None
     workspace: str | None = None
+    runner_id: str | None = None
+    agent_id: str | None = None
 
 
 class FakeConversationStore:
@@ -308,6 +310,58 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
     assert body["metadata"]["message_id"] == msg.message_id
     assert body["metadata"]["sender_session_id"] == msg.sender_session_id
     assert "review.request" in body["content"][0]["text"]
+
+@pytest.mark.asyncio
+async def test_dispatcher_rides_recipient_agent_and_relay_into_delivery(
+    memory_store: CoordinationStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    msg = AgentMessage(
+        root_session_id="conv_root_123",
+        sender_session_id="conv_planner",
+        sender_role="planner",
+        recipient_session_id="conv_coder",
+        recipient_role="implementer",
+        intent="task.request",
+        payload={"prompt": "Implement the plan"},
+    )
+    memory_store.save_message_and_outbox(msg)
+
+    router = FakeRunnerRouter(status_code=200)
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        lambda: router,
+    )
+    relay_calls: list[tuple[str, str | None, FakeRunnerClient]] = []
+
+    async def fake_relay(
+        session_id: str,
+        runner_id: str | None,
+        client: FakeRunnerClient,
+        store: Any,
+    ) -> None:
+        relay_calls.append((session_id, runner_id, client))
+
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready",
+        fake_relay,
+    )
+    conv_store = FakeConversationStore(
+        {
+            "conv_coder": FakeConversation(
+                "conv_coder",
+                runner_id="runner_abc",
+                agent_id="ag_planner",
+            )
+        }
+    )
+    dispatcher = CoordinationDispatcher(memory_store, conversation_store=conv_store)
+    count = await dispatcher.dispatch_once()
+    assert count == 1
+
+    body = router.client.posted[0]["json"]
+    assert body["agent_id"] == "ag_planner"
+    assert body["model"] == "ag_planner"
+    assert relay_calls == [("conv_coder", "runner_abc", router.client)]
 
 
 @pytest.mark.asyncio
