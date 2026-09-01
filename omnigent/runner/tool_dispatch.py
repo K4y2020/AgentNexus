@@ -52,7 +52,7 @@ from omnigent._wrapper_labels import (
     CODEX_NATIVE_WRAPPER_VALUE,
 )
 from omnigent.debug_logging import runner_primary_session_id
-from omnigent.harness_aliases import canonicalize_harness
+from omnigent.harness_aliases import canonicalize_harness, is_native_harness
 from omnigent.model_override import (
     harness_supports_model_override,
     model_family_mismatch,
@@ -1496,6 +1496,53 @@ async def _inherited_parent_model(
     return parent_model
 
 
+_SUBAGENT_MODEL_LABEL_PREFIX = "subagent.model."
+
+
+async def _preferred_subagent_model(
+    *,
+    server_client: httpx.AsyncClient,
+    conversation_id: str,
+    sub_agent_name: str,
+) -> str | None:
+    """Read a parent session's saved per-partner model preference.
+
+    Preferences are stored as user-editable labels such as
+    ``subagent.model.worker`` on the parent session. They outrank the parent's
+    inherited session model and are applied both when a child is first created
+    and (for SDK children) when an existing child is continued, so a Partner
+    picker change takes effect on the next turn instead of only the parent row.
+
+    :param server_client: HTTP client pointed at the Omnigent server.
+    :param conversation_id: The parent session id.
+    :param sub_agent_name: Name of the sub-agent being dispatched.
+    :returns: The validated preference model id, or ``None`` when absent.
+    :raises ValueError: If the stored value is present but invalid.
+    """
+    try:
+        response = await server_client.get(
+            f"/v1/sessions/{conversation_id}/labels",
+            timeout=10.0,
+        )
+    except (httpx.HTTPError, RuntimeError):
+        return None
+    if response.status_code != 200:
+        return None
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    labels = payload.get("labels")
+    if not isinstance(labels, dict):
+        return None
+    raw = labels.get(f"{_SUBAGENT_MODEL_LABEL_PREFIX}{sub_agent_name}")
+    if not isinstance(raw, str) or not raw:
+        return None
+    return validate_model_override(raw)
+
+
 def _subagent_reasoning_effort_from_args(args: _JsonObject) -> str | None:
     """
     Extract the optional ``reasoning_effort`` from
@@ -2242,8 +2289,68 @@ async def _execute_subagent_tool(
         # harnesses read model_override at each turn boundary. Native terminal
         # children are excluded because their live pane requires the
         # harness-specific /model interaction.
+        if not is_native_harness(child_harness):
+            try:
+                preferred_model = await _preferred_subagent_model(
+                    server_client=server_client,
+                    conversation_id=conversation_id,
+                    sub_agent_name=str(sub_agent_name),
+                )
+            except ValueError as exc:
+                return (
+                    f"Error: saved model preference for sub-agent "
+                    f"{sub_agent_name!r} is invalid: {exc}"
+                )
+            if preferred_model is not None:
+                if not harness_supports_model_override(child_harness):
+                    return (
+                        f"Error: saved model preference is not supported for "
+                        f"sub-agent {sub_agent_name!r}: harness "
+                        f"{child_harness or 'unknown'!r} has no model-override "
+                        "plumbing."
+                    )
+                mismatch = (
+                    model_family_mismatch(child_harness, preferred_model)
+                    if child_harness
+                    else None
+                )
+                if mismatch is not None:
+                    return (
+                        f"Error: saved model preference rejected for sub-agent "
+                        f"{sub_agent_name!r}: {mismatch}"
+                    )
+                normalized_preference = _normalize_subagent_model(
+                    preferred_model,
+                    sub_agent_name=str(sub_agent_name),
+                    agent_spec=agent_spec,
+                    harness=child_harness,
+                )
+                preference_response = await server_client.patch(
+                    f"/v1/sessions/{child_session_id}",
+                    json={"model_override": normalized_preference, "silent": True},
+                    timeout=10.0,
+                )
+                if preference_response.status_code >= 400:
+                    return (
+                        f"Error: failed to apply saved model preference "
+                        f"{preferred_model!r} to existing sub-agent "
+                        f"{child_session_id}: {preference_response.status_code} "
+                        f"{preference_response.text[:200]}"
+                    )
         # Continue existing session
     else:
+        if model is None:
+            try:
+                model = await _preferred_subagent_model(
+                    server_client=server_client,
+                    conversation_id=conversation_id,
+                    sub_agent_name=str(sub_agent_name),
+                )
+            except ValueError as exc:
+                return (
+                    f"Error: saved model preference for sub-agent "
+                    f"{sub_agent_name!r} is invalid: {exc}"
+                )
         if model is None:
             model = await _inherited_parent_model(
                 server_client=server_client,

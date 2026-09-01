@@ -1044,6 +1044,13 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > confirmed 与 queued/failed/unknown 严格分开。会话级模式选择、两种模式并发
 > 互不串扰测试仍属于 BEHAVIOR-003，不能全量验收计分。
 >
+> 2026-09-01 修复 `98b330c2` 带入的子 Agent 模型偏好回归：
+> `sys_session_send` 恢复读取 parent 的 `subagent.model.<name>` 标签，
+> 新建子会话时优先应用该偏好、再回退到父会话模型继承；复用既有
+> SDK 子会话时在下一轮前 PATCH `model_override` 到子会话行，使
+> Partner 模型选择真正在后续 turn 生效。`test_runner_dispatch.py`
+> 子 Agent 模型相关用例已恢复全绿。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
