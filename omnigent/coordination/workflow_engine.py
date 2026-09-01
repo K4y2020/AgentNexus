@@ -53,6 +53,7 @@ class CoordinationWorkflowEngine:
         reviewer_session_id: str,
         user_prompt: str,
         workspace_path: str = ".",
+        budget: dict[str, object] | None = None,
     ) -> CoordinationRun:
         """Initialize and kick off the fixed Plan -> Implement -> Review -> Fix -> Test run."""
         run = CoordinationRun(
@@ -60,6 +61,7 @@ class CoordinationWorkflowEngine:
             root_session_id=root_session_id,
             template="plan_implement_review_fix_test",
             status="running",
+            budget=dict(budget or {}),
             metadata={
                 "planner_id": planner_session_id,
                 "implementer_id": implementer_session_id,
@@ -68,6 +70,7 @@ class CoordinationWorkflowEngine:
                 "initial_prompt": user_prompt,
                 "stage": "planning",
                 "fix_cycles": 0,
+                "template_version": "1.0",
             },
         )
         await asyncio.to_thread(self.store.create_run, run)
@@ -581,6 +584,25 @@ class CoordinationWorkflowEngine:
         if not task.assignee_session_id:
             raise ValueError(f"task {task_id} has no assignee to retry")
 
+        current = await asyncio.to_thread(self.store.get_run, run.run_id)
+        current_metadata = dict(current.metadata if current is not None else run.metadata)
+        retry_count = int(current_metadata.get("retry_count") or 0)
+        max_retries = int(run.budget.get("max_retries") or 0)
+        if max_retries > 0 and retry_count >= max_retries:
+            await self._record(
+                run,
+                task,
+                "workflow.retry_limit_reached",
+                {
+                    "task_id": task_id,
+                    "retry_count": retry_count,
+                    "max_retries": max_retries,
+                },
+            )
+            raise ValueError(
+                f"retry limit reached ({retry_count}/{max_retries}) for task {task_id}"
+            )
+
         claimed = await self._move_task(task_id, "running", from_statuses=["failed"])
         if not claimed:
             # A concurrent retry already claimed the slot; do not resend a
@@ -592,11 +614,9 @@ class CoordinationWorkflowEngine:
             "running",
             from_statuses=["needs_attention", "running"],
         )
-        current = await asyncio.to_thread(self.store.get_run, run.run_id)
-        current_metadata = dict(current.metadata if current is not None else run.metadata)
-        retry_count = int(current_metadata.get("retry_count") or 0) + 1
+        current_metadata["retry_count"] = retry_count + 1
         sent = await self._resend_stage_request(run, task)
-        current_metadata["retry_count"] = retry_count
+        retry_count = retry_count + 1
         current_metadata["stage"] = task.assignee_role or current_metadata.get("stage")
         await self._update_run_metadata(run.run_id, current_metadata)
         await self._record(

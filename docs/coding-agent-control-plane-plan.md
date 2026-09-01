@@ -905,12 +905,14 @@ GET    /v1/sessions/{id}/effective-binding
 POST   /v1/sessions/{id}/workspace-switch
 GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 
-> 已落地：/runs（创建/列表/详情）、/runs/{id}/pause|resume|cancel、
+> 已落地：/runs（创建/列表/详情/summary）、/runs/{id}/pause|resume|cancel、
 > /workflows/plan-implement-review、/workflows/{run}/tasks/{task}/advance、
 > /tasks/{task}/retry、/tasks/{task}/reassign、/messages（发送/回执/取消）、/artifacts（CRUD）、
 > /events、/workspaces/lease 与 merge-previews 执行。状态迁移全部使用
 > SQL CAS，重复 advance/cancel/retry 幂等，不会重复派发下一阶段；改派会重定向
 > 未消费的排队投递或拒绝未确认活动消息，已确认的工作必须 cancel/retry 后才能改派。
+> Workflow 启动接受 budget，max_retries 会在重试前按持久 retry_count 封顶；
+> 每个 Run 固定 template_version 快照，summary 汇总 stage/message/artifact 状态。
 POST   /v1/sessions/{id}/workspace/merge-preview
 POST   /v1/sessions/{id}/workspace/merge
 ```

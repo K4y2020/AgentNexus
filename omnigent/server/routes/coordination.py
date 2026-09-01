@@ -160,6 +160,7 @@ class StartWorkflowRequest(BaseModel):
     reviewer_session_id: str
     user_prompt: str
     workspace_path: str = "."
+    budget: dict[str, Any] = Field(default_factory=dict)
 
 
 class AdvanceWorkflowRequest(BaseModel):
@@ -402,6 +403,54 @@ async def list_coordination_runs(
     return {"runs": [r.to_dict() for r in runs]}
 
 
+# ── Run Summary ──────────────────────────────────────────────
+
+
+@router.get("/runs/{run_id}/summary")
+async def get_coordination_run_summary(
+    run_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Return the durable run, stage board, and delivery/artifact summary."""
+    store = _request_store(request)
+    run = await asyncio.to_thread(store.get_run, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    await _require_coordination_tree(request, run.root_session_id)
+    tasks = await asyncio.to_thread(store.list_tasks, run_id)
+    messages = await asyncio.to_thread(store.list_messages, run.root_session_id)
+    artifacts = await asyncio.to_thread(
+        store.list_artifacts, run.root_session_id, run_id=run_id
+    )
+    task_statuses: dict[str, str] = {}
+    for task in tasks:
+        role = task.assignee_role or "unassigned"
+        task_statuses[role] = task.status
+    message_states: dict[str, int] = {}
+    consumption_states: dict[str, int] = {}
+    for message in messages:
+        if message.run_id != run_id:
+            continue
+        message_states[message.message_state] = message_states.get(
+            message.message_state, 0
+        ) + 1
+        consumption_states[message.consumption_state] = consumption_states.get(
+            message.consumption_state, 0
+        ) + 1
+    return {
+        "run": run.to_dict(),
+        "summary": {
+            "template_version": run.metadata.get("template_version", "unknown"),
+            "stage": task_statuses,
+            "retry_count": int(run.metadata.get("retry_count") or 0),
+            "fix_cycles": int(run.metadata.get("fix_cycles") or 0),
+            "message_states": message_states,
+            "consumption_states": consumption_states,
+            "artifact_count": len(artifacts),
+        },
+    }
+
+
 # ── Task Endpoints ────────────────────────────────────────────
 
 
@@ -465,6 +514,7 @@ async def start_plan_implement_review_workflow(
         reviewer_session_id=req.reviewer_session_id,
         user_prompt=req.user_prompt,
         workspace_path=req.workspace_path,
+        budget=req.budget,
     )
     tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
     return {"run": run.to_dict(), "tasks": [t.to_dict() for t in tasks]}

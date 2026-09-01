@@ -895,6 +895,51 @@ async def test_workflow_reassign_rejects_acknowledged_work(
 
 
 @pytest.mark.asyncio
+async def test_workflow_retry_budget_blocks_exhausted_retries(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Retry Budget",
+        root_session_id="conv_root_retry_budget",
+        planner_session_id="conv_planner_budget",
+        implementer_session_id="conv_coder_budget",
+        reviewer_session_id="conv_reviewer_budget",
+        user_prompt="Retry with a budget",
+        workspace_path=str(tmp_path),
+        budget={"max_retries": 1},
+    )
+    assert run.budget["max_retries"] == 1
+    assert run.metadata["template_version"] == "1.0"
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+
+    failed = await engine.advance(
+        run_id=run.run_id,
+        task_id=tasks["planner"].task_id,
+        outcome="failed",
+    )
+    assert failed.status == "needs_attention"
+
+    retried = await engine.retry_task(tasks["planner"].task_id)
+    assert retried.status == "running"
+    assert retried.metadata["retry_count"] == 1
+
+    failed_again = await engine.advance(
+        run_id=run.run_id,
+        task_id=tasks["planner"].task_id,
+        outcome="failed",
+    )
+    assert failed_again.status == "needs_attention"
+    with pytest.raises(ValueError, match="retry limit reached"):
+        await engine.retry_task(tasks["planner"].task_id)
+    events = memory_store.list_events("conv_root_retry_budget")
+    assert any(e.event_type == "workflow.retry_limit_reached" for e in events)
+    assert (
+        memory_store.get_task(tasks["planner"].task_id).status == "failed"
+    )
+
+
+@pytest.mark.asyncio
 async def test_workflow_cancel_run_marks_messages_and_tasks(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:
@@ -1288,6 +1333,54 @@ def test_coordination_api_reassign_endpoint(
     )
     assert acked.status_code == 409
     assert "already acknowledged" in acked.json()["detail"]
+
+
+def test_coordination_api_run_summary_and_budget(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Summary API Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Summarize this run",
+            "budget": {"max_retries": 2},
+        },
+    )
+    assert res.status_code == 200
+    run_id = res.json()["run"]["run_id"]
+    planner_id = next(
+        t["task_id"] for t in res.json()["tasks"] if t["assignee_role"] == "planner"
+    )
+
+    summary = client.get(f"/v1/coordination/runs/{run_id}/summary")
+    assert summary.status_code == 200, summary.text
+    payload = summary.json()
+    assert payload["run"]["budget"]["max_retries"] == 2
+    assert payload["summary"]["template_version"] == "1.0"
+    assert payload["summary"]["stage"]["planner"] == "assigned"
+    assert payload["summary"]["artifact_count"] == 0
+
+    advanced = client.post(
+        f"/v1/coordination/workflows/{run_id}/tasks/{planner_id}/advance",
+        json={
+            "outcome": "succeeded",
+            "artifacts": [{"name": "plan.md", "kind": "plan"}],
+        },
+    )
+    assert advanced.status_code == 200
+    summary2 = client.get(f"/v1/coordination/runs/{run_id}/summary")
+    assert summary2.status_code == 200
+    assert summary2.json()["summary"]["stage"]["planner"] == "succeeded"
+    assert summary2.json()["summary"]["stage"]["implementer"] == "running"
+    assert summary2.json()["summary"]["artifact_count"] == 1
 
 
 def test_coordination_api_session_acl(
