@@ -325,6 +325,16 @@ export interface ErrorBlock {
   cause?: string;
   /** Optional concrete next step to fix it, e.g. a command to run. */
   remediation?: string;
+  /** One of the plan's 11 error layers, e.g. "runner". */
+  layer?: string;
+  /** Whether the control plane considers this failure retryable. */
+  retryable?: boolean;
+  /** Camel-case alias for the plan's `suggested_action` field. */
+  suggestedAction?: string;
+  /** Correlation/request id when the emitting layer had one. */
+  correlationId?: string;
+  /** Optional artifact/log references useful for triage. */
+  diagnosticRefs?: string[];
 }
 
 /**
@@ -334,12 +344,59 @@ export interface ErrorBlock {
  * result into an `ErrorBlock` alongside `message` / `source` / `code`.
  */
 export function structuredErrorFields(
-  src: { title?: string | null; cause?: string | null; remediation?: string | null } | null,
-): Pick<ErrorBlock, "title" | "cause" | "remediation"> {
-  const out: Pick<ErrorBlock, "title" | "cause" | "remediation"> = {};
+  src: {
+    title?: string | null;
+    cause?: string | null;
+    remediation?: string | null;
+    suggested_action?: string | null;
+    suggestedAction?: string | null;
+    layer?: string | null;
+    retryable?: boolean | null;
+    correlation_id?: string | null;
+    correlationId?: string | null;
+    diagnostic_refs?: string[] | null;
+    diagnosticRefs?: string[] | null;
+  } | null,
+): Pick<
+  ErrorBlock,
+  | "title"
+  | "cause"
+  | "remediation"
+  | "layer"
+  | "retryable"
+  | "suggestedAction"
+  | "correlationId"
+  | "diagnosticRefs"
+> {
+  const out: Pick<
+    ErrorBlock,
+    | "title"
+    | "cause"
+    | "remediation"
+    | "layer"
+    | "retryable"
+    | "suggestedAction"
+    | "correlationId"
+    | "diagnosticRefs"
+  > = {};
   if (src?.title) out.title = src.title;
   if (src?.cause) out.cause = src.cause;
   if (src?.remediation) out.remediation = src.remediation;
+  else if (src?.suggested_action) out.remediation = src.suggested_action;
+  else if (src?.suggestedAction) {
+    out.remediation = src.suggestedAction;
+    out.suggestedAction = src.suggestedAction;
+  }
+  if (src?.suggestedAction) out.suggestedAction = src.suggestedAction;
+  if (src?.layer) out.layer = src.layer;
+  if (src?.retryable != null) out.retryable = src.retryable;
+  if (src?.correlation_id) out.correlationId = src.correlation_id;
+  if (src?.correlationId) out.correlationId = src.correlationId;
+  if (Array.isArray(src?.diagnostic_refs) && src.diagnostic_refs.length > 0) {
+    out.diagnosticRefs = src.diagnostic_refs;
+  } else if (Array.isArray(src?.diagnosticRefs) && src.diagnosticRefs.length > 0) {
+    out.diagnosticRefs = src.diagnosticRefs;
+  }
   return out;
 }
 

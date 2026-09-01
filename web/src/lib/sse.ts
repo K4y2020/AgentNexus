@@ -1299,6 +1299,18 @@ function parseErrorInfo(raw: unknown): ErrorInfo {
     if (typeof r.title === "string" && r.title) info.title = r.title;
     if (typeof r.cause === "string" && r.cause) info.cause = r.cause;
     if (typeof r.remediation === "string" && r.remediation) info.remediation = r.remediation;
+    if (typeof r.layer === "string" && r.layer) info.layer = r.layer;
+    if (typeof r.retryable === "boolean") info.retryable = r.retryable;
+    if (typeof r.suggested_action === "string" && r.suggested_action) {
+      info.suggested_action = r.suggested_action;
+      info.remediation ??= r.suggested_action;
+    }
+    if (typeof r.correlation_id === "string" && r.correlation_id) {
+      info.correlation_id = r.correlation_id;
+    }
+    if (Array.isArray(r.diagnostic_refs)) {
+      info.diagnostic_refs = r.diagnostic_refs.map(String).filter(Boolean);
+    }
     return info;
   }
   return { code: "", message: String(raw ?? "") };

@@ -876,17 +876,36 @@ class ExecutorAdapter(HarnessApp):
         OmnigentError uses its own ``code``; others go through ``classify_inner_exception``.
         Unknown types fall back to base class (``type(exception).__name__``).
         """
+        from omnigent.error_layers import classify_error_layer
         from omnigent.errors import OmnigentError
         from omnigent.server.schemas import ErrorDetail
 
         if isinstance(exception, OmnigentError):
-            return ErrorDetail(code=exception.code, message=str(exception))
+            return ErrorDetail(
+                code=exception.code,
+                message=str(exception),
+                layer=classify_error_layer(
+                    exception.code,
+                    source="harness",
+                    fallback="harness",
+                ),
+            )
 
         code = classify_inner_exception(exception)
         if code is not None:
-            return ErrorDetail(code=code, message=str(exception))
+            return ErrorDetail(
+                code=code,
+                message=str(exception),
+                layer=classify_error_layer(code, source="harness", fallback="harness"),
+            )
 
-        return super()._build_error_detail(exception)
+        detail = super()._build_error_detail(exception)
+        detail.layer = classify_error_layer(
+            detail.code,
+            source="harness",
+            fallback="harness",
+        )
+        return detail
 
     async def on_shutdown(self) -> None:
         """Drain background interrupt tasks, then close the executor session and executor."""

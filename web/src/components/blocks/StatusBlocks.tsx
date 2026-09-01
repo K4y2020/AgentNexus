@@ -47,6 +47,12 @@ interface ErrorBannerProps {
   cause?: string;
   /** Concrete next step to fix it, e.g. a command to run. */
   remediation?: string;
+  /** One of the plan's 11 error layers, e.g. "runner". */
+  layer?: string;
+  /** Correlation/request id when the emitting layer had one. */
+  correlationId?: string;
+  /** Optional artifact/log references useful for triage. */
+  diagnosticRefs?: string[];
   /** Reconnect the existing session without replaying or duplicating user input. */
   onRetry?: () => Promise<void>;
 }
@@ -144,6 +150,9 @@ export function ErrorBanner({
   title,
   cause,
   remediation,
+  layer,
+  correlationId,
+  diagnosticRefs,
   onRetry,
 }: ErrorBannerProps) {
   const headline = title || FAILURE_CODE_DESCRIPTIONS[code] || "Something went wrong";
@@ -327,6 +336,15 @@ export function ErrorBanner({
             >
               {headline}
             </span>
+            {layer ? (
+              <Badge
+                data-testid="error-layer-badge"
+                variant="outline"
+                className="mr-[4px] h-5 shrink-0 rounded-[var(--control-radius,var(--radius-lg))] px-1.5 font-mono text-[11px] leading-4 text-muted-foreground"
+              >
+                {layer}
+              </Badge>
+            ) : null}
           </button>
           {retryable ? (
             <Button
@@ -408,6 +426,14 @@ export function ErrorBanner({
               >
                 {messageText}
               </div>
+              {correlationId || (diagnosticRefs && diagnosticRefs.length > 0) ? (
+                <div className="mx-[4px] mt-[8px] flex flex-wrap gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
+                  {correlationId ? <span>correlation: {correlationId}</span> : null}
+                  {diagnosticRefs && diagnosticRefs.length > 0 ? (
+                    <span>diagnostics: {diagnosticRefs.join(", ")}</span>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
             {diagnostics.length > 0 ? (
               <Collapsible

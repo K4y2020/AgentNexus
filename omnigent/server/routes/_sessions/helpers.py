@@ -61,6 +61,7 @@ from omnigent.entities.conversation import (
     parse_item_data,
 )
 from omnigent.entities.permission import SessionPermission
+from omnigent.error_layers import ERROR_LAYERS, ErrorLayer
 from omnigent.errors import ErrorCode, OmnigentError
 from omnigent.harness_plugins import (
     NativeCodingAgent,
@@ -172,6 +173,7 @@ from omnigent.server.routes._sessions.common import (  # noqa: F401
     _LABEL_VALUE_MAX_LEN,
     _LAST_TASK_ERROR_CAUSE_LABEL_KEY,
     _LAST_TASK_ERROR_CODE_LABEL_KEY,
+    _LAST_TASK_ERROR_LAYER_LABEL_KEY,
     _LAST_TASK_ERROR_MESSAGE_LABEL_KEY,
     _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY,
     _LAST_TASK_ERROR_TITLE_LABEL_KEY,
@@ -4295,6 +4297,7 @@ async def _persist_session_status_error_labels(
             _LAST_TASK_ERROR_TITLE_LABEL_KEY: _truncate_label(error.title or ""),
             _LAST_TASK_ERROR_CAUSE_LABEL_KEY: _truncate_label(error.cause or ""),
             _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY: _truncate_label(error.remediation or ""),
+            _LAST_TASK_ERROR_LAYER_LABEL_KEY: _truncate_label(error.layer or ""),
         }
         if error is not None
         else {
@@ -4303,6 +4306,7 @@ async def _persist_session_status_error_labels(
             _LAST_TASK_ERROR_TITLE_LABEL_KEY: "",
             _LAST_TASK_ERROR_CAUSE_LABEL_KEY: "",
             _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY: "",
+            _LAST_TASK_ERROR_LAYER_LABEL_KEY: "",
         }
     )
     try:
@@ -4339,6 +4343,7 @@ def _last_task_error_from_labels(labels: Mapping[str, str]) -> dict[str, str] | 
             ("title", _LAST_TASK_ERROR_TITLE_LABEL_KEY),
             ("cause", _LAST_TASK_ERROR_CAUSE_LABEL_KEY),
             ("remediation", _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY),
+            ("layer", _LAST_TASK_ERROR_LAYER_LABEL_KEY),
         ):
             value = labels.get(label)
             if value:
@@ -5712,7 +5717,18 @@ def _publish_error_event(session_id: str, error: ErrorData) -> None:
     event = ErrorEvent(
         type="response.error",
         source=error.source,
-        error=RetryErrorDetail(code=error.code, message=error.message),
+        error=RetryErrorDetail(
+            code=error.code,
+            message=error.message,
+            title=error.title,
+            cause=error.cause,
+            remediation=error.remediation or error.suggested_action,
+            layer=error.layer,
+            retryable=error.retryable,
+            suggested_action=error.suggested_action,
+            correlation_id=error.correlation_id,
+            diagnostic_refs=error.diagnostic_refs,
+        ),
     )
     session_stream.publish(session_id, event.model_dump())
 
@@ -7036,6 +7052,8 @@ def _error_item_from_sse(
         return None
     if source not in ("llm", "execution", "tool"):
         return None
+    raw_layer = _optional_string(raw_error.get("layer"))
+    layer = cast(ErrorLayer, raw_layer) if raw_layer in ERROR_LAYERS else None
     return NewConversationItem(
         type="error",
         response_id=response_id,
@@ -7043,8 +7061,30 @@ def _error_item_from_sse(
             source=source,
             code=raw_code,
             message=raw_message,
+            title=_optional_string(raw_error.get("title")),
+            cause=_optional_string(raw_error.get("cause")),
+            remediation=_optional_string(raw_error.get("remediation"))
+            or _optional_string(raw_error.get("suggested_action")),
+            layer=layer,
+            retryable=(
+                raw_error.get("retryable")
+                if isinstance(raw_error.get("retryable"), bool)
+                else None
+            ),
+            suggested_action=_optional_string(raw_error.get("suggested_action")),
+            correlation_id=_optional_string(raw_error.get("correlation_id")),
+            diagnostic_refs=(
+                [str(item) for item in raw_error["diagnostic_refs"]]
+                if isinstance(raw_error.get("diagnostic_refs"), list)
+                else None
+            ),
         ),
     )
+
+
+def _optional_string(value: object) -> str | None:
+    """Return a trimmed non-empty string, or ``None`` for other values."""
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 async def _relay_persist_error_once(

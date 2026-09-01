@@ -279,6 +279,25 @@ describe("ErrorBanner", () => {
     );
   });
 
+  it("renders the plan error layer and correlation/diagnostic references", () => {
+    render(
+      <ErrorBanner
+        message="boom"
+        source="execution"
+        code="runner_disconnected"
+        layer="runner"
+        correlationId="req_123"
+        diagnosticRefs={["art_log_01"]}
+      />,
+    );
+    expect(screen.getByTestId("error-layer-badge")).toHaveTextContent("runner");
+    fireEvent.click(
+      screen.getByRole("button", { name: /connection to the host dropped unexpectedly/i }),
+    );
+    expect(screen.getByText("correlation: req_123")).toBeInTheDocument();
+    expect(screen.getByText("diagnostics: art_log_01")).toBeInTheDocument();
+  });
+
   it("separates terminal diagnostics and last output into tabs", () => {
     render(
       <ErrorBanner message={TERMINAL_ERROR} source="execution" code="required_terminal_exited" />,

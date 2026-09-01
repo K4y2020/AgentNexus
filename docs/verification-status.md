@@ -12,6 +12,10 @@ SQLite migration + store round-trip, and Inspector Unknown-with-reason rendering
 
 Updated 2026-09-02 with the tool-call UI running p95 benchmark (30 samples).
 
+Updated 2026-09-02 with the unified 11-layer error envelope: server-side
+classification, durable label persistence, SSE/API passthrough, and UI layer
+badges.
+
 ## Quality checks (fresh, this machine)
 
 | Check | Result |
@@ -69,6 +73,14 @@ Updated 2026-09-02 with the tool-call UI running p95 benchmark (30 samples).
   POST message → runner turn → first `response.output_item.done` carrying a
   live `function_call` (`in_progress`/`action_required`) on the UI stream,
   which is the event that paints the tool card as running.
+- Failures now carry the planned 11-layer error envelope end to end:
+  `omnigent/error_layers.py` classifies by error code, prefix, and source;
+  the API schema, SSE events, durable labels, and harness error paths
+  preserve `layer`, `retryable`, `suggested_action`, `correlation_id`, and
+  `diagnostic_refs`; and the error status block renders the layer badge plus
+  diagnostic references. Targeted backend regression (error layers,
+  conversation, executor adapter, session snapshot, runner relay) is
+  178/178; the `StatusBlocks`/`blocks` vitest suite is 43/43.
 - Remaining: real-world model/tool observability soak on a candidate build.
 
 ### P2 durable agent bus

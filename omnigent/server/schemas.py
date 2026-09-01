@@ -21,6 +21,7 @@ from omnigent.entities import (
     USER_SESSION_TITLE_MAX_CHARS,
     ConversationItem,
 )
+from omnigent.error_layers import ErrorLayer, classify_error_layer
 
 # ── Shared ──────────────────────────────────────────────────────
 
@@ -914,6 +915,16 @@ class ErrorDetail(BaseModel):
         Paired with ``title``.
     :param remediation: Optional concrete next step to fix it, e.g. a command
         to run. ``None`` when there is no single clear fix.
+    :param layer: One of the plan's 11 error layers. Filled automatically
+        from ``code``/known source classification when not supplied.
+    :param retryable: Whether the control plane considers the failure
+        retryable. ``None`` when the emitting component did not decide.
+    :param suggested_action: Optional `Try this`-style action; on the wire
+        this is also projected onto ``remediation`` when the latter is absent.
+    :param correlation_id: Correlation/request id when the emitting layer
+        had one available.
+    :param diagnostic_refs: Optional artifact/log references useful for
+        triage (e.g. ``"art_log_01"``).
     """
 
     code: str
@@ -921,6 +932,18 @@ class ErrorDetail(BaseModel):
     title: str | None = None
     cause: str | None = None
     remediation: str | None = None
+    layer: ErrorLayer | None = None
+    retryable: bool | None = None
+    suggested_action: str | None = None
+    correlation_id: str | None = None
+    diagnostic_refs: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _classify_error_layer(self) -> ErrorDetail:
+        """Enrich unclassified errors with the stable 11-layer label."""
+        if self.layer is None:
+            self.layer = classify_error_layer(self.code)
+        return self
 
 
 class IncompleteDetails(BaseModel):
@@ -4084,7 +4107,7 @@ class IncompleteEvent(_SSEEventBase):
     response: ResponseObject
 
 
-class RetryErrorDetail(BaseModel):
+class RetryErrorDetail(ErrorDetail):
     """
     Error block carried by :class:`RetryEvent` and :class:`ErrorEvent`.
 
@@ -4101,8 +4124,6 @@ class RetryErrorDetail(BaseModel):
         ``None`` when the classifier had no extra context.
     """
 
-    code: str
-    message: str
     detail: dict[str, Any] | None = None
 
     model_config = ConfigDict(extra="ignore")

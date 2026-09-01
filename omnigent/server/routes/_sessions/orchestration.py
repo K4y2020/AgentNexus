@@ -3988,7 +3988,7 @@ async def _persist_native_terminal_failure(
     _publish_status(
         session_id,
         "failed",
-        ErrorDetail(code=error.code, message=error.message),
+        ErrorDetail.model_validate(error.model_dump()),
     )
     # A boot failure on a native sub-agent must wake the parent — mirror
     # the normal terminal-status path (publish + forward), gated on
@@ -4078,7 +4078,11 @@ async def _persist_host_launch_failure_turn(
     if error_persist_result == "persisted":
         _publish_error_event(session_id, error)
     _publish_terminal_pending(session_id, False)
-    _publish_status(session_id, "failed", ErrorDetail(code=error.code, message=error.message))
+    _publish_status(
+        session_id,
+        "failed",
+        ErrorDetail.model_validate(error.model_dump()),
+    )
     # A host-launched sub-agent that can't configure must wake its parent,
     # the same way a boot failure does — no-ops for top-level sessions.
     await _forward_native_subagent_terminal_failure(session_id, conv, error, runner_router)

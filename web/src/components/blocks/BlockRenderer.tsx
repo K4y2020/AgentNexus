@@ -838,6 +838,9 @@ function renderItem(
           title={item.title}
           cause={item.cause}
           remediation={item.remediation}
+          layer={item.layer}
+          correlationId={item.correlationId}
+          diagnosticRefs={item.diagnosticRefs}
           onRetry={onRetryError ? () => onRetryError(item) : undefined}
         />
       );

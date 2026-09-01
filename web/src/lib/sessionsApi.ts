@@ -182,6 +182,7 @@ interface SessionResponseWire {
     title?: string;
     cause?: string;
     remediation?: string;
+    layer?: string;
   } | null;
   /**
    * Outstanding `response.elicitation_request` event dicts at the

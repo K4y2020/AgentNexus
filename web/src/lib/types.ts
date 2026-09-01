@@ -75,6 +75,16 @@ export interface ErrorInfo {
   cause?: string;
   /** Concrete next step to fix it, e.g. a command to run. */
   remediation?: string;
+  /** One of the plan's 11 error layers, e.g. "runner". */
+  layer?: string;
+  /** Whether the control plane considers this failure retryable. */
+  retryable?: boolean;
+  /** Wire name for `remediation` when a producer emits the plan shape. */
+  suggested_action?: string;
+  /** Correlation/request id when the emitting layer had one. */
+  correlation_id?: string;
+  /** Optional artifact/log references useful for triage. */
+  diagnostic_refs?: string[];
 }
 
 /** Details about why a response stopped early. */

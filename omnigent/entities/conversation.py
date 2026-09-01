@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from omnigent.error_layers import ErrorLayer, classify_error_layer
 from omnigent.inner.native_attachments import UNRESOLVED_ATTACHMENT_MARKER_PATTERN
 from omnigent.llms.adapters._content import redact_binary_payloads
 
@@ -383,11 +384,29 @@ class ErrorData(BaseModel):
         ``"native_terminal_start_failed"``.
     :param message: Human-readable error message, e.g.
         ``"Native Codex requires the 'codex' CLI on PATH."``.
+    :param title: Optional short headline naming what went wrong.
+    :param cause: Optional one/two-sentence explanation of why it failed.
+    :param remediation: Optional concrete next step to fix it.
+    :param layer: One of the plan's 11 error layers. Filled automatically
+        from ``code`` and ``source`` when not supplied.
+    :param retryable: Whether the control plane considers the failure
+        retryable. ``None`` when not decided.
+    :param suggested_action: Optional `Try this`-style action.
+    :param correlation_id: Correlation/request id when available.
+    :param diagnostic_refs: Optional artifact/log references for triage.
     """
 
     source: Literal["llm", "execution", "tool"]
     code: str
     message: str
+    title: str | None = None
+    cause: str | None = None
+    remediation: str | None = None
+    layer: ErrorLayer | None = None
+    retryable: bool | None = None
+    suggested_action: str | None = None
+    correlation_id: str | None = None
+    diagnostic_refs: list[str] | None = None
 
     @field_validator("code", "message")
     @classmethod
@@ -404,6 +423,13 @@ class ErrorData(BaseModel):
         if not stripped:
             raise ValueError("error code and message must be non-empty")
         return stripped
+
+    @model_validator(mode="after")
+    def _classify_error_layer(self) -> ErrorData:
+        """Enrich persisted errors with the stable 11-layer label."""
+        if self.layer is None:
+            self.layer = classify_error_layer(self.code, source=self.source)
+        return self
 
 
 class ReasoningData(BaseModel):

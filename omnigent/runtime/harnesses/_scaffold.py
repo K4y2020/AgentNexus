@@ -873,6 +873,7 @@ class HarnessApp:
             ideally matches one of the contract-recognized codes
             so AP-side retry decisions can act on it.
         """
+        from omnigent.error_layers import classify_error_layer
         from omnigent.server.schemas import ErrorDetail
 
         # P2.11: a turn-context desync (the inner generation outlived its turn)
@@ -883,9 +884,22 @@ class HarnessApp:
         # ``code`` attribute so a harness-side raise (vs. the class name) maps
         # consistently.
         if getattr(exception, "code", None) == _TURN_CONTEXT_DESYNC_CODE:
-            return ErrorDetail(code=_TURN_CONTEXT_DESYNC_CODE, message=str(exception))
+            return ErrorDetail(
+                code=_TURN_CONTEXT_DESYNC_CODE,
+                message=str(exception),
+                layer=classify_error_layer(
+                    _TURN_CONTEXT_DESYNC_CODE,
+                    source="harness",
+                    fallback="harness",
+                ),
+            )
 
-        return ErrorDetail(code=type(exception).__name__, message=str(exception))
+        code = type(exception).__name__
+        return ErrorDetail(
+            code=code,
+            message=str(exception),
+            layer=classify_error_layer(code, source="harness", fallback="harness"),
+        )
 
     def build(self) -> FastAPI:
         """

@@ -514,6 +514,8 @@ class _RecordingLabelStore:
         return SimpleNamespace(
             labels=dict(self.labels.get(conversation_id, {})),
             live_status=self.live_status,
+            model_override=None,
+            harness_override=None,
         )
 
 
@@ -574,6 +576,7 @@ async def test_relay_persists_disconnect_error_labels_on_tunnel_close(
         assert projected == {
             "code": "runner_disconnected",
             "message": "Runner disconnected unexpectedly.",
+            "layer": "runner",
         }
     finally:
         gate.set()
@@ -638,6 +641,7 @@ async def test_runner_recovery_clears_persisted_disconnect_error_labels(
         assert sessions_module._last_task_error_from_labels(persisted) == {
             "code": "runner_disconnected",
             "message": "Runner disconnected unexpectedly.",
+            "layer": "runner",
         }
         assert sessions_module._session_status_cache.get(session_id) == "failed"
 
@@ -863,6 +867,7 @@ async def test_relay_running_edge_clears_stale_intentional_stop_marker(
         assert sessions_module._last_task_error_from_labels(persisted) == {
             "code": "runner_disconnected",
             "message": "Runner disconnected unexpectedly.",
+            "layer": "runner",
         }
     finally:
         gate.set()
@@ -1257,6 +1262,7 @@ async def test_mark_runner_sessions_offline_only_fails_interrupted_turns(
             assert sessions_module._last_task_error_from_labels(persisted) == {
                 "code": "runner_disconnected",
                 "message": "Runner disconnected unexpectedly.",
+                "layer": "runner",
             }
         else:
             assert status == cached

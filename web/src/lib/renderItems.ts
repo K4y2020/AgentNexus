@@ -102,6 +102,11 @@ export type RenderItem =
       title?: string;
       cause?: string;
       remediation?: string;
+      layer?: string;
+      retryable?: boolean;
+      suggestedAction?: string;
+      correlationId?: string;
+      diagnosticRefs?: string[];
     }
   | {
       kind: "retry";
@@ -1485,6 +1490,13 @@ function buildAssistantItems(
         ...(b.title ? { title: b.title } : {}),
         ...(b.cause ? { cause: b.cause } : {}),
         ...(b.remediation ? { remediation: b.remediation } : {}),
+        ...(b.layer ? { layer: b.layer } : {}),
+        ...(b.retryable != null ? { retryable: b.retryable } : {}),
+        ...(b.suggestedAction ? { suggestedAction: b.suggestedAction } : {}),
+        ...(b.correlationId ? { correlationId: b.correlationId } : {}),
+        ...(b.diagnosticRefs && b.diagnosticRefs.length > 0
+          ? { diagnosticRefs: b.diagnosticRefs }
+          : {}),
       });
       i += 1;
       continue;

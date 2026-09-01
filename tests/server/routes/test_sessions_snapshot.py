@@ -2530,6 +2530,7 @@ async def test_persist_and_project_structured_error_round_trip() -> None:
         "title": "Claude Code can't run as root",
         "cause": "The agent terminal exited immediately because Claude Code refuses ...",
         "remediation": "Run the host as a non-root user (uid != 0).",
+        "layer": "harness",
     }
 
 
@@ -2563,4 +2564,5 @@ async def test_persist_error_labels_clears_stale_structured_fields() -> None:
     assert _last_task_error_from_labels(labels) == {
         "code": "runner_error",
         "message": "turn setup failed",
+        "layer": "runner",
     }
