@@ -5136,58 +5136,6 @@ def create_runner_app(
             },
         )
 
-    async def _apply_claude_native_plan_verdict(
-        conv_id: str,
-        data: Mapping[str, object],
-    ) -> None:
-        """
-        Key a web-UI plan verdict into Claude Code's plan-review dialog.
-
-        Claude Code ignores a ``PermissionRequest`` hook's ``allow`` for
-        ``ExitPlanMode``, so a plan approved in the web UI never reaches the
-        pane and the session stays parked on the TUI dialog. Best-effort:
-        :func:`inject_plan_verdict` no-ops unless that dialog is on screen,
-        so a non-plan verdict (or one already answered in the terminal)
-        presses nothing.
-
-        :param conv_id: Session/conversation identifier, e.g.
-            ``"conv_abc123"``.
-        :param data: The approval payload, e.g.
-            ``{"elicitation_id": "elicit_claude_ab12", "action": "accept",
-            "content": {"allow_all_edits": True}}``.
-        :returns: None.
-        """
-        from omnigent.claude_native_bridge import (
-            bridge_dir_for_bridge_id,
-            inject_plan_verdict,
-        )
-
-        content = data.get("content")
-        if data.get("action") != "accept":
-            verdict = "reject"
-        elif isinstance(content, dict) and content.get("allow_all_edits") is True:
-            verdict = "auto"
-        else:
-            verdict = "manual"
-        try:
-            bridge_id = await _claude_native_bridge_id_for_session(
-                server_client=server_client,
-                session_id=conv_id,
-            )
-            # Short timeout: a missing tmux.json means no pane to answer.
-            await asyncio.to_thread(
-                inject_plan_verdict,
-                bridge_dir_for_bridge_id(bridge_id),
-                verdict=verdict,
-                timeout_s=1.0,
-            )
-        except Exception:  # noqa: BLE001 — best-effort; TUI can still answer
-            _logger.debug(
-                "claude-native plan verdict not applied",
-                exc_info=True,
-                extra={"session_id": conv_id},
-            )
-
     async def _handle_cursor_native_model_change(
         conv_id: str,
         model: str | None,
@@ -5281,7 +5229,13 @@ def create_runner_app(
         registry = resource_registry.terminal_registry
         instance = registry.get(conv_id, "codex", "main") if registry is not None else None
         if instance is None or not instance.running:
-            return Response(status_code=204)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "codex_native_compact_failed",
+                    "detail": "Codex terminal is not running; reconnect first.",
+                },
+            )
 
         socket_path = str(instance.socket_path)
         target = instance.tmux_target
@@ -5305,7 +5259,13 @@ def create_runner_app(
         server = _AUTO_OPENCODE_SERVERS.get(conv_id)
         state = read_bridge_state(bridge_dir_for_bridge_id(conv_id))
         if server is None or state is None or not state.opencode_session_id:
-            return Response(status_code=204)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "opencode_native_compact_failed",
+                    "detail": "OpenCode session is not active; reconnect first.",
+                },
+            )
         client = server.client()
         try:
             session = await client.get_session(state.opencode_session_id)
@@ -5314,7 +5274,13 @@ def create_runner_app(
                 session, messages, state.model_override
             )
             if not provider_id or not model_id:
-                return Response(status_code=204)
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "opencode_native_compact_failed",
+                        "detail": "Could not resolve a compaction model; try switching the model.",
+                    },
+                )
             await client.summarize(
                 state.opencode_session_id, provider_id=provider_id, model_id=model_id
             )
@@ -6436,8 +6402,8 @@ def create_runner_app(
         try:
             await _run_turn_bg_setup_and_stream(msg_body, conv)
         except _ContextWindowOverflow:
-            # The streaming phase handles reactive compaction itself; re-raise so
-            # its handler is never shadowed by the generic except below.
+            # Re-raise so the streaming-phase handler (which publishes the
+            # error event) is never shadowed by the generic except below.
             raise
         except asyncio.CancelledError as exc:
             _logger.error(
@@ -8099,8 +8065,6 @@ def create_runner_app(
             _data = body.get("data") or body
             _elicit_action = _data.get("action", "")
             pending_approvals.resolve(_data.get("elicitation_id", ""), _elicit_action == "accept")
-            if _session_harness_name(conversation_id) == "claude-native":
-                await _apply_claude_native_plan_verdict(conversation_id, _data)
             if _elicit_action == "decline":
                 try:
                     _int_client = await process_manager.get_client(conversation_id, "any")

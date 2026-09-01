@@ -81,6 +81,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { authenticatedFetch } from "@/lib/identity";
 import { isImeCompositionKeyEvent } from "@/lib/ime";
+import { isComposerSendKey, readSubmitWithModEnter } from "@/lib/composerSendShortcutPreferences";
 import { attachmentKey, validateAttachments } from "@/lib/attachments";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useServerInfo } from "@/lib/CapabilitiesContext";
@@ -103,6 +104,7 @@ import {
   SlashCommandMenu,
 } from "@/components/SlashCommandMenu";
 import { setPendingInitialPrompt } from "@/store/chatStore";
+import { markSessionCreated } from "@/store/interactionTelemetry";
 import { appendPromptHistoryEntry } from "@/hooks/usePromptHistory";
 import { useIsCoarsePointer } from "@/hooks/useIsCoarsePointer";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -242,6 +244,10 @@ import { PoweredByOmnigent } from "@/components/PoweredByOmnigent";
 import { SkillPills } from "@/components/SkillPills";
 import { ComposerMicButton } from "@/components/ComposerMicButton";
 import type { CostControlMode } from "@/components/CostRoutingControl";
+import {
+  composerSendShortcutKeys,
+  KeyboardShortcutTooltipContent,
+} from "@/components/KeyboardShortcut";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AgentRowTooltip } from "@/components/AgentHoverCard";
 import { CreateAgentDialog } from "./CreateAgentDialog";
@@ -2033,6 +2039,8 @@ export function NewChatLandingScreen() {
   const queryClient = useQueryClient();
   const isMobileViewport = useIsMobileViewport();
   const isCoarsePointer = useIsCoarsePointer();
+  const preventsKeyboardSubmit = isMobileViewport || isCoarsePointer;
+  const [submitWithModEnter] = useState(() => readSubmitWithModEnter());
   // Single send-telemetry point (see handleCreate). Emitting there rather than
   // via the Start button's componentId covers Enter-key sends too, which never
   // submit the form and would otherwise bypass the Button entirely.
@@ -4024,6 +4032,10 @@ export function NewChatLandingScreen() {
           bundle,
           metadata as Parameters<typeof createBundledSession>[1],
         );
+        // Register create_session for the custom-agent (bundled) path too —
+        // otherwise both sandbox and computer bundled creates emit nothing. Split
+        // by the picked host; interactionTelemetry completes/settles the span.
+        markSessionCreated(data.id, sandboxSelected ? "sandbox" : "computer");
         // Launch the runner on the selected host. The multipart create
         // only stores DB rows — launchRunner binds + starts the runner.
         if (!sandboxSelected && selectedHostId && workspaceTrimmed) {
@@ -4187,6 +4199,10 @@ export function NewChatLandingScreen() {
           return;
         }
         data = { id: created.id };
+        // Register create_session (created → first AI activity), split by host.
+        // New Chat is the only create path that can produce a managed sandbox;
+        // interactionTelemetry completes/settles the span once the session runs.
+        markSessionCreated(created.id, sandboxSelected ? "sandbox" : "computer");
       }
       // Persist the configuration that actually launched. Modal Save updates
       // storage eagerly so an immediate Send cannot observe stale state; this
@@ -4434,10 +4450,31 @@ export function NewChatLandingScreen() {
                     return;
                   }
 
+                  // Touch-primary newline behavior outranks autocomplete and
+                  // desktop submit preferences. The textarea owns line insertion.
+                  if (preventsKeyboardSubmit && e.key === "Enter") {
+                    return;
+                  }
+
+                  const shouldSubmitFromKeyboard = isComposerSendKey(
+                    {
+                      key: e.key,
+                      shiftKey: e.shiftKey,
+                      metaKey: e.metaKey,
+                      ctrlKey: e.ctrlKey,
+                      altKey: e.altKey,
+                      isComposing: e.nativeEvent.isComposing,
+                    },
+                    submitWithModEnter,
+                    preventsKeyboardSubmit,
+                  );
+                  const shouldPreferSendOverCompletion =
+                    submitWithModEnter && shouldSubmitFromKeyboard;
+
                   // "@"-mention menu navigation (shared useMentionBrowser) —
                   // mutually exclusive with the slash menu (a token can't be both)
                   // and takes priority over submission.
-                  if (handleMentionKeyDown(e)) return;
+                  if (!shouldPreferSendOverCompletion && handleMentionKeyDown(e)) return;
 
                   // While the skills menu is open, ArrowUp/Down navigate it and
                   // Enter/Tab complete the highlighted item — these take
@@ -4455,6 +4492,7 @@ export function NewChatLandingScreen() {
                       return;
                     }
                     if (
+                      !shouldPreferSendOverCompletion &&
                       (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) &&
                       slashMenuIndex >= 0
                     ) {
@@ -4471,11 +4509,7 @@ export function NewChatLandingScreen() {
                       return;
                     }
                   }
-                  // Enter sends; Shift+Enter inserts a newline. On touch-primary
-                  // devices there is no practical Shift+Enter and an accidental
-                  // submit is unrecoverable, so Enter only inserts a newline and
-                  // sending stays an explicit tap on the send button.
-                  if (e.key === "Enter" && !e.shiftKey && !isCoarsePointer) {
+                  if (shouldSubmitFromKeyboard) {
                     e.preventDefault();
                     // The mention menu is briefly closed while its listing loads;
                     // swallow Enter so the in-progress "@dir/" token isn't sent.
@@ -4795,9 +4829,14 @@ export function NewChatLandingScreen() {
                         </Button>
                       </span>
                     </TooltipTrigger>
-                    {submitDisabledReason != null && (
+                    {submitDisabledReason != null ? (
                       <TooltipContent>{submitDisabledReason}</TooltipContent>
-                    )}
+                    ) : !creating && !preventsKeyboardSubmit ? (
+                      <KeyboardShortcutTooltipContent
+                        label="Start session"
+                        keys={composerSendShortcutKeys(submitWithModEnter)}
+                      />
+                    ) : null}
                   </Tooltip>
                 </TooltipProvider>
               </div>
