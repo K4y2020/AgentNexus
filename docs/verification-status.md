@@ -43,14 +43,21 @@ evidence below proves it, not when a page or code path merely exists.
 - Persistent lease (SQLAlchemy), fencing token, managed-path validation,
   worktree safety, merge preview/execute with head/dirty guards exist and
   are tested.
-- Remaining: two-implementer parallel demo and real-merge acceptance on a
+- Two-implementer parallel isolation is now covered by a real-git test
+  (`tests/host/test_git_worktree.py`) and a server integration test that
+  creates two parallel worktree sessions off one repo
+  (`tests/server/integration/test_session_worktree_create.py`).
+- Remaining: a real two-implementer demo flow and real-merge acceptance on a
   candidate build.
 
 ### P4 recoverable workflow
 - Fixed Plan -> Implement -> Review -> Test auto-advance, artifacts,
   pause/resume/cancel/retry/reassign, deadlines, DAG template, and behavior
   overrides exist; control-plane-native real E2E converged.
-- Remaining: template-upgrade and resume-after-crash acceptance runs.
+- Template upgrade isolation is covered: a newer DAG template instance
+  leaves an already-running run's template, metadata and task set unchanged
+  (`tests/test_coordination.py`).
+- Remaining: resume-after-crash acceptance runs.
 
 ### P5 signed Windows internal beta
 - Electron shell, update overlay, backup/upgrade guard, uninstall flow and
@@ -70,5 +77,8 @@ evidence below proves it, not when a page or code path merely exists.
 
 - Code signing requires a certificate + secrets not present locally.
 - Real-provider 100-run samples consume provider quota/tokens and must be
-  explicitly launched by the operator.
+  explicitly launched by the operator. An attempted real `claude-sdk` smoke
+  was blocked by the local aggregator's 429 rate limit
+  (`All credentials for model gemini-3.7-flash-high are cooling down`), not
+  by the control plane.
 - 24h soak and Gate D require wall-clock time and real machines/users.

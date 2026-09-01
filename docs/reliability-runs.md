@@ -154,6 +154,22 @@ auto-advance moves stages from plan to accepted, and artifact state is carried
 forward. The mock reliability baseline remains the cheap 100-run regression
 gate; this real run is the end-to-end sanity check on a real machine.
 
+### Real-provider rerun attempt (2026-09-02)
+
+The Windows npm `.cmd` CLI probing gate was fixed in
+`tests/e2e/_harness_probes.py` so real `claude-sdk` / `codex` integration
+rows no longer skip just because the npm shim is a batch file. A fresh real
+`claude-sdk` smoke was then launched with the CLI's own OAuth credentials.
+The turn stayed non-terminal and the local aggregator returned HTTP 429:
+
+```
+All credentials for model gemini-3.7-flash-high are cooling down
+```
+
+That is infrastructure throttling from the local cc-switch routing, not a
+control-plane defect. The real-provider 100-run sample remains gated on a
+healthy provider route.
+
 ## Soak driver
 
 For the candidate-release 24h soak acceptance, AgentNexus ships
