@@ -91,6 +91,10 @@ evidence below proves it, not when a page or code path merely exists.
   `agentnexus-desktop-electron_0.12.0-dev.0_amd64.deb` (97 MB,
   `0a3873d417675bb7b560dfe78476afd2a80f6e7fda74f6af647f6c2582daff88`),
   copied to `U:\AI\MultiAgent\artifacts\linux-smoke`.
+- Two operator-gated real Codex control-plane workflows now succeeded against
+  the local Codex provider (`run_0ad00931f77646f9` and
+  `run_7068d5c4539f43ee`), each with `consumed: 4` and zero effect-unknown
+  messages.
 - Remaining: real-provider 100-run samples, a macOS smoke artifact, and the
   real-user Gate D sample (3-5 users, at least 5 repos / 20 runs).
 
@@ -102,7 +106,7 @@ evidence below proves it, not when a page or code path merely exists.
   was blocked by the local aggregator's 429 rate limit
   (`All credentials for model gemini-3.7-flash-high are cooling down`), not
   by the control plane; the machine's real local Codex provider route is
-  healthy and completed an operator-gated control-plane workflow.
+  healthy and completed two operator-gated control-plane workflows.
 - GitHub Actions jobs currently do not start at all: the provider returned
   "recent account payments have failed or your spending limit needs to be
   increased" as an annotation on desktop-cross-platform-smoke run

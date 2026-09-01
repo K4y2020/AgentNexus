@@ -189,6 +189,10 @@ gemini-3.7-flash-high`, no secrets passed):
 - The run carried 4 artifacts and the test finished in about 9m43s because
   the Codex turns ran real commands/tests instead of canned mock text.
 
+The same operator-gated test was rerun on `main` (`a7d7484b`, 2026-09-02):
+`run_7068d5c4539f43ee` reached `succeeded` with `consumed: 4` in about 3m52s,
+again through the real local Codex provider with no mock LLM auth.
+
 This is real Provider -> Runner -> Harness -> receipt evidence, not just
 SQLite writes plus UI events. The earlier 429 verifies the machine's
 aggregator route for `claude` is throttled, while `codex`'s local provider is
