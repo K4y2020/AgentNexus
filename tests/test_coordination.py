@@ -197,6 +197,7 @@ def test_atomic_message_and_outbox_persistence(memory_store: CoordinationStore) 
     assert saved_msg.message_id.startswith("msg_")
     assert outbox.item_id.startswith("out_")
     assert outbox.status == "pending"
+    assert outbox.target_sequence == 1
 
     # Outbox polling
     pending = memory_store.fetch_pending_outbox()
@@ -207,6 +208,16 @@ def test_atomic_message_and_outbox_persistence(memory_store: CoordinationStore) 
     msgs = memory_store.list_messages("conv_root_123")
     assert len(msgs) == 1
     assert msgs[0].payload["instruction"] == "Implement feature X"
+
+    msg2 = AgentMessage(
+        root_session_id="conv_root_123",
+        sender_session_id="conv_planner",
+        recipient_session_id="conv_coder",
+        intent="task.request",
+        payload={"instruction": "Next item"},
+    )
+    _, outbox2 = memory_store.save_message_and_outbox(msg2)
+    assert outbox2.target_sequence == 2
 
 
 @pytest.mark.asyncio
@@ -244,6 +255,7 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
     attempts = memory_store.list_delivery_attempts(msg.message_id)
     assert len(attempts) == 1
     assert attempts[0].delivery_state == "confirmed"
+    assert attempts[0].target_sequence == 1
     assert attempts[0].injection_receipt is not None
 
     posted = router.client.posted
@@ -513,6 +525,42 @@ def test_workspace_coordinator_rejects_stale_preview(
             operation_id=op.operation_id,
             fencing_token=lease.fencing_token,
         )
+
+
+def test_coordination_message_cancel_queued_only(memory_store: CoordinationStore) -> None:
+    msg = AgentMessage(
+        root_session_id="conv_root_cancel",
+        sender_session_id="conv_planner",
+        recipient_session_id="conv_coder",
+        intent="task.request",
+        payload={"prompt": "cancel me"},
+    )
+    memory_store.save_message_and_outbox(msg)
+
+    cancelled = memory_store.cancel_message(msg.message_id)
+    assert cancelled is not None
+    assert cancelled.message_state == "cancelled"
+    outbox = memory_store.list_outbox_items(message_id=msg.message_id)[0]
+    assert outbox.status == "failed"
+
+    # Idempotent for an already-cancelled message.
+    again = memory_store.cancel_message(msg.message_id)
+    assert again is not None
+    assert again.message_state == "cancelled"
+
+    # An active (already injected) message cannot be cancelled.
+    active_msg = AgentMessage(
+        root_session_id="conv_root_cancel",
+        sender_session_id="conv_planner",
+        recipient_session_id="conv_coder",
+        intent="task.request",
+        payload={"prompt": "already injected"},
+    )
+    memory_store.save_message_and_outbox(active_msg)
+    memory_store.update_message_state(active_msg.message_id, "active")
+    remains = memory_store.cancel_message(active_msg.message_id)
+    assert remains is not None
+    assert remains.message_state == "active"
 
 
 @pytest.mark.asyncio
@@ -974,3 +1022,51 @@ def test_coordination_api_artifact_endpoints(
 
     missing = client.get("/v1/coordination/artifacts/art_missing")
     assert missing.status_code == 404
+
+
+def test_coordination_api_message_cancel(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "sender_role": "planner",
+            "intent": "task.request",
+            "payload": {"prompt": "send then cancel"},
+        },
+    )
+    assert res.status_code == 200
+    message_id = res.json()["message"]["message_id"]
+
+    cancelled = client.post(f"/v1/coordination/messages/{message_id}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["cancelled"] is True
+    assert cancelled.json()["message"]["message_state"] == "cancelled"
+
+    # Cancelling again is idempotent.
+    again = client.post(f"/v1/coordination/messages/{message_id}/cancel")
+    assert again.status_code == 200
+
+    # An injected/active message is refused.
+    active_msg, _ = memory_store.save_message_and_outbox(
+        AgentMessage(
+            root_session_id="conv_root_api",
+            sender_session_id="conv_p1",
+            recipient_session_id="conv_c1",
+            intent="task.request",
+            payload={"prompt": "already active"},
+        )
+    )
+    memory_store.update_message_state(active_msg.message_id, "active")
+    active_res = client.post(
+        f"/v1/coordination/messages/{active_msg.message_id}/cancel"
+    )
+    assert active_res.status_code == 409
+    assert "only queued messages" in active_res.json()["detail"]

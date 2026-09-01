@@ -262,6 +262,42 @@ async def list_coordination_messages(
     return {"messages": [m.to_dict() for m in messages]}
 
 
+@router.post("/messages/{message_id}/cancel")
+async def cancel_coordination_message(
+    message_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Cancel a still-queued peer message before it is injected."""
+    store = _request_store(request)
+    message = await asyncio.to_thread(store.get_message, message_id)
+    if message is None:
+        raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+    await _require_coordination_tree(
+        request, message.root_session_id, message.sender_session_id
+    )
+    if message.message_state in ("cancelled", "expired"):
+        return {"message": message.to_dict(), "cancelled": True}
+    if message.message_state != "queued":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"message has state {message.message_state}; "
+                "only queued messages can be cancelled"
+            ),
+        )
+    cancelled = await asyncio.to_thread(store.cancel_message, message_id)
+    event = CoordinationEvent(
+        root_session_id=message.root_session_id,
+        run_id=message.run_id,
+        task_id=message.task_id,
+        actor_session_id=message.sender_session_id,
+        event_type="message.cancelled",
+        payload={"message_id": message_id},
+    )
+    await asyncio.to_thread(store.record_event, event)
+    return {"message": cancelled.to_dict() if cancelled else None, "cancelled": True}
+
+
 # ── Run Endpoints ─────────────────────────────────────────────
 
 

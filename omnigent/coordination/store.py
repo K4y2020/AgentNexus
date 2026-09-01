@@ -12,7 +12,7 @@ import json
 import time
 from pathlib import Path
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from omnigent.coordination.types import (
@@ -130,6 +130,7 @@ def _row_to_outbox(row: SqlCoordinationOutbox) -> OutboxItem:
         item_id=row.item_id,
         message_id=row.message_id,
         target_session_id=row.target_session_id,
+        target_sequence=row.target_sequence,
         status=row.status,
         payload_json=row.payload_json,
         retry_count=row.retry_count,
@@ -323,9 +324,13 @@ class CoordinationStore:
 
     def save_message_and_outbox(self, message: AgentMessage) -> tuple[AgentMessage, OutboxItem]:
         """Atomically persist an AgentMessage and queue its Outbox delivery item."""
+        target_sequence = self._next_target_sequence(
+            message.root_session_id, message.recipient_session_id
+        )
         outbox = OutboxItem(
             message_id=message.message_id,
             target_session_id=message.recipient_session_id,
+            target_sequence=target_sequence,
             status="pending",
             payload_json=json.dumps(message.to_dict()),
             created_at=message.created_at,
@@ -370,6 +375,7 @@ class CoordinationStore:
                         item_id=outbox.item_id,
                         message_id=outbox.message_id,
                         target_session_id=outbox.target_session_id,
+                        target_sequence=outbox.target_sequence,
                         status=outbox.status,
                         payload_json=outbox.payload_json,
                         retry_count=0,
@@ -401,6 +407,24 @@ class CoordinationStore:
             if existing_outbox is None:
                 raise
             return existing, existing_outbox
+
+    def _next_target_sequence(self, root_session_id: str, target_session_id: str) -> int:
+        """Return the next monotonic sequence for (root, target) delivery ordering."""
+        with self._session("next_target_sequence") as sess:
+            stmt = (
+                select(func.max(SqlCoordinationOutbox.target_sequence))
+                .join(
+                    SqlAgentMessage,
+                    SqlAgentMessage.message_id == SqlCoordinationOutbox.message_id,
+                )
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlAgentMessage.root_session_id == root_session_id,
+                    SqlCoordinationOutbox.target_session_id == target_session_id,
+                )
+            )
+            current = sess.scalar(stmt)
+            return int(current or 0) + 1
 
     def _get_message_by_idempotency(self, idempotency_key: str) -> AgentMessage | None:
         with self._session("get_message_by_idempotency") as sess:
@@ -445,6 +469,30 @@ class CoordinationStore:
                 )
                 .values(message_state=state, updated_at=time.time())
             )
+
+    def cancel_message(self, message_id: str) -> AgentMessage | None:
+        """Cancel a queued message; injected/active messages cannot be cancelled."""
+        with self._session_immediate("cancel_message") as sess:
+            row = sess.get(SqlAgentMessage, (current_workspace_id(), message_id))
+            if row is None:
+                return None
+            if row.message_state in ("cancelled", "expired"):
+                return _row_to_message(row)
+            if row.message_state != "queued":
+                return _row_to_message(row)
+            now = time.time()
+            row.message_state = "cancelled"
+            row.updated_at = now
+            sess.execute(
+                update(SqlCoordinationOutbox)
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlCoordinationOutbox.message_id == message_id,
+                    SqlCoordinationOutbox.status.in_(("pending", "leased")),
+                )
+                .values(status="failed", updated_at=now)
+            )
+        return self.get_message(message_id)
 
     def list_messages(
         self, root_session_id: str, recipient_session_id: str | None = None
@@ -536,6 +584,7 @@ class CoordinationStore:
                     attempt_id=attempt.attempt_id,
                     message_id=attempt.message_id,
                     target_session_id=attempt.target_session_id,
+                    target_sequence=attempt.target_sequence,
                     target_harness=attempt.target_harness,
                     delivery_mode=attempt.delivery_mode,
                     delivery_state=attempt.delivery_state,
@@ -606,6 +655,7 @@ class CoordinationStore:
                         attempt_id=row.attempt_id,
                         message_id=row.message_id,
                         target_session_id=row.target_session_id,
+                        target_sequence=row.target_sequence,
                         target_harness=row.target_harness,
                         delivery_mode=row.delivery_mode,  # type: ignore[arg-type]
                         delivery_state=row.delivery_state,  # type: ignore[arg-type]

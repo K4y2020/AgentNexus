@@ -84,6 +84,7 @@ class DeliveryAttempt:
     attempt_id: str = field(default_factory=lambda: generate_coordination_id("att"))
     message_id: str = ""
     target_session_id: str = ""
+    target_sequence: int | None = None
     target_harness: str | None = None
     delivery_mode: DeliveryMode = "next_turn"
     delivery_state: DeliveryState = "pending"
@@ -158,6 +159,7 @@ class OutboxItem:
     item_id: str = field(default_factory=lambda: generate_coordination_id("out"))
     message_id: str = ""
     target_session_id: str = ""
+    target_sequence: int | None = None
     status: DeliveryState = "pending"
     payload_json: str = "{}"
     retry_count: int = 0

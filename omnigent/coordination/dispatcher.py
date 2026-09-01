@@ -63,12 +63,14 @@ class CoordinationDispatcher:
                     item.item_id,
                     msg,
                     attempt_count=item.retry_count + 1,
+                    target_sequence=item.target_sequence,
                 )
             except Exception as exc:  # noqa: BLE001
                 _logger.error("Failed to deliver outbox item %s: %s", item.item_id, exc)
                 attempt = DeliveryAttempt(
                     message_id=item.message_id,
                     target_session_id=item.target_session_id,
+                    target_sequence=item.target_sequence,
                     delivery_mode="offline",
                     delivery_state="failed",
                     error=str(exc),
@@ -86,6 +88,7 @@ class CoordinationDispatcher:
         msg: AgentMessage,
         *,
         attempt_count: int,
+        target_sequence: int | None,
     ) -> bool:
         """Deliver one message through RunnerRouter; only a 2xx may confirm it."""
         try:
@@ -141,6 +144,7 @@ class CoordinationDispatcher:
             attempt = DeliveryAttempt(
                 message_id=msg.message_id,
                 target_session_id=msg.recipient_session_id,
+                target_sequence=target_sequence,
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
@@ -162,6 +166,7 @@ class CoordinationDispatcher:
             attempt = DeliveryAttempt(
                 message_id=msg.message_id,
                 target_session_id=msg.recipient_session_id,
+                target_sequence=target_sequence,
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
@@ -178,6 +183,7 @@ class CoordinationDispatcher:
         attempt = DeliveryAttempt(
             message_id=msg.message_id,
             target_session_id=msg.recipient_session_id,
+            target_sequence=target_sequence,
             target_harness=None,
             delivery_mode="live",
             delivery_state="confirmed",
