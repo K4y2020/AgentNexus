@@ -1,0 +1,76 @@
+# Build smoke for the AgentNexus desktop shell on Tier 2 platforms.
+#
+# macOS and Linux are intentionally non-blocking beta targets: this job only
+# proves that electron-builder can produce the unsigned packages on each host.
+# Notarization/signing and the real install/soak gates stay in P6 acceptance.
+
+name: Desktop Smoke (macOS/Linux)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "web/electron/**"
+      - "web/src/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/desktop-cross-platform-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web/electron/**"
+      - "web/src/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/desktop-cross-platform-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-cross-platform-smoke-${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build-smoke:
+    if: github.repository == 'K4y2020/AgentNexus'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: build:mac
+            assert_command: |
+              test -n "$(find . -maxdepth 1 -type f \( -name '*.dmg' -o -name '*.zip' \) -print -quit)"
+          - os: ubuntu-latest
+            script: build:linux
+            assert_command: |
+              test -n "$(find . -maxdepth 1 -type f \( -name '*.AppImage' -o -name '*.deb' \) -print -quit)"
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Install web + desktop dependencies
+        run: pnpm install --frozen-lockfile --filter web --filter agentnexus-desktop-electron
+
+      - name: Build the shell-owned update overlay
+        run: pnpm --filter web run build:overlay
+
+      - name: Build ${{ matrix.os }} desktop package
+        working-directory: web/electron
+        run: pnpm run ${{ matrix.script }}
+
+      - name: Assert artifacts exist
+        shell: bash
+        working-directory: web/electron/dist
+        run: ${{ matrix.assert_command }}
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agentnexus-desktop-${{ matrix.os }}-${{ github.sha }}
+          path: web/electron/dist
+          if-no-files-found: error

@@ -1012,6 +1012,12 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 无残留进程，process reaper 14 例和进程泄漏回归均通过；真实环境的
 > 24 小时无 orphan soak 仍属于 P5/P6 验收门禁。
 >
+> 2026-09-01 macOS/Linux 未签名桌面构建 smoke 已加入
+> `.github/workflows/desktop-cross-platform-smoke.yml`：macOS `build:mac`
+> 产出 DMG/zip，Linux `build:linux` 产出 AppImage/deb；pull_request（限
+> web/electron 等路径）与 main push 触发。仍需要真实 Apple 签名/公证证书
+> 与正式包验收才能关闭 P6。
+>
 > P4 调度字段已持久化：每阶段 Task 带 acceptance_json（NOT NULL，默认 []）
 > 和可空 deadline；启动 API 接受 acceptance_criteria 与 deadline。WorkflowEngine
 > 的 advance/retry/reassign 在派发前检查 task deadline，超时把 Task 置为
