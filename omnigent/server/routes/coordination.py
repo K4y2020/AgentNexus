@@ -491,6 +491,64 @@ async def advance_coordination_workflow(
     return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
 
 
+@router.post("/runs/{run_id}/pause")
+async def pause_coordination_run(run_id: str, request: Request) -> dict[str, Any]:
+    """Pause a running coordination run; queued stages stay queued."""
+    store = _request_store(request)
+    run = await asyncio.to_thread(store.get_run, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    await _require_coordination_tree(request, run.root_session_id)
+    updated = await _request_workflow_engine(request).pause_run(run_id)
+    tasks = await asyncio.to_thread(store.list_tasks, run_id)
+    return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/runs/{run_id}/resume")
+async def resume_coordination_run(run_id: str, request: Request) -> dict[str, Any]:
+    """Resume a paused coordination run."""
+    store = _request_store(request)
+    run = await asyncio.to_thread(store.get_run, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    await _require_coordination_tree(request, run.root_session_id)
+    updated = await _request_workflow_engine(request).resume_run(run_id)
+    tasks = await asyncio.to_thread(store.list_tasks, run_id)
+    return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/runs/{run_id}/cancel")
+async def cancel_coordination_run(run_id: str, request: Request) -> dict[str, Any]:
+    """Cancel a run: queued deliveries cancel, active unconsumed are rejected."""
+    store = _request_store(request)
+    run = await asyncio.to_thread(store.get_run, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    await _require_coordination_tree(request, run.root_session_id)
+    updated = await _request_workflow_engine(request).cancel_run(run_id)
+    tasks = await asyncio.to_thread(store.list_tasks, run_id)
+    return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
+@router.post("/tasks/{task_id}/retry")
+async def retry_coordination_task(task_id: str, request: Request) -> dict[str, Any]:
+    """Retry a failed stage task on its original run/task identity."""
+    store = _request_store(request)
+    task = await asyncio.to_thread(store.get_task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    run = await asyncio.to_thread(store.get_run, task.run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run {task.run_id} not found")
+    await _require_coordination_tree(request, run.root_session_id)
+    try:
+        updated = await _request_workflow_engine(request).retry_task(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    tasks = await asyncio.to_thread(store.list_tasks, run.run_id)
+    return {"run": updated.to_dict(), "tasks": [t.to_dict() for t in tasks]}
+
+
 # ── Workspace Lease & Merge Preview ───────────────────────────
 
 

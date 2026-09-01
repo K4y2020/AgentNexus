@@ -13,7 +13,11 @@ import asyncio
 import logging
 from typing import Literal
 
-from omnigent.coordination.store import CoordinationStore, get_default_coordination_db_path
+from omnigent.coordination.store import (
+    CoordinationStore,
+    StateTransitionConflict,
+    get_default_coordination_db_path,
+)
 from omnigent.coordination.types import (
     AgentMessage,
     CoordinationArtifact,
@@ -161,6 +165,9 @@ class CoordinationWorkflowEngine:
         state: a duplicate delivery of the same stage result cannot replay a
         completed stage. ``review_decision`` is ``approved`` by default for a
         successful reviewer; ``changes_requested`` routes to the fix stage.
+        Concurrency is resolved with store CAS: only the caller that wins
+        the state claim dispatches the next stage; a duplicate or lost call
+        returns the current run unchanged.
         """
         run = await asyncio.to_thread(self.store.get_run, run_id)
         if run is None:
@@ -169,17 +176,52 @@ class CoordinationWorkflowEngine:
         if task is None or task.run_id != run_id:
             raise ValueError(f"task {task_id!r} does not belong to run {run_id!r}")
 
-        await self._advance_task(
-            run=run,
-            task=task,
-            outcome=outcome,
-            artifacts=artifacts,
-            review_decision=review_decision,
-        )
+        try:
+            await self._advance_task(
+                run=run,
+                task=task,
+                outcome=outcome,
+                artifacts=artifacts,
+                review_decision=review_decision,
+            )
+        except StateTransitionConflict:
+            # The row moved between read and CAS (another caller advanced it,
+            # an explicit cancel won, or a retry reset it). Duplicate results
+            # are idempotent: report the authoritative current state without
+            # re-dispatching the next stage.
+            _logger.info(
+                "workflow advance lost CAS race for run %s task %s; treating as idempotent",
+                run_id,
+                task_id,
+            )
         updated = await asyncio.to_thread(self.store.get_run, run_id)
         if updated is None:
             raise RuntimeError(f"run {run_id!r} disappeared during advance")
         return updated
+
+    async def _move_task(
+        self,
+        task_id: str,
+        status: str,
+        *,
+        from_statuses: list[str],
+        artifacts: list[dict[str, object]] | None = None,
+    ) -> bool:
+        """Claim a task transition with a store-side CAS.
+
+        Returns ``True`` when this caller won the move or ``False`` for a
+        harmless idempotent repeat (already in *status*). Raises
+        :class:`ValueError` when the state has moved on — the workflow
+        engine turns that into a durable concurrent-owner signal instead of
+        blindly re-dispatching the next stage.
+        """
+        return await asyncio.to_thread(
+            self.store.transition_task_status,
+            task_id,
+            status,
+            from_statuses=from_statuses,
+            artifacts=artifacts,
+        )
 
     async def _advance_task(
         self,
@@ -194,11 +236,17 @@ class CoordinationWorkflowEngine:
         if artifacts:
             await self._persist_artifacts(run, task, artifacts)
         if outcome != "succeeded":
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "failed", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "failed",
+                from_statuses=["running", "assigned", "waiting_review"],
+                artifacts=artifacts or [],
             )
             await asyncio.to_thread(
-                self.store.update_run_status, run.run_id, "needs_attention"
+                self.store.transition_run_status,
+                run.run_id,
+                "needs_attention",
+                from_statuses=["running", "waiting_peer", "reconciling"],
             )
             await self._record(run, task, "task.failed", {"task_id": task.task_id, "role": role})
             return
@@ -209,12 +257,17 @@ class CoordinationWorkflowEngine:
             return
 
         if role == "planner":
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "succeeded", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "succeeded",
+                from_statuses=["running", "assigned"],
+                artifacts=artifacts or [],
             )
             impl = await self._stage_task(run.run_id, "implementer")
             if impl:
-                await asyncio.to_thread(self.store.update_task_status, impl.task_id, "running")
+                await self._move_task(
+                    impl.task_id, "running", from_statuses=["queued", "running"]
+                )
                 await self._send(
                     run,
                     impl,
@@ -228,12 +281,17 @@ class CoordinationWorkflowEngine:
             return
 
         if role == "implementer":
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "succeeded", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "succeeded",
+                from_statuses=["running", "assigned"],
+                artifacts=artifacts or [],
             )
             reviewer = await self._stage_task(run.run_id, "reviewer")
             if reviewer:
-                await asyncio.to_thread(self.store.update_task_status, reviewer.task_id, "running")
+                await self._move_task(
+                    reviewer.task_id, "running", from_statuses=["queued", "running"]
+                )
                 await self._send(
                     run,
                     reviewer,
@@ -253,16 +311,16 @@ class CoordinationWorkflowEngine:
         if role == "reviewer":
             decision = (review_decision or "approved").strip().lower()
             if decision == "changes_requested":
-                await asyncio.to_thread(
-                    self.store.update_task_status,
+                await self._move_task(
                     task.task_id,
                     "waiting_review",
+                    from_statuses=["running", "assigned"],
                     artifacts=artifacts or [],
                 )
                 fixer = await self._stage_task(run.run_id, "fixer")
                 if fixer:
-                    await asyncio.to_thread(
-                        self.store.update_task_status, fixer.task_id, "running"
+                    await self._move_task(
+                        fixer.task_id, "running", from_statuses=["queued", "running"]
                     )
                     await self._send(
                         run,
@@ -279,15 +337,22 @@ class CoordinationWorkflowEngine:
                 )
                 return
             # Approved: fix stage is a no-op, test runs next.
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "succeeded", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "succeeded",
+                from_statuses=["running", "assigned"],
+                artifacts=artifacts or [],
             )
             fixer = await self._stage_task(run.run_id, "fixer")
             if fixer:
-                await asyncio.to_thread(self.store.update_task_status, fixer.task_id, "succeeded")
+                await self._move_task(
+                    fixer.task_id, "succeeded", from_statuses=["queued", "running"]
+                )
             tester = await self._stage_task(run.run_id, "tester")
             if tester:
-                await asyncio.to_thread(self.store.update_task_status, tester.task_id, "running")
+                await self._move_task(
+                    tester.task_id, "running", from_statuses=["queued", "running"]
+                )
                 await self._send(
                     run,
                     tester,
@@ -303,12 +368,17 @@ class CoordinationWorkflowEngine:
             return
 
         if role == "fixer":
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "succeeded", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "succeeded",
+                from_statuses=["running", "assigned"],
+                artifacts=artifacts or [],
             )
             reviewer = await self._stage_task(run.run_id, "reviewer")
             if reviewer:
-                await asyncio.to_thread(self.store.update_task_status, reviewer.task_id, "running")
+                await self._move_task(
+                    reviewer.task_id, "running", from_statuses=["waiting_review", "running"]
+                )
                 await self._send(
                     run,
                     reviewer,
@@ -326,10 +396,18 @@ class CoordinationWorkflowEngine:
             return
 
         if role == "tester":
-            await asyncio.to_thread(
-                self.store.update_task_status, task.task_id, "succeeded", artifacts=artifacts or []
+            await self._move_task(
+                task.task_id,
+                "succeeded",
+                from_statuses=["running", "assigned"],
+                artifacts=artifacts or [],
             )
-            await asyncio.to_thread(self.store.update_run_status, run.run_id, "succeeded")
+            await asyncio.to_thread(
+                self.store.transition_run_status,
+                run.run_id,
+                "succeeded",
+                from_statuses=["running", "waiting_peer", "reconciling"],
+            )
             metadata = dict(run.metadata)
             metadata["stage"] = "accepted"
             metadata["fix_cycles"] = int(metadata.get("fix_cycles") or 0)
@@ -339,6 +417,272 @@ class CoordinationWorkflowEngine:
 
     async def _update_run_metadata(self, run_id: str, metadata: dict[str, object]) -> None:
         await asyncio.to_thread(self.store.update_run_metadata, run_id, metadata)
+
+    async def pause_run(self, run_id: str) -> CoordinationRun:
+        """Pause a run whose stages are still advancing (idempotent)."""
+        run = await asyncio.to_thread(self.store.get_run, run_id)
+        if run is None:
+            raise ValueError(f"run {run_id!r} not found")
+        await asyncio.to_thread(
+            self.store.transition_run_status,
+            run_id,
+            "paused",
+            from_statuses=["running", "waiting_user", "waiting_peer", "reconciling"],
+        )
+        await self._record_run_event(run, "workflow.run.paused", {"run_id": run_id})
+        return await self._current_run(run_id)
+
+    async def resume_run(self, run_id: str) -> CoordinationRun:
+        """Resume a paused run (idempotent for an already-running run)."""
+        run = await asyncio.to_thread(self.store.get_run, run_id)
+        if run is None:
+            raise ValueError(f"run {run_id!r} not found")
+        await asyncio.to_thread(
+            self.store.transition_run_status,
+            run_id,
+            "running",
+            from_statuses=["paused"],
+        )
+        await self._record_run_event(run, "workflow.run.resumed", {"run_id": run_id})
+        return await self._current_run(run_id)
+
+    async def cancel_run(self, run_id: str) -> CoordinationRun:
+        """Cancel a run and every non-terminal task it owns (idempotent).
+
+        Queued messages are cancelled; already-injected unconsumed task
+        messages are marked ``rejected`` with a cancellation receipt so the
+        UI shows the workflow was cancelled rather than falsely succeeded or
+        silently left open. Already-acknowledged deliveries remain as their
+        observed history.
+        """
+        run = await asyncio.to_thread(self.store.get_run, run_id)
+        if run is None:
+            raise ValueError(f"run {run_id!r} not found")
+        if run.status != "cancelled":
+            await asyncio.to_thread(
+                self.store.transition_run_status,
+                run_id,
+                "cancelled",
+                from_statuses=[
+                    "draft",
+                    "running",
+                    "paused",
+                    "waiting_user",
+                    "waiting_peer",
+                    "reconciling",
+                    "needs_attention",
+                ],
+            )
+        tasks = await asyncio.to_thread(self.store.list_tasks, run_id)
+        non_terminal = {
+            "draft",
+            "queued",
+            "assigned",
+            "running",
+            "blocked",
+            "waiting_user",
+            "waiting_peer",
+            "waiting_review",
+            "reconciling",
+            "needs_attention",
+        }
+        for task in tasks:
+            if task.status in non_terminal:
+                await self._move_task(
+                    task.task_id, "cancelled", from_statuses=list(non_terminal)
+                )
+        for task in tasks:
+            await self._cancel_run_messages(run, task)
+        await self._record_run_event(
+            run,
+            "workflow.run.cancelled",
+            {"run_id": run_id, "task_count": len(tasks)},
+        )
+        return await self._current_run(run_id)
+
+    async def _record_run_event(
+        self,
+        run: CoordinationRun,
+        event_type: str,
+        payload: dict[str, object],
+    ) -> None:
+        """Append an orchestration-level event (no task-owned actor)."""
+        await asyncio.to_thread(
+            self.store.record_event,
+            CoordinationEvent(
+                root_session_id=run.root_session_id,
+                run_id=run.run_id,
+                actor_session_id=run.root_session_id,
+                event_type=event_type,
+                payload=payload,
+            ),
+        )
+
+    async def _cancel_run_messages(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+    ) -> None:
+        """Cancel queued deliveries and reject active unconsumed task messages."""
+        messages = await asyncio.to_thread(
+            self.store.list_messages,
+            run.root_session_id,
+        )
+        for message in messages:
+            if message.run_id != run.run_id or message.task_id != task.task_id:
+                continue
+            if message.message_state == "queued":
+                await asyncio.to_thread(self.store.cancel_message, message.message_id)
+                continue
+            if (
+                message.message_state == "active"
+                and message.consumption_state == "unconsumed"
+            ):
+                await asyncio.to_thread(
+                    self.store.record_consumption_receipt,
+                    message.message_id,
+                    "rejected",
+                    {"source": "workflow_cancelled", "run_id": run.run_id},
+                )
+                await asyncio.to_thread(
+                    self.store.record_event,
+                    CoordinationEvent(
+                        root_session_id=run.root_session_id,
+                        run_id=run.run_id,
+                        task_id=task.task_id,
+                        actor_session_id=run.root_session_id,
+                        event_type="message.rejected",
+                        payload={
+                            "message_id": message.message_id,
+                            "reason": "workflow_cancelled",
+                        },
+                    ),
+                )
+
+    async def retry_task(self, task_id: str) -> CoordinationRun:
+        """Retry one failed stage task on the same run/task identity.
+
+        The failed task moves back to ``running``, the owning run resumes
+        (``needs_attention`` -> ``running``), and the same stage request is
+        re-queued through the durable outbox. A new attempt message keeps
+        the same ``task_id``/``correlation`` lineage per the plan; already
+        committed sibling stages are never touched.
+        """
+        task = await asyncio.to_thread(self.store.get_task, task_id)
+        if task is None:
+            raise ValueError(f"task {task_id!r} not found")
+        run = await asyncio.to_thread(self.store.get_run, task.run_id)
+        if run is None:
+            raise ValueError(f"run {task.run_id!r} not found")
+        if task.status != "failed":
+            # Idempotent contract: a duplicate retry after the claim (or a
+            # terminal/cancelled task) is a no-op, never a second dispatch.
+            return await self._current_run(run.run_id)
+        if not task.assignee_session_id:
+            raise ValueError(f"task {task_id} has no assignee to retry")
+
+        claimed = await self._move_task(task_id, "running", from_statuses=["failed"])
+        if not claimed:
+            # A concurrent retry already claimed the slot; do not resend a
+            # second stage request or double-count the attempt.
+            return await self._current_run(run.run_id)
+        await asyncio.to_thread(
+            self.store.transition_run_status,
+            run.run_id,
+            "running",
+            from_statuses=["needs_attention", "running"],
+        )
+        current = await asyncio.to_thread(self.store.get_run, run.run_id)
+        current_metadata = dict(current.metadata if current is not None else run.metadata)
+        retry_count = int(current_metadata.get("retry_count") or 0) + 1
+        sent = await self._resend_stage_request(run, task)
+        current_metadata["retry_count"] = retry_count
+        current_metadata["stage"] = task.assignee_role or current_metadata.get("stage")
+        await self._update_run_metadata(run.run_id, current_metadata)
+        await self._record(
+            run,
+            task,
+            "workflow.task.retried",
+            {"task_id": task_id, "retry_count": retry_count, "message_id": sent.message_id},
+        )
+        return await self._current_run(run.run_id)
+
+    async def _resend_stage_request(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+    ) -> AgentMessage:
+        """Re-queue the durable stage prompt for a retried task."""
+        role = task.assignee_role or ""
+        if role == "planner":
+            payload: dict[str, object] = {
+                "stage": "planning_retry",
+                "prompt": (
+                    "Previous planning attempt failed; analyze and create an "
+                    "implementation plan for the original request."
+                ),
+            }
+            intent = "task.request"
+        elif role == "implementer":
+            payload = {
+                "stage": "implementation_retry",
+                "prompt": (
+                    "Previous implementation attempt failed; implement the plan "
+                    "above and run tests you add or update."
+                ),
+            }
+            intent = "task.request"
+        elif role == "reviewer":
+            payload = {
+                "stage": "review_retry",
+                "prompt": (
+                    "Previous review attempt failed; review the implementation "
+                    "diff and report approved or changes_requested."
+                ),
+            }
+            intent = "review.request"
+        elif role == "fixer":
+            payload = {
+                "stage": "fix_retry",
+                "prompt": (
+                    "Previous fix attempt failed; address the reviewer feedback "
+                    "and re-run relevant tests."
+                ),
+                "retry": True,
+            }
+            intent = "review.feedback"
+        elif role == "tester":
+            payload = {
+                "stage": "test_retry",
+                "prompt": (
+                    "Previous test attempt failed; run the full acceptance suite "
+                    "and report succeeded or failed."
+                ),
+            }
+            intent = "test.request"
+        else:
+            raise ValueError(f"task {task.task_id} has unsupported role {role!r}")
+
+        message = AgentMessage(
+            root_session_id=run.root_session_id,
+            run_id=run.run_id,
+            task_id=task.task_id,
+            sender_session_id=run.root_session_id,
+            sender_role="user_orchestrator",
+            recipient_session_id=task.assignee_session_id or run.root_session_id,
+            recipient_role=task.assignee_role,
+            intent=intent,
+            payload=payload,
+            correlation_id=f"retry/{task.task_id}",
+        )
+        await asyncio.to_thread(self.store.save_message_and_outbox, message)
+        return message
+
+    async def _current_run(self, run_id: str) -> CoordinationRun:
+        updated = await asyncio.to_thread(self.store.get_run, run_id)
+        if updated is None:
+            raise RuntimeError(f"run {run_id!r} disappeared")
+        return updated
 
     async def _stage_task(self, run_id: str, role: str) -> CoordinationTask | None:
         for task in await asyncio.to_thread(self.store.list_tasks, run_id):

@@ -40,6 +40,17 @@ from omnigent.db.db_models import (
 from omnigent.db.utils import get_or_create_engine, make_named_managed_session_maker
 
 
+class StateTransitionConflict(ValueError):
+    """A coordination row moved between a caller's read and its CAS claim.
+
+    Raised by :meth:`CoordinationStore.transition_run_status` and
+    :meth:`CoordinationStore.transition_task_status` when a concurrent
+    writer already owns the transition. Callers treat this as a successful
+    idempotent duplicate (the current DB state is authoritative), never as
+    a blank second dispatch.
+    """
+
+
 def get_default_coordination_db_path() -> Path:
     """Return the default database path used when no location is injected.
 
@@ -249,6 +260,35 @@ class CoordinationStore:
                 .values(status=status, updated_at=time.time())
             )
 
+    def transition_run_status(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        from_statuses: list[str],
+    ) -> bool:
+        """Atomically transition a run if it still has one of *from_statuses*.
+
+        Returns ``True`` when the row moved, ``False`` when it is already in
+        *status* (idempotent repeat), and raises
+        :class:`StateTransitionConflict` when a concurrent caller has already
+        moved it to a different state. Callers use the return value to decide
+        whether they own the transition.
+        """
+        with self._session_immediate("transition_run_status") as sess:
+            row = sess.get(SqlCoordinationRun, (current_workspace_id(), run_id))
+            if row is None:
+                return False
+            if row.status == status:
+                return False
+            if row.status not in from_statuses:
+                raise StateTransitionConflict(
+                    f"run {run_id} is {row.status}; cannot transition to {status}"
+                )
+            row.status = status
+            row.updated_at = time.time()
+            return True
+
     def update_run_metadata(self, run_id: str, metadata: dict[str, object]) -> None:
         with self._session("update_run_metadata") as sess:
             sess.execute(
@@ -314,6 +354,37 @@ class CoordinationStore:
                 )
                 .values(**values)
             )
+
+    def transition_task_status(
+        self,
+        task_id: str,
+        status: str,
+        *,
+        from_statuses: list[str],
+        artifacts: list[dict[str, object]] | None = None,
+    ) -> bool:
+        """Atomically transition a task if it still has one of *from_statuses*.
+
+        Same CAS contract as :meth:`transition_run_status`. This is the
+        concurrency boundary that prevents duplicate stage advancement,
+        cancellation races, and double dispatch after a retry. Raises
+        :class:`StateTransitionConflict` when the state has moved on.
+        """
+        with self._session_immediate("transition_task_status") as sess:
+            row = sess.get(SqlCoordinationTask, (current_workspace_id(), task_id))
+            if row is None:
+                return False
+            if row.status == status:
+                return False
+            if row.status not in from_statuses:
+                raise StateTransitionConflict(
+                    f"task {task_id} is {row.status}; cannot transition to {status}"
+                )
+            row.status = status
+            if artifacts is not None:
+                row.artifacts_json = json.dumps(artifacts)
+            row.updated_at = time.time()
+            return True
 
     def list_tasks(self, run_id: str) -> list[CoordinationTask]:
         with self._session("list_tasks") as sess:

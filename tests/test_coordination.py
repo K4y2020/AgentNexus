@@ -634,6 +634,182 @@ def test_list_active_unconsumed_for_recipient_filters(
     assert memory_store.list_active_unconsumed_for_recipient("conv_coder") == []
 
 
+def test_coordination_lifecycle_cas_transitions(
+    memory_store: CoordinationStore,
+) -> None:
+    """Run/task transitions are atomic: concurrent writers cannot double-move."""
+    run = CoordinationRun(
+        run_id="run_cas",
+        root_session_id="conv_root_cas",
+        template="plan_implement_review_fix_test",
+        status="running",
+    )
+    memory_store.create_run(run)
+    task = CoordinationTask(
+        run_id=run.run_id,
+        title="Stage",
+        status="running",
+        assignee_session_id="conv_p1",
+        assignee_role="planner",
+    )
+    memory_store.create_task(task)
+
+    assert memory_store.transition_run_status(run.run_id, "paused", from_statuses=["running"])
+    assert not memory_store.transition_run_status(
+        run.run_id, "paused", from_statuses=["running"]
+    )  # idempotent repeat
+    with pytest.raises(ValueError, match="cannot transition"):
+        memory_store.transition_run_status(run.run_id, "running", from_statuses=["running"])
+    assert memory_store.transition_run_status(run.run_id, "running", from_statuses=["paused"])
+
+    assert memory_store.transition_task_status(
+        task.task_id, "succeeded", from_statuses=["running"]
+    )
+    assert not memory_store.transition_task_status(
+        task.task_id, "succeeded", from_statuses=["running"]
+    )
+    with pytest.raises(ValueError, match="cannot transition"):
+        memory_store.transition_task_status(task.task_id, "failed", from_statuses=["running"])
+
+
+@pytest.mark.asyncio
+async def test_workflow_duplicate_advance_is_idempotent(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Idempotent Run",
+        root_session_id="conv_root_dup",
+        planner_session_id="conv_planner_dup",
+        implementer_session_id="conv_coder_dup",
+        reviewer_session_id="conv_reviewer_dup",
+        user_prompt="Idempotent duel",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    plan_task = tasks["planner"]
+
+    first = await engine.advance(
+        run_id=run.run_id, task_id=plan_task.task_id, outcome="succeeded"
+    )
+    messages_after_first = memory_store.list_messages("conv_root_dup")
+    second = await engine.advance(
+        run_id=run.run_id, task_id=plan_task.task_id, outcome="succeeded"
+    )
+    messages_after_second = memory_store.list_messages("conv_root_dup")
+
+    assert first.status == "running"
+    assert second.status == "running"
+    same_messages = [
+        (m.message_id, m.task_id, m.intent, m.payload)
+        for m in messages_after_first
+    ]
+    assert same_messages == [
+        (m.message_id, m.task_id, m.intent, m.payload)
+        for m in messages_after_second
+    ]
+    implementer = next(
+        m for m in memory_store.list_tasks(run.run_id) if m.assignee_role == "implementer"
+    )
+    assert implementer.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_workflow_pause_resume_lifecycle(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Lifecycle Run",
+        root_session_id="conv_root_pause",
+        planner_session_id="conv_planner_pause",
+        implementer_session_id="conv_coder_pause",
+        reviewer_session_id="conv_reviewer_pause",
+        user_prompt="Pause me",
+        workspace_path=str(tmp_path),
+    )
+    paused = await engine.pause_run(run.run_id)
+    assert paused.status == "paused"
+    resumed = await engine.resume_run(run.run_id)
+    assert resumed.status == "running"
+
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    advanced = await engine.advance(
+        run_id=run.run_id, task_id=tasks["planner"].task_id, outcome="succeeded"
+    )
+    assert advanced.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_workflow_retry_failed_task_resends_stage(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Retry Run",
+        root_session_id="conv_root_retry",
+        planner_session_id="conv_planner_retry",
+        implementer_session_id="conv_coder_retry",
+        reviewer_session_id="conv_reviewer_retry",
+        user_prompt="Retry me",
+        workspace_path=str(tmp_path),
+    )
+    tasks = {t.assignee_role: t for t in memory_store.list_tasks(run.run_id)}
+    before = len(memory_store.list_messages("conv_root_retry"))
+
+    failed = await engine.advance(
+        run_id=run.run_id,
+        task_id=tasks["planner"].task_id,
+        outcome="failed",
+    )
+    assert failed.status == "needs_attention"
+    assert memory_store.get_task(tasks["planner"].task_id).status == "failed"
+
+    retried = await engine.retry_task(tasks["planner"].task_id)
+    assert retried.status == "running"
+    assert memory_store.get_task(tasks["planner"].task_id).status == "running"
+    after = memory_store.list_messages("conv_root_retry")
+    assert len(after) == before + 1
+    resent = after[-1]
+    assert resent.task_id == tasks["planner"].task_id
+    assert resent.recipient_session_id == "conv_planner_retry"
+    assert resent.intent == "task.request"
+
+    # A duplicate retry on the now-running task is a no-op: no second resend.
+    duplicate = await engine.retry_task(tasks["planner"].task_id)
+    assert duplicate.status == "running"
+    assert len(memory_store.list_messages("conv_root_retry")) == len(after)
+
+
+@pytest.mark.asyncio
+async def test_workflow_cancel_run_marks_messages_and_tasks(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Cancel Run",
+        root_session_id="conv_root_cancel",
+        planner_session_id="conv_planner_cancel",
+        implementer_session_id="conv_coder_cancel",
+        reviewer_session_id="conv_reviewer_cancel",
+        user_prompt="Cancel me",
+        workspace_path=str(tmp_path),
+    )
+    kickoff = memory_store.list_messages("conv_root_cancel")[0]
+    memory_store.update_message_state(kickoff.message_id, "active")
+
+    cancelled = await engine.cancel_run(run.run_id)
+    assert cancelled.status == "cancelled"
+    for task in memory_store.list_tasks(run.run_id):
+        assert task.status == "cancelled"
+    assert memory_store.get_message(kickoff.message_id).message_state == "active"
+    assert memory_store.get_message(kickoff.message_id).consumption_state == "rejected"
+    queued_messages = memory_store.list_messages("conv_root_cancel")[1:]
+    assert all(m.message_state == "cancelled" for m in queued_messages)
+    events = memory_store.list_events("conv_root_cancel")
+    assert any(e.event_type == "workflow.run.cancelled" for e in events)
+
+
 @pytest.mark.asyncio
 async def test_plan_implement_review_workflow_engine(
     memory_store: CoordinationStore, tmp_path: Path
@@ -890,6 +1066,61 @@ def test_coordination_api_endpoints(
         f"/v1/coordination/runs/{wf_data['run']['run_id']}"
     ).json()["run"]
     assert final_run["status"] == "succeeded"
+
+
+def test_coordination_api_run_lifecycle_endpoints(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+) -> None:
+    app = make_api_app(memory_store, default_conversations)
+    client = TestClient(app)
+
+    res = client.post(
+        "/v1/coordination/workflows/plan-implement-review",
+        json={
+            "title": "Lifecycle API Run",
+            "root_session_id": "conv_root_api",
+            "planner_session_id": "conv_p1",
+            "implementer_session_id": "conv_c1",
+            "reviewer_session_id": "conv_r1",
+            "user_prompt": "Drive lifecycle API",
+        },
+    )
+    assert res.status_code == 200
+    wf = res.json()
+    run_id = wf["run"]["run_id"]
+    tasks_by_role = {t["assignee_role"]: t["task_id"] for t in wf["tasks"]}
+
+    paused = client.post(f"/v1/coordination/runs/{run_id}/pause")
+    assert paused.status_code == 200
+    assert paused.json()["run"]["status"] == "paused"
+    resumed = client.post(f"/v1/coordination/runs/{run_id}/resume")
+    assert resumed.status_code == 200
+    assert resumed.json()["run"]["status"] == "running"
+
+    failed = client.post(
+        f"/v1/coordination/workflows/{run_id}/tasks/{tasks_by_role['planner']}/advance",
+        json={"outcome": "failed"},
+    )
+    assert failed.status_code == 200
+    assert failed.json()["run"]["status"] == "needs_attention"
+
+    retried = client.post(f"/v1/coordination/tasks/{tasks_by_role['planner']}/retry")
+    assert retried.status_code == 200
+    assert retried.json()["run"]["status"] == "running"
+    assert [
+        t["status"] for t in retried.json()["tasks"] if t["assignee_role"] == "planner"
+    ] == ["running"]
+
+    cancelled = client.post(f"/v1/coordination/runs/{run_id}/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["run"]["status"] == "cancelled"
+    assert all(t["status"] == "cancelled" for t in cancelled.json()["tasks"])
+
+    # Retry after cancel is an idempotent no-op, not a second dispatch.
+    rejected = client.post(f"/v1/coordination/tasks/{tasks_by_role['planner']}/retry")
+    assert rejected.status_code == 200
+    assert rejected.json()["run"]["status"] == "cancelled"
 
 
 def test_coordination_api_session_acl(
