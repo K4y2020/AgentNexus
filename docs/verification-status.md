@@ -16,12 +16,17 @@ Updated 2026-09-02 with the unified 11-layer error envelope: server-side
 classification, durable label persistence, SSE/API passthrough, and UI layer
 badges.
 
+Updated 2026-09-02 with the standard event catalog and transparent cockpit
+layered health topology: `omnigent/event_catalog.py`, `GET /v1/diagnostics/health`,
+CoordinationEvent derived categories, and targeted route/runtime coverage.
+
 ## Quality checks (fresh, this machine)
 
 | Check | Result |
 |---|---|
 | Ruff (whole repo) | All checks passed |
-| Coordination/behavior/model/workflow tests | 90/90 passed |
+| Coordination/behavior/model/workflow tests | 93/93 passed |
+| Event catalog & health topology targeted | 7/7 passed |
 | P3/P4 server acceptance | 2/2 passed (real worktrees merge, restart recovery) |
 | Control-plane mock reliability | 100/100 cumulative, zero `effect_unknown` |
 | Full-turn benchmark journey smoke | 10/10 runner journey types passed on Windows |

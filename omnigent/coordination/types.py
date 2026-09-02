@@ -7,6 +7,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
+from omnigent.event_catalog import classify_event_category
+
 MessageKind = Literal["content", "command", "event"]
 MessageState = Literal["queued", "active", "cancelled", "expired"]
 DeliveryState = Literal["pending", "leased", "injected", "confirmed", "failed", "unknown"]
@@ -161,8 +163,15 @@ class CoordinationEvent:
     payload: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
 
+    @property
+    def category(self) -> str:
+        """The normalized event category derived from ``event_type``."""
+        return classify_event_category(self.event_type)
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["category"] = self.category
+        return data
 
 
 @dataclass

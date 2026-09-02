@@ -76,6 +76,7 @@ from omnigent.server.routes.coordination import (
     set_coordination_store,
 )
 from omnigent.server.routes.default_policies import create_default_policies_router
+from omnigent.server.routes.diagnostics import create_diagnostics_router
 from omnigent.server.routes.dictation import create_dictation_router
 from omnigent.server.routes.harnesses import create_harnesses_router
 from omnigent.server.routes.imports import create_imports_router
@@ -2502,6 +2503,17 @@ def create_app(
             prefix="/v1",
             tags=["projects"],
         )
+
+    app.include_router(
+        create_diagnostics_router(
+            conversation_store,
+            auth_provider=auth_provider,
+            host_store=host_store,
+            runner_router=runner_router,
+        ),
+        prefix="/v1",
+        tags=["diagnostics"],
+    )
 
     # ── Tunnel lifecycle callbacks (Step 8.5 crash recovery) ───
 
