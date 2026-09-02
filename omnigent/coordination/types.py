@@ -21,6 +21,27 @@ DEFAULT_MAX_HOPS = 8
 DEFAULT_MAX_PAYLOAD_BYTES = 256 * 1024
 DEFAULT_MAX_ARTIFACT_REFERENCES = 32
 DEFAULT_MAX_TTL_SECONDS = 7 * 24 * 60 * 60
+
+#: How long an outbox lease may stay ``leased`` before a recovery pass treats
+#: the dispatching process as gone. Generous on purpose: injection is a single
+#: HTTP call, but a loaded runner can take a while to answer.
+OUTBOX_LEASE_TIMEOUT_S = 120.0
+
+# Delivery error taxonomy. Every failure is persisted with one of these
+# prefixes so a later recovery pass can separate "the runner provably never
+# saw this request" (safe to replay) from "the request may have landed and
+# started a turn" (must be escalated as effect-unknown). Errors written by
+# older builds carry no prefix and are treated as unproven.
+DELIVERY_ERROR_UNREACHABLE = "delivery-unreachable"
+DELIVERY_ERROR_REJECTED = "delivery-rejected"
+DELIVERY_ERROR_UNPROVEN = "delivery-unproven"
+
+#: Prefixes that prove the request never reached the runner, so replaying it
+#: cannot duplicate a side effect.
+SAFE_TO_REPLAY_ERROR_PREFIXES = (
+    f"{DELIVERY_ERROR_UNREACHABLE}:",
+    f"{DELIVERY_ERROR_REJECTED}:",
+)
 RunStatus = Literal[
     "draft",
     "running",
@@ -188,6 +209,25 @@ class OutboxItem:
     next_retry_at: float = field(default_factory=time.time)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class OutboxReclaim:
+    """The outcome of resolving one stale ``leased`` outbox row.
+
+    ``outcome`` is one of ``requeued`` (provably never delivered, handed back
+    to the normal retry path), ``unknown`` (delivery may have landed; the row
+    is terminal and the message is escalated for reconciliation) or
+    ``abandoned`` (retries exhausted, also escalated).
+    """
+
+    item_id: str = ""
+    message_id: str = ""
+    outcome: str = "unknown"
+    reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

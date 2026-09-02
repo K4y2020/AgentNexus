@@ -34,7 +34,11 @@ from omnigent.db.db_models import InvalidUuidError
 from omnigent.debug_logging import current_user_id_scope
 from omnigent.errors import ErrorCode, OmnigentError
 from omnigent.policies.types import PolicyResult
-from omnigent.server.routes.coordination import _require_coordination_acl, router
+from omnigent.server.routes.coordination import (
+    _authorized_runs,
+    _require_coordination_acl,
+    router,
+)
 from omnigent.spec.types import PolicyAction
 from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
@@ -128,6 +132,64 @@ async def test_coordination_acl_requires_manage_for_mutating_requests() -> None:
             "conv_root",
             "conv_child",
         )
+
+
+@pytest.mark.asyncio
+async def test_authorized_runs_hides_roots_the_caller_cannot_read() -> None:
+    """An unfiltered run listing spans the workspace, so each run is checked."""
+    app = FastAPI()
+    app.state.conversation_store = FakeConversationStore(
+        {
+            "conv_root": FakeConversation("conv_root", root_conversation_id="conv_root"),
+            "conv_other": FakeConversation("conv_other", root_conversation_id="conv_other"),
+        }
+    )
+    app.state.permission_store = FakePermissionStore({("alice", "conv_root"): 3})
+    runs = [
+        CoordinationRun(run_id="run_alice", root_session_id="conv_root"),
+        CoordinationRun(run_id="run_other", root_session_id="conv_other"),
+    ]
+
+    with current_user_id_scope("alice"):
+        allowed = await _authorized_runs(_acl_request(app, "GET"), runs)
+
+    assert [run.run_id for run in allowed] == ["run_alice"]
+
+
+@pytest.mark.asyncio
+async def test_authorized_runs_passes_through_without_a_permission_store() -> None:
+    """Single-user deployments have no permission store and see every run."""
+    app = FastAPI()
+    app.state.conversation_store = FakeConversationStore({})
+    runs = [CoordinationRun(run_id="run_only", root_session_id="conv_root")]
+
+    with current_user_id_scope("alice"):
+        allowed = await _authorized_runs(_acl_request(app, "GET"), runs)
+
+    assert [run.run_id for run in allowed] == ["run_only"]
+
+
+def test_coordination_api_run_list_hides_unreadable_roots(
+    memory_store: CoordinationStore,
+    default_conversations: dict[str, FakeConversation],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The endpoint filters, not just the helper it delegates to.
+
+    Listing without ``root_session_id`` used to take a branch with no access
+    check at all, returning every run in the workspace to any caller.
+    """
+    memory_store.create_run(CoordinationRun(run_id="run_alice", root_session_id="conv_root_api"))
+    memory_store.create_run(CoordinationRun(run_id="run_bob", root_session_id="conv_p1"))
+
+    app = make_api_app(memory_store, default_conversations)
+    app.state.permission_store = FakePermissionStore({("alice", "conv_root_api"): 3})
+    monkeypatch.setenv("OMNIGENT_USER_ID", "alice")
+
+    res = TestClient(app).get("/v1/coordination/runs")
+
+    assert res.status_code == 200
+    assert [run["run_id"] for run in res.json()["runs"]] == ["run_alice"]
 
 
 class FakeRunnerResponse:
@@ -2343,6 +2405,66 @@ async def test_workflow_task_deadline_blocks_advance(
 
     assert memory_store.get_task(planner.task_id).status == "blocked"
     assert memory_store.get_run(run.run_id).status == "needs_attention"
+
+
+@pytest.mark.asyncio
+async def test_deadline_harvester_reaps_stuck_task(
+    memory_store: CoordinationStore,
+) -> None:
+    """A task stuck active past its deadline is reaped without any in-band
+    advance — the gap the background harvester exists to close."""
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Deadline Harvester Run",
+        root_session_id="conv_root_harvest",
+        planner_session_id="conv_planner_harvest",
+        implementer_session_id="conv_coder_harvest",
+        reviewer_session_id="conv_reviewer_harvest",
+        user_prompt="Build something the harvester will reap",
+        budget={"task_deadline_s": -1},
+    )
+    tasks = memory_store.list_tasks(run.run_id)
+    assert tasks and all(t.deadline is not None for t in tasks)
+
+    report = await engine.harvest_expired_task_deadlines_once()
+    assert report["expired"] >= 1
+    assert report["harvested"] >= 1
+
+    # Every expired task is now blocked and the run surfaced the failure.
+    for task in memory_store.list_tasks(run.run_id):
+        if task.deadline is not None and task.deadline <= time.time():
+            assert task.status == "blocked"
+    assert memory_store.get_run(run.run_id).status == "needs_attention"
+
+    events = memory_store.list_events(run.root_session_id)
+    harvest_events = [e for e in events if e.event_type == "workflow.task.deadline_exceeded"]
+    assert harvest_events and all(e.payload.get("harvester") for e in harvest_events)
+
+    # Idempotent: blocked tasks leave the active status set.
+    second = await engine.harvest_expired_task_deadlines_once()
+    assert second["harvested"] == 0
+
+
+@pytest.mark.asyncio
+async def test_deadline_harvester_ignores_live_tasks(
+    memory_store: CoordinationStore,
+) -> None:
+    """Tasks with a future deadline are never touched by the harvester."""
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Deadline Live Run",
+        root_session_id="conv_root_harvest_live",
+        planner_session_id="conv_planner_harvest_live",
+        implementer_session_id="conv_coder_harvest_live",
+        reviewer_session_id="conv_reviewer_harvest_live",
+        user_prompt="Build something within budget",
+        budget={"task_deadline_s": 3600},
+    )
+    report = await engine.harvest_expired_task_deadlines_once()
+    assert report["harvested"] == 0
+    assert memory_store.get_run(run.run_id).status != "needs_attention"
+    statuses = {t.status for t in memory_store.list_tasks(run.run_id)}
+    assert "blocked" not in statuses
 
 
 def test_coordination_api_artifact_endpoints(

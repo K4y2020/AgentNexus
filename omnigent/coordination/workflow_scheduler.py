@@ -31,12 +31,16 @@ class CoordinationWorkflowScheduler:
         self.interval_s = interval_s
         self._running = False
         self._task: asyncio.Task[None] | None = None
+        # Deadline harvest cadence: every N poll loops (~30s at 1s interval).
+        self._loop_count = 0
+        self.deadline_every_loops = 30
 
     async def start(self) -> None:
         """Start the recovery poll loop."""
         if self._running:
             return
         self._running = True
+        self._loop_count = 0
         self._task = asyncio.create_task(self._poll_loop())
         _logger.info("CoordinationWorkflowScheduler started")
 
@@ -58,8 +62,23 @@ class CoordinationWorkflowScheduler:
                     _logger.info("workflow recovery queued %s dispatch(es)", healed)
             except Exception:
                 _logger.exception("Error in workflow recovery loop")
+            self._loop_count += 1
+            if self._loop_count % self.deadline_every_loops == 0:
+                try:
+                    report = await self.harvest_once()
+                    if report.get("harvested"):
+                        _logger.warning(
+                            "deadline harvester reaped %s task(s)",
+                            report["harvested"],
+                        )
+                except Exception:
+                    _logger.exception("Error harvesting expired task deadlines")
             await asyncio.sleep(self.interval_s)
 
     async def sync_once(self) -> int:
         """Run one recovery pass; primarily used by tests."""
         return await self.engine.reconcile_missing_dispatches()
+
+    async def harvest_once(self) -> dict[str, int]:
+        """Run one expired-deadline sweep; primarily used by tests."""
+        return await self.engine.harvest_expired_task_deadlines_once()

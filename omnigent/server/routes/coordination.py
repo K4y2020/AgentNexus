@@ -33,6 +33,7 @@ from omnigent.coordination.types import (
 )
 from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine, WorkflowDagTaskSpec
 from omnigent.debug_logging import current_user_id
+from omnigent.errors import ErrorCode, OmnigentError
 from omnigent.runtime import get_agent_cache, get_caps, get_policy_store
 from omnigent.runtime.policies.builder import (
     build_default_policy_engine,
@@ -270,6 +271,44 @@ async def _require_coordination_acl(
             permission_store,
             conversation_store,
         )
+
+
+async def _authorized_runs(
+    request: Request, runs: list[CoordinationRun]
+) -> list[CoordinationRun]:
+    """Filter runs down to those the caller may read.
+
+    Listing without a ``root_session_id`` filter spans the whole workspace, so
+    each run's own root session has to be checked rather than the request as a
+    whole. Single-user deployments have no permission store and pass through.
+    """
+    permission_store = getattr(request.app.state, "permission_store", None)
+    if permission_store is None:
+        return runs
+    conversation_store = getattr(request.app.state, "conversation_store", None)
+    if conversation_store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="coordination routes require a conversation store",
+        )
+    allowed: list[CoordinationRun] = []
+    for run in runs:
+        try:
+            await _require_access(
+                current_user_id(),
+                run.root_session_id,
+                LEVEL_READ,
+                permission_store,
+                conversation_store,
+            )
+        except OmnigentError as exc:
+            # No grant, or too low a grant, makes the run invisible rather than
+            # an error; an unauthenticated caller is still a hard failure.
+            if exc.code in (ErrorCode.FORBIDDEN, ErrorCode.NOT_FOUND):
+                continue
+            raise
+        allowed.append(run)
+    return allowed
 
 
 async def _require_coordination_tree(
@@ -832,10 +871,15 @@ async def list_coordination_runs(
     root_session_id: str | None = Query(None, description="Filter by root conversation"),
 ) -> dict[str, Any]:
     """List coordination runs."""
+    store = _request_store(request)
     if root_session_id:
         await _require_coordination_tree(request, root_session_id)
-    store = _request_store(request)
-    runs = await asyncio.to_thread(store.list_runs, root_session_id)
+        runs = await asyncio.to_thread(store.list_runs, root_session_id)
+    else:
+        # Unfiltered listing spans every root session in the workspace, so the
+        # run's own root decides visibility instead of a request-level check.
+        candidates = await asyncio.to_thread(store.list_runs, None)
+        runs = await _authorized_runs(request, candidates)
     return {"runs": [r.to_dict() for r in runs]}
 
 

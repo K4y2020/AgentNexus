@@ -16,6 +16,8 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from omnigent.coordination.types import (
+    OUTBOX_LEASE_TIMEOUT_S,
+    SAFE_TO_REPLAY_ERROR_PREFIXES,
     AgentMessage,
     CoordinationArtifact,
     CoordinationEvent,
@@ -23,6 +25,7 @@ from omnigent.coordination.types import (
     CoordinationTask,
     DeliveryAttempt,
     OutboxItem,
+    OutboxReclaim,
     WorkspaceMergeOperation,
     generate_coordination_id,
 )
@@ -161,6 +164,19 @@ def _row_to_outbox(row: SqlCoordinationOutbox) -> OutboxItem:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def _replay_is_safe(attempt: DeliveryAttempt | None) -> bool:
+    """Return whether a failed attempt proves the request never landed.
+
+    Only an explicit unreachable/rejected tag qualifies. A missing attempt,
+    a read timeout, a 5xx, or an error written before this taxonomy existed
+    all leave open the possibility that the runner received the injection and
+    started a turn, so they must not be replayed.
+    """
+    if attempt is None:
+        return False
+    return (attempt.error or "").startswith(SAFE_TO_REPLAY_ERROR_PREFIXES)
 
 
 def _row_to_lease(row: SqlWorkspaceLease) -> object:
@@ -414,6 +430,38 @@ class CoordinationStore:
                     SqlCoordinationTask.run_id == run_id,
                 )
                 .order_by(SqlCoordinationTask.created_at.asc())
+            )
+            return [_row_to_task(row) for row in sess.scalars(stmt)]
+
+    def list_expired_active_tasks(
+        self, *, now: float, limit: int = 50
+    ) -> list[CoordinationTask]:
+        """Tasks in an active status whose deadline has passed, oldest first.
+
+        Feeds the background deadline harvester. In a healthy system the
+        result is empty, so the scan stays cheap even as the task table grows.
+        """
+        with self._session("list_expired_active_tasks") as sess:
+            stmt = (
+                select(SqlCoordinationTask)
+                .where(
+                    SqlCoordinationTask.workspace_id == current_workspace_id(),
+                    SqlCoordinationTask.status.in_(
+                        (
+                            "queued",
+                            "assigned",
+                            "running",
+                            "waiting_user",
+                            "waiting_peer",
+                            "waiting_review",
+                            "reconciling",
+                        )
+                    ),
+                    SqlCoordinationTask.deadline.is_not(None),
+                    SqlCoordinationTask.deadline <= now,
+                )
+                .order_by(SqlCoordinationTask.deadline.asc())
+                .limit(limit)
             )
             return [_row_to_task(row) for row in sess.scalars(stmt)]
 
@@ -717,13 +765,21 @@ class CoordinationStore:
         return self.get_message(message_id)
 
     def list_effect_unknown_candidates(self, limit: int = 200) -> list[AgentMessage]:
-        """Return active, unconsumed messages that no reconciler has stamped."""
+        """Return undelivered-or-unconsumed messages no reconciler has stamped.
+
+        ``queued`` counts alongside ``active``: a message only becomes
+        ``active`` after the runner confirms injection, so a delivery that
+        died before that stays ``queued`` forever. Screening on ``active``
+        alone let exactly those messages evade reconciliation. Fresh traffic
+        is not a false-positive risk because the caller still ages every
+        candidate against the grace period.
+        """
         with self._session("list_effect_unknown_candidates") as sess:
             stmt = (
                 select(SqlAgentMessage)
                 .where(
                     SqlAgentMessage.workspace_id == current_workspace_id(),
-                    SqlAgentMessage.message_state == "active",
+                    SqlAgentMessage.message_state.in_(("queued", "active")),
                     SqlAgentMessage.consumption_state == "unconsumed",
                     SqlAgentMessage.effect_unknown_reason.is_(None),
                 )
@@ -894,6 +950,178 @@ class CoordinationStore:
             row.retry_count = retry_count
             row.next_retry_at = time.time() + delay
             row.updated_at = time.time()
+
+    def list_stale_outbox_leases(
+        self,
+        *,
+        lease_timeout_s: float = OUTBOX_LEASE_TIMEOUT_S,
+        now: float | None = None,
+        limit: int = 100,
+    ) -> list[OutboxItem]:
+        """Return ``leased`` rows whose owning dispatch process looks gone."""
+        now = time.time() if now is None else now
+        cutoff = now - lease_timeout_s
+        with self._session("list_stale_outbox_leases") as sess:
+            stmt = (
+                select(SqlCoordinationOutbox)
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlCoordinationOutbox.status == "leased",
+                    SqlCoordinationOutbox.updated_at <= cutoff,
+                )
+                .order_by(SqlCoordinationOutbox.updated_at.asc())
+                .limit(limit)
+            )
+            return [_row_to_outbox(row) for row in sess.scalars(stmt)]
+
+    def resolve_stale_lease(
+        self,
+        item: OutboxItem,
+        *,
+        replay_allowed: bool | None = None,
+        max_retries: int = 5,
+        next_retry_delay_s: float | None = None,
+    ) -> OutboxReclaim:
+        """Put one stale ``leased`` row back on a decision path.
+
+        A claim writes ``leased`` before injection and only the attempt record
+        clears it, so a crash in between strands the row: ``claim_pending_outbox``
+        matches ``pending`` only, and nothing else looks at ``leased`` again.
+        The message then sits unconsumed forever with no alarm anywhere.
+
+        * ``replay_allowed=True`` → back to ``pending`` with the usual backoff,
+          because the delivery provably never reached the runner;
+        * ``replay_allowed=False`` → ``unknown``, escalated for reconciliation
+          and never silently replayed;
+        * ``replay_allowed=None`` → decide from the persisted attempt: only an
+          explicitly unreachable/rejected failure proves a replay is safe.
+        """
+        attempts = self.list_delivery_attempts(item.message_id)
+        latest = attempts[-1] if attempts else None
+        if replay_allowed is None:
+            replay_allowed = _replay_is_safe(latest)
+        if replay_allowed:
+            self.requeue_outbox(
+                item.item_id, max_retries=max_retries, next_retry_delay_s=next_retry_delay_s
+            )
+            refreshed = self.get_outbox_item(item.item_id)
+            if refreshed is not None and refreshed.status == "pending":
+                return OutboxReclaim(
+                    item_id=item.item_id,
+                    message_id=item.message_id,
+                    outcome="requeued",
+                    reason="stale lease released for replay",
+                )
+            reason = (
+                f"delivery_abandoned_after_retries: outbox item exhausted {max_retries} "
+                "retries; the last attempt provably never reached the runner, so the "
+                "stage has no side effect but still needs a fresh dispatch"
+            )
+            self._escalate_unknown(item, attempt_count=item.retry_count + 1, reason=reason)
+            return OutboxReclaim(
+                item_id=item.item_id,
+                message_id=item.message_id,
+                outcome="abandoned",
+                reason=reason,
+            )
+        if latest is None:
+            reason = (
+                "delivery_lease_expired_before_attempt: outbox claimed but no delivery "
+                "attempt was ever recorded, so the request may have reached the runner"
+            )
+        else:
+            reason = (
+                f"delivery_lease_expired_after_attempt: attempt {latest.attempt_id} ended "
+                f"in {latest.delivery_state} and the request may have reached the runner"
+            )
+        self._escalate_unknown(item, attempt_count=item.retry_count + 1, reason=reason)
+        return OutboxReclaim(
+            item_id=item.item_id,
+            message_id=item.message_id,
+            outcome="unknown",
+            reason=reason,
+        )
+
+    def reclaim_stale_outbox_leases(
+        self,
+        *,
+        lease_timeout_s: float = OUTBOX_LEASE_TIMEOUT_S,
+        max_retries: int = 5,
+        now: float | None = None,
+        limit: int = 100,
+        next_retry_delay_s: float | None = None,
+    ) -> list[OutboxReclaim]:
+        """Sweep every stale lease, deciding from persisted attempts only.
+
+        Used when no async probe is available. The dispatcher prefers
+        :meth:`list_stale_outbox_leases` so it can probe the runner first.
+        """
+        return [
+            self.resolve_stale_lease(
+                item, max_retries=max_retries, next_retry_delay_s=next_retry_delay_s
+            )
+            for item in self.list_stale_outbox_leases(
+                lease_timeout_s=lease_timeout_s, now=now, limit=limit
+            )
+        ]
+
+    def _escalate_unknown(
+        self,
+        item: OutboxItem,
+        *,
+        attempt_count: int,
+        reason: str,
+    ) -> None:
+        """Freeze an unproven delivery as ``unknown`` and surface it.
+
+        Writes the missing ``unknown`` delivery attempt (the state existed in
+        the enum but nothing ever wrote it), parks the outbox row in the
+        terminal ``unknown`` state, and stamps the parent message so the run
+        summary and UI show the reconciliation instead of a silent wait.
+        """
+        attempt = DeliveryAttempt(
+            message_id=item.message_id,
+            target_session_id=item.target_session_id,
+            target_sequence=item.target_sequence,
+            delivery_mode="offline",
+            delivery_state="unknown",
+            error=reason,
+            attempt_count=attempt_count,
+        )
+        self.record_delivery_attempt(attempt, True, item.item_id)
+        message = self.mark_message_effect_unknown(item.message_id, reason)
+        if message is not None:
+            self.record_event(
+                CoordinationEvent(
+                    root_session_id=message.root_session_id,
+                    run_id=message.run_id,
+                    task_id=message.task_id,
+                    actor_session_id=message.recipient_session_id,
+                    event_type="effect.unknown_detected",
+                    payload={
+                        "message_id": message.message_id,
+                        "reason": reason,
+                        "source": "outbox_lease_reclaim",
+                        "consumer_session_id": message.recipient_session_id,
+                    },
+                )
+            )
+
+    def list_outbox_items_for_messages(
+        self, message_ids: list[str]
+    ) -> dict[str, list[OutboxItem]]:
+        """Return outbox rows grouped by message, for batch recovery checks."""
+        if not message_ids:
+            return {}
+        with self._session("list_outbox_items_for_messages") as sess:
+            stmt = select(SqlCoordinationOutbox).where(
+                SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                SqlCoordinationOutbox.message_id.in_(message_ids),
+            )
+            grouped: dict[str, list[OutboxItem]] = {}
+            for row in sess.scalars(stmt):
+                grouped.setdefault(row.message_id, []).append(_row_to_outbox(row))
+            return grouped
 
     def list_delivery_attempts(self, message_id: str) -> list[DeliveryAttempt]:
         with self._session("list_delivery_attempts") as sess:

@@ -69,11 +69,23 @@ def reason_for_unknown(
     confirmed attempt resets the grace clock. The latest attempt must be
     ``confirmed`` (runner accepted the injection) or explicitly ``unknown``
     (the adapter lost the answer) and at least ``grace_s`` old.
+
+    A message with no attempt at all is unknown too once it is old enough:
+    the dispatch claimed it and vanished, so nothing records whether the
+    runner ever saw it. Escalating beats waiting silently.
     """
-    if message.consumption_state != "unconsumed" or message.message_state != "active":
+    if message.consumption_state != "unconsumed":
+        return None
+    if message.message_state not in ("queued", "active"):
         return None
     if not attempts:
-        return None
+        age_s = now - message.updated_at
+        if age_s < grace_s:
+            return None
+        return (
+            f"delivery_never_attempted: message has been {message.message_state} and "
+            f"unconsumed for {age_s:.0f}s with no delivery attempt on record"
+        )
     latest = attempts[-1]
     age_s = now - latest.updated_at
     if age_s < grace_s:
@@ -98,7 +110,7 @@ def reconcile_effect_unknown(
     grace_s: float = EFFECT_UNKNOWN_GRACE_S,
     limit: int = 200,
 ) -> EffectUnknownReport:
-    """Scan active-unconsumed messages and stamp effect-unknown reasons."""
+    """Scan unconsumed messages and stamp effect-unknown reasons."""
     now = time.time() if now is None else now
     report = EffectUnknownReport()
     for message in store.list_effect_unknown_candidates(limit=limit):

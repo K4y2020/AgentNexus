@@ -28,6 +28,7 @@ from omnigent.coordination.types import (
     CoordinationEvent,
     CoordinationRun,
     CoordinationTask,
+    OutboxItem,
     generate_coordination_id,
 )
 from omnigent.workspaces.lease import WorkspaceCoordinator
@@ -35,6 +36,33 @@ from omnigent.workspaces.lease import WorkspaceCoordinator
 _logger = logging.getLogger(__name__)
 
 WorkflowOutcome = Literal["succeeded", "failed"]
+
+#: Run metadata key holding the last healing timestamp per task, so a task
+#: whose dispatch can never land is not re-queued on every scheduler pass.
+DISPATCH_HEAL_COOLDOWN_KEY = "dispatch_heal_cooldown"
+DISPATCH_HEAL_COOLDOWN_S = 60.0
+
+
+def _delivery_in_flight(message: AgentMessage, outbox_items: list[OutboxItem]) -> bool:
+    """Whether a message is still owed a delivery, or waiting on a live one.
+
+    Recovery must not touch two cases: a row still ``pending``/``leased`` is
+    genuinely being retried, and a row already ``confirmed``/``injected`` is
+    waiting for the agent to consume it, so re-sending would duplicate the
+    work. Everything else — rows that are ``failed``, ``unknown``, or simply
+    gone — means nothing will ever deliver this message.
+
+    A message the recipient already answered (``rejected``) is left alone too:
+    rejection is only recorded when a run is cancelled or a task is reassigned,
+    and re-sending superseded work would resurrect it.
+    """
+    if message.consumption_state != "unconsumed":
+        return True
+    if not outbox_items:
+        return False
+    live_statuses = ("pending", "leased", "confirmed", "injected")
+    return any(item.status in live_statuses for item in outbox_items)
+
 
 _RESULT_LINE = (
     "End your reply with exactly [WORKFLOW_RESULT: succeeded] or [WORKFLOW_RESULT: failed]."
@@ -858,6 +886,79 @@ class CoordinationWorkflowEngine:
         )
         raise ValueError(f"task {task.task_id} deadline exceeded")
 
+    async def harvest_expired_task_deadlines_once(
+        self, *, now: float | None = None
+    ) -> dict[str, int]:
+        """Background sweep for tasks whose deadline expired with no in-band
+        transition.
+
+        ``_enforce_task_deadline`` only runs at dispatch/advance hand-off
+        points, so a task stuck in an active state past its deadline is never
+        reaped and its run lingers in ``running`` forever. The scheduler calls
+        this periodically to fail closed: task → ``blocked``, run →
+        ``needs_attention``, plus a ``workflow.task.deadline_exceeded`` event.
+        Idempotent — harvested tasks leave the active status set.
+        """
+        check = time.time() if now is None else now
+        tasks = await asyncio.to_thread(
+            self.store.list_expired_active_tasks, now=check
+        )
+        harvested = 0
+        for task in tasks:
+            run = await asyncio.to_thread(self.store.get_run, task.run_id)
+            if run is None:
+                continue
+            applied = False
+            with contextlib.suppress(StateTransitionConflict):
+                applied = await asyncio.to_thread(
+                    self.store.transition_task_status,
+                    task.task_id,
+                    "blocked",
+                    from_statuses=[
+                        "draft",
+                        "queued",
+                        "assigned",
+                        "running",
+                        "waiting_user",
+                        "waiting_peer",
+                        "waiting_review",
+                        "reconciling",
+                    ],
+                )
+            if not applied:
+                continue
+            harvested += 1
+            with contextlib.suppress(StateTransitionConflict):
+                await asyncio.to_thread(
+                    self.store.transition_run_status,
+                    run.run_id,
+                    "needs_attention",
+                    from_statuses=[
+                        "draft",
+                        "running",
+                        "paused",
+                        "waiting_user",
+                        "waiting_peer",
+                        "reconciling",
+                    ],
+                )
+            await asyncio.to_thread(
+                self.store.record_event,
+                CoordinationEvent(
+                    root_session_id=run.root_session_id,
+                    run_id=run.run_id,
+                    task_id=task.task_id,
+                    actor_session_id=task.assignee_session_id,
+                    event_type="workflow.task.deadline_exceeded",
+                    payload={
+                        "task_id": task.task_id,
+                        "deadline": task.deadline,
+                        "harvester": True,
+                    },
+                ),
+            )
+        return {"expired": len(tasks), "harvested": harvested}
+
     async def _update_run_metadata(self, run_id: str, metadata: dict[str, object]) -> None:
         await asyncio.to_thread(self.store.update_run_metadata, run_id, metadata)
 
@@ -1210,7 +1311,10 @@ class CoordinationWorkflowEngine:
             return 0
         tasks = await asyncio.to_thread(self.store.list_tasks, run.run_id)
         messages = await asyncio.to_thread(self.store.list_messages, run.root_session_id)
+        heal_cooldowns = dict(run.metadata.get(DISPATCH_HEAL_COOLDOWN_KEY) or {})
+        now = time.time()
         healed = 0
+        cooldown_changed = False
         for task in tasks:
             if task.status not in ("assigned", "running"):
                 continue
@@ -1225,10 +1329,24 @@ class CoordinationWorkflowEngine:
             ]
             if any(m.consumption_state in ("consumed", "acknowledged") for m in open_messages):
                 continue
-            if any(
-                m.consumption_state == "unconsumed" and m.message_state in ("queued", "active")
-                for m in open_messages
-            ):
+            if open_messages:
+                # A queued/active message used to mean "delivery is on its way".
+                # It does not: an outbox row parked in a terminal state is
+                # never retried, so the stage would wait forever. Ask the
+                # outbox whether anything is still owed.
+                outbox_by_message = await asyncio.to_thread(
+                    self.store.list_outbox_items_for_messages,
+                    [m.message_id for m in open_messages],
+                )
+                if any(
+                    _delivery_in_flight(m, outbox_by_message.get(m.message_id, []))
+                    for m in open_messages
+                ):
+                    continue
+            # A lost dispatch can recur, so cap how often one stage is healed;
+            # without this a permanently undeliverable task would re-queue a
+            # message on every pass.
+            if now - float(heal_cooldowns.get(task.task_id, 0.0)) < DISPATCH_HEAL_COOLDOWN_S:
                 continue
             sent = await self._resend_stage_request(run, task, attempt="recovery")
             await self._record(
@@ -1242,7 +1360,13 @@ class CoordinationWorkflowEngine:
                     "recipient_session_id": task.assignee_session_id,
                 },
             )
+            heal_cooldowns[task.task_id] = now
+            cooldown_changed = True
             healed += 1
+        if cooldown_changed:
+            metadata = dict(run.metadata)
+            metadata[DISPATCH_HEAL_COOLDOWN_KEY] = heal_cooldowns
+            await asyncio.to_thread(self.store.update_run_metadata, run.run_id, metadata)
         return healed
 
     async def _resend_stage_request(

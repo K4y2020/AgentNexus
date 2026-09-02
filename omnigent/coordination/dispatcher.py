@@ -9,15 +9,59 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
+from omnigent.coordination.probe import ProbeVerdict, probe_delivery_state
 from omnigent.coordination.reconciliation import reconcile_effect_unknown
-from omnigent.coordination.store import CoordinationStore
-from omnigent.coordination.types import AgentMessage, DeliveryAttempt
+from omnigent.coordination.store import CoordinationStore, _replay_is_safe
+from omnigent.coordination.types import (
+    DELIVERY_ERROR_REJECTED,
+    DELIVERY_ERROR_UNPROVEN,
+    DELIVERY_ERROR_UNREACHABLE,
+    AgentMessage,
+    DeliveryAttempt,
+    OutboxItem,
+    OutboxReclaim,
+)
 from omnigent.db.db_models import InvalidUuidError
+from omnigent.errors import OmnigentError
 
 if TYPE_CHECKING:
     from omnigent.stores import ConversationStore
 
 _logger = logging.getLogger(__name__)
+
+
+def _classify_delivery_error(exc: BaseException) -> str:
+    """Tag a delivery failure with whether the request provably never landed.
+
+    The tag is persisted with the delivery attempt so a later recovery pass
+    can tell a safe replay from a possible double-injection. Anything not
+    positively proven to have missed the runner is treated as unproven.
+    """
+    if isinstance(exc, InvalidUuidError):
+        return DELIVERY_ERROR_REJECTED
+    # A missing router or an unbound/offline runner means the HTTP call was
+    # never made.
+    if isinstance(exc, OmnigentError) or "no server runner router configured" in str(exc):
+        return DELIVERY_ERROR_UNREACHABLE
+    try:
+        import httpx
+
+        if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+            return DELIVERY_ERROR_UNREACHABLE
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if isinstance(status, int):
+            return DELIVERY_ERROR_REJECTED if status < 500 else DELIVERY_ERROR_UNPROVEN
+    except ImportError:  # pragma: no cover - httpx is a hard dependency
+        pass
+    # The dispatcher's own wording for a non-2xx runner reply, e.g.
+    # "runner rejected A2A delivery with status 503: ...".
+    marker = "with status "
+    text = str(exc)
+    if marker in text:
+        code = text.split(marker, 1)[1].split(":", 1)[0].strip()
+        if code.isdigit():
+            return DELIVERY_ERROR_REJECTED if int(code) < 500 else DELIVERY_ERROR_UNPROVEN
+    return DELIVERY_ERROR_UNPROVEN
 
 
 class CoordinationDispatcher:
@@ -35,6 +79,9 @@ class CoordinationDispatcher:
         # Reconciliation cadence: every N poll loops (~30s at 0.5s poll).
         self._poll_count = 0
         self.reconcile_every_loops = 60
+        # Probe the runner before replaying a crashed delivery. Tests that
+        # want deterministic offline behavior turn this off.
+        self.probe_delivery = True
 
     async def start(self) -> None:
         """Start the background outbox polling loop."""
@@ -42,6 +89,13 @@ class CoordinationDispatcher:
             return
         self._running = True
         self._poll_count = 0
+        # A claim writes `leased` and only the attempt record clears it, so a
+        # crash between the two strands the row. Sweep before the first claim
+        # so a restart never inherits an invisible stall.
+        try:
+            await self.reclaim_stale_leases_once()
+        except Exception:
+            _logger.exception("Error reclaiming stale outbox leases at startup")
         self._task = asyncio.create_task(self._poll_loop())
         _logger.info("CoordinationDispatcher started")
 
@@ -64,6 +118,10 @@ class CoordinationDispatcher:
             self._poll_count += 1
             if self._poll_count % self.reconcile_every_loops == 0:
                 try:
+                    await self.reclaim_stale_leases_once()
+                except Exception:
+                    _logger.exception("Error reclaiming stale outbox leases")
+                try:
                     await self.reconcile_once()
                 except Exception:
                     _logger.exception("Error in effect-unknown reconciliation")
@@ -75,6 +133,55 @@ class CoordinationDispatcher:
         if grace_s is not None:
             kwargs["grace_s"] = grace_s
         return await asyncio.to_thread(reconcile_effect_unknown, self.store, **kwargs)
+
+    async def reclaim_stale_leases_once(
+        self, *, lease_timeout_s: float | None = None
+    ) -> list[OutboxReclaim]:
+        """Resolve outbox leases abandoned by a crashed dispatch.
+
+        Rows are listed, probed, then resolved one at a time so the probe —
+        which has to ask the runner — runs on the event loop while the store
+        writes stay on threads.
+        """
+        kwargs: dict[str, object] = {}
+        if lease_timeout_s is not None:
+            kwargs["lease_timeout_s"] = lease_timeout_s
+        stale = await asyncio.to_thread(self.store.list_stale_outbox_leases, **kwargs)
+        if not stale:
+            return []
+        result: list[OutboxReclaim] = []
+        for item in stale:
+            replay_allowed = await self._replay_verdict(item)
+            result.append(
+                await asyncio.to_thread(
+                    self.store.resolve_stale_lease, item, replay_allowed=replay_allowed
+                )
+            )
+        if result:
+            _logger.warning(
+                "reclaimed %d stale outbox lease(s): %s",
+                len(result),
+                ", ".join(f"{r.item_id}={r.outcome}" for r in result),
+            )
+        return result
+
+    async def _replay_verdict(self, item: OutboxItem) -> bool | None:
+        """Decide whether a stale lease may be replayed.
+
+        Returns True/False to force a decision, or None to let the store fall
+        back to the persisted attempt, which errs towards escalation.
+        """
+        attempts = await asyncio.to_thread(self.store.list_delivery_attempts, item.message_id)
+        if _replay_is_safe(attempts[-1] if attempts else None):
+            return True
+        if not self.probe_delivery:
+            return None
+        verdict = await probe_delivery_state(item.target_session_id)
+        if verdict is ProbeVerdict.NOT_INJECTED:
+            return True
+        if verdict is ProbeVerdict.INJECTED:
+            return False
+        return None
 
     async def dispatch_once(self) -> int:
         """Process one batch of pending outbox messages. Returns number processed."""
@@ -107,7 +214,7 @@ class CoordinationDispatcher:
                     target_sequence=item.target_sequence,
                     delivery_mode="offline",
                     delivery_state="failed",
-                    error=str(exc),
+                    error=f"{_classify_delivery_error(exc)}: {exc}",
                     attempt_count=item.retry_count + 1,
                 )
                 await asyncio.to_thread(
@@ -212,7 +319,7 @@ class CoordinationDispatcher:
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
-                error=f"invalid recipient session id: {exc}",
+                error=f"{DELIVERY_ERROR_REJECTED}: invalid recipient session id: {exc}",
                 attempt_count=attempt_count,
             )
             await asyncio.to_thread(
@@ -234,7 +341,7 @@ class CoordinationDispatcher:
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
-                error=str(exc),
+                error=f"{_classify_delivery_error(exc)}: {exc}",
                 attempt_count=attempt_count,
             )
             await asyncio.to_thread(

@@ -85,7 +85,22 @@ def test_control_plane_reliability_workflow_run(
                 return body
             return None
 
-        final = _wait_until_succeeded(_succeeded, timeout_s=_TIMEOUT_S)
+        try:
+            final = _wait_until_succeeded(_succeeded, timeout_s=_TIMEOUT_S)
+        except AssertionError as exc:
+            # A sample that stalls is rare and machine-dependent, so the only
+            # chance to explain one later is the state it stalled in. Report
+            # the run's actual terminal state instead of a bare timeout.
+            try:
+                stalled = _summary()
+            except Exception as summary_exc:
+                raise AssertionError(f"{exc}; summary unavailable: {summary_exc!r}") from exc
+            raise AssertionError(
+                f"{exc}; run_status={stalled['run']['status']!r} "
+                f"stage={stalled['summary'].get('stage')!r} "
+                f"consumption={stalled['summary'].get('consumption_states')!r} "
+                f"effect_unknown_count={stalled['summary'].get('effect_unknown_count')!r}"
+            ) from exc
         assert final is not None
         stages = final["summary"]["stage"]
         assert stages["planner"] == "succeeded"
