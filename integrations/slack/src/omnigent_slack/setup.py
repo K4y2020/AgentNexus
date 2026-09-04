@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -144,7 +145,8 @@ class SetupFlow:
         # (an auth-enabled server shows the login link in the modal and
         # advances once approved), then the agent/host/workspace picker.
         # ``/omnigent logout`` revokes every server token and clears all saved
-        # settings for the user.
+        # settings for the user. ``/omnigent bind`` staffs the channel where the
+        # command ran with a teammate; ``/omnigent unbind`` removes the binding.
         await ack()
         team_id = str(command.get("team_id") or "")
         user_id = str(command.get("user_id") or "")
@@ -162,6 +164,23 @@ class SetupFlow:
         if subcommand and subcommand[0].lower() == "logout":
             await self._handle_logout(team_id=team_id, user_id=user_id, client=client)
             return
+        if subcommand and subcommand[0].lower() == "bind":
+            await self._handle_bind_command(
+                team_id=team_id,
+                user_id=user_id,
+                channel_id=str(command.get("channel_id") or ""),
+                trigger_id=str(command.get("trigger_id") or ""),
+                client=client,
+            )
+            return
+        if subcommand and subcommand[0].lower() == "unbind":
+            await self._handle_unbind_command(
+                team_id=team_id,
+                user_id=user_id,
+                channel_id=str(command.get("channel_id") or ""),
+                client=client,
+            )
+            return
 
         trigger_id = command.get("trigger_id")
         if not trigger_id:
@@ -170,6 +189,66 @@ class SetupFlow:
         view_id = await self._open_connecting_modal(client, trigger_id)
         if view_id:
             await self._begin_setup(client, team_id=team_id, user_id=user_id, view_id=view_id)
+
+    async def _handle_bind_command(
+        self,
+        *,
+        team_id: str,
+        user_id: str,
+        channel_id: str,
+        trigger_id: str,
+        client: Any,
+    ) -> None:
+        """Open the agent/host picker so ``channel_id`` gains a resident bot."""
+        if not team_id or not user_id or not channel_id:
+            self._logger.warning(
+                "Bind command missing team/user/channel (team=%r user=%r channel=%r)",
+                team_id,
+                user_id,
+                channel_id,
+            )
+            return
+        if not trigger_id:
+            self._logger.warning("Bind command missing trigger_id")
+            return
+        view_id = await self._open_connecting_modal(client, trigger_id)
+        if view_id:
+            await self._begin_setup(
+                client,
+                team_id=team_id,
+                user_id=user_id,
+                view_id=view_id,
+                channel_id=channel_id,
+            )
+
+    async def _handle_unbind_command(
+        self,
+        *,
+        team_id: str,
+        user_id: str,
+        channel_id: str,
+        client: Any,
+    ) -> None:
+        """Remove a channel binding; the channel falls back to per-user routing."""
+        if not team_id or not user_id or not channel_id:
+            self._logger.warning(
+                "Unbind command missing team/user/channel (team=%r user=%r channel=%r)",
+                team_id,
+                user_id,
+                channel_id,
+            )
+            return
+        deleted = await self._store.delete_channel_binding(team_id, channel_id)
+        where = "in this channel" if deleted else ""
+        await self._dm_user(
+            client,
+            user_id,
+            text=(
+                ":wave: This channel's teammate binding was removed "
+                f"{where}. Mention me there to use your own setup instead."
+            ),
+            purpose="channel unbind confirmation",
+        )
 
     async def _handle_logout(self, *, team_id: str, user_id: str, client: Any) -> None:
         """Handle ``/omnigent logout`` — full reset for the user.
@@ -307,8 +386,21 @@ class SetupFlow:
         await asyncio.sleep(_MODAL_SETTLE_SECONDS)
         return str(view_id) if view_id else None
 
-    async def _begin_setup(self, client: Any, *, team_id: str, user_id: str, view_id: str) -> None:
-        """Validate the fixed server, logging in first if it requires auth."""
+    async def _begin_setup(
+        self,
+        client: Any,
+        *,
+        team_id: str,
+        user_id: str,
+        view_id: str,
+        channel_id: str | None = None,
+    ) -> None:
+        """Validate the fixed server, logging in first if it requires auth.
+
+        ``channel_id`` turns the flow into a channel-binding flow: the select
+        modal then carries the target channel in private metadata and submit
+        persists a :class:`ChannelBinding` instead of the user's personal config.
+        """
         server_url = self._server_url
         ack = _ViewUpdateAck(client, view_id)
         # Validate as the authenticated user when a token exists — the
@@ -337,6 +429,7 @@ class SetupFlow:
                 user_id=user_id,
                 server_url=server_url,
                 view_id=view_id,
+                channel_id=channel_id,
             )
             return
         except OmnigentError as exc:
@@ -349,7 +442,9 @@ class SetupFlow:
             )
             return
 
-        await self._advance_to_select(ack, omnigent, server_url, validated)
+        await self._advance_to_select(
+            ack, omnigent, server_url, validated, channel_id=channel_id
+        )
 
     async def _advance_to_select(
         self,
@@ -357,6 +452,7 @@ class SetupFlow:
         omnigent: OmnigentClient,
         server_url: str,
         validated: ValidatedServer,
+        channel_id: str | None = None,
     ) -> None:
         """Advance the modal to agent/host/workspace selection.
 
@@ -382,7 +478,13 @@ class SetupFlow:
         workspace_default = await self._resolve_default_workspace(omnigent, validated.online_hosts)
         await ack(
             response_action="update",
-            view=select_modal(server_url, validated, workspace_default=workspace_default),
+            view=select_modal(
+                server_url,
+                validated,
+                workspace_default=workspace_default,
+                private_metadata=_bind_metadata(channel_id),
+                title="Bind teammate to this channel" if channel_id else "Set up Omnigent",
+            ),
         )
 
     async def _revalidate_and_advance(
@@ -394,6 +496,7 @@ class SetupFlow:
         server_url: str,
         view_id: str,
         context: str,
+        channel_id: str | None = None,
     ) -> None:
         """Post-login/enrollment success: re-validate as the user, advance the modal.
 
@@ -410,7 +513,11 @@ class SetupFlow:
         try:
             validated = await omnigent.validate()
             await self._advance_to_select(
-                _ViewUpdateAck(client, view_id), omnigent, server_url, validated
+                _ViewUpdateAck(client, view_id),
+                omnigent,
+                server_url,
+                validated,
+                channel_id=channel_id,
             )
         except Exception as exc:
             # The token was stored (the callback/login succeeded), but validating
@@ -454,6 +561,7 @@ class SetupFlow:
         user_id: str,
         server_url: str,
         view_id: str,
+        channel_id: str | None = None,
     ) -> None:
         """Show the login link in the modal and advance it once complete.
 
@@ -464,7 +572,12 @@ class SetupFlow:
         assert self._auth is not None
         if self._enrollment_url is not None:
             await self._begin_databricks_enrollment(
-                client, team_id=team_id, user_id=user_id, server_url=server_url, view_id=view_id
+                client,
+                team_id=team_id,
+                user_id=user_id,
+                server_url=server_url,
+                view_id=view_id,
+                channel_id=channel_id,
             )
             return
         client_id = slack_client_id(await self._team_name(client, team_id))
@@ -510,6 +623,7 @@ class SetupFlow:
                 server_url=server_url,
                 view_id=view_id,
                 context="login",
+                channel_id=channel_id,
             )
 
         async def _on_failure(reason: str) -> None:
@@ -532,6 +646,7 @@ class SetupFlow:
         user_id: str,
         server_url: str,
         view_id: str,
+        channel_id: str | None = None,
     ) -> None:
         """Show the Databricks enrollment link and advance once the user signs in.
 
@@ -585,6 +700,7 @@ class SetupFlow:
                 server_url=server_url,
                 view_id=view_id,
                 context="enrollment",
+                channel_id=channel_id,
             )
 
         async def _on_failure(reason: str) -> None:
@@ -697,6 +813,37 @@ class SetupFlow:
             )
             await ack()
             return
+
+        binding_channel = _metadata_channel(view)
+        if binding_channel is not None:
+            await self._store.upsert_channel_binding(
+                team_id,
+                binding_channel,
+                agent_id=str(agent_option.get("value")),
+                agent_name=config.agent_name,
+                workspace=config.workspace,
+                host_id=config.host_id,
+                host_name=config.host_name,
+                owner_user_id=user_id,
+            )
+            await ack()
+            self._logger.info(
+                "Saved channel-binding team=%s channel=%s server=%s agent=%s host=%s",
+                team_id,
+                binding_channel,
+                server_url,
+                config.agent_id,
+                host_id,
+            )
+            await client.chat_postMessage(
+                channel=binding_channel,
+                text=(
+                    f":white_check_mark: This channel is now staffed by "
+                    f"*{config.agent_name}*. Mention the bot here to start a session."
+                ),
+            )
+            return
+
         await self._store.upsert_user_config(team_id, user_id, config)
         await ack()
         self._logger.info(
@@ -948,6 +1095,9 @@ def select_modal(
     server_url: str,
     validated: ValidatedServer,
     workspace_default: str | None = None,
+    *,
+    private_metadata: str | None = None,
+    title: str = "Set up Omnigent",
 ) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = [
         {
@@ -997,14 +1147,39 @@ def select_modal(
             },
         }
     )
-    return {
+    view: dict[str, Any] = {
         "type": "modal",
         "callback_id": CALLBACK_SELECT_MODAL,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": title},
         "submit": {"type": "plain_text", "text": "Save"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "blocks": blocks,
     }
+    if private_metadata:
+        view["private_metadata"] = private_metadata
+    return view
+
+
+def _bind_metadata(channel_id: str | None) -> str | None:
+    """Serialize the target channel into modal private metadata, if binding."""
+    if not channel_id:
+        return None
+    return json.dumps({"channel_id": channel_id}, separators=(",", ":"))
+
+
+def _metadata_channel(view: dict[str, Any]) -> str | None:
+    """Read a channel id out of private metadata; ``None`` when not a bind view."""
+    raw = view.get("private_metadata")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    channel_id = payload.get("channel_id")
+    return str(channel_id) if isinstance(channel_id, str) and channel_id else None
 
 
 def _agent_options(agents: list[dict[str, Any]]) -> list[dict[str, Any]]:

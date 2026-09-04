@@ -219,6 +219,7 @@ import { supportsEffortControl } from "@/lib/sessionCapabilities";
 import {
   CLAUDE_NATIVE_SWITCHABLE_PERMISSION_MODES,
   claudePermissionModeLabel,
+  isClaudeNativeSession,
 } from "@/lib/claudePermissionMode";
 import { isCodexNativeSession } from "@/lib/codexPlanMode";
 import { getCliServerUrl } from "@/lib/host";
@@ -235,6 +236,8 @@ import {
   RunnerStartingIndicator,
 } from "./ChatIndicators";
 import { CHAT_COLUMN_WIDTH } from "./chatLayout";
+import { useTeammates } from "@/hooks/useTeammates";
+import { TeammateSettingsDialog } from "@/components/teammates/TeammateSettingsDialog";
 
 // Matches both wordings the native executors emit: "[Attached: <path>]"
 // (claude/pi/cursor) and "[Attached file: <path>]" (codex). Capturing group
@@ -4562,7 +4565,7 @@ export function Composer({
   // /compact is only functional for native wrappers (claude-native,
   // codex-native) which inject the slash command into the terminal.
   // SDK harnesses (openai-agents-sdk, claude-sdk) don't support it yet.
-  const showCompact = isNativeWrapper;
+  const showCompact = true;
   const slashCommands = useMemo(
     () => buildSlashCommandMap(skills, showEffort, showModel, showCompact),
     [skills, showEffort, showModel, showCompact],
@@ -6061,7 +6064,7 @@ export function shouldShowCodexPlanModeControl(
 export function shouldShowClaudePermissionModeControl(
   conv: { labels?: Record<string, string | null> | null } | null | undefined,
 ): boolean {
-  return conv != null;
+  return isClaudeNativeSession(conv);
 }
 
 /**
@@ -6639,13 +6642,25 @@ function ComposerConfigGear({
   const appliedOpenNonce = useRef(0);
   useEffect(() => {
     if (!openNonce || openNonce === appliedOpenNonce.current) return;
-    // Consume the nonce even when disabled so a later enable doesn't replay a
-    // stale open request; skip opening while the gear is inert (read-only /
-    // unreachable), matching the click guard.
     appliedOpenNonce.current = openNonce;
     if (disabled) return;
     setOpen(true);
   }, [openNonce, disabled]);
+
+  const conversationId = useChatStore((s) => s.conversationId);
+  const { session } = useSession(conversationId);
+  const { data: teammates = [] } = useTeammates();
+
+  const currentTeammate = useMemo(() => {
+    if (!session?.agentName || !teammates.length) return null;
+    const name = agentRootName(session.agentName).toLowerCase();
+    return (
+      teammates.find(
+        (t) => t.agent.name.toLowerCase() === name || t.agent.id.toLowerCase() === name,
+      ) ?? null
+    );
+  }, [session?.agentName, teammates]);
+
   const summary = useSessionConfigSummary({
     harnessLabel,
     showModels,
@@ -6660,7 +6675,8 @@ function ComposerConfigGear({
     !showEffort &&
     !costRoutingEligible &&
     !subagentRoutingEligible &&
-    !showClaudePermissionMode
+    !showClaudePermissionMode &&
+    !currentTeammate
   )
     return null;
 
@@ -6673,14 +6689,6 @@ function ComposerConfigGear({
               type="button"
               size="icon"
               variant="ghost"
-              // Soft-disable: keep the button hover-able so its tooltip (the
-              // read-only config summary) still shows, but block the click and
-              // dim it. A native `disabled` button swallows pointer events, so
-              // the tooltip would never fire.
-              // The ::before hairline is this gear's divider from the
-              // model/effort label in the composer's split pill. It's drawn
-              // here rather than as a sibling node because the label renders
-              // nothing for some sessions — `first:` then drops the divider.
               className={cn(
                 "size-9 shrink-0 text-muted-foreground before:absolute before:top-1/2 before:left-0 before:h-4 before:w-px before:-translate-y-1/2 before:bg-border hover:text-foreground first:before:hidden md:size-8",
                 disabled && "cursor-default opacity-50 hover:text-muted-foreground",
@@ -6691,7 +6699,7 @@ function ComposerConfigGear({
                 setOpen(true);
               }}
               data-testid="composer-config-gear"
-              aria-label="Configure session"
+              aria-label={currentTeammate ? `Configure ${currentTeammate.agent.name}` : "Configure session"}
             >
               <SettingsIcon className="size-4" data-icon-size="16" />
             </Button>
@@ -6712,7 +6720,14 @@ function ComposerConfigGear({
           )}
         </Tooltip>
       </TooltipProvider>
-      {open && (
+      {open && currentTeammate ? (
+        <TeammateSettingsDialog
+          teammate={currentTeammate}
+          open={open}
+          onOpenChange={setOpen}
+          hostId={session?.hostId ?? null}
+        />
+      ) : open ? (
         <SessionConfigModal
           open={open}
           onOpenChange={setOpen}
@@ -6726,7 +6741,7 @@ function ComposerConfigGear({
           costRoutingEligible={costRoutingEligible}
           subagentRoutingEligible={subagentRoutingEligible}
         />
-      )}
+      ) : null}
     </>
   );
 }
@@ -6935,6 +6950,26 @@ function ComposerModelEffortLabel({
         className="min-w-0 shrink truncate pl-2.5 pr-2 text-sm tabular-nums text-muted-foreground"
       >
         <span className="text-foreground">{SMART_ROUTING_LABEL}</span>
+      </span>
+    );
+  }
+
+  const conversationId = useChatStore((s) => s.conversationId);
+  const { session } = useSession(conversationId);
+  const isDebby = agentRootName(session?.agentName ?? "").toLowerCase() === "debby";
+  if (isDebby) {
+    const claudePartner = session?.labels?.[CLAUDE_PARTNER_MODEL_LABEL] || "default";
+    const gptPartner = session?.labels?.[GPT_PARTNER_MODEL_LABEL] || "default";
+    const partnerDisplay =
+      claudePartner === "default" && gptPartner === "default"
+        ? "Claude + GPT"
+        : `${claudePartner === "default" ? "Claude" : claudePartner.replace("claude-", "")} + ${gptPartner === "default" ? "GPT" : gptPartner.replace("gpt-", "")}`;
+    return (
+      <span
+        data-testid="composer-model-effort-label"
+        className="min-w-0 shrink truncate pl-2.5 pr-2 text-sm tabular-nums text-muted-foreground"
+      >
+        <span className="text-foreground">{partnerDisplay}</span>
       </span>
     );
   }

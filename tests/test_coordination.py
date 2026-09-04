@@ -458,6 +458,9 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
         recipient_role="implementer",
         intent="review.request",
         payload={"diff_url": "artifact://diff_001"},
+        artifacts=[
+            {"type": "input_file", "file_id": "file_target", "filename": "plan.md"}
+        ],
     )
     memory_store.save_message_and_outbox(msg)
 
@@ -492,6 +495,11 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
     assert body["metadata"]["message_id"] == msg.message_id
     assert body["metadata"]["sender_session_id"] == msg.sender_session_id
     assert "review.request" in body["content"][0]["text"]
+    assert body["content"][1] == {
+        "type": "input_file",
+        "file_id": "file_target",
+        "filename": "plan.md",
+    }
 
 
 @pytest.mark.asyncio
@@ -1460,6 +1468,70 @@ async def test_workflow_reconcile_never_replays_consumed_or_paused(
 
 
 @pytest.mark.asyncio
+async def test_workflow_reconcile_stops_after_one_failed_heal(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(memory_store, WorkspaceCoordinator())
+    run = await engine.start_plan_implement_review_run(
+        title="Finite Recovery",
+        root_session_id="conv_root_finite",
+        planner_session_id="conv_planner_finite",
+        implementer_session_id="conv_coder_finite",
+        reviewer_session_id="conv_reviewer_finite",
+        user_prompt="Do not recover forever",
+        workspace_path=str(tmp_path),
+    )
+    kickoff = memory_store.list_messages(run.root_session_id)[0]
+    original_outbox = memory_store.list_outbox_items(message_id=kickoff.message_id)[0]
+    for _ in range(5):
+        memory_store.requeue_outbox(original_outbox.item_id, next_retry_delay_s=0)
+
+    assert await engine.reconcile_missing_dispatches() == 1
+    messages = memory_store.list_messages(run.root_session_id)
+    assert len(messages) == 2
+    assert all(message.idempotency_key for message in messages)
+    healed_outbox = memory_store.list_outbox_items(message_id=messages[-1].message_id)[0]
+    for _ in range(5):
+        memory_store.requeue_outbox(healed_outbox.item_id, next_retry_delay_s=0)
+
+    assert await engine.reconcile_missing_dispatches() == 0
+    stored_run = memory_store.get_run(run.run_id)
+    assert stored_run is not None and stored_run.status == "needs_attention"
+    planner = next(
+        task for task in memory_store.list_tasks(run.run_id) if task.assignee_role == "planner"
+    )
+    assert planner.status == "failed"
+    assert len(memory_store.list_messages(run.root_session_id)) == 2
+    events = memory_store.list_events(run.root_session_id)
+    assert any(event.event_type == "workflow.dispatch.abandoned" for event in events)
+
+
+@pytest.mark.asyncio
+async def test_workflow_reconcile_cancels_run_with_missing_root(
+    memory_store: CoordinationStore, tmp_path: Path
+) -> None:
+    engine = CoordinationWorkflowEngine(
+        memory_store,
+        WorkspaceCoordinator(),
+        conversation_store=FakeConversationStore({}),
+    )
+    run = await engine.start_plan_implement_review_run(
+        title="Orphan Recovery",
+        root_session_id="conv_missing_root",
+        planner_session_id="conv_missing_planner",
+        implementer_session_id="conv_missing_coder",
+        reviewer_session_id="conv_missing_reviewer",
+        user_prompt="Cancel orphan state",
+        workspace_path=str(tmp_path),
+    )
+
+    assert await engine.reconcile_missing_dispatches() == 0
+    stored = memory_store.get_run(run.run_id)
+    assert stored is not None and stored.status == "cancelled"
+    assert {task.status for task in memory_store.list_tasks(run.run_id)} == {"cancelled"}
+    assert memory_store.list_messages(run.root_session_id)[0].message_state == "cancelled"
+
+@pytest.mark.asyncio
 async def test_workflow_cancel_run_marks_messages_and_tasks(
     memory_store: CoordinationStore, tmp_path: Path
 ) -> None:
@@ -1700,6 +1772,20 @@ def test_coordination_api_endpoints(
     )
     assert res_msg.status_code == 200
     assert res_msg.json()["delivery_state"] == "pending"
+    assert memory_store.list_messages("conv_root_api")[0].idempotency_key.startswith("auto:")
+    duplicate = client.post(
+        "/v1/coordination/messages",
+        json={
+            "root_session_id": "conv_root_api",
+            "sender_session_id": "conv_p1",
+            "recipient_session_id": "conv_c1",
+            "sender_role": "planner",
+            "intent": "task.request",
+            "payload": {"prompt": "Run build"},
+        },
+    )
+    assert duplicate.status_code == 200
+    assert len(memory_store.list_messages("conv_root_api")) == 1
 
     # 4. Acquire Workspace Lease
     res_lease = client.post(

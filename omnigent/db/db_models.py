@@ -305,6 +305,64 @@ class SqlAgent(OmnigentBase):
     )
 
 
+class SqlBot(OmnigentBase):
+    """Persistent teammate identity; executable behavior remains on ``agents``."""
+
+    __tablename__ = "bots"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    id: Mapped[str] = mapped_column(Uuid16(), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    agent_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    default_model: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    behavior_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="off")
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'archived')", name="ck_bots_status"),
+        CheckConstraint(
+            "behavior_mode IN ('off', 'advisory', 'lean', 'strict')",
+            name="ck_bots_behavior_mode",
+        ),
+        Index("ix_bots_owner", "workspace_id", "owner_id", "status", "created_at", "id"),
+        Index("ix_bots_agent", "workspace_id", "owner_id", "agent_id", "id"),
+    )
+
+
+class SqlBotComputerBinding(OmnigentBase):
+    """Fixed Phase-1 Local Host binding and home for one bot."""
+
+    __tablename__ = "bot_computer_bindings"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    id: Mapped[str] = mapped_column(Uuid16(), primary_key=True)
+    bot_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    host_id: Mapped[str | None] = mapped_column(Uuid16(), nullable=True)
+    home_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "bot_id", name="uq_bot_computer_bindings_bot"),
+    )
+
+
 class SqlFile(OmnigentBase):
     """
     SQLAlchemy model for the ``files`` table.
@@ -649,6 +707,12 @@ class SqlConversationMetadata(OmnigentBase):
     # (Rule R032). NULL = unfiled. Coexists with the implicit ``omni_project``
     # label via the store's dual-read until labels are consolidated.
     project_id: Mapped[str | None] = mapped_column(Uuid16(), nullable=True)
+    # Bot ownership is operational metadata: Bot is an Omnigent entity and the
+    # AP conversation database may be physically separate. No reverse pointer
+    # is stored on Bot.
+    bot_id: Mapped[str | None] = mapped_column(Uuid16(), nullable=True)
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False, default="standalone")
+    singleton_slot: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     __table_args__ = (
         CheckConstraint("kind IN (1, 2)", name="ck_conversation_metadata_kind"),
@@ -660,6 +724,28 @@ class SqlConversationMetadata(OmnigentBase):
         Index("ix_conversation_metadata_runner_id", "workspace_id", "runner_id", "id"),
         # "list sessions in project X" + per-project counts (GROUP BY project_id).
         Index("ix_conversation_metadata_project_id", "workspace_id", "project_id", "id"),
+        Index(
+            "ix_conversation_metadata_bot_id",
+            "workspace_id",
+            "bot_id",
+            "purpose",
+            "id",
+        ),
+        UniqueConstraint(
+            "workspace_id",
+            "bot_id",
+            "singleton_slot",
+            name="uq_conversation_metadata_bot_singleton",
+        ),
+        CheckConstraint(
+            "purpose IN ('primary', 'topic', 'routine', 'a2a', 'subagent', 'standalone')",
+            name="ck_conversation_metadata_purpose",
+        ),
+        CheckConstraint(
+            "(singleton_slot IS NULL AND purpose NOT IN ('primary', 'a2a')) OR "
+            "(singleton_slot = purpose AND purpose IN ('primary', 'a2a'))",
+            name="ck_conversation_metadata_singleton_slot",
+        ),
     )
 
 
@@ -1693,7 +1779,7 @@ class SqlAgentMessage(OmnigentBase):
     )
     correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     in_reply_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     hop_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
     max_hops: Mapped[int] = mapped_column(Integer, nullable=False, server_default="8", default=8)
     ttl_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -1776,6 +1862,7 @@ class SqlDeliveryAttempt(OmnigentBase):
     delivery_state: Mapped[str] = mapped_column(String(16), nullable=False)
     injection_receipt_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
     error: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
@@ -1907,5 +1994,45 @@ class SqlCoordinationArtifact(OmnigentBase):
             "workspace_id",
             "root_session_id",
             "created_at",
+        ),
+    )
+
+
+class SqlAgentMemory(OmnigentBase):
+    """SQLAlchemy model for the ``agent_memories`` table.
+
+    One row is one durable memory owned by one teammate agent. The row is
+    keyed by ``(workspace_id, id)`` like other app tables; ``agent_id`` is an
+    application-owned relationship to ``agents.id`` (no DB foreign key, Rule
+    R032). Free text is stored via :class:`CompressedText` because it is never
+    SQL-queried.
+    """
+
+    __tablename__ = "agent_memories"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    id: Mapped[str] = mapped_column(Uuid16, primary_key=True)
+    # Relates to agents.id. No DB foreign key (Rule R032); cleanup is
+    # application-owned.
+    agent_id: Mapped[str] = mapped_column(Uuid16, nullable=False)
+    # Opaque free-text memory, never SQL-queried — stored compressed.
+    content: Mapped[str] = mapped_column(CompressedText, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, server_default="manual")
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index(
+            "ix_agent_memories_agent_scope",
+            "workspace_id",
+            "agent_id",
+            "created_at",
+            "id",
         ),
     )

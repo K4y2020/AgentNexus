@@ -404,6 +404,25 @@ def register_core_routes(
             artifact_store=artifact_store,
             background_title_coordinator=background_title_coordinator,
         )
+        if project_store is not None and body.workspace:
+            try:
+                from pathlib import Path
+                workspace_name = Path(body.workspace.strip()).name
+                if workspace_name:
+                    owned_projects = await asyncio.to_thread(project_store.list, user_id=user_id)
+                    matched = next(
+                        (p for p in owned_projects if p.name.lower() == workspace_name.lower()),
+                        None,
+                    )
+                    if matched is not None:
+                        await asyncio.to_thread(
+                            conversation_store.set_conversation_project,
+                            resp.id,
+                            matched.id,
+                        )
+                        resp.project_id = matched.id
+            except Exception:
+                _logger.debug("Project auto-association skipped for workspace %s", body.workspace, exc_info=True)
         # Notify the runner about the new session so it can resolve
         # the spec and cache sub_agent_name before the first turn.
         # Without this, the runner doesn't know this session exists
@@ -1605,6 +1624,16 @@ def register_core_routes(
         await _require_access(
             user_id, session_id, required_level, permission_store, conversation_store
         )
+        if body.archived is True:
+            bot_session = await asyncio.to_thread(
+                conversation_store.get_conversation,
+                session_id,
+            )
+            if bot_session is not None and bot_session.purpose in {"primary", "a2a"}:
+                raise OmnigentError(
+                    f"Bot {bot_session.purpose} sessions cannot be archived directly",
+                    code=ErrorCode.CONFLICT,
+                )
         if body.runner_id is not None and permission_store is not None:
             if not check_session_access(
                 user_id, session_id, LEVEL_OWNER, permission_store, conversation_store
@@ -1686,11 +1715,15 @@ def register_core_routes(
                 conv_for_permission_mode.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
                 != _CLAUDE_NATIVE_WRAPPER_LABEL_VALUE
             ):
-                raise OmnigentError(
-                    "permission_mode is only supported for claude-native sessions",
-                    code=ErrorCode.INVALID_INPUT,
-                )
-            requested_claude_permission_mode = body.permission_mode
+                if body.permission_mode in ("default", "none", ""):
+                    permission_mode_requested = False
+                else:
+                    raise OmnigentError(
+                        "permission_mode is only supported for claude-native sessions",
+                        code=ErrorCode.INVALID_INPUT,
+                    )
+            if permission_mode_requested:
+                requested_claude_permission_mode = body.permission_mode
         labels_to_set = dict(body.labels or {})
         # Pins are per-user. The client writes the canonical ``omnigent.pinned``
         # key; rewrite it to the caller's per-user key so one user's pin doesn't
@@ -1881,6 +1914,14 @@ def register_core_routes(
         )
         if updated is None:
             raise _session_not_found()
+        if "workspace" in body.model_fields_set and body.workspace is not None:
+            new_ws = body.workspace.strip()
+            if new_ws:
+                await asyncio.to_thread(
+                    conversation_store.set_conversation_workspace,
+                    session_id,
+                    new_ws,
+                )
         # Archiving hides the session from the default view (and its unread
         # dot), so drop its per-user read-state to bound in-memory growth.
         # Only on archive→true; unarchiving leaves it pruned (reads as seen).

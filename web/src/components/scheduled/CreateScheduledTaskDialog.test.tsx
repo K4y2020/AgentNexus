@@ -260,6 +260,11 @@ describe("CreateScheduledTaskDialog prefill (seed-on-open + reset)", () => {
     );
   });
 
+  it("seeds the agent picker from initialAgentId when opened for a teammate", () => {
+    render(<CreateScheduledTaskDialog open onOpenChange={vi.fn()} initialAgentId="ag_1" />);
+    expect(screen.getByTestId("agent-picker-stub")).toHaveAttribute("data-effective", "ag_1");
+  });
+
   it("starts EMPTY when opened with no initial values (manual path)", () => {
     render(<CreateScheduledTaskDialog open onOpenChange={vi.fn()} />);
     expect((screen.getByTestId("task-name-input") as HTMLInputElement).value).toBe("");

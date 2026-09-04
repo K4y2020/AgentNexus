@@ -17,6 +17,27 @@
 const OVERLAY_WIDTH = 344; // 320px card + 12px shadow gutter each side
 const OVERLAY_INSET = 12;
 
+function sendToLiveWindow(target, channel, payload) {
+  if (!target || target.isDestroyed()) return false;
+  const contents = target.webContents;
+  if (!contents || contents.isDestroyed?.()) return false;
+  try {
+    contents.send(channel, payload);
+    return true;
+  } catch (error) {
+    // BrowserWindow and webContents teardown are not atomic. Closing Windows
+    // can destroy webContents after both checks but before send().
+    if (
+      target.isDestroyed() ||
+      contents.isDestroyed?.() ||
+      String(error?.message ?? error).includes("Object has been destroyed")
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 /**
  * @param {object} deps
  * @param {typeof import("electron").BrowserWindow} deps.BrowserWindow
@@ -66,8 +87,7 @@ function createUpdateOverlay({
   }
 
   function notifyParentHeight(parent, height) {
-    if (!parent || parent.isDestroyed()) return;
-    parent.webContents.send("omnigent:update-overlay-height", height);
+    sendToLiveWindow(parent, "omnigent:update-overlay-height", height);
   }
 
   function position(parent, overlay, height) {
@@ -119,8 +139,8 @@ function createUpdateOverlay({
     const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
     void overlay.loadFile(overlayPage, { search: `theme=${theme}` });
     overlay.webContents.on("did-finish-load", () => {
-      if (overlay.isDestroyed()) return;
-      overlay.webContents.send(
+      sendToLiveWindow(
+        overlay,
         "omnigent:overlay-theme",
         nativeTheme.shouldUseDarkColors ? "dark" : "light",
       );
@@ -215,9 +235,7 @@ function createUpdateOverlay({
     nativeTheme.on("updated", () => {
       const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
       for (const overlay of overlays.values()) {
-        if (!overlay.isDestroyed()) {
-          overlay.webContents.send("omnigent:overlay-theme", theme);
-        }
+        sendToLiveWindow(overlay, "omnigent:overlay-theme", theme);
       }
     });
   }

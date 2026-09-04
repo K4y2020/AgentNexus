@@ -70,6 +70,8 @@ describe("createSession", () => {
     expect(session).toEqual({
       id: "conv_abc",
       agentId: "agent_xyz",
+      botId: null,
+      purpose: "standalone",
       agentName: null,
       runnerId: undefined,
       hostId: null,
@@ -89,6 +91,7 @@ describe("createSession", () => {
       harness: null,
       modelOverride: undefined,
       costControlModeOverride: undefined,
+      subagentRoutingOverride: undefined,
       reasoningEffort: undefined,
       pendingElicitations: [],
       pendingInputs: [],
@@ -98,6 +101,7 @@ describe("createSession", () => {
       terminalLaunchArgs: null,
       kind: "default",
       backgroundTaskCount: undefined,
+      backgroundTasks: undefined,
       todos: [],
       skills: [],
       codexModelOptions: [],
@@ -181,6 +185,32 @@ describe("createSession", () => {
     expect("parent_session_id" in sent).toBe(false);
     expect("sub_agent_name" in sent).toBe(false);
     expect("title" in sent).toBe(false);
+  });
+
+  it("forwards host_id and workspace when a bot chat picks a host", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        id: "conv_bot",
+        agent_id: "agent_xyz",
+        status: "idle",
+        created_at: 1704067200,
+        host_id: "host_1",
+        workspace: "U:/AI/MultiAgent",
+      }),
+    );
+
+    await createSession("agent_xyz", [], {
+      hostId: "host_1",
+      workspace: "U:/AI/MultiAgent",
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      agent_id: "agent_xyz",
+      initial_items: [],
+      host_id: "host_1",
+      workspace: "U:/AI/MultiAgent",
+    });
   });
 
   it("throws when the response is not ok", async () => {

@@ -18,6 +18,7 @@ from omnigent.db.utils import generate_agent_id
 from omnigent.entities import USER_SESSION_TITLE_MAX_CHARS
 from omnigent.server.routes import sessions as sessions_module
 from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
 from omnigent.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
@@ -56,6 +57,84 @@ async def test_list_sessions_after_create(
     body = resp.json()
     ids = [s["id"] for s in body["data"]]
     assert session_id in ids
+
+
+async def test_bot_session_uses_durable_home_and_singleton_slot(
+    client: httpx.AsyncClient,
+    db_uri: str,
+) -> None:
+    agent_store = SqlAlchemyAgentStore(db_uri)
+    bot_store = SqlAlchemyBotStore(db_uri)
+    agent_id = generate_agent_id()
+    agent = agent_store.create(
+        agent_id,
+        name="polly",
+        bundle_location="test:///bundle",
+    )
+    bot = bot_store.ensure_for_agent(
+        owner_id="local",
+        agent_id=agent.id,
+        name=agent.name,
+        description=agent.description,
+    )
+    configured = bot_store.update_settings(
+        bot.id,
+        owner_id="local",
+        name=bot.name,
+        description=bot.description,
+        status="active",
+        default_model="gpt-5.6-luna",
+        behavior_mode="lean",
+    )
+    assert configured is not None
+
+    response = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent.id,
+            "bot_id": bot.id,
+            "purpose": "primary",
+            "workspace": "U:/wrong/recent/project",
+            "labels": {"omnigent.teammate.primary": "true"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["bot_id"] == bot.id
+    assert body["purpose"] == "primary"
+    assert body["workspace"].endswith(f"{bot.id}\\scratch")
+    assert body["model_override"] == "gpt-5.6-luna"
+    assert body["labels"]["omnigent.behavior_mode"] == "lean"
+
+    child = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent.id,
+            "parent_session_id": body["id"],
+            "title": "worker:one",
+        },
+    )
+    assert child.status_code == 201, child.text
+    assert child.json()["bot_id"] == bot.id
+    assert child.json()["purpose"] == "subagent"
+
+    duplicate = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent.id,
+            "bot_id": bot.id,
+            "purpose": "primary",
+        },
+    )
+    assert duplicate.status_code == 409
+
+    archived = await client.patch(
+        f"/v1/sessions/{body['id']}",
+        json={"archived": True},
+    )
+    assert archived.status_code == 409
+    deleted = await client.delete(f"/v1/sessions/{body['id']}")
+    assert deleted.status_code == 409
 
 
 async def test_list_sessions_pagination(

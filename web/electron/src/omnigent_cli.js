@@ -246,13 +246,21 @@ function localServerStatus() {
  */
 async function localServerHealthy(timeoutMs = 1500) {
   const rec = readLocalServerPidfile();
-  if (!rec || !isPidAlive(rec.pid)) return null;
-  const localUrl = `http://127.0.0.1:${rec.port}`;
+  if (rec && isPidAlive(rec.pid)) {
+    const localUrl = `http://127.0.0.1:${rec.port}`;
+    try {
+      const resp = await fetch(`${localUrl}/health`, { signal: AbortSignal.timeout(timeoutMs) });
+      if (resp.ok) return { url: localUrl, pid: rec.pid, port: rec.port };
+    } catch {
+      // Refused / unreachable / timed out → not a healthy server we can reuse.
+    }
+  }
   try {
-    const resp = await fetch(`${localUrl}/health`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (resp.ok) return { url: localUrl, pid: rec.pid, port: rec.port };
+    const defaultUrl = "http://127.0.0.1:6767";
+    const resp = await fetch(`${defaultUrl}/health`, { signal: AbortSignal.timeout(timeoutMs) });
+    if (resp.ok) return { url: defaultUrl, pid: 0, port: 6767 };
   } catch {
-    // Refused / unreachable / timed out → not a healthy server we can reuse.
+    // Standard port not answering.
   }
   return null;
 }
@@ -283,7 +291,10 @@ function candidatePaths() {
     "/opt/homebrew/bin",
     "/usr/local/bin",
   ];
-  return dirs.flatMap((dir) => CLI_NAMES.map((name) => path.join(dir, name)));
+  const names = CLI_NAMES.flatMap((name) =>
+    process.platform === "win32" ? [name, `${name}.exe`] : [name],
+  );
+  return dirs.flatMap((dir) => names.map((name) => path.join(dir, name)));
 }
 
 /**

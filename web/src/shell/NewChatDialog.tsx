@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1383,6 +1384,17 @@ function SearchableModelPicker({
   );
 }
 
+export const CODEBUDDY_DEFAULT_MODELS = [
+  { id: "hy4-preview", displayName: "Hunyuan 4 Preview (腾讯混元4)", isDefault: true },
+  { id: "hy3", displayName: "Hunyuan 3", isDefault: false },
+  { id: "hy3-x", displayName: "Hunyuan 3-X", isDefault: false },
+  { id: "deepseek-v4-pro", displayName: "DeepSeek V4 Pro", isDefault: false },
+  { id: "glm-5.3", displayName: "GLM 5.3", isDefault: false },
+  { id: "kimi-k3-2", displayName: "Kimi K3.2", isDefault: false },
+  { id: "minimax-m3-pay", displayName: "MiniMax M3", isDefault: false },
+  { id: "auto", displayName: "Auto (自动路由)", isDefault: false },
+] as const;
+
 /**
  * Harness-configuration modal opened from the composer's gear icon. Shows the
  * selected agent's run-config knobs — Claude: model / effort / permissions;
@@ -1420,6 +1432,7 @@ function HarnessConfigModal({
   codexModelsError,
   piModelOptions,
   piModelsLoading,
+  codebuddyModelOptions = CODEBUDDY_DEFAULT_MODELS,
   pickedEffort,
   pickedHarness,
   costControlMode,
@@ -1454,6 +1467,7 @@ function HarnessConfigModal({
   codexModelsError: string | null;
   piModelOptions: readonly { id: string; displayName: string }[];
   piModelsLoading: boolean;
+  codebuddyModelOptions?: readonly Pick<NativeModelOption, "id" | "displayName" | "isDefault">[];
   pickedEffort: string;
   pickedHarness: string | null;
   costControlMode: CostControlMode;
@@ -1477,8 +1491,17 @@ function HarnessConfigModal({
   const hasAgySkip = nativeAgentHasCapability(agent, "skipPermissions");
   const hasModelPicker = nativeAgentHasCapability(agent, "modelPicker");
   const isCodex = entryHarness === "codex-native";
+  const isCodebuddy = agent.name?.toLowerCase() === "codebuddy" || agent.harness === "codebuddy";
   const brainDefault =
     agent.harness != null && agent.harness in brainHarnessLabels ? agent.harness : null;
+  const codebuddyModelSelectOptions = useMemo(
+    () =>
+      (codebuddyModelOptions && codebuddyModelOptions.length > 0
+        ? codebuddyModelOptions
+        : CODEBUDDY_DEFAULT_MODELS
+      ).map((m) => ({ id: m.id, label: (m as any).displayName ?? m.id })),
+    [codebuddyModelOptions],
+  );
   // A brain harness whose CLI takes a model flag (e.g. codebuddy's ``--model``)
   // accepts a pinned model; the Model row renders only for those. Server
   // derived — a new pinning-capable row is one field on the harness, no
@@ -1503,18 +1526,21 @@ function HarnessConfigModal({
 
   useEffect(() => {
     if (!open) return;
-    setDraftModel(pickedModel);
+    if (isCodebuddy) {
+      setDraftHarness("codebuddy");
+      setDraftModel(pickedModel || "hy4-preview");
+    } else {
+      setDraftModel(pickedModel);
+      setDraftHarness(pickedHarness);
+    }
     setDraftEffort(pickedEffort);
     setDraftPermission(permissionMode);
     setDraftApproval(approvalMode);
     setDraftCursor(cursorExecMode);
     setDraftAgySkip(agySkipMode);
     setDraftBypass(bypassSandbox);
-    setDraftHarness(pickedHarness);
     setDraftRouting(costControlMode);
-    // Seed once per open from the current live values.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, isCodebuddy, pickedModel, pickedHarness]);
 
   // Only treat routing as "on" when it's actually offered for this agent —
   // otherwise a stale costControlMode="on" (e.g. server later disabled the
@@ -1605,6 +1631,10 @@ function HarnessConfigModal({
     } else if (hasAgySkip) {
       setAgySkipMode(draftAgySkip);
       if (entryHarness) writeHarnessOption(entryHarness, { mode: draftAgySkip });
+    } else if (isCodebuddy) {
+      setPickedHarness(null, agent.id);
+      setPickedModel(draftModel ? draftModel.trim() : "hy4-preview");
+      writeHarnessOption("codebuddy", { model: draftModel || "hy4-preview" });
     } else if (brainDefault) {
       // Picking the spec default clears the override so the session tracks it.
       setPickedHarness(draftHarness === brainDefault ? null : draftHarness, agent.id);
@@ -1868,10 +1898,25 @@ function HarnessConfigModal({
             </>
           )}
 
+          {!autoRouting && isCodebuddy && (
+            <ConfigRow label="Model" description="Underlying LLM">
+              <RoutingModelSelect
+                value={draftModel || "hy4-preview"}
+                onValueChange={(val) => setDraftModel(val === "default" ? "" : val)}
+                offerSmartRouting={false}
+                testId="new-chat-landing-config-model"
+                models={codebuddyModelSelectOptions}
+                defaultLabel="Hunyuan 4 Preview (hy4-preview)"
+                contentClassName="[&_[data-slot=select-item]]:pl-2.5"
+                componentId="new_chat.config.model"
+              />
+            </ConfigRow>
+          )}
+
           {/* Stays rendered while Smart Routing is the pick: it is the control
           that selected it, so hiding it would strand the choice with no way to
           read it back or switch away without cancelling. */}
-          {!hasPermission && !hasApproval && !hasCursor && !hasAgySkip && brainDefault && (
+          {!hasPermission && !hasApproval && !hasCursor && !hasAgySkip && !isCodebuddy && brainDefault && (
             <ConfigRow label="Agent Harness" description="Underlying coding harness">
               <Select
                 value={draftHarness ?? brainDefault}
@@ -1928,7 +1973,7 @@ function HarnessConfigModal({
           are the vendor CLI's curated list, which Omnigent's catalog doesn't
           mirror — the vendor rejects unknown ids loudly at launch. Smart
           Routing owns the model, so the row drops while routing is the pick. */}
-          {!autoRouting && brainDefault && draftModelArg && (
+          {!autoRouting && !isCodebuddy && brainDefault && draftModelArg && (
             <ConfigRow label="Model" description={`Pinned on launch via ${draftModelArg}`}>
               <Input
                 value={draftModel}
@@ -2211,6 +2256,40 @@ export function NewChatLandingScreen() {
   // Declared after textareaRef so dictation can place the caret after the
   // text it inserts (and insert at the caret rather than the draft's end).
   const dictation = useDictationInsert(message, setMessage, textareaRef);
+
+  // Desktop auto-focus: focus the composer so typing can start immediately, but
+  // guard against aria-hidden / open modals (e.g. arriving from Delete Conversation dialog)
+  // so the browser never blocks aria-hidden on a focused descendant.
+  useLayoutEffect(() => {
+    if (isMobileViewport) return undefined;
+    if (typeof document === "undefined") return undefined;
+
+    const isBlocked = () => {
+      const el = textareaRef.current;
+      if (!el) return true;
+      let curr: HTMLElement | null = el;
+      while (curr) {
+        if (curr.getAttribute("aria-hidden") === "true") return true;
+        curr = curr.parentElement;
+      }
+      const dialog = document.querySelector("[role='dialog'], [data-radix-portal]");
+      return dialog !== null && dialog.getAttribute("data-state") !== "closed";
+    };
+
+    if (isBlocked()) {
+      const observer = new MutationObserver(() => {
+        if (!isBlocked()) {
+          observer.disconnect();
+          textareaRef.current?.focus({ preventScroll: true });
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      return () => observer.disconnect();
+    }
+
+    textareaRef.current?.focus({ preventScroll: true });
+    return undefined;
+  }, [isMobileViewport]);
   const isComposingRef = useRef(false);
   // maxRows 9 = 180px of 20px lines, matching the composer's 200px
   // border-box max (180px content + 16px top / 4px bottom padding).
@@ -2363,6 +2442,18 @@ export function NewChatLandingScreen() {
     selectedHostId,
     "pi-native",
     !sandboxSelected,
+  );
+  const { data: hostCodebuddyModelOptions = [] } = useHostModelOptions(
+    selectedHostId,
+    "codebuddy",
+    !sandboxSelected,
+  );
+  const codebuddyModelOptions = useMemo(
+    () =>
+      hostCodebuddyModelOptions.length > 0
+        ? hostCodebuddyModelOptions
+        : CODEBUDDY_DEFAULT_MODELS,
+    [hostCodebuddyModelOptions],
   );
   const claudeModelOptions = useMemo(
     () =>
@@ -3086,6 +3177,11 @@ export function NewChatLandingScreen() {
       const skipValue =
         AGY_NATIVE_SKIP_MODES.find((m) => m.value === agySkipMode)?.label ?? agySkipMode;
       return [{ label: "Permissions", value: skipValue }, ...routingRow];
+    }
+    if (selectedAgent?.harness === "codebuddy" || selectedAgent?.name?.toLowerCase() === "codebuddy") {
+      const activeModel = pickedModel || "hy4-preview";
+      const matched = codebuddyModelOptions.find((m) => m.id === activeModel);
+      return [{ label: "Model", value: matched ? (matched as any).displayName ?? matched.id : activeModel }, ...routingRow];
     }
     if (selectedAgent?.harness != null && selectedAgent.harness in brainHarnessLabelsAll) {
       const active = pickedHarness ?? selectedAgent.harness;
@@ -4159,7 +4255,9 @@ export function NewChatLandingScreen() {
             // delivers the real message after navigation.
             harness_override: smartRoutingHarnessSelected
               ? AUTO_HARNESS_ID
-              : (pickedHarness ?? undefined),
+              : (selectedAgent?.harness === "codebuddy" || selectedAgent?.name?.toLowerCase() === "codebuddy"
+                ? undefined
+                : (pickedHarness ?? undefined)),
             smart_routing_message:
               smartRoutingHarnessSelected || pinnedNativeRoutes ? initialPrompt : undefined,
           }),
@@ -4534,13 +4632,8 @@ export function NewChatLandingScreen() {
                 placeholder={pillSkills.length > 0 ? "" : placeholderText}
                 aria-label={placeholderText}
                 rows={1}
-                // Desktop only. This screen mounts on every arrival at "/" —
-                // including ones the user didn't make to type, like Back out of
-                // Settings — and on a phone focusing the field throws up the
-                // keyboard (and auto-zooms, per the note below) over whatever
-                // is on screen, sometimes with the sidebar drawer still open on
-                // top of it. Phones expect to be tapped before they type.
-                autoFocus={!isMobileViewport}
+                // Desktop focus is managed via guarded useLayoutEffect above to avoid
+                // aria-hidden collisions when arriving from modal dialogs (e.g. delete session).
                 data-testid="new-chat-landing-input"
                 // Compose-pill text spec: inherited UI font at 14px/20px.
                 // (Note: sub-16px inputs make mobile Safari
@@ -4791,6 +4884,7 @@ export function NewChatLandingScreen() {
                     piModelsLoading={
                       !sandboxSelected && selectedHostId !== null && hostPiModelsLoading
                     }
+                    codebuddyModelOptions={codebuddyModelOptions}
                     pickedEffort={pickedEffort}
                     pickedHarness={pickedHarness}
                     costControlMode={costControlMode}

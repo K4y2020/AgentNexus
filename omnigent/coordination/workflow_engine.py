@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from omnigent.coordination.behavior import BehaviorMode, workflow_behavior_payload
 from omnigent.coordination.store import (
@@ -41,6 +43,14 @@ WorkflowOutcome = Literal["succeeded", "failed"]
 #: whose dispatch can never land is not re-queued on every scheduler pass.
 DISPATCH_HEAL_COOLDOWN_KEY = "dispatch_heal_cooldown"
 DISPATCH_HEAL_COOLDOWN_S = 60.0
+DISPATCH_HEAL_ATTEMPTS_KEY = "dispatch_heal_attempts"
+MAX_DISPATCH_HEALS_PER_TASK = 1
+
+
+def _workflow_idempotency_key(*parts: object) -> str:
+    """Return a compact stable key for one logical workflow dispatch."""
+    payload = json.dumps(parts, sort_keys=True, separators=(",", ":"), default=str)
+    return f"workflow:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
 
 def _delivery_in_flight(message: AgentMessage, outbox_items: list[OutboxItem]) -> bool:
@@ -111,9 +121,11 @@ class CoordinationWorkflowEngine:
         self,
         store: CoordinationStore | None = None,
         workspace_coord: WorkspaceCoordinator | None = None,
+        conversation_store: Any | None = None,
     ) -> None:
         self.store = store or CoordinationStore(get_default_coordination_db_path())
         self.workspace_coord = workspace_coord or WorkspaceCoordinator()
+        self.conversation_store = conversation_store
 
     async def start_plan_implement_review_run(
         self,
@@ -229,6 +241,12 @@ class CoordinationWorkflowEngine:
             recipient_role="planner",
             intent="task.request",
             payload=kickoff_payload,
+            idempotency_key=_workflow_idempotency_key(
+                run.run_id,
+                t_plan.task_id,
+                "initial",
+                kickoff_payload,
+            ),
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, kickoff_msg)
 
@@ -1309,9 +1327,13 @@ class CoordinationWorkflowEngine:
     async def _heal_run_dispatch(self, run: CoordinationRun) -> int:
         if run.status not in ("running", "waiting_peer"):
             return 0
+        if not await self._session_exists(run.root_session_id):
+            await self.cancel_run(run.run_id)
+            return 0
         tasks = await asyncio.to_thread(self.store.list_tasks, run.run_id)
         messages = await asyncio.to_thread(self.store.list_messages, run.root_session_id)
         heal_cooldowns = dict(run.metadata.get(DISPATCH_HEAL_COOLDOWN_KEY) or {})
+        heal_attempts = dict(run.metadata.get(DISPATCH_HEAL_ATTEMPTS_KEY) or {})
         now = time.time()
         healed = 0
         cooldown_changed = False
@@ -1320,6 +1342,13 @@ class CoordinationWorkflowEngine:
                 continue
             if not task.assignee_session_id:
                 continue
+            if not await self._session_exists(task.assignee_session_id):
+                await self._fail_unrecoverable_dispatch(
+                    run,
+                    task,
+                    reason="assignee_session_not_found",
+                )
+                return healed
             open_messages = [
                 message
                 for message in messages
@@ -1343,12 +1372,26 @@ class CoordinationWorkflowEngine:
                     for m in open_messages
                 ):
                     continue
+            attempt_count = int(heal_attempts.get(task.task_id, 0))
+            if attempt_count >= MAX_DISPATCH_HEALS_PER_TASK:
+                await self._fail_unrecoverable_dispatch(
+                    run,
+                    task,
+                    reason="delivery_failed_after_recovery",
+                )
+                return healed
             # A lost dispatch can recur, so cap how often one stage is healed;
             # without this a permanently undeliverable task would re-queue a
             # message on every pass.
             if now - float(heal_cooldowns.get(task.task_id, 0.0)) < DISPATCH_HEAL_COOLDOWN_S:
                 continue
-            sent = await self._resend_stage_request(run, task, attempt="recovery")
+            next_attempt = attempt_count + 1
+            sent = await self._resend_stage_request(
+                run,
+                task,
+                attempt="recovery",
+                attempt_number=next_attempt,
+            )
             await self._record(
                 run,
                 task,
@@ -1361,13 +1404,51 @@ class CoordinationWorkflowEngine:
                 },
             )
             heal_cooldowns[task.task_id] = now
+            heal_attempts[task.task_id] = next_attempt
             cooldown_changed = True
             healed += 1
         if cooldown_changed:
             metadata = dict(run.metadata)
             metadata[DISPATCH_HEAL_COOLDOWN_KEY] = heal_cooldowns
+            metadata[DISPATCH_HEAL_ATTEMPTS_KEY] = heal_attempts
             await asyncio.to_thread(self.store.update_run_metadata, run.run_id, metadata)
         return healed
+
+    async def _session_exists(self, session_id: str) -> bool:
+        if self.conversation_store is None:
+            return True
+        from omnigent.db.db_models import InvalidUuidError, uuid_to_bytes
+
+        try:
+            uuid_to_bytes(session_id)
+        except InvalidUuidError:
+            return False
+        conversation = await asyncio.to_thread(
+            self.conversation_store.get_conversation,
+            session_id,
+        )
+        return conversation is not None
+
+    async def _fail_unrecoverable_dispatch(
+        self,
+        run: CoordinationRun,
+        task: CoordinationTask,
+        *,
+        reason: str,
+    ) -> None:
+        await self._advance_task(
+            run=run,
+            task=task,
+            outcome="failed",
+            artifacts=[],
+            review_decision=None,
+        )
+        await self._record(
+            run,
+            task,
+            "workflow.dispatch.abandoned",
+            {"task_id": task.task_id, "reason": reason},
+        )
 
     async def _resend_stage_request(
         self,
@@ -1375,6 +1456,7 @@ class CoordinationWorkflowEngine:
         task: CoordinationTask,
         *,
         attempt: str = "retry",
+        attempt_number: int = 0,
         previous_assignee: str | None = None,
     ) -> AgentMessage:
         """Re-queue the durable stage prompt for a retried/reassigned task."""
@@ -1406,6 +1488,13 @@ class CoordinationWorkflowEngine:
                 intent=str(spec.get("intent") or "task.request"),
                 payload=payload,
                 correlation_id=f"{attempt}/{task.task_id}",
+                idempotency_key=_workflow_idempotency_key(
+                    run.run_id,
+                    task.task_id,
+                    attempt,
+                    attempt_number,
+                    task.assignee_session_id,
+                ),
             )
             await asyncio.to_thread(self.store.save_message_and_outbox, message)
             return message
@@ -1475,6 +1564,13 @@ class CoordinationWorkflowEngine:
             intent=intent,
             payload=payload,
             correlation_id=f"{attempt}/{task.task_id}",
+            idempotency_key=_workflow_idempotency_key(
+                run.run_id,
+                task.task_id,
+                attempt,
+                attempt_number,
+                task.assignee_session_id,
+            ),
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, message)
         return message
@@ -1582,6 +1678,12 @@ class CoordinationWorkflowEngine:
             recipient_role=task.assignee_role,
             intent=intent,
             payload=payload,
+            idempotency_key=_workflow_idempotency_key(
+                run.run_id,
+                task.task_id,
+                intent,
+                payload,
+            ),
         )
         await asyncio.to_thread(self.store.save_message_and_outbox, msg)
 

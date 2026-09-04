@@ -58,6 +58,60 @@ async def test_store_user_config_round_trip(tmp_path: Path) -> None:
     assert await store.get_user_config("T1", "U2") is None
 
 
+async def test_store_channel_binding_round_trip(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "store.sqlite3")
+    await store.initialize()
+
+    assert await store.get_channel_binding("T1", "C1") is None
+
+    await store.upsert_channel_binding(
+        "T1",
+        "C1",
+        agent_id="ag_1",
+        agent_name="Debby",
+        workspace="/home/bot/work",
+        host_id="host_a",
+        host_name="Host A",
+        owner_user_id="U1",
+    )
+    binding = await store.get_channel_binding("T1", "C1")
+    assert binding is not None
+    assert binding.agent_id == "ag_1"
+    assert binding.agent_name == "Debby"
+    assert binding.owner_user_id == "U1"
+    assert binding.host_id == "host_a"
+
+    assert await store.list_channel_bindings() == [binding]
+
+    await store.upsert_channel_binding(
+        "T1",
+        "C1",
+        agent_id="ag_2",
+        agent_name="Polly",
+        workspace="/tmp/ws",
+        host_id=None,
+        owner_user_id="U2",
+    )
+    updated = await store.get_channel_binding("T1", "C1")
+    assert updated is not None
+    assert updated.agent_id == "ag_2"
+    assert updated.owner_user_id == "U2"
+
+    assert await store.delete_channel_binding("T1", "C1") is True
+    assert await store.get_channel_binding("T1", "C1") is None
+    assert await store.delete_channel_binding("T1", "C1") is False
+
+
+async def test_store_run_delivery_dedupes(tmp_path: Path) -> None:
+    store = SQLiteStore(tmp_path / "store.sqlite3")
+    await store.initialize()
+
+    assert await store.mark_run_delivered("T1", "C1", "task_1", "conv_1") is True
+    assert await store.mark_run_delivered("T1", "C1", "task_1", "conv_1") is False
+    # The same run keyed per channel is independent.
+    assert await store.mark_run_delivered("T1", "C2", "task_1", "conv_1") is True
+
+
 async def test_store_claim_event_dedupes(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "store.sqlite3")
     await store.initialize()

@@ -124,6 +124,7 @@ class DeliveryAttempt:
     delivery_state: DeliveryState = "pending"
     injection_receipt: dict[str, Any] | None = None
     error: str | None = None
+    error_code: str | None = None
     attempt_count: int = 1
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)

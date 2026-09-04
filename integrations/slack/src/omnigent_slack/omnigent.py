@@ -503,6 +503,13 @@ class OmnigentClient:
         self._logger.info("Found built-in Omnigent agents count=%s", len(agents))
         return agents
 
+    async def list_scheduled_tasks(self) -> list[dict[str, Any]]:
+        """List the caller's scheduled tasks (routines) for completion polling."""
+        self._logger.debug("Listing Omnigent scheduled tasks")
+        tasks = await self._get_list("/v1/scheduled-tasks", "scheduled_tasks", "data")
+        self._logger.info("Found Omnigent scheduled tasks count=%s", len(tasks))
+        return tasks
+
     async def list_hosts(self) -> list[dict[str, Any]]:
         self._logger.debug("Listing Omnigent hosts")
         hosts = await self._get_list("/v1/hosts", "hosts", "data")

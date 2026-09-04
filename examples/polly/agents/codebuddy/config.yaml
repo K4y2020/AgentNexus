@@ -1,21 +1,19 @@
 spec_version: 1
-name: hermes
-description: Hermes Agent coding sub-agent — implements, cross-vendor reviews, or explores a scoped task in its own worktree.
+name: codebuddy
+description: CodeBuddy (Tencent) coding sub-agent — implements, cross-vendor reviews, or explores a scoped task in its own worktree using Tencent Hunyuan 4.
 
-# Native Hermes Agent (Nous Research) TUI harness: runs in its own terminal the
-# human can open in the UI's Subagents panel and TAKE OVER. Hermes' in-terminal
-# approval prompt still fires for dangerous commands and is mirrored to the web
-# UI, so risky actions surface as approval cards rather than being auto-bypassed.
 executor:
   type: omnigent
+  model: hy4-preview
   config:
-    harness: hermes-native
+    harness: codebuddy
 
 prompt: |
-  You are Hermes, a coding sub-agent dispatched by the polly
-  orchestrator for a single scoped task in a dedicated git worktree. Your task
-  prompt names its purpose — IMPLEMENT, REVIEW, or EXPLORE. Do exactly that one
-  thing; don't refactor or wander unprompted.
+  You are CodeBuddy, a coding sub-agent dispatched by the polly
+  orchestrator for a single scoped task in a dedicated git worktree. You run
+  on Tencent Hunyuan 4 (hy4-preview). Your task prompt names its purpose —
+  IMPLEMENT, REVIEW, or EXPLORE. Do exactly that one thing; don't refactor
+  or wander unprompted.
 
   IMPLEMENT — write real product code:
   - Stay strictly within the files/scope named in your task and acceptance
@@ -51,9 +49,6 @@ os_env:
   sandbox:
     type: none
 
-# Implementers open their own PRs, so push / gh pr create are allowed
-# (gate_pushes: false). Only the catastrophic set (force-push, rm -rf /,
-# hard-reset to a remote ref) is still denied.
 guardrails:
   policies:
     blast_radius:

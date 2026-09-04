@@ -127,6 +127,7 @@ class FireDeps:
     tunnel_registry: Any | None = None
     file_store: Any | None = None
     artifact_store: Any | None = None
+    bot_store: Any | None = None
 
 
 def _prompt_event(prompt: str) -> SessionEventInput:
@@ -712,6 +713,29 @@ async def _presentation_labels(deps: FireDeps, task: ScheduledTask) -> dict[str,
 
 async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
     """Create a conversation bound to the task's agent, carrying the stored spec."""
+    bot = None
+    workspace = task.workspace
+    if deps.bot_store is not None:
+        from omnigent.bots import bot_owner_id, bot_scratch_path, ensure_bot_home
+
+        bot = await asyncio.to_thread(
+            deps.bot_store.get_by_agent,
+            task.agent_id,
+            owner_id=bot_owner_id(task.user_id),
+        )
+        if bot is not None:
+            if bot.status != "active":
+                raise _CannotLaunchScheduledFire(
+                    "Bot is archived",
+                    error_code="bot_archived",
+                )
+            binding = await asyncio.to_thread(
+                ensure_bot_home,
+                deps.bot_store,
+                bot,
+                host_id=task.host_id,
+            )
+            workspace = bot_scratch_path(binding)
     # Connected-host, existing-workspace runs create the conversation directly.
     # Future execution modes such as managed sandbox, branch selection, and
     # replay/backfill must use shared session-create orchestration.
@@ -720,17 +744,20 @@ async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
         agent_id=task.agent_id,
         title=task.name,
         host_id=task.host_id,
-        workspace=task.workspace,
+        workspace=workspace,
+        bot_id=bot.id if bot is not None else None,
+        purpose="routine" if bot is not None else "standalone",
         terminal_launch_args=await _permission_mode_launch_args(deps, task),
     )
     reasoning_effort = task.reasoning_effort
     if reasoning_effort is None:
         reasoning_effort = await _spec_reasoning_effort(deps, task)
-    if task.model_override is not None or reasoning_effort is not None:
+    model_override = task.model_override or (bot.default_model if bot is not None else None)
+    if model_override is not None or reasoning_effort is not None:
         updated: Conversation | None = await asyncio.to_thread(
             deps.conversation_store.update_conversation,
             conv.id,
-            model_override=task.model_override,
+            model_override=model_override,
             reasoning_effort=reasoning_effort,
         )
         if updated is not None:
@@ -741,6 +768,8 @@ async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
     # the override reload above) so the labels land on the conversation returned
     # to the launch/dispatch caller, not a stale pre-label reload of it.
     labels = await _presentation_labels(deps, task)
+    if bot is not None and bot.behavior_mode != "off":
+        labels["omnigent.behavior_mode"] = bot.behavior_mode
     if labels:
         await asyncio.to_thread(deps.conversation_store.set_labels, conv.id, labels)
         conv.labels.update(labels)

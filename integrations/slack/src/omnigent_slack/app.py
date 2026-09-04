@@ -6,6 +6,7 @@ from typing import Any
 
 from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from slack_bolt.async_app import AsyncApp
+from slack_sdk.web.async_client import AsyncWebClient
 
 from omnigent_slack.approvals import (
     ACTION_APPROVE,
@@ -19,6 +20,7 @@ from omnigent_slack.auth_manager import AuthManager, pack_user_key
 from omnigent_slack.config import ConfigError, load_settings
 from omnigent_slack.databricks_oauth import DatabricksOAuthClient
 from omnigent_slack.omnigent import OmnigentClientPool
+from omnigent_slack.routines import RoutineCompletionPoller
 from omnigent_slack.service import SlackOmnigentService
 from omnigent_slack.setup import SetupFlow
 from omnigent_slack.store import SQLiteStore
@@ -145,6 +147,12 @@ async def run() -> None:
     _register_error_handler(app, logger)
 
     handler = AsyncSocketModeHandler(app, settings.slack_app_token)
+    routine_poller = RoutineCompletionPoller(
+        store=store,
+        pool=pool,
+        server_url=settings.server_url,
+        slack_client=AsyncWebClient(token=settings.slack_bot_token),
+    )
     try:
         # Inside the try so a webauth-start failure still runs the finally cleanup
         # (store/pool/auth_manager close, webauth.stop is idempotent).
@@ -152,6 +160,7 @@ async def run() -> None:
             await webauth.start()
         logger.info("Connecting to Slack Socket Mode")
         await handler.start_async()  # type: ignore[no-untyped-call]
+        await routine_poller.start()
     except Exception:
         # The initial reach-out to Slack (apps.connections.open over HTTPS, then
         # the wss:// socket) is the most likely outbound failure — restricted
@@ -161,6 +170,7 @@ async def run() -> None:
         raise
     finally:
         logger.info("Shutting down Omnigent Slack bot")
+        await routine_poller.stop()
         await service.shutdown()
         # Cancel any in-flight login/enrollment poll tasks (and their httpx
         # clients) so they aren't abandoned mid-poll.

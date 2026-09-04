@@ -11,7 +11,7 @@ const { describe, it, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 const cli = require("../src/omnigent_cli");
-const { ensureServerAuth } = require("../src/server_manager");
+const { ensureServerAuth, isHostConnectedMarker } = require("../src/server_manager");
 
 const SERVER = "https://app.example.com";
 const CLI_PATH = "/bin/omnigent";
@@ -98,5 +98,27 @@ describe("ensureServerAuth", () => {
     assert.equal(res.ok, false);
     assert.equal(res.authError, true);
     assert.match(res.error, /omnigent login https:\/\/app\.example\.com/);
+  });
+});
+
+describe("isHostConnectedMarker", () => {
+  it("matches real CLI connected output line", () => {
+    const line = "Connected as 'DESKTOP-NQTAH8K' (b437d4563fce4d8b9331f9419af26810), 0 live runner(s). Listening for sessions — Ctrl-C to disconnect.";
+    assert.equal(isHostConnectedMarker(line), true);
+  });
+
+  it("matches legacy checkmark connected marker", () => {
+    assert.equal(isHostConnectedMarker("✓ Connected"), true);
+  });
+
+  it("matches listening status", () => {
+    assert.equal(isHostConnectedMarker("Listening for sessions"), true);
+  });
+
+  it("rejects unrelated or booting log messages", () => {
+    assert.equal(isHostConnectedMarker("Connecting to http://127.0.0.1:6767"), false);
+    assert.equal(isHostConnectedMarker("Session logs: ~/.omnigent/logs/runner/"), false);
+    assert.equal(isHostConnectedMarker(null), false);
+    assert.equal(isHostConnectedMarker(""), false);
   });
 });

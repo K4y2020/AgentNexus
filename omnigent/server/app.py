@@ -78,6 +78,7 @@ from omnigent.server.routes.coordination import (
 from omnigent.server.routes.default_policies import create_default_policies_router
 from omnigent.server.routes.diagnostics import create_diagnostics_router
 from omnigent.server.routes.dictation import create_dictation_router
+from omnigent.server.routes.gateways import create_gateways_router
 from omnigent.server.routes.harnesses import create_harnesses_router
 from omnigent.server.routes.imports import create_imports_router
 from omnigent.server.routes.policy_registry import create_policy_registry_router
@@ -94,14 +95,18 @@ from omnigent.server.routes.sessions import (
     set_server_runner_router,
 )
 from omnigent.server.routes.sharing import create_sharing_router
+from omnigent.server.routes.teammate_memories import create_teammate_memories_router
+from omnigent.server.routes.teammates import create_teammates_router
 from omnigent.server.routes.terminal_attach import create_terminal_attach_router
 from omnigent.server.routes.usage import create_usage_router
 from omnigent.server.runner_session_init import RunnerSessionInitializer
 from omnigent.server.scheduled import ScheduledTaskScheduler
 from omnigent.server.ws_origin import WebSocketOriginMiddleware
 from omnigent.stores import (
+    AgentMemoryStore,
     AgentStore,
     ArtifactStore,
+    BotStore,
     ConversationStore,
     FileStore,
 )
@@ -963,6 +968,7 @@ def create_app(
     server_config: dict[str, Any] | None = None,
     feature_flags: FeatureFlags | None = None,
     coordination_store: CoordinationStore | None = None,
+    bot_store: BotStore | None = None,
 ) -> FastAPI:
     """
     Build and return the FastAPI application with all routes mounted.
@@ -1080,6 +1086,14 @@ def create_app(
     """
     if permission_store is not None and auth_provider is None:
         raise ValueError("auth_provider is required when permission_store is provided")
+
+    resolved_bot_store = bot_store
+    if resolved_bot_store is None and isinstance(
+        getattr(agent_store, "storage_location", None), str
+    ):
+        from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+
+        resolved_bot_store = SqlAlchemyBotStore(agent_store.storage_location)
 
     from omnigent.server.server_config import (
         load_branding_snapshot,
@@ -1327,6 +1341,7 @@ def create_app(
                 tunnel_registry=tunnel_registry,
                 file_store=file_store,
                 artifact_store=artifact_store,
+                bot_store=resolved_bot_store,
             )
             on_fire = build_on_fire(fire_deps)
             # The manual "run now" trigger reuses the same fire path (dispatch /
@@ -1439,6 +1454,7 @@ def create_app(
         app.state.coordination_workflow_engine = CoordinationWorkflowEngine(
             resolved_coordination_store,
             app.state.workspace_coordinator,
+            conversation_store=conversation_store,
         )
         set_coordination_store(resolved_coordination_store)
     else:
@@ -1450,6 +1466,7 @@ def create_app(
     app.state.host_registry = host_registry
     app.state.host_store = host_store
     app.state.agent_store = agent_store
+    app.state.bot_store = resolved_bot_store
     app.state.sandbox_config = sandbox_config
     app.state.branding_snapshot = branding_snapshot
     app.state.feature_flags = resolved_feature_flags
@@ -1654,6 +1671,15 @@ def create_app(
         :param exc: The application error.
         :returns: A JSON response with the error code and message.
         """
+        _logger.warning(
+            "OmnigentError on %s %s: status=%s code=%s message=%s",
+            request.method,
+            request.url.path,
+            exc.http_status,
+            exc.code,
+            exc.message,
+            extra={"session_id": _session_id_from_request(request)},
+        )
         if exc.http_status >= 500:
             _logger.error(
                 "Internal error: %s",
@@ -2393,10 +2419,47 @@ def create_app(
         prefix="/v1",
         tags=["agents"],
     )
+    # Read-only teammates roster: built-in agents + their scheduled routines +
+    # most-recent activity. Mounted next to the agent discovery route because
+    # it is the management/display side of the same template registry.
+    app.include_router(
+        create_teammates_router(
+            agent_store,
+            scheduled_task_store,
+            agent_cache,
+            conversation_store=conversation_store,
+            bot_store=resolved_bot_store,
+            permission_store=permission_store,
+            auth_provider=auth_provider,
+        ),
+        prefix="/v1",
+        tags=["teammates"],
+    )
+    from omnigent.stores.agent_memory_store.sqlalchemy_store import (
+        SqlAlchemyAgentMemoryStore,
+    )
+
+    memory_store: AgentMemoryStore = SqlAlchemyAgentMemoryStore(
+        agent_store.storage_location
+    )
+    app.include_router(
+        create_teammate_memories_router(
+            agent_store,
+            memory_store,
+            auth_provider=auth_provider,
+        ),
+        prefix="/v1",
+        tags=["teammates"],
+    )
     app.include_router(
         create_harnesses_router(auth_provider=auth_provider),
         prefix="/v1",
         tags=["harnesses"],
+    )
+    app.include_router(
+        create_gateways_router(auth_provider=auth_provider),
+        prefix="/v1",
+        tags=["gateways"],
     )
     app.include_router(
         coordination_router,

@@ -201,7 +201,7 @@ export interface PaletteMeta {
 export const PALETTES: readonly PaletteMeta[] = [
   {
     id: "omni",
-    label: "Omnigent",
+    label: "AgentNexus",
     blurb: "The signature pink brand look.",
     light: {
       bg: "#fdf7fb",

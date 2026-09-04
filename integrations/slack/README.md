@@ -198,6 +198,20 @@ encrypted at rest; without it tokens are kept in memory only and lost on restart
 all your saved settings (agent, host, workspace, and thread→session mappings).
 Run `/omnigent` afterwards to set up again.
 
+### Resident teammates
+
+Run **`/omnigent bind`** inside a Slack channel to staff that channel with one
+agent: the same agent / host / workspace picker opens, but the result is stored
+as a channel binding rather than your personal config. Every new mention thread
+in that channel then routes to the bound agent, regardless of who runs the
+command or what personal config they have. **`/omnigent unbind`** removes the
+binding and falls back to per-user routing.
+
+When a scheduled task (routine) for a bound agent finishes, the bot posts a
+completion summary back to that channel. The bot silently marks pre-existing
+runs as seen on startup, so a restart doesn't replay historical history; only
+runs that finish after the bot starts are posted.
+
 See `designs/DEVICE_AUTH.md` in the main repo for the full design and
 threat model.
 

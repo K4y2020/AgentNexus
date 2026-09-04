@@ -2951,6 +2951,49 @@ def create_runner_app(
         )
         return instructions
 
+    _SESSION_MEMORIES_INSTRUCTIONS_TTL_SECONDS = 20.0
+    _session_memories_instructions_cache: dict[str, tuple[float, str | None]] = {}
+
+    async def _session_teammate_memory_instruction(
+        session_id: str,
+        agent_id: str | None,
+    ) -> str | None:
+        """Load durable teammate memories for the session agent and format as system instructions."""
+        if not agent_id:
+            return None
+        cached = _session_memories_instructions_cache.get(agent_id)
+        if cached is not None:
+            cached_at, instruction = cached
+            if time.monotonic() - cached_at <= _SESSION_MEMORIES_INSTRUCTIONS_TTL_SECONDS:
+                return instruction
+            _session_memories_instructions_cache.pop(agent_id, None)
+
+        instruction: str | None = None
+        try:
+            resp = await server_client.get(f"/v1/teammates/{agent_id}/memories", timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                memories = data.get("memories") or []
+                lines = [
+                    m.get("content", "").strip()
+                    for m in memories
+                    if isinstance(m, dict) and m.get("content", "").strip()
+                ]
+                if lines:
+                    formatted = "\n".join(f"- {line}" for line in lines)
+                    instruction = (
+                        "<teammate_memories>\n"
+                        "The following are persistent memories and working preferences remembered for this teammate across sessions:\n"
+                        f"{formatted}\n"
+                        "Use these memories to maintain continuity with the user, respecting their preferences and project context.\n"
+                        "</teammate_memories>"
+                    )
+        except Exception:
+            _logger.debug("Failed to load teammate memories for %s: %s", agent_id, exc_info=True)
+
+        _session_memories_instructions_cache[agent_id] = (time.monotonic(), instruction)
+        return instruction
+
     async def _session_runtime_cwd(session_id: str) -> Path | None:
         workspace = await _session_workspace_value(session_id)
         if workspace and workspace.strip():
@@ -6600,7 +6643,11 @@ def create_runner_app(
             )
             # Gated harnesses use nullable to avoid the fallback literal.
             _authored_bg = raw_author_instructions(cached_spec) is not None
-            _bg_framework = await _session_behavior_instructions(conv)
+            _bg_framework = list(await _session_behavior_instructions(conv))
+            _current_agent_id = _session_agent_ids.get(conv) or _dispatched_agent_id
+            _memory_inst = await _session_teammate_memory_instruction(conv, _current_agent_id)
+            if _memory_inst:
+                _bg_framework.append(_memory_inst)
             if harness_name in _GATED_COMPOSED_INSTRUCTION_HARNESSES:
                 instructions = build_instructions_nullable(
                     cached_spec,

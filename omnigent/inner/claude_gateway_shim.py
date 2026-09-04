@@ -73,6 +73,11 @@ DATABRICKS_CLAUDE_ADAPTIVE_THINKING_PREFIXES: tuple[str, ...] = (
     "databricks-claude-fable-",
 )
 
+_CLAUDE_SDK_INTERNAL_SYSTEM_PREFIXES: tuple[str, ...] = (
+    "x-anthropic-billing-header:",
+    "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+)
+
 # Hop-by-hop headers (RFC 9110 §7.6.1) must not be forwarded by an
 # intermediary; httpx/uvicorn manage their own connection framing.
 _HOP_BY_HOP_HEADERS = frozenset(
@@ -146,6 +151,40 @@ def restore_thinking_display(body: bytes) -> bytes:
     return json.dumps(parsed).encode("utf-8")
 
 
+def strip_claude_sdk_internal_system_blocks(body: bytes) -> bytes:
+    """Remove Claude SDK-only system blocks before a generic gateway call."""
+    try:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body
+    if not isinstance(parsed, dict):
+        return body
+    system = parsed.get("system")
+    if not isinstance(system, list):
+        return body
+
+    filtered = [
+        block
+        for block in system
+        if not (
+            isinstance(block, dict)
+            and isinstance((text := block.get("text")), str)
+            and text.startswith(_CLAUDE_SDK_INTERNAL_SYSTEM_PREFIXES)
+        )
+    ]
+    if len(filtered) == len(system):
+        return body
+    if filtered:
+        parsed["system"] = filtered
+    else:
+        parsed.pop("system", None)
+    logger.debug(
+        "Removed %d Claude SDK internal system block(s)",
+        len(system) - len(filtered),
+    )
+    return json.dumps(parsed).encode("utf-8")
+
+
 class ClaudeGatewayShim:
     """
     Reverse proxy between the Claude CLI and an Anthropic-compatible
@@ -160,10 +199,18 @@ class ClaudeGatewayShim:
     :param upstream_base_url: The real gateway base URL the CLI would
         otherwise talk to, e.g.
         ``"https://example.databricks.com/ai-gateway/anthropic"``.
+    :param strip_sdk_internal_system_blocks: Remove Claude SDK billing and
+        identity prompt blocks for generic gateways that reject them.
     """
 
-    def __init__(self, upstream_base_url: str) -> None:
+    def __init__(
+        self,
+        upstream_base_url: str,
+        *,
+        strip_sdk_internal_system_blocks: bool = False,
+    ) -> None:
         self._upstream_base_url = upstream_base_url.rstrip("/")
+        self._strip_sdk_internal_system_blocks = strip_sdk_internal_system_blocks
         self._client: httpx.AsyncClient | None = None
         self._server: uvicorn.Server | None = None
         self._serve_task: asyncio.Task[None] | None = None
@@ -288,6 +335,8 @@ class ClaudeGatewayShim:
         path: str = scope["path"]
         request_body = bytes(body)
         if method == "POST" and path.endswith("/v1/messages"):
+            if self._strip_sdk_internal_system_blocks:
+                request_body = strip_claude_sdk_internal_system_blocks(request_body)
             request_body = restore_thinking_display(request_body)
 
         headers: list[tuple[str, str]] = []

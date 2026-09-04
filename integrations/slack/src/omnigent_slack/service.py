@@ -466,6 +466,31 @@ class SlackOmnigentService:
                 spawned = True
                 return
 
+            # A channel bound to a teammate takes precedence over the user's
+            # personal config: mentioning the bot in that channel routes to the
+            # resident bot, while DMs keep per-user routing.
+            if not key.is_dm:
+                binding = await self._store.get_channel_binding(
+                    key.team_id, key.channel_id
+                )
+                if binding is not None:
+                    self._spawn_turn(
+                        SlackTurn(
+                            key=key,
+                            text=text,
+                            user_id=requester,
+                            create_if_missing=True,
+                            title=await _session_title(client, key, event),
+                            slack_client=client,
+                            agent_id=binding.agent_id,
+                            owner_user_id=requester,
+                            workspace=binding.workspace,
+                            host_id=binding.host_id,
+                        )
+                    )
+                    spawned = True
+                    return
+
             config = await self._store.get_user_config(key.team_id, requester)
             if config is None:
                 self._logger.info(

@@ -164,6 +164,9 @@ export function HeaderConversationMenu({
   const confirmDelete = () => {
     setDeleteOpen(false);
     setDeleteBranch(false);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     navigate("/", { replace: true });
     deleteConversation.mutate({
       id: conversation.id,

@@ -294,8 +294,8 @@ def _build_sys_session_send_schema(
             "treats this as the first user turn in its conversation. Pass a "
             "plain string for the normal contract, or pass "
             "{input, purpose, model, harness, cost_budget} when a spec-level "
-            "policy requires explicit dispatch metadata, a per-dispatch model "
-            "override, an allowlisted harness override, or a per-subagent "
+            "policy requires explicit dispatch metadata, a fallback model "
+            "suggestion, an allowlisted harness override, or a per-subagent "
             "cost budget."
         )
         if harness_opt_in
@@ -304,8 +304,8 @@ def _build_sys_session_send_schema(
             "treats this as the first user turn in its conversation. Pass a "
             "plain string for the normal contract, or pass "
             "{input, purpose, model, cost_budget} when a spec-level policy "
-            "requires explicit dispatch metadata, a per-dispatch model "
-            "override, or a per-subagent cost budget."
+            "requires explicit dispatch metadata, a fallback model "
+            "suggestion, or a per-subagent cost budget."
         )
     )
     return {
@@ -353,13 +353,15 @@ def _build_sys_session_send_schema(
                                     "model": {
                                         "type": "string",
                                         "description": (
-                                            "Optional model the sub-agent "
-                                            "harness should run, e.g. a "
+                                            "Optional fallback model for the "
+                                            "sub-agent harness, e.g. a "
                                             "databricks-* endpoint name or "
                                             "a harness-native model id. "
                                             "Applies only when this send "
-                                            "CREATES the sub-agent session; "
-                                            "omitted = the harness default."
+                                            "CREATES the sub-agent session. "
+                                            "A saved per-sub-agent model setting "
+                                            "takes precedence; otherwise omitted "
+                                            "means the harness default."
                                         ),
                                     },
                                     "reasoning_effort": {

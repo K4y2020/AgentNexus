@@ -23,6 +23,7 @@ from fastapi import (
 )
 from fastapi.responses import Response
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from omnigent.cli_invocation import cli_invocation
 from omnigent.db.utils import generate_agent_id, generate_task_id
@@ -888,6 +889,8 @@ def _build_session_list_item(
         search_snippet=conv.search_snippet,
         parent_session_id=conv.parent_conversation_id,
         project_id=conv.project_id,
+        bot_id=conv.bot_id,
+        purpose=conv.purpose,
     )
 
 
@@ -1166,6 +1169,8 @@ def _build_session_response(
         # sessions whose forwarder stamps a turn id; ``None`` otherwise.
         active_response_id=_session_active_response_cache.get(conv.id),
         project_id=conv.project_id,
+        bot_id=conv.bot_id,
+        purpose=conv.purpose,
     )
 
 
@@ -8030,6 +8035,77 @@ async def _create_session_from_existing_agent(
             conversation_store=conversation_store,
         )
 
+    # Resolve durable Bot ownership before model/workspace defaults. A client
+    # may pass bot_id explicitly; otherwise an existing owner+agent Bot is used.
+    # Plain agents without a Bot remain standalone.
+    _bot_store = getattr(request.app.state, "bot_store", None)
+    _bot = None
+    _bot_binding = None
+    _bot_id: str | None = None
+    _session_purpose = "standalone"
+    _singleton_slot: str | None = None
+    if body.parent_session_id is None and _bot_store is not None:
+        from omnigent.bots import bot_owner_id, bot_scratch_path, ensure_bot_home
+
+        _owner_id = bot_owner_id(user_id)
+        if body.bot_id is not None:
+            _bot = await asyncio.to_thread(_bot_store.get, body.bot_id, owner_id=_owner_id)
+            if _bot is None or _bot.agent_id != agent.id:
+                raise OmnigentError("Bot not found for this agent", code=ErrorCode.NOT_FOUND)
+        else:
+            _bot = await asyncio.to_thread(
+                _bot_store.get_by_agent,
+                agent.id,
+                owner_id=_owner_id,
+            )
+        if _bot is not None:
+            if _bot.status != "active":
+                raise OmnigentError("Bot is archived", code=ErrorCode.CONFLICT)
+            _bot_id = _bot.id
+            _session_purpose = body.purpose or (
+                "a2a"
+                if body.labels.get("omnigent.teammate.channel") == "a2a"
+                else "primary"
+                if body.labels.get("omnigent.teammate.primary") == "true"
+                else "topic"
+            )
+            if _session_purpose in {"standalone", "subagent"}:
+                raise OmnigentError(
+                    f"Top-level Bot session cannot have purpose {_session_purpose!r}",
+                    code=ErrorCode.INVALID_INPUT,
+                )
+            _singleton_slot = (
+                _session_purpose if _session_purpose in {"primary", "a2a"} else None
+            )
+            existing_singleton = (
+                await asyncio.to_thread(
+                    _bot_store.get,
+                    _bot.id,
+                    owner_id=_owner_id,
+                )
+                if _singleton_slot is None
+                else await asyncio.to_thread(
+                    conversation_store.get_bot_singleton_session,
+                    _bot.id,
+                    _singleton_slot,
+                )
+            )
+            if _singleton_slot is not None and existing_singleton is not None:
+                raise OmnigentError(
+                    f"Bot already has a {_singleton_slot} session: {existing_singleton.id}",
+                    code=ErrorCode.CONFLICT,
+                )
+            _bot_binding = await asyncio.to_thread(
+                ensure_bot_home,
+                _bot_store,
+                _bot,
+                host_id=body.host_id,
+            )
+            labels = dict(body.labels)
+            if _bot.behavior_mode != "off":
+                labels.setdefault("omnigent.behavior_mode", _bot.behavior_mode)
+            body = body.model_copy(update={"labels": labels})
+
     # Routing on a native pane whose CLI is not AI-Gateway-backed can never
     # apply, so an explicit request for it is an error rather than a session
     # that silently ignores it. (The auto path checks both arms itself, above.)
@@ -8104,7 +8180,9 @@ async def _create_session_from_existing_agent(
         model_override=(
             _native_routed_model
             if _native_smart_routing
-            else _fixed_routed_model or body.model_override
+            else _fixed_routed_model
+            or body.model_override
+            or (_bot.default_model if _bot is not None else None)
         ),
         reasoning_effort=body.reasoning_effort,
     )
@@ -8176,6 +8254,15 @@ async def _create_session_from_existing_agent(
                     _create_resolved_harness, agent, body.harness_override, agent_cache
                 ),
             )
+        if _parent_for_routing is not None and _parent_for_routing.bot_id is not None:
+            if body.bot_id is not None and body.bot_id != _parent_for_routing.bot_id:
+                raise OmnigentError(
+                    "A sub-agent session must inherit its parent Bot",
+                    code=ErrorCode.INVALID_INPUT,
+                )
+            _bot_id = _parent_for_routing.bot_id
+            _session_purpose = "subagent"
+            _singleton_slot = None
 
     # A session that starts on Smart Routing routes the subagents it spawns.
     # Stamped here, once, so the spawn gate reads one explicit switch instead
@@ -8249,12 +8336,14 @@ async def _create_session_from_existing_agent(
     # create_conversation so a bad workspace never produces a row.
     # With git worktree creation, the validated path is the source
     # repo; the worktree it produces becomes the stored workspace.
-    canonical_workspace: str | None = body.workspace
+    canonical_workspace: str | None = (
+        bot_scratch_path(_bot_binding) if _bot_binding is not None else body.workspace
+    )
     if body.host_id is not None:
         canonical_workspace = await _validate_session_workspace(
             user_id=user_id,
             host_id=body.host_id,
-            workspace=body.workspace,
+            workspace=canonical_workspace,
             agent=agent,
             agent_cache=agent_cache,
             request=request,
@@ -8374,6 +8463,9 @@ async def _create_session_from_existing_agent(
             sub_agent_name=body.sub_agent_name,
             host_id=body.host_id,
             workspace=canonical_workspace,
+            bot_id=_bot_id,
+            purpose=_session_purpose,
+            singleton_slot=_singleton_slot,
             git_branch=git_branch,
             terminal_launch_args=validated_launch_args,
         )
@@ -8392,7 +8484,7 @@ async def _create_session_from_existing_agent(
                 reason="create-rollback",
             )
         raise OmnigentError(str(exc), code=ErrorCode.CONFLICT) from exc
-    except Exception:
+    except Exception as exc:
         # Broad catch is intentional: ANY create_conversation failure
         # (integrity error, name clash, ...) must trigger orphan-worktree
         # cleanup before the error propagates. We re-raise unchanged
@@ -8413,6 +8505,11 @@ async def _create_session_from_existing_agent(
                 request=request,
                 reason="create-rollback",
             )
+        if _singleton_slot is not None and isinstance(exc, IntegrityError):
+            raise OmnigentError(
+                f"Bot already has a {_singleton_slot} session",
+                code=ErrorCode.CONFLICT,
+            ) from exc
         raise
 
     # The create request has no conv id in its URL, so the path-based

@@ -190,8 +190,8 @@ async def test_worker_spec_model_pin_blocks_inheritance(
 ) -> None:
     """
     A worker whose spec pins ``executor.model`` keeps its own model: the
-    create body carries no ``model_override`` and the pinned spec model
-    resolves at child boot.
+    create body persists that model as ``model_override`` so the child session
+    records the effective selection before boot.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
@@ -206,7 +206,7 @@ async def test_worker_spec_model_pin_blocks_inheritance(
             "llm_model": None,
         },
     )
-    assert "model_override" not in bodies[0]
+    assert bodies[0]["model_override"] == "databricks-claude-haiku-4-5"
 
 
 @pytest.mark.asyncio

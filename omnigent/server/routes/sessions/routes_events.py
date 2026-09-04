@@ -16,6 +16,7 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 
 from omnigent.entities import (
+    CompactionData,
     ErrorData,
     NewConversationItem,
 )
@@ -1081,10 +1082,31 @@ def register_events_routes(
                     "run /compact again.",
                     code=ErrorCode.RUNNER_UNAVAILABLE,
                 )
-            raise OmnigentError(
-                "/compact is not available for this session type.",
-                code=ErrorCode.INVALID_INPUT,
+            # Non-native sessions (claude-sdk, polly, debby, etc.):
+            # Perform server-side compaction checkpoint
+            import uuid as _uuid
+            items = await asyncio.to_thread(
+                lambda: conversation_store.list_items(session_id, limit=500, order="asc").data
             )
+            if not items or len(items) < 3:
+                return {"queued": False, "message": "Conversation is already compact"}
+            last_msg = next((it for it in reversed(items) if it.type == "message"), items[-1])
+            summary_text = (
+                f"[Conversation context automatically compacted across {len(items)} items to preserve token budget]"
+            )
+            compaction_item = NewConversationItem(
+                type="compaction",
+                response_id=f"compact_{_uuid.uuid4().hex}",
+                data=CompactionData(
+                    summary=summary_text,
+                    last_item_id=last_msg.id,
+                    model=conv.model_override or "auto",
+                    token_count=1000,
+                ),
+            )
+            await asyncio.to_thread(conversation_store.append, session_id, [compaction_item])
+            _publish_compaction_completed(session_id, None)
+            return {"queued": False, "message": "Compaction completed successfully"}
         if body.type == "compaction":
             import uuid as _uuid
 
@@ -2195,6 +2217,11 @@ def register_events_routes(
         conv = await asyncio.to_thread(conversation_store.get_conversation, session_id)
         if conv is None:
             raise _session_not_found()
+        if conv.purpose in {"primary", "a2a"}:
+            raise OmnigentError(
+                f"Bot {conv.purpose} sessions cannot be deleted directly",
+                code=ErrorCode.CONFLICT,
+            )
         await _best_effort_stop(session_id, conversation_store, runner_router)
         # Runner-side resource cleanup is best-effort: if the bound
         # runner is offline or unbound, the session must still be

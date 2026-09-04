@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -96,7 +98,16 @@ def _request_workflow_engine(request: Request) -> CoordinationWorkflowEngine:
     return CoordinationWorkflowEngine(
         _request_store(request),
         _request_workspace_coord(request),
+        conversation_store=getattr(request.app.state, "conversation_store", None),
     )
+
+
+def _message_idempotency_key(req: SendMessageRequest) -> str:
+    if req.idempotency_key:
+        return req.idempotency_key
+    envelope = req.model_dump(exclude={"idempotency_key"}, mode="json")
+    canonical = json.dumps(envelope, sort_keys=True, separators=(",", ":"))
+    return f"auto:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 async def _load_agent_spec_for_coordination(
@@ -315,6 +326,7 @@ async def _require_coordination_tree(
     request: Request,
     root_session_id: str,
     *session_ids: str,
+    allow_cross_tree_teammates: bool = False,
 ) -> None:
     """Reject roots/senders/recipients that are not real sessions in one tree."""
 
@@ -331,6 +343,7 @@ async def _require_coordination_tree(
             status_code=404, detail=f"root_session_id {root_session_id!r} not found"
         )
 
+    crosses_tree = False
     for session_id in session_ids:
         if session_id == root_session_id:
             continue
@@ -339,11 +352,13 @@ async def _require_coordination_tree(
             raise HTTPException(status_code=404, detail=f"session {session_id!r} not found")
         root_id = getattr(conv, "root_conversation_id", None)
         if root_id:
-            if root_id != root_session_id:
+            if root_id != root_session_id and not allow_cross_tree_teammates:
                 raise HTTPException(
                     status_code=403,
                     detail=f"session {session_id!r} does not belong to root {root_session_id!r}",
                 )
+            if root_id != root_session_id:
+                crosses_tree = True
             continue
         cursor = conv
         while cursor is not None and cursor.id != root_session_id:
@@ -351,11 +366,45 @@ async def _require_coordination_tree(
             if not parent_id:
                 break
             cursor = await asyncio.to_thread(store.get_conversation, parent_id)
-        if cursor is None or cursor.id != root_session_id:
+        if (cursor is None or cursor.id != root_session_id) and not allow_cross_tree_teammates:
             raise HTTPException(
                 status_code=403,
                 detail=f"session {session_id!r} does not belong to root {root_session_id!r}",
             )
+        if cursor is None or cursor.id != root_session_id:
+            crosses_tree = True
+    if crosses_tree and allow_cross_tree_teammates:
+        if len(session_ids) < 2:
+            raise HTTPException(
+                status_code=403,
+                detail="cross-tree A2A requires sender and recipient",
+            )
+        sender = await asyncio.to_thread(store.get_conversation, session_ids[0])
+        recipient = await asyncio.to_thread(store.get_conversation, session_ids[-1])
+        bot_store = getattr(request.app.state, "bot_store", None)
+        if sender is None or recipient is None or bot_store is None:
+            raise HTTPException(
+                status_code=403,
+                detail="session does not belong to the root or an authorized Bot A2A channel",
+            )
+        sender_bot_id = getattr(sender, "bot_id", None)
+        recipient_bot_id = getattr(recipient, "bot_id", None)
+        if sender_bot_id is None or recipient_bot_id is None:
+            raise HTTPException(
+                status_code=403,
+                detail="cross-tree A2A requires Bot-owned sessions",
+            )
+        if getattr(recipient, "purpose", None) != "a2a":
+            raise HTTPException(
+                status_code=403,
+                detail="cross-tree A2A must target the Bot A2A channel",
+            )
+        source_bot = await asyncio.to_thread(bot_store.get, sender_bot_id)
+        target_bot = await asyncio.to_thread(bot_store.get, recipient_bot_id)
+        if source_bot is None or target_bot is None or source_bot.owner_id != target_bot.owner_id:
+            raise HTTPException(status_code=403, detail="cross-owner A2A is not allowed")
+        if target_bot.status != "active":
+            raise HTTPException(status_code=409, detail="target Bot is archived")
     await _require_coordination_acl(
         request,
         root_session_id,
@@ -597,6 +646,7 @@ async def send_coordination_message(
         req.root_session_id,
         req.sender_session_id,
         req.recipient_session_id,
+        allow_cross_tree_teammates=True,
     )
     if req.sender_role == "user_orchestrator" and req.sender_session_id != req.root_session_id:
         raise HTTPException(
@@ -638,6 +688,20 @@ async def send_coordination_message(
             "ttl_seconds": req.ttl_seconds,
         },
     )
+    payload = dict(req.payload)
+    conversation_store = getattr(request.app.state, "conversation_store", None)
+    if conversation_store is not None:
+        sender = await asyncio.to_thread(
+            conversation_store.get_conversation, req.sender_session_id
+        )
+        recipient = await asyncio.to_thread(
+            conversation_store.get_conversation, req.recipient_session_id
+        )
+        sender_bot_id = getattr(sender, "bot_id", None)
+        recipient_bot_id = getattr(recipient, "bot_id", None)
+        if sender_bot_id and recipient_bot_id:
+            payload["source_bot_id"] = sender_bot_id
+            payload["target_bot_id"] = recipient_bot_id
     msg = AgentMessage(
         root_session_id=req.root_session_id,
         run_id=req.run_id,
@@ -648,11 +712,11 @@ async def send_coordination_message(
         recipient_role=req.recipient_role,
         kind=req.kind,
         intent=req.intent,
-        payload=req.payload,
+        payload=payload,
         artifacts=req.artifacts,
         correlation_id=req.correlation_id,
         in_reply_to=req.in_reply_to,
-        idempotency_key=req.idempotency_key,
+        idempotency_key=_message_idempotency_key(req),
         hop_count=req.hop_count,
         max_hops=req.max_hops,
         ttl_seconds=req.ttl_seconds,

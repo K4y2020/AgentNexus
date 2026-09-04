@@ -1933,7 +1933,7 @@ def _extract_global_logging_flags(argv: list[str]) -> tuple[list[str], bool, boo
     is_eager=True,
     expose_value=False,
     callback=_set_debug_logging,
-    help="Enable verbose DEBUG logging for Omnigent processes.",
+    help="Enable verbose DEBUG logging for AgentNexus processes.",
 )
 @click.option(
     "--log-to-stderr",
@@ -1952,7 +1952,7 @@ def _extract_global_logging_flags(argv: list[str]) -> tuple[list[str], bool, boo
     help="Show the version and exit.",
 )
 def cli() -> None:
-    """Omnigent CLI."""
+    """AgentNexus CLI."""
 
 
 # Names of every subcommand the click group owns. Used by

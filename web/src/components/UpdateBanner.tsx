@@ -153,7 +153,7 @@ export function UpdateBanner({ variant = "floating" }: { variant?: "floating" | 
           {visibleStatus.state === "available" && (
             <>
               <p className="font-medium text-foreground">
-                Omnigent Desktop {visibleStatus.info?.version ?? "update"} is available
+                AgentNexus Desktop {visibleStatus.info?.version ?? "update"} is available
               </p>
               {visibleStatus.currentVersion && (
                 <p className="mt-0.5 text-sm text-muted-foreground">
@@ -168,7 +168,7 @@ export function UpdateBanner({ variant = "floating" }: { variant?: "floating" | 
           {visibleStatus.state === "downloading" && (
             <>
               <p className="font-medium text-foreground">
-                Downloading Omnigent Desktop update… {progress}%
+                Downloading AgentNexus Desktop update… {progress}%
               </p>
               <Progress
                 value={progress}
@@ -180,7 +180,7 @@ export function UpdateBanner({ variant = "floating" }: { variant?: "floating" | 
           {visibleStatus.state === "downloaded" && (
             <>
               <p className="font-medium text-foreground">
-                Omnigent Desktop {visibleStatus.info?.version ?? "update"} is ready to install
+                AgentNexus Desktop {visibleStatus.info?.version ?? "update"} is ready to install
               </p>
               {visibleStatus.currentVersion && (
                 <p className="mt-0.5 text-sm text-muted-foreground">

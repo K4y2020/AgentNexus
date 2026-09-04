@@ -555,7 +555,7 @@ function CopyTextButton({ text, label }: CopyTextButtonProps) {
   );
 }
 
-function useElapsedDuration(startedAt: number | null | undefined): number | undefined {
+export function useElapsedDuration(startedAt: number | null | undefined): number | undefined {
   const [now, setNow] = useState(() => getNowSeconds());
 
   useEffect(() => {

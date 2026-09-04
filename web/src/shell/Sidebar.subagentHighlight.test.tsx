@@ -146,14 +146,12 @@ function rowFor(id: string): HTMLElement {
 }
 
 describe("sidebar highlight while viewing a sub-agent", () => {
-  it("renders the official Omnigent wordmark instead of styled text", () => {
+  it("renders the AgentNexus brand name", () => {
     mockConversations([]);
     renderAt("/");
 
-    const wordmark = screen.getByTestId("sidebar-wordmark");
-    expect(wordmark).toHaveAttribute("alt", "Omnigent");
-    expect(wordmark).toHaveClass("h-[15px]", "dark:invert");
-    expect(wordmark.getAttribute("src")).toContain("omnigent-wordmark");
+    const brand = screen.getByTestId("sidebar-brand-name");
+    expect(brand).toHaveTextContent("AgentNexus");
   });
 
   it("sits flush to the window edge, no floating margin or border", () => {

@@ -22,12 +22,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
+import hashlib
 import json
 import logging
 import mimetypes
 import os
 import re
 import tempfile
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -51,6 +53,7 @@ from omnigent._wrapper_labels import (
     CLAUDE_NATIVE_WRAPPER_VALUE,
     CODEX_NATIVE_WRAPPER_VALUE,
 )
+from omnigent.coordination.behavior import BEHAVIOR_MODE_LABEL_KEY
 from omnigent.debug_logging import runner_primary_session_id
 from omnigent.harness_aliases import canonicalize_harness, is_native_harness
 from omnigent.model_override import (
@@ -336,6 +339,9 @@ _NIMBLE_RESEARCH_TOOLS = frozenset({"nimble_research"})
 # nimble_extract — Nimble Extract Templates (template run → structured JSON).
 # Runner-local for the same reason.
 _NIMBLE_EXTRACT_TOOLS = frozenset({"nimble_extract"})
+
+# Teammate A2A dispatch tool. Enables cross-bot task communication.
+_TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
 
 # Hindsight long-term memory builtins. Runner-local (like web_search) so that a
 # wrapped harness's (claude-sdk / codex / cursor / pi) tool call resolves to the
@@ -1337,6 +1343,17 @@ def _subagent_message_from_args(args: _JsonObject) -> str | None:
     return None
 
 
+def _subagent_behavior_mode_from_args(args: _JsonObject) -> str:
+    """Bind a fresh child to the behavior mode implied by its purpose."""
+    raw_message = args.get("args")
+    if not isinstance(raw_message, dict):
+        return "off"
+    purpose = raw_message.get("purpose")
+    if isinstance(purpose, str) and purpose.strip().lower() == "implement":
+        return "lean"
+    return "off"
+
+
 async def _session_turn_actor(
     *,
     server_client: httpx.AsyncClient,
@@ -2220,11 +2237,31 @@ async def _execute_subagent_tool(
     created_child = False
     child_harness = _subagent_harness(str(sub_agent_name), agent_spec)
     child_wrapper_label: str | None = None
+    try:
+        preferred_model = await _preferred_subagent_model(
+            server_client=server_client,
+            conversation_id=conversation_id,
+            sub_agent_name=str(sub_agent_name),
+        )
+    except ValueError as exc:
+        return f"Error: saved model preference for sub-agent {sub_agent_name!r} is invalid: {exc}"
+    model_from_preference = preferred_model is not None
+    if preferred_model is not None:
+        if model is not None and model != preferred_model:
+            _logger.info(
+                "sys_session_send: saved model preference %r overrides dispatch model %r "
+                "for sub-agent %r",
+                preferred_model,
+                model,
+                sub_agent_name,
+                extra={"session_id": runner_primary_session_id()},
+            )
+        model = preferred_model
     if existing is not None:
         child_session_id = existing.get("id")
         if not isinstance(child_session_id, str) or not child_session_id:
             return "Error: existing child session is missing id"
-        if model is not None:
+        if model is not None and not model_from_preference:
             # A native child bakes --model in at terminal launch, so a
             # mid-conversation override would be silently ignored there.
             return (
@@ -2290,17 +2327,6 @@ async def _execute_subagent_tool(
         # children are excluded because their live pane requires the
         # harness-specific /model interaction.
         if not is_native_harness(child_harness):
-            try:
-                preferred_model = await _preferred_subagent_model(
-                    server_client=server_client,
-                    conversation_id=conversation_id,
-                    sub_agent_name=str(sub_agent_name),
-                )
-            except ValueError as exc:
-                return (
-                    f"Error: saved model preference for sub-agent "
-                    f"{sub_agent_name!r} is invalid: {exc}"
-                )
             if preferred_model is not None:
                 if not harness_supports_model_override(child_harness):
                     return (
@@ -2339,18 +2365,6 @@ async def _execute_subagent_tool(
                     )
         # Continue existing session
     else:
-        if model is None:
-            try:
-                model = await _preferred_subagent_model(
-                    server_client=server_client,
-                    conversation_id=conversation_id,
-                    sub_agent_name=str(sub_agent_name),
-                )
-            except ValueError as exc:
-                return (
-                    f"Error: saved model preference for sub-agent "
-                    f"{sub_agent_name!r} is invalid: {exc}"
-                )
         if model is None:
             model = await _inherited_parent_model(
                 server_client=server_client,
@@ -2459,6 +2473,9 @@ async def _execute_subagent_tool(
             "parent_session_id": conversation_id,
             "title": f"{sub_agent_name}:{session_name}",
             "sub_agent_name": sub_agent_name,
+            "labels": {
+                BEHAVIOR_MODE_LABEL_KEY: _subagent_behavior_mode_from_args(args),
+            },
         }
         if harness_override_canonical is not None:
             create_body["harness_override"] = harness_override_canonical
@@ -2489,25 +2506,35 @@ async def _execute_subagent_tool(
                 harness=child_harness,
             )
         else:
-            # No explicit per-dispatch model: inherit the parent session's
-            # selection so the user's chosen model governs the whole session
-            # tree. Best-effort — skipped when the sub-agent spec pins its
-            # own model, the harness has no override plumbing, or the parent
-            # model's family cannot run on the child harness.
-            inherited = await _inherited_parent_model(
-                server_client=server_client,
-                conversation_id=conversation_id,
-                sub_agent_name=str(sub_agent_name),
-                agent_spec=agent_spec,
-                child_harness=child_harness,
-            )
-            if inherited is not None:
+            # First priority: check if the sub-agent spec pins its own default model
+            sub_spec = _find_subagent_spec(sub_agent_name, agent_spec)
+            spec_model = getattr(getattr(sub_spec, "executor", None), "model", None)
+            if isinstance(spec_model, str) and spec_model:
                 create_body["model_override"] = _normalize_subagent_model(
-                    inherited,
+                    spec_model,
                     sub_agent_name=str(sub_agent_name),
                     agent_spec=agent_spec,
                     harness=child_harness,
                 )
+            else:
+                # No explicit per-dispatch model and no spec model: inherit the parent session's
+                # selection so the user's chosen model governs the whole session
+                # tree. Best-effort — skipped when the harness has no override plumbing,
+                # or the parent model's family cannot run on the child harness.
+                inherited = await _inherited_parent_model(
+                    server_client=server_client,
+                    conversation_id=conversation_id,
+                    sub_agent_name=str(sub_agent_name),
+                    agent_spec=agent_spec,
+                    child_harness=child_harness,
+                )
+                if inherited is not None:
+                    create_body["model_override"] = _normalize_subagent_model(
+                        inherited,
+                        sub_agent_name=str(sub_agent_name),
+                        agent_spec=agent_spec,
+                        harness=child_harness,
+                    )
         # A dispatch that names no effort inherits the sub-agent spec's
         # ``executor.reasoning_effort``, so a worker's default is declared
         # once in its config instead of depending on the orchestrator
@@ -5831,6 +5858,606 @@ async def _fetch_peek_meta(
     return _PeekMeta(agent=parsed.agent, title=parsed.title, pending_elicitations=pending)
 
 
+def _teammate_file_ids_from_args(args: _JsonObject) -> list[str] | None:
+    """Return explicit A2A file ids, or ``None`` to auto-detect this turn's files."""
+    raw_ids = args.get("file_ids")
+    if raw_ids is None:
+        return None
+    if not isinstance(raw_ids, list) or not all(isinstance(fid, str) and fid for fid in raw_ids):
+        raise ValueError("'file_ids' must be a list of non-empty strings when provided")
+    if len(set(raw_ids)) != len(raw_ids):
+        raise ValueError("'file_ids' must not contain duplicate file ids")
+    return list(raw_ids)
+
+
+async def _latest_human_message_file_ids(
+    server_client: httpx.AsyncClient,
+    conversation_id: str,
+) -> list[str]:
+    """Find attachments on the human message that triggered the current A2A send."""
+    try:
+        response = await server_client.get(
+            f"/v1/sessions/{conversation_id}/items",
+            params={"limit": 50, "order": "desc"},
+            timeout=10.0,
+        )
+    except httpx.HTTPError:
+        return []
+    if response.status_code != 200:
+        return []
+    body = _string_object_dict(response.json())
+    items = _json_object_list(body.get("data")) if body is not None else []
+    for item in items:
+        if item.get("type") != "message":
+            continue
+        data = _string_object_dict(item.get("data"))
+        if data is None or data.get("role") != "user":
+            continue
+        content = data.get("content")
+        if not isinstance(content, list):
+            continue
+        file_ids = [
+            str(block["file_id"])
+            for block in content
+            if isinstance(block, dict)
+            and isinstance(block.get("file_id"), str)
+            and block.get("file_id")
+        ]
+        if file_ids:
+            return list(dict.fromkeys(file_ids))
+        texts = [
+            str(block.get("text") or "").strip()
+            for block in content
+            if isinstance(block, dict) and block.get("type") in ("text", "input_text")
+        ]
+        if any(text and not text.startswith("[System:") for text in texts):
+            return []
+    return []
+
+
+async def _delete_session_files_best_effort(
+    server_client: httpx.AsyncClient,
+    session_id: str,
+    file_ids: list[str],
+) -> None:
+    """Remove partially copied A2A files after a pre-delivery failure."""
+    for file_id in file_ids:
+        try:
+            await server_client.delete(
+                f"/v1/sessions/{session_id}/resources/files/{file_id}",
+                timeout=10.0,
+            )
+        except httpx.HTTPError:
+            _logger.warning("failed to roll back A2A file %s", file_id, exc_info=True)
+
+
+async def _copy_a2a_files(
+    server_client: httpx.AsyncClient,
+    *,
+    source_session_id: str,
+    target_session_id: str,
+    file_ids: list[str],
+) -> CopyResult:
+    """Copy source-session attachments into an unrelated teammate A2A session."""
+    blocks: list[_JsonObject] = []
+    copied_ids: list[str] = []
+    for source_file_id in file_ids:
+        source_base = (
+            f"/v1/sessions/{source_session_id}/resources/files/{source_file_id}"
+        )
+        try:
+            metadata_response = await server_client.get(source_base, timeout=10.0)
+            content_response = await server_client.get(
+                f"{source_base}/content",
+                timeout=30.0,
+            )
+            metadata_response.raise_for_status()
+            content_response.raise_for_status()
+            metadata = _string_object_dict(metadata_response.json()) or {}
+            metadata_details = _string_object_dict(metadata.get("metadata")) or {}
+            filename = _optional_string(metadata.get("name")) or _optional_string(
+                metadata_details.get("filename")
+            )
+            filename = filename or f"attachment-{len(copied_ids) + 1}"
+            content_type = (
+                content_response.headers.get("content-type") or "application/octet-stream"
+            ).split(";", 1)[0]
+            upload_response = await server_client.post(
+                f"/v1/sessions/{target_session_id}/resources/files",
+                files={"file": (filename, content_response.content, content_type)},
+                timeout=30.0,
+            )
+            upload_response.raise_for_status()
+            uploaded = _string_object_dict(upload_response.json())
+            target_file_id = _optional_string(uploaded.get("id")) if uploaded else None
+            if target_file_id is None:
+                raise ValueError("target upload response is missing file id")
+        except (httpx.HTTPError, ValueError) as exc:
+            await _delete_session_files_best_effort(
+                server_client,
+                target_session_id,
+                copied_ids,
+            )
+            return CopyResult(
+                error=(
+                    f"Error: failed to copy A2A attachment {source_file_id!r}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            )
+        copied_ids.append(target_file_id)
+        blocks.append(
+            {
+                "type": "input_image" if content_type.startswith("image/") else "input_file",
+                "file_id": target_file_id,
+                "filename": filename,
+            }
+        )
+    return CopyResult(content=blocks)
+
+
+async def _execute_send_to_teammate_tool(
+    args: _JsonObject,
+    *,
+    server_client: httpx.AsyncClient | None,
+    conversation_id: str | None,
+    agent_spec: AgentSpec | None,
+    task_id: str | None = None,
+) -> str:
+    """Send an A2A message or task dispatch to another persistent teammate bot."""
+    if server_client is None:
+        return json.dumps({"error": "send_to_teammate requires server access"})
+    if not conversation_id:
+        return json.dumps({"error": "send_to_teammate requires a conversation id"})
+
+    teammate_name = str(args.get("teammate") or "").strip()
+    task_prompt = str(args.get("task") or "").strip()
+    intent = str(args.get("intent") or "task.request").strip()
+    should_wait = bool(args.get("wait", True))
+    timeout_s = int(args.get("timeout_seconds", 90))
+    explicit_target_session_id = _optional_string(args.get("target_session_id"))
+    try:
+        requested_file_ids = _teammate_file_ids_from_args(args)
+    except ValueError as exc:
+        return json.dumps({"error": f"send_to_teammate invalid file_ids: {exc}"})
+
+    if not teammate_name or not task_prompt:
+        return json.dumps(
+            {
+                "error": (
+                    "send_to_teammate requires 'teammate' (name of the target bot) "
+                    "and 'task' (prompt instruction)"
+                )
+            }
+        )
+
+    sender_name = agent_spec.name if agent_spec else "teammate"
+    if sender_name.lower() == teammate_name.lower():
+        return json.dumps(
+            {
+                "error": (
+                    f"Cannot send_to_teammate to yourself ({sender_name}). "
+                    "Target another teammate."
+                )
+            }
+        )
+
+    # 1. Look up teammates from server
+    try:
+        t_resp = await server_client.get("/v1/teammates", timeout=15.0)
+        if t_resp.status_code != 200:
+            return json.dumps(
+                {
+                    "error": (
+                        "Failed to list teammates: server returned "
+                        f"{t_resp.status_code}"
+                    )
+                }
+            )
+        t_data = t_resp.json()
+        teammates = t_data.get("teammates", [])
+    except Exception as exc:  # noqa: BLE001
+        return json.dumps({"error": f"Failed to query teammates: {exc}"})
+
+    target = next(
+        (
+            t
+            for t in teammates
+            if t.get("agent", {}).get("name", "").lower() == teammate_name.lower()
+        ),
+        None,
+    )
+    if target is None:
+        avail = [
+            t.get("agent", {}).get("name")
+            for t in teammates
+            if t.get("agent", {}).get("name")
+        ]
+        return json.dumps(
+            {
+                "error": (
+                    f"Teammate '{teammate_name}' not found. "
+                    f"Available teammates: {avail}"
+                )
+            }
+        )
+
+    target_agent_id = target["agent"]["id"]
+    target_bot_name = target["agent"]["name"]
+    target_bot = _string_object_dict(target.get("bot"))
+    target_bot_id = _optional_string(target_bot.get("id")) if target_bot else None
+    target_default_model = (
+        _optional_string(target_bot.get("default_model")) if target_bot else None
+    )
+
+    async def _session_snapshot(session_id: str | None) -> _JsonObject | None:
+        if not session_id:
+            return None
+        try:
+            response = await server_client.get(
+                f"/v1/sessions/{session_id}",
+                params={"include_items": "false", "include_liveness": "true"},
+                timeout=15.0,
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        if response.status_code != 200:
+            return None
+        return _string_object_dict(response.json())
+
+    primary = await _session_snapshot(_optional_string(target.get("primary_conversation_id")))
+    sender = None
+    target_host_id = (
+        _optional_string(target_bot.get("host_id")) if target_bot else None
+    ) or (_optional_string(primary.get("host_id")) if primary else None)
+    target_home = _optional_string(target_bot.get("home_path")) if target_bot else None
+    target_workspace = str(Path(target_home) / "scratch") if target_home else None
+    if target_host_id is None:
+        sender = await _session_snapshot(conversation_id)
+        target_host_id = _optional_string(sender.get("host_id")) if sender else None
+        if target_workspace is None and sender is not None:
+            target_workspace = _optional_string(sender.get("workspace"))
+    if target_workspace is None:
+        target_workspace = str(
+            Path.home() / ".omnigent" / "workspaces" / target_bot_name.lower()
+        )
+
+    # 2. Dedicated A2A channel resolution:
+    if explicit_target_session_id:
+        target_session_id = explicit_target_session_id
+    # A2A messages must NEVER pollute user conversation topics or jump across
+    # dynamic recent sessions. Find or create a dedicated tagged session.
+    target_session_id: str | None = None
+    unbound_session_id: str | None = None
+    unbound_workspace: str | None = None
+    try:
+        sess_resp = await server_client.get(
+            "/v1/sessions",
+            params={"agent_id": target_agent_id, "limit": 100},
+            timeout=15.0,
+        )
+        if sess_resp.status_code == 200:
+            for s in sess_resp.json().get("data", []):
+                s_labels = s.get("labels") or {}
+                if s.get("purpose") == "a2a" or s_labels.get("omnigent.teammate.channel") == "a2a":
+                    candidate_id = _optional_string(s.get("id"))
+                    candidate = await _session_snapshot(candidate_id)
+                    if candidate is None:
+                        continue
+                    candidate_host = _optional_string(candidate.get("host_id"))
+                    candidate_runner = _optional_string(candidate.get("runner_id"))
+                    if candidate_host or (
+                        candidate_runner and candidate.get("runner_online") is True
+                    ):
+                        target_session_id = candidate_id
+                        target_host_id = candidate_host or target_host_id
+                        target_workspace = (
+                            _optional_string(candidate.get("workspace")) or target_workspace
+                        )
+                        break
+                    if unbound_session_id is None:
+                        unbound_session_id = candidate_id
+                        unbound_workspace = _optional_string(candidate.get("workspace"))
+    except Exception as exc:  # noqa: BLE001
+        _logger.debug("A2A channel search notice: %s", exc)
+
+    if target_session_id is None and unbound_session_id is not None:
+        if target_host_id is None:
+            return json.dumps(
+                {"error": f"No online host is available to run teammate '{target_bot_name}'."}
+            )
+        # The Bot binding is authoritative; an old label-only A2A session may
+        # still carry whatever workspace happened to be current when created.
+        bind_workspace = target_workspace or unbound_workspace
+        try:
+            bind_resp = await server_client.post(
+                f"/v1/hosts/{target_host_id}/runners",
+                json={"session_id": unbound_session_id, "workspace": bind_workspace},
+                timeout=30.0,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return json.dumps(
+                {"error": f"Failed to bind A2A session for {target_bot_name}: {exc}"}
+            )
+        if bind_resp.status_code not in (200, 201, 202):
+            return json.dumps(
+                {
+                    "error": (
+                        f"Failed to bind A2A session for {target_bot_name}: "
+                        f"{bind_resp.text[:200]}"
+                    )
+                }
+            )
+        target_session_id = unbound_session_id
+
+    if not target_session_id:
+        if target_host_id is None:
+            return json.dumps(
+                {"error": f"No online host is available to run teammate '{target_bot_name}'."}
+            )
+        try:
+            create_resp = await server_client.post(
+                "/v1/sessions",
+                json={
+                    "agent_id": target_agent_id,
+                    "title": "[A2A] 协同专线",
+                    "host_id": target_host_id,
+                    "workspace": target_workspace,
+                    "labels": {"omnigent.teammate.channel": "a2a"},
+                    "bot_id": target_bot_id,
+                    "purpose": "a2a",
+                },
+                timeout=30.0,
+            )
+            if create_resp.status_code not in (200, 201):
+                return json.dumps(
+                    {
+                        "error": (
+                            f"Failed to initialize A2A session for {target_bot_name}: "
+                            f"{create_resp.text[:200]}"
+                        )
+                    }
+                )
+            target_session_id = create_resp.json().get("id")
+        except Exception as exc:  # noqa: BLE001
+            return json.dumps(
+                {"error": f"Failed to create A2A session for {target_bot_name}: {exc}"}
+            )
+
+    # 3. Wake the dedicated channel. This is a no-op when its runner is
+    # already live and relaunches it through the bound host when asleep.
+    try:
+        wake_resp = await server_client.post(
+            f"/v1/sessions/{target_session_id}/events",
+            json={"type": "retry_session", "data": {}},
+            timeout=30.0,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return json.dumps({"error": f"Failed to wake teammate {target_bot_name}: {exc}"})
+    if wake_resp.status_code not in (200, 202):
+        return json.dumps(
+            {"error": f"Failed to wake teammate {target_bot_name}: {wake_resp.text[:200]}"}
+        )
+
+    file_ids = requested_file_ids
+    if file_ids is None:
+        file_ids = await _latest_human_message_file_ids(server_client, conversation_id)
+    copied_files = await _copy_a2a_files(
+        server_client,
+        source_session_id=conversation_id,
+        target_session_id=target_session_id,
+        file_ids=file_ids,
+    )
+    if copied_files.error is not None:
+        return json.dumps({"error": copied_files.error})
+    attachment_blocks = copied_files.content or []
+
+    last_item_id_before: str | None = None
+    if should_wait:
+        try:
+            before_resp = await server_client.get(
+                f"/v1/sessions/{target_session_id}/items",
+                params={"order": "desc", "limit": 1},
+                timeout=10.0,
+            )
+            if before_resp.status_code == 200:
+                b_data = before_resp.json().get("data", [])
+                if b_data:
+                    last_item_id_before = str(b_data[0].get("id") or "")
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 4. Queue one durable A2A delivery. The coordination dispatcher owns
+    # injection so the task cannot be executed twice.
+    coordination_msg_id = None
+    idempotency_payload = json.dumps(
+        {
+            "source_session_id": conversation_id,
+            "source_task_id": task_id,
+            "target_bot_id": target_bot_id,
+            "target_session_id": target_session_id,
+            "intent": intent,
+            "task": task_prompt,
+            "file_ids": file_ids,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    idempotency_key = f"teammate:{hashlib.sha256(idempotency_payload.encode('utf-8')).hexdigest()}"
+    try:
+        coord_resp = await server_client.post(
+            "/v1/coordination/messages",
+            json={
+                "root_session_id": conversation_id,
+                "sender_session_id": conversation_id,
+                "sender_role": sender_name,
+                "recipient_session_id": target_session_id,
+                "recipient_role": target_bot_name,
+                "intent": intent,
+                "payload": {
+                    "prompt": task_prompt,
+                    "instruction": task_prompt,
+                    "from_teammate": sender_name,
+                    "source_bot_id": _optional_string(sender.get("bot_id")) if sender else None,
+                    "target_bot_id": target_bot_id,
+                },
+                "artifacts": attachment_blocks,
+                "idempotency_key": idempotency_key,
+            },
+            timeout=10.0,
+        )
+        if coord_resp.status_code not in (200, 201):
+            await _delete_session_files_best_effort(
+                server_client,
+                target_session_id,
+                [str(block["file_id"]) for block in attachment_blocks],
+            )
+            return json.dumps(
+                {
+                    "error": (
+                        f"Failed to queue A2A task for {target_bot_name}: "
+                        f"{coord_resp.text[:200]}"
+                    )
+                }
+            )
+        coord_body = _string_object_dict(coord_resp.json())
+        coord_message = (
+            _string_object_dict(coord_body.get("message")) if coord_body is not None else None
+        )
+        coordination_msg_id = (
+            _optional_string(coord_message.get("message_id"))
+            if coord_message is not None
+            else None
+        )
+    except Exception as exc:  # noqa: BLE001
+        await _delete_session_files_best_effort(
+            server_client,
+            target_session_id,
+            [str(block["file_id"]) for block in attachment_blocks],
+        )
+        return json.dumps({"error": f"Failed to queue A2A task for {target_bot_name}: {exc}"})
+
+    if not should_wait:
+        return json.dumps(
+            {
+                "status": "dispatched",
+                "target_teammate": target_bot_name,
+                "target_session_id": target_session_id,
+                "session_url": f"/c/{target_session_id}",
+                "intent": intent,
+                "coordination_message_id": coordination_msg_id,
+                "effective_model": target_default_model or "agent_default",
+                "model_source": "bot.default_model" if target_default_model else "agent_default",
+                "attachment_count": len(attachment_blocks),
+                "target_file_ids": [str(block["file_id"]) for block in attachment_blocks],
+                "message": (
+                    f"Task successfully dispatched to teammate '{target_bot_name}' "
+                    f"(session: /c/{target_session_id}). "
+                    "The teammate has been awakened and the durable A2A delivery is queued."
+                ),
+            }
+        )
+
+    # Await completion and fetch teammate report
+    deadline = time.monotonic() + max(3, min(timeout_s, 300))
+    saw_running = False
+    target_status = "idle"
+    assistant_reply: str | None = None
+
+    while time.monotonic() < deadline:
+        await asyncio.sleep(1.0)
+        try:
+            snap_resp = await server_client.get(
+                f"/v1/sessions/{target_session_id}",
+                params={"include_items": "false", "include_liveness": "true"},
+                timeout=10.0,
+            )
+            if snap_resp.status_code == 200:
+                snap_data = snap_resp.json()
+                target_status = str(snap_data.get("status") or "")
+                if target_status in ("running", "waiting"):
+                    saw_running = True
+                elif saw_running and target_status in ("idle", "failed"):
+                    break
+                elif not saw_running and (time.monotonic() - (deadline - timeout_s)) >= 2.0:
+                    items_check = await server_client.get(
+                        f"/v1/sessions/{target_session_id}/items",
+                        params={"order": "desc", "limit": 5},
+                        timeout=10.0,
+                    )
+                    if items_check.status_code == 200:
+                        newest_items = items_check.json().get("data", [])
+                        newest_id = str(newest_items[0].get("id") or "") if newest_items else ""
+                        if newest_items and newest_id != last_item_id_before:
+                            if any(it.get("role") == "assistant" for it in newest_items):
+                                saw_running = True
+                                if target_status == "idle":
+                                    break
+        except Exception as exc:  # noqa: BLE001
+            _logger.debug("Waiting for teammate notice: %s", exc)
+
+    try:
+        items_resp = await server_client.get(
+            f"/v1/sessions/{target_session_id}/items",
+            params={"order": "desc", "limit": 10},
+            timeout=10.0,
+        )
+        if items_resp.status_code == 200:
+            for item in items_resp.json().get("data", []):
+                if str(item.get("id") or "") == last_item_id_before:
+                    break
+                if item.get("role") == "assistant":
+                    for c_block in item.get("content") or []:
+                        if isinstance(c_block, dict) and c_block.get("type") == "output_text":
+                            assistant_reply = (assistant_reply or "") + c_block.get("text", "")
+                    if assistant_reply:
+                        break
+    except Exception as exc:  # noqa: BLE001
+        _logger.debug("Fetching teammate reply notice: %s", exc)
+
+    if assistant_reply:
+        return json.dumps(
+            {
+                "status": "completed",
+                "target_teammate": target_bot_name,
+                "target_session_id": target_session_id,
+                "session_url": f"/c/{target_session_id}",
+                "response": assistant_reply,
+                "effective_model": target_default_model or "agent_default",
+                "message": (
+                    f"Teammate '{target_bot_name}' completed the task and reported back:\n\n"
+                    f"{assistant_reply}\n\n"
+                    f"Full transcript available at /c/{target_session_id}"
+                ),
+            }
+        )
+    if target_status == "failed":
+        return json.dumps(
+            {
+                "status": "failed",
+                "target_teammate": target_bot_name,
+                "target_session_id": target_session_id,
+                "session_url": f"/c/{target_session_id}",
+                "message": (
+                    f"Teammate '{target_bot_name}' encountered an error during task execution. "
+                    f"Inspect logs at /c/{target_session_id}"
+                ),
+            }
+        )
+    return json.dumps(
+        {
+            "status": "in_progress",
+            "target_teammate": target_bot_name,
+            "target_session_id": target_session_id,
+            "session_url": f"/c/{target_session_id}",
+            "message": (
+                f"Task was dispatched to teammate '{target_bot_name}' "
+                "and is executing in the background. "
+                f"Live progress can be inspected at /c/{target_session_id}"
+            ),
+        }
+    )
+
+
 async def execute_tool(
     *,
     tool_name: str,
@@ -5915,6 +6542,7 @@ async def execute_tool(
                 server_client,
                 conversation_id=conversation_id,
                 agent_spec=agent_spec,
+                task_id=task_id,
                 runner_workspace=runner_workspace,
             )
         elif tool_name in _TERMINAL_TOOLS:
@@ -6017,6 +6645,13 @@ async def execute_tool(
                 conversation_id=conversation_id,
                 task_id=task_id,
                 agent_id=agent_id,
+            )
+        elif tool_name in _TEAMMATE_DISPATCH_TOOLS:
+            output = await _execute_send_to_teammate_tool(
+                args,
+                server_client=server_client,
+                conversation_id=conversation_id,
+                agent_spec=agent_spec,
             )
         elif tool_name in _HINDSIGHT_TOOLS:
             output = await _execute_hindsight_tool(

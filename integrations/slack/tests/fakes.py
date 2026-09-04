@@ -217,6 +217,7 @@ OMNIGENT_ENDPOINTS: list[tuple[str, str, bool]] = [
     ("GET", "/v1/me", True),
     ("GET", "/v1/agents", True),
     ("GET", "/v1/hosts", True),
+    ("GET", "/v1/scheduled-tasks", True),
     ("GET", "/v1/hosts/{host_id}/filesystem", True),
     # Session lifecycle.
     ("POST", "/v1/sessions", True),
@@ -293,6 +294,7 @@ class FakeOmnigentServer:
         self.hosts: list[dict[str, Any]] = [
             {"host_id": "h1", "name": "Host One", "status": "online"}
         ]
+        self.scheduled_tasks: list[dict[str, Any]] = []
         self.session_id = "conv_1"
         self.runner_id = "runner_1"
         self.harness = "claude-native"
@@ -358,6 +360,9 @@ class FakeOmnigentServer:
             side_effect=self._auth_wall_or({"data": self.agents})
         )
         respx_mock.get(b + "/v1/hosts").mock(side_effect=self._auth_wall_or({"hosts": self.hosts}))
+        respx_mock.get(b + "/v1/scheduled-tasks").mock(
+            side_effect=self._auth_wall_or({"scheduled_tasks": self.scheduled_tasks})
+        )
 
         # Login-mode probe + device grant (only hit when a login starts).
         def _me(request: httpx.Request) -> httpx.Response:

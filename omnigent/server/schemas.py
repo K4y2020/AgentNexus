@@ -294,6 +294,102 @@ class AgentObject(BaseModel):
     builtin: bool = False
 
 
+# ── Teammates ─────────────────────────────────────────────────
+
+
+class TeammateRoutineObject(BaseModel):
+    """A routine bound to one teammate agent.
+
+    Mirrors the scheduled-task list shape but keeps only the fields the roster
+    needs: identity, trigger, lifecycle state, and the most recent run. The
+    full task object stays under /v1/scheduled-tasks; this is a roster summary,
+    not a second CRUD surface.
+    """
+
+    id: str
+    name: str
+    state: str
+    rrule: str
+    timezone: str
+    last_run_at: int | None = None
+    last_run_status: str | None = None
+    last_run_conversation_id: str | None = None
+    next_run_at: str | None = None
+
+
+class BotObject(BaseModel):
+    """Persistent Bot identity and its Local Host home binding."""
+
+    id: str
+    agent_id: str
+    name: str
+    description: str | None = None
+    status: Literal["active", "archived"] = "active"
+    default_model: str | None = None
+    behavior_mode: Literal["off", "advisory", "lean", "strict"] = "off"
+    home_path: str
+    host_id: str | None = None
+    created_at: int
+    updated_at: int | None = None
+
+
+class UpdateBotRequest(BaseModel):
+    """Mutable Bot settings; omitted values retain their current value."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=20_000)
+    status: Literal["active", "archived"] | None = None
+    default_model: str | None = None
+    behavior_mode: Literal["off", "advisory", "lean", "strict"] | None = None
+    home_path: str | None = Field(default=None, min_length=1, max_length=2048)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TeammateObject(BaseModel):
+    """Roster row: a persistent agent plus its routines and recent activity.
+
+    The agent field carries the same shape the new-session picker reads from
+    GET /v1/agents; routines are the scheduled tasks bound to that agent;
+    last_activity_* is the newest activity among those routines so a roster row
+    can render a status without an N+1 fetch.
+    """
+
+    object: str = "teammate"
+    bot: BotObject
+    agent: AgentObject
+    routines: list[TeammateRoutineObject] = Field(default_factory=list)
+    routine_count: int = 0
+    last_activity_at: int | None = None
+    last_activity_status: str | None = None
+    last_activity_conversation_id: str | None = None
+    primary_conversation_id: str | None = None
+
+
+class AgentMemoryObject(BaseModel):
+    """One durable memory owned by a teammate agent."""
+
+    object: str = "agent.memory"
+    id: str
+    agent_id: str
+    content: str
+    source: str
+    created_at: int
+    updated_at: int | None = None
+
+
+class CreateAgentMemoryRequest(BaseModel):
+    """Request body for adding a teammate memory."""
+
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+class UpdateAgentMemoryRequest(BaseModel):
+    """Request body for editing a teammate memory."""
+
+    content: str = Field(min_length=1, max_length=20_000)
+
+
 # ── Session Policies ───────────────────────────────────────────
 
 
@@ -1459,6 +1555,8 @@ class SessionCreateRequest(BaseModel):
     """
 
     agent_id: str
+    bot_id: str | None = None
+    purpose: Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"] | None = None
     initial_items: list[SessionEventInput] = Field(default_factory=list)
     title: str | None = Field(default=None, max_length=USER_SESSION_TITLE_MAX_CHARS)
     labels: dict[str, str] = Field(default_factory=dict)
@@ -2114,6 +2212,8 @@ class SessionResponse(BaseModel):
     # ``labels``); set/cleared via ``PATCH /v1/sessions/{id}`` and filtered on
     # ``GET /v1/sessions?project=``.
     project_id: str | None = None
+    bot_id: str | None = None
+    purpose: Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"] = "standalone"
 
 
 class UpdateSessionRequest(BaseModel):
@@ -2223,6 +2323,7 @@ class UpdateSessionRequest(BaseModel):
     terminal_launch_args: list[str] | None = None
     archived: bool | None = None
     project_id: str | None = None
+    workspace: str | None = None
     silent: bool = False
 
     model_config = ConfigDict(extra="forbid")
@@ -2598,6 +2699,8 @@ class SessionListItem(BaseModel):
     # unfiled. Lets the sidebar group sessions by project without a follow-up
     # GET. Distinct from the legacy ``omni_project`` label in ``labels``.
     project_id: str | None = None
+    bot_id: str | None = None
+    purpose: Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"] = "standalone"
 
 
 class SessionList(BaseModel):

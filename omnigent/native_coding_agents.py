@@ -51,6 +51,30 @@ def native_coding_agent_for_agent_name(name: str | None) -> NativeCodingAgent | 
     """Return the native coding-agent metadata for *name*, if any."""
     return _BY_AGENT_NAME.get(name or "")
 
+def is_execution_harness_agent_name(name: str | None) -> bool:
+    """Return True if *name* identifies an execution tool/CLI harness rather than a teammate bot.
+
+    Execution tools (native coding agents like Claude Code, Codex, Cursor, Pi,
+    and ACP CLI harnesses like CodeBuddy, Devin, Grok Build) are meant for
+    terminal execution and code editing, whereas teammates are persistent bots
+    with identities, memories, and routines (like Debby and Polly).
+    """
+    if not name:
+        return False
+    if native_coding_agent_for_agent_name(name) is not None:
+        return True
+    name_lower = name.lower()
+    if name_lower.endswith("-native-ui") or name_lower.startswith("acp:"):
+        return True
+    from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
+
+    if name_lower in ACP_CLI_HARNESSES:
+        return True
+    for key, row in ACP_CLI_HARNESSES.items():
+        if name_lower == key or name_lower in row.aliases:
+            return True
+    return False
+
 
 def public_agent_name(name: str | None) -> str | None:
     """Return a user-facing agent name, hiding internal native-UI wrapper names.

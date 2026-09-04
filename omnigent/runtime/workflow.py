@@ -766,6 +766,10 @@ def _apply_provider_family(
         env[cfg.model_key] = family.default_model
     if cfg.model_key not in env:
         env[cfg.model_key] = _catalog_default_model(_PROVIDER_HARNESS_FAMILY[harness_type])
+    if cfg.model_key in env and family.models:
+        current_model = env[cfg.model_key]
+        if current_model in family.models and isinstance(family.models[current_model], str):
+            env[cfg.model_key] = family.models[current_model]
     if harness_type == "codex":
         # Codex defaults to the Responses wire API; OpenRouter-style
         # chat-only gateways set wire_api: chat. See codex_harness.py.

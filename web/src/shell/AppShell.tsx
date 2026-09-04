@@ -576,7 +576,7 @@ export function AppShell() {
     ? undefined
     : isCurrentServerLocal()
       ? "Sharing is unavailable from a local server."
-      : "Sharing has been disabled for this Omnigent server.";
+      : "Sharing has been disabled for this AgentNexus server.";
   // Any viewer can fork a shared session, sub-agents included — forking a
   // child is how it gets promoted to a top-level session of its own. Gated on
   // knowing which the session is (sidebar row or loaded snapshot) so the
@@ -718,11 +718,28 @@ export function AppShell() {
   // a one-entry list, not a dead end).
   const agentCount = childSessions.length + 1;
 
+  // Child sessions are omitted from the sidebar and carry no host/workspace
+  // binding of their own. Their filesystem is reachable only while their
+  // parent-owned runner is live, so wait for both the snapshot and a confirmed
+  // online runner before probing resources. Otherwise an old child session
+  // repeatedly asks an offline runner for /environments/default and logs 503s.
+  const workspaceResourcesEnabled =
+    activeConv !== null ||
+    (activeSession !== null &&
+      !(
+        activeSession.kind === "sub_agent" &&
+        activeSession.hostId == null &&
+        activeSession.workspace == null &&
+        liveness.kind !== "online"
+      ));
+
   // Hide the files panel entirely when the agent spec has no os_env. Probe
   // the default environment resource instead of the root filesystem listing:
   // it is enough to prove availability without paying for directory contents.
-  const environmentQuery = useWorkspaceEnvironment(conversationId);
-  const showFilesPanel = environmentQuery.data?.available !== false;
+  const environmentQuery = useWorkspaceEnvironment(conversationId, {
+    enabled: workspaceResourcesEnabled,
+  });
+  const showFilesPanel = workspaceResourcesEnabled && environmentQuery.data?.available !== false;
   // Per-tab availability for the right workspace rail — the single source
   // of truth shared by the tab-fallback effect below, the rail's mount
   // gate, and the header's collapse toggle, so they can never disagree.
@@ -886,7 +903,9 @@ export function AppShell() {
   // can tell BlockRenderer which inline code spans are real workspace files.
   // We use the changed-files list (not the flat top-level directory listing)
   // because it contains full relative paths like `web/src/shell/Foo.tsx`.
-  const changedFilesQuery = useWorkspaceChangedFiles(conversationId);
+  const changedFilesQuery = useWorkspaceChangedFiles(conversationId, {
+    enabled: workspaceResourcesEnabled,
+  });
   const changedFilePaths = useMemo(
     () => new Set(changedFilesQuery.data?.data.map((f) => f.path) ?? []),
     [changedFilesQuery.data],

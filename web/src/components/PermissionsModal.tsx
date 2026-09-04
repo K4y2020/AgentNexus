@@ -143,7 +143,7 @@ export function PermissionsModal({ sessionId, open, onOpenChange }: PermissionsM
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">Sharing unavailable</DialogTitle>
             <DialogDescription>
-              Sharing has been disabled for this Omnigent server.
+              Sharing has been disabled for this AgentNexus server.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -553,7 +553,7 @@ function QrCodeDialog({
             Open in mobile app
           </DialogTitle>
           <DialogDescription>
-            Scan with your phone's camera to open this session in the Omnigent app.
+            Scan with your phone's camera to open this session in the AgentNexus app.
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-center">
@@ -566,7 +566,7 @@ function QrCodeDialog({
               // mode; the padding also serves as the QR quiet zone.
               bgColor="#ffffff"
               fgColor="#000000"
-              aria-label="QR code to open this session in the Omnigent app"
+              aria-label="QR code to open this session in the AgentNexus app"
             />
           </div>
         </div>

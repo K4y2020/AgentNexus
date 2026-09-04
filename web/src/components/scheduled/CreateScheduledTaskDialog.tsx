@@ -55,6 +55,7 @@ export function CreateScheduledTaskDialog({
   onOpenChange,
   initialName,
   initialPrompt,
+  initialAgentId,
   editingTask = null,
 }: {
   open: boolean;
@@ -63,6 +64,9 @@ export function CreateScheduledTaskDialog({
    *  "Suggestions" suggestion chip). Omitted → the fields start empty. */
   initialName?: string;
   initialPrompt?: string;
+  /** Seed the agent picker when opening for a specific teammate. Omitted →
+   *  the picker falls back to its first listed agent, same as a manual open. */
+  initialAgentId?: string;
   editingTask?: ScheduledTask | null;
 }) {
   const { data: agents } = useAvailableAgents({ enabled: open });
@@ -220,7 +224,7 @@ export function CreateScheduledTaskDialog({
       } else {
         setName(initialName ?? "");
         setPrompt(initialPrompt ?? "");
-        setPickedAgentId(null);
+        setPickedAgentId(initialAgentId ?? null);
         setPickedModel("");
         setPickedEffort("");
         setPickedPermission("");
@@ -232,7 +236,7 @@ export function CreateScheduledTaskDialog({
       setError(null);
     }
     wasOpen.current = open;
-  }, [open, initialName, initialPrompt, editingTask]);
+  }, [open, initialName, initialPrompt, initialAgentId, editingTask]);
 
   const hostOptions = hosts ?? [];
   const preservePinnedHost = isEdit && editingTask?.hostId != null;

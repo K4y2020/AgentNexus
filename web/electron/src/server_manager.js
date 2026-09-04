@@ -23,7 +23,9 @@ const CONNECT_TIMEOUT_MS = 30000;
 /** Grace period after SIGTERM before escalating to SIGKILL on shutdown. */
 const KILL_GRACE_MS = 4000;
 /** The line `omnigent host` prints once the websocket tunnel is up. */
-const CONNECTED_MARKER = "✓ Connected";
+function isHostConnectedMarker(text) {
+  return /Connected as\s+|✓ Connected|Listening for sessions/i.test(String(text || ""));
+}
 /** Cap the in-memory per-host log so a chatty daemon can't grow unbounded. */
 const MAX_LOG_CHARS = 8000;
 
@@ -164,7 +166,7 @@ function spawnHostChild(cliPath, serverUrl) {
     const onData = (buf) => {
       const text = buf.toString();
       appendLog(holder, text);
-      if (text.includes(CONNECTED_MARKER)) finish({ ok: true, child, holder });
+      if (isHostConnectedMarker(holder.text)) finish({ ok: true, child, holder });
     };
     child.stdout.on("data", onData);
     child.stderr.on("data", onData);
@@ -450,6 +452,7 @@ module.exports = {
   stopOwnedLocalServer,
   shutdown,
   onChange,
+  isHostConnectedMarker,
   // Exposed for tests / introspection.
   _hostChildren: hostChildren,
   ownsLiveHost,

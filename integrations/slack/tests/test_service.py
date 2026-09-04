@@ -1551,6 +1551,42 @@ async def test_unconfigured_user_is_prompted_and_no_turn_runs(tmp_path: Path) ->
     assert setup.prompted[0]["in_channel"] is True
 
 
+async def test_channel_binding_routes_new_thread_to_teammate(tmp_path: Path) -> None:
+    """A bound channel uses the resident bot, even when the user has a config."""
+    store = await _store(tmp_path)
+    await store.upsert_channel_binding(
+        "T1",
+        "C1",
+        agent_id="ag_team",
+        agent_name="Team Bot",
+        workspace="/tmp/team",
+        host_id="host_team",
+        host_name="Team Host",
+        owner_user_id="U1",
+    )
+    # The user's own choice exists but must NOT win in a bound channel.
+    await _configure_user(store, "T1", "U1", agent_id="ag_user")
+    slack = FakeSlackClient()
+    omnigent = FakeOmnigentClient()
+    service, _pool, _setup = _service(store, omnigent)
+
+    await service.handle_app_mention(
+        body={"team_id": "T1", "event_id": "Ev1"},
+        event={"channel": "C1", "ts": "100.1", "user": "U1", "text": "<@B1> hello"},
+        client=slack,
+        context={"bot_user_id": "B1"},
+    )
+    await _wait_for_stream_stop(slack)
+    await service.shutdown()
+
+    assert omnigent.created and omnigent.created[0][0] == "ag_team"
+    record = await store.get_session(ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1"))
+    assert record is not None
+    assert record.owner_user_id == "U1"
+    assert record.host_id == "host_team"
+    assert record.workspace == "/tmp/team"
+
+
 async def test_channel_followup_from_other_user_is_ignored(tmp_path: Path) -> None:
     # A thread's session belongs to its creator; a different user's @mention in
     # that thread is not added to the session, but that user gets a private

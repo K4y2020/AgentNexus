@@ -268,6 +268,8 @@ export interface BackgroundTaskInfo {
 export interface Session {
   id: string;
   agentId: string;
+  botId?: string | null;
+  purpose?: "primary" | "topic" | "routine" | "a2a" | "subagent" | "standalone";
   /**
    * Human-readable name of the bound agent, e.g. ``"research-agent"``.
    * Populated from ``SessionResponse.agent_name`` on the wire. ``null``

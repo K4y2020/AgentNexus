@@ -2800,36 +2800,57 @@ class HostProcess:
                     status="failed",
                     error="failed to resolve Claude SDK model options",
                 )
-            if not listing.models:
-                # Subscription / CLI-login providers list nothing endpoint-side.
-                # The SDK drives the claude CLI, so the CLI's own probed rows
-                # (its aliases resolve inside the harness) are the truth here.
-                probed = await self._probed_claude_model_options()
-                if probed is not None:
-                    models = probed.models
-                    if not models and probed.routable_models:
-                        # A mapping proxy such as CCSwitch may advertise only
-                        # its downstream target ids from /v1/models even though
-                        # the configured Claude aliases are valid inputs. When
-                        # the CLI probe has no display rows, its exact configured
-                        # routable set is still truthful picker data; expose
-                        # those ids instead of returning an unusable empty list.
-                        models = [
-                            {"id": model_id, "displayName": model_id}
-                            for model_id in probed.routable_models
-                        ]
-                    return HostModelOptionsResultFrame(
-                        request_id=frame.request_id,
-                        status="ok",
-                        models=models,
-                        routable_models=probed.routable_models,
-                    )
+            models_dict: dict[str, dict[str, Any]] = {
+                model.id: {"id": model.id, "displayName": model.id}
+                for model in (listing.models or [])
+            }
+            probed = await self._probed_claude_model_options()
+            if probed is not None:
+                for row in (probed.models or []):
+                    rid = str(row.get("id") or row.get("model") or "")
+                    if rid and rid not in models_dict:
+                        models_dict[rid] = {
+                            "id": rid,
+                            "displayName": str(row.get("displayName") or rid),
+                        }
+                for rid in (probed.routable_models or []):
+                    if rid and rid not in models_dict:
+                        models_dict[rid] = {"id": rid, "displayName": rid}
+
+            models = list(models_dict.values())
+            routable = list(models_dict.keys())
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
-                models=[{"id": model.id, "displayName": model.id} for model in listing.models],
-                routable_models=[model.id for model in listing.models],
+                models=models,
+                routable_models=routable,
             )
+        if harness in ("codebuddy", "codebuddy-native", "codebuddy-acp"):
+            codebuddy_models = [
+                {"id": "auto", "displayName": "Auto (自动路由)"},
+                {"id": "hy4-preview", "displayName": "Hunyuan 4 Preview (腾讯混元4)"},
+                {"id": "hy3-x", "displayName": "Hunyuan 3-X"},
+                {"id": "hy3", "displayName": "Hunyuan 3"},
+                {"id": "deepseek-v4-pro", "displayName": "DeepSeek V4 Pro"},
+                {"id": "deepseek-v4-flash", "displayName": "DeepSeek V4 Flash"},
+                {"id": "glm-5.3", "displayName": "GLM 5.3"},
+                {"id": "glm-5.3-flash", "displayName": "GLM 5.3 Flash"},
+                {"id": "glm-5.2", "displayName": "GLM 5.2"},
+                {"id": "glm-5.1", "displayName": "GLM 5.1"},
+                {"id": "glm-5v-turbo", "displayName": "GLM 5V Turbo"},
+                {"id": "kimi-k3-2", "displayName": "Kimi K3.2"},
+                {"id": "kimi-k2.7", "displayName": "Kimi K2.7"},
+                {"id": "kimi-k2.6", "displayName": "Kimi K2.6"},
+                {"id": "kimi-k2.5", "displayName": "Kimi K2.5"},
+                {"id": "minimax-m3-pay", "displayName": "MiniMax M3"},
+            ]
+            return HostModelOptionsResultFrame(
+                request_id=frame.request_id,
+                status="ok",
+                models=codebuddy_models,
+                routable_models=[m["id"] for m in codebuddy_models],
+            )
+
         if harness != "claude-native":
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
@@ -2838,10 +2859,16 @@ class HostProcess:
             )
         probed = await self._probed_claude_model_options()
         if probed is not None:
+            models = probed.models
+            if not models and probed.routable_models:
+                models = [
+                    {"id": model_id, "displayName": model_id}
+                    for model_id in probed.routable_models
+                ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
-                models=probed.models,
+                models=models,
                 routable_models=probed.routable_models,
             )
         return HostModelOptionsResultFrame(

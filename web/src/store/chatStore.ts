@@ -2979,9 +2979,7 @@ function sessionBindingPatch(
     costControlModeOverride: session.costControlModeOverride ?? null,
     subagentRoutingOverride: session.subagentRoutingOverride ?? null,
     codexPlanMode: codexPlanModeFromSession(session),
-    claudePermissionMode: isNativeTerminalSessionFn(session)
-      ? (claudePermissionModeFromSession(session) ?? "")
-      : (claudePermissionModeFromSession(session) ?? "default"),
+    claudePermissionMode: claudePermissionModeFromSession(session) ?? "",
     contextWindow: session.contextWindow ?? null,
     gitBranch: session.gitBranch ?? null,
     skills: session.skills ?? [],

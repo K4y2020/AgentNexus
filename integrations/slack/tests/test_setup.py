@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -784,6 +785,113 @@ async def test_config_command_opens_connecting_modal(tmp_path: Path) -> None:
     assert ack.calls == [{}]
     assert client.opened_views and client.opened_views[0]["trigger_id"] == "tid-1"
     assert client.opened_views[0]["view"]["callback_id"] == CALLBACK_SETUP_INFO
+
+
+async def test_bind_command_opens_connecting_modal(tmp_path: Path) -> None:
+    pool = OmnigentClientPool()
+    flow = _flow(await _store(tmp_path), pool)
+    ack = FakeAck()
+    client = FakeSetupClient()
+
+    try:
+        await flow._handle_config_command(
+            ack,
+            {
+                "trigger_id": "tid-1",
+                "team_id": "T1",
+                "user_id": "U1",
+                "channel_id": "C1",
+                "text": "bind",
+            },
+            client,
+        )
+    finally:
+        await pool.aclose_all()
+
+    assert ack.calls == [{}]
+    assert client.opened_views and client.opened_views[0]["trigger_id"] == "tid-1"
+
+
+async def test_select_submit_persists_channel_binding(tmp_path: Path) -> None:
+    store = await _store(tmp_path)
+    pool = OmnigentClientPool()
+    flow = _flow(store, pool)
+    ack = FakeAck()
+    client = FakeSetupClient()
+
+    view = {
+        "private_metadata": json.dumps({"channel_id": "C1"}),
+        "state": {
+            "values": {
+                AGENT_BLOCK: {
+                    "agent_select": {
+                        "selected_option": {
+                            "text": {"type": "plain_text", "text": "Debby"},
+                            "value": "ag_1",
+                        }
+                    }
+                },
+                HOST_BLOCK: {
+                    "host_select": {
+                        "selected_option": {
+                            "text": {"type": "plain_text", "text": "Host One"},
+                            "value": "h1",
+                        }
+                    }
+                },
+                WORKSPACE_BLOCK: {"workspace_input": {"value": "/home/me/project"}},
+            }
+        },
+    }
+    body = {"team": {"id": "T1"}, "user": {"id": "U1"}}
+
+    try:
+        await flow._handle_select_submit(ack, body, view, client)
+    finally:
+        await pool.aclose_all()
+
+    binding = await store.get_channel_binding("T1", "C1")
+    assert binding is not None
+    assert binding.agent_id == "ag_1"
+    assert binding.agent_name == "Debby"
+    assert binding.owner_user_id == "U1"
+    # A channel binding is not the user's personal config.
+    assert await store.get_user_config("T1", "U1") is None
+    assert client.posts and client.posts[0]["channel"] == "C1"
+    assert "staffed" in client.posts[0]["text"].lower()
+
+
+async def test_unbind_command_removes_channel_binding(tmp_path: Path) -> None:
+    store = await _store(tmp_path)
+    await store.upsert_channel_binding(
+        "T1",
+        "C1",
+        agent_id="ag_1",
+        agent_name="Debby",
+        workspace="/tmp/workspace",
+        owner_user_id="U1",
+    )
+    pool = OmnigentClientPool()
+    flow = _flow(store, pool)
+    ack = FakeAck()
+    client = FakeSetupClient()
+
+    try:
+        await flow._handle_config_command(
+            ack,
+            {
+                "team_id": "T1",
+                "user_id": "U1",
+                "channel_id": "C1",
+                "text": "unbind",
+            },
+            client,
+        )
+    finally:
+        await pool.aclose_all()
+
+    assert await store.get_channel_binding("T1", "C1") is None
+    assert client.posts and "removed" in client.posts[0]["text"].lower()
 
 
 @respx.mock

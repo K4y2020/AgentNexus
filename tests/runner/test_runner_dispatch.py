@@ -3632,6 +3632,77 @@ async def test_sys_session_send_model_rejected_for_existing_child(
 
 
 @pytest.mark.asyncio
+async def test_saved_model_overrides_dispatch_model_when_continuing_sdk_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A saved worker binding also governs an existing SDK child."""
+    from omnigent.runner import app as runner_app
+    from omnigent.runner.tool_dispatch import execute_tool
+
+    patches: list[dict[str, Any]] = []
+    event_posts = 0
+    monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
+    monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
+    session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+    async def _server_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal event_posts
+        if request.url.path == "/v1/sessions/conv_parent_bound/child_sessions":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "conv_existing_bound",
+                            "tool": "worker",
+                            "session_name": "fix-auth",
+                            "busy": False,
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/v1/sessions/conv_parent_bound/labels":
+            return httpx.Response(
+                200,
+                json={"labels": {"subagent.model.worker": "gpt-5.6-luna"}},
+            )
+        if request.method == "PATCH" and request.url.path == "/v1/sessions/conv_existing_bound":
+            patches.append(json.loads(request.content))
+            return httpx.Response(200, json={"id": "conv_existing_bound"})
+        if request.method == "POST" and request.url.path.endswith("/events"):
+            event_posts += 1
+            return httpx.Response(202, json={"queued": True})
+        return httpx.Response(404, json={"error": str(request.url)})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(_server_handler),
+        base_url="http://server",
+    ) as server_client:
+        try:
+            output = await execute_tool(
+                tool_name="sys_session_send",
+                arguments=json.dumps(
+                    {
+                        "agent": "worker",
+                        "title": "fix-auth",
+                        "args": {"input": "continue", "model": "gpt-5.4"},
+                    }
+                ),
+                server_client=server_client,
+                conversation_id="conv_parent_bound",
+                agent_spec=_spec_with_subagent_harness("codex"),
+                session_inbox=session_inbox,
+            )
+        finally:
+            runner_app.unregister_subagent_work("conv_existing_bound")
+            runner_app._session_inboxes_ref.pop("conv_parent_bound", None)
+
+    assert json.loads(output)["status"] == "launching"
+    assert patches == [{"model_override": "gpt-5.6-luna", "silent": True}]
+    assert event_posts == 1
+
+
+@pytest.mark.asyncio
 async def test_sys_session_send_model_rejected_in_by_id_mode() -> None:
     """
     ``model`` plus ``session_id`` fails loud before any server call.
@@ -3960,6 +4031,7 @@ async def _dispatch_model_send(
     model: str | None,
     conv_id: str,
     labels: dict[str, str] | None = None,
+    purpose: str | None = None,
 ) -> _ModelSendResult:
     """
     Drive one fresh-create ``sys_session_send`` carrying ``args.model``.
@@ -4002,6 +4074,8 @@ async def _dispatch_model_send(
             message_args: dict[str, Any] = {"input": "do the task"}
             if model is not None:
                 message_args["model"] = model
+            if purpose is not None:
+                message_args["purpose"] = purpose
             output = await execute_tool(
                 tool_name="sys_session_send",
                 arguments=json.dumps(
@@ -4023,6 +4097,39 @@ async def _dispatch_model_send(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("purpose", "expected_mode"),
+    [
+        pytest.param("implement", "lean", id="implementation-is-lean"),
+        pytest.param("review", "off", id="review-is-native"),
+        pytest.param("explore", "off", id="exploration-is-native"),
+        pytest.param("search", "off", id="search-is-native"),
+        pytest.param(None, "off", id="unspecified-is-native"),
+    ],
+)
+async def test_sys_session_send_binds_child_behavior_from_purpose(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    purpose: str | None,
+    expected_mode: str,
+) -> None:
+    """Each fresh child receives its own explicit behavior-pack binding."""
+    _isolate_model_providers(monkeypatch, tmp_path, "")
+    result = await _dispatch_model_send(
+        monkeypatch,
+        agent_spec=_spec_with_real_subagent("codex"),
+        model=None,
+        conv_id=f"conv_parent_behavior_{purpose or 'none'}",
+        purpose=purpose,
+    )
+
+    assert json.loads(result.output)["status"] == "launching"
+    assert result.create_bodies[0]["labels"] == {
+        "omnigent.behavior_mode": expected_mode,
+    }
+
+
+@pytest.mark.asyncio
 async def test_sys_session_send_uses_parent_subagent_model_preference(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -4040,6 +4147,25 @@ async def test_sys_session_send_uses_parent_subagent_model_preference(
     payload = json.loads(result.output)
     assert payload["status"] == "launching"
     assert result.create_bodies[0]["model_override"] == "claude-sonnet-4-6"
+
+
+@pytest.mark.asyncio
+async def test_sys_session_send_saved_model_overrides_agent_dispatch_model(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A Bot's saved worker model cannot be replaced by its orchestrator."""
+    _isolate_model_providers(monkeypatch, tmp_path, "")
+    result = await _dispatch_model_send(
+        monkeypatch,
+        agent_spec=_spec_with_real_subagent("codex"),
+        model="gpt-5.4",
+        conv_id="conv_parent_saved_model_wins",
+        labels={"subagent.model.worker": "gpt-5.6-luna"},
+    )
+
+    assert json.loads(result.output)["status"] == "launching"
+    assert result.create_bodies[0]["model_override"] == "gpt-5.6-luna"
 
 
 @pytest.mark.asyncio

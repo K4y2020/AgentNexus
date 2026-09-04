@@ -469,6 +469,8 @@ class CoordinationStore:
 
     def save_message_and_outbox(self, message: AgentMessage) -> tuple[AgentMessage, OutboxItem]:
         """Atomically persist an AgentMessage and queue its Outbox delivery item."""
+        if not message.idempotency_key:
+            message.idempotency_key = f"auto:{message.message_id}"
         target_sequence = self._next_target_sequence(
             message.root_session_id, message.recipient_session_id
         )
@@ -655,6 +657,7 @@ class CoordinationStore:
                     delivery_state=attempt.delivery_state,
                     injection_receipt_json=None,
                     error=attempt.error,
+                    error_code=attempt.error_code,
                     attempt_count=attempt.attempt_count,
                     created_at=attempt.created_at,
                     updated_at=attempt.updated_at,
@@ -909,6 +912,7 @@ class CoordinationStore:
                         else None
                     ),
                     error=attempt.error,
+                    error_code=attempt.error_code,
                     attempt_count=attempt.attempt_count,
                     created_at=attempt.created_at,
                     updated_at=attempt.updated_at,
@@ -1150,6 +1154,7 @@ class CoordinationStore:
                             else None
                         ),
                         error=row.error,
+                        error_code=getattr(row, "error_code", None),
                         attempt_count=row.attempt_count,
                         created_at=row.created_at,
                         updated_at=row.updated_at,

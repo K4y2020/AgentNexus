@@ -36,7 +36,10 @@ interface HostsResponse {
 
 async function fetchHosts(includeSandbox: boolean): Promise<Host[]> {
   const res = await authenticatedFetch("/v1/hosts");
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    if (res.status === 502 || res.status === 404 || res.status === 409) return [];
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
   const body = (await res.json()) as HostsResponse;
   // Hide server-managed sandbox hosts from every host picker: they
   // are launch targets the server creates on demand (and relaunches

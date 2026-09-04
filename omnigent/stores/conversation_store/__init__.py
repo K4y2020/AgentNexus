@@ -371,6 +371,9 @@ class ConversationStore(ABC):
         sub_agent_name: str | None = None,
         host_id: str | None = None,
         workspace: str | None = None,
+        bot_id: str | None = None,
+        purpose: str = "standalone",
+        singleton_slot: str | None = None,
         git_branch: str | None = None,
         terminal_launch_args: list[str] | None = None,
         conversation_id: str | None = None,
@@ -441,6 +444,25 @@ class ConversationStore(ABC):
             ``conversation_id`` is already in use.
         """
         ...
+
+    def set_bot_ownership(
+        self,
+        conversation_id: str,
+        *,
+        bot_id: str | None,
+        purpose: str,
+        singleton_slot: str | None = None,
+    ) -> Conversation | None:
+        """Assign one session to a durable Bot.
+
+        Concrete stores added before Bot ownership may leave this unsupported;
+        the SQLAlchemy store is authoritative in server deployments.
+        """
+        raise NotImplementedError
+
+    def get_bot_singleton_session(self, bot_id: str, slot: str) -> Conversation | None:
+        """Return a Bot's unique ``primary`` or ``a2a`` session."""
+        raise NotImplementedError
 
     @abstractmethod
     def get_conversation(self, conversation_id: str) -> Conversation | None:
@@ -1036,6 +1058,14 @@ class ConversationStore(ABC):
         ...
 
     @abstractmethod
+    def set_conversation_workspace(
+        self,
+        conversation_id: str,
+        workspace: str,
+    ) -> bool:
+        """Update a conversation's working directory on the metadata row."""
+        raise NotImplementedError
+
     def set_conversation_project(
         self,
         conversation_id: str,

@@ -422,6 +422,10 @@ where = ["."]
 # Discovers the `omnigent` package (including `omnigent.inner.*` and
 # all omnigent subpackages absorbed during unification).
 include = ["omnigent*"]
+# Vite output contains many extension-less directory segments. Namespace
+# discovery must not mistake them for Python packages; package-data below
+# still copies the built SPA into the wheel.
+exclude = ["omnigent.server.static", "omnigent.server.static.*"]
 
 [tool.setuptools.package-data]
 "omnigent.db" = ["alembic.ini"]

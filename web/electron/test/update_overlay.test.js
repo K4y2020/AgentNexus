@@ -8,10 +8,18 @@ class FakeWebContents extends EventEmitter {
   constructor() {
     super();
     this.sent = [];
+    this.destroyed = false;
+    this.throwOnSend = null;
   }
 
   send(channel, payload) {
+    if (this.throwOnSend) throw this.throwOnSend;
+    if (this.destroyed) throw new TypeError("Object has been destroyed");
     this.sent.push({ channel, payload });
+  }
+
+  isDestroyed() {
+    return this.destroyed;
   }
 }
 
@@ -163,5 +171,24 @@ describe("update overlay", () => {
       ignore: true,
       options: { forward: true },
     });
+  });
+
+  it("does not send to destroyed parent webContents while closing", () => {
+    const { controller } = makeOverlay();
+    const parent = new FakeWindow();
+    const overlay = controller.ensureOverlay(parent);
+    parent.webContents.destroyed = true;
+
+    assert.doesNotThrow(() => parent.emit("closed"));
+    assert.equal(overlay.isDestroyed(), true);
+  });
+
+  it("absorbs a webContents destruction race during send", () => {
+    const { controller } = makeOverlay();
+    const parent = new FakeWindow();
+    const overlay = controller.ensureOverlay(parent);
+    parent.webContents.throwOnSend = new TypeError("Object has been destroyed");
+
+    assert.doesNotThrow(() => overlay.destroy());
   });
 });

@@ -43,6 +43,9 @@ vi.mock("@/hooks/useWorkspaceChangedFiles", async (importOriginal) => {
 // HostBadge now renders in the composer's status-line tray and reads the
 // session's host binding via TanStack Query. Stub the hooks so it self-hides
 // (no host bound) without needing a QueryClient provider around these renders.
+vi.mock("@/hooks/useTeammates", () => ({
+  useTeammates: () => ({ data: [] }),
+}));
 vi.mock("@/hooks/useSession", async (importOriginal) => ({
   ...(await importOriginal<typeof UseSessionModule>()),
   useSession: () => useSessionMock(),

@@ -192,9 +192,15 @@ def _find_git_root(path: Path) -> Path | None:
         is not inside a git repository.
     """
     current = path.resolve()
+    try:
+        home = Path.home().resolve()
+    except Exception:
+        home = None
     while True:
         git_entry = current / ".git"
         if git_entry.is_dir() or git_entry.is_file():
+            if home is not None and str(current).lower() == str(home).lower() and str(path).lower() != str(home).lower():
+                return None
             return current
         parent = current.parent
         if parent == current:

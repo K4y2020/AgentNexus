@@ -20,6 +20,7 @@ import uvicorn
 from omnigent.inner.claude_gateway_shim import (
     ClaudeGatewayShim,
     restore_thinking_display,
+    strip_claude_sdk_internal_system_blocks,
 )
 
 # ── restore_thinking_display unit tests ───────────────────
@@ -107,6 +108,41 @@ def test_restore_passes_through_unparseable_bodies(body: bytes) -> None:
     """Non-object JSON, invalid JSON, and non-dict thinking are forwarded
     verbatim rather than raising — the upstream owns request validation."""
     assert restore_thinking_display(body) == body
+
+
+def test_strip_claude_sdk_internal_system_blocks_preserves_agent_prompt() -> None:
+    """Generic gateways receive the Bot prompt without SDK billing/identity blocks."""
+    body = json.dumps(
+        {
+            "model": "gemini-3.8-flash-high",
+            "system": [
+                {
+                    "type": "text",
+                    "text": (
+                        "x-anthropic-billing-header: "
+                        "cc_version=2.1.251; cc_entrypoint=sdk-py;"
+                    ),
+                },
+                {
+                    "type": "text",
+                    "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+                },
+                {"type": "text", "text": "BOT SYSTEM PROMPT KEEP ME"},
+            ],
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    ).encode()
+
+    result = json.loads(strip_claude_sdk_internal_system_blocks(body))
+
+    assert result["system"] == [{"type": "text", "text": "BOT SYSTEM PROMPT KEEP ME"}]
+    assert result["messages"] == [{"role": "user", "content": "hi"}]
+
+
+def test_strip_claude_sdk_internal_system_blocks_is_noop_without_internal_blocks() -> None:
+    """Ordinary gateway payloads remain byte-identical."""
+    body = _body("gemini-3.8-flash-high", None)
+    assert strip_claude_sdk_internal_system_blocks(body) == body
 
 
 # ── shim integration tests (real local upstream) ──────────
@@ -290,6 +326,40 @@ async def test_shim_forwards_non_opus_and_non_messages_traffic_verbatim(upstream
 
 
 @pytest.mark.asyncio
+async def test_shim_strips_sdk_internal_system_blocks_when_enabled(upstream) -> None:  # type: ignore[no-untyped-def]  # fixture type owned by pytest
+    """Generic-gateway mode strips SDK metadata but preserves the Bot prompt."""
+    shim = ClaudeGatewayShim(
+        upstream_base_url=f"http://127.0.0.1:{upstream.port}",
+        strip_sdk_internal_system_blocks=True,
+    )
+    await shim.start()
+    body = json.dumps(
+        {
+            "model": "gemini-3.8-flash-high",
+            "system": [
+                {"type": "text", "text": "x-anthropic-billing-header: sdk-py"},
+                {
+                    "type": "text",
+                    "text": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+                },
+                {"type": "text", "text": "BOT SYSTEM PROMPT KEEP ME"},
+            ],
+            "messages": [{"role": "user", "content": "hi"}],
+        }
+    ).encode()
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{shim.base_url}/v1/messages", content=body)
+
+        assert response.status_code == 200
+        assert json.loads(upstream.requests[0].body)["system"] == [
+            {"type": "text", "text": "BOT SYSTEM PROMPT KEEP ME"}
+        ]
+    finally:
+        await shim.aclose()
+
+
+@pytest.mark.asyncio
 async def test_shim_returns_502_when_upstream_unreachable() -> None:
     """Upstream connection failures surface as a 502 with an Anthropic-
     shaped error body instead of hanging or crashing the shim."""
@@ -393,6 +463,30 @@ async def test_gateway_executor_routes_new_client_through_shim(monkeypatch) -> N
         assert connect_env["ANTHROPIC_BASE_URL"].startswith("http://127.0.0.1:")
         assert executor._gateway_shim is not None
         assert connect_env["ANTHROPIC_BASE_URL"] == executor._gateway_shim.base_url
+    finally:
+        if executor._gateway_shim is not None:
+            await executor._gateway_shim.aclose()
+
+
+@pytest.mark.asyncio
+async def test_generic_gateway_executor_enables_sdk_block_stripping() -> None:
+    """Only generic gateways enable the Claude SDK compatibility rewrite."""
+    from types import SimpleNamespace
+
+    from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+
+    executor = ClaudeSDKExecutor(
+        gateway=True,
+        gateway_host="https://proxy.example",
+        base_url_override="https://proxy.example",
+        gateway_auth_command="printf token",
+    )
+    options = SimpleNamespace(env={"ANTHROPIC_BASE_URL": "https://proxy.example"})
+    try:
+        await executor._route_options_through_gateway_shim(options)
+
+        assert executor._gateway_shim is not None
+        assert executor._gateway_shim._strip_sdk_internal_system_blocks is True
     finally:
         if executor._gateway_shim is not None:
             await executor._gateway_shim.aclose()

@@ -196,6 +196,8 @@ class ToolManager:
         # can drive the desktop app's browser without the spec opting in
         # (framework-owned).
         self._register_browser_tools()
+        # Cross-bot A2A teammate dispatch tools are always auto-registered.
+        self._register_teammate_tools()
 
     def _register_policy_tools(self) -> None:
         """
@@ -554,6 +556,17 @@ class ToolManager:
         """
         self._tools[ListCommentsTool.name()] = ListCommentsTool()
         self._tools[UpdateCommentTool.name()] = UpdateCommentTool()
+
+    def _register_teammate_tools(self) -> None:
+        """
+        Auto-register send_to_teammate tool.
+
+        Framework-owned and always available so any bot can dispatch tasks
+        or send peer messages to other teammate bots in the workspace.
+        """
+        from omnigent.tools.builtins.send_to_teammate import SendToTeammateTool
+
+        self._tools[SendToTeammateTool.name()] = SendToTeammateTool()
 
     def _register_browser_tools(self) -> None:
         """

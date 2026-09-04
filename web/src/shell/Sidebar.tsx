@@ -17,6 +17,7 @@ import {
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  BotIcon,
   CheckIcon,
   CheckIcon as CheckMarkIcon,
   ChevronLeftIcon,
@@ -42,6 +43,7 @@ import {
   PinIcon,
   PinOffIcon,
   PlusIcon,
+  UsersIcon,
   SearchIcon,
   Settings2Icon,
   ShareIcon,
@@ -70,7 +72,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/routing";
 import { SidebarHeaderActions, SidebarSettingsButton } from "./SidebarHeaderActions";
-import omnigentWordmark from "@/assets/omnigent-wordmark.svg";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -134,7 +135,11 @@ import { useHosts, type Host } from "@/hooks/useHosts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useServerInfo } from "@/lib/CapabilitiesContext";
 import { isFeatureEnabled, isSingleUserMode, sandboxOptionLabel } from "@/lib/capabilities";
-import { useBranding } from "@/lib/branding";
+import { useAppName, useBranding } from "@/lib/branding";
+import { useTeammates } from "@/hooks/useTeammates";
+import { useRecentWorkspaces } from "@/hooks/useRecentWorkspaces";
+import { createSession } from "@/lib/sessionsApi";
+import type { Teammate } from "@/lib/teammatesApi";
 import { relativeTime } from "@/lib/relativeTime";
 import { USER_SESSION_TITLE_MAX_CHARS } from "@/lib/sessionTitles";
 import { showToast } from "@/components/ui/toast";
@@ -319,6 +324,7 @@ function useActiveNavItem(): {
   isNewChatPage: boolean;
   isInboxPage: boolean;
   isTasksPage: boolean;
+  isTeammatesPage: boolean;
   isUsagePage: boolean;
   newSessionProjectName: string | null;
 } {
@@ -327,18 +333,31 @@ function useActiveNavItem(): {
   const leaf = location.pathname.split("/").filter(Boolean).at(-1);
   const isInboxPage = leaf === "inbox";
   const isTasksPage = leaf === "tasks";
+  const isTeammatesPage = leaf === "teammates";
   const isUsagePage = leaf === "usage";
   const isNewSessionRoute =
-    activeConversationId == null && !isInboxPage && !isTasksPage && !isUsagePage;
+    activeConversationId == null &&
+    !isInboxPage &&
+    !isTasksPage &&
+    !isTeammatesPage &&
+    !isUsagePage;
   const requestedProject = isNewSessionRoute
     ? new URLSearchParams(location.search).get("project")
     : null;
   const newSessionProjectName = requestedProject || null;
-  // Exclude inbox/tasks/usage: they also have no `:conversationId`, so they
-  // would otherwise light up the "New session" button. A project-prefilled
-  // new session belongs to that project row instead of the global nav item.
+  // Exclude inbox/tasks/teammates/usage: they also have no `:conversationId`,
+  // so they would otherwise light up the "New session" button. A
+  // project-prefilled new session belongs to that project row instead of the
+  // global nav item.
   const isNewChatPage = isNewSessionRoute && newSessionProjectName == null;
-  return { isNewChatPage, isInboxPage, isTasksPage, isUsagePage, newSessionProjectName };
+  return {
+    isNewChatPage,
+    isInboxPage,
+    isTasksPage,
+    isTeammatesPage,
+    isUsagePage,
+    newSessionProjectName,
+  };
 }
 
 /**
@@ -497,6 +516,7 @@ export function Sidebar({
   peek,
 }: SidebarProps) {
   const branding = useBranding();
+  const appName = useAppName();
   const serverInfo = useServerInfo();
   const usagePageEnabled = isFeatureEnabled(serverInfo, "usage_page");
   const [selectionMode, setSelectionMode] = useState(false);
@@ -614,8 +634,14 @@ export function Sidebar({
   }
 
   // Which top-level nav button to highlight for the current route.
-  const { isNewChatPage, isInboxPage, isTasksPage, isUsagePage, newSessionProjectName } =
-    useActiveNavItem();
+  const {
+    isNewChatPage,
+    isInboxPage,
+    isTasksPage,
+    isTeammatesPage,
+    isUsagePage,
+    newSessionProjectName,
+  } = useActiveNavItem();
 
   // On /settings the card keeps its chrome but swaps the conversation list
   // for the settings section nav (see settingsNav.tsx) — entering settings
@@ -861,17 +887,20 @@ export function Sidebar({
                 componentId="sidebar.home"
                 className="sidebar-brand rounded-none transition-opacity duration-200 ease-[var(--ease-otto)] hover:opacity-70"
               >
-                {branding.app_name ? (
-                  <span className="text-[15px] font-semibold tracking-tight">
-                    {branding.app_name}
-                  </span>
-                ) : (
+                {branding.logos?.main ? (
                   <img
-                    src={omnigentWordmark}
-                    alt="Omnigent"
+                    src={branding.logos.main}
+                    alt={appName}
                     data-testid="sidebar-wordmark"
                     className="h-[15px] w-auto shrink-0 translate-y-px dark:invert"
                   />
+                ) : (
+                  <span
+                    className="text-[15px] font-semibold tracking-tight"
+                    data-testid="sidebar-brand-name"
+                  >
+                    {appName}
+                  </span>
                 )}
               </Link>
               {/* On the macOS shell this copy is hidden and an identical cluster
@@ -996,6 +1025,29 @@ export function Sidebar({
                       {inboxCount}
                     </span>
                   )}
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className={cn(
+                  SIDEBAR_ROW,
+                  "w-full justify-start border-0 font-normal",
+                  SIDEBAR_HOVER_HIGHLIGHT,
+                  isTeammatesPage && SIDEBAR_ACTIVE_HIGHLIGHT,
+                )}
+                data-testid="teammates-nav"
+              >
+                <Link to="/teammates" onClick={onNavClick} componentId="sidebar.teammates">
+                  <BotIcon
+                    className={cn(
+                      "ui-icon",
+                      isTeammatesPage
+                        ? "text-[var(--sidebar-active-foreground)]"
+                        : "text-muted-foreground",
+                    )}
+                  />
+                  Teammates
                 </Link>
               </Button>
               {usagePageEnabled && (
@@ -1432,11 +1484,55 @@ function ConversationList({
     () => new Map(hosts.map((host) => [host.host_id, host] as const)),
     [hosts],
   );
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: teammates = [], refetch: refetchTeammates } = useTeammates();
+  const onlineHost = hosts.find((h) => h.status === "online");
+  const { addRecent: addRecentWorkspace } = useRecentWorkspaces(onlineHost?.host_id ?? null);
   // All loaded conversations from the single paginated list (for the flat
   // session list; pinned rows are merged in from the server pinned query).
   const allConversations = useMemo(
     () => conversationsQuery.data?.pages.flatMap((page) => page.data) ?? [],
     [conversationsQuery.data],
+  );
+
+  const handleTeammateChat = useCallback(
+    async (teammate: Teammate, forceNew = false) => {
+      if (!forceNew && teammate.primaryConversationId) {
+        const exists = allConversations.some((c) => c.id === teammate.primaryConversationId);
+        if (exists || allConversations.length === 0) {
+          navigate(`/c/${teammate.primaryConversationId}`);
+          return;
+        }
+      }
+      const targetWorkspace = `${teammate.bot.homePath.replace(/[\\/]+$/, "")}/scratch`;
+      const targetHost =
+        hosts.find(
+          (host) => host.host_id === teammate.bot.hostId && host.status === "online",
+        ) ?? onlineHost;
+
+      if (!targetHost) {
+        navigate("/teammates");
+        return;
+      }
+      try {
+        const session = await createSession(teammate.agent.id, [], {
+          hostId: targetHost.host_id,
+          workspace: targetWorkspace,
+          title: forceNew ? `${teammate.bot.name} Topic` : teammate.bot.name,
+          labels: forceNew ? {} : { "omnigent.teammate.primary": "true" },
+          botId: teammate.bot.id,
+          purpose: forceNew ? "topic" : "primary",
+        });
+        addRecentWorkspace(targetWorkspace);
+        void refetchTeammates();
+        void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        navigate(`/c/${session.id}`);
+      } catch {
+        navigate("/teammates");
+      }
+    },
+    [hosts, onlineHost, allConversations, addRecentWorkspace, refetchTeammates, queryClient, navigate],
   );
 
   // Project folders ({ id, name }) for grouping sessions — first-class id
@@ -1564,13 +1660,55 @@ function ConversationList({
     // unloaded page. We render it as a folder with a "No sessions" placeholder
     // rather than hiding it (matches the target sidebar layout).
 
-    // Sessions: the remainder — not pinned, not filed.
+    // Map conversations belonging to each teammate:
+    const teammateByBotId = new Map(teammates.map((t) => [t.bot.id, t]));
+    const teammateById = new Map(teammates.map((t) => [t.agent.id, t]));
+    const teammateByName = new Map(teammates.map((t) => [t.agent.name.toLowerCase(), t]));
+
+    const teammateConvMap = new Map<string, Conversation[]>();
+    for (const t of teammates) {
+      teammateConvMap.set(t.agent.id, []);
+    }
+    const allTeammateConvIds = new Set<string>();
+
+    for (const c of tabScoped) {
+      const t =
+        (c.bot_id && teammateByBotId.get(c.bot_id)) ||
+        (c.agent_id && teammateById.get(c.agent_id)) ||
+        (c.agent_name && teammateByName.get(c.agent_name.toLowerCase())) ||
+        null;
+      if (t) {
+        allTeammateConvIds.add(c.id);
+        if (c.purpose !== "a2a") {
+          teammateConvMap.get(t.agent.id)?.push(c);
+        }
+      }
+    }
+
+    const teammateGroups = teammates.map((teammate) => {
+      const rawList = teammateConvMap.get(teammate.agent.id) ?? [];
+      return {
+        teammate,
+        conversations: sortByUpdatedAtDesc(
+          rawList.filter((c) => !pinnedIdSet.has(c.id)),
+          activeOverride,
+          frozenKeys,
+        ),
+      };
+    });
+
+    // Sessions: the remainder — not pinned, not filed, not any teammate session.
     const sessions = sortByUpdatedAtDesc(
-      tabScoped.filter((c) => !pinnedIdSet.has(c.id) && !filedIds.has(c.id)),
+      tabScoped.filter(
+        (c) =>
+          !pinnedIdSet.has(c.id) &&
+          !filedIds.has(c.id) &&
+          !allTeammateConvIds.has(c.id),
+      ),
       activeOverride,
       frozenKeys,
     );
-    return { pinned, sessions, projectGroups };
+    return { pinned, sessions, projectGroups, teammateGroups };
   }, [
     allConversations,
     pinnedConversations,
@@ -1580,6 +1718,7 @@ function ConversationList({
     projects,
     activeTab,
     viewerId,
+    teammates,
   ]);
 
   // Scope-active flags: which section owns the current selection UI (checkboxes
@@ -1996,6 +2135,56 @@ function ConversationList({
                     />
                   </PinDropZone>
                 )}
+                {/* Teammates: persistent agent bots and their direct channels */}
+                {teammates.length > 0 && (
+                  <SectionGroup
+                    title="Teammates"
+                    collapsed={effectiveCollapsedSections.includes("Teammates")}
+                    onToggleCollapsed={() => effectiveToggleSectionCollapsed("Teammates")}
+                    headerAction={
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="icon-xs"
+                            className="size-5 shrink-0"
+                            aria-label="View all teammates"
+                          >
+                            <Link
+                              to="/teammates"
+                              onClick={onRowClick}
+                              data-testid="sidebar-view-all-teammates"
+                              componentId="sidebar.teammates_overview"
+                            >
+                              <UsersIcon className="size-3.5" />
+                            </Link>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Teammates overview</TooltipContent>
+                      </Tooltip>
+                    }
+                  >
+                    <ul className="flex flex-col gap-0.5 px-0 py-0.5">
+                      {sections.teammateGroups.map(({ teammate, conversations }) => (
+                        <TeammateFolderRow
+                          key={teammate.agent.id}
+                          teammate={teammate}
+                          conversations={conversations}
+                          pinnedConversationIds={pinnedConversationIds}
+                          onRowClick={onRowClick}
+                          onTogglePinned={onTogglePinned}
+                          selectionMode={selectionMode}
+                          selectedIds={selectedIds}
+                          onToggleSelected={onToggleSelected}
+                          onProjectAssigned={expandProject}
+                          onStartChat={handleTeammateChat}
+                        />
+                      ))}
+                    </ul>
+                  </SectionGroup>
+                )}
+
                 {/* Projects: a "Projects" group header, with each project rendered as
               a collapsible folder row nested beneath it. Folders default
               collapsed; an empty folder shows "No sessions". The folder icon marks
@@ -2904,7 +3093,7 @@ function ConversationMenuItems({
                 reason when both apply. */}
             <TooltipContent side="left">
               {sharingOff
-                ? "Sharing has been disabled for this Omnigent server."
+                ? "Sharing has been disabled for this AgentNexus server."
                 : "Only the session owner can share this session"}
             </TooltipContent>
           </Tooltip>
@@ -3138,6 +3327,133 @@ function SessionTooltipContent({
 // Max gap between the first click and the dblclick of one double-click.
 // Browsers pair clicks within ~500ms; the margin absorbs event-loop delay.
 const DOUBLE_CLICK_PAIR_WINDOW_MS = 750;
+
+function TeammateFolderRow({
+  teammate,
+  conversations,
+  pinnedConversationIds,
+  onRowClick,
+  onTogglePinned,
+  selectionMode,
+  selectedIds,
+  onToggleSelected,
+  onProjectAssigned,
+  onStartChat,
+}: {
+  teammate: Teammate;
+  conversations: Conversation[];
+  pinnedConversationIds: string[];
+  onRowClick: (e: MouseEvent<HTMLAnchorElement>) => void;
+  onTogglePinned: (conversationId: string) => void;
+  selectionMode: boolean;
+  selectedIds: Set<string>;
+  onToggleSelected: (conversationId: string, shiftKey?: boolean) => void;
+  onProjectAssigned?: (projectName: string) => void;
+  onStartChat: (teammate: Teammate, forceNew?: boolean) => void;
+}) {
+  const { agent } = teammate;
+  const { conversationId: activeId } = useParams<{ conversationId: string }>();
+  const isChildActive = Boolean(activeId) && conversations.some((c) => c.id === activeId);
+  const [expanded, setExpanded] = useState<boolean>(true);
+
+  return (
+    <li className="list-none w-full mb-0.5">
+      <div
+        className={cn(
+          SIDEBAR_ROW,
+          "group/item relative flex items-center justify-between gap-1 text-left text-foreground transition-colors w-full px-2 py-1.5 rounded-[var(--radius-otto-sm)] cursor-pointer hover:bg-muted/40",
+          isChildActive && "font-medium text-foreground",
+        )}
+        onClick={() => setExpanded((v) => !v)}
+        data-testid={`sidebar-teammate-${agent.name}`}
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <button
+            type="button"
+            className="flex size-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+          >
+            <ChevronRightIcon
+              className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-90")}
+            />
+          </button>
+          <div className="relative flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary font-medium text-xs">
+            <BotIcon className="size-3" />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 size-1.5 rounded-full border-2 border-background bg-emerald-500"
+              title="Online"
+            />
+          </div>
+          <span className="truncate text-xs font-semibold text-foreground">
+            {agent.name}
+          </span>
+          {conversations.length > 0 && (
+            <span className="rounded px-1.5 py-0.2 text-[10px] bg-muted text-muted-foreground font-mono">
+              {conversations.length}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-5 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartChat(teammate, true);
+                }}
+                title="New Topic"
+              >
+                <PlusIcon className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">New Topic</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {expanded && (
+        <ul className="flex flex-col gap-0.5 pl-4 pr-1 py-0.5 border-l border-border/40 ml-3.5 my-0.5">
+          {conversations.length === 0 ? (
+            <li className="px-2 py-1 text-[11px] text-muted-foreground/70 italic">
+              No topics yet.{" "}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartChat(teammate, false);
+                }}
+                className="text-primary hover:underline"
+              >
+                Start chat
+              </button>
+            </li>
+          ) : (
+            conversations.map((c) => (
+              <ConversationRow
+                key={c.id}
+                conversation={c}
+                isPinned={pinnedConversationIds.includes(c.id)}
+                onClick={onRowClick}
+                onTogglePinned={onTogglePinned}
+                selectionMode={selectionMode}
+                isSelected={selectedIds.has(c.id)}
+                onToggleSelected={onToggleSelected}
+                onProjectAssigned={onProjectAssigned}
+              />
+            ))
+          )}
+        </ul>
+      )}
+    </li>
+  );
+}
 
 function ConversationRow({
   conversation,
@@ -3405,6 +3721,9 @@ function ConversationRow({
     // hook (a mutate-level callback would never fire).
     setDeleteOpen(false);
     setDeleteBranch(false);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     // Viewing the session being deleted? Leave now, so the chat surface
     // doesn't sit on an id that's about to 404.
     if (isActive) navigate("/", { replace: true });

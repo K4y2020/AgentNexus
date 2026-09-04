@@ -1,3 +1,4 @@
+import { GatewaysSection } from "./GatewaysSection";
 /**
  * Settings page (``/settings``).
  *
@@ -299,6 +300,7 @@ export function SettingsPage() {
 
   return (
     <PageScroll contentClassName="px-8" extraBottom="2.5rem">
+      {section === "gateways" && <GatewaysSection />}
       {section === "appearance" && <AppearanceSection />}
       {section === "general" && <GeneralSection />}
       {section === "git" && <GitSection />}
@@ -603,7 +605,7 @@ function ColorThemeControl() {
               <div className="text-ui font-medium">Theme palette</div>
               <div className="truncate text-sm text-muted-foreground">
                 {selection === "custom"
-                  ? `Based on ${PALETTES.find((palette) => palette.id === customTheme.basePalette)?.label ?? "Omnigent"}`
+                  ? `Based on ${PALETTES.find((palette) => palette.id === customTheme.basePalette)?.label ?? "AgentNexus"}`
                   : selectedPalette?.blurb}
               </div>
             </div>
@@ -848,7 +850,7 @@ function AppearanceSection() {
   return (
     <Section
       title="Appearance"
-      description="Choose how Omnigent looks on this device."
+      description="Choose how AgentNexus looks on this device."
       descriptionClassName="text-sm"
     >
       <div key={resetKey} className="flex flex-col gap-8">
@@ -977,7 +979,7 @@ function AppearanceSection() {
           <DialogHeader>
             <DialogTitle>Import settings</DialogTitle>
             <DialogDescription>
-              Choose an exported Omnigent settings file to apply. This will overwrite your current
+              Choose an exported AgentNexus settings file to apply. This will overwrite your current
               appearance and preference settings.
             </DialogDescription>
           </DialogHeader>
@@ -1013,7 +1015,7 @@ function AppearanceSection() {
 /** Git behavior settings. */
 function GitSection() {
   return (
-    <Section title="Git" description="Configure how Omnigent works with Git.">
+    <Section title="Git" description="Configure how AgentNexus works with Git.">
       <div className="flex flex-col gap-8">
         <AlwaysUseWorktreeControl />
         <DefaultBaseBranchControl />
@@ -1127,7 +1129,7 @@ function ComposerSendShortcutControl() {
 /** App-wide behavior settings. */
 function GeneralSection() {
   return (
-    <Section title="General" description="Configure general Omnigent behavior.">
+    <Section title="General" description="Configure general AgentNexus behavior.">
       <div className="flex flex-col gap-3">
         <h2 className="text-ui font-medium">Composer</h2>
         <div className="rounded-xl border border-border bg-card p-4">
@@ -1619,7 +1621,7 @@ function LocalCliSection() {
   return (
     <Section
       title="Local CLI"
-      description="The Omnigent command-line tool this app uses to run a local server and connect this machine as a runner."
+      description="The AgentNexus command-line tool this app uses to run a local server and connect this machine as a runner."
     >
       {status === null ? (
         <p className="text-ui text-muted-foreground">CLI status is unavailable.</p>
@@ -1652,7 +1654,7 @@ function LocalCliSection() {
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-ui text-muted-foreground">
-                The Omnigent CLI wasn't found. Install it, then set its path from the connect
+                The AgentNexus CLI wasn't found. Install it, then set its path from the connect
                 screen:
               </p>
               {status.installCommand && (
@@ -1684,7 +1686,7 @@ function LocalCliSection() {
 
 const UPDATE_MODE_LABELS: Record<UpdateMode, string> = {
   default: "Automatic (check periodically, ask before installing)",
-  start: "Check when Omnigent starts",
+  start: "Check when AgentNexus starts",
   manual: "Manual only",
   none: "Off",
 };
@@ -1768,7 +1770,7 @@ function UpdatesSection() {
   return (
     <Section
       title="Updates"
-      description="Desktop app update preferences for this installed Omnigent shell."
+      description="Desktop app update preferences for this installed AgentNexus shell."
     >
       {config === null ? (
         <p className="text-ui text-muted-foreground">Update settings are unavailable.</p>
@@ -2085,7 +2087,7 @@ function ImportSection() {
   return (
     <Section
       title="Import sessions"
-      description="Pull your recent local chats from a machine you're running into Omnigent. Sessions already imported are skipped."
+      description="Pull your recent local chats from a machine you're running into AgentNexus. Sessions already imported are skipped."
     >
       <ImportSessionsPanel />
     </Section>

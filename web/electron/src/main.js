@@ -1439,6 +1439,38 @@ function createWindow(targetUrl, opts = {}) {
   return win;
 }
 
+/** Open the normal launch window, auto-starting the local server when local is
+ * the implied destination. Saved remote servers always remain authoritative. */
+async function openDefaultWindow() {
+  const settings = loadSettings();
+  const saved = normalizeSavedServerUrl(settings.server_url);
+  if (saved && !omnigentCli.isLoopbackServer(saved)) return createWindow();
+
+  if (saved && omnigentCli.isLoopbackServer(saved)) {
+    try {
+      const resp = await fetch(`${saved}/health`, { signal: AbortSignal.timeout(1500) });
+      if (resp.ok) return createWindow(undefined, { serverUrl: saved });
+    } catch {
+      // Saved loopback server is down; fall through to discover/start.
+    }
+  }
+
+  const cliPath = resolvedCliPath();
+  if (!cliPath) return createWindow();
+  try {
+    const result = await serverManager.startLocalServer(cliPath);
+    if (result?.ok && result.url) {
+      settings.server_url = result.url;
+      saveSettings(settings);
+      return createWindow(undefined, { serverUrl: result.url });
+    }
+    console.warn(`[omnigent] automatic local server start failed: ${result?.error ?? "unknown"}`);
+  } catch (error) {
+    console.warn(`[omnigent] automatic local server start failed: ${error?.message ?? error}`);
+  }
+  return createWindow();
+}
+
 /** Maximum number of spelling suggestions offered in the context menu. */
 const MAX_SPELL_SUGGESTIONS = 5;
 
@@ -3212,7 +3244,7 @@ if (!gotLock) {
     if (pendingDeepLinks.length > 0) {
       drainPendingDeepLinks();
     } else {
-      createWindow();
+      void openDefaultWindow();
     }
     updater.init();
 
@@ -3226,7 +3258,7 @@ if (!gotLock) {
         !deepLinkInFlight &&
         pendingDeepLinks.length === 0
       )
-        createWindow();
+        void openDefaultWindow();
     });
   });
 

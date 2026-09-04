@@ -42,6 +42,7 @@ import { SmartRoutingCard } from "./SmartRoutingCard";
 import { TerminalCommandCard } from "./TerminalCommandCard";
 import { ErrorBanner, PolicyDeniedBanner, RetryIndicator } from "./StatusBlocks";
 import { ToolCard, ToolGroupSummary } from "./ToolCard";
+import { A2ACollaborationCard } from "./A2ACollaborationCard";
 
 // Re-exported for the existing import sites; it lives in ./ChatMarkdown so
 // surfaces rendered *by* this module can use it without an import cycle.
@@ -704,11 +705,12 @@ function renderToolRunFragment(
 
 const ADVISE_MODELS_NAMES = new Set(["sys_advise_models", "mcp__omnigent__sys_advise_models"]);
 const SESSION_SEND_NAMES = new Set(["sys_session_send", "mcp__omnigent__sys_session_send"]);
+const TEAMMATE_SEND_NAMES = new Set(["send_to_teammate", "mcp__omnigent__send_to_teammate"]);
 
 function isPersistentToolCard(item: RenderItem): boolean {
   return (
     item.kind === "tool" &&
-    (ADVISE_MODELS_NAMES.has(item.execution.name) || SESSION_SEND_NAMES.has(item.execution.name))
+    (ADVISE_MODELS_NAMES.has(item.execution.name) || SESSION_SEND_NAMES.has(item.execution.name) || TEAMMATE_SEND_NAMES.has(item.execution.name))
   );
 }
 
@@ -779,6 +781,18 @@ function renderItem(
             arguments={item.execution.arguments}
             output={item.output}
             state={item.state}
+          />
+        );
+      }
+      if (TEAMMATE_SEND_NAMES.has(item.execution.name)) {
+        return (
+          <A2ACollaborationCard
+            key={key}
+            arguments={item.execution.arguments}
+            output={item.output}
+            state={item.state}
+            startedAt={item.startedAt}
+            duration={item.duration}
           />
         );
       }

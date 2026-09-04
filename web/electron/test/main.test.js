@@ -36,6 +36,8 @@ function loadNavigationHarness({
   serverUrl = "https://host.example/ml/omnigents",
   savedServerUrl,
   registerFallbacks = true,
+  cliPath = null,
+  startLocalResult = { ok: false },
 } = {}) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "omnigent-navigation-test-"));
   if (savedServerUrl) {
@@ -45,7 +47,7 @@ function loadNavigationHarness({
     );
   }
   const listeners = new Map();
-  const calls = { loadFile: [], loadURL: [] };
+  const calls = { loadFile: [], loadURL: [], startLocalServer: [] };
   const bannerCalls = { show: [], hide: 0 };
   let currentUrl = serverUrl;
   const appEvents = new Map();
@@ -180,7 +182,8 @@ function loadNavigationHarness({
     },
     "./omnigent_cli": {
       isExecutableFile: () => false,
-      resolveCliPath: () => null,
+      resolveCliPath: () => (cliPath ? { path: cliPath } : null),
+      isLoopbackServer: (url) => /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::|\/|$)/i.test(url),
       localHostId: () => "host_test",
       getCliStatus: () => ({ installed: false }),
     },
@@ -191,7 +194,10 @@ function loadNavigationHarness({
       ensureHostConnected: async () => ({ ok: true }),
       restartHost: async () => ({ ok: true }),
       disconnectHost: async () => ({ ok: true }),
-      startLocalServer: async () => ({ ok: false }),
+      startLocalServer: async (path) => {
+        calls.startLocalServer.push(path);
+        return startLocalResult;
+      },
     },
   };
 
@@ -199,7 +205,7 @@ function loadNavigationHarness({
   const mainRequire = createRequire(mainPath);
   const source =
     fs.readFileSync(mainPath, "utf8") +
-    "\nmodule.exports.testApi = { createWindow, registerNavigationFallbacks, windows, SETUP_PAGE, setAwayBannerDelayMs: (ms) => { awayBannerDelayMs = ms; } };";
+    "\nmodule.exports.testApi = { createWindow, openDefaultWindow, registerNavigationFallbacks, windows, SETUP_PAGE, setAwayBannerDelayMs: (ms) => { awayBannerDelayMs = ms; } };";
   const module = { exports: {} };
   const sandbox = {
     __dirname: path.dirname(mainPath),
@@ -605,6 +611,48 @@ describe("recent-server startup wiring (src/main.js)", () => {
       liveCode,
       /ipcMain\.handle\("omnigent:get-recent-servers"[\s\S]{0,400}excludingManagedServers\(\s*normalizeRecentServers\(loadSettings\(\)\.recent_servers\),\s*managed/,
     );
+  });
+});
+
+describe("automatic local server startup", () => {
+  it("starts and opens local when no server is saved and the CLI exists", async () => {
+    const harness = loadNavigationHarness({
+      cliPath: "C:/AgentNexus/omnigent.exe",
+      startLocalResult: { ok: true, url: "http://127.0.0.1:6767" },
+    });
+    try {
+      await harness.api.openDefaultWindow();
+      assert.deepEqual(harness.calls.startLocalServer, ["C:/AgentNexus/omnigent.exe"]);
+      assert.equal(harness.calls.loadURL.at(-1)[0], "http://127.0.0.1:6767");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("keeps a saved remote server authoritative", async () => {
+    const harness = loadNavigationHarness({
+      savedServerUrl: "https://agents.example.com",
+      cliPath: "C:/AgentNexus/omnigent.exe",
+      startLocalResult: { ok: true, url: "http://127.0.0.1:6767" },
+    });
+    try {
+      await harness.api.openDefaultWindow();
+      assert.deepEqual(harness.calls.startLocalServer, []);
+      assert.equal(harness.calls.loadURL.at(-1)[0], "https://agents.example.com");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("falls back to setup when no server or CLI is available", async () => {
+    const harness = loadNavigationHarness();
+    try {
+      await harness.api.openDefaultWindow();
+      assert.deepEqual(harness.calls.startLocalServer, []);
+      assert.equal(harness.calls.loadFile.at(-1)[0], harness.api.SETUP_PAGE);
+    } finally {
+      harness.cleanup();
+    }
   });
 });
 

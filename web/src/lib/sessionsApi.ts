@@ -104,6 +104,8 @@ interface ModelUsageWire {
 interface SessionResponseWire {
   id: string;
   agent_id: string;
+  bot_id?: string | null;
+  purpose?: "primary" | "topic" | "routine" | "a2a" | "subagent" | "standalone";
   /** Human-readable name of the bound agent, e.g. ``"research-agent"``. */
   agent_name?: string | null;
   runner_id?: string | null;
@@ -309,6 +311,8 @@ function sessionFromWire(wire: SessionResponseWire): Session {
   return {
     id: wire.id,
     agentId: wire.agent_id,
+    botId: wire.bot_id ?? null,
+    purpose: wire.purpose ?? "standalone",
     agentName: wire.agent_name ?? null,
     runnerId: wire.runner_id,
     hostId: wire.host_id ?? null,
@@ -460,6 +464,8 @@ function postEventResponseFromWire(wire: {
  * @param options.subAgentName - Sub-agent name for parent-spec-tree
  *   resolution; null/omitted for user-added agents.
  * @param options.title - Child title, e.g. "ui:claude-native-ui:1".
+ * @param options.hostId - Optional host to launch the bot's runner on.
+ * @param options.workspace - Absolute working directory on that host.
  */
 export async function createSession(
   agentId: string,
@@ -468,6 +474,11 @@ export async function createSession(
     parentSessionId?: string;
     subAgentName?: string | null;
     title?: string;
+    hostId?: string;
+    workspace?: string;
+    labels?: Record<string, string>;
+    botId?: string;
+    purpose?: "primary" | "topic" | "routine" | "a2a" | "subagent" | "standalone";
   } = {},
 ): Promise<Session> {
   const body: {
@@ -476,6 +487,11 @@ export async function createSession(
     parent_session_id?: string;
     sub_agent_name?: string | null;
     title?: string;
+    host_id?: string;
+    workspace?: string;
+    labels?: Record<string, string>;
+    bot_id?: string;
+    purpose?: "primary" | "topic" | "routine" | "a2a" | "subagent" | "standalone";
   } = { agent_id: agentId, initial_items: initialItems };
   if (options.parentSessionId !== undefined) {
     body.parent_session_id = options.parentSessionId;
@@ -485,6 +501,21 @@ export async function createSession(
   }
   if (options.title !== undefined) {
     body.title = options.title;
+  }
+  if (options.hostId !== undefined) {
+    body.host_id = options.hostId;
+  }
+  if (options.workspace !== undefined) {
+    body.workspace = options.workspace;
+  }
+  if (options.labels !== undefined) {
+    body.labels = options.labels;
+  }
+  if (options.botId !== undefined) {
+    body.bot_id = options.botId;
+  }
+  if (options.purpose !== undefined) {
+    body.purpose = options.purpose;
   }
   const res = await authenticatedFetch("/v1/sessions", {
     method: "POST",
@@ -797,6 +828,7 @@ export async function updateSession(
     costControlModeOverride?: "on" | "off" | null;
     subagentRoutingOverride?: "on" | "off" | null;
     runnerId?: string;
+    workspace?: string | null;
     silent?: boolean;
     labels?: Record<string, string>;
   },
@@ -819,6 +851,9 @@ export async function updateSession(
   }
   if ("subagentRoutingOverride" in updates) {
     body.subagent_routing_override = updates.subagentRoutingOverride ?? null;
+  }
+  if ("workspace" in updates && updates.workspace) {
+    body.workspace = updates.workspace;
   }
   if (updates.runnerId !== undefined) {
     body.runner_id = updates.runnerId;
@@ -876,7 +911,11 @@ export async function bindOnlyOnlineRunner(sessionId: string): Promise<Session |
   if (runners.length > 1) {
     throw new Error(`Cannot choose runner: ${runners.length} runners are online`);
   }
-  return updateSession(sessionId, { runnerId: runners[0]!.runnerId });
+  try {
+    return await updateSession(sessionId, { runnerId: runners[0]!.runnerId });
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -251,6 +251,67 @@ class CoordinationDispatcher:
                     self.conversation_store.get_conversation,
                     msg.recipient_session_id,
                 )
+                if recipient is None:
+                    # G2 pre-check: recipient conversation does not exist.
+                    # Permanently fail immediately without wasting retry slots.
+                    _logger.warning(
+                        "A2A recipient conversation %s does not exist; "
+                        "failing permanently for message %s",
+                        msg.recipient_session_id,
+                        msg.message_id,
+                    )
+                    attempt = DeliveryAttempt(
+                        message_id=msg.message_id,
+                        target_session_id=msg.recipient_session_id,
+                        target_sequence=target_sequence,
+                        target_harness=None,
+                        delivery_mode="offline",
+                        delivery_state="failed",
+                        error_code="CONVERSATION_NOT_FOUND",
+                        error=(
+                            f"{DELIVERY_ERROR_REJECTED}: conversation "
+                            f"'{msg.recipient_session_id}' not found"
+                        ),
+                        attempt_count=attempt_count,
+                    )
+                    await asyncio.to_thread(
+                        self.store.record_delivery_attempt, attempt, True, outbox_item_id
+                    )
+                    await asyncio.to_thread(
+                        self.store.update_message_state, msg.message_id, "failed"
+                    )
+                    self._publish_timeline(msg)
+                    return False
+
+                if not getattr(recipient, "runner_id", None):
+                    _logger.warning(
+                        "A2A recipient conversation %s is not bound to a runner; "
+                        "failing attempt for message %s",
+                        msg.recipient_session_id,
+                        msg.message_id,
+                    )
+                    attempt = DeliveryAttempt(
+                        message_id=msg.message_id,
+                        target_session_id=msg.recipient_session_id,
+                        target_sequence=target_sequence,
+                        target_harness=None,
+                        delivery_mode="offline",
+                        delivery_state="failed",
+                        error_code="RUNNER_UNBOUND",
+                        error=(
+                            f"{DELIVERY_ERROR_UNREACHABLE}: conversation "
+                            f"'{msg.recipient_session_id}' is not bound to a runner; "
+                            "resume the session to bind a registered runner"
+                        ),
+                        attempt_count=attempt_count,
+                    )
+                    await asyncio.to_thread(
+                        self.store.record_delivery_attempt, attempt, False, outbox_item_id
+                    )
+                    await asyncio.to_thread(self.store.requeue_outbox, outbox_item_id)
+                    self._publish_timeline(msg)
+                    return False
+
                 # The runner only publishes turn events through a server-side SSE
                 # relay. Without a subscription the dispatched turn completes in
                 # the runner but its terminal session.status never lands here, so
@@ -272,10 +333,25 @@ class CoordinationDispatcher:
                 or json.dumps(msg.payload)
             )
             prefix = f"[A2A {msg.intent} from {msg.sender_role}]: "
+            content: list[dict[str, Any]] = [
+                {"type": "input_text", "text": f"{prefix}{prompt_text}"}
+            ]
+            for artifact in msg.artifacts:
+                artifact_type = artifact.get("type")
+                file_id = artifact.get("file_id")
+                if artifact_type not in ("input_file", "input_image") or not isinstance(
+                    file_id, str
+                ):
+                    continue
+                block: dict[str, Any] = {"type": artifact_type, "file_id": file_id}
+                filename = artifact.get("filename")
+                if isinstance(filename, str) and filename:
+                    block["filename"] = filename
+                content.append(block)
             event_payload = {
                 "type": "message",
                 "role": "user",
-                "content": [{"type": "text", "text": f"{prefix}{prompt_text}"}],
+                "content": content,
                 "metadata": {
                     "a2a": True,
                     "message_id": msg.message_id,
@@ -319,6 +395,7 @@ class CoordinationDispatcher:
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
+                error_code="INVALID_RECIPIENT_ID",
                 error=f"{DELIVERY_ERROR_REJECTED}: invalid recipient session id: {exc}",
                 attempt_count=attempt_count,
             )
@@ -334,6 +411,17 @@ class CoordinationDispatcher:
                 msg.recipient_session_id,
                 exc,
             )
+            classified = _classify_delivery_error(exc)
+            err_str = str(exc).lower()
+            if "offline" in err_str or "connect" in err_str:
+                err_code = "RUNNER_OFFLINE"
+            elif "not bound" in err_str or "unbound" in err_str:
+                err_code = "RUNNER_UNBOUND"
+            elif classified == DELIVERY_ERROR_REJECTED:
+                err_code = "RUNNER_REJECTED"
+            else:
+                err_code = "DELIVERY_UNREACHABLE"
+
             attempt = DeliveryAttempt(
                 message_id=msg.message_id,
                 target_session_id=msg.recipient_session_id,
@@ -341,7 +429,8 @@ class CoordinationDispatcher:
                 target_harness=None,
                 delivery_mode="offline",
                 delivery_state="failed",
-                error=f"{_classify_delivery_error(exc)}: {exc}",
+                error_code=err_code,
+                error=f"{classified}: {exc}",
                 attempt_count=attempt_count,
             )
             await asyncio.to_thread(

@@ -3517,33 +3517,37 @@ def test_to_anthropic_content_blocks_pdf_uses_base64_source() -> None:
     assert doc["source"]["data"] == pdf_data
 
 
-def test_to_anthropic_content_blocks_markdown_uses_text_source() -> None:
-    """Markdown input_file blocks must use ``source.type = "text"`` —
-    Anthropic rejects ``base64`` source with non-PDF media types."""
+def test_to_anthropic_content_blocks_markdown_uses_plain_text_block() -> None:
+    """Markdown uses a provider-neutral text block instead of a document."""
     md_content = "# Hello\n\nThis is markdown."
     md_b64 = _b64(md_content)
-    blocks = [{"type": "input_file", "file_data": f"data:text/markdown;base64,{md_b64}"}]
+    blocks = [
+        {
+            "type": "input_file",
+            "file_data": f"data:text/markdown;base64,{md_b64}",
+            "filename": "plan.md",
+        }
+    ]
     result = _to_anthropic_content_blocks(blocks)
     assert len(result) == 1
-    doc = result[0]
-    assert doc["type"] == "document"
-    assert doc["source"]["type"] == "text"
-    assert doc["source"]["media_type"] == "text/plain"
-    assert doc["source"]["data"] == md_content
+    text = result[0]
+    assert text["type"] == "text"
+    assert "plan.md" in text["text"]
+    assert md_content in text["text"]
 
 
-def test_to_anthropic_content_blocks_plain_text_uses_text_source() -> None:
-    """``text/plain`` input_file blocks must also use ``source.type = "text"``."""
+def test_to_anthropic_content_blocks_plain_text_uses_plain_text_block() -> None:
+    """``text/plain`` attachments use the same gateway-compatible shape."""
     content = "just some plain text"
     b64 = _b64(content)
     blocks = [{"type": "input_file", "file_data": f"data:text/plain;base64,{b64}"}]
     result = _to_anthropic_content_blocks(blocks)
     assert len(result) == 1
-    doc = result[0]
-    assert doc["type"] == "document"
-    assert doc["source"]["type"] == "text"
-    assert doc["source"]["media_type"] == "text/plain"
-    assert doc["source"]["data"] == content
+    text = result[0]
+    assert text == {
+        "type": "text",
+        "text": f"[Attached text file: attachment]\n\n{content}",
+    }
 
 
 # ---------------------------------------------------------------------------

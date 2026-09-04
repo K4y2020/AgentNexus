@@ -11,8 +11,7 @@ What breaks if this fails:
   point), or a head is dropped entirely,
 - a head silently switches harness (e.g. the GPT head ends up on claude-sdk),
 - the ``debate`` skill is dropped or renamed (the critique loop regresses),
-- the ``os_env`` block disappears (the heads lose the file/shell tools the
-  brainstorming surface relies on).
+- filesystem tools leak onto the parent instead of staying on the two heads.
 """
 
 from __future__ import annotations
@@ -71,14 +70,30 @@ def test_debby_debate_skill_present(debby_spec: AgentSpec) -> None:
     assert sorted(s.name for s in debby_spec.skills) == ["debate"]
 
 
-def test_debby_has_os_env(debby_spec: AgentSpec) -> None:
+def test_debby_parent_is_orchestration_only(debby_spec: AgentSpec) -> None:
     """
-    Debby carries an ``os_env`` block so the bridged ``sys_os_*`` tools register
-    for the brainstorming surface. The shipped sandbox is ``type: none`` so the
-    bundle loads on macOS too. Dropping ``os_env`` would leave the heads with no
-    file/shell tools at all.
+    Debby's parent has no direct filesystem tools; both responder heads do.
+
+    This prevents the parent from replacing mandatory two-head fan-out with
+    direct shell exploration while preserving reference-file access where the
+    substantive analysis actually runs.
     """
-    assert debby_spec.os_env is not None
-    assert debby_spec.os_env.type == "caller_process"
-    assert debby_spec.os_env.sandbox is not None
-    assert debby_spec.os_env.sandbox.type == "none"
+    assert debby_spec.os_env is None
+    by_name = {a.name: a for a in debby_spec.sub_agents}
+    for name in ("claude", "gpt"):
+        assert by_name[name].os_env is not None, name
+        assert by_name[name].os_env.type == "caller_process", name
+
+
+def test_debby_requires_parallel_first_action(debby_spec: AgentSpec) -> None:
+    """The parent dispatches both heads before text or unrelated tools."""
+    config = (_DEBBY_BUNDLE / "config.yaml").read_text(encoding="utf-8")
+    compact = " ".join(config.split())
+
+    assert "FIRST response must contain exactly two `sys_session_send` calls" in compact
+    assert "one for `claude`, one for `gpt`" in compact
+    assert "no other tool call" in compact
+    assert "Never search unrelated workspaces or sessions" in compact
+    assert debby_spec.guardrails is not None
+    spawn_bounds = next(p for p in debby_spec.guardrails.policies if p.name == "spawn_bounds")
+    assert spawn_bounds.function.arguments["max_dispatches_per_turn"] == 2

@@ -578,8 +578,8 @@ def _to_anthropic_content_blocks(
     - ``input_text`` / ``output_text`` → ``{"type": "text", ...}``
     - ``input_image`` (with ``image_url`` data URI) →
       ``{"type": "image", "source": {"type": "base64", ...}}``
-    - ``input_file`` (with ``file_data`` data URI) →
-      ``{"type": "document", "source": {"type": "base64", ...}}``
+    - PDF ``input_file`` → Anthropic ``document`` / base64
+    - text-like ``input_file`` → ordinary ``text`` block for gateway parity
 
     :param blocks: Responses API content block dicts.
     :returns: Anthropic API content block dicts.
@@ -645,18 +645,16 @@ def _to_anthropic_content_blocks(
                     }
                 )
             else:
-                # All other text files (markdown, plain text, code, etc.)
-                # must use Anthropic's "text" source type with decoded content.
+                # Generic Anthropic-compatible gateways do not consistently
+                # translate ``document/source:text`` to non-Claude providers.
+                # CPA's Gemini route silently dropped that block whenever a
+                # sibling text block was present. Plain text content is
+                # provider-neutral and preserves the attachment verbatim.
                 text_content = base64.b64decode(data).decode("utf-8", errors="replace")
+                filename = block.get("filename")
+                label = repr(filename) if isinstance(filename, str) and filename else "attachment"
                 result.append(
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "text",
-                            "media_type": "text/plain",
-                            "data": text_content,
-                        },
-                    }
+                    _text_block(f"[Attached text file: {label}]\n\n{text_content}")
                 )
     return result
 
@@ -1680,7 +1678,13 @@ class ClaudeSDKExecutor(Executor):
                 "env['ANTHROPIC_BASE_URL']; cannot route through the gateway shim."
             )
         if self._gateway_shim is None:
-            self._gateway_shim = ClaudeGatewayShim(upstream_base_url=env["ANTHROPIC_BASE_URL"])
+            upstream_base_url = env["ANTHROPIC_BASE_URL"]
+            self._gateway_shim = ClaudeGatewayShim(
+                upstream_base_url=upstream_base_url,
+                strip_sdk_internal_system_blocks=not is_databricks_ai_gateway_url(
+                    upstream_base_url
+                ),
+            )
         await self._gateway_shim.start()
         env["ANTHROPIC_BASE_URL"] = self._gateway_shim.base_url
 
@@ -2261,15 +2265,15 @@ class ClaudeSDKExecutor(Executor):
         cfg = config or ExecutorConfig()
 
         session_key = self._session_key(messages)
-        crashed_reason = self._crashed_sessions.get(session_key)
+        crashed_reason = self._crashed_sessions.pop(session_key, None)
         if crashed_reason is not None:
-            yield ExecutorError(
-                message=(
-                    "Claude SDK session crashed and cannot continue in this Session. "
-                    f"Start a new Session. Cause: {crashed_reason}"
-                )
+            logger.warning(
+                "Session %s recovering from previous crash/interrupt (%s); "
+                "closing stale client to rebuild fresh",
+                session_key,
+                crashed_reason,
             )
-            return
+            await self._close_live_client(session_key)
         prompt = self._build_prompt(
             messages,
             resume_session=session_key in self._clients,
@@ -2939,7 +2943,23 @@ class ClaudeSDKExecutor(Executor):
             # instead of reusing it and re-tripping the watchdog (#2109).
             self._evict_client_on_cancel(session_key)
             raise
-        except Exception as exc:  # noqa: BLE001 — top-level executor error boundary; records crash and surfaces to caller
+        except Exception as exc:  # noqa: BLE001
+            err_str = str(exc)
+            is_interrupt = any(
+                code in err_str.lower()
+                for code in ("exit code 15", "code: 15", "exit code -15", "sigterm", "interrupted")
+            )
+            if is_interrupt:
+                logger.info(
+                    "Claude SDK process terminated due to interrupt/cancel (%s); "
+                    "resetting client for next turn",
+                    err_str,
+                )
+                self._evict_client_on_cancel(session_key)
+                await self._close_live_client(session_key)
+                yield TurnComplete(response=None)
+                return
+
             self._crashed_sessions[session_key] = str(exc)
             await self._close_live_client(session_key)
             stderr_text = "\n".join(stderr_lines) if stderr_lines else "(no stderr captured)"

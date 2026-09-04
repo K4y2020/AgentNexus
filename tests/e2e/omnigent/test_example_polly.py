@@ -166,6 +166,9 @@ def test_subagent_dispatch_text_advertises_task_titles_and_purpose(
     )
 
     assert "args.purpose" in config
+    config_compact = " ".join(config.split())
+    assert "NEVER include `args.model` in `sys_session_send`" in config_compact
+    assert "NEVER call `sys_advise_models` to choose worker models" in config_compact
     assert "Every `sys_session_send` MUST set both" in config
     assert "Name the sub-agent session for the work it is doing" in config
     assert "Bad titles are `claude_code`, `claude-code`, `codex`" in config
@@ -181,7 +184,6 @@ def test_subagent_dispatch_text_advertises_task_titles_and_purpose(
     assert 'purpose: "implement"' in cross_review
     assert 'purpose: "explore"' in investigate
     assert 'purpose: "search"' in investigate
-    config_compact = " ".join(config.split())
     assert "Collect finished worker results with `sys_read_inbox`" in config
     assert "do not use `sys_timer_set` or any delayed self-message" in config_compact
     assert "Collect its structured result with `sys_read_inbox`" in fanout

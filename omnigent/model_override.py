@@ -208,6 +208,15 @@ def model_family_mismatch(harness: str, model: str) -> str | None:
             f"Databricks-gateway models; got {model!r}. Use a Gemini id "
             "or the claude_code / codex / pi worker for those families."
         )
+    if canon in ("codebuddy", "codebuddy-native", "codebuddy-acp"):
+        is_codebuddy_compat = any(
+            t in lower for t in ("hy", "hunyuan", "deepseek", "glm", "kimi", "minimax", "auto")
+        )
+        if not is_codebuddy_compat or is_claude:
+            return (
+                f"harness {canon!r} only runs Tencent/CodeBuddy models (Hunyuan, DeepSeek, GLM, "
+                f"Kimi, MiniMax); got {model!r}."
+            )
     return None
 
 
@@ -309,7 +318,13 @@ def harness_supports_model_override(harness: str | None) -> bool:
     """
     if harness is None:
         return False
+    from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
+
+    canonical = canonicalize_harness(harness) or harness
+    acp_row = ACP_CLI_HARNESSES.get(canonical)
+    if acp_row is not None and acp_row.model_arg is not None:
+        return True
     return (
         is_native_harness(harness)
-        or canonicalize_harness(harness) in _SDK_MODEL_OVERRIDE_HARNESSES
+        or canonical in _SDK_MODEL_OVERRIDE_HARNESSES
     )

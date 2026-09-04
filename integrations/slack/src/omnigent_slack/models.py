@@ -69,6 +69,29 @@ class UserConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ChannelBinding:
+    """A channel's resident teammate: which agent/host/workspace it staffs.
+
+    Keyed per ``(team_id, channel_id)`` so a Slack channel can be bound to one
+    bot without changing any user's personal config. ``owner_user_id`` is the
+    Slack user who created the binding; it is also the identity whose delegated
+    token the routine-completion poller uses to read owner-scoped scheduled
+    tasks.
+    """
+
+    team_id: str
+    channel_id: str
+    agent_id: str
+    agent_name: str
+    workspace: str
+    owner_user_id: str
+    host_id: str | None = None
+    host_name: str | None = None
+    created_at: int | None = None
+    updated_at: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SessionRecord:
     """A Slack thread's Omnigent session and where it runs."""
 

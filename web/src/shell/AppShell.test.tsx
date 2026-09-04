@@ -3490,6 +3490,38 @@ describe("AppShell clone/fork action", () => {
     expect(screen.getByTestId("fork-probe")).toHaveAttribute("data-can-fork", "true");
   });
 
+  it("does not probe workspace resources for an offline hostless sub-agent", () => {
+    mockConversations([]);
+    runnerHealthState.runnerOnline = false;
+    useSessionMock.mockReturnValue({
+      session: {
+        id: "conv_child",
+        agentId: "ag_x",
+        agentName: "gpt",
+        runnerId: "runner_dead",
+        hostId: null,
+        workspace: null,
+        status: "idle",
+        createdAt: 1_700_000_000,
+        title: "Historical child",
+        labels: {},
+        items: [],
+        pendingElicitations: [],
+        permissionLevel: 4,
+        parentSessionId: "conv_parent",
+        subAgentName: "gpt",
+        kind: "sub_agent",
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    renderShell("/c/conv_child");
+
+    expect(useEnvironmentMock).toHaveBeenCalledWith("conv_child", { enabled: false });
+    expect(useChangedFilesMock).toHaveBeenCalledWith("conv_child", { enabled: false });
+  });
+
   it("opens the fork dialog (name suggested from the source title) when clicked", () => {
     mockConversations([]);
     useSessionMock.mockReturnValue({
@@ -3615,7 +3647,7 @@ describe("AppShell share action", () => {
       expect(shareButton).toBeDisabled();
       expect(shareButton).toHaveAttribute(
         "title",
-        "Sharing has been disabled for this Omnigent server.",
+        "Sharing has been disabled for this AgentNexus server.",
       );
     });
   });

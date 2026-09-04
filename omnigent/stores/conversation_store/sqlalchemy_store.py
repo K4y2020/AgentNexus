@@ -243,6 +243,9 @@ def _to_conversation(
         ),
         pending_elicitation_count=meta.pending_elicitation_count if meta else None,
         project_id=meta.project_id if meta else None,
+        bot_id=meta.bot_id if meta else None,
+        purpose=meta.purpose if meta else "standalone",
+        singleton_slot=meta.singleton_slot if meta else None,
     )
 
 
@@ -303,6 +306,9 @@ def _new_session_metadata_row(
     runner_id: str | None = None,
     workspace: str | None = None,
     terminal_launch_args: list[str] | None = None,
+    bot_id: str | None = None,
+    purpose: str = "standalone",
+    singleton_slot: str | None = None,
 ) -> SqlConversationMetadata:
     """
     Build the Omnigent metadata row paired with a new session conversation.
@@ -326,6 +332,9 @@ def _new_session_metadata_row(
         terminal_launch_args=(
             json.dumps(terminal_launch_args) if terminal_launch_args is not None else None
         ),
+        bot_id=bot_id,
+        purpose=purpose,
+        singleton_slot=singleton_slot,
     )
 
 
@@ -874,6 +883,9 @@ class SqlAlchemyConversationStore(ConversationStore):
         sub_agent_name: str | None = None,
         host_id: str | None = None,
         workspace: str | None = None,
+        bot_id: str | None = None,
+        purpose: str = "standalone",
+        singleton_slot: str | None = None,
         git_branch: str | None = None,
         terminal_launch_args: list[str] | None = None,
         conversation_id: str | None = None,
@@ -943,6 +955,7 @@ class SqlAlchemyConversationStore(ConversationStore):
 
         now = now_epoch()
         new_id = conversation_id if conversation_id is not None else generate_conversation_id()
+        ap_created = False
         try:
             # Get parent's root from AP, then write AP row and Omnigent meta separately.
             root_id = new_id
@@ -997,6 +1010,7 @@ class SqlAlchemyConversationStore(ConversationStore):
                     agent_id=agent_id,
                 )
                 ap_sess.add(row)
+            ap_created = True
             meta = SqlConversationMetadata(
                 id=new_id,
                 kind=encode_conversation_kind(kind),
@@ -1008,11 +1022,25 @@ class SqlAlchemyConversationStore(ConversationStore):
                 terminal_launch_args=(
                     json.dumps(terminal_launch_args) if terminal_launch_args is not None else None
                 ),
+                bot_id=bot_id,
+                purpose=purpose,
+                singleton_slot=singleton_slot,
             )
             with self._session("insert_conversation_metadata") as meta_sess:
                 meta_sess.add(meta)
             return _to_conversation(row, meta)
         except IntegrityError as exc:
+            # AP and operational metadata may live in separate databases. If
+            # metadata rejected a singleton/check constraint after the AP row
+            # committed, remove that orphan before surfacing the conflict.
+            if ap_created:
+                with self._conv_session("rollback_orphan_conversation") as ap_sess:
+                    orphan = ap_sess.get(
+                        SqlConversation,
+                        (current_workspace_id(), new_id),
+                    )
+                    if orphan is not None:
+                        ap_sess.delete(orphan)
             # Translate a caller-supplied-id PK collision into a clean exception
             # type. Per-parent title uniqueness is enforced by the SELECT above,
             # not a DB constraint, so only the id PK violation is handled here;
@@ -1039,6 +1067,42 @@ class SqlAlchemyConversationStore(ConversationStore):
                     f"conversation id {conversation_id!r} already exists"
                 ) from exc
             raise
+
+    def set_bot_ownership(
+        self,
+        conversation_id: str,
+        *,
+        bot_id: str | None,
+        purpose: str,
+        singleton_slot: str | None = None,
+    ) -> Conversation | None:
+        """Persist Bot ownership on the Omnigent metadata row."""
+        with self._session("set_conversation_bot_ownership") as session:
+            meta = session.get(
+                SqlConversationMetadata,
+                (current_workspace_id(), conversation_id),
+            )
+            if meta is None:
+                return None
+            meta.bot_id = bot_id
+            meta.purpose = purpose
+            meta.singleton_slot = singleton_slot
+            session.flush()
+        return self.get_conversation(conversation_id)
+
+    def get_bot_singleton_session(self, bot_id: str, slot: str) -> Conversation | None:
+        """Return the unique primary/A2A session selected by the DB constraint."""
+        if slot not in {"primary", "a2a"}:
+            raise ValueError("slot must be 'primary' or 'a2a'")
+        with self._session("select_bot_singleton_session") as session:
+            conversation_id = session.execute(
+                select(SqlConversationMetadata.id)
+                .where(SqlConversationMetadata.workspace_id == current_workspace_id())
+                .where(SqlConversationMetadata.bot_id == bot_id)
+                .where(SqlConversationMetadata.singleton_slot == slot)
+                .limit(1)
+            ).scalar_one_or_none()
+        return self.get_conversation(conversation_id) if conversation_id is not None else None
 
     def get_conversation(self, conversation_id: str) -> Conversation | None:
         """
@@ -1365,6 +1429,19 @@ class SqlAlchemyConversationStore(ConversationStore):
                 )
                 .values(session_usage=json.dumps(usage))
             )
+
+    def set_conversation_workspace(
+        self,
+        conversation_id: str,
+        workspace: str,
+    ) -> bool:
+        with self._session("set_conversation_workspace") as session:
+            meta = session.get(SqlConversationMetadata, (current_workspace_id(), conversation_id))
+            if meta is None:
+                return False
+            meta.workspace = workspace
+            session.commit()
+            return True
 
     def set_conversation_project(
         self,

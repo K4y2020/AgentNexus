@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AcquireLeaseRequest": {
+        "properties": {
+          "duration_s": {
+            "default": 600.0,
+            "title": "Duration S",
+            "type": "number"
+          },
+          "holder_session_id": {
+            "title": "Holder Session Id",
+            "type": "string"
+          },
+          "mode": {
+            "default": "write",
+            "title": "Mode",
+            "type": "string"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "workspace_path": {
+            "title": "Workspace Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "workspace_path",
+          "holder_session_id"
+        ],
+        "title": "AcquireLeaseRequest",
+        "type": "object"
+      },
       "AddCommentRequest": {
         "description": "Request body for `POST /sessions/{id}/comments`.",
         "properties": {
@@ -44,6 +77,90 @@
           "end_index"
         ],
         "title": "AddCommentRequest",
+        "type": "object"
+      },
+      "AdvanceWorkflowRequest": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "outcome": {
+            "default": "succeeded",
+            "enum": [
+              "succeeded",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "review_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Decision"
+          }
+        },
+        "title": "AdvanceWorkflowRequest",
+        "type": "object"
+      },
+      "AgentMemoryObject": {
+        "description": "One durable memory owned by a teammate agent.",
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "object": {
+            "default": "agent.memory",
+            "title": "Object",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "content",
+          "source",
+          "created_at"
+        ],
+        "title": "AgentMemoryObject",
         "type": "object"
       },
       "AgentObject": {
@@ -1216,6 +1333,9 @@
                 "$ref": "#/components/schemas/RoutingDecisionData"
               },
               {
+                "$ref": "#/components/schemas/ModelFactData"
+              },
+              {
                 "$ref": "#/components/schemas/SlashCommandData"
               },
               {
@@ -1299,6 +1419,103 @@
         "title": "CopyFilesRequest",
         "type": "object"
       },
+      "CreateAgentMemoryRequest": {
+        "description": "Request body for adding a teammate memory.",
+        "properties": {
+          "content": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "CreateAgentMemoryRequest",
+        "type": "object"
+      },
+      "CreateArtifactRequest": {
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "kind": {
+            "default": "other",
+            "enum": [
+              "plan",
+              "patch",
+              "diff",
+              "report",
+              "test_result",
+              "log",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "producer_session_id": {
+            "title": "Producer Session Id",
+            "type": "string"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uri"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "producer_session_id"
+        ],
+        "title": "CreateArtifactRequest",
+        "type": "object"
+      },
       "CreateDefaultPolicyRequest": {
         "description": "Request body for `POST /v1/policies`.",
         "properties": {
@@ -1354,6 +1571,39 @@
         "title": "CreateDirectoryRequest",
         "type": "object"
       },
+      "CreateMergePreviewRequest": {
+        "properties": {
+          "holder_session_id": {
+            "title": "Holder Session Id",
+            "type": "string"
+          },
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "source_branch": {
+            "title": "Source Branch",
+            "type": "string"
+          },
+          "target_branch": {
+            "default": "main",
+            "title": "Target Branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "holder_session_id",
+          "repo_path",
+          "source_branch"
+        ],
+        "title": "CreateMergePreviewRequest",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "additionalProperties": false,
         "description": "Request body for `POST /v1/projects`.",
@@ -1374,6 +1624,143 @@
           "name"
         ],
         "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "CreateRunRequest": {
+        "properties": {
+          "budget": {
+            "additionalProperties": true,
+            "title": "Budget",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "template": {
+            "default": "plan_implement_review",
+            "title": "Template",
+            "type": "string"
+          },
+          "title": {
+            "default": "Collaborative Coding Run",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_session_id"
+        ],
+        "title": "CreateRunRequest",
+        "type": "object"
+      },
+      "CreateScheduledTaskRequest": {
+        "additionalProperties": false,
+        "description": "Body for `POST /v1/scheduled-tasks`.",
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "host_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Id"
+          },
+          "max_cost_usd": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cost Usd"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "permission_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Mode"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "rrule": {
+            "title": "Rrule",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "UTC",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          }
+        },
+        "required": [
+          "name",
+          "prompt",
+          "rrule",
+          "agent_id"
+        ],
+        "title": "CreateScheduledTaskRequest",
         "type": "object"
       },
       "CreateSessionPolicyRequest": {
@@ -1414,6 +1801,79 @@
           "handler"
         ],
         "title": "CreateSessionPolicyRequest",
+        "type": "object"
+      },
+      "CreateTaskRequest": {
+        "properties": {
+          "acceptance_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Acceptance Criteria",
+            "type": "array"
+          },
+          "artifacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "assignee_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Role"
+          },
+          "assignee_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Session Id"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "title"
+        ],
+        "title": "CreateTaskRequest",
         "type": "object"
       },
       "CreatedEvent": {
@@ -1671,18 +2131,159 @@
         "title": "ElicitationResolvedEvent",
         "type": "object"
       },
+      "ErrorCluster": {
+        "description": "Recent durable failure clustered by one of the 11 error layers.",
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Codes",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "layer": {
+            "enum": [
+              "ui",
+              "server",
+              "host",
+              "runner",
+              "harness",
+              "model",
+              "provider",
+              "tool",
+              "workspace",
+              "git",
+              "policy"
+            ],
+            "title": "Layer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer",
+          "count"
+        ],
+        "title": "ErrorCluster",
+        "type": "object"
+      },
       "ErrorData": {
         "description": "Data for a persisted error banner item.\n\nThese items mirror `response.error` events so clients can render\nthe same error banner after reconnect / refresh. They are listed in\n`NON_CONTENT_ITEM_TYPES` because they are operator-visible\ntranscript metadata, not content the next agent turn should receive.",
         "properties": {
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional one/two-sentence explanation of why it failed.",
+            "title": "Cause"
+          },
           "code": {
             "description": "Stable error classifier, e.g. `\"native_terminal_start_failed\"`.",
             "title": "Code",
             "type": "string"
           },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Correlation/request id when available.",
+            "title": "Correlation Id"
+          },
+          "diagnostic_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional artifact/log references for triage.",
+            "title": "Diagnostic Refs"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ui",
+                  "server",
+                  "host",
+                  "runner",
+                  "harness",
+                  "model",
+                  "provider",
+                  "tool",
+                  "workspace",
+                  "git",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One of the plan's 11 error layers. Filled automatically from `code` and `source` when not supplied.",
+            "title": "Layer"
+          },
           "message": {
             "description": "Human-readable error message, e.g. `\"Native Codex requires the 'codex' CLI on PATH.\"`.",
             "title": "Message",
             "type": "string"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional concrete next step to fix it.",
+            "title": "Remediation"
+          },
+          "retryable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the control plane considers the failure retryable. `None` when not decided.",
+            "title": "Retryable"
           },
           "source": {
             "description": "Error source, e.g. `\"execution\"`.",
@@ -1693,6 +2294,30 @@
             ],
             "title": "Source",
             "type": "string"
+          },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional `Try this`-style action.",
+            "title": "Suggested Action"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional short headline naming what went wrong.",
+            "title": "Title"
           }
         },
         "required": [
@@ -1724,6 +2349,61 @@
             "title": "Code",
             "type": "string"
           },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Correlation/request id when the emitting layer had one available.",
+            "title": "Correlation Id"
+          },
+          "diagnostic_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional artifact/log references useful for triage (e.g. `\"art_log_01\"`).",
+            "title": "Diagnostic Refs"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ui",
+                  "server",
+                  "host",
+                  "runner",
+                  "harness",
+                  "model",
+                  "provider",
+                  "tool",
+                  "workspace",
+                  "git",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "One of the plan's 11 error layers. Filled automatically from `code`/known source classification when not supplied.",
+            "title": "Layer"
+          },
           "message": {
             "description": "Human-readable error description. Always populated; older clients render this verbatim.",
             "title": "Message",
@@ -1741,6 +2421,32 @@
             "default": null,
             "description": "Optional concrete next step to fix it, e.g. a command to run. `None` when there is no single clear fix.",
             "title": "Remediation"
+          },
+          "retryable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Whether the control plane considers the failure retryable. `None` when the emitting component did not decide.",
+            "title": "Retryable"
+          },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional `Try this`-style action; on the wire this is also projected onto `remediation` when the latter is absent.",
+            "title": "Suggested Action"
           },
           "title": {
             "anyOf": [
@@ -1818,6 +2524,19 @@
           "error"
         ],
         "title": "ErrorEvent",
+        "type": "object"
+      },
+      "ExecuteMergeRequest": {
+        "properties": {
+          "fencing_token": {
+            "title": "Fencing Token",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fencing_token"
+        ],
+        "title": "ExecuteMergeRequest",
         "type": "object"
       },
       "FailedEvent": {
@@ -2098,6 +2817,112 @@
         "title": "FunctionCallOutputData",
         "type": "object"
       },
+      "GatewayPayload": {
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "API Key or bearer token",
+            "title": "Api Key"
+          },
+          "base_url": {
+            "description": "Base URL of the gateway",
+            "minLength": 1,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default model ID for this gateway",
+            "title": "Default Model"
+          },
+          "family": {
+            "default": "anthropic",
+            "description": "Protocol family: anthropic or openai",
+            "title": "Family",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique provider ID",
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "default": false,
+            "description": "Whether this is the default provider for its family",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "kind": {
+            "default": "gateway",
+            "description": "Provider kind: gateway, local, etc.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "wire_api": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wire API: responses or chat (OpenAI only)",
+            "title": "Wire Api"
+          }
+        },
+        "required": [
+          "id",
+          "base_url"
+        ],
+        "title": "GatewayPayload",
+        "type": "object"
+      },
+      "GatewayTestPayload": {
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "minLength": 1,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "family": {
+            "default": "anthropic",
+            "title": "Family",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_url"
+        ],
+        "title": "GatewayTestPayload",
+        "type": "object"
+      },
       "GrantPermissionRequest": {
         "description": "Request body for `PUT /v1/sessions/{id}/permissions`.",
         "properties": {
@@ -2132,6 +2957,172 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthEdge": {
+        "description": "Directed dependency edge between two health layers.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ],
+        "title": "HealthEdge",
+        "type": "object"
+      },
+      "HealthNode": {
+        "description": "One layer of the control-plane health topology.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "layer": {
+            "enum": [
+              "ui",
+              "server",
+              "host",
+              "runner",
+              "harness",
+              "model",
+              "provider",
+              "tool",
+              "workspace",
+              "git",
+              "policy"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "title": "Metrics",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer",
+          "name",
+          "status"
+        ],
+        "title": "HealthNode",
+        "type": "object"
+      },
+      "HealthTopology": {
+        "description": "Snapshot of the layered control-plane health graph.",
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/HealthEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "error_clusters": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorCluster"
+            },
+            "title": "Error Clusters",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "number"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/HealthNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "scan_truncated": {
+            "default": false,
+            "title": "Scan Truncated",
+            "type": "boolean"
+          },
+          "scanned_sessions": {
+            "default": 0,
+            "title": "Scanned Sessions",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at",
+          "status"
+        ],
+        "title": "HealthTopology",
         "type": "object"
       },
       "HeartbeatEvent": {
@@ -2678,6 +3669,115 @@
           "content"
         ],
         "title": "MessageData",
+        "type": "object"
+      },
+      "ModelFactData": {
+        "description": "Data payload for a per-turn model fact chain.\n\nRecorded by the server relay at every terminal turn (completed,\nfailed, cancelled, etc.) so the Agent Inspector can show\n`requested_model` / `resolved_model` / `upstream_model`\nwithout guessing from a model name. A `None` field means the\nlayer is Unknown and must carry a corresponding\n`*_unknown_reason` so the UI never presents a bare, unreasoned\n\"Unknown\" (P1 transparency acceptance).",
+        "properties": {
+          "harness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Harness the fact belongs to, e.g. `\"claude-sdk\"` or `\"codex\"`. `None` when the relay could not resolve one.",
+            "title": "Harness"
+          },
+          "requested_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User/workflow selection for this turn, e.g. `\"databricks-gpt-5-6-sol\"`. `None` when no explicit selection exists (the layer is Unknown with `requested_unknown_reason`).",
+            "title": "Requested Model"
+          },
+          "requested_unknown_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why `requested_model` is unknown, e.g. `\"no_explicit_selection\"`.",
+            "title": "Requested Unknown Reason"
+          },
+          "resolved_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The model the harness actually sent to the provider per harness-reported usage, e.g. `\"databricks-claude-opus-4-8\"`. `None` when the harness did not report a usage model.",
+            "title": "Resolved Model"
+          },
+          "resolved_unknown_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why `resolved_model` is unknown, e.g. `\"harness_reported_no_model\"`.",
+            "title": "Resolved Unknown Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which path recorded the fact, e.g. `\"runner_relay\"`.",
+            "title": "Source"
+          },
+          "status": {
+            "default": "completed",
+            "description": "Terminal turn status, e.g. `\"completed\"` or `\"failed\"`.",
+            "title": "Status",
+            "type": "string"
+          },
+          "upstream_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Gateway final mapped/billing model when the provider/gateway reports one, e.g. `\"gpt-5-6\"`. `None` when the Gateway did not provide it.",
+            "title": "Upstream Model"
+          },
+          "upstream_unknown_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why `upstream_model` is unknown, e.g. `\"gateway_model_unavailable\"`.",
+            "title": "Upstream Unknown Reason"
+          }
+        },
+        "title": "ModelFactData",
         "type": "object"
       },
       "ModelUsage": {
@@ -3433,6 +4533,99 @@
         "title": "ReasoningTextDeltaEvent",
         "type": "object"
       },
+      "ReassignTaskRequest": {
+        "properties": {
+          "assignee_session_id": {
+            "title": "Assignee Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignee_session_id"
+        ],
+        "title": "ReassignTaskRequest",
+        "type": "object"
+      },
+      "ReportConsumptionRequest": {
+        "properties": {
+          "actor_session_id": {
+            "title": "Actor Session Id",
+            "type": "string"
+          },
+          "receipt": {
+            "additionalProperties": true,
+            "title": "Receipt",
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "consumed",
+              "acknowledged",
+              "rejected"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "actor_session_id"
+        ],
+        "title": "ReportConsumptionRequest",
+        "type": "object"
+      },
+      "ReportWorkflowTaskRequest": {
+        "properties": {
+          "actor_session_id": {
+            "title": "Actor Session Id",
+            "type": "string"
+          },
+          "artifacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "outcome": {
+            "default": "succeeded",
+            "enum": [
+              "succeeded",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "review_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Decision"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "actor_session_id"
+        ],
+        "title": "ReportWorkflowTaskRequest",
+        "type": "object"
+      },
       "ResourceEventData": {
         "description": "Data payload for a persisted resource lifecycle event.\n\nThese items are written to the conversation store when a\nsession resource is created or deleted, so reconnecting\nclients can discover resource history without replaying the\nlive SSE stream.  The agent loop filters them out of the\nLLM's message context (they are metadata, not conversation\ncontent).",
         "properties": {
@@ -3639,10 +4832,34 @@
       "RetryErrorDetail": {
         "description": "Error block carried by `RetryEvent` and `ErrorEvent`.\n\nMirrors the shape that `llm_retry.py` and `tool_retry.py`\nemit today \u2014 flat `code` / `message` plus an optional\n`detail` for provider-specific structured fields.",
         "properties": {
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cause"
+          },
           "code": {
             "description": "Stable error classifier, e.g. `\"timeout\"`, `\"rate_limit\"`.",
             "title": "Code",
             "type": "string"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Correlation Id"
           },
           "detail": {
             "anyOf": [
@@ -3658,10 +4875,98 @@
             "description": "Optional provider-specific structured fields (e.g. `{\"status_code\": 429, \"retry_after\": 5}`); `None` when the classifier had no extra context.",
             "title": "Detail"
           },
+          "diagnostic_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Diagnostic Refs"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ui",
+                  "server",
+                  "host",
+                  "runner",
+                  "harness",
+                  "model",
+                  "provider",
+                  "tool",
+                  "workspace",
+                  "git",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Layer"
+          },
           "message": {
             "description": "Human-readable summary, e.g. `\"Connection timed out after 30s\"`.",
             "title": "Message",
             "type": "string"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Remediation"
+          },
+          "retryable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Retryable"
+          },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Suggested Action"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
           }
         },
         "required": [
@@ -3918,6 +5223,149 @@
           "comment_ids"
         ],
         "title": "SendCommentsRequest",
+        "type": "object"
+      },
+      "SendMessageRequest": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "hop_count": {
+            "default": 0,
+            "title": "Hop Count",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "in_reply_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Reply To"
+          },
+          "intent": {
+            "default": "task.request",
+            "title": "Intent",
+            "type": "string"
+          },
+          "kind": {
+            "default": "content",
+            "enum": [
+              "content",
+              "command",
+              "event"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_hops": {
+            "default": 8,
+            "title": "Max Hops",
+            "type": "integer"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "recipient_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Role"
+          },
+          "recipient_session_id": {
+            "title": "Recipient Session Id",
+            "type": "string"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sender_role": {
+            "default": "general",
+            "title": "Sender Role",
+            "type": "string"
+          },
+          "sender_session_id": {
+            "title": "Sender Session Id",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Seconds"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "sender_session_id",
+          "recipient_session_id"
+        ],
+        "title": "SendMessageRequest",
         "type": "object"
       },
       "ServerInfoResponse": {
@@ -4917,6 +6365,17 @@
             "title": "Archived",
             "type": "boolean"
           },
+          "bot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Id"
+          },
           "comments_count": {
             "default": 0,
             "description": "Total number of review comments (any status) on this session. Together with `comments_updated_at` it forms a change fingerprint: an add or edit bumps the timestamp, a delete changes the count, so the web client can invalidate its cached comment list when either field changes in a `WS /v1/sessions/updates` frame. `0` when the session has no comments or the server has no comment store wired.",
@@ -5052,6 +6511,19 @@
               }
             ],
             "title": "Project Id"
+          },
+          "purpose": {
+            "default": "standalone",
+            "enum": [
+              "primary",
+              "topic",
+              "routine",
+              "a2a",
+              "subagent",
+              "standalone"
+            ],
+            "title": "Purpose",
+            "type": "string"
           },
           "reasoning_effort": {
             "anyOf": [
@@ -5713,6 +7185,17 @@
             "description": "Per-shell detail for the running tally above, so a reload can restore each shell's description/command. `None` when none are tracked (or when an older runner reported only the count).",
             "title": "Background Tasks"
           },
+          "bot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Id"
+          },
           "context_window": {
             "anyOf": [
               {
@@ -5959,6 +7442,19 @@
               }
             ],
             "title": "Project Id"
+          },
+          "purpose": {
+            "default": "standalone",
+            "enum": [
+              "primary",
+              "topic",
+              "routine",
+              "a2a",
+              "subagent",
+              "standalone"
+            ],
+            "title": "Purpose",
+            "type": "string"
           },
           "reasoning_effort": {
             "anyOf": [
@@ -6953,6 +8449,167 @@
         "title": "SmartRoutingSourcesInfo",
         "type": "object"
       },
+      "StartTemplateWorkflowRequest": {
+        "properties": {
+          "budget": {
+            "additionalProperties": true,
+            "title": "Budget",
+            "type": "object"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/StartTemplateWorkflowTask"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "title": {
+            "default": "Custom DAG Workflow",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "tasks"
+        ],
+        "title": "StartTemplateWorkflowRequest",
+        "type": "object"
+      },
+      "StartTemplateWorkflowTask": {
+        "properties": {
+          "acceptance_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Acceptance Criteria",
+            "type": "array"
+          },
+          "assignee_role": {
+            "title": "Assignee Role",
+            "type": "string"
+          },
+          "assignee_session_id": {
+            "title": "Assignee Session Id",
+            "type": "string"
+          },
+          "behavior_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "off",
+                  "advisory",
+                  "lean",
+                  "strict"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Behavior Mode"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "intent": {
+            "default": "task.request",
+            "title": "Intent",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "assignee_session_id",
+          "assignee_role",
+          "prompt"
+        ],
+        "title": "StartTemplateWorkflowTask",
+        "type": "object"
+      },
+      "StartWorkflowRequest": {
+        "properties": {
+          "behavior_modes": {
+            "additionalProperties": {
+              "enum": [
+                "off",
+                "advisory",
+                "lean",
+                "strict"
+              ],
+              "type": "string"
+            },
+            "title": "Behavior Modes",
+            "type": "object"
+          },
+          "budget": {
+            "additionalProperties": true,
+            "title": "Budget",
+            "type": "object"
+          },
+          "implementer_session_id": {
+            "title": "Implementer Session Id",
+            "type": "string"
+          },
+          "planner_session_id": {
+            "title": "Planner Session Id",
+            "type": "string"
+          },
+          "reviewer_session_id": {
+            "title": "Reviewer Session Id",
+            "type": "string"
+          },
+          "root_session_id": {
+            "title": "Root Session Id",
+            "type": "string"
+          },
+          "title": {
+            "default": "Plan -> Implement -> Review Workflow",
+            "title": "Title",
+            "type": "string"
+          },
+          "user_prompt": {
+            "title": "User Prompt",
+            "type": "string"
+          },
+          "workspace_path": {
+            "default": ".",
+            "title": "Workspace Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_session_id",
+          "planner_session_id",
+          "implementer_session_id",
+          "reviewer_session_id",
+          "user_prompt"
+        ],
+        "title": "StartWorkflowRequest",
+        "type": "object"
+      },
       "StoreHarnessCredentialRequest": {
         "description": "Request body for `POST /v1/hosts/{id}/harnesses/{harness}/credential`.\n\nCarries the credential in the body (never the URL). The secret field is\noptional so the `adopt` kind \u2014 which references an existing host env var\nby name rather than sending a value \u2014 can omit it.",
         "properties": {
@@ -7265,6 +8922,129 @@
         "title": "TurnStartedEvent",
         "type": "object"
       },
+      "UpdateAgentMemoryRequest": {
+        "description": "Request body for editing a teammate memory.",
+        "properties": {
+          "content": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "UpdateAgentMemoryRequest",
+        "type": "object"
+      },
+      "UpdateArtifactStatusRequest": {
+        "properties": {
+          "status": {
+            "enum": [
+              "published",
+              "updated",
+              "invalidated"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UpdateArtifactStatusRequest",
+        "type": "object"
+      },
+      "UpdateBotRequest": {
+        "additionalProperties": false,
+        "description": "Mutable Bot settings; omitted values retain their current value.",
+        "properties": {
+          "behavior_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "off",
+                  "advisory",
+                  "lean",
+                  "strict"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Behavior Mode"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "home_path": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Path"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "archived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "UpdateBotRequest",
+        "type": "object"
+      },
       "UpdateCodexGoalStatusRequest": {
         "additionalProperties": false,
         "description": "Request body for `PATCH /v1/sessions/{id}/codex_goal/status`.\n\nCodex app-server represents pause/resume as `thread/goal/set` status\nupdates. Omnigent exposes the two user-driven transitions explicitly:\n`\"paused\"` pauses an active goal, and `\"active\"` resumes a paused,\nblocked, or usage-limited goal.",
@@ -7391,6 +9171,150 @@
           }
         },
         "title": "UpdateProjectRequest",
+        "type": "object"
+      },
+      "UpdateScheduledTaskRequest": {
+        "additionalProperties": false,
+        "description": "Body for `PATCH /v1/scheduled-tasks/{id}`. Unset fields are unchanged.",
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "host_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Id"
+          },
+          "max_cost_usd": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cost Usd"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "permission_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Mode"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "rrule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
+          }
+        },
+        "title": "UpdateScheduledTaskRequest",
         "type": "object"
       },
       "UpdateSessionPolicyRequest": {
@@ -7609,6 +9533,17 @@
             ],
             "description": "New title, e.g. `\"debugging auth flow\"`. `None` leaves unchanged.",
             "title": "Title"
+          },
+          "workspace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace"
           }
         },
         "title": "UpdateSessionRequest",
@@ -7899,7 +9834,7 @@
   },
   "info": {
     "description": "Omnigent is an open-source meta-harness for building and running AI agents. This is the REST API exposed by the Omnigent server: use it to create and drive **sessions**, manage **agents**, **hosts**, and **runners**, attach **contextual policies**, post **comments**, and work with session **resources** \u2014 files, terminals, and sandboxed environments.\n\n## Base URL\n\nOmnigent is self-hosted. The server binds `http://127.0.0.1:6767` by default (`omnigent server`); point the base URL at your own deployment.\n\n## Authentication\n\nThere is no API-key or bearer-token scheme. Identity is supplied by the deployment's configured auth provider (`OMNIGENT_AUTH_PROVIDER`):\n\n- **Trusted proxy header** (default) \u2014 an upstream proxy injects an identity header (`X-Forwarded-Email`, configurable). Single-user local runtimes fall back to a reserved `local` user.\n- **Session cookie** \u2014 a signed session cookie minted after an interactive OIDC or accounts login. It is named `ap_session` over HTTP (the advertised local default) and `__Host-ap_session` under HTTPS, where the `__Host-` prefix guards against subdomain cookie-tossing.\n\nAuth is configured server-side; clients send the cookie or proxy header according to your deployment.\n\n## Streaming\n\n`GET /v1/sessions/{session_id}/stream` streams Server-Sent Events (`text/event-stream`). Each event conforms to the `ServerStreamEvent` schema documented below.\n",
-    "title": "Omnigent Server",
+    "title": "AgentNexus Server",
     "version": "0.1.0"
   },
   "openapi": "3.2.0",
@@ -8114,6 +10049,83 @@
         ]
       }
     },
+    "/v1/bots": {
+      "get": {
+        "operationId": "list_bots_v1_bots_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Bots V1 Bots Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Bots",
+        "tags": [
+          "teammates"
+        ]
+      }
+    },
+    "/v1/bots/{bot_id}": {
+      "patch": {
+        "operationId": "update_bot_v1_bots__bot_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bot_id",
+            "required": true,
+            "schema": {
+              "title": "Bot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Bot V1 Bots  Bot Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Bot",
+        "tags": [
+          "teammates"
+        ]
+      }
+    },
     "/v1/branding/logo/{variant}": {
       "get": {
         "description": "Serve a validated public branding asset, or 404 when unset.",
@@ -8180,6 +10192,1738 @@
           }
         },
         "summary": "Branding Logo"
+      }
+    },
+    "/v1/coordination/artifacts": {
+      "get": {
+        "description": "List artifact metadata within a coordination root.",
+        "operationId": "list_coordination_artifacts_v1_coordination_artifacts_get",
+        "parameters": [
+          {
+            "description": "The parent/root conversation id",
+            "in": "query",
+            "name": "root_session_id",
+            "required": true,
+            "schema": {
+              "description": "The parent/root conversation id",
+              "title": "Root Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional run filter",
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional run filter",
+              "title": "Run Id"
+            }
+          },
+          {
+            "description": "Optional task filter",
+            "in": "query",
+            "name": "task_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional task filter",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Coordination Artifacts V1 Coordination Artifacts Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Coordination Artifacts",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "post": {
+        "description": "Publish a control-plane artifact metadata row for a plan/patch/diff/report.",
+        "operationId": "create_coordination_artifact_v1_coordination_artifacts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Coordination Artifact V1 Coordination Artifacts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Coordination Artifact",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/artifacts/{artifact_id}": {
+      "get": {
+        "description": "Retrieve one artifact metadata row by id.",
+        "operationId": "get_coordination_artifact_v1_coordination_artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Coordination Artifact V1 Coordination Artifacts  Artifact Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Coordination Artifact",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "patch": {
+        "description": "Mark an artifact published/updated/invalidated.",
+        "operationId": "update_coordination_artifact_status_v1_coordination_artifacts__artifact_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateArtifactStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Coordination Artifact Status V1 Coordination Artifacts  Artifact Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Coordination Artifact Status",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/behavior/{session_id}": {
+      "get": {
+        "description": "Return the latest durable Behavior binding addressed to one session.\n\nThe Inspector badge is only honest when it distinguishes a composed\nbinding from an actually confirmed injection. `delivery_state` comes\nfrom the latest DeliveryAttempt (or the queued message when the outbox\nhas not picked it up yet), so an unconfirmed payload never renders as\nactive.",
+        "operationId": "get_session_behavior_facts_v1_coordination_behavior__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The parent/root conversation id",
+            "in": "query",
+            "name": "root_session_id",
+            "required": true,
+            "schema": {
+              "description": "The parent/root conversation id",
+              "title": "Root Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Session Behavior Facts V1 Coordination Behavior  Session Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Behavior Facts",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/events": {
+      "get": {
+        "description": "Retrieve coordination timeline events.",
+        "operationId": "list_coordination_events_v1_coordination_events_get",
+        "parameters": [
+          {
+            "description": "The parent/root conversation id",
+            "in": "query",
+            "name": "root_session_id",
+            "required": true,
+            "schema": {
+              "description": "The parent/root conversation id",
+              "title": "Root Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Timestamp filter for cursor pagination",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Timestamp filter for cursor pagination",
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Coordination Events V1 Coordination Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Coordination Events",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/messages": {
+      "get": {
+        "description": "List peer messages within a coordination room/root session.",
+        "operationId": "list_coordination_messages_v1_coordination_messages_get",
+        "parameters": [
+          {
+            "description": "The parent/root conversation id",
+            "in": "query",
+            "name": "root_session_id",
+            "required": true,
+            "schema": {
+              "description": "The parent/root conversation id",
+              "title": "Root Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional target session filter",
+            "in": "query",
+            "name": "recipient_session_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional target session filter",
+              "title": "Recipient Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Coordination Messages V1 Coordination Messages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Coordination Messages",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "post": {
+        "description": "Send a durable peer message from one agent to another and queue for delivery.",
+        "operationId": "send_coordination_message_v1_coordination_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Send Coordination Message V1 Coordination Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Coordination Message",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/messages/{message_id}/cancel": {
+      "post": {
+        "description": "Cancel a still-queued peer message before it is injected.",
+        "operationId": "cancel_coordination_message_v1_coordination_messages__message_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Coordination Message V1 Coordination Messages  Message Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Coordination Message",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/messages/{message_id}/receipt": {
+      "post": {
+        "description": "Record an explicit consumption/ack/reject receipt from the recipient agent.",
+        "operationId": "report_message_consumption_v1_coordination_messages__message_id__receipt_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportConsumptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Message Consumption V1 Coordination Messages  Message Id  Receipt Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Message Consumption",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs": {
+      "get": {
+        "description": "List coordination runs.",
+        "operationId": "list_coordination_runs_v1_coordination_runs_get",
+        "parameters": [
+          {
+            "description": "Filter by root conversation",
+            "in": "query",
+            "name": "root_session_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by root conversation",
+              "title": "Root Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Coordination Runs V1 Coordination Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Coordination Runs",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "post": {
+        "description": "Create a new multi-agent collaboration run.",
+        "operationId": "create_coordination_run_v1_coordination_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Coordination Run V1 Coordination Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Coordination Run",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs/{run_id}": {
+      "get": {
+        "description": "Retrieve details and tasks for a specific coordination run.",
+        "operationId": "get_coordination_run_v1_coordination_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Coordination Run V1 Coordination Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Coordination Run",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs/{run_id}/cancel": {
+      "post": {
+        "description": "Cancel a run: queued deliveries cancel, active unconsumed are rejected.",
+        "operationId": "cancel_coordination_run_v1_coordination_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Coordination Run V1 Coordination Runs  Run Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Coordination Run",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs/{run_id}/pause": {
+      "post": {
+        "description": "Pause a running coordination run; queued stages stay queued.",
+        "operationId": "pause_coordination_run_v1_coordination_runs__run_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Coordination Run V1 Coordination Runs  Run Id  Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Coordination Run",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs/{run_id}/resume": {
+      "post": {
+        "description": "Resume a paused coordination run.",
+        "operationId": "resume_coordination_run_v1_coordination_runs__run_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Coordination Run V1 Coordination Runs  Run Id  Resume Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Coordination Run",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/runs/{run_id}/summary": {
+      "get": {
+        "description": "Return the durable run, stage board, and delivery/artifact summary.",
+        "operationId": "get_coordination_run_summary_v1_coordination_runs__run_id__summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Coordination Run Summary V1 Coordination Runs  Run Id  Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Coordination Run Summary",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/tasks": {
+      "get": {
+        "description": "List all tasks associated with a coordination run.",
+        "operationId": "list_coordination_tasks_v1_coordination_tasks_get",
+        "parameters": [
+          {
+            "description": "Run ID",
+            "in": "query",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "description": "Run ID",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Coordination Tasks V1 Coordination Tasks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Coordination Tasks",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "post": {
+        "description": "Add a task to a coordination run.",
+        "operationId": "create_coordination_task_v1_coordination_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Coordination Task V1 Coordination Tasks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Coordination Task",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/tasks/{task_id}/reassign": {
+      "post": {
+        "description": "Redirect an active stage task to another assignee in the same tree.",
+        "operationId": "reassign_coordination_task_v1_coordination_tasks__task_id__reassign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reassign Coordination Task V1 Coordination Tasks  Task Id  Reassign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reassign Coordination Task",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/tasks/{task_id}/retry": {
+      "post": {
+        "description": "Retry a failed stage task on its original run/task identity.",
+        "operationId": "retry_coordination_task_v1_coordination_tasks__task_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retry Coordination Task V1 Coordination Tasks  Task Id  Retry Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Coordination Task",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workflows/plan-implement-review": {
+      "post": {
+        "description": "Kick off an end-to-end Plan -> Implement -> Review -> Fix -> Test run.",
+        "operationId": "start_plan_implement_review_workflow_v1_coordination_workflows_plan_implement_review_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Plan Implement Review Workflow V1 Coordination Workflows Plan Implement Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Plan Implement Review Workflow",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workflows/template": {
+      "post": {
+        "description": "Start a caller-defined task DAG (template workflow).\n\n`tasks` define stage keys, assignee sessions, prompts and dependency\nkeys. Root stages are dispatched immediately; every other stage starts as\nsoon as its dependencies have succeeded, using the same durable outbox,\nconsumption receipts and report/retry/reassign endpoint as the fixed\nworkflow. Cycles, duplicate keys and unknown dependency keys are rejected.",
+        "operationId": "start_template_workflow_v1_coordination_workflows_template_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTemplateWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Template Workflow V1 Coordination Workflows Template Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Template Workflow",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workflows/{run_id}/tasks/{task_id}/advance": {
+      "post": {
+        "description": "Report one stage's result and advance the resumed workflow machine.",
+        "operationId": "advance_coordination_workflow_v1_coordination_workflows__run_id__tasks__task_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advance Coordination Workflow V1 Coordination Workflows  Run Id  Tasks  Task Id  Advance Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance Coordination Workflow",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workflows/{run_id}/tasks/{task_id}/report": {
+      "post": {
+        "description": "Record a stage result as a durable message, then advance the workflow.\n\nThe result is persisted through the same AgentMessage/Outbox path as an\nordinary peer message, so the Control Plane keeps an auditable correlation\nbetween the stage task, the result, and the next dispatch. Only the task's\nassigned session may report; the root orchestrator still controls pause,\nretry, reassign, and cancel through the existing run endpoints.",
+        "operationId": "report_workflow_task_result_v1_coordination_workflows__run_id__tasks__task_id__report_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportWorkflowTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Workflow Task Result V1 Coordination Workflows  Run Id  Tasks  Task Id  Report Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Workflow Task Result",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workspaces/lease": {
+      "post": {
+        "description": "Acquire a concurrency lease on a workspace path to prevent conflicting writes.",
+        "operationId": "acquire_workspace_lease_v1_coordination_workspaces_lease_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcquireLeaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Acquire Workspace Lease V1 Coordination Workspaces Lease Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acquire Workspace Lease",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workspaces/merge-previews": {
+      "get": {
+        "description": "List merge operations visible to a coordination root.",
+        "operationId": "list_merge_previews_v1_coordination_workspaces_merge_previews_get",
+        "parameters": [
+          {
+            "description": "The parent/root conversation id",
+            "in": "query",
+            "name": "root_session_id",
+            "required": true,
+            "schema": {
+              "description": "The parent/root conversation id",
+              "title": "Root Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Merge Previews V1 Coordination Workspaces Merge Previews Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Merge Previews",
+        "tags": [
+          "Coordination"
+        ]
+      },
+      "post": {
+        "description": "Capture branch heads and dirty state for a user-confirmable merge operation.",
+        "operationId": "create_merge_preview_v1_coordination_workspaces_merge_previews_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMergePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Merge Preview V1 Coordination Workspaces Merge Previews Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Merge Preview",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workspaces/merge-previews/{operation_id}": {
+      "get": {
+        "description": "Retrieve one merge operation by id.",
+        "operationId": "get_merge_preview_v1_coordination_workspaces_merge_previews__operation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Merge Preview V1 Coordination Workspaces Merge Previews  Operation Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Merge Preview",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/coordination/workspaces/merge-previews/{operation_id}/execute": {
+      "post": {
+        "description": "Execute a previewed merge after re-validating lease, heads and dirty state.",
+        "operationId": "execute_merge_preview_v1_coordination_workspaces_merge_previews__operation_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteMergeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Execute Merge Preview V1 Coordination Workspaces Merge Previews  Operation Id  Execute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Merge Preview",
+        "tags": [
+          "Coordination"
+        ]
+      }
+    },
+    "/v1/diagnostics/health": {
+      "get": {
+        "description": "Return the user-scoped layered health snapshot.",
+        "operationId": "get_health_topology_v1_diagnostics_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthTopology"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Health Topology",
+        "tags": [
+          "diagnostics"
+        ]
+      }
+    },
+    "/v1/gateways": {
+      "get": {
+        "description": "List all configured model gateways and providers.",
+        "operationId": "list_gateways_v1_gateways_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Gateways V1 Gateways Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Gateways",
+        "tags": [
+          "gateways"
+        ]
+      },
+      "post": {
+        "description": "Create or update a gateway entry in ~/.omnigent/config.yaml.",
+        "operationId": "create_or_update_gateway_v1_gateways_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Or Update Gateway V1 Gateways Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Or Update Gateway",
+        "tags": [
+          "gateways"
+        ]
+      }
+    },
+    "/v1/gateways/test": {
+      "post": {
+        "description": "Test HTTP connectivity and retrieve available models from a gateway endpoint.",
+        "operationId": "test_gateway_v1_gateways_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayTestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Test Gateway V1 Gateways Test Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Gateway",
+        "tags": [
+          "gateways"
+        ]
+      }
+    },
+    "/v1/gateways/{gateway_id}": {
+      "delete": {
+        "description": "Delete a gateway by its identifier.",
+        "operationId": "delete_gateway_v1_gateways__gateway_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gateway_id",
+            "required": true,
+            "schema": {
+              "title": "Gateway Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Gateway V1 Gateways  Gateway Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Gateway",
+        "tags": [
+          "gateways"
+        ]
+      }
+    },
+    "/v1/gateways/{gateway_id}/set-default": {
+      "post": {
+        "description": "Set a gateway as the default provider for its family.",
+        "operationId": "set_default_gateway_v1_gateways__gateway_id__set_default_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "gateway_id",
+            "required": true,
+            "schema": {
+              "title": "Gateway Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Default Gateway V1 Gateways  Gateway Id  Set Default Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Default Gateway",
+        "tags": [
+          "gateways"
+        ]
       }
     },
     "/v1/harnesses": {
@@ -8703,7 +12447,7 @@
     },
     "/v1/hosts/{host_id}/harnesses/{harness}/model-options": {
       "get": {
-        "description": "Return pre-launch model choices resolved by the selected host.\n\nA preview of the host's ambient default catalog, not a binding\nsnapshot: launch re-resolves with the session's agent spec, and the\nin-session picker reflects that launch snapshot once the runner is up.",
+        "description": "Return pre-launch model choices resolved by the selected host.\n\nA preview of the host's ambient default catalog, not a binding\nsnapshot: launch re-resolves with the session's agent spec, and the\nin-session picker reflects that launch snapshot once the runner is up.\n`error` is a string reason when the catalog is empty \u2014 it must not\nbe constrained to a list, or the honest-empty-answer payload fails\nresponse validation.",
         "operationId": "get_host_model_options_v1_hosts__host_id__harnesses__harness__model_options_get",
         "parameters": [
           {
@@ -8730,10 +12474,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "items": {},
-                    "type": "array"
-                  },
+                  "additionalProperties": true,
                   "title": "Response Get Host Model Options V1 Hosts  Host Id  Harnesses  Harness  Model Options Get",
                   "type": "object"
                 }
@@ -9577,6 +13318,337 @@
         "summary": "Mint Runner Owner Token",
         "tags": [
           "runners"
+        ]
+      }
+    },
+    "/v1/scheduled-tasks": {
+      "get": {
+        "description": "List the caller's scheduled tasks.\n\nLazy-on-read stale backstop: before returning, force-fail any of this\nowner's runs still `running` past the 6h max age (`incomplete`), so\na future Tasks-list \"last-run status\" badge never shows a stale orphan\nas `running`. Pure age check \u2014 one indexed, owner-scoped query for the\nowner's running runs, then a conditional `update_run`; NO per-run\nconversation I/O. Young in-flight runs are untouched, and completion of\na normal run is handled event-driven (the `_publish_status` hook), not\nhere.",
+        "operationId": "list_scheduled_tasks_v1_scheduled_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response List Scheduled Tasks V1 Scheduled Tasks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Scheduled Tasks",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      },
+      "post": {
+        "description": "Create a scheduled task and arm it on the live scheduler.",
+        "operationId": "create_scheduled_task_v1_scheduled_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduledTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Scheduled Task V1 Scheduled Tasks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Scheduled Task",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      }
+    },
+    "/v1/scheduled-tasks/{scheduled_task_id}": {
+      "delete": {
+        "description": "Delete a task and drop its timer from the scheduler.",
+        "operationId": "delete_scheduled_task_v1_scheduled_tasks__scheduled_task_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_task_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Scheduled Task V1 Scheduled Tasks  Scheduled Task Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Scheduled Task",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      },
+      "get": {
+        "description": "Fetch one of the caller's scheduled tasks.",
+        "operationId": "get_scheduled_task_v1_scheduled_tasks__scheduled_task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_task_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Scheduled Task V1 Scheduled Tasks  Scheduled Task Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scheduled Task",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      },
+      "patch": {
+        "description": "Update mutable fields of a task and re-sync the scheduler.",
+        "operationId": "update_scheduled_task_v1_scheduled_tasks__scheduled_task_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_task_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduledTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Scheduled Task V1 Scheduled Tasks  Scheduled Task Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Scheduled Task",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      }
+    },
+    "/v1/scheduled-tasks/{scheduled_task_id}/run": {
+      "post": {
+        "description": "Trigger an immediate fire of one of the caller's scheduled tasks.\n\nA manual override that reuses the SHARED scheduled-fire path (the same\n`on_fire` machinery \u2014 session create, owner grant, runner launch,\nprompt dispatch, run recording) via `app.state.scheduled_task_run_now`.\nIt does NOT re-implement the fire logic and cannot collide with a\nscheduled fire of the same task (both share the in-flight overlap guard).\n\nPaused tasks ARE runnable here \u2014 run-now is an explicit manual override,\nso it does not require the `active` state the scheduler enforces.\n\nFire-and-forget: like the scheduler, the session create + launch runs in\nthe background, so this returns `202 Accepted` with the task id rather\nthan the finished run. The new run row (status `running` / `failed` /\n`skipped`) appears in the task's `/runs` history and in the LIST\nendpoint's `last_run_status` once recorded. Returns `409` when a fire\nfor this task is already in flight, and `503` when the scheduler\nsubsystem is not running (no trigger wired).",
+        "operationId": "run_scheduled_task_now_v1_scheduled_tasks__scheduled_task_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_task_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Scheduled Task Now V1 Scheduled Tasks  Scheduled Task Id  Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Scheduled Task Now",
+        "tags": [
+          "scheduled_tasks"
+        ]
+      }
+    },
+    "/v1/scheduled-tasks/{scheduled_task_id}/runs": {
+      "get": {
+        "description": "List the run history for one of the caller's scheduled tasks.\n\nOwner-scoped: a task owned by someone else (or absent) 404s via\n`_require_owned`, so runs aren't enumerable across users. Runs come\nback most-recent-first (`scheduled_at DESC`); an empty history is an\nempty list.\n\nCursor-paginated so history is never silently truncated: pass `limit`\n(1-1000, default 100) and `after` (a prior page's `next_cursor`).\nThe response is `{\"runs\": [...], \"next_cursor\": <id or null>}`; a\n`null` cursor marks the last page.\n\nLazy-on-read backstop: before listing, force-fail any of this task's\nruns still `running` past the 6h max age (`incomplete`). Completion\nitself is event-driven (the `_publish_status` hook); this only\ncatches a genuine orphan \u2014 a run whose terminal event never fired (host\ndied mid-turn) \u2014 so the \"every run eventually terminal\" invariant holds\nwithout a background poll or startup sweep. Pure age check (no\nconversation I/O); a young in-flight run is untouched, and the\nconditional `update_run` never clobbers an already-terminal row.",
+        "operationId": "list_scheduled_task_runs_v1_scheduled_tasks__scheduled_task_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduled_task_id",
+            "required": true,
+            "schema": {
+              "title": "Scheduled Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Scheduled Task Runs V1 Scheduled Tasks  Scheduled Task Id  Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scheduled Task Runs",
+        "tags": [
+          "scheduled_tasks"
         ]
       }
     },
@@ -12225,6 +16297,17 @@
               "title": "Order",
               "type": "string"
             }
+          },
+          {
+            "description": "Return an empty listing instead of 404 when the path is absent. Used by speculative chat-path existence probes so expected misses do not appear as browser console errors.",
+            "in": "query",
+            "name": "missing_ok",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Missing Ok",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -13028,6 +17111,17 @@
               "title": "Session Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Return an empty terminal list instead of 503 while the Runner is offline. Used by the UI's speculative mount seed; live SSE fills the list when the Runner starts.",
+            "in": "query",
+            "name": "offline_ok",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Offline Ok",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -13479,6 +17573,239 @@
         "summary": "Set Sharing",
         "tags": [
           "sharing"
+        ]
+      }
+    },
+    "/v1/teammates": {
+      "get": {
+        "operationId": "list_teammates_v1_teammates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Teammates V1 Teammates Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Teammates",
+        "tags": [
+          "teammates"
+        ]
+      }
+    },
+    "/v1/teammates/{agent_id}/memories": {
+      "get": {
+        "operationId": "list_memories_v1_teammates__agent_id__memories_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "$ref": "#/components/schemas/AgentMemoryObject"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response List Memories V1 Teammates  Agent Id  Memories Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Memories",
+        "tags": [
+          "teammates"
+        ]
+      },
+      "post": {
+        "operationId": "create_memory_v1_teammates__agent_id__memories_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentMemoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/AgentMemoryObject"
+                  },
+                  "title": "Response Create Memory V1 Teammates  Agent Id  Memories Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Memory",
+        "tags": [
+          "teammates"
+        ]
+      }
+    },
+    "/v1/teammates/{agent_id}/memories/{memory_id}": {
+      "delete": {
+        "operationId": "delete_memory_v1_teammates__agent_id__memories__memory_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "memory_id",
+            "required": true,
+            "schema": {
+              "title": "Memory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Memory",
+        "tags": [
+          "teammates"
+        ]
+      },
+      "patch": {
+        "operationId": "update_memory_v1_teammates__agent_id__memories__memory_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "memory_id",
+            "required": true,
+            "schema": {
+              "title": "Memory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentMemoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/AgentMemoryObject"
+                  },
+                  "title": "Response Update Memory V1 Teammates  Agent Id  Memories  Memory Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Memory",
+        "tags": [
+          "teammates"
         ]
       }
     },

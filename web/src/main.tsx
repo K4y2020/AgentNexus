@@ -33,6 +33,19 @@ import "./index.css";
 // configured (VITE_OTEL_EXPORTER_OTLP_ENDPOINT).
 initBrowserTelemetry();
 
+// Suppress unhandled errors from external browser extensions or user scripts
+// (e.g. Web Vitals / Tampermonkey scripts reading undefined startTime)
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (event) => {
+    if (
+      typeof event.message === "string" &&
+      event.message.includes("startTime")
+    ) {
+      event.preventDefault();
+    }
+  });
+}
+
 // Single client at module scope — shared across the whole app.
 //
 // `refetchOnWindowFocus: false` is intentional: window-focus auto-refetch
