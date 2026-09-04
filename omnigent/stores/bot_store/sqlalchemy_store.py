@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 
 from sqlalchemy import asc, select
@@ -10,10 +11,12 @@ from sqlalchemy.exc import IntegrityError
 from omnigent.db.db_models import (
     SqlBot,
     SqlBotComputerBinding,
+    SqlBotProjectBinding,
+    SqlComputerExecutionLease,
     current_workspace_id,
 )
 from omnigent.db.utils import get_or_create_engine, make_named_managed_session_maker, now_epoch
-from omnigent.entities import Bot, BotComputerBinding
+from omnigent.entities import Bot, BotComputerBinding, BotProjectBinding, ComputerExecutionLease
 from omnigent.stores.bot_store import BotStore
 
 
@@ -41,6 +44,36 @@ def _binding_entity(row: SqlBotComputerBinding) -> BotComputerBinding:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+class LeaseConflictError(ValueError):
+    """Raised when an exclusive execution lease cannot be acquired."""
+
+
+def _project_binding_entity(row: SqlBotProjectBinding) -> BotProjectBinding:
+    return BotProjectBinding(
+        id=row.id,
+        bot_id=row.bot_id,
+        project_id=row.project_id,
+        checkout_root=row.checkout_root,
+        default_branch=row.default_branch,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _lease_entity(row: SqlComputerExecutionLease) -> ComputerExecutionLease:
+    return ComputerExecutionLease(
+        id=row.id,
+        computer_id=row.computer_id,
+        bot_id=row.bot_id,
+        session_id=row.session_id,
+        run_id=row.run_id,
+        path=row.path,
+        fence=row.fence,
+        expires_at=row.expires_at,
+        created_at=row.created_at,
+    )
+
 
 
 def _stable_id(kind: str, *parts: object) -> str:
@@ -219,3 +252,146 @@ class SqlAlchemyBotStore(BotStore):
             row.updated_at = now_epoch()
             session.flush()
             return _binding_entity(row)
+
+    def bind_project(
+        self,
+        *,
+        bot_id: str,
+        project_id: str,
+        checkout_root: str,
+        default_branch: str = "main",
+    ) -> BotProjectBinding:
+        binding_id = _stable_id("bot_project", current_workspace_id(), bot_id, project_id)
+        now = now_epoch()
+        with self._session("bind_project") as session:
+            stmt = select(SqlBotProjectBinding).where(
+                SqlBotProjectBinding.workspace_id == current_workspace_id(),
+                SqlBotProjectBinding.bot_id == bot_id,
+                SqlBotProjectBinding.project_id == project_id,
+            )
+            existing = session.execute(stmt).scalar_one_or_none()
+            if existing is not None:
+                existing.checkout_root = checkout_root
+                existing.default_branch = default_branch
+                existing.updated_at = now
+                session.flush()
+                return _project_binding_entity(existing)
+
+            row = SqlBotProjectBinding(
+                id=binding_id,
+                bot_id=bot_id,
+                project_id=project_id,
+                checkout_root=checkout_root,
+                default_branch=default_branch,
+                created_at=now,
+                updated_at=None,
+            )
+            session.add(row)
+            session.flush()
+            return _project_binding_entity(row)
+
+    def get_project_binding(self, *, bot_id: str, project_id: str) -> BotProjectBinding | None:
+        with self._session("get_project_binding") as session:
+            stmt = select(SqlBotProjectBinding).where(
+                SqlBotProjectBinding.workspace_id == current_workspace_id(),
+                SqlBotProjectBinding.bot_id == bot_id,
+                SqlBotProjectBinding.project_id == project_id,
+            )
+            row = session.execute(stmt).scalar_one_or_none()
+            return _project_binding_entity(row) if row is not None else None
+
+    def list_project_bindings(self, bot_id: str) -> list[BotProjectBinding]:
+        with self._session("list_project_bindings") as session:
+            stmt = select(SqlBotProjectBinding).where(
+                SqlBotProjectBinding.workspace_id == current_workspace_id(),
+                SqlBotProjectBinding.bot_id == bot_id,
+            ).order_by(asc(SqlBotProjectBinding.created_at))
+            return [_project_binding_entity(r) for r in session.execute(stmt).scalars()]
+
+    def unbind_project(self, *, bot_id: str, project_id: str) -> bool:
+        with self._session("unbind_project") as session:
+            stmt = select(SqlBotProjectBinding).where(
+                SqlBotProjectBinding.workspace_id == current_workspace_id(),
+                SqlBotProjectBinding.bot_id == bot_id,
+                SqlBotProjectBinding.project_id == project_id,
+            )
+            row = session.execute(stmt).scalar_one_or_none()
+            if row is not None:
+                session.delete(row)
+                return True
+            return False
+
+    def acquire_execution_lease(
+        self,
+        *,
+        computer_id: str,
+        bot_id: str,
+        session_id: str,
+        run_id: str,
+        path: str,
+        ttl_seconds: float = 120.0,
+    ) -> ComputerExecutionLease:
+        now = time.time()
+        with self._session("acquire_execution_lease") as session:
+            stmt = select(SqlComputerExecutionLease).where(
+                SqlComputerExecutionLease.workspace_id == current_workspace_id(),
+                SqlComputerExecutionLease.path == path,
+            )
+            existing = session.execute(stmt).scalar_one_or_none()
+            if existing is not None:
+                if existing.run_id == run_id:
+                    existing.expires_at = now + ttl_seconds
+                    session.flush()
+                    return _lease_entity(existing)
+                if existing.expires_at > now:
+                    raise LeaseConflictError(
+                        f"Path '{path}' is exclusively leased by run '{existing.run_id}' "
+                        f"until {existing.expires_at:.1f}"
+                    )
+                fence = existing.fence + 1
+                session.delete(existing)
+                session.flush()
+            else:
+                fence = 1
+
+            lease_id = _stable_id("lease", current_workspace_id(), run_id, path)
+            row = SqlComputerExecutionLease(
+                id=lease_id,
+                computer_id=computer_id,
+                bot_id=bot_id,
+                session_id=session_id,
+                run_id=run_id,
+                path=path,
+                fence=fence,
+                expires_at=now + ttl_seconds,
+                created_at=now,
+            )
+            session.add(row)
+            session.flush()
+            return _lease_entity(row)
+
+    def release_execution_lease(self, run_id: str) -> bool:
+        with self._session("release_execution_lease") as session:
+            stmt = select(SqlComputerExecutionLease).where(
+                SqlComputerExecutionLease.workspace_id == current_workspace_id(),
+                SqlComputerExecutionLease.run_id == run_id,
+            )
+            row = session.execute(stmt).scalar_one_or_none()
+            if row is not None:
+                session.delete(row)
+                session.flush()
+                return True
+            return False
+
+    def get_active_lease(
+        self, path: str, *, now: float | None = None
+    ) -> ComputerExecutionLease | None:
+        t = now if now is not None else time.time()
+        with self._session("get_active_lease") as session:
+            stmt = select(SqlComputerExecutionLease).where(
+                SqlComputerExecutionLease.workspace_id == current_workspace_id(),
+                SqlComputerExecutionLease.path == path,
+                SqlComputerExecutionLease.expires_at > t,
+            )
+            row = session.execute(stmt).scalar_one_or_none()
+            return _lease_entity(row) if row is not None else None

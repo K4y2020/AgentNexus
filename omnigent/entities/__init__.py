@@ -3,7 +3,7 @@
 from omnigent.entities.account import Account, AccountToken
 from omnigent.entities.agent import Agent, LoadedAgent
 from omnigent.entities.agent_memory import AgentMemory
-from omnigent.entities.bot import Bot, BotComputerBinding
+from omnigent.entities.bot import Bot, BotComputerBinding, BotProjectBinding, ComputerExecutionLease
 from omnigent.entities.comment import Comment, CommentsFingerprint
 from omnigent.entities.conversation import (
     DEFAULT_GENERATED_TITLE_MAX_CHARS,
@@ -54,6 +54,8 @@ __all__ = [
     "AgentMemory",
     "Bot",
     "BotComputerBinding",
+    "BotProjectBinding",
+    "ComputerExecutionLease",
     "Comment",
     "CommentsFingerprint",
     "CompactionData",

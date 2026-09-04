@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from omnigent.entities import Bot, BotComputerBinding
+from omnigent.entities import Bot, BotComputerBinding, BotProjectBinding, ComputerExecutionLease
 
 
 class BotStore(ABC):
@@ -63,3 +63,50 @@ class BotStore(ABC):
         host_id: str | None,
         home_path: str,
     ) -> BotComputerBinding | None: ...
+
+    @abstractmethod
+    def bind_project(
+        self,
+        *,
+        bot_id: str,
+        project_id: str,
+        checkout_root: str,
+        default_branch: str = "main",
+    ) -> BotProjectBinding: ...
+
+    @abstractmethod
+    def get_project_binding(
+        self,
+        *,
+        bot_id: str,
+        project_id: str,
+    ) -> BotProjectBinding | None: ...
+
+    @abstractmethod
+    def list_project_bindings(self, bot_id: str) -> list[BotProjectBinding]: ...
+
+    @abstractmethod
+    def unbind_project(self, *, bot_id: str, project_id: str) -> bool: ...
+
+    @abstractmethod
+    def acquire_execution_lease(
+        self,
+        *,
+        computer_id: str,
+        bot_id: str,
+        session_id: str,
+        run_id: str,
+        path: str,
+        ttl_seconds: float = 120.0,
+    ) -> ComputerExecutionLease: ...
+
+    @abstractmethod
+    def release_execution_lease(self, run_id: str) -> bool: ...
+
+    @abstractmethod
+    def get_active_lease(
+        self,
+        path: str,
+        *,
+        now: float | None = None,
+    ) -> ComputerExecutionLease | None: ...

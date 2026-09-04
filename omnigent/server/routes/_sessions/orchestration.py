@@ -8336,9 +8336,31 @@ async def _create_session_from_existing_agent(
     # create_conversation so a bad workspace never produces a row.
     # With git worktree creation, the validated path is the source
     # repo; the worktree it produces becomes the stored workspace.
-    canonical_workspace: str | None = (
-        bot_scratch_path(_bot_binding) if _bot_binding is not None else body.workspace
-    )
+    git_branch: str | None = None
+    created_worktree_path: str | None = None
+
+    if _bot_binding is not None and _bot_store is not None and _bot_id is not None:
+        if body.project_id is not None:
+            from omnigent.computers.local_host import LocalHostComputerProvider
+            provider = LocalHostComputerProvider(_bot_store)
+            target_sid = secrets.token_hex(16)
+            resolved = await asyncio.to_thread(
+                provider.resolve_run_workspace,
+                bot_id=_bot_id,
+                session_id=target_sid,
+                run_id=target_sid,
+                project_id=body.project_id,
+                access_mode="write",
+            )
+            canonical_workspace = resolved.path
+            if resolved.is_worktree:
+                git_branch = resolved.branch
+                created_worktree_path = resolved.worktree_path
+        else:
+            canonical_workspace = bot_scratch_path(_bot_binding)
+    else:
+        canonical_workspace = body.workspace
+
     if body.host_id is not None:
         canonical_workspace = await _validate_session_workspace(
             user_id=user_id,
@@ -8349,18 +8371,7 @@ async def _create_session_from_existing_agent(
             request=request,
         )
 
-    # Git worktree options (optional). Two modes on body.git:
-    #  - create (default): make a worktree; it becomes the stored
-    #    workspace and its branch is recorded.
-    #  - bind (existing_worktree): workspace already IS the worktree;
-    #    record its branch only, create nothing.
-    git_branch: str | None = None
-    # Set to the created worktree path ONLY when Omnigent creates one.
-    # Gates create-rollback: an existing worktree bound via
-    # existing_worktree must never be force-removed on failure — it is
-    # the user's, not an Omnigent orphan.
-    created_worktree_path: str | None = None
-    if body.git is not None:
+    if body.git is not None and created_worktree_path is None:
         if body.git.existing_worktree:
             # Starting in a pre-existing worktree: no worktree is created, but
             # record its branch so the sidebar shows it and the opt-in delete

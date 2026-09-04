@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 
 from omnigent.bots import bot_owner_id, ensure_bot_for_agent
 from omnigent.entities import Bot, BotComputerBinding
@@ -30,6 +31,12 @@ from omnigent.server.schemas import (
 )
 from omnigent.stores import AgentStore, BotStore, ConversationStore, PermissionStore
 from omnigent.stores.scheduled_task_store import ScheduledTaskStore
+
+
+class BindProjectRequest(BaseModel):
+    project_id: str
+    checkout_root: str
+    default_branch: str = "main"
 
 
 def _bot_object(bot: Bot, binding: BotComputerBinding) -> BotObject:
@@ -355,5 +362,108 @@ def create_teammates_router(
                 if scheduler is not None and paused is not None:
                     scheduler.update(paused)
         return {"bot": _bot_object(updated, binding).model_dump(mode="json")}
+
+
+    @router.get("/bots/{bot_id}/projects")
+    async def list_bot_projects(bot_id: str, request: Request) -> dict[str, Any]:
+        if resolved_bot_store is None:
+            raise OmnigentError("Bot store is not configured", code=ErrorCode.INTERNAL_ERROR)
+        owner_id = bot_owner_id(_require_user(request, auth_provider))
+        bot = await asyncio.to_thread(resolved_bot_store.get, bot_id, owner_id=owner_id)
+        if bot is None:
+            raise OmnigentError("Bot not found", code=ErrorCode.NOT_FOUND)
+        bindings = await asyncio.to_thread(resolved_bot_store.list_project_bindings, bot_id)
+        return {
+            "projects": [
+                {
+                    "id": b.id,
+                    "bot_id": b.bot_id,
+                    "project_id": b.project_id,
+                    "checkout_root": b.checkout_root,
+                    "default_branch": b.default_branch,
+                    "created_at": b.created_at,
+                    "updated_at": b.updated_at,
+                }
+                for b in bindings
+            ]
+        }
+
+    @router.post("/bots/{bot_id}/projects")
+    async def bind_bot_project(
+        bot_id: str,
+        body: BindProjectRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        if resolved_bot_store is None:
+            raise OmnigentError("Bot store is not configured", code=ErrorCode.INTERNAL_ERROR)
+        owner_id = bot_owner_id(_require_user(request, auth_provider))
+        bot = await asyncio.to_thread(resolved_bot_store.get, bot_id, owner_id=owner_id)
+        if bot is None:
+            raise OmnigentError("Bot not found", code=ErrorCode.NOT_FOUND)
+
+        checkout = Path(body.checkout_root).expanduser()
+        if not checkout.is_absolute():
+            raise OmnigentError(
+                "checkout_root must be an absolute path",
+                code=ErrorCode.INVALID_INPUT,
+            )
+
+        binding = await asyncio.to_thread(
+            resolved_bot_store.bind_project,
+            bot_id=bot_id,
+            project_id=body.project_id,
+            checkout_root=str(checkout.resolve()),
+            default_branch=body.default_branch or "main",
+        )
+        return {
+            "binding": {
+                "id": binding.id,
+                "bot_id": binding.bot_id,
+                "project_id": binding.project_id,
+                "checkout_root": binding.checkout_root,
+                "default_branch": binding.default_branch,
+                "created_at": binding.created_at,
+                "updated_at": binding.updated_at,
+            }
+        }
+
+    @router.delete("/bots/{bot_id}/projects/{project_id}")
+    async def unbind_bot_project(
+        bot_id: str,
+        project_id: str,
+        request: Request,
+    ) -> dict[str, Any]:
+        if resolved_bot_store is None:
+            raise OmnigentError("Bot store is not configured", code=ErrorCode.INTERNAL_ERROR)
+        owner_id = bot_owner_id(_require_user(request, auth_provider))
+        bot = await asyncio.to_thread(resolved_bot_store.get, bot_id, owner_id=owner_id)
+        if bot is None:
+            raise OmnigentError("Bot not found", code=ErrorCode.NOT_FOUND)
+        unbound = await asyncio.to_thread(
+            resolved_bot_store.unbind_project,
+            bot_id=bot_id,
+            project_id=project_id,
+        )
+        return {"unbound": unbound}
+
+    @router.get("/computers/local")
+    async def get_local_computer(_request: Request) -> dict[str, Any]:
+        from omnigent.computers.local_host import LocalHostComputerProvider
+        provider = LocalHostComputerProvider(resolved_bot_store) if resolved_bot_store else None
+        caps = provider.capabilities() if provider else None
+        return {
+            "computer": {
+                "id": "local_host",
+                "name": "Local Workstation",
+                "provider_kind": "local_host",
+                "state": "running",
+                "capabilities": {
+                    "supports_git_worktrees": caps.supports_git_worktrees if caps else True,
+                    "supports_leases": caps.supports_leases if caps else True,
+                    "supports_containers": False,
+                    "supports_gui": False,
+                },
+            }
+        }
 
     return router

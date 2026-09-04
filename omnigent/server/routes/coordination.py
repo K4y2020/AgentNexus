@@ -399,10 +399,14 @@ async def _require_coordination_tree(
                 status_code=403,
                 detail="cross-tree A2A must target the Bot A2A channel",
             )
+        if sender_bot_id == recipient_bot_id:
+            raise HTTPException(status_code=400, detail="A2A self-send is not allowed")
         source_bot = await asyncio.to_thread(bot_store.get, sender_bot_id)
         target_bot = await asyncio.to_thread(bot_store.get, recipient_bot_id)
         if source_bot is None or target_bot is None or source_bot.owner_id != target_bot.owner_id:
             raise HTTPException(status_code=403, detail="cross-owner A2A is not allowed")
+        if source_bot.status != "active":
+            raise HTTPException(status_code=409, detail="source Bot is archived")
         if target_bot.status != "active":
             raise HTTPException(status_code=409, detail="target Bot is archived")
     await _require_coordination_acl(

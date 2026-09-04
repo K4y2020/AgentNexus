@@ -362,6 +362,61 @@ class SqlBotComputerBinding(OmnigentBase):
         UniqueConstraint("workspace_id", "bot_id", name="uq_bot_computer_bindings_bot"),
     )
 
+class SqlBotProjectBinding(OmnigentBase):
+    """Binds a Bot to a specific Project repository checkout."""
+
+    __tablename__ = "bot_project_bindings"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    id: Mapped[str] = mapped_column(Uuid16(), primary_key=True)
+    bot_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    project_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    checkout_root: Mapped[str] = mapped_column(String(2048), nullable=False)
+    default_branch: Mapped[str] = mapped_column(
+        String(256), nullable=False, server_default="main", default="main"
+    )
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "bot_id", "project_id", name="uq_bot_project_bindings_bot_project"),
+        Index("ix_bot_project_bindings_bot", "workspace_id", "bot_id", "id"),
+    )
+
+
+class SqlComputerExecutionLease(OmnigentBase):
+    """Tracks active exclusive execution leases for non-git write runs."""
+
+    __tablename__ = "computer_execution_leases"
+
+    workspace_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        nullable=False,
+        server_default="0",
+        default=current_workspace_id,
+    )
+    id: Mapped[str] = mapped_column(Uuid16(), primary_key=True)
+    computer_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    bot_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    session_id: Mapped[str] = mapped_column(Uuid16(), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    fence: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1", default=1)
+    expires_at: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("ix_computer_execution_leases_path", "workspace_id", "path", "expires_at"),
+        Index("ix_computer_execution_leases_run", "workspace_id", "run_id"),
+    )
+
 
 class SqlFile(OmnigentBase):
     """
