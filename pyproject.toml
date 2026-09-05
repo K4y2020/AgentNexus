@@ -131,6 +131,8 @@ dependencies = [
     # `omnigent server start` without it. POSIX platforms use the system
     # database and don't need the wheel.
     "tzdata>=2024.1; platform_system == 'Windows'",
+    "jinja2>=3.1,<4",
+    "filelock>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -138,6 +140,7 @@ dependencies = [
 # working; the underlying packages are now default deps above.
 claude-sdk = []
 openai-agents = []
+cine = ["jinja2>=3.1,<4", "scenedetect[opencv]>=0.6.4"]
 # `all` carries dependencies moved out of the default install that internal
 # CI / dev workflows still exercise.
 all = [
@@ -354,7 +357,6 @@ test = [
     # on the same xdist worker and flaked the WS-tunnel suite (the
     # "Runner stream relay exited before becoming ready" 503s).
     "pytest-rerunfailures==16.3",
-    "filelock>=3.0",
     # Cloud-service mocks for the artifact-store / Cloudflare integration
     # tests: moto is the standard S3-compatible mock (used for R2), respx is
     # the standard HTTPX mock (used to back the Cloudflare D1 REST API with an
@@ -531,6 +533,9 @@ target-version = "py310"
 extend-exclude = [
     "omnigent/inner/databricks_mcps/google",
     "assistant-ui",
+    # Cine is a self-contained example skill with its own pipeline tests;
+    # keep the repository-wide production lint policy scoped to omnigent.
+    "examples/cine",
     # Deliberately broken notebook fixture; Ruff must not parse it as JSON.
     "web/src/shell/__fixtures__/03_broken.ipynb",
     # Protobuf-generated code (DO NOT EDIT); not ours to restyle.

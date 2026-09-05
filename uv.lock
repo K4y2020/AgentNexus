@@ -3122,8 +3122,10 @@ dependencies = [
     { name = "claude-agent-sdk" },
     { name = "click" },
     { name = "fastapi" },
+    { name = "filelock" },
     { name = "ftfy" },
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "json5" },
     { name = "keyring" },
     { name = "mcp" },
@@ -3183,6 +3185,10 @@ blaxel = [
 ]
 boxlite = [
     { name = "boxlite" },
+]
+cine = [
+    { name = "jinja2" },
+    { name = "scenedetect" },
 ]
 copilot = [
     { name = "github-copilot-sdk" },
@@ -3255,7 +3261,6 @@ vertex = [
 [package.dev-dependencies]
 dev = [
     { name = "boto3" },
-    { name = "filelock" },
     { name = "grpcio-tools" },
     { name = "hindsight-client" },
     { name = "moto", extra = ["s3"], marker = "extra == 'extra-8-omnigent-cwsandbox' or extra == 'extra-8-omnigent-databricks' or extra == 'extra-8-omnigent-modal' or extra == 'group-8-omnigent-dev' or extra == 'group-8-omnigent-lint' or extra != 'extra-8-omnigent-antigravity'" },
@@ -3283,7 +3288,6 @@ lint = [
 ]
 test = [
     { name = "boto3" },
-    { name = "filelock" },
     { name = "hindsight-client" },
     { name = "moto", extra = ["s3"] },
     { name = "nimble-python" },
@@ -3325,6 +3329,7 @@ requires-dist = [
     { name = "daytona", marker = "extra == 'daytona'", specifier = ">=0.180,<1" },
     { name = "e2b", marker = "extra == 'e2b'", specifier = ">=2.26,<3" },
     { name = "fastapi", specifier = ">=0.100,<1" },
+    { name = "filelock", specifier = ">=3.0" },
     { name = "ftfy", specifier = ">=6.0" },
     { name = "github-copilot-sdk", marker = "extra == 'copilot'", specifier = ">=1,<2" },
     { name = "google-antigravity", marker = "extra == 'antigravity'", specifier = ">=0.1,<1" },
@@ -3332,6 +3337,8 @@ requires-dist = [
     { name = "hindsight-client", marker = "extra == 'hindsight'", specifier = ">=0.4.0" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "islo", marker = "extra == 'islo'", specifier = ">=0.3.5,<0.4" },
+    { name = "jinja2", specifier = ">=3.1,<4" },
+    { name = "jinja2", marker = "extra == 'cine'", specifier = ">=3.1,<4" },
     { name = "json5", specifier = ">=0.10,<1" },
     { name = "keyring", specifier = ">=24,<26" },
     { name = "kubernetes", marker = "extra == 'kubernetes'", specifier = ">=36,<37" },
@@ -3377,6 +3384,7 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8,<3" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "rich", specifier = ">=14,<15" },
+    { name = "scenedetect", extras = ["opencv"], marker = "extra == 'cine'", specifier = ">=0.6.4" },
     { name = "sherpa-onnx", marker = "extra == 'dictation'", specifier = ">=1.13,<2" },
     { name = "sherpa-onnx-core", marker = "extra == 'dictation'", specifier = ">=1.13,<2" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
@@ -3388,12 +3396,11 @@ requires-dist = [
     { name = "websockets", specifier = ">=10.4,<15" },
     { name = "zstandard", specifier = ">=0.22,<1" },
 ]
-provides-extras = ["claude-sdk", "openai-agents", "all", "bedrock", "s3", "vertex", "modal", "daytona", "blaxel", "boxlite", "cwsandbox", "e2b", "islo", "openshell", "kubernetes", "tracing", "agents-sdk", "antigravity", "copilot", "dictation", "cursor", "hindsight", "nimble", "slack", "databricks", "loadtest"]
+provides-extras = ["claude-sdk", "openai-agents", "cine", "all", "bedrock", "s3", "vertex", "modal", "daytona", "blaxel", "boxlite", "cwsandbox", "e2b", "islo", "openshell", "kubernetes", "tracing", "agents-sdk", "antigravity", "copilot", "dictation", "cursor", "hindsight", "nimble", "slack", "databricks", "loadtest"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "boto3", specifier = ">=1.30,<2" },
-    { name = "filelock", specifier = ">=3.0" },
     { name = "grpcio-tools", specifier = ">=1.68,<=1.81.1" },
     { name = "hindsight-client", specifier = ">=0.4.0" },
     { name = "moto", extras = ["s3"], specifier = ">=5,<6" },
@@ -3421,7 +3428,6 @@ lint = [
 ]
 test = [
     { name = "boto3", specifier = ">=1.30,<2" },
-    { name = "filelock", specifier = ">=3.0" },
     { name = "hindsight-client", specifier = ">=0.4.0" },
     { name = "moto", extras = ["s3"], specifier = ">=5,<6" },
     { name = "nimble-python", specifier = ">=1.2.0,<2" },
@@ -3562,6 +3568,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4f/e8/a3bc1a91af9c71d2934f8e2f3eee2954540fa95d47b0e3f155d348d91b38/openai_agents-0.13.6.tar.gz", hash = "sha256:de7b3add7933ae704a5ee6e531f650d8aabb3ebaa1631f458ba39684a5ed966e", size = 2704270, upload-time = "2026-04-09T04:10:51.581Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/83/a991b2ad389abadabf13f6c4228bd88ac8dc363e4b50fcae8c5ea966bd41/openai_agents-0.13.6-py3-none-any.whl", hash = "sha256:8decb9eb0cc5dbe7749858e97a7d8316f9439526ca4e539e3bd105e0eb41115e", size = 471763, upload-time = "2026-04-09T04:10:49.81Z" },
+]
+
+[[package]]
+name = "opencv-python"
+version = "5.0.0.93"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/4c/a438d23e09ce2033c09f7b784ad2fbdb0adf529e434101ed28f142226f98/opencv_python-5.0.0.93.tar.gz", hash = "sha256:66aac3e5b5faa48d4025816592f3af19e4bfc2c68dec067bae2dbb4ca10aa9e2", size = 81802749, upload-time = "2026-07-02T06:59:53.815Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/75/76f6ade78f6102c61034f828e2a22616708df2c9504bc8d6af9dd8f73dc5/opencv_python-5.0.0.93-cp37-abi3-macosx_13_0_arm64.whl", hash = "sha256:198a75138241810206a17c829dbcc40a7cb1841cda538ca86cbbfc6c7d95f898", size = 48322443, upload-time = "2026-07-02T05:50:25.466Z" },
+    { url = "https://files.pythonhosted.org/packages/15/8c/bc1bda6aae69a32e9d84fc34153ba104cd25226861eb4aea33b2cea4860d/opencv_python-5.0.0.93-cp37-abi3-macosx_14_0_x86_64.whl", hash = "sha256:6bbc32f59e1b1a7db7b39c81f63d00625f041d333037fd8702f6da52cc39108b", size = 34782755, upload-time = "2026-07-02T05:51:30.556Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/8a/b04776ec45d2dea08a1b176f1829201db3515d4ed16c35f8fcc9fa7beb16/opencv_python-5.0.0.93-cp37-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:e2b4272e736836f66c2d176e43ab8101f3a00d45654916399f52e150c58981ac", size = 50614064, upload-time = "2026-07-02T06:53:22.604Z" },
+    { url = "https://files.pythonhosted.org/packages/95/54/eb47866b94f2b5b42dde17644b78055ef1ee05aae59962c7290e55270803/opencv_python-5.0.0.93-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f8b6d0a212253dd26ad338c812f1f23ca118fdf05a9c8c6b9444f161aa8c5881", size = 71064711, upload-time = "2026-07-02T06:54:13.148Z" },
+    { url = "https://files.pythonhosted.org/packages/93/da/962579f1e703cbf8c5422fd1f576467dcb3b5b0b0b81c1471c979764353a/opencv_python-5.0.0.93-cp37-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:08d5d91d967b58d6db86073b2ad3eaef88ca4ebdfd45c9059bf59f5ded0c7ad2", size = 49798576, upload-time = "2026-07-02T06:54:33.781Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/4c/c73f828fdbcd37eaf21d08fa852544a3ca7c2dbb3ea76873d64f2ea413d1/opencv_python-5.0.0.93-cp37-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:c8de2dec111122a02e8beb28e16c31904992dfd6186560b142a92c71403c1039", size = 73783032, upload-time = "2026-07-02T06:55:03.415Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/4b/edaf83b996ca5a1a3d8ccad485706b9c6d4742b13b9c4586bf1c1e7d9423/opencv_python-5.0.0.93-cp37-abi3-win32.whl", hash = "sha256:4b4b1a34c79bf8d3738e3cfe9a9e67b51a79663f6b692cbdad8c31f570da4157", size = 35564734, upload-time = "2026-07-02T05:49:57.704Z" },
+    { url = "https://files.pythonhosted.org/packages/21/f0/9fa6e85cb10c8eb36a0222d27e50fe381b86ce49a55446bf39f491727564/opencv_python-5.0.0.93-cp37-abi3-win_amd64.whl", hash = "sha256:f90ba04b8f73bc5c3814037699739f0156f597338a98f05956c684e7c3ca10d2", size = 44000345, upload-time = "2026-07-02T05:49:54.971Z" },
 ]
 
 [[package]]
@@ -5323,6 +5348,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e0/1f/12417f7f493fc45e1f9fd5d4a9b6c125cf8d2cf3f8ddbdfab3e76406e9d6/s3transfer-0.18.0.tar.gz", hash = "sha256:3760b8b7ec1315da54048b2d626276732bee4300d054d492d4e1d43e20d4ecbd", size = 160560, upload-time = "2026-05-28T19:39:09.124Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2b/58/a58fc997655386daa2e25784e30c288aa3e3819e401f77029ee4899fb55a/s3transfer-0.18.0-py3-none-any.whl", hash = "sha256:239c13b09e65ad0346e1be7348b8a202dcad44ac7ea7c6eb858fc881dce739b6", size = 88572, upload-time = "2026-05-28T19:39:07.999Z" },
+]
+
+[[package]]
+name = "scenedetect"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "platformdirs" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/b8/a111612a976c80c76f3a4372514d0a66b6200badd43c6dce57c55de0b0bb/scenedetect-0.7.1.tar.gz", hash = "sha256:2bc082056f231d35f9d5eed6d8077a5d417c77c2787d965d7f03be3802cb6f7f", size = 263670, upload-time = "2026-07-22T02:57:10.255Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/a2/938555bc170ee504ecf33f328dc838b40c3b887d58bf4ee8beefb6c33fd8/scenedetect-0.7.1-py3-none-any.whl", hash = "sha256:91b67902275b2e0d29a12f6d70435f04e0bd7852a6dc8a69c901c6069328dffa", size = 146194, upload-time = "2026-07-22T02:57:05.239Z" },
 ]
 
 [[package]]
