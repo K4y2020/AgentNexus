@@ -1687,10 +1687,23 @@ function ConversationList({
 
     const teammateGroups = teammates.map((teammate) => {
       const rawList = teammateConvMap.get(teammate.agent.id) ?? [];
+      const primaryConversation =
+        rawList.find(
+          (c) =>
+            (teammate.primaryConversationId && c.id === teammate.primaryConversationId) ||
+            c.purpose === "primary",
+        ) ?? null;
+      const topicList = rawList.filter(
+        (c) =>
+          c.id !== teammate.primaryConversationId &&
+          c.purpose !== "primary" &&
+          !pinnedIdSet.has(c.id),
+      );
       return {
         teammate,
-        conversations: sortByUpdatedAtDesc(
-          rawList.filter((c) => !pinnedIdSet.has(c.id)),
+        primaryConversation,
+        topics: sortByUpdatedAtDesc(
+          topicList,
           activeOverride,
           frozenKeys,
         ),
@@ -2166,11 +2179,12 @@ function ConversationList({
                     }
                   >
                     <ul className="flex flex-col gap-0.5 px-0 py-0.5">
-                      {sections.teammateGroups.map(({ teammate, conversations }) => (
+                      {sections.teammateGroups.map(({ teammate, primaryConversation, topics }) => (
                         <TeammateFolderRow
                           key={teammate.agent.id}
                           teammate={teammate}
-                          conversations={conversations}
+                          primaryConversation={primaryConversation}
+                          topics={topics}
                           pinnedConversationIds={pinnedConversationIds}
                           onRowClick={onRowClick}
                           onTogglePinned={onTogglePinned}
@@ -3330,7 +3344,8 @@ const DOUBLE_CLICK_PAIR_WINDOW_MS = 750;
 
 function TeammateFolderRow({
   teammate,
-  conversations,
+  primaryConversation,
+  topics,
   pinnedConversationIds,
   onRowClick,
   onTogglePinned,
@@ -3341,7 +3356,8 @@ function TeammateFolderRow({
   onStartChat,
 }: {
   teammate: Teammate;
-  conversations: Conversation[];
+  primaryConversation: Conversation | null;
+  topics: Conversation[];
   pinnedConversationIds: string[];
   onRowClick: (e: MouseEvent<HTMLAnchorElement>) => void;
   onTogglePinned: (conversationId: string) => void;
@@ -3353,7 +3369,8 @@ function TeammateFolderRow({
 }) {
   const { agent } = teammate;
   const { conversationId: activeId } = useParams<{ conversationId: string }>();
-  const isChildActive = Boolean(activeId) && conversations.some((c) => c.id === activeId);
+  const isPrimaryActive = Boolean(activeId) && Boolean(primaryConversation) && activeId === primaryConversation?.id;
+  const isChildActive = Boolean(activeId) && topics.some((c) => c.id === activeId);
   const [expanded, setExpanded] = useState<boolean>(true);
 
   return (
@@ -3361,40 +3378,54 @@ function TeammateFolderRow({
       <div
         className={cn(
           SIDEBAR_ROW,
-          "group/item relative flex items-center justify-between gap-1 text-left text-foreground transition-colors w-full px-2 py-1.5 rounded-[var(--radius-otto-sm)] cursor-pointer hover:bg-muted/40",
-          isChildActive && "font-medium text-foreground",
+          "group/item relative flex items-center justify-between gap-1 text-left text-foreground transition-colors w-full px-2 py-1.5 rounded-[var(--radius-otto-sm)] cursor-pointer",
+          SIDEBAR_HOVER_HIGHLIGHT,
+          isPrimaryActive && SIDEBAR_ACTIVE_HIGHLIGHT,
+          !isPrimaryActive && isChildActive && "font-medium text-foreground",
         )}
-        onClick={() => setExpanded((v) => !v)}
         data-testid={`sidebar-teammate-${agent.name}`}
       >
-        <div className="flex min-w-0 items-center gap-1.5">
-          <button
-            type="button"
-            className="flex size-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-          >
-            <ChevronRightIcon
-              className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-90")}
-            />
-          </button>
-          <div className="relative flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary font-medium text-xs">
-            <BotIcon className="size-3" />
-            <span
-              className="absolute -bottom-0.5 -right-0.5 size-1.5 rounded-full border-2 border-background bg-emerald-500"
-              title="Online"
-            />
-          </div>
-          <span className="truncate text-xs font-semibold text-foreground">
-            {agent.name}
-          </span>
-          {conversations.length > 0 && (
-            <span className="rounded px-1.5 py-0.2 text-[10px] bg-muted text-muted-foreground font-mono">
-              {conversations.length}
-            </span>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {topics.length > 0 ? (
+            <button
+              type="button"
+              className="flex size-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
+              title={expanded ? "收起专项主题" : "展开专项主题"}
+              aria-label={expanded ? "Collapse topics" : "Expand topics"}
+            >
+              <ChevronRightIcon
+                className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-90")}
+              />
+            </button>
+          ) : (
+            <span className="size-4 shrink-0" />
           )}
+
+          <div
+            className="flex min-w-0 flex-1 items-center gap-1.5 cursor-pointer"
+            onClick={() => onStartChat(teammate, false)}
+            title={`与 ${agent.name} 对话`}
+          >
+            <div className="relative flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary font-medium text-xs">
+              <BotIcon className="size-3" />
+              <span
+                className="absolute -bottom-0.5 -right-0.5 size-1.5 rounded-full border-2 border-background bg-emerald-500"
+                title="Online"
+              />
+            </div>
+            <span className="truncate text-xs font-semibold text-foreground">
+              {agent.name}
+            </span>
+            {topics.length > 0 && (
+              <span className="rounded px-1.5 py-0.2 text-[10px] bg-muted text-muted-foreground font-mono">
+                {topics.length}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
@@ -3408,47 +3439,31 @@ function TeammateFolderRow({
                   e.stopPropagation();
                   onStartChat(teammate, true);
                 }}
-                title="New Topic"
+                title="新建专项 Topic"
               >
                 <PlusIcon className="size-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">New Topic</TooltipContent>
+            <TooltipContent side="right">新建专项 Topic</TooltipContent>
           </Tooltip>
         </div>
       </div>
 
-      {expanded && (
+      {expanded && topics.length > 0 && (
         <ul className="flex flex-col gap-0.5 pl-4 pr-1 py-0.5 border-l border-border/40 ml-3.5 my-0.5">
-          {conversations.length === 0 ? (
-            <li className="px-2 py-1 text-[11px] text-muted-foreground/70 italic">
-              No topics yet.{" "}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStartChat(teammate, false);
-                }}
-                className="text-primary hover:underline"
-              >
-                Start chat
-              </button>
-            </li>
-          ) : (
-            conversations.map((c) => (
-              <ConversationRow
-                key={c.id}
-                conversation={c}
-                isPinned={pinnedConversationIds.includes(c.id)}
-                onClick={onRowClick}
-                onTogglePinned={onTogglePinned}
-                selectionMode={selectionMode}
-                isSelected={selectedIds.has(c.id)}
-                onToggleSelected={onToggleSelected}
-                onProjectAssigned={onProjectAssigned}
-              />
-            ))
-          )}
+          {topics.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              isPinned={pinnedConversationIds.includes(c.id)}
+              onClick={onRowClick}
+              onTogglePinned={onTogglePinned}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(c.id)}
+              onToggleSelected={onToggleSelected}
+              onProjectAssigned={onProjectAssigned}
+            />
+          ))}
         </ul>
       )}
     </li>
