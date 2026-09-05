@@ -1,6 +1,6 @@
-# Contributing to Omnigent
+# Contributing to AgentNexus
 
-Thanks for your interest in improving Omnigent. Issues and pull requests are
+Thanks for your interest in improving AgentNexus. Issues and pull requests are
 welcome. For larger changes, open an issue first so we can discuss the approach.
 
 Please don't include secrets, internal URLs, customer data, or private
@@ -114,7 +114,7 @@ Install local prerequisites first:
 - A Rust toolchain for the recommended `omnidev` local development supervisor.
 
 ```bash
-git clone https://github.com/omnigent-ai/omnigent.git
+git clone https://github.com/K4y2020/AgentNexus.git
 cd omnigent
 
 uv python install

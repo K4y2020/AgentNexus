@@ -6,24 +6,21 @@
 
 AgentNexus is an open-source **meta-harness** that gives you a common orchestration layer over Claude Code, Codex, Cursor, OpenCode, Hermes, Pi, WorkBuddy / CodeBuddy, and the agents you write yourself: swap or combine harnesses without rewriting, enforce policies and sandboxing, and collaborate in real time from any device — terminal, browser, phone, or the native desktop app.
 
-[![PyPI version](https://img.shields.io/pypi/v/omnigent.svg)](https://pypi.org/project/omnigent/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/omnigent-ai/omnigent/blob/main/LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/omnigent)
-![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)
-
-[omnigent.ai](https://omnigent.ai) · **[⬇️ Download the macOS desktop app](https://omnigent.ai/download/mac)**
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-K4y2020%2FAgentNexus-181717?logo=github)](https://github.com/K4y2020/AgentNexus)
+![Status: beta](https://img.shields.io/badge/status-beta-blue.svg)
 
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/omnigent-ai/omnigent/main/docs/images/omnigent-desktop.png" alt="The Omnigent desktop app: starting a new session, with pinned and project-grouped sessions in the sidebar" width="720" />
+  <img src="https://raw.githubusercontent.com/K4y2020/AgentNexus/main/docs/images/omnigent-desktop.png" alt="The Omnigent desktop app: starting a new session, with pinned and project-grouped sessions in the sidebar" width="720" />
 </p>
 
 ---
 
-## Why Omnigent?
+## Why AgentNexus?
 
-Omnigent lets you:
+AgentNexus lets you:
 
 - **📱 Work with agents from any device, including your phone.** Sessions
   follow you: start in your terminal, continue in the browser, pick it up on
@@ -65,7 +62,7 @@ Omnigent lets you:
 One command installs Omnigent and everything it needs:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/install_oss.sh | sh
+curl -fsSL https://raw.githubusercontent.com/K4y2020/AgentNexus/main/scripts/install_oss.sh | sh
 ```
 
 <details>
@@ -74,8 +71,8 @@ curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/i
 Need an optional integration? Pass one or more extras to the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/install_oss.sh | sh -s -- --extra databricks
-curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/install_oss.sh | sh -s -- --extra modal,e2b
+curl -fsSL https://raw.githubusercontent.com/K4y2020/AgentNexus/main/scripts/install_oss.sh | sh -s -- --extra databricks
+curl -fsSL https://raw.githubusercontent.com/K4y2020/AgentNexus/main/scripts/install_oss.sh | sh -s -- --extra modal,e2b
 ```
 
 Available user-facing extras include:
@@ -112,7 +109,7 @@ brew install omnigent-ai/tap/omnigent
 Or install straight from the repo:
 
 ```bash
-uv tool install -q --python 3.12 git+https://github.com/omnigent-ai/omnigent.git
+uv tool install -q --python 3.12 git+https://github.com/K4y2020/AgentNexus.git
 ```
 
 </details>
@@ -159,7 +156,7 @@ bootstrap is POSIX-only, so install with `uv` directly:
 ```powershell
 uv tool install --python 3.12 omnigent
 # or from the repo:
-uv tool install --python 3.12 git+https://github.com/omnigent-ai/omnigent.git
+uv tool install --python 3.12 git+https://github.com/K4y2020/AgentNexus.git
 ```
 
 What works on Windows: `omnigent server`, the web UI, and the SDK-based
@@ -228,7 +225,7 @@ If the installed wheel is broken or `omnigent` is not on `PATH`, run the
 standalone script instead:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/uninstall_oss.sh | sh
+curl -fsSL https://raw.githubusercontent.com/K4y2020/AgentNexus/main/scripts/uninstall_oss.sh | sh
 ```
 
 Add `--yes` to the standalone script to perform the previewed CLI cleanup.
@@ -442,7 +439,7 @@ the OpenAI-compatible `…/api/v1`.
 ### 4. Deploy a server (and use it from your phone📱)
 
 Run Omnigent on a server with a stable URL
-([`deploy/README.md`](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md) is the full guide) and your sessions
+([`deploy/README.md`](https://github.com/K4y2020/AgentNexus/blob/main/deploy/README.md) is the full guide) and your sessions
 become reachable from anywhere, including your phone. The web UI is built for
 mobile, so you get the same chat, sub-agents, terminals, and files, in sync
 with your laptop.
@@ -456,9 +453,9 @@ covered too — and a **Cloudflare quick tunnel** (public) or **Tailscale**
 server can also provision a cloud sandbox per session (*managed hosts*), so no
 laptop has to stay online. The full menu of targets, the database options, the
 sandbox setup, and
-[branding/white-labeling](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md#branding-white-labeling)
+[branding/white-labeling](https://github.com/K4y2020/AgentNexus/blob/main/deploy/README.md#branding-white-labeling)
 live in
-[`deploy/README.md`](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md).
+[`deploy/README.md`](https://github.com/K4y2020/AgentNexus/blob/main/deploy/README.md).
 
 Once the server is up, sign in and register your laptop as a host:
 
@@ -525,7 +522,7 @@ and they're in. Signup is invite-only.
 > GitHub, Okta, Microsoft**)? Set `OMNIGENT_OIDC_ISSUER` plus a client ID
 > and secret on your deployed server and restart. The full walkthrough,
 > domain allowlists, and the proxy-only `header` auth mode are covered in
-> [`deploy/README.md#auth`](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md#auth).
+> [`deploy/README.md#auth`](https://github.com/K4y2020/AgentNexus/blob/main/deploy/README.md#auth).
 
 ### 6. Govern your agents with policies
 
@@ -563,7 +560,7 @@ Policies stack across three levels, **server-wide** (admin), **per-agent**
 (developer), and **per-session** (you), with the stricter session rules
 checked first. Spend caps and access limits ship as builtins.
 
-See the [policy guide](https://github.com/omnigent-ai/omnigent/blob/main/docs/POLICIES.md) for the full catalog and trust model.
+See the [policy guide](https://github.com/K4y2020/AgentNexus/blob/main/docs/POLICIES.md) for the full catalog and trust model.
 
 ---
 
@@ -609,8 +606,8 @@ omnigent run path/to/my_agent.yaml
 ```
 
 The same file can declare sub-agents and reviewers. For a fuller example, see
-Polly at [`examples/polly/`](https://github.com/omnigent-ai/omnigent/tree/main/examples/polly/), and the
-[Agent YAML spec](https://github.com/omnigent-ai/omnigent/blob/main/docs/AGENT_YAML_SPEC.md) for the full schema.
+Polly at [`examples/polly/`](https://github.com/K4y2020/AgentNexus/tree/main/examples/polly/), and the
+[Agent YAML spec](https://github.com/K4y2020/AgentNexus/blob/main/docs/AGENT_YAML_SPEC.md) for the full schema.
 
 ---
 
@@ -627,17 +624,15 @@ the service. To opt out, follow our instructions in
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/omnigent-ai/omnigent/blob/main/CONTRIBUTING.md) for how to set up your environment, run the checks, and open a pull request.
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/K4y2020/AgentNexus/blob/main/CONTRIBUTING.md) for how to set up your environment, run the checks, and open a pull request.
 
 Adding or changing support for a harness (Claude, Codex, Cursor, OpenCode,
-Hermes, Pi, ...)? Run the [harness test bench](https://github.com/omnigent-ai/omnigent/tree/main/tests/harness_bench)
+Hermes, Pi, ...)? Run the [harness test bench](https://github.com/K4y2020/AgentNexus/tree/main/tests/harness_bench)
 to check its capability matrix against observed behavior.
 
 
-### Contributors
+### Maintenance & Attribution
 
-Thanks to all of our amazing contributors!
+AgentNexus is maintained by [K4y2020](https://github.com/K4y2020).
 
-<a href="https://github.com/omnigent-ai/omnigent/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=omnigent-ai/omnigent" />
-</a>
+Based on [Omnigent](https://github.com/omnigent-ai/omnigent) and licensed under the [Apache License 2.0](LICENSE).
