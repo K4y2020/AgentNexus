@@ -37,7 +37,7 @@ from .project import (
     update_project,
 )
 from .probe import probe_media
-from .detect import detect_cuts
+from .detect import detect_cuts, DetectionResult
 from .evidence import extract_evidence
 from .validate import validate
 from .render import render_report
@@ -184,7 +184,8 @@ def run_pipeline(
                 time_base_den=tb_den,
             )
 
-        candidates: List[CutCandidate] = detect_cuts(
+        # B6: detect_cuts() returns DetectionResult(status, candidates)
+        detection: DetectionResult = detect_cuts(
             media_path,
             source,
             revision_id,
@@ -194,12 +195,8 @@ def run_pipeline(
             scope_out_pts=scope_out_pts,
         )
 
-        # B6: detect returned [] — check if unavailable
-        from .detect import _PSD_AVAILABLE as _psd_ok
-        detection_unavailable = not _psd_ok
-
-        if detection_unavailable:
-            # B6: mark interrupted, do not finish run
+        if detection.status == "unavailable":
+            # PySceneDetect not installed — mark interrupted, do not continue
             run_state.status = RunStatus.interrupted
             run_state.error = "detection unavailable: PySceneDetect not installed"
             run_state.stages_failed.append("detect")
@@ -213,6 +210,24 @@ def run_pipeline(
                 "reason": "detection_unavailable",
                 "candidate_count": 0,
             }
+
+        if detection.status == "failed":
+            # Runtime detection error — mark failed
+            run_state.status = RunStatus.failed
+            run_state.error = "detection failed at runtime"
+            run_state.stages_failed.append("detect")
+            save_run(projects_dir, run_state)
+            return {
+                "project_id": project_id,
+                "revision_id": revision_id,
+                "run_id": run_state.run_id,
+                "source_id": source.source_id,
+                "status": "failed",
+                "reason": "detection_failed",
+                "candidate_count": 0,
+            }
+
+        candidates: List[CutCandidate] = detection.candidates
 
         run_state.stages_complete.append("detect")
         save_run(projects_dir, run_state)
@@ -238,6 +253,10 @@ def run_pipeline(
             [e.model_dump() for e in all_evidence],
         )
         run_state.stages_complete.append("evidence")
+        # B11: surface unavailable evidence in run state
+        unavailable_ev = [e for e in all_evidence if e.extraction_status == "unavailable"]
+        if unavailable_ev:
+            run_state.stages_failed.append("evidence")
         save_run(projects_dir, run_state)
 
         # Build shots (B6: 0 cuts → single shot covering scope)
@@ -262,13 +281,30 @@ def run_pipeline(
             scope=scope_interval,
         )
         _atomic_write(rev_dir / "validation.json", validation.model_dump())
+
+        if not validation.passed:
+            # B8(a): validation failed — halt run, do NOT render
+            run_state.stages_failed.append("validate")
+            run_state.status = RunStatus.failed
+            run_state.error = (
+                f"validation failed with {sum(1 for i in validation.issues if i.severity == 'error')} error(s)"
+            )
+            save_run(projects_dir, run_state)
+            return {
+                "project_id": project_id,
+                "revision_id": revision_id,
+                "run_id": run_state.run_id,
+                "source_id": source.source_id,
+                "status": "failed",
+                "reason": "validation_failed",
+                "validation_passed": False,
+                "validation_issues": len(validation.issues),
+                "candidate_count": len(candidates),
+                "shot_count": len(shots),
+            }
+
         run_state.stages_complete.append("validate")
         save_run(projects_dir, run_state)
-
-        # B8: Only write current_revision AFTER validation passes
-        if validation.passed:
-            record.current_revision = revision_id
-            update_project(projects_dir, record)
 
         # Render HTML (B8: render failure → stages_failed, not finished)
         report_path_str: str
@@ -284,6 +320,9 @@ def run_pipeline(
             )
             report_path_str = str(report_path)
             run_state.stages_complete.append("render")
+            # B8(b): only commit current_revision after render succeeds
+            record.current_revision = revision_id
+            update_project(projects_dir, record)
         except Exception as exc:
             report_path_str = f"render_failed: {exc}"
             run_state.stages_failed.append("render")  # B8

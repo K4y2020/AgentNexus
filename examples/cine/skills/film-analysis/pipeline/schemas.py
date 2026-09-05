@@ -168,11 +168,10 @@ class ProjectRecord(CineBaseRecord):
 # Cut candidate
 # ---------------------------------------------------------------------------
 
-class CutCandidate(BaseModel):
-    schema_version: str = SCHEMA_VERSION
+class CutCandidate(CineBaseRecord):
     candidate_id: str = Field(default_factory=_new_id)
-    source_id: str
-    revision_id: str
+    source_id: str  # type: ignore[assignment]   # required (not Optional) on CutCandidate
+    revision_id: str  # type: ignore[assignment]  # required on CutCandidate
     stream_index: int
     pts: int                  # boundary PTS in source stream time_base
     time_base_num: int = 1
@@ -196,11 +195,10 @@ class CutCandidate(BaseModel):
 # Evidence record (B11: extraction_status field; relative_path Optional)
 # ---------------------------------------------------------------------------
 
-class EvidenceRecord(BaseModel):
-    schema_version: str = SCHEMA_VERSION
+class EvidenceRecord(CineBaseRecord):
     evidence_id: str = Field(default_factory=_new_id)
-    source_id: str
-    revision_id: str
+    source_id: str  # type: ignore[assignment]   # required on EvidenceRecord
+    revision_id: str  # type: ignore[assignment]  # required on EvidenceRecord
     candidate_id: Optional[str] = None
     kind: str   # "frame_pre" | "frame_mid" | "frame_post" | "clip_boundary"
     relative_path: Optional[str] = None      # relative to revision dir; None when unavailable
@@ -215,11 +213,10 @@ class EvidenceRecord(BaseModel):
 # Source shot
 # ---------------------------------------------------------------------------
 
-class SourceShot(BaseModel):
-    schema_version: str = SCHEMA_VERSION
+class SourceShot(CineBaseRecord):
     shot_id: str = Field(default_factory=_new_id)
-    source_id: str
-    revision_id: str
+    source_id: str  # type: ignore[assignment]   # required on SourceShot
+    revision_id: str  # type: ignore[assignment]  # required on SourceShot
     interval: PtsInterval
     candidate_ids: List[str] = Field(default_factory=list)
     evidence_ids: List[str] = Field(default_factory=list)
@@ -269,3 +266,4 @@ class ValidationResult(CineBaseRecord):
     source_id: Optional[str] = None  # type: ignore[assignment]
     passed: bool
     issues: List[ValidationIssue] = Field(default_factory=list)
+

@@ -54,11 +54,10 @@ img { max-height: 120px; margin: 2px; border: 1px solid #444; }
 
 <h2>Video Player</h2>
 <!-- B10: media_rel_path is os.path.relpath from report_dir to source; POSIX separators. -->
-<!-- data-source-abs provided for local server/player tools that need the absolute path. -->
-<video controls data-source-abs="{{ media_abs_path }}">
+<!-- B10: src is report-dir-relative path; open this file from the project report directory -->
+<video controls>
   <source src="{{ media_rel_path }}" type="video/mp4">
   Media preview requires the source file to be served from the same location as this report.
-  Absolute path: {{ media_abs_path }}
 </video>
 
 <h2>Cut Candidates ({{ candidate_count }})</h2>
@@ -194,10 +193,10 @@ def render_report(
         rel = os.path.relpath(str(media_path), str(report_dir))
         media_rel_path = Path(rel).as_posix()
     except ValueError:
-        # on Windows, relpath can fail across drives — fall back to filename only
+        # B10: on Windows, relpath can fail across drives — use filename only.
+        # Do NOT expose the absolute path in the rendered HTML (§5.1).
         media_rel_path = media_path.name
 
-    media_abs_path = str(media_path.resolve())
     duration_s = f"{source.duration_seconds:.3f}s" if source.duration_seconds else "unknown"
 
     env = Environment(loader=BaseLoader())
@@ -207,7 +206,6 @@ def render_report(
         duration_s=duration_s,
         revision_id=revision_id,
         media_rel_path=media_rel_path,
-        media_abs_path=media_abs_path,
         candidate_count=len(candidates),
         candidate_rows=candidate_rows,
         shots=shot_rows,

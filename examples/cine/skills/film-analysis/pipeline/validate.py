@@ -148,6 +148,33 @@ def validate(
                 context={"shot_id": shot.shot_id},
             ))
 
+    # B7: SHOT_REVISION_MISMATCH — each shot must belong to this revision
+    for shot in shots:
+        if shot.revision_id != revision_id:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="SHOT_REVISION_MISMATCH",
+                message=(
+                    f"Shot {shot.shot_id} has revision_id {shot.revision_id!r}, "
+                    f"expected {revision_id!r}"
+                ),
+                context={"shot_id": shot.shot_id},
+            ))
+
+    # B7: SHOT_OUTSIDE_SCOPE — each shot interval must lie within scope
+    if scope is not None:
+        for shot in shots:
+            if shot.interval.in_pts < scope.in_pts or shot.interval.out_pts > scope.out_pts:
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="SHOT_OUTSIDE_SCOPE",
+                    message=(
+                        f"Shot {shot.shot_id} interval [{shot.interval.in_pts}, {shot.interval.out_pts}) "
+                        f"extends outside scope [{scope.in_pts}, {scope.out_pts})"
+                    ),
+                    context={"shot_id": shot.shot_id},
+                ))
+
     # 7. Candidate status must all be "candidate" (not auto-accepted)
     for c in candidates:
         if c.status.value not in ("candidate", "rejected"):
@@ -175,41 +202,53 @@ def validate(
                     ))
 
     # B7a: Scope coverage — shots must cover [scope.in_pts, scope.out_pts) with no gaps
-    if scope is not None and shots:
-        sorted_shots = sorted(shots, key=lambda s: s.interval.in_pts)
-        # Check coverage start
-        if sorted_shots[0].interval.in_pts > scope.in_pts:
+    if scope is not None:
+        if not shots:
+            # B7: empty shot list with a scope is always an error
             issues.append(ValidationIssue(
                 severity="error",
-                code="SCOPE_COVERAGE_GAP_START",
+                code="COVERAGE_EMPTY",
                 message=(
-                    f"Shots start at PTS {sorted_shots[0].interval.in_pts} but scope starts "
-                    f"at {scope.in_pts}; gap at beginning"
+                    f"No shots produced but scope [{scope.in_pts}, {scope.out_pts}) was requested; "
+                    "expected at least one shot covering the scope"
                 ),
-                context={"scope_in": scope.in_pts},
+                context={"scope_in": scope.in_pts, "scope_out": scope.out_pts},
             ))
-        # Check coverage end
-        if sorted_shots[-1].interval.out_pts < scope.out_pts:
-            issues.append(ValidationIssue(
-                severity="error",
-                code="SCOPE_COVERAGE_GAP_END",
-                message=(
-                    f"Shots end at PTS {sorted_shots[-1].interval.out_pts} but scope ends "
-                    f"at {scope.out_pts}; gap at end"
-                ),
-                context={"scope_out": scope.out_pts},
-            ))
-        # Check internal gaps
-        for i in range(len(sorted_shots) - 1):
-            a_out = sorted_shots[i].interval.out_pts
-            b_in = sorted_shots[i + 1].interval.in_pts
-            if a_out < b_in:
+        else:
+            sorted_shots = sorted(shots, key=lambda s: s.interval.in_pts)
+            # Check coverage start
+            if sorted_shots[0].interval.in_pts > scope.in_pts:
                 issues.append(ValidationIssue(
                     severity="error",
-                    code="SCOPE_COVERAGE_GAP",
-                    message=f"Gap between shots: [{a_out}, {b_in}) is uncovered",
-                    context={"gap_in": a_out, "gap_out": b_in},
+                    code="SCOPE_COVERAGE_GAP_START",
+                    message=(
+                        f"Shots start at PTS {sorted_shots[0].interval.in_pts} but scope starts "
+                        f"at {scope.in_pts}; gap at beginning"
+                    ),
+                    context={"scope_in": scope.in_pts},
                 ))
+            # Check coverage end
+            if sorted_shots[-1].interval.out_pts < scope.out_pts:
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="SCOPE_COVERAGE_GAP_END",
+                    message=(
+                        f"Shots end at PTS {sorted_shots[-1].interval.out_pts} but scope ends "
+                        f"at {scope.out_pts}; gap at end"
+                    ),
+                    context={"scope_out": scope.out_pts},
+                ))
+            # Check internal gaps
+            for i in range(len(sorted_shots) - 1):
+                a_out = sorted_shots[i].interval.out_pts
+                b_in = sorted_shots[i + 1].interval.in_pts
+                if a_out < b_in:
+                    issues.append(ValidationIssue(
+                        severity="error",
+                        code="SCOPE_COVERAGE_GAP",
+                        message=f"Gap between shots: [{a_out}, {b_in}) is uncovered",
+                        context={"gap_in": a_out, "gap_out": b_in},
+                    ))
 
     errors = [i for i in issues if i.severity == "error"]
     return ValidationResult(

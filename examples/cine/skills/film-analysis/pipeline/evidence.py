@@ -301,32 +301,39 @@ def extract_evidence(
 
     # ── boundary clip: 2*win seconds centred on cut ──
     clip_start_play = max(0.0, cut_playback - win)
-    clip_duration = 2 * win
+    clip_end_play = clip_start_play + 2 * win
+    # B4: clamp clip end to source duration (avoid seeking past EOF)
+    if source.duration_pts is not None and source.duration_pts > 0:
+        tb_frac = Fraction(tb_num, tb_den)
+        max_playback_end = float(source.duration_pts * tb_frac)
+        clip_end_play = min(clip_end_play, max_playback_end)
+    clip_duration = clip_end_play - clip_start_play
     clip_ext = Path(media_path).suffix or ".mp4"
     clip_path = ev_dir / f"{candidate.candidate_id}_clip{clip_ext}"
     clip_in_pts = _pts_from_playback_seconds(clip_start_play, start_pts, tb_num, tb_den)
-    clip_out_pts = _pts_from_playback_seconds(clip_start_play + clip_duration, start_pts, tb_num, tb_den)
+    clip_out_pts = _pts_from_playback_seconds(clip_end_play, start_pts, tb_num, tb_den)
     if clip_out_pts <= clip_in_pts:
         clip_out_pts = clip_in_pts + 1
-    try:
-        argv = _extract_clip(media_path, clip_start_play, clip_duration, clip_path)
-        sha = _sha256_file(clip_path) if clip_path.exists() else None
-        records.append(EvidenceRecord(
-            source_id=source.source_id,
-            revision_id=candidate.revision_id,
-            candidate_id=candidate.candidate_id,
-            kind="clip_boundary",
-            relative_path=str(clip_path.relative_to(revision_dir)),
-            sha256=sha,
-            source_interval=PtsInterval(
-                in_pts=clip_in_pts, out_pts=clip_out_pts,
-                time_base_num=tb_num, time_base_den=tb_den,
-            ),
-            ffmpeg_argv=argv,
-            tool_version=tool_ver,
-            extraction_status="ok",
-        ))
-    except (subprocess.CalledProcessError, RuntimeError):
-        pass
+    if clip_duration > 0:
+        try:
+            argv = _extract_clip(media_path, clip_start_play, clip_duration, clip_path)
+            sha = _sha256_file(clip_path) if clip_path.exists() else None
+            records.append(EvidenceRecord(
+                source_id=source.source_id,
+                revision_id=candidate.revision_id,
+                candidate_id=candidate.candidate_id,
+                kind="clip_boundary",
+                relative_path=str(clip_path.relative_to(revision_dir)),
+                sha256=sha,
+                source_interval=PtsInterval(
+                    in_pts=clip_in_pts, out_pts=clip_out_pts,
+                    time_base_num=tb_num, time_base_den=tb_den,
+                ),
+                ffmpeg_argv=argv,
+                tool_version=tool_ver,
+                extraction_status="ok",
+            ))
+        except (subprocess.CalledProcessError, RuntimeError):
+            pass
 
     return records

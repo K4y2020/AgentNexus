@@ -389,10 +389,11 @@ class TestDetect:
             )
 
             from pipeline.detect import detect_cuts
-            candidates = detect_cuts(video, source, "rev_test")
+            result = detect_cuts(video, source, "rev_test")
 
-            # B5: unavailable PySceneDetect returns empty list (no fabricated candidates)
-            assert len(candidates) == 0
+            # B5+B6: detect_cuts now returns DetectionResult(status, candidates)
+            assert result.status == "unavailable"
+            assert result.candidates == []
         finally:
             det_mod._PSD_AVAILABLE = original
 
@@ -913,8 +914,9 @@ class TestBlockerFixes:
                 path=str(video), size_bytes=100, mtime_ns=0,
                 sha256_head="a"*64, sha256_tail="b"*64,
             )
-            candidates = detect_cuts(video, source, "rev1")
-            assert candidates == [], f"Expected empty list, got {candidates}"
+            result = detect_cuts(video, source, "rev1")
+            assert result.status == "unavailable", f"Expected unavailable, got {result.status}"
+            assert result.candidates == [], f"Expected empty candidates, got {result.candidates}"
         finally:
             det_mod._PSD_AVAILABLE = original
 
@@ -1049,3 +1051,303 @@ class TestBlockerFixes:
             assert records[0].relative_path is None
         finally:
             ev_mod._FFMPEG_VERSION_CACHE = original
+
+
+class TestRound2Fixes:
+    """Round 2 blocker fix tests: B6 DetectionResult, B7 empty-shots scope, B8 validation halt."""
+
+    # ── B6: DetectionResult namedtuple ────────────────────────────────────
+
+    def test_b6_detection_result_namedtuple(self):
+        """detect_cuts() returns DetectionResult with .status and .candidates."""
+        import pipeline.detect as det_mod
+        from pipeline.detect import DetectionResult
+        # Verify it is a proper NamedTuple with the right fields
+        assert hasattr(DetectionResult, "_fields")
+        assert "status" in DetectionResult._fields
+        assert "candidates" in DetectionResult._fields
+
+    def test_b6_detection_result_unavailable_when_psd_absent(self):
+        """When _PSD_AVAILABLE is False, detect_cuts returns status='unavailable'."""
+        import pipeline.detect as det_mod
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+        from pathlib import Path
+        import tempfile, os
+
+        original = det_mod._PSD_AVAILABLE
+        det_mod._PSD_AVAILABLE = False
+        try:
+            stream = StreamInfo(
+                index=0, codec_type="video", codec_name="h264",
+                width=1280, height=720,
+                r_frame_rate_num=25, r_frame_rate_den=1,
+                avg_frame_rate_num=25, avg_frame_rate_den=1,
+                time_base_num=1, time_base_den=90000,
+                is_vfr=False,
+            )
+            source = SourceMediaRecord(
+                path="fake.mp4", size_bytes=0, mtime_ns=0,
+                sha256_head="a" * 64, sha256_tail="b" * 64,
+                streams=[stream],
+            )
+            result = det_mod.detect_cuts(Path("fake.mp4"), source, "rev1")
+            assert result.status == "unavailable"
+            assert result.candidates == []
+        finally:
+            det_mod._PSD_AVAILABLE = original
+
+    def test_b6_detection_result_failed_on_exception(self, monkeypatch):
+        """When _run_pyscenedetect raises, detect_cuts returns status='failed'."""
+        import pipeline.detect as det_mod
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+        from pathlib import Path
+
+        original = det_mod._PSD_AVAILABLE
+        det_mod._PSD_AVAILABLE = True
+        try:
+            def _boom(**kwargs):
+                raise RuntimeError("simulated failure")
+            monkeypatch.setattr(det_mod, "_run_pyscenedetect", _boom)
+
+            stream = StreamInfo(
+                index=0, codec_type="video", codec_name="h264",
+                width=1280, height=720,
+                r_frame_rate_num=25, r_frame_rate_den=1,
+                avg_frame_rate_num=25, avg_frame_rate_den=1,
+                time_base_num=1, time_base_den=90000,
+                is_vfr=False,
+            )
+            source = SourceMediaRecord(
+                path="fake.mp4", size_bytes=0, mtime_ns=0,
+                sha256_head="a" * 64, sha256_tail="b" * 64,
+                streams=[stream],
+            )
+            result = det_mod.detect_cuts(Path("fake.mp4"), source, "rev1")
+            assert result.status == "failed"
+            assert result.candidates == []
+        finally:
+            det_mod._PSD_AVAILABLE = original
+
+    # ── B7: empty shots with scope produces COVERAGE_EMPTY ────────────────
+
+    def test_b7_coverage_empty_when_no_shots_with_scope(self, tmp_path):
+        """When scope is provided but shots is empty, validate() emits COVERAGE_EMPTY error."""
+        from pipeline.schemas import (
+            SourceMediaRecord, StreamInfo, PtsInterval,
+        )
+        from pipeline.validate import validate
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            width=1280, height=720,
+            r_frame_rate_num=25, r_frame_rate_den=1,
+            avg_frame_rate_num=25, avg_frame_rate_den=1,
+            time_base_num=1, time_base_den=90000,
+            is_vfr=False,
+        )
+        source = SourceMediaRecord(
+            path=str(tmp_path / "fake.mp4"),
+            size_bytes=0, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        # Create the fake media file so MEDIA_NOT_FOUND doesn't fire
+        (tmp_path / "fake.mp4").write_bytes(b"\x00")
+
+        scope = PtsInterval(in_pts=0, out_pts=9000, time_base_num=1, time_base_den=90000)
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+
+        result = validate(
+            revision_id="rev1",
+            source=source,
+            candidates=[],
+            shots=[],          # empty shots with non-None scope
+            evidence=[],
+            revision_dir=rev_dir,
+            scope=scope,
+        )
+        assert not result.passed
+        codes = [i.code for i in result.issues]
+        assert "COVERAGE_EMPTY" in codes
+
+    def test_b7_no_coverage_empty_without_scope(self, tmp_path):
+        """When no scope is given, empty shots does NOT emit COVERAGE_EMPTY."""
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+        from pipeline.validate import validate
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            width=1280, height=720,
+            r_frame_rate_num=25, r_frame_rate_den=1,
+            avg_frame_rate_num=25, avg_frame_rate_den=1,
+            time_base_num=1, time_base_den=90000,
+            is_vfr=False,
+        )
+        source = SourceMediaRecord(
+            path=str(tmp_path / "fake.mp4"),
+            size_bytes=0, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        (tmp_path / "fake.mp4").write_bytes(b"\x00")
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+
+        result = validate(
+            revision_id="rev1",
+            source=source,
+            candidates=[],
+            shots=[],
+            evidence=[],
+            revision_dir=rev_dir,
+            scope=None,       # no scope
+        )
+        codes = [i.code for i in result.issues]
+        assert "COVERAGE_EMPTY" not in codes
+
+    def test_b7_shot_revision_mismatch_detected(self, tmp_path):
+        """SHOT_REVISION_MISMATCH emitted when shot.revision_id != revision_id."""
+        from pipeline.schemas import (
+            SourceMediaRecord, StreamInfo, SourceShot, PtsInterval,
+        )
+        from pipeline.validate import validate
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            width=1280, height=720,
+            r_frame_rate_num=25, r_frame_rate_den=1,
+            avg_frame_rate_num=25, avg_frame_rate_den=1,
+            time_base_num=1, time_base_den=90000,
+            is_vfr=False,
+        )
+        source = SourceMediaRecord(
+            path=str(tmp_path / "fake.mp4"),
+            size_bytes=0, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        (tmp_path / "fake.mp4").write_bytes(b"\x00")
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+
+        shot = SourceShot(
+            source_id=source.source_id,
+            revision_id="WRONG_REV",   # mismatch
+            interval=PtsInterval(in_pts=0, out_pts=1000, time_base_num=1, time_base_den=90000),
+        )
+        result = validate(
+            revision_id="correct_rev",
+            source=source,
+            candidates=[],
+            shots=[shot],
+            evidence=[],
+            revision_dir=rev_dir,
+            scope=None,
+        )
+        codes = [i.code for i in result.issues]
+        assert "SHOT_REVISION_MISMATCH" in codes
+
+    def test_b7_shot_outside_scope_detected(self, tmp_path):
+        """SHOT_OUTSIDE_SCOPE emitted when shot interval extends beyond scope."""
+        from pipeline.schemas import (
+            SourceMediaRecord, StreamInfo, SourceShot, PtsInterval,
+        )
+        from pipeline.validate import validate
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            width=1280, height=720,
+            r_frame_rate_num=25, r_frame_rate_den=1,
+            avg_frame_rate_num=25, avg_frame_rate_den=1,
+            time_base_num=1, time_base_den=90000,
+            is_vfr=False,
+        )
+        source = SourceMediaRecord(
+            path=str(tmp_path / "fake.mp4"),
+            size_bytes=0, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        (tmp_path / "fake.mp4").write_bytes(b"\x00")
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+
+        scope = PtsInterval(in_pts=0, out_pts=1000, time_base_num=1, time_base_den=90000)
+        shot = SourceShot(
+            source_id=source.source_id,
+            revision_id="rev1",
+            interval=PtsInterval(in_pts=0, out_pts=2000, time_base_num=1, time_base_den=90000),
+        )
+        result = validate(
+            revision_id="rev1",
+            source=source,
+            candidates=[],
+            shots=[shot],
+            evidence=[],
+            revision_dir=rev_dir,
+            scope=scope,
+        )
+        codes = [i.code for i in result.issues]
+        assert "SHOT_OUTSIDE_SCOPE" in codes
+
+    # ── B8: failed validation halts run (no render) ───────────────────────
+
+    def test_b8_failed_validation_halts_run(self, tmp_path, monkeypatch):
+        """When validation fails, run_pipeline returns status='failed' without rendering."""
+        import pipeline.runner as runner_mod
+        import pipeline.validate as val_mod
+        from pipeline.schemas import ValidationResult, ValidationIssue
+
+        # Patch validate() to always fail
+        def _always_fail(**kwargs):
+            return ValidationResult(
+                revision_id=kwargs.get("revision_id", "rev1"),
+                source_id="src",
+                passed=False,
+                issues=[ValidationIssue(
+                    severity="error",
+                    code="TEST_ERROR",
+                    message="injected failure",
+                )],
+            )
+        monkeypatch.setattr(val_mod, "validate", _always_fail)
+        monkeypatch.setattr(runner_mod, "validate", _always_fail)
+
+        # Also patch detect_cuts to return "ok" with empty candidates
+        import pipeline.detect as det_mod
+        from pipeline.detect import DetectionResult
+        original_psd = det_mod._PSD_AVAILABLE
+        det_mod._PSD_AVAILABLE = False  # -> returns unavailable -> interrupted
+        # So we need to use a different approach: patch runner's detect_cuts reference
+
+        from unittest.mock import patch, MagicMock
+        render_called = []
+        def fake_render(**kwargs):
+            render_called.append(True)
+            return tmp_path / "report.html"
+
+        media = tmp_path / "sample.mp4"
+        media.write_bytes(b"\x00" * 100)
+        projects = tmp_path / "projects"
+
+        det_mod._PSD_AVAILABLE = original_psd
+
+        # Monkeypatch detect in runner to return ok with empty candidates
+        ok_result = DetectionResult(status="ok", candidates=[])
+        with patch.object(runner_mod, "detect_cuts", return_value=ok_result),              patch.object(runner_mod, "render_report", side_effect=fake_render),              patch.object(runner_mod, "probe_media") as mock_probe:
+            # probe_media needs to return a valid SourceMediaRecord
+            from pipeline.schemas import SourceMediaRecord
+            src = SourceMediaRecord(
+                path=str(media), size_bytes=100, mtime_ns=0,
+                sha256_head="a" * 64, sha256_tail="b" * 64,
+            )
+            mock_probe.return_value = src
+
+            result = runner_mod.run_pipeline(media, projects)
+
+        assert result["status"] == "failed"
+        assert result.get("reason") == "validation_failed"
+        # render must NOT have been called
+        assert not render_called, "render_report should not be called when validation fails"
+

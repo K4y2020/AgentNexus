@@ -1,16 +1,22 @@
 """Cine pipeline — scene cut detection via PySceneDetect; graceful fallback.
 
 B3: scope in/out seconds apply source.start_pts offset; PTS mapping back adds start_pts.
-    VFR caveat comment included — PySceneDetect uses frame-time approximation.
-B5: unavailable → return [] (empty), not a fabricated pts=0 candidate.
+    VFR IMPORTANT: PySceneDetect does not expose decoded packet PTS. For VFR streams,
+    scene_in.get_seconds() is a nominal frame-time approximation — NOT an authoritative
+    source PTS. Candidates from VFR streams are tagged vfr_pts_approximate=True and
+    requires_pts_verification=True. They MUST be verified against decoded packet
+    timestamps before acceptance.
+B5: unavailable → DetectionResult(status="unavailable", candidates=[]).
+    Runtime exception → DetectionResult(status="failed", candidates=[]).
     First scene (index 0) is video start, not a cut — skipped.
+B6: detect_cuts() returns DetectionResult namedtuple with .status and .candidates.
 """
 from __future__ import annotations
 
 import uuid
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from .schemas import CutCandidate, CandidateStatus, DetectorStatus, SourceMediaRecord
 
@@ -24,6 +30,22 @@ try:
     _PSD_AVAILABLE = True
 except ImportError:
     _PSD_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# Public result type (B6)
+# ---------------------------------------------------------------------------
+
+class DetectionResult(NamedTuple):
+    """Result returned by detect_cuts().
+
+    status: "ok"          — detection ran; candidates may be empty if no cuts found
+            "unavailable" — PySceneDetect not installed; candidates is []
+            "failed"      — runtime exception during detection; candidates is []
+    candidates: list of CutCandidate records (empty for unavailable/failed)
+    """
+    status: str
+    candidates: List[CutCandidate]
 
 
 # ---------------------------------------------------------------------------
@@ -86,18 +108,22 @@ def detect_cuts(
     adaptive_ratio: float = 3.0,
     scope_in_pts: Optional[int] = None,
     scope_out_pts: Optional[int] = None,
-) -> List[CutCandidate]:
+) -> DetectionResult:
     """
-    Detect scene cuts in *media_path* and return a list of CutCandidate records.
+    Detect scene cuts in *media_path* and return a DetectionResult.
 
-    B5: If PySceneDetect is not installed (or detection fails), returns [] — no
-    fabricated candidates. Callers must handle the empty-list case separately.
+    B6: Returns DetectionResult(status, candidates) where status is one of:
+      "ok"          -- detection ran successfully (candidates may be empty)
+      "unavailable" -- PySceneDetect not installed
+      "failed"      -- runtime exception during detection
+
+    B5: No fabricated candidates ever returned for unavailable/failed.
 
     B3: PTS values are mapped from PySceneDetect's frame-time via the source
     stream's rational time_base with start_pts offset applied.
     VFR CAVEAT: PySceneDetect's scene_in.get_seconds() is a nominal frame-time
-    approximation, not a decoded PTS. For VFR content, candidates should be
-    flagged for boundary verification before use.
+    approximation, not a decoded PTS. For VFR content, candidates are tagged
+    vfr_pts_approximate=True and requires_pts_verification=True.
     """
     # Find primary video stream
     video_stream = next(
@@ -109,12 +135,12 @@ def detect_cuts(
     stream_index = video_stream.index if video_stream else 0
     start_pts = source.start_pts  # B3
 
-    # B5: unavailable → empty list, no fabricated candidate
+    # B5/B6: unavailable → DetectionResult with status="unavailable"
     if not _PSD_AVAILABLE:
-        return []
+        return DetectionResult(status="unavailable", candidates=[])
 
     try:
-        return _run_pyscenedetect(
+        candidates = _run_pyscenedetect(
             media_path=media_path,
             source=source,
             revision_id=revision_id,
@@ -128,9 +154,10 @@ def detect_cuts(
             scope_in_pts=scope_in_pts,
             scope_out_pts=scope_out_pts,
         )
+        return DetectionResult(status="ok", candidates=candidates)
     except Exception:
-        # Detection failed — return empty list (B5: no fabrication)
-        return []
+        # Detection failed — B6: return "failed" status, no fabricated candidates
+        return DetectionResult(status="failed", candidates=[])
 
 
 def _run_pyscenedetect(
@@ -169,6 +196,11 @@ def _run_pyscenedetect(
     sm.detect_scenes(video, show_progress=False, start_time=start_time, end_time=end_time)
     scenes = sm.get_scene_list()
 
+    # VFR: PySceneDetect does not expose decoded packet PTS. For VFR streams,
+    # scene_in.get_seconds() is a nominal frame-time approximation — NOT authoritative.
+    # Candidates are tagged so callers can require boundary verification.
+    is_vfr = video_stream_is_vfr(source)
+
     candidates: List[CutCandidate] = []
     # B5: Skip index 0 — scene_in of the first scene is the video/scope start, not a cut.
     # Only scenes at index >= 1 have a genuine cut at their scene_in.
@@ -178,19 +210,21 @@ def _run_pyscenedetect(
 
         # B3: scene_in.get_seconds() is playback-relative nominal frame time.
         # Convert back to source PTS by adding start_pts.
-        # VFR CAVEAT: this is an approximation for VFR streams; boundary verification required.
         cut_play_seconds = scene_in.get_seconds()
         cut_pts = _seconds_to_pts(cut_play_seconds, start_pts, tb_num, tb_den)
 
-        is_vfr = video_stream_is_vfr(source)
         params: Dict[str, Any] = {
             "threshold": threshold,
             "cut_play_seconds": cut_play_seconds,
         }
         if is_vfr:
+            # B3: mark VFR candidates as approximate -- do NOT claim authoritative PTS
+            params["vfr_pts_approximate"] = True
+            params["requires_pts_verification"] = True
             params["vfr_warning"] = (
-                "VFR stream: PTS derived from nominal frame-time; "
-                "boundary verification required before accepting this candidate."
+                "VFR stream: PTS derived from nominal frame-time approximation "
+                "via PySceneDetect (no decoded packet PTS access); "
+                "MUST be verified against decoded packet timestamps before acceptance."
             )
 
         c = _make_candidate(
