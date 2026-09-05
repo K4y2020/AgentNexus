@@ -1,0 +1,136 @@
+"""Cine pipeline — interval non-overlap, reference integrity, media existence."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import List
+
+from .schemas import (
+    CutCandidate,
+    EvidenceRecord,
+    PtsInterval,
+    SourceMediaRecord,
+    SourceShot,
+    ValidationIssue,
+    ValidationResult,
+)
+
+
+# ---------------------------------------------------------------------------
+# Interval helpers
+# ---------------------------------------------------------------------------
+
+def _overlaps(a: PtsInterval, b: PtsInterval) -> bool:
+    """Return True if half-open intervals [a.in, a.out) and [b.in, b.out) overlap."""
+    return a.in_pts < b.out_pts and b.in_pts < a.out_pts
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def validate(
+    revision_id: str,
+    source: SourceMediaRecord,
+    candidates: List[CutCandidate],
+    shots: List[SourceShot],
+    evidence: List[EvidenceRecord],
+    *,
+    revision_dir: Path,
+) -> ValidationResult:
+    """
+    Run all C0+C1 validation checks. Returns a ValidationResult.
+    """
+    issues: List[ValidationIssue] = []
+
+    # 1. Media file must exist
+    media_path = Path(source.path)
+    if not media_path.exists():
+        issues.append(ValidationIssue(
+            severity="error",
+            code="MEDIA_NOT_FOUND",
+            message=f"Source media not found: {source.path}",
+        ))
+
+    # 2. Each evidence file must exist on disk
+    for ev in evidence:
+        ev_path = revision_dir / ev.relative_path
+        if not ev_path.exists():
+            issues.append(ValidationIssue(
+                severity="error",
+                code="EVIDENCE_FILE_MISSING",
+                message=f"Evidence file missing: {ev.relative_path}",
+                context={"evidence_id": ev.evidence_id},
+            ))
+
+    # 3. Evidence must reference valid candidate IDs
+    candidate_ids = {c.candidate_id for c in candidates}
+    for ev in evidence:
+        if ev.candidate_id and ev.candidate_id not in candidate_ids:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="EVIDENCE_INVALID_CANDIDATE_REF",
+                message=f"Evidence {ev.evidence_id} references unknown candidate {ev.candidate_id}",
+                context={"evidence_id": ev.evidence_id, "candidate_id": ev.candidate_id},
+            ))
+
+    # 4. Shot intervals must be non-empty and non-overlapping
+    for shot in shots:
+        if shot.interval.out_pts <= shot.interval.in_pts:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="EMPTY_INTERVAL",
+                message=f"Shot {shot.shot_id} has empty interval [{shot.interval.in_pts}, {shot.interval.out_pts})",
+                context={"shot_id": shot.shot_id},
+            ))
+
+    for i, a in enumerate(shots):
+        for b in shots[i + 1:]:
+            if _overlaps(a.interval, b.interval):
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="OVERLAPPING_INTERVALS",
+                    message=(
+                        f"Shots {a.shot_id} and {b.shot_id} have overlapping intervals: "
+                        f"[{a.interval.in_pts},{a.interval.out_pts}) vs "
+                        f"[{b.interval.in_pts},{b.interval.out_pts})"
+                    ),
+                    context={"shot_a": a.shot_id, "shot_b": b.shot_id},
+                ))
+
+    # 5. Shot candidate_ids must reference known candidates
+    for shot in shots:
+        for cid in shot.candidate_ids:
+            if cid not in candidate_ids:
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="SHOT_INVALID_CANDIDATE_REF",
+                    message=f"Shot {shot.shot_id} references unknown candidate {cid}",
+                    context={"shot_id": shot.shot_id, "candidate_id": cid},
+                ))
+
+    # 6. All shots must have source_id matching source
+    for shot in shots:
+        if shot.source_id != source.source_id:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="SHOT_SOURCE_MISMATCH",
+                message=f"Shot {shot.shot_id} has source_id {shot.source_id!r}, expected {source.source_id!r}",
+                context={"shot_id": shot.shot_id},
+            ))
+
+    # 7. Candidate status must all be "candidate" (not auto-accepted)
+    for c in candidates:
+        if c.status.value not in ("candidate", "rejected"):
+            issues.append(ValidationIssue(
+                severity="warning",
+                code="CANDIDATE_AUTO_ACCEPTED",
+                message=f"Candidate {c.candidate_id} has status {c.status!r} — all cuts must remain candidate until human review",
+                context={"candidate_id": c.candidate_id},
+            ))
+
+    errors = [i for i in issues if i.severity == "error"]
+    return ValidationResult(
+        revision_id=revision_id,
+        passed=len(errors) == 0,
+        issues=issues,
+    )
