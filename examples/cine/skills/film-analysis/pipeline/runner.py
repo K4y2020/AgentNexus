@@ -1,8 +1,14 @@
-"""Cine pipeline — C0+C1 end-to-end orchestrator."""
+"""Cine pipeline — C0+C1 end-to-end orchestrator.
+
+B2: On resume, load existing source.json and compare hashes. Reuse source_id if same; raise if different.
+B6: 0 cuts → single shot covering full scope; unavailable detection → RunStatus.interrupted.
+B8: current_revision written only after validation passes; render failures go to stages_failed.
+"""
 from __future__ import annotations
 
 import json
-import uuid
+import os
+from fractions import Fraction
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,16 +16,17 @@ from .schemas import (
     CutCandidate,
     EvidenceRecord,
     ProjectRecord,
+    PtsInterval,
     RunState,
     RunStatus,
     SourceMediaRecord,
     SourceShot,
-    PtsInterval,
     ValidationResult,
 )
 from .project import (
     ProjectLock,
     _atomic_write,
+    _read_json,
     create_project,
     create_revision,
     lock_path,
@@ -36,6 +43,56 @@ from .validate import validate
 from .render import render_report
 
 
+# ---------------------------------------------------------------------------
+# Source identity helpers (B2)
+# ---------------------------------------------------------------------------
+
+def _load_existing_source(projects_dir: Path, project_id: str) -> Optional[SourceMediaRecord]:
+    """Load source.json if it exists; return None otherwise."""
+    src_path = project_root(projects_dir, project_id) / "source.json"
+    if not src_path.exists():
+        return None
+    return SourceMediaRecord.model_validate(_read_json(src_path))
+
+
+def _resolve_source(
+    projects_dir: Path,
+    project_id: str,
+    media_path: Path,
+    is_resume: bool,
+) -> SourceMediaRecord:
+    """
+    B2: For new projects, probe and save a fresh source record.
+    For resumed projects, compare sha256 of existing source.json against the
+    provided media file. Reuse existing source_id if same content; raise if different.
+    """
+    if is_resume:
+        existing = _load_existing_source(projects_dir, project_id)
+        if existing is not None:
+            # Compare content identity (head + tail hash)
+            from .probe import _sha256_chunk
+            new_head = _sha256_chunk(media_path, tail=False)
+            new_tail = _sha256_chunk(media_path, tail=True)
+            if new_head != existing.sha256_head or new_tail != existing.sha256_tail:
+                raise ValueError(
+                    f"Source media content has changed since project was created "
+                    f"(sha256 mismatch). Create a new project for a different source. "
+                    f"project_id={project_id}"
+                )
+            # Same content — reuse source record (keep existing source_id)
+            return existing
+
+    # New project or no existing source — probe fresh
+    source = probe_media(media_path)
+    src_path = project_root(projects_dir, project_id) / "source.json"
+    _atomic_write(src_path, source.model_dump())
+    return source
+
+
+# ---------------------------------------------------------------------------
+# Public pipeline entry point
+# ---------------------------------------------------------------------------
+
 def run_pipeline(
     media_path: Path,
     projects_dir: Path,
@@ -51,15 +108,9 @@ def run_pipeline(
     """
     Run C0+C1 pipeline for a single media file.
 
-    - Creates or resumes a project (C0)
-    - Probes source media
-    - Detects scene cuts in the specified scope (C1)
-    - Extracts evidence frames/clips
-    - Validates results
-    - Renders HTML report
-
-    Returns a summary dict with project_id, revision_id, run_id, report_path,
-    and validation result.
+    B2: On resume, verifies source identity via sha256; raises ValueError on mismatch.
+    B6: 0 detected cuts → one shot covering full scope; unavailable detection → interrupted.
+    B8: current_revision only committed after validation passes; render errors → stages_failed.
     """
     media_path = Path(media_path)
     if not media_path.exists():
@@ -69,9 +120,10 @@ def run_pipeline(
     projects_dir.mkdir(parents=True, exist_ok=True)
 
     name = display_name or media_path.stem
+    is_resume = project_id is not None
 
     # --- C0: Create or resume project ---
-    if project_id is None:
+    if not is_resume:
         record = create_project(projects_dir, display_name=name)
         project_id = record.project_id
     else:
@@ -79,48 +131,58 @@ def run_pipeline(
 
     lp = lock_path(projects_dir, project_id)
     with ProjectLock(lp, timeout=5.0):
-        # Probe source
-        source = probe_media(media_path)
-
-        # Save source.json
-        src_path = project_root(projects_dir, project_id) / "source.json"
-        _atomic_write(src_path, source.model_dump())
+        # B2: resolve source (reuse on resume, probe on new)
+        source = _resolve_source(projects_dir, project_id, media_path, is_resume)
 
         # Update project with source_id
         record.source_id = source.source_id
         update_project(projects_dir, record)
 
-        # Create revision
+        # Create revision dir (immutable once committed)
         revision_id = create_revision(projects_dir, project_id)
-        record.current_revision = revision_id
-        update_project(projects_dir, record)
-
         rev_dir = revision_root(projects_dir, project_id, revision_id)
 
         # Create run state
         run_state = RunState(
             project_id=project_id,
             revision_id=revision_id,
+            source_id=source.source_id,
             status=RunStatus.running,
             phase="C1",
             source_sha256_head=source.sha256_head,
             source_sha256_tail=source.sha256_tail,
         )
         save_run(projects_dir, run_state)
+        run_state.stages_complete.append("C0")
+        run_state.stages_complete.append("probe")
+        save_run(projects_dir, run_state)
 
         # --- C1: Detect cuts ---
-        scope_in_pts: Optional[int] = None
-        scope_out_pts: Optional[int] = None
         tb_num = source.time_base_num
         tb_den = source.time_base_den
-
-        from fractions import Fraction
         tb = Fraction(tb_num, tb_den)
 
+        scope_in_pts: Optional[int] = None
+        scope_out_pts: Optional[int] = None
         if scope_in_seconds is not None and tb != 0:
-            scope_in_pts = int(round(scope_in_seconds / float(tb)))
+            # scope in/out are user-visible playback seconds; convert to source PTS
+            scope_in_pts = source.start_pts + int(round(scope_in_seconds / float(tb)))
         if scope_out_seconds is not None and tb != 0:
-            scope_out_pts = int(round(scope_out_seconds / float(tb)))
+            scope_out_pts = source.start_pts + int(round(scope_out_seconds / float(tb)))
+
+        # Build scope PtsInterval for validation (B7)
+        scope_start = scope_in_pts if scope_in_pts is not None else source.start_pts
+        scope_end_raw = scope_out_pts if scope_out_pts is not None else (
+            source.start_pts + (source.duration_pts or 0)
+        )
+        scope_interval: Optional[PtsInterval] = None
+        if scope_end_raw > scope_start:
+            scope_interval = PtsInterval(
+                in_pts=scope_start,
+                out_pts=scope_end_raw,
+                time_base_num=tb_num,
+                time_base_den=tb_den,
+            )
 
         candidates: List[CutCandidate] = detect_cuts(
             media_path,
@@ -131,6 +193,29 @@ def run_pipeline(
             scope_in_pts=scope_in_pts,
             scope_out_pts=scope_out_pts,
         )
+
+        # B6: detect returned [] — check if unavailable
+        from .detect import _PSD_AVAILABLE as _psd_ok
+        detection_unavailable = not _psd_ok
+
+        if detection_unavailable:
+            # B6: mark interrupted, do not finish run
+            run_state.status = RunStatus.interrupted
+            run_state.error = "detection unavailable: PySceneDetect not installed"
+            run_state.stages_failed.append("detect")
+            save_run(projects_dir, run_state)
+            return {
+                "project_id": project_id,
+                "revision_id": revision_id,
+                "run_id": run_state.run_id,
+                "source_id": source.source_id,
+                "status": "interrupted",
+                "reason": "detection_unavailable",
+                "candidate_count": 0,
+            }
+
+        run_state.stages_complete.append("detect")
+        save_run(projects_dir, run_state)
 
         # Save cut_candidates.json
         _atomic_write(
@@ -152,8 +237,10 @@ def run_pipeline(
             rev_dir / "evidence_index.json",
             [e.model_dump() for e in all_evidence],
         )
+        run_state.stages_complete.append("evidence")
+        save_run(projects_dir, run_state)
 
-        # Build shots from candidates (one shot per interval between cuts)
+        # Build shots (B6: 0 cuts → single shot covering scope)
         shots: List[SourceShot] = _build_shots(
             source, revision_id, candidates, scope_in_pts, scope_out_pts,
         )
@@ -164,7 +251,7 @@ def run_pipeline(
             [s.model_dump() for s in shots],
         )
 
-        # Validate
+        # Validate (B7: pass scope_interval)
         validation = validate(
             revision_id=revision_id,
             source=source,
@@ -172,10 +259,19 @@ def run_pipeline(
             shots=shots,
             evidence=all_evidence,
             revision_dir=rev_dir,
+            scope=scope_interval,
         )
         _atomic_write(rev_dir / "validation.json", validation.model_dump())
+        run_state.stages_complete.append("validate")
+        save_run(projects_dir, run_state)
 
-        # Render HTML
+        # B8: Only write current_revision AFTER validation passes
+        if validation.passed:
+            record.current_revision = revision_id
+            update_project(projects_dir, record)
+
+        # Render HTML (B8: render failure → stages_failed, not finished)
+        report_path_str: str
         try:
             report_path = render_report(
                 revision_dir=rev_dir,
@@ -187,12 +283,28 @@ def run_pipeline(
                 validation=validation,
             )
             report_path_str = str(report_path)
+            run_state.stages_complete.append("render")
         except Exception as exc:
             report_path_str = f"render_failed: {exc}"
+            run_state.stages_failed.append("render")  # B8
+            run_state.status = RunStatus.failed
+            run_state.error = f"render failed: {exc}"
+            save_run(projects_dir, run_state)
+            return {
+                "project_id": project_id,
+                "revision_id": revision_id,
+                "run_id": run_state.run_id,
+                "source_id": source.source_id,
+                "status": "failed",
+                "reason": "render_failed",
+                "error": str(exc),
+                "validation_passed": validation.passed,
+                "candidate_count": len(candidates),
+                "shot_count": len(shots),
+            }
 
         # Mark run complete
         run_state.status = RunStatus.finished
-        run_state.stages_complete = ["C0", "probe", "detect", "evidence", "validate", "render"]
         save_run(projects_dir, run_state)
 
         return {
@@ -215,14 +327,21 @@ def _build_shots(
     scope_in_pts: Optional[int],
     scope_out_pts: Optional[int],
 ) -> List[SourceShot]:
-    """Build SourceShot records as intervals between consecutive cut points."""
-    from .schemas import SourceShot
+    """
+    Build SourceShot records as intervals between consecutive cut points.
 
-    if not candidates:
-        return []
-
+    B6: When no cuts detected (empty candidates or all unavailable),
+    create ONE shot covering the full validated scope [scope_in_pts, scope_out_pts).
+    """
     tb_num = source.time_base_num
     tb_den = source.time_base_den
+
+    start = scope_in_pts if scope_in_pts is not None else source.start_pts
+    end = scope_out_pts if scope_out_pts is not None else (
+        source.start_pts + (source.duration_pts or 0)
+    )
+    if end <= start:
+        return []
 
     # Gather valid candidate PTS values (skip unavailable)
     pts_values = sorted(
@@ -230,22 +349,24 @@ def _build_shots(
             c.pts
             for c in candidates
             if c.detector_status.value == "ok"
+            and start < c.pts < end
         )
     )
 
+    # B6: no valid cuts → single shot covering full scope
     if not pts_values:
-        return []
+        return [SourceShot(
+            source_id=source.source_id,
+            revision_id=revision_id,
+            interval=PtsInterval(
+                in_pts=start,
+                out_pts=end,
+                time_base_num=tb_num,
+                time_base_den=tb_den,
+            ),
+        )]
 
-    # Build boundary list
-    start = scope_in_pts if scope_in_pts is not None else (source.start_pts or 0)
-    end = scope_out_pts if scope_out_pts is not None else (
-        (source.start_pts or 0) + (source.duration_pts or 0)
-    )
-    if end <= start:
-        return []
-
-    boundaries = [start] + [p for p in pts_values if start < p < end] + [end]
-
+    boundaries = [start] + pts_values + [end]
     shots: List[SourceShot] = []
     for i in range(len(boundaries) - 1):
         in_pts = boundaries[i]

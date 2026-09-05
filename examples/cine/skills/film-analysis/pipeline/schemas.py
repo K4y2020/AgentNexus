@@ -6,7 +6,7 @@ from enum import Enum
 from fractions import Fraction
 from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -45,6 +45,21 @@ class CandidateStatus(str, Enum):
 class DetectorStatus(str, Enum):
     ok = "ok"
     unavailable = "unavailable"
+
+
+# ---------------------------------------------------------------------------
+# Base model — all cine records carry these fields (B1)
+# ---------------------------------------------------------------------------
+
+class CineBaseRecord(BaseModel):
+    """
+    All Cine records inherit these fields.
+    Bootstrap records (ProjectRecord, SourceMediaRecord at creation time before
+    a revision exists) may have revision_id=None.
+    """
+    schema_version: str = SCHEMA_VERSION
+    source_id: Optional[str] = None
+    revision_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -107,12 +122,11 @@ class StreamInfo(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Source media record
+# Source media record (B1: inherits CineBaseRecord; revision_id=None at probe time)
 # ---------------------------------------------------------------------------
 
-class SourceMediaRecord(BaseModel):
-    schema_version: str = SCHEMA_VERSION
-    source_id: str = Field(default_factory=_new_id)
+class SourceMediaRecord(CineBaseRecord):
+    source_id: str = Field(default_factory=_new_id)  # type: ignore[assignment]
     path: str
     size_bytes: int
     mtime_ns: int
@@ -137,14 +151,13 @@ class SourceMediaRecord(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Project record
+# Project record (B1: inherits CineBaseRecord)
 # ---------------------------------------------------------------------------
 
-class ProjectRecord(BaseModel):
-    schema_version: str = SCHEMA_VERSION
+class ProjectRecord(CineBaseRecord):
     project_id: str = Field(default_factory=_new_id)
     display_name: str
-    source_id: Optional[str] = None
+    source_id: Optional[str] = None  # type: ignore[assignment]
     current_revision: Optional[str] = None
     topic_id: Optional[str] = None
     mode: str = "film-analysis"
@@ -180,7 +193,7 @@ class CutCandidate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Evidence record
+# Evidence record (B11: extraction_status field; relative_path Optional)
 # ---------------------------------------------------------------------------
 
 class EvidenceRecord(BaseModel):
@@ -190,11 +203,12 @@ class EvidenceRecord(BaseModel):
     revision_id: str
     candidate_id: Optional[str] = None
     kind: str   # "frame_pre" | "frame_mid" | "frame_post" | "clip_boundary"
-    relative_path: str      # relative to revision dir
+    relative_path: Optional[str] = None      # relative to revision dir; None when unavailable
     sha256: Optional[str] = None
     source_interval: Optional[PtsInterval] = None
     ffmpeg_argv: List[str] = Field(default_factory=list)
     tool_version: str = ""
+    extraction_status: str = "ok"   # "ok" | "unavailable" | "failed"
 
 
 # ---------------------------------------------------------------------------
@@ -220,25 +234,26 @@ class SourceShot(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Run state
+# Run state (B1: inherits CineBaseRecord; B8: stages_failed)
 # ---------------------------------------------------------------------------
 
-class RunState(BaseModel):
-    schema_version: str = SCHEMA_VERSION
+class RunState(CineBaseRecord):
     run_id: str = Field(default_factory=_new_id)
     project_id: str
-    revision_id: str
+    revision_id: str  # type: ignore[assignment]
+    source_id: Optional[str] = None  # type: ignore[assignment]
     status: RunStatus = RunStatus.queued
     phase: str = "C0"
     source_sha256_head: Optional[str] = None
     source_sha256_tail: Optional[str] = None
     error: Optional[str] = None
     stages_complete: List[str] = Field(default_factory=list)
+    stages_failed: List[str] = Field(default_factory=list)   # B8
     extra: Dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
-# Validation result
+# Validation result (B1: inherits CineBaseRecord)
 # ---------------------------------------------------------------------------
 
 class ValidationIssue(BaseModel):
@@ -248,8 +263,9 @@ class ValidationIssue(BaseModel):
     context: Dict[str, Any] = Field(default_factory=dict)
 
 
-class ValidationResult(BaseModel):
-    schema_version: str = SCHEMA_VERSION
-    revision_id: str
+class ValidationResult(CineBaseRecord):
+    result_id: str = Field(default_factory=_new_id)   # stable record ID
+    revision_id: str  # type: ignore[assignment]
+    source_id: Optional[str] = None  # type: ignore[assignment]
     passed: bool
     issues: List[ValidationIssue] = Field(default_factory=list)

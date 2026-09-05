@@ -1,8 +1,12 @@
-"""Cine pipeline — interval non-overlap, reference integrity, media existence."""
+"""Cine pipeline — validation: interval non-overlap, reference integrity, media existence.
+
+B7: Added scope coverage check, candidate bounds check, evidence ownership check,
+    shot→candidate reference completeness.
+"""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from .schemas import (
     CutCandidate,
@@ -36,9 +40,17 @@ def validate(
     evidence: List[EvidenceRecord],
     *,
     revision_dir: Path,
+    scope: Optional[PtsInterval] = None,   # B7: requested scope for coverage check
 ) -> ValidationResult:
     """
     Run all C0+C1 validation checks. Returns a ValidationResult.
+
+    B7 additions:
+    - scope coverage: if scope given, shot intervals must cover [scope.in_pts, scope.out_pts)
+      with no gaps and no overlaps
+    - candidate bounds: each candidate pts must be within [source.start_pts, start_pts+duration)
+    - evidence ownership: source_id and revision_id on each EvidenceRecord must match
+    - shot candidate reference completeness
     """
     issues: List[ValidationIssue] = []
 
@@ -51,16 +63,17 @@ def validate(
             message=f"Source media not found: {source.path}",
         ))
 
-    # 2. Each evidence file must exist on disk
+    # 2. Each evidence file must exist on disk (only when relative_path is set)
     for ev in evidence:
-        ev_path = revision_dir / ev.relative_path
-        if not ev_path.exists():
-            issues.append(ValidationIssue(
-                severity="error",
-                code="EVIDENCE_FILE_MISSING",
-                message=f"Evidence file missing: {ev.relative_path}",
-                context={"evidence_id": ev.evidence_id},
-            ))
+        if ev.relative_path is not None and ev.extraction_status == "ok":
+            ev_path = revision_dir / ev.relative_path
+            if not ev_path.exists():
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="EVIDENCE_FILE_MISSING",
+                    message=f"Evidence file missing: {ev.relative_path}",
+                    context={"evidence_id": ev.evidence_id},
+                ))
 
     # 3. Evidence must reference valid candidate IDs
     candidate_ids = {c.candidate_id for c in candidates}
@@ -71,6 +84,23 @@ def validate(
                 code="EVIDENCE_INVALID_CANDIDATE_REF",
                 message=f"Evidence {ev.evidence_id} references unknown candidate {ev.candidate_id}",
                 context={"evidence_id": ev.evidence_id, "candidate_id": ev.candidate_id},
+            ))
+
+    # B7c: Evidence ownership — source_id and revision_id must match
+    for ev in evidence:
+        if ev.source_id != source.source_id:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="EVIDENCE_SOURCE_MISMATCH",
+                message=f"Evidence {ev.evidence_id} source_id {ev.source_id!r} != {source.source_id!r}",
+                context={"evidence_id": ev.evidence_id},
+            ))
+        if ev.revision_id != revision_id:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="EVIDENCE_REVISION_MISMATCH",
+                message=f"Evidence {ev.evidence_id} revision_id {ev.revision_id!r} != {revision_id!r}",
+                context={"evidence_id": ev.evidence_id},
             ))
 
     # 4. Shot intervals must be non-empty and non-overlapping
@@ -97,7 +127,7 @@ def validate(
                     context={"shot_a": a.shot_id, "shot_b": b.shot_id},
                 ))
 
-    # 5. Shot candidate_ids must reference known candidates
+    # 5. Shot candidate_ids must reference known candidates (B7d)
     for shot in shots:
         for cid in shot.candidate_ids:
             if cid not in candidate_ids:
@@ -128,9 +158,63 @@ def validate(
                 context={"candidate_id": c.candidate_id},
             ))
 
+    # B7b: Candidate PTS bounds — must be within [start_pts, start_pts + duration_pts)
+    if source.duration_pts is not None:
+        media_end_pts = source.start_pts + source.duration_pts
+        for c in candidates:
+            if c.detector_status.value == "ok":
+                if not (source.start_pts <= c.pts < media_end_pts):
+                    issues.append(ValidationIssue(
+                        severity="error",
+                        code="CANDIDATE_OUT_OF_BOUNDS",
+                        message=(
+                            f"Candidate {c.candidate_id} pts={c.pts} is outside "
+                            f"[{source.start_pts}, {media_end_pts})"
+                        ),
+                        context={"candidate_id": c.candidate_id},
+                    ))
+
+    # B7a: Scope coverage — shots must cover [scope.in_pts, scope.out_pts) with no gaps
+    if scope is not None and shots:
+        sorted_shots = sorted(shots, key=lambda s: s.interval.in_pts)
+        # Check coverage start
+        if sorted_shots[0].interval.in_pts > scope.in_pts:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="SCOPE_COVERAGE_GAP_START",
+                message=(
+                    f"Shots start at PTS {sorted_shots[0].interval.in_pts} but scope starts "
+                    f"at {scope.in_pts}; gap at beginning"
+                ),
+                context={"scope_in": scope.in_pts},
+            ))
+        # Check coverage end
+        if sorted_shots[-1].interval.out_pts < scope.out_pts:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="SCOPE_COVERAGE_GAP_END",
+                message=(
+                    f"Shots end at PTS {sorted_shots[-1].interval.out_pts} but scope ends "
+                    f"at {scope.out_pts}; gap at end"
+                ),
+                context={"scope_out": scope.out_pts},
+            ))
+        # Check internal gaps
+        for i in range(len(sorted_shots) - 1):
+            a_out = sorted_shots[i].interval.out_pts
+            b_in = sorted_shots[i + 1].interval.in_pts
+            if a_out < b_in:
+                issues.append(ValidationIssue(
+                    severity="error",
+                    code="SCOPE_COVERAGE_GAP",
+                    message=f"Gap between shots: [{a_out}, {b_in}) is uncovered",
+                    context={"gap_in": a_out, "gap_out": b_in},
+                ))
+
     errors = [i for i in issues if i.severity == "error"]
     return ValidationResult(
         revision_id=revision_id,
+        source_id=source.source_id,
         passed=len(errors) == 0,
         issues=issues,
     )

@@ -1,7 +1,12 @@
-"""Cine pipeline — Jinja2 static HTML report generator."""
+"""Cine pipeline — Jinja2 static HTML report generator.
+
+B10: media src uses os.path.relpath from report_dir to source file, with POSIX separators.
+"""
 from __future__ import annotations
 
-from pathlib import Path
+import os
+import tempfile
+from pathlib import Path, PurePosixPath
 from typing import List, Optional
 
 from .schemas import CutCandidate, EvidenceRecord, SourceMediaRecord, SourceShot, ValidationResult
@@ -48,9 +53,12 @@ img { max-height: 120px; margin: 2px; border: 1px solid #444; }
 </p>
 
 <h2>Video Player</h2>
-<video controls>
+<!-- B10: media_rel_path is os.path.relpath from report_dir to source; POSIX separators. -->
+<!-- data-source-abs provided for local server/player tools that need the absolute path. -->
+<video controls data-source-abs="{{ media_abs_path }}">
   <source src="{{ media_rel_path }}" type="video/mp4">
-  Media not available in this browser environment.
+  Media preview requires the source file to be served from the same location as this report.
+  Absolute path: {{ media_abs_path }}
 </video>
 
 <h2>Cut Candidates ({{ candidate_count }})</h2>
@@ -132,6 +140,9 @@ def render_report(
     Generate a standalone static HTML report and write it to revision_dir/report/.
     Returns path to written file.
     Raises RuntimeError if Jinja2 is not available.
+
+    B10: <source src> uses os.path.relpath(media_path, report_dir) with POSIX separators,
+    so the browser can load the file when opened from the report directory.
     """
     if not _JINJA2_OK:
         raise RuntimeError("Jinja2 is not installed; cannot render report")
@@ -141,7 +152,7 @@ def render_report(
     out_path = report_dir / report_filename
 
     # Build evidence lookup by candidate_id
-    ev_by_candidate: dict[str, list] = {}
+    ev_by_candidate: dict = {}
     for ev in evidence:
         if ev.candidate_id:
             ev_by_candidate.setdefault(ev.candidate_id, []).append(ev)
@@ -150,6 +161,8 @@ def render_report(
     for c in candidates:
         ev_items = []
         for ev in ev_by_candidate.get(c.candidate_id, []):
+            if ev.relative_path is None:
+                continue
             ev_path = revision_dir / ev.relative_path
             ev_items.append({
                 "kind": ev.kind,
@@ -176,9 +189,15 @@ def render_report(
         })
 
     media_path = Path(source.path)
-    # Use just filename for safety — never expose user's full directory
-    media_rel_path = media_path.name
+    # B10: compute relative path from report_dir to media file, POSIX separators
+    try:
+        rel = os.path.relpath(str(media_path), str(report_dir))
+        media_rel_path = Path(rel).as_posix()
+    except ValueError:
+        # on Windows, relpath can fail across drives — fall back to filename only
+        media_rel_path = media_path.name
 
+    media_abs_path = str(media_path.resolve())
     duration_s = f"{source.duration_seconds:.3f}s" if source.duration_seconds else "unknown"
 
     env = Environment(loader=BaseLoader())
@@ -188,6 +207,7 @@ def render_report(
         duration_s=duration_s,
         revision_id=revision_id,
         media_rel_path=media_rel_path,
+        media_abs_path=media_abs_path,
         candidate_count=len(candidates),
         candidate_rows=candidate_rows,
         shots=shot_rows,
@@ -196,7 +216,6 @@ def render_report(
         validation_issues=[i.model_dump() for i in (validation.issues if validation else [])],
     )
 
-    import os, tempfile
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(report_dir), suffix=".tmp.html")
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:

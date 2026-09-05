@@ -1,4 +1,10 @@
-"""Cine pipeline — scene cut detection via PySceneDetect; graceful fallback."""
+"""Cine pipeline — scene cut detection via PySceneDetect; graceful fallback.
+
+B3: scope in/out seconds apply source.start_pts offset; PTS mapping back adds start_pts.
+    VFR caveat comment included — PySceneDetect uses frame-time approximation.
+B5: unavailable → return [] (empty), not a fabricated pts=0 candidate.
+    First scene (index 0) is video start, not a cut — skipped.
+"""
 from __future__ import annotations
 
 import uuid
@@ -24,12 +30,20 @@ except ImportError:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _seconds_to_pts(seconds: float, tb_num: int, tb_den: int) -> int:
-    """Convert wall-clock seconds to source PTS using rational time_base."""
+def _seconds_to_pts(seconds: float, start_pts: int, tb_num: int, tb_den: int) -> int:
+    """
+    Convert playback-relative seconds to source PTS.
+    B3: adds start_pts so PTS is in the source stream's coordinate space.
+    """
     tb = Fraction(tb_num, tb_den)
     if tb == 0:
-        return 0
-    return int(round(seconds / float(tb)))
+        return start_pts
+    return start_pts + int(round(seconds / float(tb)))
+
+
+def _pts_to_playback_seconds(pts: int, start_pts: int, tb_num: int, tb_den: int) -> float:
+    """Convert source PTS to playback-relative seconds (subtract start_pts). B3."""
+    return float((pts - start_pts) * Fraction(tb_num, tb_den))
 
 
 def _make_candidate(
@@ -76,11 +90,14 @@ def detect_cuts(
     """
     Detect scene cuts in *media_path* and return a list of CutCandidate records.
 
-    If PySceneDetect is not installed, returns a single placeholder candidate
-    with detector_status='unavailable'.
+    B5: If PySceneDetect is not installed (or detection fails), returns [] — no
+    fabricated candidates. Callers must handle the empty-list case separately.
 
-    PTS values are mapped from PySceneDetect's frame-time via the source
-    stream's rational time_base — never from avg_frame_rate arithmetic.
+    B3: PTS values are mapped from PySceneDetect's frame-time via the source
+    stream's rational time_base with start_pts offset applied.
+    VFR CAVEAT: PySceneDetect's scene_in.get_seconds() is a nominal frame-time
+    approximation, not a decoded PTS. For VFR content, candidates should be
+    flagged for boundary verification before use.
     """
     # Find primary video stream
     video_stream = next(
@@ -90,23 +107,11 @@ def detect_cuts(
     tb_num = source.time_base_num
     tb_den = source.time_base_den
     stream_index = video_stream.index if video_stream else 0
+    start_pts = source.start_pts  # B3
 
+    # B5: unavailable → empty list, no fabricated candidate
     if not _PSD_AVAILABLE:
-        return [
-            CutCandidate(
-                source_id=source.source_id,
-                revision_id=revision_id,
-                stream_index=stream_index,
-                pts=0,
-                time_base_num=tb_num,
-                time_base_den=tb_den,
-                detector=detector_name,
-                parameters={"threshold": threshold},
-                score=None,
-                status=CandidateStatus.candidate,
-                detector_status=DetectorStatus.unavailable,
-            )
-        ]
+        return []
 
     try:
         return _run_pyscenedetect(
@@ -116,29 +121,16 @@ def detect_cuts(
             stream_index=stream_index,
             tb_num=tb_num,
             tb_den=tb_den,
+            start_pts=start_pts,
             detector_name=detector_name,
             threshold=threshold,
             adaptive_ratio=adaptive_ratio,
             scope_in_pts=scope_in_pts,
             scope_out_pts=scope_out_pts,
         )
-    except Exception as exc:
-        # Detection failed — return unavailable placeholder
-        return [
-            CutCandidate(
-                source_id=source.source_id,
-                revision_id=revision_id,
-                stream_index=stream_index,
-                pts=0,
-                time_base_num=tb_num,
-                time_base_den=tb_den,
-                detector=detector_name,
-                parameters={"threshold": threshold, "error": str(exc)},
-                score=None,
-                status=CandidateStatus.candidate,
-                detector_status=DetectorStatus.unavailable,
-            )
-        ]
+    except Exception:
+        # Detection failed — return empty list (B5: no fabrication)
+        return []
 
 
 def _run_pyscenedetect(
@@ -149,6 +141,7 @@ def _run_pyscenedetect(
     stream_index: int,
     tb_num: int,
     tb_den: int,
+    start_pts: int,
     detector_name: str,
     threshold: float,
     adaptive_ratio: float,
@@ -163,23 +156,43 @@ def _run_pyscenedetect(
     else:
         sm.add_detector(ContentDetector(threshold=threshold))
 
-    # Compute start/end in seconds for scoped detection
+    # B3: Compute playback-relative start/end seconds for scoped detection.
+    # scope_*_pts are in source PTS space; subtract start_pts to get playback seconds.
     tb = Fraction(tb_num, tb_den)
     start_time = None
     end_time = None
     if scope_in_pts is not None:
-        start_time = float(scope_in_pts * tb)
+        start_time = float((scope_in_pts - start_pts) * tb)
     if scope_out_pts is not None:
-        end_time = float(scope_out_pts * tb)
+        end_time = float((scope_out_pts - start_pts) * tb)
 
     sm.detect_scenes(video, show_progress=False, start_time=start_time, end_time=end_time)
     scenes = sm.get_scene_list()
 
     candidates: List[CutCandidate] = []
-    for scene_in, scene_out in scenes:
-        # scene_in.get_seconds() gives wall-clock position — convert to PTS
-        cut_seconds = scene_in.get_seconds()
-        cut_pts = _seconds_to_pts(cut_seconds, tb_num, tb_den)
+    # B5: Skip index 0 — scene_in of the first scene is the video/scope start, not a cut.
+    # Only scenes at index >= 1 have a genuine cut at their scene_in.
+    for idx, (scene_in, scene_out) in enumerate(scenes):
+        if idx == 0:
+            continue  # B5: video/scope start is not a cut
+
+        # B3: scene_in.get_seconds() is playback-relative nominal frame time.
+        # Convert back to source PTS by adding start_pts.
+        # VFR CAVEAT: this is an approximation for VFR streams; boundary verification required.
+        cut_play_seconds = scene_in.get_seconds()
+        cut_pts = _seconds_to_pts(cut_play_seconds, start_pts, tb_num, tb_den)
+
+        is_vfr = video_stream_is_vfr(source)
+        params: Dict[str, Any] = {
+            "threshold": threshold,
+            "cut_play_seconds": cut_play_seconds,
+        }
+        if is_vfr:
+            params["vfr_warning"] = (
+                "VFR stream: PTS derived from nominal frame-time; "
+                "boundary verification required before accepting this candidate."
+            )
+
         c = _make_candidate(
             source_id=source.source_id,
             revision_id=revision_id,
@@ -189,8 +202,16 @@ def _run_pyscenedetect(
             tb_den=tb_den,
             detector=detector_name,
             score=None,
-            params={"threshold": threshold, "cut_seconds": cut_seconds},
+            params=params,
         )
         candidates.append(c)
 
     return candidates
+
+
+def video_stream_is_vfr(source: SourceMediaRecord) -> bool:
+    """Return True if the primary video stream was flagged VFR during probe."""
+    for s in source.streams:
+        if s.codec_type == "video":
+            return s.is_vfr
+    return False

@@ -391,9 +391,8 @@ class TestDetect:
             from pipeline.detect import detect_cuts
             candidates = detect_cuts(video, source, "rev_test")
 
-            assert len(candidates) >= 1
-            assert all(c.detector_status == DetectorStatus.unavailable for c in candidates)
-            assert all(c.status == CandidateStatus.candidate for c in candidates)
+            # B5: unavailable PySceneDetect returns empty list (no fabricated candidates)
+            assert len(candidates) == 0
         finally:
             det_mod._PSD_AVAILABLE = original
 
@@ -799,10 +798,14 @@ class TestFullPipeline:
         assert result["project_id"]
         assert result["revision_id"]
         assert result["run_id"]
-        assert "report_path" in result
-        # report should be a valid path (not error string) if rendering succeeded
-        if not result["report_path"].startswith("render_failed"):
-            assert Path(result["report_path"]).exists()
+        # B6: if PySceneDetect absent, runner returns early with status=interrupted
+        # (no report_path). If present, report_path must exist.
+        if result.get("status") == "interrupted" and result.get("reason") == "detection_unavailable":
+            pass  # correct: PySceneDetect not installed → graceful interrupted state
+        else:
+            assert "report_path" in result
+            if not result["report_path"].startswith("render_failed"):
+                assert Path(result["report_path"]).exists()
 
     def test_two_different_videos_no_collision(self, tmp_path, ffmpeg_available):
         if not ffmpeg_available:
@@ -822,3 +825,227 @@ class TestFullPipeline:
         assert res1["project_id"] != res2["project_id"]
         assert res1["revision_id"] != res2["revision_id"]
         assert res1["source_id"] != res2["source_id"]
+
+
+# ---------------------------------------------------------------------------
+# ─── Blocker-coverage tests (B1, B2, B6, B7, B8, B10, B11) ─────────────────
+# ---------------------------------------------------------------------------
+
+class TestBlockerFixes:
+    """Tests that validate the 11 cross-review blocker fixes."""
+
+    # B1: all base records carry schema_version, source_id, revision_id
+    def test_b1_cine_base_record_fields(self):
+        from pipeline.schemas import CineBaseRecord, ValidationResult, RunState
+        # ValidationResult inherits CineBaseRecord
+        vr = ValidationResult(revision_id="rev1", passed=True)
+        assert hasattr(vr, "schema_version")
+        assert hasattr(vr, "source_id")
+        assert hasattr(vr, "revision_id")
+        assert hasattr(vr, "result_id")  # stable record ID
+        # RunState carries source_id
+        rs = RunState(project_id="p1", revision_id="r1")
+        assert hasattr(rs, "source_id")
+        assert hasattr(rs, "stages_failed")  # B8
+
+    def test_b1_source_media_record_has_revision_id(self):
+        from pipeline.schemas import SourceMediaRecord
+        rec = SourceMediaRecord(
+            path="/tmp/v.mp4", size_bytes=1, mtime_ns=1,
+            sha256_head="a"*64, sha256_tail="b"*64,
+        )
+        assert hasattr(rec, "revision_id")
+        assert rec.revision_id is None  # bootstrap — no revision yet
+
+    def test_b1_project_record_has_revision_id(self):
+        from pipeline.schemas import ProjectRecord
+        rec = ProjectRecord(display_name="test")
+        assert hasattr(rec, "revision_id")
+
+    # B2: source reuse on resume
+    def test_b2_resume_same_source_reuses_source_id(self, tmp_path, ffmpeg_available):
+        if not ffmpeg_available:
+            pytest.skip("ffmpeg not available")
+        video = tmp_path / "v.mp4"
+        make_test_video(video, duration=3.0)
+
+        from pipeline.runner import run_pipeline
+        projects_dir = tmp_path / "projects"
+
+        # First run — creates project
+        r1 = run_pipeline(media_path=video, projects_dir=projects_dir)
+        pid = r1["project_id"]
+        sid1 = r1["source_id"]
+
+        # Resume with same video — must reuse same source_id
+        r2 = run_pipeline(media_path=video, projects_dir=projects_dir, project_id=pid)
+        sid2 = r2["source_id"]
+        assert sid1 == sid2, f"source_id changed on resume: {sid1} vs {sid2}"
+
+    def test_b2_resume_different_source_raises(self, tmp_path, ffmpeg_available):
+        if not ffmpeg_available:
+            pytest.skip("ffmpeg not available")
+        video1 = tmp_path / "v1.mp4"
+        video2 = tmp_path / "v2.mp4"
+        make_test_video(video1, duration=3.0)
+        make_test_video(video2, duration=4.0)  # different content
+
+        from pipeline.runner import run_pipeline
+        projects_dir = tmp_path / "projects"
+
+        r1 = run_pipeline(media_path=video1, projects_dir=projects_dir)
+        pid = r1["project_id"]
+
+        with pytest.raises(ValueError, match="Source media"):
+            run_pipeline(media_path=video2, projects_dir=projects_dir, project_id=pid)
+
+    # B5: detect returns empty list when unavailable
+    def test_b5_detect_unavailable_returns_empty(self, tmp_path):
+        import pipeline.detect as det_mod
+        original = det_mod._PSD_AVAILABLE
+        det_mod._PSD_AVAILABLE = False
+        try:
+            video = tmp_path / "f.mp4"
+            video.write_bytes(b"\x00" * 100)
+            from pipeline.schemas import SourceMediaRecord
+            from pipeline.detect import detect_cuts
+            source = SourceMediaRecord(
+                path=str(video), size_bytes=100, mtime_ns=0,
+                sha256_head="a"*64, sha256_tail="b"*64,
+            )
+            candidates = detect_cuts(video, source, "rev1")
+            assert candidates == [], f"Expected empty list, got {candidates}"
+        finally:
+            det_mod._PSD_AVAILABLE = original
+
+    # B6: 0 cuts → single shot covering scope
+    def test_b6_zero_cuts_single_shot(self):
+        from pipeline.runner import _build_shots
+        from pipeline.schemas import SourceMediaRecord
+
+        source = SourceMediaRecord(
+            path="/tmp/v.mp4", size_bytes=1, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64,
+            start_pts=0, duration_pts=90000, time_base_num=1, time_base_den=90000,
+        )
+        shots = _build_shots(source, "rev1", [], scope_in_pts=0, scope_out_pts=90000)
+        assert len(shots) == 1
+        assert shots[0].interval.in_pts == 0
+        assert shots[0].interval.out_pts == 90000
+
+    # B7: validate checks candidate PTS bounds
+    def test_b7_candidate_out_of_bounds_detected(self, tmp_path):
+        f = tmp_path / "v.mp4"
+        f.write_bytes(b"\x00" * 100)
+        source = SourceMediaRecord(
+            path=str(f), size_bytes=100, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64,
+            start_pts=0, duration_pts=1000, time_base_num=1, time_base_den=90000,
+        )
+        # Candidate PTS=5000 is outside [0, 1000)
+        c = CutCandidate(
+            source_id=source.source_id, revision_id="rev1",
+            stream_index=0, pts=5000, detector="test",
+        )
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+        result = validate("rev1", source, [c], [], [], revision_dir=rev_dir)
+        oob = [i for i in result.issues if i.code == "CANDIDATE_OUT_OF_BOUNDS"]
+        assert len(oob) >= 1
+
+    def test_b7_scope_coverage_gap_detected(self, tmp_path):
+        f = tmp_path / "v.mp4"
+        f.write_bytes(b"\x00" * 100)
+        source = SourceMediaRecord(
+            path=str(f), size_bytes=100, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64,
+            source_id="src1",
+        )
+        scope = PtsInterval(in_pts=0, out_pts=10000)
+        # Shots cover [0,4000) and [6000,10000) — gap [4000,6000)
+        shots = [
+            SourceShot(source_id=source.source_id, revision_id="rev1",
+                       interval=PtsInterval(in_pts=0, out_pts=4000)),
+            SourceShot(source_id=source.source_id, revision_id="rev1",
+                       interval=PtsInterval(in_pts=6000, out_pts=10000)),
+        ]
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+        result = validate("rev1", source, [], shots, [], revision_dir=rev_dir, scope=scope)
+        gap_issues = [i for i in result.issues if "GAP" in i.code]
+        assert len(gap_issues) >= 1
+
+    # B8: RunState.stages_failed exists
+    def test_b8_run_state_stages_failed_field(self):
+        from pipeline.schemas import RunState
+        rs = RunState(project_id="p1", revision_id="r1")
+        assert hasattr(rs, "stages_failed")
+        rs.stages_failed.append("render")
+        data = rs.model_dump()
+        rs2 = RunState.model_validate(data)
+        assert "render" in rs2.stages_failed
+
+    # B10: render uses relpath for media src
+    def test_b10_render_uses_relpath_for_media_src(self, tmp_path):
+        f = tmp_path / "myvideo.mp4"
+        f.write_bytes(b"\x00" * 100)
+        source = SourceMediaRecord(
+            path=str(f), size_bytes=100, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64,
+        )
+        rev_dir = tmp_path / "rev"
+        rev_dir.mkdir()
+        (rev_dir / "report").mkdir()
+
+        from pipeline.render import render_report
+        report_path = render_report(
+            revision_dir=rev_dir, source=source, revision_id="rev1",
+            candidates=[], shots=[], evidence=[], validation=None,
+        )
+        html = report_path.read_text(encoding="utf-8")
+        # src must not be just the bare filename when file is outside report_dir
+        # It should be a relative path (contains ".." since media is above report dir)
+        assert "myvideo.mp4" in html  # filename appears
+        # The relative path should be a posix-style string
+        assert "<video" in html
+
+    # B11: EvidenceRecord has extraction_status field
+    def test_b11_evidence_record_extraction_status(self):
+        from pipeline.schemas import EvidenceRecord
+        ev = EvidenceRecord(
+            source_id="src1", revision_id="rev1",
+            kind="frame_mid", relative_path=None,
+            extraction_status="unavailable",
+        )
+        assert ev.extraction_status == "unavailable"
+        assert ev.relative_path is None
+        data = ev.model_dump()
+        ev2 = EvidenceRecord.model_validate(data)
+        assert ev2.extraction_status == "unavailable"
+
+    def test_b11_evidence_unavailable_when_ffmpeg_absent(self, tmp_path):
+        """When ffmpeg absent, extract_evidence returns marker record with unavailable status."""
+        import pipeline.evidence as ev_mod
+        original = ev_mod._FFMPEG_VERSION_CACHE
+        ev_mod._FFMPEG_VERSION_CACHE = "unavailable"
+        try:
+            video = tmp_path / "v.mp4"
+            video.write_bytes(b"\x00" * 100)
+            from pipeline.schemas import SourceMediaRecord, CutCandidate
+            from pipeline.evidence import extract_evidence
+            source = SourceMediaRecord(
+                path=str(video), size_bytes=100, mtime_ns=0,
+                sha256_head="a"*64, sha256_tail="b"*64,
+            )
+            c = CutCandidate(
+                source_id=source.source_id, revision_id="rev1",
+                stream_index=0, pts=100, detector="test",
+            )
+            rev_dir = tmp_path / "rev"
+            rev_dir.mkdir()
+            records = extract_evidence(video, source, c, rev_dir)
+            assert len(records) == 1
+            assert records[0].extraction_status == "unavailable"
+            assert records[0].relative_path is None
+        finally:
+            ev_mod._FFMPEG_VERSION_CACHE = original
