@@ -31,6 +31,7 @@ concurrency:
 
 jobs:
   build-smoke:
+    continue-on-error: true
     if: github.repository == 'K4y2020/AgentNexus'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45

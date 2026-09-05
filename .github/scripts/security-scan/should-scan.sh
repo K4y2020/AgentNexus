@@ -103,6 +103,16 @@ author_is_maintainer() {
   return 1
 }
 
+# Check if author is repo owner
+REPO_OWNER=$(echo "${REPO:-}" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+if [[ -n "$REPO_OWNER" && -n "${GH_TOKEN:-}" && -n "${PR:-}" ]]; then
+  author_lc=$(gh pr view "$PR" --repo "$REPO" --json author --jq '.author.login' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  if [[ -n "$author_lc" && "$author_lc" == "$REPO_OWNER" ]]; then
+    emit false "trusted author (repository owner)"
+    exit 0
+  fi
+fi
+
 case "${AUTHOR_ASSOCIATION:-}" in
   OWNER | MEMBER | COLLABORATOR)
     emit false "trusted author (author_association=$AUTHOR_ASSOCIATION)"

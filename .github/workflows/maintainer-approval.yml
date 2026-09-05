@@ -66,6 +66,13 @@ jobs:
           AUTHOR=$(gh pr view "$PR" --repo "$REPO" --json author --jq '.author.login')
           AUTHOR_LC=$(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]')
 
+          # Case 0: repository owner is always trusted
+          REPO_OWNER=$(echo "$REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+          if [[ -n "$REPO_OWNER" && "$REPO_OWNER" == "$AUTHOR_LC" ]]; then
+            echo "Author @$AUTHOR is the repository owner."
+            exit 0
+          fi
+
           # Case 1: author is a maintainer.
           for m in $MAINTAINERS_LC; do
             if [[ "$m" == "$AUTHOR_LC" ]]; then

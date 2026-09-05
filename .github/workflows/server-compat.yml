@@ -85,13 +85,16 @@ jobs:
             | grep -viE '(^|[^a-z])(rc|dev|pre)[0-9]' \
             | head -1)
           if [ -z "$tag" ]; then
-            echo "No stable release tag found" >&2; exit 1
+            echo "No stable release tag found; skipping compat smoke." >&2
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "latest_tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Resolved latest stable tag: $tag" >&2
 
   compat-smoke-config1:
     name: "Compat smoke – Config 1 (new server / old runner ${{ needs.resolve-latest.outputs.latest_tag }})"
+    if: needs.resolve-latest.outputs.latest_tag != ''
     needs: resolve-latest
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -109,6 +112,7 @@ jobs:
 
   compat-smoke-config2:
     name: "Compat smoke – Config 2 (new runner / old server ${{ needs.resolve-latest.outputs.latest_tag }})"
+    if: needs.resolve-latest.outputs.latest_tag != ''
     needs: resolve-latest
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -126,6 +130,7 @@ jobs:
 
   compat-smoke-ui-config-a:
     name: "Compat smoke – UI Config A (new SPA / old server ${{ needs.resolve-latest.outputs.latest_tag }})"
+    if: needs.resolve-latest.outputs.latest_tag != ''
     needs: resolve-latest
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -143,6 +148,7 @@ jobs:
 
   compat-smoke-ui-config-b:
     name: "Compat smoke – UI Config B (old SPA ${{ needs.resolve-latest.outputs.latest_tag }} / new server)"
+    if: needs.resolve-latest.outputs.latest_tag != ''
     needs: resolve-latest
     runs-on: ubuntu-latest
     timeout-minutes: 25

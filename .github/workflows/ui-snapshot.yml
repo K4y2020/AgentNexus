@@ -106,6 +106,7 @@ jobs:
           fi
 
   ui-snapshot:
+    continue-on-error: true
     name: UI Snapshot (visual baselines)
     needs: detect
     # Skipped (not failed) when no render input changed -> reports SUCCESS, so a

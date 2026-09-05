@@ -41,6 +41,7 @@ jobs:
           python-version: "3.11"
 
       - name: Compute and apply size label
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

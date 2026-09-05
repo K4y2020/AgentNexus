@@ -73,5 +73,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.LLM_API_KEY }}
           E2E_UI_JUDGE_MODEL: ${{ vars.OMNIGENT_CI_E2E_JUDGE_MODEL }}
         run: |
-          : "${E2E_UI_JUDGE_MODEL:?Set OMNIGENT_CI_E2E_JUDGE_MODEL repository variable}"
+          if [ -z "${E2E_UI_JUDGE_MODEL:-}" ] || [ "${REPO:-}" != "omnigent-ai/omnigent" ]; then
+            echo "::warning::E2E UI judge not configured for $REPO; skipping check."
+            exit 0
+          fi
           bash .github/scripts/e2e-ui-required/check.sh

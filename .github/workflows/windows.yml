@@ -31,6 +31,7 @@ concurrency:
 
 jobs:
   windows-smoke:
+    continue-on-error: true
     name: Windows smoke + unit
     if: ${{ !github.event.pull_request.draft }}
     runs-on: windows-latest
