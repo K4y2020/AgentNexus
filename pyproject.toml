@@ -533,6 +533,9 @@ target-version = "py310"
 extend-exclude = [
     "omnigent/inner/databricks_mcps/google",
     "assistant-ui",
+    # Cine is a self-contained example skill with its own pipeline tests;
+    # keep the repository-wide production lint policy scoped to omnigent.
+    "examples/cine",
     # Deliberately broken notebook fixture; Ruff must not parse it as JSON.
     "web/src/shell/__fixtures__/03_broken.ipynb",
     # Protobuf-generated code (DO NOT EDIT); not ours to restyle.
