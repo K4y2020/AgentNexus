@@ -180,6 +180,26 @@ def probe_media(path: Path, *, with_vfr_check: bool = True) -> SourceMediaRecord
         nb_frames_raw = s.get("nb_frames")
         nb_frames = int(nb_frames_raw) if nb_frames_raw not in (None, "N/A") else None
 
+        # W1: prefer duration_ts integer timestamps when present and non-zero
+        stream_dur_pts = None
+        dur_ts_raw = s.get("duration_ts")
+        if dur_ts_raw not in (None, "N/A"):
+            try:
+                val = int(dur_ts_raw)
+                if val != 0:
+                    stream_dur_pts = val
+            except (ValueError, TypeError):
+                pass
+        if stream_dur_pts is None:
+            dur_s_raw = s.get("duration")
+            if dur_s_raw not in (None, "N/A"):
+                tb = Fraction(tb_num, tb_den)
+                if tb != 0:
+                    try:
+                        stream_dur_pts = int(round(Fraction(str(dur_s_raw)) / tb))
+                    except Exception:
+                        pass
+
         is_vfr = False
         if with_vfr_check and s.get("codec_type") == "video" and packets:
             is_vfr = _detect_vfr(packets, s.get("index", 0))
@@ -195,12 +215,13 @@ def probe_media(path: Path, *, with_vfr_check: bool = True) -> SourceMediaRecord
             time_base_num=tb_num,
             time_base_den=tb_den,
             start_pts=start_pts,
+            duration_pts=stream_dur_pts,
             nb_frames=nb_frames,
             is_vfr=is_vfr,
             extra={k: v for k, v in s.items() if k not in {
                 "index", "codec_type", "codec_name", "width", "height",
                 "avg_frame_rate", "r_frame_rate", "time_base",
-                "start_pts", "nb_frames",
+                "start_pts", "duration_ts", "duration", "nb_frames",
             }},
         )
         streams.append(si)
@@ -209,9 +230,8 @@ def probe_media(path: Path, *, with_vfr_check: bool = True) -> SourceMediaRecord
         if s.get("codec_type") == "video" and primary_duration_pts is None:
             primary_tb_num, primary_tb_den = tb_num, tb_den
             primary_start_pts = start_pts or 0
-            dur_raw = s.get("duration_ts")
-            if dur_raw not in (None, "N/A"):
-                primary_duration_pts = int(dur_raw)
+            if stream_dur_pts is not None and stream_dur_pts != 0:
+                primary_duration_pts = stream_dur_pts
 
     # Fallback: use format duration if stream duration not available
     if primary_duration_pts is None:
@@ -220,7 +240,10 @@ def probe_media(path: Path, *, with_vfr_check: bool = True) -> SourceMediaRecord
         if dur_s and dur_s != "N/A":
             tb = Fraction(primary_tb_num, primary_tb_den)
             if tb != 0:
-                primary_duration_pts = int(float(dur_s) / float(tb))
+                try:
+                    primary_duration_pts = int(round(Fraction(str(dur_s)) / tb))
+                except Exception:
+                    primary_duration_pts = int(round(float(dur_s) / float(tb)))
 
     return SourceMediaRecord(
         path=str(path),

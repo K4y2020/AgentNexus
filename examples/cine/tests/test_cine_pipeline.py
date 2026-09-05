@@ -196,7 +196,8 @@ class TestProjectLifecycle:
         assert dir1 != dir2
         assert dir1.exists() and dir2.exists()
         # No cross-contamination: Film A's project.json not in Film B's dir
-        assert not (dir2 / "project.json").read_text().find(rec1.project_id) != -1 or True  # they're distinct
+        assert rec1.project_id not in (dir2 / "project.json").read_text()
+        assert rec2.project_id not in (dir1 / "project.json").read_text()
 
     def test_no_input_raises(self):
         with pytest.raises((ValueError, TypeError)):
@@ -524,11 +525,15 @@ class TestEvidence:
             detector="test",
         )
         records = extract_evidence(video, source, c, rev_dir)
+        assert len(records) > 0
         for ev in records:
             # Each argv element should be a string, not a space-concatenated blob
             assert all(isinstance(a, str) for a in ev.ffmpeg_argv)
-            assert all(" " not in a or a.startswith("-") or a == str(video) or Path(a).exists() or True
-                       for a in ev.ffmpeg_argv)
+            assert ev.ffmpeg_argv[0] == "ffmpeg"
+            assert "-i" in ev.ffmpeg_argv
+            assert str(video) in ev.ffmpeg_argv
+            for a in ev.ffmpeg_argv:
+                assert not any(op in a for op in [" -i ", " -ss ", " -c ", "&&", "|", ";"])
 
 
 # ---------------------------------------------------------------------------
@@ -1351,3 +1356,390 @@ class TestRound2Fixes:
         # render must NOT have been called
         assert not render_called, "render_report should not be called when validation fails"
 
+
+    # ── B3: detect VFR parameters and docstring presence ──────────────────
+
+    def test_b3_detect_docstrings_state_nominal_frame_time(self):
+        """B3: detect_cuts and _run_pyscenedetect docstrings state nominal frame-time for VFR."""
+        from pipeline.detect import detect_cuts, _run_pyscenedetect
+        doc_cuts = " ".join((detect_cuts.__doc__ or "").split())
+        doc_run = " ".join((_run_pyscenedetect.__doc__ or "").split())
+        assert "PySceneDetect supplies nominal frame-time rather than decoded packet PTS" in doc_cuts
+        assert "VFR cuts are derived from nominal frame-times" in doc_cuts
+        assert "packet-level verification" in doc_cuts
+        assert "PySceneDetect supplies nominal frame-time rather than decoded packet PTS" in doc_run
+        assert "VFR cuts are derived from nominal frame-times" in doc_run
+
+    def test_b3_detect_vfr_parameters(self, tmp_path, monkeypatch):
+        """B3: when stream is VFR, candidates are tagged with vfr_pts_approximate and requires_pts_verification."""
+        import pipeline.detect as det_mod
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+
+        class FakeSceneTime:
+            def __init__(self, sec):
+                self._sec = sec
+            def get_seconds(self):
+                return self._sec
+
+        class FakeSceneManager:
+            def add_detector(self, detector):
+                pass
+            def detect_scenes(self, video, **kwargs):
+                pass
+            def get_scene_list(self):
+                return [
+                    (FakeSceneTime(0.0), FakeSceneTime(2.0)),
+                    (FakeSceneTime(2.0), FakeSceneTime(4.0)),
+                ]
+
+        original_psd = det_mod._PSD_AVAILABLE
+        det_mod._PSD_AVAILABLE = True
+        had_open_video = hasattr(det_mod, "open_video")
+        had_sm = hasattr(det_mod, "SceneManager")
+        try:
+            setattr(det_mod, "open_video", lambda p: None)
+            setattr(det_mod, "SceneManager", FakeSceneManager)
+            setattr(det_mod, "ContentDetector", lambda threshold: None)
+            setattr(det_mod, "AdaptiveDetector", lambda adaptive_threshold: None)
+
+            stream = StreamInfo(
+                index=0, codec_type="video", codec_name="h264",
+                time_base_num=1, time_base_den=90000,
+                is_vfr=True,
+            )
+            source = SourceMediaRecord(
+                path=str(tmp_path / "vfr.mp4"), size_bytes=100, mtime_ns=0,
+                sha256_head="a" * 64, sha256_tail="b" * 64,
+                streams=[stream],
+                start_pts=0,
+                time_base_num=1, time_base_den=90000,
+            )
+            res = det_mod.detect_cuts(tmp_path / "vfr.mp4", source, "rev_vfr")
+            assert res.status == "ok"
+            assert len(res.candidates) == 1
+            c = res.candidates[0]
+            assert c.parameters.get("vfr_pts_approximate") is True
+            assert c.parameters.get("requires_pts_verification") is True
+            assert "vfr_warning" in c.parameters
+        finally:
+            det_mod._PSD_AVAILABLE = original_psd
+            for attr in ["open_video", "SceneManager", "ContentDetector", "AdaptiveDetector"]:
+                if hasattr(det_mod, attr):
+                    delattr(det_mod, attr)
+
+    # ── B4: boundary clip clamping to media duration ─────────────────────
+
+    def test_b4_boundary_clip_clamping_to_source_duration(self, tmp_path, monkeypatch):
+        """B4: extract_evidence clamps boundary clip duration to not exceed source media duration."""
+        from pipeline.evidence import extract_evidence
+        from pipeline.schemas import CutCandidate, SourceMediaRecord, StreamInfo
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            time_base_num=1, time_base_den=90000,
+            start_pts=0, duration_pts=270000,
+        )
+        source = SourceMediaRecord(
+            path=str(tmp_path / "short.mp4"), size_bytes=100, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+            start_pts=0,
+            duration_pts=270000,
+            time_base_num=1, time_base_den=90000,
+        )
+        rev_dir = tmp_path / "rev_b4"
+        rev_dir.mkdir()
+        (rev_dir / "evidence").mkdir()
+
+        candidate = CutCandidate(
+            source_id=source.source_id,
+            revision_id="rev_b4",
+            stream_index=0,
+            pts=225000,
+            time_base_num=1,
+            time_base_den=90000,
+            detector="test",
+        )
+
+        captured_clips = []
+        import pipeline.evidence as ev_mod
+        def mock_extract_clip(media_path, start_seconds, duration_seconds, output_path):
+            captured_clips.append((start_seconds, duration_seconds))
+            output_path.write_bytes(b"clipdata")
+            return ["ffmpeg", "-y", "-ss", f"{start_seconds:.6f}", "-i", str(media_path),
+                    "-t", f"{duration_seconds:.6f}", "-c", "copy", str(output_path)]
+
+        def mock_extract_frame(media_path, seek_seconds, output_path):
+            output_path.write_bytes(b"framedata")
+            return ["ffmpeg", "-y", "-ss", f"{seek_seconds:.6f}", "-i", str(media_path),
+                    "-frames:v", "1", "-q:v", "2", str(output_path)]
+
+        monkeypatch.setattr(ev_mod, "_ffmpeg_available", lambda: True)
+        monkeypatch.setattr(ev_mod, "_extract_clip", mock_extract_clip)
+        monkeypatch.setattr(ev_mod, "_extract_frame", mock_extract_frame)
+
+        records = extract_evidence(tmp_path / "short.mp4", source, candidate, rev_dir, clip_window_seconds=1.5)
+        clip_recs = [r for r in records if r.kind == "clip_boundary"]
+        assert len(clip_recs) == 1
+        clip = clip_recs[0]
+        assert len(captured_clips) == 1
+        start_sec, dur_sec = captured_clips[0]
+        assert start_sec == 1.0
+        assert round(dur_sec, 4) == 2.0
+        assert round(start_sec + dur_sec, 4) <= 3.0
+        assert clip.source_interval.out_seconds <= 3.0
+
+    # ── B10: rendered HTML no raw absolute paths & cross-drive fallback ──
+
+    def test_b10_html_no_data_source_abs_and_no_raw_path(self, tmp_path):
+        """B10: render_report does not leak raw absolute path or include data-source-abs."""
+        from pipeline.render import render_report
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            time_base_num=1, time_base_den=25,
+        )
+        secret_source = tmp_path / "secret_folder" / "my_movie.mp4"
+        secret_source.parent.mkdir(parents=True)
+        secret_source.write_bytes(b"0" * 50)
+
+        source = SourceMediaRecord(
+            path=str(secret_source),
+            size_bytes=50,
+            mtime_ns=0,
+            sha256_head="a" * 64,
+            sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        rev_dir = tmp_path / "rev_b10"
+        rev_dir.mkdir()
+
+        out_path = render_report(
+            revision_dir=rev_dir,
+            source=source,
+            revision_id="rev_b10",
+            candidates=[],
+            shots=[],
+            evidence=[],
+            validation=None,
+        )
+        html = out_path.read_text(encoding="utf-8")
+        assert "data-source-abs" not in html
+        assert str(secret_source) not in html
+
+    def test_b10_cross_drive_media_fallback(self, tmp_path, monkeypatch):
+        """B10: when relpath fails (e.g. cross-drive Windows), filename is used with fallback comment."""
+        from pipeline.render import render_report
+        from pipeline.schemas import SourceMediaRecord, StreamInfo
+        import os
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            time_base_num=1, time_base_den=25,
+        )
+        source = SourceMediaRecord(
+            path="D:\\foreign_drive\\videos\\alien.mp4",
+            size_bytes=100,
+            mtime_ns=0,
+            sha256_head="a" * 64,
+            sha256_tail="b" * 64,
+            streams=[stream],
+        )
+        rev_dir = tmp_path / "rev_cross"
+        rev_dir.mkdir()
+
+        def fake_relpath(path, start):
+            raise ValueError("path is on mount 'D:', start on mount 'C:'")
+        monkeypatch.setattr(os.path, "relpath", fake_relpath)
+
+        out_path = render_report(
+            revision_dir=rev_dir,
+            source=source,
+            revision_id="rev_cross",
+            candidates=[],
+            shots=[],
+            evidence=[],
+            validation=None,
+        )
+        html = out_path.read_text(encoding="utf-8")
+        assert '<source src="alien.mp4" type="video/mp4">' in html
+        assert "<!-- media not co-located; open report from the project directory -->" in html
+        assert "D:\\foreign_drive" not in html
+
+    # ── B11: unavailable evidence adds 'evidence' to stages_failed ────────
+
+    def test_b11_unavailable_evidence_adds_to_stages_failed(self, tmp_path, monkeypatch):
+        """B11: when ffmpeg is unavailable, 'evidence' is added to stages_failed."""
+        import pipeline.runner as runner_mod
+        import pipeline.evidence as ev_mod
+        from pipeline.detect import DetectionResult
+        from pipeline.schemas import CutCandidate, SourceMediaRecord, StreamInfo
+
+        media = tmp_path / "sample.mp4"
+        media.write_bytes(b"\x00" * 100)
+        projects = tmp_path / "projects"
+
+        stream = StreamInfo(
+            index=0, codec_type="video", codec_name="h264",
+            time_base_num=1, time_base_den=25,
+            duration_pts=250,
+        )
+        source = SourceMediaRecord(
+            path=str(media), size_bytes=100, mtime_ns=0,
+            sha256_head="a" * 64, sha256_tail="b" * 64,
+            streams=[stream],
+            duration_pts=250,
+            time_base_num=1, time_base_den=25,
+        )
+
+        cand = CutCandidate(
+            source_id=source.source_id,
+            revision_id="placeholder",
+            stream_index=0,
+            pts=100,
+            time_base_num=1,
+            time_base_den=25,
+            detector="test",
+        )
+
+        def mock_detect(m, s, rev_id, **kwargs):
+            cand.revision_id = rev_id
+            return DetectionResult(status="ok", candidates=[cand])
+
+        monkeypatch.setattr(runner_mod, "probe_media", lambda p: source)
+        monkeypatch.setattr(runner_mod, "detect_cuts", mock_detect)
+        monkeypatch.setattr(ev_mod, "_ffmpeg_available", lambda: False)
+
+        result = runner_mod.run_pipeline(media, projects)
+        assert result["candidate_count"] == 1
+        from pipeline.project import load_run
+        run_state = load_run(projects, result["project_id"], result["run_id"])
+        assert "evidence" in run_state.stages_failed
+
+    # ── W1: probe duration_ts exact calculation ──────────────────────────
+
+    def test_w1_duration_ts_exact_calculation(self, tmp_path, monkeypatch):
+        """W1: probe.py prefers duration_ts integer timestamps and exact Fraction calculation."""
+        import pipeline.probe as probe_mod
+
+        media = tmp_path / "probe_w1.mp4"
+        media.write_bytes(b"\x00" * 100)
+
+        fake_ffprobe_out = {
+            "streams": [
+                {
+                    "index": 0,
+                    "codec_type": "video",
+                    "codec_name": "h264",
+                    "time_base": "1/90000",
+                    "duration_ts": "900000",
+                    "duration": "9.999999",
+                }
+            ],
+            "format": {
+                "duration": "10.000000",
+            },
+        }
+
+        monkeypatch.setattr(probe_mod, "_ffprobe_available", lambda: True)
+        monkeypatch.setattr(probe_mod, "_run_ffprobe", lambda p: fake_ffprobe_out)
+        monkeypatch.setattr(probe_mod, "_run_ffprobe_no_packets", lambda p: fake_ffprobe_out)
+
+        source = probe_mod.probe_media(media, with_vfr_check=False)
+        assert source.duration_pts == 900000
+        assert source.duration_seconds == 10.0
+        assert source.streams[0].duration_pts == 900000
+        assert source.streams[0].duration_seconds == 10.0
+
+    # ── W2: PtsInterval rejects non-positive time_base ────────────────────
+
+    def test_w2_pts_interval_rejects_non_positive_time_base(self):
+        """W2: PtsInterval rejects non-positive time_base_num and time_base_den."""
+        from pipeline.schemas import PtsInterval
+        import pytest
+
+        with pytest.raises(ValueError, match="time_base"):
+            PtsInterval(in_pts=0, out_pts=100, time_base_num=0, time_base_den=1)
+
+        with pytest.raises(ValueError, match="time_base"):
+            PtsInterval(in_pts=0, out_pts=100, time_base_num=1, time_base_den=0)
+
+        with pytest.raises(ValueError, match="time_base"):
+            PtsInterval(in_pts=0, out_pts=100, time_base_num=-1, time_base_den=1)
+
+        with pytest.raises(ValueError, match="time_base"):
+            PtsInterval(in_pts=0, out_pts=100, time_base_num=1, time_base_den=-1)
+
+    # ── W3: path traversal rejected in project, evidence, render ──────────
+
+    def test_w3_path_traversal_rejected_in_project_evidence_render(self, tmp_path):
+        """W3: path traversal strings are rejected across project, evidence, and render."""
+        import pytest
+        from pipeline.project import project_root, revision_root, create_project
+        from pipeline.evidence import extract_evidence
+        from pipeline.render import render_report
+        from pipeline.schemas import CutCandidate, SourceMediaRecord, StreamInfo
+
+        with pytest.raises(ValueError, match="Path traversal"):
+            project_root(tmp_path, "../escape")
+        with pytest.raises(ValueError, match="Path separator"):
+            project_root(tmp_path, "sub/dir")
+        with pytest.raises(ValueError, match="Path separator"):
+            project_root(tmp_path, "sub\\dir")
+        with pytest.raises(ValueError, match="Illegal characters"):
+            project_root(tmp_path, "bad:name")
+        with pytest.raises(ValueError, match="Path traversal"):
+            revision_root(tmp_path, "proj", "../../bad")
+        with pytest.raises(ValueError, match="Path separator"):
+            create_project(tmp_path, "name", project_id="proj/1")
+
+        stream = StreamInfo(index=0, codec_type="video", codec_name="h264")
+        source = SourceMediaRecord(
+            source_id="src1", path="v.mp4", size_bytes=0, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64, streams=[stream],
+        )
+        bad_cand = CutCandidate(
+            source_id="src1", revision_id="rev1", candidate_id="../traversal",
+            stream_index=0, pts=100, detector="test",
+        )
+        with pytest.raises(ValueError, match="Path traversal"):
+            extract_evidence(tmp_path / "v.mp4", source, bad_cand, tmp_path)
+
+        with pytest.raises(ValueError, match="Path traversal"):
+            render_report(tmp_path, source, "../bad_rev", [], [], [], None)
+        with pytest.raises(ValueError, match="Path traversal"):
+            render_report(tmp_path, source, "rev1", [], [], [], None, report_filename="../hack.html")
+
+    # ── W4: Jinja autoescape and posix URLs ───────────────────────────────
+
+    def test_w4_jinja_autoescape_and_posix_urls(self, tmp_path):
+        """W4: Jinja autoescape prevents XSS and artifact URLs use forward slashes."""
+        from pipeline.render import render_report
+        from pipeline.schemas import CutCandidate, EvidenceRecord, SourceMediaRecord, StreamInfo
+
+        stream = StreamInfo(index=0, codec_type="video", codec_name="h264")
+        source = SourceMediaRecord(
+            path="safe.mp4", size_bytes=0, mtime_ns=0,
+            sha256_head="a"*64, sha256_tail="b"*64, streams=[stream],
+        )
+        rev_dir = tmp_path / "rev_w4"
+        (rev_dir / "evidence").mkdir(parents=True)
+        ev_file = rev_dir / "evidence" / "shot_01.jpg"
+        ev_file.write_bytes(b"jpg")
+
+        c = CutCandidate(
+            source_id="s1", revision_id="rev_w4", candidate_id="c1",
+            stream_index=0, pts=100, detector="<script>alert(1)</script>",
+        )
+        ev = EvidenceRecord(
+            source_id="s1", revision_id="rev_w4", candidate_id="c1",
+            kind="frame_pre", relative_path="evidence\\shot_01.jpg",
+        )
+
+        out = render_report(rev_dir, source, "rev_w4", [c], [], [ev], None)
+        html = out.read_text(encoding="utf-8")
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+        assert "../evidence/shot_01.jpg" in html
+        assert "evidence\\shot_01.jpg" not in html

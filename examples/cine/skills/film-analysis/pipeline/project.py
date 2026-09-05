@@ -19,8 +19,23 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers & Path Security (W3)
 # ---------------------------------------------------------------------------
+
+_ILLEGAL_ID_CHARS = set('<>:"/\\|?*\0')
+
+
+def validate_identifier(val: str, name: str = "identifier") -> str:
+    """Validate identifier against path traversal and illegal filesystem characters."""
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    if ".." in val:
+        raise ValueError(f"Path traversal detected in {name}: {val!r}")
+    if "/" in val or "\\" in val:
+        raise ValueError(f"Path separator detected in {name}: {val!r}")
+    if any(c in _ILLEGAL_ID_CHARS or ord(c) < 32 for c in val):
+        raise ValueError(f"Illegal characters detected in {name}: {val!r}")
+    return val
 
 def _atomic_write(path: Path, data: dict) -> None:
     """Write JSON atomically: temp file on same FS, then os.replace()."""
@@ -49,14 +64,19 @@ def _read_json(path: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 def project_root(projects_dir: Path, project_id: str) -> Path:
+    validate_identifier(project_id, "project_id")
     return projects_dir / project_id
 
 
 def revision_root(projects_dir: Path, project_id: str, revision_id: str) -> Path:
+    validate_identifier(project_id, "project_id")
+    validate_identifier(revision_id, "revision_id")
     return project_root(projects_dir, project_id) / "revisions" / revision_id
 
 
 def run_root(projects_dir: Path, project_id: str, run_id: str) -> Path:
+    validate_identifier(project_id, "project_id")
+    validate_identifier(run_id, "run_id")
     return project_root(projects_dir, project_id) / "runs" / run_id
 
 
@@ -102,6 +122,8 @@ def create_project(
     """
     if not display_name or not display_name.strip():
         raise ValueError("display_name must not be empty")
+    if project_id is not None:
+        validate_identifier(project_id, "project_id")
     pid = project_id or uuid.uuid4().hex
     root = project_root(projects_dir, pid)
     if root.exists():

@@ -211,7 +211,7 @@ def run_pipeline(
                 "candidate_count": 0,
             }
 
-        if detection.status == "failed":
+        elif detection.status == "failed":
             # Runtime detection error — mark failed
             run_state.status = RunStatus.failed
             run_state.error = "detection failed at runtime"
@@ -226,8 +226,10 @@ def run_pipeline(
                 "reason": "detection_failed",
                 "candidate_count": 0,
             }
-
-        candidates: List[CutCandidate] = detection.candidates
+        elif detection.status == "ok":
+            candidates: List[CutCandidate] = detection.candidates
+        else:
+            raise ValueError(f"Unexpected detection status: {detection.status!r}")
 
         run_state.stages_complete.append("detect")
         save_run(projects_dir, run_state)

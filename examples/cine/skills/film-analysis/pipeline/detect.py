@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, Literal, NamedTuple, Optional, Tuple
 
 from .schemas import CutCandidate, CandidateStatus, DetectorStatus, SourceMediaRecord
 
@@ -44,7 +44,7 @@ class DetectionResult(NamedTuple):
             "failed"      — runtime exception during detection; candidates is []
     candidates: list of CutCandidate records (empty for unavailable/failed)
     """
-    status: str
+    status: Literal["ok", "unavailable", "failed"]
     candidates: List[CutCandidate]
 
 
@@ -121,8 +121,9 @@ def detect_cuts(
 
     B3: PTS values are mapped from PySceneDetect's frame-time via the source
     stream's rational time_base with start_pts offset applied.
-    VFR CAVEAT: PySceneDetect's scene_in.get_seconds() is a nominal frame-time
-    approximation, not a decoded PTS. For VFR content, candidates are tagged
+    VFR CAVEAT: PySceneDetect supplies nominal frame-time rather than decoded packet PTS
+    (so VFR cuts are derived from nominal frame-times and require later packet-level
+    verification if strict packet PTS is needed). For VFR content, candidates are tagged
     vfr_pts_approximate=True and requires_pts_verification=True.
     """
     # Find primary video stream
@@ -175,6 +176,12 @@ def _run_pyscenedetect(
     scope_in_pts: Optional[int],
     scope_out_pts: Optional[int],
 ) -> List[CutCandidate]:
+    """Run PySceneDetect scene detection on media_path.
+
+    B3: PySceneDetect supplies nominal frame-time rather than decoded packet PTS
+    (so VFR cuts are derived from nominal frame-times and require later packet-level
+    verification if strict packet PTS is needed).
+    """
     video = open_video(str(media_path))
     sm = SceneManager()
 

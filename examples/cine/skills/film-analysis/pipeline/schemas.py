@@ -74,9 +74,18 @@ class PtsInterval(BaseModel):
     time_base_den: int = 1
 
     @model_validator(mode="after")
-    def _check_order(self) -> "PtsInterval":
+    def _validate_interval(self) -> "PtsInterval":
         if self.out_pts <= self.in_pts:
             raise ValueError(f"out_pts ({self.out_pts}) must be > in_pts ({self.in_pts})")
+        if self.time_base_num <= 0 or self.time_base_den <= 0:
+            raise ValueError(
+                f"time_base_num ({self.time_base_num}) and time_base_den ({self.time_base_den}) must be > 0"
+            )
+        tb = self.time_base
+        if tb.numerator <= 0 or tb.denominator <= 0:
+            raise ValueError(
+                f"time_base numerator ({tb.numerator}) and denominator ({tb.denominator}) must be > 0"
+            )
         return self
 
     @property
@@ -112,6 +121,7 @@ class StreamInfo(BaseModel):
     time_base_num: int = 1
     time_base_den: int = 1
     start_pts: Optional[int] = None
+    duration_pts: Optional[int] = None
     nb_frames: Optional[int] = None
     is_vfr: bool = False                   # set by probe.py after PTS analysis
     extra: Dict[str, Any] = Field(default_factory=dict)
@@ -119,6 +129,12 @@ class StreamInfo(BaseModel):
     @property
     def time_base(self) -> Fraction:
         return Fraction(self.time_base_num, self.time_base_den)
+
+    @property
+    def duration_seconds(self) -> Optional[float]:
+        if self.duration_pts is None:
+            return None
+        return float(self.duration_pts * self.time_base)
 
 
 # ---------------------------------------------------------------------------

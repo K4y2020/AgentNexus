@@ -20,6 +20,7 @@ from .schemas import (
     PtsInterval,
     SourceMediaRecord,
 )
+from .project import validate_identifier
 
 _FFMPEG_VERSION_CACHE: Optional[str] = None
 
@@ -196,6 +197,11 @@ def extract_evidence(
 
     Returns list of EvidenceRecord.
     """
+    # W3: validate identifiers against path traversal
+    validate_identifier(candidate.candidate_id, "candidate_id")
+    validate_identifier(candidate.revision_id, "revision_id")
+    validate_identifier(source.source_id, "source_id")
+
     # B11: unavailable → return marker record rather than empty list
     if not _ffmpeg_available():
         return [EvidenceRecord(

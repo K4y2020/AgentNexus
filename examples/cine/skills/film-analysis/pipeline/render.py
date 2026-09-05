@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import List, Optional
 
 from .schemas import CutCandidate, EvidenceRecord, SourceMediaRecord, SourceShot, ValidationResult
+from .project import validate_identifier
 
 try:
     from jinja2 import Environment, BaseLoader
@@ -55,6 +56,9 @@ img { max-height: 120px; margin: 2px; border: 1px solid #444; }
 <h2>Video Player</h2>
 <!-- B10: media_rel_path is os.path.relpath from report_dir to source; POSIX separators. -->
 <!-- B10: src is report-dir-relative path; open this file from the project report directory -->
+{% if cross_drive %}
+<!-- media not co-located; open report from the project directory -->
+{% endif %}
 <video controls>
   <source src="{{ media_rel_path }}" type="video/mp4">
   Media preview requires the source file to be served from the same location as this report.
@@ -146,6 +150,14 @@ def render_report(
     if not _JINJA2_OK:
         raise RuntimeError("Jinja2 is not installed; cannot render report")
 
+    # W3: validate identifiers against path traversal
+    validate_identifier(revision_id, "revision_id")
+    validate_identifier(report_filename, "report_filename")
+    for c in candidates:
+        validate_identifier(c.candidate_id, "candidate_id")
+    for sh in shots:
+        validate_identifier(sh.shot_id, "shot_id")
+
     report_dir = revision_dir / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
     out_path = report_dir / report_filename
@@ -163,9 +175,10 @@ def render_report(
             if ev.relative_path is None:
                 continue
             ev_path = revision_dir / ev.relative_path
+            rel_url = (Path("..") / Path(ev.relative_path)).as_posix()
             ev_items.append({
                 "kind": ev.kind,
-                "rel_path": str(Path("..") / ev.relative_path),
+                "rel_path": rel_url,
                 "exists": ev_path.exists(),
             })
         candidate_rows.append({
@@ -188,6 +201,7 @@ def render_report(
         })
 
     media_path = Path(source.path)
+    cross_drive = False
     # B10: compute relative path from report_dir to media file, POSIX separators
     try:
         rel = os.path.relpath(str(media_path), str(report_dir))
@@ -195,17 +209,19 @@ def render_report(
     except ValueError:
         # B10: on Windows, relpath can fail across drives — use filename only.
         # Do NOT expose the absolute path in the rendered HTML (§5.1).
-        media_rel_path = media_path.name
+        media_rel_path = Path(media_path.name).as_posix()
+        cross_drive = True
 
     duration_s = f"{source.duration_seconds:.3f}s" if source.duration_seconds else "unknown"
 
-    env = Environment(loader=BaseLoader())
+    env = Environment(loader=BaseLoader(), autoescape=True)
     tmpl = env.from_string(_TEMPLATE)
     html = tmpl.render(
         source_name=media_path.name,
         duration_s=duration_s,
         revision_id=revision_id,
         media_rel_path=media_rel_path,
+        cross_drive=cross_drive,
         candidate_count=len(candidates),
         candidate_rows=candidate_rows,
         shots=shot_rows,
