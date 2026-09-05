@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import dataclasses
 import hashlib
 import json
@@ -2341,28 +2342,34 @@ async def _execute_subagent_tool(
                     else None
                 )
                 if mismatch is not None:
-                    return (
-                        f"Error: saved model preference rejected for sub-agent "
-                        f"{sub_agent_name!r}: {mismatch}"
+                    _logger.warning(
+                        "sys_session_send: saved model preference %r rejected for sub-agent %r: "
+                        "%s; falling back to harness default",
+                        preferred_model,
+                        sub_agent_name,
+                        mismatch,
+                        extra={"session_id": runner_primary_session_id()},
                     )
-                normalized_preference = _normalize_subagent_model(
-                    preferred_model,
-                    sub_agent_name=str(sub_agent_name),
-                    agent_spec=agent_spec,
-                    harness=child_harness,
-                )
-                preference_response = await server_client.patch(
-                    f"/v1/sessions/{child_session_id}",
-                    json={"model_override": normalized_preference, "silent": True},
-                    timeout=10.0,
-                )
-                if preference_response.status_code >= 400:
-                    return (
-                        f"Error: failed to apply saved model preference "
-                        f"{preferred_model!r} to existing sub-agent "
-                        f"{child_session_id}: {preference_response.status_code} "
-                        f"{preference_response.text[:200]}"
+                    preferred_model = None
+                if preferred_model is not None:
+                    normalized_preference = _normalize_subagent_model(
+                        preferred_model,
+                        sub_agent_name=str(sub_agent_name),
+                        agent_spec=agent_spec,
+                        harness=child_harness,
                     )
+                    preference_response = await server_client.patch(
+                        f"/v1/sessions/{child_session_id}",
+                        json={"model_override": normalized_preference, "silent": True},
+                        timeout=10.0,
+                    )
+                    if preference_response.status_code >= 400:
+                        return (
+                            f"Error: failed to apply saved model preference "
+                            f"{preferred_model!r} to existing sub-agent "
+                            f"{child_session_id}: {preference_response.status_code} "
+                            f"{preference_response.text[:200]}"
+                        )
         # Continue existing session
     else:
         if model is None:
@@ -2491,20 +2498,32 @@ async def _execute_subagent_tool(
                 )
             mismatch = model_family_mismatch(child_harness, model) if child_harness else None
             if mismatch is not None:
-                return (
-                    f"Error: sys_session_send 'model' rejected for sub-agent "
-                    f"{sub_agent_name!r}: {mismatch}"
-                )
+                if model_from_preference:
+                    _logger.warning(
+                        "sys_session_send: saved model preference %r rejected for sub-agent %r: "
+                        "%s; falling back to harness default",
+                        model,
+                        sub_agent_name,
+                        mismatch,
+                        extra={"session_id": runner_primary_session_id()},
+                    )
+                    model = None
+                else:
+                    return (
+                        f"Error: sys_session_send 'model' rejected for sub-agent "
+                        f"{sub_agent_name!r}: {mismatch}"
+                    )
             # Family guard first (on the requested id, so the error
             # quotes what the caller sent), then mechanical
             # canonical<->gateway-local normalization. The normalized
             # id is what the server persists as model_override.
-            create_body["model_override"] = _normalize_subagent_model(
-                model,
-                sub_agent_name=str(sub_agent_name),
-                agent_spec=agent_spec,
-                harness=child_harness,
-            )
+            if model is not None:
+                create_body["model_override"] = _normalize_subagent_model(
+                    model,
+                    sub_agent_name=str(sub_agent_name),
+                    agent_spec=agent_spec,
+                    harness=child_harness,
+                )
         else:
             # First priority: check if the sub-agent spec pins its own default model
             sub_spec = _find_subagent_spec(sub_agent_name, agent_spec)
@@ -6122,43 +6141,86 @@ async def _execute_send_to_teammate_tool(
         )
 
     # 2. Dedicated A2A channel resolution:
-    if explicit_target_session_id:
-        target_session_id = explicit_target_session_id
-    # A2A messages must NEVER pollute user conversation topics or jump across
-    # dynamic recent sessions. Find or create a dedicated tagged session.
-    target_session_id: str | None = None
+    target_session_id: str | None = explicit_target_session_id
+
+    # If no explicit target session was passed, check whether the caller is an
+    # A2A channel replying back to an incoming message from target_bot_name.
+    # If so, route directly to the originating session so results flow into the
+    # user'''s main conversation!
+    if target_session_id is None:
+        try:
+            cur_snap = await _session_snapshot(conversation_id)
+            cur_labels = (cur_snap.get("labels") or {}) if cur_snap else {}
+            if cur_snap and (
+                cur_snap.get("purpose") == "a2a"
+                or cur_labels.get("omnigent.teammate.channel") == "a2a"
+            ):
+                cur_items_resp = await server_client.get(
+                    f"/v1/sessions/{conversation_id}/items",
+                    params={"order": "desc", "limit": 10},
+                    timeout=10.0,
+                )
+                if cur_items_resp.status_code == 200:
+                    for itm in cur_items_resp.json().get("data", []):
+                        meta = itm.get("metadata") or {}
+                        if (
+                            meta.get("a2a") is True
+                            and str(meta.get("sender_role", "")).lower() == teammate_name.lower()
+                        ):
+                            orig_s = _optional_string(meta.get("sender_session_id"))
+                            if orig_s and orig_s != conversation_id:
+                                orig_snap = await _session_snapshot(orig_s)
+                                if orig_snap is not None:
+                                    target_session_id = orig_s
+                                    snap_host = _optional_string(orig_snap.get("host_id"))
+                                    target_host_id = snap_host or target_host_id
+                                    snap_ws = _optional_string(orig_snap.get("workspace"))
+                                    target_workspace = snap_ws or target_workspace
+                                    _logger.info(
+                                        "send_to_teammate: reverse routing reply to %s",
+                                        orig_s,
+                                    )
+                                    break
+        except Exception as exc:  # noqa: BLE001
+            _logger.debug("Checking for originating A2A sender notice: %s", exc)
+
     unbound_session_id: str | None = None
     unbound_workspace: str | None = None
-    try:
-        sess_resp = await server_client.get(
-            "/v1/sessions",
-            params={"agent_id": target_agent_id, "limit": 100},
-            timeout=15.0,
-        )
-        if sess_resp.status_code == 200:
-            for s in sess_resp.json().get("data", []):
-                s_labels = s.get("labels") or {}
-                if s.get("purpose") == "a2a" or s_labels.get("omnigent.teammate.channel") == "a2a":
-                    candidate_id = _optional_string(s.get("id"))
-                    candidate = await _session_snapshot(candidate_id)
-                    if candidate is None:
-                        continue
-                    candidate_host = _optional_string(candidate.get("host_id"))
-                    candidate_runner = _optional_string(candidate.get("runner_id"))
-                    if candidate_host or (
-                        candidate_runner and candidate.get("runner_online") is True
-                    ):
-                        target_session_id = candidate_id
-                        target_host_id = candidate_host or target_host_id
-                        target_workspace = (
-                            _optional_string(candidate.get("workspace")) or target_workspace
-                        )
-                        break
-                    if unbound_session_id is None:
-                        unbound_session_id = candidate_id
-                        unbound_workspace = _optional_string(candidate.get("workspace"))
-    except Exception as exc:  # noqa: BLE001
-        _logger.debug("A2A channel search notice: %s", exc)
+    if target_session_id is None:
+        try:
+            sess_resp = await server_client.get(
+                "/v1/sessions",
+                params={"agent_id": target_agent_id, "limit": 100},
+                timeout=15.0,
+            )
+            if sess_resp.status_code == 200:
+                for s in sess_resp.json().get("data", []):
+                    s_labels = s.get("labels") or {}
+                    is_a2a_chan = (
+                        s.get("purpose") == "a2a"
+                        or s_labels.get("omnigent.teammate.channel") == "a2a"
+                    )
+                    if is_a2a_chan:
+                        candidate_id = _optional_string(s.get("id"))
+                        candidate = await _session_snapshot(candidate_id)
+                        if candidate is None:
+                            continue
+                        candidate_host = _optional_string(candidate.get("host_id"))
+                        candidate_runner = _optional_string(candidate.get("runner_id"))
+                        if candidate_host or (
+                            candidate_runner and candidate.get("runner_online") is True
+                        ):
+                            target_session_id = candidate_id
+                            target_host_id = candidate_host or target_host_id
+                            target_workspace = (
+                                _optional_string(candidate.get("workspace")) or target_workspace
+                            )
+                            break
+                        if unbound_session_id is None:
+                            unbound_session_id = candidate_id
+                            unbound_workspace = _optional_string(candidate.get("workspace"))
+        except Exception as exc:  # noqa: BLE001
+            _logger.debug("A2A channel search notice: %s", exc)
 
     if target_session_id is None and unbound_session_id is not None:
         if target_host_id is None:
@@ -6377,6 +6439,44 @@ async def _execute_send_to_teammate_tool(
                 if target_status in ("running", "waiting"):
                     saw_running = True
                 elif saw_running and target_status in ("idle", "failed"):
+                    # Inspect whether the target bot has active child sessions (sub-agents)
+                    has_busy_children = False
+                    try:
+                        children_resp = await server_client.get(
+                            f"/v1/sessions/{target_session_id}/child_sessions",
+                            params={"limit": 20},
+                            timeout=10.0,
+                        )
+                        if children_resp.status_code == 200:
+                            for child in children_resp.json().get("data", []):
+                                if (
+                                    child.get("busy") is True
+                                    or child.get("current_task_status") in ("running", "waiting")
+                                ):
+                                    has_busy_children = True
+                                    break
+                    except Exception as exc:  # noqa: BLE001
+                        _logger.debug("Child sessions check notice: %s", exc)
+
+                    if has_busy_children:
+                        # Sub-agents are actively working; continue waiting and extend deadline
+                        if (deadline - time.monotonic()) < 60.0:
+                            deadline = time.monotonic() + 180.0
+                        continue
+
+                    # No busy children: wait a 2.0s stabilization window to verify
+                    # that the parent turn has concluded synthesizing sub-agent results
+                    await asyncio.sleep(2.0)
+                    recheck_resp = await server_client.get(
+                        f"/v1/sessions/{target_session_id}",
+                        params={"include_items": "false", "include_liveness": "true"},
+                        timeout=10.0,
+                    )
+                    if recheck_resp.status_code == 200:
+                        recheck_status = str(recheck_resp.json().get("status") or "")
+                        if recheck_status in ("running", "waiting"):
+                            saw_running = True
+                            continue
                     break
                 elif not saw_running and (time.monotonic() - (deadline - timeout_s)) >= 2.0:
                     items_check = await server_client.get(
@@ -6398,19 +6498,40 @@ async def _execute_send_to_teammate_tool(
     try:
         items_resp = await server_client.get(
             f"/v1/sessions/{target_session_id}/items",
-            params={"order": "desc", "limit": 10},
+            params={"order": "desc", "limit": 20},
             timeout=10.0,
         )
         if items_resp.status_code == 200:
-            for item in items_resp.json().get("data", []):
+            items_data = items_resp.json().get("data", [])
+            for item in items_data:
                 if str(item.get("id") or "") == last_item_id_before:
                     break
                 if item.get("role") == "assistant":
                     for c_block in item.get("content") or []:
                         if isinstance(c_block, dict) and c_block.get("type") == "output_text":
                             assistant_reply = (assistant_reply or "") + c_block.get("text", "")
-                    if assistant_reply:
+                    if assistant_reply and len(assistant_reply.strip()) > 0:
                         break
+
+            # Dual extraction fallback: If the assistant reply text is short (< 50 chars)
+            # or missing, check if the assistant invoked send_to_teammate back with the full report
+            # as its task payload.
+            if not assistant_reply or len(assistant_reply.strip()) < 50:
+                for item in items_data:
+                    if str(item.get("id") or "") == last_item_id_before:
+                        break
+                    t_name = item.get("name") or (item.get("tool_call") or {}).get("name")
+                    if t_name == "send_to_teammate":
+                        tc = item.get("tool_call") or {}
+                        t_args = item.get("arguments") or tc.get("arguments")
+                        if isinstance(t_args, str):
+                            with contextlib.suppress(ValueError, json.JSONDecodeError):
+                                t_args = json.loads(t_args)
+                        if isinstance(t_args, dict) and t_args.get("task"):
+                            task_report = str(t_args["task"]).strip()
+                            if len(task_report) > len(assistant_reply or ""):
+                                assistant_reply = task_report
+                                break
     except Exception as exc:  # noqa: BLE001
         _logger.debug("Fetching teammate reply notice: %s", exc)
 
@@ -8048,6 +8169,9 @@ def _cleanup_drained_subagent_work(payload: _JsonObject) -> None:
     )
 
 
+_CONSECUTIVE_EMPTY_INBOX_DRAINS: dict[str, int] = {}
+
+
 async def _drain_inbox(
     inbox: asyncio.Queue[_JsonObject] | None,
     *,
@@ -8067,6 +8191,16 @@ async def _drain_inbox(
     :returns: Formatted string of completed tasks.
     """
     if inbox is None or inbox.empty():
+        if conversation_id:
+            count = _CONSECUTIVE_EMPTY_INBOX_DRAINS.get(conversation_id, 0) + 1
+            _CONSECUTIVE_EMPTY_INBOX_DRAINS[conversation_id] = count
+            if count >= 2:
+                return (
+                    "Inbox is empty — no completed tasks yet. "
+                    "Background tasks and sub-agents are still actively running. "
+                    "You MUST END YOUR TURN now and stop polling. "
+                    "The system will automatically notify and wake you when results are ready."
+                )
         return "Inbox is empty — no completed tasks."
     items: list[str] = []
     retry_payloads: list[_JsonObject] = []
@@ -8099,6 +8233,8 @@ async def _drain_inbox(
             _cleanup_drained_subagent_work(evaluation.payload)
     for payload in retry_payloads:
         inbox.put_nowait(payload)
+    if conversation_id and items:
+        _CONSECUTIVE_EMPTY_INBOX_DRAINS[conversation_id] = 0
     return "\n\n".join(items) if items else "Inbox is empty — no completed tasks."
 
 

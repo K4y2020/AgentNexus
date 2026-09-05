@@ -157,6 +157,11 @@ class TestModelFamilyMismatch:
             ("codex", "hy4-preview"),
             ("codex", "databricks-meta-llama-3.3-70b-instruct"),
             ("codex", "glmqlfit-eval"),
+            # Wrapped claude-sdk connects to the configured gateway whose vocabulary
+            # is authoritative for mapped models (e.g. gemini-3.8-flash-high).
+            ("claude-sdk", "gemini-3.8-flash-high"),
+            ("claude-sdk", "databricks-meta-llama-3.3-70b-instruct"),
+            ("claude_sdk", "gpt-5.6-sol"),
             ("openai-agents", "gpt-5.4-mini"),
             # openai-agents is multi-model like pi (a live SDK probe completed a
             # Claude tool-calling turn over the chat wire), so it accepts the
@@ -196,11 +201,11 @@ class TestModelFamilyMismatch:
         [
             ("claude-native", "databricks-gpt-5-4", "only runs Claude models"),
             ("native-claude", "gpt-5.4", "only runs Claude models"),
-            ("claude-sdk", "databricks-meta-llama-3.3-70b-instruct", "only runs Claude models"),
+            ("claude-native", "databricks-meta-llama-3.3-70b-instruct", "only runs Claude models"),
             # GLM / Kimi are codex-runnable but not Claude-runnable.
             ("claude-native", "databricks-glm-5-2", "only runs Claude models"),
-            ("claude-sdk", "system.ai.glm-5-2", "only runs Claude models"),
-            ("claude-sdk", "databricks-kimi-k2-6", "only runs Claude models"),
+            ("native-claude", "system.ai.glm-5-2", "only runs Claude models"),
+            ("claude-native", "databricks-kimi-k2-6", "only runs Claude models"),
             (
                 "codex-native",
                 "databricks-claude-sonnet-4-6",

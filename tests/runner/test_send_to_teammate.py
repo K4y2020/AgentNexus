@@ -339,3 +339,322 @@ async def test_send_to_teammate_waits_for_completion_and_returns_response() -> N
     assert result["target_teammate"] == "polly"
     assert result["response"] == "Task finished successfully."
     assert result["session_url"] == "/c/polly_a2a"
+
+
+@pytest.mark.asyncio
+async def test_send_to_teammate_waits_for_child_subagents_before_completing() -> None:
+    session_polls = 0
+    children_polls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal session_polls, children_polls
+        path = request.url.path
+        if path == "/v1/teammates":
+            return httpx.Response(
+                200,
+                json={
+                    "teammates": [
+                        {
+                            "agent": {"id": "agent_polly", "name": "polly"},
+                            "primary_conversation_id": "polly_primary",
+                        }
+                    ]
+                },
+            )
+        if path == "/v1/sessions":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "polly_a2a",
+                            "purpose": "a2a",
+                            "labels": {"omnigent.teammate.channel": "a2a"},
+                        }
+                    ]
+                },
+            )
+        if path == "/v1/sessions/debby_primary":
+            return httpx.Response(200, json={"host_id": "host_1", "workspace": "C:/debby"})
+        if path == "/v1/sessions/polly_a2a":
+            session_polls += 1
+            payload = {
+                "runner_id": "r1",
+                "host_id": "host_1",
+                "runner_online": True,
+                "workspace": "C:/polly",
+            }
+            if session_polls == 1:
+                return httpx.Response(200, json={"status": "idle", **payload})
+            if session_polls == 2:
+                # Turn 1 running (dispatching subagents)
+                return httpx.Response(200, json={"status": "running", **payload})
+            # Turn 1 ended, subagents running in background
+            return httpx.Response(200, json={"status": "idle", **payload})
+        if path == "/v1/sessions/polly_a2a/events":
+            return httpx.Response(202, json={"queued": False})
+        if path == "/v1/sessions/polly_a2a/child_sessions":
+            children_polls += 1
+            if children_polls == 1:
+                # Sub-agents are still busy!
+                return httpx.Response(
+                    200,
+                    json={
+                        "data": [
+                            {"id": "c1", "busy": True, "current_task_status": "running"},
+                            {"id": "c2", "busy": True, "current_task_status": "running"},
+                        ]
+                    },
+                )
+            # Sub-agents completed
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"id": "c1", "busy": False, "current_task_status": "completed"},
+                        {"id": "c2", "busy": False, "current_task_status": "completed"},
+                    ]
+                },
+            )
+        if path == "/v1/sessions/debby_primary/items":
+            return httpx.Response(200, json={"data": []})
+        if path == "/v1/sessions/polly_a2a/items":
+            if session_polls <= 1:
+                return httpx.Response(200, json={"data": [{"id": "item_old"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "item_final",
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": "Comprehensive Subagent Synthesis Report",
+                                }
+                            ],
+                        },
+                        {"id": "item_old"},
+                    ]
+                },
+            )
+        if path == "/v1/coordination/messages":
+            return httpx.Response(
+                200, json={"message": {"message_id": "msg_child_1"}, "delivery_state": "pending"}
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="http://server"
+    ) as client:
+        result = json.loads(
+            await _execute_send_to_teammate_tool(
+                {
+                    "teammate": "polly",
+                    "task": "Explore repo with subagents",
+                    "wait": True,
+                    "timeout_seconds": 10,
+                },
+                server_client=client,
+                conversation_id="debby_primary",
+                agent_spec=SimpleNamespace(name="debby"),
+            )
+        )
+
+    assert result["status"] == "completed"
+    assert result["response"] == "Comprehensive Subagent Synthesis Report"
+    assert children_polls >= 2
+
+
+@pytest.mark.asyncio
+async def test_send_to_teammate_reverse_routing_to_originating_session() -> None:
+    coordination_recipient = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal coordination_recipient
+        path = request.url.path
+        if path == "/v1/teammates":
+            return httpx.Response(
+                200,
+                json={
+                    "teammates": [
+                        {
+                            "agent": {"id": "agent_debby", "name": "debby"},
+                            "primary_conversation_id": "debby_primary",
+                        }
+                    ]
+                },
+            )
+        if path == "/v1/sessions/polly_a2a":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "polly_a2a",
+                    "purpose": "a2a",
+                    "host_id": "host_1",
+                    "workspace": "C:/polly",
+                    "labels": {"omnigent.teammate.channel": "a2a"},
+                },
+            )
+        if path == "/v1/sessions/polly_a2a/items":
+            # Polly A2A session received a task from debby in conv_user_topic_999
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "item_a2a_ask",
+                            "metadata": {
+                                "a2a": True,
+                                "sender_role": "debby",
+                                "sender_session_id": "conv_user_topic_999",
+                            },
+                        }
+                    ]
+                },
+            )
+        if path == "/v1/sessions/conv_user_topic_999":
+            return httpx.Response(
+                200,
+                json={"id": "conv_user_topic_999", "host_id": "host_1", "workspace": "C:/debby"},
+            )
+        if path == "/v1/sessions/conv_user_topic_999/events":
+            return httpx.Response(202, json={"queued": False})
+        if path == "/v1/coordination/messages":
+            body = json.loads(request.content)
+            coordination_recipient = body.get("recipient_session_id")
+            return httpx.Response(
+                200, json={"message": {"message_id": "msg_rev_1"}, "delivery_state": "pending"}
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="http://server"
+    ) as client:
+        result = json.loads(
+            await _execute_send_to_teammate_tool(
+                {"teammate": "debby", "task": "Here is the final report", "wait": False},
+                server_client=client,
+                conversation_id="polly_a2a",
+                agent_spec=SimpleNamespace(name="polly"),
+            )
+        )
+
+    assert result["status"] == "dispatched"
+    assert result["target_session_id"] == "conv_user_topic_999"
+    assert coordination_recipient == "conv_user_topic_999"
+
+
+@pytest.mark.asyncio
+async def test_send_to_teammate_dual_output_extraction_from_task_payload() -> None:
+    dual_polls = 0
+    items_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal dual_polls, items_count
+        path = request.url.path
+        if path == "/v1/teammates":
+            return httpx.Response(
+                200,
+                json={"teammates": [{"agent": {"id": "agent_polly", "name": "polly"}}]},
+            )
+        if path == "/v1/sessions":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "polly_a2a",
+                            "purpose": "a2a",
+                            "labels": {"omnigent.teammate.channel": "a2a"},
+                        }
+                    ]
+                },
+            )
+        if path == "/v1/sessions/debby_primary":
+            return httpx.Response(200, json={"host_id": "host_1", "workspace": "C:/debby"})
+        if path == "/v1/sessions/polly_a2a":
+            dual_polls += 1
+            return httpx.Response(
+                200,
+                json={
+                    "status": "running" if dual_polls == 2 else "idle",
+                    "runner_id": "r1",
+                    "host_id": "host_1",
+                    "runner_online": True,
+                    "workspace": "C:/polly",
+                },
+            )
+        if path == "/v1/sessions/polly_a2a/events":
+            return httpx.Response(202, json={"queued": False})
+        if path == "/v1/sessions/polly_a2a/child_sessions":
+            return httpx.Response(200, json={"data": []})
+        if path == "/v1/sessions/debby_primary/items":
+            return httpx.Response(200, json={"data": []})
+        if path == "/v1/sessions/polly_a2a/items":
+            items_count += 1
+            if items_count == 1:
+                return httpx.Response(200, json={"data": [{"id": "item_old"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "item_msg",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": "Report sent to Debby."}],
+                        },
+                        {
+                            "id": "item_tool",
+                            "name": "send_to_teammate",
+                            "arguments": json.dumps(
+                                {
+                                    "teammate": "debby",
+                                    "task": "# Full 500-Line Deep Architectural Audit Report",
+                                }
+                            ),
+                        },
+                        {"id": "item_old"},
+                    ]
+                },
+            )
+        if path == "/v1/coordination/messages":
+            return httpx.Response(
+                200, json={"message": {"message_id": "msg_dual_1"}, "delivery_state": "pending"}
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="http://server"
+    ) as client:
+        result = json.loads(
+            await _execute_send_to_teammate_tool(
+                {"teammate": "polly", "task": "Do audit", "wait": True, "timeout_seconds": 5},
+                server_client=client,
+                conversation_id="debby_primary",
+                agent_spec=SimpleNamespace(name="debby"),
+            )
+        )
+
+    assert result["status"] == "completed"
+    assert result["response"] == "# Full 500-Line Deep Architectural Audit Report"
+
+
+@pytest.mark.asyncio
+async def test_drain_inbox_anti_busy_wait_guard() -> None:
+    import asyncio
+
+    from omnigent.runner.tool_dispatch import _drain_inbox
+
+    empty_queue: asyncio.Queue = asyncio.Queue()
+    conv = "test_conv_spin_guard"
+
+    # First drain: regular empty notice
+    res1 = await _drain_inbox(empty_queue, conversation_id=conv)
+    assert "Inbox is empty" in res1
+    assert "You MUST END YOUR TURN" not in res1
+
+    # Second consecutive empty drain in the same turn: intercept directive!
+    res2 = await _drain_inbox(empty_queue, conversation_id=conv)
+    assert "You MUST END YOUR TURN now and stop polling" in res2

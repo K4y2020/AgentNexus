@@ -82,6 +82,14 @@ _CLAUDE_FAMILY_HARNESSES: frozenset[str] = frozenset(
 # makes the picker cosmetic. Native Codex keeps the conservative family guard
 # because its own live CLI catalog, not the provider endpoint, is authoritative.
 _PROVIDER_VOCABULARY_CODEX_HARNESSES: frozenset[str] = frozenset({"codex"})
+# The wrapped Claude SDK executor connects to configured Anthropic-compatible
+# gateways (such as CLI Proxy API / CPA), whose provider endpoint owns the model
+# vocabulary and can serve mapped non-Claude models (e.g. gemini-3.8-flash-high).
+# Native Claude Code keeps the conservative family guard because its own live CLI
+# catalog, not the provider endpoint, is authoritative.
+_PROVIDER_VOCABULARY_CLAUDE_HARNESSES: frozenset[str] = frozenset(
+    {"claude-sdk", "claude_sdk"}
+)
 # CODEX_CANONICAL_HARNESSES is restricted to the codex-compatible families
 # (see is_codex_compatible_model): the gateway serves codex over the
 # Anthropic-incompatible Responses wire, and codex >= 0.137 dropped the
@@ -182,7 +190,11 @@ def model_family_mismatch(harness: str, model: str) -> str | None:
     # Antigravity's reject-list stays the narrow GPT/codex rule: GLM and Kimi
     # ids carry no Gemini-native verdict, so they are not newly excluded here.
     is_gpt = "gpt" in lower or "codex" in lower
-    if canon in _CLAUDE_FAMILY_HARNESSES and not is_claude:
+    if (
+        canon in _CLAUDE_FAMILY_HARNESSES
+        and canon not in _PROVIDER_VOCABULARY_CLAUDE_HARNESSES
+        and not is_claude
+    ):
         return (
             f"harness {canon!r} only runs Claude models (id containing "
             f"'claude'); got {model!r}. Use the codex worker for GPT / GLM / "
