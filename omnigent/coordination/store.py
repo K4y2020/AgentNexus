@@ -433,9 +433,7 @@ class CoordinationStore:
             )
             return [_row_to_task(row) for row in sess.scalars(stmt)]
 
-    def list_expired_active_tasks(
-        self, *, now: float, limit: int = 50
-    ) -> list[CoordinationTask]:
+    def list_expired_active_tasks(self, *, now: float, limit: int = 50) -> list[CoordinationTask]:
         """Tasks in an active status whose deadline has passed, oldest first.
 
         Feeds the background deadline harvester. In a healthy system the
@@ -671,9 +669,7 @@ class CoordinationStore:
                     task_id=row.task_id,
                     actor_session_id=row.sender_session_id,
                     event_type="message.expired",
-                    payload_json=json.dumps(
-                        {"message_id": row.message_id, "reason": reason}
-                    ),
+                    payload_json=json.dumps({"message_id": row.message_id, "reason": reason}),
                     created_at=now,
                 )
             )
@@ -804,6 +800,37 @@ class CoordinationStore:
             stmt = stmt.order_by(SqlAgentMessage.created_at.asc())
             return [_row_to_message(row) for row in sess.scalars(stmt)]
 
+    def get_message_result(self, message_id: str) -> AgentMessage | None:
+        return self._get_message_by_idempotency(f"a2a:result:{message_id}")
+
+    def list_unanswered_a2a_requests(
+        self,
+        limit: int = 100,
+        after: str = "",
+    ) -> list[AgentMessage]:
+        with self._session("list_unanswered_a2a_requests") as sess:
+            result_keys = select(SqlAgentMessage.idempotency_key).where(
+                SqlAgentMessage.workspace_id == current_workspace_id(),
+                SqlAgentMessage.intent == "task.result",
+            )
+            stmt = (
+                select(SqlAgentMessage)
+                .where(
+                    SqlAgentMessage.workspace_id == current_workspace_id(),
+                    SqlAgentMessage.kind == "command",
+                    SqlAgentMessage.run_id.is_(None),
+                    SqlAgentMessage.intent.in_(
+                        ("task.request", "review.request", "question", "status.inquiry")
+                    ),
+                    SqlAgentMessage.message_state == "active",
+                    SqlAgentMessage.message_id > after,
+                    (~("a2a:result:" + SqlAgentMessage.message_id).in_(result_keys)),
+                )
+                .order_by(SqlAgentMessage.message_id.asc())
+                .limit(limit)
+            )
+            return [_row_to_message(row) for row in sess.scalars(stmt)]
+
     def list_active_unconsumed_for_recipient(
         self, recipient_session_id: str
     ) -> list[AgentMessage]:
@@ -932,6 +959,21 @@ class CoordinationStore:
                 else:
                     stmt = stmt.where(SqlCoordinationOutbox.message_id == attempt.message_id)
                 sess.execute(stmt)
+
+    def defer_outbox(self, item_id: str, delay_s: float = 30.0) -> None:
+        """Wait for a host/resume without consuming execution retry attempts."""
+        with self._session_immediate("defer_outbox") as sess:
+            sess.execute(
+                update(SqlCoordinationOutbox)
+                .where(
+                    SqlCoordinationOutbox.workspace_id == current_workspace_id(),
+                    SqlCoordinationOutbox.item_id == item_id,
+                    SqlCoordinationOutbox.status == "leased",
+                )
+                .values(
+                    status="pending", next_retry_at=time.time() + delay_s, updated_at=time.time()
+                )
+            )
 
     def requeue_outbox(
         self, item_id: str, *, max_retries: int = 5, next_retry_delay_s: float | None = None

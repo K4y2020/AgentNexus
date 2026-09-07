@@ -797,7 +797,7 @@ class SqlConversationMetadata(OmnigentBase):
             name="ck_conversation_metadata_purpose",
         ),
         CheckConstraint(
-            "(singleton_slot IS NULL AND purpose NOT IN ('primary', 'a2a')) OR "
+            "(singleton_slot IS NULL AND purpose != 'primary') OR "
             "(singleton_slot = purpose AND purpose IN ('primary', 'a2a'))",
             name="ck_conversation_metadata_singleton_slot",
         ),
