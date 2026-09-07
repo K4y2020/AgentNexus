@@ -235,7 +235,7 @@ import {
   McpStartupIndicator,
   RunnerStartingIndicator,
 } from "./ChatIndicators";
-import { CHAT_COLUMN_WIDTH } from "./chatLayout";
+import { CHAT_COLUMN_WIDTH, CHAT_COMPOSER_SURFACE } from "./chatLayout";
 import { useTeammates } from "@/hooks/useTeammates";
 import { TeammateSettingsDialog } from "@/components/teammates/TeammateSettingsDialog";
 
@@ -3387,8 +3387,8 @@ function UserBubble({ bubble }: { bubble: Extract<Bubble, { kind: "user" }> }) {
                 the row exactly one preview tall no matter what lands. */}
             {images.length > 0 && (
               <div className="mb-1.5 flex gap-2 overflow-x-auto">
-                {images.map((img) =>
-                  img.file_id.startsWith("pending:") ? (
+                {images.map((img, index) =>
+                  img.file_id?.startsWith("pending:") ? (
                     // Upload in-flight — show a chip placeholder
                     <span
                       key={img.file_id}
@@ -3402,13 +3402,15 @@ function UserBubble({ bubble }: { bubble: Extract<Bubble, { kind: "user" }> }) {
                   ) : (
                     // Uploaded — render the actual image
                     <SessionImage
-                      key={img.file_id}
+                      key={img.file_id ?? `inline-image-${index}`}
                       path={
-                        sessionId
+                        typeof img.image_url === "string" && /^data:image\/(png|jpeg|webp);base64,/i.test(img.image_url)
+                          ? img.image_url
+                          : sessionId && img.file_id
                           ? `/v1/sessions/${encodeURIComponent(sessionId)}/resources/files/${encodeURIComponent(img.file_id)}/content`
                           : undefined
                       }
-                      alt={img.filename ?? img.file_id}
+                      alt={img.filename ?? img.file_id ?? "Attached image"}
                       // Sizing lives in SessionImage, which reserves a matching
                       // box so the bubble's height is settled before bytes land.
                       className="rounded-md object-contain"
@@ -5269,7 +5271,8 @@ export function Composer({
         // Opaque card edge for transcript clearance; status shelf below is translucent.
         data-composer-card
         className={cn(
-          "relative mx-auto flex w-full flex-col rounded-2xl border border-border bg-card dark:bg-card-solid shadow-composer transition-[border-color,box-shadow] has-[textarea:focus]:shadow-composer-focus",
+          CHAT_COMPOSER_SURFACE,
+          "mx-auto",
           CHAT_COLUMN_WIDTH,
           isDragActive && "ring-2 ring-ring ring-inset",
         )}

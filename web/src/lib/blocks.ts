@@ -56,7 +56,7 @@ export interface BlockContext {
 /** Per-message-item content blocks. Both user input and assistant output. */
 export type MessageContentBlock =
   | { type: "input_text"; text: string }
-  | { type: "input_image"; file_id: string; filename?: string }
+  | { type: "input_image"; file_id?: string; image_url?: string; filename?: string }
   | { type: "input_file"; file_id: string; filename?: string }
   | { type: "output_text"; text: string };
 

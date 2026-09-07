@@ -30,6 +30,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TerminalView } from "@/components/blocks/TerminalView";
 import { BrowserPane } from "@/components/BrowserPane/BrowserPane";
+import { SeedanceCanvasPanel } from "./SeedanceCanvasPanel";
 import { useSessionAgent } from "@/hooks/useAgents";
 import type { SessionLiveness } from "@/hooks/useSessionLiveness";
 import { terminalTabKey, useCreateTerminal, useTerminals } from "@/hooks/useTerminals";
@@ -564,6 +565,7 @@ interface WorkspacePanelProps {
   /** Whether the Browser tab is available — Electron shell only (hidden in a
    *  plain web build, which has no embedded WebContentsView). */
   showBrowserTab: boolean;
+  canvasUrl?: string;
   /** Count of changed files, shown as the Changes tab badge. */
   changedCount: number;
   /** How many child agents are actively working (Agents tab badge). */
@@ -655,6 +657,7 @@ export function WorkspacePanel({
   onRightRailTabChange,
   showFilesPanel,
   showBrowserTab,
+  canvasUrl,
   changedCount,
   subagentsWorking,
   agentCount,
@@ -826,6 +829,13 @@ export function WorkspacePanel({
                 <span className="sr-only">Coordination</span>
               </TabsTrigger>
             </WorkspaceTabTooltip>
+            {canvasUrl && (
+              <WorkspaceTabTooltip label="Seedance canvas">
+                <TabsTrigger value="canvas" aria-label="Seedance canvas">
+                  <GlobeIcon /><span className="sr-only">Seedance canvas</span>
+                </TabsTrigger>
+              </WorkspaceTabTooltip>
+            )}
             {showBrowserTab && (
               <WorkspaceTabTooltip label="Browser">
                 <TabsTrigger
@@ -945,6 +955,8 @@ export function WorkspacePanel({
             onCommentsOpenChange={onCommentsOpenChange}
             sort={filesPanelSort}
           />
+        ) : rightRailTab === "canvas" && canvasUrl ? (
+          <SeedanceCanvasPanel url={canvasUrl} />
         ) : rightRailTab === "browser" && showBrowserTab ? (
           // Embedded browser (Electron only) — BrowserPane self-gates and
           // measures this rail slot to position the native view over it.

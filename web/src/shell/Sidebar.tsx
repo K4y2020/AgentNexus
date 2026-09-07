@@ -73,6 +73,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/routing";
 import { SidebarHeaderActions, SidebarSettingsButton } from "./SidebarHeaderActions";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -873,7 +875,7 @@ export function Sidebar({
           brand mark is dropped and the actions slide left to sit beside the
           window controls (see the [data-electron-mac] rules in index.css).
           Inert in a browser and on other platforms, which keep the row below. */}
-            <div className="sidebar-header-row flex h-12 shrink-0 items-center justify-between pr-3 pl-4">
+            <div className="sidebar-header-row flex h-14 shrink-0 items-center justify-between pr-3 pl-4">
               {/* Brand mark doubles as the "home" affordance: clicking it
             returns to `/`, the new-session composer. Without this there
             is no way back to the landing composer once you're inside a
@@ -896,7 +898,7 @@ export function Sidebar({
                   />
                 ) : (
                   <span
-                    className="text-[15px] font-semibold tracking-tight"
+                    className="text-base font-semibold"
                     data-testid="sidebar-brand-name"
                   >
                     {appName}
@@ -1095,6 +1097,9 @@ export function Sidebar({
                   conversationsQuery={conversationsQuery}
                   scrollContainerRef={scrollContainerRef}
                   onRowClick={onNavClick}
+                  onTeammateNavigate={() => {
+                    if (isMobileViewport()) onClose();
+                  }}
                   searchQuery=""
                   newSessionProjectName={newSessionProjectName}
                   activeTab={activeTab}
@@ -1388,6 +1393,7 @@ interface ConversationListProps {
   // The scrollable ancestor, used as the infinite-scroll observer root.
   scrollContainerRef: RefObject<HTMLElement | null>;
   onRowClick: (e: MouseEvent<HTMLAnchorElement>) => void;
+  onTeammateNavigate: () => void;
   searchQuery: string;
   /** Project selected on the new-session composer route, if any. */
   newSessionProjectName: string | null;
@@ -1458,6 +1464,7 @@ function ConversationList({
   conversationsQuery,
   scrollContainerRef,
   onRowClick,
+  onTeammateNavigate,
   searchQuery,
   newSessionProjectName,
   activeTab,
@@ -1487,6 +1494,8 @@ function ConversationList({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: teammates = [], refetch: refetchTeammates } = useTeammates();
+  const creatingBots = useRef(new Set<string>());
+  const [creatingBotIds, setCreatingBotIds] = useState<Set<string>>(new Set());
   const onlineHost = hosts.find((h) => h.status === "online");
   const { addRecent: addRecentWorkspace } = useRecentWorkspaces(onlineHost?.host_id ?? null);
   // All loaded conversations from the single paginated list (for the flat
@@ -1499,22 +1508,23 @@ function ConversationList({
   const handleTeammateChat = useCallback(
     async (teammate: Teammate, forceNew = false) => {
       if (!forceNew && teammate.primaryConversationId) {
-        const exists = allConversations.some((c) => c.id === teammate.primaryConversationId);
-        if (exists || allConversations.length === 0) {
-          navigate(`/c/${teammate.primaryConversationId}`);
-          return;
-        }
-      }
-      const targetWorkspace = `${teammate.bot.homePath.replace(/[\\/]+$/, "")}/scratch`;
-      const targetHost =
-        hosts.find(
-          (host) => host.host_id === teammate.bot.hostId && host.status === "online",
-        ) ?? onlineHost;
-
-      if (!targetHost) {
-        navigate("/teammates");
+        onTeammateNavigate();
+        navigate(`/c/${teammate.primaryConversationId}`);
         return;
       }
+      if (creatingBots.current.has(teammate.bot.id)) return;
+      const targetWorkspace = `${teammate.bot.homePath.replace(/[\\/]+$/, "")}/scratch`;
+      const targetHost =
+        teammate.bot.hostId ? hosts.find(
+          (host) => host.host_id === teammate.bot.hostId && host.status === "online",
+        ) : onlineHost;
+
+      if (!targetHost) {
+        showToast(`Cannot create a topic: ${teammate.bot.name}'s host is offline or unavailable.`);
+        return;
+      }
+      creatingBots.current.add(teammate.bot.id);
+      setCreatingBotIds(new Set(creatingBots.current));
       try {
         const session = await createSession(teammate.agent.id, [], {
           hostId: targetHost.host_id,
@@ -1527,12 +1537,16 @@ function ConversationList({
         addRecentWorkspace(targetWorkspace);
         void refetchTeammates();
         void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        onTeammateNavigate();
         navigate(`/c/${session.id}`);
-      } catch {
-        navigate("/teammates");
+      } catch (error) {
+        showToast(`Couldn't create topic: ${error instanceof Error ? error.message : "Please try again."}`);
+      } finally {
+        creatingBots.current.delete(teammate.bot.id);
+        setCreatingBotIds(new Set(creatingBots.current));
       }
     },
-    [hosts, onlineHost, allConversations, addRecentWorkspace, refetchTeammates, queryClient, navigate],
+    [hosts, onlineHost, addRecentWorkspace, refetchTeammates, queryClient, navigate, onTeammateNavigate],
   );
 
   // Project folders ({ id, name }) for grouping sessions — first-class id
@@ -2193,6 +2207,7 @@ function ConversationList({
                           onToggleSelected={onToggleSelected}
                           onProjectAssigned={expandProject}
                           onStartChat={handleTeammateChat}
+                          creating={creatingBotIds.has(teammate.bot.id)}
                         />
                       ))}
                     </ul>
@@ -3354,6 +3369,7 @@ function TeammateFolderRow({
   onToggleSelected,
   onProjectAssigned,
   onStartChat,
+  creating,
 }: {
   teammate: Teammate;
   primaryConversation: Conversation | null;
@@ -3366,105 +3382,110 @@ function TeammateFolderRow({
   onToggleSelected: (conversationId: string, shiftKey?: boolean) => void;
   onProjectAssigned?: (projectName: string) => void;
   onStartChat: (teammate: Teammate, forceNew?: boolean) => void;
+  creating: boolean;
 }) {
-  const { agent } = teammate;
+  const { agent, bot } = teammate;
   const { conversationId: activeId } = useParams<{ conversationId: string }>();
-  const isPrimaryActive = Boolean(activeId) && Boolean(primaryConversation) && activeId === primaryConversation?.id;
-  const isChildActive = Boolean(activeId) && topics.some((c) => c.id === activeId);
-  const [expanded, setExpanded] = useState<boolean>(true);
+  const primaryId = teammate.primaryConversationId ?? primaryConversation?.id;
+  const isPrimaryActive = Boolean(activeId) && activeId === primaryId;
+  const [expanded, setExpanded] = useState(true);
+  const isActiveTopic = topics.some((topic) => topic.id === activeId);
+  useEffect(() => {
+    if (isActiveTopic) setExpanded(true);
+  }, [activeId, isActiveTopic]);
+  const state = getSessionState(primaryConversation);
+  const description = bot.description || agent.description;
+  const name = bot.name || agent.name;
 
   return (
-    <li className="list-none w-full mb-0.5">
+    <li className="mb-1 w-full list-none">
       <div
-        className={cn(
-          SIDEBAR_ROW,
-          "group/item relative flex items-center justify-between gap-1 text-left text-foreground transition-colors w-full px-2 py-1.5 rounded-[var(--radius-otto-sm)] cursor-pointer",
-          SIDEBAR_HOVER_HIGHLIGHT,
-          isPrimaryActive && SIDEBAR_ACTIVE_HIGHLIGHT,
-          !isPrimaryActive && isChildActive && "font-medium text-foreground",
-        )}
+        className="group/item flex min-w-0 items-center gap-1"
         data-testid={`sidebar-teammate-${agent.name}`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          {topics.length > 0 ? (
-            <button
-              type="button"
-              className="flex size-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
-              title={expanded ? "收起专项主题" : "展开专项主题"}
-              aria-label={expanded ? "Collapse topics" : "Expand topics"}
-            >
-              <ChevronRightIcon
-                className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-90")}
-              />
-            </button>
-          ) : (
-            <span className="size-4 shrink-0" />
-          )}
-
-          <div
-            className="flex min-w-0 flex-1 items-center gap-1.5 cursor-pointer"
-            onClick={() => onStartChat(teammate, false)}
-            title={`与 ${agent.name} 对话`}
-          >
-            <div className="relative flex size-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary font-medium text-xs">
-              <BotIcon className="size-3" />
-              <span
-                className="absolute -bottom-0.5 -right-0.5 size-1.5 rounded-full border-2 border-background bg-emerald-500"
-                title="Online"
-              />
-            </div>
-            <span className="truncate text-xs font-semibold text-foreground">
-              {agent.name}
-            </span>
-            {topics.length > 0 && (
-              <span className="rounded px-1.5 py-0.2 text-[10px] bg-muted text-muted-foreground font-mono">
-                {topics.length}
+        <Button
+          type="button"
+          variant="ghost"
+          size="list"
+          disabled={creating}
+          onClick={() => onStartChat(teammate, false)}
+          aria-current={isPrimaryActive ? "page" : undefined}
+          aria-label={`Chat with ${name}`}
+          className={cn("flex-1 text-left", isPrimaryActive && SIDEBAR_ACTIVE_HIGHLIGHT)}
+        >
+          <Avatar>
+            <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-ui font-semibold">{name}</span>
+            {description && (
+              <span className="truncate text-sm font-normal text-muted-foreground">
+                {description}
               </span>
             )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+          </span>
+          {state && <SessionStateBadge state={state} />}
+        </Button>
+        <div className="flex shrink-0 items-center">
+          {topics.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setExpanded((value) => !value)}
+                  aria-expanded={expanded}
+                  aria-label={expanded ? "Collapse topics" : "Expand topics"}
+                >
+                  <ChevronRightIcon
+                    className={cn("transition-transform", expanded && "rotate-90")}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{topics.length} Topics</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
-                size="icon"
-                className="size-5 text-muted-foreground hover:text-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStartChat(teammate, true);
-                }}
-                title="新建专项 Topic"
+                size="icon-xs"
+                className="md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100"
+                onClick={() => onStartChat(teammate, true)}
+                aria-label={`New topic with ${name}`}
+                loading={creating}
               >
-                <PlusIcon className="size-3" />
+                <PlusIcon />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">新建专项 Topic</TooltipContent>
+            <TooltipContent side="right">New Topic</TooltipContent>
           </Tooltip>
         </div>
       </div>
-
       {expanded && topics.length > 0 && (
-        <ul className="flex flex-col gap-0.5 pl-4 pr-1 py-0.5 border-l border-border/40 ml-3.5 my-0.5">
-          {topics.map((c) => (
-            <ConversationRow
-              key={c.id}
-              conversation={c}
-              isPinned={pinnedConversationIds.includes(c.id)}
-              onClick={onRowClick}
-              onTogglePinned={onTogglePinned}
-              selectionMode={selectionMode}
-              isSelected={selectedIds.has(c.id)}
-              onToggleSelected={onToggleSelected}
-              onProjectAssigned={onProjectAssigned}
-            />
-          ))}
-        </ul>
+        <div className="ml-6 border-l border-sidebar-border py-1 pl-3">
+          <div className="flex items-center gap-2 px-2 pb-1 text-sm text-muted-foreground">
+            <span>Topics</span>
+            <Badge variant="secondary">{topics.length}</Badge>
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {topics.map((c) => (
+              <ConversationRow
+                key={c.id}
+                conversation={c}
+                isPinned={pinnedConversationIds.includes(c.id)}
+                onClick={onRowClick}
+                onTogglePinned={onTogglePinned}
+                selectionMode={selectionMode}
+                isSelected={selectedIds.has(c.id)}
+                onToggleSelected={onToggleSelected}
+                onProjectAssigned={onProjectAssigned}
+              />
+            ))}
+          </ul>
+        </div>
       )}
     </li>
   );

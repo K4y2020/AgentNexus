@@ -1,5 +1,8 @@
+import { isCineAgent, openSeedanceCanvas } from "@/lib/seedanceCanvas";
 import {
   BotIcon,
+  PanelRightOpenIcon,
+  PaletteIcon,
   EllipsisVerticalIcon,
   FileIcon,
   GitCompareIcon,
@@ -13,6 +16,10 @@ import {
   UserPlusIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SessionStateBadge } from "@/components/SessionStateBadge";
+import { getSessionState } from "@/hooks/useSessionState";
+import { agentRootName } from "@/lib/forkHarness";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -366,16 +373,21 @@ export function ChatHeader({
         title={conversationTitle ?? UNTITLED_CONVERSATION_LABEL}
       />
     ) : null;
+  const botName =
+    !isChildSession && actionConversation?.bot_id
+      ? agentRootName(actionConversation.agent_name ?? boundAgent?.name ?? "Bot")
+      : null;
+  const botState = botName ? getSessionState(actionConversation) : null;
+  const seedanceProjectId = (actionConversation?.labels?.["seedance.project_id"] as string | undefined) || undefined;
+  const isCineSession = !isChildSession && isCineAgent(actionConversation?.agent_name ?? boundAgent?.name);
+  const seedanceCanvasUrl = seedanceProjectId
+    ? `http://127.0.0.1:5173/?project=${encodeURIComponent(seedanceProjectId)}`
+    : "http://127.0.0.1:5173";
+
   return (
     <header
       className={cn(
-        // h-14 fixes the bar at 56px: 12px symmetric vertical padding around
-        // the 32px controls. No own background — the app canvas shows
-        // through (a scrim can't track the canvas gradient).
-        // Scrolled chat text can't render through the controls because the
-        // conversation viewport fades its top edge instead (chat-scroll-fade
-        // in index.css, applied in ChatPage).
-        "chat-header absolute inset-x-0 top-0 z-30 flex h-14 md:h-12 items-center justify-between px-2 md:px-4 py-3 md:right-[var(--workspace-panel-offset,0px)]",
+        "chat-header absolute inset-x-0 top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-background px-2 py-2 md:px-6 md:right-[var(--workspace-panel-offset,0px)]",
       )}
     >
       {/* Left slot: sidebar toggle (when sidebar is closed) and a
@@ -390,7 +402,7 @@ export function ChatHeader({
           in the title-bar strip). Inert outside the shell (index.css). */}
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1 md:gap-6",
+          "flex min-w-0 flex-1 items-center gap-2 md:gap-3",
           !sidebarOpen && "traffic-light-clearance",
         )}
       >
@@ -400,9 +412,6 @@ export function ChatHeader({
               <Button
                 type="button"
                 variant="ghost"
-                // icon on <md (size-10, comfortable tap target), icon-xs on
-                // desktop (md:size-6). size="icon" gives the base size-10; the
-                // md:size-6 override replaces the variant's md:size-8.
                 size="icon"
                 aria-label="Open sidebar"
                 componentId="chat.header.open_sidebar"
@@ -416,7 +425,7 @@ export function ChatHeader({
                 // copy of it. Kept everywhere else, where it is the ONLY way to
                 // reopen a collapsed sidebar.
                 className={cn(
-                  "chat-header-sidebar-toggle text-muted-foreground hover:text-foreground md:size-6",
+                  "chat-header-sidebar-toggle text-muted-foreground hover:text-foreground",
                   MOBILE_GLASS_PILL,
                 )}
                 onPointerEnter={onPeekSidebar}
@@ -438,7 +447,29 @@ export function ChatHeader({
             right-hand action cluster. On the macOS shell with the sidebar
             collapsed, the slot's traffic-light-clearance pads it past the
             window controls + title-bar cluster (index.css). */}
-        {conversationId && (conversationTitle || titleLinkTo) && (
+        {conversationId && botName ? (
+          <div className="flex min-w-0 items-center gap-3" data-testid="bot-chat-identity">
+            <Avatar>
+              <AvatarFallback>{botName.slice(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-ui font-semibold">{botName}</span>
+              <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+                {actionConversation?.purpose === "primary" ? (
+                  <span>Chat</span>
+                ) : (
+                  <>
+                    <span className="shrink-0">Topic</span>
+                    <span aria-hidden>/</span>
+                    <span className="min-w-0 truncate">{titleSlot ?? conversationTitle}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            {botState && <SessionStateBadge state={botState} />}
+            {!isMobile && conversationMenu}
+          </div>
+        ) : conversationId && (conversationTitle || titleLinkTo) ? (
           <ConversationBreadcrumb
             conversationTitle={conversationTitle ?? UNTITLED_CONVERSATION_LABEL}
             projectName={projectName}
@@ -451,12 +482,12 @@ export function ChatHeader({
             actions={isMobile ? undefined : (conversationMenu ?? undefined)}
             className="pr-1"
           />
-        )}
+        ) : null}
       </div>
 
       <div
         className={cn(
-          "flex items-center gap-2 max-md:gap-0 max-md:empty:hidden",
+          "flex shrink-0 items-center gap-2 max-md:gap-0 max-md:empty:hidden",
           MOBILE_GLASS_PILL,
         )}
       >
@@ -475,6 +506,36 @@ export function ChatHeader({
         {/* Chat/Terminal switcher for terminal-first sessions — self-gates to
             null otherwise (and in the iOS shell, where it's the native bar). */}
         {conversationId && <ViewModeToggle />}
+        {conversationId && isCineSession && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className={cn(
+              "shrink-0",
+              isCineSession
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            data-testid="header-open-canvas-button"
+          >
+            <a
+              href={seedanceCanvasUrl}
+              onClick={openSeedanceCanvas}
+              aria-label="Open Seedance canvas"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={
+                seedanceProjectId
+                  ? `打开绑定的 Seedance V3 画布 (项目: ${seedanceProjectId})`
+                  : "打开本地 Seedance V3 画布 (http://127.0.0.1:5173)"
+              }
+            >
+              <PaletteIcon className="size-3.5" />
+              <span className="hidden sm:inline">{seedanceProjectId ? "项目画布" : "Seedance 画布"}</span>
+            </a>
+          </Button>
+        )}
         {/* Fallback mobile kebab for sessions with no owner-managed menu:
             the action buttons above (Share · Agent info) plus the same
             workspace-rail entries, so a phone still needs only one trigger. */}
@@ -493,6 +554,19 @@ export function ChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className={cn("min-w-44", MOBILE_GLASS_SURFACE)}>
+              {isCineSession && <DropdownMenuItem asChild>
+                <a
+                  href={seedanceCanvasUrl}
+                  onClick={openSeedanceCanvas}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
+                  <PaletteIcon className="size-4" />
+                  <span>打开 Seedance 画布</span>
+                  <PanelRightOpenIcon className="ml-auto size-3 text-muted-foreground" />
+                </a>
+              </DropdownMenuItem>}
               {canShare && (
                 <DropdownMenuItem
                   onSelect={
@@ -545,9 +619,8 @@ export function ChatHeader({
                   aria-label="Share session"
                   disabled
                   title={shareDisabledReason}
-                  // share-button-glassy (index.css) paints the pink gradient,
-                  // shadow, and white text in both light and dark mode.
-                  className="share-button-glassy h-6 gap-1 rounded-[6px] px-2 text-ui font-normal text-white"
+                  variant="outline"
+                  size="sm"
                 >
                   <span className="flex size-4 shrink-0 items-center justify-center">
                     <UserPlusIcon />
@@ -564,9 +637,9 @@ export function ChatHeader({
             aria-label="Share session"
             onClick={onShare}
             componentId="chat.header.share"
-            // share-button-glassy (index.css) paints the pink gradient,
-            // shadow, and white text in both light and dark mode.
-            className="share-button-glassy hidden h-6 gap-1 rounded-[6px] px-2 text-ui font-normal text-white md:inline-flex"
+            variant="outline"
+            size="sm"
+            className="hidden md:inline-flex"
           >
             <span className="flex size-4 shrink-0 items-center justify-center">
               <UserPlusIcon />
@@ -580,7 +653,7 @@ export function ChatHeader({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-xs"
+                size="icon"
                 aria-label={rightPanelOpen ? "Collapse right panel" : "Expand right panel"}
                 onClick={onToggleRightPanel}
                 componentId="chat.header.toggle_right_panel"

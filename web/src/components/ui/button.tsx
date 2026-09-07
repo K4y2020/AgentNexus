@@ -32,6 +32,7 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-[var(--radius-sm)] px-2 text-sm in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
         sm: "h-7 gap-1 rounded-[var(--radius-md)] px-2.5 text-ui in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        list: "h-auto min-h-12 min-w-0 justify-start gap-3 px-3 py-2 whitespace-normal",
         icon: "size-10 md:size-8",
         "icon-xxs":
           "size-3.5 rounded-[var(--radius-sm)] bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent [&_svg]:size-3.5! [&_svg]:p-0!",

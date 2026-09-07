@@ -1045,16 +1045,16 @@ describe("NewChatLandingScreen", () => {
     );
   });
 
-  it("uses a home-specific focus shadow without a resting shadow or focus border", () => {
+  it("uses the shared chat composer surface", () => {
     renderLanding();
 
     const composer = screen.getByTestId("new-chat-landing-composer");
     expect(composer).toHaveClass(
-      "border-border",
-      "has-[textarea:focus]:shadow-[var(--composer-shadow-focus)]",
+      "has-[textarea:focus]:border-ring",
+      "rounded-lg",
+      "border-input",
     );
     expect(composer).not.toHaveClass("shadow-[var(--composer-shadow)]");
-    expect(composer.className).not.toContain("has-[textarea:focus]:border-");
   });
 
   it("matches the session composer internal padding", () => {

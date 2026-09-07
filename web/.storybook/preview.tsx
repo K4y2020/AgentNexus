@@ -6,7 +6,7 @@ import {
   STORY_PREPARED,
   type StoryFinishedPayload,
 } from "storybook/internal/core-events";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "katex/dist/katex.min.css";
 import "streamdown/styles.css";
@@ -27,11 +27,18 @@ storybookChannel.on(STORY_FINISHED, ({ storyId, status }: StoryFinishedPayload) 
 });
 
 const preview: Preview = {
+  initialGlobals: { theme: "light" },
+  globalTypes: {
+    theme: {
+      description: "UI color mode",
+      toolbar: { icon: "circlehollow", items: ["light", "dark"], dynamicTitle: true },
+    },
+  },
   decorators: [
-    (Story) => (
-      <ThemeProvider>
+    (Story, context) => (
+      <ThemeProvider attribute="class" forcedTheme={context.globals.theme} enableSystem={false}>
         <TooltipProvider>
-          <div className="min-w-80 max-w-3xl p-6">
+          <div className="w-full min-w-0 max-w-3xl bg-background p-4 text-foreground sm:p-6">
             <Story />
           </div>
         </TooltipProvider>
@@ -45,7 +52,7 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    layout: "centered",
+    layout: "padded",
   },
 };
 

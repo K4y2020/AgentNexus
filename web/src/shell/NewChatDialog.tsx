@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CHAT_COMPOSER_SURFACE } from "@/pages/chatLayout";
 import { Input } from "@/components/ui/input";
 import {
   Command,
@@ -4476,7 +4477,8 @@ export function NewChatLandingScreen() {
             // dark:bg-card-solid stays opaque so dark glass --card doesn't show
             // through. Drag-over keeps its separate inset ring.
             className={cn(
-              "relative z-10 flex w-full flex-col rounded-2xl border border-border bg-card dark:bg-card-solid transition-shadow duration-150 has-[textarea:focus]:shadow-[var(--composer-shadow-focus)]",
+              CHAT_COMPOSER_SURFACE,
+              "z-10",
               isDragActive && "ring-2 ring-ring ring-inset",
             )}
             data-testid="new-chat-landing-composer"

@@ -139,8 +139,8 @@
 /* Apple system-blue accent (hue 256, matches iOS / macOS systemBlue —
  * ~#007AFF light, ~#0A84FF dark). Reserved for focus rings, charts,
  * unread state, and the active sidebar highlight; surfaces and primary
- * buttons stay neutral grey (hue 240). See designs/UI/WEB_UI.md (still
- * describes the older cobalt direction). */
+ * buttons stay neutral grey (hue 240). See web/STYLE_GUIDE.md for component
+ * and semantic-token conventions. */
 :root {
   /* User-controlled UI font size (see Appearance settings /
    * lib/uiFontPreferences.ts). Stored as a discrete px value and overridden at
@@ -224,7 +224,7 @@
      * with strong contrast on the white card surface. */
   --session-active: #2f7fd4;
   /* Weaker panel border for low-contrast dividers. */
-  --border-weak: #ececee;
+  --border-weak: color-mix(in srgb, var(--border) 60%, transparent);
   --button-icon-hover-color: #27272a;
   /* Pink tag surface — a translucent wash, so it tints whatever it sits on. */
   --tag-pink: rgba(240, 1, 150, 0.06);
@@ -330,14 +330,9 @@
   background-color: var(--card-solid);
 }
 
-/* Edge treatment is mode-specific but palette-independent. */
-html:not(.dark) .conversations-sidebar:not(.is-peek) {
-  border-right: none;
-  box-shadow: inset -8px 0 12px -8px rgb(0 0 0 / 5%);
-}
-.dark .conversations-sidebar {
-  border-right: 1px solid rgb(255 255 255 / 2%);
-  box-shadow: inset -8px 0 12px -8px rgb(0 0 0 / 5%);
+/* Flat navigation surface shared by light and dark palettes. */
+.conversations-sidebar:not(.is-peek) {
+  border-right: 1px solid var(--sidebar-border);
 }
 
 /* Below md the sidebar is a full-screen overlay ON TOP of the chat, so it has
@@ -351,7 +346,7 @@ html:not(.dark) .conversations-sidebar:not(.is-peek) {
   :root:not(.dark)[data-theme] .conversations-sidebar,
   .dark:not([data-theme]) .conversations-sidebar,
   .dark[data-theme] .conversations-sidebar {
-    background-color: var(--card-solid);
+    background-color: var(--sidebar);
   }
 }
 

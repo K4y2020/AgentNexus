@@ -4,13 +4,15 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "./alert";
 import { Avatar, AvatarBadge, AvatarFallback, AvatarGroup, AvatarGroupCount } from "./avatar";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { Input } from "./input";
+import { Spinner } from "./spinner";
 import { Switch } from "./switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
 const buttonVariants = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
 const badgeVariants = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
-const panel = "space-y-2 rounded-lg border bg-card p-3";
+const panel = "space-y-3 border-t pt-4";
 
 const meta = {
   title: "Foundations/Primitives",
@@ -42,6 +44,15 @@ export const Gallery: Story = {
             <Button size="sm">Small</Button>
             <Button>Default</Button>
             <Button size="lg">Large</Button>
+            <Button variant="ghost" size="list">
+              <Avatar>
+                <AvatarFallback>DE</AvatarFallback>
+              </Avatar>
+              <span className="flex min-w-0 flex-col text-left">
+                <span className="font-semibold">Debby</span>
+                <span className="text-sm text-muted-foreground">Brainstorming partner</span>
+              </span>
+            </Button>
             <Button variant="outline" size="icon-sm" aria-label="Notifications">
               <BellIcon />
             </Button>
@@ -58,6 +69,25 @@ export const Gallery: Story = {
                 {variant}
               </Badge>
             ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="info">
+              <Spinner aria-label="Working" />
+              Working
+            </Badge>
+            <Badge variant="warning">
+              <TriangleAlertIcon />
+              Needs input
+            </Badge>
+            <Badge variant="success">
+              <CheckIcon />
+              Ready
+            </Badge>
+            <Badge variant="destructive">
+              <TriangleAlertIcon />
+              Failed
+            </Badge>
+            <Badge variant="secondary">Offline</Badge>
           </div>
         </section>
         <section className={panel}>
@@ -132,6 +162,77 @@ export const Gallery: Story = {
       </div>
     </div>
   ),
+};
+
+const colorTokens = [
+  ["background", "bg-background text-foreground"],
+  ["card", "bg-card text-card-foreground"],
+  ["muted", "bg-muted text-muted-foreground"],
+  ["primary", "bg-primary text-primary-foreground"],
+  ["secondary", "bg-secondary text-secondary-foreground"],
+  ["accent", "bg-accent text-accent-foreground"],
+] as const;
+
+export const ThemeReference: Story = {
+  render: () => (
+    <div className="w-full max-w-3xl">
+      <section>
+        <div className="space-y-4 bg-background p-4 text-foreground">
+          <h2 className="text-lg font-semibold">Theme tokens</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {colorTokens.map(([name, classes]) => (
+              <div
+                key={name}
+                className={`flex h-16 items-center justify-center rounded-md border text-sm ${classes}`}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-base font-semibold">Section title</h3>
+            <p className="text-ui">Body and control labels</p>
+            <p className="text-sm text-muted-foreground">Supporting text / metadata</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="info">
+              <Spinner aria-label="Working" />
+              Working
+            </Badge>
+            <Badge variant="warning">
+              <TriangleAlertIcon />
+              Waiting
+            </Badge>
+            <Badge variant="success">
+              <CheckIcon />
+              Ready
+            </Badge>
+            <Badge variant="destructive">
+              <TriangleAlertIcon />
+              Failed
+            </Badge>
+          </div>
+          <Input aria-label="Bot name" placeholder="Bot name" />
+          <div className="flex flex-wrap gap-2">
+            <Button>Save</Button>
+            <Button variant="outline">Cancel</Button>
+            <Button disabled>Disabled</Button>
+          </div>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Task result</CardTitle>
+            </CardHeader>
+            <CardContent>Shared card surface and spacing.</CardContent>
+          </Card>
+        </div>
+      </section>
+    </div>
+  ),
+};
+
+export const DarkThemeReference: Story = {
+  ...ThemeReference,
+  globals: { theme: "dark" },
 };
 
 function SwitchRow({ label, children }: { label: string; children: React.ReactNode }) {

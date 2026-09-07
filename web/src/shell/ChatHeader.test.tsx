@@ -123,21 +123,22 @@ afterEach(() => {
   isMobileMock.mockReturnValue(false);
 });
 
-describe("ChatHeader — deployed Share presentation", () => {
-  it("matches the compact Vercel action", () => {
+describe("ChatHeader — shared Share presentation", () => {
+  it.each(["cine", "debby", "polly", "cine-helper"])("limits the canvas entry to Cine: %s", (name) => {
+    renderHeader({ sidebarOpen: true, conversationId: "bot-chat", actionConversation: {
+      id: "bot-chat", object: "conversation", title: "Test", created_at: 0, updated_at: 0,
+      labels: { "seedance.project_id": "old-project" }, permission_level: 40,
+      agent_name: name, bot_id: `bot-${name}`, purpose: "primary",
+    } });
+    expect(screen.queryByTestId("header-open-canvas-button") !== null).toBe(name === "cine");
+  });
+  it("uses the shared outline action", () => {
     renderHeader({ sidebarOpen: true, canShare: true });
 
     const share = screen.getByRole("button", { name: "Share session" });
-    expect(share).toHaveClass(
-      "h-6",
-      "gap-1",
-      "rounded-[6px]",
-      "px-2",
-      "text-ui",
-      "share-button-glassy",
-      "md:inline-flex",
-    );
-    expect(share).not.toHaveClass("h-8", "rounded-full", "px-6");
+    expect(share).toHaveAttribute("data-variant", "outline");
+    expect(share).toHaveAttribute("data-size", "sm");
+    expect(share).toHaveClass("md:inline-flex");
     expect(share.querySelector(".lucide-user-plus")).not.toBeNull();
   });
 
@@ -152,14 +153,8 @@ describe("ChatHeader — deployed Share presentation", () => {
     const share = screen.getByRole("button", { name: "Share session" });
     expect(share).toBeDisabled();
     expect(share).toHaveAttribute("title", "Sharing is unavailable");
-    expect(share).toHaveClass(
-      "h-6",
-      "gap-1",
-      "rounded-[6px]",
-      "px-2",
-      "text-ui",
-      "share-button-glassy",
-    );
+    expect(share).toHaveAttribute("data-variant", "outline");
+    expect(share).toHaveAttribute("data-size", "sm");
     expect(share.querySelector(".lucide-user-plus")).not.toBeNull();
   });
 });
@@ -172,6 +167,37 @@ describe("ChatHeader — workspace pane alignment", () => {
     expect(header).not.toBeNull();
     expect(header).toHaveClass("inset-x-0", "md:right-[var(--workspace-panel-offset,0px)]");
   });
+});
+
+describe("ChatHeader bot identity", () => {
+  it.each(["primary", "topic", "standalone"] as const)(
+    "identifies %s sessions without treating a CLI session as a bot",
+    (purpose) => {
+      renderHeader({
+        sidebarOpen: true,
+        conversationId: "bot-chat",
+        conversationTitle: "Review routing",
+        actionConversation: {
+          id: "bot-chat",
+          object: "conversation",
+          title: "Review routing",
+          created_at: 0,
+          updated_at: 0,
+          labels: {},
+          permission_level: 40,
+          agent_name: "debby",
+          bot_id: purpose === "standalone" ? null : "bot-debby",
+          purpose,
+        },
+      });
+      if (purpose === "standalone") {
+        expect(screen.queryByTestId("bot-chat-identity")).toBeNull();
+      } else {
+        expect(screen.getByTestId("bot-chat-identity")).toHaveTextContent("debby");
+        expect(screen.getByText(purpose === "primary" ? "Chat" : "Topic")).toBeVisible();
+      }
+    },
+  );
 });
 
 describe("ChatHeader — open-sidebar toggle visibility", () => {
