@@ -867,6 +867,10 @@ def _build_mcp_tools(
                     # runtime returns without confusing the type checker.
                     raw = await tool_executor(tool_name, args)
                     result: ToolResult = raw if isinstance(raw, dict) else {"result": raw}
+                    if tool_name == "sys_os_view_image":
+                        from omnigent.runtime.image_tool import image_mcp_response
+
+                        return image_mcp_response(result)
                     response: McpResponse = {
                         "content": [{"type": "text", "text": json.dumps(result)}],
                     }
@@ -1651,7 +1655,9 @@ class ClaudeSDKExecutor(Executor):
             with suppress(Exception):
                 pathlib.Path(wrapper_path).unlink(missing_ok=True)
 
-    async def _route_options_through_gateway_shim(self, options: SdkOptions) -> None:
+    async def _route_options_through_gateway_shim(
+        self, options: SdkOptions, session_id: str | None = None
+    ) -> None:
         """
         Point a new client's ``ANTHROPIC_BASE_URL`` at the local shim.
 
@@ -1684,7 +1690,10 @@ class ClaudeSDKExecutor(Executor):
                 strip_sdk_internal_system_blocks=not is_databricks_ai_gateway_url(
                     upstream_base_url
                 ),
+                session_id=session_id,
             )
+        elif session_id:
+            self._gateway_shim.set_session_id(session_id)
         await self._gateway_shim.start()
         env["ANTHROPIC_BASE_URL"] = self._gateway_shim.base_url
 
@@ -1698,7 +1707,7 @@ class ClaudeSDKExecutor(Executor):
     ) -> _ClaudeClient:
         state = self._clients.get(session_key)
         if state is None:
-            await self._route_options_through_gateway_shim(options)
+            await self._route_options_through_gateway_shim(options, session_id=session_key)
             # Tee CLI stderr so the connect timeout error carries the
             # tail; ``_on_stderr`` alone only logs at DEBUG.
             connect_stderr: list[str] = []
@@ -2265,6 +2274,8 @@ class ClaudeSDKExecutor(Executor):
         cfg = config or ExecutorConfig()
 
         session_key = self._session_key(messages)
+        if self._gateway_shim is not None:
+            self._gateway_shim.set_session_id(session_key)
         crashed_reason = self._crashed_sessions.pop(session_key, None)
         if crashed_reason is not None:
             logger.warning(

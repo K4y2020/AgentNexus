@@ -36,6 +36,8 @@ import logging
 from collections.abc import Awaitable, Callable, Iterator, MutableMapping
 from typing import Any, TypeAlias
 
+import uuid
+
 import httpx
 import uvicorn
 
@@ -208,9 +210,12 @@ class ClaudeGatewayShim:
         upstream_base_url: str,
         *,
         strip_sdk_internal_system_blocks: bool = False,
+        session_id: str | None = None,
     ) -> None:
         self._upstream_base_url = upstream_base_url.rstrip("/")
         self._strip_sdk_internal_system_blocks = strip_sdk_internal_system_blocks
+        self._session_id = session_id
+        self._default_session_id = session_id or uuid.uuid4().hex
         self._client: httpx.AsyncClient | None = None
         self._server: uvicorn.Server | None = None
         self._serve_task: asyncio.Task[None] | None = None
@@ -218,6 +223,11 @@ class ClaudeGatewayShim:
         # Serializes start() so two concurrent first turns can't bind
         # two servers / leak a connection pool.
         self._start_lock = asyncio.Lock()
+
+    def set_session_id(self, session_id: str | None) -> None:
+        """Update or set the current session id for upstream routing."""
+        if session_id:
+            self._session_id = session_id
 
     @property
     def base_url(self) -> str:
@@ -340,10 +350,15 @@ class ClaudeGatewayShim:
             request_body = restore_thinking_display(request_body)
 
         headers: list[tuple[str, str]] = []
+        has_opencode_session = False
         for raw_name, raw_value in scope["headers"]:
             name = raw_name.decode("latin-1")
+            if name.lower() == "x-opencode-session":
+                has_opencode_session = True
             if name.lower() not in _REQUEST_HEADER_EXCLUDES:
                 headers.append((name, raw_value.decode("latin-1")))
+        if not has_opencode_session:
+            headers.append(("x-opencode-session", self._session_id or self._default_session_id))
         query = scope.get("query_string", b"").decode("latin-1")
         url = f"{self._upstream_base_url}{path}" + (f"?{query}" if query else "")
 

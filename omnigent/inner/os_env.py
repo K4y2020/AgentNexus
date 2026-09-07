@@ -172,6 +172,57 @@ _MAX_TOOL_OUTPUT_CHARS = 100_000
 _DEFAULT_READ_LIMIT = 2_000
 
 
+def _windows_tool_paths() -> list[str]:
+    """Extra PATH entries for user tools installed outside the system PATH.
+
+    A long-running server on Windows can inherit a trimmed PATH, so a
+    sub-agent shell may not see tools the interactive user has on PATH. The
+    film/adaptation pipeline relies on ``uv``, ``ffmpeg`` and a modern CPython
+    installed by ``uv``; add only directories that actually exist so this is a
+    no-op elsewhere and never invents a path.
+    """
+    if not IS_WINDOWS:
+        return []
+    home = Path(os.path.expanduser("~"))
+    candidates: list[Path] = []
+    local_bin = home / ".local" / "bin"
+    if local_bin.is_dir():
+        candidates.append(local_bin)
+    ffmpeg_root = home / "ffmpeg"
+    if ffmpeg_root.is_dir():
+        for bin_dir in ffmpeg_root.glob("*/bin"):
+            if bin_dir.is_dir():
+                candidates.append(bin_dir)
+    uv_python = home / "AppData" / "Roaming" / "uv" / "python"
+    if uv_python.is_dir():
+        for child in sorted(uv_python.glob("cpython-*"), reverse=True):
+            if child.is_dir():
+                candidates.append(child)
+                break
+    return [str(p) for p in candidates if p.is_dir()]
+
+
+def _augment_path_with_tools(env: dict[str, str]) -> dict[str, str]:
+    """Append existing user tool directories to ``PATH`` in *env* in place.
+
+    Prefer the caller's own ``PATH`` ordering (tools already reachable stay
+    ahead of the appended entries), and never duplicate a directory. Returns
+    *env* so it can be chained.
+    """
+    extra = _windows_tool_paths()
+    if not extra:
+        return env
+    entries = [p for p in env.get("PATH", "").split(os.pathsep) if p]
+    seen = {p.lower() if IS_WINDOWS else p for p in entries}
+    for p in extra:
+        key = p.lower() if IS_WINDOWS else p
+        if key not in seen:
+            entries.append(p)
+            seen.add(key)
+    env["PATH"] = os.pathsep.join(entries)
+    return env
+
+
 def build_helper_env(
     parent_env: Mapping[str, str],
     sandbox: SandboxPolicy,
@@ -226,7 +277,7 @@ def build_helper_env(
         # Opted out of sandboxing (incl. env filtering): mirror parent
         # env, but still drop the runner-auth secret — opting out of the
         # sandbox must not also hand the agent the binding token.
-        return strip_runner_auth_secrets(parent_env)
+        return _augment_path_with_tools(strip_runner_auth_secrets(parent_env))
 
     allowed = set(_DEFAULT_ENV_PASSTHROUGH)
     if sandbox.env_passthrough is not None:
@@ -240,7 +291,7 @@ def build_helper_env(
     # The default allowlist already excludes the runner-auth secrets,
     # but strip again so a spec author can't re-admit one by naming it
     # in ``sandbox.env_passthrough``.
-    return strip_runner_auth_secrets(env)
+    return _augment_path_with_tools(strip_runner_auth_secrets(env))
 
 
 def _build_credential_proxy_parent_env(
