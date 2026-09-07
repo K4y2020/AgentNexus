@@ -43,6 +43,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
+from omnigent._platform import IS_WINDOWS
 from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
 from omnigent.coordination.behavior import framework_instructions_for_session
 from omnigent.debug_logging import runner_primary_session_id
@@ -1985,7 +1986,8 @@ def _format_subagent_wake_notice(*, agent: str, title: str, status: str, pending
     noun = "result" if pending == 1 else "results"
     return (
         f"[System: sub-agent {agent}/{title} finished ({status}) — "
-        f"{pending} {noun} waiting in inbox. Call sys_read_inbox to collect.]"
+        f"{pending} {noun} waiting in inbox. Call sys_read_inbox to collect. "
+        "This is an execution-status notification, not a task-success verdict.]"
     )
 
 
@@ -2945,6 +2947,10 @@ def create_runner_app(
             session_id=session_id,
         )
         instructions = tuple(framework_instructions_for_session(labels))
+        from omnigent.bot_workspace import WORKSPACE_INSTRUCTIONS, WORKSPACE_LAYOUT_LABEL
+
+        if labels.get(WORKSPACE_LAYOUT_LABEL) == "topic-v1":
+            instructions += (WORKSPACE_INSTRUCTIONS,)
         _session_behavior_instructions_cache[session_id] = (
             time.monotonic(),
             instructions,
@@ -2955,10 +2961,10 @@ def create_runner_app(
     _session_memories_instructions_cache: dict[str, tuple[float, str | None]] = {}
 
     async def _session_teammate_memory_instruction(
-        session_id: str,
+        _session_id: str,
         agent_id: str | None,
     ) -> str | None:
-        """Load durable teammate memories for the session agent and format as system instructions."""
+        """Load durable teammate memories for the session agent."""
         if not agent_id:
             return None
         cached = _session_memories_instructions_cache.get(agent_id)
@@ -2979,16 +2985,26 @@ def create_runner_app(
                     for m in memories
                     if isinstance(m, dict) and m.get("content", "").strip()
                 ]
-                if lines:
-                    formatted = "\n".join(f"- {line}" for line in lines)
-                    instruction = (
-                        "<teammate_memories>\n"
-                        "The following are persistent memories and working preferences remembered for this teammate across sessions:\n"
-                        f"{formatted}\n"
-                        "Use these memories to maintain continuity with the user, respecting their preferences and project context.\n"
-                        "</teammate_memories>"
-                    )
-        except Exception:
+                fallback_line = "- (No persistent memories recorded yet)"
+                formatted = (
+                    "\n".join(f"- {line}" for line in lines) if lines else fallback_line
+                )
+                mem_rules = (
+                    "AUTOMATIC MEMORY RECORDING:\n"
+                    "You have the `save_teammate_memory` tool. Actively record memories when:\n"
+                    "1. User states explicit preferences or habits ('记住...', '以后都...').\n"
+                    "2. You establish key conventions, paths, or architectural rules.\n"
+                    "3. The user corrects a recurring mistake or gives domain context.\n"
+                    "Call `save_teammate_memory(content=...)` to persist for future sessions.\n"
+                )
+                instruction = (
+                    "<teammate_memories>\n"
+                    "Persistent memories remembered for this teammate across sessions:\n"
+                    f"{formatted}\n\n"
+                    f"{mem_rules}"
+                    "</teammate_memories>"
+                )
+        except Exception:  # noqa: BLE001
             _logger.debug("Failed to load teammate memories for %s: %s", agent_id, exc_info=True)
 
         _session_memories_instructions_cache[agent_id] = (time.monotonic(), instruction)
@@ -3340,8 +3356,27 @@ def create_runner_app(
                     spec_entry = _sub_entry
                     spec = _unwrap_resolved_spec(_sub_entry)
                     _session_sub_agent_resolved[session_id] = True
-            harness_name = spec.executor.config.get("harness") or spec.executor.type
+            harness_name = (
+                _session_harness_overrides.get(session_id)
+                or spec.executor.config.get("harness")
+                or spec.executor.type
+            )
             harness_name = canonicalize_harness(harness_name) or harness_name
+            if IS_WINDOWS:
+                if harness_name == "codex-native":
+                    _logger.info(
+                        "Adapting codex-native to codex SDK harness on Windows for session %s",
+                        session_id,
+                    )
+                    harness_name = "codex"
+                    _session_harness_overrides[session_id] = "codex"
+                elif harness_name == "claude-native":
+                    _logger.info(
+                        "Adapting claude-native to claude-sdk harness on Windows for session %s",
+                        session_id,
+                    )
+                    harness_name = "claude-sdk"
+                    _session_harness_overrides[session_id] = "claude-sdk"
 
             _start_verdict = await _evaluate_agent_start_gate(spec, harness_name)
             if _start_verdict is not None:
@@ -4502,19 +4537,21 @@ def create_runner_app(
         )
 
     def _session_harness_name(conv_id: str) -> str | None:
-        # The override wins: a routed session runs the harness the server
-        # pinned, not the one its spec declares. Reading the spec here left a
-        # sub-agent whose spec says ``claude-native`` looking native while it
-        # actually ran ``claude-sdk``, so its completion was never pushed to
-        # the parent inbox (the native path that owes it never ran).
         override = _session_harness_overrides.get(conv_id)
         if override is not None:
-            return override
-        spec = _session_spec_cache.get(conv_id)
-        if spec is None:
-            return None
-        h = spec.executor.config.get("harness") or spec.executor.type
-        return canonicalize_harness(h) or h
+            res = override
+        else:
+            spec = _session_spec_cache.get(conv_id)
+            if spec is None:
+                return None
+            h = spec.executor.config.get("harness") or spec.executor.type
+            res = canonicalize_harness(h) or h
+        if IS_WINDOWS:
+            if res == "codex-native":
+                return "codex"
+            if res == "claude-native":
+                return "claude-sdk"
+        return res
 
     def _publish_turn_status(
         conv_id: str,
@@ -6539,6 +6576,12 @@ def create_runner_app(
         msg_body: _JsonObject,
         conv: str,
     ) -> None:
+        from omnigent.runner.model_selection import restore_turn_model
+
+        # System wakes and restart catch-up lack the normal event's model field.
+        # Read the saved selection before constructing either spawn env or request.
+        if spec_resolver is not None:
+            msg_body = await restore_turn_model(msg_body, conv, server_client)
         _dispatched_agent_id = cast(str | None, msg_body.get("agent_id"))
         _prior_agent_id = _session_agent_ids.get(conv)
         if (
@@ -6626,6 +6669,11 @@ def create_runner_app(
                 or cached_spec.executor.type
             )
             harness_name = canonicalize_harness(h) or h
+            if IS_WINDOWS:
+                if harness_name == "codex-native":
+                    harness_name = "codex"
+                elif harness_name == "claude-native":
+                    harness_name = "claude-sdk"
 
         if conv not in _session_histories:
             _session_histories[conv] = (
@@ -6992,6 +7040,11 @@ def create_runner_app(
     ) -> Response:
         manager = cast(HarnessProcessManager, process_manager)
         harness_name = dispatch.harness if dispatch else cast(str | None, body.get("harness"))
+        if IS_WINDOWS and harness_name:
+            if harness_name == "codex-native":
+                harness_name = "codex"
+            elif harness_name == "claude-native":
+                harness_name = "claude-sdk"
         spawn_env = (
             dispatch.spawn_env if dispatch else cast(dict[str, str] | None, body.get("spawn_env"))
         )
@@ -10773,6 +10826,11 @@ async def _resolve_harness_config(
                     workdir = _resolved_spec_workdir(sub_entry)
             harness = harness_override or spec.executor.config.get("harness") or spec.executor.type
             harness = canonicalize_harness(harness) or harness
+            if IS_WINDOWS:
+                if harness == "codex-native":
+                    harness = "codex"
+                elif harness == "claude-native":
+                    harness = "claude-sdk"
             spawn_env = _build_spawn_env_from_spec(
                 spec,
                 harness,

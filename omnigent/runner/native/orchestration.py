@@ -7644,6 +7644,14 @@ async def _launch_native_terminal(
         if decision.skip or not decision.needs_terminal:
             return False
 
+        if IS_WINDOWS:
+            _logger.info(
+                "Skipping native %s terminal launch on Windows for session %s (PTY unsupported)",
+                agent.terminal_name,
+                ctx.session_id,
+            )
+            return False
+
         adapter = resolve_hook(provider, "auto_create_terminal")
         if adapter is None:
             return None
@@ -7773,6 +7781,13 @@ async def _ensure_native_terminal(
         adapter = resolve_hook(provider, "auto_create_terminal")
         if adapter is None:
             return None
+        if IS_WINDOWS:
+            _logger.info(
+                "%s terminal ensure returning 200 on Windows for session=%s (PTY unsupported)",
+                agent.display_name,
+                ctx.session_id,
+            )
+            return JSONResponse(status_code=200, content={"status": "unsupported_on_windows"})
         try:
             if build_context is not None:
                 ctx = await build_context(ctx)

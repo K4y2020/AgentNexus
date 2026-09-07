@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import contextlib
 import dataclasses
 import hashlib
 import json
@@ -55,6 +54,13 @@ from omnigent._wrapper_labels import (
     CODEX_NATIVE_WRAPPER_VALUE,
 )
 from omnigent.coordination.behavior import BEHAVIOR_MODE_LABEL_KEY
+from omnigent.coordination.channels import (
+    A2A_CHANNEL_SCOPE_LABEL,
+    A2AChannelBinding,
+    binding_for_session,
+    labels_for_binding,
+    payload_for_binding,
+)
 from omnigent.debug_logging import runner_primary_session_id
 from omnigent.harness_aliases import canonicalize_harness, is_native_harness
 from omnigent.model_override import (
@@ -85,6 +91,7 @@ from omnigent.tools.builtins.list_comments import ListCommentsTool
 from omnigent.tools.builtins.os_env import (
     SysOsEditTool,
     SysOsReadTool,
+    SysOsViewImageTool,
     SysOsShellTool,
     SysOsWriteTool,
 )
@@ -195,6 +202,10 @@ MCP_PROXY_FORWARD_TIMEOUT_S = _RUNNER_EXECUTION_TIMEOUT_S + 30.0
 MCP_PROXY_CALL_TIMEOUT_S = _RUNNER_EXECUTION_TIMEOUT_S + 60.0
 
 
+class _SavedSubagentModelLookupError(RuntimeError):
+    """The parent preference store could not be read reliably."""
+
+
 @dataclass(frozen=True)
 class _CancelAsyncToolResult:
     """
@@ -234,6 +245,7 @@ class _SubagentInboxEvaluation:
 _OS_ENV_TOOLS = frozenset(
     {
         SysOsReadTool.name(),
+        SysOsViewImageTool.name(),
         SysOsWriteTool.name(),
         SysOsEditTool.name(),
         SysOsShellTool.name(),
@@ -278,6 +290,7 @@ _ASYNC_INBOX_TOOLS = frozenset(
 # continues child sessions. The read-only observability helpers
 # (peek/list/close) dispatch via ``_SESSION_QUERY_TOOLS`` below.
 _SUBAGENT_TOOLS = frozenset({"sys_session_send"})
+_QUESTION_TOOLS = frozenset({"sys_ask_user"})
 _TURN_ACTOR_LABEL = "omnigent.turn_actor"
 
 # Priority 5f.0a: Session-create write. ``sys_session_create`` spawns a
@@ -343,6 +356,10 @@ _NIMBLE_EXTRACT_TOOLS = frozenset({"nimble_extract"})
 
 # Teammate A2A dispatch tool. Enables cross-bot task communication.
 _TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
+
+# Seedance V3 canvas / agent message tool. Runner-local bridge to Seedance V3.
+_SEEDANCE_TOOLS = frozenset({"seedance_agent_message", "seedance_read_canvas", "seedance_edit_canvas", "cine_verify_report"})
+_MEMORY_TOOLS = frozenset({"save_teammate_memory"})
 
 # Hindsight long-term memory builtins. Runner-local (like web_search) so that a
 # wrapped harness's (claude-sdk / codex / cursor / pi) tool call resolves to the
@@ -459,6 +476,7 @@ _BROWSER_TIMEOUT_ERROR = (
 # ``os_env`` gate), so the native relay assembles them separately.
 _NATIVE_RELAY_BUILTIN_TOOLS = (
     _COMMENT_TOOLS
+    | _QUESTION_TOOLS
     | _SESSION_QUERY_TOOLS
     | _SESSION_SELF_WRITE_TOOLS
     | _ASYNC_INBOX_TOOLS
@@ -553,9 +571,11 @@ def build_native_relay_tool_schemas(spec: AgentSpec | None) -> list[_JsonObject]
             if function is not None and function.get("name") in _NATIVE_RELAY_BUILTIN_TOOLS:
                 _append(function)
     else:
+        from omnigent.tools.builtins.ask_user import SysAskUserTool
         from omnigent.tools.builtins.policy import SysAddPolicyTool, SysPolicyRegistryTool
 
         for _cls in (
+            SysAskUserTool,
             ListCommentsTool,
             UpdateCommentTool,
             SysSessionListTool,
@@ -594,6 +614,7 @@ def build_native_relay_tool_schemas(spec: AgentSpec | None) -> list[_JsonObject]
         try:
             for tool in (
                 SysOsReadTool(_os_env),
+                SysOsViewImageTool(_os_env),
                 SysOsWriteTool(_os_env),
                 SysOsEditTool(_os_env),
                 SysOsShellTool(_os_env),
@@ -858,6 +879,7 @@ def _bounded_discovery_result(
 # Union of all locally-dispatched tools.
 _ALL_LOCAL_TOOLS = (
     _OS_ENV_TOOLS
+    | _QUESTION_TOOLS
     | _REST_TOOLS
     | _FILE_TOOLS
     | _TERMINAL_TOOLS
@@ -872,6 +894,9 @@ _ALL_LOCAL_TOOLS = (
     | _WEB_SEARCH_TOOLS
     | _NIMBLE_RESEARCH_TOOLS
     | _NIMBLE_EXTRACT_TOOLS
+    | _TEAMMATE_DISPATCH_TOOLS
+    | _SEEDANCE_TOOLS
+    | _MEMORY_TOOLS
     | _HINDSIGHT_TOOLS
     | _TIMER_TOOLS
     | _TASK_LIFECYCLE_TOOLS
@@ -1243,6 +1268,7 @@ async def _list_child_sessions(
     limit: int = 100,
     tool: str | None = None,
     session_name: str | None = None,
+    exhaustive: bool = False,
 ) -> list[_JsonObject] | str:
     """
     Fetch child-session summaries for a parent session.
@@ -1260,19 +1286,28 @@ async def _list_child_sessions(
     if tool and session_name:
         params["tool"] = tool
         params["session_name"] = session_name
-    resp = await server_client.get(
-        f"/v1/sessions/{conversation_id}/child_sessions",
-        params=params,
-        timeout=30.0,
-    )
-    if resp.status_code >= 400:
-        return f"Error: failed to list child sessions: {resp.status_code} {resp.text[:200]}"
-    decoded: object = resp.json()
-    payload = _string_object_dict(decoded)
-    data = payload.get("data") if payload is not None else None
-    if not isinstance(data, list):
-        return "Error: server child_sessions response missing data list"
-    return [item for raw in data if (item := _string_object_dict(raw)) is not None]
+    children: list[_JsonObject] = []
+    cursors: set[str] = set()
+    while True:
+        resp = await server_client.get(
+            f"/v1/sessions/{conversation_id}/child_sessions",
+            params=params,
+            timeout=30.0,
+        )
+        if resp.status_code >= 400:
+            return f"Error: failed to list child sessions: {resp.status_code} {resp.text[:200]}"
+        payload = _string_object_dict(resp.json())
+        data = payload.get("data") if payload is not None else None
+        if not isinstance(data, list) or payload is None:
+            return "Error: server child_sessions response missing data list"
+        children.extend(item for raw in data if (item := _string_object_dict(raw)) is not None)
+        if not exhaustive or not payload.get("has_more"):
+            return children
+        cursor = payload.get("last_id")
+        if not isinstance(cursor, str) or not cursor or cursor in cursors:
+            return "Error: invalid child_sessions pagination cursor"
+        cursors.add(cursor)
+        params["after"] = cursor
 
 
 async def _find_existing_child_session(
@@ -1542,22 +1577,38 @@ async def _preferred_subagent_model(
             f"/v1/sessions/{conversation_id}/labels",
             timeout=10.0,
         )
-    except (httpx.HTTPError, RuntimeError):
-        return None
+    except (httpx.HTTPError, RuntimeError) as exc:
+        raise _SavedSubagentModelLookupError(
+            f"failed to read saved model preference: {type(exc).__name__}: {exc}"
+        ) from exc
     if response.status_code != 200:
-        return None
+        raise _SavedSubagentModelLookupError(
+            f"saved model preference lookup returned HTTP {response.status_code}"
+        )
     try:
         payload = response.json()
-    except ValueError:
-        return None
+    except ValueError as exc:
+        raise _SavedSubagentModelLookupError(
+            "saved model preference lookup returned invalid JSON"
+        ) from exc
     if not isinstance(payload, dict):
-        return None
+        raise _SavedSubagentModelLookupError(
+            "saved model preference lookup returned a non-object payload"
+        )
     labels = payload.get("labels")
     if not isinstance(labels, dict):
-        return None
+        raise _SavedSubagentModelLookupError(
+            "saved model preference lookup returned no labels object"
+        )
     raw = labels.get(f"{_SUBAGENT_MODEL_LABEL_PREFIX}{sub_agent_name}")
-    if not isinstance(raw, str) or not raw:
+    if raw is None:
         return None
+    if raw == "":
+        # The settings UI uses an empty label to explicitly select Default.
+        # Preserve that sentinel so primary-session fallback is suppressed.
+        return ""
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("saved model preference must be a non-empty string")
     return validate_model_override(raw)
 
 
@@ -2086,6 +2137,29 @@ async def _execute_subagent_tool(
     # Lazy import to avoid circular dependency at module load.
     from omnigent.runner import app as _runner_app
 
+    args = dict(args)
+    task_id = args.pop("task_id", None)
+    if task_id is not None:
+        if not isinstance(task_id, str) or not task_id.strip():
+            return "Error: task_id must be a non-empty child task ID"
+        if any(args.get(key) for key in ("session_id", "agent", "title")):
+            return "Error: task_id cannot be combined with session_id, agent, or title"
+        args["session_id"] = task_id
+    new_task_reason = args.get("new_task_reason")
+    if new_task_reason is not None and (
+        not isinstance(new_task_reason, str) or not new_task_reason.strip()
+    ):
+        return "Error: new_task_reason must explain why an independent child is needed"
+    if new_task_reason is not None and args.get("session_id"):
+        return "Error: new_task_reason cannot be combined with a continuation ID"
+    question_id = args.get("question_id")
+    if question_id is not None and (
+        not isinstance(question_id, str) or not question_id.strip() or not args.get("session_id")
+    ):
+        return "Error: question_id requires a non-empty ID and task_id or session_id"
+    if (question_id is None) != (args.get("answers") is None):
+        return "Error: question_id and answers must be supplied together"
+
     message = _subagent_message_from_args(args)
     if message is None or not message.strip():
         return "Error: sys_session_send requires non-empty args string or args.input string"
@@ -2177,8 +2251,11 @@ async def _execute_subagent_tool(
             message,
             server_client=server_client,
             conversation_id=conversation_id,
+            agent_spec=agent_spec,
             publish_event=publish_event,
             created_by=dispatch_created_by,
+            question_id=question_id,
+            answers=args.get("answers"),
         )
 
     # Named mode: (agent, title) spawn-or-continue.
@@ -2235,6 +2312,33 @@ async def _execute_subagent_tool(
         if isinstance(existing, str):
             return existing
     assert not isinstance(existing, str)
+    if existing is None and new_task_reason is None:
+        children = await _list_child_sessions(
+            server_client=server_client,
+            conversation_id=conversation_id,
+            exhaustive=True,
+        )
+        if isinstance(children, str):
+            return children
+        candidates = [
+            child for child in children if (_subagent_label(child).agent == sub_agent_name)
+        ]
+        if candidates:
+            return json.dumps(
+                {
+                    "error": "continuation_decision_required",
+                    "message": (
+                        "For missing inputs, corrections, or review follow-ups, continue the "
+                        "original task with task_id and args. "
+                        "Do not change the title to restart it. "
+                        "For independent work, supply new_task_reason and full project context."
+                    ),
+                    "existing_tasks": [
+                        {"task_id": child.get("id"), "title": child.get("title")}
+                        for child in candidates
+                    ],
+                }
+            )
     created_child = False
     child_harness = _subagent_harness(str(sub_agent_name), agent_spec)
     child_wrapper_label: str | None = None
@@ -2244,10 +2348,15 @@ async def _execute_subagent_tool(
             conversation_id=conversation_id,
             sub_agent_name=str(sub_agent_name),
         )
+    except _SavedSubagentModelLookupError as exc:
+        return (
+            f"Error: saved model preference for sub-agent {sub_agent_name!r} "
+            f"could not be read; no fallback model was selected: {exc}"
+        )
     except ValueError as exc:
         return f"Error: saved model preference for sub-agent {sub_agent_name!r} is invalid: {exc}"
-    model_from_preference = preferred_model is not None
-    if preferred_model is not None:
+    model_from_preference = preferred_model not in (None, "")
+    if preferred_model not in (None, ""):
         if model is not None and model != preferred_model:
             _logger.info(
                 "sys_session_send: saved model preference %r overrides dispatch model %r "
@@ -2262,6 +2371,18 @@ async def _execute_subagent_tool(
         child_session_id = existing.get("id")
         if not isinstance(child_session_id, str) or not child_session_id:
             return "Error: existing child session is missing id"
+        if existing.get("pending_elicitations_count"):
+            return json.dumps(
+                {
+                    "error": "child_needs_input",
+                    "task_id": child_session_id,
+                    "message": (
+                        "The child needs input. Read sys_session_get_info; "
+                        "answer with task_id, question_id and answers, or let the "
+                        "human answer the chat card. Do not start another turn."
+                    ),
+                }
+            )
         if model is not None and not model_from_preference:
             # A native child bakes --model in at terminal launch, so a
             # mid-conversation override would be silently ignored there.
@@ -2327,8 +2448,16 @@ async def _execute_subagent_tool(
         # harnesses read model_override at each turn boundary. Native terminal
         # children are excluded because their live pane requires the
         # harness-specific /model interaction.
+        if preferred_model not in (None, "") and is_native_harness(child_harness):
+            if existing.get("routed_model") != preferred_model:
+                return (
+                    f"Error: saved model preference {preferred_model!r} cannot be applied to "
+                    f"existing native sub-agent session {child_session_id!r}; native harness "
+                    "model changes require an explicit harness operation. "
+                    "No model change was made."
+                )
         if not is_native_harness(child_harness):
-            if preferred_model is not None:
+            if preferred_model not in (None, ""):
                 if not harness_supports_model_override(child_harness):
                     return (
                         f"Error: saved model preference is not supported for "
@@ -2342,16 +2471,12 @@ async def _execute_subagent_tool(
                     else None
                 )
                 if mismatch is not None:
-                    _logger.warning(
-                        "sys_session_send: saved model preference %r rejected for sub-agent %r: "
-                        "%s; falling back to harness default",
-                        preferred_model,
-                        sub_agent_name,
-                        mismatch,
-                        extra={"session_id": runner_primary_session_id()},
+                    return (
+                        f"Error: saved model preference {preferred_model!r} rejected for "
+                        f"sub-agent {sub_agent_name!r}: {mismatch}. "
+                        "Update the saved configuration; no fallback model was selected."
                     )
-                    preferred_model = None
-                if preferred_model is not None:
+                if preferred_model not in (None, ""):
                     normalized_preference = _normalize_subagent_model(
                         preferred_model,
                         sub_agent_name=str(sub_agent_name),
@@ -2372,7 +2497,7 @@ async def _execute_subagent_tool(
                         )
         # Continue existing session
     else:
-        if model is None:
+        if model is None and preferred_model != "":
             model = await _inherited_parent_model(
                 server_client=server_client,
                 conversation_id=conversation_id,
@@ -2484,6 +2609,8 @@ async def _execute_subagent_tool(
                 BEHAVIOR_MODE_LABEL_KEY: _subagent_behavior_mode_from_args(args),
             },
         }
+        if new_task_reason is not None:
+            create_body["labels"]["omnigent.subagent.new_task_reason"] = new_task_reason
         if harness_override_canonical is not None:
             create_body["harness_override"] = harness_override_canonical
         if model is not None:
@@ -2499,20 +2626,15 @@ async def _execute_subagent_tool(
             mismatch = model_family_mismatch(child_harness, model) if child_harness else None
             if mismatch is not None:
                 if model_from_preference:
-                    _logger.warning(
-                        "sys_session_send: saved model preference %r rejected for sub-agent %r: "
-                        "%s; falling back to harness default",
-                        model,
-                        sub_agent_name,
-                        mismatch,
-                        extra={"session_id": runner_primary_session_id()},
-                    )
-                    model = None
-                else:
                     return (
-                        f"Error: sys_session_send 'model' rejected for sub-agent "
-                        f"{sub_agent_name!r}: {mismatch}"
+                        f"Error: saved model preference {model!r} rejected for "
+                        f"sub-agent {sub_agent_name!r}: {mismatch}. "
+                        "Update the saved configuration; no fallback model was selected."
                     )
+                return (
+                    f"Error: sys_session_send 'model' rejected for sub-agent "
+                    f"{sub_agent_name!r}: {mismatch}"
+                )
             # Family guard first (on the requested id, so the error
             # quotes what the caller sent), then mechanical
             # canonical<->gateway-local normalization. The normalized
@@ -2784,8 +2906,11 @@ async def _send_to_existing_session(
     *,
     server_client: httpx.AsyncClient,
     conversation_id: str,
+    agent_spec: AgentSpec | None = None,
     publish_event: Callable[[str, _JsonObject], None] | None = None,
     created_by: str | None = None,
+    question_id: str | None = None,
+    answers: object = None,
 ) -> str:
     """
     Post a message to an existing direct-child session, return a handle.
@@ -2841,8 +2966,129 @@ async def _send_to_existing_session(
                 "message": "target sub-agent session is closed; create a new session to continue.",
             }
         )
+    pending = [
+        event
+        for event in (snap_data.get("pending_elicitations") or [])
+        if isinstance(event, dict)
+        and isinstance(event.get("params"), dict)
+        and (event.get("params") or {}).get("target_session_id") in (None, target_session_id)
+    ]
+    if question_id is not None:
+        from omnigent.runtime.subagent_questions import validate_answers
+
+        question = next((e for e in pending if e.get("elicitation_id") == question_id), None)
+        if question is None:
+            return json.dumps({"error": "question_not_pending", "task_id": target_session_id})
+        try:
+            content = validate_answers(question, answers)
+        except ValueError as exc:
+            return json.dumps({"error": "invalid_question_answer", "message": str(exc)})
+        try:
+            result = await server_client.post(
+                f"/v1/sessions/{target_session_id}/elicitations/{question_id}/resolve",
+                json={"action": "accept", "content": content},
+                timeout=30.0,
+            )
+        except httpx.HTTPError:
+            return json.dumps(
+                {
+                    "error": "question_answer_delivery_unknown",
+                    "task_id": target_session_id,
+                    "message": "Check pending questions before retrying; delivery is unconfirmed.",
+                }
+            )
+        if result.status_code >= 400:
+            return json.dumps(
+                {"error": "question_answer_failed", "status_code": result.status_code}
+            )
+        return json.dumps(
+            {
+                "task_id": target_session_id,
+                "question_id": question_id,
+                "status": "answer_submitted",
+                "task_success_verified": False,
+                "message": (
+                    "Answer submitted to the original waiting turn. "
+                    "Await its result; do not spawn a replacement."
+                ),
+            }
+        )
+    if pending:
+        return json.dumps(
+            {
+                "error": "child_needs_input",
+                "task_id": target_session_id,
+                "pending_questions": pending,
+                "message": (
+                    "Resolve the outstanding question instead of posting another turn. "
+                    "For known ordinary answers use task_id, question_id, answers, and args. "
+                    "Unknown answers and approvals remain for the human in the chat card."
+                ),
+            }
+        )
     parsed = _parse_session_title(snap_data.get("title"))
-    agent_label = parsed.agent or "agent"
+    agent_label = snap_data.get("sub_agent_name")
+    if not isinstance(agent_label, str) or not agent_label:
+        agent_label = parsed.agent or "agent"
+    try:
+        preferred_model = await _preferred_subagent_model(
+            server_client=server_client,
+            conversation_id=conversation_id,
+            sub_agent_name=agent_label,
+        )
+    except _SavedSubagentModelLookupError as exc:
+        return (
+            f"Error: saved model preference for sub-agent {agent_label!r} "
+            f"could not be read; no fallback model was selected: {exc}"
+        )
+    except ValueError as exc:
+        return f"Error: saved model preference for sub-agent {agent_label!r} is invalid: {exc}"
+    if preferred_model not in (None, ""):
+        target_harness = snap_data.get("harness_override") or snap_data.get("harness")
+        if not isinstance(target_harness, str) or not target_harness:
+            target_harness = None
+        current_model = snap_data.get("model_override")
+        normalized_preference = _normalize_subagent_model(
+            preferred_model,
+            sub_agent_name=agent_label,
+            agent_spec=agent_spec,
+            harness=target_harness,
+        )
+        if current_model != normalized_preference:
+            if is_native_harness(target_harness):
+                return (
+                    f"Error: saved model preference {preferred_model!r} cannot be applied to "
+                    f"existing native sub-agent session {target_session_id!r}; native harness "
+                    "model changes require an explicit harness operation. "
+                    "No model change was made."
+                )
+            if not harness_supports_model_override(target_harness):
+                return (
+                    f"Error: saved model preference is not supported for sub-agent "
+                    f"{agent_label!r}: harness {target_harness or 'unknown'!r} has no "
+                    "model-override plumbing. No fallback model was selected."
+                )
+            mismatch = (
+                model_family_mismatch(target_harness, normalized_preference)
+                if target_harness
+                else None
+            )
+            if mismatch is not None:
+                return (
+                    f"Error: saved model preference {preferred_model!r} rejected for "
+                    f"sub-agent {agent_label!r}: {mismatch}. No fallback model was selected."
+                )
+            preference_response = await server_client.patch(
+                f"/v1/sessions/{target_session_id}",
+                json={"model_override": normalized_preference, "silent": True},
+                timeout=10.0,
+            )
+            if preference_response.status_code >= 400:
+                return (
+                    f"Error: failed to apply saved model preference {preferred_model!r} "
+                    f"to existing sub-agent {target_session_id}: "
+                    f"{preference_response.status_code} {preference_response.text[:200]}"
+                )
     existing_work = _runner_app.get_subagent_work(target_session_id)
     if existing_work is not None and existing_work.status in ("launching", "running", "waiting"):
         return (
@@ -5961,9 +6207,7 @@ async def _copy_a2a_files(
     blocks: list[_JsonObject] = []
     copied_ids: list[str] = []
     for source_file_id in file_ids:
-        source_base = (
-            f"/v1/sessions/{source_session_id}/resources/files/{source_file_id}"
-        )
+        source_base = f"/v1/sessions/{source_session_id}/resources/files/{source_file_id}"
         try:
             metadata_response = await server_client.get(source_base, timeout=10.0)
             content_response = await server_client.get(
@@ -6031,8 +6275,11 @@ async def _execute_send_to_teammate_tool(
     teammate_name = str(args.get("teammate") or "").strip()
     task_prompt = str(args.get("task") or "").strip()
     intent = str(args.get("intent") or "task.request").strip()
-    should_wait = bool(args.get("wait", True))
-    timeout_s = int(args.get("timeout_seconds", 90))
+    should_wait = bool(args.get("wait", False))
+    try:
+        timeout_s = max(0, min(int(args.get("timeout_seconds", 30)), 300))
+    except (ValueError, TypeError, OverflowError):
+        return json.dumps({"error": "timeout_seconds must be an integer"})
     explicit_target_session_id = _optional_string(args.get("target_session_id"))
     try:
         requested_file_ids = _teammate_file_ids_from_args(args)
@@ -6065,12 +6312,7 @@ async def _execute_send_to_teammate_tool(
         t_resp = await server_client.get("/v1/teammates", timeout=15.0)
         if t_resp.status_code != 200:
             return json.dumps(
-                {
-                    "error": (
-                        "Failed to list teammates: server returned "
-                        f"{t_resp.status_code}"
-                    )
-                }
+                {"error": (f"Failed to list teammates: server returned {t_resp.status_code}")}
             )
         t_data = t_resp.json()
         teammates = t_data.get("teammates", [])
@@ -6087,17 +6329,10 @@ async def _execute_send_to_teammate_tool(
     )
     if target is None:
         avail = [
-            t.get("agent", {}).get("name")
-            for t in teammates
-            if t.get("agent", {}).get("name")
+            t.get("agent", {}).get("name") for t in teammates if t.get("agent", {}).get("name")
         ]
         return json.dumps(
-            {
-                "error": (
-                    f"Teammate '{teammate_name}' not found. "
-                    f"Available teammates: {avail}"
-                )
-            }
+            {"error": (f"Teammate '{teammate_name}' not found. Available teammates: {avail}")}
         )
 
     target_agent_id = target["agent"]["id"]
@@ -6123,69 +6358,71 @@ async def _execute_send_to_teammate_tool(
             return None
         return _string_object_dict(response.json())
 
+    sender = await _session_snapshot(conversation_id)
+    channel_source = sender
+    if sender and sender.get("purpose") == "subagent":
+        channel_source = (
+            await _session_snapshot(_optional_string(sender.get("root_conversation_id"))) or sender
+        )
     primary = await _session_snapshot(_optional_string(target.get("primary_conversation_id")))
-    sender = None
-    target_host_id = (
-        _optional_string(target_bot.get("host_id")) if target_bot else None
-    ) or (_optional_string(primary.get("host_id")) if primary else None)
+    target_host_id = (_optional_string(target_bot.get("host_id")) if target_bot else None) or (
+        _optional_string(primary.get("host_id")) if primary else None
+    )
     target_home = _optional_string(target_bot.get("home_path")) if target_bot else None
     target_workspace = str(Path(target_home) / "scratch") if target_home else None
     if target_host_id is None:
-        sender = await _session_snapshot(conversation_id)
         target_host_id = _optional_string(sender.get("host_id")) if sender else None
         if target_workspace is None and sender is not None:
             target_workspace = _optional_string(sender.get("workspace"))
     if target_workspace is None:
-        target_workspace = str(
-            Path.home() / ".omnigent" / "workspaces" / target_bot_name.lower()
-        )
+        target_workspace = str(Path.home() / ".omnigent" / "workspaces" / target_bot_name.lower())
 
     # 2. Dedicated A2A channel resolution:
+    channel = binding_for_session(
+        conversation_id,
+        purpose=_optional_string(channel_source.get("purpose")) if channel_source else None,
+        root_session_id=(
+            _optional_string(channel_source.get("root_conversation_id"))
+            if channel_source
+            else None
+        ),
+        labels=(channel_source.get("labels") if channel_source else None),
+    )
     target_session_id: str | None = explicit_target_session_id
+    parent: _JsonObject | None = None
 
-    # If no explicit target session was passed, check whether the caller is an
-    # A2A channel replying back to an incoming message from target_bot_name.
-    # If so, route directly to the originating session so results flow into the
-    # user'''s main conversation!
-    if target_session_id is None:
-        try:
-            cur_snap = await _session_snapshot(conversation_id)
-            cur_labels = (cur_snap.get("labels") or {}) if cur_snap else {}
-            if cur_snap and (
-                cur_snap.get("purpose") == "a2a"
-                or cur_labels.get("omnigent.teammate.channel") == "a2a"
-            ):
-                cur_items_resp = await server_client.get(
-                    f"/v1/sessions/{conversation_id}/items",
-                    params={"order": "desc", "limit": 10},
-                    timeout=10.0,
-                )
-                if cur_items_resp.status_code == 200:
-                    for itm in cur_items_resp.json().get("data", []):
-                        meta = itm.get("metadata") or {}
-                        if (
-                            meta.get("a2a") is True
-                            and str(meta.get("sender_role", "")).lower() == teammate_name.lower()
-                        ):
-                            orig_s = _optional_string(meta.get("sender_session_id"))
-                            if orig_s and orig_s != conversation_id:
-                                orig_snap = await _session_snapshot(orig_s)
-                                if orig_snap is not None:
-                                    target_session_id = orig_s
-                                    snap_host = _optional_string(orig_snap.get("host_id"))
-                                    target_host_id = snap_host or target_host_id
-                                    snap_ws = _optional_string(orig_snap.get("workspace"))
-                                    target_workspace = snap_ws or target_workspace
-                                    _logger.info(
-                                        "send_to_teammate: reverse routing reply to %s",
-                                        orig_s,
-                                    )
-                                    break
-        except Exception as exc:  # noqa: BLE001
-            _logger.debug("Checking for originating A2A sender notice: %s", exc)
+    in_reply_to = _optional_string(args.get("in_reply_to"))
+    if intent == "task.result" and not in_reply_to:
+        return json.dumps({"error": "task.result requires the original in_reply_to request ID"})
+    if in_reply_to:
+        parent_response = await server_client.get(
+            f"/v1/coordination/messages/{in_reply_to}",
+            timeout=10.0,
+        )
+        if parent_response.status_code != 200:
+            return json.dumps({"error": "Original A2A request is unavailable"})
+        parent = parent_response.json().get("message") or {}
+        if parent.get("recipient_session_id") != conversation_id:
+            return json.dumps({"error": "Only the request recipient may reply or forward"})
+        parent_payload = _string_object_dict(parent.get("payload")) or {}
+        parent_scope = _optional_string(parent_payload.get("a2a_channel_scope"))
+        parent_kind = _optional_string(parent_payload.get("a2a_channel_kind"))
+        parent_source = _optional_string(parent_payload.get("a2a_channel_source_session_id"))
+        if parent_scope and parent_kind in {"chat", "topic"} and parent_source:
+            channel = A2AChannelBinding(
+                kind=parent_kind,
+                source_session_id=parent_source,
+                scope=parent_scope,
+            )
+        if intent == "task.result":
+            if str(parent.get("sender_role", "")).lower() != target_bot_name.lower():
+                return json.dumps({"error": "Result teammate does not match the original sender"})
+            target_session_id = str(parent["sender_session_id"])
+            should_wait = False
 
     unbound_session_id: str | None = None
     unbound_workspace: str | None = None
+    legacy_target_unscoped = False
     if target_session_id is None:
         try:
             sess_resp = await server_client.get(
@@ -6205,12 +6442,21 @@ async def _execute_send_to_teammate_tool(
                         candidate = await _session_snapshot(candidate_id)
                         if candidate is None:
                             continue
+                        candidate_labels = candidate.get("labels") or s_labels
+                        candidate_scope = _optional_string(
+                            candidate_labels.get(A2A_CHANNEL_SCOPE_LABEL)
+                        )
+                        if candidate_scope and candidate_scope != channel.scope:
+                            continue
+                        if not candidate_scope and channel.kind != "chat":
+                            continue
                         candidate_host = _optional_string(candidate.get("host_id"))
                         candidate_runner = _optional_string(candidate.get("runner_id"))
                         if candidate_host or (
                             candidate_runner and candidate.get("runner_online") is True
                         ):
                             target_session_id = candidate_id
+                            legacy_target_unscoped = not bool(candidate_scope)
                             target_host_id = candidate_host or target_host_id
                             target_workspace = (
                                 _optional_string(candidate.get("workspace")) or target_workspace
@@ -6219,6 +6465,7 @@ async def _execute_send_to_teammate_tool(
                         if unbound_session_id is None:
                             unbound_session_id = candidate_id
                             unbound_workspace = _optional_string(candidate.get("workspace"))
+                            legacy_target_unscoped = not bool(candidate_scope)
         except Exception as exc:  # noqa: BLE001
             _logger.debug("A2A channel search notice: %s", exc)
 
@@ -6244,8 +6491,7 @@ async def _execute_send_to_teammate_tool(
             return json.dumps(
                 {
                     "error": (
-                        f"Failed to bind A2A session for {target_bot_name}: "
-                        f"{bind_resp.text[:200]}"
+                        f"Failed to bind A2A session for {target_bot_name}: {bind_resp.text[:200]}"
                     )
                 }
             )
@@ -6261,10 +6507,10 @@ async def _execute_send_to_teammate_tool(
                 "/v1/sessions",
                 json={
                     "agent_id": target_agent_id,
-                    "title": "[A2A] 协同专线",
+                    "title": f"[A2A][{channel.kind}] 协同专线",
                     "host_id": target_host_id,
                     "workspace": target_workspace,
-                    "labels": {"omnigent.teammate.channel": "a2a"},
+                    "labels": labels_for_binding(channel),
                     "bot_id": target_bot_id,
                     "purpose": "a2a",
                 },
@@ -6285,6 +6531,27 @@ async def _execute_send_to_teammate_tool(
                 {"error": f"Failed to create A2A session for {target_bot_name}: {exc}"}
             )
 
+    if target_session_id and legacy_target_unscoped:
+        try:
+            scope_resp = await server_client.patch(
+                f"/v1/sessions/{target_session_id}",
+                json={"labels": labels_for_binding(channel)},
+                timeout=15.0,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return json.dumps(
+                {"error": f"Failed to bind A2A channel scope for {target_bot_name}: {exc}"}
+            )
+        if scope_resp.status_code not in (200, 201):
+            return json.dumps(
+                {
+                    "error": (
+                        f"Failed to bind A2A channel scope for {target_bot_name}: "
+                        f"{scope_resp.text[:200]}"
+                    )
+                }
+            )
+
     # 3. Wake the dedicated channel. This is a no-op when its runner is
     # already live and relaunches it through the bound host when asleep.
     try:
@@ -6301,6 +6568,8 @@ async def _execute_send_to_teammate_tool(
         )
 
     file_ids = requested_file_ids
+    if intent == "task.result" and file_ids is None:
+        file_ids = []
     if file_ids is None:
         file_ids = await _latest_human_message_file_ids(server_client, conversation_id)
     copied_files = await _copy_a2a_files(
@@ -6313,21 +6582,6 @@ async def _execute_send_to_teammate_tool(
         return json.dumps({"error": copied_files.error})
     attachment_blocks = copied_files.content or []
 
-    last_item_id_before: str | None = None
-    if should_wait:
-        try:
-            before_resp = await server_client.get(
-                f"/v1/sessions/{target_session_id}/items",
-                params={"order": "desc", "limit": 1},
-                timeout=10.0,
-            )
-            if before_resp.status_code == 200:
-                b_data = before_resp.json().get("data", [])
-                if b_data:
-                    last_item_id_before = str(b_data[0].get("id") or "")
-        except Exception:  # noqa: BLE001
-            pass
-
     # 4. Queue one durable A2A delivery. The coordination dispatcher owns
     # injection so the task cannot be executed twice.
     coordination_msg_id = None
@@ -6337,6 +6591,7 @@ async def _execute_send_to_teammate_tool(
             "source_task_id": task_id,
             "target_bot_id": target_bot_id,
             "target_session_id": target_session_id,
+            "channel_scope": channel.scope,
             "intent": intent,
             "task": task_prompt,
             "file_ids": file_ids,
@@ -6349,16 +6604,19 @@ async def _execute_send_to_teammate_tool(
         coord_resp = await server_client.post(
             "/v1/coordination/messages",
             json={
-                "root_session_id": conversation_id,
+                "root_session_id": channel.source_session_id,
                 "sender_session_id": conversation_id,
                 "sender_role": sender_name,
                 "recipient_session_id": target_session_id,
                 "recipient_role": target_bot_name,
+                "kind": "event" if intent == "task.result" else "command",
                 "intent": intent,
+                "in_reply_to": in_reply_to,
                 "payload": {
                     "prompt": task_prompt,
                     "instruction": task_prompt,
                     "from_teammate": sender_name,
+                    **payload_for_binding(channel),
                     "source_bot_id": _optional_string(sender.get("bot_id")) if sender else None,
                     "target_bot_id": target_bot_id,
                 },
@@ -6376,8 +6634,7 @@ async def _execute_send_to_teammate_tool(
             return json.dumps(
                 {
                     "error": (
-                        f"Failed to queue A2A task for {target_bot_name}: "
-                        f"{coord_resp.text[:200]}"
+                        f"Failed to queue A2A task for {target_bot_name}: {coord_resp.text[:200]}"
                     )
                 }
             )
@@ -6406,6 +6663,9 @@ async def _execute_send_to_teammate_tool(
                 "target_session_id": target_session_id,
                 "session_url": f"/c/{target_session_id}",
                 "intent": intent,
+                "channel_kind": channel.kind,
+                "channel_scope": channel.scope,
+                "channel_source_session_id": channel.source_session_id,
                 "coordination_message_id": coordination_msg_id,
                 "effective_model": target_default_model or "agent_default",
                 "model_source": "bot.default_model" if target_default_model else "agent_default",
@@ -6419,164 +6679,348 @@ async def _execute_send_to_teammate_tool(
             }
         )
 
-    # Await completion and fetch teammate report
-    deadline = time.monotonic() + max(3, min(timeout_s, 300))
-    saw_running = False
-    target_status = "idle"
-    assistant_reply: str | None = None
-
-    while time.monotonic() < deadline:
-        await asyncio.sleep(1.0)
+    # Poll one durable request, never a shared session's status or transcript.
+    deadline = time.monotonic() + max(0, min(timeout_s, 300))
+    delay = 1.0
+    while coordination_msg_id and time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        await asyncio.sleep(min(delay, remaining))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        delay = min(delay * 2, 5.0)
         try:
-            snap_resp = await server_client.get(
-                f"/v1/sessions/{target_session_id}",
-                params={"include_items": "false", "include_liveness": "true"},
-                timeout=10.0,
+            response = await server_client.get(
+                f"/v1/coordination/messages/{coordination_msg_id}",
+                timeout=min(10.0, remaining),
             )
-            if snap_resp.status_code == 200:
-                snap_data = snap_resp.json()
-                target_status = str(snap_data.get("status") or "")
-                if target_status in ("running", "waiting"):
-                    saw_running = True
-                elif saw_running and target_status in ("idle", "failed"):
-                    # Inspect whether the target bot has active child sessions (sub-agents)
-                    has_busy_children = False
-                    try:
-                        children_resp = await server_client.get(
-                            f"/v1/sessions/{target_session_id}/child_sessions",
-                            params={"limit": 20},
-                            timeout=10.0,
-                        )
-                        if children_resp.status_code == 200:
-                            for child in children_resp.json().get("data", []):
-                                if (
-                                    child.get("busy") is True
-                                    or child.get("current_task_status") in ("running", "waiting")
-                                ):
-                                    has_busy_children = True
-                                    break
-                    except Exception as exc:  # noqa: BLE001
-                        _logger.debug("Child sessions check notice: %s", exc)
-
-                    if has_busy_children:
-                        # Sub-agents are actively working; continue waiting and extend deadline
-                        if (deadline - time.monotonic()) < 60.0:
-                            deadline = time.monotonic() + 180.0
-                        continue
-
-                    # No busy children: wait a 2.0s stabilization window to verify
-                    # that the parent turn has concluded synthesizing sub-agent results
-                    await asyncio.sleep(2.0)
-                    recheck_resp = await server_client.get(
-                        f"/v1/sessions/{target_session_id}",
-                        params={"include_items": "false", "include_liveness": "true"},
-                        timeout=10.0,
-                    )
-                    if recheck_resp.status_code == 200:
-                        recheck_status = str(recheck_resp.json().get("status") or "")
-                        if recheck_status in ("running", "waiting"):
-                            saw_running = True
-                            continue
-                    break
-                elif not saw_running and (time.monotonic() - (deadline - timeout_s)) >= 2.0:
-                    items_check = await server_client.get(
-                        f"/v1/sessions/{target_session_id}/items",
-                        params={"order": "desc", "limit": 5},
-                        timeout=10.0,
-                    )
-                    if items_check.status_code == 200:
-                        newest_items = items_check.json().get("data", [])
-                        newest_id = str(newest_items[0].get("id") or "") if newest_items else ""
-                        if newest_items and newest_id != last_item_id_before:
-                            if any(it.get("role") == "assistant" for it in newest_items):
-                                saw_running = True
-                                if target_status == "idle":
-                                    break
-        except Exception as exc:  # noqa: BLE001
-            _logger.debug("Waiting for teammate notice: %s", exc)
-
-    try:
-        items_resp = await server_client.get(
-            f"/v1/sessions/{target_session_id}/items",
-            params={"order": "desc", "limit": 20},
-            timeout=10.0,
-        )
-        if items_resp.status_code == 200:
-            items_data = items_resp.json().get("data", [])
-            for item in items_data:
-                if str(item.get("id") or "") == last_item_id_before:
-                    break
-                if item.get("role") == "assistant":
-                    for c_block in item.get("content") or []:
-                        if isinstance(c_block, dict) and c_block.get("type") == "output_text":
-                            assistant_reply = (assistant_reply or "") + c_block.get("text", "")
-                    if assistant_reply and len(assistant_reply.strip()) > 0:
-                        break
-
-            # Dual extraction fallback: If the assistant reply text is short (< 50 chars)
-            # or missing, check if the assistant invoked send_to_teammate back with the full report
-            # as its task payload.
-            if not assistant_reply or len(assistant_reply.strip()) < 50:
-                for item in items_data:
-                    if str(item.get("id") or "") == last_item_id_before:
-                        break
-                    t_name = item.get("name") or (item.get("tool_call") or {}).get("name")
-                    if t_name == "send_to_teammate":
-                        tc = item.get("tool_call") or {}
-                        t_args = item.get("arguments") or tc.get("arguments")
-                        if isinstance(t_args, str):
-                            with contextlib.suppress(ValueError, json.JSONDecodeError):
-                                t_args = json.loads(t_args)
-                        if isinstance(t_args, dict) and t_args.get("task"):
-                            task_report = str(t_args["task"]).strip()
-                            if len(task_report) > len(assistant_reply or ""):
-                                assistant_reply = task_report
-                                break
-    except Exception as exc:  # noqa: BLE001
-        _logger.debug("Fetching teammate reply notice: %s", exc)
-
-    if assistant_reply:
-        return json.dumps(
-            {
-                "status": "completed",
-                "target_teammate": target_bot_name,
-                "target_session_id": target_session_id,
-                "session_url": f"/c/{target_session_id}",
-                "response": assistant_reply,
-                "effective_model": target_default_model or "agent_default",
-                "message": (
-                    f"Teammate '{target_bot_name}' completed the task and reported back:\n\n"
-                    f"{assistant_reply}\n\n"
-                    f"Full transcript available at /c/{target_session_id}"
-                ),
-            }
-        )
-    if target_status == "failed":
-        return json.dumps(
-            {
-                "status": "failed",
-                "target_teammate": target_bot_name,
-                "target_session_id": target_session_id,
-                "session_url": f"/c/{target_session_id}",
-                "message": (
-                    f"Teammate '{target_bot_name}' encountered an error during task execution. "
-                    f"Inspect logs at /c/{target_session_id}"
-                ),
-            }
-        )
+            if response.status_code != 200:
+                continue
+            snapshot = response.json()
+            result = snapshot.get("result")
+            if result and result.get("in_reply_to") == coordination_msg_id:
+                payload = result.get("payload") or {}
+                return json.dumps(
+                    {
+                        "status": "completed"
+                        if payload.get("outcome") == "succeeded"
+                        else "failed",
+                        "target_teammate": target_bot_name,
+                        "target_session_id": target_session_id,
+                        "session_url": f"/c/{target_session_id}",
+                        "channel_kind": channel.kind,
+                        "channel_scope": channel.scope,
+                        "channel_source_session_id": channel.source_session_id,
+                        "coordination_message_id": coordination_msg_id,
+                        "result_message_id": result.get("message_id"),
+                        "response": payload.get("summary") or payload.get("prompt"),
+                    }
+                )
+            message = snapshot.get("message") or {}
+            if snapshot.get("delivery_state") == "failed":
+                delivery = snapshot.get("delivery") or {}
+                return json.dumps(
+                    {
+                        "status": "failed",
+                        "coordination_message_id": coordination_msg_id,
+                        "error": delivery.get("error_code") or "A2A delivery failed",
+                    }
+                )
+            if message.get("message_state") in ("cancelled", "expired"):
+                return json.dumps(
+                    {
+                        "status": "failed",
+                        "coordination_message_id": coordination_msg_id,
+                        "error": f"A2A request {message['message_state']}",
+                    }
+                )
+        except httpx.HTTPError as exc:
+            _logger.debug("Waiting for A2A result: %s", exc)
     return json.dumps(
         {
             "status": "in_progress",
             "target_teammate": target_bot_name,
             "target_session_id": target_session_id,
             "session_url": f"/c/{target_session_id}",
+            "channel_kind": channel.kind,
+            "channel_scope": channel.scope,
+            "channel_source_session_id": channel.source_session_id,
+            "coordination_message_id": coordination_msg_id,
             "message": (
-                f"Task was dispatched to teammate '{target_bot_name}' "
-                "and is executing in the background. "
-                f"Live progress can be inspected at /c/{target_session_id}"
+                "The durable request is pending. End this turn; its correlated result "
+                "will be delivered to this conversation automatically. Do not poll inbox/history."
             ),
         }
     )
+
+
+async def _execute_seedance_tool(
+    args: _JsonObject,
+    *,
+    tool_name: str = "seedance_agent_message",
+    server_client: httpx.AsyncClient | None,
+    conversation_id: str | None,
+    agent_spec: AgentSpec | None,
+    task_id: str | None = None,  # noqa: ARG001
+) -> str:
+    """Execute a Seedance V3 tool call (seedance_agent_message or seedance_read_canvas)."""
+    if server_client is None:
+        return json.dumps({"error": f"{tool_name} requires server access"})
+    if not conversation_id:
+        return json.dumps({"error": f"{tool_name} requires a conversation id"})
+
+    if tool_name == "cine_verify_report":
+        from omnigent.seedance.report_review import verify_report
+
+        try:
+            result = await verify_report(
+                server_client, conversation_id, scope=args.get("scope", "full"),
+                start_seconds=args.get("start_seconds"), end_seconds=args.get("end_seconds"),
+                ledger_path=args.get("ledger_path"),
+            )
+            return json.dumps(result, ensure_ascii=False)
+        except (OSError, ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
+            return json.dumps({"status": "rejected", "error": str(exc)}, ensure_ascii=False)
+
+    if tool_name == "seedance_read_canvas":
+        project_id = _optional_string(args.get("project_id"))
+        raw_types = args.get("node_types")
+        node_types = (
+            [str(t).strip() for t in raw_types if str(t).strip()]
+            if isinstance(raw_types, list)
+            else None
+        )
+        raw_shots = args.get("shot_ids")
+        shot_ids = (
+            [str(sid).strip() for sid in raw_shots if str(sid).strip()]
+            if isinstance(raw_shots, list)
+            else None
+        )
+        include_edges = bool(args.get("include_edges", True))
+        detail_level = str(args.get("detail_level") or "full").lower().strip()
+        if detail_level not in ("full", "summary"):
+            detail_level = "full"
+
+        try:
+            from omnigent.seedance.bridge import read_seedance_canvas_snapshot
+
+            result = await read_seedance_canvas_snapshot(
+                server_client=server_client,
+                conversation_id=conversation_id,
+                project_id=project_id,
+                node_types=node_types,
+                shot_ids=shot_ids,
+                include_edges=include_edges,
+                detail_level=detail_level,
+            )
+            return json.dumps(result, ensure_ascii=False)
+        except Exception as exc:
+            _logger.error("Failed executing seedance_read_canvas: %s", exc, exc_info=True)
+            return json.dumps(
+                {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "target_teammate": "seedance",
+                    "error": f"Seedance read_canvas error: {exc}",
+                },
+                ensure_ascii=False,
+            )
+
+    elif tool_name == "seedance_edit_canvas":
+        action = str(args.get("action") or "").strip().lower()
+        if not action:
+            return json.dumps({"error": "seedance_edit_canvas requires 'action'"})
+
+        project_id = _optional_string(args.get("project_id"))
+        node_id = _optional_string(args.get("node_id"))
+        node_type = _optional_string(args.get("node_type"))
+        title = _optional_string(args.get("title"))
+        prompt = _optional_string(args.get("prompt"))
+        brief = _optional_string(args.get("brief"))
+        raw_dur = args.get("duration_seconds")
+        duration_seconds = int(raw_dur) if raw_dur is not None else None
+        camera = args.get("camera") if isinstance(args.get("camera"), dict) else None
+        aspect_ratio = _optional_string(args.get("aspect_ratio"))
+        data = args.get("data") if isinstance(args.get("data"), dict) else None
+        patch = args.get("patch") if isinstance(args.get("patch"), dict) else None
+        parent_id = _optional_string(args.get("parent_id"))
+        raw_rev = args.get("expected_revision")
+        expected_revision = int(raw_rev) if raw_rev is not None else None
+        confirm = bool(args.get("confirm", False))
+        from_node_id = _optional_string(args.get("from_node_id"))
+        to_node_id = _optional_string(args.get("to_node_id"))
+        kind = _optional_string(args.get("kind"))
+        edge_id = _optional_string(args.get("edge_id"))
+        generation_kind = str(args.get("generation_kind") or "video").lower().strip()
+        generation_allowed = args.get("generation_allowed", False)
+        if type(generation_allowed) is not bool:
+            return json.dumps({"error": "generation_allowed must be a boolean"})
+        model = _optional_string(args.get("model"))
+        trusted_skills_dir = next(
+            (skill.skill_dir.parent for skill in getattr(agent_spec, "skills", [])
+             if skill.name == "film-analysis" and skill.skill_dir is not None),
+            None,
+        )
+
+        try:
+            from omnigent.seedance.bridge import execute_seedance_canvas_edit
+
+            result = await execute_seedance_canvas_edit(
+                server_client=server_client,
+                conversation_id=conversation_id,
+                action=action,
+                project_id=project_id,
+                node_id=node_id,
+                node_type=node_type,
+                title=title,
+                prompt=prompt,
+                brief=brief,
+                duration_seconds=duration_seconds,
+                camera=camera,
+                aspect_ratio=aspect_ratio,
+                data=data,
+                patch=patch,
+                parent_id=parent_id,
+                expected_revision=expected_revision,
+                confirm=confirm,
+                from_node_id=from_node_id,
+                to_node_id=to_node_id,
+                kind=kind,
+                edge_id=edge_id,
+                generation_kind=generation_kind,
+                generation_allowed=generation_allowed,
+                production_dir=_optional_string(args.get("production_dir")),
+                source_text=_optional_string(args.get("source_text")),
+                production_stage=_optional_string(args.get("production_stage")),
+                production_pointer=_optional_string(args.get("production_pointer")),
+                trusted_skills_dir=trusted_skills_dir,
+                model=model,
+            )
+            return json.dumps(result, ensure_ascii=False)
+        except Exception as exc:
+            _logger.error("Failed executing seedance_edit_canvas: %s", exc, exc_info=True)
+            return json.dumps(
+                {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "target_teammate": "seedance",
+                    "error": f"Seedance edit_canvas error: {exc}",
+                },
+                ensure_ascii=False,
+            )
+
+    task = str(args.get("task") or "").strip()
+    if not task:
+        return json.dumps({"error": "seedance_agent_message requires 'task' (prompt instruction)"})
+
+    raw_shot_ids = args.get("shot_ids")
+    shot_ids: list[str] | None = None
+    if isinstance(raw_shot_ids, list):
+        shot_ids = [str(sid).strip() for sid in raw_shot_ids if str(sid).strip()]
+
+    generation_allowed = bool(args.get("generation_allowed", False))
+    model = _optional_string(args.get("model"))
+    wait = bool(args.get("wait", True))
+    try:
+        timeout_seconds = max(10, min(int(args.get("timeout_seconds", 60)), 300))
+    except (ValueError, TypeError, OverflowError):
+        return json.dumps({"error": "timeout_seconds must be an integer between 10 and 300"})
+
+    workspace = None
+    if agent_spec and getattr(agent_spec, "os_env", None):
+        workspace = getattr(agent_spec.os_env, "cwd", None)
+
+    try:
+        from omnigent.seedance.bridge import execute_seedance_agent_message
+
+        result = await execute_seedance_agent_message(
+            server_client=server_client,
+            conversation_id=conversation_id,
+            task=task,
+            shot_ids=shot_ids,
+            generation_allowed=generation_allowed,
+            model=model,
+            wait=wait,
+            timeout_seconds=timeout_seconds,
+            workspace_dir=workspace,
+        )
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:
+        _logger.error("Failed executing seedance_agent_message: %s", exc, exc_info=True)
+        return json.dumps(
+            {
+                "status": "failed",
+                "outcome": "failed",
+                "target_teammate": "seedance",
+                "error": f"Seedance bridge error: {exc}",
+                "task": task,
+                "generation_allowed": generation_allowed,
+            },
+            ensure_ascii=False,
+        )
+
+
+async def _execute_save_teammate_memory_tool(
+    args: _JsonObject,
+    *,
+    server_client: httpx.AsyncClient | None,
+    conversation_id: str | None,
+    agent_id: str | None,
+) -> str:
+    """Execute save_teammate_memory to persist durable memory to the server."""
+    if server_client is None:
+        return json.dumps({"error": "save_teammate_memory requires server access"})
+
+    content = str(args.get("content") or "").strip()
+    if not content:
+        return json.dumps({"error": "save_teammate_memory requires 'content' string"})
+
+    from omnigent.runner import app as runner_app
+
+    target_agent_id = agent_id
+    if not target_agent_id and conversation_id:
+        target_agent_id = runner_app.get_session_agent_id(conversation_id)
+        if not target_agent_id:
+            try:
+                resp = await server_client.get(f"/v1/sessions/{conversation_id}", timeout=10.0)
+                if resp.status_code == 200:
+                    target_agent_id = resp.json().get("agent_id")
+            except Exception:  # noqa: BLE001
+                pass
+
+    if not target_agent_id:
+        return json.dumps({"error": "cannot resolve teammate agent_id for this session"})
+
+    try:
+        post_resp = await server_client.post(
+            f"/v1/teammates/{target_agent_id}/memories",
+            json={"content": content},
+            timeout=10.0,
+        )
+        if post_resp.status_code in (200, 201):
+            try:
+                from omnigent.runner import app as actual_runner_app
+
+                cache = getattr(actual_runner_app, "_session_memories_instructions_cache", None)
+                if isinstance(cache, dict):
+                    cache.pop(target_agent_id, None)
+            except Exception:  # noqa: BLE001
+                pass
+            data = post_resp.json()
+            memory = data.get("memory") or {}
+            msg = f"Successfully remembered: '{content}' across future sessions."
+            return json.dumps(
+                {
+                    "status": "saved",
+                    "memory_id": memory.get("id"),
+                    "content": content,
+                    "message": msg,
+                },
+                ensure_ascii=False,
+            )
+        return json.dumps({"error": f"server returned {post_resp.status_code}: {post_resp.text}"})
+    except Exception as exc:  # noqa: BLE001
+        return json.dumps({"error": f"failed saving teammate memory: {exc}"})
 
 
 async def execute_tool(
@@ -6699,6 +7143,31 @@ async def execute_tool(
                 mcp_manager=mcp_manager,
                 filesystem_registry=filesystem_registry,
             )
+        elif tool_name in _QUESTION_TOOLS:
+            if server_client is None or conversation_id is None:
+                output = json.dumps({"error": "question_requires_session"})
+            else:
+                from omnigent.tools.builtins.ask_user import AskUserRequest
+
+                question = AskUserRequest.model_validate(args)
+                try:
+                    response = await server_client.post(
+                        f"/v1/sessions/{conversation_id}/questions",
+                        json=question.model_dump(),
+                        timeout=630.0,
+                    )
+                    output = (
+                        response.text
+                        if response.status_code < 400
+                        else json.dumps({"error": "question_failed", "detail": response.text})
+                    )
+                except httpx.HTTPError:
+                    output = json.dumps(
+                        {
+                            "error": "question_delivery_unconfirmed",
+                            "message": "No choice confirmed. Check the chat before asking again.",
+                        }
+                    )
         elif tool_name in _SUBAGENT_TOOLS:
             output = await _execute_subagent_tool(
                 args,
@@ -6773,6 +7242,22 @@ async def execute_tool(
                 server_client=server_client,
                 conversation_id=conversation_id,
                 agent_spec=agent_spec,
+            )
+        elif tool_name in _SEEDANCE_TOOLS:
+            output = await _execute_seedance_tool(
+                args,
+                tool_name=tool_name,
+                server_client=server_client,
+                conversation_id=conversation_id,
+                agent_spec=agent_spec,
+                task_id=task_id,
+            )
+        elif tool_name in _MEMORY_TOOLS:
+            output = await _execute_save_teammate_memory_tool(
+                args,
+                server_client=server_client,
+                conversation_id=conversation_id,
+                agent_id=agent_id,
             )
         elif tool_name in _HINDSIGHT_TOOLS:
             output = await _execute_hindsight_tool(
@@ -7213,7 +7698,15 @@ async def _execute_os_env_tool(
         if os_env is None:
             return "Error: unable to create OSEnvironment"
 
-        if tool_name == SysOsReadTool.name():
+        if tool_name == SysOsViewImageTool.name():
+            from omnigent.runtime.image_tool import read_image
+
+            result = await read_image(
+                os_env, cast("str", args.get("path", "")),
+                evidence_index=cast("str | None", args.get("evidence_index")),
+                evidence_id=cast("str | None", args.get("evidence_id")),
+            )
+        elif tool_name == SysOsReadTool.name():
             result = await os_env.read(
                 path=cast("str", args.get("path", "")),
                 offset=cast("int", args.get("offset", 1)),
@@ -7935,7 +8428,15 @@ def _format_async_task_item(payload: _JsonObject) -> str:
                 return (
                     f"[System: sub-agent task {handle_id} completed — {target} produced no output]"
                 )
-            return f"[System: sub-agent task {handle_id} completed — {target} returned: {output}]"
+            return (
+                f"[System: sub-agent task {handle_id} completed — "
+                "execution ended; task success is not verified. Read the report below. "
+                "Preserve blockers, unperformed changes, and review conditions in your summary. "
+                "An earlier PASS does not prove a later follow-up succeeded. "
+                "Before redispatching file work, include the verified absolute project path; "
+                "a new child does not inherit another child's discoveries. "
+                f"{target} returned: {output}]"
+            )
         if status == "failed":
             return f"[System: sub-agent task {handle_id} failed — {target} error: {output}]"
         if status == "cancelled":

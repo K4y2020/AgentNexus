@@ -145,6 +145,8 @@ class CodexGoalRunner:
 
         state = await self._bridge_state_for_session(conv_id, action=f"goal {action}")
         if state is None:
+            if action == "read":
+                return {"result": {"goal": None}}
             return self._bridge_error(action)
         codex_client = client_for_transport(
             state.socket_path,
@@ -159,6 +161,8 @@ class CodexGoalRunner:
         except ValueError as exc:
             return self._malformed_response(action, str(exc))
         except Exception as exc:  # noqa: BLE001 - surface app-server goal failures to AP.
+            if action == "read":
+                return {"result": {"goal": None}}
             self._logger.warning(
                 "Codex-native %s failed for session=%s",
                 method,
@@ -287,12 +291,12 @@ class CodexGoalRunner:
         if body_type not in {"goal_get", "goal_set", "goal_status", "goal_clear"}:
             return None
 
-        if session_harness_name(conv_id) != CODEX_NATIVE_CODING_AGENT.harness:
+        if session_harness_name(conv_id) not in (CODEX_NATIVE_CODING_AGENT.harness, "codex"):
             return JSONResponse(
                 status_code=400,
                 content={
                     "error": "invalid_input",
-                    "detail": "Codex goal controls require a codex-native session",
+                    "detail": "Codex goal controls require a codex or codex-native session",
                 },
             )
 
