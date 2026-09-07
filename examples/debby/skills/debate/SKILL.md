@@ -23,7 +23,7 @@ user ("debate this for 3 rounds"); otherwise run 1.
    fresh answer from each partner for this question, dispatch it to both
    `claude` and `gpt` in parallel via `sys_session_send` (ANSWER mode), give
    each call a stable per-partner `title` — the topic with the partner's name
-   attached (e.g. `debate-pricing-claude` / `debate-pricing-gpt`), end your
+   attached (`debby-claude` / `debby-gpt`), end your
    turn, and collect both with `sys_read_inbox`. If you already showed the
    user both answers this turn, reuse those as round 0.
 
