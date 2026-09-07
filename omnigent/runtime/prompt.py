@@ -96,6 +96,14 @@ def build_instructions(
         for this turn, appended after user-authored agent/request instructions.
     :returns: The assembled instructions string.
     """
+    from omnigent.runtime.image_tool import image_instructions
+    from omnigent.tools.builtins.ask_user import question_instructions
+
+    framework_instructions = (
+        *framework_instructions,
+        *question_instructions(tool_schemas),
+        *image_instructions(tool_schemas),
+    )
     parts = _assemble_instruction_parts(spec, per_request_instructions, tool_schemas)
     base_instructions = "\n\n".join(parts) if parts else "You are a helpful assistant."
     return (
@@ -125,6 +133,14 @@ def build_instructions_nullable(
 
     :returns: The composed text, or ``None`` when nothing applies.
     """
+    from omnigent.runtime.image_tool import image_instructions
+    from omnigent.tools.builtins.ask_user import question_instructions
+
+    framework_instructions = (
+        *framework_instructions,
+        *question_instructions(tool_schemas),
+        *image_instructions(tool_schemas),
+    )
     parts = _assemble_instruction_parts(spec, per_request_instructions, tool_schemas)
     base_instructions = "\n\n".join(parts) if parts else None
     return append_framework_instructions(base_instructions, framework_instructions)

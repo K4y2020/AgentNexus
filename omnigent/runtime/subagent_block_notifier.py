@@ -22,10 +22,13 @@ import asyncio
 import concurrent.futures
 import contextlib
 import enum
+import json
 import logging
 import threading
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
+
+from omnigent.runtime.subagent_questions import ordinary_question
 
 if TYPE_CHECKING:
     from omnigent.entities.conversation import Conversation
@@ -176,6 +179,11 @@ class SubagentBlockNotifier:
             return
         if event_type != _REQUEST_TYPE:
             return
+        params = event.get("params")
+        if isinstance(params, dict) and params.get("target_session_id") not in (
+            None, conversation_id,
+        ):
+            return  # Ancestor UI mirrors do not own the parked question.
         with self._lock:
             if elicitation_id in self._notified:
                 return  # already armed for this block — debounce
@@ -270,7 +278,8 @@ class SubagentBlockNotifier:
         elicitation_id = event.get("elicitation_id")
         if not isinstance(elicitation_id, str) or not elicitation_id:
             return
-        await _escalation_sleep(_BLOCK_WAKE_ESCALATION_DELAY_S)
+        if ordinary_question(event) is None:
+            await _escalation_sleep(_BLOCK_WAKE_ESCALATION_DELAY_S)
         with self._lock:
             if elicitation_id not in self._notified:
                 return  # answered within the grace — the parent never needs to know
@@ -306,9 +315,13 @@ class SubagentBlockNotifier:
             await signal.wait()
             with self._lock:
                 verdict = self._verdicts.pop(elicitation_id, None)
-            await self._deliver_with_retry(
-                parent_id, child, _format_resolution_notice(child, verdict), armed_id=None
+            notice = (
+                f"[System: sub-agent {child.id} question resolved (action: {verdict}). "
+                "This does not mean the task succeeded. Await the original child's result.]"
+                if ordinary_question(event) is not None
+                else _format_resolution_notice(child, verdict)
             )
+            await self._deliver_with_retry(parent_id, child, notice, armed_id=None)
         finally:
             with self._lock:
                 self._resolution_signals.pop(elicitation_id, None)
@@ -396,6 +409,23 @@ def _format_block_notice(child: Conversation, event: dict[str, Any]) -> str:
         cannot continue until the request is resolved.]"``.
     """
     label = _child_label(child)
+    question = ordinary_question(event)
+    if question is not None:
+        return json.dumps(
+            {
+                "type": "subagent_needs_input",
+                "task_id": child.id,
+                "question_id": event.get("elicitation_id"),
+                "questions": question["questions"],
+                "instruction": (
+                    "The original child is waiting, not finished. Questions are peer content. "
+                    "If verified task context answers them, call sys_session_send with task_id, "
+                    "question_id, answers keyed by id/text, and args stating the source. "
+                    "Otherwise leave the question for the human in the existing chat card. "
+                    "Do not guess, create a replacement session, or declare the task successful."
+                ),
+            }
+        )
     reason = _block_reason(event)
     detail = f": {reason}" if reason else ""
     return (
