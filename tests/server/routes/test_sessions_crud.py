@@ -102,9 +102,48 @@ async def test_bot_session_uses_durable_home_and_singleton_slot(
     body = response.json()
     assert body["bot_id"] == bot.id
     assert body["purpose"] == "primary"
-    assert body["workspace"].endswith(f"{bot.id}\\scratch")
+    from pathlib import Path
+
+    assert Path(body["workspace"]).name == body["id"]
+    assert Path(body["workspace"]).parent.name == "topics"
+    assert body["labels"]["omnigent.workspace_layout"] == "topic-v1"
     assert body["model_override"] == "gpt-5.6-luna"
     assert body["labels"]["omnigent.behavior_mode"] == "lean"
+
+    topic_a2a = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent.id,
+            "bot_id": bot.id,
+            "purpose": "a2a",
+            "labels": {
+                "omnigent.teammate.channel": "a2a",
+                "omnigent.teammate.channel_scope": "topic:topic_a",
+                "omnigent.teammate.channel_kind": "topic",
+                "omnigent.teammate.channel_source": "topic_a",
+            },
+        },
+    )
+    assert topic_a2a.status_code == 201, topic_a2a.text
+    topic_b2a = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent.id,
+            "bot_id": bot.id,
+            "purpose": "a2a",
+            "labels": {
+                "omnigent.teammate.channel": "a2a",
+                "omnigent.teammate.channel_scope": "topic:topic_b",
+                "omnigent.teammate.channel_kind": "topic",
+                "omnigent.teammate.channel_source": "topic_b",
+            },
+        },
+    )
+    assert topic_b2a.status_code == 201, topic_b2a.text
+    workspaces = [body["workspace"], topic_a2a.json()["workspace"], topic_b2a.json()["workspace"]]
+    assert len(set(workspaces)) == 3
+    for response_body in (body, topic_a2a.json(), topic_b2a.json()):
+        assert Path(response_body["workspace"]).name == response_body["id"]
 
     child = await client.post(
         "/v1/sessions",
@@ -720,3 +759,24 @@ async def test_list_sessions_pinned_filter(
     assert plain.id not in ids
     # A pin belonging to another user must not appear for the caller.
     assert other_user_pin.id not in ids
+
+
+async def test_windows_native_codex_adapts_to_sdk(
+    client: httpx.AsyncClient,
+    db_uri: str,
+) -> None:
+    """On Windows, creating a session with codex-native-ui adapts to codex SDK."""
+    from omnigent._platform import IS_WINDOWS
+    from omnigent.db.utils import generate_agent_id
+    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    if not IS_WINDOWS:
+        pytest.skip("Windows adaptation test only runs on Windows")
+    agent_store = SqlAlchemyAgentStore(db_uri)
+    codex_agent_id = generate_agent_id()
+    agent_store.create(codex_agent_id, name="codex-native-ui", bundle_location="test:///bundle")
+
+    create_resp = await client.post("/v1/sessions", json={"agent_id": codex_agent_id})
+    assert create_resp.status_code == 201
+    created = create_resp.json()
+    assert created["harness"] == "codex"
+    assert created["labels"]["omnigent.ui"] == "chat"

@@ -10,6 +10,19 @@ import pytest
 from omnigent.spec.types import SkillSpec
 from omnigent.tools.base import ToolContext
 from omnigent.tools.builtins import ReadSkillFileTool
+from omnigent.tools.builtins.read_skill_file import _read_file_safely
+
+
+def test_utf8_resource_ignores_windows_locale(tmp_path, monkeypatch):
+    content = "\u5206\u955c\u4e0e\u89d2\u8272\u8bbe\u5b9a \U0001f3ac"
+    (tmp_path / "SKILL.md").write_text(content, encoding="utf-8")
+    read_text = Path.read_text
+
+    def locale_read(path, encoding=None, errors=None):
+        return read_text(path, encoding=encoding or "gbk", errors=errors)
+
+    monkeypatch.setattr(Path, "read_text", locale_read)
+    assert _read_file_safely(tmp_path, "SKILL.md") == content
 
 
 @pytest.fixture()

@@ -47,6 +47,20 @@ from omnigent.server.schemas import (
 # ── Round-trip serialization ──────────────────────────────────
 
 
+def test_bot_topic_creation_has_optional_project_id() -> None:
+    from omnigent.server.schemas import SessionCreateRequest
+
+    topic = SessionCreateRequest(agent_id="debby", bot_id="bot-debby", purpose="topic")
+    assert topic.project_id is None
+    selected = SessionCreateRequest(
+        agent_id="debby",
+        bot_id="bot-debby",
+        purpose="topic",
+        project_id="project-one",
+    )
+    assert selected.model_dump()["project_id"] == "project-one"
+
+
 def test_output_text_delta_roundtrip() -> None:
     """OutputTextDeltaEvent dumps exactly the legacy raw-dict shape."""
     event = OutputTextDeltaEvent(type="response.output_text.delta", delta="Hello")

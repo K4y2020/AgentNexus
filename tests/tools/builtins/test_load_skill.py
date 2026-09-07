@@ -88,6 +88,7 @@ def test_load_skill_with_resources_lists_files(
     )
     assert "Review the code." in result
     assert "references/style-guide.md" in result
+    assert f"Skill directory: {skill_with_resources.skill_dir}" in result
     assert "read_skill_file" in result
 
 

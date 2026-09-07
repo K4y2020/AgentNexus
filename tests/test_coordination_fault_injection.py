@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -74,6 +75,7 @@ def memory_store(tmp_path) -> CoordinationStore:
 
 # ── Gate 1: Idempotency Key NOT NULL & Deduplication ─────────────
 
+
 def test_g1_idempotency_key_not_null_enforced(memory_store: CoordinationStore) -> None:
     """G1: Database-level NOT NULL is enforced on agent_messages.idempotency_key."""
     with pytest.raises((IntegrityError, sa.exc.DBAPIError, sa.exc.PendingRollbackError)):
@@ -124,6 +126,7 @@ def test_g1_idempotent_duplicate_deduplication(memory_store: CoordinationStore) 
 
 
 # ── Gate 2: Dispatcher Hard Pre-Check (Orphan Prevention) ────────
+
 
 @pytest.mark.asyncio
 async def test_g2_dispatcher_precheck_orphan_conversation_fails_immediately(
@@ -189,9 +192,11 @@ async def test_g2_dispatcher_precheck_runner_unbound_records_code(
         lambda: router,
     )
 
-    conv_store = FakeConversationStore({
-        "sess_unbound": FakeConversation(id="sess_unbound", runner_id=None),
-    })
+    conv_store = FakeConversationStore(
+        {
+            "sess_unbound": FakeConversation(id="sess_unbound", runner_id=None),
+        }
+    )
     dispatcher = CoordinationDispatcher(memory_store, conversation_store=conv_store)
 
     msg = AgentMessage(
@@ -211,9 +216,52 @@ async def test_g2_dispatcher_precheck_runner_unbound_records_code(
     assert len(attempts) == 1
     assert attempts[0].delivery_state == "failed"
     assert attempts[0].error_code == "RUNNER_UNBOUND"
+    outbox = memory_store.list_outbox_items(message_id=msg.message_id)[0]
+    assert outbox.status == "pending"
+    assert outbox.retry_count == 0
+    assert outbox.next_retry_at > time.time()
 
 
 # ── Gate 5: Structured error_code in delivery_attempts ────────────
+
+
+@pytest.mark.asyncio
+async def test_result_wakes_bound_origin_before_delivery(memory_store, monkeypatch):
+    router = FakeRunnerRouter()
+    recipient = FakeConversation(id="origin", runner_id=None)
+    recipient.host_id = "host"  # type: ignore[attr-defined]
+    conversations = FakeConversationStore({"origin": recipient})
+    wakes = []
+
+    async def recover(**kwargs):
+        wakes.append(kwargs["session_id"])
+        recipient.runner_id = "runner_test"
+
+    async def relay(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.common.get_server_runner_router", lambda: router
+    )
+    monkeypatch.setattr(
+        "omnigent.server.routes.sessions.routes_events._retry_session_single_flight", recover
+    )
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready", relay
+    )
+    message = AgentMessage(
+        sender_session_id="polly",
+        recipient_session_id="origin",
+        intent="task.result",
+        payload={"summary": "Complete"},
+    )
+    memory_store.save_message_and_outbox(message)
+    dispatcher = CoordinationDispatcher(memory_store, conversations, app=SimpleNamespace())
+    await dispatcher.dispatch_once()
+    assert wakes == ["origin"]
+    assert len(router.client.calls) == 1
+    assert memory_store.list_outbox_items(message_id=message.message_id)[0].status == "confirmed"
+
 
 def test_g5_error_code_column_and_sql_aggregation(memory_store: CoordinationStore) -> None:
     """G5: Ops can run SQL queries directly on delivery_attempts.error_code."""
@@ -267,6 +315,7 @@ def test_g5_error_code_column_and_sql_aggregation(memory_store: CoordinationStor
 
 
 # ── Gate 4: Fault Injection & Crash Recovery ─────────────────────
+
 
 def test_g4_task_deadline_recovery_and_fencing_conflict(memory_store: CoordinationStore) -> None:
     """G4: Expired tasks reclaimed; late-recovering workers cannot double-commit."""

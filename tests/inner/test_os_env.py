@@ -84,7 +84,7 @@ def test_build_helper_env_inactive_strips_binding_token() -> None:
 
     assert RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR not in env
     assert "bug-binding-token-secret" not in env.values()
-    assert env["PATH"] == "/usr/bin"
+    assert "/usr/bin" in env["PATH"].split(os.pathsep)
 
 
 def test_build_helper_env_active_drops_binding_token() -> None:
@@ -104,7 +104,7 @@ def test_build_helper_env_active_drops_binding_token() -> None:
 
     assert RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR not in env
     assert "bug-binding-token-secret" not in env.values()
-    assert env["PATH"] == "/usr/bin"  # PATH is in the default allowlist
+    assert "/usr/bin" in env["PATH"].split(os.pathsep)  # PATH is in the default allowlist
 
 
 def test_build_helper_env_active_passes_omnigent_session_marker() -> None:
@@ -125,6 +125,33 @@ def test_build_helper_env_active_passes_omnigent_session_marker() -> None:
     env = build_helper_env(parent, _active_policy())
 
     assert env[OMNIGENT_SESSION_ENV_VAR] == OMNIGENT_SESSION_ENV_VALUE
+
+
+def test_build_helper_env_appends_tool_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The helper env gains user tool dirs appended to PATH.
+
+    A Windows sub-agent shell can miss tools (uv/ffmpeg/uv-managed CPython)
+    that exist on the interactive PATH when the server inherits a trimmed
+    PATH. ``build_helper_env`` appends only the directories reported by
+    ``_windows_tool_paths``, keeps the caller's own ordering first and never
+    duplicates an entry already on PATH.
+
+    :returns: None.
+    """
+    parent = {"PATH": os.pathsep.join(["/usr/bin", "/opt/tools"])}
+    monkeypatch.setattr(
+        "omnigent.inner.os_env._windows_tool_paths",
+        lambda: ["C:\\tools\\uv", "C:\\tools\\ffmpeg", "/opt/tools"],
+    )
+    env = build_helper_env(parent, _inactive_policy())
+    entries = env["PATH"].split(os.pathsep)
+    assert "/usr/bin" in entries
+    assert "/opt/tools" in entries
+    assert "C:\\tools\\uv" in entries
+    assert "C:\\tools\\ffmpeg" in entries
+    assert entries.count("/opt/tools") == 1
 
 
 # ---------------------------------------------------------------------------

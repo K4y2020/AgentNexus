@@ -10,6 +10,7 @@ Server ↔ Router ↔ receipt without paid model calls.
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any
 
 import pytest
@@ -18,6 +19,26 @@ from fastapi.testclient import TestClient
 
 from omnigent.entities.conversation import MessageData, NewConversationItem
 from omnigent.server import session_live_state
+
+
+@pytest.fixture(autouse=True)
+def _bind_fake_runner(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fake router represents registered runners, not unbound sessions."""
+    create = app.state.conversation_store.create_conversation
+    runner_id = uuid.uuid4().hex
+
+    def create_bound(**kwargs):
+        kwargs.setdefault("runner_id", runner_id)
+        return create(**kwargs)
+
+    async def relay_ready(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(app.state.conversation_store, "create_conversation", create_bound)
+    monkeypatch.setattr(
+        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready",
+        relay_ready,
+    )
 
 
 def _wait_until(predicate: Any, *, timeout_s: float = 15.0) -> None:

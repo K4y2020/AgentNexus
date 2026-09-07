@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 import pytest
 
+from omnigent.bots import bot_owner_id
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
@@ -74,6 +75,42 @@ async def test_labels_set_via_create(
     data = resp.json()
     assert data["labels"]["env"] == "staging"
     assert data["labels"]["team"] == "platform"
+
+
+async def test_a2a_labels_inherit_same_bot_primary_worker_preferences(
+    client: httpx.AsyncClient,
+    app: Any,
+) -> None:
+    """An empty Bot A2A channel exposes its own Bot primary preferences."""
+    agent = await create_test_agent(client)
+    agent_row = app.state.agent_store.get(agent["id"])
+    bot_store = app.state.bot_store
+    bot = bot_store.ensure_for_agent(
+        owner_id=bot_owner_id(None),
+        agent_id=agent_row.id,
+        name=agent_row.name,
+        description=agent_row.description,
+    )
+    primary = await client.post(
+        "/v1/sessions",
+        json={
+            "agent_id": agent["id"],
+            "bot_id": bot.id,
+            "purpose": "primary",
+            "labels": {"subagent.model.claude_code": "gemini-3.8-flash-high"},
+        },
+    )
+    assert primary.status_code == 201, primary.text
+    a2a = await client.post(
+        "/v1/sessions",
+        json={"agent_id": agent["id"], "bot_id": bot.id, "purpose": "a2a"},
+    )
+    assert a2a.status_code == 201, a2a.text
+
+    labels = await client.get(f"/v1/sessions/{a2a.json()['id']}/labels")
+
+    assert labels.status_code == 200
+    assert labels.json()["labels"]["subagent.model.claude_code"] == "gemini-3.8-flash-high"
 
 
 async def test_labels_updated_via_patch(

@@ -142,6 +142,53 @@ async def test_router_overrides_llm_supplied_child_model(
     assert refreshed.labels.get(ROUTING_DECISION_LABEL_KEY) == data.decision_id
 
 
+async def test_saved_child_preference_beats_forwarded_default_model(
+    client: httpx.AsyncClient,
+    db_uri: str,
+) -> None:
+    """The actual runner payload keeps a saved worker model over body defaults."""
+    parent, _unused_child, conv_store = await _parent_and_child(
+        client,
+        db_uri,
+        agent_name="saved-forward-precedence",
+    )
+    child = conv_store.create_conversation(
+        kind="sub_agent",
+        title="reviewer:saved-forward",
+        parent_conversation_id=parent["id"],
+        agent_id=parent["agent_id"],
+        sub_agent_name="reviewer",
+    )
+    conv_store.set_labels(
+        parent["id"],
+        {"subagent.model.reviewer": "databricks-gpt-5-5"},
+    )
+    captured: dict[str, Any] = {}
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(202, json={"queued": True})
+
+    body = SessionEventInput(
+        type="message",
+        model_override="gemini-3.8-flash-high",
+        data={"role": "user", "content": [{"type": "input_text", "text": "work"}]},
+    )
+    async with httpx.AsyncClient(
+        base_url="http://runner.test",
+        transport=httpx.MockTransport(_capture),
+    ) as runner_client:
+        await orchestration_module._forward_event_to_runner(
+            child.id,
+            child,
+            body,
+            conv_store,
+            runner_client,
+        )
+
+    assert captured["model_override"] == "databricks-gpt-5-5"
+
+
 async def test_another_spelling_of_the_routed_model_is_no_override(
     client: httpx.AsyncClient,
     db_uri: str,

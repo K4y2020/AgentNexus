@@ -684,7 +684,9 @@ async def test_runner_resolves_agent_from_server_snapshot_when_msg_lacks_agent_i
             payloads otherwise so the background turn can proceed.
         """
         if request.method == "GET" and request.url.path == f"/v1/sessions/{conv}":
-            return httpx.Response(200, json={"id": conv, "agent_id": resolved_agent_id})
+            return httpx.Response(
+                200, json={"id": conv, "agent_id": resolved_agent_id, "model_override": None}
+            )
         if request.url.path.endswith("/items"):
             return httpx.Response(
                 200,
@@ -890,7 +892,9 @@ async def test_runner_reloads_full_history_on_cold_cache_after_restart() -> None
             ``/items``; benign payloads otherwise.
         """
         if request.method == "GET" and request.url.path == f"/v1/sessions/{conv}":
-            return httpx.Response(200, json={"id": conv, "agent_id": "ag_restart"})
+            return httpx.Response(
+                200, json={"id": conv, "agent_id": "ag_restart", "model_override": None}
+            )
         if request.url.path.endswith("/items"):
             return httpx.Response(
                 200,
@@ -1034,7 +1038,9 @@ async def test_runner_cold_cache_appends_message_when_store_lacks_it() -> None:
             ``/items``; benign payloads otherwise.
         """
         if request.method == "GET" and request.url.path == f"/v1/sessions/{conv}":
-            return httpx.Response(200, json={"id": conv, "agent_id": "ag_cold"})
+            return httpx.Response(
+                200, json={"id": conv, "agent_id": "ag_cold", "model_override": None}
+            )
         if request.url.path.endswith("/items"):
             return httpx.Response(
                 200,
@@ -1165,7 +1171,9 @@ async def test_runner_cold_cache_keeps_trailing_user_when_no_persisted_id() -> N
             payloads otherwise.
         """
         if request.method == "GET" and request.url.path == f"/v1/sessions/{conv}":
-            return httpx.Response(200, json={"id": conv, "agent_id": "ag_keep"})
+            return httpx.Response(
+                200, json={"id": conv, "agent_id": "ag_keep", "model_override": None}
+            )
         if request.url.path.endswith("/items"):
             return httpx.Response(
                 200,
@@ -1287,7 +1295,9 @@ async def test_runner_cold_cache_uses_resolved_message_not_stored_file_id() -> N
         """
         path = request.url.path
         if path == f"/v1/sessions/{conv}":
-            return httpx.Response(200, json={"id": conv, "agent_id": "ag_media"})
+            return httpx.Response(
+                200, json={"id": conv, "agent_id": "ag_media", "model_override": None}
+            )
         if path.endswith("/resources/files/file_img/content"):
             return httpx.Response(200, content=b"png-bytes", headers={"content-type": "image/png"})
         if path.endswith("/resources/files/file_img"):
@@ -3100,6 +3110,8 @@ async def test_sys_session_send_reuses_existing_child_session(
                 200,
                 json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
             )
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent/labels":
+            return httpx.Response(200, json={"labels": {}})
         if (
             request.method == "GET"
             and request.url.path == "/v1/sessions/conv_parent/child_sessions"
@@ -3259,6 +3271,8 @@ async def test_sys_session_send_named_child_retries_without_rejected_actor(
                 200,
                 json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
             )
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_retry/labels":
+            return httpx.Response(200, json={"labels": {}})
         if (
             request.method == "GET"
             and request.url.path == "/v1/sessions/conv_parent_retry/child_sessions"
@@ -3321,6 +3335,11 @@ async def test_sys_session_send_existing_child_retries_without_rejected_actor(
                 200,
                 json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
             )
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_existing/labels"
+        ):
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_existing_retry":
             return httpx.Response(
                 200,
@@ -3430,6 +3449,8 @@ async def test_sys_session_send_model_lands_in_child_create_body(
             and request.url.path == "/v1/sessions/conv_parent_model/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_model/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_bodies.append(json.loads(request.content))
             return httpx.Response(201, json={"id": "conv_child_model"})
@@ -3509,6 +3530,8 @@ async def test_sys_session_send_blocks_fresh_dispatch_when_harness_cli_missing(
             and request.url.path == "/v1/sessions/conv_parent_nopi/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_nopi/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_posts += 1
             return httpx.Response(201, json={"id": "conv_should_not_exist"})
@@ -3592,6 +3615,11 @@ async def test_sys_session_send_model_rejected_for_existing_child(
                     ]
                 },
             )
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_model_cont/labels"
+        ):
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_posts += 1
             return httpx.Response(201, json={"id": "conv_dup"})
@@ -3780,6 +3808,11 @@ async def test_sys_session_send_model_rejected_for_unplumbed_harness(
             and request.url.path == "/v1/sessions/conv_parent_unplumbed/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_unplumbed/labels"
+        ):
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_posts += 1
             return httpx.Response(201, json={"id": "conv_never"})
@@ -3871,6 +3904,11 @@ async def test_sys_session_send_model_rejected_for_wrong_family(
             and request.url.path == "/v1/sessions/conv_parent_family/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_family/labels"
+        ):
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_posts += 1
             return httpx.Response(201, json={"id": "conv_never"})
@@ -4499,6 +4537,8 @@ async def test_sys_session_send_completion_drains_from_parent_inbox(
             and request.url.path == "/v1/sessions/conv_parent_inbox/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_inbox/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             return httpx.Response(201, json={"id": "conv_child_inbox"})
         if request.method == "POST" and request.url.path == "/v1/sessions/conv_child_inbox/events":
@@ -4598,6 +4638,8 @@ async def test_subagent_inbox_cleanup_does_not_unregister_next_turn(
                     ]
                 },
             )
+        if request.method == "GET" and request.url.path == f"/v1/sessions/{parent_id}/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             return httpx.Response(201, json={"id": child_id})
         if request.method == "POST" and request.url.path == f"/v1/sessions/{child_id}/events":
@@ -5235,6 +5277,11 @@ async def test_sys_cancel_task_stops_subagent_and_dedupes_late_completion(
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         """Serve the child create/message flow and cancellation event."""
+        if (
+            request.method == "GET"
+            and request.url.path == "/v1/sessions/conv_parent_cancel/labels"
+        ):
+            return httpx.Response(200, json={"labels": {}})
         if (
             request.method == "GET"
             and request.url.path == "/v1/sessions/conv_parent_cancel/child_sessions"
@@ -7694,8 +7741,10 @@ async def test_sys_session_get_info_hides_native_ui_wrapper_agent_name() -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("address_key", ["session_id", "task_id"])
 async def test_sys_session_send_session_id_posts_to_direct_child(
     monkeypatch: pytest.MonkeyPatch,
+    address_key: str,
 ) -> None:
     """
     ``sys_session_send`` in by-session-id mode verifies the target is a
@@ -7726,6 +7775,8 @@ async def test_sys_session_send_session_id_posts_to_direct_child(
                     "title": "researcher:auth",
                 },
             )
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_caller/labels":
+            return httpx.Response(200, json={"id": "conv_caller", "labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions/conv_child/events":
             event_posts.append(json.loads(request.content))
             return httpx.Response(200, json={"ok": True})
@@ -7738,7 +7789,7 @@ async def test_sys_session_send_session_id_posts_to_direct_child(
         try:
             output = await execute_tool(
                 tool_name="sys_session_send",
-                arguments=json.dumps({"session_id": "conv_child", "args": "continue please"}),
+                arguments=json.dumps({address_key: "conv_child", "args": "continue please"}),
                 server_client=server_client,
                 conversation_id="conv_caller",
                 agent_spec=SimpleNamespace(sub_agents=[SimpleNamespace(name="researcher")]),
@@ -7756,7 +7807,110 @@ async def test_sys_session_send_session_id_posts_to_direct_child(
 
 
 @pytest.mark.asyncio
-async def test_sys_session_send_session_id_rejects_non_child() -> None:
+async def test_sys_session_send_session_id_applies_saved_model_preference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A task-id continuation honors the parent's saved worker model."""
+    from omnigent.runner import app as runner_app
+    from omnigent.runner.tool_dispatch import execute_tool
+
+    monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
+    patches: list[dict[str, Any]] = []
+    posts: list[dict[str, Any]] = []
+
+    async def _server_handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_child":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "conv_child",
+                    "parent_session_id": "conv_caller",
+                    "sub_agent_name": "researcher",
+                    "harness": "claude-sdk",
+                    "model_override": None,
+                    "title": "researcher:auth",
+                },
+            )
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_caller/labels":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "conv_caller",
+                    "labels": {"subagent.model.researcher": "gemini-3.8-flash-high"},
+                },
+            )
+        if request.method == "PATCH" and request.url.path == "/v1/sessions/conv_child":
+            patches.append(json.loads(request.content))
+            return httpx.Response(200, json={"ok": True})
+        if request.method == "POST" and request.url.path == "/v1/sessions/conv_child/events":
+            posts.append(json.loads(request.content))
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(404, json={"error": str(request.url)})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(_server_handler),
+        base_url="http://server",
+    ) as server_client:
+        try:
+            output = await execute_tool(
+                tool_name="sys_session_send",
+                arguments=json.dumps({"task_id": "conv_child", "args": "continue"}),
+                server_client=server_client,
+                conversation_id="conv_caller",
+                agent_spec=SimpleNamespace(
+                    sub_agents=[SimpleNamespace(name="researcher", executor=SimpleNamespace())]
+                ),
+                session_inbox=asyncio.Queue(),
+            )
+        finally:
+            runner_app.unregister_subagent_work("conv_child")
+            runner_app._session_inboxes_ref.pop("conv_caller", None)
+
+    assert json.loads(output)["task_id"] == "conv_child"
+    assert patches == [{"model_override": "gemini-3.8-flash-high", "silent": True}]
+    assert posts[0]["data"]["content"][0]["text"] == "continue"
+
+
+@pytest.mark.asyncio
+async def test_saved_model_preference_lookup_failure_fails_closed() -> None:
+    """A preference outage cannot silently fall back to the worker default."""
+    from omnigent.runner.tool_dispatch import execute_tool
+
+    async def _server_handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_child":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "conv_child",
+                    "parent_session_id": "conv_caller",
+                    "sub_agent_name": "researcher",
+                    "title": "researcher:auth",
+                },
+            )
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_caller/labels":
+            return httpx.Response(503, text="settings unavailable")
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(_server_handler),
+        base_url="http://server",
+    ) as server_client:
+        output = await execute_tool(
+            tool_name="sys_session_send",
+            arguments=json.dumps({"task_id": "conv_child", "args": "continue"}),
+            server_client=server_client,
+            conversation_id="conv_caller",
+            agent_spec=SimpleNamespace(sub_agents=[SimpleNamespace(name="researcher")]),
+            session_inbox=asyncio.Queue(),
+        )
+
+    assert "could not be read" in output
+    assert "no fallback model was selected" in output
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("address_key", ["session_id", "task_id"])
+async def test_sys_session_send_session_id_rejects_non_child(address_key: str) -> None:
     """
     By-session-id send refuses a target that is NOT a direct child of the
     caller (``parent_session_id`` mismatch) — returning
@@ -7795,7 +7949,7 @@ async def test_sys_session_send_session_id_rejects_non_child() -> None:
         try:
             output = await execute_tool(
                 tool_name="sys_session_send",
-                arguments=json.dumps({"session_id": "conv_other", "args": "hi"}),
+                arguments=json.dumps({address_key: "conv_other", "args": "hi"}),
                 server_client=server_client,
                 conversation_id="conv_caller",
                 agent_spec=SimpleNamespace(sub_agents=[SimpleNamespace(name="researcher")]),
@@ -7865,6 +8019,30 @@ def test_format_async_task_item_nonempty_subagent_completion_shows_output() -> N
     )
     assert "returned: review done: LGTM" in line
     assert "produced no output" not in line
+
+
+def test_subagent_completed_execution_does_not_certify_task_success() -> None:
+    from omnigent.runner.app import _format_subagent_wake_notice
+    from omnigent.runner.tool_dispatch import _format_async_task_item
+
+    report = "Unable to modify: ModalPanel.prefab was not found in this workspace."
+    line = _format_async_task_item(
+        {
+            "type": "sub_agent",
+            "handle_id": "cleanup",
+            "agent": "codex",
+            "status": "completed",
+            "output": report,
+        }
+    )
+    assert report in line
+    assert "task success is not verified" in line
+    assert "An earlier PASS does not prove a later follow-up succeeded" in line
+    assert "verified absolute project path" in line
+    notice = _format_subagent_wake_notice(
+        agent="codex", title="cleanup", status="completed", pending=1
+    )
+    assert "not a task-success verdict" in notice
 
 
 @pytest.mark.asyncio
@@ -8500,6 +8678,8 @@ async def test_web_fetch_dispatch_admits_researcher_without_harness_override(
             and request.url.path == "/v1/sessions/conv_wf_parent/child_sessions"
         ):
             return httpx.Response(200, json={"data": []})
+        if request.method == "GET" and request.url.path == "/v1/sessions/conv_wf_parent/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "POST" and request.url.path == "/v1/sessions":
             create_bodies.append(json.loads(request.content))
             return httpx.Response(201, json={"id": "conv_wf_child"})
@@ -10476,7 +10656,11 @@ class _ContractSnapshotClient(NullServerClient):
             status_code = 200
 
             def json(self) -> dict[str, object]:
-                return {"agent_id": "ag_contract_root", "sub_agent_name": "worker"}
+                return {
+                    "agent_id": "ag_contract_root",
+                    "sub_agent_name": "worker",
+                    "model_override": None,
+                }
 
         if url.endswith(f"/v1/sessions/{_conv}"):
             return _Resp()

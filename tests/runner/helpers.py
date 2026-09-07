@@ -24,8 +24,8 @@ class NullServerClient:
         status_code = 200
 
         def json(self) -> dict[str, Any]:
-            """Return an empty JSON object."""
-            return {}
+            """Return a valid no-session-selection snapshot."""
+            return {"model_override": None}
 
         def raise_for_status(self) -> None:
             """No-op: stub always succeeds."""

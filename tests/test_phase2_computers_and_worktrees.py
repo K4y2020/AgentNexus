@@ -104,7 +104,8 @@ def test_local_host_provider_scratch_without_project(
         project_id=None,
     )
     assert not ws.is_worktree
-    assert ws.path.endswith("scratch")
+    assert Path(ws.path).parent.name == "topics"
+    assert (Path(ws.path) / "outputs").is_dir()
     assert Path(ws.path).exists()
 
 

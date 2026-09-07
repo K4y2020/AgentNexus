@@ -319,6 +319,111 @@ def test_live_a2a_message_reaches_harness_and_receives_consumed(
         print(f"live A2A message {message_id} delivered to {planner_id} and consumed")
 
 
+def test_live_declared_a2a_result_returns_to_origin(
+    live_server: str,
+    live_runner_id: str,
+    harness_name: str,
+    model_name: str,
+    mock_llm_server_url: str | None,
+) -> None:
+    """A progress turn cannot finish a task; its later final declaration returns automatically."""
+    token = uuid.uuid4().hex
+    progress_token = f"progress-{token}"
+    complete_token = f"complete-{token}"
+    configure_mock_llm(
+        mock_llm_server_url,
+        [{"text": "Working; final report is pending."}],
+        match=progress_token,
+    )
+    # SDK preflight/replay requests must not drain another stage's scripted answer.
+    set_fallback_mock_llm(mock_llm_server_url, progress_token, "Working; final report is pending.")
+    with httpx.Client(base_url=live_server, timeout=300) as client:
+        root, target, _, _ = _seed_tree(
+            client,
+            harness=harness_name,
+            model=model_name,
+            mock_llm_base_url=_mock_base_for_harness(mock_llm_server_url, harness=harness_name),
+            runner_id=live_runner_id,
+        )
+        sent = client.post(
+            "/v1/coordination/messages",
+            json={
+                "root_session_id": root,
+                "sender_session_id": root,
+                "sender_role": "user_orchestrator",
+                "recipient_session_id": target,
+                "recipient_role": "planner",
+                "kind": "command",
+                "intent": "task.request",
+                "payload": {
+                    "prompt": f"Review {progress_token} and report your final conclusion."
+                },
+            },
+        )
+        sent.raise_for_status()
+        request_id = sent.json()["message"]["message_id"]
+
+        def snapshot():
+            response = client.get(f"/v1/coordination/messages/{request_id}")
+            response.raise_for_status()
+            return response.json()
+
+        _wait_until(
+            lambda: snapshot()["message"]["consumption_state"] == "consumed", label="progress turn"
+        )
+        assert snapshot()["result"] is None
+        configure_mock_llm(
+            mock_llm_server_url,
+            [{"text": f"Final verified verdict.\n[A2A_RESULT:{request_id}:succeeded]"}],
+            match=complete_token,
+        )
+        configure_mock_llm(
+            mock_llm_server_url,
+            [{"text": f"The final verdict for {request_id} is ready for the user."}],
+            match=f"Final result for request {request_id}",
+        )
+        set_fallback_mock_llm(
+            mock_llm_server_url, complete_token,
+            f"Final verified verdict.\n[A2A_RESULT:{request_id}:succeeded]",
+        )
+        set_fallback_mock_llm(
+            mock_llm_server_url, f"Final result for request {request_id}",
+            f"The final verdict for {request_id} is ready for the user.",
+        )
+        response = client.post(
+            "/v1/coordination/messages",
+            json={
+                "root_session_id": root,
+                "sender_session_id": root,
+                "sender_role": "user_orchestrator",
+                "recipient_session_id": target,
+                "payload": {"prompt": f"Finish the existing review now: {complete_token}"},
+            },
+        )
+        assert response.status_code == 200, response.text
+        final = _wait_until(lambda: snapshot()["result"], label="durable A2A result")
+        assert final["recipient_session_id"] == root
+        assert final["in_reply_to"] == request_id
+        assert final["payload"]["summary"] == "Final verified verdict."
+
+        def returned():
+            items = client.get(
+                f"/v1/sessions/{root}/items", params={"order": "desc", "limit": 50}
+            ).json()["data"]
+            delivered = client.get(f"/v1/coordination/messages/{final['message_id']}").json()
+            return delivered["message"]["consumption_state"] == "consumed" and any(
+                item.get("role") == "assistant"
+                and any(
+                    block.get("text")
+                    == f"The final verdict for {request_id} is ready for the user."
+                    for block in item.get("content", [])
+                )
+                for item in items
+            )
+
+        _wait_until(returned, label="result injected into originating conversation")
+
+
 def test_live_plan_implement_review_advances_through_harness_turns(
     live_server: str,
     live_runner_id: str,

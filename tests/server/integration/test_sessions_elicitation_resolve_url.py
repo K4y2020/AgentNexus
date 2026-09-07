@@ -530,6 +530,190 @@ async def test_resolve_url_allow_round_trip(client: httpx.AsyncClient) -> None:
     }
 
 
+async def test_parent_answers_child_question_in_original_parked_turn(
+    client: httpx.AsyncClient,
+    db_uri: str,
+) -> None:
+    from omnigent.runner import app as runner_app
+    from omnigent.runner.tool_dispatch import _execute_subagent_tool
+    from omnigent.runtime import pending_elicitations
+
+    agent = await create_test_agent(client, "test-child-question-continuation")
+    parent_id = await _create_session(client, agent["id"])
+    child_id = _create_child_session(db_uri, parent_id=parent_id, agent_id=agent["id"])
+    subscribed = asyncio.Event()
+    drain = asyncio.create_task(_drain_until_elicitation_event(parent_id, subscribed=subscribed))
+    hook = None
+    try:
+        await subscribed.wait()
+        hook = asyncio.create_task(
+            client.post(
+                f"/v1/sessions/{child_id}/hooks/codex-elicitation-request",
+                json={
+                    "id": 8,
+                    "method": "item/tool/requestUserInput",
+                    "params": {
+                        "threadId": "child-thread",
+                        "turnId": "original-turn",
+                        "itemId": "question",
+                        "questions": [
+                            {"id": "path", "question": "Which workspace?", "options": []}
+                        ],
+                    },
+                },
+            )
+        )
+        event = await asyncio.wait_for(drain, timeout=10)
+        assert event["params"]["target_session_id"] == child_id
+        output = await _execute_subagent_tool(
+            {
+                "task_id": child_id,
+                "question_id": event["elicitation_id"],
+                "answers": {"path": "U:/AI/Gamehack/ExportedProject"},
+                "args": "Path recorded in the original task",
+            },
+            server_client=client,
+            conversation_id=parent_id,
+            session_inbox=asyncio.Queue(),
+        )
+        assert json.loads(output).get("status") == "answer_submitted", output
+        response = await asyncio.wait_for(hook, timeout=10)
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "answers": {"path": {"answers": ["U:/AI/Gamehack/ExportedProject"]}},
+        }
+        assert not pending_elicitations.snapshot_for(child_id)
+        assert not pending_elicitations.snapshot_for(parent_id)
+    finally:
+        runner_app._session_inboxes_ref.pop(parent_id, None)
+        for task in (drain, hook):
+            if task is not None and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        pending_elicitations.reset_for_tests()
+
+
+@pytest.mark.parametrize(
+    "mode,action",
+    [
+        ("primary", "accept"),
+        ("child", "accept"),
+        ("a2a", "accept"),
+        ("primary", "decline"),
+        ("primary", "cancel"),
+    ],
+)
+async def test_unified_question_card_round_trip(
+    client: httpx.AsyncClient,
+    db_uri: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    action: str,
+) -> None:
+    from omnigent.coordination.store import CoordinationStore
+    from omnigent.coordination.types import AgentMessage
+    from omnigent.runner.tool_dispatch import execute_tool
+    from omnigent.runtime import pending_elicitations
+    from omnigent.server.routes import coordination
+
+    agent = await create_test_agent(client, "unified-question")
+    origin = await _create_session(client, agent["id"])
+    target = origin
+    body = {
+        "questions": [
+            {
+                "id": "choice",
+                "question": "How should we continue?",
+                "options": [{"label": "Fix code"}, {"label": "Wait"}],
+            }
+        ]
+    }
+    if mode == "child":
+        target = _create_child_session(db_uri, parent_id=origin, agent_id=agent["id"])
+    elif mode == "a2a":
+        target = await _create_session(client, agent["id"])
+        store = CoordinationStore(tmp_path / "questions.db")
+        message, _ = store.save_message_and_outbox(
+            AgentMessage(
+                sender_session_id=origin,
+                recipient_session_id=target,
+                kind="command",
+            )
+        )
+        monkeypatch.setattr(coordination, "_request_store", lambda _: store)
+        body["a2a_request_id"] = message.message_id
+    subscribed = asyncio.Event()
+    drain = asyncio.create_task(_drain_until_elicitation_event(origin, subscribed=subscribed))
+    waiting = None
+    try:
+        await subscribed.wait()
+        waiting = asyncio.create_task(
+            execute_tool(
+                tool_name="sys_ask_user",
+                arguments=json.dumps(body),
+                server_client=client,
+                conversation_id=target,
+            )
+        )
+        event = await asyncio.wait_for(drain, timeout=10)
+        assert event["params"]["phase"] == "user_question"
+        assert event["params"]["ask_user_question"]["questions"][0]["id"] == "choice"
+        if mode != "primary":
+            assert event["params"]["target_session_id"] == target
+        verdict = await client.post(
+            f"/v1/sessions/{target}/elicitations/{event['elicitation_id']}/resolve",
+            json={"action": action, "content": {"choice": "Fix code"}},
+        )
+        assert verdict.status_code == 202, verdict.text
+        result = json.loads(await asyncio.wait_for(waiting, timeout=10))
+        assert result == {
+            "status": "answered" if action == "accept" else action,
+            "answers": {"choice": "Fix code"} if action == "accept" else None,
+        }
+        assert not pending_elicitations.snapshot_for(origin)
+    finally:
+        for task in (drain, waiting):
+            if task is not None and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        pending_elicitations.reset_for_tests()
+
+
+async def test_unified_question_rejects_unrelated_a2a_request(
+    client: httpx.AsyncClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from omnigent.coordination.store import CoordinationStore
+    from omnigent.coordination.types import AgentMessage
+    from omnigent.runtime import pending_elicitations
+    from omnigent.server.routes import coordination
+
+    agent = await create_test_agent(client, "unrelated-question")
+    session_id = await _create_session(client, agent["id"])
+    store = CoordinationStore(tmp_path / "questions.db")
+    message, _ = store.save_message_and_outbox(
+        AgentMessage(
+            sender_session_id=session_id,
+            recipient_session_id="someone-else",
+            kind="command",
+        )
+    )
+    monkeypatch.setattr(coordination, "_request_store", lambda _: store)
+    response = await client.post(
+        f"/v1/sessions/{session_id}/questions",
+        json={
+            "questions": [{"id": "path", "question": "Which workspace?"}],
+            "a2a_request_id": message.message_id,
+        },
+    )
+    assert response.status_code >= 400
+    assert not pending_elicitations.snapshot_for(session_id)
+
+
 async def test_child_codex_elicitation_bubbles_to_parent_stream(
     client: httpx.AsyncClient,
     db_uri: str,

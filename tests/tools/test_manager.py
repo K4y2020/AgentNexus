@@ -70,6 +70,8 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset(
         "sys_agent_get",
         "sys_agent_download",
         "sys_agent_list",
+        "sys_ask_user",
+        "send_to_teammate",
         # Policy tools are always auto-registered so agents can
         # browse the registry and add policies at runtime.
         "sys_add_policy",
@@ -493,7 +495,14 @@ def test_session_send_schema_drops_named_mode_without_sub_agents() -> None:
         s for s in bare.get_tool_schemas() if s["function"]["name"] == "sys_session_send"
     )
     bare_params = bare_schema["function"]["parameters"]
-    assert set(bare_params["properties"]) == {"session_id", "args"}
+    assert set(bare_params["properties"]) == {
+        "session_id",
+        "task_id",
+        "question_id",
+        "answers",
+        "new_task_reason",
+        "args",
+    }
 
     spec = AgentSpec(
         spec_version=1,
@@ -505,7 +514,7 @@ def test_session_send_schema_drops_named_mode_without_sub_agents() -> None:
         s for s in named.get_tool_schemas() if s["function"]["name"] == "sys_session_send"
     )
     named_params = named_schema["function"]["parameters"]
-    assert set(named_params["properties"]) == {"agent", "title", "session_id", "args"}
+    assert set(named_params["properties"]) == set(bare_params["properties"]) | {"agent", "title"}
     # The enum carries exactly the declared sub-agent names.
     assert named_params["properties"]["agent"]["enum"] == ["researcher"]
 

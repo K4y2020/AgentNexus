@@ -490,3 +490,46 @@ async def test_generic_gateway_executor_enables_sdk_block_stripping() -> None:
     finally:
         if executor._gateway_shim is not None:
             await executor._gateway_shim.aclose()
+
+
+@pytest.mark.asyncio
+async def test_shim_injects_x_opencode_session_header(upstream) -> None:
+    """When x-opencode-session is omitted, the shim injects it."""
+    shim = ClaudeGatewayShim(
+        upstream_base_url=f"http://127.0.0.1:{upstream.port}",
+        session_id="conv-session-xyz-123",
+    )
+    await shim.start()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{shim.base_url}/v1/messages",
+                content=_body("claude-sonnet-4-6", None),
+            )
+        assert resp.status_code == 200
+        assert len(upstream.requests) == 1
+        assert upstream.requests[0].headers["x-opencode-session"] == "conv-session-xyz-123"
+    finally:
+        await shim.aclose()
+
+
+@pytest.mark.asyncio
+async def test_shim_preserves_caller_x_opencode_session_header(upstream) -> None:
+    """When caller sends an explicit x-opencode-session, it is not overwritten."""
+    shim = ClaudeGatewayShim(
+        upstream_base_url=f"http://127.0.0.1:{upstream.port}",
+        session_id="default-session",
+    )
+    await shim.start()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{shim.base_url}/v1/messages",
+                content=_body("claude-sonnet-4-6", None),
+                headers={"x-opencode-session": "explicit-session-override"},
+            )
+        assert resp.status_code == 200
+        assert len(upstream.requests) == 1
+        assert upstream.requests[0].headers["x-opencode-session"] == "explicit-session-override"
+    finally:
+        await shim.aclose()
