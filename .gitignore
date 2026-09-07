@@ -93,5 +93,9 @@ web/storybook-static/
 deploy/databricks/.databricks/
 web/package-lock.json
 
-# Temporary screenshots
+# Temporary screenshots (except documentation images)
 *.png
+!docs/images/*.png
+!examples/**/assets/*.png
+!examples/**/assets/*.webp
+!examples/**/assets/*.jpg
