@@ -10,9 +10,19 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from omnigent.coordination.a2a_results import result_message
 from omnigent.coordination.behavior import (
     resolve_behavior_pack,
     session_behavior_mode_from_labels,
+)
+from omnigent.coordination.channels import (
+    A2A_CHANNEL_KIND_KEY,
+    A2A_CHANNEL_SCOPE_KEY,
+    A2A_CHANNEL_SCOPE_LABEL,
+    A2A_CHANNEL_SOURCE_KEY,
+    A2AChannelBinding,
+    binding_for_session,
+    payload_for_binding,
 )
 from omnigent.coordination.limits import (
     DEFAULT_MAX_HOPS,
@@ -152,9 +162,7 @@ def _request_coordination_policy_gate(request: Request) -> CoordinationPolicyGat
     caps = get_caps()
     server_llm = caps.llm
     host_connection = (
-        caps.policy_llm_connection_factory()
-        if caps.policy_llm_connection_factory
-        else None
+        caps.policy_llm_connection_factory() if caps.policy_llm_connection_factory else None
     )
     default_policies = getattr(caps, "default_policies", None)
 
@@ -169,9 +177,7 @@ def _request_coordination_policy_gate(request: Request) -> CoordinationPolicyGat
                 server_llm=server_llm,
                 host_connection=host_connection,
             )
-        conversation = await asyncio.to_thread(
-            conversation_store.get_conversation, session_id
-        )
+        conversation = await asyncio.to_thread(conversation_store.get_conversation, session_id)
         if conversation is None:
             return None
         spec = await _load_agent_spec_for_coordination(request, conversation)
@@ -230,8 +236,7 @@ async def _evaluate_coordination_policy(
     await asyncio.to_thread(store.record_event, event)
     if not decision.allowed:
         detail = (
-            decision.reason
-            or f"coordination {phase.value} denied at {decision.stage or 'policy'}"
+            decision.reason or f"coordination {phase.value} denied at {decision.stage or 'policy'}"
         )
         if decision.action == PolicyAction.ASK:
             detail = (
@@ -284,9 +289,7 @@ async def _require_coordination_acl(
         )
 
 
-async def _authorized_runs(
-    request: Request, runs: list[CoordinationRun]
-) -> list[CoordinationRun]:
+async def _authorized_runs(request: Request, runs: list[CoordinationRun]) -> list[CoordinationRun]:
     """Filter runs down to those the caller may read.
 
     Listing without a ``root_session_id`` filter spans the whole workspace, so
@@ -327,6 +330,7 @@ async def _require_coordination_tree(
     root_session_id: str,
     *session_ids: str,
     allow_cross_tree_teammates: bool = False,
+    reply_to: AgentMessage | None = None,
 ) -> None:
     """Reject roots/senders/recipients that are not real sessions in one tree."""
 
@@ -394,7 +398,15 @@ async def _require_coordination_tree(
                 status_code=403,
                 detail="cross-tree A2A requires Bot-owned sessions",
             )
-        if getattr(recipient, "purpose", None) != "a2a":
+        authorized_reply = (
+            reply_to is not None
+            and reply_to.root_session_id == root_session_id
+            and reply_to.sender_session_id == recipient.id
+            and reply_to.recipient_session_id == sender.id
+            and reply_to.intent != "task.result"
+            and reply_to.message_state not in ("cancelled", "expired")
+        )
+        if getattr(recipient, "purpose", None) != "a2a" and not authorized_reply:
             raise HTTPException(
                 status_code=403,
                 detail="cross-tree A2A must target the Bot A2A channel",
@@ -498,6 +510,32 @@ class SendMessageRequest(BaseModel):
     hop_count: int = 0
     max_hops: int = DEFAULT_MAX_HOPS
     ttl_seconds: float | None = None
+
+
+def _message_channel_binding(
+    sender: Any,
+    parent: AgentMessage | None,
+) -> A2AChannelBinding:
+    """Use the original request scope when a Bot is replying or forwarding."""
+    if parent is not None:
+        payload = parent.payload
+        scope = payload.get(A2A_CHANNEL_SCOPE_KEY)
+        kind = payload.get(A2A_CHANNEL_KIND_KEY)
+        source = payload.get(A2A_CHANNEL_SOURCE_KEY)
+        if (
+            isinstance(scope, str)
+            and scope
+            and kind in {"chat", "topic"}
+            and isinstance(source, str)
+            and source
+        ):
+            return A2AChannelBinding(kind=kind, source_session_id=source, scope=scope)
+    return binding_for_session(
+        sender.id,
+        purpose=getattr(sender, "purpose", None),
+        root_session_id=getattr(sender, "root_conversation_id", None),
+        labels=getattr(sender, "labels", None),
+    )
 
 
 class CreateRunRequest(BaseModel):
@@ -645,12 +683,36 @@ async def send_coordination_message(
     request: Request,
 ) -> dict[str, Any]:
     """Send a durable peer message from one agent to another and queue for delivery."""
+    store = _request_store(request)
+    parent = None
+    if req.kind == "command" and req.sender_session_id == req.recipient_session_id:
+        raise HTTPException(status_code=400, detail="A2A self-send is not allowed")
+    if req.in_reply_to:
+        parent = await asyncio.to_thread(store.get_message, req.in_reply_to)
+        if parent is None:
+            raise HTTPException(status_code=404, detail="A2A parent message not found")
+        if parent.recipient_session_id != req.sender_session_id:
+            raise HTTPException(status_code=403, detail="only the recipient may reply or forward")
+        if parent.intent == "task.result" or parent.message_state in ("cancelled", "expired"):
+            raise HTTPException(status_code=409, detail="A2A parent cannot be continued")
+        req.correlation_id = parent.correlation_id or parent.message_id
+        req.max_hops = parent.max_hops
+        req.hop_count = parent.hop_count + (0 if req.intent == "task.result" else 1)
+        if req.intent == "task.result":
+            if req.recipient_session_id != parent.sender_session_id:
+                raise HTTPException(
+                    status_code=403, detail="result must return to original sender"
+                )
+            req.root_session_id = parent.root_session_id
+    elif req.intent == "task.result":
+        raise HTTPException(status_code=400, detail="task.result requires in_reply_to")
     await _require_coordination_tree(
         request,
         req.root_session_id,
         req.sender_session_id,
         req.recipient_session_id,
         allow_cross_tree_teammates=True,
+        reply_to=parent if req.intent == "task.result" else None,
     )
     if req.sender_role == "user_orchestrator" and req.sender_session_id != req.root_session_id:
         raise HTTPException(
@@ -684,9 +746,7 @@ async def send_coordination_message(
             "intent": req.intent,
             "payload_size": len(payload_preview),
             "payload_preview": payload_preview[:4096],
-            "artifacts": [
-                a.get("artifact_id") or a.get("uri") for a in req.artifacts
-            ],
+            "artifacts": [a.get("artifact_id") or a.get("uri") for a in req.artifacts],
             "hop_count": req.hop_count,
             "max_hops": req.max_hops,
             "ttl_seconds": req.ttl_seconds,
@@ -701,6 +761,38 @@ async def send_coordination_message(
         recipient = await asyncio.to_thread(
             conversation_store.get_conversation, req.recipient_session_id
         )
+        if sender is None or recipient is None:
+            raise HTTPException(
+                status_code=404,
+                detail="A2A sender or recipient session not found",
+            )
+        if req.kind == "command" and getattr(sender, "purpose", None) == "a2a" and parent is None:
+            raise HTTPException(status_code=400, detail="A2A forwarding requires in_reply_to")
+        channel_sender = sender
+        if getattr(sender, "purpose", None) == "subagent":
+            root_id = getattr(sender, "root_conversation_id", None)
+            if root_id and root_id != sender.id:
+                channel_sender = (
+                    await asyncio.to_thread(conversation_store.get_conversation, root_id)
+                ) or sender
+        channel = _message_channel_binding(channel_sender, parent)
+        supplied_scope = payload.get(A2A_CHANNEL_SCOPE_KEY)
+        if supplied_scope is not None and supplied_scope != channel.scope:
+            raise HTTPException(
+                status_code=409,
+                detail="A2A channel scope does not match the originating Chat or Topic",
+            )
+        payload.update(payload_for_binding(channel))
+        recipient_scope = getattr(recipient, "labels", {}).get(A2A_CHANNEL_SCOPE_LABEL)
+        if getattr(recipient, "purpose", None) == "a2a" and recipient_scope:
+            if recipient_scope != channel.scope:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "A2A target channel is bound to a different Chat or Topic; "
+                        "send through the matching channel"
+                    ),
+                )
         sender_bot_id = getattr(sender, "bot_id", None)
         recipient_bot_id = getattr(recipient, "bot_id", None)
         if sender_bot_id and recipient_bot_id:
@@ -725,7 +817,21 @@ async def send_coordination_message(
         max_hops=req.max_hops,
         ttl_seconds=req.ttl_seconds,
     )
-    store = _request_store(request)
+    if req.intent == "task.result" and parent is not None:
+        summary = req.payload.get("summary") or req.payload.get("prompt")
+        outcome = req.payload.get("outcome", "succeeded")
+        if (
+            not isinstance(summary, str)
+            or not summary.strip()
+            or outcome not in ("succeeded", "failed")
+        ):
+            raise HTTPException(
+                status_code=400, detail="result requires summary and a valid outcome"
+            )
+        msg = result_message(parent, summary.strip(), str(outcome))
+        msg.artifacts = req.artifacts
+    elif msg.kind == "command" and msg.correlation_id is None:
+        msg.correlation_id = msg.message_id
     saved_msg, outbox = await asyncio.to_thread(store.save_message_and_outbox, msg)
     return {
         "message": saved_msg.to_dict(),
@@ -748,6 +854,26 @@ async def list_coordination_messages(
     store = _request_store(request)
     messages = await asyncio.to_thread(store.list_messages, root_session_id, recipient_session_id)
     return {"messages": [m.to_dict() for m in messages]}
+
+
+@router.get("/messages/{message_id}")
+async def get_coordination_message(message_id: str, request: Request) -> dict[str, Any]:
+    store = _request_store(request)
+    message = await asyncio.to_thread(store.get_message, message_id)
+    if message is None:
+        raise HTTPException(status_code=404, detail="A2A message not found")
+    await _require_coordination_acl(
+        request, message.sender_session_id, message.recipient_session_id
+    )
+    result = await asyncio.to_thread(store.get_message_result, message_id)
+    attempts = await asyncio.to_thread(store.list_delivery_attempts, message_id)
+    outboxes = await asyncio.to_thread(store.list_outbox_items, message_id=message_id)
+    return {
+        "message": message.to_dict(),
+        "result": result.to_dict() if result else None,
+        "delivery": attempts[-1].to_dict() if attempts else None,
+        "delivery_state": outboxes[0].status if outboxes else "unknown",
+    }
 
 
 @router.get("/behavior/{session_id}")

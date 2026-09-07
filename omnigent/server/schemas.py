@@ -1556,6 +1556,7 @@ class SessionCreateRequest(BaseModel):
 
     agent_id: str
     bot_id: str | None = None
+    project_id: str | None = None
     purpose: Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"] | None = None
     initial_items: list[SessionEventInput] = Field(default_factory=list)
     title: str | None = Field(default=None, max_length=USER_SESSION_TITLE_MAX_CHARS)

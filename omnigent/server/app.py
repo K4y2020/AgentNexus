@@ -226,6 +226,7 @@ WELL_KNOWN_MANIFEST_VERSION = 1
 _WEB_UI_GZIP_MINIMUM_SIZE = 1024
 _DEBBY_AGENT_NAME = "debby"
 _POLLY_AGENT_NAME = "polly"
+_CINE_AGENT_NAME = "cine"
 _UNMATCHED_ROUTE_TEMPLATE = "<unmatched>"
 _SESSION_PATH_RE = re.compile(r"/v1/sessions/([^/]+)")
 
@@ -251,6 +252,12 @@ def _session_id_from_request(request: Request) -> str | None:
 # Windows checkout (where Git leaves it as a stub text file); a no-op elsewhere.
 _DEBBY_BUNDLE_SOURCE = resolve_repo_symlink(Path(_examples_resources.__file__).parent / "debby")
 _POLLY_BUNDLE_SOURCE = resolve_repo_symlink(Path(_examples_resources.__file__).parent / "polly")
+_cine_res_path = Path(_examples_resources.__file__).parent / "cine"
+_CINE_BUNDLE_SOURCE = (
+    resolve_repo_symlink(_cine_res_path)
+    if _cine_res_path.exists()
+    else (Path(__file__).resolve().parents[2] / "examples" / "cine")
+)
 
 
 class _FastAPICallNext(Protocol):
@@ -564,6 +571,7 @@ def _ensure_default_agents(
     _ensure_default_acp_agents(agent_store, artifact_store, agent_cache)
     _ensure_default_debby_agent(agent_store, artifact_store, agent_cache)
     _ensure_default_polly_agent(agent_store, artifact_store, agent_cache)
+    _ensure_default_cine_agent(agent_store, artifact_store, agent_cache)
     _ensure_extra_builtin_agents(agent_store, artifact_store, agent_cache)
 
 
@@ -940,6 +948,45 @@ def _ensure_default_polly_agent(
         name=_POLLY_AGENT_NAME,
         bundle_bytes=_build_polly_bundle(),
     )
+
+def _build_cine_bundle() -> bytes:
+    """
+    Build a gzipped tarball of the ``examples/cine`` agent bundle.
+
+    :returns: Gzipped tarball bytes suitable for the artifact store.
+    """
+    import tempfile
+
+    from omnigent.spec import materialize_bundle
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bundle_dir = materialize_bundle(_CINE_BUNDLE_SOURCE, Path(tmpdir) / "bundle")
+        return _tar_gz_dir(bundle_dir)
+
+
+def _ensure_default_cine_agent(
+    agent_store: AgentStore,
+    artifact_store: ArtifactStore,
+    agent_cache: Any,
+) -> None:
+    """
+    Register or refresh the cine filmmaking and storyboard agent.
+    """
+    if not (_CINE_BUNDLE_SOURCE / "config.yaml").is_file():
+        _logger.debug(
+            "cine bundle not found at %s; skipping seed",
+            _CINE_BUNDLE_SOURCE,
+        )
+        return
+
+    _ensure_builtin_agent(
+        agent_store,
+        artifact_store,
+        agent_cache,
+        name=_CINE_AGENT_NAME,
+        bundle_bytes=_build_cine_bundle(),
+    )
+
 
 
 def create_app(
@@ -1379,6 +1426,7 @@ def create_app(
             coordination_dispatcher = CoordinationDispatcher(
                 app_inst.state.coordination_store,
                 conversation_store=app_inst.state.conversation_store,
+                app=app_inst,
             )
             await coordination_dispatcher.start()
             app_inst.state.coordination_dispatcher = coordination_dispatcher

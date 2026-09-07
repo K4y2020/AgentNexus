@@ -1944,6 +1944,9 @@ def register_events_routes(
             # Read only for the gateway-backing check that decides which router
             # serves this turn; absent, routing keeps its default posture.
             host_store=getattr(request.app.state, "host_store", None),
+            bot_store=getattr(request.app.state, "bot_store", None),
+            user_id=user_id,
+            permission_store=permission_store,
         )
         if pending_background_title is not None:
             pending_background_title.schedule()

@@ -889,11 +889,34 @@ def register_core_routes(
             conv = await asyncio.to_thread(conversation_store.get_conversation, session_id)
         if conv is None:
             raise _session_not_found()
+        labels = _labels_for_viewer(conv.labels, user_id)
+        if conv.bot_id is not None:
+            primary = await asyncio.to_thread(
+                conversation_store.get_bot_singleton_session,
+                conv.bot_id,
+                "primary",
+            )
+            if primary is not None and primary.id != conv.id:
+                # Primary worker labels are Bot-owned configuration. A user
+                # who can read only a shared Topic/A2A session must also be
+                # authorized to read the Bot's primary session before these
+                # labels are inherited.
+                await _require_access_and_level(
+                    user_id,
+                    primary.id,
+                    LEVEL_READ,
+                    permission_store,
+                    conversation_store,
+                )
+                primary_labels = _labels_for_viewer(primary.labels, user_id)
+                for key, value in primary_labels.items():
+                    if key.startswith("subagent.model.") and key not in labels:
+                        labels[key] = value
         return SessionLabelsResponse(
             id=conv.id,
             # Collapse per-user pin keys for this caller (never leak another
             # user's pin key to a native harness bridge).
-            labels=labels_with_closed_status(_labels_for_viewer(conv.labels, user_id), conv.title),
+            labels=labels_with_closed_status(labels, conv.title),
         )
 
     # ── GET /sessions ───────────────────────────────────────────

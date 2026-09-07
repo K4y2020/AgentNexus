@@ -5530,6 +5530,9 @@ async def _reset_runner_resources_after_switch_impl(session_id: str) -> None:
 
 
 def _native_coding_agent_for_session(conv: Conversation) -> NativeCodingAgent | None:
+    from omnigent._platform import IS_WINDOWS
+    if IS_WINDOWS and getattr(conv, 'harness_override', None) in ('codex', 'claude-sdk'):
+        return None
     """
     Resolve native terminal metadata for a session, by wrapper label OR harness.
 

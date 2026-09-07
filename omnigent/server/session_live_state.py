@@ -321,6 +321,13 @@ def persist_a2a_turn_completed(
                     },
                 )
             )
+        if _store is not None and response_id is not None:
+            from omnigent.coordination.a2a_results import record_declared_results
+            from omnigent.coordination.workflow_auto_advance import assistant_text_from_items
+
+            page = _store.list_items(session_id, order="desc", limit=50, type="message")
+            scoped = [item for item in page.data if item.response_id == response_id]
+            record_declared_results(store, session_id, assistant_text_from_items(scoped))
         advancer = _workflow_advancer
         if advancer is not None:
             advancer.on_turn_completed(session_id, response_id, messages)

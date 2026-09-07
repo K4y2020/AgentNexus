@@ -715,8 +715,10 @@ async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
     """Create a conversation bound to the task's agent, carrying the stored spec."""
     bot = None
     workspace = task.workspace
+    workspace_session_id = uuid.uuid4().hex
     if deps.bot_store is not None:
-        from omnigent.bots import bot_owner_id, bot_scratch_path, ensure_bot_home
+        from omnigent.bot_workspace import ensure_bot_task_workspace
+        from omnigent.bots import bot_owner_id, ensure_bot_home
 
         bot = await asyncio.to_thread(
             deps.bot_store.get_by_agent,
@@ -735,12 +737,15 @@ async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
                 bot,
                 host_id=task.host_id,
             )
-            workspace = bot_scratch_path(binding)
+            workspace = await asyncio.to_thread(
+                ensure_bot_task_workspace, binding.home_path, workspace_session_id
+            )
     # Connected-host, existing-workspace runs create the conversation directly.
     # Future execution modes such as managed sandbox, branch selection, and
     # replay/backfill must use shared session-create orchestration.
     conv: Conversation = await asyncio.to_thread(
         deps.conversation_store.create_conversation,
+        conversation_id=workspace_session_id,
         agent_id=task.agent_id,
         title=task.name,
         host_id=task.host_id,
@@ -768,6 +773,10 @@ async def _create_session(deps: FireDeps, task: ScheduledTask) -> Conversation:
     # the override reload above) so the labels land on the conversation returned
     # to the launch/dispatch caller, not a stale pre-label reload of it.
     labels = await _presentation_labels(deps, task)
+    if bot is not None:
+        from omnigent.bot_workspace import WORKSPACE_LAYOUT_LABEL
+
+        labels[WORKSPACE_LAYOUT_LABEL] = "topic-v1"
     if bot is not None and bot.behavior_mode != "off":
         labels["omnigent.behavior_mode"] = bot.behavior_mode
     if labels:

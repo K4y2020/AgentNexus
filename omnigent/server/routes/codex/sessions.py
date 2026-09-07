@@ -451,12 +451,13 @@ async def _require_codex_native_goal_session(
             "Session not found",
             code=ErrorCode.NOT_FOUND,
         )
+    wrapper = conv.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
     if (
-        conv.labels.get(_CLAUDE_NATIVE_WRAPPER_LABEL_KEY)
-        != CODEX_NATIVE_CODING_AGENT.wrapper_label
+        wrapper != CODEX_NATIVE_CODING_AGENT.wrapper_label
+        and getattr(conv, "harness_override", None) != "codex"
     ):
         raise OmnigentError(
-            "codex_goal is only supported for codex-native sessions",
+            "codex_goal is only supported for codex sessions",
             code=ErrorCode.INVALID_INPUT,
         )
     return conv

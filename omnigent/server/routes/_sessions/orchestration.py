@@ -25,7 +25,9 @@ from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from omnigent._platform import IS_WINDOWS
 from omnigent.cli_invocation import cli_invocation
+from omnigent.coordination.channels import A2A_CHANNEL_SCOPE_LABEL
 from omnigent.db.utils import generate_agent_id, generate_task_id
 from omnigent.debug_logging import debug_event
 from omnigent.entities import (
@@ -57,6 +59,7 @@ from omnigent.host.frames import (
     WORKSPACE_MISSING_ERROR_CODE as _WORKSPACE_MISSING_ERROR_CODE,
 )
 from omnigent.llms.context_window import resolve_effective_context_window
+from omnigent.model_override import validate_model_override
 from omnigent.native_coding_agents import (
     native_coding_agent_for_agent_name,
     native_coding_agent_for_harness,
@@ -338,7 +341,7 @@ from omnigent.spec.types import (
     Phase,
     PolicyAction,
 )
-from omnigent.stores import AgentStore, ConversationStore
+from omnigent.stores import AgentStore, BotStore, ConversationStore
 from omnigent.stores.artifact_store import ArtifactStore
 from omnigent.stores.conversation_store import (
     PINNED_LABEL_KEY,
@@ -367,6 +370,7 @@ async def _publish_and_wait_for_harness_elicitation(
     elicitation_id: str | None = None,
     tool_name: str | None = None,
     tool_input: dict[str, Any] | None = None,
+    mirror_session_id: str | None = None,
 ) -> ElicitationResult | None:
     """
     Publish one harness-originated elicitation and wait for web verdict.
@@ -451,6 +455,14 @@ async def _publish_and_wait_for_harness_elicitation(
         event_payload = event.model_dump()
         session_stream.publish(session_id, event_payload)
         published_request = True
+        if mirror_session_id is not None and mirror_session_id != session_id:
+            session_stream.publish(
+                mirror_session_id,
+                {
+                    **event_payload,
+                    "params": {**event_payload["params"], "target_session_id": session_id},
+                },
+            )
         if conversation_store is not None:
             await asyncio.to_thread(
                 _publish_elicitation_request_to_ancestors,
@@ -515,6 +527,8 @@ async def _publish_and_wait_for_harness_elicitation(
             _harness_elicitation_owners.pop(elicitation_id, None)
         if _harness_parked_elicitations.get(elicitation_id) is parked:
             _harness_parked_elicitations.pop(elicitation_id, None)
+        if published_request and mirror_session_id is not None and mirror_session_id != session_id:
+            _publish_elicitation_resolved(mirror_session_id, elicitation_id, action=settled_action)
         if published_request and not settled:
             # Severed without an answer — defer the clear (scheduled
             # before any await so handler cancellation can't skip it).
@@ -1073,7 +1087,10 @@ def _build_session_response(
     # the snapshot never carries another user's pin key (see _labels_for_viewer).
     labels = labels_with_closed_status(_labels_for_viewer(conv.labels, viewer_id), conv.title)
     if agent_name in (_CLAUDE_NATIVE_MODEL, _CODEX_NATIVE_MODEL):
-        labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: _CLAUDE_NATIVE_UI_LABEL_VALUE}
+        if IS_WINDOWS and getattr(conv, 'harness_override', None) in ('codex', 'claude-sdk'):
+            labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: 'chat'}
+        else:
+            labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: _CLAUDE_NATIVE_UI_LABEL_VALUE}
     return SessionResponse(
         id=conv.id,
         agent_id=conv.agent_id,
@@ -4768,6 +4785,9 @@ async def _forward_event_to_runner(
     has_mcp_servers: bool = False,
     created_by: str | None = None,
     host_store: HostStore | None = None,
+    bot_store: BotStore | None = None,
+    user_id: str | None = None,
+    permission_store: PermissionStore | None = None,
 ) -> str:
     """
     Persist a user event and forward it to the runner.
@@ -4803,6 +4823,7 @@ async def _forward_event_to_runner(
     """
     import uuid
 
+    body = await _bind_bot_default_model(conv, body, bot_store)
     turn_id = f"turn_{uuid.uuid4().hex}"
     item = _build_new_item(body, turn_id, created_by=created_by)
     persisted_items = await asyncio.to_thread(
@@ -4915,8 +4936,24 @@ async def _forward_event_to_runner(
     # UI / REPL PATCH applies even when the client doesn't repeat
     # model_override on every event. ``is not None`` over ``or`` per
     # the no-invented-defaults rule.
+    parent_for_preference = (
+        await asyncio.to_thread(conversation_store.get_conversation, conv.parent_conversation_id)
+        if conv.parent_conversation_id is not None
+        else None
+    )
+    saved_model_preference = await _effective_saved_subagent_model_preference(
+        conv,
+        parent_for_preference,
+        conversation_store,
+        user_id=user_id,
+        permission_store=permission_store,
+    )
     effective_runner_override = (
-        body.model_override if body.model_override is not None else conv.model_override
+        saved_model_preference
+        if saved_model_preference not in (None, "")
+        else body.model_override
+        if body.model_override is not None
+        else conv.model_override
     )
     # ── Auto-harness resolution ───────────────────────────────────────
     # When the session was created with harness_override="auto", the real
@@ -5057,6 +5094,7 @@ async def _forward_event_to_runner(
         # model) — don't re-run the router for the same message.
         and not _auto_resolved_this_turn
         and not _child_routed_before
+        and saved_model_preference is None
         and (effective_runner_override is None or conv.parent_conversation_id is not None)
     )
     if _should_route:
@@ -5465,6 +5503,113 @@ async def _dispatch_session_event_to_runner(*args: Any, **kwargs: Any) -> Any:
     return await _facade._dispatch_session_event_to_runner(*args, **kwargs)
 
 
+_SUBAGENT_MODEL_LABEL_PREFIX = "subagent.model."
+
+
+def _saved_subagent_model_preference(
+    conv: Conversation,
+    parent: Conversation | None,
+) -> str | None:
+    """Return the parent's validated model preference for this child."""
+    name = conv.sub_agent_name
+    if parent is None or not name:
+        return None
+    raw = parent.labels.get(f"{_SUBAGENT_MODEL_LABEL_PREFIX}{name}")
+    if raw is None:
+        return None
+    if raw == "":
+        # Empty is the UI's explicit "Default" reset sentinel: it clears a
+        # worker pin and must suppress primary-session inheritance.
+        return ""
+    if not isinstance(raw, str) or not raw.strip():
+        raise OmnigentError(
+            f"Saved model preference for sub-agent {name!r} is malformed; "
+            "no fallback model was selected.",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+    try:
+        return validate_model_override(raw)
+    except ValueError as exc:
+        raise OmnigentError(
+            f"Saved model preference for sub-agent {name!r} is invalid; "
+            "no fallback model was selected.",
+            code=ErrorCode.INVALID_INPUT,
+        ) from exc
+
+
+async def _effective_saved_subagent_model_preference(
+    conv: Conversation,
+    parent: Conversation | None,
+    conversation_store: ConversationStore,
+    *,
+    user_id: str | None = None,
+    permission_store: PermissionStore | None = None,
+) -> str | None:
+    """Resolve current-parent labels, then the same Bot's primary labels."""
+    preference = _saved_subagent_model_preference(conv, parent)
+    if preference is not None or parent is None or parent.bot_id is None:
+        return preference
+    try:
+        primary = await asyncio.to_thread(
+            conversation_store.get_bot_singleton_session,
+            parent.bot_id,
+            "primary",
+        )
+    except Exception as exc:
+        raise OmnigentError(
+            f"Bot primary model settings could not be read for sub-agent "
+            f"{conv.sub_agent_name!r}; "
+            "no fallback model was selected.",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+    if primary is not None and user_id is not None and permission_store is not None:
+        await _require_access(
+            user_id,
+            primary.id,
+            LEVEL_READ,
+            permission_store,
+            conversation_store,
+        )
+    return _saved_subagent_model_preference(conv, primary)
+
+
+async def _bind_bot_default_model(
+    conv: Conversation,
+    body: SessionEventInput,
+    bot_store: BotStore | None,
+) -> SessionEventInput:
+    """Bind the target Bot's default when the session has no model choice."""
+    if body.model_override is not None or conv.model_override is not None:
+        return body
+    if conv.bot_id is None or bot_store is None:
+        return body
+    try:
+        bot = await asyncio.to_thread(bot_store.get, conv.bot_id)
+    except Exception as exc:
+        raise OmnigentError(
+            f"Bot model settings could not be read for session {conv.id!r}; "
+            "no fallback model was selected.",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+    if bot is None:
+        raise OmnigentError(
+            f"Bot model settings are unavailable for session {conv.id!r}; "
+            "no fallback model was selected.",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+    if bot.default_model is None:
+        return body
+    try:
+        model = validate_model_override(bot.default_model)
+    except ValueError as exc:
+        raise OmnigentError(
+            f"Bot default model for session {conv.id!r} is invalid; "
+            "no fallback model was selected.",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+    return body.model_copy(update={"model_override": model})
+
+
 async def _dispatch_session_event_to_runner_impl(
     session_id: str,
     conv: Conversation,
@@ -5480,6 +5625,9 @@ async def _dispatch_session_event_to_runner_impl(
     runner_router: RunnerRouter | None = None,
     native_terminal_ready: bool = False,
     host_store: HostStore | None = None,
+    bot_store: BotStore | None = None,
+    user_id: str | None = None,
+    permission_store: PermissionStore | None = None,
 ) -> _SessionEventDispatchResult:
     """
     Forward an item-event to the runner with harness-aware dispatch.
@@ -5556,6 +5704,24 @@ async def _dispatch_session_event_to_runner_impl(
         persisted item id (non-native) or the pending-input id
         (claude-native message bypass).
     """
+    parent_for_preference = (
+        await asyncio.to_thread(conversation_store.get_conversation, conv.parent_conversation_id)
+        if conv.parent_conversation_id is not None
+        else None
+    )
+    saved_model_preference = await _effective_saved_subagent_model_preference(
+        conv,
+        parent_for_preference,
+        conversation_store,
+        user_id=user_id,
+        permission_store=permission_store,
+    )
+    if saved_model_preference not in (None, ""):
+        # A saved worker preference outranks the dispatch body and the Bot's
+        # general default; the latter is only a fallback for an unbound child.
+        body = body.model_copy(update={"model_override": saved_model_preference})
+    else:
+        body = await _bind_bot_default_model(conv, body, bot_store)
     if body.type == "message" and _is_native_terminal_session(conv):
         # Validate before touching the runner. The ensure probe is only
         # for syntactically valid user messages; assistant/system-shaped
@@ -5631,8 +5797,10 @@ async def _dispatch_session_event_to_runner_impl(
         # pane cannot take must not become ``model_override``, which would
         # disable routing for every later turn and misattribute usage.
         _native_applied_model: str | None = None
-        if _native_routing_enabled and (
-            conv.model_override is None or conv.parent_conversation_id is not None
+        if (
+            _native_routing_enabled
+            and saved_model_preference is None
+            and (conv.model_override is None or conv.parent_conversation_id is not None)
         ):
             from omnigent.server.smart_routing import route_turn_or_decline
 
@@ -5728,7 +5896,8 @@ async def _dispatch_session_event_to_runner_impl(
                 # routed id; ``None`` when the pane has no spelling for it.
                 model_override=(
                     _native_routed_model if _native_applied_model is not None else None
-                ),
+                )
+                or body.model_override,
             )
             forwarded = True
         finally:
@@ -5779,6 +5948,7 @@ async def _dispatch_session_event_to_runner_impl(
         has_mcp_servers=has_mcp_servers,
         created_by=created_by,
         host_store=host_store,
+        bot_store=bot_store,
     )
     return _SessionEventDispatchResult(item_id=item_id, pending_id=None)
 
@@ -6313,16 +6483,12 @@ async def _relay_runner_stream_once(
                         )
                         _term_resp_obj = event.get("response")
                         _term_rid = (
-                            _term_resp_obj.get("id")
-                            if isinstance(_term_resp_obj, dict)
-                            else None
+                            _term_resp_obj.get("id") if isinstance(_term_resp_obj, dict) else None
                         )
                         _model_fact_item = _model_fact_item_from_turn(
                             event,
                             requested_model=(
-                                _fact_conv.model_override
-                                if _fact_conv is not None
-                                else None
+                                _fact_conv.model_override if _fact_conv is not None else None
                             ),
                             requested_unknown_reason=(
                                 "no_explicit_selection"
@@ -6330,9 +6496,7 @@ async def _relay_runner_stream_once(
                                 else None
                             ),
                             harness=(
-                                _fact_conv.harness_override
-                                if _fact_conv is not None
-                                else None
+                                _fact_conv.harness_override if _fact_conv is not None else None
                             ),
                             response_id=current_response_id or _term_rid,
                             turn_status=evt_type.split(".", 1)[1],
@@ -7634,6 +7798,10 @@ def _create_resolved_harness(
 
     native_agent = native_coding_agent_for_agent_name(agent.name)
     if native_agent is not None:
+        if IS_WINDOWS and native_agent.harness == "codex-native":
+            return "codex"
+        if IS_WINDOWS and native_agent.harness == "claude-native":
+            return "claude-sdk"
         return native_agent.harness
     if harness_override:
         return canonicalize_harness(harness_override) or harness_override
@@ -8045,7 +8213,7 @@ async def _create_session_from_existing_agent(
     _session_purpose = "standalone"
     _singleton_slot: str | None = None
     if body.parent_session_id is None and _bot_store is not None:
-        from omnigent.bots import bot_owner_id, bot_scratch_path, ensure_bot_home
+        from omnigent.bots import bot_owner_id, ensure_bot_home
 
         _owner_id = bot_owner_id(user_id)
         if body.bot_id is not None:
@@ -8074,8 +8242,13 @@ async def _create_session_from_existing_agent(
                     f"Top-level Bot session cannot have purpose {_session_purpose!r}",
                     code=ErrorCode.INVALID_INPUT,
                 )
+            _scoped_a2a = _session_purpose == "a2a" and bool(
+                body.labels.get(A2A_CHANNEL_SCOPE_LABEL)
+            )
             _singleton_slot = (
-                _session_purpose if _session_purpose in {"primary", "a2a"} else None
+                _session_purpose
+                if _session_purpose in {"primary", "a2a"} and not _scoped_a2a
+                else None
             )
             existing_singleton = (
                 await asyncio.to_thread(
@@ -8306,6 +8479,17 @@ async def _create_session_from_existing_agent(
         # Ignore any orchestrator-supplied model; routing picks it. (The spec
         # opt-in never reaches here with a client model, so none is dropped.)
         model_override = None
+    elif (
+        IS_WINDOWS and (_win_native := native_coding_agent_for_agent_name(agent.name)) is not None
+    ):
+        if _win_native.harness == "codex-native":
+            harness_override = "codex"
+        elif _win_native.harness == "claude-native":
+            harness_override = "claude-sdk"
+        else:
+            harness_override = await asyncio.to_thread(
+                _validated_harness_override, body.harness_override, agent
+            )
     else:
         harness_override = await asyncio.to_thread(
             _validated_harness_override, body.harness_override, agent
@@ -8338,12 +8522,13 @@ async def _create_session_from_existing_agent(
     # repo; the worktree it produces becomes the stored workspace.
     git_branch: str | None = None
     created_worktree_path: str | None = None
+    target_sid = secrets.token_hex(16)
 
     if _bot_binding is not None and _bot_store is not None and _bot_id is not None:
         if body.project_id is not None:
             from omnigent.computers.local_host import LocalHostComputerProvider
+
             provider = LocalHostComputerProvider(_bot_store)
-            target_sid = secrets.token_hex(16)
             resolved = await asyncio.to_thread(
                 provider.resolve_run_workspace,
                 bot_id=_bot_id,
@@ -8357,7 +8542,14 @@ async def _create_session_from_existing_agent(
                 git_branch = resolved.branch
                 created_worktree_path = resolved.worktree_path
         else:
-            canonical_workspace = bot_scratch_path(_bot_binding)
+            from omnigent.bot_workspace import WORKSPACE_LAYOUT_LABEL, ensure_bot_task_workspace
+
+            canonical_workspace = await asyncio.to_thread(
+                ensure_bot_task_workspace, _bot_binding.home_path, target_sid
+            )
+            body = body.model_copy(update={
+                "labels": {**body.labels, WORKSPACE_LAYOUT_LABEL: "topic-v1"}
+            })
     else:
         canonical_workspace = body.workspace
 
@@ -8466,6 +8658,7 @@ async def _create_session_from_existing_agent(
 
     try:
         conv = conversation_store.create_conversation(
+            conversation_id=target_sid,
             agent_id=agent.id,
             title=body.title,
             parent_conversation_id=body.parent_session_id,
@@ -8564,7 +8757,12 @@ async def _create_session_from_existing_agent(
     native_agent = native_coding_agent_for_agent_name(agent.name)
     if native_agent is not None:
         _native_labels = dict(body.labels) if body.labels else {}
-        _native_labels.update(native_agent.presentation_labels)
+        if IS_WINDOWS and native_agent.harness in ("codex-native", "claude-native"):
+            _native_labels.update(
+                {"omnigent.ui": "chat", "omnigent.wrapper": native_agent.wrapper_label}
+            )
+        else:
+            _native_labels.update(native_agent.presentation_labels)
         await asyncio.to_thread(conversation_store.set_labels, conv.id, _native_labels)
         conv.labels.update(_native_labels)
     elif (
@@ -8783,6 +8981,9 @@ async def _create_session_from_existing_agent(
                     created_by=_attribution_user(user_id),
                     runner_router=runner_router,
                     host_store=getattr(request.app.state, "host_store", None),
+                    bot_store=getattr(request.app.state, "bot_store", None),
+                    user_id=user_id,
+                    permission_store=permission_store,
                 )
                 if pending_background_title is not None:
                     pending_background_title.schedule()

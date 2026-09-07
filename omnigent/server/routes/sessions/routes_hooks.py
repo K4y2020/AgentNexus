@@ -93,6 +93,7 @@ from omnigent.spec.types import (
 )
 from omnigent.stores import AgentStore, ConversationStore
 from omnigent.stores.permission_store import PermissionStore
+from omnigent.tools.builtins.ask_user import AskUserRequest
 
 
 def _create_route_decision_id(
@@ -138,6 +139,79 @@ def register_hooks_routes(
     agent_cache: AgentCache | None = None,
 ) -> None:
     """Register the hooks routes on router."""
+
+    @router.post("/sessions/{session_id}/questions")
+    async def ask_user_question(
+        request: Request,
+        session_id: str,
+        body: AskUserRequest,
+    ) -> dict[str, Any]:
+        user_id = _get_user_id(request, auth_provider)
+        access = await _require_access_and_level(
+            user_id,
+            session_id,
+            LEVEL_EDIT,
+            permission_store,
+            conversation_store,
+        )
+        conv = access.conversation
+        mirror_session_id = None
+        if body.a2a_request_id is not None:
+            from omnigent.server.routes.coordination import _request_store
+
+            store = _request_store(request)
+            message = await asyncio.to_thread(store.get_message, body.a2a_request_id)
+            if (
+                message is None
+                or message.recipient_session_id != session_id
+                or message.kind != "command"
+            ):
+                raise OmnigentError(
+                    "Question must reference an A2A request received here",
+                    code=ErrorCode.INVALID_INPUT,
+                )
+            mirror_session_id = message.sender_session_id
+            await _require_access_and_level(
+                user_id,
+                mirror_session_id,
+                LEVEL_EDIT,
+                permission_store,
+                conversation_store,
+            )
+        elif conv is not None and getattr(conv, "purpose", None) == "a2a":
+            raise OmnigentError(
+                "A2A questions require a2a_request_id", code=ErrorCode.INVALID_INPUT
+            )
+        params = ElicitationRequestParams(
+            mode="form",
+            message="Input needed",
+            phase="user_question",
+            policy_name="user_question",
+            ask_user_question=body.card_payload(),
+        )
+        result = await _publish_and_wait_for_harness_elicitation(
+            request,
+            session_id=session_id,
+            params=params,
+            timeout_s=600.0,
+            conversation_store=conversation_store,
+            mirror_session_id=mirror_session_id,
+        )
+        if result is None:
+            return {"status": "unanswered", "answers": None}
+        if result.action != "accept":
+            return {"status": result.action, "answers": None}
+        from omnigent.runtime.subagent_questions import validate_answers
+
+        try:
+            answers = validate_answers(
+                {"params": params.model_dump()},
+                result.content,
+                allow_sensitive=True,
+            )
+        except ValueError:
+            return {"status": "invalid_answer", "answers": None}
+        return {"status": "answered", "answers": answers}
 
     @router.post(
         "/sessions/{session_id}/hooks/permission-request",
