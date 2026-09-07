@@ -4806,6 +4806,10 @@ def _run_relay_tool(
         result = future.result(timeout=_TOOL_CALL_TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001 - relay converts callback failures to MCP errors.
         return _mcp_error(f"Omnigent tool dispatch failed: {exc}")
+    if name == "sys_os_view_image" and isinstance(result, dict):
+        from omnigent.runtime.image_tool import image_mcp_response
+
+        return image_mcp_response(result)
     return _mcp_response_from_tool_result(result)
 
 

@@ -51,11 +51,12 @@ class LocalHostComputerProvider(ComputerProvider):
 
         home = Path(binding.home_path)
 
-        # 1. No Project: route to Bot scratch space
+        # No Project: isolate topics while keeping repeated runs in the same directory.
         if not project_id:
-            scratch = home / "scratch"
-            scratch.mkdir(parents=True, exist_ok=True)
-            return ResolvedRunWorkspace(path=str(scratch), is_worktree=False)
+            from omnigent.bot_workspace import ensure_bot_task_workspace
+
+            task = ensure_bot_task_workspace(binding.home_path, session_id)
+            return ResolvedRunWorkspace(path=task, is_worktree=False)
 
         # 2. Project provided: look up BotProjectBinding
         p_binding = self.bot_store.get_project_binding(bot_id=bot_id, project_id=project_id)
