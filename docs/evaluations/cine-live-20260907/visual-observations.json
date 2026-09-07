@@ -1,0 +1,56 @@
+[
+  {
+    "evidence_id": "e93756e4cc904af699a7fd912245e702",
+    "receipt_id": "f4a2a43577fb44b78a19139d03d2303c",
+    "path": "C:\\Users\\Kay\\.omnigent\\bots\\50cbe1836fb7541da95e4f859b447ae5\\topics\\581d04e5a5cd91ec17abd0223af0e855\\projects\\sample\\revisions\\c1e02305b7824f93bb842fde9a58fdfd\\evidence\\c8cb399a45b34164adb5dadfed1362e6_mid.jpg",
+    "source_interval": {
+      "in_pts": 72000,
+      "out_pts": 72001,
+      "time_base_num": 1,
+      "time_base_den": 16000
+    },
+    "sha256": "37af16015f0425dbaa65f3c1041d0b3db8e2b66a2a8fd59b891c378f4b45de76",
+    "image_dimensions": {"width": 1280, "height": 548},
+    "visible_subjects": "画面中景中央偏左有一位中老年女性，侧仰头望向斜上方天空，手中提着一袋装有绿色蔬菜的半透明塑料袋；其身后有若干骑行或推自行车的行人（左侧戴眼镜黑衣青年、后方推车男子、右侧戴眼镜浅色夹克男子），右侧前景有大面积黑色虚化人形轮廓遮挡。",
+    "clothing": "中老年女性身穿深底细碎花长袖衬衫与深色长裤；背景行人分别穿黑色立领夹克、浅卡其色翻领夹克及深色便服。",
+    "scene": "城市道路/桥面，傍晚或阴霾天色，背景为模糊的高层住宅楼群与成排暖黄色球形路灯光斑，地面有微弱红绿信号反光。",
+    "subtitles": "快看哎（右上方带'红豆稀饭中 bilibili'水印）",
+    "uncertainties": "无法根据单张静态画面确定中老年女性的具体姓名与剧情身份；无法确定右前景黑色虚化人影身份；无法确认众人仰望的天空具体出现何种异象。"
+  },
+  {
+    "evidence_id": "b19a51316949456082e99ac8e67c0a41",
+    "receipt_id": "a00f617a7195491e95ecdbd322a9cc4d",
+    "path": "C:\\Users\\Kay\\.omnigent\\bots\\50cbe1836fb7541da95e4f859b447ae5\\topics\\581d04e5a5cd91ec17abd0223af0e855\\projects\\sample\\revisions\\c1e02305b7824f93bb842fde9a58fdfd\\evidence\\1e6db71751f640899820bac94e2cbe8a_mid.jpg",
+    "source_interval": {
+      "in_pts": 241333,
+      "out_pts": 241334,
+      "time_base_num": 1,
+      "time_base_den": 16000
+    },
+    "sha256": "c45070dd3e1119734384f3b44412f04bf985969b54b3c2664011ec143e043c7d",
+    "image_dimensions": {"width": 1280, "height": 548},
+    "visible_subjects": "特写画面主体为一个带有传统民俗/神鬼风格的黑色鬼面具（额头带有红色烈焰纹，突出的大圆金色眼珠，眼眶周边饰有绿白卷云纹，黑色隆起蒜头鼻）；画面最左边缘露出一角带有红色眼妆的人物眼睛与黑色垂发；右侧有一团黑色毛发及金属圆环/系带部件。",
+    "clothing": "彩绘工艺面具（黑底配红、金、绿、白漆彩）；人物衣着在特写中不可见，仅见发丝；右侧具金属圆环的毛皮/皮革饰件。",
+    "scene": "户外空景/柔光背景，呈现浅灰青色天空或淡色雾气，无建筑物及复杂背景结构。",
+    "subtitles": "无对白字幕（右上角带'红豆稀饭中 bilibili'水印）",
+    "uncertainties": "无法从特写断定面具佩戴者的具体姓名与性别；无法确认该面具是佩戴于脸上还是手持/悬挂；右侧黑色皮毛部件具体属于动物还是服装披肩无法仅凭静态切片断定。"
+  },
+  {
+    "evidence_id": "06eda8f2955c4d61ad6c56624ee92785",
+    "receipt_id": "789afcfb6c954dd5bc921eece5b9fa56",
+    "path": "C:\\Users\\Kay\\.omnigent\\bots\\50cbe1836fb7541da95e4f859b447ae5\\topics\\581d04e5a5cd91ec17abd0223af0e855\\projects\\sample\\revisions\\c1e02305b7824f93bb842fde9a58fdfd\\evidence\\7543f49bc82a41118b2fa6bc1aae486d_mid.jpg",
+    "source_interval": {
+      "in_pts": 430667,
+      "out_pts": 430668,
+      "time_base_num": 1,
+      "time_base_den": 16000
+    },
+    "sha256": "cc94a0a6b9f20b81ac11077271de03bdc0877af1ef349d39d7012790da93b085",
+    "image_dimensions": {"width": 1280, "height": 548},
+    "visible_subjects": "近景中央为一名中年男性，身体剧烈前倾，头部低俯（双眼因低头与额头阴影未露全，鼻口及法令纹可见），伴有较明显的动态模糊。",
+    "clothing": "身着深灰色/黑色正装西服，内搭浅蓝色翻领衬衫，系深色细条纹/暗纹领带。",
+    "scene": "户外空旷环境，背景为浅蓝白色的天空，无地标建筑，画面带运动倾斜与动态模糊。",
+    "subtitles": "那是要走特批的（右上角带'红豆稀饭中 bilibili'水印）",
+    "uncertainties": "无法从单帧断定该中年男性的剧情身份与职务；无法确认其动作是向前扑倒、弯腰鞠躬还是急促下坠/跌落过程。"
+  }
+]

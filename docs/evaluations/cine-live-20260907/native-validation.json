@@ -1,0 +1,75 @@
+[
+  {
+    "skill": "novel-outline",
+    "command": [
+      "node",
+      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-outline\\scripts\\novel-outline.mjs",
+      "validate",
+      "outline.json"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "✗ 24 处违规（stage=full）：\n\n  缺少 params（总集数/单集时长/题材/改编幅度）\n  缺少 adaptation（改编说明）\n  没有主角组（tier=lead）角色\n  [黎阿姨] 角色 id 必须是 C01 这种格式\n  [黎阿姨] tier 必须是 lead/support/functional（主角组/重要配角/功能性角色）\n  [黎阿姨] 缺 arc（主角组和重要配角必须有人物弧）\n  [黎阿姨] 缺 from（← 改动记录：原著对应谁、合并了谁）\n  [专员朔] 角色 id 必须是 C01 这种格式\n  [专员朔] tier 必须是 lead/support/functional（主角组/重要配角/功能性角色）\n  [专员朔] 缺 arc（主角组和重要配角必须有人物弧）\n  [专员朔] 缺 from（← 改动记录：原著对应谁、合并了谁）\n  [陆主任] 角色 id 必须是 C01 这种格式\n  [陆主任] tier 必须是 lead/support/functional（主角组/重要配角/功能性角色）\n  [陆主任] 缺 arc（主角组和重要配角必须有人物弧）\n  [陆主任] 缺 from（← 改动记录：原著对应谁、合并了谁）\n  scenes 为空\n  beats 为空——爽点表是排片的骨架\n  第 1 个条目的 ep 是 undefined，编号必须从 1 连续\n  第 undefined 集缺 sceneIds\n  第 undefined 集缺 characterIds\n  质量门未过：主角组 1–5 人（0 位）\n  质量门未过：主场景 ≤ 8（0 个）\n  质量门未过：每集梗概三栏齐全（含【钩子】【悬念】）（缺栏：第  集）\n  质量门未过：场景/角色引用完整，无失业角色、无空转场景（角色 char_01 从未在任何一集出现；角色 char_02 从未在任何一集出现；角色 char_03 从未在任何一集出现）\n"
+  },
+  {
+    "skill": "novel-characters",
+    "command": [
+      "node",
+      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-characters\\scripts\\novel-characters.mjs",
+      "validate",
+      "cast.json"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "⚠️ 没给原文，跳过逐字引文校验\n✗ 19 处违规：\n\n  顶层缺少 summary（故事摘要），报告顶部会空着\n  [黎阿姨] aliases 必须是数组\n  [黎阿姨] importance 必须是 protagonist/major/supporting/minor，实际是 undefined\n  [黎阿姨] 缺少 oneLiner\n  [黎阿姨] 缺少 persona\n  [黎阿姨] 缺少 image\n  [黎阿姨] 缺少 voice\n  [专员朔] aliases 必须是数组\n  [专员朔] importance 必须是 protagonist/major/supporting/minor，实际是 undefined\n  [专员朔] 缺少 oneLiner\n  [专员朔] 缺少 persona\n  [专员朔] 缺少 image\n  [专员朔] 缺少 voice\n  [陆主任] aliases 必须是数组\n  [陆主任] importance 必须是 protagonist/major/supporting/minor，实际是 undefined\n  [陆主任] 缺少 oneLiner\n  [陆主任] 缺少 persona\n  [陆主任] 缺少 image\n  [陆主任] 缺少 voice\n"
+  },
+  {
+    "skill": "novel-art",
+    "command": [
+      "node",
+      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-art\\scripts\\novel-art.mjs",
+      "validate",
+      "art.json",
+      "--cast",
+      "cast.json"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "((intermediate value) ?? []).map is not a function or its return value is not iterable\n"
+  },
+  {
+    "skill": "novel-script",
+    "command": [
+      "node",
+      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-script\\scripts\\novel-script.mjs",
+      "validate",
+      "script.json",
+      "--outline",
+      "outline.json",
+      "--art",
+      "art.json"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "✗ 2 处违规：\n\n  缺少 source（剧名/书名）\n  episodes 为空\n"
+  },
+  {
+    "skill": "novel-storyboard",
+    "command": [
+      "node",
+      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-storyboard\\scripts\\novel-storyboard.mjs",
+      "validate",
+      "storyboard.json",
+      "--script",
+      "script.json",
+      "--outline",
+      "outline.json",
+      "--cast",
+      "cast.json",
+      "--no-log"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "✗ 2 处违规：\n\n  缺少 source（剧名）\n  episodes 为空\n"
+  }
+]
