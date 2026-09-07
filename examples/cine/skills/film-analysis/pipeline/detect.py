@@ -200,7 +200,9 @@ def _run_pyscenedetect(
     if scope_out_pts is not None:
         end_time = float((scope_out_pts - start_pts) * tb)
 
-    sm.detect_scenes(video, show_progress=False, start_time=start_time, end_time=end_time)
+    if start_time is not None and start_time > 0:
+        video.seek(start_time)
+    sm.detect_scenes(video, show_progress=False, end_time=end_time)
     scenes = sm.get_scene_list()
 
     # VFR: PySceneDetect does not expose decoded packet PTS. For VFR streams,

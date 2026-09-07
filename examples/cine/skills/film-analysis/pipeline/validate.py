@@ -140,6 +140,12 @@ def validate(
 
     # 6. All shots must have source_id matching source
     for shot in shots:
+        if shot.verification.get("visual") in {"model_reviewed", "human_reviewed"}:
+            issues.append(ValidationIssue(
+                severity="error", code="VISUAL_REVIEW_MUST_BE_SEPARATE",
+                message="C0+C1 indexing cannot certify visual review; use revision-scoped review records and image receipts.",
+                context={"shot_id": shot.shot_id},
+            ))
         if shot.source_id != source.source_id:
             issues.append(ValidationIssue(
                 severity="error",

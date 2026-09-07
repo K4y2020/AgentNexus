@@ -414,7 +414,9 @@ class TestDetect:
         from pipeline.detect import detect_cuts
 
         source = probe_media(video)
-        candidates = detect_cuts(video, source, "rev1")
+        result = detect_cuts(video, source, "rev1")
+        assert result.status == "ok"
+        candidates = result.candidates
 
         # Should detect at least the blue→red cut
         ok_candidates = [c for c in candidates if c.detector_status == DetectorStatus.ok]
@@ -444,12 +446,14 @@ class TestDetect:
         scope_in = 0
         scope_out = int(round(3.0 / float(source.time_base)))
 
-        candidates = detect_cuts(
+        result = detect_cuts(
             video, source, "rev_scope",
             scope_in_pts=scope_in,
             scope_out_pts=scope_out,
         )
 
+        assert result.status == "ok"
+        candidates = result.candidates
         # Candidates should not be outside [0, scope_out]
         for c in candidates:
             if c.detector_status == DetectorStatus.ok:

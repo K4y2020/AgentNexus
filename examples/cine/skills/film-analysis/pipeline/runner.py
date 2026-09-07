@@ -104,6 +104,7 @@ def run_pipeline(
     scope_in_seconds: Optional[float] = None,
     scope_out_seconds: Optional[float] = None,
     clip_window_seconds: float = 1.5,
+    evidence_mode: str = "boundary",
 ) -> dict:
     """
     Run C0+C1 pipeline for a single media file.
@@ -169,6 +170,11 @@ def run_pipeline(
             scope_in_pts = source.start_pts + int(round(scope_in_seconds / float(tb)))
         if scope_out_seconds is not None and tb != 0:
             scope_out_pts = source.start_pts + int(round(scope_out_seconds / float(tb)))
+        if source.duration_pts is not None:
+            source_end = source.start_pts + source.duration_pts
+            scope_out_pts = min(scope_out_pts, source_end) if scope_out_pts is not None else source_end
+            if (scope_in_pts if scope_in_pts is not None else source.start_pts) >= source_end:
+                raise ValueError("scope starts at or beyond the source end")
 
         # Build scope PtsInterval for validation (B7)
         scope_start = scope_in_pts if scope_in_pts is not None else source.start_pts
@@ -195,7 +201,12 @@ def run_pipeline(
             scope_out_pts=scope_out_pts,
         )
 
-        if detection.status == "unavailable":
+        detection_warning = None
+        if evidence_mode == "story" and detection.status in ("unavailable", "failed"):
+            candidates = []
+            detection_warning = f"cut detection {detection.status}; use temporal story sections, not certified shot counts"
+            run_state.stages_failed.append("detect")
+        elif detection.status == "unavailable":
             # PySceneDetect not installed — mark interrupted, do not continue
             run_state.status = RunStatus.interrupted
             run_state.error = "detection unavailable: PySceneDetect not installed"
@@ -240,14 +251,25 @@ def run_pipeline(
             [c.model_dump() for c in candidates],
         )
 
-        # Extract evidence for each candidate
+        # Representative story sampling is independent of candidate-cut density.
         all_evidence: List[EvidenceRecord] = []
-        for c in candidates:
-            evs = extract_evidence(
-                media_path, source, c, rev_dir,
-                clip_window_seconds=clip_window_seconds,
+        story_plan = None
+        if evidence_mode == "story":
+            from .story import extract_story_plan
+
+            story_plan, all_evidence = extract_story_plan(
+                media_path, source, revision_id, rev_dir, scope_start, scope_end_raw,
             )
-            all_evidence.extend(evs)
+            story_plan["cut_detection_warning"] = detection_warning
+        elif evidence_mode == "boundary":
+            for c in candidates:
+                evs = extract_evidence(
+                    media_path, source, c, rev_dir,
+                    clip_window_seconds=clip_window_seconds,
+                )
+                all_evidence.extend(evs)
+        else:
+            raise ValueError("unknown evidence_mode")
 
         # Save evidence index
         _atomic_write(
@@ -267,10 +289,23 @@ def run_pipeline(
         )
 
         # Save source_shots.json
+        for shot in shots:
+            shot.evidence_ids = [
+                ev.evidence_id for ev in all_evidence
+                if ev.extraction_status == "ok" and ev.source_interval is not None
+                and ev.source_interval.in_pts < shot.interval.out_pts
+                and ev.source_interval.out_pts > shot.interval.in_pts
+            ]
         _atomic_write(
             rev_dir / "source_shots.json",
             [s.model_dump() for s in shots],
         )
+        if story_plan is not None:
+            for batch in story_plan["batches"]:
+                batch["shot_ids"] = [s.shot_id for s in shots if
+                    float((s.interval.in_pts-source.start_pts)*tb) < batch["end_seconds"] and
+                    float((s.interval.out_pts-source.start_pts)*tb) > batch["start_seconds"]]
+            _atomic_write(rev_dir / "story_plan.json", story_plan)
 
         # Validate (B7: pass scope_interval)
         validation = validate(
@@ -358,6 +393,8 @@ def run_pipeline(
             "evidence_count": len(all_evidence),
             "validation_passed": validation.passed,
             "report_path": report_path_str,
+            "story_plan_path": str(rev_dir / "story_plan.json") if story_plan is not None else None,
+            "detection_warning": detection_warning,
         }
 
 
@@ -381,6 +418,8 @@ def _build_shots(
     end = scope_out_pts if scope_out_pts is not None else (
         source.start_pts + (source.duration_pts or 0)
     )
+    if source.duration_pts is not None:
+        end = min(end, source.start_pts + source.duration_pts)
     if end <= start:
         return []
 
