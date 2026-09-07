@@ -169,7 +169,7 @@ def list_skill_resources(skill: SkillSpec) -> list[str]:
             continue
         for fp in sorted(subdir.rglob("*")):
             if fp.is_file():
-                rel = str(fp.relative_to(skill.skill_dir))
+                rel = fp.relative_to(skill.skill_dir).as_posix()
                 files.append(rel)
     return files
 
@@ -194,6 +194,10 @@ def format_skill_content(
 
     lines = [
         skill.content,
+        "",
+        f"Skill directory: {skill.skill_dir}",
+        "Resolve bundled scripts and resources relative to this directory; "
+        "no filesystem search is needed.",
         "",
         "## Available files",
         "Use the read_skill_file tool to read these:",

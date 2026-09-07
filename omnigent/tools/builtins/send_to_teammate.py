@@ -64,6 +64,7 @@ class SendToTeammateTool(Tool):
                                 "question",
                                 "review.request",
                                 "status.inquiry",
+                                "task.result",
                             ],
                             "description": (
                                 "Optional communication intent. Defaults to 'task.request'."
@@ -79,18 +80,26 @@ class SendToTeammateTool(Tool):
                                 "empty list to suppress automatic forwarding."
                             ),
                         },
+                        "in_reply_to": {
+                            "type": "string",
+                            "description": (
+                                "Original A2A request ID. Required for task.result and forwarding "
+                                "an incoming task; never guess from the latest conversation."
+                            ),
+                        },
                         "wait": {
                             "type": "boolean",
                             "description": (
-                                "Whether to wait for the teammate to complete the task and "
-                                "return their final response directly in this turn. Defaults to "
-                                "true. Set to false only for fire-and-forget dispatches."
+                                "Optional short wait for a durable result. Defaults to false. "
+                                "Background results are returned to this conversation; "
+                                "end the turn and do not poll inbox/history."
                             ),
                         },
                         "timeout_seconds": {
                             "type": "integer",
                             "description": (
-                                "Maximum seconds to wait when wait=true. Defaults to 90 seconds."
+                                "Maximum seconds to wait when wait=true (0-300). Defaults to 30; "
+                                "timeout leaves the request pending for automatic result delivery."
                             ),
                         },
                     },

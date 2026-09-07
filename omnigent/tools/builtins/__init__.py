@@ -55,6 +55,9 @@ from omnigent.tools.builtins.scheduled_tasks import (
     SysScheduledTaskListTool,
     SysScheduledTaskUpdateTool,
 )
+from omnigent.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
+from omnigent.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
+from omnigent.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
 from omnigent.tools.builtins.session_rename import SysSessionRenameTool
 from omnigent.tools.builtins.spawn import (
     SysSessionCloseTool,
@@ -65,6 +68,7 @@ from omnigent.tools.builtins.spawn import (
     SysSessionSendTool,
     SysSessionShareTool,
 )
+from omnigent.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 from omnigent.tools.builtins.timer import (
     SysTimerCancelTool,
     SysTimerSetTool,
@@ -80,6 +84,8 @@ __all__ = [
     "NimbleExtractTool",
     "NimbleResearchTool",
     "ReadSkillFileTool",
+    "SaveTeammateMemoryTool",
+    "SeedanceAgentMessageTool",
     "SysAdviseModelsTool",
     "SysAgentDownloadTool",
     "SysAgentGetTool",
@@ -264,6 +270,12 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     # here so user specs cannot shadow them. (Policy ASKs are
     # surfaced as MCP-shape elicitations on the SSE stream — not
     # via the tool registry — see omnigent/runtime/policies/approval.py.)
+    "seedance_agent_message": None,
+    "seedance_read_canvas": None,
+    "sys_os_view_image": None,
+    "seedance_edit_canvas": None,
+    "save_teammate_memory": None,
+    "send_to_teammate": None,
     "web_fetch": None,
     "list_comments": None,
     "update_comment": None,

@@ -133,7 +133,10 @@ class SysSessionSendTool(Tool):
             "session you created (e.g. via sys_session_create) — this "
             "is confined to your direct children. Provide exactly one "
             "of (agent + title) or session_id, always with args. "
-            "Returns the child's output when its turn completes. To run "
+            "Returns a launching handle; collect the report from sys_read_inbox later. "
+            "For clarification or rework, use task_id from the original handle to continue "
+            "that child, preserving its history. If this worker already has a child, "
+            "creating another requires new_task_reason and complete project context. To run "
             "multiple sessions in parallel, emit multiple "
             "sys_session_send tool_calls in the same response with a "
             "distinct task-based title for each independent session — "
@@ -317,6 +320,46 @@ def _build_sys_session_send_schema(
                 "type": "object",
                 "properties": {
                     **named_mode_properties,
+                    "task_id": {
+                        "type": "string",
+                        "description": (
+                            "Continue the original task using its returned task_id "
+                            "(child session ID). "
+                            "Use for missing inputs, corrections and review follow-ups. "
+                            "Do not combine with agent, title or session_id."
+                        ),
+                    },
+                    "question_id": {
+                        "type": "string",
+                        "description": (
+                            "Pending elicitation_id on the child addressed by task_id/session_id. "
+                            "Answer an ordinary clarification without starting another turn. "
+                            "Permission approvals must be answered by the human, not this tool."
+                        ),
+                    },
+                    "answers": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "array", "items": {"type": "string"}},
+                            ],
+                        },
+                        "description": (
+                            "With question_id: answers keyed by question id or exact text. "
+                            "Use verified context; never guess preferences or secrets. "
+                            "Leave unknowns to the human. args explains the answer source."
+                        ),
+                    },
+                    "new_task_reason": {
+                        "type": "string",
+                        "description": (
+                            "Required when creating another session for a worker "
+                            "with existing children. "
+                            "Explain why this is independent work, not a continuation. "
+                            "Supply the verified project path in args.input."
+                        ),
+                    },
                     "session_id": {
                         "type": "string",
                         "description": (

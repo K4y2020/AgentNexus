@@ -48,6 +48,7 @@ from omnigent.tools.builtins import (
     any_skill_has_resources,
     get_builtin_tool,
 )
+from omnigent.tools.builtins.ask_user import SysAskUserTool
 from omnigent.tools.client_specified import ClientSideTool, ClientSideToolSpec
 from omnigent.tools.local import load_local_python_tools
 
@@ -502,6 +503,7 @@ class ToolManager:
     def _register_session_tools(self) -> None:
         """Register framework-owned tools for the current session."""
         self._tools[SysSessionRenameTool.name()] = SysSessionRenameTool()
+        self._tools[SysAskUserTool.name()] = SysAskUserTool()
 
     def _register_agent_mgmt_tools(self) -> None:
         """
@@ -564,9 +566,19 @@ class ToolManager:
         Framework-owned and always available so any bot can dispatch tasks
         or send peer messages to other teammate bots in the workspace.
         """
+        from omnigent.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
+        from omnigent.tools.builtins.cine_verify_report import CineVerifyReportTool
+        from omnigent.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
+        from omnigent.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
         from omnigent.tools.builtins.send_to_teammate import SendToTeammateTool
+        from omnigent.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 
         self._tools[SendToTeammateTool.name()] = SendToTeammateTool()
+        self._tools[SeedanceAgentMessageTool.name()] = SeedanceAgentMessageTool()
+        self._tools[SeedanceReadCanvasTool.name()] = SeedanceReadCanvasTool()
+        self._tools[SeedanceEditCanvasTool.name()] = SeedanceEditCanvasTool()
+        self._tools[CineVerifyReportTool.name()] = CineVerifyReportTool()
+        self._tools[SaveTeammateMemoryTool.name()] = SaveTeammateMemoryTool()
 
     def _register_browser_tools(self) -> None:
         """
@@ -629,6 +641,8 @@ class ToolManager:
 
         self._os_env = os_env
         for tool in build_os_env_tools(os_env):
+            if tool.name() == "sys_os_view_image" and self._spec.executor.harness_kind != "claude-sdk":
+                continue
             if tool.name() in self._tools:
                 raise ValueError(
                     f"sys_os_* tool {tool.name()!r} collides with an "

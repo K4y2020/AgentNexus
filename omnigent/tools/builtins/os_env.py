@@ -244,6 +244,56 @@ class SysOsReadTool(_OSEnvBackedTool):
         )
 
 
+class SysOsViewImageTool(_OSEnvBackedTool):
+    """Read actual image pixels rather than a text-only file descriptor."""
+
+    @classmethod
+    def name(cls) -> str:
+        return "sys_os_view_image"
+
+    @classmethod
+    def description(cls) -> str:
+        return (
+            "View a local JPEG/PNG/WebP as image content. "
+            "Paths and shell output are not visual evidence."
+        )
+
+    def get_schema(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name(),
+                "description": self.description(),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Evidence image path"},
+                        "evidence_index": {
+                            "type": "string",
+                            "description": "Canonical evidence_index.json path for film review",
+                        },
+                        "evidence_id": {
+                            "type": "string",
+                            "description": "ID from evidence_index; supply both fields together",
+                        },
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    async def _invoke_async(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        from omnigent.runtime.image_tool import read_image
+
+        return await read_image(
+            self._os_env,
+            kwargs["path"],
+            evidence_index=kwargs.get("evidence_index"),
+            evidence_id=kwargs.get("evidence_id"),
+        )
+
+
 class SysOsWriteTool(_OSEnvBackedTool):
     """``sys_os_write`` — write a full file in the OS env."""
 
@@ -393,6 +443,7 @@ def build_os_env_tools(os_env: OSEnvironment) -> list[Tool]:
     """
     return [
         SysOsReadTool(os_env),
+        SysOsViewImageTool(os_env),
         SysOsWriteTool(os_env),
         SysOsEditTool(os_env),
         SysOsShellTool(os_env),
