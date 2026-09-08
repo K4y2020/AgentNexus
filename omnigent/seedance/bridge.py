@@ -477,10 +477,26 @@ async def execute_seedance_canvas_edit(
         # ACTION: create_node
         if action == "create_node":
             node_data = dict(data or {})
-            if prompt is not None:
-                node_data["prompt"] = prompt
-            if brief is not None:
-                node_data["brief"] = brief
+
+            # Handle field mapping based on node type
+            # - script/text nodes: content should be in data.content
+            # - video_prompt/image_prompt: use prompt field
+            actual_node_type = node_type or "video_prompt"
+
+            if actual_node_type in ("script", "text"):
+                # For script/text nodes, if prompt is provided, treat it as content
+                if prompt is not None and "content" not in node_data:
+                    node_data["content"] = prompt
+                # Brief can still be used for summary
+                if brief is not None:
+                    node_data["brief"] = brief
+            else:
+                # For video_prompt/image_prompt/other types, use prompt field
+                if prompt is not None:
+                    node_data["prompt"] = prompt
+                if brief is not None:
+                    node_data["brief"] = brief
+
             if duration_seconds is not None:
                 node_data["durationSec"] = duration_seconds
             if camera is not None:
@@ -490,7 +506,7 @@ async def execute_seedance_canvas_edit(
 
             cmd = {
                 "type": "canvas.create_node",
-                "nodeType": node_type or "video_prompt",
+                "nodeType": actual_node_type,
                 "title": title or "新卡片",
                 "parentId": parent_id,
                 "data": node_data,
