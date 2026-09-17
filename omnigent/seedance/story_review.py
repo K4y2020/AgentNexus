@@ -1,6 +1,7 @@
 """Practical adaptation readiness: temporal coverage plus a usable story outline."""
 
 import hashlib
+import re
 from fractions import Fraction
 
 from omnigent.seedance.cine_contracts import _inside, _read, session_image_receipts
@@ -9,6 +10,20 @@ from omnigent.seedance.report_review import covered, interval_seconds
 
 def nonempty(value):
     return isinstance(value, str) and bool(value.strip())
+
+
+_DIALOGUE_QUOTE = re.compile(r"[“「『][^”」』]+[”」』]|(?<![A-Za-z0-9])[\"'][^\"'\r\n]{2,}[\"']")
+_DIALOGUE_PROVENANCE = {"unverified", "asr", "trusted_subtitles", "visible_subtitles"}
+
+
+def _contains_quoted_dialogue(value):
+    if isinstance(value, str):
+        return bool(_DIALOGUE_QUOTE.search(value))
+    if isinstance(value, list):
+        return any(_contains_quoted_dialogue(item) for item in value)
+    if isinstance(value, dict):
+        return any(_contains_quoted_dialogue(item) for item in value.values())
+    return False
 
 
 async def verify_story(client, session_id, workspace, ledger, source, story_path=None):
@@ -145,6 +160,35 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
         or not all(nonempty(c) for c in draft["characters"])
     ):
         issues.append({"reason": "characters_required"})
+    provenance = draft.get("dialogue_provenance") or {"status": "unverified"}
+    if not isinstance(provenance, dict) or provenance.get("status") not in _DIALOGUE_PROVENANCE:
+        raise ValueError("CINE_DIALOGUE_PROVENANCE_INVALID")
+    provenance_status = provenance["status"]
+    if provenance_status in {"asr", "trusted_subtitles"}:
+        source_path = provenance.get("source_path")
+        if not nonempty(source_path):
+            issues.append({"reason": "dialogue_provenance_source_missing"})
+        else:
+            try:
+                transcript = _inside(workspace, workspace / source_path)
+            except ValueError:
+                issues.append({"reason": "dialogue_provenance_source_outside_workspace"})
+            else:
+                if not transcript.is_file():
+                    issues.append({"reason": "dialogue_provenance_source_missing"})
+    quoted_dialogue = _contains_quoted_dialogue(
+        {"characters": draft.get("characters"), "summary": summary, "sections": sections}
+    )
+    if quoted_dialogue and provenance_status == "unverified":
+        issues.append({"reason": "quoted_dialogue_without_provenance"})
+    if provenance_status == "asr":
+        warnings.append({"detail": "Dialogue is ASR-derived and remains qualified."})
+    elif provenance_status == "visible_subtitles":
+        warnings.append(
+            {"detail": "Dialogue is limited to subtitles visible in inspected image receipts."}
+        )
+    elif provenance_status == "unverified":
+        warnings.append({"detail": "Audio and dialogue remain unverified."})
     complete = covered(windows, Fraction(0), total) and covered(completed, Fraction(0), total)
     return {
         "status": "ready_for_adaptation" if complete and not issues else "needs_story_completion",
@@ -160,7 +204,7 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
         "sections": resolved,
         "summary": summary,
         "accuracy_percent": None,
-        "audio_review": "unverified",
+        "audio_review": provenance_status,
         "cut_precision_required": False,
         "can_claim_full_audiovisual_analysis": False,
         "qualification": "Adaptation working brief, not frame-perfect reconstruction. "

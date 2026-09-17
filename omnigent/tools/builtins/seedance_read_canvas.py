@@ -41,6 +41,11 @@ class SeedanceReadCanvasTool(Tool):
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "action": {
+                            "type": "string", "enum": ["canvas", "models", "job"],
+                            "description": "Default canvas. models reads the generation catalog (not chat models); job reads a returned job_id. Never search source code or guess API endpoints.",
+                        },
+                        "job_id": {"type": "string", "description": "Exact job ID returned by submit_generation, for action=job."},
                         "project_id": {
                             "type": "string",
                             "description": (

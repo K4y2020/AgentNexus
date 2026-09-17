@@ -17,6 +17,7 @@ from omnigent.coordination.channels import (
 from omnigent.seedance.client import (
     DEFAULT_SEEDANCE_UI_BASE_URL,
     SeedanceClient,
+    SeedanceError,
     SeedanceNotFoundError,
     SeedanceSecurityError,
 )
@@ -43,25 +44,39 @@ def read_matching_shots(workspace_dir, shot_ids, *, session_id=None, receipts=No
 
 
 def format_shot_contract_message(
-    task, shot_ids=None, generation_allowed=False, workspace_dir=None,
-    *, session_id=None, receipts=None,
+    task,
+    shot_ids=None,
+    generation_allowed=False,
+    workspace_dir=None,
+    *,
+    session_id=None,
+    receipts=None,
 ):
     if generation_allowed and not shot_ids:
         raise ValueError("CINE_SHOTS_REQUIRED: generation needs reviewed source shots")
     lines = [task.strip()]
     if shot_ids:
-        shots = read_matching_shots(workspace_dir, shot_ids, session_id=session_id, receipts=receipts)
+        shots = read_matching_shots(
+            workspace_dir, shot_ids, session_id=session_id, receipts=receipts
+        )
         lines.append("--- CINE SOURCE SHOT CONTRACT ---")
         lines.append(json.dumps(shots, ensure_ascii=False))
-        lines.append("Model-reviewed visual observations only. Motion/audio require separate review; "
-                     "do not present newly invented details as original-source facts.")
+        lines.append(
+            "Model-reviewed visual observations only. Motion/audio require separate review; "
+            "do not present newly invented details as original-source facts."
+        )
     else:
         lines.append("[SOURCE STATUS]: unverified draft; no original-video accuracy is certified.")
     if generation_allowed:
-        lines.append("[AUTHORIZATION]: generation_allowed is TRUE. The user has explicitly authorized generation.")
+        lines.append(
+            "[AUTHORIZATION]: generation_allowed is TRUE. The user has explicitly authorized generation."
+        )
     else:
-        lines.append("[SAFETY POLICY]: generation_allowed is FALSE. You are STRICTLY FORBIDDEN from submitting image or video generation jobs. Draft cards only.")
+        lines.append(
+            "[SAFETY POLICY]: generation_allowed is FALSE. You are STRICTLY FORBIDDEN from submitting image or video generation jobs. Draft cards only."
+        )
     return "\n".join(lines)
+
 
 async def resolve_or_create_topic_project_and_session(
     server_client: httpx.AsyncClient,
@@ -147,15 +162,25 @@ async def execute_seedance_agent_message(
     seedance_client: SeedanceClient | None = None,
 ) -> dict[str, Any]:
     # Compatibility endpoint: the general V3 Agent cannot enforce read-only QA.
-    _ = (server_client, conversation_id, task, shot_ids, generation_allowed, model,
-         wait, timeout_seconds, workspace_dir, seedance_client)
+    _ = (
+        server_client,
+        conversation_id,
+        task,
+        shot_ids,
+        generation_allowed,
+        model,
+        wait,
+        timeout_seconds,
+        workspace_dir,
+        seedance_client,
+    )
     return {
-        "status": "rejected", "outcome": "failed",
+        "status": "rejected",
+        "outcome": "failed",
         "error_code": "CINE_AGENT_DELEGATION_DISABLED",
         "error": "V3 Agent delegation is disabled. Use seedance_read_canvas for QA, "
-                 "seedance_edit_canvas initialize for binding, and native-validated direct submission.",
+        "seedance_edit_canvas initialize for binding, and native-validated direct submission.",
     }
-
 
 
 async def read_seedance_canvas_snapshot(
@@ -190,9 +215,13 @@ async def read_seedance_canvas_snapshot(
                 if resp.status_code == 200:
                     data = resp.json()
                     labels = data.get("labels") or {}
-                    resolved_project_id = str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
+                    resolved_project_id = (
+                        str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
+                    )
             except Exception as exc:
-                logger.debug("Failed resolving project label for session %s: %s", conversation_id, exc)
+                logger.debug(
+                    "Failed resolving project label for session %s: %s", conversation_id, exc
+                )
 
         if not resolved_project_id:
             return {
@@ -225,6 +254,7 @@ async def read_seedance_canvas_snapshot(
         raw_nodes = snapshot.get("nodes", []) if isinstance(snapshot, dict) else []
         raw_edges = snapshot.get("edges", []) if isinstance(snapshot, dict) else []
         revision = snapshot.get("revision", 0)
+        node_media = {m["nodeId"]: m for m in snapshot.get("node_media", [])}
 
         # Filter by node_types if specified
         if node_types:
@@ -258,29 +288,53 @@ async def read_seedance_canvas_snapshot(
                 "type": ntype,
                 "title": ntitle,
                 "status": nstatus,
+                "revision": n.get("revision"),
             }
+            if ntype in ("image_prompt", "video_prompt"):
+                output_ref = ndata.get("activeOutputRef")
+                node_dict["active_output_ref"] = output_ref
+                media = node_media.get(nid)
+                if media:
+                    node_dict.update(
+                        media_state=media["mediaState"],
+                        output_url=media["outputUrl"],
+                        latest_job=media["latestJob"],
+                        pending_job_count=media["pendingJobCount"],
+                        next_action=media["nextAction"],
+                    )
+                else:
+                    node_dict["media_state"] = "unknown"  # Older V3: absence is not failure.
+                    node_dict["next_action"] = "read_exact_job"
 
             if detail_level == "summary":
                 if ntype == "video_prompt":
                     node_dict["duration_seconds"] = ndata.get("durationSec")
                     node_dict["camera"] = ndata.get("camera")
                     brief = ndata.get("brief") or ndata.get("prompt") or ""
-                    node_dict["brief_preview"] = (brief[:150] + "...") if len(brief) > 150 else brief
+                    node_dict["brief_preview"] = (
+                        (brief[:150] + "...") if len(brief) > 150 else brief
+                    )
                 elif ntype == "image_prompt":
                     node_dict["aspect_ratio"] = ndata.get("aspectRatio")
                     prompt = ndata.get("prompt") or ""
-                    node_dict["prompt_preview"] = (prompt[:150] + "...") if len(prompt) > 150 else prompt
+                    node_dict["prompt_preview"] = (
+                        (prompt[:150] + "...") if len(prompt) > 150 else prompt
+                    )
                 elif ntype == "storyboard":
                     node_dict["shot_count"] = ndata.get("shotCount")
                 elif ntype == "script":
                     content = ndata.get("content") or ""
-                    node_dict["content_preview"] = (content[:150] + "...") if len(content) > 150 else content
+                    node_dict["content_preview"] = (
+                        (content[:150] + "...") if len(content) > 150 else content
+                    )
             else:
                 node_dict["data"] = ndata
 
             formatted_nodes.append(node_dict)
 
-        ui_base_url = os.environ.get("SEEDANCE_UI_BASE_URL", DEFAULT_SEEDANCE_UI_BASE_URL).rstrip("/")
+        ui_base_url = os.environ.get("SEEDANCE_UI_BASE_URL", DEFAULT_SEEDANCE_UI_BASE_URL).rstrip(
+            "/"
+        )
         canvas_url = f"{ui_base_url}/?project={resolved_project_id}"
 
         # Group by types for markdown summary
@@ -288,12 +342,18 @@ async def read_seedance_canvas_snapshot(
         sb_cards = [n for n in raw_nodes if n.get("type") == "storyboard"]
         vid_cards = [n for n in raw_nodes if n.get("type") == "video_prompt"]
         script_cards = [n for n in raw_nodes if n.get("type") == "script"]
-        other_cards = [n for n in raw_nodes if n.get("type") not in ("image_prompt", "storyboard", "video_prompt", "script")]
+        other_cards = [
+            n
+            for n in raw_nodes
+            if n.get("type") not in ("image_prompt", "storyboard", "video_prompt", "script")
+        ]
 
         md_lines = [
             f"### Seedance 画布内容概览 (项目: `{resolved_project_id}`)",
             f"- **画布链接**: [{canvas_url}]({canvas_url})",
-            f"- **节点总数**: {len(raw_nodes)} 个节点（设定卡: {len(img_cards)}, 故事大纲: {len(sb_cards)}, 视频分镜: {len(vid_cards)}, 剧本: {len(script_cards)}" + (f", 其他: {len(other_cards)}" if other_cards else "") + "）",
+            f"- **节点总数**: {len(raw_nodes)} 个节点（设定卡: {len(img_cards)}, 故事大纲: {len(sb_cards)}, 视频分镜: {len(vid_cards)}, 剧本: {len(script_cards)}"
+            + (f", 其他: {len(other_cards)}" if other_cards else "")
+            + "）",
             f"- **连线总数**: {len(raw_edges)} 条",
             f"- **版本号/Revision**: {revision}",
             "",
@@ -311,6 +371,17 @@ async def read_seedance_canvas_snapshot(
                 status_badge = f"[{c.get('status')}]" if c.get("status") else ""
                 aspect_str = f"({aspect})" if aspect else ""
                 md_lines.append(f"- **{ctitle}** {status_badge} `{cid}` {aspect_str}")
+                media = node_media.get(cid)
+                if media:
+                    md_lines.append(
+                        f"  > 媒体状态: {media['mediaState']}; 下一步: {media['nextAction']}; 图片: {media['outputUrl'] or '无当前显示图'}"
+                    )
+                elif cdata.get("activeOutputRef"):
+                    md_lines.append(
+                        f"  > 已有关联图片，尚需核验内容: `{cdata['activeOutputRef']}`"
+                    )
+                else:
+                    md_lines.append("  > 媒体汇总不可用，请读取本次 job；不要修改输出字段。")
                 if preview:
                     md_lines.append(f"  > 提示词: {preview}")
             md_lines.append("")
@@ -391,6 +462,44 @@ async def read_seedance_canvas_snapshot(
             await client.close()
 
 
+async def read_seedance_generation(server_client, conversation_id, *, action, job_id=None):
+    """Read generation metadata without starting workers or guessing endpoints."""
+    resp = await server_client.get(f"/v1/sessions/{conversation_id}", timeout=10)
+    resp.raise_for_status()
+    labels = resp.json().get("labels") or {}
+    async with SeedanceClient(base_url=labels.get(SEEDANCE_BASE_URL_LABEL)) as client:
+        if action == "models":
+            return {"status": "completed", **await client.get_generation_models()}
+        if not job_id:
+            return {"status": "rejected", "error_code": "CINE_JOB_ID_REQUIRED"}
+        job = await client.get_job(job_id)
+        if (
+            not labels.get(SEEDANCE_PROJECT_LABEL)
+            or job.get("projectId") != labels[SEEDANCE_PROJECT_LABEL]
+        ):
+            return {"status": "rejected", "error_code": "CINE_PROJECT_BINDING_MISMATCH"}
+        terminal = job.get("status") in ("succeeded", "failed", "cancelled")
+        return {
+            "status": "completed",
+            "job": job,
+            "terminal": terminal,
+            "image_export": {
+                "tool": "seedance_edit_canvas",
+                "action": "export_image",
+                "job_id": job_id,
+            }
+            if job.get("status") == "succeeded" and job.get("kind") == "image"
+            else None,
+            "poll_after_seconds": 0 if terminal else 20,
+            "next_action": "review_once_then_report"
+            if job.get("status") == "succeeded"
+            else "report_job_failure"
+            if terminal
+            else "wait_for_job",
+            "visual_review_required": job.get("status") == "succeeded",
+        }
+
+
 async def execute_seedance_canvas_edit(
     server_client: httpx.AsyncClient,
     conversation_id: str,
@@ -414,12 +523,18 @@ async def execute_seedance_canvas_edit(
     to_node_id: str | None = None,
     kind: str | None = None,
     edge_id: str | None = None,
-    generation_kind: str = "video",
+    generation_kind: str | None = None,
     generation_allowed: bool = False,
     production_dir: str | None = None,
     source_text: str | None = None,
     production_stage: str | None = None,
     production_pointer: str | None = None,
+    storyboard_file: str | None = None,
+    script_file: str | None = None,
+    episode_nodes: dict[str, str] | None = None,
+    job_id: str | None = None,
+    output_path: str | None = None,
+    output_index: int = 0,
     trusted_skills_dir: Path | None = None,
     model: str | None = None,
     seedance_client: SeedanceClient | None = None,
@@ -427,26 +542,54 @@ async def execute_seedance_canvas_edit(
     """Execute a direct canvas mutation on Seedance V3 with revision checks and read-after-write verification."""
     import uuid
 
+    if generation_kind is None:
+        generation_kind = (
+            "image"
+            if production_stage in ("cast", "art")
+            or (production_stage == "storyboard" and (production_pointer or "").endswith("/frame"))
+            else "video"
+        )
     client = seedance_client or SeedanceClient()
     try:
+        if action == "export_image":
+            from omnigent.seedance.image_export import export_job_image
+
+            return await export_job_image(
+                server_client,
+                conversation_id,
+                client,
+                job_id=job_id,
+                output_path=output_path,
+                output_index=output_index,
+            )
+        if action == "import_storyboard":
+            from omnigent.seedance.storyboard_import import import_storyboard
+
+            return await import_storyboard(
+                server_client,
+                conversation_id,
+                client,
+                storyboard_file=storyboard_file,
+                script_file=script_file,
+                summary_node_id=node_id,
+                episode_nodes=episode_nodes,
+                project_id=project_id,
+            )
         if action == "initialize":
             pid, sid, scope = await resolve_or_create_topic_project_and_session(
-                server_client, conversation_id, client, model=model,
+                server_client,
+                conversation_id,
+                client,
+                model=model,
             )
-            return {"status": "completed", "outcome": "succeeded", "bound": True,
-                    "seedance_project_id": pid, "seedance_agent_session_id": sid,
-                    "channel_scope": scope}
-        if action == "validate_generation":
-            from omnigent.seedance.production_gate import validate_submission
-
-            proof = await validate_submission(
-                server_client, conversation_id, skills_dir=trusted_skills_dir,
-                production_dir=production_dir, source_text=source_text,
-                production_stage=production_stage, production_pointer=production_pointer,
-                generation_kind=generation_kind, prompt=prompt, project_id=project_id,
-            )
-            return {"status": "validated", "outcome": "succeeded", "submitted": False,
-                    "validation_reports": proof["report_paths"]}
+            return {
+                "status": "completed",
+                "outcome": "succeeded",
+                "bound": True,
+                "seedance_project_id": pid,
+                "seedance_agent_session_id": sid,
+                "channel_scope": scope,
+            }
         resolved_project_id = (project_id or "").strip() or None
         if not resolved_project_id:
             try:
@@ -458,9 +601,13 @@ async def execute_seedance_canvas_edit(
                 if resp.status_code == 200:
                     data_resp = resp.json()
                     labels = data_resp.get("labels") or {}
-                    resolved_project_id = str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
+                    resolved_project_id = (
+                        str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
+                    )
             except Exception as exc:
-                logger.debug("Failed resolving project label for session %s: %s", conversation_id, exc)
+                logger.debug(
+                    "Failed resolving project label for session %s: %s", conversation_id, exc
+                )
 
         if not resolved_project_id:
             return {
@@ -470,7 +617,182 @@ async def execute_seedance_canvas_edit(
                 "error": "当前 Topic 尚未绑定 Seedance 画布项目，无法执行画布修改。请先初始化或指定 project_id。",
             }
 
-        ui_base_url = os.environ.get("SEEDANCE_UI_BASE_URL", DEFAULT_SEEDANCE_UI_BASE_URL).rstrip("/")
+        if action in ("validate_generation", "submit_generation"):
+            from omnigent.seedance.production_gate import validate_submission
+
+            if action == "submit_generation" and generation_allowed is not True:
+                return {
+                    "status": "rejected",
+                    "outcome": "failed",
+                    "error_code": "CINE_GENERATION_AUTHORIZATION_REQUIRED",
+                    "error": "generation_allowed must be true within the user's authorized scope.",
+                }
+            # Validate source contracts first; this never authorizes or submits a job.
+            proof = await validate_submission(
+                server_client,
+                conversation_id,
+                skills_dir=trusted_skills_dir,
+                production_dir=production_dir,
+                source_text=source_text,
+                production_stage=production_stage,
+                production_pointer=production_pointer,
+                generation_kind=generation_kind,
+                prompt=prompt,
+                project_id=resolved_project_id,
+            )
+            gen_input = {"prompt": proof["prompt"]}
+            if model:
+                gen_input["model"] = model
+            if aspect_ratio:
+                gen_input["aspectRatio"] = aspect_ratio
+            generation_command = {"kind": generation_kind, "input": gen_input}
+            state_requirements = proof.get("state_requirements") or []
+            if state_requirements:
+                if not node_id:
+                    raise ProductionRejected("CINE_CHARACTER_STATE_REFERENCE_REQUIRED")
+                references = await client.get_node_references(resolved_project_id, node_id)
+                reference_ids = {row.get("id") for row in references}
+                missing = [
+                    row
+                    for row in state_requirements
+                    if f"node:{row['asset_node_id']}" not in reference_ids
+                ]
+                if missing:
+                    raise ProductionRejected(
+                        "CINE_CHARACTER_STATE_REFERENCE_REQUIRED", {"missing": missing}
+                    )
+            if node_id:
+                for attempt in range(2):
+                    snapshot = await client.get_snapshot(resolved_project_id)
+                    nodes = snapshot.get("nodes", []) if isinstance(snapshot, dict) else []
+                    target_node = next((node for node in nodes if node.get("id") == node_id), None)
+                    if target_node is None:
+                        raise SeedanceError("Generation node was not found", code="NODE_NOT_FOUND")
+                    node_data = target_node.get("data") or {}
+                    if (
+                        node_data.get("production_stage") != production_stage
+                        or node_data.get("production_pointer") != production_pointer
+                    ):
+                        raise SeedanceError(
+                            "Generation node is not bound to the selected creative artifact",
+                            code="CINE_GENERATION_NODE_BINDING_MISMATCH",
+                        )
+                    if node_data.get("prompt") == proof["prompt"]:
+                        break
+                    try:
+                        update = await client.submit_command(
+                            resolved_project_id,
+                            {
+                                "type": "canvas.update_node",
+                                "nodeId": node_id,
+                                "expectedRevision": snapshot.get("revision"),
+                                "patch": {
+                                    "data": {
+                                        "prompt": proof["prompt"],
+                                        "promptProvenance": None,
+                                    }
+                                },
+                                "commandId": f"cine-sync-prompt-{uuid.uuid4().hex}",
+                            },
+                        )
+                    except SeedanceError as exc:
+                        if exc.code == "REVISION_CONFLICT" and attempt == 0:
+                            continue
+                        raise
+                    if not update.get("accepted"):
+                        raise SeedanceError(
+                            "V3 rejected canonical prompt synchronization",
+                            code="GENERATION_NODE_CHANGED",
+                        )
+                    break
+                generation_command.update(nodeId=node_id, expectedPrompt=proof["prompt"])
+            if action == "validate_generation":
+                preflight = await client.validate_generation(
+                    resolved_project_id, generation_command
+                )
+                return {
+                    "status": "validated",
+                    "outcome": "succeeded",
+                    "submitted": False,
+                    "model": preflight.get("model"),
+                    "reference_count": preflight.get("referenceCount"),
+                    "validation_reports": proof["report_paths"],
+                    "next_step": "Submit with the same inputs only within existing generation authorization.",
+                }
+            prompt_optimized = False
+            try:
+                await client.validate_generation(resolved_project_id, generation_command)
+            except SeedanceError as exc:
+                if (
+                    generation_kind != "video"
+                    or exc.code != "PROMPT_FORMAT_INVALID"
+                    or not node_id
+                ):
+                    raise
+                snapshot = await client.get_snapshot(resolved_project_id)
+                nodes = snapshot.get("nodes", []) if isinstance(snapshot, dict) else []
+                target_node = next((node for node in nodes if node.get("id") == node_id), None)
+                if target_node is None:
+                    raise
+                references = await client.get_node_references(resolved_project_id, node_id)
+                node_data = target_node.get("data") or {}
+                optimized = await client.optimize_prompt(
+                    {
+                        "prompt": proof["prompt"],
+                        "model": model or node_data.get("model"),
+                        "provider": node_data.get("provider"),
+                        "durationSec": duration_seconds or node_data.get("durationSec"),
+                        "aspectRatio": aspect_ratio or node_data.get("aspectRatio") or "16:9",
+                        "references": references,
+                        "segmentId": node_data.get("segmentId"),
+                        "shotMode": "multi-shot-container",
+                        "constraints": [
+                            "Preserve exact <d> dialogue from the approved native storyboard.",
+                            "Treat connected character and environment images as Ref2VA subjects, not keyframes.",
+                        ],
+                    }
+                )
+                final_prompt = optimized.get("prompt")
+                validation = optimized.get("validation") or {}
+                if (
+                    not optimized.get("ok")
+                    or not isinstance(final_prompt, str)
+                    or not final_prompt.strip()
+                    or validation.get("valid") is not True
+                ):
+                    raise SeedanceError(
+                        "V3 Prompt Agent did not return a valid final prompt",
+                        code="PROMPT_OPTIMIZATION_FAILED",
+                    )
+                update = await client.submit_command(
+                    resolved_project_id,
+                    {
+                        "type": "canvas.update_node",
+                        "nodeId": node_id,
+                        "expectedRevision": snapshot.get("revision"),
+                        "patch": {
+                            "data": {
+                                "prompt": final_prompt,
+                                "promptProvenance": optimized.get("provenance"),
+                                "sourcePrompt": proof["prompt"],
+                            }
+                        },
+                        "commandId": f"cine-optimize-{uuid.uuid4().hex}",
+                    },
+                )
+                if not update.get("accepted"):
+                    raise SeedanceError(
+                        "V3 rejected the optimized prompt update",
+                        code="PROMPT_OPTIMIZATION_UPDATE_FAILED",
+                    )
+                gen_input["prompt"] = final_prompt
+                generation_command["expectedPrompt"] = final_prompt
+                await client.validate_generation(resolved_project_id, generation_command)
+                prompt_optimized = True
+
+        ui_base_url = os.environ.get("SEEDANCE_UI_BASE_URL", DEFAULT_SEEDANCE_UI_BASE_URL).rstrip(
+            "/"
+        )
         canvas_url = f"{ui_base_url}/?project={resolved_project_id}"
         cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
 
@@ -514,7 +836,11 @@ async def execute_seedance_canvas_edit(
             }
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
-                return {"status": "failed", "outcome": "failed", "error": f"画布服务端拒绝创建命令: {res}"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": f"画布服务端拒绝创建命令: {res}",
+                }
 
             # Read-after-write verification
             snap = await client.get_snapshot(resolved_project_id)
@@ -535,11 +861,17 @@ async def execute_seedance_canvas_edit(
         # ACTION: update_node
         elif action == "update_node":
             if not node_id:
-                return {"status": "failed", "outcome": "failed", "error": "update_node 需要指定 node_id"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": "update_node 需要指定 node_id",
+                }
 
             # Concurrency revision check if expected_revision provided
+            project_revision = None
             if expected_revision is not None:
                 snap_pre = await client.get_snapshot(resolved_project_id)
+                project_revision = snap_pre.get("revision")
                 nodes_pre = snap_pre.get("nodes", []) if isinstance(snap_pre, dict) else []
                 current_node = next((n for n in nodes_pre if n.get("id") == node_id), None)
                 if current_node:
@@ -580,11 +912,15 @@ async def execute_seedance_canvas_edit(
                 "commandId": cmd_id,
             }
             if expected_revision is not None:
-                cmd["expectedRevision"] = expected_revision
+                cmd["expectedRevision"] = project_revision
 
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
-                return {"status": "failed", "outcome": "failed", "error": f"画布服务端拒绝更新命令: {res}"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": f"画布服务端拒绝更新命令: {res}",
+                }
 
             # Read-after-write verification
             snap_post = await client.get_snapshot(resolved_project_id)
@@ -607,7 +943,11 @@ async def execute_seedance_canvas_edit(
         # ACTION: delete_node
         elif action == "delete_node":
             if not node_id:
-                return {"status": "failed", "outcome": "failed", "error": "delete_node 需要指定 node_id"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": "delete_node 需要指定 node_id",
+                }
             if not confirm:
                 return {
                     "status": "rejected",
@@ -615,17 +955,35 @@ async def execute_seedance_canvas_edit(
                     "error": f"安全拦截：删除节点 {node_id} 属于破坏性操作，必须显式传递 confirm=true 进行确认。",
                 }
 
+            project_revision = None
+            if expected_revision is not None:
+                snap_pre = await client.get_snapshot(resolved_project_id)
+                nodes_pre = snap_pre.get("nodes", []) if isinstance(snap_pre, dict) else []
+                current_node = next((n for n in nodes_pre if n.get("id") == node_id), None)
+                if current_node and current_node.get("revision", 1) != expected_revision:
+                    return {
+                        "status": "conflict",
+                        "outcome": "failed",
+                        "error": f"版本冲突：画布节点 {node_id} 已更新。",
+                        "current_revision": current_node.get("revision", 1),
+                    }
+                project_revision = snap_pre.get("revision")
+
             cmd = {
                 "type": "canvas.delete_node",
                 "nodeId": node_id,
                 "commandId": cmd_id,
             }
             if expected_revision is not None:
-                cmd["expectedRevision"] = expected_revision
+                cmd["expectedRevision"] = project_revision
 
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
-                return {"status": "failed", "outcome": "failed", "error": f"画布服务端拒绝删除命令: {res}"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": f"画布服务端拒绝删除命令: {res}",
+                }
 
             # Read-after-write verification
             snap_del = await client.get_snapshot(resolved_project_id)
@@ -645,7 +1003,11 @@ async def execute_seedance_canvas_edit(
         # ACTION: connect
         elif action == "connect":
             if not from_node_id or not to_node_id:
-                return {"status": "failed", "outcome": "failed", "error": "connect 需要指定 from_node_id 和 to_node_id"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": "connect 需要指定 from_node_id 和 to_node_id",
+                }
 
             cmd = {
                 "type": "canvas.connect",
@@ -656,11 +1018,18 @@ async def execute_seedance_canvas_edit(
             }
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
-                return {"status": "failed", "outcome": "failed", "error": f"画布服务端拒绝连线命令: {res}"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": f"画布服务端拒绝连线命令: {res}",
+                }
 
             snap_conn = await client.get_snapshot(resolved_project_id)
             edges = snap_conn.get("edges", []) if isinstance(snap_conn, dict) else []
-            connected = next((e for e in edges if e.get("from") == from_node_id and e.get("to") == to_node_id), None)
+            connected = next(
+                (e for e in edges if e.get("from") == from_node_id and e.get("to") == to_node_id),
+                None,
+            )
             return {
                 "status": "completed",
                 "outcome": "succeeded",
@@ -675,7 +1044,11 @@ async def execute_seedance_canvas_edit(
         # ACTION: disconnect
         elif action == "disconnect":
             if not edge_id:
-                return {"status": "failed", "outcome": "failed", "error": "disconnect 需要指定 edge_id"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": "disconnect 需要指定 edge_id",
+                }
 
             cmd = {
                 "type": "canvas.disconnect",
@@ -684,7 +1057,11 @@ async def execute_seedance_canvas_edit(
             }
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
-                return {"status": "failed", "outcome": "failed", "error": f"画布服务端拒绝断开连线命令: {res}"}
+                return {
+                    "status": "failed",
+                    "outcome": "failed",
+                    "error": f"画布服务端拒绝断开连线命令: {res}",
+                }
 
             snap_dc = await client.get_snapshot(resolved_project_id)
             edges_dc = snap_dc.get("edges", []) if isinstance(snap_dc, dict) else []
@@ -702,73 +1079,32 @@ async def execute_seedance_canvas_edit(
 
         # ACTION: submit_generation
         elif action == "submit_generation":
-            if generation_allowed is not True:
-                return {
-                    "status": "rejected",
-                    "outcome": "failed",
-                    "error": "安全策略拦截：generation_allowed 为 false。提交图片或视频生成任务需要消耗 GPU 算力资源，必须经过用户明确授权 (generation_allowed=true)。",
-                }
+            from omnigent.seedance.production_gate import assert_current
 
-            target_prompt = prompt or ""
-            target_aspect = aspect_ratio
-            if node_id and not target_prompt:
-                snap_node = await client.get_snapshot(resolved_project_id)
-                nodes_src = snap_node.get("nodes", []) if isinstance(snap_node, dict) else []
-                src_n = next((n for n in nodes_src if n.get("id") == node_id), None)
-                if src_n:
-                    src_data = src_n.get("data") or {}
-                    target_prompt = src_data.get("prompt") or src_data.get("brief") or ""
-                    if not target_aspect:
-                        target_aspect = src_data.get("aspectRatio")
-
-            if not target_prompt:
-                return {"status": "failed", "outcome": "failed", "error": "submit_generation 需要提供 prompt 或指定具有提示词的 node_id"}
-
-            from omnigent.seedance.production_gate import assert_current, validate_submission
-
-            proof = await validate_submission(
-                server_client, conversation_id, skills_dir=trusted_skills_dir,
-                production_dir=production_dir, source_text=source_text,
-                production_stage=production_stage, production_pointer=production_pointer,
-                generation_kind=generation_kind, prompt=target_prompt,
-                project_id=resolved_project_id,
-            )
-            if node_id:
-                current = await client.get_snapshot(resolved_project_id)
-                node = next((n for n in current.get("nodes", []) if n.get("id") == node_id), None)
-                if not node or (node.get("data", {}).get("prompt") or node.get("data", {}).get("brief")) != target_prompt:
-                    return {"status": "rejected", "outcome": "failed", "error_code": "CINE_NODE_CHANGED"}
             assert_current(proof)
 
-            gen_input: dict[str, Any] = {"prompt": target_prompt}
-            if target_aspect:
-                gen_input["aspectRatio"] = target_aspect
-            if model:
-                gen_input["model"] = model
-
             cmd = {
+                **generation_command,
                 "type": "generation.submit",
-                "kind": generation_kind or "video",
-                "input": gen_input,
-                "nodeId": node_id,
                 "commandId": cmd_id,
             }
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
                 return {"status": "failed", "outcome": "failed", "error": f"生成提交被拒绝: {res}"}
 
-            snap_jobs = await client.get_snapshot(resolved_project_id)
-            jobs = snap_jobs.get("jobs", []) if isinstance(snap_jobs, dict) else []
-            latest_job = jobs[-1] if jobs else {}
+            # The command response owns this job; a project's latest job may be unrelated.
+            latest_job = (res.get("response") or {}).get("job") or res.get("job") or {}
             return {
-                "status": "completed",
+                "status": "submitted",
                 "outcome": "succeeded",
                 "action": "submit_generation",
                 "validation_reports": proof["report_paths"],
                 "seedance_project_id": resolved_project_id,
                 "seedance_canvas_url": canvas_url,
-                "verified": bool(jobs),
+                "verified": bool(latest_job.get("id")),
+                "prompt_optimized": prompt_optimized,
                 "job": latest_job,
+                "poll_after_seconds": 20,
                 "summary": f"已成功提交 {cmd['kind']} 生成任务 (Job: {latest_job.get('id', 'queued')})，读后验证任务已在队列中。",
             }
 
@@ -778,9 +1114,36 @@ async def execute_seedance_canvas_edit(
     except Exception as exc:
         from omnigent.seedance.production_gate import ProductionRejected
 
+        if isinstance(exc, SeedanceError):
+            return {
+                "status": "rejected",
+                "outcome": "failed",
+                "error_code": exc.code,
+                "error": str(exc),
+                "next_step": "Resolve the V3 input error. Use seedance_read_canvas action=models for choices; do not guess settings, resubmit blindly or inspect source code.",
+            }
         if isinstance(exc, ProductionRejected):
-            return {"status": "rejected", "outcome": "failed", "error_code": exc.code,
-                    "error": str(exc), "validation": exc.detail}
+            detail = exc.detail
+            if isinstance(detail, list):
+                detail = [
+                    {
+                        "stage": row.get("stage"),
+                        "status": row.get("status"),
+                        "errors": row.get("errors", []),
+                        "message": row.get("stderr", "")[:1800],
+                    }
+                    for report in detail
+                    for row in report.get("stages", [])
+                    if row.get("status") != "passed"
+                ]
+            return {
+                "status": "rejected",
+                "outcome": "failed",
+                "error_code": exc.code,
+                "error": str(exc),
+                "validation": detail,
+                "next_step": "Fix only the listed creative artifact/input. Do not invent upstream story data, write repair scripts or inspect service source code.",
+            }
         raise
     finally:
         if seedance_client is None:

@@ -177,8 +177,32 @@ async def session_image_receipts(client, session_id):
     for item in outputs:
         try:
             output = json.loads(item.get("output", ""))
-            meta = output.get("metadata", {})
-            image = output.get("image", {})
+            if isinstance(output, list):
+                text_block = next(
+                    (
+                        block
+                        for block in output
+                        if isinstance(block, dict) and block.get("type") == "text"
+                    ),
+                    {},
+                )
+                image_block = next(
+                    (
+                        block
+                        for block in output
+                        if isinstance(block, dict) and block.get("type") == "image"
+                    ),
+                    {},
+                )
+                meta = json.loads(text_block.get("text", "{}"))
+                image_url = image_block.get("image_url", "")
+                if not image_url.startswith("data:") or ";base64," not in image_url:
+                    continue
+                encoded = image_url.split(";base64,", 1)[1]
+                image = {"type": "image", "source": {"data": encoded}}
+            else:
+                meta = output.get("metadata", {})
+                image = output.get("image", {})
             if (
                 meta.get("receipt_id")
                 and image.get("type") == "image"

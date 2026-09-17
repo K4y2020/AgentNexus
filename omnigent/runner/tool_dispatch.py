@@ -6804,6 +6804,15 @@ async def _execute_seedance_tool(
         try:
             from omnigent.seedance.bridge import read_seedance_canvas_snapshot
 
+            if args.get("action") in ("models", "job"):
+                from omnigent.seedance.bridge import read_seedance_generation
+
+                result = await read_seedance_generation(
+                    server_client, conversation_id, action=args["action"],
+                    job_id=_optional_string(args.get("job_id")),
+                )
+                return json.dumps(result, ensure_ascii=False)
+
             result = await read_seedance_canvas_snapshot(
                 server_client=server_client,
                 conversation_id=conversation_id,
@@ -6851,7 +6860,9 @@ async def _execute_seedance_tool(
         to_node_id = _optional_string(args.get("to_node_id"))
         kind = _optional_string(args.get("kind"))
         edge_id = _optional_string(args.get("edge_id"))
-        generation_kind = str(args.get("generation_kind") or "video").lower().strip()
+        generation_kind = _optional_string(args.get("generation_kind"))
+        if generation_kind is not None:
+            generation_kind = generation_kind.lower().strip()
         generation_allowed = args.get("generation_allowed", False)
         if type(generation_allowed) is not bool:
             return json.dumps({"error": "generation_allowed must be a boolean"})
@@ -6893,6 +6904,12 @@ async def _execute_seedance_tool(
                 source_text=_optional_string(args.get("source_text")),
                 production_stage=_optional_string(args.get("production_stage")),
                 production_pointer=_optional_string(args.get("production_pointer")),
+                storyboard_file=_optional_string(args.get("storyboard_file")),
+                script_file=_optional_string(args.get("script_file")),
+                episode_nodes=args.get("episode_nodes"),
+                job_id=_optional_string(args.get("job_id")),
+                output_path=_optional_string(args.get("output_path")),
+                output_index=args.get("output_index", 0),
                 trusted_skills_dir=trusted_skills_dir,
                 model=model,
             )

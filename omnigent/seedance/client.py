@@ -74,7 +74,10 @@ def validate_seedance_base_url(url_str: str) -> str:
         ip = ipaddress.ip_address(hostname)
         if ip.is_loopback:
             return url_str.rstrip("/")
-        if os.environ.get("SEEDANCE_ALLOW_PRIVATE_IP", "").strip().lower() in ("1", "true", "yes") and ip.is_private:
+        if (
+            os.environ.get("SEEDANCE_ALLOW_PRIVATE_IP", "").strip().lower() in ("1", "true", "yes")
+            and ip.is_private
+        ):
             return url_str.rstrip("/")
     except ValueError:
         pass
@@ -101,7 +104,7 @@ def get_seedance_api_key() -> str | None:
                     for line in f:
                         line = line.strip()
                         if line.startswith("SEEDANCE_API_KEY=") and not line.startswith("#"):
-                            val = line.split("=", 1)[1].strip().strip('"\'')
+                            val = line.split("=", 1)[1].strip().strip("\"'")
                             if val:
                                 return val
             except Exception:
@@ -208,9 +211,13 @@ class SeedanceClient:
             self._handle_response_error(resp)
             return {"status": "error", "code": resp.status_code}
         except httpx.ConnectError as exc:
-            raise SeedanceConnectionError(f"Failed to connect to Seedance at {self.base_url}: {exc}") from exc
+            raise SeedanceConnectionError(
+                f"Failed to connect to Seedance at {self.base_url}: {exc}"
+            ) from exc
         except httpx.TimeoutException as exc:
-            raise SeedanceTimeoutError(f"Seedance health check timed out at {self.base_url}: {exc}") from exc
+            raise SeedanceTimeoutError(
+                f"Seedance health check timed out at {self.base_url}: {exc}"
+            ) from exc
 
     async def list_projects(self) -> list[dict[str, Any]]:
         """List existing projects in Seedance."""
@@ -222,6 +229,75 @@ class SeedanceClient:
             return data.get("projects", [])
         except httpx.ConnectError as exc:
             raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
+
+    async def get_generation_models(self) -> dict[str, Any]:
+        """Read the V3 generation catalog, not the chat-agent model list."""
+        resp = await self._client.get(
+            f"{self.base_url}/v3/generation-models", headers=self._headers()
+        )
+        self._handle_response_error(resp)
+        return resp.json()
+
+    async def get_local_image(self, storage_ref: str, max_bytes: int) -> bytes:
+        import re
+
+        if not re.fullmatch(r"local://[a-f0-9]{64}", storage_ref):
+            raise SeedanceSecurityError("Invalid local image storage reference")
+        chunks = []
+        size = 0
+        async with self._client.stream(
+            "GET",
+            f"{self.base_url}/v3/storage/{storage_ref[8:]}",
+            headers=self._headers(),
+            follow_redirects=False,
+        ) as response:
+            if response.status_code != 200:
+                raise SeedanceError(
+                    "Image download failed",
+                    code="CINE_IMAGE_DOWNLOAD_FAILED",
+                    status_code=response.status_code,
+                )
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > max_bytes:
+                    raise SeedanceError(
+                        "Image exceeds the supported preview limit", code="CINE_IMAGE_TOO_LARGE"
+                    )
+                chunks.append(chunk)
+        return b"".join(chunks)
+
+    async def get_node_references(self, project_id: str, node_id: str) -> list[dict[str, Any]]:
+        """Use the same reference resolution as the V3 canvas UI."""
+        resp = await self._client.get(
+            f"{self.base_url}/v3/projects/{project_id}/nodes/{node_id}/references",
+            headers=self._headers(),
+        )
+        self._handle_response_error(resp)
+        references = resp.json().get("references")
+        if not isinstance(references, list):
+            raise SeedanceError("Malformed reference response from Seedance")
+        return references
+
+    async def validate_generation(
+        self, project_id: str, command: dict[str, Any]
+    ) -> dict[str, Any]:
+        resp = await self._client.post(
+            f"{self.base_url}/v3/projects/{project_id}/generation/validate",
+            json=command,
+            headers=self._headers(),
+        )
+        self._handle_response_error(resp)
+        return resp.json()
+
+    async def optimize_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Run V3's native Prompt Agent and full model contract validation."""
+        resp = await self._client.post(
+            f"{self.base_url}/v3/prompts/optimize",
+            json=payload,
+            headers=self._headers(),
+        )
+        self._handle_response_error(resp)
+        return resp.json()
 
     async def create_project(self, name: str) -> dict[str, Any]:
         """Create a new project in Seedance."""
@@ -244,7 +320,10 @@ class SeedanceClient:
             resp = await self._client.get(url, headers=self._headers())
             self._handle_response_error(resp)
             data = resp.json()
-            return data.get("snapshot") or data
+            snapshot = data.get("snapshot") or data
+            if "nodeMedia" in data:
+                snapshot = {**snapshot, "node_media": data["nodeMedia"]}
+            return snapshot
         except httpx.ConnectError as exc:
             raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
 
@@ -293,11 +372,15 @@ class SeedanceClient:
             body["model"] = model
         req_timeout = timeout_s if timeout_s is not None else self.timeout_s
         try:
-            resp = await self._client.post(url, json=body, headers=self._headers(), timeout=req_timeout)
+            resp = await self._client.post(
+                url, json=body, headers=self._headers(), timeout=req_timeout
+            )
             self._handle_response_error(resp)
             return resp.json()
         except httpx.TimeoutException as exc:
-            raise SeedanceTimeoutError(f"Agent message timed out after {req_timeout}s: {exc}") from exc
+            raise SeedanceTimeoutError(
+                f"Agent message timed out after {req_timeout}s: {exc}"
+            ) from exc
         except httpx.ConnectError as exc:
             raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
 

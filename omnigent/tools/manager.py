@@ -641,7 +641,10 @@ class ToolManager:
 
         self._os_env = os_env
         for tool in build_os_env_tools(os_env):
-            if tool.name() == "sys_os_view_image" and self._spec.executor.harness_kind != "claude-sdk":
+            if tool.name() == "sys_os_view_image" and self._spec.executor.harness_kind not in {
+                "claude-sdk",
+                "openai-agents",
+            }:
                 continue
             if tool.name() in self._tools:
                 raise ValueError(
