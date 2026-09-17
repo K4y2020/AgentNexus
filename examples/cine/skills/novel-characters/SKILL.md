@@ -121,6 +121,8 @@ node {baseDir}/scripts/novel-characters.mjs seed <outline.json> > <workdir>/seed
 
 **没有 `outline.json` 也照常跑**，本 skill 不依赖它——跳过 seed，从 Step 2 开始自己从原文拆角色表。
 
+若已有 `script.json`，先汇总全部场次的 `characterStates`。`default` 复用角色主卡；每个非默认状态在角色卡 `states` 中建独立资产，至少包含 `id`、`label`、`descriptor`、`image.prompt`、`image.sheet`。只换服装也必须引用主角色身份并明确保持同一面孔、发型、体态和比例；禁止让卧室、校园、医院共用一张默认服装图。
+
 ### Step 2 — 分块
 
 ```bash
@@ -203,13 +205,13 @@ node {baseDir}/scripts/novel-characters.mjs assemble <workdir> \
 node {baseDir}/scripts/novel-characters.mjs validate <cast.json> <book.txt>
 ```
 
-记得带上 `--lang`（Step 0 定的）。检查：结构、`importance` 枚举、**引文逐字**、**出图提示词不含人名**、**语言分工**（人类字段跟随 `lang`、出图/TTS 提示词永远英文）、以及**非内置语言必须带 `ui`**。
+记得带上 `--lang`（Step 0 定的）。检查：结构、`importance` 枚举、**引文逐字**、**出图提示词不含人名**、**语言分工**（人类字段跟随 `lang`、出图/TTS 提示词永远英文）、状态 ID 唯一且非默认状态有独立 descriptor/sheet，以及**非内置语言必须带 `ui`**。
 
 **有违规就按报错逐条修，改完重跑，直到通过。** 这四类错模型真的会犯——这套检查就是被真实输出打出来的。
 
 ### Step 8 — 出图（可选，每个角色都出）
 
-**每个角色一张**，用 `image.sheet`，落到 `./images/<slug>-sheet.png`。一张横构图内部左右分栏：
+**每个角色一张三视图设定板**，用 `image.sheet`，落到 `./images/<slug>-sheet.png`。画布仍是通用 `image_prompt` 节点。已有角色设定卡时保持原卡、提示词和图片不动，另建“三视图”生图卡，引用已确认的人像；重试复用这张三视图卡，不重复新建。默认角色设定交付包含三视图；仅明确的肖像需求使用 `image.prompt`。具体流程见 `references/sheet.md`。一张横构图内部左右分栏：
 
 ```
 ┌──────────┬────────────────────────────┐

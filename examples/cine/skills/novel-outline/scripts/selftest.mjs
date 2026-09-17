@@ -273,6 +273,13 @@ eq(primarySceneCap(undefined), 8, '没有集数信息给居中值 8');
 // G6 大爆点时机
 {
   const o = clone();
+  o.params.episodes = 1;
+  o.episodes = [o.episodes[0]];
+  o.beats = [{ ...o.beats[0], episode: 1, weight: 'major' }];
+  ok(gate(o, 'major-early').ok, '单集作品允许 major 落在唯一一集');
+}
+{
+  const o = clone();
   o.beats.forEach((b) => (b.weight = 'minor'));
   o.beats[3].weight = 'major'; // 唯一 major 在第 6 集（最后一集）
   ok(!gate(o, 'major-early').ok, 'major 只在最后一集被拦');

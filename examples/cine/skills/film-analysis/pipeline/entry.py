@@ -10,6 +10,18 @@ from .project import ProjectLock, _atomic_write, create_project, validate_identi
 from .runner import run_pipeline
 
 
+def _resolved_session_id(session_id: str | None, workspace: Path) -> str | None:
+    """Infer Bot Topic ownership from its canonical workspace path."""
+    workspace = workspace.resolve()
+    inferred = workspace.name if workspace.parent.name.lower() == "topics" else None
+    if inferred:
+        validate_identifier(inferred, "session_id")
+        if session_id and session_id != inferred:
+            raise ValueError("Explicit session_id conflicts with the Topic workspace")
+        return inferred
+    return session_id
+
+
 def index_media(
     video: Path,
     output: Path,
@@ -23,6 +35,8 @@ def index_media(
 ) -> dict:
     video = video.resolve(strict=True)
     output = output.resolve()
+    workspace = (workspace or Path.cwd()).resolve()
+    session_id = _resolved_session_id(session_id, workspace)
     if profile not in ("adaptation", "forensic"):
         raise ValueError("unknown analysis profile")
     if profile == "forensic" and end is None:
@@ -36,9 +50,9 @@ def index_media(
     binding = None
     if session_id:
         validate_identifier(session_id, "session_id")
-        if workspace is None or not output.is_relative_to(workspace.resolve()):
+        if not output.is_relative_to(workspace):
             raise ValueError("Bound projects must remain within this session workspace")
-        binding = workspace.resolve() / ".cine" / "sessions" / f"{session_id}.json"
+        binding = workspace / ".cine" / "sessions" / f"{session_id}.json"
         if binding.exists():
             existing = json.loads(binding.read_text(encoding="utf-8"))
             if existing.get("project_path") != str(output):
@@ -126,6 +140,10 @@ def index_media(
                         "schema_version": 1,
                         "source_id": result["source_id"],
                         "revision_id": result["revision_id"],
+                        "dialogue_provenance": {
+                            "status": "unverified",
+                            "source_path": None,
+                        },
                         "characters": [],
                         "summary": {
                             "premise": "",

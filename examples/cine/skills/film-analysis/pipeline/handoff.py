@@ -41,11 +41,14 @@ def unique(rows, key):
 def source_material(project):
     """Copy current ledger/review fields without promoting unreviewed evidence."""
     root = Path(project).resolve(strict=True)
+    input_hashes = {}
 
     def read(relative):
         file = (root / relative).resolve(strict=True)
         require(file.is_relative_to(root), "SOURCE_PATH_ESCAPE")
-        return json.loads(file.read_text(encoding="utf-8"))
+        raw = file.read_bytes()
+        input_hashes[relative] = hashlib.sha256(raw).hexdigest()
+        return json.loads(raw)
 
     revision = read("project.json").get("current_revision")
     require(
@@ -104,7 +107,7 @@ def source_material(project):
             else:
                 row["review_status"] = review["status"]
         output.append(row)
-    return {
+    result = {
         "status": "exported_unverified",
         "can_claim_reviewed": False,
         "source_id": source_id,
@@ -112,9 +115,31 @@ def source_material(project):
         "shots": output,
         "receipt_authenticity": "not_checked_use_runtime_gate",
     }
+    plan_relative = f"revisions/{revision}/story_plan.json"
+    if (root / plan_relative).exists():
+        plan = read(plan_relative)
+        require(isinstance(plan, dict), "STORY_PLAN_INVALID")
+        require(
+            plan.get("source_id") == source_id and plan.get("revision_id") == revision,
+            "STORY_REVISION_MISMATCH",
+        )
+        draft_relative = f"story/{revision}.json"
+        result["adaptation_story_status"] = "missing"
+        if (root / draft_relative).exists():
+            draft = read(draft_relative)
+            require(isinstance(draft, dict), "STORY_DRAFT_INVALID")
+            require(
+                draft.get("source_id") == source_id and draft.get("revision_id") == revision,
+                "STORY_REVISION_MISMATCH",
+            )
+            result["adaptation_story"] = draft
+            result["adaptation_story_status"] = "exported_unverified"
+        result["adaptation_readiness"] = "not_checked_use_cine_verify_report"
+    result["source_input_hashes"] = input_hashes
+    return result
 
 
-def validate(path):
+def validate(path, stage=None):
     path = Path(path).resolve(strict=True)
     root = path.parent
     manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -133,7 +158,24 @@ def validate(path):
     else:
         deps["outline"] = ("source_material",)
         deps["mapping"] += ("source_material",)
-    require(set(artifacts) == set(deps), "ARTIFACT_SET_MISMATCH")
+    if stage is None:
+        require(set(artifacts) == set(deps), "ARTIFACT_SET_MISMATCH")
+    else:
+        require(stage in ("outline", "cast", "art", "script"), "HANDOFF_STAGE_INVALID")
+        required = set()
+
+        def include(name):
+            if name in required:
+                return
+            required.add(name)
+            for upstream in deps[name]:
+                include(upstream)
+
+        include(stage)
+        require(
+            required.issubset(artifacts) and set(artifacts).issubset(deps), "ARTIFACT_SET_MISMATCH"
+        )
+        deps = {name: inputs for name, inputs in deps.items() if name in required}
     documents, hashes, paths = {}, {}, set()
     for name, inputs in deps.items():
         entry = artifacts[name]
@@ -167,6 +209,13 @@ def validate(path):
                 isinstance(material.get(key), str) and bool(material[key].strip()),
                 f"SOURCE_IDENTITY_REQUIRED:{key}",
             )
+        if "adaptation_story" in material:
+            story = material["adaptation_story"]
+            require(isinstance(story, dict), "STORY_DRAFT_INVALID")
+            require(
+                all(story.get(key) == material[key] for key in ("source_id", "revision_id")),
+                "STORY_REVISION_MISMATCH",
+            )
         source_shots = unique(material.get("shots"), "shot_id")
         for shot in source_shots.values():
             require(
@@ -184,6 +233,23 @@ def validate(path):
                 require(
                     shot["observations"] and shot["image_receipt_ids"], "SOURCE_REVIEW_INCOMPLETE"
                 )
+
+    if stage is not None:
+        return {
+            "status": "stage_inputs_validated",
+            "stage": stage,
+            "mode": mode,
+            "checked_artifacts": list(deps),
+            "checks": ["file_hashes", "upstream_pins"],
+            "not_verified": [
+                "source_readiness",
+                "source_receipt_authenticity",
+                "native_schemas",
+                "semantic_quality",
+                "downstream_artifacts",
+                "generation_authorization",
+            ],
+        }
 
     script = documents["script"]
     board = documents["storyboard"]
@@ -297,17 +363,20 @@ def validate(path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, nargs="?")
+    parser.add_argument("--stage", choices=["outline", "cast", "art", "script"])
     parser.add_argument(
         "--source-project", type=Path, help="Print editorial source material, read-only"
     )
     args = parser.parse_args(argv)
     if bool(args.manifest) == bool(args.source_project):
         parser.error("provide a manifest OR --source-project")
+    if args.stage and args.source_project:
+        parser.error("--stage applies only to a production manifest")
     try:
         result = (
             source_material(args.source_project)
             if args.source_project
-            else validate(args.manifest)
+            else validate(args.manifest, args.stage)
         )
     except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
         print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))

@@ -31,6 +31,27 @@ export function paramsOf(doc) {
   return { ...DEFAULT_PARAMS, ...(doc?.params ?? {}) };
 }
 
+function conservativeParamProblems(doc) {
+  const raw = doc?.params;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+  const problems = [];
+  const finite = (key) => typeof raw[key] === 'number' && Number.isFinite(raw[key]);
+  const check = (key, valid, message) => {
+    if (key in raw && (!finite(key) || !valid(raw[key]))) problems.push(`${key} ${message}`);
+  };
+  check('charsPerSecond', (v) => v > 0 && v <= DEFAULT_PARAMS.charsPerSecond,
+    `必须 > 0 且 ≤ ${DEFAULT_PARAMS.charsPerSecond}，不能靠加快语速压缩估时`);
+  check('actionSeconds', (v) => v >= DEFAULT_PARAMS.actionSeconds,
+    `必须 ≥ ${DEFAULT_PARAMS.actionSeconds}，不能靠缩短动作耗时压缩估时`);
+  check('tolerance', (v) => v >= 0 && v <= DEFAULT_PARAMS.tolerance,
+    `必须在 0–${DEFAULT_PARAMS.tolerance}，不能放宽默认容差`);
+  check('maxLineChars', (v) => Number.isInteger(v) && v > 0 && v <= DEFAULT_PARAMS.maxLineChars,
+    `必须是 1–${DEFAULT_PARAMS.maxLineChars} 的整数`);
+  check('hookWindow', (v) => Number.isInteger(v) && v > 0 && v <= DEFAULT_PARAMS.hookWindow,
+    `必须是 1–${DEFAULT_PARAMS.hookWindow} 的整数`);
+  return problems;
+}
+
 /** 台词计秒用的字符数：去空白，标点算时间（停顿也是时间）。 */
 export const lineChars = (line) => String(line ?? '').replace(/\s+/g, '').length;
 
@@ -128,7 +149,11 @@ export function gateReport(doc, ctx = {}) {
   const eps = Array.isArray(doc?.episodes) ? doc.episodes : [];
   const params = paramsOf(doc);
   const stats = computeStats(doc);
-  const bad = { duration: [], lineLen: [], speaker: [], hook: [], hookOpen: [], noAction: [], prose: [], beats: [], chars: [], scenes: [] };
+  const bad = { params: conservativeParamProblems(doc), duration: [], lineLen: [], speaker: [], hook: [], hookOpen: [], noAction: [], prose: [], beats: [], chars: [], scenes: [], states: [] };
+  const castStates = new Map((ctx.cast?.characters ?? []).map((c) => [
+    c.id,
+    new Set(['default', ...(c.states ?? []).map((s) => s?.id).filter(Boolean)]),
+  ]));
 
   for (const [i, ep] of eps.entries()) {
     const st = stats.episodes[i];
@@ -167,6 +192,23 @@ export function gateReport(doc, ctx = {}) {
 
     for (const sc of ep?.scenes ?? []) {
       const cast = new Set(sc?.characters ?? []);
+      const states = sc?.characterStates;
+      if (doc?.stateContractVersion >= 1) {
+        if (!states || typeof states !== 'object' || Array.isArray(states)) {
+          bad.states.push(`${label} ${sc?.sceneId ?? '?'} 缺 characterStates`);
+        } else {
+          for (const id of cast) {
+            const state = states[id];
+            if (!thText(state)) bad.states.push(`${label} ${sc?.sceneId ?? '?'} 的 ${id} 缺状态`);
+            else if (castStates.has(id) && !castStates.get(id).has(state)) {
+              bad.states.push(`${label} ${sc?.sceneId ?? '?'} 的 ${id}@${state} 不在 cast.json`);
+            }
+          }
+          for (const id of Object.keys(states)) {
+            if (!cast.has(id)) bad.states.push(`${label} ${sc?.sceneId ?? '?'} 状态表多出 ${id}`);
+          }
+        }
+      }
       let hasAction = false;
       for (const b of sc?.flow ?? []) {
         if (typeof b?.action === 'string') {
@@ -227,6 +269,7 @@ export function gateReport(doc, ctx = {}) {
   const SKIP_OUTLINE = '未提供 outline.json，本门跳过（视为通过）';
   const SKIP_ART = '未提供 art.json，本门跳过（视为通过）';
 
+  add('params-conservative', '时长与质量参数只能保持默认值或收紧', bad.params.length === 0, bad.params.join('；'));
   add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, bad.duration.join('；'));
   add('line-length', `单句台词 ≤ ${params.maxLineChars} 字`, bad.lineLen.length === 0, bad.lineLen.join('；'));
   add('speaker', '说话人在本场人物里，或明确标画外音 VO', bad.speaker.length === 0, bad.speaker.join('；'));
@@ -237,6 +280,7 @@ export function gateReport(doc, ctx = {}) {
   add('beats-claimed', '大纲爽点逐集认领', bad.beats.length === 0, outline ? bad.beats.join('；') : SKIP_OUTLINE);
   add('refs-characters', '角色引用对账大纲', bad.chars.length === 0, outline ? bad.chars.join('；') : SKIP_OUTLINE);
   add('refs-scenes', '场景／光照／道具对账美术设定', bad.scenes.length === 0, art ? bad.scenes.join('；') : SKIP_ART);
+  add('character-states', '每场角色状态完整，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
 
   return gates;
 }
@@ -273,6 +317,9 @@ export function validateScript(doc, ctx = {}) {
       const sLabel = `${label}第 ${i + 1} 场`;
       if (!/^S\d{2,}$/.test(sc?.sceneId ?? '')) p(`${sLabel} sceneId 必须是 S01 这种格式`);
       if (!Array.isArray(sc?.characters)) p(`${sLabel}缺 characters（本场人物，空镜给空数组）`);
+      if (doc?.stateContractVersion >= 1 && (!sc?.characterStates || typeof sc.characterStates !== 'object' || Array.isArray(sc.characterStates))) {
+        p(`${sLabel}缺 characterStates（角色状态映射）`);
+      }
       if (!Array.isArray(sc?.flow) || sc.flow.length === 0) p(`${sLabel}的节拍流为空`);
       for (const b of sc?.flow ?? []) {
         const isAction = typeof b?.action === 'string';
@@ -319,7 +366,7 @@ export function seedFromOutline(outline, epRange = null) {
       // 从大纲搬来的参考，写完删掉也行
       seedNote: `大纲梗概：${e.synopsis ?? ''}　候选场景：${(e.sceneIds ?? []).join('、')}　人物：${(e.characterIds ?? []).join('、')}`,
     }));
-  return { source: outline?.source ?? '', episodes };
+  return { source: outline?.source ?? '', stateContractVersion: 1, episodes };
 }
 
 /* ------------------------------------------------------------------ */
@@ -346,6 +393,7 @@ export function slug(name) {
  * 这里做展示层翻译——gateReport 的逻辑与中文诊断文案一行不动（CLI 仍是中文）。
  * 动态阈值由门自己算，映射里只写固定语义；未命中的 id 回落到原标签。 */
 const GATE_LABELS_EN = {
+  'params-conservative': 'Timing and quality parameters keep or tighten conservative defaults',
   'duration': 'Episode duration within ±{0}% of target',
   'line-length': 'Every line ≤ {0} characters',
   'speaker': 'Speaker is in the scene cast, or explicitly marked V.O.',
@@ -1020,11 +1068,12 @@ function main(argv) {
 
   if (cmd === 'validate' || cmd === 'checkup') {
     const [path] = rest;
-    if (!path) throw new Error(`用法：${cmd} <script.json> [--outline o.json] [--art a.json]`);
+    if (!path) throw new Error(`用法：${cmd} <script.json> [--outline o.json] [--art a.json] [--cast c.json]`);
     const doc = readJson(path);
     const ctx = loadCtx(rest);
     if (!ctx.outline) console.error('⚠️ 没给 --outline，跳过角色引用与爽点认领检查');
     if (!ctx.art) console.error('⚠️ 没给 --art，跳过场景／光照／道具对账');
+    if (!ctx.cast && doc?.stateContractVersion >= 1) console.error('⚠️ 没给 --cast，无法核验非默认角色状态资产');
 
     if (cmd === 'checkup') {
       const gates = gateReport(doc, ctx);

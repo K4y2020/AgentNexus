@@ -93,6 +93,9 @@ eq(h3AlignmentLine([{ seconds: 5 }], 'zh'), '目标视频在 0.00 秒处完全�
   ok(slices[1].includes('bb') && !slices[1].includes('x'), '切片不吃到声景字段');
   const zh = h3CutSlices('整体视听描述：\n[镜头 1] aa\n[镜头 2] bb\n\n整体音景：x', 2, 'zh');
   ok(zh[0].includes('aa') && zh[1].includes('bb'), 'zh 模式按 [镜头 k] 切片');
+  const ref2va = h3CutSlices('subject_definitions:\na\nsummary:\nb\nretention_analysis:\nc\ndetailed_description:\n[Shot 1] aa\n[Shot 2] At 00:03.000, bb\noverall_soundscape: x\nnon_diegetic_music: y', 2);
+  ok(ref2va[0].includes('aa') && !ref2va[0].includes('bb'), 'Ref2VA 从 detailed_description 按镜头切片');
+  ok(ref2va[1].includes('bb') && !ref2va[1].includes('overall_soundscape'), 'Ref2VA 镜头切片不吃到声景字段');
 }
 eq(segSeconds({ cuts: [{ seconds: 3 }, { seconds: 4.5 }] }), 7.5, '段秒数 = 分镜求和');
 
@@ -116,7 +119,27 @@ eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可
 /* ---------------- 质量门：全绿基线 ---------------- */
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带全部上游全部门通过');
-eq(gateReport(FIXTURE, CTX).length, 17, '十七道门');
+eq(gateReport(FIXTURE, CTX).length, 18, '十八道门');
+
+/* ---------------- 角色状态合同 ---------------- */
+
+{
+  const script = clone(SCRIPT);
+  script.stateContractVersion = 1;
+  for (const ep of script.episodes) for (const scene of ep.scenes) {
+    scene.characterStates = Object.fromEntries(scene.characters.map((id) => [id, 'default']));
+  }
+  const board = clone(FIXTURE);
+  board.stateContractVersion = 1;
+  for (const ep of board.episodes) for (const seg of ep.segments) for (const cut of seg.cuts) {
+    cut.characterStates = Object.fromEntries(cut.characters.map((id) => [id, 'default']));
+  }
+  ok(gate(board, 'character-states', { ...CTX, script }).ok, '逐镜 default 状态与剧本一致时通过');
+  const first = board.episodes[0].segments[0].cuts[0];
+  first.characterStates[first.characters[0]] = 'home_morning';
+  const g = gate(board, 'character-states', { ...CTX, script });
+  ok(!g.ok && g.detail.includes('状态应为 default'), '分镜状态与剧本场次不一致会被拦截');
+}
 {
   const gates = gateReport(FIXTURE, {});
   ok(gates.every((g) => g.ok), '不带上游也通过（对账门跳过）');
@@ -577,6 +600,22 @@ ok(seeded.episodes[0].seedScenes[0].beats[0].seconds > 0, '每拍带秒数');
 eq(seedFromScript(SCRIPT, [2, 3]).episodes.map((e) => e.ep).join(','), '2,3', '--eps 区间过滤');
 eq(seedFromScript({}).episodes.length, 0, '空剧本不崩');
 
+ok(seeded.episodes.flatMap((ep) => ep.seedScenes).flatMap((scene) => scene.beats)
+  .every((beat) => !['start', 'end', 'startSec', 'endSec', 'timeRangeSec'].some((key) => key in beat)),
+  '预算秒数不展开成逐动作表演区间');
+{
+  const doc = clone(FIXTURE);
+  const segment = doc.episodes[0].segments[0];
+  segment.h3Prompt += '\nShe hesitates, then hands it over. At 00:02.000 the requested bell sounds.';
+  const changedBudget = clone(SCRIPT);
+  changedBudget.params = { ...changedBudget.params, actionSeconds: 99 };
+  const exported = exportPack(doc, changedBudget);
+  const prompt = exported.files.find((file) => file.path === `${segment.id}/prompt.md`);
+  eq(prompt.content.split('\n---\n\n')[1], segment.h3Prompt + '\n',
+    '导出原样保留自然表演和显式同步事件，不把估时写进正文');
+  assert.deepEqual(exported.manifest[0].cutStarts, cutStarts(segment.cuts));
+}
+
 /* ---------------- slug / 枚举 ---------------- */
 
 eq(slug('渡口'), '渡口', '中文原样');
@@ -606,7 +645,7 @@ ok(html.includes('分镜节奏带'), '01 分镜节奏带');
 ok(html.includes('分集分镜表'), '02 分集分镜表');
 ok(html.includes('生成批次单'), '03 生成批次单');
 ok(html.includes('配音对齐单'), '04 配音对齐单');
-ok(html.includes('✓ 质量门 17 / 17'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 18 / 18'), '页眉徽章全绿');
 ok(html.includes('class="rseg"'), '节奏带按段分组（粗分隔）');
 ok(html.includes('#seg-E01-01'), '节奏带段可跳转');
 ok(html.includes('主分镜图 · #1 未生成'), '主分镜图缺图时显示占位不装有');
@@ -666,7 +705,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('<html lang="en">'), 'en 报告的 html lang 属性跟着语言走');
   ok(en.includes('Export JSON'), 'en 界面：导出按钮英文');
-  ok(en.includes('Quality gates 17 / 17'), 'en 界面：页眉徽章英文');
+  ok(en.includes('Quality gates 18 / 18'), 'en 界面：页眉徽章英文');
   ok(en.includes('Cut rhythm strip'), 'en 界面：节奏带节标题英文');
   ok(en.includes('Segment cards'), 'en 界面：分镜表节标题英文');
   ok(en.includes('Generation batches'), 'en 界面：批次节标题英文');

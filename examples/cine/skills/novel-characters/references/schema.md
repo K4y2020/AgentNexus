@@ -54,6 +54,16 @@
     "sheet": "Single character model sheet on ONE 16:9 landscape canvas ... LEFT ZONE ... about 34% ... one bust portrait ... RIGHT-TOP ZONE ... three FULL-BODY views ... PROPORTIONS ARE CRITICAL ... RIGHT-BOTTOM ZONE ... four to five small isolated close-up studies ..."
   },
 
+  "states": [
+    {
+      "id": "home_morning",
+      "label": "卧室晨间家居服",
+      "descriptor": "Same face, hair and body proportions; soft charcoal cotton loungewear...",
+      "image": { "prompt": "...", "sheet": "..." },
+      "assetNodeId": "node_..."
+    }
+  ],
+
   "voice": {
     "timbre": "沙哑低沉的男中低音，喉音重",
     "pitch": "低",
@@ -66,6 +76,8 @@
 }
 ```
 
+`default` 是保留状态，隐式指向角色主卡，不写入 `states`。每个非默认状态都是独立资产：必须有唯一 `id`、可读 `label`、逐镜复用的 `descriptor`，以及独立的英文 `image.prompt` / `image.sheet`。只换衣服时必须明确保持同一面孔、发型、体态和比例。状态图在 V3 实际生成并验收后，把对应卡 ID 写入 `assetNodeId`；视频提交前桥接层会检查 reference edge，缺失或连错状态将拒绝提交。
+
 ## 语言分工
 
 「本地语言」= 顶层 `lang` 指定的语言，默认中文。
@@ -75,8 +87,13 @@
 | `name` | string | 原文 | 原文里用得最多的称呼 |
 | `aliases` | string[] | 原文 | 其他称谓；职业名词（如「货郎」）归 `identity`，不进这里 |
 | `importance` | enum | — | `protagonist` / `major` / `supporting` / `minor`，**只能这四个** |
-| `oneLiner` | string | **本地语言** | 一句话抓住这个人 |
-| `persona.*` | — | **本地语言** | `personality` 3–5 个词 |
+| `oneLiner` | string | **本地语言** | 一句话抓住角色的故事位置与核心矛盾，不只罗列职业外貌 |
+| `persona.personality` | string[] | **本地语言** | 3–5 个检索标签；不能替代行为小传 |
+| `persona.temperament` | string | **本地语言** | 惯常行为、掩饰方式、受压换招与说话习惯 |
+| `persona.motivation` | string | **本地语言** | 外在欲望、失败代价与不愿承认的需要；推断须标注 |
+| `persona.arc` | string | **本地语言** | 起点信念、选择压力与可能变化 |
+| `persona.relationships` | object[] | **本地语言** | 对对方的态度、旧账/依赖与当前筹码；允许关系不对称 |
+| `persona.*` | — | **本地语言** | 其余人物字段遵循报告语言 |
 | `persona.evidence` | string[] | **原文语言** | **逐字引用**，永远不翻译——翻了就不是证据了。没有就空数组 |
 | `image.style` | string | 本地语言 | 画风一句话 |
 | `image.prompt` | string | **英文** | 单张卡通设定图；**禁止出现人名**；**必须写明族裔／年代／地域** |

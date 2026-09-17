@@ -10,7 +10,7 @@
 }
 ```
 
-`params` 可省略，省略就用默认值。四个键都只在需要偏离默认时写。
+`params` 可省略，省略就用默认值。创作稿只能采用默认值或更保守的覆盖：`charsPerSecond` 不得高于 4.5，`actionSeconds` 不得低于 2.5，`tolerance` 不得高于 0.15，`maxLineChars` 不得高于 35，`hookWindow` 不得高于 3。校验器会拒绝用加快语速、缩短动作或放宽容差掩盖正文超时。
 
 ## episode
 
@@ -33,8 +33,11 @@
 | `sceneId` | string | `S01` 格式，对账 art.json 的场景 |
 | `lighting` | string | 该场用的光照状态名，必须是 art.json 里该场景登记过的状态。可省略 |
 | `characters` | string[] | 本场出场角色（`C01` 格式，对账 outline.json）。空镜给空数组 |
+| `characterStates` | object | 角色状态映射，如 `{ "C01": "home_morning", "C02": "default" }`。`default` 复用主角色卡；其他值必须存在于 cast.json 的 `states` |
 | `props` | string[] | 本场用到的叙事道具（`P01` 格式，对账 art.json）。可省略 |
 | `flow` | beat[] | 节拍流，**动作与台词交替**，按发生顺序 |
+
+由原生 seed 创建的新剧本带 `stateContractVersion: 1`，此时每场必须用 `characterStates` 覆盖全部 `characters`，且不得多出未出场角色。服装、伤势、湿身等可见变化必须拆状态，不能只写进动作描述。
 
 ## beat（节拍）——二选一
 
@@ -54,8 +57,8 @@
 | --- | --- |
 | `action` | 叙述体画面描述，一拍一件事。**不许出现引号台词**（「」『』“”都不行）——台词混进动作就没法计秒、没法喂 TTS |
 | `speaker` | 本场 `characters` 里的角色 id，或 `"VO"`（画外音/心声——谁的心声写进 delivery） |
-| `line` | 台词本体，口语，单句 ≤ 35 字（非空白字符计） |
-| `delivery` | 表演提示：语气、动作伴随、潜台词。可省略，建议都写 |
+| `line` | 台词本体，单句 ≤ 35 字（非空白字符计）。脱离 `delivery` 朗读仍须口语自然、指代清楚，并符合人物身份、关系和当下目的；润色不得改变说话人、事实命题、对象、条件、语气功能或利害关系，不得用压缩书面语、翻译腔或主题金句代替说话 |
+| `delivery` | 演员能执行的语气或伴随动作，如压低声音、说到一半停住。可省略；不得写潜台词释义、心理结论或观众说明，也不能用于挽救本身不自然的 `line` |
 
 一个节拍不能既有 `action` 又有 `line`；两者都没有也不行。
 

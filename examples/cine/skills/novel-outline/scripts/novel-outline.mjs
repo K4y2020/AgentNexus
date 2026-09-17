@@ -269,7 +269,7 @@ export function gateReport(outline) {
   add(
     'major-early',
     '大爆点不在最后一集才首次出现',
-    majors.length > 0 && Math.min(...majors) < total,
+    majors.length > 0 && (total === 1 || Math.min(...majors) < total),
     majors.length ? `最早在第 ${Math.min(...majors)} 集` : '没有 major 爽点',
   );
 

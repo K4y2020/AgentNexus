@@ -155,8 +155,9 @@ export function h3Remainder(prompt) {
 export function h3CutSlices(prompt, cutCount, lang = 'en') {
   const tk = H3_TOKENS[lang] ?? H3_TOKENS.zh;
   const h3 = String(prompt ?? '');
-  const bodyStart = h3.indexOf(tk.fields[0]);
-  const bodyEnd = h3.indexOf(tk.fields[1]);
+  const ref2va = h3.includes('subject_definitions:');
+  const bodyStart = h3.indexOf(ref2va ? 'detailed_description:' : tk.fields[0]);
+  const bodyEnd = h3.indexOf(ref2va ? 'overall_soundscape:' : tk.fields[1]);
   if (bodyStart < 0) return [];
   const body = h3.slice(bodyStart, bodyEnd < 0 ? undefined : bodyEnd);
   const slices = [];
@@ -194,6 +195,7 @@ export function expandScript(script) {
       sceneId: sc.sceneId,
       lighting: sc.lighting ?? '',
       characters: sc.characters ?? [],
+      characterStates: sc.characterStates ?? {},
       props: sc.props ?? [],
       beats: (sc.flow ?? []).map((b, j) => {
         const isLine = typeof b?.line === 'string';
@@ -426,7 +428,7 @@ export function gateReport(board, ctx = {}) {
   const bad = {
     coverage: [], segCap: [], cutLen: [], fit: [], duration: [], crowd: [],
     id: [], size: [], camera: [], english: [], names: [], refs: [],
-    h3s: [], h3d: [], h3e: [], style: [], recipe: [],
+    h3s: [], h3d: [], h3e: [], style: [], recipe: [], states: [],
   };
   // 配方卡库是可选挂载：ctx.recipes 为空就整门跳过（不是「没有 cut 带 recipe」就跳过）
   const recipes = ctx.recipes ?? null;
@@ -444,6 +446,10 @@ export function gateReport(board, ctx = {}) {
     if (c?.name) banned.push(c.name);
     for (const a of c?.aliases ?? []) banned.push(a);
   }
+  const castStates = new Map((ctx.cast?.characters ?? []).map((c) => [
+    c.id,
+    new Set(['default', ...(c.states ?? []).map((s) => s?.id).filter(Boolean)]),
+  ]));
 
   for (const ep of eps) {
     const label = `E${String(ep?.ep).padStart(2, '0')}`;
@@ -467,21 +473,39 @@ export function gateReport(board, ctx = {}) {
       }
 
       const h3 = String(seg?.h3Prompt ?? '');
-      // H3 结构：首行对齐指令逐字对账（由分镜结构按 promptLang 推导），三字段按序，切点时刻逐个对
+      // Legacy storyboard packages align generated keyframes to cuts. Ref2VA
+      // instead defines connected character/environment references as subjects;
+      // those source images are not false first-frame or cut-frame anchors.
       const tk = H3_TOKENS[promptLang] ?? H3_TOKENS.zh;
-      const wantLine = h3AlignmentLine(cuts, promptLang);
-      if (!h3.trimStart().startsWith(wantLine)) {
-        bad.h3s.push(`${sid} 首行对齐指令和分镜结构对不上（promptLang=${promptLang}）`);
-      } else {
-        const idx = tk.fields.map((f) => h3.indexOf(f));
-        if (idx.some((i) => i < 0) || !(idx[0] < idx[1] && idx[1] < idx[2])) {
-          bad.h3s.push(`${sid} 三个核心字段缺失或顺序不对`);
+      const ref2vaFields = ['subject_definitions:', 'summary:', 'retention_analysis:', 'detailed_description:', 'overall_soundscape:', 'non_diegetic_music:'];
+      const ref2va = h3.includes('subject_definitions:');
+      if (ref2va) {
+        const indexes = ref2vaFields.map((field) => h3.indexOf(field));
+        if (!h3.trimStart().startsWith(ref2vaFields[0]) || indexes.some((i) => i < 0) || indexes.some((value, i) => i > 0 && value <= indexes[i - 1]) || ref2vaFields.some((field) => h3.split(field).length !== 2)) {
+          bad.h3s.push(`${sid} Ref2VA 六个字段必须各出现一次并按规范顺序排列`);
         } else {
           const starts = cutStarts(cuts);
-          if (h3.indexOf(tk.shot(1), idx[0]) < 0) bad.h3s.push(`${sid} 描述正文缺 ${tk.shot(1)}`);
+          if (h3.indexOf(tk.shot(1), indexes[3]) < 0) bad.h3s.push(`${sid} detailed_description 缺 ${tk.shot(1)}`);
           for (let k = 2; k <= cuts.length; k++) {
             const mark = tk.cutMark(k, h3CutTime(starts[k - 1]));
-            if (h3.indexOf(mark, idx[0]) < 0) bad.h3s.push(`${sid} 缺「${mark}」——切点时刻必须等于前面分镜秒数的累计`);
+            if (h3.indexOf(mark, indexes[3]) < 0) bad.h3s.push(`${sid} 缺「${mark}」——切点时刻必须等于前面分镜秒数的累计`);
+          }
+        }
+      } else {
+        const wantLine = h3AlignmentLine(cuts, promptLang);
+        if (!h3.trimStart().startsWith(wantLine)) {
+          bad.h3s.push(`${sid} 首行对齐指令和分镜结构对不上（promptLang=${promptLang}）`);
+        } else {
+          const idx = tk.fields.map((f) => h3.indexOf(f));
+          if (idx.some((i) => i < 0) || !(idx[0] < idx[1] && idx[1] < idx[2])) {
+            bad.h3s.push(`${sid} 三个核心字段缺失或顺序不对`);
+          } else {
+            const starts = cutStarts(cuts);
+            if (h3.indexOf(tk.shot(1), idx[0]) < 0) bad.h3s.push(`${sid} 描述正文缺 ${tk.shot(1)}`);
+            for (let k = 2; k <= cuts.length; k++) {
+              const mark = tk.cutMark(k, h3CutTime(starts[k - 1]));
+              if (h3.indexOf(mark, idx[0]) < 0) bad.h3s.push(`${sid} 缺「${mark}」——切点时刻必须等于前面分镜秒数的累计`);
+            }
           }
         }
       }
@@ -561,6 +585,23 @@ export function gateReport(board, ctx = {}) {
           const cast = new Set(scene.characters);
           for (const c of cut?.characters ?? []) {
             if (!cast.has(c)) bad.refs.push(`${cid} 的 ${c} 不在剧本该场人物里`);
+          }
+          if (board?.stateContractVersion >= 1) {
+            const states = cut?.characterStates;
+            if (!states || typeof states !== 'object' || Array.isArray(states)) {
+              bad.states.push(`${cid} 缺 characterStates`);
+            } else {
+              for (const c of cut?.characters ?? []) {
+                const want = scene.characterStates?.[c];
+                const got = states[c];
+                if (!want) bad.states.push(`${cid} 的 ${c} 在剧本场次缺状态`);
+                else if (got !== want) bad.states.push(`${cid} 的 ${c} 状态应为 ${want}，实际 ${got ?? '缺失'}`);
+                else if (castStates.has(c) && !castStates.get(c).has(got)) bad.states.push(`${cid} 的 ${c}@${got} 不在 cast.json`);
+              }
+              for (const c of Object.keys(states)) {
+                if (!(cut?.characters ?? []).includes(c)) bad.states.push(`${cid} 状态表多出画外角色 ${c}`);
+              }
+            }
           }
           const propSet = new Set(scene.props);
           for (const pr of cut?.props ?? []) {
@@ -664,6 +705,7 @@ export function gateReport(board, ctx = {}) {
   add('prompt-english', '分镜图提示词全英文且非空', bad.english.length === 0, bad.english.join('；'));
   add('prompt-no-names', '英文提示词不含角色名（分镜图提示词恒查；中文 H3 提示词放行）', bad.names.length === 0, banned.length ? bad.names.join('；') : SKIP_NAMES);
   add('refs', '场次／人物／道具对账剧本', bad.refs.length === 0, script ? bad.refs.join('；') : SKIP_SCRIPT);
+  add('character-states', '逐镜角色状态继承剧本场次，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
   // 可选挂载的门放最后：没给 --shots 就跳过；给了但全篇没引用配方也算通过，但要明说，不静默
   add(
     'shot-recipe',
@@ -743,6 +785,7 @@ export function seedFromScript(script, epRange = null) {
         sceneId: sc.sceneId,
         lighting: sc.lighting,
         characters: sc.characters,
+        characterStates: sc.characterStates,
         props: sc.props,
         beats: sc.beats.map((b) => ({
           n: b.n,
@@ -754,7 +797,7 @@ export function seedFromScript(script, epRange = null) {
       })),
     });
   }
-  return { source: script?.source ?? '', episodes };
+  return { source: script?.source ?? '', stateContractVersion: script?.stateContractVersion ?? 1, episodes };
 }
 
 /* ------------------------------------------------------------------ */

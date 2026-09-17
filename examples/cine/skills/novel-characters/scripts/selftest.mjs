@@ -307,11 +307,22 @@ eq(slug(''), 'character', '空名有兜底');
 
 /* ---------------- validateCast ---------------- */
 
-eq(validateCast(CAST, SOURCE).length, 0, '自带样例通过全部校验');
-ok(validateCast([], SOURCE).length > 0, '空 cast 报错');
-
 const clone = () => JSON.parse(JSON.stringify(CAST));
 const hits = (cast, keyword) => validateCast(cast, SOURCE).filter((p) => p.includes(keyword)).length;
+
+eq(validateCast(CAST, SOURCE).length, 0, '自带样例通过全部校验');
+{
+  const stateful = clone();
+  stateful[0].states = [{
+    id: 'home_morning', label: '卧室晨间家居服',
+    descriptor: 'Same face, hair and body proportions; charcoal cotton loungewear.',
+    image: { prompt: 'Same person in charcoal cotton loungewear.', sheet: 'Film character sheet in charcoal cotton loungewear.' },
+  }];
+  eq(validateCast(stateful, SOURCE).length, 0, '合法角色状态变体通过');
+  stateful[0].states[0].image.sheet = '';
+  ok(validateCast(stateful, SOURCE).some((x) => x.includes('image.sheet')), '状态变体缺独立 sheet 会被拦截');
+}
+ok(validateCast([], SOURCE).length > 0, '空 cast 报错');
 
 // 这四类是模型真实犯过的错，每一类都必须抓住
 let bad = clone();

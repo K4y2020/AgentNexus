@@ -46,6 +46,18 @@ def test_seed_reuses_native_cli(tmp_path, stage):
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
+def test_storyboard_seed_can_replace_only_untouched_empty_seed(tmp_path):
+    example(tmp_path, "script")
+    production.seed(tmp_path, "storyboard")
+    production.seed(tmp_path, "storyboard", replace_empty=True)
+    storyboard = production.read(tmp_path / "storyboard.json")
+    storyboard["episodes"][0]["segments"] = [{"id": "authored"}]
+    production.atomic_json(tmp_path / "storyboard.json", storyboard)
+    with pytest.raises(FileExistsError):
+        production.seed(tmp_path, "storyboard", replace_empty=True)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 def test_full_native_fixture_executes_five_validators(tmp_path):
     for stage in production.STAGES:
         example(tmp_path, stage)
@@ -133,3 +145,32 @@ def test_cli_failure_nonzero_and_report_is_not_reused(tmp_path, capsys):
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == "failed"
     assert len(list((tmp_path / ".cine-validation").glob("*.json"))) == 2
+
+
+def test_finalize_validates_before_refreshing_pins(tmp_path, monkeypatch):
+    names = ("source_material", "outline", "cast", "art", "script", "storyboard", "mapping")
+    for name in names:
+        (tmp_path / f"{name}.json").write_text(json.dumps({"name": name}), encoding="utf-8")
+    production.atomic_json(
+        tmp_path / "production.json",
+        {
+            "schema_version": 1,
+            "mode": "adaptation",
+            "artifacts": {
+                name: {"path": f"{name}.json", "sha256": "old", "inputs": {}} for name in names
+            },
+        },
+    )
+    monkeypatch.setattr(
+        production, "check", lambda *_args, **_kwargs: {"status": "native_validated"}
+    )
+    monkeypatch.setattr("pipeline.handoff.validate", lambda _path: {"status": "handoff_validated"})
+    result = production.finalize(tmp_path)
+    refreshed = production.read(tmp_path / "production.json")["artifacts"]
+    assert result["status"] == "production_finalized"
+    assert refreshed["storyboard"]["inputs"] == {
+        "script": refreshed["script"]["sha256"],
+        "cast": refreshed["cast"]["sha256"],
+        "art": refreshed["art"]["sha256"],
+    }
+    assert refreshed["mapping"]["inputs"]["storyboard"] == refreshed["storyboard"]["sha256"]

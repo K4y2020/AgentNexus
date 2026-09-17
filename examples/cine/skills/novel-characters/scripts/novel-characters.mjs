@@ -503,6 +503,7 @@ export function seedFromOutline(outline) {
         relationships: [], evidence: [],
       },
       image: { style: '', prompt: '', promptLocal: '', negativePrompt: '', tags: [], sheet: '' },
+      states: [],
       voice: { timbre: '', pitch: '', pace: '', accent: '', emotion: '', prompt: '', referenceHint: '' },
       ...(note ? { seedNote: note } : {}),
     };
@@ -643,6 +644,28 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
         at(name, 'image.sheet 缺失或为空（角色设定图提示词）');
       }
       if (!Array.isArray(image.tags)) at(name, 'image.tags 必须是数组');
+    }
+
+    if (c?.states !== undefined) {
+      if (!Array.isArray(c.states)) {
+        at(name, 'states 必须是数组');
+      } else {
+        const stateIds = new Set();
+        for (const state of c.states) {
+          const id = state?.id;
+          if (!/^[a-z][a-z0-9_-]*$/.test(id ?? '') || id === 'default') {
+            at(name, `state.id「${id ?? ''}」非法或占用保留字 default`);
+          } else if (stateIds.has(id)) {
+            at(name, `state.id「${id}」重复`);
+          } else {
+            stateIds.add(id);
+          }
+          if (typeof state?.label !== 'string' || !state.label.trim()) at(name, `${id ?? '?'} 缺 label`);
+          if (typeof state?.descriptor !== 'string' || !state.descriptor.trim()) at(name, `${id ?? '?'} 缺 descriptor`);
+          if (typeof state?.image?.prompt !== 'string' || !state.image.prompt.trim()) at(name, `${id ?? '?'} 缺 image.prompt`);
+          if (typeof state?.image?.sheet !== 'string' || !state.image.sheet.trim()) at(name, `${id ?? '?'} 缺 image.sheet`);
+        }
+      }
     }
 
     const voice = c?.voice;

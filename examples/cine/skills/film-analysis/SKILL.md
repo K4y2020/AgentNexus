@@ -15,13 +15,15 @@ rather than inventing facts. A supplied full video is not an invitation to stop 
 Use the directory returned by load_skill; do not recursively search for scripts.
 
 ```powershell
-uv run --with "scenedetect[opencv]>=0.6.4" --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --session-id <session> --profile adaptation
+uv run --with "scenedetect[opencv]>=0.6.4" --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
 ```
 
 Omitting --end covers the source duration. An explicit --end selects a narrower
 scope and must not be reported as full-film work. --resume preserves an unchanged
 adaptation revision and its saved story progress; changed scope creates a new revision.
 Source identity changes require a new project. Never copy old scratch analyses.
+In a canonical Bot `topics/<session-id>` workspace, the command derives the
+session binding from the directory. Do not invent or hand-copy a session ID.
 
 The pipeline generates a canonical cut index plus story_plan.json under its revision.
 It samples three representative stills per 30-second temporal batch, independent of
@@ -36,6 +38,12 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
 3. Use available subtitles/transcripts for dialogue and causal detail. ASR output
    remains qualified; without audio tools, do not claim listening or invent quotes.
    If a key event is unclear, inspect extra frames/short clips locally around it.
+   When the source has speech but no trusted subtitles, create a reusable local ASR
+   transcript instead of improvising dialogue from stills:
+   `uv run --with "faster-whisper>=1.2,<2" python <skill>/pipeline/transcribe.py
+   --media <source> --output <workspace>/inputs/source-transcript --workspace <workspace>
+   --model small --language zh`. This produces qualified evidence, not a certified
+   verbatim transcript. Never create `inputs/source.txt` from visual guesses.
 4. Save each batch into <project>/story/<revision>.json immediately. Resume saved
    progress after interruptions. Do not ask permission to continue each batch.
 5. Complete the ending and whole-film summary before final delivery. Noncritical
@@ -55,6 +63,10 @@ Timings and shot references are derived from that plan, not hand-written ranges.
   "schema_version": 1,
   "source_id": "<current source>",
   "revision_id": "<current revision>",
+  "dialogue_provenance": {
+    "status": "unverified | asr | trusted_subtitles | visible_subtitles",
+    "source_path": "inputs/source-transcript.txt or null"
+  },
   "characters": ["Role and relationships; names unknown where unsupported"],
   "summary": {
     "premise": "Initial situation",
@@ -78,6 +90,8 @@ Deliver a whole-film synopsis, character relationships, turning points, ending,
 representative visual references and adaptation opportunities. Separate original
 observations from proposed changes. ready_for_adaptation means a sampled working
 brief, not all shots/audio verified or an exact accuracy percentage.
+Quoted source dialogue without declared transcript/subtitle provenance blocks this
+gate. Visual-only story reading may still pass when it avoids unsupported quotations.
 
 ## Into production
 

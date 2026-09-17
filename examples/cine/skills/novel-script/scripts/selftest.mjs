@@ -89,9 +89,50 @@ ok(voEntry.lines[0].sceneId === 'S01', '台词条目带场景');
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带上游全部门通过');
 ok(gateReport(FIXTURE).every((g) => g.ok), '不带上游也全部通过（对账门跳过）');
-eq(gateReport(FIXTURE).length, 10, '十道门');
+eq(gateReport(FIXTURE).length, 12, '十二道门');
+
+/* ---------------- 角色状态合同 ---------------- */
+
+{
+  const doc = clone(FIXTURE);
+  doc.stateContractVersion = 1;
+  const g = gate(doc, 'character-states');
+  ok(!g.ok && g.detail.includes('缺 characterStates'), '状态合同开启后缺场景状态会被拦截');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.stateContractVersion = 1;
+  for (const ep of doc.episodes) for (const scene of ep.scenes) {
+    scene.characterStates = Object.fromEntries(scene.characters.map((id) => [id, 'default']));
+  }
+  doc.episodes[0].scenes[0].characterStates[doc.episodes[0].scenes[0].characters[0]] = 'home_morning';
+  const ids = [...new Set(doc.episodes.flatMap((ep) => ep.scenes.flatMap((scene) => scene.characters)))];
+  const cast = { characters: ids.map((id) => ({ id, states: [] })) };
+  const g = gateReport(doc, { ...CTX, cast }).find((x) => x.id === 'character-states');
+  ok(!g.ok && g.detail.includes('不在 cast.json'), '剧本引用不存在的服装状态会被拦截');
+}
 
 /* ---------------- 质量门：逐门击穿 ---------------- */
+
+// params-conservative — 允许更保守，不允许靠改参数刷绿
+{
+  const doc = clone(FIXTURE);
+  doc.params = { charsPerSecond: 5.5 };
+  const g = gate(doc, 'params-conservative');
+  ok(!g.ok, '提高语速压缩估时被拦');
+  ok(g.detail.includes('不能靠加快语速'), '语速违规给出可操作诊断');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.params = { actionSeconds: 2, tolerance: 0.2 };
+  const g = gate(doc, 'params-conservative');
+  ok(!g.ok, '缩短动作耗时或放宽容差被拦');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.params = { charsPerSecond: 4, actionSeconds: 3, tolerance: 0.1, maxLineChars: 30, hookWindow: 2 };
+  ok(gate(doc, 'params-conservative').ok, '收紧估算和质量参数仍允许');
+}
 
 // duration — 写超
 {
@@ -327,7 +368,7 @@ ok(html.includes('分集剧本'), '02 分集剧本');
 ok(html.includes('场次总表'), '03 场次总表');
 ok(html.includes('台词本'), '04 台词本');
 ok(html.includes('质量门'), '05 质量门');
-ok(html.includes('✓ 质量门 10 / 10'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 12 / 12'), '页眉徽章全绿');
 ok(html.includes('class="band"'), '时长条带目标区间');
 ok(html.includes('导出 JSON'), '导出按钮在');
 ok(html.includes('id="script-data"'), '数据内嵌');
@@ -370,7 +411,7 @@ ok(html.includes('lang="zh"'), '默认报告 html lang 是 zh');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('lang="en"'), 'en 报告的 html lang 属性正确');
   ok(en.includes('Export JSON'), 'en 导出按钮标签');
-  ok(en.includes('Quality gates 10 / 10'), 'en 页眉徽章全绿');
+  ok(en.includes('Quality gates 12 / 12'), 'en 页眉徽章全绿');
   ok(en.includes('Line book'), 'en 台词本标题');
   ok(en.includes('Duration gauge'), 'en 时长仪表标题');
   ok(!en.includes('导出 JSON'), 'en 报告不含中文导出标签');

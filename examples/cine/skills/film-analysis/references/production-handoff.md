@@ -33,6 +33,20 @@ reconcile against today's approved inputs, review descendants, then establish pi
 
 ## Native stage entry
 
+Routine canvas production is skill-led, not software repair. Read/write the native
+creative artifacts directly; do not generate ad hoc bridge/repair scripts or inspect
+service repositories. Use seedance_read_canvas action=models/job for the generation
+catalog and exact job state. Seedance submit_generation validates automatically.
+Cast image delivery validates cast plus source text, not episode/outline gates;
+art validates cast+art; storyboard delivery retains the complete upstream chain.
+All native seed/check/submission entries use the same artifact resolver. If
+production.json exists, artifacts.<stage>.path selects that stage's relative file
+inside the production directory. A missing/invalid binding never falls back to
+another filename. Without a manifest, exactly one canonical or *-<stage>.json file
+is accepted; canonical plus a named version is ambiguous too. Do not rename/copy
+files to force selection. Ambiguity requires an explicit version choice, never
+invented upstream content. Technical failures remain technical failures.
+
 Use the real directory returned by `load_skill` for `<film-analysis>` below.
 Do not search the whole disk or read entire validator implementations to discover
 their CLI. Keep native schemas; fill seeds rather than replacing them with
@@ -48,33 +62,53 @@ python <film-analysis>/pipeline/production.py seed <output> --stage script
 # Fill script before seeding the storyboard:
 python <film-analysis>/pipeline/production.py seed <output> --stage storyboard
 python <film-analysis>/pipeline/production.py check <output> --source-text <source.txt>
+python <film-analysis>/pipeline/production.py finalize <output> --source-text <source-transcript.txt>
 ```
+
+If the script changes after an untouched storyboard seed was created, rerun the
+storyboard seed with `--replace-empty`. It replaces only a storyboard whose every
+`segments` list is still empty; authored storyboard content remains protected.
 
 `init` creates an incomplete outline with no invented characters or observations.
 Seeds retain upstream IDs through existing Node scripts and never overwrite
-existing output. Use a new production revision directory for replacement seeds.
+an existing canonical, named or explicitly bound output. With a manifest, declare
+the target path before seeding; seeding does not update hashes or approval pins.
+Use a new production revision directory for replacement seeds.
 Use `check --stage outline|cast|art|script|storyboard` for a focused check.
 
-`check` executes native validators with relevant upstream inputs. Unique reports
+`check` executes native validators with relevant upstream inputs. `finalize` is
+the only routine path that refreshes artifact hashes and dependency pins: it
+first reruns all five native validators, then rewrites the complete pin graph and
+executes the handoff checker. Never hand-edit hashes after a revision. Unique reports
 and a `latest.json` convenience copy under `<output>/.cine-validation/` record
 commands, input hashes, validator hash, stdout/stderr and actual exit code.
 Changed inputs, missing tools, timeouts, bad shapes and native failures cannot
 pass. A printed PASS is never parsed as approval. Missing source text yields
 `incomplete` for cast quote checks; use actual source or approved original treatment,
-not invented original-film dialogue. `native_validated` does not authorize generation
+not invented original-film dialogue. Never manufacture `inputs/source.txt` from a
+story draft or sparse screenshots and label it a transcript. Store machine speech
+recognition as `inputs/source-transcript.txt` with `dialogue_provenance.status=asr`;
+store a newly written adaptation treatment under a clearly different name and label.
+`native_validated` does not authorize generation
 or establish visual quality/provider compatibility. Reports are not authorization
 tokens: every check re-executes the tools rather than reusing an old report.
+The native report fingerprints production.json, including its absence. Changing
+or adding bindings during validation invalidates the submission proof. Path
+selection does not authenticate the manifest's upstream pins: use the stage
+handoff check below as well. Native validation does not establish source reading
+or adaptation quality.
 
 The AgentNexus direct generation bridge now re-executes native checks before
 submitting. Supply `production_dir`, `source_text`, `production_stage` and
-`production_pointer` to `seedance_edit_canvas`. Use `action=validate_generation`
-first to exercise the same gate without submitting a V3 command. Example for
+`production_pointer` to `seedance_edit_canvas`. For review-only/preflight requests,
+use `action=validate_generation`; authorized submission already runs the gate. Example for
 a character image: stage `cast`, pointer `/characters/0/image/sheet`, kind `image`.
 For a video use stage `storyboard` and `/episodes/0/segments/0/h3Prompt`; for its
 keyframe use `/episodes/0/segments/0/cuts/0/frame`, kind `image`. Submitted prompt
 must exactly match the selected field; files must stay in this Topic workspace.
-Partial image stages validate their upstream outline/cast/art chain; video checks
-all five artifacts. Native validation still does not prove provider compatibility.
+Cast images validate cast/source text, art validates cast/art, and storyboards check
+all five artifacts. No episode gates are required for a character image revision.
+Native validation still does not prove provider compatibility or visual quality.
 Legacy `seedance_agent_message` is disabled, including draft requests, because
 the generic V3 Agent has no read-only enforcement. Use `initialize` on the direct
 canvas tool for binding and `seedance_read_canvas` for snapshot QA.
@@ -92,7 +126,12 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    `python <film-analysis>/pipeline/handoff.py --source-project <bound-project>`
    prints this material from the committed ledger and review sidecar. Capture it
    in the new output directory; absent reviews stay unverified. The adapter does
-   not authenticate receipts or infer characters, dialogue or story facts.
+   not authenticate receipts or infer characters, dialogue or story facts. When
+   story_plan.json exists, it also exports the matching story/<revision>.json as
+   adaptation_story with source input hashes. Missing or mismatched story drafts
+   cannot be replaced by an older revision. Exported story content stays unverified;
+   cine_verify_report(scope="adaptation") is still required for readiness claims.
+   Extracted images or indexed_unreviewed alone never mean the film was understood.
 3. `novel-outline`: use reviewed material plus approved creative decisions.
    `novel-characters` and `novel-art` consume that outline, retaining its IDs.
 4. `novel-script`: consume outline, cast and art; changed cast/scene/light/prop
@@ -104,6 +143,11 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    the original shot list. A new cut has no fabricated source correspondence.
 6. Run native validators with all relevant upstream arguments, then the sidecar
    checker. Hash pins detect stale files, not whether the story is good.
+   Before downstream stages exist, use `handoff.py production.json --stage outline`
+   or `--stage script`: only that stage's dependency closure is required, including
+   source_material for video-derived work. The result is stage_inputs_validated,
+   not whole-production approval. The default command still requires the full
+   storyboard/mapping handoff. Do not fabricate future stages merely to run a check.
 7. Inspect the bound V3 canvas; synchronize only authorized changes directly
    with `seedance_edit_canvas`, using `expected_revision` for updates. Use returned
    node/asset/job IDs. Local paths are not remote reference assets. Confirm asset

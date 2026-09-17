@@ -7,7 +7,9 @@ Screenwriting for AI short drama: turns novel-outline's per-episode synopses int
 One line is held firmly though: **dialogue is structured data, not prose.**
 
 - **Beat flow** — every scene is an alternating sequence of action beats and dialogue lines: one event per action beat (narrative prose), every line carrying its speaker and delivery note. Lines feed straight into per-line TTS; action beats are what the picture has to do
-- **Per-episode time budget** — dialogue converts at reading speed (4.5 chars/sec by default), action at a fixed per-beat estimate (2.5s). Every episode must land within ±15% of target. **A three-minute episode is three minutes** — overruns are caught here, not in the generation pipeline
+- **Spoken-Chinese pass** — dialogue is reviewed separately for character intent, relationship, spoken word order, and audible reference clarity; it must sound human without `delivery` while preserving the original proposition and speech act
+- **Character-driven dialogue** — when `cast.json` exists, the writer must consume each speaker's wants, stakes, relationship leverage, pressure tactics, and speech fingerprint; a short scene without cast data first gets temporary speaking cards
+- **Per-episode time budget** — dialogue converts at reading speed (4.5 chars/sec by default), action at a fixed per-beat estimate (2.5s). Draft toward ±5% of target; ±15% is only the hard rejection band. **A three-minute episode is three minutes** — overruns are caught here, not in the generation pipeline
 - **Hook + cliffhanger** — on paper for every episode, and **the hook is the first beat, not a label**: `hookBeat` claims its concrete image, gated to the episode's first 3 beats (cold open); beats promised by the outline must be claimed by actual scenes
 - **Voice-over convention** — `VO` marks inner voice and narration, whose voice goes in the delivery note; the line book groups VO separately
 
@@ -15,13 +17,14 @@ Outputs `script.json`, a Markdown script, and a self-contained `script-report.ht
 
 ![script-report.html](assets/report.webp)
 
-## Ten quality gates, all code
+## Eleven quality gates, all code
 
 Same stance as the other three skills in this repo: **a checklist the model grades itself on is worthless.**
 
 | Gate | Rule |
 | --- | --- |
-| **Episode duration** | estimate within ±15% of `targetSeconds` (speed, per-beat seconds and tolerance all tunable via `params`) |
+| **Conservative parameters** | `params` may keep or tighten defaults; a draft cannot pass by increasing speech rate, shortening action time, or widening tolerance |
+| **Episode duration** | conservative natural-dialogue estimate within ±15% of `targetSeconds` |
 | Line length | ≤ 35 chars — a line you can't say in one breath can't be generated either |
 | Speaker legality | speaker must be in the scene's cast, or explicitly `VO` |
 | Hook & cliff on paper | `hook` / `cliff` required per episode |
@@ -76,7 +79,7 @@ The report UI defaults to Chinese; `--lang en` renders it fully in English.
 ## Limits
 
 - No shots, no shot numbers, no generation prompts, no images — nothing from the storyboard layer
-- Duration is an **estimate, not a stopwatch** — that's what the ±15% tolerance is for; tune `params.charsPerSecond` to your voice-over pace
+- Duration is an **estimate, not a stopwatch**; the writing model must fix the text rather than change timing parameters to erase an overrun
 - Report UI ships in Chinese and English (`--lang zh|en`, Chinese by default, or the script.json top-level `lang` field); dialogue follows the drama's language
 - Write ≤ 3 episodes per batch — the script is the most-rewritten layer of the whole pipeline
 
