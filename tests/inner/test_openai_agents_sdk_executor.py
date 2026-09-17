@@ -275,6 +275,11 @@ class _FakeMaxTurnsExceeded(Exception):
     pass
 
 
+class _FakeToolOutput:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
 def _fake_agents_sdk():
     return types.SimpleNamespace(
         Agent=_FakeAgent,
@@ -283,6 +288,8 @@ def _fake_agents_sdk():
         OpenAIProvider=_FakeOpenAIProvider,
         SQLiteSession=_FakeSQLiteSession,
         FunctionTool=_FakeFunctionTool,
+        ToolOutputImage=_FakeToolOutput,
+        ToolOutputText=_FakeToolOutput,
         ItemHelpers=_FakeItemHelpers,
         ModelSettings=_FakeModelSettings,
         MaxTurnsExceeded=_FakeMaxTurnsExceeded,
@@ -540,6 +547,32 @@ class TestOpenAIAgentsSDKExecutor(unittest.TestCase):
             tools[0].params_json_schema["required"],
             ["tool", "session", "args"],
         )
+
+    def test_build_tools_returns_native_image_output(self):
+        async def _t():
+            executor = OpenAIAgentsSDKExecutor(client=object())
+
+            async def invoke(_name, _args):
+                return {
+                    "metadata": {"receipt_id": "r1"},
+                    "image": {
+                        "source": {
+                            "media_type": "image/png",
+                            "data": "aW1hZ2U=",
+                        }
+                    },
+                }
+
+            executor._tool_executor = invoke
+            tool = executor._build_tools(
+                _fake_agents_sdk(),
+                [{"name": "sys_os_view_image", "parameters": {"type": "object"}}],
+            )[0]
+            output = await tool.on_invoke_tool(None, '{"path":"frame.png"}')
+            self.assertEqual(output[0].text, '{"receipt_id": "r1"}')
+            self.assertEqual(output[1].image_url, "data:image/png;base64,aW1hZ2U=")
+
+        _run(_t())
 
     def test_streams_text_and_tool_events(self):
         async def _t():

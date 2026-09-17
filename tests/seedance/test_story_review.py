@@ -32,6 +32,7 @@ def story_fixture(tmp_path):
     draft = {
         "source_id": "s",
         "revision_id": "r1",
+        "dialogue_provenance": {"status": "unverified", "source_path": None},
         "characters": ["masked protagonist"],
         "summary": {
             "premise": "arrival",
@@ -146,3 +147,31 @@ async def test_old_revision_and_changed_images_do_not_gain_readiness(story_fixtu
     assert (await verify_report(client, "topic", scope="adaptation"))[
         "status"
     ] == "needs_story_completion"
+
+
+async def test_quoted_dialogue_without_provenance_is_blocked(story_fixture):
+    client, project, draft, _ = story_fixture
+    draft["sections"][0]["events"] = ["她说：'别过来。'"]
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "needs_story_completion"
+    assert {issue["reason"] for issue in result["issues"]} >= {
+        "quoted_dialogue_without_provenance"
+    }
+
+
+async def test_asr_dialogue_is_qualified_but_allowed(story_fixture):
+    client, project, draft, _ = story_fixture
+    transcript = project.parent / "inputs/source-transcript.txt"
+    transcript.parent.mkdir(parents=True)
+    transcript.write_text("[0.000-1.000] 别过来。", encoding="utf-8")
+    draft["dialogue_provenance"] = {
+        "status": "asr",
+        "source_path": "inputs/source-transcript.txt",
+    }
+    draft["sections"][0]["events"] = ["ASR记录她说：“别过来。”"]
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "ready_for_adaptation"
+    assert result["audio_review"] == "asr"
+    assert any("ASR-derived" in warning["detail"] for warning in result["warnings"])

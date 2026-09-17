@@ -22,6 +22,46 @@ from omnigent.seedance.client import (
 _BASE = "http://127.0.0.1:8893"
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_generation_catalog_is_read_only():
+    route = respx.get(f"{_BASE}/v3/generation-models").respond(
+        200, json={"models": [{"value": "test-image", "kind": "image"}]}
+    )
+    async with SeedanceClient(base_url=_BASE, api_key="test") as client:
+        result = await client.get_generation_models()
+    assert result["models"][0]["value"] == "test-image"
+    assert len(route.calls) == 1
+    assert route.calls[0].request.headers["x-api-key"] == "test"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_snapshot_keeps_v3_media_summary():
+    media = [{"nodeId": "node", "latestJob": {"id": "done", "status": "succeeded"}}]
+    respx.get(f"{_BASE}/v3/projects/project/snapshot").respond(
+        200, json={"snapshot": {"nodes": [], "edges": []}, "nodeMedia": media}
+    )
+    async with SeedanceClient(base_url=_BASE, api_key="test") as client:
+        result = await client.get_snapshot("project")
+    assert result["node_media"] == media
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_image_download_rejects_redirect_and_size_limit():
+    from omnigent.seedance.client import SeedanceError
+
+    ref = "local://" + "a" * 64
+    route = respx.get(f"{_BASE}/v3/storage/" + "a" * 64).respond(302, headers={"Location": "https://example.com/private"})
+    async with SeedanceClient(base_url=_BASE, api_key="test") as client:
+        with pytest.raises(SeedanceError, match="download failed"):
+            await client.get_local_image(ref, 2)
+        route.respond(200, content=b"123")
+        with pytest.raises(SeedanceError, match="exceeds"):
+            await client.get_local_image(ref, 2)
+
+
 def test_validate_seedance_base_url_security():
     assert validate_seedance_base_url("http://127.0.0.1:8893") == "http://127.0.0.1:8893"
     assert validate_seedance_base_url("http://localhost:8893/") == "http://localhost:8893"

@@ -215,6 +215,16 @@ def test_shell_impl_does_not_wait_for_detached_child_pipe(tmp_path: Path) -> Non
                 pass
 
 
+def test_shell_impl_prefers_utf8_output(tmp_path: Path) -> None:
+    result = _shell_impl(
+        command="import sys; sys.stdout.buffer.write('中文诊断 ✗'.encode('utf-8'))",
+        timeout=5,
+        shell_path=sys.executable,
+        cwd=tmp_path,
+    )
+    assert result["stdout"] == "中文诊断 ✗"
+
+
 # ---------------------------------------------------------------------------
 # _read_impl — binary file handling
 # ---------------------------------------------------------------------------

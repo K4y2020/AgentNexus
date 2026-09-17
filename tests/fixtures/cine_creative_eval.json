@@ -1,0 +1,146 @@
+{
+  "version": 2,
+  "purpose": "Evaluate independent creative output, not responsiveness to scene-specific coaching.",
+  "execution": {
+    "mode": "text_only",
+    "write_production_files": false,
+    "submit_generation": false,
+    "automatic_run": false,
+    "controls": [
+      "Use separate clean sessions for baseline and candidate, with identical user prompts and model settings.",
+      "Record actual bundle hash, model, settings, run IDs and complete outputs. If a baseline bundle is unavailable, label the test candidate-only.",
+      "Do not send reviewer criteria, examples, previous feedback or the other output to the generating model.",
+      "Blind reviewers to bundle version and randomize display order; disclose when the reviewer is also the author.",
+      "Compare first outputs before allowing repairs. Report coached repairs separately.",
+      "Keep script creation/review, full video-prompt review, and generation-constraint adaptation as separate evaluation stages. Never infer an upstream script defect from a mixed prompt-review result.",
+      "Request only the deliverable of the selected stage. Ask for a separate shot plan only when that stage requires it; do not ask for start/end fields on every gesture. Preserve explicitly requested synchronization.",
+      "Use evidence-backed pairwise preferences and unmet constraints, not invented quality percentages.",
+      "Do not infer audiovisual quality from text-only performance. Do not declare success on one sample."
+    ]
+  },
+  "cases": [
+    {
+      "id": "script_laundry_comedy",
+      "stage": "script_creation",
+      "prompt": "写一部约30秒的现代生活轻喜剧短片剧本，地点是深夜自助洗衣店，出场两位成年人。冲突、人物关系与结尾由你创作，开场前三秒要有能看见或听见的吸引点。只交付标题和剧本正文，动作自然连贯，台词标明说话人。不写分镜、逐动作时间表、生成提示词、创作说明或自评分。不调用工具、不写文件、不生成媒体。",
+      "reviewer_checks": [
+        "The opening presents a concrete situation that creates curiosity, not merely a title or an explanation of the hook.",
+        "Character choices grow from a readable objective and obstacle; the turn does not require an unestablished fact.",
+        "The ending develops or pays off the setup through action or dialogue rather than an appended moral.",
+        "Dialogue, prop continuity and action load plausibly fit the requested runtime with room for reaction.",
+        "Judge readiness for storyboarding only. Do not infer visual quality, an audience retention percentage, or general skill improvement."
+      ]
+    },
+    {
+      "id": "script_elevator_suspense",
+      "stage": "script_creation",
+      "prompt": "写一部约40秒的生活悬疑短片剧本，地点是住宅楼电梯口，出场两位成年人。冲突、人物关系与结尾由你创作，开场前三秒要有能看见或听见的吸引点。只交付标题和剧本正文，动作自然连贯，台词标明说话人。不写分镜、逐动作时间表、生成提示词、创作说明或自评分。不调用工具、不写文件、不生成媒体。",
+      "reviewer_checks": [
+        "The opening establishes an observable discrepancy or tension; information is revealed in a coherent order.",
+        "Characters react to what they can know, without arbitrary stupidity or author-only knowledge.",
+        "The ending changes the meaning of an established detail or resolves/deepens the established conflict, not an unrelated last-line surprise.",
+        "The elevator, people and relevant props retain coherent states; legitimate uncertainty is not treated as a mandatory exposition gap.",
+        "Judge script-level clarity and interest with runtime plausibility, not video prompt syntax or rendered-film quality."
+      ]
+    },
+    {
+      "id": "comedy_prop_handoff_review",
+      "stage": "video_prompt_review",
+      "eligible_for_script_review_comparison": false,
+      "scope_note": "Historical input mixes a story outline with an unscoped generation restriction. Retained for traceability; its cast-conflict response is not evidence of negative-template injection into script creation.",
+      "prompt": "审查下面30秒动作喜剧提纲，简短指出影响理解的连接问题及最小修正方向，不重写整片、不生成媒体。镜头1：女子提杂货袋行走，男子骑滑板车按铃让她让路。镜头2：车自己滚回来，男子在后追。镜头3：女子用脚拦车，男子说“你拦住它了？”，她说“不客气”。镜头4：男子的袋子掉开，女子接住散落蔬菜，老邻居笑。镜头5：男子骑走，才发现头盔在女子手里，转身回来。全片保持角色和环境一致，无额外人物、不可能物理。不要假定未写出的机制已经发生。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Identifies missing basis for scooter return without claiming a slope or motor behaviour was already established.",
+        "Tracks ownership of the two grocery bags and missing helmet transfer; does not demand every trivial gesture be filmed.",
+        "Reports ambiguity between the planned neighbour and the unscoped generation restriction. Do not score this mixed-input response as a script-creation regression or automatic deletion of project characters.",
+        "Discusses action/dialogue load without inventing mandatory per-gesture timestamps or changing the ending."
+      ]
+    },
+    {
+      "id": "comedy_script_handoff_review",
+      "stage": "script_review",
+      "eligible_for_script_review_comparison": true,
+      "prompt": "只审查故事连接，不重写整片、不生成媒体。30秒动作喜剧提纲：女子提杂货袋行走，男子骑滑板车按铃让她让路；车自己滚回来，男子在后追；女子用脚拦车，男子说“你拦住它了？”，她说“不客气”；男子的袋子掉开，女子接住散落蔬菜，老邻居笑；男子骑走，才发现头盔在女子手里，转身回来。请指出影响理解的连接问题和最小修正方向。未写明的动作机制不要当成已经发生。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Evaluates scooter motion, bag ownership and missing helmet transfer from story facts only.",
+        "Does not invent a two-person limit or generation-negative restriction; the neighbour is already a planned story character.",
+        "Distinguishes an actual missing connection from ordinary ellipsis and from an unverified generation difficulty."
+      ]
+    },
+    {
+      "id": "generation_cast_constraint_scope",
+      "stage": "generation_constraint_adaptation",
+      "eligible_for_script_review_comparison": false,
+      "prompt": "剧情已经确认，计划角色为女子、男子和老年邻居，各镜出场按分镜名单执行。生成模板中有一句通用限制“无额外人物”。现在只整理这句生成约束在本项目中的作用范围，不写剧本、不修改角色名单、不生成媒体、不调用工具。",
+      "reviewer_checks": [
+        "Scopes the restriction to unplanned people or duplicates while respecting each shot's approved cast.",
+        "Does not require all three characters in every shot and does not delete the neighbour or rewrite the story.",
+        "This tests downstream constraint adaptation, not script creation or measured video quality."
+      ]
+    },
+    {
+      "id": "intentional_state_change_review",
+      "stage": "storyboard_review",
+      "prompt": "审查这个明确的回忆转场方案，不重写故事：现在的破屋里，成年女子把红玩具推到受伤的猫前。硬切到过去的晴天球场，保持玩具在画面中的位置、低机位和猫的身份花纹，但猫健康、女子无伤。猫抓住玩具，下镜女子直接拿玩具抛出，猫追出、抓住、带回、放下并得到抚摸，全部安排在3秒。分别说出哪些连续性成立、哪些需补连接、哪些是执行风险。只输出文字，不调用工具、不生成媒体。",
+      "reviewer_checks": [
+        "Accepts the explicit past/present scene and health-state changes, distinguishing identity from transient state.",
+        "Preserves the local match-cut anchors instead of freezing the entire environment.",
+        "Detects the missing return/transfer of the toy to the woman.",
+        "Flags the three-second multi-action burden without rejecting all animal action or rewriting the flashback into a different story."
+      ]
+    },
+    {
+      "id": "quiet_scene_beat_boundary",
+      "stage": "script_and_shot_plan_creation",
+      "prompt": "写一段20秒的克制生活短片：末班车站台，一位年轻成年人接到熟人的电话，对方只说“你不用等了。”他回答“嗯”，挂断后看了一眼身旁空着的长凳位置，仍把那个位置留着。末班车从背景离开，他没有上车。只出现这一个画内人物，电话中的人不出镜。前三秒有可感知的关系变化，风格服从故事，不强制DV。先交付简洁剧本，再给最多三镜的分镜方案（每镜计划时长、动作、声音、切镜理由），保留两句原文。直接创作，不需要另做大纲或询问，不调用工具、不生图、不生成视频。",
+      "reviewer_checks": [
+        "The script describes motivation, causal actions and recognition rather than timestamping every hand or gaze movement.",
+        "Only the shot plan and justified synchronization cues use numeric timing; the twenty-second runtime and opening hook remain intact.",
+        "Preserves the phone speaker, exact dialogue, empty seat and decision not to board; no added person or exposition.",
+        "Does not force equal shot lengths or mechanically map each narrative beat to a cut."
+      ]
+    },
+    {
+      "id": "explicit_sync_preserved",
+      "stage": "shot_plan_creation",
+      "prompt": "写一个10秒的单镜短片方案：成年人在桌边等电话，第4秒电话响，他停下翻书，第6秒按用户指定的音乐重拍合上书，再接电话但不说话。保留4秒铃声和6秒合书这两个同步要求，其余表演自然展开。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Retains the user-specified four-second ring and six-second book closure, rather than deleting all timestamps.",
+        "Keeps one shot and causal action continuity without inventing micro-action timing for every gesture."
+      ]
+    },
+    {
+      "id": "fantasy_comedy_authority",
+      "stage": "shot_plan_creation",
+      "prompt": "写一场24秒、最多四镜的荒诞职场喜剧导演稿：一名能轻松暂停时间的图书管理员，把正在倒下的书架停在半空。读者急着赶火车，她从容让读者补签借阅单。读者签完，她才恢复时间，接住掉下的一本书。保留能力、结局和从容反差，不增加角色或道具。给逐镜时长、动作、对白、声源和切镜理由。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Preserves effortless time control rather than manufacturing physical struggle.",
+        "Makes the reader's urgency and librarian's composure visible through timing and behaviour.",
+        "Tracks the form, book, hands and frozen state across cuts.",
+        "Allocates plausible dialogue and reaction time; cuts have a narrative purpose."
+      ]
+    },
+    {
+      "id": "suspense_information",
+      "stage": "shot_plan_creation",
+      "prompt": "写一场30秒、最多五镜的悬疑导演稿：值班保安从监控看见走廊尽头的门正在缓缓打开。他转头看同一扇门，门却关着；再看监控，画面时间比墙上时钟早两分钟。结尾只有现实门锁传来一声轻响。保持信息揭示顺序，不出现袭击者，不增加解释性对白、惊吓音效或新道具。给逐镜时长、站位视线、动作与声源。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Viewer and guard learn the time discrepancy only after comparing the doors.",
+        "Screen and real corridor are distinguishable without explaining the twist in dialogue.",
+        "Final lock sound is located in the real space; no prematurely revealed attacker.",
+        "Framing and duration build uncertainty rather than relying on generic ominous adjectives."
+      ]
+    },
+    {
+      "id": "drama_object_continuity",
+      "stage": "shot_plan_creation",
+      "prompt": "写一场20秒、最多四镜的克制家庭戏导演稿：兄弟在旧房门口分别。哥哥右手提工具箱，左手握唯一一把钥匙；弟弟双手扶着拆下的门牌。哥哥把钥匙留给弟弟，说“锁还好使”，弟弟回答“知道”。哥哥离开前停半步，但不回头。不要增加道具、角色、哭泣、拥抱或其他对白。给逐镜时长、动作、声源和结束状态。只输出文字，不调用工具。",
+      "reviewer_checks": [
+        "Accounts for occupied hands when transferring the key without losing the sign or toolbox.",
+        "Preserves the specified dialogue, pause and absence of a backward look.",
+        "Conveys relationship through choices and timing rather than adding exposition.",
+        "Establishes a readable doorway and consistent exit direction."
+      ]
+    }
+  ]
+}

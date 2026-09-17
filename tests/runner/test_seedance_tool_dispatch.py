@@ -251,3 +251,38 @@ async def test_seedance_edit_canvas_update_success():
             assert data["outcome"] == "succeeded"
             assert data["verified"] is True
             assert data["new_revision"] == 2
+
+
+@pytest.mark.asyncio
+async def test_cast_validation_does_not_default_to_video():
+    with patch(
+        "omnigent.seedance.bridge.execute_seedance_canvas_edit",
+        new=AsyncMock(return_value={"status": "validated", "submitted": False}),
+    ) as edit:
+        async with httpx.AsyncClient() as client:
+            await execute_tool(
+                tool_name="seedance_edit_canvas",
+                arguments=json.dumps({
+                    "action": "validate_generation",
+                    "production_stage": "cast",
+                    "production_pointer": "/characters/0/image/sheet",
+                }),
+                conversation_id="conv_123",
+                server_client=client,
+            )
+    assert edit.call_args.kwargs["generation_kind"] is None
+    assert edit.call_args.kwargs["production_stage"] == "cast"
+
+
+@pytest.mark.asyncio
+async def test_generation_catalog_dispatch_is_read_only():
+    with patch("omnigent.seedance.bridge.read_seedance_generation", new=AsyncMock(
+        return_value={"status": "completed", "models": [{"value": "test-image"}]}
+    )) as read:
+        async with httpx.AsyncClient() as client:
+            result = await execute_tool(
+                tool_name="seedance_read_canvas", arguments=json.dumps({"action": "models"}),
+                conversation_id="topic", server_client=client,
+            )
+    assert json.loads(result)["models"][0]["value"] == "test-image"
+    assert read.call_args.kwargs["action"] == "models"

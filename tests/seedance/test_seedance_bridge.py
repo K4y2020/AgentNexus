@@ -20,11 +20,65 @@ from omnigent.seedance.bridge import (
     read_seedance_canvas_snapshot,
     read_matching_shots,
     resolve_or_create_topic_project_and_session,
+    read_seedance_generation,
 )
 from omnigent.seedance.client import SeedanceClient
 
 _BASE = "http://127.0.0.1:8893"
 _SERVER = "http://localhost:6767"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_job_read_is_scoped_to_bound_project():
+    respx.get(f"{_SERVER}/v1/sessions/topic").respond(
+        200, json={"labels": {SEEDANCE_PROJECT_LABEL: "project", SEEDANCE_BASE_URL_LABEL: _BASE}}
+    )
+    route = respx.get(f"{_BASE}/v3/jobs/job").respond(
+        200, json={"job": {"id": "job", "projectId": "other", "status": "succeeded"}}
+    )
+    async with httpx.AsyncClient(base_url=_SERVER) as client:
+        result = await read_seedance_generation(client, "topic", action="job", job_id="job")
+        assert result["error_code"] == "CINE_PROJECT_BINDING_MISMATCH"
+        route.respond(200, json={"job": {"id": "job", "projectId": "project", "status": "succeeded"}})
+        result = await read_seedance_generation(client, "topic", action="job", job_id="job")
+    assert result["job"]["id"] == "job"
+    assert result["poll_after_seconds"] == 0
+    assert result["terminal"] is True
+    assert result["next_action"] == "review_once_then_report"
+    assert result["visual_review_required"] is True
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_summary_preserves_existing_image_and_revision():
+    from unittest.mock import AsyncMock
+
+    v3 = AsyncMock()
+    v3.get_snapshot.return_value = {
+        "nodes": [
+            {"id": "portrait", "type": "image_prompt", "title": "Character",
+             "status": "draft", "revision": 4,
+             "data": {"prompt": "Portrait", "activeOutputRef": "local://existing"}},
+            {"id": "empty", "type": "image_prompt", "data": {}},
+        ],
+        "edges": [],
+        "node_media": [{"nodeId": "portrait", "mediaState": "output_available_unreviewed",
+                        "outputUrl": "/v3/storage/existing", "latestJob": {"id": "job", "status": "succeeded"},
+                        "pendingJobCount": 0, "nextAction": "review_once_then_report"}],
+    }
+    async with httpx.AsyncClient() as client:
+        result = await read_seedance_canvas_snapshot(
+            client, "topic", project_id="project", detail_level="summary", seedance_client=v3,
+        )
+    nodes = {node["id"]: node for node in result["nodes"]}
+    assert nodes["portrait"]["active_output_ref"] == "local://existing"
+    assert nodes["portrait"]["revision"] == 4
+    assert nodes["portrait"]["media_state"] == "output_available_unreviewed"
+    assert nodes["portrait"]["latest_job"]["status"] == "succeeded"
+    assert nodes["empty"]["media_state"] == "unknown"
+    assert "/v3/storage/existing" in result["summary_markdown"]
+    v3.submit_command.assert_not_called()
 
 
 def test_format_shot_contract_generation_boundary():
@@ -292,4 +346,4 @@ async def test_execute_seedance_canvas_edit_safety_gates():
                 seedance_client=sd_client,
             )
             assert gen_res["status"] == "rejected"
-            assert "generation_allowed 为 false" in gen_res["error"]
+            assert gen_res["error_code"] == "CINE_GENERATION_AUTHORIZATION_REQUIRED"

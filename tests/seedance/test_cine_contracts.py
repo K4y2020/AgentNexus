@@ -145,6 +145,45 @@ def image_output():
     )
 
 
+def structured_image_output():
+    data = b"evidence"
+    return json.dumps(
+        [
+            {
+                "type": "text",
+                "text": json.dumps(
+                    {"receipt_id": "receipt", "sha256": hashlib.sha256(data).hexdigest()}
+                ),
+            },
+            {
+                "type": "image",
+                "image_url": f"data:image/png;base64,{base64.b64encode(data).decode()}",
+            },
+        ]
+    )
+
+
+async def test_openai_structured_image_output_yields_receipt():
+    client = AsyncMock()
+    client.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "http://test"),
+        json={
+            "data": [
+                {"type": "function_call", "call_id": "image", "name": "sys_os_view_image"},
+                {
+                    "id": "out",
+                    "type": "function_call_output",
+                    "call_id": "image",
+                    "output": structured_image_output(),
+                },
+            ],
+            "has_more": False,
+        },
+    )
+    assert "receipt" in await session_image_receipts(client, "topic1")
+
+
 @pytest.mark.parametrize("overlap", [False, True])
 async def test_reused_call_ids_are_paired_not_globally_merged(overlap):
     first = {"type": "function_call", "call_id": "same", "name": "sys_os_read", "response_id": "r"}

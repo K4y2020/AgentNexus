@@ -2983,6 +2983,90 @@ class TestStreamEventStreaming(unittest.TestCase):
 
         _run(_t())
 
+    def test_gateway_replayed_tool_pair_is_emitted_once(self):
+        from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+
+        class _ToolUseBlock:
+            def __init__(self, id, name, input):
+                self.id = id
+                self.name = name
+                self.input = input
+
+        class _ToolResultBlock:
+            def __init__(self, tool_use_id, content):
+                self.tool_use_id = tool_use_id
+                self.content = content
+                self.is_error = False
+
+        class _AssistantMessage:
+            def __init__(self, content, model):
+                self.content = content
+                self.model = model
+
+        class _UserMessage:
+            def __init__(self, content):
+                self.content = content
+
+        class _ResultMessage:
+            def __init__(self):
+                self.session_id = "s1"
+                self.result = "done"
+                self.is_error = False
+                self.usage = None
+
+        tool = _ToolUseBlock("tool_replayed", "paid_generation", {"prompt": "x"})
+        result = _ToolResultBlock("tool_replayed", "ok")
+
+        class _FakeSDK:
+            AssistantMessage = _AssistantMessage
+            UserMessage = _UserMessage
+            SystemMessage = type("SystemMessage", (), {})
+            ResultMessage = _ResultMessage
+            ToolUseBlock = _ToolUseBlock
+            ToolResultBlock = _ToolResultBlock
+            TextBlock = type("TextBlock", (), {})
+            ThinkingBlock = type("ThinkingBlock", (), {})
+            StreamEvent = type("StreamEvent", (), {})
+            ClaudeAgentOptions = type(
+                "ClaudeAgentOptions",
+                (),
+                {"__init__": lambda self, **kwargs: self.__dict__.update(kwargs)},
+            )
+
+            class ClaudeSDKClient:
+                def __init__(self, options):
+                    self.options = options
+
+                async def connect(self):
+                    return None
+
+                async def query(self, prompt, session_id="default"):
+                    return None
+
+                async def receive_response(self):
+                    yield _AssistantMessage([tool], "cine")
+                    yield _UserMessage([result])
+                    yield _AssistantMessage([tool], "resp_replayed")
+                    yield _UserMessage([result])
+                    yield _ResultMessage()
+
+                async def disconnect(self):
+                    return None
+
+        async def _t():
+            executor = ClaudeSDKExecutor()
+            with patch("omnigent.inner.claude_sdk_executor._ensure_sdk", return_value=_FakeSDK):
+                events = [
+                    event
+                    async for event in executor.run_turn(
+                        [{"role": "user", "content": "generate"}], [], ""
+                    )
+                ]
+            self.assertEqual(sum(isinstance(e, ToolCallRequest) for e in events), 1)
+            self.assertEqual(sum(isinstance(e, ToolCallComplete) for e in events), 1)
+
+        _run(_t())
+
     def test_tool_result_blocked_yields_blocked_status(self):
         from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
 
