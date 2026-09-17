@@ -1517,10 +1517,16 @@ def _shell_impl(
         characters.
     """
     argv = _shell_argv(shell_path, command)
-    encoding = locale.getpreferredencoding(False)
+
+    def decode_output(payload: bytes) -> str:
+        try:
+            return payload.decode("utf-8")
+        except UnicodeDecodeError:
+            return payload.decode(locale.getpreferredencoding(False), errors="replace")
+
     with (
-        tempfile.TemporaryFile(mode="w+", encoding=encoding, errors="replace") as stdout_file,
-        tempfile.TemporaryFile(mode="w+", encoding=encoding, errors="replace") as stderr_file,
+        tempfile.TemporaryFile(mode="w+b") as stdout_file,
+        tempfile.TemporaryFile(mode="w+b") as stderr_file,
     ):
         try:
             process = subprocess.Popen(
@@ -1543,8 +1549,12 @@ def _shell_impl(
             stdout_file.seek(0)
             stderr_file.seek(0)
             return {
-                "stdout": _truncate_output(stdout_file.read(), "stdout", max_output),
-                "stderr": _truncate_output(stderr_file.read(), "stderr", max_output),
+                "stdout": _truncate_output(
+                    decode_output(stdout_file.read()), "stdout", max_output
+                ),
+                "stderr": _truncate_output(
+                    decode_output(stderr_file.read()), "stderr", max_output
+                ),
                 "exit_code": None,
                 "timed_out": True,
                 "error": f"Command timed out after {timeout} seconds",
@@ -1554,8 +1564,8 @@ def _shell_impl(
 
         stdout_file.seek(0)
         stderr_file.seek(0)
-        stdout = _truncate_output(stdout_file.read(), "stdout", max_output)
-        stderr = _truncate_output(stderr_file.read(), "stderr", max_output)
+        stdout = _truncate_output(decode_output(stdout_file.read()), "stdout", max_output)
+        stderr = _truncate_output(decode_output(stderr_file.read()), "stderr", max_output)
 
     result: OpResult = {
         "stdout": stdout,

@@ -266,6 +266,8 @@ class _AgentsSDK(Protocol):
     ModelSettings: Any  # type: ignore[explicit-any]  # agents.ModelSettings dataclass factory
     OpenAIProvider: Any  # type: ignore[explicit-any]  # agents.OpenAIProvider class
     FunctionTool: Any  # type: ignore[explicit-any]  # agents.FunctionTool dataclass factory
+    ToolOutputImage: Any  # type: ignore[explicit-any]
+    ToolOutputText: Any  # type: ignore[explicit-any]
     SQLiteSession: Any  # type: ignore[explicit-any]  # agents.SQLiteSession class
     ItemHelpers: Any  # type: ignore[explicit-any]  # agents.ItemHelpers utility class
     MaxTurnsExceeded: type[BaseException]
@@ -1361,6 +1363,16 @@ class OpenAIAgentsSDKExecutor(Executor):
                 result = self._tool_executor(_tool_name, args)
                 if hasattr(result, "__await__"):
                     result = await result  # type: ignore[assignment]
+                if _tool_name == "sys_os_view_image" and isinstance(result, dict):
+                    source = result.get("image", {}).get("source", {})
+                    if source.get("data") and source.get("media_type"):
+                        return [
+                            agents_sdk.ToolOutputText(text=json.dumps(result.get("metadata", {}))),
+                            agents_sdk.ToolOutputImage(
+                                image_url=(f"data:{source['media_type']};base64,{source['data']}"),
+                                detail="high",
+                            ),
+                        ]
                 return result
 
             sdk_tools.append(

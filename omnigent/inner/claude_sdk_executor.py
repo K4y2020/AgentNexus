@@ -653,9 +653,7 @@ def _to_anthropic_content_blocks(
                 text_content = base64.b64decode(data).decode("utf-8", errors="replace")
                 filename = block.get("filename")
                 label = repr(filename) if isinstance(filename, str) and filename else "attachment"
-                result.append(
-                    _text_block(f"[Attached text file: {label}]\n\n{text_content}")
-                )
+                result.append(_text_block(f"[Attached text file: {label}]\n\n{text_content}"))
     return result
 
 
@@ -2534,6 +2532,12 @@ class ClaudeSDKExecutor(Executor):
         # Track in-flight tool calls so we can emit ToolCallComplete
         # with the tool name and duration when results arrive.
         pending_tools: dict[str, tuple[str, float]] = {}  # id → (name, start_mono)
+        # Some OpenAI-compatible gateways replay the same assembled SDK
+        # AssistantMessage/UserMessage pair with a different ``model`` field.
+        # The Anthropic tool_use id is the operation identity; never execute or
+        # complete it twice, especially for paid generation tools.
+        emitted_tool_ids: set[str] = set()
+        completed_tool_ids: set[str] = set()
 
         # Track whether we've received any StreamEvent messages.
         # When True, we skip text/tool events from AssistantMessage to
@@ -2726,11 +2730,14 @@ class ClaudeSDKExecutor(Executor):
                             for block in assistant_msg.content:
                                 if isinstance(block, sdk.ToolUseBlock):
                                     tool_block = cast(_ToolUseBlockObj, block)
+                                    if tool_block.id in emitted_tool_ids:
+                                        continue
                                     if tool_block.id not in pending_tools:
                                         pending_tools[tool_block.id] = (
                                             tool_block.name,
                                             time.monotonic(),
                                         )
+                                    emitted_tool_ids.add(tool_block.id)
                                     yield ToolCallRequest(
                                         name=tool_block.name,
                                         args=tool_block.input,
@@ -2768,10 +2775,13 @@ class ClaudeSDKExecutor(Executor):
                                         )
                                 elif isinstance(block, sdk.ToolUseBlock):
                                     tool_block = cast(_ToolUseBlockObj, block)
+                                    if tool_block.id in emitted_tool_ids:
+                                        continue
                                     pending_tools[tool_block.id] = (
                                         tool_block.name,
                                         time.monotonic(),
                                     )
+                                    emitted_tool_ids.add(tool_block.id)
                                     yield ToolCallRequest(
                                         name=tool_block.name,
                                         args=tool_block.input,
@@ -2787,6 +2797,9 @@ class ClaudeSDKExecutor(Executor):
                             for block in content:
                                 if isinstance(block, sdk.ToolResultBlock):
                                     result_block = cast(_ToolResultBlockObj, block)
+                                    if result_block.tool_use_id in completed_tool_ids:
+                                        continue
+                                    completed_tool_ids.add(result_block.tool_use_id)
                                     tool_name, start = pending_tools.pop(
                                         result_block.tool_use_id,
                                         ("unknown", time.monotonic()),
