@@ -99,3 +99,15 @@ web/package-lock.json
 !examples/**/assets/*.png
 !examples/**/assets/*.webp
 !examples/**/assets/*.jpg
+
+# Runtime outputs / eval results — regenerated each run, never committed.
+outputs/
+
+# Gate-run log — local dev artifact.
+.gates.jsonl
+
+# Ad-hoc debug scripts at repo root.
+test_seedance_debug.py
+
+# Local tool binaries (cloudflared, etc.) — downloaded per-machine.
+/tools/
