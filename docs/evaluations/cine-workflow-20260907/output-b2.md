@@ -68,4 +68,4 @@ python <K>/film-analysis/pipeline/handoff.py <production.json>
 
 脚本能查节拍覆盖、引用、配置时长、台词容量及提示词结构；不能证明停顿表演、参考图一致性、真实成片时长或Seedance兼容。短剧钩子/风格门不适用则留诊断。缺H3字段的原生校验不能报全通过；现有export只出H3包，Seedance可执行导出blocked，不编造provider参数。参考图未上传，远程引用亦阻塞；无需生成即可交付此计划。
 
-以上均为未执行计划。`<K>`为 `U:/AI/MultiAgent/omnigent/.codex-tmp/cine-workflow-ab/round2-skills`，其他尖括号为待绑定路径。本轮只读六份SKILL及相关引用，仅写本文件；无网络、生成或Bot调用。
+以上均为未执行计划。`<K>`为 `U:/AI/MultiAgent/agentnexus/.codex-tmp/cine-workflow-ab/round2-skills`，其他尖括号为待绑定路径。本轮只读六份SKILL及相关引用，仅写本文件；无网络、生成或Bot调用。

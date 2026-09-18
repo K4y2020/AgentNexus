@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes.types import (
+from agentnexus.onboarding.sandboxes.types import (
     HostContext,
     SandboxCapabilities,
     SandboxCommandError,
@@ -93,7 +93,7 @@ def test_sandbox_command_error_carries_fields() -> None:
 
 def test_sandbox_capability_error_is_click_exception() -> None:
     """SandboxCapabilityError is catchable as click.ClickException (transition)."""
-    from omnigent.onboarding.sandboxes import SandboxCapabilityError
+    from agentnexus.onboarding.sandboxes import SandboxCapabilityError
 
     with pytest.raises(click.ClickException):
         raise SandboxCapabilityError("not supported")

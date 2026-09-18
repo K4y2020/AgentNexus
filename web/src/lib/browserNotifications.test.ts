@@ -152,7 +152,7 @@ describe("showNotification", () => {
     // IPC) so the shell can open the conversation on click. No web toast.
     installNotification("granted");
     const electronNotify = vi.fn().mockResolvedValue(true);
-    (window as unknown as Record<string, unknown>).omnigentDesktop = {
+    (window as unknown as Record<string, unknown>).agentnexusDesktop = {
       kind: "electron",
       setBadgeCount: vi.fn(),
       notify: electronNotify,
@@ -167,7 +167,7 @@ describe("showNotification", () => {
         navigatePath: "/c/a",
       });
     } finally {
-      delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+      delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
     }
   });
 });

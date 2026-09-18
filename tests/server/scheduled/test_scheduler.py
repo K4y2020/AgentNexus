@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field, replace
 
-from omnigent.server.scheduled.scheduler import (
+from agentnexus.server.scheduled.scheduler import (
     MISFIRE_GRACE_TIME_S,
     ScheduledTaskScheduler,
 )

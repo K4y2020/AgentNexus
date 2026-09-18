@@ -1,9 +1,9 @@
-# Omnigent on Daytona
+# AgentNexus on Daytona
 
 [Daytona](https://www.daytona.io) sandboxes give you disposable cloud
-machines for running Omnigent hosts, two ways:
+machines for running AgentNexus hosts, two ways:
 
-- **CLI-launched**: `omnigent sandbox create` / `connect` provisions a
+- **CLI-launched**: `agentnexus sandbox create` / `connect` provisions a
   sandbox from your terminal, ships your local checkout into it, and
   registers it as a host with your server.
 - **Server-managed**: the server provisions a sandbox automatically
@@ -25,7 +25,7 @@ Daytona pulls and snapshots it.
 ## Prerequisites
 
 ```bash
-pip install 'omnigent[daytona]'   # installs the daytona SDK extra
+pip install 'agentnexus[daytona]'   # installs the daytona SDK extra
 ```
 
 > [!IMPORTANT]
@@ -37,7 +37,7 @@ pip install 'omnigent[daytona]'   # installs the daytona SDK extra
 > public domains (git hosts, package managers, the major AI provider
 > APIs) that org admins **cannot modify**. Two consequences:
 >
-> 1. The in-sandbox host's dial-back to your Omnigent `server_url` is
+> 1. The in-sandbox host's dial-back to your AgentNexus `server_url` is
 >    blocked unless that URL is on the allowlist — otherwise the
 >    launch times out with "managed host did not come online".
 > 2. The agent's LLM calls only work against an **allowlisted model
@@ -81,7 +81,7 @@ export DAYTONA_API_KEY=dtn_…
 Provision a sandbox and ship your local checkout into it:
 
 ```bash
-omnigent sandbox create --provider daytona
+agentnexus sandbox create --provider daytona
 ```
 
 This pulls the host image, builds wheels from your local checkout, and
@@ -89,12 +89,12 @@ overlays them on top — so the sandbox runs *your* code, not whatever
 the image was built from. Then register it as a host with your server:
 
 ```bash
-omnigent sandbox connect --provider daytona \
+agentnexus sandbox connect --provider daytona \
   --sandbox-id <id-printed-by-create> \
   --server https://your-host
 ```
 
-`connect` runs `omnigent host` inside the sandbox (over a PTY session)
+`connect` runs `agentnexus host` inside the sandbox (over a PTY session)
 and holds the connection open in your terminal — Ctrl-C tears it down.
 New sessions targeting that host now run in the sandbox.
 
@@ -110,19 +110,19 @@ billing until removed via the
 
 > [!NOTE]
 > On free-tier (Tier 1/2) organizations the `--server` URL must pass
-> the egress allowlist or the in-sandbox `omnigent host` can't dial
+> the egress allowlist or the in-sandbox `agentnexus host` can't dial
 > back — see the tier note above and the
 > [relay setup](#free-tier-relay-setup-tier-12).
 
 To inject LLM/git credentials into a CLI-launched sandbox, set
-`OMNIGENT_DAYTONA_SANDBOX_ENV` in your shell to a comma-separated list
+`AGENTNEXUS_DAYTONA_SANDBOX_ENV` in your shell to a comma-separated list
 of variable names (e.g. `ANTHROPIC_API_KEY,GIT_TOKEN`) before running
 `create` — the named variables are copied from your environment into
 the sandbox at provision time.
 
 ## Server-managed sandboxes
 
-Add a `sandbox:` section to the server config (`omnigent server -c
+Add a `sandbox:` section to the server config (`agentnexus server -c
 config.yaml`, or `<data_dir>/config.yaml`):
 
 ```yaml
@@ -147,14 +147,14 @@ sandbox:
   provider: daytona
   server_url: https://your-host
   daytona:
-    image: docker.io/<you>/omnigent-host:latest  # default: official image
+    image: docker.io/<you>/agentnexus-host:latest  # default: official image
     env: [OPENAI_API_KEY, ANTHROPIC_API_KEY, GIT_TOKEN]
 ```
 
 A top-level `sandbox.host_config:` (provider-agnostic) holds verbatim
-in-sandbox `~/.omnigent/config.yaml` content — e.g. a `providers:`
+in-sandbox `~/.agentnexus/config.yaml` content — e.g. a `providers:`
 block routing a harness through a self-hosted gateway — installed into
-the sandbox before `omnigent host` starts. The block is server-managed:
+the sandbox before `agentnexus host` starts. The block is server-managed:
 entries injected by a previous launch are replaced or removed on the
 next launch/resume, while config created inside the sandbox survives.
 Keep secrets out via
@@ -193,7 +193,7 @@ is identical to Modal; see the [variable table and per-plan
 recipes](../modal/README.md#llm-credentials-for-managed-sandboxes) and
 [git credentials](../modal/README.md#git-credentials-private-repositories).
 The in-sandbox host forwards the same standard set to its runners, and
-`OMNIGENT_RUNNER_ENV_PASSTHROUGH` (as an injected variable) names any
+`AGENTNEXUS_RUNNER_ENV_PASSTHROUGH` (as an injected variable) names any
 extras.
 
 The same env-injection also carries **credentials for connecting to
@@ -205,7 +205,7 @@ server requires authentication — inject the keys for the relevant
 server, e.g. `DATABRICKS_HOST` + `DATABRICKS_TOKEN` (or
 `DATABRICKS_CLIENT_ID` / `DATABRICKS_CLIENT_SECRET`) for a
 Databricks-fronted server, by naming them in
-`OMNIGENT_DAYTONA_SANDBOX_ENV` before `create` — and the in-sandbox
+`AGENTNEXUS_DAYTONA_SANDBOX_ENV` before `create` — and the in-sandbox
 host mints fresh bearer tokens from them on every reconnect. See
 [Connecting to an authenticated
 server](../modal/README.md#connecting-to-an-authenticated-server) in
@@ -224,7 +224,7 @@ Daytona free-tier (Tier 1/2) sandboxes can only reach an
 [allowlisted set of domains](https://www.daytona.io/docs/en/network-limits);
 `*.workers.dev` is on it. The ready-to-deploy Cloudflare Worker in this
 directory lives there and transparently reverse-proxies every request —
-plain HTTP and WebSocket upgrades — to your real Omnigent server, so a
+plain HTTP and WebSocket upgrades — to your real AgentNexus server, so a
 managed host's dial-back (the host tunnel WS, the runner tunnel WS, and
 plain HTTP) reaches the server through the firewall.
 
@@ -232,13 +232,13 @@ plain HTTP) reaches the server through the firewall.
 npm i -g wrangler          # or use npx
 wrangler login             # one-time, free, no credit card
 cd deploy/daytona
-wrangler deploy --var UPSTREAM_URL:https://your-omnigent-server
-# → https://omnigent-daytona-relay.<your-subdomain>.workers.dev
+wrangler deploy --var UPSTREAM_URL:https://your-agentnexus-server
+# → https://agentnexus-daytona-relay.<your-subdomain>.workers.dev
 ```
 
 Point `sandbox.daytona.server_url` at the printed `*.workers.dev` URL.
 For a non-allowlisted model endpoint, deploy a second copy
-(`name = "omnigent-llm-relay"`, `UPSTREAM_URL` = your gateway) and
+(`name = "agentnexus-llm-relay"`, `UPSTREAM_URL` = your gateway) and
 inject its URL as `OPENAI_BASE_URL` via `sandbox.daytona.env`.
 
 **This path is verified end-to-end on a real Daytona Tier 1 org**
@@ -259,7 +259,7 @@ it.
   a stronger posture; this is the main security difference between the
   two providers.)
 - **All managed sandboxes share one Daytona org + API key.**
-  Cross-user isolation between Omnigent users rides entirely on
+  Cross-user isolation between AgentNexus users rides entirely on
   Daytona's sandbox boundaries, and the shared org key can enumerate
   and delete any user's sandbox. Same single-tenant-org shape as the
   Modal provider; scope the org to this workload and nothing else.
@@ -286,7 +286,7 @@ it.
   organizations this is almost always the egress firewall blocking the
   host's dial-back to `server_url` (see the tier note above). Verify
   with `curl <server_url>/health` inside a sandbox. On Tier 3+, check
-  `/tmp/omnigent-host.log` inside the sandbox.
+  `/tmp/agentnexus-host.log` inside the sandbox.
 - **Slow first launch** — the initial create from a new image builds a
   Daytona snapshot (minutes); subsequent launches are seconds.
 - **"Organization is suspended: Please verify your email address"** —
@@ -297,7 +297,7 @@ it.
 ## Lifecycle notes
 
 - **No platform lifetime cap.** Unlike Modal's 24-hour limit, Daytona
-  sandboxes run until deleted. Omnigent disables Daytona's 15-minute
+  sandboxes run until deleted. AgentNexus disables Daytona's 15-minute
   idle auto-stop at provision time (a session host must survive gaps
   between turns); the sandbox is deleted when its session is deleted,
   and the dead-sandbox relaunch path replaces one that crashed or was
@@ -309,7 +309,7 @@ it.
   [`deploy/docker/Dockerfile`](../docker/Dockerfile)
   (`--platform linux/amd64`) and push it to any registry Daytona can
   pull from, then set `sandbox.daytona.image` or
-  `OMNIGENT_DAYTONA_HOST_IMAGE`.
+  `AGENTNEXUS_DAYTONA_HOST_IMAGE`.
 
 ## Environment variable reference
 
@@ -318,5 +318,5 @@ it.
 | `DAYTONA_API_KEY` | CLI machine / server | Daytona API credentials (required) |
 | `DAYTONA_API_URL` | CLI machine / server | Non-default Daytona API endpoint |
 | `DAYTONA_TARGET` | CLI machine / server | Target region for new sandboxes |
-| `OMNIGENT_DAYTONA_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.daytona.image` takes precedence) |
-| `OMNIGENT_DAYTONA_SANDBOX_ENV` | CLI machine / server | Comma-separated launcher-side env var names to inject (`sandbox.daytona.env` takes precedence for managed) |
+| `AGENTNEXUS_DAYTONA_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.daytona.image` takes precedence) |
+| `AGENTNEXUS_DAYTONA_SANDBOX_ENV` | CLI machine / server | Comma-separated launcher-side env var names to inject (`sandbox.daytona.env` takes precedence for managed) |

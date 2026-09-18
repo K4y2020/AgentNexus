@@ -39,7 +39,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, overload
 
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     CancelledEvent,
     CompletedEvent,
     CreatedEvent,
@@ -61,7 +61,7 @@ from omnigent.server.schemas import (
 )
 
 from ._child_status import TERMINAL_TASK_STATUSES, child_summary_busy
-from ._errors import OmnigentError
+from ._errors import AgentNexusError
 from ._files import FilesNamespace
 from ._query import QueryResult, QueryStream
 from ._sessions import Session, SessionsNamespace
@@ -278,14 +278,14 @@ class SessionsChat:
         print(result.text)
 
     Construction is async because creating the underlying server
-    session is an HTTP call. Use :meth:`OmnigentClient.sessions_chat`
+    session is an HTTP call. Use :meth:`AgentNexusClient.sessions_chat`
     or the explicit factory :meth:`create` rather than calling the
     constructor directly — the constructor only wires already-resolved
     state and does NOT issue any HTTP requests.
 
     :param namespace: The :class:`SessionsNamespace` this helper
         delegates to. Borrowed from the parent
-        :class:`OmnigentClient`; the chat helper does not own
+        :class:`AgentNexusClient`; the chat helper does not own
         the underlying ``httpx.AsyncClient``.
     :param files_uploader: Async callable that uploads a local path
         and returns a :class:`File`. Typically
@@ -417,7 +417,7 @@ class SessionsChat:
             stream events.
         :returns: A :class:`SessionsChat` bound to the newly created
             session.
-        :raises OmnigentError: If session creation fails.
+        :raises AgentNexusError: If session creation fails.
         """
         session = await namespace.create(bundle, filename=filename)
         if files_namespace is not None:
@@ -474,7 +474,7 @@ class SessionsChat:
         local state with the server.
 
         :returns: The freshly fetched :class:`Session` snapshot.
-        :raises OmnigentError: If the session no longer exists
+        :raises AgentNexusError: If the session no longer exists
             (404) or another HTTP error occurs.
         """
         self._session = await self._namespace.get(self._session.id)
@@ -500,7 +500,7 @@ class SessionsChat:
 
         :param max_depth: Levels of the sub-agent tree to descend.
         :returns: ``True`` while any descendant sub-agent is busy.
-        :raises OmnigentError: On non-2xx status.
+        :raises AgentNexusError: On non-2xx status.
         """
         return await self._namespace.subtree_busy(self._session.id, max_depth=max_depth)
 
@@ -539,7 +539,7 @@ class SessionsChat:
             arrival order, validated by
             :class:`pydantic.TypeAdapter` inside
             :meth:`SessionsNamespace.stream`.
-        :raises OmnigentError: If the underlying ``post_event`` or
+        :raises AgentNexusError: If the underlying ``post_event`` or
             ``stream`` call fails (e.g. 404 if the session was
             deleted out from under us).
         :raises RuntimeError: If ``files`` is non-empty but no
@@ -630,7 +630,7 @@ class SessionsChat:
                         else "turn failed"
                     )
                     code = event.error.code if event.error is not None else None
-                    raise OmnigentError(message, code=code)
+                    raise AgentNexusError(message, code=code)
                 try:
                     event = await stream_aiter.__anext__()
                 except StopAsyncIteration:
@@ -685,7 +685,7 @@ class SessionsChat:
                 "agent_tools_getter was wired at construction. "
                 "Pass agent_tools_getter=... when calling "
                 "SessionsChat.create() (or use "
-                "OmnigentClient.sessions_chat which wires it "
+                "AgentNexusClient.sessions_chat which wires it "
                 "for you) so the SDK can validate the callables "
                 "against the agent's spec."
             )
@@ -782,7 +782,7 @@ class SessionsChat:
         is harmless from the server's perspective (the
         ``session.interrupted`` event is published unconditionally).
 
-        :raises OmnigentError: If the session does not exist
+        :raises AgentNexusError: If the session does not exist
             (404).
         """
         await self._namespace.interrupt(self._session.id)
@@ -801,7 +801,7 @@ class SessionsChat:
             e.g. ``{"type": "function_call_output", "data":
             {"call_id": "...", "output": "..."}}``. Validated
             server-side per ``type``.
-        :raises OmnigentError: If the session does not exist
+        :raises AgentNexusError: If the session does not exist
             (404) or the event is rejected (400).
         """
         await self._namespace.post_event(self._session.id, event)
@@ -822,7 +822,7 @@ class SessionsChat:
 
         :returns: An async iterator of typed
             :data:`ServerStreamEvent` instances.
-        :raises OmnigentError: If the session does not exist
+        :raises AgentNexusError: If the session does not exist
             (404) when opening the stream.
         :raises ValueError: If the agent's spec declares a
             client-side tool that has no matching entry in
@@ -1188,7 +1188,7 @@ class SessionsChat:
         :param stream: If True, return a :class:`QueryStream`;
             otherwise return a :class:`QueryResult`.
         :returns: :class:`QueryResult` or :class:`QueryStream`.
-        :raises OmnigentError: If the underlying HTTP calls fail.
+        :raises AgentNexusError: If the underlying HTTP calls fail.
         :raises RuntimeError: If a file artifact is observed but no
             ``files_getter`` was wired (so the caller can't get the
             full :class:`File`).
@@ -1217,7 +1217,7 @@ class SessionsChat:
             waits indefinitely. Defaults to 1200 (20 minutes).
         :returns: :class:`QueryResult` with the turn's text (may be empty
             if the turn completed before we subscribed).
-        :raises OmnigentError: Propagated from :meth:`stream` if the
+        :raises AgentNexusError: Propagated from :meth:`stream` if the
             session does not exist.
         """
         text_parts: list[str] = []

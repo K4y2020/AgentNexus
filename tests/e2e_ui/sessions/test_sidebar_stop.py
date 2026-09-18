@@ -39,7 +39,7 @@ def _find_runner_pids() -> list[int]:
     :returns: List of runner PIDs (may be empty).
     """
     result = subprocess.run(
-        ["pgrep", "-f", "omnigent.runner._entry"],
+        ["pgrep", "-f", "agentnexus.runner._entry"],
         capture_output=True,
         text=True,
     )

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import tomllib
 
-from omnigent.version import VERSION
+from agentnexus.version import VERSION
 
 
 def test_version_is_a_nonempty_string() -> None:

@@ -16,7 +16,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.server.feature_flags import Feature, FeatureFlags
+from agentnexus.server.feature_flags import Feature, FeatureFlags
 
 pytestmark = pytest.mark.asyncio
 
@@ -95,7 +95,7 @@ async def test_info_returns_expected_fields(client: httpx.AsyncClient) -> None:
     # while the feature is off so the UI never offers an install the disabled
     # route would reject.
     assert data["installable_harnesses"] == []
-    # single_user reflects OMNIGENT_LOCAL_SINGLE_USER, which the suite's
+    # single_user reflects AGENTNEXUS_LOCAL_SINGLE_USER, which the suite's
     # conftest sets to "1" (the default local-dev posture), so it's true here.
     # The multi-user (marker-off) case is covered below.
     assert data["single_user"] is True
@@ -104,7 +104,7 @@ async def test_info_returns_expected_fields(client: httpx.AsyncClient) -> None:
 async def test_info_single_user_false_without_marker(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``single_user`` tracks ``OMNIGENT_LOCAL_SINGLE_USER`` live.
+    """``single_user`` tracks ``AGENTNEXUS_LOCAL_SINGLE_USER`` live.
 
     It's the sole signal that separates a genuine one-user local server
     from a multi-user header-auth deploy (both otherwise report
@@ -112,7 +112,7 @@ async def test_info_single_user_false_without_marker(
     from the explicit marker, not the auth shape. With the marker cleared,
     the same auth-shape app reports false — the regression this signal fixes.
     """
-    monkeypatch.delenv("OMNIGENT_LOCAL_SINGLE_USER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_LOCAL_SINGLE_USER", raising=False)
     resp = await client.get("/v1/info")
     assert resp.status_code == 200
     data = resp.json()
@@ -133,7 +133,7 @@ async def test_info_advertises_installable_harnesses_when_enabled(
     the ids the route accepts — including the native spellings a session
     declares (``codex-native``), not just the bare ids.
     """
-    from omnigent.onboarding.harness_install import ui_installable_harnesses
+    from agentnexus.onboarding.harness_install import ui_installable_harnesses
 
     enabled = FeatureFlags(frozenset({Feature.HARNESS_INSTALL}))
     monkeypatch.setattr(app.state, "feature_flags", enabled)
@@ -186,7 +186,7 @@ async def test_info_smart_routing_enabled_tracks_the_servers_routing_capability(
     expected: bool,
 ) -> None:
     """Either routing capability turns the flag on; neither leaves it off."""
-    monkeypatch.setattr("omnigent.runtime._globals._caps", caps, raising=False)
+    monkeypatch.setattr("agentnexus.runtime._globals._caps", caps, raising=False)
 
     resp = await client.get("/v1/info")
     assert resp.status_code == 200
@@ -203,13 +203,13 @@ async def test_info_smart_routing_enabled_tracks_the_servers_routing_capability(
 
 
 def _external_client() -> object:
-    from omnigent.server.smart_routing import ExternalRoutingClient
+    from agentnexus.server.smart_routing import ExternalRoutingClient
 
     return ExternalRoutingClient(base_url="https://ws.example.invalid", router_name="task_v1")
 
 
 def _sources_caps(*, external: bool, local: bool, factory: bool) -> object:
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     backends = RoutingBackends(
         external=_external_client() if external else None,
@@ -257,7 +257,7 @@ async def test_info_reports_which_routers_can_answer(
     caps: object,
     expected: dict[str, bool],
 ) -> None:
-    monkeypatch.setattr("omnigent.runtime._globals._caps", caps, raising=False)
+    monkeypatch.setattr("agentnexus.runtime._globals._caps", caps, raising=False)
 
     resp = await client.get("/v1/info")
     assert resp.status_code == 200
@@ -274,10 +274,10 @@ async def test_info_reports_routing_on_for_a_backends_only_deployment(
     backends pair, so a deployment that set only ``routing_backends`` reported
     routing off and the SPA hid a surface the server would have served.
     """
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     monkeypatch.setattr(
-        "omnigent.runtime._globals._caps",
+        "agentnexus.runtime._globals._caps",
         SimpleNamespace(
             routing_backends=RoutingBackends(external=_external_client()),
             routing_client=None,
@@ -298,7 +298,7 @@ async def test_info_classifies_a_legacy_single_routing_client_as_the_oss_judge(
 ) -> None:
     """No ``routing_backends`` derives the pair from ``routing_client`` by type."""
     monkeypatch.setattr(
-        "omnigent.runtime._globals._caps",
+        "agentnexus.runtime._globals._caps",
         SimpleNamespace(
             routing_client=object(),
             routing_backends=None,

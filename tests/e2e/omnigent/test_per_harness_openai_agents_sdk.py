@@ -6,7 +6,7 @@ mock LLM server and snapshots structural observations (exit code,
 stderr cleanliness, assistant text length).
 
 **What breaks if this fails:**
-- Omnigent' ``OpenAIAgentsSDKExecutor`` regresses (the Runner
+- AgentNexus' ``OpenAIAgentsSDKExecutor`` regresses (the Runner
   lifecycle, the Responses-API adapter in
   ``omnigent.open_responses_sdk``, the MCP tool bridging, or
   the event stream translation to ``ExecutorEvent`` types).
@@ -16,7 +16,7 @@ stderr cleanliness, assistant text length).
 - ``omnigent.cli._run_agent`` for the ``-p`` one-shot path
   stops printing the assistant text on turn complete.
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 per-harness suite.
 
 **Serial execution note:** These tests are designed for serial
@@ -38,8 +38,8 @@ from typing import Any
 
 import pytest
 
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 _HARNESS = "openai-agents"
 _PROMPT = "say hi in 5 words"
@@ -117,7 +117,7 @@ def test_per_harness_openai_agents_sdk_one_shot(
         pytest.skip(
             "openai-agents-sdk harness prerequisite missing: "
             "the 'agents' Python package (openai-agents) must be "
-            "installed in the Omnigent venv. Skipping — package absent."
+            "installed in the AgentNexus venv. Skipping — package absent."
         )
 
     model = f"mock-harness-openai-{uuid.uuid4().hex[:8]}"
@@ -134,7 +134,7 @@ def test_per_harness_openai_agents_sdk_one_shot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

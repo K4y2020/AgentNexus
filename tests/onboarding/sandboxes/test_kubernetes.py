@@ -18,16 +18,16 @@ from types import SimpleNamespace
 import click
 import pytest
 
-import omnigent.onboarding.sandboxes.kubernetes as k8s
-from omnigent.host.identity import (
+import agentnexus.onboarding.sandboxes.kubernetes as k8s
+from agentnexus.host.identity import (
     HOST_ID_ENV_VAR,
     HOST_NAME_ENV_VAR,
     HOST_TOKEN_ENV_VAR,
 )
-from omnigent.onboarding.sandboxes.base import (
+from agentnexus.onboarding.sandboxes.base import (
     render_host_config_write_command,
 )
-from omnigent.onboarding.sandboxes.kubernetes import (
+from agentnexus.onboarding.sandboxes.kubernetes import (
     KubernetesSandboxLauncher,
     build_job_manifest,
     build_token_secret_manifest,
@@ -35,15 +35,15 @@ from omnigent.onboarding.sandboxes.kubernetes import (
 
 _TOKEN = "launch-token-xyz"
 _MANIFEST_KW = {
-    "job_name": "omnigent-managed-abc-1a2b3c",
-    "namespace": "omnigent-sandboxes",
+    "job_name": "agentnexus-managed-abc-1a2b3c",
+    "namespace": "agentnexus-sandboxes",
     "image": "ghcr.io/omnigent-ai/omnigent-host:latest",
-    "service_account": "omnigent-runner",
+    "service_account": "agentnexus-runner",
     "host_id": "host_abcdef",
     "host_name": "managed-abcdef",
     "server_url": "http://srv.example.com",
-    "token_secret_name": "omnigent-managed-abc-1a2b3c-token",
-    "harness_secret": "omnigent-creds",
+    "token_secret_name": "agentnexus-managed-abc-1a2b3c-token",
+    "harness_secret": "agentnexus-creds",
     "env_literals": {},
     "node_selector": None,
     "workspace": "/home/omnigent/workspace",
@@ -87,7 +87,7 @@ def test_build_job_manifest_runs_host_under_reaper_as_container_command() -> Non
     assert command[:2] == ["bash", "-lc"]
     script = command[2]
     assert "exec python3 -c" in script
-    assert "omnigent host --server http://srv.example.com" in script
+    assert "agentnexus host --server http://srv.example.com" in script
     assert "os.wait()" in script
 
 
@@ -143,7 +143,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
         **{
             **_MANIFEST_KW,
             "env_literals": {
-                "OMNIGENT_CONFIG_HOME": "/home/omnigent/custom-config",
+                "AGENTNEXUS_CONFIG_HOME": "/home/omnigent/custom-config",
                 "PLAIN_CONFIG": "host-only",
             },
         },
@@ -156,12 +156,12 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
     assert init_env == [
         {"name": "HOME", "value": "/home/omnigent"},
         {
-            "name": "OMNIGENT_CONFIG_HOME",
+            "name": "AGENTNEXUS_CONFIG_HOME",
             "value": "/home/omnigent/custom-config",
         },
     ]
     assert {entry["name"] for entry in host_env} >= {
-        "OMNIGENT_CONFIG_HOME",
+        "AGENTNEXUS_CONFIG_HOME",
         "PLAIN_CONFIG",
     }
 
@@ -175,9 +175,9 @@ def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: st
     Init and host share only the HOME emptyDir, so a config dir that resolves
     outside it would make the injected config invisible to the host.
     """
-    with pytest.raises(ValueError, match=r"OMNIGENT_CONFIG_HOME.*must resolve under"):
+    with pytest.raises(ValueError, match=r"AGENTNEXUS_CONFIG_HOME.*must resolve under"):
         build_job_manifest(
-            **{**_MANIFEST_KW, "env_literals": {"OMNIGENT_CONFIG_HOME": config_home}},
+            **{**_MANIFEST_KW, "env_literals": {"AGENTNEXUS_CONFIG_HOME": config_home}},
             host_config=_HOST_CONFIG,
         )
 
@@ -189,10 +189,10 @@ def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: st
 def test_build_job_manifest_accepts_config_home_at_or_under_home_dir(config_home: str) -> None:
     """A dir at or under HOME is on the shared volume — allowed."""
     manifest = build_job_manifest(
-        **{**_MANIFEST_KW, "env_literals": {"OMNIGENT_CONFIG_HOME": config_home}},
+        **{**_MANIFEST_KW, "env_literals": {"AGENTNEXUS_CONFIG_HOME": config_home}},
         host_config=_HOST_CONFIG,
     )
-    assert {"name": "OMNIGENT_CONFIG_HOME", "value": config_home} in _pod_spec(manifest)[
+    assert {"name": "AGENTNEXUS_CONFIG_HOME", "value": config_home} in _pod_spec(manifest)[
         "initContainers"
     ][0]["env"]
 
@@ -200,10 +200,10 @@ def test_build_job_manifest_accepts_config_home_at_or_under_home_dir(config_home
 def test_build_job_manifest_config_home_outside_home_dir_ok_without_host_config() -> None:
     """Without host_config the init container writes nothing, so the path is moot."""
     manifest = build_job_manifest(
-        **{**_MANIFEST_KW, "env_literals": {"OMNIGENT_CONFIG_HOME": "/tmp/elsewhere"}},
+        **{**_MANIFEST_KW, "env_literals": {"AGENTNEXUS_CONFIG_HOME": "/tmp/elsewhere"}},
     )
     init_env = _pod_spec(manifest)["initContainers"][0]["env"]
-    assert {"name": "OMNIGENT_CONFIG_HOME", "value": "/tmp/elsewhere"} in init_env
+    assert {"name": "AGENTNEXUS_CONFIG_HOME", "value": "/tmp/elsewhere"} in init_env
 
 
 def test_build_job_manifest_without_host_config_has_no_config_write() -> None:
@@ -220,7 +220,7 @@ def test_build_job_manifest_token_rides_secret_ref_not_the_spec() -> None:
     host_env = _pod_spec(manifest)["containers"][0]["env"]
     token_entry = next(e for e in host_env if e["name"] == HOST_TOKEN_ENV_VAR)
     assert token_entry["valueFrom"]["secretKeyRef"] == {
-        "name": "omnigent-managed-abc-1a2b3c-token",
+        "name": "agentnexus-managed-abc-1a2b3c-token",
         "key": HOST_TOKEN_ENV_VAR,
     }
     assert "value" not in token_entry
@@ -232,10 +232,10 @@ def test_build_job_manifest_token_rides_secret_ref_not_the_spec() -> None:
 def test_build_token_secret_manifest_carries_token_in_stringdata() -> None:
     """The token Secret holds the raw token under the host-token key, labeled for GC."""
     secret = build_token_secret_manifest(
-        secret_name="omnigent-pod-token", namespace="omnigent-sandboxes", token=_TOKEN
+        secret_name="agentnexus-pod-token", namespace="agentnexus-sandboxes", token=_TOKEN
     )
     assert secret["stringData"] == {HOST_TOKEN_ENV_VAR: _TOKEN}
-    assert secret["metadata"]["labels"]["app.kubernetes.io/managed-by"] == "omnigent"
+    assert secret["metadata"]["labels"]["app.kubernetes.io/managed-by"] == "agentnexus"
     assert secret["type"] == "Opaque"
 
 
@@ -245,8 +245,8 @@ def test_build_job_manifest_harness_secret_projects_into_both_containers() -> No
     spec = _pod_spec(manifest)
     init = spec["initContainers"][0]
     host = spec["containers"][0]
-    assert init["envFrom"] == [{"secretRef": {"name": "omnigent-creds"}}]
-    assert host["envFrom"] == [{"secretRef": {"name": "omnigent-creds"}}]
+    assert init["envFrom"] == [{"secretRef": {"name": "agentnexus-creds"}}]
+    assert host["envFrom"] == [{"secretRef": {"name": "agentnexus-creds"}}]
 
 
 def test_build_job_manifest_omits_envfrom_without_harness_secret() -> None:
@@ -278,7 +278,7 @@ def test_build_job_manifest_pvc_mounts_land_on_host_container_only() -> None:
     manifest = build_job_manifest(
         **_MANIFEST_KW,
         pvc_mounts=[
-            {"claim_name": "omnigent-datasets", "mount_path": "/mnt/datasets", "read_only": True},
+            {"claim_name": "agentnexus-datasets", "mount_path": "/mnt/datasets", "read_only": True},
             {"claim_name": "scratch", "mount_path": "/mnt/scratch", "read_only": False},
         ],
     )
@@ -286,7 +286,7 @@ def test_build_job_manifest_pvc_mounts_land_on_host_container_only() -> None:
     volumes = {v["name"]: v for v in spec["volumes"]}
     assert volumes["home"] == {"name": "home", "emptyDir": {}}
     assert volumes["pvc-0"]["persistentVolumeClaim"] == {
-        "claimName": "omnigent-datasets",
+        "claimName": "agentnexus-datasets",
         "readOnly": True,
     }
     assert volumes["pvc-1"]["persistentVolumeClaim"] == {"claimName": "scratch"}
@@ -378,9 +378,9 @@ def test_build_job_manifest_stamps_agent_label_alongside_reserved_pair() -> None
     """A valid agent name adds the omnigent.ai/agent classifier; reserved pair stays."""
     manifest = build_job_manifest(**_MANIFEST_KW, agent_name="research-agent")
     assert manifest["metadata"]["labels"] == {
-        "app.kubernetes.io/managed-by": "omnigent",
-        "omnigent.ai/role": "sandbox-host",
-        "omnigent.ai/agent": "research-agent",
+        "app.kubernetes.io/managed-by": "agentnexus",
+        "agentnexus.ai/role": "sandbox-host",
+        "agentnexus.ai/agent": "research-agent",
     }
 
 
@@ -388,22 +388,22 @@ def test_build_job_manifest_echoes_valid_agent_name_verbatim() -> None:
     """The label value equals the agent name exactly — case, dots, and underscores
     are all valid label characters, so a valid name is never rewritten."""
     manifest = build_job_manifest(**_MANIFEST_KW, agent_name="Research.Agent_v2")
-    assert manifest["metadata"]["labels"]["omnigent.ai/agent"] == "Research.Agent_v2"
+    assert manifest["metadata"]["labels"]["agentnexus.ai/agent"] == "Research.Agent_v2"
 
 
 def test_build_job_manifest_without_agent_label_keeps_only_reserved_pair() -> None:
     """No agent → labels are exactly the reserved managed-by/role pair."""
     manifest = build_job_manifest(**_MANIFEST_KW)
     assert manifest["metadata"]["labels"] == {
-        "app.kubernetes.io/managed-by": "omnigent",
-        "omnigent.ai/role": "sandbox-host",
+        "app.kubernetes.io/managed-by": "agentnexus",
+        "agentnexus.ai/role": "sandbox-host",
     }
 
 
 def test_build_job_manifest_empty_agent_label_is_omitted() -> None:
     """An empty agent name is treated as no agent — no omnigent.ai/agent key."""
     manifest = build_job_manifest(**_MANIFEST_KW, agent_name="")
-    assert "omnigent.ai/agent" not in manifest["metadata"]["labels"]
+    assert "agentnexus.ai/agent" not in manifest["metadata"]["labels"]
 
 
 @pytest.mark.parametrize(
@@ -422,7 +422,7 @@ def test_build_job_manifest_omits_agent_label_needing_transformation(
     """A name that is not ALREADY a valid label value is omitted, never coerced."""
     with caplog.at_level(logging.WARNING):
         manifest = build_job_manifest(**_MANIFEST_KW, agent_name=raw)
-    assert "omnigent.ai/agent" not in manifest["metadata"]["labels"]
+    assert "agentnexus.ai/agent" not in manifest["metadata"]["labels"]
     assert any(
         "stays unclassified" in r.getMessage() and r.levelno == logging.WARNING
         for r in caplog.records
@@ -468,7 +468,7 @@ def test_render_workspace_prep_command(
 def test_new_pod_name_and_token_secret_name() -> None:
     """Pod names are DNS-label-safe and the token Secret is the name + suffix."""
     name = k8s._new_pod_name("Managed-ABC_123!")
-    assert name.startswith("omnigent-managed-abc-123-")
+    assert name.startswith("agentnexus-managed-abc-123-")
     assert all(c.islower() or c.isdigit() or c == "-" for c in name)
     assert k8s._token_secret_name(name) == f"{name}-token"
 
@@ -609,7 +609,7 @@ class _FakeBatch:
 def _pod(phase=None, init_statuses=None, container_statuses=None, conditions=None):
     """Build a ``V1Pod`` stand-in (the launcher reads only ``status`` via getattr)."""
     return SimpleNamespace(
-        metadata=SimpleNamespace(name="omnigent-pod-child-xyz"),
+        metadata=SimpleNamespace(name="agentnexus-pod-child-xyz"),
         status=SimpleNamespace(
             phase=phase,
             init_container_statuses=init_statuses,
@@ -671,7 +671,7 @@ def fake_clients(monkeypatch: pytest.MonkeyPatch) -> tuple[_FakeCore, _FakeBatch
 def _launcher() -> KubernetesSandboxLauncher:
     """A launcher pinned to in-cluster config with explicit, env-free settings."""
     return KubernetesSandboxLauncher(
-        in_cluster=True, namespace="omnigent-sandboxes", secret_name="omnigent-creds", env=()
+        in_cluster=True, namespace="agentnexus-sandboxes", secret_name="agentnexus-creds", env=()
     )
 
 
@@ -689,7 +689,7 @@ def test_launch_host_creates_secret_then_job_and_returns_workspace(
     core, batch = fake_clients
     _setup_pod_discovery(core)
     workspace = _launcher().start_host(
-        "omnigent-job-1",
+        "agentnexus-job-1",
         token=_TOKEN,
         host_id="host_1",
         host_name="managed-1",
@@ -700,7 +700,7 @@ def test_launch_host_creates_secret_then_job_and_returns_workspace(
     all_calls = core.calls + batch.calls
     assert all_calls.index("create_secret") < all_calls.index("create_job")
     assert core.created_secrets[0]["stringData"] == {HOST_TOKEN_ENV_VAR: _TOKEN}
-    assert batch.created_jobs[0]["metadata"]["name"] == "omnigent-job-1"
+    assert batch.created_jobs[0]["metadata"]["name"] == "agentnexus-job-1"
     # Nothing torn down on success.
     assert batch.deleted_jobs == []
 
@@ -713,15 +713,15 @@ def test_launch_host_threads_pvc_mounts_into_the_job(
     _setup_pod_discovery(core)
     launcher = KubernetesSandboxLauncher(
         in_cluster=True,
-        namespace="omnigent-sandboxes",
-        secret_name="omnigent-creds",
+        namespace="agentnexus-sandboxes",
+        secret_name="agentnexus-creds",
         env=(),
         pvc_mounts=[
-            {"claim_name": "omnigent-datasets", "mount_path": "/mnt/datasets", "read_only": True}
+            {"claim_name": "agentnexus-datasets", "mount_path": "/mnt/datasets", "read_only": True}
         ],
     )
     launcher.start_host(
-        "omnigent-job-1",
+        "agentnexus-job-1",
         token=_TOKEN,
         host_id="host_1",
         host_name="managed-1",
@@ -730,7 +730,7 @@ def test_launch_host_threads_pvc_mounts_into_the_job(
     pod_spec = batch.created_jobs[0]["spec"]["template"]["spec"]
     assert {
         "name": "pvc-0",
-        "persistentVolumeClaim": {"claimName": "omnigent-datasets", "readOnly": True},
+        "persistentVolumeClaim": {"claimName": "agentnexus-datasets", "readOnly": True},
     } in pod_spec["volumes"]
 
 
@@ -742,13 +742,13 @@ def test_launch_host_threads_secret_mounts_into_the_job(
     _setup_pod_discovery(core)
     launcher = KubernetesSandboxLauncher(
         in_cluster=True,
-        namespace="omnigent-sandboxes",
-        secret_name="omnigent-creds",
+        namespace="agentnexus-sandboxes",
+        secret_name="agentnexus-creds",
         env=(),
         secret_mounts=[{"secret_name": "git-token", "mount_path": "/mnt/secrets/git"}],
     )
     launcher.start_host(
-        "omnigent-job-1",
+        "agentnexus-job-1",
         token=_TOKEN,
         host_id="host_1",
         host_name="managed-1",
@@ -768,7 +768,7 @@ def test_launch_host_threads_agent_label_into_the_job(
     core, batch = fake_clients
     _setup_pod_discovery(core)
     _launcher().start_host(
-        "omnigent-job-1",
+        "agentnexus-job-1",
         token=_TOKEN,
         host_id="host_1",
         host_name="managed-1",
@@ -776,8 +776,8 @@ def test_launch_host_threads_agent_label_into_the_job(
         agent_name="research-agent",
     )
     labels = batch.created_jobs[0]["metadata"]["labels"]
-    assert labels["omnigent.ai/agent"] == "research-agent"
-    assert labels["app.kubernetes.io/managed-by"] == "omnigent"
+    assert labels["agentnexus.ai/agent"] == "research-agent"
+    assert labels["app.kubernetes.io/managed-by"] == "agentnexus"
 
 
 def test_launch_host_without_agent_label_keeps_reserved_labels(
@@ -787,13 +787,13 @@ def test_launch_host_without_agent_label_keeps_reserved_labels(
     core, batch = fake_clients
     _setup_pod_discovery(core)
     _launcher().start_host(
-        "omnigent-job-1",
+        "agentnexus-job-1",
         token=_TOKEN,
         host_id="host_1",
         host_name="managed-1",
         server_url="http://srv.example.com",
     )
-    assert "omnigent.ai/agent" not in batch.created_jobs[0]["metadata"]["labels"]
+    assert "agentnexus.ai/agent" not in batch.created_jobs[0]["metadata"]["labels"]
 
 
 def test_launch_host_with_repo_returns_clone_dir(
@@ -803,7 +803,7 @@ def test_launch_host_with_repo_returns_clone_dir(
     core, _batch = fake_clients
     _setup_pod_discovery(core)
     workspace = _launcher().start_host(
-        "omnigent-job-2",
+        "agentnexus-job-2",
         token=_TOKEN,
         host_id="host_2",
         host_name="managed-2",
@@ -822,14 +822,14 @@ def test_launch_host_cleans_up_on_create_failure(
     batch.create_job_error = _FakeApiException(status=500, reason="Internal Server Error")
     with pytest.raises(click.ClickException, match="create sandbox job"):
         _launcher().start_host(
-            "omnigent-job-3",
+            "agentnexus-job-3",
             token=_TOKEN,
             host_id="host_3",
             host_name="managed-3",
             server_url="http://srv.example.com",
         )
-    assert "omnigent-job-3-token" in core.deleted_secrets
-    assert "omnigent-job-3" in batch.deleted_jobs
+    assert "agentnexus-job-3-token" in core.deleted_secrets
+    assert "agentnexus-job-3" in batch.deleted_jobs
 
 
 def test_launch_host_invalid_config_home_fails_before_creating_secret(
@@ -840,16 +840,16 @@ def test_launch_host_invalid_config_home_fails_before_creating_secret(
     token Secret is created.
     """
     core, _batch = fake_clients
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", "/tmp/outside")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", "/tmp/outside")
     launcher = KubernetesSandboxLauncher(
         in_cluster=True,
-        namespace="omnigent-sandboxes",
-        secret_name="omnigent-creds",
-        env=["OMNIGENT_CONFIG_HOME"],
+        namespace="agentnexus-sandboxes",
+        secret_name="agentnexus-creds",
+        env=["AGENTNEXUS_CONFIG_HOME"],
     )
-    with pytest.raises(ValueError, match=r"OMNIGENT_CONFIG_HOME.*must resolve under"):
+    with pytest.raises(ValueError, match=r"AGENTNEXUS_CONFIG_HOME.*must resolve under"):
         launcher.start_host(
-            "omnigent-job-x",
+            "agentnexus-job-x",
             token=_TOKEN,
             host_id="host_x",
             host_name="managed-x",
@@ -875,7 +875,7 @@ def test_launch_host_fast_fails_on_clone_failure_with_log_tail(
     core.logs["workspace-prep"] = "fatal: repository 'https://x/y.git' not found"
     with pytest.raises(click.ClickException) as exc:
         _launcher().start_host(
-            "omnigent-job-4",
+            "agentnexus-job-4",
             token=_TOKEN,
             host_id="host_4",
             host_name="managed-4",
@@ -887,7 +887,7 @@ def test_launch_host_fast_fails_on_clone_failure_with_log_tail(
     assert "repository 'https://x/y.git' not found" in exc.value.message
     # The orphaned Job and Secret are cleaned up on failure.
     assert "delete_job" in batch.calls
-    assert core.deleted_secrets == ["omnigent-job-4-token"]
+    assert core.deleted_secrets == ["agentnexus-job-4-token"]
 
 
 def test_launch_host_times_out_with_reason(
@@ -912,7 +912,7 @@ def test_launch_host_times_out_with_reason(
     core.read_default = pending_pod
     with pytest.raises(click.ClickException, match="did not start within"):
         _launcher().start_host(
-            "omnigent-job-5",
+            "agentnexus-job-5",
             token=_TOKEN,
             host_id="host_5",
             host_name="managed-5",
@@ -951,14 +951,14 @@ def test_configured_pod_ready_timeout_bounds_entire_job_wait(
     monkeypatch.setattr(k8s.time, "monotonic", lambda: next(ticks))
     launcher = KubernetesSandboxLauncher(
         in_cluster=True,
-        namespace="omnigent-sandboxes",
-        secret_name="omnigent-creds",
+        namespace="agentnexus-sandboxes",
+        secret_name="agentnexus-creds",
         env=(),
         pod_ready_timeout_s=1,
     )
 
     with pytest.raises(click.ClickException, match=expected):
-        launcher._wait_for_pod_running("omnigent-sandboxes", "omnigent-job-timeout")
+        launcher._wait_for_pod_running("agentnexus-sandboxes", "agentnexus-job-timeout")
 
 
 def test_terminate_deletes_job_and_secret(
@@ -966,11 +966,11 @@ def test_terminate_deletes_job_and_secret(
 ) -> None:
     """Terminate deletes the Job, attempts bare-Pod fallback, and deletes the Secret."""
     core, batch = fake_clients
-    _launcher().terminate("omnigent-job-6")
-    assert batch.deleted_jobs == ["omnigent-job-6"]
+    _launcher().terminate("agentnexus-job-6")
+    assert batch.deleted_jobs == ["agentnexus-job-6"]
     assert batch.last_delete_body.propagation_policy == "Foreground"
-    assert core.deleted_pods == ["omnigent-job-6"]
-    assert core.deleted_secrets == ["omnigent-job-6-token"]
+    assert core.deleted_pods == ["agentnexus-job-6"]
+    assert core.deleted_secrets == ["agentnexus-job-6-token"]
 
 
 def test_resume_recycles_job_and_token_secret(
@@ -983,12 +983,12 @@ def test_resume_recycles_job_and_token_secret(
     assert launcher.can_resume is True
     assert launcher.capabilities.resume_stopped is True
 
-    launcher.resume("omnigent-job-resume")
+    launcher.resume("agentnexus-job-resume")
 
-    assert batch.deleted_jobs == ["omnigent-job-resume"]
+    assert batch.deleted_jobs == ["agentnexus-job-resume"]
     assert batch.last_delete_body.propagation_policy == "Foreground"
-    assert core.deleted_pods == ["omnigent-job-resume"]
-    assert core.deleted_secrets == ["omnigent-job-resume-token"]
+    assert core.deleted_pods == ["agentnexus-job-resume"]
+    assert core.deleted_secrets == ["agentnexus-job-resume-token"]
 
 
 def test_terminate_is_idempotent_on_404(
@@ -997,9 +997,9 @@ def test_terminate_is_idempotent_on_404(
     """A Job 404 still deletes the bare Pod fallback and the Secret."""
     core, batch = fake_clients
     batch.delete_job_errors = [_FakeApiException(status=404, reason="Not Found")]
-    _launcher().terminate("omnigent-job-7")  # must not raise
-    assert core.deleted_pods == ["omnigent-job-7"]
-    assert core.deleted_secrets == ["omnigent-job-7-token"]
+    _launcher().terminate("agentnexus-job-7")  # must not raise
+    assert core.deleted_pods == ["agentnexus-job-7"]
+    assert core.deleted_secrets == ["agentnexus-job-7-token"]
 
 
 def test_terminate_retries_transient_then_gives_up_best_effort(
@@ -1010,10 +1010,10 @@ def test_terminate_retries_transient_then_gives_up_best_effort(
 
     core, batch = fake_clients
     batch.delete_job_errors = [HTTPError("timeout")] * k8s._DELETE_MAX_ATTEMPTS
-    _launcher().terminate("omnigent-job-8")  # best-effort: must not raise
-    assert "could not delete Kubernetes job 'omnigent-job-8'" in capsys.readouterr().err
+    _launcher().terminate("agentnexus-job-8")  # best-effort: must not raise
+    assert "could not delete Kubernetes job 'agentnexus-job-8'" in capsys.readouterr().err
     # The Secret delete still runs after the Job gives up.
-    assert core.deleted_secrets == ["omnigent-job-8-token"]
+    assert core.deleted_secrets == ["agentnexus-job-8-token"]
 
 
 def test_terminate_still_deletes_secret_on_job_403(
@@ -1023,9 +1023,9 @@ def test_terminate_still_deletes_secret_on_job_403(
     core, batch = fake_clients
     batch.delete_job_errors = [_FakeApiException(status=403, reason="Forbidden")]
     with pytest.raises(click.ClickException, match="Forbidden"):
-        _launcher().terminate("omnigent-job-9")
+        _launcher().terminate("agentnexus-job-9")
     # Secret must still be deleted even though Job delete raised.
-    assert core.deleted_secrets == ["omnigent-job-9-token"]
+    assert core.deleted_secrets == ["agentnexus-job-9-token"]
 
 
 def test_find_job_pod_raises_on_403(
@@ -1039,7 +1039,7 @@ def test_find_job_pod_raises_on_403(
     core.read_default = _pod(phase="Running")
     with pytest.raises(click.ClickException, match="list sandbox pods"):
         _launcher().start_host(
-            "omnigent-job-rbac",
+            "agentnexus-job-rbac",
             token=_TOKEN,
             host_id="host_rbac",
             host_name="managed-rbac",
@@ -1054,7 +1054,7 @@ def test_find_job_pod_sends_correct_label_selector(
     core, _batch = fake_clients
     _setup_pod_discovery(core)
     _launcher().start_host(
-        "omnigent-job-sel",
+        "agentnexus-job-sel",
         token=_TOKEN,
         host_id="host_sel",
         host_name="managed-sel",
@@ -1070,12 +1070,12 @@ def test_wait_rediscovers_pod_on_404(
     core, _batch = fake_clients
     replacement_pod = _pod(phase="Running")
     replacement_pod.metadata = SimpleNamespace(
-        name="omnigent-job-repl-abc", deletion_timestamp=None
+        name="agentnexus-job-repl-abc", deletion_timestamp=None
     )
     # First discovery returns original, which 404s on read.
     # Second discovery returns the replacement, which is Running.
     original_pod = _pod(phase="Pending")
-    original_pod.metadata = SimpleNamespace(name="omnigent-job-repl-xyz", deletion_timestamp=None)
+    original_pod.metadata = SimpleNamespace(name="agentnexus-job-repl-xyz", deletion_timestamp=None)
     core.pod_list_items = [original_pod]
     core.read_queue = [
         _FakeApiException(status=404, reason="Not Found"),
@@ -1092,7 +1092,7 @@ def test_wait_rediscovers_pod_on_404(
     core.list_namespaced_pod = list_pod_side_effect
     core.read_default = replacement_pod
     workspace = _launcher().start_host(
-        "omnigent-job-repl",
+        "agentnexus-job-repl",
         token=_TOKEN,
         host_id="host_repl",
         host_name="managed-repl",
@@ -1123,7 +1123,7 @@ def test_crashloopbackoff_is_terminal(
     core.read_queue = [crashloop_pod]
     with pytest.raises(click.ClickException, match="crash-looping"):
         _launcher().start_host(
-            "omnigent-job-crash",
+            "agentnexus-job-crash",
             token=_TOKEN,
             host_id="host_crash",
             host_name="managed-crash",
@@ -1148,7 +1148,7 @@ def test_init_failure_pending_is_not_terminal(
     # Should time out, NOT fast-fail with "workspace prep failed".
     with pytest.raises(click.ClickException, match="did not start within"):
         _launcher().start_host(
-            "omnigent-job-retry",
+            "agentnexus-job-retry",
             token=_TOKEN,
             host_id="host_retry",
             host_name="managed-retry",
@@ -1160,7 +1160,7 @@ def test_provision_reserves_pod_name_and_no_exec_transport() -> None:
     """provision reserves a Pod name (no Pod created); no exec transport."""
     launcher = _launcher()
     name = launcher.provision("managed-abc")
-    assert name.startswith("omnigent-managed-abc-")
+    assert name.startswith("agentnexus-managed-abc-")
     assert not hasattr(launcher, "run")
     assert launcher.capabilities.cli_bootstrap is False
     assert launcher.capabilities.classifies_runner_by_agent is True

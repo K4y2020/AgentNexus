@@ -8,7 +8,7 @@ marker token.
 
 Run with Databricks credentials (opt-in via env var)::
 
-    OMNIGENT_E2E_CODEX_NATIVE=1 \
+    AGENTNEXUS_E2E_CODEX_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_host_codex_native_e2e.py \
         --profile oss \
         --llm-api-key "$(databricks auth token -p oss \
@@ -30,13 +30,13 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.codex_native_bridge import (
+from agentnexus.codex_native_bridge import (
     bridge_dir_for_bridge_id,
     read_bridge_state,
     update_active_turn_id,
 )
-from omnigent.entities.session_resources import terminal_resource_id
-from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+from agentnexus.entities.session_resources import terminal_resource_id
+from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests.e2e.helpers import POLL_INTERVAL_S
 
@@ -76,7 +76,7 @@ def _spawn_host_daemon(
             [
                 runner_executable(),
                 "-m",
-                "omnigent.host._daemon_entry",
+                "agentnexus.host._daemon_entry",
                 "--server",
                 live_server,
             ],
@@ -288,7 +288,7 @@ def _wait_for_codex_turn_idle(
     bridge_dir: Path,
     timeout: float,
 ) -> None:
-    """Wait until both Omnigent and the native bridge agree the turn ended."""
+    """Wait until both AgentNexus and the native bridge agree the turn ended."""
     deadline = time.monotonic() + timeout
     last_status: object = None
     last_active_turn: str | None = None
@@ -628,15 +628,15 @@ def test_codex_native_builtin_session_can_be_created(
     session_data = session_resp.json()
     assert session_data["agent_id"] == agent_id
     labels = session_data.get("labels", {})
-    assert labels.get("omnigent.wrapper") == "codex-native-ui", (
-        f"Expected wrapper label 'codex-native-ui', got {labels.get('omnigent.wrapper')!r}"
+    assert labels.get("agentnexus.wrapper") == "codex-native-ui", (
+        f"Expected wrapper label 'codex-native-ui', got {labels.get('agentnexus.wrapper')!r}"
     )
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
-        "codex-native round-trip e2e needs `codex` on PATH and OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "codex-native round-trip e2e needs `codex` on PATH and AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_builtin_session_round_trip(
@@ -754,9 +754,9 @@ def test_codex_native_builtin_session_round_trip(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
-        "codex-native subagent e2e needs `codex` on PATH and OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "codex-native subagent e2e needs `codex` on PATH and AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_spawn_creates_child_session(
@@ -764,7 +764,7 @@ def test_codex_native_spawn_creates_child_session(
     http_client: httpx.Client,
     tmp_path: Path,
 ) -> None:
-    """A real Codex native spawn appears as an Omnigent child session."""
+    """A real Codex native spawn appears as an AgentNexus child session."""
     workspace = tmp_path / "codex_subagent_ws"
     workspace.mkdir()
     child_marker = f"CHILD_{uuid.uuid4().hex[:6].upper()}"
@@ -798,7 +798,7 @@ def test_codex_native_spawn_creates_child_session(
         child_id = str(child["id"])
         labels = child.get("labels", {})
         assert isinstance(labels, dict)
-        assert labels.get("omnigent.codex_native.subagent_thread_id")
+        assert labels.get("agentnexus.codex_native.subagent_thread_id")
         _poll_for_assistant_marker(
             http_client,
             session_id=child_id,
@@ -821,10 +821,10 @@ def test_codex_native_spawn_creates_child_session(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native streaming-order e2e needs `codex` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_user_message_streams_before_assistant_delta(
@@ -959,12 +959,12 @@ def test_codex_native_user_message_streams_before_assistant_delta(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1"
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1"
     or shutil.which("codex") is None
     or shutil.which("git") is None,
     reason=(
         "codex-native worktree e2e needs `codex` + `git` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_worktree_session_runs_in_worktree(
@@ -980,7 +980,7 @@ def test_codex_native_worktree_session_runs_in_worktree(
     dir (``runner-specs-<id>/ag_<id>-v<ver>``) — instead of the session
     workspace. Worktree sessions therefore launched Codex in a temp dir
     with no ``.git`` and never touched the worktree, while claude-native
-    worked because it reads ``OMNIGENT_RUNNER_WORKSPACE`` directly.
+    worked because it reads ``AGENTNEXUS_RUNNER_WORKSPACE`` directly.
 
     Golden path: init a real git repo with a committed marker file ->
     create a session with a git worktree branch -> ask Codex to read the
@@ -1050,9 +1050,9 @@ def test_codex_native_worktree_session_runs_in_worktree(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
-        "codex-native workspace e2e needs `codex` on PATH and OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "codex-native workspace e2e needs `codex` on PATH and AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_session_uses_workspace_dir_without_worktree(
@@ -1126,10 +1126,10 @@ def test_codex_native_session_uses_workspace_dir_without_worktree(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native image-routing e2e needs `codex` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_image_routed_natively_not_as_base64_text(
@@ -1243,10 +1243,10 @@ def test_codex_native_image_routed_natively_not_as_base64_text(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native image-only persistence e2e needs `codex` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_image_only_persists_user_bubble_and_does_not_bleed(
@@ -1398,10 +1398,10 @@ def test_codex_native_image_only_persists_user_bubble_and_does_not_bleed(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native model/effort override e2e needs `codex` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_web_model_effort_override_survives_turn(
@@ -1413,7 +1413,7 @@ def test_codex_native_web_model_effort_override_survives_turn(
     A web model/effort pick applied mid-session does not break the turn.
 
     A model or reasoning-effort change
-    made in the Omnigent web picker reaches the runner as
+    made in the AgentNexus web picker reaches the runner as
     ``ExecutorConfig.model`` / ``extra["reasoning_effort"]``, and
     ``CodexNativeExecutor.run_turn`` now applies it via a
     ``thread/settings/update`` request (whose ``ThreadSettingsUpdateParams``
@@ -1438,7 +1438,7 @@ def test_codex_native_web_model_effort_override_survives_turn(
 
     The target model defaults to the session's own running model (always a
     valid id, profile-independent) so the override path is exercised on any
-    profile; set ``OMNIGENT_E2E_CODEX_SWITCH_MODEL`` to a different valid
+    profile; set ``AGENTNEXUS_E2E_CODEX_SWITCH_MODEL`` to a different valid
     codex model to drive a genuine cross-model switch.
 
     :param live_server: Test server URL.
@@ -1481,7 +1481,7 @@ def test_codex_native_web_model_effort_override_survives_turn(
         session.raise_for_status()
         session_data = session.json()
         current_model = session_data.get("model_override") or session_data.get("llm_model")
-        target_model = os.environ.get("OMNIGENT_E2E_CODEX_SWITCH_MODEL") or current_model
+        target_model = os.environ.get("AGENTNEXUS_E2E_CODEX_SWITCH_MODEL") or current_model
         assert target_model, (
             "could not resolve a model to override with — the session reported "
             f"neither model_override nor llm_model: {session_data!r}"
@@ -1534,10 +1534,10 @@ def test_codex_native_web_model_effort_override_survives_turn(
 
 
 @pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native stale-steer recovery e2e needs `codex` on PATH and "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_stale_completed_turn_recovers_with_new_turn(
@@ -1593,7 +1593,7 @@ def test_codex_native_stale_completed_turn_recovers_with_new_turn(
             item.get("id") for item in before.json().get("data", []) if item.get("type") == "error"
         }
 
-        # Recreate the production race: Omnigent still believes completed
+        # Recreate the production race: AgentNexus still believes completed
         # turn A is active while Codex already considers the thread idle.
         update_active_turn_id(bridge_dir, completed_turn_id)
         stale_state = read_bridge_state(bridge_dir)

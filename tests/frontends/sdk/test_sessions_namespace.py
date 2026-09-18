@@ -25,7 +25,7 @@ What each test claims to prove (and what failure indicates):
   :data:`ServerStreamEvent` instances and that malformed/unknown
   payloads are skipped without aborting iteration. Failure means a
   schema drift between server and SDK silently drops events.
-* ``test_*_404``: that the namespace propagates :class:`OmnigentError`
+* ``test_*_404``: that the namespace propagates :class:`AgentNexusError`
   for non-2xx responses; failure means errors are silently swallowed.
 """
 
@@ -37,13 +37,13 @@ from typing import Any
 
 import httpx
 import pytest
-from omnigent_client._errors import OmnigentError
-from omnigent_client._sessions import (
+from agentnexus_client._errors import AgentNexusError
+from agentnexus_client._sessions import (
     Session,
     SessionsNamespace,
 )
 
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     CompletedEvent,
     OutputTextDeltaEvent,
     SessionInputConsumedEvent,
@@ -209,7 +209,7 @@ async def test_create_404_raises_omnigent_error() -> None:
 
     ns, client = _make_namespace(handler)
     try:
-        with pytest.raises(OmnigentError) as exc_info:
+        with pytest.raises(AgentNexusError) as exc_info:
             await ns.create(b"bundle-bytes")
     finally:
         await client.aclose()
@@ -346,7 +346,7 @@ async def test_bind_runner_400_raises_omnigent_error() -> None:
 
     ns, client = _make_namespace(handler)
     try:
-        with pytest.raises(OmnigentError) as exc_info:
+        with pytest.raises(AgentNexusError) as exc_info:
             await ns.bind_runner("conv_abc", runner_id="runner_offline")
     finally:
         await client.aclose()
@@ -546,7 +546,7 @@ async def test_post_event_404_raises() -> None:
 
     ns, client = _make_namespace(handler)
     try:
-        with pytest.raises(OmnigentError):
+        with pytest.raises(AgentNexusError):
             await ns.post_event("conv_x", {"type": "message", "data": {}})
     finally:
         await client.aclose()
@@ -689,7 +689,7 @@ async def test_stream_404_raises_before_first_yield() -> None:
 
     ns, client = _make_namespace(handler)
     try:
-        with pytest.raises(OmnigentError):
+        with pytest.raises(AgentNexusError):
             async for _ in ns.stream("conv_missing"):
                 pytest.fail("Should have raised before yielding any event")
     finally:
@@ -1160,7 +1160,7 @@ async def test_fork_omits_title_when_none() -> None:
 
 @pytest.mark.asyncio
 async def test_fork_404_raises() -> None:
-    """``fork()`` raises ``OmnigentError`` when the source session is missing.
+    """``fork()`` raises ``AgentNexusError`` when the source session is missing.
 
     Failure to raise means the SDK is swallowing server errors.
     """
@@ -1173,7 +1173,7 @@ async def test_fork_404_raises() -> None:
 
     ns, client = _make_namespace(_handler)
     try:
-        with pytest.raises(OmnigentError):
+        with pytest.raises(AgentNexusError):
             await ns.fork("conv_nonexistent")
     finally:
         await client.aclose()

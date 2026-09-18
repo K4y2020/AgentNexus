@@ -1,4 +1,4 @@
-"""Load test: each Locust user is a real Omnigent host running real turns.
+"""Load test: each Locust user is a real AgentNexus host running real turns.
 
 One unit of load = one **host**. Each Locust user spawns a real
 ``omnigent host`` subprocess (a unique host identity), registers it with the
@@ -6,7 +6,7 @@ target server over the host tunnel, then repeatedly: creates a **host-bound
 session** and drives **real multi-turn conversations** on it — every turn is a
 genuine ``POST .../events`` → server → the user's host → a runner subprocess it
 spawns → LLM → stream → ``idle`` loop. The LLM is **mocked** (zero latency), so
-the numbers isolate Omnigent's own dispatch / streaming / history overhead, not
+the numbers isolate AgentNexus's own dispatch / streaming / history overhead, not
 provider time. ``-u N`` scales the number of hosts.
 
 Because turns really execute on the host, each host spawns a **real runner
@@ -45,7 +45,7 @@ import gevent
 from locust import HttpUser, task
 
 # Sentinel Origin the server's CSRF/CSWSH guard trusts for a non-browser client.
-INTERNAL_ORIGIN = "omnigent://internal"
+INTERNAL_ORIGIN = "agentnexus://internal"
 
 # Rotating prompts so each turn sends distinct text and history keeps growing —
 # the point is a real long conversation, not realistic dialogue.
@@ -67,7 +67,7 @@ _TERMINAL_STATES = frozenset({"idle", "failed"})
 
 
 class HostUser(HttpUser):
-    """One simulated Omnigent host: spawns a real host, drives real turns.
+    """One simulated AgentNexus host: spawns a real host, drives real turns.
 
     ``on_start`` spawns the host subprocess and waits for it to register;
     the task creates host-bound sessions and drives turns; ``on_stop`` tears
@@ -115,10 +115,10 @@ class HostUser(HttpUser):
         ``OPENAI_*`` env, which the host propagates to the runners it spawns.
         """
         # Each host needs its OWN HOME. The host-daemon singleton guard keys its
-        # pidfile + daemon-record on ~/.omnigent (a module-level path captured
-        # from Path.home() — it does NOT honor OMNIGENT_DATA_DIR/CONFIG_HOME), so
+        # pidfile + daemon-record on ~/.agentnexus (a module-level path captured
+        # from Path.home() — it does NOT honor AGENTNEXUS_DATA_DIR/CONFIG_HOME), so
         # hosts sharing $HOME refuse to start ("a host daemon is already running
-        # for this server"). A per-host $HOME moves ~/.omnigent entirely
+        # for this server"). A per-host $HOME moves ~/.agentnexus entirely
         # (pidfile, daemon registry, identity, local db), giving each host its
         # own singleton scope. Identity is still pinned via the env vars below so
         # nothing is read from / written to the shared config.
@@ -127,8 +127,8 @@ class HostUser(HttpUser):
         env = {
             **os.environ,
             "HOME": str(host_home),
-            "OMNIGENT_HOST_ID": self._host_id,
-            "OMNIGENT_HOST_NAME": self._host_name,
+            "AGENTNEXUS_HOST_ID": self._host_id,
+            "AGENTNEXUS_HOST_NAME": self._host_name,
             "OPENAI_BASE_URL": f"{os.environ['LOADTEST_MOCK_URL']}/v1",
             "OPENAI_API_KEY": "mock-key",
         }
@@ -140,7 +140,7 @@ class HostUser(HttpUser):
             [
                 sys.executable,
                 "-m",
-                "omnigent",
+                "agentnexus",
                 "host",
                 "--server",
                 self._server,

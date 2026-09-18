@@ -9,8 +9,8 @@ from typing import Any
 _logger = logging.getLogger(__name__)
 
 
-class OmnigentError(RuntimeError):
-    """Base error for the Omnigent client and its event parsing."""
+class AgentNexusError(RuntimeError):
+    """Base error for the AgentNexus client and its event parsing."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +39,7 @@ class ElicitationQuestion:
 class ElicitationRequest:
     """A server-initiated request parsed off the event stream.
 
-    The Omnigent server parks a running turn when a tool call trips an approval
+    The AgentNexus server parks a running turn when a tool call trips an approval
     policy OR the agent asks the user to choose (``AskUserQuestion``), emitting
     ``response.elicitation_request``. Two shapes the bot renders differently:
 
@@ -129,7 +129,7 @@ def session_status(event: dict[str, Any]) -> tuple[str, str | None] | None:
     ``idle``/``waiting``/``failed``) from the PTY-activity watcher's mid-answer
     flaps (bare ``idle`` with NO ``response_id``, emitted on sub-second pane
     lulls while the agent is still generating). The turn-end rule that consumes
-    this lives in ``OmnigentClient._run_turn_once``.
+    this lives in ``AgentNexusClient._run_turn_once``.
     """
     if event.get("type") != "session.status":
         return None

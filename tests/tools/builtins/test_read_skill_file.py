@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.types import SkillSpec
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins import ReadSkillFileTool
-from omnigent.tools.builtins.read_skill_file import _read_file_safely
+from agentnexus.spec.types import SkillSpec
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins import ReadSkillFileTool
+from agentnexus.tools.builtins.read_skill_file import _read_file_safely
 
 
 def test_utf8_resource_ignores_windows_locale(tmp_path, monkeypatch):
@@ -55,15 +55,15 @@ def test_documentation_access_preserves_data_and_blocks_alternate_source_paths(t
 
 
 def test_skill_parser_rejects_unknown_resource_access(tmp_path):
-    from omnigent.errors import OmnigentError
-    from omnigent.spec.parser import _parse_skill
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.spec.parser import _parse_skill
 
     path = tmp_path / "SKILL.md"
     path.write_text(
         "---\nname: sample\ndescription: sample\nmetadata:\n  resource-access: typo\n---\nRun",
         encoding="utf-8",
     )
-    with pytest.raises(OmnigentError, match="resource-access"):
+    with pytest.raises(AgentNexusError, match="resource-access"):
         _parse_skill(path)
 
 

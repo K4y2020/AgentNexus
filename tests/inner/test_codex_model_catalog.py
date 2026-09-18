@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.codex_model_vocabulary import EXTENDED_CATALOG_MODELS
-from omnigent.inner import codex_executor
-from omnigent.inner.codex_executor import (
+from agentnexus.codex_model_vocabulary import EXTENDED_CATALOG_MODELS
+from agentnexus.inner import codex_executor
+from agentnexus.inner.codex_executor import (
     extended_model_catalog,
     set_codex_model_catalog_path,
     write_codex_model_catalog,
@@ -251,7 +251,7 @@ def test_the_catalog_probe_runs_off_the_event_loop(
     """
     import inspect
 
-    from omnigent import codex_native_app_server
+    from agentnexus import codex_native_app_server
 
     for module in (codex_executor, codex_native_app_server):
         source = inspect.getsource(module)

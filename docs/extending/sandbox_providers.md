@@ -1,18 +1,18 @@
 # Sandbox providers
 
-Omnigent supports running agent hosts in remote sandboxes. Built-in providers
+AgentNexus supports running agent hosts in remote sandboxes. Built-in providers
 (Modal, Daytona, Blaxel, CoreWeave Sandbox, E2B, Islo, OpenShell, Boxlite,
 Kubernetes)
 ship with the core package. Third-party packages can add new providers through
-the `omnigent.sandbox_providers` entrypoint group.
+the `agentnexus.sandbox_providers` entrypoint group.
 
 ## How it works
 
 Each sandbox provider implements the
-[`SandboxLifecycle`](../../omnigent/onboarding/sandboxes/base.py) interface.
+[`SandboxLifecycle`](../../agentnexus/onboarding/sandboxes/base.py) interface.
 Providers that exec into a running sandbox (Modal, Daytona, …) inherit
 `ExecModelHostLauncher`, which provides a default `start_host` that probes
-`$HOME`, creates a workspace, clones a repo, and backgrounds `omnigent host`.
+`$HOME`, creates a workspace, clones a repo, and backgrounds `agentnexus host`.
 Providers whose sandbox boots running the host directly (Kubernetes) inherit
 `SandboxHostLauncher` and override `start_host` to build the infrastructure
 manifest instead.
@@ -22,9 +22,9 @@ manifest instead.
 ### 1. Implement the launcher
 
 ```python
-# omnigent_community_sandbox_acme/launcher.py
-from omnigent.onboarding.sandboxes.base import ExecModelHostLauncher
-from omnigent.onboarding.sandboxes.types import SandboxCapabilities
+# agentnexus_community_sandbox_acme/launcher.py
+from agentnexus.onboarding.sandboxes.base import ExecModelHostLauncher
+from agentnexus.onboarding.sandboxes.types import SandboxCapabilities
 
 
 class AcmeSandboxLauncher(ExecModelHostLauncher):
@@ -67,19 +67,19 @@ class AcmeSandboxLauncher(ExecModelHostLauncher):
 ### 2. Register the contribution
 
 ```python
-# omnigent_community_sandbox_acme/plugin.py
-from omnigent.onboarding.sandboxes.registry import (
+# agentnexus_community_sandbox_acme/plugin.py
+from agentnexus.onboarding.sandboxes.registry import (
     SandboxProviderContribution,
     SandboxProviderMetadata,
 )
 
 def get_contribution() -> SandboxProviderContribution:
     return SandboxProviderContribution(
-        name="omnigent-acme",
+        name="agentnexus-acme",
         providers={
             "acme": SandboxProviderMetadata(
                 name="acme",
-                launcher_class="omnigent.community.sandbox.acme:AcmeSandboxLauncher",
+                launcher_class="agentnexus.community.sandbox.acme:AcmeSandboxLauncher",
             )
         },
     )
@@ -88,29 +88,29 @@ def get_contribution() -> SandboxProviderContribution:
 ### 3. Declare the entrypoint in `pyproject.toml`
 
 ```toml
-[project.entry-points."omnigent.sandbox_providers"]
-acme = "omnigent_community_sandbox_acme.plugin:get_contribution"
+[project.entry-points."agentnexus.sandbox_providers"]
+acme = "agentnexus_community_sandbox_acme.plugin:get_contribution"
 ```
 
 ### 4. Install and use
 
 ```bash
-pip install omnigent-community-sandbox-acme
-omnigent sandbox create --provider acme --server https://your-host
+pip install agentnexus-community-sandbox-acme
+agentnexus sandbox create --provider acme --server https://your-host
 ```
 
 ## Namespace requirement
 
-Community provider code **must** live under the `omnigent.community.sandbox`
+Community provider code **must** live under the `agentnexus.community.sandbox`
 namespace package. This is enforced by the registry's validation — a
 contribution whose `launcher_class` points outside this namespace is rejected
 with a clear error.
 
-To use the namespace, create a package under `omnigent/community/sandbox/` in
+To use the namespace, create a package under `agentnexus/community/sandbox/` in
 your distribution:
 
 ```
-omnigent/
+agentnexus/
   community/
     sandbox/
       acme/
@@ -118,8 +118,8 @@ omnigent/
         launcher.py
 ```
 
-The `omnigent.community.sandbox` namespace package is already set up by core
-Omnigent using `pkgutil.extend_path`, so your package's files are discovered
+The `agentnexus.community.sandbox` namespace package is already set up by core
+AgentNexus using `pkgutil.extend_path`, so your package's files are discovered
 automatically when installed.
 
 ## Server-managed sandboxes
@@ -144,7 +144,7 @@ Providers declare their feature set via a `capabilities` property returning
 
 | Capability | Description |
 |---|---|
-| `cli_bootstrap` | Supports `omnigent sandbox create` / `connect` |
+| `cli_bootstrap` | Supports `agentnexus sandbox create` / `connect` |
 | `managed_launch` | Supports server-managed `host_type="managed"` sessions |
 | `local_port_forward` | Can bridge a local port into the sandbox |
 | `resume_stopped` | Can resume a stopped sandbox in place |

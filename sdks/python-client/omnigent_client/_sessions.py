@@ -31,7 +31,7 @@ from typing import Any
 import httpx
 from pydantic import TypeAdapter
 
-from omnigent.server.schemas import ServerStreamEvent
+from agentnexus.server.schemas import ServerStreamEvent
 
 from ._child_status import child_summary_busy
 from ._errors import raise_for_status, require_json_object, response_body
@@ -52,7 +52,7 @@ _SERVER_STREAM_EVENT_ADAPTER: TypeAdapter[ServerStreamEvent] = TypeAdapter(Serve
 
 # ── Module-level constants (rule 34) ─────────────────────────────────
 
-_log = logging.getLogger("omnigent_client.sessions")
+_log = logging.getLogger("agentnexus_client.sessions")
 
 # Wire literal for the interrupt event ``type`` discriminator. Mirrors
 # ``_INTERRUPT_TYPE`` in ``omnigent/server/routes/sessions.py``;
@@ -342,7 +342,7 @@ class SessionsNamespace:
     live-tail reconnect contract.
 
     :param http: Pre-built ``httpx.AsyncClient`` shared with the
-        parent :class:`OmnigentClient`. Owned by the parent;
+        parent :class:`AgentNexusClient`. Owned by the parent;
         this namespace must NOT close it.
     :param base_url: Server base URL, e.g.
         ``"http://localhost:8000"``. Trailing slash already stripped
@@ -404,7 +404,7 @@ class SessionsNamespace:
             configured sandbox provider to provision (e.g. ``"lakebox"``);
             ``None`` takes the server's first. Ignored for external hosts.
         :returns: The newly created :class:`Session` snapshot.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status.
         """
         metadata: dict[str, Any] = {}
@@ -459,7 +459,7 @@ class SessionsNamespace:
         :param workspace: Optional absolute starting cwd to record on
             the session, e.g. ``"/Users/corey/projects/myapp"``.
         :returns: The newly created :class:`Session` snapshot.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status.
         """
         body: dict[str, Any] = {"agent_id": agent_id}
@@ -491,7 +491,7 @@ class SessionsNamespace:
 
         :param agent_name: Agent display name, e.g. ``"hello_world"``.
         :returns: The matching agent's id and advertised harness.
-        :raises OmnigentError: If the listing returns a non-2xx status.
+        :raises AgentNexusError: If the listing returns a non-2xx status.
         :raises LookupError: If no registered agent has that name.
         """
         # Cap the miss-path name list: a large deployment should not
@@ -557,7 +557,7 @@ class SessionsNamespace:
             matching. ``None`` compares the names as given.
         :returns: A matching runner id, or ``None`` when the server has
             no online runner that advertises *harness*.
-        :raises OmnigentError: If the listing returns a non-2xx status.
+        :raises AgentNexusError: If the listing returns a non-2xx status.
         """
         resp = await self._http.get(f"{self._base}/v1/runners")
         raise_for_status(resp.status_code, response_body(resp))
@@ -623,7 +623,7 @@ class SessionsNamespace:
             sessions are omitted. When ``True``, archived sessions are
             returned alongside active ones.
         :returns: List of :class:`SessionListItem`.
-        :raises OmnigentError: On non-2xx status.
+        :raises AgentNexusError: On non-2xx status.
         """
         params: dict[str, str | int] = {"limit": limit, "order": order, "sort_by": sort_by}
         if after is not None:
@@ -663,7 +663,7 @@ class SessionsNamespace:
         :param runner_id: Registered runner id, e.g.
             ``"runner_abc123"``.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status (404 when the
+        :raises AgentNexusError: On non-2xx status (404 when the
             session does not exist, 400 when the runner is not
             registered).
         """
@@ -687,7 +687,7 @@ class SessionsNamespace:
         :param session_id: Session/conversation identifier,
             e.g. ``"conv_abc123"``.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status (404 when the
+        :raises AgentNexusError: On non-2xx status (404 when the
             session does not exist).
         """
         resp = await self._http.patch(
@@ -718,7 +718,7 @@ class SessionsNamespace:
         :param reasoning_effort: New effort, e.g. ``"high"``, or
             ``None`` to clear to the agent default.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status.
+        :raises AgentNexusError: On non-2xx status.
         """
         wire_effort = reasoning_effort if reasoning_effort is not None else "default"
         resp = await self._http.patch(
@@ -759,7 +759,7 @@ class SessionsNamespace:
             user-driven ``/model`` flow where the live forward is the
             desired feedback.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status (400 on invalid
+        :raises AgentNexusError: On non-2xx status (400 on invalid
             input, 404 when the session does not exist).
         """
         wire_model = model_override if model_override is not None else "default"
@@ -796,7 +796,7 @@ class SessionsNamespace:
             e.g. ``"conv_abc123"``.
         :param archived: ``True`` to archive, ``False`` to unarchive.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status (403 without owner
+        :raises AgentNexusError: On non-2xx status (403 without owner
             access, 404 when the session does not exist).
         """
         resp = await self._http.patch(
@@ -830,7 +830,7 @@ class SessionsNamespace:
             e.g. a Claude Code session uuid
             ``"a1b2c3d4-1234-5678-9abc-def012345678"``.
         :returns: The updated :class:`Session` snapshot.
-        :raises OmnigentError: On non-2xx status (400 on
+        :raises AgentNexusError: On non-2xx status (400 on
             overwrite conflict, 404 when the session does not
             exist).
         """
@@ -865,7 +865,7 @@ class SessionsNamespace:
         :param order: Sort order, ``"asc"`` (chronological) or
             ``"desc"``.
         :returns: List of conversation item dicts.
-        :raises OmnigentError: On non-2xx status (404 when the
+        :raises AgentNexusError: On non-2xx status (404 when the
             session does not exist).
         """
         params: dict[str, str | int] = {"limit": limit, "order": order}
@@ -902,7 +902,7 @@ class SessionsNamespace:
             (1-1000, default 100).
         :returns: List of child-session summary dicts (empty when the
             session has no sub-agents).
-        :raises OmnigentError: On non-2xx status (404 when the
+        :raises AgentNexusError: On non-2xx status (404 when the
             session does not exist).
         """
         resp = await self._http.get(
@@ -938,7 +938,7 @@ class SessionsNamespace:
         :param limit: Per-level page size passed to :meth:`child_sessions`.
         :returns: Flattened list of child-session summary dicts, each carrying a
             ``parent_id`` key (empty when the session has no sub-agents).
-        :raises OmnigentError: On non-2xx status (404 when the session does not
+        :raises AgentNexusError: On non-2xx status (404 when the session does not
             exist).
         """
         nodes: list[dict[str, Any]] = []
@@ -985,7 +985,7 @@ class SessionsNamespace:
         :param max_depth: Levels to descend (see :meth:`child_sessions_tree`).
         :param limit: Per-level page size.
         :returns: ``True`` while any descendant is busy, else ``False``.
-        :raises OmnigentError: On non-2xx status.
+        :raises AgentNexusError: On non-2xx status.
         """
         nodes = await self.child_sessions_tree(session_id, max_depth=max_depth, limit=limit)
         return any(child_summary_busy(node) for node in nodes)
@@ -1002,7 +1002,7 @@ class SessionsNamespace:
         :param session_id: Session/conversation identifier,
             e.g. ``"conv_abc123"``.
         :returns: The current :class:`Session` snapshot.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status (404 when the session does not exist).
         """
         resp = await self._http.get(
@@ -1032,7 +1032,7 @@ class SessionsNamespace:
             "content": [{"type": "input_text",
             "text": "Hello"}]}}``. Must contain a ``type`` key;
             ``data`` shape is validated server-side per ``type``.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status (404 when the session does not exist).
         """
         resp = await self._http.post(
@@ -1071,7 +1071,7 @@ class SessionsNamespace:
             "content": {"choice": "a"}}``. ``action`` is one of
             ``"accept"`` / ``"decline"`` / ``"cancel"``.
         :returns: The server ack dict (``{"queued": false}``).
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status (404 when the session does not exist).
         """
         resp = await self._http.post(
@@ -1110,7 +1110,7 @@ class SessionsNamespace:
             shape: ``id``, ``agent_id``, ``status``, ``created_at``,
             ``title``, ``labels``, ``reasoning_effort``, and
             ``items``.
-        :raises OmnigentError: 404 if *source_session_id* does
+        :raises AgentNexusError: 404 if *source_session_id* does
             not exist; 400 if the source has no agent binding or
             *up_to_response_id* names no response in the source.
         """
@@ -1140,7 +1140,7 @@ class SessionsNamespace:
 
         :param session_id: Session/conversation identifier, e.g.
             ``"conv_abc123"``.
-        :raises OmnigentError: If the server returns a non-2xx status.
+        :raises AgentNexusError: If the server returns a non-2xx status.
         """
         await self.post_event(
             session_id,
@@ -1160,7 +1160,7 @@ class SessionsNamespace:
 
         :param session_id: Session/conversation identifier, e.g.
             ``"conv_abc123"``.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status (404 when the session does not exist).
         """
         await self.post_event(
@@ -1191,7 +1191,7 @@ class SessionsNamespace:
             :class:`omnigent.server.schemas.ServerStreamEvent`
             member and whose ``data`` is the event-specific payload
             dict.
-        :raises OmnigentError: If the server returns a non-2xx
+        :raises AgentNexusError: If the server returns a non-2xx
             status when opening the stream (404 when the session
             does not exist).
         """

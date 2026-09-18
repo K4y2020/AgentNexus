@@ -566,7 +566,7 @@ async def _drive_permission_mode(base_url: str, session_id: str) -> None:
             # so the landing composer reads it on mount.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -694,7 +694,7 @@ async def _drive_send_busy_spinner(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -819,7 +819,7 @@ async def _drive_open_before_create_responds(base_url: str, session_id: str) -> 
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -966,7 +966,7 @@ async def _drive_no_redirect_after_navigating_away(
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -1097,7 +1097,7 @@ async def _drive_landing_clears_after_navigating_away(
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -1177,7 +1177,7 @@ async def _drive_remembers_last_picked_host(base_url: str, session_id: str) -> N
             # and the composer never blocks on the (host-less) file browser.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{
                         "{alpha_id}": ["/work/repo"],
                         "{beta_id}": ["/work/repo"]
@@ -1257,7 +1257,7 @@ async def _drive_preserves_unavailable_remembered_host(base_url: str, session_id
             await page.route("**/v1/hosts", handle_hosts)
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:last-host-choice",
+                    "agentnexus:last-host-choice",
                     "{beta_id}"
                 );"""
             )
@@ -1382,7 +1382,7 @@ async def _drive_managed_remembers_host(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ "{host_id}": ["/work/repo"] }})
                 );"""
             )
@@ -1603,7 +1603,7 @@ async def _drive_managed_sandbox_after_slow_info(base_url: str, session_id: str)
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ "{host_id}": ["/work/repo"] }})
                 );"""
             )
@@ -1691,7 +1691,7 @@ async def _drive_model_effort(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -1795,7 +1795,7 @@ async def _drive_codex_model(base_url: str, session_id: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -1884,7 +1884,7 @@ async def _drive_agent_picker_pagination_dedupe(base_url: str, session_id: str) 
             await page.route(re.compile(r"/v1/sessions\?.*kind=any"), handle_agent_scan)
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -1945,7 +1945,7 @@ async def _drive_approval_mode(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2024,7 +2024,7 @@ async def _drive_bypass_sandbox(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2058,7 +2058,7 @@ async def _drive_bypass_sandbox(base_url: str, session_id: str) -> None:
             # The dangerous opt-in rides along as the canonical conversation
             # label alongside the codex-native wrapper labels.
             labels = body.get("labels") or {}
-            assert labels.get("omnigent.codex_native.bypass_sandbox") == "1", body
+            assert labels.get("agentnexus.codex_native.bypass_sandbox") == "1", body
 
             await page.goto(f"{base_url}/")
             await page.get_by_test_id("new-chat-landing-input").wait_for(
@@ -2130,7 +2130,7 @@ async def _drive_select_harness(base_url: str, session_id: str) -> None:
             # auto-fills and Send can enable without touching the file browser.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2228,7 +2228,7 @@ async def _drive_pi_native_start(base_url: str, session_id: str) -> None:
             # auto-fills and Send can enable without touching the file browser.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2257,8 +2257,8 @@ async def _drive_pi_native_start(base_url: str, session_id: str) -> None:
             # The terminal-first wrapper labels are the contract that drives the
             # runner-owned Pi TUI and the web UI's Chat/Terminal view.
             assert body.get("labels") == {
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "pi-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "pi-native-ui",
             }, body
         finally:
             await browser.close()
@@ -2311,7 +2311,7 @@ async def _drive_antigravity_native_start(base_url: str, session_id: str) -> Non
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2339,8 +2339,8 @@ async def _drive_antigravity_native_start(base_url: str, session_id: str) -> Non
             # The terminal-first wrapper labels drive the runner-owned agy TUI and
             # the web UI's Chat/Terminal view.
             assert body.get("labels") == {
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "antigravity-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "antigravity-native-ui",
             }, body
         finally:
             await browser.close()
@@ -2403,7 +2403,7 @@ async def _drive_opencode_native_start(base_url: str, session_id: str) -> None:
             # auto-fills and Send can enable without touching the file browser.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2431,8 +2431,8 @@ async def _drive_opencode_native_start(base_url: str, session_id: str) -> None:
             # The terminal-first wrapper labels are the contract that drives the
             # runner-owned OpenCode TUI and the web UI's Chat/Terminal view.
             assert body.get("labels") == {
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "opencode-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "opencode-native-ui",
             }, body
         finally:
             await browser.close()
@@ -2490,7 +2490,7 @@ async def _drive_kimi_native_start(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -2518,8 +2518,8 @@ async def _drive_kimi_native_start(base_url: str, session_id: str) -> None:
             # The terminal-first wrapper labels are the contract that drives the
             # runner-owned Kimi TUI and the web UI's Chat/Terminal view.
             assert body.get("labels") == {
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "kimi-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "kimi-native-ui",
             }, body
         finally:
             await browser.close()
@@ -2567,7 +2567,7 @@ async def _drive_kimi_picker_dedup(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -3031,7 +3031,7 @@ async def _drive_add_worktree(base_url: str, session_id: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -3123,7 +3123,7 @@ async def _drive_select_existing_worktree(base_url: str, session_id: str) -> Non
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -3305,7 +3305,7 @@ def test_start_session_agy_skip_permissions(seeded_session: tuple[str, str]) -> 
     """Arming agy's DANGEROUS permission bypass rides along to the create.
 
     ``--dangerously-skip-permissions`` is agy's only pre-emptive permission
-    control and is all-or-nothing: once armed, Omnigent cannot re-gate
+    control and is all-or-nothing: once armed, AgentNexus cannot re-gate
     individual tools, because agy fires no pre-tool hook for it to intercept.
     The red banner is therefore the only guardrail between the user and an
     agent that edits any file and runs any command without asking — so this
@@ -3343,7 +3343,7 @@ async def _drive_agy_skip_permissions(base_url: str, session_id: str) -> None:
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -3426,7 +3426,7 @@ async def _drive_agy_default_permissions(base_url: str, session_id: str) -> None
 
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )

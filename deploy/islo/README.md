@@ -1,9 +1,9 @@
-# Omnigent on Islo
+# AgentNexus on Islo
 
 [Islo](https://islo.dev) sandboxes give you disposable cloud machines for
-running Omnigent hosts, two ways:
+running AgentNexus hosts, two ways:
 
-- **CLI-launched**: `omnigent sandbox create` / `connect` provisions a
+- **CLI-launched**: `agentnexus sandbox create` / `connect` provisions a
   sandbox from your terminal, ships your local checkout into it, and
   registers it as a host with your server.
 - **Server-managed**: the server provisions a sandbox automatically when
@@ -11,7 +11,7 @@ running Omnigent hosts, two ways:
   when the session is deleted.
 
 Sandboxes boot from the official prebaked host image. The Islo launcher
-uses the Islo Python SDK, installed with the optional `omnigent[islo]`
+uses the Islo Python SDK, installed with the optional `agentnexus[islo]`
 extra, and authenticates with an API key.
 
 What makes Islo different from the other providers, and shapes the rest
@@ -23,23 +23,23 @@ of this guide:
   credentials (see [Model credentials](#model-credentials-llm-keys)) and
   has no equivalent on Modal or Daytona.
 - **No local port forward.** Islo can't forward a sandbox→laptop callback
-  port, so the interactive in-sandbox `omnigent login` / App OAuth step is
+  port, so the interactive in-sandbox `agentnexus login` / App OAuth step is
   skipped automatically (as on Modal and Daytona).
 - **No lifetime cap.** Islo sandboxes run until deleted (like Daytona,
   unlike Modal's 24 h).
 
 ## Prerequisites
 
-Install Omnigent with the Islo extra, install the
+Install AgentNexus with the Islo extra, install the
 [Islo CLI](https://docs.islo.dev), and create an API key. Make the key
 available where the launcher runs — your shell for the CLI flow, the
 **server** process for managed sandboxes:
 
 ```bash
-pip install 'omnigent[islo]'                   # or: uv tool install 'omnigent[islo]'
+pip install 'agentnexus[islo]'                   # or: uv tool install 'agentnexus[islo]'
 curl -fsSL https://islo.dev/install.sh | sh   # install the islo CLI
 islo login                                     # browser OAuth (one-time)
-islo api-key create omnigent --show            # prints an islo_key_… value
+islo api-key create agentnexus --show            # prints an islo_key_… value
 export ISLO_API_KEY=islo_key_…
 # Optional: a non-default API endpoint
 # export ISLO_BASE_URL=https://api.islo.dev
@@ -51,7 +51,7 @@ no `~/.config` file is needed where the launcher runs.
 
 > [!NOTE]
 > **Islo cannot forward a local callback port into the sandbox.** The
-> interactive `omnigent login` browser flow (and the in-sandbox App OAuth
+> interactive `agentnexus login` browser flow (and the in-sandbox App OAuth
 > callback) needs a sandbox→laptop port forward, which Islo doesn't
 > provide — so the CLI skips that step automatically, exactly as it does
 > for Modal and Daytona. For a server that requires authentication, inject
@@ -60,9 +60,9 @@ no `~/.config` file is needed where the launcher runs.
 
 ## The host image
 
-Sandboxes boot from `ghcr.io/omnigent-ai/omnigent-host:latest`, published
+Sandboxes boot from `ghcr.io/agentnexus-ai/agentnexus-host:latest`, published
 by CI from the `host` target of
-[`deploy/docker/Dockerfile`](../docker/Dockerfile) with Omnigent and its
+[`deploy/docker/Dockerfile`](../docker/Dockerfile) with AgentNexus and its
 dependencies preinstalled — including the coding-harness CLIs (`claude`,
 `codex`, `pi`, `kiro-cli`), so agents on any harness run without an in-sandbox
 install.
@@ -73,14 +73,14 @@ same target and push it anywhere Islo can pull from:
 ```bash
 docker build -f deploy/docker/Dockerfile --target host \
   --platform linux/amd64 \
-  -t docker.io/<you>/omnigent-host:latest .
-docker push docker.io/<you>/omnigent-host:latest
+  -t docker.io/<you>/agentnexus-host:latest .
+docker push docker.io/<you>/agentnexus-host:latest
 ```
 
-Then point Omnigent at it — `OMNIGENT_ISLO_HOST_IMAGE` for the CLI flow,
+Then point AgentNexus at it — `AGENTNEXUS_ISLO_HOST_IMAGE` for the CLI flow,
 or `sandbox.islo.image` in the server config for the managed flow. For a
 private registry, configure the pull credentials on the Islo side (Islo
-pulls the image, not Omnigent).
+pulls the image, not AgentNexus).
 
 > [!IMPORTANT]
 > **Native terminals need `bubblewrap`.** The `claude-native` /
@@ -96,7 +96,7 @@ pulls the image, not Omnigent).
 Provision a sandbox and ship your local checkout into it:
 
 ```bash
-omnigent sandbox create --provider islo --server https://your-host
+agentnexus sandbox create --provider islo --server https://your-host
 ```
 
 This pulls the host image, builds wheels from your local checkout, and
@@ -104,12 +104,12 @@ overlays them on top — so the sandbox runs *your* code, not whatever the
 image was built from. Then register it as a host with your server:
 
 ```bash
-omnigent sandbox connect --provider islo \
+agentnexus sandbox connect --provider islo \
   --sandbox-id <id-printed-by-create> \
   --server https://your-host
 ```
 
-`connect` runs `omnigent host` inside the sandbox and holds the
+`connect` runs `agentnexus host` inside the sandbox and holds the
 connection open in your terminal — Ctrl-C tears it down. New sessions
 targeting that host now run in the sandbox.
 
@@ -125,16 +125,16 @@ sandbox keeps billing until removed via `islo rm <id>` or the
 ### Live smoke checklist
 
 Use this checklist before opening a provider-change PR, or when validating
-a new Islo account/key. It assumes your Omnigent server is reachable from
+a new Islo account/key. It assumes your AgentNexus server is reachable from
 Islo's cloud at `https://your-host` (for local testing, expose it with a
 tunnel and use the public URL).
 
 ```bash
 islo login
-islo api-key create omnigent-smoke --show
+islo api-key create agentnexus-smoke --show
 export ISLO_API_KEY=islo_key_...
-omnigent sandbox create --provider islo --server https://your-host
-omnigent sandbox connect --provider islo \
+agentnexus sandbox create --provider islo --server https://your-host
+agentnexus sandbox connect --provider islo \
   --sandbox-id <id-printed-by-create> \
   --server https://your-host
 islo ls
@@ -142,13 +142,13 @@ islo rm <id-printed-by-create>
 ```
 
 Expected result: `create` provisions the sandbox and ships wheels,
-`connect` registers the host with the Omnigent server, `islo ls` shows the
+`connect` registers the host with the AgentNexus server, `islo ls` shows the
 sandbox while it exists, and `islo rm` deletes it. If `connect` cannot
 reach the server, first verify the `--server` URL from a machine outside
 your laptop network.
 
 To inject LLM/git credentials into a CLI-launched sandbox, set
-`OMNIGENT_ISLO_SANDBOX_ENV` in your shell to a comma-separated list of
+`AGENTNEXUS_ISLO_SANDBOX_ENV` in your shell to a comma-separated list of
 variable names (e.g. `ANTHROPIC_API_KEY,GIT_TOKEN`) before running
 `create` — the named variables are copied from your environment into the
 sandbox at provision time. A listed name that is **not** set fails the
@@ -157,16 +157,16 @@ auth failure inside the sandbox).
 
 ### Connecting to an authenticated server
 
-`connect` runs `omnigent host` inside the sandbox, and that host must
+`connect` runs `agentnexus host` inside the sandbox, and that host must
 present credentials when it dials back to a server that requires
-authentication. The interactive `omnigent login` browser flow can't run
+authentication. The interactive `agentnexus login` browser flow can't run
 inside an Islo sandbox (no callback port forward), so inject the keys for
-the relevant server instead — name them in `OMNIGENT_ISLO_SANDBOX_ENV`
+the relevant server instead — name them in `AGENTNEXUS_ISLO_SANDBOX_ENV`
 before `create`:
 
 ```bash
-export OMNIGENT_ISLO_SANDBOX_ENV=DATABRICKS_HOST,DATABRICKS_TOKEN
-omnigent sandbox create --provider islo
+export AGENTNEXUS_ISLO_SANDBOX_ENV=DATABRICKS_HOST,DATABRICKS_TOKEN
+agentnexus sandbox create --provider islo
 ```
 
 The in-sandbox host mints a fresh bearer token from those credentials on
@@ -182,7 +182,7 @@ those authenticate with a server-minted per-launch token automatically.
 
 ## Server-managed sandboxes
 
-Add a `sandbox:` section to the server config (`omnigent server -c
+Add a `sandbox:` section to the server config (`agentnexus server -c
 config.yaml`, or `<data_dir>/config.yaml`):
 
 ```yaml
@@ -192,9 +192,9 @@ sandbox:
 ```
 
 A top-level `sandbox.host_config:` (provider-agnostic) holds verbatim
-in-sandbox `~/.omnigent/config.yaml` content — e.g. a `providers:`
+in-sandbox `~/.agentnexus/config.yaml` content — e.g. a `providers:`
 block routing a harness through a self-hosted gateway — installed into
-the sandbox before `omnigent host` starts. The block is server-managed:
+the sandbox before `agentnexus host` starts. The block is server-managed:
 entries injected by a previous launch are replaced or removed on the
 next launch/resume, while config created inside the sandbox survives.
 Keep secrets out via
@@ -224,8 +224,8 @@ credentials enter the sandbox for the server connection.
 
 Managed Islo sandboxes pause after 15 idle minutes by default. When a new
 message arrives for a session bound to an offline Islo-managed host,
-Omnigent resumes the same sandbox id, mints a fresh launch token, and
-restarts `omnigent host` against the existing workspace. Deleting the
+AgentNexus resumes the same sandbox id, mints a fresh launch token, and
+restarts `agentnexus host` against the existing workspace. Deleting the
 session still deletes the sandbox.
 
 ### Managed hosts and server auth
@@ -240,7 +240,7 @@ sandbox opens two kinds of connections back to the server:
 - one **runner tunnel** per session (`/v1/runners/<token>/tunnel`), opened
   by the runner subprocess the host spawns. The runner authenticates with
   *whatever server credential it can resolve* — a proxy-injected identity
-  (header / OIDC), or a stored `omnigent login` token (local hosts only; a
+  (header / OIDC), or a stored `agentnexus login` token (local hosts only; a
   fresh managed sandbox has none) — **not** the per-launch host token.
 
 The consequence:
@@ -252,7 +252,7 @@ The consequence:
   image, the launcher cleared the seeded `apiKeyHelper`, the host *and*
   runner tunnels connected, and a native Claude terminal ran on the
   injected `CLAUDE_CODE_OAUTH_TOKEN` subscription.
-- **The built-in `accounts` provider (`OMNIGENT_AUTH_ENABLED=1`)** — the
+- **The built-in `accounts` provider (`AGENTNEXUS_AUTH_ENABLED=1`)** — the
   runner tunnel additionally requires a *user* identity, which the
   per-launch host token does not carry, so the runner dial-back is refused
   (`403`) even though the host tunnel connects. This is a framework-level
@@ -263,7 +263,7 @@ So for a managed Islo deployment, front the server with **header or OIDC
 auth** (a reverse proxy / IdP injects the user identity on every request,
 including the runner WebSocket — see
 [`deploy/README.md#auth`](../README.md#auth)), or run it single-user. The
-`accounts` provider is fine for CLI-launched hosts (you `omnigent login`,
+`accounts` provider is fine for CLI-launched hosts (you `agentnexus login`,
 and that token is what the in-sandbox host forwards), but not yet for the
 managed runner dial-back.
 
@@ -274,11 +274,11 @@ sandbox:
   provider: islo
   server_url: https://your-host
   islo:
-    image: docker.io/<you>/omnigent-host:latest   # default: official image
+    image: docker.io/<you>/agentnexus-host:latest   # default: official image
     env: [OPENAI_API_KEY, GIT_TOKEN]               # copy from server env
     base_url: https://api.islo.dev                 # non-default API endpoint
     gateway_profile: default                       # Islo gateway for egress + credential injection
-    snapshot_name: omnigent-host-snapshot          # optional named Islo snapshot
+    snapshot_name: agentnexus-host-snapshot          # optional named Islo snapshot
     workdir: /root/workspace                       # sandbox working directory
     vcpus: 2
     memory_mb: 4096
@@ -327,7 +327,7 @@ plan/subscription auth — `--tool claude` gives an Anthropic API key, not a
 Claude Pro/Max subscription; `--tool openai` gives an OpenAI API key, not
 a ChatGPT plan. To use a subscription or plan token on any harness (a
 Claude Pro/Max token, a Codex access token), use
-[Option B](#option-b--omnigent-env-injection-your-own-key-or-a-subscription).
+[Option B](#option-b--agentnexus-env-injection-your-own-key-or-a-subscription).
 
 > [!IMPORTANT]
 > If `islo status` shows **"No integrations connected"** for a provider,
@@ -338,7 +338,7 @@ Claude Pro/Max token, a Codex access token), use
 #### Path A under managed hosts
 
 This is where the gateway shines: when the **server** launches sandboxes,
-you configure **no model credential on the Omnigent side at all**. The
+you configure **no model credential on the AgentNexus side at all**. The
 flow:
 
 ```
@@ -351,11 +351,11 @@ server ──ISLO_API_KEY──▶ Islo API "create sandbox" ──▶ sandbox u
    agent's claude → api.anthropic.com (phantom key) ──▶ Islo gateway swaps in the real key
 ```
 
-The Omnigent server only ever holds `ISLO_API_KEY` — the credential it
+The AgentNexus server only ever holds `ISLO_API_KEY` — the credential it
 uses to *create* sandboxes. Because every managed sandbox is created under
 that Islo account, and integrations are connected at the **account/team**
 level, each one inherits the connected Claude credential through the
-gateway automatically. The only Omnigent-side knob is which gateway a
+gateway automatically. The only AgentNexus-side knob is which gateway a
 managed sandbox uses:
 
 ```yaml
@@ -368,9 +368,9 @@ sandbox:
 
 Two consequences worth internalizing:
 
-- **No model secret lives in the Omnigent server's config or
+- **No model secret lives in the AgentNexus server's config or
   environment** — nothing to leak there. Contrast [Option B under managed
-  hosts](#option-b--omnigent-env-injection-your-own-key-or-a-subscription),
+  hosts](#option-b--agentnexus-env-injection-your-own-key-or-a-subscription),
   where the key sits in `sandbox.islo.env` (copied from the server's env
   into each sandbox).
 - **The integration must be connected on the same Islo account the
@@ -378,9 +378,9 @@ Two consequences worth internalizing:
   dedicated service/CI Islo account, run `islo login --tool claude` while
   authenticated as *that* account — not a personal laptop login.
 
-### Option B — Omnigent env injection (your own key or a subscription)
+### Option B — AgentNexus env injection (your own key or a subscription)
 
-Bring your own credential by naming it in `OMNIGENT_ISLO_SANDBOX_ENV`
+Bring your own credential by naming it in `AGENTNEXUS_ISLO_SANDBOX_ENV`
 (CLI) or `sandbox.islo.env` (managed); the launcher copies the value from
 the launching environment into the sandbox, and the in-sandbox host
 forwards the standard harness credential vars to its runners:
@@ -400,7 +400,7 @@ recipes](../modal/README.md#llm-credentials-for-managed-sandboxes). For a
 Claude **subscription** specifically, run `claude setup-token` on your own
 machine (one-time browser auth) and inject the resulting long-lived token
 as `CLAUDE_CODE_OAUTH_TOKEN`. For env vars beyond the standard set, inject
-`OMNIGENT_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2`.
+`AGENTNEXUS_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2`.
 
 > [!NOTE]
 > **Your injected Claude credential automatically wins over Islo's phantom
@@ -436,7 +436,7 @@ openai`, or inject `OPENAI_API_KEY` / `CODEX_ACCESS_TOKEN`).
 ### Git credentials (private repositories)
 
 Inject an HTTPS token as `GIT_TOKEN` (GitLab: add `GIT_USERNAME=oauth2`)
-via `OMNIGENT_ISLO_SANDBOX_ENV` / `sandbox.islo.env`. The host image's git
+via `AGENTNEXUS_ISLO_SANDBOX_ENV` / `sandbox.islo.env`. The host image's git
 credential helper answers HTTPS auth from it for both the launch-time
 clone and the agent's later `fetch` / `push`, writing nothing to disk. Use
 HTTPS repository URLs. Details by provider match the [Modal git
@@ -464,7 +464,7 @@ guide](../modal/README.md#git-credentials-private-repositories).
   (below) to keep the agent away from it.
 - **The agent terminal is sandboxed away from those secrets.** Native
   harness terminals run under a bubblewrap OS-sandbox that masks dotfiles
-  (`~/.ssh`, `~/.aws`, the injected `~/.omnigent` server token) and pins
+  (`~/.ssh`, `~/.aws`, the injected `~/.agentnexus` server token) and pins
   the agent to its workspace — defense-in-depth *inside* the Islo sandbox,
   independent of Islo's own isolation. This is why the image must ship
   `bwrap` (see [the host image](#the-host-image)).
@@ -493,9 +493,9 @@ guide](../modal/README.md#git-credentials-private-repositories).
   `idle_pause_after_s: null` to opt out and manage sandbox lifetime
   yourself. The policy is set when the sandbox is created, so changing it
   affects new managed sandboxes, not existing ones. This uses Islo's
-  pause/resume lifecycle because the workspace survives and Omnigent can
+  pause/resume lifecycle because the workspace survives and AgentNexus can
   wake it on the next message. Daytona's 15-minute provider default is
-  disabled in Omnigent instead, because Daytona auto-stop would otherwise
+  disabled in AgentNexus instead, because Daytona auto-stop would otherwise
   kill the host between turns.
 - **Managed resume.** Paused or stopped server-managed Islo sandboxes can
   resume in place under the same sandbox id and workspace. Session delete
@@ -524,7 +524,7 @@ free credits. Rates: [islo.dev](https://islo.dev).
   `apiKeyHelper` set."** You injected your own Claude credential (Option B)
   but Islo's phantom `apiKeyHelper` is still present — the launcher strips it
   automatically at provision, so this means the strip didn't run: confirm the
-  credential is named in `OMNIGENT_ISLO_SANDBOX_ENV` / `sandbox.islo.env` (the
+  credential is named in `AGENTNEXUS_ISLO_SANDBOX_ENV` / `sandbox.islo.env` (the
   signal the launcher keys on), and check the provision log for the
   "clearing Islo's seeded apiKeyHelper" line.
 - **Requests retry then fail with no obvious error.** `islo status` shows
@@ -532,9 +532,9 @@ free credits. Rates: [islo.dev](https://islo.dev).
   nothing. Connect one (Option A) or switch to Option B.
 - **"managed host did not come online within 120s."** Check that
   `server_url` is publicly reachable from Islo's cloud, then inspect the
-  in-sandbox host log: `~/.omnigent/logs/host-runner/*.log`.
+  in-sandbox host log: `~/.agentnexus/logs/host-runner/*.log`.
 - **Agent has no credentials.** Verify the injected var names match the
-  forwarded set above (or are named in `OMNIGENT_RUNNER_ENV_PASSTHROUGH`),
+  forwarded set above (or are named in `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH`),
   and that each name was actually set in the launching environment.
 
 ## Environment variable reference
@@ -544,7 +544,7 @@ free credits. Rates: [islo.dev](https://islo.dev).
 | `ISLO_API_KEY` | CLI machine / server | Islo API credentials (required) |
 | `ISLO_BASE_URL` | CLI machine / server | Non-default Islo API endpoint (default `https://api.islo.dev`) |
 | `ISLO_COMPUTE_URL` | CLI machine / server | Non-default Islo compute endpoint (SDK default is production compute) |
-| `OMNIGENT_ISLO_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.islo.image` takes precedence for managed) |
-| `OMNIGENT_ISLO_SANDBOX_ENV` | CLI machine / server | Comma-separated launcher-side env var names to inject (`sandbox.islo.env` takes precedence for managed) |
-| `OMNIGENT_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (injected) | Extra env var names the host forwards to runners |
+| `AGENTNEXUS_ISLO_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.islo.image` takes precedence for managed) |
+| `AGENTNEXUS_ISLO_SANDBOX_ENV` | CLI machine / server | Comma-separated launcher-side env var names to inject (`sandbox.islo.env` takes precedence for managed) |
+| `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (injected) | Extra env var names the host forwards to runners |
 | `GIT_TOKEN` / `GIT_USERNAME` | inside the sandbox (injected) | HTTPS credentials for private repository clone / fetch / push |

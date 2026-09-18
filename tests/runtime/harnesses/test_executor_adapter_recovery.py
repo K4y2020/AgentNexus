@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     Executor,
     ExecutorConfig,
     ExecutorEvent,
@@ -18,14 +18,14 @@ from omnigent.inner.executor import (
     ToolSpec,
     TurnComplete,
 )
-from omnigent.runtime.harnesses._executor_adapter import (
+from agentnexus.runtime.harnesses._executor_adapter import (
     _ORPHAN_RESYNC_THRESHOLD,
     ExecutorAdapter,
 )
-from omnigent.runtime.harnesses._scaffold import ToolResultEvent, TurnContext
-from omnigent.server.schemas import CreateResponseRequest
+from agentnexus.runtime.harnesses._scaffold import ToolResultEvent, TurnContext
+from agentnexus.server.schemas import CreateResponseRequest
 
-_ADAPTER_LOGGER = "omnigent.runtime.harnesses._executor_adapter"
+_ADAPTER_LOGGER = "agentnexus.runtime.harnesses._executor_adapter"
 
 
 class _FakeExecutor(Executor):
@@ -510,7 +510,7 @@ async def test_host_tool_fast_resync_disabled_reproduces_pileup(
     consecutive-threshold gate, so a single one does NOT self-heal and the
     counter climbs unbounded without self-heal.
     """
-    import omnigent.runtime.harnesses._executor_adapter as _adapter_mod
+    import agentnexus.runtime.harnesses._executor_adapter as _adapter_mod
 
     monkeypatch.setattr(_adapter_mod, "_is_host_tool", lambda _name: False)
 
@@ -554,7 +554,7 @@ async def test_safe_interrupt_reaps_even_when_interrupt_hangs(
     terminate/kill, so a starved reap would orphan the child. Budgets are shrunk
     so the test doesn't wait the production slice.
     """
-    import omnigent.runtime.harnesses._executor_adapter as _adapter_mod
+    import agentnexus.runtime.harnesses._executor_adapter as _adapter_mod
 
     monkeypatch.setattr(_adapter_mod, "_INTERRUPT_SLICE_S", 0.05)
     monkeypatch.setattr(_adapter_mod, "INTERRUPT_TIMEOUT_S", 0.2)

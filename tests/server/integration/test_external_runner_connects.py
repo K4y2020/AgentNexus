@@ -93,9 +93,9 @@ def test_external_runner_connects_to_local_server(
         for k, v in os.environ.items()
         if k
         not in (
-            "OMNIGENT_RUNNER_ID",
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN",
-            "OMNIGENT_RUNNER_TUNNEL_TOKEN",
+            "AGENTNEXUS_RUNNER_ID",
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN",
+            "AGENTNEXUS_RUNNER_TUNNEL_TOKEN",
         )
     }
     saved = os.environ.copy()
@@ -103,7 +103,7 @@ def test_external_runner_connects_to_local_server(
     os.environ.update(clean_env)
 
     try:
-        from omnigent.cli import _start_cli_runner_process, _stop_cli_runner_process
+        from agentnexus.cli import _start_cli_runner_process, _stop_cli_runner_process
 
         runner = _start_cli_runner_process(
             server_url=base_url,

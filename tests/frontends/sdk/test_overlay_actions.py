@@ -22,7 +22,7 @@ the live overlay).
 from __future__ import annotations
 
 import pytest
-from omnigent_ui_sdk import (
+from agentnexus_ui_sdk import (
     Overlay,
     OverlayAction,
     OverlayTarget,

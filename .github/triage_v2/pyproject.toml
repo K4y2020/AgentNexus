@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omnigent-issue-prioritization"
+name = "agentnexus-issue-prioritization"
 version = "0.2.0"
-description = "Deterministic issue-prioritization pipeline for Omnigent"
+description = "Deterministic issue-prioritization pipeline for AgentNexus"
 requires-python = ">=3.12"
 dependencies = ["databricks-sdk>=0.56.0,<1", "PyJWT[crypto]>=2.8,<3"]
 

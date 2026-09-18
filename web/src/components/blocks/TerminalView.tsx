@@ -851,13 +851,13 @@ export function buildAttachPath(
     `/resources/terminals/${encodeURIComponent(terminalId)}/attach`;
   // Query params are only emitted when set, so the common (unsharded) case
   // keeps URLs short and stable for anything that greps the access log.
-  // ``omnigent_slice_key`` pins this WebSocket to the replica holding the
+  // ``agentnexus_slice_key`` pins this WebSocket to the replica holding the
   // tunnel: a browser WS handshake can't carry request headers, so the routing
   // key rides the query string — the one part of the handshake page JS controls
   // — and the server ignores it as an app param.
   const params = new URLSearchParams();
   if (readOnly) params.set("read_only", "true");
-  if (hostId) params.set("omnigent_slice_key", hostId);
+  if (hostId) params.set("agentnexus_slice_key", hostId);
   const qs = params.toString();
   return qs ? `${path}?${qs}` : path;
 }
@@ -873,7 +873,7 @@ export function buildAttachPath(
  * :param terminalId: Opaque terminal resource id.
  * :param readOnly: If true, requests a read-only attach.
  * :param hostId: The session's host_id, forwarded as the routing key
- *     ``?omnigent_slice_key=``.
+ *     ``?agentnexus_slice_key=``.
  * :returns: The fully-qualified ``ws(s)://`` URL.
  */
 function buildAttachUrl(

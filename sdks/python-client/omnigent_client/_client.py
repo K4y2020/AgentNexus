@@ -1,4 +1,4 @@
-"""OmnigentClient — the top-level client tying all namespaces together."""
+"""AgentNexusClient — the top-level client tying all namespaces together."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 
 import httpx
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 
 from ._files import FilesNamespace
 from ._http import is_loopback_url
@@ -19,12 +19,12 @@ from ._sessions_chat import SessionsChat, ToolCallable
 from ._tool_handler import StreamHooks, ToolHandler
 
 
-class OmnigentClient:
+class AgentNexusClient:
     """Typed Python client for the omnigent server API.
 
     One-shot::
 
-        async with OmnigentClient(base_url="http://localhost:8080") as client:
+        async with AgentNexusClient(base_url="http://localhost:8080") as client:
             result = await client.query(model="archer", input="hello")
             print(result.text)        # the assistant's reply
             print(result.files)       # any files the agent produced
@@ -72,7 +72,7 @@ class OmnigentClient:
         # requires a trusted Origin; the SDK sends none of its own, so the
         # sentinel is what lets it through. Caller-supplied headers win on
         # conflict (so an explicit Origin override is still honored).
-        default_headers = {"Origin": OMNIGENT_INTERNAL_WS_ORIGIN}
+        default_headers = {"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN}
         if headers:
             default_headers.update(headers)
         self._http = httpx.AsyncClient(
@@ -174,7 +174,7 @@ class OmnigentClient:
 
         With client-side tools, pass ``@tool``-decorated functions::
 
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
             @tool
             def get_time() -> str:
@@ -247,7 +247,7 @@ class OmnigentClient:
         :param hooks: Optional lifecycle hooks fired from sessions
             stream events.
         :returns: A :class:`SessionsChat` ready for use.
-        :raises OmnigentError: If session creation fails.
+        :raises AgentNexusError: If session creation fails.
         """
         return await SessionsChat.create(
             namespace=self.sessions,
@@ -288,7 +288,7 @@ class OmnigentClient:
             and (post-F1) ``runtime`` keys. Empty if the agent
             declares no tools or the server response shape
             predates F1.
-        :raises OmnigentError: If the agents endpoint returns
+        :raises AgentNexusError: If the agents endpoint returns
             a non-2xx (e.g. 404).
         """
         if session_id is None:
@@ -307,7 +307,7 @@ class OmnigentClient:
         """Close the underlying HTTP client."""
         await self._http.aclose()
 
-    async def __aenter__(self) -> OmnigentClient:
+    async def __aenter__(self) -> AgentNexusClient:
         return self
 
     async def __aexit__(self, *exc: object) -> None:

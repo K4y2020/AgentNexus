@@ -16,16 +16,16 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostRemoveWorktreeFrame,
     decode_host_frame,
 )
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 pytestmark = pytest.mark.asyncio
 
@@ -252,7 +252,7 @@ def test_has_other_live_session_answers_in_use_past_the_scan_bound(db_uri: str) 
     """More sharers than the scan bound answers "in use" without checking
     archived state — the safe direction, since a wrong "free" deletes a
     directory a running session is sitting in."""
-    from omnigent.stores.conversation_store import sqlalchemy_store
+    from agentnexus.stores.conversation_store import sqlalchemy_store
 
     conv_store = SqlAlchemyConversationStore(db_uri)
     mine = _make_worktree_conversation(db_uri)
@@ -316,7 +316,7 @@ def test_shared_worktree_check_stays_cheap(db_uri: str) -> None:
 
     # Past the bound the answer is already settled, so the archived filter is
     # skipped and its IN list can never grow with the directory.
-    from omnigent.stores.conversation_store import sqlalchemy_store
+    from agentnexus.stores.conversation_store import sqlalchemy_store
 
     for _ in range(sqlalchemy_store._WORKSPACE_SHARER_SCAN_LIMIT):
         _make_worktree_conversation(db_uri)

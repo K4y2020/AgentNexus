@@ -19,9 +19,9 @@ import {
   writeCodeFontWeight,
 } from "./codeFontPreferences";
 
-const SIZE_STORAGE_KEY = "omnigent:code-font-size";
-const FAMILY_STORAGE_KEY = "omnigent:code-font-family";
-const WEIGHT_STORAGE_KEY = "omnigent:code-font-weight";
+const SIZE_STORAGE_KEY = "agentnexus:code-font-size";
+const FAMILY_STORAGE_KEY = "agentnexus:code-font-family";
+const WEIGHT_STORAGE_KEY = "agentnexus:code-font-weight";
 
 afterEach(() => {
   localStorage.clear();

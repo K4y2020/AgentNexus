@@ -25,20 +25,20 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from omnigent.entities import USER_SESSION_TITLE_MAX_CHARS
-from omnigent.llms.context_window import ModelPricing
-from omnigent.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES
-from omnigent.server.background_session_titles import BackgroundTitleRequest
-from omnigent.server.routes._sessions.helpers import (
+from agentnexus.entities import USER_SESSION_TITLE_MAX_CHARS
+from agentnexus.llms.context_window import ModelPricing
+from agentnexus.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES
+from agentnexus.server.background_session_titles import BackgroundTitleRequest
+from agentnexus.server.routes._sessions.helpers import (
     _NativeTerminalEnsureOutcome,
     _RunnerForwardResult,
 )
-from omnigent.spec.types import SkillSpec
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.spec.types import SkillSpec
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
-from omnigent.tools.builtins.load_skill import format_skill_meta_text
+from agentnexus.stores.host_store import HostStore
+from agentnexus.tools.builtins.load_skill import format_skill_meta_text
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
@@ -180,7 +180,7 @@ async def test_first_message_schedules_background_semantic_title(
         return fake_runner
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_runner_client",
+        "agentnexus.server.routes.sessions._get_runner_client",
         get_runner_client,
     )
 
@@ -248,7 +248,7 @@ async def test_background_title_failure_does_not_break_subsequent_user_turn(
         return fake_runner
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_runner_client",
+        "agentnexus.server.routes.sessions._get_runner_client",
         get_runner_client,
     )
 
@@ -318,7 +318,7 @@ async def test_initial_item_schedules_background_semantic_title(
         return fake_runner
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_runner_client",
+        "agentnexus.server.routes.sessions._get_runner_client",
         get_runner_client,
     )
     agent = await create_test_agent(client)
@@ -602,7 +602,7 @@ async def test_list_sessions_reflects_relay_status_cache(
     spinner reflects the runner-relayed live status, not the (mostly
     empty) ``tasks`` table that the NO_DBOS path no longer writes to.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -631,7 +631,7 @@ async def test_list_sessions_rolls_up_busy_child_status(
     parent roll-up happens in the shared list-item builder and that an
     unrelated sibling parent stays idle.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     parent = await _create_session(client, agent["id"], title="parent")
@@ -672,7 +672,7 @@ async def test_session_snapshot_defaults_terminal_pending_false(
     (not just truthiness) proves the snapshot builder ships the field
     with the right default rather than omitting it.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -689,12 +689,12 @@ async def test_session_snapshot_reflects_terminal_pending_cache(
     """The GET snapshot reads ``_session_terminal_pending_cache`` so a
     client connecting mid-spin-up sees ``terminal_pending=True``.
 
-    This is the reconnect channel: the Omnigent session stream has no replay
+    This is the reconnect channel: the AgentNexus session stream has no replay
     buffer, so a client that connects after the runner emitted the
     pending event would otherwise miss it. Re-reading via GET proves
     the value travels cache → response builder → snapshot.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -717,7 +717,7 @@ async def test_external_session_status_event_lands_in_status_cache(
     this fix the handler only published to the SSE pub-sub, leaving the
     sidebar stuck on "idle" while the chat showed "Working…".
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -760,7 +760,7 @@ async def test_external_session_superseded_publishes_redirect_event(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -808,7 +808,7 @@ async def test_external_session_superseded_drains_pending_inputs(
     re-hydrate as a stuck optimistic bubble on every reload of the old chat.
     The superseded handler drains it (without committing it as a user message).
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     pending_inputs.reset_for_tests()
     agent = await create_test_agent(client)
@@ -851,14 +851,14 @@ async def test_external_subagent_start_mints_child_session(
     ``GET /v1/sessions/{parent_id}/child_sessions``.
 
     The forwarder uses this signal to register Claude Code's own
-    Task-tool subagents (which never POST to Omnigent themselves) so the
+    Task-tool subagents (which never POST to AgentNexus themselves) so the
     Subagents rail can show them.
     """
     agent = await create_test_agent(client)
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     resp = await client.post(
@@ -897,7 +897,7 @@ async def test_external_subagent_start_mints_child_session(
     assert child["session_name"] == "a5c7effac5a9a35ab"
     # Description is preserved on the row's labels for surfaces that
     # want it; the rail's row UI ignores ``session_name``.
-    assert child["labels"]["omnigent.claude_native.description"] == "Trace the auth flow"
+    assert child["labels"]["agentnexus.claude_native.description"] == "Trace the auth flow"
 
 
 async def test_external_acp_subagent_start_mints_child_without_a_vendor_wrapper(
@@ -937,10 +937,10 @@ async def test_external_acp_subagent_start_mints_child_without_a_vendor_wrapper(
     assert child["tool"] == "mathutils"
     assert child["session_name"] == "a0ac9364"
     # The ACP id + task are preserved for downstream surfaces...
-    assert child["labels"]["omnigent.acp.subagent_id"] == "a0ac9364"
-    assert child["labels"]["omnigent.acp.subagent_description"] == "create mathutils.py plus tests"
+    assert child["labels"]["agentnexus.acp.subagent_id"] == "a0ac9364"
+    assert child["labels"]["agentnexus.acp.subagent_description"] == "create mathutils.py plus tests"
     # ...and crucially NO vendor wrapper label is stamped.
-    assert "omnigent.wrapper" not in child["labels"], (
+    assert "agentnexus.wrapper" not in child["labels"], (
         f"an ACP sub-agent must not claim a vendor wrapper identity: {child['labels']!r}"
     )
 
@@ -965,7 +965,7 @@ async def test_external_acp_subagent_start_is_idempotent_on_subagent_id(
     assert first.json()["child_session_id"] == second.json()["child_session_id"]
 
     children = (await client.get(f"/v1/sessions/{parent['id']}/child_sessions")).json()["data"]
-    assert len([c for c in children if c["labels"].get("omnigent.acp.subagent_id") == "dup1"]) == 1
+    assert len([c for c in children if c["labels"].get("agentnexus.acp.subagent_id") == "dup1"]) == 1
 
 
 async def test_external_acp_subagent_start_allows_duplicate_titles(
@@ -1119,7 +1119,7 @@ async def test_external_subagent_start_handles_duplicate_agent_type_and_descript
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     common_data = {
@@ -1173,7 +1173,7 @@ async def test_external_subagent_start_is_idempotent_on_subagent_id(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
     payload = {
         "type": "external_subagent_start",
@@ -1216,7 +1216,7 @@ async def test_external_subagent_start_adopts_unlabeled_title_collision(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     # Seed the wedge state through the public create endpoint: a
@@ -1256,8 +1256,8 @@ async def test_external_subagent_start_adopts_unlabeled_title_collision(
     assert child["id"] == seeded_id
     # Labels are healed so the NEXT delivery resolves via the fast
     # label lookup instead of re-tripping the unique index.
-    assert child["labels"]["omnigent.claude_native.subagent_id"] == "a5c7effac5a9a35ab"
-    assert child["labels"]["omnigent.claude_native.description"] == "Trace the auth flow"
+    assert child["labels"]["agentnexus.claude_native.subagent_id"] == "a5c7effac5a9a35ab"
+    assert child["labels"]["agentnexus.claude_native.description"] == "Trace the auth flow"
 
     # Redelivery now takes the label-lookup path to the same id.
     again = await client.post(f"/v1/sessions/{parent['id']}/events", json=payload)
@@ -1281,7 +1281,7 @@ async def test_external_subagent_start_idempotency_pages_beyond_first_100(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     older = await client.post(
@@ -1350,7 +1350,7 @@ async def test_external_subagent_start_rejects_missing_required_keys(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
     data = {
         "subagent_id": "a5c7effac5a9a35ab",
@@ -1384,7 +1384,7 @@ async def test_skill_slash_command_persists_visible_item_and_hidden_meta_message
     with ``is_meta=True`` so runner resume/history replay still has
     the skill context without showing raw instructions to users.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     forwarded: list[dict[str, Any]] = []
     published: list[tuple[str, dict[str, Any]]] = []
@@ -1419,7 +1419,7 @@ async def test_skill_slash_command_persists_visible_item_and_hidden_meta_message
         return httpx.Response(202, json={"queued": True})
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     fake_runner = httpx.AsyncClient(
@@ -1532,7 +1532,7 @@ async def test_skill_slash_command_keeps_existing_title(
     invoked later — otherwise every mid-conversation ``/skill`` send
     would rename the session in the sidebar.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """
@@ -1609,11 +1609,11 @@ async def test_skill_slash_command_non_json_resolve_surfaces_controlled_error(
 ) -> None:
     """
     A non-JSON ``/skills/resolve`` body (e.g. an HTML error page injected
-    by a proxy) surfaces as a controlled ``OmnigentError`` (HTTP 500
+    by a proxy) surfaces as a controlled ``AgentNexusError`` (HTTP 500
     with our message), not an uncaught crash with the generic
     "An internal error occurred." body.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Return a non-JSON body for resolve; 202 otherwise."""
@@ -1669,7 +1669,7 @@ async def test_external_meta_user_message_persists_without_live_input_event(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -1722,7 +1722,7 @@ async def test_external_user_message_folds_pending_image_into_durable_item(
     assert the persisted item carries BOTH the image block and the text.
     Without the fold, the stored item is text-only and the image is gone.
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     pending_inputs.reset_for_tests()
     agent = await create_test_agent(client)
@@ -1796,11 +1796,11 @@ async def test_external_user_message_drain_publishes_cleared_pending_id(
     the recorded id. A regression here silently breaks the bubble swap
     (the client falls back to FIFO and the entry can strand).
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     pending_inputs.reset_for_tests()
@@ -1856,7 +1856,7 @@ async def test_external_interrupt_record_leaves_pending_input_for_real_message(
     its file blocks are gone). Assert the marker persists bare and the
     steering message keeps the image.
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     pending_inputs.reset_for_tests()
     agent = await create_test_agent(client)
@@ -1920,7 +1920,7 @@ async def test_external_interrupt_lookalike_still_drains_pending_input(
     upload it carries — the same class of bug from the other direction. The
     regex is anchored, so a bracketed question is a normal message.
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     pending_inputs.reset_for_tests()
     agent = await create_test_agent(client)
@@ -2717,8 +2717,8 @@ async def test_claude_native_session_discoverable_with_terminal_metadata(
         # Labels the route's _is_claude_native_terminal_session and the
         # UI's terminal-first layout key off of.
         labels={
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
     session_id = session["id"]
@@ -2737,8 +2737,8 @@ async def test_claude_native_session_discoverable_with_terminal_metadata(
     assert row is not None, f"session not in list: {list_resp.json()}"
     assert row["title"] == "universe @ lakebox"
     assert row["agent_name"] == "claude-native-ui"
-    assert row["labels"]["omnigent.wrapper"] == "claude-code-native-ui"
-    assert row["labels"]["omnigent.ui"] == "terminal"
+    assert row["labels"]["agentnexus.wrapper"] == "claude-code-native-ui"
+    assert row["labels"]["agentnexus.ui"] == "terminal"
     assert row["external_session_id"] == "11111111-2222-3333-4444-555555555555"
     assert row["status"] in ("idle", "running", "failed")
 
@@ -2746,8 +2746,8 @@ async def test_claude_native_session_discoverable_with_terminal_metadata(
     snap = (await client.get(f"/v1/sessions/{session_id}")).json()
     assert snap["title"] == "universe @ lakebox"
     assert snap["agent_name"] == "claude-native-ui"
-    assert snap["labels"]["omnigent.wrapper"] == "claude-code-native-ui"
-    assert snap["labels"]["omnigent.ui"] == "terminal"
+    assert snap["labels"]["agentnexus.wrapper"] == "claude-code-native-ui"
+    assert snap["labels"]["agentnexus.ui"] == "terminal"
     assert snap["external_session_id"] == "11111111-2222-3333-4444-555555555555"
 
 
@@ -2766,7 +2766,7 @@ async def test_get_session_agent_name_is_spec_name_after_switch(
     Drives the REAL switch route end-to-end: source session → seeded
     bindable built-in → ``POST .../switch-agent`` → ``GET`` snapshot.
     """
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
 
     # Source session bound to a session-scoped "nessie" agent.
     source_agent = await create_test_agent(client, name="nessie")
@@ -2827,7 +2827,7 @@ async def test_list_sessions_exposes_pending_elicitations_count(
     invisible to users until they realize sessions are blocked
     and they had no idea.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -2902,8 +2902,8 @@ async def test_list_sessions_pending_count_falls_back_to_row_for_bound_session(
     :param db_uri: The app's DB, opened directly to seed the row the way a
         different replica's live-state write would have.
     """
-    from omnigent.runtime import pending_elicitations
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.runtime import pending_elicitations
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -3027,7 +3027,7 @@ async def test_get_session_replays_pending_elicitations(
     so the rendered card is byte-identical to what the live path
     would have produced.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -3217,7 +3217,7 @@ async def test_post_external_assistant_message_persists_and_streams(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -3285,7 +3285,7 @@ async def test_post_external_conversation_item_persists_and_streams_visible_item
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -3419,7 +3419,7 @@ async def test_post_external_function_call_output_caps_oversized_output(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -3474,7 +3474,7 @@ async def test_external_transcript_items_recoverable_via_snapshot_by_item_id(
     snapshot + live stream by item id sees each item exactly once."""
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -3564,9 +3564,9 @@ async def test_post_external_session_status_publishes_session_status(
 
     The native Claude forwarder posts this when Claude Code's Stop /
     StopFailure hooks fire so the web UI's idle/running indicator
-    updates without going through the Omnigent task lifecycle.
+    updates without going through the AgentNexus task lifecycle.
     A regression here would break the idle indicator for
-    ``omnigent claude`` sessions: Omnigent would never learn Claude
+    ``omnigent claude`` sessions: AgentNexus would never learn Claude
     finished and the UI would stay stuck on whatever transient
     state it last saw.
     """
@@ -3583,7 +3583,7 @@ async def test_post_external_session_status_publishes_session_status(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -3619,7 +3619,7 @@ async def test_post_external_session_status_failed_surfaces_output_and_reauth(
     published: list[tuple[str, dict[str, Any]]] = []
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda session_id, event: published.append((session_id, event)),
     )
     agent = await create_test_agent(client)
@@ -3670,7 +3670,7 @@ async def test_post_external_session_status_carries_response_id(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -3709,11 +3709,11 @@ async def test_publish_status_keeps_failed_sticky_against_trailing_idle(
     error badge would flash for ~1s then revert to idle on every failed
     claude-native turn.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     published: list[dict[str, Any]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda _session_id, event: published.append(event),
     )
     sid = "ee38ff3453b8ccac61b85acb8c670b59"
@@ -3809,9 +3809,9 @@ async def test_terminal_idle_persists_a2a_consumption_receipt(
     A failed turn must NOT auto-consume (the recipient may never have seen
     the queued message), and a queued/undelivered message must not either.
     """
-    from omnigent.coordination.types import AgentMessage
-    from omnigent.server import session_live_state
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.coordination.types import AgentMessage
+    from agentnexus.server import session_live_state
+    from agentnexus.server.routes import sessions as sessions_module
 
     coordination = _FakeCoordinationStore()
     conversation = _TerminalConversationStore()
@@ -3868,10 +3868,10 @@ async def test_publish_status_tracks_in_flight_response_id(
     ``activeResponse``); any ``idle``/``failed`` edge clears it. A bare
     ``running`` (no id, e.g. the PTY badge edge) must NOT clobber a tracked id.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda _session_id, _event: None,
     )
     sid = "dcc9f70cf10c73bb49c3b465b929747c"
@@ -3905,7 +3905,7 @@ async def test_patch_runner_rebind_clears_stale_failed_status(
     publish the recovery transition, a stale ``failed`` cache entry keeps
     the session snapshot stuck on an old native-terminal startup error.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     class _RecoveringRunnerClient:
         """Runner client that records PATCH-path session init."""
@@ -3983,7 +3983,7 @@ async def test_patch_runner_rebind_clears_stale_failed_status(
     monkeypatch.setattr(sessions_module, "_get_runner_client", _get_runner_client)
     monkeypatch.setattr(sessions_module, "_ensure_runner_relay_ready", _ensure_runner_relay_ready)
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda _session_id, event: published.append(event),
     )
     agent = await create_test_agent(client)
@@ -4034,12 +4034,12 @@ async def test_post_external_session_status_idle_forwards_persisted_assistant_ou
     """
     Native idle status forwarding includes AP-persisted assistant text.
 
-    The native forwarder posts transcript items to Omnigent server, then posts
+    The native forwarder posts transcript items to AgentNexus server, then posts
     ``external_session_status: idle``. The runner's sub-agent registry
     needs the durable assistant text in that status forward because it
-    may not have the Omnigent transcript in local memory.
+    may not have the AgentNexus transcript in local memory.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     forwarded: list[dict[str, Any]] = []
 
@@ -4150,7 +4150,7 @@ async def test_post_external_session_status_failed_forwards_persisted_assistant_
     "Error: native sub-agent turn failed", and surface it as the session's
     typed error under the harness-neutral ``native_turn_error`` code.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     detail = (
         "There's an issue with the selected model (claude-3-5-sonnet-20241022). "
@@ -4190,7 +4190,7 @@ async def test_post_external_session_status_failed_forwards_persisted_assistant_
 
     monkeypatch.setattr(sessions_module, "_get_runner_client", _fake_get_runner_client)
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda session_id, event: published.append((session_id, event)),
     )
     try:
@@ -4258,7 +4258,7 @@ async def test_post_external_session_status_failed_keeps_wire_output_and_codex_c
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda session_id, event: published.append((session_id, event)),
     )
     agent = await create_test_agent(client)
@@ -4286,11 +4286,11 @@ async def test_post_external_session_status_propagates_runner_delivery_failure(
     Runner delivery failure for a non-Codex sub-agent is preserved by AP.
 
     Native child terminal status is only successful when the runner confirms
-    delivery to the parent's inbox. If Omnigent returned ``{"queued": false}`` after
+    delivery to the parent's inbox. If AgentNexus returned ``{"queued": false}`` after
     a runner 503, the child forwarder would believe the result was ACKed while
     the parent never receives it.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """
@@ -4358,7 +4358,7 @@ async def test_post_external_session_status_propagates_runner_delivery_failure(
     error = status_resp.json()["error"]
     assert error["code"] == "runner_unavailable"
     # The runner's delivery-not-confirmed reason is retained in AP's error
-    # message. If absent, Omnigent flattened the failure and made diagnosis harder.
+    # message. If absent, AgentNexus flattened the failure and made diagnosis harder.
     assert "missing_parent_inbox" in error["message"]
 
 
@@ -4387,7 +4387,7 @@ async def test_post_external_output_text_delta_publishes_transient_delta(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4438,7 +4438,7 @@ async def test_post_external_output_text_delta_rejects_malformed_delta(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
 
@@ -4462,7 +4462,7 @@ async def test_post_external_tool_output_delta_publishes_transient_delta(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4520,7 +4520,7 @@ async def test_post_external_output_reasoning_delta_started_publishes_started_th
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4573,7 +4573,7 @@ async def test_post_external_output_reasoning_delta_continuation_publishes_delta
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4621,7 +4621,7 @@ async def test_post_external_output_reasoning_delta_rejects_malformed_delta(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
 
@@ -4644,7 +4644,7 @@ async def test_post_external_session_interrupted_publishes_session_interrupted(
     Codex-native uses this when app-server reports a terminal
     ``turn/completed`` status of ``interrupted``. The event must decorate
     the active web turn as cancelled, but must not persist a transcript item
-    or start / steer an Omnigent task.
+    or start / steer an AgentNexus task.
     """
     published: list[tuple[str, dict[str, Any]]] = []
 
@@ -4659,7 +4659,7 @@ async def test_post_external_session_interrupted_publishes_session_interrupted(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4713,7 +4713,7 @@ async def test_post_interrupt_without_data_field_is_accepted(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4763,7 +4763,7 @@ async def test_post_external_output_text_delta_carries_streaming_identifiers(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4843,7 +4843,7 @@ async def test_post_external_output_text_delta_rejects_malformed_identifiers(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -4898,7 +4898,7 @@ async def test_post_external_session_usage_publishes_session_usage(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -4938,7 +4938,7 @@ async def test_external_session_usage_broadcasts_parent_subtree_cost_not_own(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -4984,7 +4984,7 @@ async def test_post_external_session_usage_dynamic_context_window_overrides_snap
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -5022,7 +5022,7 @@ async def test_post_external_session_usage_window_only_payload_persists_window(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -5054,7 +5054,7 @@ async def test_post_external_session_usage_rejects_empty_payload(
     A payload missing both context_tokens and context_window 400s.
 
     Defends against a forwarder logic bug or partial deploy that would
-    otherwise round-trip a no-op event to Omnigent every poll.
+    otherwise round-trip a no-op event to AgentNexus every poll.
     """
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -5091,7 +5091,7 @@ async def test_external_session_usage_persists_cumulative_cost(
     A claude-native ``cumulative_cost_usd`` is persisted to ``session_usage``.
 
     claude-native can't produce a ``response.completed`` (Claude Code is a
-    separate process), so the Omnigent relay's ``_accumulate_session_usage`` never
+    separate process), so the AgentNexus relay's ``_accumulate_session_usage`` never
     runs for it. Instead the forwarder sends Claude Code's own cumulative
     ``cost.total_cost_usd`` on this event; the server must persist it so a
     Cost-Ask policy reading ``event.context.usage.total_cost_usd`` sees a real
@@ -5192,7 +5192,7 @@ async def test_external_session_usage_cumulative_cost_is_set_not_added(
     Successive cumulative-cost posts SET (not accumulate) — native reports
     running totals, so two posts of 0.42 then 0.90 must leave 0.90, not 1.32.
 
-    A failure (1.32) would mean the native path wrongly reused the Omnigent relay's
+    A failure (1.32) would mean the native path wrongly reused the AgentNexus relay's
     add-delta semantics, double-counting the session cost.
     """
     agent = await create_test_agent(client)
@@ -5268,7 +5268,7 @@ async def test_external_session_usage_codex_tokens_priced(
     """
     # 1e-6 / 2e-6 USD per input / output token.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-6, output_per_token=2e-6),
     )
     agent = await create_test_agent(client)
@@ -5311,7 +5311,7 @@ async def test_external_session_usage_codex_cached_tokens_priced_at_cache_rate(
     """
     # Cache read is 10x cheaper than fresh input (1e-7 vs 1e-6).
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(
             input_per_token=1e-6,
             output_per_token=2e-6,
@@ -5371,7 +5371,7 @@ async def test_external_session_usage_codex_cached_tokens_no_catalog_cache_rate(
     """
     # No cache_read_per_token ⇒ compute_llm_cost derives it as 0.10x input.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-6, output_per_token=2e-6),
     )
     agent = await create_test_agent(client)
@@ -5417,10 +5417,10 @@ async def test_accumulate_session_usage_prices_from_usage_model(
     NOT — so a recorded cost proves the harness-reported model was used, not
     the spec model.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: (
             ModelPricing(input_per_token=1e-6, output_per_token=2e-6)
             if model == "harness-model"
@@ -5452,11 +5452,11 @@ async def test_accumulate_session_usage_prefers_provider_cost(
     prefer that over recomputing from token counts x catalog pricing (which can
     diverge, e.g. when the catalog lacks a cache-write rate).
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     # The catalog WOULD price this turn at 2.0 USD; the provider cost must win.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     agent = await create_test_agent(client)
@@ -5490,10 +5490,10 @@ async def test_accumulate_session_usage_provider_cost_prices_uncatalogued_model(
     Without a catalog entry the token-price path leaves the turn unpriced; an
     authoritative provider cost should still record ``total_cost_usd``.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: None,  # catalog can't price anything
     )
     agent = await create_test_agent(client)
@@ -5529,10 +5529,10 @@ async def test_accumulate_session_usage_rejects_negative_provider_cost(
     negative cost to drive its recorded spend down and slip under the cap. A
     negative report must fall through to the (non-negative) catalog estimate.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     agent = await create_test_agent(client)
@@ -5567,7 +5567,7 @@ async def test_accumulate_session_usage_negative_cost_cannot_reset_running_total
     unpriced, so the previously accumulated ``total_cost_usd`` (the value the
     cost-budget gate reads) is unchanged — never driven toward zero / negative.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     store = SqlAlchemyConversationStore(db_uri)
     agent = await create_test_agent(client)
@@ -5575,7 +5575,7 @@ async def test_accumulate_session_usage_negative_cost_cannot_reset_running_total
 
     # First, an honest priced turn establishes a positive running total.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: None,  # catalog can't price anything
     )
     sessions_routes._accumulate_session_usage(
@@ -5611,10 +5611,10 @@ async def test_accumulate_session_usage_rejects_non_finite_provider_cost(
     A non-finite value poisons every downstream sum (and JSON round-trips as
     ``NaN``), so it must never be trusted as the authoritative cost.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     agent = await create_test_agent(client)
@@ -5653,10 +5653,10 @@ async def test_accumulate_session_usage_rejects_negative_token_count(
     delta negative — clawing back the running total the relay cost-budget gate
     reads. The count must collapse to 0 and the turn price on what survives.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     agent = await create_test_agent(client)
@@ -5688,7 +5688,7 @@ async def test_accumulate_session_usage_negative_tokens_cannot_reset_running_tot
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A forged negative token count can't subtract from a prior running total."""
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     store = SqlAlchemyConversationStore(db_uri)
     agent = await create_test_agent(client)
@@ -5696,7 +5696,7 @@ async def test_accumulate_session_usage_negative_tokens_cannot_reset_running_tot
 
     # An honest priced turn establishes a positive running total.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     sessions_routes._accumulate_session_usage(
@@ -5736,10 +5736,10 @@ async def test_accumulate_session_usage_rejects_non_finite_token_count(
     permanently (every ``cost > cap`` comparison is then ``False``) and the
     stored token counters.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-3, output_per_token=2e-3),
     )
     agent = await create_test_agent(client)
@@ -5776,10 +5776,10 @@ async def test_accumulate_session_usage_unpriced_without_usage_model(
     contract: when neither the harness nor the catalog can price the turn, the
     cost key stays absent (so the UI shows "—", not a misleading $0.00).
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: None,  # nothing is priceable
     )
     agent = await create_test_agent(client)
@@ -5812,11 +5812,11 @@ async def test_accumulate_session_usage_codex_unpinned_model_gets_by_model_entry
     ``_extract_codex_last_turn_usage`` now returns) and must get an entry —
     surfaced through the real ``GET /v1/sessions/{id}`` API the web UI reads.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
         include_llm=False,  # mirrors examples/debby/agents/gpt/config.yaml
     )
     session = await _create_session(client, agent["id"])
@@ -5870,10 +5870,10 @@ async def test_accumulate_session_usage_records_per_model_breakdown(
     relies on. If the per-model cost were attributed to the wrong model or
     double-counted, this sum would diverge from the flat total.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: (
             ModelPricing(input_per_token=1e-6, output_per_token=2e-6)
             if model in {"model-a", "model-b"}
@@ -5922,10 +5922,10 @@ async def test_accumulate_session_usage_unpriced_model_has_tokens_no_cost(
     per-model level: tokens are attributed even when the model isn't priceable
     (so the token view is complete), but the model's bucket carries no cost key.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: None,  # nothing priceable
     )
     agent = await create_test_agent(client)
@@ -5965,10 +5965,10 @@ async def test_accumulate_session_usage_concurrent_calls_accumulate_both_deltas(
     """
     import concurrent.futures
 
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: ModelPricing(input_per_token=1e-6, output_per_token=2e-6),
     )
     agent = await create_test_agent(client)
@@ -6152,7 +6152,7 @@ async def test_external_session_usage_event_carries_priced_cost(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6184,7 +6184,7 @@ async def test_external_session_usage_event_carries_token_breakdown(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6229,12 +6229,12 @@ async def test_external_session_usage_unpriced_omits_cost(
     """
     # Pricing unavailable for the model — the unpriced path.
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: None,
     )
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6333,7 +6333,7 @@ _COST_GUARD_GUARDRAILS = {
         "cost_guard": {
             "type": "function",
             "function": {
-                "path": "omnigent.policies.builtins.cost.cost_budget",
+                "path": "agentnexus.policies.builtins.cost.cost_budget",
                 "arguments": {"max_cost_usd": 1.0},
             },
         },
@@ -6370,7 +6370,7 @@ async def test_external_session_usage_over_budget_does_not_stop_session(
     # Cost persisted so the tool-call gate can read it on the next tool call.
     assert conv.session_usage.get("total_cost_usd") == 2.5
     # ...but the session is NOT stopped (the post-hoc cost stop is gone).
-    assert conv.labels.get("omnigent.stopped") != "true"
+    assert conv.labels.get("agentnexus.stopped") != "true"
 
 
 # Cost guard with a soft warning checkpoint, for the relay tool-call ASK
@@ -6381,7 +6381,7 @@ _COST_GUARD_SOFT_GUARDRAILS = {
         "cost_guard": {
             "type": "function",
             "function": {
-                "path": "omnigent.policies.builtins.cost.cost_budget",
+                "path": "agentnexus.policies.builtins.cost.cost_budget",
                 "arguments": {"max_cost_usd": 1.0, "ask_thresholds_usd": [0.05]},
             },
         },
@@ -6432,7 +6432,7 @@ async def test_relay_tool_call_ask_approval_persists_checkpoint(
     checkpoint is never recorded and every later tool call re-asks (the bug
     this guards; the native path persisted it but the relay path dropped it).
     """
-    from omnigent.policies.builtins.cost import _ASK_APPROVED_KEY
+    from agentnexus.policies.builtins.cost import _ASK_APPROVED_KEY
 
     agent = await create_test_agent(client, guardrails=_COST_GUARD_SOFT_GUARDRAILS)
     session = await _create_session(client, agent["id"])
@@ -6479,7 +6479,7 @@ async def test_relay_tool_call_ask_decline_does_not_record_checkpoint(
     persist the checkpoint — the next tool call re-asks (the user did not
     consent to continue past the threshold).
     """
-    from omnigent.policies.builtins.cost import _ASK_APPROVED_KEY
+    from agentnexus.policies.builtins.cost import _ASK_APPROVED_KEY
 
     agent = await create_test_agent(client, guardrails=_COST_GUARD_SOFT_GUARDRAILS)
     session = await _create_session(client, agent["id"])
@@ -6521,7 +6521,7 @@ async def test_mcp_relay_tool_call_ask_approval_persists_checkpoint(
     The retry's tool execution fails here (no runner bound), but the policy
     write is applied before execution, which is what we assert.
     """
-    from omnigent.policies.builtins.cost import _ASK_APPROVED_KEY
+    from agentnexus.policies.builtins.cost import _ASK_APPROVED_KEY
 
     agent = await create_test_agent(client, guardrails=_COST_GUARD_SOFT_GUARDRAILS)
     session = await _create_session(client, agent["id"])
@@ -6590,7 +6590,7 @@ async def test_post_external_model_change_publishes_session_model(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6629,7 +6629,7 @@ async def test_post_external_model_change_dedupes_when_unchanged(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6694,7 +6694,7 @@ async def test_post_external_model_change_does_not_forward_to_runner(
     (``update_session``), which DOES forward ``model_change`` to the
     runner. The ``session.model`` SSE still fires; the runner sees nothing.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     runner_paths: list[str] = []
 
@@ -6705,7 +6705,7 @@ async def test_post_external_model_change_does_not_forward_to_runner(
 
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -6720,8 +6720,8 @@ async def test_post_external_model_change_does_not_forward_to_runner(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
         runner_paths.clear()  # ignore any bind-time runner traffic
@@ -6757,19 +6757,19 @@ async def test_post_external_model_options_populates_picker_and_publishes(
     open clients re-read the snapshot. Asserts the deduped/normalized options
     land on the snapshot and the SSE fires.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._pushed_model_options_cache.clear()
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
     session = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.ui": "terminal", "omnigent.wrapper": "pi-native-ui"},
+        labels={"agentnexus.ui": "terminal", "agentnexus.wrapper": "pi-native-ui"},
     )
 
     resp = await client.post(
@@ -6812,13 +6812,13 @@ async def test_post_external_model_options_empty_evicts_cache(
     hides rather than serving a stale list. A malformed (non-list) payload
     fails loud at the boundary.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     agent = await create_test_agent(client)
     session = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.ui": "terminal", "omnigent.wrapper": "pi-native-ui"},
+        labels={"agentnexus.ui": "terminal", "agentnexus.wrapper": "pi-native-ui"},
     )
 
     # Seed a catalog, then clear it with an empty push.
@@ -6855,7 +6855,7 @@ async def test_post_external_model_options_rejects_non_pi_native_session(
     entry alive until teardown. The route rejects it at ingest (400) and writes
     nothing, keeping the contract explicit.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     agent = await create_test_agent(client)
     # A plain (non-native) session — no pi-native wrapper label.
@@ -6883,7 +6883,7 @@ async def test_post_external_reasoning_effort_change_publishes_session_effort(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6920,7 +6920,7 @@ async def test_post_external_reasoning_effort_change_clears_effort(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -6985,7 +6985,7 @@ async def test_post_external_codex_collaboration_mode_change_persists_label(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7004,7 +7004,7 @@ async def test_post_external_codex_collaboration_mode_change_persists_label(
     assert published[0][1]["conversation_id"] == session["id"]
     assert published[0][1]["mode"] == "plan"
     snapshot = (await client.get(f"/v1/sessions/{session['id']}")).json()
-    assert snapshot["labels"]["omnigent.codex_native.collaboration_mode"] == "plan"
+    assert snapshot["labels"]["agentnexus.codex_native.collaboration_mode"] == "plan"
 
 
 async def test_post_external_codex_collaboration_mode_change_rejects_unknown_mode(
@@ -7040,7 +7040,7 @@ async def test_post_external_permission_mode_change_persists_label_and_publishes
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7060,7 +7060,7 @@ async def test_post_external_permission_mode_change_persists_label_and_publishes
     assert published[0][1]["conversation_id"] == session["id"]
     assert published[0][1]["permission_mode"] == "auto"
     snapshot = (await client.get(f"/v1/sessions/{session['id']}")).json()
-    assert snapshot["labels"]["omnigent.claude_native.permission_mode"] == "auto"
+    assert snapshot["labels"]["agentnexus.claude_native.permission_mode"] == "auto"
     # This session launched without an explicit --permission-mode, so the footer
     # report must NOT pin one (that would override its settings default on
     # relaunch); the label alone carries the mode for the web picker.
@@ -7116,7 +7116,7 @@ async def test_post_external_permission_mode_change_is_quiet_when_unchanged(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7183,7 +7183,7 @@ async def test_in_pane_permission_mode_switch_reaches_the_sse_wire_end_to_end(
     debug level. Drives ``_forward_permission_mode_from_pane`` itself rather
     than a hand-rolled POST, so the mirror's own logic is on the path.
     """
-    from omnigent import claude_native_forwarder as fwd
+    from agentnexus import claude_native_forwarder as fwd
     from tests.server.helpers import start_session_stream_collector
 
     agent = await create_test_agent(client)
@@ -7233,7 +7233,7 @@ async def test_in_pane_permission_mode_switch_reaches_the_sse_wire_end_to_end(
     assert event["permission_mode"] == "auto"
     # And it is durable: a reloading client restores the mode from the label.
     snapshot = (await client.get(f"/v1/sessions/{session_id}")).json()
-    assert snapshot["labels"]["omnigent.claude_native.permission_mode"] == "auto"
+    assert snapshot["labels"]["agentnexus.claude_native.permission_mode"] == "auto"
 
 
 async def test_post_external_codex_approval_mode_change_persists_terminal_args(
@@ -7350,7 +7350,7 @@ async def test_patch_model_override_records_system_note_for_inprocess_session(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7359,7 +7359,7 @@ async def test_patch_model_override_records_system_note_for_inprocess_session(
         return
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _noop_forward,
     )
     agent = await create_test_agent(client)
@@ -7384,7 +7384,7 @@ async def test_patch_model_override_clear_records_reset_note(
     """Clearing the override (``default``) records a reset note, not a model name."""
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7392,7 +7392,7 @@ async def test_patch_model_override_clear_records_reset_note(
         """Isolate the note logic from the live runner forward."""
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _noop_forward,
     )
     agent = await create_test_agent(client)
@@ -7423,7 +7423,7 @@ async def test_patch_model_override_skips_note_for_native_session(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7431,7 +7431,7 @@ async def test_patch_model_override_skips_note_for_native_session(
         """Isolate the note logic from the live runner forward."""
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _noop_forward,
     )
     agent = await create_test_agent(client)
@@ -7439,8 +7439,8 @@ async def test_patch_model_override_skips_note_for_native_session(
         client,
         agent["id"],
         labels={
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
 
@@ -7468,7 +7468,7 @@ async def test_patch_model_override_surfaces_a_refused_native_forward(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7485,14 +7485,14 @@ async def test_patch_model_override_surfaces_a_refused_native_forward(
         )
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _runner_refused,
     )
     agent = await create_test_agent(client)
     session = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.ui": "terminal", "omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.ui": "terminal", "agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     patch = await client.patch(
@@ -7525,7 +7525,7 @@ async def test_patch_model_override_stays_quiet_when_no_runner_answers(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7533,14 +7533,14 @@ async def test_patch_model_override_stays_quiet_when_no_runner_answers(
         """No runner is bound, so there is no live pane to be wrong about."""
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _no_runner,
     )
     agent = await create_test_agent(client)
     session = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.ui": "terminal", "omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.ui": "terminal", "agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     patch = await client.patch(
@@ -7567,14 +7567,14 @@ async def test_patch_model_override_records_note_for_terminal_view_sdk_session(
     This is the polly / debby case: when such an agent is launched via
     ``omnigent run``, the runner stamps ``omnigent.ui: terminal`` to enable
     the web Chat/Terminal toggle (runner ``app.py``), but the brain is an
-    in-process claude-sdk agent whose history Omnigent writes — so a web
+    in-process claude-sdk agent whose history AgentNexus writes — so a web
     ``/model`` switch should land a durable ``[System: ...]`` note. Gating on
     ``omnigent.ui`` (the pre-fix behavior) wrongly suppressed it; the gate
     must key on the ``omnigent.wrapper`` native label instead.
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -7582,7 +7582,7 @@ async def test_patch_model_override_records_note_for_terminal_view_sdk_session(
         """Isolate the note logic from the live runner forward."""
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._forward_session_change_to_runner",
+        "agentnexus.server.routes.sessions._forward_session_change_to_runner",
         _noop_forward,
     )
     agent = await create_test_agent(client)
@@ -7591,7 +7591,7 @@ async def test_patch_model_override_records_note_for_terminal_view_sdk_session(
         agent["id"],
         # Terminal VIEW only — no native wrapper. Mirrors a polly/debby
         # session launched via `omnigent run`.
-        labels={"omnigent.ui": "terminal"},
+        labels={"agentnexus.ui": "terminal"},
     )
 
     patch = await client.patch(
@@ -7617,7 +7617,7 @@ async def test_patch_model_override_silent_skips_note(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7667,7 +7667,7 @@ async def test_post_external_session_todos_publishes_session_todos(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7706,7 +7706,7 @@ async def test_post_external_session_todos_updates_snapshot(
     As a result the snapshot always returned ``todos: []`` even when
     Claude had active tasks.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -7741,7 +7741,7 @@ async def test_post_external_session_todos_empty_list_clears_snapshot(
     disappear (renders nothing on empty); the snapshot must reflect the
     cleared list so a page refresh also shows the empty state.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
@@ -7818,11 +7818,11 @@ async def test_post_external_session_todos_filters_malformed_items(
     applies on the live path, so a buggy forwarder version can't poison the
     snapshot or the in-chat Plan tracker with half-formed entries.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7872,7 +7872,7 @@ async def test_post_external_mcp_startup_publishes_session_mcp_startup(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
@@ -7882,7 +7882,7 @@ async def test_post_external_mcp_startup_publishes_session_mcp_startup(
         "storage-console": {"status": "starting", "error": None},
     }
 
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     try:
         resp = await client.post(
@@ -7930,13 +7930,13 @@ async def test_post_external_mcp_startup_all_ready_evicts_snapshot_cache(
     """
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
 
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     try:
         starting = {"safe": {"status": "starting", "error": None}}
@@ -7977,7 +7977,7 @@ async def test_delete_session_evicts_mcp_startup_cache(
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"])
 
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     try:
         resp = await client.post(
@@ -8055,7 +8055,7 @@ async def test_post_external_conversation_item_auto_assigns_response_id(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)
@@ -8111,8 +8111,8 @@ async def test_external_user_message_seeds_title_on_claude_native_session(
         agent["id"],
         # No title — claude-native wrapper no longer stamps one.
         labels={
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
     # Precondition: the session was created with no title. If this fails,
@@ -8156,10 +8156,10 @@ async def test_interrupt_on_claude_native_session_skips_idle_publish_on_runner_f
 ) -> None:
     """
     If the runner couldn't deliver the Escape (e.g. tmux pane gone),
-    Omnigent must NOT lie to the UI by publishing idle. The spinner spins
+    AgentNexus must NOT lie to the UI by publishing idle. The spinner spins
     is the right signal — it tells the user the cancel didn't land.
 
-    After the interrupt-unification refactor the Omnigent side no longer
+    After the interrupt-unification refactor the AgentNexus side no longer
     publishes ``session.status: idle`` itself at all. Idle on a
     claude-native interrupt now comes from the runner's PTY activity
     watcher once the pane quiesces after the Escape (a failed Escape
@@ -8168,7 +8168,7 @@ async def test_interrupt_on_claude_native_session_skips_idle_publish_on_runner_f
     publish — if someone reintroduces the pre-refactor "publish idle on
     2xx" logic, the 503 path here would start leaking idle.
     """
-    from omnigent.runtime import session_stream, set_runner_client
+    from agentnexus.runtime import session_stream, set_runner_client
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Return 503 — the bridge-not-ready shape from the runner."""
@@ -8196,8 +8196,8 @@ async def test_interrupt_on_claude_native_session_skips_idle_publish_on_runner_f
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
 
@@ -8233,16 +8233,16 @@ async def test_stop_session_forwards_stop_session_event_to_runner(
     POST ``/events`` ``stop_session`` forwards the event verbatim to
     the bound runner's ``/events`` endpoint.
 
-    The Omnigent server stays harness-agnostic: it doesn't kill anything
+    The AgentNexus server stays harness-agnostic: it doesn't kill anything
     itself, it relays a ``{"type": "stop_session"}`` event to the
     runner, whose dispatch decides what to do (hard-kill tmux for
-    claude-native, 204 for in-process). This pins that the Omnigent forward
+    claude-native, 204 for in-process). This pins that the AgentNexus forward
     fires and addresses the runner's per-session ``/events`` path with
     the right body — a regression that dropped the forward, mangled
     the body, or hit the wrong URL would silently make the web UI's
     "Stop session" button a no-op.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     forwarded: list[_ForwardedEffort] = []
 
@@ -8265,8 +8265,8 @@ async def test_stop_session_forwards_stop_session_event_to_runner(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
 
@@ -8285,7 +8285,7 @@ async def test_stop_session_forwards_stop_session_event_to_runner(
         set_runner_client(None)
 
     # Exactly one POST to the session's /events path, carrying the
-    # stop_session type. 0 = the Omnigent branch didn't forward (no-op stop
+    # stop_session type. 0 = the AgentNexus branch didn't forward (no-op stop
     # button); 2+ = a duplicate relay. Snapshot GETs are filtered out
     # by the handler, so this isolates the control-event forward.
     events_forwards = [
@@ -8320,16 +8320,16 @@ async def test_stop_session_surfaces_runner_failure_as_error(
 
     Unlike effort/model_change (where a dropped forward is benign), a
     failed ``stop_session`` means the session is still alive. If the
-    Omnigent server swallowed the runner's 503 and returned 202
+    AgentNexus server swallowed the runner's 503 and returned 202
     ``{queued: false}``, the web UI would close its confirmation
     dialog as if the session stopped — the exact silent-failure the
-    review flagged. This pins that the Omnigent route raises (non-2xx)
+    review flagged. This pins that the AgentNexus route raises (non-2xx)
     instead, so the frontend mutation lands in its error state and
     can tell the user the stop didn't land. The bare-ConnectionError
     leg pins the WS-tunnel transport error mapping to the same clean
     RUNNER_UNAVAILABLE 503 rather than leaking a raw 500.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Snapshot GETs pass; the stop POST gets the runner failure."""
@@ -8353,8 +8353,8 @@ async def test_stop_session_surfaces_runner_failure_as_error(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
 
@@ -8375,7 +8375,7 @@ async def test_stop_session_surfaces_runner_failure_as_error(
     # The failed stop also lifts the just-installed turn fence: the turn
     # keeps running and nothing else would ever lift it, so leaving it set
     # would silently drop the rest of the turn (live + durable).
-    from omnigent.server.routes.sessions import _interrupt_fenced_sessions
+    from agentnexus.server.routes.sessions import _interrupt_fenced_sessions
 
     assert session["id"] not in _interrupt_fenced_sessions, (
         "a failed stop_session must remove the interrupt fence it installed"
@@ -8395,8 +8395,8 @@ async def test_stop_session_no_runner_lifts_stop_fence(
     outlive that no-op: nothing else would ever lift it, and the
     interrupt branch already unfences in the same no-client situation.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes.sessions import _interrupt_fenced_sessions
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes.sessions import _interrupt_fenced_sessions
 
     # Pin the no-runner precondition: no global fallback client either.
     set_runner_client(None)
@@ -8426,7 +8426,7 @@ async def test_retry_session_reports_live_runner_noop_without_mutating_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A live non-native runner is not falsely reported as recovered."""
-    from omnigent.server.routes.sessions import routes_events
+    from agentnexus.server.routes.sessions import routes_events
 
     agent = await create_test_agent(client)
     session = await _create_session(client, agent["id"], initial_message="Keep this once")
@@ -8457,11 +8457,11 @@ async def test_retry_session_ensures_dead_required_native_terminal_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A live runner still recreates its required native terminal."""
-    from omnigent.server.routes.sessions import routes_events
+    from agentnexus.server.routes.sessions import routes_events
 
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        executor={"type": "agentnexus", "config": {"harness": "claude-native"}},
     )
     session = await _create_session(client, agent["id"], initial_message="Keep this once")
     before = await client.get(f"/v1/sessions/{session['id']}")
@@ -8536,8 +8536,8 @@ async def test_interrupt_forward_failure_lifts_stop_fence(
     until the next turn. The route must lift the fence when the interrupt
     demonstrably did not land.
     """
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _interrupt_fenced_sessions
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _interrupt_fenced_sessions
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Fail the interrupt POST; let everything else pass through."""
@@ -8599,8 +8599,8 @@ async def test_interrupt_forward_success_keeps_stop_fence(
     turn's trailing deltas would leak into the transcript and live stream
     (the original stop-mid-stream bug).
     """
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _interrupt_fenced_sessions
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _interrupt_fenced_sessions
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Accept the interrupt POST (2xx) and all other requests."""
@@ -8648,8 +8648,8 @@ class _ForwardedEffort:
     """
     One forward of an effort change to the runner.
 
-    :param url: Fully-qualified runner URL the Omnigent server POSTed to.
-    :param body: Parsed JSON body the Omnigent server sent, or ``None``
+    :param url: Fully-qualified runner URL the AgentNexus server POSTed to.
+    :param body: Parsed JSON body the AgentNexus server sent, or ``None``
         when the request had no body.
     """
 
@@ -8670,12 +8670,12 @@ async def test_patch_collaboration_mode_persists_label_and_forwards_event(
     harness-agnostic ``plan_mode_change`` control event to the runner so the
     loaded Codex app-server switches modes immediately.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -8700,8 +8700,8 @@ async def test_patch_collaboration_mode_persists_label_and_forwards_event(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "codex-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "codex-native-ui",
             },
         )
         captured.clear()
@@ -8715,7 +8715,7 @@ async def test_patch_collaboration_mode_persists_label_and_forwards_event(
         set_runner_client(None)
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["labels"]["omnigent.codex_native.collaboration_mode"] == "plan"
+    assert resp.json()["labels"]["agentnexus.codex_native.collaboration_mode"] == "plan"
     plan_forwards = [f for f in captured if f.url.endswith(f"/v1/sessions/{session['id']}/events")]
     assert len(plan_forwards) == 1, f"Expected one runner forward, got {captured!r}"
     assert plan_forwards[0].body == {"type": "plan_mode_change", "enabled": True}
@@ -8738,12 +8738,12 @@ async def test_patch_collaboration_mode_requires_live_runner_before_persisting(
     apply the update, the route must fail and leave the collaboration label
     absent so the web UI rolls back instead of showing a false Plan indicator.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
     published: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         lambda sid, ev: published.append((sid, ev)),
     )
 
@@ -8781,8 +8781,8 @@ async def test_patch_collaboration_mode_requires_live_runner_before_persisting(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "codex-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "codex-native-ui",
             },
         )
 
@@ -8798,7 +8798,7 @@ async def test_patch_collaboration_mode_requires_live_runner_before_persisting(
 
     assert resp.status_code == 503, resp.text
     assert "Could not enter Plan mode" in resp.text
-    assert "omnigent.codex_native.collaboration_mode" not in snapshot["labels"]
+    assert "agentnexus.codex_native.collaboration_mode" not in snapshot["labels"]
     assert published == []
     if runner_status is None:
         assert captured == []
@@ -8843,7 +8843,7 @@ async def test_patch_permission_mode_persists_label_and_forwards_event(
     reports the pane reached — not the requested one — so a reload shows the
     session's real mode.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
 
@@ -8868,8 +8868,8 @@ async def test_patch_permission_mode_persists_label_and_forwards_event(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
         captured.clear()
@@ -8883,7 +8883,7 @@ async def test_patch_permission_mode_persists_label_and_forwards_event(
         set_runner_client(None)
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["labels"]["omnigent.claude_native.permission_mode"] == "auto"
+    assert resp.json()["labels"]["agentnexus.claude_native.permission_mode"] == "auto"
     # No launch --permission-mode to rewrite, so none is fabricated (see the
     # rewrite-existing test below for the persist-to-launch-args case).
     assert resp.json()["terminal_launch_args"] is None
@@ -8904,7 +8904,7 @@ async def test_patch_permission_mode_rewrites_launch_arg_and_keeps_other_args(
     sets ``terminal_launch_args`` keeps the caller's other args (here
     ``--model sonnet``) rather than reverting to the pre-PATCH launch args.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     def _handler(request: httpx.Request) -> httpx.Response:
         """Echo the switched mode like the claude-native runner handler."""
@@ -8923,8 +8923,8 @@ async def test_patch_permission_mode_rewrites_launch_arg_and_keeps_other_args(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
             terminal_launch_args=["--model", "opus", "--permission-mode", "plan"],
         )
@@ -8950,7 +8950,7 @@ async def test_patch_permission_mode_rewrites_launch_arg_and_keeps_other_args(
         "--permission-mode",
         "acceptEdits",
     ]
-    assert resp.json()["labels"]["omnigent.claude_native.permission_mode"] == "acceptEdits"
+    assert resp.json()["labels"]["agentnexus.claude_native.permission_mode"] == "acceptEdits"
 
 
 @pytest.mark.parametrize("runner_status", [None, 503], ids=["no_runner", "runner_rejects"])
@@ -8966,7 +8966,7 @@ async def test_patch_permission_mode_requires_live_runner_before_persisting(
     shift+tab cycle), persisting the label would make the web UI claim auto
     mode while Claude still prompts on every edit.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     fake_runner: httpx.AsyncClient | None = None
     if runner_status is not None:
@@ -8994,8 +8994,8 @@ async def test_patch_permission_mode_requires_live_runner_before_persisting(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
         resp = await client.patch(
@@ -9010,7 +9010,7 @@ async def test_patch_permission_mode_requires_live_runner_before_persisting(
 
     assert resp.status_code == 503, resp.text
     assert "Could not switch to auto mode" in resp.text
-    assert "omnigent.claude_native.permission_mode" not in snapshot["labels"]
+    assert "agentnexus.claude_native.permission_mode" not in snapshot["labels"]
 
 
 async def test_patch_permission_mode_silent_skips_the_switch_without_crashing(
@@ -9029,8 +9029,8 @@ async def test_patch_permission_mode_silent_skips_the_switch_without_crashing(
         client,
         agent["id"],
         labels={
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
 
@@ -9041,7 +9041,7 @@ async def test_patch_permission_mode_silent_skips_the_switch_without_crashing(
 
     assert resp.status_code == 200, resp.text
     snapshot = (await client.get(f"/v1/sessions/{session['id']}")).json()
-    assert "omnigent.claude_native.permission_mode" not in snapshot["labels"]
+    assert "agentnexus.claude_native.permission_mode" not in snapshot["labels"]
 
 
 @pytest.mark.parametrize("bad_mode", ["dontAsk", "bypassPermissions", "nonsense"])
@@ -9062,8 +9062,8 @@ async def test_patch_permission_mode_rejects_modes_the_cycle_cannot_reach(
         client,
         agent["id"],
         labels={
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
 
@@ -9103,7 +9103,7 @@ async def test_patch_permission_mode_rejects_non_claude_session(
         # (1) Native + claude-accepted level → POSTs effort_change.
         # The motivating case: dropdown click on a running pane.
         (True, "high", "high", "high"),
-        # (2) Non-native + same level → Omnigent server is harness-agnostic
+        # (2) Non-native + same level → AgentNexus server is harness-agnostic
         # so it ALSO POSTs effort_change. The runner's /events
         # dispatch will 204 no-op (covered by a runner-side test);
         # AP's job is just to forward.
@@ -9111,10 +9111,10 @@ async def test_patch_permission_mode_rejects_non_claude_session(
         # (3) Clear on native session → persisted None gets forwarded
         # as effort=None. The runner-side native handler decides to
         # skip injection (Claude has no slash for "use spawn default").
-        # Before refactor, Omnigent would short-circuit and not POST at all.
+        # Before refactor, AgentNexus would short-circuit and not POST at all.
         (True, "default", None, None),
         # (4) Level in EFFORT_VALUES but not CLAUDE_EFFORTS (``none``,
-        # ``minimal``). After refactor Omnigent no longer filters — it
+        # ``minimal``). After refactor AgentNexus no longer filters — it
         # forwards as-is, and the runner-side handler skips injection.
         (True, "none", "none", "none"),
     ],
@@ -9128,9 +9128,9 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
 ) -> None:
     """
     PATCH effort always forwards an ``effort_change`` event to
-    runner ``/events`` — harness-agnostic on the Omnigent side.
+    runner ``/events`` — harness-agnostic on the AgentNexus side.
 
-    Before the refactor, Omnigent server made a native-only POST to
+    Before the refactor, AgentNexus server made a native-only POST to
     ``/claude-native-effort`` and filtered out clear / unsupported
     values. After the refactor:
 
@@ -9139,7 +9139,7 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
     * The body is the new ``effort_change`` discriminator with the
       persisted level (or ``None`` for clear) — runner-side dispatch
       decides what to do with it.
-    * Omnigent server does not check ``_is_native_terminal_session``
+    * AgentNexus server does not check ``_is_native_terminal_session``
       and does not filter on level — every PATCH that changes effort
       sends the event.
 
@@ -9149,7 +9149,7 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
     "doesn't POST" / "POSTs to claude-native-effort" assertion
     flipped to "POSTs effort_change to /events".
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
 
@@ -9176,8 +9176,8 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
         session_kwargs = (
             {
                 "labels": {
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "claude-code-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "claude-code-native-ui",
                 },
             }
             if native_session
@@ -9208,7 +9208,7 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
         await fake_runner.aclose()
         set_runner_client(None)
 
-    # Exactly one POST to the unified /events route. 0 = Omnigent server
+    # Exactly one POST to the unified /events route. 0 = AgentNexus server
     # silently dropped the forward (regression in the harness-agnostic
     # always-forward path); 2+ = a legacy branch (e.g. the deleted
     # _forward_claude_native_effort helper) snuck back in alongside
@@ -9234,7 +9234,7 @@ async def test_patch_reasoning_effort_forwards_effort_change_event(
     )
 
     # No POST to the legacy ``/claude-native-effort`` route should
-    # happen anymore — its callsite is gone from Omnigent server. A non-
+    # happen anymore — its callsite is gone from AgentNexus server. A non-
     # empty list here means the deleted ``_forward_claude_native_effort``
     # helper (or an equivalent native-only branch) was re-introduced.
     legacy_forwards = [f for f in captured if "/claude-native-effort" in f.url]
@@ -9258,7 +9258,7 @@ async def test_silent_patch_skips_effort_change_forward(
     has sent anything. The persisted value is still authoritative —
     the next spawn picks it up via ``--effort``.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
 
@@ -9286,8 +9286,8 @@ async def test_silent_patch_skips_effort_change_forward(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
         captured.clear()
@@ -9335,9 +9335,9 @@ async def test_patch_reasoning_effort_swallows_runner_failure(
     Updated for the unified-events refactor: the URL the runner
     rejects is now ``/events`` (not the deleted
     ``/claude-native-effort``), but the swallow-and-return-200
-    contract on the Omnigent side is unchanged.
+    contract on the AgentNexus side is unchanged.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[_ForwardedEffort] = []
 
@@ -9371,8 +9371,8 @@ async def test_patch_reasoning_effort_swallows_runner_failure(
             client,
             agent["id"],
             labels={
-                "omnigent.ui": "terminal",
-                "omnigent.wrapper": "claude-code-native-ui",
+                "agentnexus.ui": "terminal",
+                "agentnexus.wrapper": "claude-code-native-ui",
             },
         )
 
@@ -9390,7 +9390,7 @@ async def test_patch_reasoning_effort_swallows_runner_failure(
 
     # One effort_change forward was attempted (proves we got far
     # enough to talk to the runner — i.e. the failure was swallowed,
-    # not skipped). 0 = Omnigent server bailed before forwarding (regression
+    # not skipped). 0 = AgentNexus server bailed before forwarding (regression
     # in the always-forward contract).
     events_forwards = [
         f
@@ -9453,7 +9453,7 @@ async def test_external_codex_subagent_start_mints_child_session(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
 
     resp = await client.post(
@@ -9489,11 +9489,11 @@ async def test_external_codex_subagent_start_mints_child_session(
         f"Expected session_name=thread_id; got {child['session_name']!r}"
     )
     labels = child["labels"]
-    assert labels["omnigent.codex_native.subagent_thread_id"] == "thread_child_alpha"
-    assert labels["omnigent.codex_native.parent_thread_id"] == "thread_parent"
-    assert labels["omnigent.codex_native.collab_tool_call_id"] == "collab_123"
-    assert labels["omnigent.codex_native.agent_nickname"] == "auth-auditor"
-    assert labels["omnigent.codex_native.agent_role"] == "reviewer"
+    assert labels["agentnexus.codex_native.subagent_thread_id"] == "thread_child_alpha"
+    assert labels["agentnexus.codex_native.parent_thread_id"] == "thread_parent"
+    assert labels["agentnexus.codex_native.collab_tool_call_id"] == "collab_123"
+    assert labels["agentnexus.codex_native.agent_nickname"] == "auth-auditor"
+    assert labels["agentnexus.codex_native.agent_role"] == "reviewer"
     # Prompt must surface as the preview before real transcript arrives.
     assert child["last_message_preview"] == "Audit the auth flow", (
         f"Expected prompt preview before transcript exists; got {child['last_message_preview']!r}"
@@ -9517,7 +9517,7 @@ async def test_external_codex_subagent_start_is_idempotent_and_upserts_labels(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
 
     # First registration — sparse (no nickname yet).
@@ -9590,7 +9590,7 @@ async def test_external_antigravity_subagent_start_mints_child_session(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "antigravity-native-ui"},
+        labels={"agentnexus.wrapper": "antigravity-native-ui"},
     )
 
     resp = await client.post(
@@ -9623,15 +9623,15 @@ async def test_external_antigravity_subagent_start_mints_child_session(
         f"Expected session_name=cascade id; got {child['session_name']!r}"
     )
     labels = child["labels"]
-    assert labels["omnigent.wrapper"] == "antigravity-native-ui-subagent"
+    assert labels["agentnexus.wrapper"] == "antigravity-native-ui-subagent"
     assert (
-        labels["omnigent.antigravity_native.subagent_cascade_id"]
+        labels["agentnexus.antigravity_native.subagent_cascade_id"]
         == "1eca7625-be65-4092-8718-273c1bc3436b"
     )
-    assert labels["omnigent.antigravity_native.agent_role"] == "App Router Code Reviewer"
-    assert labels["omnigent.antigravity_native.agent_type"] == "research"
+    assert labels["agentnexus.antigravity_native.agent_role"] == "App Router Code Reviewer"
+    assert labels["agentnexus.antigravity_native.agent_type"] == "research"
     # Links the child back to the tool card that spawned it.
-    assert labels["omnigent.antigravity_native.tool_call_id"] == "agy_call_efb134b2_36"
+    assert labels["agentnexus.antigravity_native.tool_call_id"] == "agy_call_efb134b2_36"
 
 
 async def test_external_antigravity_subagent_start_is_idempotent(
@@ -9651,7 +9651,7 @@ async def test_external_antigravity_subagent_start_is_idempotent(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "antigravity-native-ui"},
+        labels={"agentnexus.wrapper": "antigravity-native-ui"},
     )
     payload = {
         "type": "external_antigravity_subagent_start",
@@ -9691,7 +9691,7 @@ async def test_external_antigravity_subagent_start_requires_cascade_id(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "antigravity-native-ui"},
+        labels={"agentnexus.wrapper": "antigravity-native-ui"},
     )
 
     resp = await client.post(
@@ -9722,7 +9722,7 @@ async def test_external_antigravity_subagent_start_title_survives_a_colon_in_the
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "antigravity-native-ui"},
+        labels={"agentnexus.wrapper": "antigravity-native-ui"},
     )
 
     resp = await client.post(
@@ -9748,7 +9748,7 @@ async def test_external_antigravity_subagent_start_title_survives_a_colon_in_the
         f"Expected the colon folded out of the role; got {child['tool']!r}"
     )
     # The unmangled role is still available for any surface that wants it.
-    assert child["labels"]["omnigent.antigravity_native.agent_role"] == "Review: routing and auth"
+    assert child["labels"]["agentnexus.antigravity_native.agent_role"] == "Review: routing and auth"
 
 
 async def test_external_codex_subagent_start_adopts_unlabeled_title_collision(
@@ -9768,7 +9768,7 @@ async def test_external_codex_subagent_start_adopts_unlabeled_title_collision(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
 
     # Seed the wedge: the exact collision title, no codex labels.
@@ -9805,7 +9805,7 @@ async def test_external_codex_subagent_start_adopts_unlabeled_title_collision(
     # Thread-id label is healed so future deliveries resolve via the
     # normal label lookup.
     assert (
-        children[0]["labels"]["omnigent.codex_native.subagent_thread_id"] == "thread_child_gamma"
+        children[0]["labels"]["agentnexus.codex_native.subagent_thread_id"] == "thread_child_gamma"
     )
 
     # Redelivery now takes the label-lookup path to the same id.
@@ -9837,7 +9837,7 @@ async def test_external_codex_subagent_start_rejects_missing_thread_id(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
 
     resp = await client.post(
@@ -9859,7 +9859,7 @@ async def test_external_codex_subagent_terminal_status_accepted_without_runner(
     ``external_session_status`` on a Codex internal child does not require
     runner delivery.
 
-    Omnigent-spawned native sub-agents must forward terminal status to the
+    AgentNexus-spawned native sub-agents must forward terminal status to the
     parent runner inbox. Codex AgentControl children are tracked inside the
     same app-server thread tree and have no runner inbox entry, so the
     ``_require_external_status_forward`` guard must be bypassed for them.
@@ -9867,7 +9867,7 @@ async def test_external_codex_subagent_terminal_status_accepted_without_runner(
     :param client: The test HTTP client.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     published: list[tuple[str, dict[str, Any]]] = []
 
@@ -9887,7 +9887,7 @@ async def test_external_codex_subagent_terminal_status_accepted_without_runner(
     parent = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
     start_resp = await client.post(
         f"/v1/sessions/{parent['id']}/events",
@@ -9937,7 +9937,7 @@ async def test_native_message_persisted_when_runner_offline(
     session = await _create_session(
         client,
         agent["id"],
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
     sid = session["id"]
 
@@ -10025,7 +10025,7 @@ async def test_message_forward_failure_surfaces_runner_unavailable(
     unregister the orphaned work entry, and let the LLM fall back to
     spawning a fresh session.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     def _handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path.endswith("/events"):
@@ -10083,7 +10083,7 @@ async def test_message_forward_rejection_surfaces_failed_with_reason(
     live runner took nothing, so it must surface as ``failed`` carrying the
     runner's detail, durably enough to survive a reload.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     def _handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and request.url.path.endswith("/events"):

@@ -5,7 +5,7 @@ Run this on macOS (or Linux) before and after the #1477 / #1194 fix. It answers
 four questions without a server, a runner, or a real agy launch:
 
 1. Does the CLI launch pass ``--gemini_dir=<per-session dir>``?
-2. Does the Omnigent MCP relay config land in that dir (so agy gets ``sys_*``)?
+2. Does the AgentNexus MCP relay config land in that dir (so agy gets ``sys_*``)?
 3. Is ``HOME`` left real (so a keyring/Keychain-backed OAuth token still resolves)?
 4. Is the user's real ``~/.gemini`` left byte-for-byte untouched?
 
@@ -34,8 +34,8 @@ from typing import Any
 
 import httpx
 
-import omnigent.antigravity_native as agy_cli
-import omnigent.antigravity_native_bridge as bridge
+import agentnexus.antigravity_native as agy_cli
+import agentnexus.antigravity_native_bridge as bridge
 
 
 class _StubClient:
@@ -84,7 +84,7 @@ async def _run(sandbox: Path) -> tuple[list[str], dict[str, str], Path, set[str]
     Path.home = classmethod(lambda _cls: fake_home)  # type: ignore[method-assign]
     bridge.AGY_APP_DATA_DIR = real_gemini / "antigravity-cli"
     bridge._AGY_ONBOARDING_MARKER = bridge.AGY_APP_DATA_DIR / "cache" / "onboarding.json"
-    bridge._BRIDGE_ROOT = sandbox / "omnigent" / "antigravity-native"
+    bridge._BRIDGE_ROOT = sandbox / "agentnexus" / "antigravity-native"
 
     # agy itself is never launched: stub the binary resolution and the terminal call.
     agy_cli.build_agy_launch = lambda **kwargs: (  # type: ignore[assignment]
@@ -147,12 +147,12 @@ def main() -> int:
     else:
         failures.append(
             f"--gemini_dir missing or wrong (got {gemini_dir_flag!r}); agy will read the "
-            "user's real ~/.gemini, so it sees no Omnigent relay and no sys_* tools"
+            "user's real ~/.gemini, so it sees no AgentNexus relay and no sys_* tools"
         )
 
     # 2. The relay config, in the dir the flag points at.
     if relay_config.is_file():
-        tools = json.loads(relay_config.read_text())["mcpServers"]["omnigent"]["enabledTools"]
+        tools = json.loads(relay_config.read_text())["mcpServers"]["agentnexus"]["enabledTools"]
         print(f"PASS  relay mcp_config.json written ({len(tools)} tools enabled)")
     else:
         failures.append(f"no relay mcp_config.json at {relay_config}")

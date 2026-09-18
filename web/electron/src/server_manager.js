@@ -1,28 +1,28 @@
 // Process lifecycle for desktop-managed Omnigent servers and host connections.
 //
 // This is the only place the desktop spawns long-lived processes. It owns:
-//   - hostChildren: the foreground `omnigent host --server <url>` processes this
+//   - hostChildren: the foreground `agentnexus host --server <url>` processes this
 //     app started. They are torn down when the app quits (the confirmed
 //     lifecycle: the desktop owns what it starts).
-//   - ownedLocalServer: a local `omnigent server` we started ourselves (and so
+//   - ownedLocalServer: a local `agentnexus server` we started ourselves (and so
 //     are responsible for stopping). If a server was already running when we
 //     looked, we do NOT claim ownership and leave it alone.
 //
 // Status is never cached here — every query re-reads it from the CLI
-// (omnigent_cli.js), which is the single source of truth. This module only
+// (agentnexus_cli.js), which is the single source of truth. This module only
 // tracks *ownership* (did we start it?), which the CLI can't tell us.
 
 "use strict";
 
 const { spawn } = require("child_process");
 
-const cli = require("./omnigent_cli");
+const cli = require("./agentnexus_cli");
 
 /** Max seconds to wait for `host` to print its connected marker before giving up. */
 const CONNECT_TIMEOUT_MS = 30000;
 /** Grace period after SIGTERM before escalating to SIGKILL on shutdown. */
 const KILL_GRACE_MS = 4000;
-/** The line `omnigent host` prints once the websocket tunnel is up. */
+/** The line `agentnexus host` prints once the websocket tunnel is up. */
 function isHostConnectedMarker(text) {
   return /Connected as\s+|✓ Connected|Listening for sessions/i.test(String(text || ""));
 }
@@ -36,7 +36,7 @@ const hostChildren = new Map();
 const connectingHosts = new Map();
 
 /**
- * Every `omnigent host` child we have spawned and not yet seen exit — including
+ * Every `agentnexus host` child we have spawned and not yet seen exit — including
  * one still mid-connect, before it lands in `hostChildren` (the connect await
  * can take up to CONNECT_TIMEOUT_MS). `shutdown` SIGTERMs this set so a quit
  * during a connect can't orphan the child. Entries self-remove on exit.
@@ -62,21 +62,21 @@ function onChange(cb) {
 
 /**
  * Heuristically classify a host-connect error as an authentication failure,
- * from `omnigent host`'s own messages (HostConnectError: "Authentication
- * failed", "HTTP 401", login-page redirect, or the `omnigent login` hint). Lets
+ * from `agentnexus host`'s own messages (HostConnectError: "Authentication
+ * failed", "HTTP 401", login-page redirect, or the `agentnexus login` hint). Lets
  * the UI show a friendly "sign in" prompt instead of a scary raw error.
  *
  * @param {string | undefined} text
  * @returns {boolean}
  */
 function isAuthError(text) {
-  return /authentication failed|http 401|unauthor|login page|omnigent login/i.test(
+  return /authentication failed|http 401|unauthor|login page|agentnexus login/i.test(
     String(text || ""),
   );
 }
 
 /**
- * True when `omnigent host` refused to start because a daemon already serves
+ * True when `agentnexus host` refused to start because a daemon already serves
  * this target — which means a host is in fact already connected, so we can
  * adopt it instead of treating the conflict as a failure.
  *
@@ -120,7 +120,7 @@ function ownsLiveHost(key) {
 }
 
 /**
- * Spawn `omnigent host --server <url>` and resolve once it reports connected
+ * Spawn `agentnexus host --server <url>` and resolve once it reports connected
  * (or fails / times out). On success the child keeps running; the caller
  * registers it. Never rejects.
  *
@@ -134,10 +134,10 @@ function spawnHostChild(cliPath, serverUrl) {
     let child;
     try {
       // `--non-interactive`: the desktop owns the sign-in step (ensureServerAuth
-      // runs `omnigent login` first), so the host daemon must never try its own
+      // runs `agentnexus login` first), so the host daemon must never try its own
       // interactive login. Without the flag, an unauthed connect relies on the
       // spawned child's stdin not being a TTY to bail — with it, the CLI raises a
-      // deterministic "run `omnigent login`" error that `isAuthError` classifies,
+      // deterministic "run `agentnexus login`" error that `isAuthError` classifies,
       // so any residual auth gap becomes a fast, surfaced authError, not a hang.
       child = spawn(cliPath, ["host", "--server", serverUrl, "--non-interactive"], {
         stdio: ["ignore", "pipe", "pipe"],
@@ -189,7 +189,7 @@ function spawnHostChild(cliPath, serverUrl) {
  * Ensure this machine is connected as a host to `serverUrl`.
  *
  * If a live daemon already serves it (e.g. one the user started by hand), we
- * *adopt* it without spawning a duplicate — `omnigent host` would otherwise
+ * *adopt* it without spawning a duplicate — `agentnexus host` would otherwise
  * error on the conflict, and we must not kill a daemon we didn't start. Adopted
  * connections report ownedByDesktop:false.
  *
@@ -203,7 +203,7 @@ async function ensureHostConnected(cliPath, serverUrl) {
   if (ownsLiveHost(key)) return { ok: true, ownedByDesktop: true };
   // Dedupe concurrent connects for the same server (the restore-on-load path
   // racing the connect-time path, or a double-clicked Start) so we never spawn
-  // two `omnigent host` processes for one target.
+  // two `agentnexus host` processes for one target.
   const inflight = connectingHosts.get(key);
   if (inflight) return inflight;
   const op = connectHost(cliPath, serverUrl, key);
@@ -230,7 +230,7 @@ async function ensureHostConnected(cliPath, serverUrl) {
  */
 async function connectHost(cliPath, serverUrl, key) {
   // Adopt only a daemon we can VERIFY is connected (live process + an online
-  // tunnel, via the fast disk-read + single HTTP probe — not the slow `omnigent
+  // tunnel, via the fast disk-read + single HTTP probe — not the slow `agentnexus
   // host status` subprocess). PID-liveness alone is not enough: a stale registry
   // record whose pid was recycled by an unrelated process would otherwise make
   // us "adopt" a daemon that isn't there. If a genuine daemon exists but its
@@ -304,11 +304,11 @@ async function disconnectHost(cliPath, serverUrl) {
 /**
  * Ensure the CLI is authenticated for a server before connecting a host to it.
  * Local (loopback) servers need no auth. For a remote server, this asks the
- * server itself (a `GET /v1/me` probe via {@link module:omnigent_cli.probeServerAuth})
+ * server itself (a `GET /v1/me` probe via {@link module:agentnexus_cli.probeServerAuth})
  * rather than trusting the on-disk token file — a Databricks pointer record has
  * no readable expiry, so a stale file would otherwise falsely report "authed"
  * and skip the login that should open the browser. When not authed it runs
- * `omnigent login <url>` (browser/OIDC/Databricks), which is idempotent: a
+ * `agentnexus login <url>` (browser/OIDC/Databricks), which is idempotent: a
  * live-but-expired Databricks access token refreshes silently with no browser,
  * and only a dead grant opens the sign-in browser.
  *
@@ -329,7 +329,7 @@ async function ensureServerAuth(cliPath, serverUrl) {
   if (probe.authed || !probe.reachable) return { ok: true };
   const res = await cli.loginServer(cliPath, serverUrl);
   if (res.ok) return { ok: true };
-  // Deliberately a fixed, generic message — NOT `res.output`. `omnigent login`
+  // Deliberately a fixed, generic message — NOT `res.output`. `agentnexus login`
   // stdout on the OIDC path contains the login-ticket URL
   // (`…/auth/login?ticket=…`), which is auth material; threading it to the
   // renderer would leak it. The server URL alone is safe (the renderer already
@@ -337,7 +337,7 @@ async function ensureServerAuth(cliPath, serverUrl) {
   return {
     ok: false,
     authError: true,
-    error: `Sign-in to ${serverUrl} didn't complete. A browser window should have opened — finish signing in and try again (or run \`omnigent login ${serverUrl}\` in a terminal).`,
+    error: `Sign-in to ${serverUrl} didn't complete. A browser window should have opened — finish signing in and try again (or run \`agentnexus login ${serverUrl}\` in a terminal).`,
   };
 }
 
@@ -393,7 +393,7 @@ async function startLocalServer(cliPath) {
   // pid + /health), not just pid-liveness, since we're about to navigate the
   // window to this URL: a stale pidfile (dead/reused pid, hung server) must NOT
   // be reused or we'd send the window to a dead URL. Still far faster than
-  // `omnigent server status` (a Python cold start). We didn't start it, so no
+  // `agentnexus server status` (a Python cold start). We didn't start it, so no
   // ownership claim.
   const existing = await cli.localServerHealthy();
   if (existing) {
@@ -432,7 +432,7 @@ async function stopOwnedLocalServer(cliPath) {
 async function shutdown(cliPath) {
   // Iterate the spawned-children set, not hostChildren: it also covers a child
   // still mid-connect (spawned but not yet tracked in hostChildren), so a quit
-  // during a connect can't leave an orphaned `omnigent host` process.
+  // during a connect can't leave an orphaned `agentnexus host` process.
   const exits = [];
   for (const child of spawnedHostChildren) {
     exits.push(stopChild(child));

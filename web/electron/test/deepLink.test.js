@@ -13,44 +13,44 @@ const assert = require("node:assert/strict");
 const { parseOmnigentDeepLink, chooseDeepLinkStrategy } = require("../src/deepLink");
 
 describe("parseOmnigentDeepLink", () => {
-  it("accepts the branded agentnexus scheme and the legacy omnigent scheme", () => {
+  it("accepts the branded agentnexus scheme and the legacy agentnexus scheme", () => {
     assert.deepEqual(parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc"), {
       origin: "http://localhost:8000",
       path: "/c/conv_abc",
     });
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc"), {
       origin: "http://localhost:8000",
       path: "/c/conv_abc",
     });
   });
 
   it("parses a loopback host with a port as http", () => {
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc"), {
       origin: "http://localhost:8000",
       path: "/c/conv_abc",
     });
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://127.0.0.1:8000/c/x"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://127.0.0.1:8000/c/x"), {
       origin: "http://127.0.0.1:8000",
       path: "/c/x",
     });
   });
 
   it("parses a remote host as https", () => {
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://my-workspace.cloud.databricks.com/c/x"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://my-workspace.cloud.databricks.com/c/x"), {
       origin: "https://my-workspace.cloud.databricks.com",
       path: "/c/x",
     });
   });
 
   it("preserves a non-default port on a remote host", () => {
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://example.com:8443/c/x"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://example.com:8443/c/x"), {
       origin: "https://example.com:8443",
       path: "/c/x",
     });
   });
 
   it("accepts an IPv6 loopback host as http", () => {
-    assert.deepEqual(parseOmnigentDeepLink("omnigent://[::1]:8000/c/x"), {
+    assert.deepEqual(parseOmnigentDeepLink("agentnexus://[::1]:8000/c/x"), {
       origin: "http://[::1]:8000",
       path: "/c/x",
     });
@@ -58,33 +58,33 @@ describe("parseOmnigentDeepLink", () => {
 
   it("accepts an optional trailing slash on the path", () => {
     assert.equal(
-      parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc/").path,
+      parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc/").path,
       "/c/conv_abc/",
     );
   });
 
   it("drops a query string and hash (v1 forwards only the path)", () => {
-    const parsed = parseOmnigentDeepLink("omnigent://localhost:8000/c/conv_abc?reply=1#frag");
+    const parsed = parseOmnigentDeepLink("agentnexus://localhost:8000/c/conv_abc?reply=1#frag");
     assert.equal(parsed.path, "/c/conv_abc");
     assert.equal(parsed.origin, "http://localhost:8000");
   });
 
-  it("rejects a non-omnigent scheme", () => {
+  it("rejects a non-agentnexus scheme", () => {
     assert.equal(parseOmnigentDeepLink("https://localhost:8000/c/x"), null);
     assert.equal(parseOmnigentDeepLink("vscode://localhost/c/x"), null);
   });
 
   it("rejects a link with no host", () => {
-    assert.equal(parseOmnigentDeepLink("omnigent://"), null);
-    assert.equal(parseOmnigentDeepLink("omnigent:///c/x"), null);
+    assert.equal(parseOmnigentDeepLink("agentnexus://"), null);
+    assert.equal(parseOmnigentDeepLink("agentnexus:///c/x"), null);
   });
 
   it("rejects non-/c/<id> paths", () => {
-    assert.equal(parseOmnigentDeepLink("omnigent://localhost:8000/inbox"), null);
-    assert.equal(parseOmnigentDeepLink("omnigent://localhost:8000/settings/appearance"), null);
-    assert.equal(parseOmnigentDeepLink("omnigent://localhost:8000/c/"), null); // empty id
-    assert.equal(parseOmnigentDeepLink("omnigent://localhost:8000/c/a/b"), null); // nested path
-    assert.equal(parseOmnigentDeepLink("omnigent://localhost:8000/"), null);
+    assert.equal(parseOmnigentDeepLink("agentnexus://localhost:8000/inbox"), null);
+    assert.equal(parseOmnigentDeepLink("agentnexus://localhost:8000/settings/appearance"), null);
+    assert.equal(parseOmnigentDeepLink("agentnexus://localhost:8000/c/"), null); // empty id
+    assert.equal(parseOmnigentDeepLink("agentnexus://localhost:8000/c/a/b"), null); // nested path
+    assert.equal(parseOmnigentDeepLink("agentnexus://localhost:8000/"), null);
   });
 
   it("rejects unparseable / non-string input", () => {

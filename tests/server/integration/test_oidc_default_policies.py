@@ -22,19 +22,19 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig, mint_session_cookie
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig, mint_session_cookie
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
-from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
 pytestmark = pytest.mark.asyncio
 
@@ -121,7 +121,7 @@ def _policy_payload(**overrides: object) -> dict:
     base: dict = {
         "name": "oidc_policy",
         "type": "python",
-        "handler": "omnigent.policies.builtins.safety.ask_on_os_tools",
+        "handler": "agentnexus.policies.builtins.safety.ask_on_os_tools",
     }
     base.update(overrides)  # type: ignore[arg-type]
     return base

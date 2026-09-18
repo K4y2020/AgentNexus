@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities.comment import Comment, CommentsFingerprint
+from agentnexus.entities.comment import Comment, CommentsFingerprint
 
 # ── Comment ───────────────────────────────────────────
 

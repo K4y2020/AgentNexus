@@ -92,7 +92,7 @@ async def _drive_claude_default_label(base_url: str, session_id: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )

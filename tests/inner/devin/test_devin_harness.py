@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.harness_plugins import harness_capabilities, harness_modules
-from omnigent.inner import acp_harness
-from omnigent.inner.acp_executor import AcpExecutor
-from omnigent.inner.acp_extension import NO_ACP_EXTENSION
-from omnigent.inner.devin import DEVIN_ACP_EXTENSION
-from omnigent.inner.devin import harness as devin_harness
+from agentnexus.harness_plugins import harness_capabilities, harness_modules
+from agentnexus.inner import acp_harness
+from agentnexus.inner.acp_executor import AcpExecutor
+from agentnexus.inner.acp_extension import NO_ACP_EXTENSION
+from agentnexus.inner.devin import DEVIN_ACP_EXTENSION
+from agentnexus.inner.devin import harness as devin_harness
 
 
 def test_create_app_injects_the_devin_extension(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,10 +67,10 @@ def test_registry_points_devin_at_its_own_wrap() -> None:
     The registry entry is what makes the injection happen at all — without it
     Devin gets the generic wrap and the extension is never constructed.
     """
-    assert harness_modules()["devin"] == "omnigent.inner.devin.harness"
+    assert harness_modules()["devin"] == "agentnexus.inner.devin.harness"
     # Sibling ACP rows keep the shared wrap.
-    assert harness_modules()["grok"] == "omnigent.inner.acp_harness"
-    assert harness_modules()["acp"] == "omnigent.inner.acp_harness"
+    assert harness_modules()["grok"] == "agentnexus.inner.acp_harness"
+    assert harness_modules()["acp"] == "agentnexus.inner.acp_harness"
 
 
 def test_declared_capability_is_derived_from_the_extension() -> None:

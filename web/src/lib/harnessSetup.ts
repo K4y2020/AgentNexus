@@ -171,7 +171,7 @@ export function harnessCredentialAdoptFamilies(harness: string | null | undefine
 /**
  * Whether the UI can write a credential for *harness* on *host* (the M3 auth
  * form vs. a copy-command signpost). True only when the feature is on, the host
- * is online, and the harness is one whose credential omnigent owns (Claude /
+ * is online, and the harness is one whose credential agentnexus owns (Claude /
  * Codex / Pi). Mirrors the server's UI-auth allowlist so the form never posts a
  * credential the route would reject.
  */

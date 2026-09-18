@@ -8,13 +8,13 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities.conversation import (
+from agentnexus.entities.conversation import (
     FunctionCallData,
     FunctionCallOutputData,
     MessageData,
 )
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.search_conversations import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.search_conversations import (
     SearchConversationsTool,
     _extract_text,
     _format_results,
@@ -110,7 +110,7 @@ def test_invoke_returns_results(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
     ]
     monkeypatch.setattr(
-        "omnigent.runtime.get_conversation_store",
+        "agentnexus.runtime.get_conversation_store",
         lambda: _FakeConversationStore(items),
     )
 
@@ -125,7 +125,7 @@ def test_invoke_returns_results(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_invoke_no_results(monkeypatch: pytest.MonkeyPatch) -> None:
     """invoke() returns empty results with a message."""
     monkeypatch.setattr(
-        "omnigent.runtime.get_conversation_store",
+        "agentnexus.runtime.get_conversation_store",
         lambda: _FakeConversationStore([]),
     )
 
@@ -164,7 +164,7 @@ def test_invoke_respects_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     items = [_FakeItem(f"item_{i}", f"conv_{i}", i, "message", _message_data()) for i in range(20)]
     store = _FakeConversationStore(items)
     monkeypatch.setattr(
-        "omnigent.runtime.get_conversation_store",
+        "agentnexus.runtime.get_conversation_store",
         lambda: store,
     )
 
@@ -177,7 +177,7 @@ def test_invoke_caps_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     """invoke() caps large limits before querying the store."""
     store = _FakeConversationStore([])
     monkeypatch.setattr(
-        "omnigent.runtime.get_conversation_store",
+        "agentnexus.runtime.get_conversation_store",
         lambda: store,
     )
 

@@ -1,4 +1,4 @@
-"""omnigent UI SDK — terminal UI components for omnigent frontends.
+"""agentnexus UI SDK — terminal UI components for omnigent frontends.
 
 Built on top of :mod:`omnigent_client`. This package provides
 Rich-based block formatting and a prompt_toolkit-based terminal host
@@ -7,8 +7,8 @@ import from :mod:`omnigent_client` directly.
 
 Usage::
 
-    from omnigent_client import OmnigentClient, BlockStream
-    from omnigent_ui_sdk import RichBlockFormatter, TerminalHost
+    from agentnexus_client import AgentNexusClient, BlockStream
+    from agentnexus_ui_sdk import RichBlockFormatter, TerminalHost
 """
 
 from .terminal import (

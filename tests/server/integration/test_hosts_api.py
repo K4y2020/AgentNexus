@@ -13,22 +13,22 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.host.frames import (
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostLaunchRunnerResultFrame,
     encode_host_frame,
 )
-from omnigent.server.auth import LEVEL_OWNER
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._host_launch import HostLaunchTarget, resolve_host_launch
-from omnigent.server.routes.host_tunnel import create_host_tunnel_router
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.auth import LEVEL_OWNER
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._host_launch import HostLaunchTarget, resolve_host_launch
+from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.host_store import HostStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 pytestmark = pytest.mark.asyncio
 
@@ -119,10 +119,10 @@ def _build_host_api_app(
         prefix="/v1",
     )
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         """Convert application errors to structured JSON responses."""
         return JSONResponse(
@@ -405,8 +405,8 @@ async def test_gateway_inference_reconverges_after_a_server_restart(
     host reconnects and re-reports "claude is off-gateway", selection drops back
     to the built-in judge — permanently, with nothing to migrate or backfill.
     """
-    from omnigent.server.routes._sessions.common import set_server_host_registry
-    from omnigent.server.routing_backend import RoutingBackends, gateway_backs_all, select_router
+    from agentnexus.server.routes._sessions.common import set_server_host_registry
+    from agentnexus.server.routing_backend import RoutingBackends, gateway_backs_all, select_router
 
     external = object()
     local = object()
@@ -577,7 +577,7 @@ async def test_launch_runner_happy_path(
         assert conn is not None
         # Drain until we find the launch frame (skip pings).
 
-        from omnigent.host.frames import HostLaunchRunnerFrame, decode_host_frame
+        from agentnexus.host.frames import HostLaunchRunnerFrame, decode_host_frame
 
         for _ in range(20):
             output = await comm.receive_output(timeout=2.0)
@@ -639,16 +639,16 @@ async def test_launch_runner_harness_not_configured_returns_412(
     machine-readable code (and the `omnigent setup` hint) on the
     fork-resume relaunch path.
     """
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     app, registry, _hs, conv_store = host_api_app
 
     # The bare test app has no exception handlers; register the same
-    # OmnigentError → JSON handler create_app installs (app.py), so the
+    # AgentNexusError → JSON handler create_app installs (app.py), so the
     # route's raise surfaces exactly as it would in production wiring.
-    @app.exception_handler(OmnigentError)
-    async def _handle(request: object, exc: OmnigentError) -> JSONResponse:
-        """Convert OmnigentError to the production JSON error shape.
+    @app.exception_handler(AgentNexusError)
+    async def _handle(request: object, exc: AgentNexusError) -> JSONResponse:
+        """Convert AgentNexusError to the production JSON error shape.
 
         :param request: The incoming request (unused).
         :param exc: The application error raised by the route.
@@ -665,7 +665,7 @@ async def test_launch_runner_harness_not_configured_returns_412(
 
     async def _refuse_launch() -> None:
         """Reply 'failed' with the structured harness error code."""
-        from omnigent.host.frames import HostLaunchRunnerFrame, decode_host_frame
+        from agentnexus.host.frames import HostLaunchRunnerFrame, decode_host_frame
 
         for _ in range(20):
             output = await comm.receive_output(timeout=2.0)
@@ -701,7 +701,7 @@ async def test_launch_runner_harness_not_configured_returns_412(
     assert resp.status_code == 412, f"Expected 412, got {resp.status_code}: {resp.text}"
     body = resp.json()
     assert body["error"]["code"] == "harness_not_configured"
-    assert "omnigent setup" in body["error"]["message"]
+    assert "agentnexus setup" in body["error"]["message"]
 
     # _rollback_failed_launch ran: the session is fully unbound so a
     # retry after `omnigent setup` starts clean.
@@ -825,7 +825,7 @@ def multi_user_app(
         # local_single_user=False: this fixture models a deployed
         # multi-user server, so host_id re-own must be refused (the
         # behavior under test). Override the suite-wide single-user
-        # default from tests/conftest.py (OMNIGENT_LOCAL_SINGLE_USER=1),
+        # default from tests/conftest.py (AGENTNEXUS_LOCAL_SINGLE_USER=1),
         # which create_host_tunnel_router would otherwise read from env.
         create_host_tunnel_router(
             registry, host_store, auth_provider=auth, local_single_user=False
@@ -925,7 +925,7 @@ async def test_launch_runner_403_wrong_owner(
     host_store.upsert_on_connect(
         "a20f57f124c33161e2e17a8998af5b1f", "alice-laptop", "alice@test.com"
     )
-    from omnigent.host.frames import HostHelloFrame
+    from agentnexus.host.frames import HostHelloFrame
 
     registry.register(
         "a20f57f124c33161e2e17a8998af5b1f",
@@ -971,10 +971,10 @@ async def test_launch_runner_validates_workspace_boundary(
     is covered by the session-create + e2e suites; here we assert the
     endpoint wires it in and maps failures to 400 before binding.
     """
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.server.routes import _workspace_validation
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.server.routes import _workspace_validation
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
 
     registry = HostRegistry()
     host_store = HostStore(db_uri)
@@ -1208,7 +1208,7 @@ async def test_resolve_host_launch_enforces_host_and_session_ownership(
     # Host known but offline (in the store, no live connection) → 409.
     host_store.upsert_on_connect("3d9665477127e41f42de3f4109418173", "alice-old", "alice@test.com")
     host_store.set_offline("3d9665477127e41f42de3f4109418173")
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         resolve_host_launch(
             user_id="alice@test.com",
             host_id="3d9665477127e41f42de3f4109418173",
@@ -1317,9 +1317,9 @@ async def test_runner_exited_report_surfaces_in_runner_status(
     here means crashed runners regress to the blind 60s timeout with
     "check the logs directory".
     """
-    from omnigent.host.frames import HostRunnerExitedFrame
-    from omnigent.server.host_registry import RunnerExitReports
-    from omnigent.server.routes.runner_tunnel import create_runner_tunnel_router
+    from agentnexus.host.frames import HostRunnerExitedFrame
+    from agentnexus.server.host_registry import RunnerExitReports
+    from agentnexus.server.routes.runner_tunnel import create_runner_tunnel_router
 
     registry = HostRegistry()
     host_store = HostStore(db_uri)
@@ -1329,7 +1329,7 @@ async def test_runner_exited_report_surfaces_in_runner_status(
         create_host_tunnel_router(registry, host_store, runner_exit_reports=reports),
         prefix="/v1",
     )
-    from omnigent.runner.transports.ws_tunnel.registry import TunnelRegistry
+    from agentnexus.runner.transports.ws_tunnel.registry import TunnelRegistry
 
     app.include_router(
         create_runner_tunnel_router(TunnelRegistry(), runner_exit_reports=reports),
@@ -1382,7 +1382,7 @@ async def test_runner_exited_invokes_callback_with_runner_and_error(
     sessions stay stuck "starting" with no error — the exact desktop
     bug this fixes.
     """
-    from omnigent.host.frames import HostRunnerExitedFrame
+    from agentnexus.host.frames import HostRunnerExitedFrame
 
     registry = HostRegistry()
     host_store = HostStore(db_uri)

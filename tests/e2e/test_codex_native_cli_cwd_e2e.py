@@ -6,18 +6,18 @@ its runner in the user's current working directory, so a file that exists only
 in that directory must be readable by the Codex agent. This pins the
 wrapper-path half of the codex-native cwd-resolution fix: the runner resolves
 the terminal cwd from the session workspace falling back to
-``OMNIGENT_RUNNER_WORKSPACE`` (the wrapper's launch cwd), never the
+``AGENTNEXUS_RUNNER_WORKSPACE`` (the wrapper's launch cwd), never the
 spec-bundle extraction dir.
 
 Environment requirements (why this is opt-in, not pure-CI)
 ----------------------------------------------------------
-* **Opt-in only**: set ``OMNIGENT_E2E_CODEX_NATIVE=1`` to run. codex-native
+* **Opt-in only**: set ``AGENTNEXUS_E2E_CODEX_NATIVE=1`` to run. codex-native
   needs an interactive Codex login anchored to the real ``$HOME``; a present-
   but-unauthenticated binary would hang the TUI. The env-var gate keeps it out
   of CI; a developer with a logged-in Codex opts in.
 * Run it like the host codex-native test::
 
-    OMNIGENT_E2E_CODEX_NATIVE=1 \
+    AGENTNEXUS_E2E_CODEX_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_codex_native_cli_cwd_e2e.py \
         --profile oss \
         --llm-api-key "$(databricks auth token -p oss \
@@ -51,10 +51,10 @@ from tests.e2e._native_resume_helpers import (
 # Opt-in only — see module docstring. Binary presence is not a sufficient gate
 # (present-but-unauthenticated hangs the TUI), so require the explicit env var.
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native CLI cwd e2e needs an interactive Codex login; set "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 (and have `codex` installed + logged in) to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 (and have `codex` installed + logged in) to run"
     ),
 )
 
@@ -74,7 +74,7 @@ def test_codex_native_cli_runs_in_launch_cwd(
     web-UI path) a request to read that file. The marker exists only in the
     launch cwd (never in the runner's spec-bundle dir), so it can come back
     only if the wrapper resolved the agent's cwd to the launch directory —
-    i.e. ``OMNIGENT_RUNNER_WORKSPACE`` / the session workspace, not the
+    i.e. ``AGENTNEXUS_RUNNER_WORKSPACE`` / the session workspace, not the
     bundle dir.
 
     Uses the kept-alive background + HTTP-inject pattern (not a one-shot

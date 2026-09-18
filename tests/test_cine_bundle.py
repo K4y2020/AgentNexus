@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
 
-from omnigent.spec import load
+from agentnexus.spec import load
 
 BUNDLE = Path(__file__).resolve().parents[1] / "examples" / "cine"
 

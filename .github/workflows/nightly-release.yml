@@ -4,7 +4,7 @@
 # with green CI, stamps the lockstep version to `X.Y.Z.devYYYYMMDD` (today's
 # UTC date appended to main's `X.Y.Z.dev0` line), commits that stamp DETACHED
 # on top of the base commit, tags it `vX.Y.Z.devYYYYMMDD`, and pushes ONLY the
-# tag with the omnigent-ci App token (GITHUB_TOKEN-pushed tags fire no
+# tag with the agentnexus-ci App token (GITHUB_TOKEN-pushed tags fire no
 # workflows; the image build hangs off the tag push).
 #
 # Deliberately NOT the release.yml flow: no release/vX.Y branch is created,
@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   plan:
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -196,14 +196,14 @@ jobs:
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
-      - name: Mint App token (omnigent)
+      - name: Mint App token (agentnexus)
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.OMNIGENT_BOT_APP_ID }}
-          private-key: ${{ secrets.OMNIGENT_BOT_APP_KEY }}
+          app-id: ${{ vars.AGENTNEXUS_BOT_APP_ID }}
+          private-key: ${{ secrets.AGENTNEXUS_BOT_APP_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: omnigent
+          repositories: agentnexus
 
       - name: Checkout base commit
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -242,8 +242,8 @@ jobs:
           TAG: ${{ needs.plan.outputs.tag }}
         run: |
           set -euo pipefail
-          git config user.name "omnigent-ci[bot]"
-          git config user.email "294685417+omnigent-ci[bot]@users.noreply.github.com"
+          git config user.name "agentnexus-ci[bot]"
+          git config user.email "294685417+agentnexus-ci[bot]@users.noreply.github.com"
 
           # Stage everything the stamp touched: update_versions.py owns the
           # file set (same staging as release.yml and bump-version.yml).

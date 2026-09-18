@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _build_alembic_config,
     clear_engine_cache,
     get_or_create_engine,
@@ -71,7 +71,7 @@ def test_archived_column_present_and_not_nullable(db_engine: Engine) -> None:
         "entity field both assume a concrete true/false value."
     )
     meta_cols = [
-        c for c in insp.get_columns("omnigent_conversation_metadata") if c["name"] == "archived"
+        c for c in insp.get_columns("agentnexus_conversation_metadata") if c["name"] == "archived"
     ]
     assert not meta_cols, (
         "archived must no longer exist on omnigent_conversation_metadata after the move."

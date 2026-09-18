@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.runtime import inflight_text
+from agentnexus.runtime import inflight_text
 
 
 @pytest.fixture(autouse=True)

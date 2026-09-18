@@ -4,7 +4,7 @@
 // webContents — the same pattern as workspace-root-bounce.js.
 //
 // "Away" is origin-based, so it covers every subpage of the server (a
-// Databricks ``…/omnigent`` mount with query args included): any committed
+// Databricks ``…/agentnexus`` mount with query args included): any committed
 // main-frame URL on the pinned origin counts as "back", and the last such
 // URL is remembered so the banner can offer to return to the exact page the
 // user was on. Same-origin AUTH-GATE pages (the platform login page, the

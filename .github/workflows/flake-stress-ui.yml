@@ -7,7 +7,7 @@ name: Flake stress (E2E UI)
 # probability for the target.
 #
 # Why a SEPARATE workflow from flake-stress.yml / flake-stress-e2e.yml:
-#   * flake-stress.yml sets OMNIGENT_SKIP_WEB_UI=true and has no npm registry,
+#   * flake-stress.yml sets AGENTNEXUS_SKIP_WEB_UI=true and has no npm registry,
 #     so it can't build the web SPA the UI tests serve.
 #   * flake-stress-e2e.yml targets the LLM-backed tests/e2e/ and injects
 #     Databricks gateway credentials.
@@ -58,7 +58,7 @@ permissions:
 env:
   # No SPA build during `uv sync`: the build is a dedicated step below
   # (mirrors e2e-ui.yml; the setup.py build would be a redundant npm hit).
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   # Scrub harness credentials the test server must not pick up. The whole
   # e2e_ui suite runs against the in-process mock LLM, so no real key is ever
   # needed (the conftest's live_server fixture points the spawned server's
@@ -282,7 +282,7 @@ jobs:
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
-          CC_CLI_DIR="${RUNNER_TEMP}/omnigent-cc-cli"
+          CC_CLI_DIR="${RUNNER_TEMP}/agentnexus-cc-cli"
           mkdir -p "$CC_CLI_DIR" && cd "$CC_CLI_DIR"
           npm install --no-audit --no-fund @anthropic-ai/claude-code@2.1.212
           echo "$CC_CLI_DIR/node_modules/.bin" >> "$GITHUB_PATH"
@@ -293,7 +293,7 @@ jobs:
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
-          CODEX_CLI_DIR="${RUNNER_TEMP}/omnigent-codex-cli"
+          CODEX_CLI_DIR="${RUNNER_TEMP}/agentnexus-codex-cli"
           mkdir -p "$CODEX_CLI_DIR" && cd "$CODEX_CLI_DIR"
           npm install --ignore-scripts --no-audit --no-fund @openai/codex@0.139.0
           echo "$CODEX_CLI_DIR/node_modules/.bin" >> "$GITHUB_PATH"

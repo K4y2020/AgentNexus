@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.client_specified import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.client_specified import (
     ClientSideTool,
     ClientSideToolSpec,
     parse_client_side_tool_spec,

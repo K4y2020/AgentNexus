@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from omnigent_ui_sdk.terminal._host import _install_csi_u_sequences
+from agentnexus_ui_sdk.terminal._host import _install_csi_u_sequences
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import create_app_session
 from prompt_toolkit.buffer import Buffer

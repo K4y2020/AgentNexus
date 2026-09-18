@@ -10,13 +10,13 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner.codex_executor import CODEX_EXTENDED_CATALOG_ENV_VAR
-from omnigent.inner.hook_scripts.subagent_router import read_router_endpoint
-from omnigent.runner import subagent_routing
-from omnigent.runner.app import _build_spawn_env_from_spec, _ensure_session_subagent_router
-from omnigent.runner.native.orchestration import _start_subagent_router_for_native_session
-from omnigent.runner.subagent_routing import SessionRoutingClass
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.inner.codex_executor import CODEX_EXTENDED_CATALOG_ENV_VAR
+from agentnexus.inner.hook_scripts.subagent_router import read_router_endpoint
+from agentnexus.runner import subagent_routing
+from agentnexus.runner.app import _build_spawn_env_from_spec, _ensure_session_subagent_router
+from agentnexus.runner.native.orchestration import _start_subagent_router_for_native_session
+from agentnexus.runner.subagent_routing import SessionRoutingClass
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 # The three session classes the codex launch paths distinguish.
 _PLAIN = SessionRoutingClass()
@@ -174,7 +174,7 @@ async def test_a_routed_claude_sdk_launch_installs_the_router(
         routing_class=routing_class,
     )
     env = subagent_routing.session_router_env("conv_sdk_launch", "claude-sdk")
-    assert env["OMNIGENT_SUBAGENT_ROUTER_SESSION_ID"] == "conv_sdk_launch"
+    assert env["AGENTNEXUS_SUBAGENT_ROUTER_SESSION_ID"] == "conv_sdk_launch"
 
 
 async def test_a_plain_claude_sdk_launch_gets_no_router() -> None:
@@ -211,7 +211,7 @@ async def test_codex_sdk_launch_installs_the_router_for_an_auto_harness_session(
         routing_class=_AUTO,
     )
     env = subagent_routing.session_router_env("conv_sdk_launch", "codex")
-    assert env["OMNIGENT_CODEX_SUBAGENT_ROUTER_SESSION_ID"] == "conv_sdk_launch"
+    assert env["AGENTNEXUS_CODEX_SUBAGENT_ROUTER_SESSION_ID"] == "conv_sdk_launch"
 
 
 async def test_the_routing_class_falls_back_to_what_session_init_stamped() -> None:
@@ -256,8 +256,8 @@ def test_the_codex_spawn_env_carries_the_catalog_flag_per_session_class(
     routing_class: SessionRoutingClass,
     expected: str | None,
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     (tmp_path / "config.yaml").write_text(
         "providers:\n"
@@ -273,7 +273,7 @@ def test_the_codex_spawn_env_carries_the_catalog_flag_per_session_class(
     spec = AgentSpec(
         spec_version=1,
         name="x",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex"}),
     )
     subagent_routing.remember_session_routing_class("conv_spawn_env", routing_class)
     try:
@@ -288,8 +288,8 @@ def test_the_codex_spawn_env_carries_the_catalog_flag_per_session_class(
 def test_the_claude_spawn_env_never_carries_the_codex_catalog_flag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     (tmp_path / "config.yaml").write_text(
         "providers:\n"
@@ -305,7 +305,7 @@ def test_the_claude_spawn_env_never_carries_the_codex_catalog_flag(
     spec = AgentSpec(
         spec_version=1,
         name="x",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
     )
     subagent_routing.remember_session_routing_class("conv_spawn_env", _AUTO)
     try:
@@ -326,12 +326,12 @@ async def test_router_env_is_scoped_to_the_launching_harness(tmp_path: Path) -> 
     claude_env = subagent_routing.router_env("conv_x", tmp_path, harness="claude-sdk")
     codex_env = subagent_routing.router_env("conv_x", tmp_path, harness="codex")
     assert set(claude_env) == {
-        "OMNIGENT_SUBAGENT_ROUTER_DIR",
-        "OMNIGENT_SUBAGENT_ROUTER_SESSION_ID",
+        "AGENTNEXUS_SUBAGENT_ROUTER_DIR",
+        "AGENTNEXUS_SUBAGENT_ROUTER_SESSION_ID",
     }
     assert set(codex_env) == {
-        "OMNIGENT_CODEX_SUBAGENT_ROUTER_DIR",
-        "OMNIGENT_CODEX_SUBAGENT_ROUTER_SESSION_ID",
+        "AGENTNEXUS_CODEX_SUBAGENT_ROUTER_DIR",
+        "AGENTNEXUS_CODEX_SUBAGENT_ROUTER_SESSION_ID",
     }
     # A harness with no routing hooks gets nothing at all.
     assert subagent_routing.router_env("conv_x", tmp_path, harness="pi") == {}
@@ -341,7 +341,7 @@ async def test_sdk_launch_survives_an_unusable_router_root(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A poisoned bridge root must not fail session creation."""
-    from omnigent.runner import subagent_routing as routing_mod
+    from agentnexus.runner import subagent_routing as routing_mod
 
     def _boom(session_id: str) -> Path:
         raise RuntimeError("unsafe bridge root")
@@ -428,7 +428,7 @@ def test_advertisement_is_written_owner_only_with_no_leftover_temp(tmp_path: Pat
 def test_prune_never_removes_the_shared_router_root(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from omnigent import claude_native_bridge
+    from agentnexus import claude_native_bridge
 
     root = tmp_path / "subagent-routers"
     root.mkdir()

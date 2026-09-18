@@ -1,8 +1,8 @@
 """Tests for pi-native fork/resume session rebuild.
 
-Covers the Omnigent-items -> Pi session JSONL converter, the safe-id guard,
+Covers the AgentNexus-items -> Pi session JSONL converter, the safe-id guard,
 the resume-file path resolution, and the end-to-end
-``ensure_local_pi_resume_session`` (mocked Omnigent items endpoint).
+``ensure_local_pi_resume_session`` (mocked AgentNexus items endpoint).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.pi_native_resume import (
+from agentnexus.pi_native_resume import (
     ensure_local_pi_resume_session,
     fetch_all_session_items_for_pi_resume,
     is_safe_pi_session_id,
@@ -154,12 +154,12 @@ def test_assistant_message_has_required_metadata() -> None:
         session_id="conv_abc",
         external_session_id=_EXTERNAL_ID,
         cwd=Path("/repo"),
-        provider="omnigent",
+        provider="agentnexus",
     )
     msg = records[1]["message"]
     assert msg["role"] == "assistant"
     assert msg["content"] == [{"type": "text", "text": "ok"}]
-    assert msg["provider"] == "omnigent"
+    assert msg["provider"] == "agentnexus"
     # per-item model wins over the default
     assert msg["model"] == "some-model"
     assert msg["stopReason"] == "stop"

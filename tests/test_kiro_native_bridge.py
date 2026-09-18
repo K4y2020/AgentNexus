@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-import omnigent.kiro_native_bridge as bridge
-from omnigent.kiro_native_bridge import (
+import agentnexus.kiro_native_bridge as bridge
+from agentnexus.kiro_native_bridge import (
     KIRO_ACP_RECORD_PATH_ENV_VAR,
     KIRO_NATIVE_BRIDGE_DIR_ENV_VAR,
     acp_record_path,
@@ -506,23 +506,23 @@ def test_build_kiro_mcp_config_targets_serve_mcp(tmp_path: Path) -> None:
     bridge_dir = tmp_path / "bridge"
     server = bridge.build_kiro_mcp_config(bridge_dir, python_executable="/usr/bin/python3")[
         "mcpServers"
-    ]["omnigent"]
+    ]["agentnexus"]
     assert server["command"] == "/usr/bin/python3"
     assert server["args"] == [
         "-I",
         "-m",
-        "omnigent.claude_native_bridge",
+        "agentnexus.claude_native_bridge",
         "serve-mcp",
         "--bridge-dir",
         str(bridge_dir),
     ]
     # Defaults to the running interpreter when no executable is given.
-    default_cmd = bridge.build_kiro_mcp_config(bridge_dir)["mcpServers"]["omnigent"]["command"]
+    default_cmd = bridge.build_kiro_mcp_config(bridge_dir)["mcpServers"]["agentnexus"]["command"]
     assert default_cmd == sys.executable
 
 
 def test_write_kiro_workspace_mcp_config_merges_preserving_user_servers(tmp_path: Path) -> None:
-    """The Omnigent server is merged into <workspace>/.kiro/settings/mcp.json
+    """The AgentNexus server is merged into <workspace>/.kiro/settings/mcp.json
     without clobbering a user's pre-existing workspace servers."""
     workspace = tmp_path / "repo"
     settings = workspace / ".kiro" / "settings"
@@ -537,8 +537,8 @@ def test_write_kiro_workspace_mcp_config_merges_preserving_user_servers(tmp_path
 
     assert path == workspace / ".kiro" / "settings" / "mcp.json"
     written = json.loads(path.read_text())
-    assert set(written["mcpServers"]) == {"user_server", "omnigent"}
-    assert "serve-mcp" in written["mcpServers"]["omnigent"]["args"]
+    assert set(written["mcpServers"]) == {"user_server", "agentnexus"}
+    assert "serve-mcp" in written["mcpServers"]["agentnexus"]["args"]
     # serve-mcp's token file is written alongside.
     assert (bridge_dir / "bridge.json").exists()
 

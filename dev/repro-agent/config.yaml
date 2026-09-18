@@ -1,8 +1,8 @@
-# repro-agent (local) — reproduce a bug live in YOUR running Omnigent app and
+# repro-agent (local) — reproduce a bug live in YOUR running AgentNexus app and
 # capture it as a durable e2e test.
 #
 # This is the local-dev variant of the repro-agent: it runs against whatever
-# Omnigent server you already have (the local server `omnigent run` spins up, or
+# AgentNexus server you already have (the local server `agentnexus run` spins up, or
 # one you pass with `--server`), driving the real user journey until the failure
 # happens, then authoring the reproduction as an e2e test in THIS checkout.
 #
@@ -11,27 +11,27 @@
 # OUTPUTS it produces, not inputs. It always reproduces against the running
 # build (latest main), so there's no version to pass.
 #
-# Usage (run from the root of your omnigent-ai/omnigent checkout, so the agent's
+# Usage (run from the root of your agentnexus-ai/agentnexus checkout, so the agent's
 # working directory is this repo and it can author tests into tests/e2e_ui/ or
 # tests/e2e/):
 #
-#   # Against the local server omnigent run spins up:
-#   omnigent run dev/repro-agent \
-#     -p '{"bug_url":"https://github.com/omnigent-ai/omnigent/issues/1234"}'
+#   # Against the local server agentnexus run spins up:
+#   agentnexus run dev/repro-agent \
+#     -p '{"bug_url":"https://github.com/agentnexus-ai/agentnexus/issues/1234"}'
 #
 #   # Against a specific local/remote server you already run:
-#   omnigent run dev/repro-agent --server http://localhost:6767 \
-#     -p '{"bug_url":"https://linear.app/omnigent/issue/OMNI-1234"}'
+#   agentnexus run dev/repro-agent --server http://localhost:6767 \
+#     -p '{"bug_url":"https://linear.app/agentnexus/issue/OMNI-1234"}'
 #
 # The brain runs on the Claude Agent SDK, so configure a Claude provider first
-# (`omnigent setup` — an Anthropic key, a Claude subscription, an
+# (`agentnexus setup` — an Anthropic key, a Claude subscription, an
 # OpenAI-compatible gateway, or a Databricks workspace). It drives the app via
 # the framework browser tools (auto-registered) and sys_session_* / HTTP.
 
 spec_version: 1
 name: repro_agent
 description: >-
-  Reproduces a bug live in a running Omnigent app and captures it as a durable
+  Reproduces a bug live in a running AgentNexus app and captures it as a durable
   end-to-end test. Given just the bug — a bug_url (a GitHub issue or Linear
   ticket link) — it reconstructs the user journey from the linked report, drives
   the app it is connected to (a local server, or one passed with --server)
@@ -50,7 +50,7 @@ description: >-
 # default model is used. The large context window holds the bug report, the app
 # interaction transcript, and the test it authors together.
 executor:
-  type: omnigent
+  type: agentnexus
   context_window: 1000000
   config:
     harness: claude-sdk
@@ -73,8 +73,8 @@ cancellable: true
 # sys_os_shell. The agent uses the shell for `gh` (reading the linked GitHub
 # issue) and to write the e2e test file into this checkout; it drives the app
 # via the auto-registered browser_* tools and sys_session_* / HTTP. `cwd: .`
-# runs in the caller's working directory — run `omnigent run dev/repro-agent`
-# from the root of your omnigent checkout so the agent lands in this repo.
+# runs in the caller's working directory — run `agentnexus run dev/repro-agent`
+# from the root of your agentnexus checkout so the agent lands in this repo.
 # `sandbox: none` runs unsandboxed with unrestricted network so it can reach the
 # app and the bug tracker.
 os_env:
@@ -92,6 +92,6 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false

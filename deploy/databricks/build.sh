@@ -8,9 +8,9 @@
 #                         the Databricks Apps source sync uploads one file.
 #
 # Outputs:
-#   dist/omnigent-<version>-py3-none-any.whl
-#   dist/omnigent_client-<version>-py3-none-any.whl
-#   dist/omnigent_ui_sdk-<version>-py3-none-any.whl
+#   dist/agentnexus-<version>-py3-none-any.whl
+#   dist/agentnexus_client-<version>-py3-none-any.whl
+#   dist/agentnexus_ui_sdk-<version>-py3-none-any.whl
 #   dist/web-ui.tar.gz    SPA archive, when EXTERNALIZE_WEB_UI=1
 
 set -euo pipefail
@@ -27,10 +27,10 @@ cd "${REPO_ROOT}"
 # dir, end up in the main wheel, and push it over the 10 MB Workspace
 # upload cap. Always start from a clean slate.
 echo "==> Cleaning stale static assets and build outputs"
-rm -rf omnigent/server/static/web-ui dist build omnigent.egg-info
+rm -rf agentnexus/server/static/web-ui dist build agentnexus.egg-info
 
 if [[ "${SKIP_WEB_UI:-}" != "1" ]]; then
-    echo "==> Building web SPA into omnigent/server/static/web-ui/"
+    echo "==> Building web SPA into agentnexus/server/static/web-ui/"
     pnpm install --frozen-lockfile --filter web
     pnpm --filter web run build
     if [[ "${EXTERNALIZE_WEB_UI:-}" == "1" ]]; then
@@ -41,24 +41,24 @@ if [[ "${SKIP_WEB_UI:-}" != "1" ]]; then
         mkdir -p "${REPO_ROOT}/dist"
         rm -rf "${REPO_ROOT}/dist/web-ui" "${REPO_ROOT}/dist/web-ui.tar.gz"
         tar -czf "${REPO_ROOT}/dist/web-ui.tar.gz" \
-            -C "${REPO_ROOT}/omnigent/server/static/web-ui" .
-        rm -rf "${REPO_ROOT}/omnigent/server/static/web-ui"
+            -C "${REPO_ROOT}/agentnexus/server/static/web-ui" .
+        rm -rf "${REPO_ROOT}/agentnexus/server/static/web-ui"
         # Prevent setup.py from putting the archived SPA back into the wheel.
-        export OMNIGENT_SKIP_WEB_UI=true
+        export AGENTNEXUS_SKIP_WEB_UI=true
     fi
 else
     echo "==> SKIP_WEB_UI=1: skipping web build"
     # The wheel build hook uses its own opt-out for API-only packages.
-    export OMNIGENT_SKIP_WEB_UI=true
+    export AGENTNEXUS_SKIP_WEB_UI=true
 fi
 
-echo "==> Building omnigent-client wheel"
+echo "==> Building agentnexus-client wheel"
 uv build --wheel --out-dir dist/ sdks/python-client/
 
-echo "==> Building omnigent-ui-sdk wheel"
+echo "==> Building agentnexus-ui-sdk wheel"
 uv build --wheel --out-dir dist/ sdks/ui/
 
-echo "==> Building omnigent wheel"
+echo "==> Building agentnexus wheel"
 uv build --wheel --out-dir dist/ .
 
 echo ""

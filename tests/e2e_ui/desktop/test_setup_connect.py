@@ -7,7 +7,7 @@ Databricks workspace URL now connects over https on the first click instead of
 tripping the unencrypted-http warning that the old http:// default produced.
 
 The setup page and the Electron main process share one module
-(``web/electron/src/url.js``), loaded here as ``window.omnigentUrl``, so the
+(``web/electron/src/url.js``), loaded here as ``window.agentnexusUrl``, so the
 same ``normalizeUrl`` the main process navigates with is also verified in the
 browser — coverage the web-only harness cannot otherwise reach.
 
@@ -25,17 +25,17 @@ from playwright.sync_api import Page, expect
 
 # Repo-root-relative path to the Electron setup page. Loading it via file://
 # resolves the page's relative ``<script src="../src/url.js">`` against
-# web/electron/src/url.js, so window.omnigentUrl is the real shared module.
+# web/electron/src/url.js, so window.agentnexusUrl is the real shared module.
 _SETUP_PAGE = Path(__file__).resolve().parents[3] / "web" / "electron" / "setup" / "index.html"
 
-# The setup page expects the Electron preload bridge (window.omnigentSetup),
+# The setup page expects the Electron preload bridge (window.agentnexusSetup),
 # which is absent in a plain browser. Stub it: reads feed page load, while
 # setServerUrl/copyText record native actions without navigating or touching
 # the system clipboard.
 _PRELOAD_STUB = """
   window.__connectCalls = [];
   window.__copiedTexts = [];
-  window.omnigentSetup = {
+  window.agentnexusSetup = {
     getServerUrl: () => Promise.resolve(""),
     getManagedServers: () => Promise.resolve(__MANAGED_SERVERS__),
     getRecentServers: () => Promise.resolve(__RECENT_SERVERS__),
@@ -173,7 +173,7 @@ def test_shared_url_module_defaults_scheme_in_browser(page: Page) -> None:
     """The shared url.js (also used by the main process) defaults the scheme.
 
     The setup page loads ``web/electron/src/url.js`` as
-    ``window.omnigentUrl`` — the exact module the Electron main process uses to
+    ``window.agentnexusUrl`` — the exact module the Electron main process uses to
     normalize the URL it navigates to. Exercising it here covers the
     main-process scheme logic the web-only e2e harness cannot otherwise reach.
     """
@@ -183,7 +183,7 @@ def test_shared_url_module_defaults_scheme_in_browser(page: Page) -> None:
     # the main process then probes and appends the canonical /omnigent mount.
     assert (
         page.evaluate(
-            """() => window.omnigentUrl.normalizeUrl(
+            """() => window.agentnexusUrl.normalizeUrl(
               'dbc-x.cloud.databricks.com/omnigent?ignored=yes&o=1965859176160743#page'
             )"""
         )
@@ -191,6 +191,6 @@ def test_shared_url_module_defaults_scheme_in_browser(page: Page) -> None:
     )
     # Loopback stays http for local dev.
     assert (
-        page.evaluate("() => window.omnigentUrl.normalizeUrl('localhost:6767')")
+        page.evaluate("() => window.agentnexusUrl.normalizeUrl('localhost:6767')")
         == "http://localhost:6767/"
     )

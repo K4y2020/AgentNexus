@@ -104,7 +104,7 @@ def _mock_env(mock_llm_server_url: str) -> dict[str, str]:
     Strips real credential env vars (Databricks, Anthropic, Claude/Codex
     binaries) and injects ``OPENAI_BASE_URL`` and ``OPENAI_API_KEY`` so the
     ``openai-agents`` harness routes to the mock LLM server. An isolated
-    ``OMNIGENT_CONFIG_HOME`` prevents the spawned process from touching
+    ``AGENTNEXUS_CONFIG_HOME`` prevents the spawned process from touching
     the developer's real omnigent state.
 
     :param mock_llm_server_url: The mock LLM server base URL, e.g.
@@ -114,13 +114,13 @@ def _mock_env(mock_llm_server_url: str) -> dict[str, str]:
         overrides set.
     """
     env = dict(__import__("os").environ)
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
     # Write an isolated config home so the spawned process doesn't inherit the
     # developer's real auth config.
-    config_home = Path(tempfile.mkdtemp(prefix="omnigent-polly-mock-config-"))
+    config_home = Path(tempfile.mkdtemp(prefix="agentnexus-polly-mock-config-"))
     (config_home / "config.yaml").write_text("", encoding="utf-8")
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
     # Strip credentials that would shadow or conflict with mock access.
     # Covers Databricks, Anthropic/Claude, OpenAI, AWS, GCP, Azure, GitHub,
     # and any other credential vars that should not leak into mock subprocesses.
@@ -295,14 +295,14 @@ def local_polly_server(tmp_path: Path) -> Iterator[str]:
 
     env = {
         **os.environ,
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
     }
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -372,7 +372,7 @@ def test_polly_orchestrator_boots_and_responds(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(polly_dir),
             "--server",

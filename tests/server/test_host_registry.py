@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from omnigent.db.db_models import workspace_scope
-from omnigent.host.frames import HostHelloFrame
-from omnigent.server.host_registry import HostRegistry, RunnerExitReports
+from agentnexus.db.db_models import workspace_scope
+from agentnexus.host.frames import HostHelloFrame
+from agentnexus.server.host_registry import HostRegistry, RunnerExitReports
 
 
 @dataclass

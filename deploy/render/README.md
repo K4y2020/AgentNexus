@@ -1,13 +1,13 @@
-# Omnigent on Render
+# AgentNexus on Render
 
-Deploy Omnigent to Render in one click. Render provisions the app and a
+Deploy AgentNexus to Render in one click. Render provisions the app and a
 managed Postgres database, assigns an HTTPS URL on `*.onrender.com`, and
 handles SSL automatically. No local tooling required.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/omnigent-ai/omnigent)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/agentnexus-ai/agentnexus)
 
-> **Note:** The button points at the public repo `github.com/omnigent-ai/omnigent`.
-> It goes live once that repo **and** the `ghcr.io/omnigent-ai/omnigent-server`
+> **Note:** The button points at the public repo `github.com/agentnexus-ai/agentnexus`.
+> It goes live once that repo **and** the `ghcr.io/agentnexus-ai/agentnexus-server`
 > package are public; until then it only works if you connect Render to the
 > (private) repo in the dashboard first.
 
@@ -15,12 +15,12 @@ handles SSL automatically. No local tooling required.
 
 The `render.yaml` blueprint at the repo root defines:
 
-- **omnigent** (Starter web service) — pulls the pre-built image
-  `ghcr.io/omnigent-ai/omnigent-server:latest` (CI-built; ships the web UI
-  bundle), served on `https://omnigent-<hash>.onrender.com`. While the GHCR
+- **agentnexus** (Starter web service) — pulls the pre-built image
+  `ghcr.io/agentnexus-ai/agentnexus-server:latest` (CI-built; ships the web UI
+  bundle), served on `https://agentnexus-<hash>.onrender.com`. While the GHCR
   package is private, add a Render registry credential and reference it from
   `render.yaml` (`image.creds`); once public, the pull is anonymous.
-- **omnigent-db** (`basic-256mb` managed Postgres) — `DATABASE_URL` is injected
+- **agentnexus-db** (`basic-256mb` managed Postgres) — `DATABASE_URL` is injected
   into the service automatically
 - **artifact-data** (10 GB persistent disk) — mounted at `/data` so server
   config, the auto-minted cookie secret, and agent artifacts survive redeploys.
@@ -43,13 +43,13 @@ mints its own cookie secret and auto-detects its public URL from Render.
    in the web UI.
 
 > To create the admin directly instead of claiming it through the web form
-> (e.g. a headless deploy), add `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` in the
+> (e.g. a headless deploy), add `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD` in the
 > dashboard before first boot.
 
 > **Security note for public deployments:** `POST /auth/setup` is
 > unauthenticated while no password-bearing account exists, so an instance
 > exposed before you reach the Create-admin form can be claimed by the first
-> visitor. Pre-seed `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
+> visitor. Pre-seed `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
 > promptly after the deploy goes live.
 
 ## Use your own IdP instead (OIDC)
@@ -61,23 +61,23 @@ automatically by Render.
 ### GitHub OAuth (simplest to register)
 
 1. Go to `github.com/settings/developers` → **New OAuth App**.
-   - Homepage URL: `https://omnigent-<hash>.onrender.com`
+   - Homepage URL: `https://agentnexus-<hash>.onrender.com`
    - Authorization callback URL:
-     `https://omnigent-<hash>.onrender.com/auth/callback`
+     `https://agentnexus-<hash>.onrender.com/auth/callback`
    - Click **Register application**, then **Generate a new client secret**.
 
-2. In the Render dashboard, open the **omnigent** service → **Environment**
+2. In the Render dashboard, open the **agentnexus** service → **Environment**
    and add / update these variables:
 
    | Variable | Value |
    |---|---|
-   | `OMNIGENT_AUTH_PROVIDER` | `oidc` |
-   | `OMNIGENT_OIDC_ISSUER` | `https://github.com` |
-   | `OMNIGENT_OIDC_CLIENT_ID` | your GitHub OAuth client ID |
-   | `OMNIGENT_OIDC_CLIENT_SECRET` | your GitHub OAuth client secret |
-   | `OMNIGENT_OIDC_REDIRECT_URI` | `https://omnigent-<hash>.onrender.com/auth/callback` |
+   | `AGENTNEXUS_AUTH_PROVIDER` | `oidc` |
+   | `AGENTNEXUS_OIDC_ISSUER` | `https://github.com` |
+   | `AGENTNEXUS_OIDC_CLIENT_ID` | your GitHub OAuth client ID |
+   | `AGENTNEXUS_OIDC_CLIENT_SECRET` | your GitHub OAuth client secret |
+   | `AGENTNEXUS_OIDC_REDIRECT_URI` | `https://agentnexus-<hash>.onrender.com/auth/callback` |
 
-   Also add `OMNIGENT_OIDC_COOKIE_SECRET` = a 64-hex-char value from
+   Also add `AGENTNEXUS_OIDC_COOKIE_SECRET` = a 64-hex-char value from
    `openssl rand -hex 32` — OIDC mode requires it and validates it as hex.
 
 3. Click **Save Changes**. Render redeploys automatically. Visit the URL —
@@ -87,30 +87,30 @@ automatically by Render.
 
 | Variable | Value |
 |---|---|
-| `OMNIGENT_AUTH_PROVIDER` | `oidc` |
-| `OMNIGENT_OIDC_ISSUER` | `https://accounts.google.com` |
-| `OMNIGENT_OIDC_CLIENT_ID` | `…apps.googleusercontent.com` |
-| `OMNIGENT_OIDC_CLIENT_SECRET` | your client secret |
-| `OMNIGENT_OIDC_REDIRECT_URI` | `https://omnigent-<hash>.onrender.com/auth/callback` |
-| `OMNIGENT_OIDC_ALLOWED_DOMAINS` | `example.com` (critical — see note below) |
+| `AGENTNEXUS_AUTH_PROVIDER` | `oidc` |
+| `AGENTNEXUS_OIDC_ISSUER` | `https://accounts.google.com` |
+| `AGENTNEXUS_OIDC_CLIENT_ID` | `…apps.googleusercontent.com` |
+| `AGENTNEXUS_OIDC_CLIENT_SECRET` | your client secret |
+| `AGENTNEXUS_OIDC_REDIRECT_URI` | `https://agentnexus-<hash>.onrender.com/auth/callback` |
+| `AGENTNEXUS_OIDC_ALLOWED_DOMAINS` | `example.com` (critical — see note below) |
 
-> **Important:** Without `OMNIGENT_OIDC_ALLOWED_DOMAINS`, any Google account
+> **Important:** Without `AGENTNEXUS_OIDC_ALLOWED_DOMAINS`, any Google account
 > can log in when the OAuth consent screen is "External." Always restrict to
 > your domain.
 
 ### Generic OIDC (Okta, Auth0, Keycloak, Entra ID)
 
-Set `OMNIGENT_OIDC_ISSUER` to your IdP's base URL (the one that publishes
+Set `AGENTNEXUS_OIDC_ISSUER` to your IdP's base URL (the one that publishes
 `/.well-known/openid-configuration`). The rest of the variables are the same
 as above.
 
 ## Custom domain
 
-In the Render dashboard, open the **omnigent** service → **Settings** →
+In the Render dashboard, open the **agentnexus** service → **Settings** →
 **Custom Domains** → **Add Custom Domain**. Point your DNS CNAME at the
 Render-assigned address. Render provisions a Let's Encrypt cert automatically.
 
-Update `OMNIGENT_OIDC_REDIRECT_URI` to use the custom domain after DNS
+Update `AGENTNEXUS_OIDC_REDIRECT_URI` to use the custom domain after DNS
 propagates.
 
 ## Upgrading
@@ -118,7 +118,7 @@ propagates.
 Render redeploys automatically when a new commit lands on the connected branch
 (if auto-deploy is enabled), or manually:
 
-1. In the Render dashboard, open the **omnigent** service.
+1. In the Render dashboard, open the **agentnexus** service.
 2. Click **Manual Deploy** → **Deploy latest commit**.
 
 ## Cost

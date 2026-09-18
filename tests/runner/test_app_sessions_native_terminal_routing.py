@@ -11,22 +11,22 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     codex_native_bridge,
 )
-from omnigent.entities.session_resources import SessionResourceView, terminal_resource_id
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.runner import create_runner_app
-from omnigent.runner.app import (
+from agentnexus.entities.session_resources import SessionResourceView, terminal_resource_id
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.app import (
     _auto_create_repl_terminal,
 )
-from omnigent.runner.resource_registry import (
+from agentnexus.runner.resource_registry import (
     CODEX_NATIVE_TERMINAL_ROLE,
-    OMNIGENT_REPL_TERMINAL_ROLE,
+    AGENTNEXUS_REPL_TERMINAL_ROLE,
     SessionResourceRegistry,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec
-from omnigent.terminals import TerminalRegistry
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -163,7 +163,7 @@ async def test_create_session_terminal_ensure_routes_claude_native(
         )
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_claude_terminal", _stub_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_claude_terminal", _stub_auto_create
     )
     monkeypatch.setattr(SessionResourceRegistry, "get_terminal_resource", _stub_get_terminal)
     monkeypatch.setattr(
@@ -210,8 +210,8 @@ async def test_create_session_terminal_ensure_failure_returns_json_without_live_
     """
     Native terminal ensure failures are reported to AP, not published live.
 
-    ``ensure_native_terminal`` is called by the Omnigent server while handling a
-    user message. Omnigent owns that failed transcript turn: it persists the
+    ``ensure_native_terminal`` is called by the AgentNexus server while handling a
+    user message. AgentNexus owns that failed transcript turn: it persists the
     consumed user message, appends the sibling ``error`` item, and
     publishes the live banner. If the runner endpoint also publishes
     ``response.error`` before returning its structured 500, the same
@@ -239,10 +239,10 @@ async def test_create_session_terminal_ensure_failure_returns_json_without_live_
         raise AssertionError("ensure endpoint must not publish response.error")
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_claude_terminal", _failing_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_claude_terminal", _failing_auto_create
     )
     monkeypatch.setattr(
-        "omnigent.runner.app._publish_native_terminal_start_error",
+        "agentnexus.runner.app._publish_native_terminal_start_error",
         _unexpected_live_publish,
     )
 
@@ -499,7 +499,7 @@ async def test_create_session_terminal_ensure_routes_codex_native(
         )
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_codex_terminal", _stub_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_codex_terminal", _stub_auto_create
     )
     monkeypatch.setattr(SessionResourceRegistry, "get_terminal_resource", _stub_get_terminal)
     monkeypatch.setattr(
@@ -551,7 +551,7 @@ async def test_late_status_for_deleted_sub_agent_child_is_not_a_spurious_503() -
     child is deleted there is nothing to preserve, so ``delete_session`` must
     drop the name. Without the pop, the lingering name makes the late status
     read ``is_runner_known_subagent=True`` with no work entry → a spurious
-    ``503 subagent_delivery_not_confirmed`` (which Omnigent then retries) plus an
+    ``503 subagent_delivery_not_confirmed`` (which AgentNexus then retries) plus an
     unbounded leak of the name map across deleted sessions.
     """
     child_id = "045873be7e66575e49c755387fecf59a"
@@ -595,7 +595,7 @@ class _RecordedPatch:
     A PATCH captured from the REPL terminal auto-create helper.
 
     :param url: Request path, e.g. ``"/v1/sessions/11c50cd73e9c32ccb0af5b9db291db8b"``.
-    :param json: JSON body, e.g. ``{"labels": {"omnigent.ui": "terminal"}}``.
+    :param json: JSON body, e.g. ``{"labels": {"agentnexus.ui": "terminal"}}``.
     """
 
     url: str
@@ -624,11 +624,11 @@ async def test_auto_create_repl_terminal_launches_attach_and_stamps_label(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent._wrapper_labels import UI_MODE_LABEL_KEY, UI_MODE_TERMINAL_VALUE
+    from agentnexus._wrapper_labels import UI_MODE_LABEL_KEY, UI_MODE_TERMINAL_VALUE
 
     session_id = "11c50cd73e9c32ccb0af5b9db291db8b"
     workspace = tmp_path / "workspace"
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(workspace))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(workspace))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
 
     launched_specs: list[Any] = []
@@ -664,7 +664,7 @@ async def test_auto_create_repl_terminal_launches_attach_and_stamps_label(
             # 4404). It is distinct from CLAUDE_NATIVE_TERMINAL_ROLE,
             # so the pane's activity still does not drive the
             # session's working status.
-            assert resource_role == OMNIGENT_REPL_TERMINAL_ROLE
+            assert resource_role == AGENTNEXUS_REPL_TERMINAL_ROLE
             launched_specs.append(spec)
             return SessionResourceView(
                 id="terminal_tui_main",
@@ -711,7 +711,7 @@ async def test_auto_create_repl_terminal_launches_attach_and_stamps_label(
     assert launched.command == sys.executable
     assert launched.args == [
         "-m",
-        "omnigent",
+        "agentnexus",
         "attach",
         session_id,
         "--server",
@@ -767,11 +767,11 @@ async def test_auto_create_repl_terminal_inherits_agent_sandbox(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     session_id = "f75bf7158ce8716ae3b934522271979c"
     workspace = tmp_path / "workspace"
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(workspace))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(workspace))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
 
     captured: dict[str, Any] = {}
@@ -819,7 +819,7 @@ async def test_auto_create_repl_terminal_inherits_agent_sandbox(
         spec_version=1,
         name="sdk_worker",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "openai-agents", "model": "claude-default"},
         ),
         os_env=agent_os_env,
@@ -889,7 +889,7 @@ async def test_create_session_repl_terminal_dispatch(
     spec = AgentSpec(
         spec_version=1,
         name="dispatch-agent",
-        executor=ExecutorSpec(type="omnigent", config={"harness": harness}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": harness}),
     )
     pm = _FakeProcessManager(_ScriptedHarnessClient([]))
 
@@ -918,7 +918,7 @@ async def test_create_session_repl_terminal_dispatch(
             name="tui",
         )
 
-    monkeypatch.setattr("omnigent.runner.app._auto_create_repl_terminal", _fake_auto_create_repl)
+    monkeypatch.setattr("agentnexus.runner.app._auto_create_repl_terminal", _fake_auto_create_repl)
 
     async def _fake_codex_needs(server_client: Any, session_id: str) -> bool:
         """Neutralize the codex-native terminal branch (out of scope here)."""
@@ -926,7 +926,7 @@ async def test_create_session_repl_terminal_dispatch(
         return False
 
     monkeypatch.setattr(
-        "omnigent.runner.app._codex_session_needs_runner_terminal", _fake_codex_needs
+        "agentnexus.runner.app._codex_session_needs_runner_terminal", _fake_codex_needs
     )
 
     app = create_runner_app(
@@ -987,7 +987,7 @@ async def test_ensure_terminal_route_recreates_dead_registered_pane(
         )
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_claude_terminal", _stub_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_claude_terminal", _stub_auto_create
     )
 
     registry = TerminalRegistry()

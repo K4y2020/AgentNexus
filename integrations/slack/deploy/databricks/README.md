@@ -1,10 +1,10 @@
-# Deploying the Omnigent Slack bot on Databricks Apps
+# Deploying the AgentNexus Slack bot on Databricks Apps
 
-This directory deploys the **Omnigent Slack bot** to
+This directory deploys the **AgentNexus Slack bot** to
 [Databricks Apps](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/)
 via [Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/).
 
-Deploy the bot here when the Omnigent **server** it talks to is itself a
+Deploy the bot here when the AgentNexus **server** it talks to is itself a
 Databricks App (header/proxy auth). In that mode the bot can't drive the usual
 device/OIDC login, so it runs a **custom U2M OAuth app** (authorization code +
 PKCE, `offline_access`) via an enrollment page it serves as a Databricks App: a
@@ -14,7 +14,7 @@ for the full design, and the integration `[README.md](../../README.md)` for how
 the bot works otherwise.
 
 Unlike the server app, the bot needs **no Lakebase and no UC volume** — it's a
-stateless pure-PyPI package. `deploy.py` builds an `omnigent_slack` wheel,
+stateless pure-PyPI package. `deploy.py` builds an `agentnexus_slack` wheel,
 generates an app-level `src/pyproject.toml` that points at it (with the bot's
 runtime deps inlined from the source pyproject), copies the wheel into `src/`,
 then runs `databricks bundle deploy` + `bundle run`. No lockfile is generated:
@@ -24,7 +24,7 @@ dependencies in-container at boot. Runs unchanged from a laptop; re-runnable.
 > The generated `src/*.whl` and `src/pyproject.toml` are kept **untracked but
 > not git-ignored** — `bundle deploy` respects `.gitignore` for its file sync,
 > so git-ignoring them would silently drop them from the upload and the app
-> would fail with `ModuleNotFoundError: No module named 'omnigent_slack'`.
+> would fail with `ModuleNotFoundError: No module named 'agentnexus_slack'`.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ dependencies in-container at boot. Runs unchanged from a laptop; re-runnable.
    authenticated via a profile (`--profile`) or env auth.
 4. A **Slack app** (Socket Mode + Interactivity) with its bot token (`xoxb-…`)
   and app-level token (`xapp-…`) — see the integration README's *Setup*.
-5. The **target Omnigent server app** already deployed as a Databricks App (you
+5. The **target AgentNexus server app** already deployed as a Databricks App (you
   pass its URL as `--server-url`).
 6. Permission to create a **secret scope** and grant the app's service principal
   `READ` on it.
@@ -65,22 +65,22 @@ The bundle wires four secrets into the app (never plaintext in YAML). Create the
 scope and populate the keys:
 
 ```bash
-databricks secrets create-scope omnigent-slack
+databricks secrets create-scope agentnexus-slack
 
-databricks secrets put-secret omnigent-slack slack_bot_token          # xoxb-…
-databricks secrets put-secret omnigent-slack slack_app_token          # xapp-…
+databricks secrets put-secret agentnexus-slack slack_bot_token          # xoxb-…
+databricks secrets put-secret agentnexus-slack slack_app_token          # xapp-…
 
 # Fernet key that encrypts stored tokens at rest:
 KEY="$(uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
-databricks secrets put-secret omnigent-slack token_encryption_key --string-value "$KEY"
+databricks secrets put-secret agentnexus-slack token_encryption_key --string-value "$KEY"
 
 # Custom U2M OAuth app secret (see below). The client id is public and passed
 # inline via --oauth-client-id, NOT stored here.
-databricks secrets put-secret omnigent-slack databricks_oauth_client_secret # <client secret>
+databricks secrets put-secret agentnexus-slack databricks_oauth_client_secret # <client secret>
 
 # HMAC key signing the enrollment state — its own secret, kept separate from the
 # OAuth client secret. Any long random string:
-databricks secrets put-secret omnigent-slack databricks_state_secret \
+databricks secrets put-secret agentnexus-slack databricks_state_secret \
     --string-value "$(openssl rand -hex 32)"
 ```
 
@@ -104,10 +104,10 @@ service principal (SP).
 ### 3. Grant the app SP read on the secret scope
 
 ```bash
-databricks secrets put-acl omnigent-slack <app-service-principal> READ
+databricks secrets put-acl agentnexus-slack <app-service-principal> READ
 ```
 
-Find the SP with `databricks apps get omnigent-slack -o json | jq -r .service_principal_client_id`
+Find the SP with `databricks apps get agentnexus-slack -o json | jq -r .service_principal_client_id`
 (or the name shown in the Apps UI). Re-deploy after granting.
 
 ## Deploy
@@ -120,9 +120,9 @@ first deploy is a two-pass step.
 
 ```bash
 uv run python integrations/slack/deploy/databricks/deploy.py \
-    --app-name omnigent-slack \
+    --app-name agentnexus-slack \
     --profile <your-profile> \
-    --secret-scope omnigent-slack \
+    --secret-scope agentnexus-slack \
     --oauth-client-id <oauth-app-client-id> \
     --server-url https://<server-app>.databricksapps.com
 ```
@@ -130,12 +130,12 @@ uv run python integrations/slack/deploy/databricks/deploy.py \
 Read the app's URL, then **re-deploy** with it:
 
 ```bash
-APP_URL="$(databricks apps get omnigent-slack -o json | jq -r .url)"
+APP_URL="$(databricks apps get agentnexus-slack -o json | jq -r .url)"
 
 uv run python integrations/slack/deploy/databricks/deploy.py \
-    --app-name omnigent-slack \
+    --app-name agentnexus-slack \
     --profile <your-profile> \
-    --secret-scope omnigent-slack \
+    --secret-scope agentnexus-slack \
     --oauth-client-id <oauth-app-client-id> \
     --server-url https://<server-app>.databricksapps.com \
     --app-url "${APP_URL}"
@@ -144,7 +144,7 @@ uv run python integrations/slack/deploy/databricks/deploy.py \
 `deploy.py` builds the wheel, writes `src/pyproject.toml` (the bot pinned to the
 co-located wheel, with its runtime deps inlined from the source pyproject),
 copies the wheel into `src/`, runs `bundle deploy --target prod`, then
-`bundle run omnigent-slack --target prod`. No lockfile is generated: the app
+`bundle run agentnexus-slack --target prod`. No lockfile is generated: the app
 starts with `uv run`, so the Apps runtime resolves dependencies in-container at
 boot. Pass `--skip-run` to deploy without starting, or `--skip-build` to reuse
 the existing `src/` wheel + pyproject. Subsequent redeploys are a single
@@ -154,7 +154,7 @@ invocation (keep `--app-url`).
 
 1. Confirm the app is **Running** and that the custom OAuth app's redirect URI
    matches this app's `<url>/auth/callback` exactly.
-2. In Slack, run `/omnigent`. The modal shows a **Sign in with Databricks**
+2. In Slack, run `/agentnexus`. The modal shows a **Sign in with Databricks**
   link pointing at the workspace `/oidc/v1/authorize`. Complete it; Databricks
    redirects to this app's `/auth/callback`, which shows a **consent page** —
    click **Confirm** to link the accounts, the token is stored, and the modal
@@ -166,7 +166,7 @@ invocation (keep `--app-url`).
 
 ## How it works
 
-- The app runs the OAuth callback web server (`omnigent_slack/webauth.py`) and,
+- The app runs the OAuth callback web server (`agentnexus_slack/webauth.py`) and,
 in the same process, the Socket-Mode bot that connects out to Slack.
 - **Custom U2M OAuth app (authorization code + PKCE).** The enrollment link is
 the workspace `/oidc/v1/authorize` URL; the user signs in and Databricks
@@ -178,7 +178,7 @@ the server (the server's proxy validates it and injects the real
 `X-Forwarded-Email`). The
 token is bounded by the OAuth app's scopes.
 - **Durable across restarts of the grant, ephemeral on disk.** The SQLite token
-store lives on ephemeral disk (`OMNIGENT_DATA_DIR=/tmp/omnigent-slack`),
+store lives on ephemeral disk (`AGENTNEXUS_DATA_DIR=/tmp/agentnexus-slack`),
 encrypted at rest; a restart loses it and the user re-enrolls. But within a
 grant's life the bot refreshes the access token via the refresh token, so a user
 signs in once rather than hourly.
@@ -192,17 +192,17 @@ Environment wired by `databricks.yml` (secrets via `value_from`, rest inline):
 
 | Variable                                 | Source               | Description                                      |
 | ---------------------------------------- | -------------------- | ------------------------------------------------ |
-| `OMNIGENT_SLACK_BOT_TOKEN`               | secret               | Slack bot token (`xoxb-…`)                       |
-| `OMNIGENT_SLACK_APP_TOKEN`               | secret               | Slack app-level token (`xapp-…`)                 |
-| `OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY`    | secret               | Fernet key for tokens at rest                    |
-| `OMNIGENT_SLACK_DATABRICKS_CLIENT_ID`    | `--oauth-client-id`  | Custom U2M OAuth app client id (public, inline)  |
-| `OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET`| secret               | Custom U2M OAuth app client secret               |
-| `OMNIGENT_SLACK_DATABRICKS_STATE_SECRET` | secret               | HMAC key signing the enrollment `state`          |
-| `OMNIGENT_SLACK_DATABRICKS_SCOPES`       | inline (optional)    | Requested scopes (default `all-apis`; must be a superset of the server app's scopes; `openid` + `offline_access` forced on) |
-| `OMNIGENT_SLACK_SERVER_AUTH`             | inline               | `databricks` (selects the OAuth mode)            |
-| `OMNIGENT_SERVER_URL`                    | `--server-url`       | Omnigent server the bot drives                   |
-| `OMNIGENT_SLACK_DATABRICKS_APP_URL`      | `--app-url`          | This app's public URL — link base + redirect URI |
-| `OMNIGENT_DATA_DIR`                      | inline               | Ephemeral SQLite store dir                       |
+| `AGENTNEXUS_SLACK_BOT_TOKEN`               | secret               | Slack bot token (`xoxb-…`)                       |
+| `AGENTNEXUS_SLACK_APP_TOKEN`               | secret               | Slack app-level token (`xapp-…`)                 |
+| `AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY`    | secret               | Fernet key for tokens at rest                    |
+| `AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID`    | `--oauth-client-id`  | Custom U2M OAuth app client id (public, inline)  |
+| `AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET`| secret               | Custom U2M OAuth app client secret               |
+| `AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET` | secret               | HMAC key signing the enrollment `state`          |
+| `AGENTNEXUS_SLACK_DATABRICKS_SCOPES`       | inline (optional)    | Requested scopes (default `all-apis`; must be a superset of the server app's scopes; `openid` + `offline_access` forced on) |
+| `AGENTNEXUS_SLACK_SERVER_AUTH`             | inline               | `databricks` (selects the OAuth mode)            |
+| `AGENTNEXUS_SERVER_URL`                    | `--server-url`       | AgentNexus server the bot drives                   |
+| `AGENTNEXUS_SLACK_DATABRICKS_APP_URL`      | `--app-url`          | This app's public URL — link base + redirect URI |
+| `AGENTNEXUS_DATA_DIR`                      | inline               | Ephemeral SQLite store dir                       |
 
 
 
@@ -212,11 +212,11 @@ Environment wired by `databricks.yml` (secrets via `value_from`, rest inline):
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `ModuleNotFoundError: No module named 'omnigent_slack'` | The wheel/`pyproject.toml` were git-ignored, so `bundle deploy` didn't sync them | Ensure `src/*.whl`, `src/pyproject.toml` are untracked but NOT git-ignored; re-run `deploy.py` (not `--skip-build` on a clean `src/`) |
+| `ModuleNotFoundError: No module named 'agentnexus_slack'` | The wheel/`pyproject.toml` were git-ignored, so `bundle deploy` didn't sync them | Ensure `src/*.whl`, `src/pyproject.toml` are untracked but NOT git-ignored; re-run `deploy.py` (not `--skip-build` on a clean `src/`) |
 | App fails to boot; `/logz` shows a `uv run` resolve error or PyPI timeout | Dependency resolution runs in-container at boot; the runtime couldn't reach PyPI | Confirm the app egress can reach PyPI (or the Databricks proxy); retry the `bundle run` |
 | Sign-in ends on an OAuth error page (redirect mismatch) | The OAuth app's redirect URI ≠ `<this-app-url>/auth/callback` | Register the exact `/auth/callback` URL on the custom OAuth app |
-| Sign-in page says the link was already used or expired | The redirect was replayed, or the bot restarted between link-issue and callback (in-memory PKCE verifier lost) | Run `/omnigent` again for a fresh link |
-| Enrolled, but turns fail auth against the server                      | User lacks access to the server app, or the token's scopes don't satisfy the server proxy | Grant the user server-app access; widen `OMNIGENT_SLACK_DATABRICKS_SCOPES` if the server proxy needs more |
+| Sign-in page says the link was already used or expired | The redirect was replayed, or the bot restarted between link-issue and callback (in-memory PKCE verifier lost) | Run `/agentnexus` again for a fresh link |
+| Enrolled, but turns fail auth against the server                      | User lacks access to the server app, or the token's scopes don't satisfy the server proxy | Grant the user server-app access; widen `AGENTNEXUS_SLACK_DATABRICKS_SCOPES` if the server proxy needs more |
 | App boots but Slack shows no sign-in link                             | `--app-url` not passed (the app URL only exists after first deploy) | Re-deploy with `--app-url "$(databricks apps get <app> -o json | jq -r .url)"` |
 | App can't read secrets                                                | App SP missing scope ACL                                                     | `databricks secrets put-acl <scope> <sp> READ`, redeploy                                |
 | Plan shows destroy/replace of the app                                 | `--app-name` mismatch vs. tracked state                                      | Re-check `--app-name`; state is per-app under `root_path`                               |
@@ -231,7 +231,7 @@ Environment wired by `databricks.yml` (secrets via `value_from`, rest inline):
 | --- | --- |
 | `databricks.yml` | DAB bundle config — app resource, secrets, env. |
 | `deploy.py` | Orchestrator: build wheel → write `pyproject.toml` → deploy + run. |
-| `src/app.py` | App entry point — runs `omnigent_slack.app.run()`. |
+| `src/app.py` | App entry point — runs `agentnexus_slack.app.run()`. |
 | `src/app.yaml` | App startup config (command + env). |
 | `src/*.whl`, `src/pyproject.toml` | Generated per deploy by `deploy.py`; untracked, not git-ignored. |
 

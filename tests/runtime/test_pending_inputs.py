@@ -29,7 +29,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from omnigent.runtime import pending_inputs
+from agentnexus.runtime import pending_inputs
 
 
 @pytest.fixture(autouse=True)

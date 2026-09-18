@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.spec.tar_utils import ExtractionError, extract_safe
+from agentnexus.spec.tar_utils import ExtractionError, extract_safe
 
 
 def _create_tar(tmp_path: Path, members: dict[str, bytes | str]) -> Path:

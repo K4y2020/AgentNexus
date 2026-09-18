@@ -21,7 +21,7 @@ resources:
       tasks:
         - task_key: score_open_issues
           python_wheel_task:
-            package_name: omnigent_issue_prioritization
+            package_name: agentnexus_issue_prioritization
             entry_point: issue-priority-job
             named_parameters:
               mode: "{{job.parameters.mode}}"

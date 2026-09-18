@@ -19,23 +19,23 @@ from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel
 
-from omnigent.db.utils import builtin_agent_id, generate_agent_id, now_epoch
-from omnigent.entities.agent import Agent
-from omnigent.onboarding.sandboxes.base import (
+from agentnexus.db.utils import builtin_agent_id, generate_agent_id, now_epoch
+from agentnexus.entities.agent import Agent
+from agentnexus.onboarding.sandboxes.base import (
     SandboxHostLauncher,
     render_host_config_write_command,
 )
-from omnigent.onboarding.sandboxes.blaxel import managed_token_ttl_s as blaxel_managed_token_ttl_s
-from omnigent.onboarding.sandboxes.e2b import managed_token_ttl_s as e2b_managed_token_ttl_s
-from omnigent.onboarding.sandboxes.registry import (
+from agentnexus.onboarding.sandboxes.blaxel import managed_token_ttl_s as blaxel_managed_token_ttl_s
+from agentnexus.onboarding.sandboxes.e2b import managed_token_ttl_s as e2b_managed_token_ttl_s
+from agentnexus.onboarding.sandboxes.registry import (
     COMMUNITY_MODULE_PREFIX,
     SandboxProviderContribution,
     SandboxProviderMetadata,
     reset_plugin_state_for_tests,
 )
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.managed_hosts import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.managed_hosts import (
     BOXLITE_MANAGED_TOKEN_TTL_S,
     DAYTONA_MANAGED_TOKEN_TTL_S,
     ISLO_MANAGED_TOKEN_TTL_S,
@@ -56,11 +56,11 @@ from omnigent.server.managed_hosts import (
     resume_managed_host,
     terminate_managed_host,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.host_store import HostStore
 from tests.server.helpers import (
     FakeSandboxLauncher,
     HostStartInvocation,
@@ -560,7 +560,7 @@ def test_parse_valid_e2b_config_builds_parameterized_factory(
             "provider": "e2b",
             "server_url": "https://srv.example.com/",
             "e2b": {
-                "template": "omnigent-host",
+                "template": "agentnexus-host",
                 "env": ["OPENAI_API_KEY", "GIT_TOKEN"],
             },
         }
@@ -574,7 +574,7 @@ def test_parse_valid_e2b_config_builds_parameterized_factory(
     fake = FakeSandboxLauncher()
     install_fake_e2b_launcher(monkeypatch, fake)
     assert cfg.launcher_factory() is fake
-    assert fake.template == "omnigent-host"
+    assert fake.template == "agentnexus-host"
     assert fake.env == ["OPENAI_API_KEY", "GIT_TOKEN"]
 
 
@@ -675,14 +675,14 @@ def test_parse_valid_kubernetes_config_builds_parameterized_factory(
     cfg = parse_sandbox_config(
         {
             "provider": "kubernetes",
-            "server_url": "http://omnigent.omnigent.svc.cluster.local/",
+            "server_url": "http://omnigent.agentnexus.svc.cluster.local/",
             "kubernetes": {
                 "image": "ghcr.io/me/omnigent-host:latest",
                 "env": ["OPENAI_API_KEY", "GIT_TOKEN"],
-                "namespace": "omnigent-sandboxes",
-                "secret_name": "omnigent-creds",
-                "service_account": "omnigent-runner",
-                "node_selector": {"omnigent.ai/runner-ready": "true"},
+                "namespace": "agentnexus-sandboxes",
+                "secret_name": "agentnexus-creds",
+                "service_account": "agentnexus-runner",
+                "node_selector": {"agentnexus.ai/runner-ready": "true"},
                 "in_cluster": True,
                 "resources": {"requests": {"cpu": "500m"}, "limits": {"memory": "8Gi"}},
                 "pod_ready_timeout_s": 300,
@@ -691,7 +691,7 @@ def test_parse_valid_kubernetes_config_builds_parameterized_factory(
     )
     assert cfg is not None
     cfg = cfg.default
-    assert cfg.server_url == "http://omnigent.omnigent.svc.cluster.local"
+    assert cfg.server_url == "http://omnigent.agentnexus.svc.cluster.local"
     assert cfg.token_ttl_s == KUBERNETES_MANAGED_TOKEN_TTL_S
     assert cfg.managed_launch_supported is True
     assert cfg.provider == "kubernetes"
@@ -700,10 +700,10 @@ def test_parse_valid_kubernetes_config_builds_parameterized_factory(
     assert cfg.launcher_factory() is fake
     assert fake.image == "ghcr.io/me/omnigent-host:latest"
     assert fake.env == ["OPENAI_API_KEY", "GIT_TOKEN"]
-    assert fake.namespace == "omnigent-sandboxes"
-    assert fake.secret_name == "omnigent-creds"
-    assert fake.service_account == "omnigent-runner"
-    assert fake.node_selector == {"omnigent.ai/runner-ready": "true"}
+    assert fake.namespace == "agentnexus-sandboxes"
+    assert fake.secret_name == "agentnexus-creds"
+    assert fake.service_account == "agentnexus-runner"
+    assert fake.node_selector == {"agentnexus.ai/runner-ready": "true"}
     assert fake.in_cluster is True
     assert fake.resources == {"requests": {"cpu": "500m"}, "limits": {"memory": "8Gi"}}
     assert fake.pod_ready_timeout_s == 300
@@ -740,7 +740,7 @@ def test_parse_host_config_threads_verbatim_without_resolving_secrets(
     must succeed with the variable unset on the server.
     """
     monkeypatch.delenv("LITELLM_API_KEY", raising=False)
-    monkeypatch.delenv("OMNIGENT_LITELLM_API_KEY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_LITELLM_API_KEY", raising=False)
     host_config = {
         "providers": {
             "litellm": {
@@ -856,7 +856,7 @@ def test_parse_host_config_lossy_json_key_collision_fails_loud() -> None:
     ("kubernetes_block", "expected_fragment"),
     [
         ({"namespace": "Bad_NS"}, "sandbox.kubernetes.namespace"),
-        ({"node_selector": {"omnigent.ai/x": "Bad Value"}}, "node_selector"),
+        ({"node_selector": {"agentnexus.ai/x": "Bad Value"}}, "node_selector"),
         ({"resources": {"requests": {"cpu": "not a quantity!"}}}, "valid Kubernetes quantity"),
         ({"resources": {"requests": {"disk": "1Gi"}}}, "unknown key"),
         ({"in_cluster": "yes"}, "must be a boolean"),
@@ -894,7 +894,7 @@ def test_parse_kubernetes_pvc_mounts_normalizes_and_reaches_launcher(
             "server_url": "http://s.svc.cluster.local",
             "kubernetes": {
                 "pvc_mounts": [
-                    {"claim_name": "omnigent-datasets", "mount_path": "/mnt/datasets"},
+                    {"claim_name": "agentnexus-datasets", "mount_path": "/mnt/datasets"},
                     {"claim_name": "scratch", "mount_path": "/mnt/scratch", "read_only": False},
                 ]
             },
@@ -906,7 +906,7 @@ def test_parse_kubernetes_pvc_mounts_normalizes_and_reaches_launcher(
     install_fake_kubernetes_launcher(monkeypatch, fake)
     assert cfg.launcher_factory() is fake
     assert fake.pvc_mounts == [
-        {"claim_name": "omnigent-datasets", "mount_path": "/mnt/datasets", "read_only": True},
+        {"claim_name": "agentnexus-datasets", "mount_path": "/mnt/datasets", "read_only": True},
         {"claim_name": "scratch", "mount_path": "/mnt/scratch", "read_only": False},
     ]
 
@@ -1075,8 +1075,8 @@ def test_parse_kubernetes_pvc_mounts_rejects_explicit_null_read_only() -> None:
 def test_reserved_mount_prefixes_pin_the_launcher_home_dir() -> None:
     """The mirrored HOME prefix must track the launcher's _HOME_DIR — a rename
     there without updating the reserved list would let a mount shadow HOME."""
-    from omnigent.onboarding.sandboxes.kubernetes import _HOME_DIR
-    from omnigent.server.managed_hosts import _KUBERNETES_RESERVED_MOUNT_PREFIXES
+    from agentnexus.onboarding.sandboxes.kubernetes import _HOME_DIR
+    from agentnexus.server.managed_hosts import _KUBERNETES_RESERVED_MOUNT_PREFIXES
 
     assert _HOME_DIR in _KUBERNETES_RESERVED_MOUNT_PREFIXES
 
@@ -1349,7 +1349,7 @@ def test_parse_kubernetes_secret_mounts_allows_same_secret_at_two_paths() -> Non
         ({"provider": "blaxel", "server_url": "https://s", "blaxel": "x"}, "sandbox.blaxel"),
         (
             {"provider": "blaxel", "server_url": "https://s", "blaxel": {"image": " "}},
-            "OMNIGENT_BLAXEL_HOST_IMAGE",
+            "AGENTNEXUS_BLAXEL_HOST_IMAGE",
         ),
         (
             {"provider": "blaxel", "server_url": "https://s", "blaxel": {"memory_mb": 0}},
@@ -1913,7 +1913,7 @@ async def test_launch_materializes_host_config_before_host_start(db_uri: str) ->
     )
 
     write_index = fake.commands.index(render_host_config_write_command(host_config))
-    host_index = next(i for i, cmd in enumerate(fake.commands) if "omnigent host --server" in cmd)
+    host_index = next(i for i, cmd in enumerate(fake.commands) if "agentnexus host --server" in cmd)
     assert write_index < host_index
 
 
@@ -1947,7 +1947,7 @@ async def test_resume_rematerializes_host_config_before_host_restart(db_uri: str
     resumed_commands = fake.commands[commands_before:]
     write_index = resumed_commands.index(render_host_config_write_command(host_config))
     host_index = next(
-        i for i, cmd in enumerate(resumed_commands) if "omnigent host --server" in cmd
+        i for i, cmd in enumerate(resumed_commands) if "agentnexus host --server" in cmd
     )
     assert write_index < host_index
 
@@ -2167,8 +2167,8 @@ async def test_launch_online_timeout_terminates_and_deletes_host(
     # Shrink the polling budget so the timeout path runs in
     # milliseconds; production values are module constants read at
     # call time.
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 0.05)
-    monkeypatch.setattr("omnigent.server.managed_hosts._ONLINE_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr("agentnexus.server.managed_hosts._ONLINE_POLL_INTERVAL_S", 0.01)
     host_store = HostStore(db_uri)
 
     with pytest.raises(HTTPException) as exc:
@@ -2225,7 +2225,7 @@ async def test_launch_with_repo_clones_into_workspace(db_uri: str) -> None:
     assert clone_cmd in fake.commands
     # Clone runs before the host starts — the workspace must be ready
     # by the time the runner can launch on the registered host.
-    host_start_index = next(i for i, c in enumerate(fake.commands) if "omnigent host" in c)
+    host_start_index = next(i for i, c in enumerate(fake.commands) if "agentnexus host" in c)
     assert fake.commands.index(clone_cmd) < host_start_index
     assert fake.terminated == []
 
@@ -2278,7 +2278,7 @@ class _EntrypointFakeLauncher(FakeSandboxLauncher):
     def provision(self, name: str) -> str:
         """Reserve a sandbox id (no box created); recorded + deterministic."""
         self.provisioned_names.append(name)
-        return f"omnigent-pod-{len(self.provisioned_names)}"
+        return f"agentnexus-pod-{len(self.provisioned_names)}"
 
     def run(self, sandbox_id: str, command: str, *, check: bool = True):
         """The entrypoint model never execs in — the base default is overridden."""
@@ -2337,7 +2337,7 @@ async def test_launch_entrypoint_provider_arms_token_before_launch_host(db_uri: 
     # start_host ran once, with the reserved id and repo info.
     assert len(fake.start_calls) == 1
     call = fake.start_calls[0]
-    assert call["sandbox_id"] == "omnigent-pod-1"
+    assert call["sandbox_id"] == "agentnexus-pod-1"
     assert call["server_url"] == "https://srv.example.com"
     assert call["repo_url"] == "https://github.com/org/repo.git"
     assert call["repo_name"] == "repo"
@@ -2349,7 +2349,7 @@ async def test_launch_entrypoint_provider_arms_token_before_launch_host(db_uri: 
     assert host is not None
     assert host.status == "online"
     assert host.sandbox_provider == "kubernetes"
-    assert host.sandbox_id == "omnigent-pod-1"
+    assert host.sandbox_id == "agentnexus-pod-1"
 
 
 async def test_launch_entrypoint_provider_cleans_up_on_launch_failure(db_uri: str) -> None:
@@ -2371,7 +2371,7 @@ async def test_launch_entrypoint_provider_cleans_up_on_launch_failure(db_uri: st
     assert exc.value.status_code == 502
     assert "pod could not be scheduled" in exc.value.detail
     # The reserved sandbox was terminated and no host row survives.
-    assert fake.terminated == ["omnigent-pod-1"]
+    assert fake.terminated == ["agentnexus-pod-1"]
     assert host_store.list_hosts(_OWNER) == []
 
 
@@ -2830,7 +2830,7 @@ def test_parse_modal_secrets_thread_to_launcher(monkeypatch: pytest.MonkeyPatch)
         {
             "provider": "modal",
             "server_url": "https://s.example.com",
-            "modal": {"secrets": ["omnigent-llm", "gateway-extras"]},
+            "modal": {"secrets": ["agentnexus-llm", "gateway-extras"]},
         }
     )
     assert cfg is not None
@@ -2838,7 +2838,7 @@ def test_parse_modal_secrets_thread_to_launcher(monkeypatch: pytest.MonkeyPatch)
     fake = FakeSandboxLauncher()
     install_fake_modal_launcher(monkeypatch, fake)
     assert cfg.launcher_factory() is fake
-    assert fake.secrets == ["omnigent-llm", "gateway-extras"]
+    assert fake.secrets == ["agentnexus-llm", "gateway-extras"]
     # secrets without image: the official-image default still applies.
     assert fake.image is None
 
@@ -2846,8 +2846,8 @@ def test_parse_modal_secrets_thread_to_launcher(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.parametrize(
     "secrets",
     [
-        "omnigent-llm",  # scalar, not a list
-        ["omnigent-llm", 7],  # non-string entry
+        "agentnexus-llm",  # scalar, not a list
+        ["agentnexus-llm", 7],  # non-string entry
         ["  "],  # empty name
     ],
 )
@@ -3307,7 +3307,7 @@ async def test_kick_managed_relaunch_defers_the_classifier_to_the_launch_task(
     so the claim-to-task region stays synchronous and only the winning caller
     ever pays for the read.
     """
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     captured: dict[str, object] = {}
 
@@ -3372,7 +3372,7 @@ async def test_relaunch_claim_and_launch_task_are_one_synchronous_step(
     """
     import inspect
 
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     assert not inspect.iscoroutinefunction(orchestration._kick_managed_relaunch), (
         "_kick_managed_relaunch must stay synchronous: an await between "
@@ -3409,7 +3409,7 @@ async def test_kick_managed_relaunch_without_agent_store_threads_none(
     """No agent store on app.state (a stripped app) degrades the relaunch to an
     unclassified runner rather than raising — a fail-safe deny, never a spurious
     label."""
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     captured: dict[str, object] = {}
 
@@ -3450,7 +3450,7 @@ async def test_run_managed_launch_leaves_the_runner_unclassified(
     """Without both an agent store and a bound agent id there is nothing to
     resolve, and the launch proceeds with an unclassified runner rather than
     raising — the same fail-safe the gate itself applies."""
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     captured: dict[str, object] = {}
 
@@ -3486,7 +3486,7 @@ async def test_run_managed_launch_resolves_the_classifier_on_its_own_task(
     so the request path never awaits between claiming and spawning, and a losing
     concurrent message never reaches this function at all.
     """
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     captured: dict[str, object] = {}
 
@@ -3525,7 +3525,7 @@ async def test_run_managed_launch_omits_the_classifier_for_a_session_scoped_impo
     """A session-scoped agent named after a built-in resolves to no classifier
     even now that the resolve runs on the launch task — the gate travels with the
     read, so moving it did not weaken the anti-spoof property."""
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     captured: dict[str, object] = {}
 
@@ -3566,7 +3566,7 @@ async def test_concurrent_relaunch_messages_kick_a_single_launch(
     launch: the check→begin region carries no ``await``, so the loser
     rendezvouses on the winner's entry instead of double-launching a second Pod.
     """
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     monkeypatch.setattr(orchestration, "host_resume_supported", lambda *a, **k: False)
 
@@ -3706,7 +3706,7 @@ def contributed_acme_provider(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def _contribution() -> SandboxProviderContribution:
         return SandboxProviderContribution(
-            name="omnigent-acme",
+            name="agentnexus-acme",
             providers={
                 "acme": SandboxProviderMetadata(
                     name="acme",
@@ -3718,7 +3718,7 @@ def contributed_acme_provider(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(
-        "omnigent.onboarding.sandboxes.registry._entry_points",
+        "agentnexus.onboarding.sandboxes.registry._entry_points",
         lambda: (SimpleNamespace(name="acme", load=lambda: _contribution),),
     )
     reset_plugin_state_for_tests()

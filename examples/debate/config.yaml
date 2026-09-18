@@ -13,7 +13,7 @@ spawn: false
 # The orchestrator "brain" runs on the claude-sdk harness. No model pinned:
 # uses the configured default provider.
 executor:
-  type: omnigent
+  type: agentnexus
   context_window: 400000
   config:
     harness: claude-sdk
@@ -89,7 +89,7 @@ guardrails:
     spawn_bounds:
       type: function
       function:
-        path: omnigent.inner.nessie.policies.spawn_bounds
+        path: agentnexus.inner.nessie.policies.spawn_bounds
         arguments:
           max_dispatches_per_turn: 2
           dispatch_tools: [sys_session_send]

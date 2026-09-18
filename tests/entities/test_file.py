@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities.file import StoredFile
+from agentnexus.entities.file import StoredFile
 
 
 def test_stored_file_minimal() -> None:

@@ -23,7 +23,7 @@ from ._tool_handler import StreamHooks, ToolHandler
 from ._types import File, Response
 
 if TYPE_CHECKING:
-    from ._client import OmnigentClient
+    from ._client import AgentNexusClient
 
 
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "incomplete", "cancelled"})
@@ -38,7 +38,7 @@ class Session:
     a response is in progress, or starts a new turn if the response
     is terminal.
 
-    :param client: The underlying :class:`OmnigentClient`.
+    :param client: The underlying :class:`AgentNexusClient`.
     :param model: Agent name to use for requests.
     :param tool_handler: Optional client-side tool execution config.
     :param hooks: Optional lifecycle hooks.
@@ -46,7 +46,7 @@ class Session:
 
     def __init__(
         self,
-        client: OmnigentClient,
+        client: AgentNexusClient,
         model: str,
         tool_handler: ToolHandler | None = None,
         hooks: StreamHooks | None = None,
@@ -298,7 +298,7 @@ class Session:
             False (default), return a :class:`QueryResult`.
         :returns: :class:`QueryResult` (``stream=False``) or
             :class:`QueryStream` (``stream=True``).
-        :raises OmnigentError: If the response ends in an error.
+        :raises AgentNexusError: If the response ends in an error.
         """
         if stream:
             return self._stream_query(input, files=files, tools=tools)

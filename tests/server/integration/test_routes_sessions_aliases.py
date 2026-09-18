@@ -26,8 +26,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from omnigent.entities.conversation import MessageData, NewConversationItem
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.entities.conversation import MessageData, NewConversationItem
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 from tests.server.helpers import (
     create_test_session,
 )
@@ -237,8 +237,8 @@ async def test_delete_session_when_runner_offline(client: httpx.AsyncClient) -> 
     server-owned state (tasks, files, the conversation row) so the
     chat actually disappears from the UI.
     """
-    from omnigent.errors import ErrorCode, OmnigentError
-    from omnigent.runtime import _globals, set_runner_router
+    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.runtime import _globals, set_runner_router
 
     snapshot = await create_test_session(client)
     conv_id = snapshot["id"]
@@ -246,7 +246,7 @@ async def test_delete_session_when_runner_offline(client: httpx.AsyncClient) -> 
     class _OfflineRunnerRouter:
         def client_for_session_resources(self, session_id: str) -> object:
             del session_id
-            raise OmnigentError(
+            raise AgentNexusError(
                 "runner 'runner_token_offline' is offline",
                 code=ErrorCode.RUNNER_UNAVAILABLE,
             )

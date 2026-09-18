@@ -2,13 +2,13 @@
 //
 // This is a PRE-BUNDLE step, not the final artifact. Vite bundles web and
 // ALL of its own dependencies (monaco, shiki, xterm, tiptap, react-query, …)
-// into an ESM entry (`dist-embed/omnigent-embed.js`) plus a `chunks/` tree of
+// into an ESM entry (`dist-embed/agentnexus-embed.js`) plus a `chunks/` tree of
 // code-split chunks (web's natural `import()` boundaries are PRESERVED, so
 // Monaco / shiki language grammars / mermaid diagrams stay lazy) and one scoped
-// stylesheet (`dist-embed/omnigent-embed.css`). The universe monolith then
+// stylesheet (`dist-embed/agentnexus-embed.css`). The universe monolith then
 // ingests this graph into its OWN rspack graph (see
-// `webapp/web/js/genai/omnigent/embed/loadOmnigentEmbed.ts` + the
-// `@omnigent/embed` alias in `app.rsbuild.config.ts`) and emits the FINAL
+// `webapp/web/js/genai/agentnexus/embed/loadOmnigentEmbed.ts` + the
+// `@agentnexus/embed` alias in `app.rsbuild.config.ts`) and emits the FINAL
 // hashed/CDN chunks. So Vite owns web's dependency resolution; rspack owns
 // chunking, hashing, and serving.
 //
@@ -20,7 +20,7 @@
 // @tanstack/react-query is BUNDLED (the embed owns its own QueryClient now; see
 // `embed.tsx`). Standalone (`main.tsx` / `vite.config.ts`) is unaffected.
 //
-// The CSS is post-processed to prefix every selector with `.omnigent-app` so
+// The CSS is post-processed to prefix every selector with `.agentnexus-app` so
 // Tailwind's preflight and base resets cannot leak out and clobber the host's
 // chrome. `:root` / `html` / `body` are remapped onto the scope root itself.
 
@@ -30,7 +30,7 @@ import react from "@vitejs/plugin-react";
 import postcss from "postcss";
 import { defineConfig, type Plugin } from "vite";
 
-const SCOPE = ".omnigent-app";
+const SCOPE = ".agentnexus-app";
 
 /** Split a selector list on top-level commas (ignoring commas inside () or []). */
 function splitTopLevel(selectorList: string): string[] {
@@ -63,15 +63,15 @@ function prefixSelector(selector: string): string {
 }
 
 const scopePlugin = (): postcss.Plugin => ({
-  postcssPlugin: "scope-omnigent",
+  postcssPlugin: "scope-agentnexus",
   // Flatten `@layer` so embed rules become UNLAYERED. Tailwind v4 emits its
   // utilities inside `@layer utilities`, but the host monolith's base rules
   // (e.g. `body h2`) are unlayered — and in the cascade, unlayered styles ALWAYS
   // beat layered ones regardless of specificity. That let `body h2` override a
-  // scoped utility like `.omnigent-app .text-[11px]`. Since every embed rule is
-  // already scoped under `.omnigent-app`, we don't need layers for internal
+  // scoped utility like `.agentnexus-app .text-[11px]`. Since every embed rule is
+  // already scoped under `.agentnexus-app`, we don't need layers for internal
   // ordering; dropping them makes the embed compete on specificity, which it
-  // wins (`.omnigent-app .util` ≥ host's typical element selectors).
+  // wins (`.agentnexus-app .util` ≥ host's typical element selectors).
   AtRule(atRule) {
     if (atRule.name !== "layer") return;
     // Statement form `@layer a, b, c;` (no body) — just delete the declaration.
@@ -116,7 +116,7 @@ function scopeCss(css: string): string {
 // "single shared React" guarantee while making the CJS deps work in the browser.
 function resolveExternalCjsRequire(externals: readonly string[]): Plugin {
   // Stable identifiers for the injected namespace imports (minifier-proof).
-  const importName = (spec: string) => `__omnigentExt_${spec.replace(/[^a-zA-Z0-9]/g, "_")}`;
+  const importName = (spec: string) => `__agentnexusExt_${spec.replace(/[^a-zA-Z0-9]/g, "_")}`;
 
   // We anchor the patch on rolldown's own user-facing error STRING rather than
   // on the minifier-shaped `((x) => typeof require…` prefix. That string is
@@ -185,8 +185,8 @@ function resolveExternalCjsRequire(externals: readonly string[]): Plugin {
       // throws the same error rolldown would have.
       const replacement =
         `${helper.varName} = function(id) {\n` +
-        `\tconst __omnigentExternals = { ${table} };\n` +
-        `\tif (Object.prototype.hasOwnProperty.call(__omnigentExternals, id)) return __omnigentExternals[id];\n` +
+        `\tconst __agentnexusExternals = { ${table} };\n` +
+        `\tif (Object.prototype.hasOwnProperty.call(__agentnexusExternals, id)) return __agentnexusExternals[id];\n` +
         `\tthrow Error("Calling \`require\` for \\"" + id + "\\" in an environment that doesn't expose the \`require\` function.");\n` +
         `}`;
 
@@ -208,7 +208,7 @@ function resolveExternalCjsRequire(externals: readonly string[]): Plugin {
 
 function scopeOmnigentCss(): Plugin {
   return {
-    name: "scope-omnigent-css",
+    name: "scope-agentnexus-css",
     enforce: "post",
     generateBundle(_options, bundle) {
       for (const file of Object.values(bundle)) {
@@ -239,10 +239,10 @@ const SHARED_EXTERNALS = [
 export default defineConfig({
   // `base: "./"` makes Vite reference the emitted Monaco worker via a RELATIVE
   // `new URL("./<worker>", import.meta.url)` (instead of an absolute
-  // `/assets/...` string). Monaco is omnigent_ui's own dep, so Vite builds the
+  // `/assets/...` string). Monaco is agentnexus_ui's own dep, so Vite builds the
   // worker; the relative `new URL` then survives into the intermediate as a
   // module reference the monolith's rspack can resolve, re-emit, and
-  // content-hash on its own CDN (see the `@omnigent/embed` wiring in
+  // content-hash on its own CDN (see the `@agentnexus/embed` wiring in
   // app.rsbuild.config.ts). rspack owns the FINAL hashed worker name.
   base: "./",
   plugins: [
@@ -268,7 +268,7 @@ export default defineConfig({
     // Emit source maps so downstream bundlers embedding this build (e.g. the
     // Databricks monolith's rspack/webpack) can chain through to the original
     // src/** — without them, host-side error stack frames bottom out at
-    // omnigent-embed.js:<line>. Consumed at the host build via source-map-loader.
+    // agentnexus-embed.js:<line>. Consumed at the host build via source-map-loader.
     sourcemap: true,
     lib: {
       entry: path.resolve(__dirname, "./src/embed.tsx"),
@@ -288,11 +288,11 @@ export default defineConfig({
         // Monaco etc. stay lazy). Stable, unhashed names here — rspack does the
         // FINAL content-hashing downstream. The Monaco worker + wasm assets are
         // emitted under `assets/` and re-emitted by rspack.
-        entryFileNames: "omnigent-embed.js",
+        entryFileNames: "agentnexus-embed.js",
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: (assetInfo) => {
           const name = assetInfo.names?.[0] ?? "";
-          return name.endsWith(".css") ? "omnigent-embed.css" : "assets/[name].[ext]";
+          return name.endsWith(".css") ? "agentnexus-embed.css" : "assets/[name].[ext]";
         },
       },
     },

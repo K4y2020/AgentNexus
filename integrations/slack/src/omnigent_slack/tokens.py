@@ -1,7 +1,7 @@
-"""Storage for delegated Omnigent tokens.
+"""Storage for delegated AgentNexus tokens.
 
 Each Slack user who authenticates via the device flow gets a delegated
-access + refresh token for their Omnigent server (see
+access + refresh token for their AgentNexus server (see
 ``designs/DEVICE_AUTH.md``). Those are bearer credentials that let
 this process act as that user.
 
@@ -10,7 +10,7 @@ Two backends implement the same :class:`TokenStore` protocol:
 - :class:`EncryptedTokenStore` — persisted to SQLite, encrypted with a
   Fernet key held only in the environment, so a stolen database file
   alone cannot be used to impersonate anyone. Used when
-  ``OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY`` is configured.
+  ``AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY`` is configured.
 - :class:`InMemoryTokenStore` — tokens live only in process memory and
   are lost on restart (users re-authenticate). The fallback when no
   encryption key is set: we never write bearer credentials to disk in

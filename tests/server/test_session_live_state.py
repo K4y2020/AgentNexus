@@ -19,8 +19,8 @@ import time
 
 import pytest
 
-from omnigent.runtime import pending_elicitations
-from omnigent.server import session_live_state
+from agentnexus.runtime import pending_elicitations
+from agentnexus.server import session_live_state
 
 
 def _wait_until(predicate, *, timeout_s: float = 10.0) -> None:
@@ -165,7 +165,7 @@ def test_write_runs_in_callers_workspace_scope(recording_store: _RecordingStore)
     workspace to the worker thread. This test binds a non-default
     workspace and asserts the write thread observes it.
     """
-    from omnigent.db.db_models import current_workspace_id, workspace_scope
+    from agentnexus.db.db_models import current_workspace_id, workspace_scope
 
     seen: list[int] = []
 
@@ -260,7 +260,7 @@ class _FakeScheduledTaskStore:
         self.lookup_workspaces: list[int] = []
 
     def get_running_run_by_conversation(self, conversation_id: str):  # type: ignore[no-untyped-def]
-        from omnigent.db.db_models import current_workspace_id
+        from agentnexus.db.db_models import current_workspace_id
 
         self.lookup_calls.append(conversation_id)
         self.lookup_workspaces.append(current_workspace_id())
@@ -353,7 +353,7 @@ def test_scheduled_run_completion_runs_in_callers_workspace_scope() -> None:
     the fired run's workspace. Bind a non-default workspace, leave the scope
     before the worker runs, and assert the write thread still observed it.
     """
-    from omnigent.db.db_models import workspace_scope
+    from agentnexus.db.db_models import workspace_scope
 
     sched = _FakeScheduledTaskStore({"conv_1": "run_1"})
     session_live_state.configure(_RecordingStore(), sched)  # type: ignore[arg-type]
@@ -377,8 +377,8 @@ async def test_liveness_pass_zeroes_pending_count_for_offline_runner() -> None:
     rows whose runner is offline — dead runner means dead prompts — while an
     online runner's count passes through untouched.
     """
-    from omnigent.server.routes.sessions import SessionLiveness, _apply_liveness_to_items
-    from omnigent.server.schemas import SessionListItem
+    from agentnexus.server.routes.sessions import SessionLiveness, _apply_liveness_to_items
+    from agentnexus.server.schemas import SessionListItem
 
     def _item(session_id: str) -> SessionListItem:
         return SessionListItem(

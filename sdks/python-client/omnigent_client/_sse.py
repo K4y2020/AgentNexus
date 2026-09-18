@@ -11,7 +11,7 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from omnigent.server import schemas as _srv_events
+from agentnexus.server import schemas as _srv_events
 
 from ._events import (
     NATIVE_TOOL_TYPES,
@@ -42,7 +42,7 @@ from ._events import (
 )
 from ._types import ErrorInfo, Response
 
-_log = logging.getLogger("omnigent_client.sse")
+_log = logging.getLogger("agentnexus_client.sse")
 
 
 def _wire_type(cls: type) -> str:

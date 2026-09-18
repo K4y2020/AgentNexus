@@ -1,4 +1,4 @@
-"""``~/.omnigent/auth_tokens.json`` holds session JWTs and must never be readable.
+"""``~/.agentnexus/auth_tokens.json`` holds session JWTs and must never be readable.
 
 ``_store_entry``'s docstring already promised ``0o600``, but the implementation was
 ``path.write_text(...)`` followed by ``os.chmod``. ``write_text`` creates a missing file at
@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from omnigent import cli_auth
+from agentnexus import cli_auth
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX mode bits")
 
@@ -25,7 +25,7 @@ SERVER = "http://localhost:6767"
 @pytest.fixture
 def state(tmp_path, monkeypatch):
     """Point the module's token path at a scratch dir with nothing pre-created."""
-    target = tmp_path / ".omnigent" / "auth_tokens.json"
+    target = tmp_path / ".agentnexus" / "auth_tokens.json"
     monkeypatch.setattr(cli_auth, "_token_file_path", lambda: target)
     return target
 

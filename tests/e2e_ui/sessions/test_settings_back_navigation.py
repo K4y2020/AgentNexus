@@ -22,7 +22,7 @@ from playwright.sync_api import Page, expect
 _NATIVE_OPEN_PATH_INIT_SCRIPT = """
 window.__nativeOpenPathListener = null;
 window.__documentLoadMarker = crypto.randomUUID();
-window.omnigentDesktop = {
+window.agentnexusDesktop = {
   kind: "electron",
   setBadgeCount() {},
   notify() { return Promise.resolve(true); },
@@ -94,7 +94,7 @@ def test_single_user_hides_members_and_sharing_settings(
     page: Page,
     seeded_session: tuple[str, str],
 ) -> None:
-    """The shared e2e server is single-user (OMNIGENT_LOCAL_SINGLE_USER=1), so
+    """The shared e2e server is single-user (AGENTNEXUS_LOCAL_SINGLE_USER=1), so
     the Settings Admin group drops Members and Sharing (no other users to
     manage or share with) while keeping Policies (global policies apply to a
     solo user's own sessions).

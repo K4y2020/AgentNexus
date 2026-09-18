@@ -12,7 +12,7 @@ import {
   writeThemePalette,
 } from "./themePalette";
 
-const STORAGE_KEY = "omnigent:ui-theme-palette";
+const STORAGE_KEY = "agentnexus:ui-theme-palette";
 
 afterEach(() => {
   localStorage.clear();

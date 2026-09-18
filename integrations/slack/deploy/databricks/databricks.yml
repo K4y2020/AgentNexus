@@ -1,17 +1,17 @@
-# Databricks Asset Bundle config for the Omnigent Slack bot.
+# Databricks Asset Bundle config for the AgentNexus Slack bot.
 #
 # Deploys the Slack Socket-Mode bot + its Databricks web-auth enrollment
-# page as a Databricks App. Unlike the Omnigent server app, this needs no
+# page as a Databricks App. Unlike the AgentNexus server app, this needs no
 # Lakebase or UC volume — it's a stateless (tokens re-enroll) pure-PyPI
 # package. deploy.py copies the package source into src/ and wraps
 # `databricks bundle deploy` + `bundle run`. See README.md.
 
 bundle:
-  name: omnigent-slack
+  name: agentnexus-slack
 
 variables:
   app_name:
-    description: "Databricks App name (e.g. omnigent-slack)."
+    description: "Databricks App name (e.g. agentnexus-slack)."
   secret_scope:
     description: >
       Databricks secret scope holding the bot's credentials. Create it and
@@ -22,7 +22,7 @@ variables:
     description: >
       Custom U2M OAuth app client id. Public (not a secret) — passed inline.
   server_url:
-    description: "Base URL of the Omnigent server app (the bot talks to this)."
+    description: "Base URL of the AgentNexus server app (the bot talks to this)."
   app_url:
     description: >
       This bot app's own public URL, used to build the enrollment link posted
@@ -41,9 +41,9 @@ resources:
     # replica fails closed with "link expired"). Apps are single-instance by
     # default; keep it that way. There is no DAB field to pin this yet (instance
     # count is UI-only in the Beta), so this is enforced by NOT turning it on.
-    omnigent-slack:
+    agentnexus-slack:
       name: ${var.app_name}
-      description: "Omnigent Slack bot with Databricks web-auth enrollment."
+      description: "AgentNexus Slack bot with Databricks web-auth enrollment."
       source_code_path: ./src
 
       # Secrets live in a Databricks secret scope, never in this file. Each
@@ -80,35 +80,35 @@ resources:
         command: ["uv", "run", "python", "app.py"]
         env:
           # Slack credentials + at-rest encryption + enrollment state secret.
-          - name: OMNIGENT_SLACK_BOT_TOKEN
+          - name: AGENTNEXUS_SLACK_BOT_TOKEN
             value_from: slack-bot-token
-          - name: OMNIGENT_SLACK_APP_TOKEN
+          - name: AGENTNEXUS_SLACK_APP_TOKEN
             value_from: slack-app-token
-          - name: OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY
+          - name: AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY
             value_from: token-encryption-key
           # Custom U2M OAuth app credentials (authorization code + PKCE). The
           # client id is public (inline); only the secret is a secret.
-          - name: OMNIGENT_SLACK_DATABRICKS_CLIENT_ID
+          - name: AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID
             value: ${var.oauth_client_id}
-          - name: OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET
+          - name: AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET
             value_from: databricks-oauth-client-secret
           # HMAC key signing the enrollment state — its own secret, kept separate
           # from the OAuth client secret so rotating one doesn't affect the other.
-          - name: OMNIGENT_SLACK_DATABRICKS_STATE_SECRET
+          - name: AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET
             value_from: databricks-state-secret
           # Databricks web-auth mode + non-secret config.
-          - name: OMNIGENT_SLACK_SERVER_AUTH
+          - name: AGENTNEXUS_SLACK_SERVER_AUTH
             value: databricks
-          - name: OMNIGENT_SERVER_URL
+          - name: AGENTNEXUS_SERVER_URL
             value: ${var.server_url}
           # This app's own public URL (the enrollment link base). The platform
           # injects no app-URL env var, so it's passed explicitly.
-          - name: OMNIGENT_SLACK_DATABRICKS_APP_URL
+          - name: AGENTNEXUS_SLACK_DATABRICKS_APP_URL
             value: ${var.app_url}
           # SQLite store on ephemeral disk — tokens are encrypted and
           # re-enrolled after a restart, so no durable volume is needed.
-          - name: OMNIGENT_DATA_DIR
-            value: /tmp/omnigent-slack
+          - name: AGENTNEXUS_DATA_DIR
+            value: /tmp/agentnexus-slack
 
 targets:
   # One target per workspace. workspace.host must be literal (DAB reads it

@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent._platform import IS_POSIX
-from omnigent.process_logging import (
+from agentnexus._platform import IS_POSIX
+from agentnexus.process_logging import (
     DATA_DIR_ENV_VAR,
     LOG_FORCE_COLOR_ENV_VAR,
     LOG_TO_STDERR_ENV_VAR,
@@ -86,7 +86,7 @@ def test_terminal_log_formatter_colors_level_name() -> None:
     """Terminal logs color the level, source, and function columns."""
     formatter = TerminalLogFormatter(use_colors=True)
     record = logging.LogRecord(
-        "omnigent.example",
+        "agentnexus.example",
         logging.INFO,
         __file__,
         1,
@@ -112,7 +112,7 @@ def test_terminal_log_formatter_abbreviates_warning_and_source() -> None:
     """Plain log files use the same aligned, compact columns without color."""
     formatter = TerminalLogFormatter(use_colors=False)
     record = logging.LogRecord(
-        "omnigent.codex_native_app_server",
+        "agentnexus.codex_native_app_server",
         logging.WARNING,
         __file__,
         1,
@@ -130,14 +130,14 @@ def test_terminal_log_formatter_abbreviates_warning_and_source() -> None:
         output,
     )
     assert "WARNING" not in output
-    assert "omnigent.codex_native_app_server" not in output
+    assert "agentnexus.codex_native_app_server" not in output
     assert record.levelname == "WARNING"
 
 
 def test_terminal_supports_color_no_color_overrides_ambient_force(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """NO_COLOR disables ambient force-color hints, but not Omnigent-owned mirrors."""
+    """NO_COLOR disables ambient force-color hints, but not AgentNexus-owned mirrors."""
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.setenv("CLICOLOR_FORCE", "1")
@@ -192,12 +192,12 @@ def test_process_log_reference_names_this_process_log_file(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Pytest temp dir, used as a fake ``$HOME``.
     """
-    monkeypatch.setattr("omnigent.process_logging._current_process_log_path", None)
+    monkeypatch.setattr("agentnexus.process_logging._current_process_log_path", None)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    log_path = tmp_path / ".omnigent" / "logs" / "runner" / "runner-conv_ab12.log"
+    log_path = tmp_path / ".agentnexus" / "logs" / "runner" / "runner-conv_ab12.log"
     monkeypatch.setenv(PROCESS_LOG_FILE_ENV_VAR, str(log_path))
 
-    assert process_log_reference("runner") == "~/.omnigent/logs/runner/runner-conv_ab12.log"
+    assert process_log_reference("runner") == "~/.agentnexus/logs/runner/runner-conv_ab12.log"
 
 
 def test_process_log_reference_falls_back_to_the_destination_dir(
@@ -212,7 +212,7 @@ def test_process_log_reference_falls_back_to_the_destination_dir(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Pytest temp dir, used as the runtime data dir.
     """
-    monkeypatch.setattr("omnigent.process_logging._current_process_log_path", None)
+    monkeypatch.setattr("agentnexus.process_logging._current_process_log_path", None)
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "elsewhere")
     monkeypatch.delenv(PROCESS_LOG_FILE_ENV_VAR, raising=False)
     monkeypatch.setenv(DATA_DIR_ENV_VAR, str(tmp_path / "data"))
@@ -224,7 +224,7 @@ def test_process_log_dir_reference_follows_the_data_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """The directory pointer tracks ``OMNIGENT_DATA_DIR``.
+    """The directory pointer tracks ``AGENTNEXUS_DATA_DIR``.
 
     Unlike :func:`process_log_reference` this never substitutes the caller's
     own log file, so a message about another process names that process's
@@ -234,7 +234,7 @@ def test_process_log_dir_reference_follows_the_data_dir(
     :param tmp_path: Pytest temp dir, used as the runtime data dir.
     """
     monkeypatch.setattr(
-        "omnigent.process_logging._current_process_log_path",
+        "agentnexus.process_logging._current_process_log_path",
         tmp_path / "mine" / "cli.log",
     )
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "elsewhere")
@@ -255,10 +255,10 @@ def test_configure_process_logging_publishes_its_log_path(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Pytest temp dir holding the log file.
     """
-    monkeypatch.setattr("omnigent.process_logging._current_process_log_path", None)
+    monkeypatch.setattr("agentnexus.process_logging._current_process_log_path", None)
     monkeypatch.delenv(PROCESS_LOG_FILE_ENV_VAR, raising=False)
     log_path = tmp_path / "runner-self-allocated.log"
-    logger_name = "omnigent.test_process_logging"
+    logger_name = "agentnexus.test_process_logging"
 
     configure_process_logging(
         "runner",
@@ -303,13 +303,13 @@ def test_configure_registers_the_empty_log_sweep_for_self_allocated_paths(
     """
     registered: list[tuple[object, ...]] = []
     monkeypatch.setattr(
-        "omnigent.process_logging.atexit.register",
+        "agentnexus.process_logging.atexit.register",
         lambda fn, *args: registered.append((fn, *args)),
     )
-    monkeypatch.setattr("omnigent.process_logging._current_process_log_path", None)
+    monkeypatch.setattr("agentnexus.process_logging._current_process_log_path", None)
     monkeypatch.delenv(PROCESS_LOG_FILE_ENV_VAR, raising=False)
     monkeypatch.setenv(DATA_DIR_ENV_VAR, str(tmp_path))
-    logger_name = "omnigent.test_empty_log_sweep"
+    logger_name = "agentnexus.test_empty_log_sweep"
 
     path = configure_process_logging("host", logger_names=(logger_name,), root=False)
     try:
@@ -336,7 +336,7 @@ def test_debug_sink_targets_follow_non_propagating_package_logger() -> None:
     # handlers, so records logged under them never reach root. The debug-log
     # sink (attached to root) must therefore also attach to such loggers, or it
     # sees nothing — the bug that left server/host rows undelivered.
-    name = "omnigent.test.sink_target_propagation"
+    name = "agentnexus.test.sink_target_propagation"
     logger = logging.getLogger(name)
     original = logger.propagate
     try:
@@ -357,7 +357,7 @@ def test_log_info_once_dedupes_identical_and_relogs_changed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Same formatted line logs once per process; a changed line logs again."""
-    logger = logging.getLogger("omnigent.test.log_info_once")
+    logger = logging.getLogger("agentnexus.test.log_info_once")
     # The dedup set is process-global; clear it so a prior test cannot mask this.
     _log_once_seen.clear()
     with caplog.at_level(logging.INFO, logger=logger.name):
@@ -375,7 +375,7 @@ def test_log_once_respects_level_and_captures_exc_info(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """log_once emits at the given level with the traceback, then dedupes repeats."""
-    logger = logging.getLogger("omnigent.test.log_once")
+    logger = logging.getLogger("agentnexus.test.log_once")
     _log_once_seen.clear()
     with caplog.at_level(logging.WARNING, logger=logger.name):
         try:

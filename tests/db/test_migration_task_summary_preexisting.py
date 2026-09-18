@@ -30,7 +30,7 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _build_alembic_config,
     _create_engine,
     _get_current_db_revision,
@@ -43,7 +43,7 @@ _REVISION_BEFORE_TASK_SUMMARY = "d5e9f1a2b3c4"
 # Current head at the time this bug was filed; asserted as the reachable target.
 _EXPECTED_HEAD = "za4b2c4d5e6f"
 
-_METADATA_TABLE = "omnigent_conversation_metadata"
+_METADATA_TABLE = "agentnexus_conversation_metadata"
 
 
 def _stamp_at_revision(uri: str, revision: str) -> Engine:

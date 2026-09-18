@@ -78,7 +78,7 @@ function teammate(overrides: Partial<Teammate> = {}): Teammate {
       status: "active",
       defaultModel: null,
       behaviorMode: "off",
-      homePath: "C:/Users/Kay/.omnigent/bots/bot_polly",
+      homePath: "C:/Users/Kay/.agentnexus/bots/bot_polly",
       hostId: "host_1",
       createdAt: 1,
       updatedAt: null,
@@ -189,9 +189,9 @@ describe("TeammatesPage actions", () => {
     await waitFor(() =>
       expect(createSession).toHaveBeenCalledWith("ag_polly", [], {
         hostId: "host_1",
-        workspace: "C:/Users/Kay/.omnigent/bots/bot_polly/scratch",
+        workspace: "C:/Users/Kay/.agentnexus/bots/bot_polly/scratch",
         title: "polly",
-        labels: { "omnigent.teammate.primary": "true" },
+        labels: { "agentnexus.teammate.primary": "true" },
         botId: "bot_polly",
         purpose: "primary",
       }),
@@ -211,9 +211,9 @@ describe("TeammatesPage actions", () => {
     await waitFor(() =>
       expect(createSession).toHaveBeenCalledWith("ag_polly", [], {
         hostId: "host_1",
-        workspace: "C:/Users/Kay/.omnigent/bots/bot_polly/scratch",
+        workspace: "C:/Users/Kay/.agentnexus/bots/bot_polly/scratch",
         title: "polly",
-        labels: { "omnigent.teammate.primary": "true" },
+        labels: { "agentnexus.teammate.primary": "true" },
         botId: "bot_polly",
         purpose: "primary",
       }),
@@ -238,7 +238,7 @@ describe("TeammatesPage actions", () => {
     await waitFor(() =>
       expect(createSession).toHaveBeenCalledWith("ag_polly", [], {
         hostId: "host_1",
-        workspace: "C:/Users/Kay/.omnigent/bots/bot_polly/scratch",
+        workspace: "C:/Users/Kay/.agentnexus/bots/bot_polly/scratch",
         title: "polly Topic",
         labels: {},
         botId: "bot_polly",

@@ -21,10 +21,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 
-from omnigent.entities import Conversation
-from omnigent.errors import OmnigentError
-from omnigent.server.routes import sessions as sessions_mod
-from omnigent.server.routes.sessions import create_sessions_router
+from agentnexus.entities import Conversation
+from agentnexus.errors import AgentNexusError
+from agentnexus.server.routes import sessions as sessions_mod
+from agentnexus.server.routes.sessions import create_sessions_router
 
 
 class _ConversationStore:
@@ -51,8 +51,8 @@ def _build_app() -> FastAPI:
     )
     app = FastAPI()
 
-    @app.exception_handler(OmnigentError)
-    async def _handle(request: Request, exc: OmnigentError) -> JSONResponse:
+    @app.exception_handler(AgentNexusError)
+    async def _handle(request: Request, exc: AgentNexusError) -> JSONResponse:
         del request
         return JSONResponse(
             status_code=exc.http_status,

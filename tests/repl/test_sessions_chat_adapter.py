@@ -22,7 +22,7 @@ surface at import time or in a sub-second unit test.
 from __future__ import annotations
 
 import pytest
-from omnigent_client._events import (
+from agentnexus_client._events import (
     ReasoningDelta,
     ReasoningStarted,
     ReasoningSummaryDelta,
@@ -36,12 +36,12 @@ from omnigent_client._events import (
     TextDelta,
 )
 
-from omnigent.repl._repl import (
+from agentnexus.repl._repl import (
     _plan_output_item_render,
     _server_event_to_sdk_event,
     _TurnProseTracker,
 )
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     CancelledEvent,
     CompletedEvent,
     CreatedEvent,
@@ -176,9 +176,9 @@ def test_unknown_event_returns_none() -> None:
 
 def test_elicitation_request_event_translates() -> None:
     """``ElicitationRequestEvent`` → :class:`ElicitationRequest` with all fields."""
-    from omnigent_client._events import ElicitationRequest
+    from agentnexus_client._events import ElicitationRequest
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         ElicitationRequestEvent,
         ElicitationRequestParams,
     )
@@ -217,9 +217,9 @@ def test_elicitation_request_event_preserves_target_session_id() -> None:
     drops it (the original bug), the REPL resolves the verdict against the
     parent session, which 404s, and the sub-agent stays blocked forever.
     """
-    from omnigent_client._events import ElicitationRequest
+    from agentnexus_client._events import ElicitationRequest
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         ElicitationRequestEvent,
         ElicitationRequestParams,
     )
@@ -252,9 +252,9 @@ def test_elicitation_resolve_session_id_routes_mirrored_child_to_child() -> None
     must resolve on the child that parked on it; an own-session prompt
     (unset) resolves on the session the event arrived on.
     """
-    from omnigent_client._events import ElicitationRequest
+    from agentnexus_client._events import ElicitationRequest
 
-    from omnigent.repl._repl import _elicitation_resolve_session_id
+    from agentnexus.repl._repl import _elicitation_resolve_session_id
 
     mirrored = ElicitationRequest(
         elicitation_id="elicit_child",
@@ -284,7 +284,7 @@ def test_elicitation_resolve_session_id_routes_mirrored_child_to_child() -> None
 
 def test_output_item_done_event_passes_through() -> None:
     """``OutputItemDoneEvent`` is returned as-is for adapter-level handling."""
-    from omnigent.server.schemas import OutputItemDoneEvent
+    from agentnexus.server.schemas import OutputItemDoneEvent
 
     event = OutputItemDoneEvent(
         type="response.output_item.done",
@@ -308,7 +308,7 @@ def test_output_item_done_message_passes_through() -> None:
     rendered via ``TextDelta`` streaming) and only rendering
     ``function_call`` / ``function_call_output`` as history entries.
     """
-    from omnigent.server.schemas import OutputItemDoneEvent
+    from agentnexus.server.schemas import OutputItemDoneEvent
 
     event = OutputItemDoneEvent(
         type="response.output_item.done",
@@ -541,7 +541,7 @@ def test_prose_tracker_uncommitted_segment_does_not_match() -> None:
 
 def test_client_task_cancel_event_passes_through() -> None:
     """``ClientTaskCancelEvent`` is returned as-is for adapter-level handling."""
-    from omnigent.server.schemas import ClientTaskCancelEvent
+    from agentnexus.server.schemas import ClientTaskCancelEvent
 
     event = ClientTaskCancelEvent(
         type="response.client_task.cancel",
@@ -576,7 +576,7 @@ def test_render_callback_event_flow() -> None:
 
     from pydantic import TypeAdapter
 
-    from omnigent.server.schemas import ServerStreamEvent
+    from agentnexus.server.schemas import ServerStreamEvent
 
     adapter = TypeAdapter(ServerStreamEvent)
 
@@ -666,20 +666,20 @@ def test_render_callback_event_flow() -> None:
     fake_session = _FakeSession()
 
     # Import the schemas needed by the callback.
-    from omnigent_client._events import (
+    from agentnexus_client._events import (
         ResponseCreated as _Created,
     )
-    from omnigent_client._events import (
+    from agentnexus_client._events import (
         TextDelta as _TD,
     )
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         OutputItemDoneEvent as _OIDE,
     )
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         SessionInputConsumedEvent as _SICEv,
     )
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         SessionStatusEvent as _StatusEv,
     )
 
@@ -755,7 +755,7 @@ def test_session_input_consumed_renders_cross_client_user_message() -> None:
     """
     from pydantic import TypeAdapter
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         ServerStreamEvent,
         SessionInputConsumedEvent,
     )
@@ -824,7 +824,7 @@ def test_autonomous_turn_renders_without_local_send() -> None:
     """
     from pydantic import TypeAdapter
 
-    from omnigent.server.schemas import ServerStreamEvent
+    from agentnexus.server.schemas import ServerStreamEvent
 
     adapter = TypeAdapter(ServerStreamEvent)
 
@@ -867,10 +867,10 @@ def test_autonomous_turn_renders_without_local_send() -> None:
 
     fake_session = _FakeSession()
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         SessionInputConsumedEvent as _SICEv,
     )
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         SessionStatusEvent as _StatusEv,
     )
 
@@ -945,11 +945,11 @@ def test_failed_status_event_renders_error_message() -> None:
     silent to the user. ``_render_failed_status_error`` must surface
     the carried message as a red error line.
     """
-    from omnigent_ui_sdk import RichBlockFormatter
+    from agentnexus_ui_sdk import RichBlockFormatter
 
-    from omnigent.repl._repl import _render_failed_status_error
-    from omnigent.server.schemas import ErrorDetail
-    from omnigent.server.schemas import SessionStatusEvent as _StatusEv
+    from agentnexus.repl._repl import _render_failed_status_error
+    from agentnexus.server.schemas import ErrorDetail
+    from agentnexus.server.schemas import SessionStatusEvent as _StatusEv
     from tests.repl.helpers import CapturingHost
 
     host = CapturingHost()
@@ -982,10 +982,10 @@ def test_failed_status_event_without_error_falls_back() -> None:
     on the missing field and must still print a non-empty error line
     rather than ending the turn silently.
     """
-    from omnigent_ui_sdk import RichBlockFormatter
+    from agentnexus_ui_sdk import RichBlockFormatter
 
-    from omnigent.repl._repl import _render_failed_status_error
-    from omnigent.server.schemas import SessionStatusEvent as _StatusEv
+    from agentnexus.repl._repl import _render_failed_status_error
+    from agentnexus.server.schemas import SessionStatusEvent as _StatusEv
     from tests.repl.helpers import CapturingHost
 
     host = CapturingHost()

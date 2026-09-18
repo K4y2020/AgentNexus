@@ -23,9 +23,9 @@ from opentelemetry.sdk._logs.export import (
 )
 from opentelemetry.sdk.trace import TracerProvider
 
-from omnigent.runtime import telemetry
+from agentnexus.runtime import telemetry
 
-_BRIDGE_NAME = "omnigent-otel-log-bridge"
+_BRIDGE_NAME = "agentnexus-otel-log-bridge"
 
 
 def _remove_bridge_handlers() -> None:
@@ -53,17 +53,17 @@ def _remove_bridge_handlers() -> None:
 @pytest.fixture(autouse=True)
 def _opt_in_telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
-    Telemetry is opt-in (``OMNIGENT_TELEMETRY_ENABLED``, off by default);
+    Telemetry is opt-in (``AGENTNEXUS_TELEMETRY_ENABLED``, off by default);
     these log-bridge tests opt in for every test, and reset global tracing
     state afterward so init()/enable_tracing() can't leak into other suites.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.setenv("OMNIGENT_TELEMETRY_ENABLED", "true")
+    monkeypatch.setenv("AGENTNEXUS_TELEMETRY_ENABLED", "true")
     try:
         yield
     finally:
-        from omnigent.inner.tracing import disable_tracing
+        from agentnexus.inner.tracing import disable_tracing
 
         disable_tracing()
         telemetry._initialized = False
@@ -260,7 +260,7 @@ def test_log_emitted_in_span_carries_trace_and_span_ids(
         with tracer.start_as_current_span("test-span") as span:
             expected_trace_id = span.get_span_context().trace_id
             expected_span_id = span.get_span_context().span_id
-            logging.getLogger("omnigent.test").info("hello from inside the span")
+            logging.getLogger("agentnexus.test").info("hello from inside the span")
     finally:
         root_logger.setLevel(previous_level)
 

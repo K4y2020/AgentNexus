@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.opencode_native_state import (
+from agentnexus.opencode_native_state import (
     read_launch_state,
     write_launch_state,
 )
 
 
 def test_write_and_read_round_trips(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     write_launch_state("conv_abc", "/repo")
     state = read_launch_state("conv_abc")
     assert state is not None
@@ -23,13 +23,13 @@ def test_write_and_read_round_trips(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 
 
 def test_missing_state_is_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     assert read_launch_state("nope") is None
 
 
 def test_path_hashes_conversation_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     state_root = tmp_path / "state"
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(state_root))
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(state_root))
     conversation_id = "../../../etc/passwd"
     digest = hashlib.sha256(conversation_id.encode("utf-8")).hexdigest()[:32]
     write_launch_state(conversation_id, "/repo")
@@ -38,7 +38,7 @@ def test_path_hashes_conversation_id(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 
 def test_relative_path_rejected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     with pytest.raises(ValueError, match="absolute path"):
         write_launch_state("conv_abc", "relative/dir")
 
@@ -48,8 +48,8 @@ def test_conflicting_write_keeps_original(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
-    logging.getLogger("omnigent").propagate = True
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    logging.getLogger("agentnexus").propagate = True
     write_launch_state("conv_abc", "/original")
     with caplog.at_level(logging.WARNING):
         write_launch_state("conv_abc", "/other")
@@ -61,7 +61,7 @@ def test_conflicting_write_keeps_original(
 
 def test_malformed_state_is_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     state_root = tmp_path / "state"
-    monkeypatch.setenv("OMNIGENT_OPENCODE_NATIVE_STATE_DIR", str(state_root))
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", str(state_root))
     digest = hashlib.sha256(b"conv_abc").hexdigest()[:32]
     target = state_root / digest
     target.mkdir(parents=True)

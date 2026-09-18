@@ -152,10 +152,10 @@ describe("normalizeTypedPath", () => {
   });
 
   it("expands a tilde-prefixed path against the resolved home", () => {
-    // The user from the bug report typed "~/omnigent"
+    // The user from the bug report typed "~/agentnexus"
     // and nothing happened. Now the picker expands it
     // client-side using the resolved home dir.
-    expect(normalizeTypedPath("~/omnigent", "/Users/corey")).toBe("/Users/corey/omnigent");
+    expect(normalizeTypedPath("~/agentnexus", "/Users/corey")).toBe("/Users/corey/agentnexus");
   });
 
   it("expands a bare tilde to the resolved home", () => {

@@ -1,7 +1,7 @@
 """E2E test: list_comments and update_comment tools in claude-native mode.
 
 Verifies the full round-trip for native Claude Code sessions: the test
-starts Claude Code in a private tmux window with the Omnigent MCP
+starts Claude Code in a private tmux window with the AgentNexus MCP
 bridge, adds review comments via the REST API, sends a message
 (which triggers the runner to write ``tool_relay.json`` so the bridge
 exposes ``list_comments`` / ``update_comment`` to Claude), and then
@@ -45,7 +45,7 @@ import httpx
 import pytest
 import yaml
 
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     augment_claude_args,
     bridge_dir_for_bridge_id,
     prepare_bridge_dir,
@@ -81,7 +81,7 @@ _NESTED_SESSION_ENV = "CLAUDECODE"
 # wiring is covered deterministically by tests/runner/test_comment_relay.py and
 # tests/test_claude_native_bridge.py; this test is the full round-trip, run
 # on demand where an authenticated claude is available.
-_RUN_GATE_ENV = "OMNIGENT_E2E_CLAUDE_NATIVE_COMMENTS"
+_RUN_GATE_ENV = "AGENTNEXUS_E2E_CLAUDE_NATIVE_COMMENTS"
 
 
 @pytest.fixture(scope="module")
@@ -142,7 +142,7 @@ def _claude_code_session(
     launch_env: dict[str, str],
 ) -> Iterator[None]:
     """
-    Start Claude Code in a private tmux window with the Omnigent MCP bridge.
+    Start Claude Code in a private tmux window with the AgentNexus MCP bridge.
 
     Sets up the bridge directory for *session_id*, launches ``claude``
     with the MCP config and hook settings injected via
@@ -155,7 +155,7 @@ def _claude_code_session(
     This mirrors what ``omnigent claude`` does when a user runs it,
     so the relay feature is tested against the real code path.
 
-    :param session_id: Omnigent session id, e.g. ``"conv_abc123"``.
+    :param session_id: AgentNexus session id, e.g. ``"conv_abc123"``.
     :param model: Claude model id to pin via ``--model``, e.g.
         ``"databricks-claude-sonnet-4-6"``. ``None`` lets the CLI choose.
     :param launch_env: Extra environment for the launched ``claude``
@@ -170,15 +170,15 @@ def _claude_code_session(
     bridge_dir = bridge_dir_for_bridge_id(session_id)
     prepare_bridge_dir(session_id, workspace=Path.cwd())
 
-    tmp = tempfile.mkdtemp(prefix="omnigent-e2e-")
+    tmp = tempfile.mkdtemp(prefix="agentnexus-e2e-")
     tmux_socket = Path(tmp) / "tmux.sock"
     tmux_session = f"cne-{session_id[:8]}"
     tmux_target = f"{tmux_session}:0.0"
 
-    # Build Claude Code args with Omnigent MCP bridge and hooks injected.
+    # Build Claude Code args with AgentNexus MCP bridge and hooks injected.
     # --allowedTools pre-authorizes the omnigent relay tools so Claude does
     # not show an interactive permission dialog when it calls list_comments or
-    # update_comment.  The MCP server is always named "omnigent" (_MCP_SERVER_NAME),
+    # update_comment.  The MCP server is always named "agentnexus" (_MCP_SERVER_NAME),
     # so the tool identifiers are stable regardless of session.
     base_args: tuple[str, ...] = (
         "--dangerously-skip-permissions",
@@ -324,10 +324,10 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
     Claude Code addresses review comments without being told which tools to use.
 
     Flow:
-    1. Skip unless opted in via ``OMNIGENT_E2E_CLAUDE_NATIVE_COMMENTS`` and
+    1. Skip unless opted in via ``AGENTNEXUS_E2E_CLAUDE_NATIVE_COMMENTS`` and
        the ``claude`` / ``tmux`` binaries are available.
     2. Create a runner-bound session with the ``claude-native-ui`` agent.
-    3. Start Claude Code in a private tmux window with the Omnigent
+    3. Start Claude Code in a private tmux window with the AgentNexus
        MCP bridge (same as ``omnigent claude`` does).
     4. POST two draft comments on ``app.py`` via the REST API.
     5. Pre-configure the mock LLM with tool-call responses that call
@@ -355,7 +355,7 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
     - The relay HTTP server is not running or not callable from the bridge,
       so Claude's tool call returns an error.
     - ``_execute_comment_tool`` call path broken (server_client / session
-      scoping), so the Omnigent server ``PATCH /v1/sessions/{id}/comments`` is
+      scoping), so the AgentNexus server ``PATCH /v1/sessions/{id}/comments`` is
       never hit.
     - Comments still ``"draft"`` → update path didn't persist.
 
@@ -425,7 +425,7 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
     # ── 3. Pre-configure mock LLM with tool-call responses ─────────────────
     # The mock server returns these responses in order for any model key.
     # The Claude CLI executes the tool_use blocks as real MCP calls against
-    # the relay, so comment status changes reach the Omnigent server even
+    # the relay, so comment status changes reach the AgentNexus server even
     # though the LLM itself is a mock.  We configure with the actual IDs
     # now (after posting) so update_comment receives the right targets.
     reset_mock_llm(mock_llm_server_url)
@@ -508,7 +508,7 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
         # Claude processes the injected message, calls list_comments to find
         # the draft comments, then calls update_comment on each. These tool
         # calls go through the relay HTTP server running in the runner process
-        # and hit the Omnigent server directly, so the comment status changes appear
+        # and hit the AgentNexus server directly, so the comment status changes appear
         # in the REST API without needing to observe the forwarder stream.
         deadline = time.monotonic() + _COMMENT_POLL_TIMEOUT_S
         while time.monotonic() < deadline:
@@ -558,10 +558,10 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
         assert post_statuses.get(comment1_id) == "addressed", (
             f"Comment 1 still has status {post_statuses.get(comment1_id)!r} "
             f"after {_COMMENT_POLL_TIMEOUT_S}s; expected 'addressed'. "
-            f"If 'draft', the update_comment relay call did not reach the Omnigent server."
+            f"If 'draft', the update_comment relay call did not reach the AgentNexus server."
         )
         assert post_statuses.get(comment2_id) == "addressed", (
             f"Comment 2 still has status {post_statuses.get(comment2_id)!r} "
             f"after {_COMMENT_POLL_TIMEOUT_S}s; expected 'addressed'. "
-            f"If 'draft', the update_comment relay call did not reach the Omnigent server."
+            f"If 'draft', the update_comment relay call did not reach the AgentNexus server."
         )

@@ -15,7 +15,7 @@ import tempfile
 import httpx
 import pytest
 
-from omnigent.runner.transports.uds import (
+from agentnexus.runner.transports.uds import (
     RunnerSubprocess,
     _is_socket_listening,
     create_uds_client,

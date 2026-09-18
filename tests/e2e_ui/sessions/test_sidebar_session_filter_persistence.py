@@ -44,7 +44,7 @@ _LEVEL_EDIT = 2
 _FILTER = '[data-testid="session-filter"]'
 
 # Where the sidebar persists the pick (see web/src/lib/sessionFilterPreferences.ts).
-_STORAGE_KEY = "omnigent:session-filter"
+_STORAGE_KEY = "agentnexus:session-filter"
 
 
 def _create_session(server: MultiUserServer, *, owner_email: str, title: str) -> str:

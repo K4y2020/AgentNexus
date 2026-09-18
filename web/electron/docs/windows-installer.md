@@ -18,7 +18,7 @@ Artifacts land in `web/electron/dist/`:
 
 The NSIS installer is deliberately **assisted**, **per-user**, and lets the
 user choose the installation directory. It registers both the branded
-`agentnexus://` deep-link scheme and the legacy `omnigent://` scheme so
+`agentnexus://` deep-link scheme and the legacy `agentnexus://` scheme so
 existing links keep working.
 
 ## Upgrade safety
@@ -55,7 +55,7 @@ keeps the marker instead of pretending recovery happened.
 4. Copy every runtime subfolder in the snapshot (by default `data\`; a snapshot
    may also contain `config\`/`state\` if environment overrides split the
    directories) back over the matching files under
-   `%USERPROFILE%\.omnigent\` (or the override directories in effect when the
+   `%USERPROFILE%\.agentnexus\` (or the override directories in effect when the
    snapshot was created).
 5. Launch AgentNexus. Server/coordination state is rehydrated from sqlite, so
    no in-memory state is needed for recovery.
@@ -69,7 +69,7 @@ unit tests and rejects malformed manifests.
 Default uninstall keeps all user data:
 
 - `%APPDATA%\AgentNexus` (shell settings, recent servers, update backups).
-- `%USERPROFILE%\.omnigent` (conversation DB, config, auth references,
+- `%USERPROFILE%\.agentnexus` (conversation DB, config, auth references,
   daemons, logs).
 
 During an assisted uninstall, AgentNexus asks once whether to also remove

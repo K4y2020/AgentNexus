@@ -38,7 +38,7 @@ def _argv_run_omnigent(
     return [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -101,7 +101,7 @@ instructions: AGENTS.md
         timeout=_RUN_TIMEOUT_SEC,
     )
     assert result.returncode == 0, (
-        f"omnigent run exited {result.returncode}. "
+        f"agentnexus run exited {result.returncode}. "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     assert _MARKER_PATH_CASE in result.stdout, (
@@ -158,7 +158,7 @@ instructions: |
         timeout=_RUN_TIMEOUT_SEC,
     )
     assert result.returncode == 0, (
-        f"omnigent run exited {result.returncode}. "
+        f"agentnexus run exited {result.returncode}. "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     assert _MARKER_INLINE_CASE in result.stdout, (

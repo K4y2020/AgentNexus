@@ -18,20 +18,20 @@ import shutil
 
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _find_subagent_spec,
     _has_subagent,
     _subagent_allowed_harnesses,
     _subagent_harness,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     AgentSpec,
     BuiltinToolConfig,
     ExecutorSpec,
     LLMConfig,
     ToolsConfig,
 )
-from omnigent.tools.builtins.web_fetch import RESEARCHER_NAME
+from agentnexus.tools.builtins.web_fetch import RESEARCHER_NAME
 
 
 @pytest.fixture(autouse=True)

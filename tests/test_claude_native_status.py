@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import claude_native_status
+from agentnexus import claude_native_status
 
 
 def _run(
@@ -83,7 +83,7 @@ def test_status_wrapper_captures_cost(tmp_path: Path, monkeypatch: pytest.Monkey
 
     Claude Code's statusLine stdin carries a top-level ``cost`` block with its
     own session billing. claude-native never produces a ``response.completed``
-    event, so the Omnigent relay's cost accumulation never runs for it — capturing
+    event, so the AgentNexus relay's cost accumulation never runs for it — capturing
     this is the only way native session cost reaches ``session_usage``. A
     failure here means native Cost-Ask policies always see $0.
     """
@@ -191,7 +191,7 @@ def test_status_wrapper_chain_swallows_subprocess_errors(
 
 def test_normalize_status_payload_extracts_record() -> None:
     """The normalizer extracts window/usage/cost/model; None without a window."""
-    from omnigent.claude_native_status import normalize_status_payload
+    from agentnexus.claude_native_status import normalize_status_payload
 
     record = normalize_status_payload(
         {
@@ -223,7 +223,7 @@ def test_sync_raw_status_context_normalizes_and_retries(tmp_path: Path) -> None:
     """
     import json as _json
 
-    from omnigent.claude_native_status import (
+    from agentnexus.claude_native_status import (
         CONTEXT_RAW_FILE,
         sync_raw_status_context,
     )

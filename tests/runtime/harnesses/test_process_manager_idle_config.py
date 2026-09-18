@@ -1,7 +1,7 @@
 """Tests for the configurable harness idle-reap window.
 
 The harness idle window (after which an idle harness subprocess is reaped) is
-now tunable via the ``OMNIGENT_HARNESS_IDLE_TIMEOUT_S`` env var, mirroring the
+now tunable via the ``AGENTNEXUS_HARNESS_IDLE_TIMEOUT_S`` env var, mirroring the
 runner-level ``runner.idle_timeout_s`` knob. ``0`` disables reaping; an
 unparseable / negative value falls back to the default rather than failing the
 runner at boot.
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.runtime.harnesses.process_manager import (
+from agentnexus.runtime.harnesses.process_manager import (
     _DEFAULT_IDLE_TIMEOUT_S,
     _HARNESS_IDLE_TIMEOUT_ENV,
     HarnessProcessManager,

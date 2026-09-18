@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.runtime.workflow import _build_cursor_spawn_env
-from omnigent.spec.types import (
+from agentnexus.runtime.workflow import _build_cursor_spawn_env
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -31,11 +31,11 @@ from omnigent.spec.types import (
 
 @pytest.fixture(autouse=True)
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Point OMNIGENT_CONFIG_HOME at an empty temp dir so the developer's real
-    ``~/.omnigent/config.yaml`` can't leak in, and clear any ambient
+    """Point AGENTNEXUS_CONFIG_HOME at an empty temp dir so the developer's real
+    ``~/.agentnexus/config.yaml`` can't leak in, and clear any ambient
     ``CURSOR_API_KEY`` so the no-auth / DatabricksAuth cases are deterministic
     (the builder falls back to an ambient key — see the ambient-fallback test)."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     monkeypatch.delenv("CURSOR_API_KEY", raising=False)
 
 
@@ -56,7 +56,7 @@ def _make_spec(
         spec_version=1,
         name=name,
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -161,7 +161,7 @@ def test_no_workdir_omits_bundle_dir_env_var() -> None:
 def _write_cursor_config(tmp_path: Path, ref: str) -> None:
     """Write a ``cursor:`` block referencing *ref* into the isolated config.
 
-    :param tmp_path: The isolated ``OMNIGENT_CONFIG_HOME`` (see the autouse
+    :param tmp_path: The isolated ``AGENTNEXUS_CONFIG_HOME`` (see the autouse
         fixture).
     :param ref: The secret reference to record, e.g. ``"env:CURSOR_KEY_SRC"``.
     """

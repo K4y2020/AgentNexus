@@ -8,7 +8,7 @@ runner-owned tmux pane, and each web-UI turn is injected into that pane
 :class:`omnigent.inner.cursor_native_executor.CursorNativeExecutor`. The TUI's
 own conversation store is tailed by
 :mod:`omnigent.cursor_native_forwarder`, which mirrors ``cursor-agent``'s
-replies back onto the Omnigent conversation as assistant items.
+replies back onto the AgentNexus conversation as assistant items.
 
 These tests drive the full stack the way a user does — spawn ``omnigent
 cursor``, then talk to the session **through the server** (``POST
@@ -32,7 +32,7 @@ prompt nor on per-tool approval prompts — either of which would hang the pane.
 
 Environment requirements (why this is opt-in, not pure-CI)
 ----------------------------------------------------------
-* **Opt-in only**: set ``OMNIGENT_E2E_CURSOR_NATIVE=1`` to run. Like the other
+* **Opt-in only**: set ``AGENTNEXUS_E2E_CURSOR_NATIVE=1`` to run. Like the other
   native-TUI e2e tests, cursor-native needs an interactive ``cursor-agent
   login`` anchored to the real ``$HOME`` and a ``tmux`` binary; the
   ``cursor-agent`` binary may be present on CI but unauthenticated, which would
@@ -41,7 +41,7 @@ Environment requirements (why this is opt-in, not pure-CI)
   required (checked below).
 * Run it like the codex-native CLI tests::
 
-    OMNIGENT_E2E_CURSOR_NATIVE=1 \
+    AGENTNEXUS_E2E_CURSOR_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_cursor_native_cli_e2e.py \
         --profile oss \
         --llm-api-key "$(databricks auth token -p oss \
@@ -69,7 +69,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.cursor_native_bridge import bridge_dir_for_session_id, kill_session
+from agentnexus.cursor_native_bridge import bridge_dir_for_session_id, kill_session
 from tests.e2e._native_resume_helpers import (
     PtyHandle,
     cli_env,
@@ -90,12 +90,12 @@ from tests.e2e._native_resume_helpers import (
 # (present-but-unauthenticated hangs the TUI), so require the explicit env var,
 # plus the two binaries the terminal-first harness needs on PATH.
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CURSOR_NATIVE") != "1"
+    os.environ.get("AGENTNEXUS_E2E_CURSOR_NATIVE") != "1"
     or shutil.which("cursor-agent") is None
     or shutil.which("tmux") is None,
     reason=(
         "cursor-native CLI e2e needs an interactive `cursor-agent login` and a "
-        "`tmux` binary; set OMNIGENT_E2E_CURSOR_NATIVE=1 (and have `cursor-agent` "
+        "`tmux` binary; set AGENTNEXUS_E2E_CURSOR_NATIVE=1 (and have `cursor-agent` "
         "installed + logged in and `tmux` on PATH) to run"
     ),
 )
@@ -396,7 +396,7 @@ def test_cursor_native_cli_exposes_omnigent_mcp_tools(
     tmp_path: Path,
     request: pytest.FixtureRequest,
 ) -> None:
-    """``omnigent cursor`` wires Omnigent tools into Cursor's native MCP client.
+    """``omnigent cursor`` wires AgentNexus tools into Cursor's native MCP client.
 
     Spawns a real cursor-native session, waits for the runner-owned Cursor TUI
     to start, then asks ``cursor-agent``'s own MCP subcommand to discover the
@@ -437,10 +437,10 @@ def test_cursor_native_cli_exposes_omnigent_mcp_tools(
         mcp_config_path = pwd_dir / ".cursor" / "mcp.json"
         assert mcp_config_path.is_file(), "cursor-native did not write .cursor/mcp.json"
         assert (bridge_dir / "bridge.json").is_file(), "serve-mcp token bridge was not written"
-        assert (bridge_dir / "tool_relay.json").is_file(), "Omnigent tool relay was not started"
+        assert (bridge_dir / "tool_relay.json").is_file(), "AgentNexus tool relay was not started"
 
         payload = json.loads(mcp_config_path.read_text(encoding="utf-8"))
-        server = payload["mcpServers"]["omnigent"]
+        server = payload["mcpServers"]["agentnexus"]
         assert server["env"]["TMPDIR"]
         assert "--bridge-dir" in server["args"]
         assert str(bridge_dir) in server["args"]
@@ -465,11 +465,11 @@ def test_cursor_native_cli_exposes_omnigent_mcp_tools(
             check=False,
         )
         assert listed.returncode == 0, listed.stdout
-        assert "omnigent" in listed.stdout
+        assert "agentnexus" in listed.stdout
         assert "ready" in listed.stdout.lower()
 
         tools = subprocess.run(
-            ["cursor-agent", "mcp", "list-tools", "omnigent"],
+            ["cursor-agent", "mcp", "list-tools", "agentnexus"],
             cwd=pwd_dir,
             env=env,
             text=True,
@@ -491,10 +491,10 @@ def test_cursor_native_cli_mcp_can_call_sys_tool(
     tmp_path: Path,
     request: pytest.FixtureRequest,
 ) -> None:
-    """Cursor-native's generated Omnigent MCP server can call ``sys_*`` tools.
+    """Cursor-native's generated AgentNexus MCP server can call ``sys_*`` tools.
 
     Launches a real Cursor TUI, then calls the same generated ``.cursor/mcp.json``
-    Omnigent relay that Cursor uses. The tool call is direct JSON-RPC over the
+    AgentNexus relay that Cursor uses. The tool call is direct JSON-RPC over the
     generated stdio server rather than model-steered prose, so it deterministically
     proves the Cursor-native MCP wiring can execute relayed ``sys_*`` tools.
     """
@@ -525,7 +525,7 @@ def test_cursor_native_cli_mcp_can_call_sys_tool(
         bridge_dir = bridge_dir_for_session_id(conversation_id)
         mcp_config_path = pwd_dir / ".cursor" / "mcp.json"
         payload = json.loads(mcp_config_path.read_text(encoding="utf-8"))
-        server = payload["mcpServers"]["omnigent"]
+        server = payload["mcpServers"]["agentnexus"]
         proc_env = {**os.environ, **env, **server.get("env", {})}
         proc = subprocess.Popen(
             [server.get("command") or sys.executable, *server["args"]],

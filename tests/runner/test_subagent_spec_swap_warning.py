@@ -45,8 +45,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -74,12 +74,12 @@ def _orchestrator_spec_tree() -> AgentSpec:
     child = AgentSpec(
         spec_version=1,
         name=SUB_AGENT_NAME,
-        executor=ExecutorSpec(type="omnigent", config={"harness": CHILD_HARNESS}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": CHILD_HARNESS}),
     )
     return AgentSpec(
         spec_version=1,
         name="polly",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         sub_agents=[child],
     )
 
@@ -161,7 +161,7 @@ async def _prime_spec_cache_then_turn(
         server_client=_SubAgentSnapshotServer(sub_agent_name),  # type: ignore[arg-type]
     )
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
         async with _runner_client(app) as client:
             primed = await client.get(f"/v1/sessions/{CHILD_SESSION_ID}/resources")
             assert primed.status_code == 200, f"{primed.status_code} {primed.text}"
@@ -248,12 +248,12 @@ def _shadowed_name_spec_tree() -> AgentSpec:
     child = AgentSpec(
         spec_version=1,
         name=SHADOWED_NAME,
-        executor=ExecutorSpec(type="omnigent", config={"harness": CHILD_HARNESS}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": CHILD_HARNESS}),
     )
     return AgentSpec(
         spec_version=1,
         name=SHADOWED_NAME,
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         sub_agents=[child],
     )
 
@@ -319,7 +319,7 @@ async def test_sub_agent_sharing_the_parent_name_still_swaps_to_the_child(
         server_client=_ShadowedSnapshotServer(),  # type: ignore[arg-type]
     )
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
         async with _runner_client(app) as client:
             turn = await client.post(
                 f"/v1/sessions/{SHADOWED_SESSION_ID}/events",

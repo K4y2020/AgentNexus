@@ -4,9 +4,9 @@
 
 **Goal:** Rework the antigravity-native harness runtime onto agy's connect-RPC surface — structured trajectory-step reads, interaction bridging (questions + approvals), and real interrupt — replacing the JSONL transcript-tail + send-keys-interaction core.
 
-**Architecture:** agy keeps running in a runner-owned tmux terminal (terminal-first UX). A new RPC client (extending `antigravity_native_rpc.py`) drives: read via `GetCascadeTrajectorySteps`/`StreamAgentStateUpdates`, interactions via `HandleCascadeUserInteraction` (surfaced as omnigent elicitations), and interrupt via `CancelCascadeSteps`. A pure step→item mapper replaces `step_to_events`. Turn-send stays on tmux send-keys (pending a confirmed user-turn RPC). The transcript forwarder + durable cursor are retired.
+**Architecture:** agy keeps running in a runner-owned tmux terminal (terminal-first UX). A new RPC client (extending `antigravity_native_rpc.py`) drives: read via `GetCascadeTrajectorySteps`/`StreamAgentStateUpdates`, interactions via `HandleCascadeUserInteraction` (surfaced as agentnexus elicitations), and interrupt via `CancelCascadeSteps`. A pure step→item mapper replaces `step_to_events`. Turn-send stays on tmux send-keys (pending a confirmed user-turn RPC). The transcript forwarder + durable cursor are retired.
 
-**Tech Stack:** Python 3.13+ (uv), httpx (connect-RPC over HTTP/2, JSON), pytest, existing omnigent server elicitation registry + SSE, agy 1.0.10.
+**Tech Stack:** Python 3.13+ (uv), httpx (connect-RPC over HTTP/2, JSON), pytest, existing agentnexus server elicitation registry + SSE, agy 1.0.10.
 
 **Design spec:** `docs/antigravity-native-rpc-core-design.md`. **Verified wire shapes:** memory `agy-rpc-interaction-bridge.md`.
 
@@ -23,14 +23,14 @@
 
 ## File Structure
 
-- `omnigent/antigravity_native_rpc.py` (modify) — add interaction/step/cancel RPC methods alongside the existing discovery helpers.
-- `omnigent/antigravity_native_steps.py` (create) — pure step→item mapper (replaces the mapping half of `step_to_events`) + the `WAITING`-interaction extractor.
-- `omnigent/antigravity_native_reader.py` (create) — read driver: poll/stream trajectory steps → post items; owns dedup + the interaction-bridge loop.
-- `omnigent/antigravity_native_interactions.py` (create) — interaction bridge: detect→elicitation→deliver, with the timeout/re-read loop.
-- `omnigent/server/routes/_antigravity_elicitation.py` (create) — parse an agy `WAITING` interaction → `ElicitationRequestParams`, and map an `ElicitationResult` back to an `interaction` payload (mirrors `_codex_elicitation.py`).
-- `omnigent/inner/antigravity_native_executor.py` (modify) — `interrupt_session` → `CancelCascadeSteps`; (turns unchanged pending Task 1).
-- `omnigent/runner/app.py` (modify) — auto-create the RPC reader instead of (or alongside, during cutover) the transcript forwarder.
-- `omnigent/antigravity_native_forwarder.py` (delete at cutover, Task 12).
+- `agentnexus/antigravity_native_rpc.py` (modify) — add interaction/step/cancel RPC methods alongside the existing discovery helpers.
+- `agentnexus/antigravity_native_steps.py` (create) — pure step→item mapper (replaces the mapping half of `step_to_events`) + the `WAITING`-interaction extractor.
+- `agentnexus/antigravity_native_reader.py` (create) — read driver: poll/stream trajectory steps → post items; owns dedup + the interaction-bridge loop.
+- `agentnexus/antigravity_native_interactions.py` (create) — interaction bridge: detect→elicitation→deliver, with the timeout/re-read loop.
+- `agentnexus/server/routes/_antigravity_elicitation.py` (create) — parse an agy `WAITING` interaction → `ElicitationRequestParams`, and map an `ElicitationResult` back to an `interaction` payload (mirrors `_codex_elicitation.py`).
+- `agentnexus/inner/antigravity_native_executor.py` (modify) — `interrupt_session` → `CancelCascadeSteps`; (turns unchanged pending Task 1).
+- `agentnexus/runner/app.py` (modify) — auto-create the RPC reader instead of (or alongside, during cutover) the transcript forwarder.
+- `agentnexus/antigravity_native_forwarder.py` (delete at cutover, Task 12).
 - Tests mirror each module under `tests/`.
 
 ---
@@ -44,7 +44,7 @@
 **Interfaces:**
 - Produces: the recorded step fixtures (one per agy step type) consumed by Tasks 4–5; decisions for Tasks 2 (turn-send), 6 (poll-vs-stream).
 
-- [ ] **Step 1:** Stand up a live agy on the running omnigent (`:6767`, HOST_ID `host_1b3116a52bf74d668d3179652c54cdc7`, `HOME=/Users/bryanli`) per memory `agy-rpc-interaction-bridge.md`; discover the RPC port via `discover_language_server_port`.
+- [ ] **Step 1:** Stand up a live agy on the running agentnexus (`:6767`, HOST_ID `host_1b3116a52bf74d668d3179652c54cdc7`, `HOME=/Users/bryanli`) per memory `agy-rpc-interaction-bridge.md`; discover the RPC port via `discover_language_server_port`.
 - [ ] **Step 2:** Drive turns/tools/questions to exercise each step type; save each distinct `GetCascadeTrajectorySteps` step (USER_INPUT, PLANNER_RESPONSE w/ text, PLANNER_RESPONSE w/ tool_calls incl. `ask_question`, RUN_COMMAND WAITING + DONE, other MODEL/result steps, status edges) as a fixture JSON.
 - [ ] **Step 3:** Determine turn-send: check for a user-turn RPC (e.g. a queued-user-input / `SendAllQueuedMessages` path) that records as `USER_INPUT` (not `SYSTEM_MESSAGE`). Record verdict: RPC turn-send viable, or keep tmux send-keys.
 - [ ] **Step 4:** Determine read-mode: exercise `StreamAgentStateUpdates {conversationId}` (connect server-stream framing) vs `GetCascadeTrajectorySteps` polling; record latency + reliability; pick the default (likely stream + poll fallback).
@@ -55,7 +55,7 @@
 ### Task 2: RPC client — trajectory steps + cancel (unary)
 
 **Files:**
-- Modify: `omnigent/antigravity_native_rpc.py`
+- Modify: `agentnexus/antigravity_native_rpc.py`
 - Test: `tests/test_antigravity_native_rpc.py`
 
 **Interfaces:**
@@ -89,7 +89,7 @@ def test_cancel_cascade_steps_true_on_200(monkeypatch):
 
 ### Task 3: RPC client — `handle_user_interaction` (unary)
 
-**Files:** Modify `omnigent/antigravity_native_rpc.py`; Test `tests/test_antigravity_native_rpc.py`
+**Files:** Modify `agentnexus/antigravity_native_rpc.py`; Test `tests/test_antigravity_native_rpc.py`
 
 **Interfaces:**
 - Produces: `handle_user_interaction(port:int, cascade_id:str, *, trajectory_id:str, step_index:int, payload:dict) -> None` (raises `AntigravityRpcError` on non-200, carrying the body so callers can detect the overloaded `"input not registered"`). `payload` is the variant dict, e.g. `{"askQuestion": {...}}` or `{"permission": {"allow": True}}`.
@@ -124,7 +124,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 4: Step→item mapper — assistant text, tool calls, results, status
 
-**Files:** Create `omnigent/antigravity_native_steps.py`; Test `tests/test_antigravity_native_steps.py`
+**Files:** Create `agentnexus/antigravity_native_steps.py`; Test `tests/test_antigravity_native_steps.py`
 
 **Interfaces:**
 - Consumes: Task 1 step fixtures.
@@ -140,7 +140,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 5: Mapper — `WAITING` interaction extractor
 
-**Files:** Modify `omnigent/antigravity_native_steps.py`; Test `tests/test_antigravity_native_steps.py`
+**Files:** Modify `agentnexus/antigravity_native_steps.py`; Test `tests/test_antigravity_native_steps.py`
 
 **Interfaces:**
 - Produces: `pending_interaction(step:dict) -> PendingInteraction | None` where `PendingInteraction` = `{kind: "ask_question"|"permission", trajectory_id, step_index, spec: dict}` (spec = the `askQuestion`/`permission` block + `runCommand`/question text). Returns `None` unless `status == CORTEX_STEP_STATUS_WAITING`.
@@ -153,7 +153,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 6: Read driver — poll/stream steps → post items
 
-**Files:** Create `omnigent/antigravity_native_reader.py`; Test `tests/test_antigravity_native_reader.py`
+**Files:** Create `agentnexus/antigravity_native_reader.py`; Test `tests/test_antigravity_native_reader.py`
 
 **Interfaces:**
 - Consumes: `get_trajectory_steps` (Task 2), `map_step_to_events` (Task 4), `pending_interaction` (Task 5), `_native_post_delivery.post_session_event_with_retry`.
@@ -167,7 +167,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 7: Server — agy elicitation adapter
 
-**Files:** Create `omnigent/server/routes/_antigravity_elicitation.py`; Test `tests/server/test_antigravity_elicitation.py`
+**Files:** Create `agentnexus/server/routes/_antigravity_elicitation.py`; Test `tests/server/test_antigravity_elicitation.py`
 
 **Interfaces:**
 - Produces: `to_elicitation_params(pending:dict) -> ElicitationRequestParams` (ask_question → form with the options; permission → accept/decline with the command preview); `to_interaction_payload(kind:str, result:ElicitationResult, spec:dict) -> dict` (form/accept → `{"askQuestion": {"responses": [...]}}` or `{"permission": {"allow": True}}`; decline/cancel → `{"permission": {"allow": False}}`). Mirrors `_codex_elicitation.py`.
@@ -180,7 +180,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 8: Interaction bridge — detect → elicit → deliver (timeout loop)
 
-**Files:** Create `omnigent/antigravity_native_interactions.py`; Test `tests/test_antigravity_native_interactions.py`
+**Files:** Create `agentnexus/antigravity_native_interactions.py`; Test `tests/test_antigravity_native_interactions.py`
 
 **Interfaces:**
 - Consumes: `pending_interaction` (Task 5), `handle_user_interaction` (Task 3), the elicitation adapter (Task 7), the server hook/registry (`_publish_and_wait_for_harness_elicitation` via a new `POST /v1/sessions/{id}/hooks/antigravity-elicitation-request`, mirroring codex).
@@ -194,7 +194,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 9: Server — antigravity elicitation hook endpoint
 
-**Files:** Modify `omnigent/server/routes/sessions.py`; Test `tests/server/test_app.py`
+**Files:** Modify `agentnexus/server/routes/sessions.py`; Test `tests/server/test_app.py`
 
 **Interfaces:**
 - Consumes: Task 7 adapter, `_publish_and_wait_for_harness_elicitation`.
@@ -207,7 +207,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 10: Executor — real interrupt via `CancelCascadeSteps`
 
-**Files:** Modify `omnigent/inner/antigravity_native_executor.py`; Test `tests/inner/test_antigravity_native_executor.py`
+**Files:** Modify `agentnexus/inner/antigravity_native_executor.py`; Test `tests/inner/test_antigravity_native_executor.py`
 
 **Interfaces:**
 - Consumes: `cancel_cascade_steps` (Task 2), port discovery, bridge state (cascade id).
@@ -221,7 +221,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 11: Runner — auto-create the RPC reader
 
-**Files:** Modify `omnigent/runner/app.py`; Test `tests/runtime/.../test_*`
+**Files:** Modify `agentnexus/runner/app.py`; Test `tests/runtime/.../test_*`
 
 **Interfaces:**
 - Consumes: `supervise_reader` (Task 6) + the interaction bridge (Task 8).
@@ -235,7 +235,7 @@ def test_handle_user_interaction_raises_on_500(monkeypatch):
 
 ### Task 12: Cutover — retire the transcript forwarder + durable cursor
 
-**Files:** Delete `omnigent/antigravity_native_forwarder.py`; Modify `omnigent/antigravity_native_bridge.py` (drop `forwarded_steps`/cursor), `omnigent/inner/antigravity_native_executor.py` (drop send-keys-only-for-interactions notes), references; relocate `OutboundEvent`/`_ToolCallIdAllocator` into `antigravity_native_steps.py`; delete `tests/test_antigravity_native_forwarder.py`.
+**Files:** Delete `agentnexus/antigravity_native_forwarder.py`; Modify `agentnexus/antigravity_native_bridge.py` (drop `forwarded_steps`/cursor), `agentnexus/inner/antigravity_native_executor.py` (drop send-keys-only-for-interactions notes), references; relocate `OutboundEvent`/`_ToolCallIdAllocator` into `antigravity_native_steps.py`; delete `tests/test_antigravity_native_forwarder.py`.
 
 **Interfaces:** None new — removes dead code once the reader path is green.
 

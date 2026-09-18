@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.spec.types import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.spec.types import (
     AgentSpec,
     BuiltinToolConfig,
     LLMConfig,
@@ -24,10 +24,10 @@ from omnigent.spec.types import (
     ToolRuntime,
     ToolsConfig,
 )
-from omnigent.tools import ToolManager
-from omnigent.tools.base import ToolContext
-from omnigent.tools.client_specified import ClientSideTool, ClientSideToolSpec
-from omnigent.tools.mcp import clear_discovery_cache
+from agentnexus.tools import ToolManager
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.client_specified import ClientSideTool, ClientSideToolSpec
+from agentnexus.tools.mcp import clear_discovery_cache
 
 _TEST_CTX = ToolContext(task_id="task_test", agent_id="agent_test")
 
@@ -79,7 +79,7 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset(
         # Scheduled-task management tools are always auto-registered
         # so agents can create, list, update, and delete recurring
         # runs without spec opt-in. They are runner-dispatched via
-        # the Omnigent server's REST API.
+        # the AgentNexus server's REST API.
         "sys_scheduled_task_create",
         "sys_scheduled_task_list",
         "sys_scheduled_task_update",
@@ -367,7 +367,7 @@ def test_schemas_isolate_a_failing_tool(
 
     mgr._tools["boom"] = _BoomTool()  # type: ignore[assignment]
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.tools.manager"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.tools.manager"):
         schemas = mgr.get_tool_schemas()
 
     names = {s["function"]["name"] for s in schemas}
@@ -406,7 +406,7 @@ def test_client_schemas_isolate_a_failing_tool(
 
     mgr._tools["boom"] = _BoomClientTool(ClientSideToolSpec(name="boom", schema={}))
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.tools.manager"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.tools.manager"):
         schemas = mgr.get_client_tool_schemas()
 
     names = {s["function"]["name"] for s in schemas}
@@ -560,7 +560,7 @@ def _spawn_spec() -> AgentSpec:
 def test_advise_models_hidden_when_routing_disabled() -> None:
     """sys_advise_models must not appear when no router is configured."""
     caps = _FakeRoutingCaps(routing_client=None)
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         names = {s["function"]["name"] for s in ToolManager(_spawn_spec()).get_tool_schemas()}
     assert "sys_list_models" in names
     assert "sys_advise_models" not in names
@@ -572,13 +572,13 @@ def test_advise_models_exposed_from_a_backends_only_deployment() -> None:
     A deployment that configures only ``routing_backends`` routes, so hiding the
     tool there would advertise routing-off while the server routes anyway.
     """
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     caps = SimpleNamespace(
         routing_client=None,
         routing_backends=RoutingBackends(local=cast("Any", object())),
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         names = {s["function"]["name"] for s in ToolManager(_spawn_spec()).get_tool_schemas()}
     assert "sys_advise_models" in names
 
@@ -586,7 +586,7 @@ def test_advise_models_exposed_from_a_backends_only_deployment() -> None:
 def test_advise_models_exposed_when_routing_enabled() -> None:
     """sys_advise_models is advertised alongside send when routing is configured."""
     caps = _FakeRoutingCaps(routing_client=object())
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         names = {s["function"]["name"] for s in ToolManager(_spawn_spec()).get_tool_schemas()}
     assert "sys_list_models" in names
     assert "sys_advise_models" in names
@@ -760,7 +760,7 @@ def test_shutdown_skips_pre_resolved_os_env() -> None:
 
 def test_shutdown_calls_tool_shutdown() -> None:
     """``shutdown()`` calls ``shutdown()`` on every registered tool."""
-    from omnigent.tools.base import Tool
+    from agentnexus.tools.base import Tool
 
     class _TrackingTool(Tool):
         shut_down = False
@@ -908,7 +908,7 @@ def test_client_tool_shadows_skill_tool(
     )
 
     # The registered tool is the client's ClientSideTool, not LoadSkillTool
-    from omnigent.tools.client_specified import ClientSideTool
+    from agentnexus.tools.client_specified import ClientSideTool
 
     assert isinstance(mgr._tools["load_skill"], ClientSideTool), (
         "Expected ClientSideTool after client override, "
@@ -1160,10 +1160,10 @@ def test_client_tool_invalid_name_raises(
 ) -> None:
     """
     Client-specified tools with invalid names raise
-    ``OmnigentError`` at registration time.
+    ``AgentNexusError`` at registration time.
     """
     spec = _make_spec()
-    with pytest.raises(OmnigentError, match="Invalid client tool name"):
+    with pytest.raises(AgentNexusError, match="Invalid client tool name"):
         ToolManager(
             spec,
             client_tool_specs=[_make_client_side_spec(name)],
@@ -1191,7 +1191,7 @@ def _write_local_tool(
     py_dir.mkdir(parents=True, exist_ok=True)
     code = (
         '"""Test tool."""\n'
-        "from omnigent_client import tool\n"
+        "from agentnexus_client import tool\n"
         "\n"
         "\n"
         "@tool\n"
@@ -1300,7 +1300,7 @@ def test_web_search_does_not_emit_web_search_preview_for_claude_sdk_harness() ->
     the model name (e.g. ``claude-opus-4-8``) has no provider prefix (which
     would otherwise default to OpenAI).
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     spec = AgentSpec(
         spec_version=1,
@@ -1323,13 +1323,13 @@ def test_web_search_does_not_emit_web_search_preview_for_omnigent_claude_sdk_har
     When the agent's executor is ``omnigent`` with ``harness: claude-sdk``,
     the ``web_search`` builtin must NOT emit ``{"type": "web_search_preview"}``.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     spec = AgentSpec(
         spec_version=1,
         llm=LLMConfig(model="claude-opus-4-8"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             model="claude-opus-4-8",
             config={"harness": "claude-sdk"},
         ),
@@ -1349,7 +1349,7 @@ def test_web_search_emits_web_search_preview_for_openai_agents_harness() -> None
     ``web_search_preview`` passthrough (the OpenAI Responses API executes
     the search server-side).
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     spec = AgentSpec(
         spec_version=1,
@@ -1369,7 +1369,7 @@ def test_web_search_emits_web_search_preview_for_openai_agents_harness() -> None
 
 def test_read_skill_file_registered_for_root_level_resources(tmp_path: Path) -> None:
     """A skill whose only extra files sit beside SKILL.md still gets the tool."""
-    from omnigent.tools.builtins import any_skill_has_resources
+    from agentnexus.tools.builtins import any_skill_has_resources
 
     skill_dir = tmp_path / "codebase-design"
     skill_dir.mkdir()

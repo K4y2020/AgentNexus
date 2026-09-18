@@ -12,8 +12,8 @@ from typing import Any
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE
-from omnigent.onboarding.sandboxes.openshell import (
+from agentnexus.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE
+from agentnexus.onboarding.sandboxes.openshell import (
     HOST_IMAGE_ENV_VAR,
     SANDBOX_ENV_PASSTHROUGH_ENV_VAR,
     WORKSPACE_ENV_VAR,
@@ -231,7 +231,7 @@ def test_run_background_uses_exec_background(monkeypatch: pytest.MonkeyPatch) ->
     [(name, command)] = fake.background_calls
     assert name == "sb-1"
     assert command[:2] == ["bash", "-lc"]
-    assert "omnigent host --server https://s" in command[2]
+    assert "agentnexus host --server https://s" in command[2]
     assert ">> /tmp/host.log 2>&1 < /dev/null" in command[2]
     assert fake.exec_calls == []
 
@@ -306,7 +306,7 @@ def test_exec_foreground_returns_exit_code(monkeypatch: pytest.MonkeyPatch) -> N
     launcher = OpenShellSandboxLauncher()
     monkeypatch.setattr(launcher, "_openshell", lambda: fake)
 
-    rc = launcher.exec_foreground("sb-1", "omnigent host --server https://s")
+    rc = launcher.exec_foreground("sb-1", "agentnexus host --server https://s")
 
     assert rc == 0
     [(name, command)] = fake.foreground_calls
@@ -331,7 +331,7 @@ def test_exec_foreground_ctrl_c_kills_remote(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(launcher, "_openshell", lambda: fake)
 
     with pytest.raises(KeyboardInterrupt):
-        launcher.exec_foreground("sb-1", "omnigent host --server https://s")
+        launcher.exec_foreground("sb-1", "agentnexus host --server https://s")
 
     # The interrupt handler signals only a numeric pid read back from the
     # private pidfile, then drops the dir.
@@ -586,7 +586,7 @@ def test_client_connect_error_raises(sdk: _SDKState) -> None:
 
 
 def test_launcher_workspace_from_env(sdk: _SDKState, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Workspace resolves from ``OMNIGENT_OPENSHELL_WORKSPACE`` when not explicit."""
+    """Workspace resolves from ``AGENTNEXUS_OPENSHELL_WORKSPACE`` when not explicit."""
     monkeypatch.setenv(WORKSPACE_ENV_VAR, "team-alpha")
     launcher = OpenShellSandboxLauncher()
     assert launcher._workspace == "team-alpha"

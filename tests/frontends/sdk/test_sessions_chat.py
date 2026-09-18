@@ -32,16 +32,16 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from omnigent_client._query import QueryResult, QueryStream
-from omnigent_client._sessions import Session, SessionsNamespace
-from omnigent_client._sessions_chat import (
+from agentnexus_client._query import QueryResult, QueryStream
+from agentnexus_client._sessions import Session, SessionsNamespace
+from agentnexus_client._sessions_chat import (
     SessionsChat,
     SessionToolCallInfo,
 )
-from omnigent_client._tool_handler import StreamHooks
-from omnigent_client._types import File
+from agentnexus_client._tool_handler import StreamHooks
+from agentnexus_client._types import File
 
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     CompletedEvent,
     CreatedEvent,
     ElicitationRequestEvent,
@@ -707,12 +707,12 @@ async def test_send_raises_on_failed_status_with_error_message() -> None:
     LLM stream starts, so no ``response.failed`` / ``FailedEvent`` is ever
     emitted — the only terminal signal is ``session.status: failed``
     carrying the error. ``send()`` must treat that as terminal and raise
-    :class:`OmnigentError` with the carried message, instead of
+    :class:`AgentNexusError` with the carried message, instead of
     blocking until the stream closes and returning empty text.
     """
-    from omnigent_client._errors import OmnigentError
+    from agentnexus_client._errors import AgentNexusError
 
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.server.schemas import ErrorDetail
 
     session = _make_session()
     failed = SessionStatusEvent(
@@ -736,7 +736,7 @@ async def test_send_raises_on_failed_status_with_error_message() -> None:
         session=session,
     )
 
-    with pytest.raises(OmnigentError) as excinfo:
+    with pytest.raises(AgentNexusError) as excinfo:
         async for _ in chat.send("hi"):
             pass
 
@@ -757,7 +757,7 @@ async def test_send_raises_generic_on_failed_status_without_error() -> None:
     hangs) with a non-empty fallback message rather than crashing on the
     missing field.
     """
-    from omnigent_client._errors import OmnigentError
+    from agentnexus_client._errors import AgentNexusError
 
     session = _make_session()
     failed = SessionStatusEvent(
@@ -778,7 +778,7 @@ async def test_send_raises_generic_on_failed_status_without_error() -> None:
         session=session,
     )
 
-    with pytest.raises(OmnigentError) as excinfo:
+    with pytest.raises(AgentNexusError) as excinfo:
         async for _ in chat.send("hi"):
             pass
 

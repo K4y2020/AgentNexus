@@ -25,7 +25,7 @@ def test_app_provider_resolves_installation_and_mints_token() -> None:
     provider = GitHubAppTokenProvider(
         " client-id ",
         " private-key\n",
-        "omnigent-ai/omnigent",
+        "agentnexus-ai/omnigent",
         transport=transport,
         clock=lambda: datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
         signer=signer,
@@ -57,7 +57,7 @@ def test_app_provider_resolves_installation_and_mints_token() -> None:
 def test_static_token_auth_strips_secret_whitespace() -> None:
     token = resolve_github_token(
         "token",
-        "omnigent-ai/omnigent",
+        "agentnexus-ai/omnigent",
         lambda key: " pat-token\n",
         "github-token",
         "github-app-client-id",
@@ -77,7 +77,7 @@ def test_app_auth_falls_back_to_static_token() -> None:
 
     token = resolve_github_token(
         "app",
-        "omnigent-ai/omnigent",
+        "agentnexus-ai/omnigent",
         secrets.__getitem__,
         "github-token",
         "github-app-client-id",
@@ -96,7 +96,7 @@ def test_app_auth_requires_app_credentials_or_fallback() -> None:
     with pytest.raises(RuntimeError, match="PAT fallback is unavailable"):
         resolve_github_token(
             "app",
-            "omnigent-ai/omnigent",
+            "agentnexus-ai/omnigent",
             missing_secret,
             "github-token",
             "github-app-client-id",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 
 # Files are always listed per session, so pagination/ordering tests
 # scope their fixtures to a single session id.

@@ -43,18 +43,18 @@ from tests.e2e._run_with_group_timeout import run_with_group_timeout
 # editing the YAML in-tree.
 #
 # Usage — mode 2 (profile-based):
-#   OMNIGENT_E2E_MCP_PROFILE=<your-profile> pytest ...
+#   AGENTNEXUS_E2E_MCP_PROFILE=<your-profile> pytest ...
 #
 # Usage — mode 1 (direct PAT, no profile needed):
-#   OMNIGENT_E2E_MCP_HOST=https://... \
-#   OMNIGENT_E2E_MCP_TOKEN=dapi... \
+#   AGENTNEXUS_E2E_MCP_HOST=https://... \
+#   AGENTNEXUS_E2E_MCP_TOKEN=dapi... \
 #   pytest ...
 #
 # When none of the three vars are set, tests fall back to
 # structural validation (spec + AgentDef translation).
-ENV_MCP_PROFILE = "OMNIGENT_E2E_MCP_PROFILE"
-ENV_MCP_HOST = "OMNIGENT_E2E_MCP_HOST"
-ENV_MCP_TOKEN = "OMNIGENT_E2E_MCP_TOKEN"
+ENV_MCP_PROFILE = "AGENTNEXUS_E2E_MCP_PROFILE"
+ENV_MCP_HOST = "AGENTNEXUS_E2E_MCP_HOST"
+ENV_MCP_TOKEN = "AGENTNEXUS_E2E_MCP_TOKEN"
 
 # Default low-effort prompt used by examples whose purpose is to
 # demonstrate a feature but not run heavy tool logic on every call.
@@ -208,7 +208,7 @@ def run_one_shot_at_path(
     argv: list[str] = [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "-p",
@@ -286,7 +286,7 @@ def validate_agent_def_structure(
 import json
 import sys
 sys.path.insert(0, {str(omnigent_repo_root)!r})
-from omnigent.inner.loader import load_agent_def_from_path
+from agentnexus.inner.loader import load_agent_def_from_path
 
 agent_def = load_agent_def_from_path({str(yaml_path)!r})
 assert agent_def is not None, "load returned None"
@@ -448,9 +448,9 @@ def mcp_auth_override() -> McpAuthOverride:
     """
     Read MCP subprocess auth override from env vars.
 
-    If ``OMNIGENT_E2E_MCP_PROFILE`` is set, returns a
-    profile-based override. Else if BOTH ``OMNIGENT_E2E_MCP_HOST``
-    and ``OMNIGENT_E2E_MCP_TOKEN`` are set, returns a PAT-based
+    If ``AGENTNEXUS_E2E_MCP_PROFILE`` is set, returns a
+    profile-based override. Else if BOTH ``AGENTNEXUS_E2E_MCP_HOST``
+    and ``AGENTNEXUS_E2E_MCP_TOKEN`` are set, returns a PAT-based
     override. Otherwise returns an empty override (caller falls
     back to structural validation).
 
@@ -505,7 +505,7 @@ def _rewrite_args_list(args: list[object], override: McpAuthOverride) -> int:
     :returns: 1 if this list was an MCP-subprocess args list, else 0.
     """
     if not any(
-        isinstance(x, str) and x.startswith("omnigent.inner.databricks_mcps.") for x in args
+        isinstance(x, str) and x.startswith("agentnexus.inner.databricks_mcps.") for x in args
     ):
         return 0
 

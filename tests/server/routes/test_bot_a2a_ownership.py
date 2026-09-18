@@ -8,10 +8,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.coordination.store import CoordinationStore
-from omnigent.server.routes.coordination import router
-from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.server.routes.coordination import router
+from agentnexus.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 def _id(seed: str) -> str:

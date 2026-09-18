@@ -1,0 +1,1 @@
+import{r as e,t}from"./bundle-mjs-rHxsej31.js";var n=t({extend:{classGroups:{"font-size":[`text-ui`]}}});function r(...t){return n(e(t))}export{r as t};

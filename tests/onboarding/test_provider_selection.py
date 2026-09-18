@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from click import ClickException
 
-from omnigent.onboarding.provider_selection import (
+from agentnexus.onboarding.provider_selection import (
     ProviderSelection,
     resolve_provider_from_model,
 )
@@ -36,9 +36,9 @@ def test_resolve_reads_api_key_from_env(
 def test_resolve_reads_api_key_from_omnigent_prefixed_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Non-interactive provider selection accepts ``OMNIGENT_`` key aliases."""
+    """Non-interactive provider selection accepts ``AGENTNEXUS_`` key aliases."""
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setenv("OMNIGENT_ANTHROPIC_API_KEY", "sk-prefixed")
+    monkeypatch.setenv("AGENTNEXUS_ANTHROPIC_API_KEY", "sk-prefixed")
 
     selection = resolve_provider_from_model("anthropic/claude-sonnet-4-20250514")
 

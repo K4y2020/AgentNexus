@@ -44,7 +44,7 @@ import httpx
 import pytest
 import yaml
 
-from omnigent.process_logging import PROCESS_LOG_FILE_ENV_VAR
+from agentnexus.process_logging import PROCESS_LOG_FILE_ENV_VAR
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests.e2e.test_host_e2e import _wait_for_host_online
 
@@ -121,7 +121,7 @@ def test_host_daemon_idle_cpu_with_expensive_path(
     """
     inflated_path, path_root = _make_expensive_path()
 
-    omni_dir = tmp_path / ".omnigent"
+    omni_dir = tmp_path / ".agentnexus"
     omni_dir.mkdir(parents=True)
     host_id = uuid.uuid4().hex
     (omni_dir / "config.yaml").write_text(
@@ -142,7 +142,7 @@ def test_host_daemon_idle_cpu_with_expensive_path(
     )
     with open(daemon_log, "w") as log_fh:
         proc = subprocess.Popen(
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=env,
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,

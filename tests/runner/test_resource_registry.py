@@ -11,11 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.entities import DEFAULT_ENVIRONMENT_ID
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
-from omnigent.inner.os_env import EditEntry, OpResult, OSEnvironment
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.runner.resource_registry import (
+from agentnexus.entities import DEFAULT_ENVIRONMENT_ID
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
+from agentnexus.inner.os_env import EditEntry, OpResult, OSEnvironment
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.runner.resource_registry import (
     _TERMINAL_EXIT_OUTPUT_MAX_CHARS,
     CLAUDE_NATIVE_TERMINAL_ROLE,
     CODEX_NATIVE_TERMINAL_ROLE,
@@ -27,7 +27,7 @@ from omnigent.runner.resource_registry import (
     _terminal_exit_diagnostics,
     _trim_terminal_exit_output,
 )
-from omnigent.terminals import TerminalRegistry
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.helpers import make_test_terminal_instance
 
 
@@ -236,7 +236,7 @@ async def test_terminal_resource_role_moves_on_transfer(
     """
     Private terminal role markers follow terminal transfer.
 
-    Native Codex can rotate ownership between Omnigent sessions. If the role stays
+    Native Codex can rotate ownership between AgentNexus sessions. If the role stays
     on the old session id, a warm reattach to the new session would look like
     a generic terminal and be replaced incorrectly.
 
@@ -979,7 +979,7 @@ def test_resolve_environment_creates_primary_lazily(
     tmp_path: Path,
 ) -> None:
     """resolve_environment lazily creates the primary OSEnvironment."""
-    os.environ["OMNIGENT_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
+    os.environ["AGENTNEXUS_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
     try:
         reg = SessionResourceRegistry()
         assert not reg.has_primary_env("conv_1")
@@ -992,7 +992,7 @@ def test_resolve_environment_creates_primary_lazily(
         env2 = reg.resolve_environment("conv_1", DEFAULT_ENVIRONMENT_ID, agent_spec)
         assert env2 is env
     finally:
-        os.environ.pop("OMNIGENT_RUNNER_OS_ENV_ROOT", None)
+        os.environ.pop("AGENTNEXUS_RUNNER_OS_ENV_ROOT", None)
 
 
 def test_resolve_environment_default_pins_none_sandbox_when_no_agent_spec(
@@ -1016,10 +1016,10 @@ def test_resolve_environment_default_pins_none_sandbox_when_no_agent_spec(
     :returns: None.
     """
     monkeypatch.setattr(
-        "omnigent.inner.sandbox.shutil.which",
+        "agentnexus.inner.sandbox.shutil.which",
         lambda name: "/usr/bin/bwrap",
     )
-    monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", str(tmp_path))
 
     reg = SessionResourceRegistry()
 
@@ -1035,7 +1035,7 @@ def test_resolve_environment_uses_agent_spec_os_env(
     tmp_path: Path,
 ) -> None:
     """resolve_environment uses agent_spec.os_env when available."""
-    os.environ["OMNIGENT_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
+    os.environ["AGENTNEXUS_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
     try:
         reg = SessionResourceRegistry()
 
@@ -1055,7 +1055,7 @@ def test_resolve_environment_uses_agent_spec_os_env(
         assert env is not None
         assert str(env.cwd).endswith("custom-cwd")
     finally:
-        os.environ.pop("OMNIGENT_RUNNER_OS_ENV_ROOT", None)
+        os.environ.pop("AGENTNEXUS_RUNNER_OS_ENV_ROOT", None)
 
 
 def test_resolve_environment_raises_for_unknown_env_id() -> None:
@@ -1095,7 +1095,7 @@ async def test_cleanup_session_closes_primary_env(
     tmp_path: Path,
 ) -> None:
     """cleanup_session closes the primary env and cleans terminals."""
-    os.environ["OMNIGENT_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
+    os.environ["AGENTNEXUS_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
     try:
         reg = SessionResourceRegistry()
         reg.resolve_environment(
@@ -1108,7 +1108,7 @@ async def test_cleanup_session_closes_primary_env(
         await reg.cleanup_session("conv_1")
         assert not reg.has_primary_env("conv_1")
     finally:
-        os.environ.pop("OMNIGENT_RUNNER_OS_ENV_ROOT", None)
+        os.environ.pop("AGENTNEXUS_RUNNER_OS_ENV_ROOT", None)
 
 
 # ── Phase 4: cleanup endpoint tests ─────────────────────────────
@@ -1121,9 +1121,9 @@ async def test_cleanup_endpoint_returns_confirmation(
     """DELETE /v1/sessions/{id}/resources returns cleanup confirmation."""
     import httpx
 
-    from omnigent.runner import create_runner_app
+    from agentnexus.runner import create_runner_app
 
-    os.environ["OMNIGENT_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
+    os.environ["AGENTNEXUS_RUNNER_OS_ENV_ROOT"] = str(tmp_path)
     try:
         reg = SessionResourceRegistry()
         reg.resolve_environment(
@@ -1151,7 +1151,7 @@ async def test_cleanup_endpoint_returns_confirmation(
         assert body["cleaned"] is True
         assert not reg.has_primary_env("conv_cleanup")
     finally:
-        os.environ.pop("OMNIGENT_RUNNER_OS_ENV_ROOT", None)
+        os.environ.pop("AGENTNEXUS_RUNNER_OS_ENV_ROOT", None)
 
 
 @pytest.mark.asyncio
@@ -1159,7 +1159,7 @@ async def test_cleanup_idempotent_for_unknown_session() -> None:
     """DELETE /v1/sessions/{id}/resources is safe for unknown sessions."""
     import httpx
 
-    from omnigent.runner import create_runner_app
+    from agentnexus.runner import create_runner_app
     from tests.runner.helpers import NullServerClient
 
     reg = SessionResourceRegistry()
@@ -1267,7 +1267,7 @@ def test_compute_default_env_root_runner_workspace_overrides_relative_cwd(
     cwd (``"."``), the runner workspace wins.
 
     This is the common case for CLI-launched sessions: the user's
-    terminal cwd flows through ``OMNIGENT_RUNNER_WORKSPACE`` and
+    terminal cwd flows through ``AGENTNEXUS_RUNNER_WORKSPACE`` and
     the agent's relative cwd resolves against it.
     """
     workspace = tmp_path / "user-project"
@@ -1519,7 +1519,7 @@ def test_sanitize_session_id_keeps_traversal_out_of_the_workspace_path(
     The unit test above pins the component; this pins the property callers
     actually depend on — that the joined path stays under the root.
     """
-    monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", str(tmp_path))
 
     resolved = Path(_session_workspace("../../../../etc")).resolve()
 

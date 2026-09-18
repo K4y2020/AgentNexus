@@ -19,8 +19,8 @@ dependency wires that policy into an HTTP route:
   already sends the sentinel ``Origin`` and so is unaffected;
 - it sources ``local_mode`` from ``local_single_user_enabled()`` and
   ``extra_allowed`` from ``parse_allowed_origins()`` (the env wiring) —
-  proven by flipping ``OMNIGENT_LOCAL_SINGLE_USER`` /
-  ``OMNIGENT_WS_ALLOWED_ORIGINS`` and watching the same Origin change verdict;
+  proven by flipping ``AGENTNEXUS_LOCAL_SINGLE_USER`` /
+  ``AGENTNEXUS_WS_ALLOWED_ORIGINS`` and watching the same Origin change verdict;
 - an allowed verdict returns ``None`` (request proceeds);
 - a denied verdict raises ``HTTPException`` with status ``403``.
 
@@ -35,11 +35,11 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
-from omnigent.server.routes._origin import require_trusted_origin
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
+from agentnexus.server.routes._origin import require_trusted_origin
 
-_LOCAL_ENV = "OMNIGENT_LOCAL_SINGLE_USER"
-_ALLOWLIST_ENV = "OMNIGENT_WS_ALLOWED_ORIGINS"
+_LOCAL_ENV = "AGENTNEXUS_LOCAL_SINGLE_USER"
+_ALLOWLIST_ENV = "AGENTNEXUS_WS_ALLOWED_ORIGINS"
 
 # A concrete cross-site origin used as the attacker's page throughout.
 _EVIL_ORIGIN = "https://evil.example.com"
@@ -50,8 +50,8 @@ def _clean_origin_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Start every test from a known origin-env baseline.
 
-    ``require_trusted_origin`` reads ``OMNIGENT_LOCAL_SINGLE_USER`` and
-    ``OMNIGENT_WS_ALLOWED_ORIGINS`` per call (the test suite sets the
+    ``require_trusted_origin`` reads ``AGENTNEXUS_LOCAL_SINGLE_USER`` and
+    ``AGENTNEXUS_WS_ALLOWED_ORIGINS`` per call (the test suite sets the
     former to ``"1"`` globally, and a developer shell may set either), so
     a value inherited from the environment would flip the policy and make
     these tests pass or fail for the wrong reason. Each test sets only
@@ -136,7 +136,7 @@ def test_cross_origin_is_allowed_when_not_local_mode(monkeypatch: pytest.MonkeyP
     the env and hard-coding local-mode strictness — breaking deployed
     multi-user servers whose browser Origin is not loopback.
     """
-    # _clean_origin_env left OMNIGENT_LOCAL_SINGLE_USER unset → non-local.
+    # _clean_origin_env left AGENTNEXUS_LOCAL_SINGLE_USER unset → non-local.
     assert require_trusted_origin(_request_with_origin(_EVIL_ORIGIN)) is None
 
 
@@ -145,19 +145,19 @@ def test_sentinel_origin_is_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
     The first-party sentinel ``Origin`` is allowed, even in local mode.
 
     The project's own non-browser clients may announce
-    ``OMNIGENT_INTERNAL_WS_ORIGIN``; the shared policy always admits it. A
+    ``AGENTNEXUS_INTERNAL_WS_ORIGIN``; the shared policy always admits it. A
     raise here would block first-party traffic that opts to send the
     sentinel.
     """
     monkeypatch.setenv(_LOCAL_ENV, "1")
-    assert require_trusted_origin(_request_with_origin(OMNIGENT_INTERNAL_WS_ORIGIN)) is None
+    assert require_trusted_origin(_request_with_origin(AGENTNEXUS_INTERNAL_WS_ORIGIN)) is None
 
 
 def test_allowlisted_origin_is_allowed_and_unlisted_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``OMNIGENT_WS_ALLOWED_ORIGINS`` wiring: listed passes, unlisted 403s.
+    ``AGENTNEXUS_WS_ALLOWED_ORIGINS`` wiring: listed passes, unlisted 403s.
 
     Proves the dependency sources ``extra_allowed`` from
     ``parse_allowed_origins()``. In non-local mode a configured allowlist

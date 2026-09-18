@@ -1,7 +1,7 @@
 """Tests for the framework-owned current-session rename tool."""
 
-from omnigent.entities import DEFAULT_GENERATED_TITLE_MAX_CHARS
-from omnigent.tools.builtins.session_rename import SysSessionRenameTool
+from agentnexus.entities import DEFAULT_GENERATED_TITLE_MAX_CHARS
+from agentnexus.tools.builtins.session_rename import SysSessionRenameTool
 
 
 def test_session_rename_schema_is_self_scoped() -> None:

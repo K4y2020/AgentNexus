@@ -19,8 +19,8 @@ from typing import ClassVar
 import pytest
 import yaml
 
-from omnigent.host import HOST_FATAL_EXIT_CODE
-from omnigent.onboarding.sandboxes.base import (
+from agentnexus.host import HOST_FATAL_EXIT_CODE
+from agentnexus.onboarding.sandboxes.base import (
     RemoteCommandResult,
     SandboxLauncher,
     render_host_config_write_command,
@@ -68,7 +68,7 @@ def test_run_background_wraps_command_in_sh_c() -> None:
     literally named ``ENV=val`` ("No such file or directory") — re-parsing under
     ``sh -c`` lets the inner shell apply the assignment before running ``cmd``.
     Regression: managed Daytona/Modal hosts never came online because the
-    in-sandbox ``omnigent host`` launch died on its ``OMNIGENT_HOST_TOKEN=…``
+    in-sandbox ``omnigent host`` launch died on its ``AGENTNEXUS_HOST_TOKEN=…``
     prefix.
     """
     launcher = _RecordingLauncher()
@@ -178,7 +178,7 @@ def _run_supervisor(
 def test_start_host_env_prefix_is_honored_by_a_real_shell() -> None:
     """
     The env-prefixed command ``start_host`` hands to ``run_background`` must
-    apply its ``OMNIGENT_HOST_*`` assignments when re-parsed by a shell — the
+    apply its ``AGENTNEXUS_HOST_*`` assignments when re-parsed by a shell — the
     exact thing the ``sh -c`` wrapper restores. Run the raw command through a
     real ``sh -c`` (the inner shell of the wrapper) with ``omnigent host``
     swapped for a probe that echoes the injected vars; the broken bare-``nohup``
@@ -200,9 +200,9 @@ def test_start_host_env_prefix_is_honored_by_a_real_shell() -> None:
     # simple command would expand in the parent shell, before the temporary
     # assignment takes effect — and print empty).
     probe = raw.replace(
-        "omnigent host --server https://srv",
+        "agentnexus host --server https://srv",
         "sh -c 'printf %s:%s:%s "
-        '"$OMNIGENT_HOST_TOKEN" "$OMNIGENT_HOST_ID" "$OMNIGENT_HOST_NAME"\'',
+        '"$AGENTNEXUS_HOST_TOKEN" "$AGENTNEXUS_HOST_ID" "$AGENTNEXUS_HOST_NAME"\'',
     )
     out = subprocess.run(
         ["sh", "-c", probe], capture_output=True, text=True, check=True
@@ -283,7 +283,7 @@ def test_materialize_workspace_override_resolves_local_checkout_without_cloning(
     assert "git -C /checkouts/repo checkout main" in launcher.commands
     # The host still launched, in the resolved workspace.
     [raw] = launcher.backgrounded
-    assert raw.endswith("omnigent host --server https://srv")
+    assert raw.endswith("agentnexus host --server https://srv")
 
 
 # ── host_config materialization ────────────────────────────
@@ -313,9 +313,9 @@ def _run_write_command(
 ) -> subprocess.CompletedProcess[str]:
     """Run the rendered write command through a real shell + python3."""
     env = {**os.environ, "HOME": str(home)}
-    env.pop("OMNIGENT_CONFIG_HOME", None)
+    env.pop("AGENTNEXUS_CONFIG_HOME", None)
     if config_home is not None:
-        env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+        env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
     if extra_env is not None:
         env.update(extra_env)
     return subprocess.run(
@@ -332,13 +332,13 @@ def _materialize(
 ) -> dict[str, object]:
     """Run the command and return the config from its resolved directory."""
     _run_write_command(command, home, config_home=config_home)
-    config_dir = config_home if config_home is not None else home / ".omnigent"
+    config_dir = config_home if config_home is not None else home / ".agentnexus"
     with open(config_dir / "config.yaml") as f:
         return yaml.safe_load(f)
 
 
 def test_render_host_config_write_command_creates_config_from_scratch(tmp_path: Path) -> None:
-    """A fresh sandbox (no ~/.omnigent at all) gets the injected config verbatim."""
+    """A fresh sandbox (no ~/.agentnexus at all) gets the injected config verbatim."""
     written = _materialize(render_host_config_write_command(_GATEWAY_HOST_CONFIG), tmp_path)
     assert written == _GATEWAY_HOST_CONFIG
 
@@ -346,7 +346,7 @@ def test_render_host_config_write_command_creates_config_from_scratch(tmp_path: 
 def test_render_host_config_write_command_honors_omnigent_config_home(
     tmp_path: Path,
 ) -> None:
-    """The writer uses OMNIGENT_CONFIG_HOME as the config directory itself."""
+    """The writer uses AGENTNEXUS_CONFIG_HOME as the config directory itself."""
     home = tmp_path / "home"
     home.mkdir()
     config_home = tmp_path / "custom-config"
@@ -359,7 +359,7 @@ def test_render_host_config_write_command_honors_omnigent_config_home(
 
     assert written == _GATEWAY_HOST_CONFIG
     assert (config_home / ".injected_host_config.json").exists()
-    assert not (home / ".omnigent").exists()
+    assert not (home / ".agentnexus").exists()
 
 
 def test_render_host_config_write_command_merges_providers_and_replaces_other_keys(
@@ -370,8 +370,8 @@ def test_render_host_config_write_command_merges_providers_and_replaces_other_ke
     provider entries survive, an injected entry of the same name wins
     wholesale, other top-level keys replace, untouched keys persist.
     """
-    (tmp_path / ".omnigent").mkdir()
-    (tmp_path / ".omnigent" / "config.yaml").write_text(
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / "config.yaml").write_text(
         yaml.safe_dump(
             {
                 "providers": {
@@ -423,9 +423,9 @@ def test_materialized_config_routes_pi_to_the_gateway(
     """
     _materialize(render_host_config_write_command(_GATEWAY_HOST_CONFIG), tmp_path)
 
-    from omnigent.onboarding.provider_config import default_provider_for_harness, load_config
+    from agentnexus.onboarding.provider_config import default_provider_for_harness, load_config
 
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / ".agentnexus"))
     entry = default_provider_for_harness(load_config(), "pi")
 
     assert entry is not None
@@ -450,7 +450,7 @@ def test_start_host_writes_host_config_before_launching_the_host() -> None:
     # run_background funnels through run(), so the wrapped host launch is
     # also in `commands` — the write must precede it.
     host_index = next(
-        i for i, cmd in enumerate(launcher.commands) if "omnigent host --server" in cmd
+        i for i, cmd in enumerate(launcher.commands) if "agentnexus host --server" in cmd
     )
     assert write_index < host_index
 
@@ -479,7 +479,7 @@ def test_start_host_without_host_config_writes_nothing() -> None:
 
 
 def _read_marker(home: Path) -> dict[str, object] | None:
-    marker = home / ".omnigent" / ".injected_host_config.json"
+    marker = home / ".agentnexus" / ".injected_host_config.json"
     if not marker.exists():
         return None
     return json.loads(marker.read_text())
@@ -495,8 +495,8 @@ def test_render_host_config_write_command_replaces_previously_injected_entries(
     top-level keys are removed before the current payload merges in;
     user-created entries survive.
     """
-    (tmp_path / ".omnigent").mkdir()
-    (tmp_path / ".omnigent" / "config.yaml").write_text(
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / "config.yaml").write_text(
         yaml.safe_dump({"providers": {"mine": {"kind": "key"}}})
     )
     first = {
@@ -521,8 +521,8 @@ def test_render_host_config_write_command_empty_payload_removes_injected_config(
     tmp_path: Path,
 ) -> None:
     """Removing ``host_config`` from server config cleans up on the next run."""
-    (tmp_path / ".omnigent").mkdir()
-    (tmp_path / ".omnigent" / "config.yaml").write_text(
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / "config.yaml").write_text(
         yaml.safe_dump({"host": {"name": "keep-me"}})
     )
 
@@ -546,7 +546,7 @@ def test_render_host_config_write_command_preserves_user_created_entries(
         "server": "https://injected.example.com",
     }
     _materialize(render_host_config_write_command(injected), tmp_path)
-    config_path = tmp_path / ".omnigent" / "config.yaml"
+    config_path = tmp_path / ".agentnexus" / "config.yaml"
     with open(config_path) as f:
         merged = yaml.safe_load(f)
     merged["providers"]["mine"] = {"kind": "key"}  # user-created, never injected
@@ -576,7 +576,7 @@ def test_render_host_config_write_command_rename_after_user_edit_leaves_no_stale
         ),
         tmp_path,
     )
-    config_path = tmp_path / ".omnigent" / "config.yaml"
+    config_path = tmp_path / ".agentnexus" / "config.yaml"
     with open(config_path) as f:
         edited = yaml.safe_load(f)
     edited["providers"]["gateway_a"]["base_url"] = "http://user-edited"  # user edit
@@ -607,7 +607,7 @@ def test_render_host_config_write_command_interrupted_write_keeps_complete_file(
     first = {"providers": {"gateway_a": {"kind": "gateway"}}}
     second = {"providers": {"gateway_b": {"kind": "gateway"}}}
     _materialize(render_host_config_write_command(first), tmp_path)
-    config_dir = tmp_path / ".omnigent"
+    config_dir = tmp_path / ".agentnexus"
     target = config_dir / target_name
     complete_contents = target.read_bytes()
 
@@ -657,7 +657,7 @@ def test_render_host_config_write_command_empty_payload_without_marker_is_noop(
     """The cleanup run on a sandbox that never saw an injection touches nothing."""
     _run_write_command(render_host_config_write_command({}), tmp_path)
 
-    assert not (tmp_path / ".omnigent" / "config.yaml").exists()
+    assert not (tmp_path / ".agentnexus" / "config.yaml").exists()
     assert _read_marker(tmp_path) is None
 
 
@@ -669,11 +669,11 @@ def test_render_host_config_write_command_corrupt_marker_degrades_to_additive(
     (today's additive behavior) rather than guessing what the server owns,
     and the run repairs the marker for the next cycle.
     """
-    (tmp_path / ".omnigent").mkdir()
-    (tmp_path / ".omnigent" / "config.yaml").write_text(
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / "config.yaml").write_text(
         yaml.safe_dump({"providers": {"gateway_a": {"kind": "gateway"}}})
     )
-    (tmp_path / ".omnigent" / ".injected_host_config.json").write_text("{not json")
+    (tmp_path / ".agentnexus" / ".injected_host_config.json").write_text("{not json")
 
     written = _materialize(render_host_config_write_command(_GATEWAY_HOST_CONFIG), tmp_path)
 
@@ -705,6 +705,6 @@ def test_start_host_without_host_config_runs_cleanup_on_resumable_launcher() -> 
 
     cleanup_index = launcher.commands.index(render_host_config_write_command({}))
     host_index = next(
-        i for i, cmd in enumerate(launcher.commands) if "omnigent host --server" in cmd
+        i for i, cmd in enumerate(launcher.commands) if "agentnexus host --server" in cmd
     )
     assert cleanup_index < host_index

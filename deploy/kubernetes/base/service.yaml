@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: omnigent
+  name: agentnexus
   labels:
-    app: omnigent
+    app: agentnexus
 spec:
   type: ClusterIP
   selector:
-    app: omnigent
+    app: agentnexus
   ports:
     - port: 80
       targetPort: http

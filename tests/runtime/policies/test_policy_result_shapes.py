@@ -12,8 +12,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from omnigent.policies.types import EvaluationContext, PolicyResult
-from omnigent.spec.types import (
+from agentnexus.policies.types import EvaluationContext, PolicyResult
+from agentnexus.spec.types import (
     Phase,
     PolicyAction,
 )

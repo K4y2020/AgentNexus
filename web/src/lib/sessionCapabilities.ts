@@ -18,7 +18,7 @@ const PI_NATIVE_WRAPPER = "pi-native-ui";
 export function supportsEffortControl(
   session: { labels?: Record<string, string | null> | null } | null | undefined,
 ): boolean {
-  const wrapper = session?.labels?.["omnigent.wrapper"];
+  const wrapper = session?.labels?.["agentnexus.wrapper"];
   return (
     wrapper === CLAUDE_NATIVE_WRAPPER ||
     wrapper === CODEX_NATIVE_WRAPPER ||

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner.egress.relay import start_relay
+from agentnexus.inner.egress.relay import start_relay
 
 
 def _pick_free_port() -> int:

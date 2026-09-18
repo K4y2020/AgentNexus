@@ -1,4 +1,4 @@
-"""Fixtures for Omnigent e2e tests (mock LLM).
+"""Fixtures for AgentNexus e2e tests (mock LLM).
 
 All tests use the in-process mock LLM server via :func:`mock_credentials_env`
 and :func:`mock_llm_server_url`. Real-credential fixtures have been removed
@@ -18,7 +18,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-# Root of the Omnigent checkout that ships the ``omnigent``
+# Root of the AgentNexus checkout that ships the ``omnigent``
 # package, the example YAMLs, and (in the main checkout) the
 # ``.venv`` with omnigent + pexpect + openai-agents installed.
 #
@@ -29,7 +29,7 @@ import pytest
 # broke worktrees because a subprocess spawned there would still
 # exec the main-checkout ``omnigent`` (via the editable install),
 # missing any per-worktree edits.
-_OMNIGENT_REPO = Path(__file__).resolve().parents[3]
+_AGENTNEXUS_REPO = Path(__file__).resolve().parents[3]
 
 
 def _resolve_venv_python() -> Path:
@@ -47,7 +47,7 @@ def _resolve_venv_python() -> Path:
     :raises RuntimeError: If no venv python is found up to the
         filesystem root.
     """
-    current = _OMNIGENT_REPO
+    current = _AGENTNEXUS_REPO
     while True:
         candidate = current / ".venv" / "bin" / "python"
         if candidate.is_file():
@@ -56,14 +56,14 @@ def _resolve_venv_python() -> Path:
             # Reached filesystem root without finding a venv.
             raise RuntimeError(
                 f"no .venv/bin/python found walking up from "
-                f"{_OMNIGENT_REPO} — worktrees share the main "
+                f"{_AGENTNEXUS_REPO} — worktrees share the main "
                 f"checkout's venv, so one parent of this path "
                 f"should contain ``.venv``."
             )
         current = current.parent
 
 
-_OMNIGENT_VENV_PYTHON = _resolve_venv_python()
+_AGENTNEXUS_VENV_PYTHON = _resolve_venv_python()
 
 
 @pytest.fixture(scope="session")
@@ -72,43 +72,43 @@ def omnigent_python() -> Path:
     Path to the Python interpreter that has the ``omnigent``
     package + its harness dependencies installed.
 
-    The Omnigent repo ships its own ``.venv`` with
+    The AgentNexus repo ships its own ``.venv`` with
     ``omnigent``, ``pexpect``, ``openai-agents``,
     ``claude-agent-sdk``, etc. pre-installed. Agent-plane's e2e
     tests use that interpreter directly rather than adding
     omnigent as an omnigent dep (omnigent is not
     distributed as a package yet).
 
-    :returns: Absolute path to the Omnigent ``.venv`` Python
+    :returns: Absolute path to the AgentNexus ``.venv`` Python
         interpreter, e.g.
         ``"/path/to/omnigent/.venv/bin/python"``.
     :raises RuntimeError: If the interpreter is not present at
-        the expected path — indicates the Omnigent checkout is
+        the expected path — indicates the AgentNexus checkout is
         missing or its .venv hasn't been created.
     """
-    if not _OMNIGENT_VENV_PYTHON.is_file():
+    if not _AGENTNEXUS_VENV_PYTHON.is_file():
         raise RuntimeError(
-            f"Omnigent venv python not found at {_OMNIGENT_VENV_PYTHON}. "
+            f"AgentNexus venv python not found at {_AGENTNEXUS_VENV_PYTHON}. "
             f"These e2e tests require the sibling checkout at "
-            f"{_OMNIGENT_REPO} with .venv set up."
+            f"{_AGENTNEXUS_REPO} with .venv set up."
         )
-    return _OMNIGENT_VENV_PYTHON
+    return _AGENTNEXUS_VENV_PYTHON
 
 
 @pytest.fixture(scope="session")
 def omnigent_repo_root() -> Path:
     """
-    Root of the Omnigent checkout used as the subprocess cwd.
+    Root of the AgentNexus checkout used as the subprocess cwd.
 
-    Omnigent YAMLs reference example tool modules via dotted
+    AgentNexus YAMLs reference example tool modules via dotted
     paths like ``tests.resources.examples._shared.tool_functions.get_current_time``, so
     the subprocess must run with the repo root on sys.path
     (i.e. as its cwd).
 
-    :returns: Absolute path to the Omnigent repo root, e.g.
+    :returns: Absolute path to the AgentNexus repo root, e.g.
         ``"/path/to/omnigent"``.
     """
-    return _OMNIGENT_REPO
+    return _AGENTNEXUS_REPO
 
 
 @pytest.fixture(scope="session")
@@ -144,16 +144,16 @@ def mock_credentials_env(
         "DATABRICKS_CONFIG_PROFILE",
     ):
         env.pop(stale, None)
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
-    config_home = tmp_path_factory.mktemp("omnigent-mock-e2e-config")
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
+    config_home = tmp_path_factory.mktemp("agentnexus-mock-e2e-config")
     (config_home / "config.yaml").write_text(
         "auth:\n  type: api_key\n",
         encoding="utf-8",
     )
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
-    repo = str(_OMNIGENT_REPO)
-    omnigent_path = str(_OMNIGENT_REPO / "omnigent")
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
+    repo = str(_AGENTNEXUS_REPO)
+    omnigent_path = str(_AGENTNEXUS_REPO / "agentnexus")
     existing_pp = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = os.pathsep.join(p for p in (repo, omnigent_path, existing_pp) if p)
     return env
@@ -193,10 +193,10 @@ def mock_llm_server_url(
     proc = subprocess.Popen(
         [
             sys.executable,
-            str(_OMNIGENT_REPO / "tests" / "server" / "integration" / "mock_llm_server.py"),
+            str(_AGENTNEXUS_REPO / "tests" / "server" / "integration" / "mock_llm_server.py"),
             str(mock_port),
         ],
-        env={**os.environ, "PYTHONPATH": str(_OMNIGENT_REPO)},
+        env={**os.environ, "PYTHONPATH": str(_AGENTNEXUS_REPO)},
         stdout=log_handle,
         stderr=subprocess.STDOUT,
     )

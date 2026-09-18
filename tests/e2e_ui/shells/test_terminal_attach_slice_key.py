@@ -81,7 +81,7 @@ def test_terminal_attach_ws_omits_slice_key_on_unsharded_server(
         page.wait_for_timeout(200)
 
     assert attach_ws_urls, "no terminal-attach WebSocket was opened"
-    assert all("omnigent_slice_key" not in url for url in attach_ws_urls), (
+    assert all("agentnexus_slice_key" not in url for url in attach_ws_urls), (
         "an unsharded standalone server (no host fetcher) must not emit a slice "
         f"key on the terminal-attach WS; saw: {attach_ws_urls!r}"
     )

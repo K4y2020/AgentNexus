@@ -37,17 +37,17 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from omnigent.entities import Conversation, ResolvedAccess, SessionPermission
-from omnigent.errors import OmnigentError
-from omnigent.runtime import _globals, set_runner_client, set_runner_router
-from omnigent.server.auth import (
+from agentnexus.entities import Conversation, ResolvedAccess, SessionPermission
+from agentnexus.errors import AgentNexusError
+from agentnexus.runtime import _globals, set_runner_client, set_runner_router
+from agentnexus.server.auth import (
     LEVEL_EDIT,
     LEVEL_OWNER,
     LEVEL_READ,
     RESERVED_USER_PUBLIC,
     UnifiedAuthProvider,
 )
-from omnigent.server.routes.sessions import create_sessions_router
+from agentnexus.server.routes.sessions import create_sessions_router
 
 # The server route is mounted under /v1 and proxies to the runner at the
 # same path, so the client URL and the recorded runner path are identical.
@@ -271,10 +271,10 @@ def app(runner_globals_reset: None, runner_client: _RecordingRunnerClient) -> Fa
 
     application = FastAPI()
 
-    @application.exception_handler(OmnigentError)
+    @application.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         del request
         return JSONResponse(
@@ -289,7 +289,7 @@ def app(runner_globals_reset: None, runner_client: _RecordingRunnerClient) -> Fa
             # local_single_user=False: this suite verifies the strict
             # (deployed multi-user) posture where a headerless request is
             # rejected, so opt out of the suite-wide single-user default
-            # set in tests/conftest.py (OMNIGENT_LOCAL_SINGLE_USER=1).
+            # set in tests/conftest.py (AGENTNEXUS_LOCAL_SINGLE_USER=1).
             auth_provider=UnifiedAuthProvider(source="header", local_single_user=False),
             permission_store=perm_store,  # type: ignore[arg-type]
         ),

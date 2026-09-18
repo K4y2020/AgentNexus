@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import Page, Request, expect
 
-_STORAGE_KEY = "omnigent:composer-submit-with-mod-enter"
+_STORAGE_KEY = "agentnexus:composer-submit-with-mod-enter"
 _COMPOSER_LABEL = "Message the agent"
 
 

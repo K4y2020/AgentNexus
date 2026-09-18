@@ -24,11 +24,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.omnigent._example_helpers import (
+from tests.e2e.agentnexus._example_helpers import (
     assert_completed_one_shot,
     run_one_shot,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _PROMPT = "Start worker session alpha and ask it to calculate 2 + 2."
 

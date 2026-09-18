@@ -4,7 +4,7 @@
 // `TerminalView` mounts a session via a callback ref and tears it
 // down on the matching detach.
 //
-// Wire protocol (mirrors `omnigent/server/routes/terminal_attach.py`):
+// Wire protocol (mirrors `agentnexus/server/routes/terminal_attach.py`):
 //   - Server → client: binary pane output → `term.write`; text frames for
 //     JSON control messages (currently tmux clipboard writes).
 //   - Client → server: binary frames for keystrokes (`term.onData`);
@@ -35,7 +35,7 @@ function terminalFontOptions({ sizePx, family, weight }: CodeFont) {
 
 // WebSocket close codes (RFC 6455 reserves 4xxx).
 // 4400 signals wrong-replica routing: the keyed request reached the wrong
-// replica (the ``?omnigent_slice_key=`` doesn't match where the tunnel lives).
+// replica (the ``?agentnexus_slice_key=`` doesn't match where the tunnel lives).
 // Mirrors ``ws_common.py`` ``WS_CLOSE_WRONG_REPLICA``.
 export const WS_CLOSE_WRONG_REPLICA = 4400;
 
@@ -137,7 +137,7 @@ export type ConnectionState =
  * Deliberate closes — normal closure (1000), auth/policy rejections
  * (1008), and the app's own 4xxx codes (4404 terminal-not-found,
  * 4405 terminal-detached, 4500 internal error; see
- * ``omnigent/terminals/ws_common.py``) — mean the server decided the
+ * ``agentnexus/terminals/ws_common.py``) — mean the server decided the
  * attach should end, so re-dialing would either loop on the same
  * answer or resurrect a terminal the user intentionally left.
  *

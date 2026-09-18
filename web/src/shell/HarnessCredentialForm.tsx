@@ -4,7 +4,7 @@
  * Presents every applicable auth path as an equally-weighted, labeled option
  * separated by "or", so it reads as a set of alternatives rather than one
  * primary field with the rest demoted:
- *   - adopt a credential omnigent detected on the host (only when one is found),
+ *   - adopt a credential agentnexus detected on the host (only when one is found),
  *   - sign in with the harness's subscription (a copy-command — the UI can't
  *     drive browser OAuth; omitted for Pi, which has no CLI login),
  *   - use an API key,

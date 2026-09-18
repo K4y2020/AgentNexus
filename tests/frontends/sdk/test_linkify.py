@@ -23,7 +23,7 @@ unambiguous and catches a subtle regex break in one shot.
 
 from __future__ import annotations
 
-from omnigent_ui_sdk.terminal._linkify import linkify_ansi
+from agentnexus_ui_sdk.terminal._linkify import linkify_ansi
 
 # OSC 8 escape components — duplicated here from the module
 # (deliberately) so the test fails loudly if the module's

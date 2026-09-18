@@ -2,7 +2,7 @@
 
 Under the daemon model every ``run`` / ``claude`` invocation
 ensures the host daemon and targets either the given ``--server`` URL or
-a daemon-started local Omnigent server. Covers ``_ensure_host_daemon`` (local vs
+a daemon-started local AgentNexus server. Covers ``_ensure_host_daemon`` (local vs
 remote spawn + reuse), ``_ensure_backend`` (the single resolver), and
 ``_discover_local_server_url`` (the CLI-side handshake), plus the command
 wiring that routes ``--server`` through them.
@@ -30,9 +30,9 @@ from rich.console import Console
 # the process-wide ``subprocess.Popen``. Running that import for the first
 # time *while* Popen is patched would evaluate ``subprocess.Popen[...]``
 # generic aliases in the import chain against the stub (not subscriptable).
-import omnigent.host.connect  # noqa: F401
-from omnigent import cli
-from omnigent.cli import (
+import agentnexus.host.connect  # noqa: F401
+from agentnexus import cli
+from agentnexus.cli import (
     _build_host_daemon_env,
     _discover_local_server_url,
     _ensure_backend,
@@ -40,10 +40,10 @@ from omnigent.cli import (
     _resolve_attach_server,
     _resolve_host_server,
 )
-from omnigent.cli import (
+from agentnexus.cli import (
     cli as cli_group,
 )
-from omnigent.host.local_server import LocalServerStartup
+from agentnexus.host.local_server import LocalServerStartup
 
 
 @pytest.fixture(autouse=True)
@@ -190,28 +190,28 @@ def test_ensure_host_daemon_local_inherits_data_dir_and_db_uri(
 ) -> None:
     """The local daemon inherits the runtime data-dir + DB URI vars.
 
-    In local mode the daemon owns the local Omnigent server, so it must resolve the
+    In local mode the daemon owns the local AgentNexus server, so it must resolve the
     same config home, data dir, and DB URI the CLI assumes — otherwise the CLI
     reads the local-server pidfile from one dir while the daemon writes it to
     another and discovery times out.
     """
     captured: dict[str, object] = {}
     _patch_daemon_spawn(monkeypatch, tmp_path, captured)
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "iso"))
-    monkeypatch.setenv("OMNIGENT_DATABASE_URI", "postgresql://u:pw@h/db")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "iso"))
+    monkeypatch.setenv("AGENTNEXUS_DATABASE_URI", "postgresql://u:pw@h/db")
 
     _ensure_host_daemon(None)
 
     env = captured["env"]
     assert isinstance(env, dict)
-    assert env["OMNIGENT_CONFIG_HOME"] == str(tmp_path / "iso")
-    assert env["OMNIGENT_DATABASE_URI"] == "postgresql://u:pw@h/db"
+    assert env["AGENTNEXUS_CONFIG_HOME"] == str(tmp_path / "iso")
+    assert env["AGENTNEXUS_DATABASE_URI"] == "postgresql://u:pw@h/db"
 
 
 def test_build_host_daemon_env_local_preserves_server_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Local daemon env carries credentials needed by its Omnigent server.
+    """Local daemon env carries credentials needed by its AgentNexus server.
 
     The daemon's local server is the process that performs LLM calls, so
     stripping ``OPENAI_*`` here makes default persistent ``omnigent run``
@@ -221,7 +221,7 @@ def test_build_host_daemon_env_local_preserves_server_credentials(
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://example.databricks.com/serving-endpoints")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-    monkeypatch.setenv("OMNIGENT_DATABASE_URI", "postgresql://u:pw@h/db")
+    monkeypatch.setenv("AGENTNEXUS_DATABASE_URI", "postgresql://u:pw@h/db")
     monkeypatch.setenv("GITHUB_TOKEN", "unrelated-github-secret")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "unrelated-aws-secret")
 
@@ -231,7 +231,7 @@ def test_build_host_daemon_env_local_preserves_server_credentials(
     assert env["OPENAI_API_KEY"] == "test-key"
     assert env["OPENAI_BASE_URL"] == "https://example.databricks.com/serving-endpoints"
     assert env["ANTHROPIC_API_KEY"] == "test-anthropic-key"
-    assert env["OMNIGENT_DATABASE_URI"] == "postgresql://u:pw@h/db"
+    assert env["AGENTNEXUS_DATABASE_URI"] == "postgresql://u:pw@h/db"
     assert "GITHUB_TOKEN" not in env
     assert "AWS_SECRET_ACCESS_KEY" not in env
     assert empty_string_env["OPENAI_API_KEY"] == "test-key"
@@ -281,19 +281,19 @@ def test_build_host_daemon_env_remote_keeps_runner_env_passthrough(
 ) -> None:
     """The operator env-forwarding control var survives the remote daemon hop.
 
-    ``OMNIGENT_RUNNER_ENV_PASSTHROUGH`` names extra env vars for the daemon to
+    ``AGENTNEXUS_RUNNER_ENV_PASSTHROUGH`` names extra env vars for the daemon to
     forward on to runners. In ``--server`` mode the daemon env is allowlisted by
-    a prefix set that includes ``DATABRICKS_`` but *not* plain ``OMNIGENT_``, so
+    a prefix set that includes ``DATABRICKS_`` but *not* plain ``AGENTNEXUS_``, so
     without an explicit allowlist entry the control var itself is stripped here —
     and ``_build_runner_env`` never sees the names it lists, making the whole
     passthrough a silent no-op remotely. It carries only var names, not secrets.
     """
     monkeypatch.setenv("PATH", "/usr/bin")
-    monkeypatch.setenv("OMNIGENT_RUNNER_ENV_PASSTHROUGH", "MY_GATEWAY_TOKEN")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_ENV_PASSTHROUGH", "MY_GATEWAY_TOKEN")
 
     env = _build_host_daemon_env(server_url="https://example.databricksapps.com")
 
-    assert env["OMNIGENT_RUNNER_ENV_PASSTHROUGH"] == "MY_GATEWAY_TOKEN"
+    assert env["AGENTNEXUS_RUNNER_ENV_PASSTHROUGH"] == "MY_GATEWAY_TOKEN"
 
 
 def test_ensure_host_daemon_reuses_same_target(
@@ -438,7 +438,7 @@ def test_ensure_host_daemon_respawns_on_config_drift(
 
     The auth-drift fix at the daemon layer: when the running daemon's
     stamped config signature differs from this invocation's (e.g. the user
-    flipped ``OMNIGENT_AUTH_ENABLED``), the unit is torn down and a
+    flipped ``AGENTNEXUS_AUTH_ENABLED``), the unit is torn down and a
     fresh daemon spawned so the new auth mode takes effect.
     """
     captured: dict[str, object] = {}
@@ -794,7 +794,7 @@ def test_foreground_connect_registers_status_record(
         observed.extend(cli._list_daemon_records(include_legacy=False))
         assert server_url == "https://server.example.com"
 
-    monkeypatch.setattr("omnigent.host.connect.run_host_process", _fake_run_host_process)
+    monkeypatch.setattr("agentnexus.host.connect.run_host_process", _fake_run_host_process)
 
     result = CliRunner().invoke(
         cli_group,
@@ -830,7 +830,7 @@ def test_foreground_connect_refuses_duplicate_live_daemon(
         raise AssertionError(f"unexpected foreground connect: {server_url}")
 
     monkeypatch.setattr(
-        "omnigent.host.connect.run_host_process",
+        "agentnexus.host.connect.run_host_process",
         _unexpected_run_host_process,
     )
 
@@ -870,7 +870,7 @@ def _patch_foreground_host_local(
         "ensure_local_omnigent_server",
         lambda: LocalServerStartup(url="http://127.0.0.1:8000", spawned=spawned),
     )
-    monkeypatch.setattr("omnigent.host.connect.run_host_process", run_host_process)
+    monkeypatch.setattr("agentnexus.host.connect.run_host_process", run_host_process)
 
 
 def test_foreground_connect_local_prompts_and_stops_server_on_yes(
@@ -1059,7 +1059,7 @@ def test_foreground_connect_remote_omits_local_server_prompt(
         lambda: pytest.fail("remote mode must not probe the local server"),
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.run_host_process",
+        "agentnexus.host.connect.run_host_process",
         lambda server_url, **_kw: None,
     )
 
@@ -1194,7 +1194,7 @@ def test_host_status_wide_terminal_shows_full_session_and_runner_ids() -> None:
 
 
 _LONG_SERVER_URL = "https://omnigent-000000000000000.workspace.example.databricksapps.com"
-_LONG_LOG_PATH = "/Users/example/.omnigent/logs/host/host-20260801-095205-263883.log"
+_LONG_LOG_PATH = "/Users/example/.agentnexus/logs/host/host-20260801-095205-263883.log"
 
 _ANSI_RE = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;]*[A-Za-z]")
 _OSC8_OPEN_RE = re.compile(r"\x1b\]8;[^;]*;([^\x1b\x07]+)(?:\x07|\x1b\\)")
@@ -1337,7 +1337,7 @@ def test_host_stop_stops_sessions_before_daemon(
     events: list[tuple[str, str]] = []
 
     def _fake_http_json(**kwargs: object) -> cli._HostHttpResult:
-        """Record lifecycle requests and return minimal Omnigent responses."""
+        """Record lifecycle requests and return minimal AgentNexus responses."""
         method = str(kwargs["method"])
         path = str(kwargs["path"])
         events.append((method, path))
@@ -1650,14 +1650,14 @@ def test_claude_command_routes_server_through_ensure_backend(
     The empty/local value must be turned into the concrete daemon-backed URL
     and passed to ``run_claude_native`` — never forwarded raw.
     """
-    monkeypatch.setattr("omnigent.cli._load_effective_config", dict)
+    monkeypatch.setattr("agentnexus.cli._load_effective_config", dict)
     monkeypatch.setattr(
-        "omnigent.cli._ensure_backend",
+        "agentnexus.cli._ensure_backend",
         lambda server: "http://127.0.0.1:8123",
     )
     captured: dict[str, object] = {}
     monkeypatch.setattr(
-        "omnigent.claude_native.run_claude_native",
+        "agentnexus.claude_native.run_claude_native",
         _fake_run_claude_native_capture(captured),
     )
 
@@ -1678,7 +1678,7 @@ def _capture_run_chat(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     def _stub(**kwargs: object) -> None:
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.chat.run_chat", _stub)
+    monkeypatch.setattr("agentnexus.chat.run_chat", _stub)
     return captured
 
 
@@ -1691,7 +1691,7 @@ def test_run_reads_server_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
     reach ``run_chat`` as ``server_url``.
     """
     monkeypatch.setattr(
-        "omnigent.cli._load_effective_config",
+        "agentnexus.cli._load_effective_config",
         lambda: {
             "server": "https://config-default.example.com",
             "model": "databricks-claude-sonnet-4-6",
@@ -1709,7 +1709,7 @@ def test_run_reads_server_from_config(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_run_explicit_server_overrides_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """An explicit ``--server`` wins over the configured default."""
     monkeypatch.setattr(
-        "omnigent.cli._load_effective_config",
+        "agentnexus.cli._load_effective_config",
         lambda: {"server": "https://config-default.example.com"},
     )
     captured = _capture_run_chat(monkeypatch)
@@ -1770,7 +1770,7 @@ def _patch_auth_preflight(
     import httpx
 
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda server_url=None, *, host_id=None: {},
     )
     monkeypatch.setattr(httpx, "get", lambda url, **kw: _databricks_probe_response(probe_status))
@@ -1816,7 +1816,7 @@ def test_ensure_backend_databricks_preflight_hints_headless(
     with pytest.raises(click.ClickException) as exc:
         _ensure_backend("https://myapp-1234.aws.databricksapps.com")
 
-    assert "omnigent login https://myapp-1234.aws.databricksapps.com" in str(exc.value)
+    assert "agentnexus login https://myapp-1234.aws.databricksapps.com" in str(exc.value)
     # No browser flow attempted off-TTY.
     assert login_calls == []
 
@@ -1844,7 +1844,7 @@ def test_databricks_preflight_silent_sdk_refresh_skips_login(
     requests: list[dict[str, object]] = []
     stored: list[tuple[str, str, str | None]] = []
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda server_url=None, *, host_id=None: {"Authorization": "Bearer expired"},
     )
 
@@ -1859,7 +1859,7 @@ def test_databricks_preflight_silent_sdk_refresh_skips_login(
         lambda workspace: cli._DatabricksWorkspaceAuthInfo(token="fresh-token", profile_name=None),
     )
     monkeypatch.setattr(cli, "_databricks_login", lambda *args, **kwargs: pytest.fail("login"))
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda server: "123")
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda server: "123")
 
     def _store(
         server: str,
@@ -1869,7 +1869,7 @@ def test_databricks_preflight_silent_sdk_refresh_skips_login(
     ) -> None:
         stored.append((server, workspace, org_id))
 
-    monkeypatch.setattr("omnigent.cli_auth.store_databricks_auth", _store)
+    monkeypatch.setattr("agentnexus.cli_auth.store_databricks_auth", _store)
 
     cli._ensure_databricks_server_auth(_HOST_DATABRICKS_SERVER, non_interactive=True)
 
@@ -1902,10 +1902,10 @@ def test_databricks_preflight_uses_cli_workspace_id_for_workspace_mount(
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(cfg_path))
 
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda server_url=None, *, host_id=None: {},
     )
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda server: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda server: None)
     monkeypatch.setattr(
         cli,
         "_databricks_workspace_auth_info",
@@ -1938,7 +1938,7 @@ def test_databricks_preflight_uses_cli_workspace_id_for_workspace_mount(
         stored.append((server, workspace, org_id))
 
     monkeypatch.setattr(httpx, "get", _get)
-    monkeypatch.setattr("omnigent.cli_auth.store_databricks_auth", _store)
+    monkeypatch.setattr("agentnexus.cli_auth.store_databricks_auth", _store)
 
     cli._ensure_databricks_server_auth(server, non_interactive=True)
 
@@ -1959,7 +1959,7 @@ def test_databricks_preflight_refresh_handles_duplicate_workspace_profiles(
     """
     import httpx
 
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     cfg_path = tmp_path / "databrickscfg"
     cfg_path.write_text(
@@ -1972,10 +1972,10 @@ def test_databricks_preflight_refresh_handles_duplicate_workspace_profiles(
     )
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(cfg_path))
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda server_url=None, *, host_id=None: {"Authorization": "Bearer expired-token"},
     )
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda server: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda server: None)
 
     attempts: list[tuple[str, object]] = []
 
@@ -2026,7 +2026,7 @@ def test_databricks_preflight_refresh_handles_duplicate_workspace_profiles(
     monkeypatch.setattr(databricks_executor.subprocess, "run", _run_databricks)
     monkeypatch.setattr(httpx, "get", _get)
     monkeypatch.setattr(cli, "_databricks_login", lambda *args, **kwargs: pytest.fail("login"))
-    monkeypatch.setattr("omnigent.cli_auth.store_databricks_auth", _store)
+    monkeypatch.setattr("agentnexus.cli_auth.store_databricks_auth", _store)
 
     cli._ensure_databricks_server_auth(_HOST_DATABRICKS_SERVER, non_interactive=True)
 
@@ -2090,7 +2090,7 @@ def test_databricks_preflight_non_interactive_overrides_tty(
     with pytest.raises(click.ClickException) as exc:
         cli._ensure_databricks_server_auth(_HOST_DATABRICKS_SERVER, non_interactive=True)
 
-    assert f"omnigent login {_HOST_DATABRICKS_SERVER}" in str(exc.value)
+    assert f"agentnexus login {_HOST_DATABRICKS_SERVER}" in str(exc.value)
     # The browser login never ran despite the TTY.
     assert login_calls == []
 
@@ -2120,7 +2120,7 @@ def _patch_foreground_host(
     monkeypatch.setattr(cli, "local_server_url_if_healthy", lambda: None)
     connected: list[str] = []
     monkeypatch.setattr(
-        "omnigent.host.connect.run_host_process",
+        "agentnexus.host.connect.run_host_process",
         lambda server_url, **_kw: connected.append(server_url),
     )
     return connected
@@ -2205,7 +2205,7 @@ def test_host_remote_preflight_hints_headless(
     result = CliRunner().invoke(cli_group, ["host", "--server", _HOST_DATABRICKS_SERVER])
 
     assert result.exit_code != 0
-    assert f"omnigent login {_HOST_DATABRICKS_SERVER}" in result.output
+    assert f"agentnexus login {_HOST_DATABRICKS_SERVER}" in result.output
     # Pre-flight bailed: no browser login and no connect.
     assert login_calls == []
     assert connected == []
@@ -2448,7 +2448,7 @@ def test_host_command_defaults_scheme_and_accepts_omnigent_web_url(
     monkeypatch.setattr(cli, "_workspace_api_server_url", _recording_expander(seen))
     observed: list[str] = []
     monkeypatch.setattr(
-        "omnigent.host.connect.run_host_process",
+        "agentnexus.host.connect.run_host_process",
         lambda server_url, **_kw: observed.append(server_url),
     )
 
@@ -2472,7 +2472,7 @@ def test_resume_command_expands_server_url(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(cli, "_workspace_api_server_url", _expand_marker)
     captured: dict[str, object] = {}
     monkeypatch.setattr(
-        "omnigent.resume_dispatch.run_resume",
+        "agentnexus.resume_dispatch.run_resume",
         lambda **kwargs: captured.update(kwargs),
     )
 
@@ -2496,7 +2496,7 @@ def test_resume_command_without_server_skips_expansion(
     )
     captured: dict[str, object] = {}
     monkeypatch.setattr(
-        "omnigent.resume_dispatch.run_resume",
+        "agentnexus.resume_dispatch.run_resume",
         lambda **kwargs: captured.update(kwargs),
     )
 
@@ -2512,7 +2512,7 @@ def test_resume_command_defaults_scheme_https(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(cli, "_workspace_api_server_url", _recording_expander(seen))
     captured: dict[str, object] = {}
     monkeypatch.setattr(
-        "omnigent.resume_dispatch.run_resume",
+        "agentnexus.resume_dispatch.run_resume",
         lambda **kwargs: captured.update(kwargs),
     )
 

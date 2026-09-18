@@ -47,11 +47,11 @@ def _patch_session_as_codex_native(page: Page, session_id: str) -> list[dict]:
             # stream re-bind) re-derives Plan mode as off and the toggle snaps
             # back to "Enter Plan mode" mid-test.
             prior_labels = (latest_payload or {}).get("labels", {})
-            prior_mode = prior_labels.get("omnigent.codex_native.collaboration_mode")
+            prior_mode = prior_labels.get("agentnexus.codex_native.collaboration_mode")
             if prior_mode is not None:
                 payload["labels"] = {
                     **payload.get("labels", {}),
-                    "omnigent.codex_native.collaboration_mode": prior_mode,
+                    "agentnexus.codex_native.collaboration_mode": prior_mode,
                 }
         elif request.method == "PATCH":
             request_body = json.loads(request.post_data or "{}")
@@ -59,7 +59,7 @@ def _patch_session_as_codex_native(page: Page, session_id: str) -> list[dict]:
             payload = dict(latest_payload or {})
             if "collaboration_mode" in request_body:
                 labels = dict(payload.get("labels", {}))
-                labels["omnigent.codex_native.collaboration_mode"] = request_body[
+                labels["agentnexus.codex_native.collaboration_mode"] = request_body[
                     "collaboration_mode"
                 ]
                 payload["labels"] = labels
@@ -69,7 +69,7 @@ def _patch_session_as_codex_native(page: Page, session_id: str) -> list[dict]:
 
         payload["labels"] = {
             **payload.get("labels", {}),
-            "omnigent.wrapper": "codex-native-ui",
+            "agentnexus.wrapper": "codex-native-ui",
         }
         payload["harness"] = "codex"
         payload["llm_model"] = "gpt-5.5"
@@ -246,7 +246,7 @@ def _patch_precatalog_codex_session_on_host(page: Page, session_id: str) -> None
         payload = response.json()
         payload["labels"] = {
             **payload.get("labels", {}),
-            "omnigent.wrapper": "codex-native-ui",
+            "agentnexus.wrapper": "codex-native-ui",
         }
         payload["harness"] = "codex"
         payload["llm_model"] = "gpt-5.6-luna"

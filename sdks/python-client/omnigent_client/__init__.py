@@ -1,4 +1,4 @@
-"""omnigent client SDK — Python client for the omnigent server API.
+"""agentnexus client SDK — Python client for the omnigent server API.
 
 Headless HTTP/SSE client for invoking agents, tracking conversation
 state, and consuming the response stream as either raw events or
@@ -7,16 +7,16 @@ on top of this.
 
 Usage::
 
-    from omnigent_client import OmnigentClient
+    from agentnexus_client import AgentNexusClient
 
-    async with OmnigentClient(base_url="http://localhost:8080") as client:
+    async with AgentNexusClient(base_url="http://localhost:8080") as client:
         session = client.session(model="archer")
         async for event in session.send("hello"):
             ...
 
 Or consume semantic blocks via :class:`BlockStream`::
 
-    from omnigent_client import BlockStream, pipe, skip_intermediate_ends
+    from agentnexus_client import BlockStream, pipe, skip_intermediate_ends
 
     stream = BlockStream()
     async for block in pipe(
@@ -51,8 +51,8 @@ from ._child_status import (
     child_session_busy,
     child_summary_busy,
 )
-from ._client import OmnigentClient
-from ._errors import OmnigentError, ToolCallDenied
+from ._client import AgentNexusClient
+from ._errors import AgentNexusError, ToolCallDenied
 from ._events import MCP_ELICITATION_METHOD, ElicitationRequest
 from ._query import QueryResult, QueryStream
 from ._server import LocalServer
@@ -90,8 +90,8 @@ __all__ = [
     "FileBlock",
     "LocalServer",
     "NativeToolBlock",
-    "OmnigentClient",
-    "OmnigentError",
+    "AgentNexusClient",
+    "AgentNexusError",
     "QueryResult",
     "QueryStream",
     "ReasoningBlock",

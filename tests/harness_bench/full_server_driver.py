@@ -57,7 +57,7 @@ _TERMINAL_EVENTS = frozenset({"response.completed", "response.failed", "response
 
 
 class FullServerDriver:
-    """Drive turns through a live Omnigent server and runner."""
+    """Drive turns through a live AgentNexus server and runner."""
 
     transport = "full-server"
 
@@ -130,7 +130,7 @@ class FullServerDriver:
         return await asyncio.to_thread(lambda: self.tool_probe_turn(deny=deny))
 
     async def run_mcp_tool_turn(self) -> TurnResult:
-        return TurnResult(error="Omnigent MCP relay is a native-harness dimension")
+        return TurnResult(error="AgentNexus MCP relay is a native-harness dimension")
 
     async def run_fork_turn(self, marker: str) -> ForkResult:
         return await asyncio.to_thread(self.fork_probe_turn, marker)

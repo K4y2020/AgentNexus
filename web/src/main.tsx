@@ -89,7 +89,7 @@ applyUiFontFamily(readUiFontFamily());
 // so sidebar items follow the shared desktop interface size.
 if (typeof window !== "undefined") {
   try {
-    localStorage.removeItem("omnigent:sidebar-font-size");
+    localStorage.removeItem("agentnexus:sidebar-font-size");
   } catch {
     // localStorage access errors are non-fatal.
   }

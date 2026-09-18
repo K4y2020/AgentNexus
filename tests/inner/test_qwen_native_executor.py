@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner import qwen_native_executor as qne
-from omnigent.inner.executor import ExecutorError, TurnComplete
+from agentnexus.inner import qwen_native_executor as qne
+from agentnexus.inner.executor import ExecutorError, TurnComplete
 
 
 def test_supports_flags(tmp_path: Path) -> None:

@@ -21,13 +21,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.runner.native.orchestration import (
+from agentnexus.runner.native.orchestration import (
     ResolvedSpec,
     _resolve_sub_agent_spec_entry,
     _resolved_workdir_for_spec,
 )
-from omnigent.spec.parser import parse
-from omnigent.spec.types import AgentSpec, BuiltinToolConfig, ExecutorSpec
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import AgentSpec, BuiltinToolConfig, ExecutorSpec
 
 
 def _write_agent(directory: Path, name: str) -> Path:
@@ -106,7 +106,7 @@ def test_synthetic_web_researcher_gets_no_workdir(bundle: Path) -> None:
     """
     root_spec = parse(bundle)
     root_spec.tools.builtins.append(BuiltinToolConfig(name="web_fetch"))
-    root_spec.executor = ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"})
+    root_spec.executor = ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"})
     entry = ResolvedSpec(spec=root_spec, workdir=bundle)
 
     resolved = _resolve_sub_agent_spec_entry(entry, "__web_researcher")

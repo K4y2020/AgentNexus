@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests.e2e.conftest import (
     configure_mock_llm,
     create_runner_bound_session,
@@ -57,7 +57,7 @@ def _create_child_session(
             "parent_session_id": parent_session_id,
             "title": title,
         },
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     resp.raise_for_status()
     return str(resp.json()["id"])

@@ -50,7 +50,7 @@ const BEHAVIOR_MODE_LABEL: Record<string, string> = {
   lean: "Lean",
   strict: "Strict",
 };
-const BEHAVIOR_MODE_LABEL_KEY = "omnigent.behavior_mode";
+const BEHAVIOR_MODE_LABEL_KEY = "agentnexus.behavior_mode";
 
 function ModelFactBadge({
   value,
@@ -141,7 +141,7 @@ export function AgentInspector({
     ? (latestFact.upstream_unknown_reason ?? null)
     : "gateway_model_not_available";
   const harness = session.harness ?? "Unknown";
-  const role = session.labels?.["omnigent.role"] ?? "Unknown";
+  const role = session.labels?.["agentnexus.role"] ?? "Unknown";
   const branch = session.gitBranch ?? "Unknown";
   const permissionMode = claudePermissionModeFromSession(session);
   const binding = behaviorError ? null : behaviorFacts?.binding ?? null;

@@ -1,5 +1,5 @@
 """
-Round-trip invariant tests for the Omnigent ↔ AgentSpec
+Round-trip invariant tests for the AgentNexus ↔ AgentSpec
 adapter.
 
 Asserts
@@ -9,7 +9,7 @@ forward and reverse directions fails these tests the moment it
 appears.
 
 **Phase 1 dependency.** These tests import
-:func:`omnigent.spec.omnigent.agent_spec_to_agent_def`,
+:func:`omnigent.spec.agentnexus.agent_spec_to_agent_def`,
 which is owned by the phase 1 worktree. Until phase 1 is merged
 into the branch this test runs against, the import fails at
 collection time — pytest reports a collection error naming the
@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.spec.omnigent import (
+from agentnexus.spec.agentnexus import (
     agent_def_to_agent_spec,
     # NOTE: imported from the same module as the reverse
     # direction — both functions ship in
@@ -57,7 +57,7 @@ def hello_world_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def executor_block_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with an ``executor:`` block declaring
+    AgentNexus YAML with an ``executor:`` block declaring
     model + harness + profile. Round-trip checks that every
     executor field survives both directions unchanged.
     """
@@ -78,7 +78,7 @@ def executor_block_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def function_tool_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with one function-type tool pointing at a
+    AgentNexus YAML with one function-type tool pointing at a
     real importable callable. Round-trip checks that the
     dotted-path encoding is lossless across both directions.
     """
@@ -115,7 +115,7 @@ def _roundtrip(yaml_path: Path) -> None:
 
     :param yaml_path: Path to an omnigent YAML fixture.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     original = load_agent_def(yaml_path)
     spec = agent_def_to_agent_spec(original)
@@ -154,9 +154,9 @@ def test_roundtrip_hello_world_is_incomplete_for_omnigent(
     """
     A bare ``name`` + ``prompt`` YAML (no executor block) does
     NOT round-trip — the synthesized AgentSpec has no harness or
-    model, which Omnigent' strict spec rejects on the way
+    model, which AgentNexus' strict spec rejects on the way
     back. This is intentional: the omnigent validator requires
-    a harness when ``executor.type == "omnigent"``, and that
+    a harness when ``executor.type == "agentnexus"``, and that
     requirement is the reason the round-trip surfaces as a
     fail-loud error rather than producing nonsense.
 
@@ -165,12 +165,12 @@ def test_roundtrip_hello_world_is_incomplete_for_omnigent(
     be a deliberate decision with a reviewer; the test guards
     against silent drift.
     """
-    from omnigent.errors import OmnigentError
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.inner.loader import load_agent_def
 
     original = load_agent_def(hello_world_yaml)
     spec = agent_def_to_agent_spec(original)
-    with pytest.raises(OmnigentError) as exc_info:
+    with pytest.raises(AgentNexusError) as exc_info:
         agent_spec_to_agent_def(spec)
     # Error message names executor.model — confirms the failure
     # is the documented missing-model branch, not some other gap.
@@ -183,7 +183,7 @@ def test_roundtrip_executor_block(executor_block_yaml: Path) -> None:
     unchanged.
 
     What breaks if this fails: harness / profile encoding
-    differs between the two directions — OmnigentExecutor
+    differs between the two directions — AgentNexusExecutor
     would pick the wrong harness on the reverse trip.
     """
     _roundtrip(executor_block_yaml)

@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.policies.function import (
+from agentnexus.policies.function import (
     resolve_function_policy,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     FunctionPolicySpec,
     FunctionRef,
     Phase,
@@ -56,7 +56,7 @@ def test_resolve_missing_module_raises_import_error() -> None:
     so an incorrect spec fails before any evaluation runs."""
     with pytest.raises(ImportError):
         resolve_function_policy(
-            _fn_spec("omnigent_nonexistent_module.handler"),
+            _fn_spec("agentnexus_nonexistent_module.handler"),
         )
 
 
@@ -66,7 +66,7 @@ def test_resolve_missing_attribute_raises_attribute_error() -> None:
     name" — gives the author a precise hint."""
     with pytest.raises(AttributeError):
         resolve_function_policy(
-            _fn_spec("omnigent.spec.types.nonexistent_attr"),
+            _fn_spec("agentnexus.spec.types.nonexistent_attr"),
         )
 
 
@@ -77,7 +77,7 @@ def test_resolve_non_callable_rejected() -> None:
     # (`omnigent.spec.types.DEFAULT_ASK_TIMEOUT` is an int).
     with pytest.raises(ValueError, match=r"not callable"):
         resolve_function_policy(
-            _fn_spec("omnigent.spec.types.DEFAULT_ASK_TIMEOUT"),
+            _fn_spec("agentnexus.spec.types.DEFAULT_ASK_TIMEOUT"),
         )
 
 
@@ -123,8 +123,8 @@ def test_build_engine_fails_on_invalid_function_path(
 ) -> None:
     """build_policy_engine propagates resolution errors so
     the workflow startup fails loudly on a broken spec."""
-    from omnigent.runtime.policies import build_policy_engine
-    from omnigent.spec.types import (
+    from agentnexus.runtime.policies import build_policy_engine
+    from agentnexus.spec.types import (
         AgentSpec,
         GuardrailsSpec,
     )

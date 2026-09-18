@@ -1,17 +1,17 @@
-# Omnigent load test
+# AgentNexus load test
 
-A load test where **each simulated user is a real Omnigent host**. Sibling to
+A load test where **each simulated user is a real AgentNexus host**. Sibling to
 `dev/benchmarks/`: benchmarks measure single-request latency in isolation; this
 drives **concurrent, end-to-end load** — hosts → sessions → real multi-turn
 conversations.
 
-One unit of load = one **host**. Each Locust user spawns a real `omnigent host`
+One unit of load = one **host**. Each Locust user spawns a real `agentnexus host`
 subprocess (unique identity), registers it over the host tunnel, then
 repeatedly creates a **host-bound session** and drives a **real multi-turn
 conversation** on it. Every turn is a genuine
 `POST .../events` → server → the user's host → a runner subprocess it spawns →
 LLM → stream → `idle` loop. The **LLM is mocked** (zero latency), so the numbers
-isolate Omnigent's own dispatch / streaming / history-handling overhead rather
+isolate AgentNexus's own dispatch / streaming / history-handling overhead rather
 than provider latency. `-u N` scales the number of hosts.
 
 ## Capacity note (read this)
@@ -53,7 +53,7 @@ python dev/loadtest/run.py --users 8 --sessions-per-user 2 --turns-per-session 4
 | `--sessions-per-user` | 2 | Host-bound sessions each host drives (sequentially). |
 | `--turns-per-session` | 4 | Turns per session — history grows across them. |
 | `--reply-words` | 60 | Word count of the mocked (streamed) reply per turn. |
-| `--out-dir` | — | Result directory (default `results/omnigent_load_test-<timestamp>/`). |
+| `--out-dir` | — | Result directory (default `results/agentnexus_load_test-<timestamp>/`). |
 
 Start small to confirm the stack boots on your machine — `--users 2
 --sessions-per-user 1 --turns-per-session 2 --run-time 40s` — then ramp.

@@ -13,8 +13,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "omnigent/db/migrations/**"
-      - "omnigent/stores/**"
+      - "agentnexus/db/migrations/**"
+      - "agentnexus/stores/**"
       - "dev/benchmarks/**"
       - ".github/workflows/benchmark-pr.yml"
 
@@ -23,7 +23,7 @@ permissions:
   pull-requests: write
 
 env:
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
 
@@ -34,7 +34,7 @@ concurrency:
 jobs:
   benchmark-pr:
     name: Benchmark regression check (sqlite)
-    if: github.repository == 'omnigent-ai/omnigent' && !github.event.pull_request.draft
+    if: github.repository == 'agentnexus-ai/agentnexus' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -55,7 +55,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        # pexpect drives omnigent polly via PTY for the cli_startup journey.
+        # pexpect drives agentnexus polly via PTY for the cli_startup journey.
         run: |
           uv sync --extra databricks
           uv pip install pexpect
@@ -67,8 +67,8 @@ jobs:
       - name: Resolve seed cache key
         id: seedkey
         run: |
-          HEAD="$(uv run --no-sync dev/benchmarks/omnigent/seed.py --print-head)"
-          echo "key=benchdb-sqlite-${HEAD}-5000x200-${{ hashFiles('dev/benchmarks/omnigent/seed.py') }}" \
+          HEAD="$(uv run --no-sync dev/benchmarks/agentnexus/seed.py --print-head)"
+          echo "key=benchdb-sqlite-${HEAD}-5000x200-${{ hashFiles('dev/benchmarks/agentnexus/seed.py') }}" \
             >> "$GITHUB_OUTPUT"
 
       - name: Restore seeded SQLite corpus
@@ -81,13 +81,13 @@ jobs:
       - name: Seed SQLite corpus
         if: steps.seedcache.outputs.cache-hit != 'true'
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/seed.py \
+          uv run --no-sync dev/benchmarks/agentnexus/seed.py \
             --database-uri "sqlite:///bench.db" \
             --sessions 5000 --items-per-session 200
 
       - name: Run benchmark (candidate)
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/run.py \
+          uv run --no-sync dev/benchmarks/agentnexus/run.py \
             --database-uri "sqlite:///bench.db" \
             --iterations 100 \
             --runs 3 \
@@ -128,7 +128,7 @@ jobs:
         id: compare
         run: |
           set +e
-          uv run --no-sync dev/benchmarks/omnigent/compare.py \
+          uv run --no-sync dev/benchmarks/agentnexus/compare.py \
             --baseline baseline.json \
             --candidate candidate.json \
             --backend sqlite \

@@ -32,7 +32,7 @@ import httpx
 import pytest
 import yaml
 
-from omnigent.process_logging import PROCESS_LOG_FILE_ENV_VAR
+from agentnexus.process_logging import PROCESS_LOG_FILE_ENV_VAR
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests.e2e.conftest import (
     POLL_INTERVAL_S,
@@ -91,7 +91,7 @@ def _spawn_host_daemon(
         ``"http://127.0.0.1:12345"``.
     :returns: The spawned daemon handle and its host_id.
     """
-    omni_dir = tmp_path / ".omnigent"
+    omni_dir = tmp_path / ".agentnexus"
     omni_dir.mkdir(parents=True, exist_ok=True)
     # Bare 32-char hex — host_id is a Uuid16 column, and the API returns the
     # bare form, so _wait_for_host_online's comparison must see the same.
@@ -120,7 +120,7 @@ def _spawn_host_daemon(
             # else the test process's python. apply_runner_env drops the inherited
             # worktree PYTHONPATH in that mode; the old host launches old runners
             # (colocated) from its own venv.
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=apply_runner_env(env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -163,7 +163,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 def _write_smoke_agent_yaml(tmp_path: Path) -> Path:
-    """Create a minimal Omnigent YAML for host e2e tests.
+    """Create a minimal AgentNexus YAML for host e2e tests.
 
     :param tmp_path: Pytest temp directory.
     :returns: Path to the agent directory.
@@ -312,7 +312,7 @@ def test_host_name_only_config_generates_host_id(
     host showed up under the wrong name. It should now keep the name and
     generate + persist only the missing host_id.
     """
-    omni_dir = tmp_path / ".omnigent"
+    omni_dir = tmp_path / ".agentnexus"
     omni_dir.mkdir(parents=True, exist_ok=True)
     config_path = omni_dir / "config.yaml"
     # Unique name so the (owner, name) host row doesn't collide with the
@@ -332,7 +332,7 @@ def test_host_name_only_config_generates_host_id(
     }
     with open(daemon_log, "w") as log_fh:
         proc = subprocess.Popen(
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=apply_runner_env(env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -877,7 +877,7 @@ def _spawn_host_daemon_for_mock_claude(
         ``"http://127.0.0.1:12345"``.
     :returns: The spawned daemon handle and its host_id.
     """
-    omni_dir = tmp_path / ".omnigent"
+    omni_dir = tmp_path / ".agentnexus"
     omni_dir.mkdir(parents=True, exist_ok=True)
     # Bare 32-char hex — host_id is a Uuid16 column, and the API returns the
     # bare form, so _wait_for_host_online's comparison must see the same.
@@ -910,7 +910,7 @@ def _spawn_host_daemon_for_mock_claude(
             # else the test process's python. apply_runner_env drops the inherited
             # worktree PYTHONPATH in that mode; the old host launches old runners
             # (colocated) from its own venv.
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=apply_runner_env(env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -960,10 +960,10 @@ def _native_user_message_round_tripped(
 @pytest.mark.skipif(
     shutil.which("claude") is None
     or shutil.which("tmux") is None
-    or not os.environ.get("OMNIGENT_E2E_CLAUDE_NATIVE"),
+    or not os.environ.get("AGENTNEXUS_E2E_CLAUDE_NATIVE"),
     reason=(
         "claude-native host-restart e2e requires `claude` + `tmux` on PATH "
-        "and OMNIGENT_E2E_CLAUDE_NATIVE=1 (needs real claude CLI with mock auth)"
+        "and AGENTNEXUS_E2E_CLAUDE_NATIVE=1 (needs real claude CLI with mock auth)"
     ),
 )
 def test_host_native_session_round_trips_after_runner_death(
@@ -1031,7 +1031,7 @@ def test_host_native_session_round_trips_after_runner_death(
                 "agent_id": agent_id,
                 "host_id": host_id,
                 "workspace": str(workspace),
-                "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+                "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
             },
             timeout=60.0,
         )

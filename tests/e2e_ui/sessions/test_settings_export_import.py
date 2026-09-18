@@ -63,8 +63,8 @@ def test_settings_persist_to_localstorage(page: Page, seeded_session: tuple[str,
     expect(terminal_dark).to_have_attribute("aria-checked", "true")
 
     # Verify settings were persisted to localStorage (these are what export reads).
-    font_size = page.evaluate("() => window.localStorage.getItem('omnigent:ui-font-size')")
-    terminal_theme = page.evaluate("() => window.localStorage.getItem('omnigent:terminal-theme')")
+    font_size = page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')")
+    terminal_theme = page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')")
     assert font_size == "16"
     assert terminal_theme == "dark"  # Stored as plain string
 
@@ -87,8 +87,8 @@ def test_import_restores_localstorage_settings(
     expect(terminal_dark).to_have_attribute("aria-checked", "true")
 
     # Capture the localStorage state (what export would collect).
-    saved_font = page.evaluate("() => window.localStorage.getItem('omnigent:ui-font-size')")
-    saved_terminal = page.evaluate("() => window.localStorage.getItem('omnigent:terminal-theme')")
+    saved_font = page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')")
+    saved_terminal = page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')")
 
     # Step 2: Change settings to something different.
     font_size_dec = page.get_by_test_id("ui-font-size-dec")
@@ -102,8 +102,8 @@ def test_import_restores_localstorage_settings(
     # Step 3: Restore the saved settings (simulating import).
     page.evaluate(
         """([font, terminal]) => {
-            window.localStorage.setItem('omnigent:ui-font-size', font);
-            window.localStorage.setItem('omnigent:terminal-theme', terminal);
+            window.localStorage.setItem('agentnexus:ui-font-size', font);
+            window.localStorage.setItem('agentnexus:terminal-theme', terminal);
         }""",
         [saved_font, saved_terminal],
     )
@@ -167,7 +167,7 @@ def test_import_rejects_invalid_json(page: Page, seeded_session: tuple[str, str]
     import tempfile
     from pathlib import Path
 
-    invalid_settings = {"settings": {"omnigent:ui-font-size": "14"}}  # Missing version field
+    invalid_settings = {"settings": {"agentnexus:ui-font-size": "14"}}  # Missing version field
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(invalid_settings, f)
@@ -180,6 +180,6 @@ def test_import_rejects_invalid_json(page: Page, seeded_session: tuple[str, str]
         # Dialog stays open and shows error.
         expect(page.get_by_role("dialog", name="Import settings")).to_be_visible()
         expect(page.get_by_role("alert")).to_be_visible()
-        expect(page.get_by_role("alert")).to_contain_text("valid Omnigent settings")
+        expect(page.get_by_role("alert")).to_contain_text("valid AgentNexus settings")
     finally:
         Path(temp_path).unlink()

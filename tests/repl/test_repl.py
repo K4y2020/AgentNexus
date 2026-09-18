@@ -15,7 +15,7 @@ import json
 import pytest
 from prompt_toolkit.document import Document
 
-from omnigent.repl._repl import (
+from agentnexus.repl._repl import (
     _SLASH_COMMAND_ALIASES,
     COMMANDS,
     WELCOME_HINTS,
@@ -43,7 +43,7 @@ from omnigent.repl._repl import (
     _tmux_pane_snapshot,
     _tmux_session_alive,
 )
-from omnigent.spec.types import SkillSpec
+from agentnexus.spec.types import SkillSpec
 
 
 def test_parse_sub_agent_handle_returns_raw_handle_dict() -> None:
@@ -978,7 +978,7 @@ def test_reconstruct_terminals_records_owning_conversation() -> None:
     This is the unit-level proof that the cross-conversation
     discovery the e2e test couldn't easily exercise (inline
     sub-agents can't own terminals per the
-    OMNIGENT_TERMINAL_BRIDGE.md design) is wired correctly. A future
+    AGENTNEXUS_TERMINAL_BRIDGE.md design) is wired correctly. A future
     sub-agent shape that DOES own terminals will pick this up
     for free.
     """
@@ -1189,7 +1189,7 @@ def test_render_startup_banner_contains_agent_name() -> None:
     What this proves: the user sees the agent name centered in
     the box on REPL boot. If the assertion fails, the banner
     would render with the mascot art and box border but no
-    visible label — users on a fresh Omnigent session would have
+    visible label — users on a fresh AgentNexus session would have
     no in-banner cue for which agent they're talking to (the
     bottom toolbar shows the model, but the welcome panel is
     where the legacy CLI puts it). Bold ANSI sequence ``\\x1b[1m``
@@ -1213,7 +1213,7 @@ def test_render_startup_banner_contains_agent_name() -> None:
 
 def test_render_startup_banner_omits_keybinding_hints() -> None:
     """
-    The Omnigent welcome banner does NOT carry the keybinding hint row.
+    The AgentNexus welcome banner does NOT carry the keybinding hint row.
 
     What this proves: keybinding hints live in the bottom toolbar
     only — duplicating them inside the welcome box widens the
@@ -1233,13 +1233,13 @@ def test_render_startup_banner_omits_keybinding_hints() -> None:
     for legacy_hint in ("ctrl-g debug", "ctrl-d exit"):
         assert legacy_hint not in ansi, (
             f"AP welcome banner contains legacy hint {legacy_hint!r} "
-            f"which doesn't correspond to an Omnigent binding."
+            f"which doesn't correspond to an AgentNexus binding."
         )
 
 
 def test_render_startup_banner_uses_mascot_accent_color() -> None:
     """
-    The Omnigent mode banner box border is rendered in the Omnigent
+    The AgentNexus mode banner box border is rendered in the AgentNexus
     starfish magenta-pink brand accent (truecolor RGB ``#F43BA6`` →
     ``38;2;244;59;166``), matching the bottom toolbar, prompt
     marker, and tool-call glyphs.
@@ -1248,25 +1248,25 @@ def test_render_startup_banner_uses_mascot_accent_color() -> None:
     the bottom toolbar, the prompt marker ``❯``, and the SDK's
     formatter accent together survives the AP-side render. If a
     future change drops the truecolor escape (e.g. by stripping
-    ANSI on the Omnigent path or swapping Rich for raw text), the
+    ANSI on the AgentNexus path or swapping Rich for raw text), the
     banner would render as a plain unstyled box and visually
     diverge from the rest of the UI. The override happens in
     :func:`omnigent.repl._repl._render_startup_banner_ansi`.
     """
     ansi = _render_startup_banner_ansi("agent")
     # ``38;2;244;59;166`` is the SGR truecolor foreground encoding
-    # of #F43BA6 — the Omnigent starfish magenta-pink brand accent
+    # of #F43BA6 — the AgentNexus starfish magenta-pink brand accent
     # (also ``TerminalHost.accent_color`` default). The banner
     # builder injects it for both the box border and the mascot art
-    # on the Omnigent path.
+    # on the AgentNexus path.
     assert "\x1b[38;2;244;59;166m" in ansi, (
-        f"Banner missing Omnigent truecolor accent escape "
+        f"Banner missing AgentNexus truecolor accent escape "
         f"(\\x1b[38;2;244;59;166m); got: {ansi!r}. If this is "
         f"absent, the AP-side override in "
         f"``_render_startup_banner_ansi`` isn't propagating into "
         f"the banner — the box border and mascot art would lose "
         f"the brand magenta, breaking the visual link with the "
-        f"rest of the Omnigent UI."
+        f"rest of the AgentNexus UI."
     )
 
 
@@ -1280,8 +1280,8 @@ def test_run_banner_uses_magenta_mascot_color() -> None:
     border, and prompt marker all read as one accent regardless
     of mode.
     """
-    from omnigent.inner.banner import startup_banner_strings
-    from omnigent.inner.mascots import MASCOT_ART_COLOR
+    from agentnexus.inner.banner import startup_banner_strings
+    from agentnexus.inner.mascots import MASCOT_ART_COLOR
 
     assert MASCOT_ART_COLOR == "#F43BA6", (
         f"MASCOT_ART_COLOR must be the starfish magenta-pink brand "
@@ -1300,11 +1300,11 @@ def test_run_banner_uses_magenta_mascot_color() -> None:
 
 def test_render_startup_banner_fits_under_80_columns() -> None:
     """
-    The Omnigent welcome box stays under 80 columns wide even when
+    The AgentNexus welcome box stays under 80 columns wide even when
     paired with the longest example agent name.
 
     What this proves: in an 80-column terminal (the de-facto
-    minimum for a usable shell) the Omnigent banner does not wrap. The
+    minimum for a usable shell) the AgentNexus banner does not wrap. The
     box width is driven by the agent label (the hint row is
     blanked, so ``WELCOME_HINTS`` does not push the box wider).
     If a future change reintroduces the hint text in the box, or
@@ -1609,7 +1609,7 @@ def _run(coro):
 
 
 def _fake_version_client(by_path: dict[str, dict]) -> tuple[object, list[str]]:
-    """Build a fake ``OmnigentClient`` whose ``_http.get`` serves per-path JSON.
+    """Build a fake ``AgentNexusClient`` whose ``_http.get`` serves per-path JSON.
 
     :param by_path: Maps a request path suffix (e.g. ``"/v1/info"``) to the
         JSON body its response should return.
@@ -1796,8 +1796,8 @@ def test_build_startup_header_subscription_credential(tmp_path, monkeypatch) -> 
     regression in the config→header resolution would drop or mislabel
     the credential; a reappearing 🎟️ means _header_glyph was bypassed.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("HOME", str(tmp_path))
     for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
         monkeypatch.delenv(var, raising=False)
@@ -1832,8 +1832,8 @@ def test_build_startup_header_creds_line_hints_first_available(tmp_path, monkeyp
     :func:`first_available_provider`, so the readout cannot disagree with what
     actually launches.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("HOME", str(tmp_path))
     for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
         monkeypatch.delenv(var, raising=False)
@@ -1850,7 +1850,7 @@ def test_build_startup_header_creds_line_hints_first_available(tmp_path, monkeyp
     # Hermetic: ignore a dev machine's ambient providers. A running local Ollama
     # (TCP-probed at localhost:11434) serves openai and would outrank the
     # Databricks fallback under test, so pin detection to none.
-    monkeypatch.setattr("omnigent.onboarding.detected.detect_providers", list)
+    monkeypatch.setattr("agentnexus.onboarding.detected.detect_providers", list)
     header = _build_startup_header(
         "claude-sdk", "Two-headed brainstorming partner.", ["anthropic", "openai"]
     )
@@ -1874,8 +1874,8 @@ def test_build_startup_header_creds_line_includes_pi_surface(tmp_path, monkeypat
     lookup renders "pi → not configured" (no "pi" family exists) or leaks
     the subscription into the Pi segment.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("HOME", str(tmp_path))
     for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
         monkeypatch.delenv(var, raising=False)
@@ -1950,7 +1950,7 @@ async def test_list_all_conversation_items_paginates_past_100(
     ``list_items(limit=100)`` call): the assertion ``len(items)
     == total`` fails with ``100 != 217``.
     """
-    from omnigent.repl._repl import _list_all_conversation_items
+    from agentnexus.repl._repl import _list_all_conversation_items
 
     # Build a 217-item synthetic conversation: enough to require
     # 3 pages (100 + 100 + 17). Item ids encode position so the
@@ -2032,7 +2032,7 @@ async def test_list_all_conversation_items_handles_empty_conversation() -> None:
     Catches a regression where the loop infinite-loops on an
     empty first page or makes redundant fetches.
     """
-    from omnigent.repl._repl import _list_all_conversation_items
+    from agentnexus.repl._repl import _list_all_conversation_items
 
     fetch_count = 0
 
@@ -2066,7 +2066,7 @@ async def test_list_all_conversation_items_falls_back_on_error() -> None:
     so an error mid-pagination should surface a partial item
     list rather than crashing the overlay builder.
     """
-    from omnigent.repl._repl import _list_all_conversation_items
+    from agentnexus.repl._repl import _list_all_conversation_items
 
     fetch_count = 0
 
@@ -2243,7 +2243,7 @@ def test_completer_ranks_prefix_before_substring(monkeypatch: pytest.MonkeyPatch
         "/effort": ("Effort", _noop_handler),
         "/model": ("Model", _noop_handler),
     }
-    monkeypatch.setattr("omnigent.repl._repl.COMMANDS", fake)
+    monkeypatch.setattr("agentnexus.repl._repl.COMMANDS", fake)
     names = [name for name, _, _ in _completions_for("/e")]
     # /effort is the only prefix match; /context and /model merely contain
     # "e" (/compact has none), so they rank after it.
@@ -2271,7 +2271,7 @@ def test_completer_matches_name_leaf_after_namespace(monkeypatch: pytest.MonkeyP
     `/superpowers:using-superpowers` even though the name starts with
     `superpowers:`. Failure means the completer is still prefix-only.
     """
-    monkeypatch.setattr("omnigent.repl._repl.COMMANDS", _FAKE_COMMANDS)
+    monkeypatch.setattr("agentnexus.repl._repl.COMMANDS", _FAKE_COMMANDS)
     actual = _completions_for("/using-superpowers")
     names = [name for name, _, _ in actual]
     assert names == ["/superpowers:using-superpowers"]
@@ -2289,7 +2289,7 @@ def test_completer_does_not_match_description(monkeypatch: pytest.MonkeyPatch) -
     unexplained. `window` appears in `/context`'s blurb but not its name, so
     it must yield nothing.
     """
-    monkeypatch.setattr("omnigent.repl._repl.COMMANDS", _FAKE_COMMANDS)
+    monkeypatch.setattr("agentnexus.repl._repl.COMMANDS", _FAKE_COMMANDS)
     assert _completions_for("/window") == []
 
 
@@ -2299,7 +2299,7 @@ def test_completer_no_match_yields_nothing(monkeypatch: pytest.MonkeyPatch) -> N
     closes) — proves matching is a real containment test, not "always show
     everything".
     """
-    monkeypatch.setattr("omnigent.repl._repl.COMMANDS", _FAKE_COMMANDS)
+    monkeypatch.setattr("agentnexus.repl._repl.COMMANDS", _FAKE_COMMANDS)
     assert _completions_for("/zzz") == []
 
 
@@ -2309,7 +2309,7 @@ def test_completer_full_name_still_yields_itself(monkeypatch: pytest.MonkeyPatch
     can press Enter to submit without the popup vanishing. `/context`
     is a substring of its own name.
     """
-    monkeypatch.setattr("omnigent.repl._repl.COMMANDS", _FAKE_COMMANDS)
+    monkeypatch.setattr("agentnexus.repl._repl.COMMANDS", _FAKE_COMMANDS)
     names = [name for name, _, _ in _completions_for("/context")]
     assert names == ["/context"]
 
@@ -2380,7 +2380,7 @@ class _StubFmt:
 
 def test_clear_command_registered_in_help() -> None:
     """``/clear`` is in the COMMANDS registry so /help lists it."""
-    from omnigent.repl._repl import COMMANDS
+    from agentnexus.repl._repl import COMMANDS
 
     assert "/clear" in COMMANDS, "/clear missing — /help would not list it"
     help_text, _ = COMMANDS["/clear"]
@@ -2451,7 +2451,7 @@ class _StubSkillSession(_SessionsChatReplAdapter):
 
 async def test_registered_skill_command_uses_structured_slash_command() -> None:
     """Skill slash commands no longer send a visible ``load_skill`` prompt."""
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     skill = SkillSpec(
         name="meta-skill-test",
@@ -2480,7 +2480,7 @@ async def test_registered_skill_command_uses_structured_slash_command() -> None:
 
 def test_register_skill_commands_skips_non_user_invocable() -> None:
     """``user-invocable: false`` skills are not registered as REPL slash commands."""
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     invocable = SkillSpec(name="visible-skill", description="d", content="c")
     internal = SkillSpec(name="internal-skill", description="d", content="c", user_invocable=False)
@@ -2495,7 +2495,7 @@ def test_register_skill_commands_skips_non_user_invocable() -> None:
 
 def test_register_skill_commands_skips_invalid_command_names() -> None:
     """Skill names that aren't valid slash-command tokens are skipped + not registered."""
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     valid = SkillSpec(name="superpowers:using-superpowers", description="d", content="c")
     namespaced = SkillSpec(name="fe-innovate--innovate", description="d", content="c")
@@ -2551,7 +2551,7 @@ async def test_clear_command_clears_screen_and_resets_session(
     (resets local session state). The old conversation persists
     server-side and is resumable via ``/switch``.
     """
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     clear_calls: list[None] = []
     monkeypatch.setattr(repl_mod, "_clear_screen", lambda: clear_calls.append(None))
@@ -2584,7 +2584,7 @@ async def test_new_command_resets_session_without_clearing_screen(
     ``/new`` starts a new conversation but leaves the visible
     scrollback intact — distinguishes it from ``/clear``.
     """
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     clear_calls: list[None] = []
     monkeypatch.setattr(repl_mod, "_clear_screen", lambda: clear_calls.append(None))
@@ -2640,7 +2640,7 @@ async def test_clear_command_in_sessions_mode_calls_start_new_conversation(
     Without this, sessions mode would either skip the unbind (if it
     called ``reset()`` only) or double-fire (if it called both).
     """
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     clear_calls: list[None] = []
     monkeypatch.setattr(repl_mod, "_clear_screen", lambda: clear_calls.append(None))
@@ -2669,7 +2669,7 @@ async def test_new_command_in_sessions_mode_calls_start_new_conversation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Same dispatch contract as ``/clear`` but ``/new`` does not clear scrollback."""
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     clear_calls: list[None] = []
     monkeypatch.setattr(repl_mod, "_clear_screen", lambda: clear_calls.append(None))
@@ -2697,7 +2697,7 @@ async def test_clear_command_renders_error_when_unbind_fails(
     + welcome banner — leaving the REPL on the prior conversation so
     the user can retry.
     """
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     clear_calls: list[None] = []
     monkeypatch.setattr(repl_mod, "_clear_screen", lambda: clear_calls.append(None))
@@ -2726,7 +2726,7 @@ async def test_slash_command_exception_renders_inline_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Slash-command failures render instead of escaping background tasks."""
-    from omnigent.repl import _repl as repl_mod
+    from agentnexus.repl import _repl as repl_mod
 
     async def raise_remote_error(
         arg,
@@ -2886,10 +2886,10 @@ def test_server_event_to_sdk_event_translates_llm_error_event() -> None:
     emitted by the workflow's except-all handler will be silently dropped
     by the AP-mode REPL and the user will see no error message.
     """
-    from omnigent_client._events import ErrorEvent as _SDKErrorEvent
-    from omnigent_client._types import ErrorInfo
+    from agentnexus_client._events import ErrorEvent as _SDKErrorEvent
+    from agentnexus_client._types import ErrorInfo
 
-    from omnigent.server.schemas import ErrorEvent, RetryErrorDetail
+    from agentnexus.server.schemas import ErrorEvent, RetryErrorDetail
 
     server_event = ErrorEvent(
         type="response.error",
@@ -2920,9 +2920,9 @@ def test_server_event_to_sdk_event_translates_tool_error_event() -> None:
     Failure meaning: tool-failure errors (e.g. retry exhaustion) would
     be silently dropped in AP-mode, hiding the name of the failing tool.
     """
-    from omnigent_client._events import ErrorEvent as _SDKErrorEvent
+    from agentnexus_client._events import ErrorEvent as _SDKErrorEvent
 
-    from omnigent.server.schemas import ErrorEvent, RetryErrorDetail
+    from agentnexus.server.schemas import ErrorEvent, RetryErrorDetail
 
     server_event = ErrorEvent(
         type="response.error",
@@ -3034,7 +3034,7 @@ def test_resume_hint_appends_resume_flag_to_invocation_parts() -> None:
     import shlex
 
     resume_parts = [
-        "omnigent",
+        "agentnexus",
         "run",
         "examples/databricks_coding_agent.yaml",
         "--server",
@@ -3046,7 +3046,7 @@ def test_resume_hint_appends_resume_flag_to_invocation_parts() -> None:
     ]
     hint = shlex.join([*resume_parts, "--resume", "conv_abc"])
     assert hint == (
-        "omnigent run examples/databricks_coding_agent.yaml "
+        "agentnexus run examples/databricks_coding_agent.yaml "
         "--server https://omnigent-app.databricksapps.com "
         "--profile oss "
         "--harness claude-sdk "
@@ -3073,15 +3073,15 @@ def _openai_key_default_config() -> dict[str, object]:
 
 def test_model_readout_own_auth_acp_harness_reports_agent_not_provider() -> None:
     """
-    Own-auth ACP harnesses must not report an Omnigent provider credential.
+    Own-auth ACP harnesses must not report an AgentNexus provider credential.
 
-    ``acp``/``acp:<slug>`` and ``goose`` spawn without any Omnigent provider
+    ``acp``/``acp:<slug>`` and ``goose`` spawn without any AgentNexus provider
     wiring, but ``default_provider_for_harness`` used to fall through to the
     configured key/gateway default for them (the unmapped pi-style fallback),
     so the readout named a model and credential the session never touches.
     A failure here means that fabrication is back.
     """
-    from omnigent.repl._repl import _build_model_readout_lines
+    from agentnexus.repl._repl import _build_model_readout_lines
 
     config = _openai_key_default_config()
     for harness in ("acp", "acp:droid", "goose"):
@@ -3099,7 +3099,7 @@ def test_model_readout_own_auth_acp_harness_shows_live_override() -> None:
     acp/goose; goose applies it as ``GOOSE_MODEL``), so the readout may not
     hide it or claim the model can't be changed.
     """
-    from omnigent.repl._repl import _build_model_readout_lines
+    from agentnexus.repl._repl import _build_model_readout_lines
 
     config = _openai_key_default_config()
     for harness in ("acp", "goose"):
@@ -3117,7 +3117,7 @@ def test_model_readout_qwen_still_names_routed_provider() -> None:
     so for qwen — unlike acp/goose — the credential readout is truthful and
     must not be declined as "own auth".
     """
-    from omnigent.repl._repl import _build_model_readout_lines
+    from agentnexus.repl._repl import _build_model_readout_lines
 
     lines = _build_model_readout_lines(_openai_key_default_config(), "qwen", None)
     assert any("OpenAI API Key" in line for line in lines), lines
@@ -3135,7 +3135,7 @@ def test_describe_active_credential_declines_own_auth_acp_harnesses() -> None:
     fabricated (a subscription default was already skipped, so it can't pin
     this fix).
     """
-    from omnigent.onboarding.provider_config import describe_active_credential
+    from agentnexus.onboarding.provider_config import describe_active_credential
 
     config = _openai_key_default_config()
     for harness in ("acp", "acp:droid", "goose"):

@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from omnigent.spec.parser import parse
-from omnigent.spec.types import DatabricksAuth
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import DatabricksAuth
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEBBY_DIR = _REPO_ROOT / "examples" / "debby"
-_PACKAGED_DEBBY_DIR = _REPO_ROOT / "omnigent" / "resources" / "examples" / "debby"
+_PACKAGED_DEBBY_DIR = _REPO_ROOT / "agentnexus" / "resources" / "examples" / "debby"
 
 
 def test_debby_gpt_head_uses_codex_not_openai_agents() -> None:

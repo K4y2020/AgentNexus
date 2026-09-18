@@ -21,7 +21,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import clear_engine_cache, get_or_create_engine
+from agentnexus.db.utils import clear_engine_cache, get_or_create_engine
 
 
 @pytest.fixture
@@ -57,16 +57,16 @@ def test_terminal_launch_args_column_present_and_nullable(db_engine: Engine) -> 
     ``omnigent.db.compression``, whose framed bytes can contain NUL and
     would be rejected by a ``TEXT`` column on PostgreSQL.
     """
-    cols = sa.inspect(db_engine).get_columns("omnigent_conversation_metadata")
+    cols = sa.inspect(db_engine).get_columns("agentnexus_conversation_metadata")
     matches = [c for c in cols if c["name"] == "terminal_launch_args"]
     assert len(matches) == 1, (
         f"Expected exactly one 'terminal_launch_args' column on "
-        f"omnigent_conversation_metadata, got {len(matches)}. "
+        f"agentnexus_conversation_metadata, got {len(matches)}. "
         f"If 0, the migration didn't apply."
     )
     col = matches[0]
     assert col["nullable"], (
-        "omnigent_conversation_metadata.terminal_launch_args must be NULLABLE — "
+        "agentnexus_conversation_metadata.terminal_launch_args must be NULLABLE — "
         "non-native and pre-feature rows have no launch args and would otherwise be "
         "rejected on read."
     )

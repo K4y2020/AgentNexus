@@ -7,7 +7,7 @@ The desktop shell stores:
 - Electron settings, recent servers, window state, update settings, upgrade
   markers, and pre-upgrade snapshots under `%APPDATA%\AgentNexus`
   (macOS: `~/Library/Application Support/AgentNexus`).
-- Local server data under `~/.omnigent` by default: `chat.db` (SQLite WAL),
+- Local server data under `~/.agentnexus` by default: `chat.db` (SQLite WAL),
   `config.yaml`, `auth_tokens.json`, `local_server.pid`, `local_server.sig`,
   `daemons/`, artifacts, crash reports, and logs.
 
@@ -41,6 +41,6 @@ action.
 ## Pre-upgrade backups
 
 Upgrade snapshots include database, config, auth references, and daemon
-registry files. They contain the same sensitive material as `~/.omnigent`, so
+registry files. They contain the same sensitive material as `~/.agentnexus`, so
 protect the `%APPDATA%\AgentNexus\update-backups` directory like any local
 credential store. Snapshots older than the five most recent are pruned.

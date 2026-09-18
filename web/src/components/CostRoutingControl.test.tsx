@@ -88,7 +88,7 @@ describe("isSubagentRoutingSession", () => {
       isSubagentRoutingSession({
         ...top,
         harness: "pi",
-        labels: { "omnigent.wrapper": "cursor-native-ui" },
+        labels: { "agentnexus.wrapper": "cursor-native-ui" },
       }),
     ).toBe(false);
   });

@@ -56,7 +56,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 from tests.e2e._harness_probes import (
     HARNESS_IDS,
     HARNESS_PROBES,

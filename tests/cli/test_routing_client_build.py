@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omnigent.cli import _build_routing_backends
-from omnigent.server.smart_routing import (
+from agentnexus.cli import _build_routing_backends
+from agentnexus.server.smart_routing import (
     ExternalRoutingClient,
     LLMRoutingClient,
     RoutingSettings,
@@ -28,14 +28,14 @@ _LLM_BLOCK: dict[str, Any] = {"model": "databricks-claude-haiku-4-5"}
 def workspace() -> Any:
     """Resolve every Databricks profile to one workspace host."""
     with patch(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace",
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace",
         return_value=MagicMock(host="https://ws.example.invalid"),
     ) as resolve:
         yield resolve
 
 
 def _server_llm() -> Any:
-    from omnigent.spec import parse_server_llm
+    from agentnexus.spec import parse_server_llm
 
     return parse_server_llm(_LLM_BLOCK)
 
@@ -45,11 +45,11 @@ def _policy_client() -> Any:
     """Stub the policy-LLM plumbing so no real credential is resolved."""
     with (
         patch(
-            "omnigent.runtime.policies.builder._resolve_server_llm_connection",
+            "agentnexus.runtime.policies.builder._resolve_server_llm_connection",
             return_value=None,
         ),
         patch(
-            "omnigent.runtime.policies.builder._build_policy_llm_client",
+            "agentnexus.runtime.policies.builder._build_policy_llm_client",
             return_value=MagicMock(),
         ),
     ):
@@ -96,7 +96,7 @@ def test_provider_none_configures_neither_backend(workspace: Any) -> None:
 def test_an_llm_block_alone_configures_only_the_built_in_judge() -> None:
     """No Databricks provider and no ``routing:`` block means judge only."""
     with (
-        patch("omnigent.cli._databricks_provider_profile", return_value=None),
+        patch("agentnexus.cli._databricks_provider_profile", return_value=None),
         _policy_client(),
     ):
         backends = _build_routing_backends({}, _server_llm(), RoutingSettings())
@@ -117,7 +117,7 @@ def test_a_databricks_deployment_without_an_llm_block_gets_only_the_gateway(
 
 def test_an_unusable_config_leaves_routing_off() -> None:
     """A default (non-external, non-none) provider with no ``llm:`` block."""
-    with patch("omnigent.cli._databricks_provider_profile", return_value=None):
+    with patch("agentnexus.cli._databricks_provider_profile", return_value=None):
         backends = _build_routing_backends(
             {"routing": {"provider": "judge"}}, None, RoutingSettings()
         )

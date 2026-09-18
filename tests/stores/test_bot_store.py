@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 def _id(seed: str) -> str:

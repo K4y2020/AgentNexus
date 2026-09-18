@@ -2,15 +2,15 @@
 
 The state module persists per-conversation launch metadata (today
 just the cwd a session was created in) under
-``~/.omnigent/claude-native/<hash>/launch.json`` so the resume
+``~/.agentnexus/claude-native/<hash>/launch.json`` so the resume
 path can detect cwd mismatches that would otherwise make
 ``claude --resume`` exit immediately on launch.
 
 The test session's :func:`_isolate_claude_native_state` autouse
 fixture (defined in ``tests/conftest.py``) redirects the state
 root to a per-session ``tmp_path`` via
-:data:`OMNIGENT_CLAUDE_NATIVE_STATE_DIR`, so these tests never
-touch the developer's real ``~/.omnigent``.
+:data:`AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR`, so these tests never
+touch the developer's real ``~/.agentnexus``.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.claude_native_state import (
+from agentnexus.claude_native_state import (
     _state_dir_for_conversation_id,
     read_launch_state,
     redirect_launch_state,
@@ -105,7 +105,7 @@ def test_write_different_value_keeps_existing(caplog: pytest.LogCaptureFixture) 
     # from a sibling test that runs ``setup_cli_logging`` (which sets
     # ``omnigent.propagate = False``) can leak into this xdist
     # worker if its cleanup fixture didn't run.
-    logging.getLogger("omnigent").propagate = True
+    logging.getLogger("agentnexus").propagate = True
     write_launch_state("conv_overwrite", "/home/me/repo")
     with caplog.at_level(logging.WARNING):
         write_launch_state("conv_overwrite", "/elsewhere")
@@ -173,7 +173,7 @@ def test_state_dir_for_conversation_id_is_under_root(
     as a parent (not just as a prefix string-match, which would
     miss a ``..`` escape).
     """
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
 
     for evil_id in [
         "../../../etc/passwd",
@@ -214,11 +214,11 @@ def test_read_malformed_json_returns_none(
     # See test_write_different_value_keeps_existing — defensive
     # restore of ``omnigent`` logger propagation in case a sibling
     # test leaked ``propagate = False`` into this xdist worker.
-    logging.getLogger("omnigent").propagate = True
+    logging.getLogger("agentnexus").propagate = True
 
     # Point the state root at a fresh tmp dir so we don't read a
     # malformed file from another test.
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
 
     state_dir = _state_dir_for_conversation_id("conv_malformed")
     state_dir.mkdir(parents=True)
@@ -246,7 +246,7 @@ def test_read_missing_working_directory_field_returns_none(
     accident -- we want the resume path to treat it as legacy,
     not crash and not falsely prompt.
     """
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
 
     state_dir = _state_dir_for_conversation_id("conv_no_wd")
     state_dir.mkdir(parents=True)
@@ -266,7 +266,7 @@ def test_read_empty_working_directory_field_returns_none(
     empty input) and prevents downstream code from comparing
     ``"".resolve()`` against a real cwd.
     """
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path))
 
     state_dir = _state_dir_for_conversation_id("conv_empty_wd")
     state_dir.mkdir(parents=True)
@@ -284,17 +284,17 @@ def test_state_root_env_var_redirects_state(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
-    ``OMNIGENT_CLAUDE_NATIVE_STATE_DIR`` redirects the state
+    ``AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR`` redirects the state
     tree.
 
     Tests rely on this for isolation (the autouse
     ``_isolate_claude_native_state`` fixture in ``tests/conftest.py``).
     If the override stopped working, every test that drives the
     wrapper would silently write to the developer's real
-    ``~/.omnigent/``.
+    ``~/.agentnexus/``.
     """
     redirect = tmp_path / "alt-state"
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(redirect))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(redirect))
 
     write_launch_state("conv_redirect", "/some/path")
     # File must exist under the redirected root, not under any

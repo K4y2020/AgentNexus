@@ -1,4 +1,4 @@
-"""Omnigent-MCP probe — can a native harness call the Omnigent relay?
+"""AgentNexus-MCP probe — can a native harness call the AgentNexus relay?
 
 This is intentionally separate from ``ToolCallingProbe``: that probe exercises
 whatever tool mechanism is native to the transport (for example Bash in Claude
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from tests.harness_bench.driver import infra_failure_reason
 from tests.harness_bench.mcp_tools import (
-    TARGET_OMNIGENT_MCP_TOOL,
+    TARGET_AGENTNEXUS_MCP_TOOL,
     is_target_omnigent_mcp_tool,
 )
 from tests.harness_bench.probes.base import CapabilityProbe
@@ -19,9 +19,9 @@ from tests.harness_bench.transport import Driver
 from tests.harness_bench.verdict import Applicability, Priority, ProbeResult, Verdict
 
 
-class OmnigentMcpProbe(CapabilityProbe):
-    name = "omnigent_mcp"
-    title = "Omnigent MCP"
+class AgentNexusMcpProbe(CapabilityProbe):
+    name = "agentnexus_mcp"
+    title = "AgentNexus MCP"
     priority = Priority.P1
     applies_to = Applicability.NATIVE
 
@@ -34,7 +34,7 @@ class OmnigentMcpProbe(CapabilityProbe):
         if matched:
             return ProbeResult(
                 Verdict.SUPPORTED,
-                note=f"called {TARGET_OMNIGENT_MCP_TOOL} through the Omnigent MCP relay",
+                note=f"called {TARGET_AGENTNEXUS_MCP_TOOL} through the AgentNexus MCP relay",
                 detail=detail,
             )
         infra = infra_failure_reason(result)
@@ -45,11 +45,11 @@ class OmnigentMcpProbe(CapabilityProbe):
         if result.timed_out:
             return ProbeResult(
                 Verdict.SKIPPED,
-                note=(f"timed out before calling {TARGET_OMNIGENT_MCP_TOOL} through Omnigent MCP"),
+                note=(f"timed out before calling {TARGET_AGENTNEXUS_MCP_TOOL} through AgentNexus MCP"),
                 detail=detail,
             )
         return ProbeResult(
             Verdict.SKIPPED,
-            note=(f"model did not call {TARGET_OMNIGENT_MCP_TOOL} through the Omnigent MCP relay"),
+            note=(f"model did not call {TARGET_AGENTNEXUS_MCP_TOOL} through the AgentNexus MCP relay"),
             detail=detail,
         )

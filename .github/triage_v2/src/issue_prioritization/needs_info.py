@@ -11,7 +11,7 @@ from typing import Protocol
 from issue_prioritization.comments import COMMENT_MARKER
 from issue_prioritization.github import GitHubClient
 
-CLOSE_COMMENT_MARKER = "omnigent-needs-info-expiry"
+CLOSE_COMMENT_MARKER = "agentnexus-needs-info-expiry"
 _EXEMPT_LABELS = {"duplicate", "pinned", "security"}
 
 

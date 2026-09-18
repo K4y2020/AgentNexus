@@ -1,5 +1,5 @@
-# Build the `omnigent` release distributions (core wheel with the web
-# UI bundled in, plus the `omnigent-client` and `omnigent-ui-sdk` SDK
+# Build the `agentnexus` release distributions (core wheel with the web
+# UI bundled in, plus the `agentnexus-client` and `agentnexus-ui-sdk` SDK
 # wheels it depends on), run the readiness gates, and publish all three to
 # (Test)PyPI via OIDC Trusted Publishing. The three version-lock together,
 # so every release publishes all three at the same version. Self-contained:
@@ -14,11 +14,11 @@
 #      the identical version to PyPI, behind the protected `pypi` env.
 #
 # One-time setup (per index, pypi.org AND test.pypi.org): Trusted Publishers
-# for all three project names pointing at omnigent-ai/omnigent +
-# release-omnigent.yml + the test-pypi/pypi environment (unclaimed names
+# for all three project names pointing at agentnexus-ai/agentnexus +
+# release-agentnexus.yml + the test-pypi/pypi environment (unclaimed names
 # reserved via a pending publisher); GitHub envs test-pypi (unprotected)
 # and pypi (required reviewer). Actions are SHA-pinned per repo convention.
-name: Release omnigent (PyPI)
+name: Release agentnexus (PyPI)
 
 on:
   # PyPI publishing moved to the central secure-release repo; the tag-push
@@ -39,7 +39,7 @@ on:
   # steps are condition-gated off PR events.
   pull_request:
     paths:
-      - ".github/workflows/release-omnigent.yml"
+      - ".github/workflows/release-agentnexus.yml"
 
 permissions:
   contents: read
@@ -47,13 +47,13 @@ permissions:
 
 # Serialize releases on the same ref so two triggers can't race the same tag.
 concurrency:
-  group: release-omnigent-${{ github.ref }}
+  group: release-agentnexus-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build-and-publish:
     # Gated to this repository; inert in forks and mirrors.
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     # Bound a hung run under GitHub's 6-hour default (real work takes minutes).
     timeout-minutes: 30
@@ -83,9 +83,9 @@ jobs:
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
-          rm -rf omnigent/server/static/web-ui
+          rm -rf agentnexus/server/static/web-ui
           pnpm install --frozen-lockfile --filter web
-          pnpm --filter web run build # Vite outDir -> omnigent/server/static/web-ui
+          pnpm --filter web run build # Vite outDir -> agentnexus/server/static/web-ui
 
       # 2. Tag-driven: the tag must match the version in all three pyprojects
       #    and the core package's `==` sibling-SDK pins, so the lockstep
@@ -101,9 +101,9 @@ jobs:
           # Every package carries the tag's version; every cross-package
           # dep is an exact `==tag` pin (the lockstep contract).
           packages = {
-              "pyproject.toml": ("omnigent-client", "omnigent-ui-sdk"),
-              "sdks/python-client/pyproject.toml": ("omnigent",),
-              "sdks/ui/pyproject.toml": ("omnigent-client",),
+              "pyproject.toml": ("agentnexus-client", "agentnexus-ui-sdk"),
+              "sdks/python-client/pyproject.toml": ("agentnexus",),
+              "sdks/ui/pyproject.toml": ("agentnexus-client",),
           }
           errors = []
           for path, sibling_pins in packages.items():
@@ -137,7 +137,7 @@ jobs:
 
       # 5. GATE: the UI bundle must be inside the core wheel; fail loud if
       #    missing/empty. The glob matches only the core wheel (SDK wheels
-      #    are omnigent_client-* / omnigent_ui_sdk-*).
+      #    are agentnexus_client-* / agentnexus_ui_sdk-*).
       - name: Assert web-UI bundle shipped in the wheel
         run: |
           uv run --no-project python - <<'PY'
@@ -145,9 +145,9 @@ jobs:
           import sys
           import zipfile
 
-          whls = sorted(glob.glob("dist/omnigent-*.whl"))
+          whls = sorted(glob.glob("dist/agentnexus-*.whl"))
           if not whls:
-              sys.exit("no core omnigent wheel found in dist/")
+              sys.exit("no core agentnexus wheel found in dist/")
           whl = whls[-1]
           names = zipfile.ZipFile(whl).namelist()
           ui = [n for n in names if "server/static/web-ui/" in n]
@@ -160,15 +160,15 @@ jobs:
       #    resolving deps from public PyPI (catches proxy-only deps).
       - name: Smoke-install the built wheels
         run: |
-          uv venv --python 3.12 /tmp/omnigent-smoke
-          uv pip install --python /tmp/omnigent-smoke/bin/python dist/*.whl
-          /tmp/omnigent-smoke/bin/omnigent --version
+          uv venv --python 3.12 /tmp/agentnexus-smoke
+          uv pip install --python /tmp/agentnexus-smoke/bin/python dist/*.whl
+          /tmp/agentnexus-smoke/bin/agentnexus --version
 
       # 7. Persist the built artifacts for inspection.
       - name: Upload built distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dist-omnigent
+          name: dist-agentnexus
           path: dist/
 
       # PUBLISH via OIDC Trusted Publishing (no token; id-token: write granted

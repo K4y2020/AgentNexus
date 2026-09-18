@@ -19,10 +19,10 @@ import httpx
 import jwt
 import pytest
 
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig
-from omnigent.server.routes.auth import (
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig
+from agentnexus.server.routes.auth import (
     _CLI_TICKET_TTL_SECONDS,
     _CliTicket,
     _evict_expired_tickets,
@@ -223,7 +223,7 @@ async def test_callback_exchanges_code_and_sets_session_cookie() -> None:
     async with httpx.AsyncClient(
         transport=transport, base_url="http://test", follow_redirects=False
     ) as client:
-        with patch("omnigent.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
+        with patch("agentnexus.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
             resp = await client.get(
                 "/auth/callback",
                 params={"code": "auth-code-123", "state": state},
@@ -277,7 +277,7 @@ async def test_callback_returns_400_on_token_exchange_failure() -> None:
     state_cookie = _mint_state_cookie(state)
 
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        with patch("omnigent.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
+        with patch("agentnexus.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
             resp = await client.get(
                 "/auth/callback",
                 params={"code": "bad-code", "state": state},
@@ -295,7 +295,7 @@ async def test_callback_returns_400_on_non_object_token_response() -> None:
     state_cookie = _mint_state_cookie(state)
 
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        with patch("omnigent.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
+        with patch("agentnexus.server.routes.auth.httpx.AsyncClient", return_value=mock_cm):
             resp = await client.get(
                 "/auth/callback",
                 params={"code": "bad-response", "state": state},

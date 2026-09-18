@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.server.routes._sessions.orchestration import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.server.routes._sessions.orchestration import (
     _bind_bot_default_model,
     _effective_saved_subagent_model_preference,
     _saved_subagent_model_preference,
 )
-from omnigent.server.schemas import SessionEventInput
+from agentnexus.server.schemas import SessionEventInput
 
 
 class _BotStore:
@@ -52,7 +52,7 @@ async def test_bot_model_settings_failure_fails_closed() -> None:
     conv = SimpleNamespace(id="a2a", bot_id="target-bot", model_override=None)
     body = SessionEventInput(type="message", data={"role": "user", "content": []})
 
-    with pytest.raises(OmnigentError, match="no fallback model was selected"):
+    with pytest.raises(AgentNexusError, match="no fallback model was selected"):
         await _bind_bot_default_model(conv, body, BrokenStore())
 
 

@@ -23,7 +23,7 @@
 #
 # Usage:
 #   export DATABRICKS_CONFIG_PROFILE=<your-profile>
-#   python -m omnigent tests/resources/examples/info_flow_agent.yaml \
+#   python -m agentnexus tests/resources/examples/info_flow_agent.yaml \
 #       --prompt "Read the strategy doc, then create a public summary doc and paste the highlights."
 #   # Reading the confidential strategy doc puts the session in the compartment;
 #   # the follow-up docs_document_create is then blocked as a write-down.
@@ -57,7 +57,7 @@ tools:
 policies:
   confidential_containment:
     type: function
-    handler: omnigent.policies.builtins.google.gdrive_policy
+    handler: agentnexus.policies.builtins.google.gdrive_policy
     factory_params:
       # The confidential compartment. Replace these with your own document IDs
       # or URLs. Reading any of them confines the session's writes to this set.

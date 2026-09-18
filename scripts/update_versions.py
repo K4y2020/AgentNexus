@@ -73,11 +73,11 @@ class Package:
     """
     One lockstep-versioned distribution in the repo.
 
-    :param name: Distribution name, e.g. ``"omnigent"``.
+    :param name: Distribution name, e.g. ``"agentnexus"``.
     :param pyproject: Path to the package's ``pyproject.toml``, e.g.
         ``Path("sdks/python-client/pyproject.toml")``.
     :param sibling_pins: Sibling distribution names this package
-        ``==``-pins, e.g. ``("omnigent-client", "omnigent-ui-sdk")``.
+        ``==``-pins, e.g. ``("agentnexus-client", "agentnexus-ui-sdk")``.
         Empty for a package that pins no siblings.
     """
 
@@ -95,28 +95,28 @@ def packages(root: Path) -> list[Package]:
     """
     return [
         Package(
-            "omnigent",
+            "agentnexus",
             root / "pyproject.toml",
-            ("omnigent-client", "omnigent-ui-sdk", "omnigent-slack"),
+            ("agentnexus-client", "agentnexus-ui-sdk", "agentnexus-slack"),
         ),
         Package(
-            "omnigent-client",
+            "agentnexus-client",
             root / "sdks" / "python-client" / "pyproject.toml",
-            ("omnigent",),
+            ("agentnexus",),
         ),
         Package(
-            "omnigent-ui-sdk",
+            "agentnexus-ui-sdk",
             root / "sdks" / "ui" / "pyproject.toml",
-            ("omnigent-client",),
+            ("agentnexus-client",),
         ),
-        # omnigent-slack is deliberately decoupled from omnigent core (it
+        # omnigent-slack is deliberately decoupled from agentnexus core (it
         # drives the server over HTTP, never imports ``omnigent``), so it
         # pins no siblings. The root ``omnigent`` package ``==``-pins it in
         # the ``slack`` optional-dependency extra; the pin lives in
         # [project.optional-dependencies] rather than [project.dependencies],
         # so check() scans both sections for it.
         Package(
-            "omnigent-slack",
+            "agentnexus-slack",
             root / "integrations" / "slack" / "pyproject.toml",
             (),
         ),
@@ -168,7 +168,7 @@ def semver_of(version: str) -> str:
 
 def _version_py(root: Path) -> Path:
     """Return the path to the runtime version constant module."""
-    return root / "omnigent" / "version.py"
+    return root / "agentnexus" / "version.py"
 
 
 def _pin_pattern(name: str) -> re.Pattern[str]:
@@ -179,7 +179,7 @@ def _pin_pattern(name: str) -> re.Pattern[str]:
     literal is never matched, and capturing the leading indent so it
     is preserved on rewrite.
 
-    :param name: Distribution name to match, e.g. ``"omnigent-client"``.
+    :param name: Distribution name to match, e.g. ``"agentnexus-client"``.
     :returns: A compiled multiline pattern.
     """
     return re.compile(rf'^(?P<indent>\s*)"{re.escape(name)}==[^"]*",$', re.MULTILINE)
@@ -346,7 +346,7 @@ def check(root: Path, expect: str | None = None) -> str:
     constant = _read_version_constant(root)
     if Version(constant) != Version(resolved):
         raise ValueError(
-            f"omnigent/version.py VERSION {constant!r} != [project].version {resolved!r}"
+            f"agentnexus/version.py VERSION {constant!r} != [project].version {resolved!r}"
         )
     electron = _electron_package_json(root)
     desktop = json.loads(electron.read_text())["version"]

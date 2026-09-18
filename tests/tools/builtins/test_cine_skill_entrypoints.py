@@ -6,21 +6,21 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.prompt import (
+from agentnexus.runtime.prompt import (
     build_instructions,
     build_instructions_nullable,
     raw_author_instructions,
 )
-from omnigent.spec.parser import _parse_skill, parse
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.load_skill import LoadSkillTool, format_skill_meta_text
-from omnigent.tools.builtins.read_skill_file import ReadSkillFileTool
+from agentnexus.spec.parser import _parse_skill, parse
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.load_skill import LoadSkillTool, format_skill_meta_text
+from agentnexus.tools.builtins.read_skill_file import ReadSkillFileTool
 
 
 def test_cine_uses_gateway_neutral_harness_for_configurable_models():
     root = Path(__file__).resolve().parents[3] / "examples" / "cine"
     spec = parse(root)
-    assert spec.executor.type == "omnigent"
+    assert spec.executor.type == "agentnexus"
     assert spec.executor.config["harness"] == "openai-agents"
 
 

@@ -141,7 +141,7 @@ export function HostBadge({
   if (!badge) return null;
 
   // A resumable managed host that reports offline is idle-stopped, not
-  // disconnected — the next message resumes it, and `omnigent host` (what the
+  // disconnected — the next message resumes it, and `agentnexus host` (what the
   // reconnect dialog hands out) is the wrong instruction for it.
   const reconnectable = badge.status === "offline" && !session?.hostResumable && !!onReconnect;
   const statusWord = reconnectable ? RECONNECT_WORD : STATUS_WORD[badge.status];

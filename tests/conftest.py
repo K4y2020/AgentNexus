@@ -1,4 +1,4 @@
-"""Shared pytest configuration and fixtures for Omnigent tests."""
+"""Shared pytest configuration and fixtures for AgentNexus tests."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ try:
 except ImportError:
     _resource = None  # type: ignore[assignment]
 
-# Establish test data isolation before importing any Omnigent modules. This
+# Establish test data isolation before importing any AgentNexus modules. This
 # deliberately replaces ambient state; subprocesses inherit the safe override.
-_TEST_OMNIGENT_DATA_DIR = Path(tempfile.mkdtemp(prefix="omnigent-pytest-")).resolve()
-os.environ["OMNIGENT_DATA_DIR"] = str(_TEST_OMNIGENT_DATA_DIR)
+_TEST_AGENTNEXUS_DATA_DIR = Path(tempfile.mkdtemp(prefix="agentnexus-pytest-")).resolve()
+os.environ["AGENTNEXUS_DATA_DIR"] = str(_TEST_AGENTNEXUS_DATA_DIR)
 
 # Skip the synchronous api.litellm.ai/model_catalog HTTP fallback during
 # tests. Hardened CI runners can't reach the public internet, so every
@@ -28,15 +28,15 @@ os.environ["OMNIGENT_DATA_DIR"] = str(_TEST_OMNIGENT_DATA_DIR)
 # block 5 s on the timeout. ``setdefault`` so a developer can opt
 # back in by exporting the var with any other value when exercising the
 # catalog code path explicitly.
-os.environ.setdefault("OMNIGENT_DISABLE_CATALOG_LOOKUP", "1")
+os.environ.setdefault("AGENTNEXUS_DISABLE_CATALOG_LOOKUP", "1")
 
 # Pin header mode for the whole suite. Header is the env-unset default,
-# but a developer's shell often has OMNIGENT_AUTH_ENABLED=1 set (the
+# but a developer's shell often has AGENTNEXUS_AUTH_ENABLED=1 set (the
 # multi-user opt-in they use to test the login flow locally) — and that
 # enable switch would flip the env-unset default to accounts (or oidc, if
-# the shell also exports OMNIGENT_OIDC_ISSUER), booting every server in
+# the shell also exports AGENTNEXUS_OIDC_ISSUER), booting every server in
 # multi-user mode and failing loud with "Missing required environment
-# variable OMNIGENT_ACCOUNTS_COOKIE_SECRET" / "Authentication required"
+# variable AGENTNEXUS_ACCOUNTS_COOKIE_SECRET" / "Authentication required"
 # (401). An explicit AUTH_PROVIDER always wins over the enable switch, so
 # pinning it here keeps tests deterministic regardless of the ambient
 # shell. Accounts/OIDC-specific tests still opt in by monkeypatching the
@@ -44,7 +44,7 @@ os.environ.setdefault("OMNIGENT_DISABLE_CATALOG_LOOKUP", "1")
 # tests/server/test_oidc.py). Module-level setdefault rather than a fixture
 # so subprocess-spawning tests (e2e shells out to `omnigent run`) inherit
 # the pin via env.
-os.environ.setdefault("OMNIGENT_AUTH_PROVIDER", "header")
+os.environ.setdefault("AGENTNEXUS_AUTH_PROVIDER", "header")
 
 # Mark the whole suite a single-user local runtime. Header mode now
 # fails closed on a missing X-Forwarded-Email: a request
@@ -59,10 +59,10 @@ os.environ.setdefault("OMNIGENT_AUTH_PROVIDER", "header")
 # multi-user) posture opt OUT by constructing
 # UnifiedAuthProvider(source="header", local_single_user=False) or by
 # monkeypatch.delenv-ing this var.
-os.environ.setdefault("OMNIGENT_LOCAL_SINGLE_USER", "1")
+os.environ.setdefault("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
 
-from omnigent.db.utils import _engine_cache, _engine_lock, get_or_create_engine  # noqa: E402
-from omnigent.runtime.filesystem_registry import GitFilesystemRegistry  # noqa: E402
+from agentnexus.db.utils import _engine_cache, _engine_lock, get_or_create_engine  # noqa: E402
+from agentnexus.runtime.filesystem_registry import GitFilesystemRegistry  # noqa: E402
 from tests import _model_pools  # noqa: E402
 
 pytest_plugins = ["tests._token_usage"]
@@ -117,12 +117,12 @@ def _run_test_environment_guardrails(config: pytest.Config) -> None:
 
     Hard-fail: :func:`check_test_environment` raises on anything that
     looks like a real (non-test) DB or a base URL aimed at a dev/prod host
-    or port. Set ``OMNIGENT_DISABLE_TEST_GUARDRAILS=1`` to temporarily
+    or port. Set ``AGENTNEXUS_DISABLE_TEST_GUARDRAILS=1`` to temporarily
     downgrade violations to warn-only for deliberate integration runs.
     """
-    from omnigent.testing.guardrails import check_test_environment
+    from agentnexus.testing.guardrails import check_test_environment
 
-    db_uri = os.environ.get("OMNIGENT_DATABASE_URI", "")
+    db_uri = os.environ.get("AGENTNEXUS_DATABASE_URI", "")
     base_url = config.getoption("--omnigent-server-url", default=None)
     check_test_environment(db_uri=db_uri, base_url=base_url, warn_only=False)
 
@@ -130,20 +130,20 @@ def _run_test_environment_guardrails(config: pytest.Config) -> None:
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Clean up per-session resources.
 
-    Reap before removing the data dir: tests spawn real detached Omnigent
+    Reap before removing the data dir: tests spawn real detached AgentNexus
     processes (host daemons, local servers, runner zygotes) that would
     otherwise outlive the session — squatting port 6767 and serving a
     deleted database. Reaping first also lets attribution use the live
     directory path while orphans still reference it.
     """
-    from omnigent.testing.process_reaper import reap_leaked_omnigent_processes
+    from agentnexus.testing.process_reaper import reap_leaked_omnigent_processes
 
-    reaped, survivors = reap_leaked_omnigent_processes(_TEST_OMNIGENT_DATA_DIR)
+    reaped, survivors = reap_leaked_omnigent_processes(_TEST_AGENTNEXUS_DATA_DIR)
     for cmdline in reaped:
         print(f"\nreaped leaked omnigent process: {cmdline}", file=sys.stderr)
     for cmdline in survivors:
         print(f"\nUNREAPED omnigent process survived SIGKILL: {cmdline}", file=sys.stderr)
-    shutil.rmtree(_TEST_OMNIGENT_DATA_DIR, ignore_errors=True)
+    shutil.rmtree(_TEST_AGENTNEXUS_DATA_DIR, ignore_errors=True)
 
 
 # Per-worker progress logger: fsync'd START/END lines so a
@@ -310,7 +310,7 @@ def _reset_runner_catalog_cache() -> Generator[None, None, None]:
     # sys.modules lookup, not an import: the spec lane blocks omnigent imports
     # inside some tests, and a lane that never touched smart_routing should not
     # pay for loading it in every teardown.
-    module = sys.modules.get("omnigent.server.smart_routing")
+    module = sys.modules.get("agentnexus.server.smart_routing")
     if module is not None:
         module._runner_catalog_cache.clear()
 
@@ -325,13 +325,13 @@ def _isolate_claude_native_state(
 
     The ``omnigent claude`` wrapper writes per-conversation
     launch state (the cwd a session was created in) under
-    ``~/.omnigent/claude-native/<hash>/launch.json``. Any test
+    ``~/.agentnexus/claude-native/<hash>/launch.json``. Any test
     that drives the wrapper -- directly or indirectly via test
     fakes that invoke its helpers -- would otherwise write to the
-    developer's real ``~/.omnigent`` directory and pollute it
+    developer's real ``~/.agentnexus`` directory and pollute it
     across test runs.
 
-    The state module honors :data:`OMNIGENT_CLAUDE_NATIVE_STATE_DIR`
+    The state module honors :data:`AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR`
     as a root override. ``autouse=True`` because the alternative
     (opt-in fixture per test) leaves us one missed test away from
     re-polluting the user's home; the override has no side effects
@@ -349,7 +349,7 @@ def _isolate_claude_native_state(
     :returns: None.
     """
     state_dir = tmp_path_factory.mktemp("claude-native-state")
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(state_dir))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(state_dir))
 
 
 @pytest.fixture(autouse=True)
@@ -361,11 +361,11 @@ def _isolate_codex_native_state(
     Redirect codex-native client-side persistent state to a tmp dir.
 
     The ``omnigent codex`` wrapper writes per-conversation launch
-    state under ``~/.omnigent/codex-native/<hash>/launch.json``.
+    state under ``~/.agentnexus/codex-native/<hash>/launch.json``.
     Tests that drive the wrapper should never write to or read from
     the developer's real persistent resume state.
 
-    The state module honors :data:`OMNIGENT_CODEX_NATIVE_STATE_DIR`
+    The state module honors :data:`AGENTNEXUS_CODEX_NATIVE_STATE_DIR`
     as a root override. ``autouse=True`` keeps test isolation as the
     default even for indirect wrapper tests that do not explicitly
     request a Codex state fixture.
@@ -376,7 +376,7 @@ def _isolate_codex_native_state(
     :returns: None.
     """
     state_dir = tmp_path_factory.mktemp("codex-native-state")
-    monkeypatch.setenv("OMNIGENT_CODEX_NATIVE_STATE_DIR", str(state_dir))
+    monkeypatch.setenv("AGENTNEXUS_CODEX_NATIVE_STATE_DIR", str(state_dir))
 
 
 @pytest.fixture()
@@ -419,7 +419,7 @@ def _isolate_claude_managed_settings(
     """
     if "claude_managed_settings" in request.fixturenames:
         return
-    monkeypatch.setattr("omnigent.onboarding.ambient.CLAUDE_CODE_MANAGED_SETTINGS_PATHS", ())
+    monkeypatch.setattr("agentnexus.onboarding.ambient.CLAUDE_CODE_MANAGED_SETTINGS_PATHS", ())
 
 
 @pytest.fixture()
@@ -515,7 +515,7 @@ def _worker_db_uri() -> Generator[str, None, None]:
     """
     Session-scoped database URI — one DB per xdist worker, migrated once.
 
-    When ``OMNIGENT_TEST_DB_URI`` is set, creates one database per worker
+    When ``AGENTNEXUS_TEST_DB_URI`` is set, creates one database per worker
     (``omnigent_test_w0``, ``omnigent_test_w1``, …), runs Alembic migrations
     exactly once per worker session, then tears the database down at the end.
     This avoids migrating hundreds of times — one migration run per worker
@@ -527,13 +527,13 @@ def _worker_db_uri() -> Generator[str, None, None]:
 
     import sqlalchemy as _sa
 
-    base_uri = os.environ.get("OMNIGENT_TEST_DB_URI", "")
+    base_uri = os.environ.get("AGENTNEXUS_TEST_DB_URI", "")
     if not base_uri:
         yield ""
         return
 
     worker = os.environ.get("PYTEST_XDIST_WORKER", "w0")
-    db_name = f"omnigent_test_{worker}"
+    db_name = f"agentnexus_test_{worker}"
     uri = re.sub(r"/[^/]*(\?.*)?$", f"/{db_name}", base_uri)
 
     root_engine = _sa.create_engine(base_uri, isolation_level="AUTOCOMMIT")
@@ -573,7 +573,7 @@ def db_uri(tmp_path: Path, _worker_db_uri: str) -> Generator[str, None, None]:
     Per-test database URI.
 
     * **SQLite** (default): fresh file per test, fully isolated.
-    * **Postgres / MySQL** (``OMNIGENT_TEST_DB_URI`` set): reuses the
+    * **Postgres / MySQL** (``AGENTNEXUS_TEST_DB_URI`` set): reuses the
       session-scoped worker database and truncates all non-alembic tables
       between tests so each test starts clean without re-migrating.
     """
@@ -625,7 +625,7 @@ def lowered_idle_thresholds(monkeypatch: pytest.MonkeyPatch) -> None:
     :param monkeypatch: Pytest's monkeypatch fixture; auto-restores
         the original constants at teardown.
     """
-    from omnigent.inner import terminal as terminal_module
+    from agentnexus.inner import terminal as terminal_module
 
     monkeypatch.setattr(terminal_module, "_IDLE_THRESHOLD_SECONDS", 0.4)
     monkeypatch.setattr(terminal_module, "_IDLE_POLL_INTERVAL_SECONDS", 0.1)

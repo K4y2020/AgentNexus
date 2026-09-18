@@ -17,13 +17,13 @@ The shared flow lives in :func:`assert_native_cli_resume_restores_history`
 
 Environment requirements (why this is opt-in, not pure-CI)
 ----------------------------------------------------------
-* **Opt-in only**: set ``OMNIGENT_E2E_CODEX_NATIVE=1`` to run. codex-native
+* **Opt-in only**: set ``AGENTNEXUS_E2E_CODEX_NATIVE=1`` to run. codex-native
   needs an interactive Codex login anchored to the real ``$HOME``; the binary
   may be present in CI but unauthenticated, which would hang the TUI. The
   env-var gate keeps it out of CI; a developer with a logged-in Codex opts in.
 * Run it like the host codex-native test::
 
-    OMNIGENT_E2E_CODEX_NATIVE=1 \
+    AGENTNEXUS_E2E_CODEX_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_codex_native_cli_resume_e2e.py \
         --profile oss \
         --llm-api-key "$(databricks auth token -p oss \
@@ -47,10 +47,10 @@ from tests.e2e._native_resume_helpers import assert_native_cli_resume_restores_h
 # Opt-in only — see module docstring. Binary presence is not a sufficient gate
 # (present-but-unauthenticated hangs the TUI), so require the explicit env var.
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
+    os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
         "codex-native CLI resume e2e needs an interactive Codex login; set "
-        "OMNIGENT_E2E_CODEX_NATIVE=1 (and have `codex` installed + logged in) to run"
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 (and have `codex` installed + logged in) to run"
     ),
 )
 

@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from omnigent.db.compression import _MIN_COMPRESS_BYTES, decode, encode
+from agentnexus.db.compression import _MIN_COMPRESS_BYTES, decode, encode
 
 
 def test_none_round_trips() -> None:

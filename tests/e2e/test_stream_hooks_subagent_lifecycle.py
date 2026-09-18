@@ -37,15 +37,15 @@ import uuid
 from typing import Any
 
 import httpx
-from omnigent_client._sessions import SessionsNamespace
-from omnigent_client._sessions_chat import SessionsChat
-from omnigent_client._tool_handler import (
+from agentnexus_client._sessions import SessionsNamespace
+from agentnexus_client._sessions_chat import SessionsChat
+from agentnexus_client._tool_handler import (
     StreamHooks,
     SubAgentCompletedCtx,
     SubAgentSpawnedCtx,
 )
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests.e2e.conftest import (
     configure_mock_llm,
     create_runner_bound_session,
@@ -172,7 +172,7 @@ def test_sub_agent_lifecycle_hooks_fire_on_live_subagent_run(
     async def _drive() -> None:
         async with httpx.AsyncClient(
             timeout=300.0,
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         ) as ac:
             ns = SessionsNamespace(ac, live_server)
             session = await ns.get(session_id)

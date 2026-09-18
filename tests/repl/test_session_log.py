@@ -1,6 +1,6 @@
 """
 Tests for :mod:`omnigent.repl._session_log` — the JSON dump
-helper that ports the legacy ``--log`` flag to Omnigent mode.
+helper that ports the legacy ``--log`` flag to AgentNexus mode.
 
 Two layers:
 
@@ -16,7 +16,7 @@ Two layers:
 The SDK-backed :func:`write_session_log` runs in the same
 pagination loop just driven by an HTTP client; it's exercised
 by the REPL flow's e2e coverage rather than mocked here, since
-mocking OmnigentClient + responses correctly is heavier than
+mocking AgentNexusClient + responses correctly is heavier than
 the value of testing it twice.
 """
 
@@ -27,18 +27,18 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.entities import (
+from agentnexus.entities import (
     FunctionCallOutputData,
     MessageData,
     NewConversationItem,
 )
-from omnigent.repl._session_log import (
+from agentnexus.repl._session_log import (
     DEFAULT_LOG_DIR,
     default_log_path,
     write_session_log_from_store,
 )
-from omnigent.stores.conversation_store import ConversationNotFoundError
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store import ConversationNotFoundError
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -47,7 +47,7 @@ from omnigent.stores.conversation_store.sqlalchemy_store import (
 
 def test_default_log_path_uses_default_dir_when_none() -> None:
     """
-    ``log_dir=None`` resolves to ``~/.omnigent/logs/`` — the same
+    ``log_dir=None`` resolves to ``~/.agentnexus/logs/`` — the same
     directory the legacy non-AP path writes to. Keeps the
     user's mental model consistent across paths.
     """
@@ -150,7 +150,7 @@ def test_write_session_log_from_store_dumps_basic_conversation(
     assert payload["version"] == 1, (
         f"Schema version must be 1 — readers gate on it. Got {payload.get('version')!r}."
     )
-    assert payload["format"] == "omnigent-conversation"
+    assert payload["format"] == "agentnexus-conversation"
     assert payload["agent_name"] == "resume_test"
     assert payload["conversation"]["id"] == conv.id
     assert payload["conversation"]["title"] == "hello"
@@ -329,7 +329,7 @@ def test_write_session_log_walks_sub_agent_children(
         f"handle, got {len(children)}: {children!r}. If 0, the parser "
         f"didn't recognize the sub_agent handle (check that the JSON "
         f"shape still matches `_parse_sub_agent_handle` in "
-        f"omnigent/repl/_repl.py — the format the spawn tool "
+        f"agentnexus/repl/_repl.py — the format the spawn tool "
         f"persists may have changed)."
     )
     child_node = children[0]

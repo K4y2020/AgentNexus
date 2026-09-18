@@ -14,16 +14,16 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 
-from omnigent.db.db_models import workspace_scope
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.db.db_models import workspace_scope
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
     SqlAlchemyScheduledTaskStore,
 )
 

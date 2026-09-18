@@ -11,8 +11,8 @@
 // default: the picker waits for it to reappear, or for the user to explicitly
 // choose another host.
 
-const STORAGE_KEY = "omnigent:last-host-choice";
-const SANDBOX_PROVIDER_KEY = "omnigent:last-sandbox-provider";
+const STORAGE_KEY = "agentnexus:last-host-choice";
+const SANDBOX_PROVIDER_KEY = "agentnexus:last-sandbox-provider";
 
 // Stored in place of a host id when the user picked the managed-sandbox option,
 // which has no host id of its own (the server provisions the host at create

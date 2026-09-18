@@ -13,8 +13,8 @@ from pathlib import Path
 import sqlalchemy as sa
 from alembic import command
 
-from omnigent.db.db_models import uuid_to_bytes
-from omnigent.db.utils import _build_alembic_config, clear_engine_cache
+from agentnexus.db.db_models import uuid_to_bytes
+from agentnexus.db.utils import _build_alembic_config, clear_engine_cache
 
 # Revision before the merge (agent_configuration still exists) and the merge itself.
 _PRE_MERGE = "a2b7c3d8e4f9"

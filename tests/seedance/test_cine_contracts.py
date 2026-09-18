@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from omnigent.seedance.bridge import execute_seedance_agent_message
-from omnigent.seedance.cine_contracts import current_ledger, reviewed_shots, session_image_receipts
+from agentnexus.seedance.bridge import execute_seedance_agent_message
+from agentnexus.seedance.cine_contracts import current_ledger, reviewed_shots, session_image_receipts
 
 
 def write(path, value):

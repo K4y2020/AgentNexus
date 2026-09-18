@@ -19,16 +19,16 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.coordination.store import CoordinationStore
-from omnigent.host.git_worktree import create_worktree
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.host.git_worktree import create_worktree
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 
 pytestmark = pytest.mark.asyncio
 

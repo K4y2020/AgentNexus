@@ -1,4 +1,4 @@
-from omnigent_slack.text import strip_bot_mention, truncate_for_slack
+from agentnexus_slack.text import strip_bot_mention, truncate_for_slack
 
 
 def test_strip_bot_mention_removes_target_mention() -> None:

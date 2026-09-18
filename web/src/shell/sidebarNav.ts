@@ -2,7 +2,7 @@ import type { Conversation } from "@/hooks/useConversations";
 import { nativeCodingAgentForWrapper, WRAPPER_LABEL_KEY } from "@/lib/nativeCodingAgents";
 import { PINNED_LABEL_KEY } from "@/lib/sessionListCache";
 
-export const PINNED_CONVERSATION_IDS_STORAGE_KEY = "omnigent:pinned-conversation-ids";
+export const PINNED_CONVERSATION_IDS_STORAGE_KEY = "agentnexus:pinned-conversation-ids";
 
 // ── Legacy localStorage pin helpers ───────────────────────────────────────
 //
@@ -88,13 +88,13 @@ export function setLegacyPinnedConversationId(id: string, pinned: boolean): void
 
 // Titles of sidebar sections the user has collapsed, e.g. ["Archived"].
 // Keyed by display title — stable identifiers for these fixed groups.
-export const COLLAPSED_SIDEBAR_SECTIONS_STORAGE_KEY = "omnigent:collapsed-sidebar-sections";
+export const COLLAPSED_SIDEBAR_SECTIONS_STORAGE_KEY = "agentnexus:collapsed-sidebar-sections";
 
 // Names of project folders the user has expanded. Project folders default to
 // COLLAPSED (so the sidebar stays short as project count grows), so this is
 // the inverse of the fixed-section collapse set: a project shows its rows only
 // when its name is present here.
-export const EXPANDED_PROJECT_SECTIONS_STORAGE_KEY = "omnigent:expanded-project-sections";
+export const EXPANDED_PROJECT_SECTIONS_STORAGE_KEY = "agentnexus:expanded-project-sections";
 
 // Snapshot of the active chat's updated_at at the moment the user
 // entered it. Used as the sort key for the active row so subsequent
@@ -277,7 +277,7 @@ export function dedupeConversationsById(conversations: readonly Conversation[]):
 
 // Order pinned conversations by when they were pinned, not by `updated_at` —
 // a pinned session holds its slot even when a new message bumps its
-// `updated_at`. The `omnigent.pinned` label value is the epoch-ms pin time;
+// `updated_at`. The `agentnexus.pinned` label value is the epoch-ms pin time;
 // sort ascending so the oldest pin ranks first (top) and a freshly pinned
 // session lands at the bottom of the group (matching the prior localStorage
 // behaviour). A missing/unparseable value sinks to the bottom, stably.

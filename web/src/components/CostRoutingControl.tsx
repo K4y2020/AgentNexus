@@ -27,7 +27,7 @@ export function isCostRoutingSession(
 const SUBAGENT_ROUTING_HARNESSES: ReadonlySet<string> = new Set(["claude-native", "codex-native"]);
 
 /** Session label recording that Smart Routing owns this session's harness. */
-export const AUTO_HARNESS_LABEL_KEY = "omnigent.routing.auto_harness";
+export const AUTO_HARNESS_LABEL_KEY = "agentnexus.routing.auto_harness";
 
 /** Whether Smart Routing owns this session's harness (so its spawns may cross families). */
 function isAutoHarnessSession(

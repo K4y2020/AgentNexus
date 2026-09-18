@@ -234,7 +234,7 @@ describe("desktop_updater — event wiring + broadcast", () => {
     });
     assert.deepEqual(plain(h.calls.sent), [
       {
-        channel: "omnigent:update-status",
+        channel: "agentnexus:update-status",
         payload: {
           state: "available",
           currentVersion: "0.3.0",
@@ -314,10 +314,10 @@ describe("desktop_updater — development update config gating", () => {
 
     await Promise.all(
       [
-        "omnigent:update-check",
-        "omnigent:update-download",
-        "omnigent:update-install",
-        "omnigent:set-update-config",
+        "agentnexus:update-check",
+        "agentnexus:update-download",
+        "agentnexus:update-install",
+        "agentnexus:set-update-config",
       ].map((channel) =>
         assert.rejects(
           h.ipcHandlers.get(channel)(h.event, { mode: "manual" }),
@@ -338,12 +338,12 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.registerIpc();
 
     const cases = [
-      ["omnigent:get-update-config", []],
-      ["omnigent:get-update-status", []],
-      ["omnigent:update-check", []],
-      ["omnigent:update-download", []],
-      ["omnigent:update-install", []],
-      ["omnigent:set-update-config", [{ mode: "manual" }]],
+      ["agentnexus:get-update-config", []],
+      ["agentnexus:get-update-status", []],
+      ["agentnexus:update-check", []],
+      ["agentnexus:update-download", []],
+      ["agentnexus:update-install", []],
+      ["agentnexus:set-update-config", [{ mode: "manual" }]],
     ];
     await Promise.all(
       cases.map(([channel, args]) =>
@@ -360,7 +360,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     let h = makeUpdater({ forceDevUpdateConfig: true, settings: { update_mode: "manual" } });
     h.updater.init();
     h.updater.registerIpc();
-    await h.ipcHandlers.get("omnigent:update-download")(h.event);
+    await h.ipcHandlers.get("agentnexus:update-download")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
     assert.equal(h.calls.showMessageBox[0].options.message, "Download an AgentNexus update?");
     assert.equal(h.calls.downloadUpdate, 1);
@@ -369,7 +369,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h = makeUpdater({ forceDevUpdateConfig: true, settings: { update_mode: "start" } });
     h.updater.init();
     h.updater.registerIpc();
-    await h.ipcHandlers.get("omnigent:set-update-config")(h.event, { mode: "manual" });
+    await h.ipcHandlers.get("agentnexus:set-update-config")(h.event, { mode: "manual" });
     assert.equal(h.calls.showMessageBox[0].options.message, "Change AgentNexus update settings?");
     assert.equal(h.readSettings().update_mode, "manual");
   });
@@ -383,7 +383,7 @@ describe("desktop_updater — IPC trust + consent", () => {
     h.updater.init();
     h.updater.registerIpc();
 
-    await assert.rejects(h.ipcHandlers.get("omnigent:update-download")(h.event), /approved/);
+    await assert.rejects(h.ipcHandlers.get("agentnexus:update-download")(h.event), /approved/);
     assert.equal(h.calls.downloadUpdate, 0);
   });
 });
@@ -395,7 +395,7 @@ describe("desktop_updater — install handoff", () => {
     h.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
     h.updater.registerIpc();
 
-    await h.ipcHandlers.get("omnigent:update-install")(h.event);
+    await h.ipcHandlers.get("agentnexus:update-install")(h.event);
     assert.equal(h.calls.showMessageBox.length, 1);
     assert.equal(h.calls.preUpgradeBackup, 1);
     assert.deepEqual(h.calls.upgradeStart, [
@@ -418,7 +418,7 @@ describe("desktop_updater — install handoff", () => {
     h.updater.registerIpc();
 
     await assert.rejects(
-      h.ipcHandlers.get("omnigent:update-install")(h.event),
+      h.ipcHandlers.get("agentnexus:update-install")(h.event),
       /No downloaded update/,
     );
     assert.equal(h.updater.installPending, false);
@@ -441,7 +441,7 @@ describe("desktop_updater — install handoff", () => {
     h.updater.registerIpc();
 
     await assert.rejects(
-      h.ipcHandlers.get("omnigent:update-install")(h.event),
+      h.ipcHandlers.get("agentnexus:update-install")(h.event),
       /Pre-upgrade preparation failed: disk full/,
     );
 
@@ -463,7 +463,7 @@ describe("desktop_updater — install handoff", () => {
     h.updater.registerIpc();
 
     await assert.rejects(
-      h.ipcHandlers.get("omnigent:update-install")(h.event),
+      h.ipcHandlers.get("agentnexus:update-install")(h.event),
       /Pre-upgrade preparation failed: no marker space/,
     );
 

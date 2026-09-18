@@ -1,0 +1,1 @@
+import{a as e}from"./rolldown-runtime-CNC7AqOf.js";import{t}from"./react-Augu_vA3.js";import{n}from"./react-dom-uOFtwUSM.js";var r=e(t(),1),i=n(),a=(0,r.createContext)(`loading`);function o({info:e,children:t}){return(0,i.jsx)(a.Provider,{value:e,children:t})}function s(){return(0,r.useContext)(a)}export{s as n,o as t};

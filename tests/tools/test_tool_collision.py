@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.types import LocalToolInfo
-from omnigent.tools.local import LocalToolLoadError, load_local_python_tools
+from agentnexus.spec.types import LocalToolInfo
+from agentnexus.tools.local import LocalToolLoadError, load_local_python_tools
 
 
 def _write_tool(py_dir: Path, filename: str, func_name: str) -> None:
@@ -22,7 +22,7 @@ def _write_tool(py_dir: Path, filename: str, func_name: str) -> None:
     py_dir.mkdir(parents=True, exist_ok=True)
     code = (
         '"""tool fixture."""\n'
-        "from omnigent_client import tool\n"
+        "from agentnexus_client import tool\n"
         "\n"
         "\n"
         "@tool\n"
@@ -130,7 +130,7 @@ def test_multi_tool_file_collision_with_builtin(tmp_path: Path) -> None:
     multi = textwrap.dedent(
         '''\
         """Multi-tool file with one colliding name."""
-        from omnigent_client import tool
+        from agentnexus_client import tool
 
 
         @tool

@@ -31,7 +31,7 @@ def test_session_list_cursor_round_trips_through_runner_and_old_server(
     cursor pagination is a new runner-owned tool contract, so that direction
     is covered by the old runner's pre-existing schema instead.
     """
-    if os.environ.get("OMNIGENT_COMPAT_RUNNER_VERSION"):
+    if os.environ.get("AGENTNEXUS_COMPAT_RUNNER_VERSION"):
         pytest.skip("cursor pagination requires the checked-out runner")
 
     suffix = uuid.uuid4().hex[:8]

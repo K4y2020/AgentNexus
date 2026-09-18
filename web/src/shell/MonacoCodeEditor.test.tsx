@@ -284,7 +284,7 @@ describe("MonacoCodeEditor read-only / truncated gating", () => {
   });
 
   it("applies the stored code font weight when Monaco is created", async () => {
-    localStorage.setItem("omnigent:code-font-weight", "600");
+    localStorage.setItem("agentnexus:code-font-weight", "600");
     renderEditor();
 
     await waitFor(() => expect(h.editorProps).not.toBeNull());

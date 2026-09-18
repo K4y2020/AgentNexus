@@ -12,9 +12,9 @@
 // (editor.updateOptions / term.options + refit) so a Settings change lands live
 // without a reload or reconnect.
 
-const SIZE_STORAGE_KEY = "omnigent:code-font-size";
-const FAMILY_STORAGE_KEY = "omnigent:code-font-family";
-const WEIGHT_STORAGE_KEY = "omnigent:code-font-weight";
+const SIZE_STORAGE_KEY = "agentnexus:code-font-size";
+const FAMILY_STORAGE_KEY = "agentnexus:code-font-family";
+const WEIGHT_STORAGE_KEY = "agentnexus:code-font-weight";
 
 // Code widgets read smaller than the chrome by convention, and a monospaced
 // grid tolerates a wider useful range than body text — hence bounds distinct

@@ -1,14 +1,14 @@
-"""Shared helper: spawn a dedicated *multi-user* header-auth Omnigent server.
+"""Shared helper: spawn a dedicated *multi-user* header-auth AgentNexus server.
 
 The suite's shared ``live_server`` runs single-user
-(``OMNIGENT_LOCAL_SINGLE_USER=1``, set in ``tests/conftest.py``), where the
+(``AGENTNEXUS_LOCAL_SINGLE_USER=1``, set in ``tests/conftest.py``), where the
 Share affordances are intentionally hidden. Tests that need to exercise the
 Share button / modal / kebab (or the sharing-off disable) must therefore run
 against a server that is *not* single-user — a header-auth deploy with more
 than one possible user, exactly like a Databricks Apps / SSO-proxy install.
 
 This spins one up: the single-user marker is cleared, an admin identity is
-declared via ``OMNIGENT_ADMINS`` so a header-identified browser can manage, and
+declared via ``AGENTNEXUS_ADMINS`` so a header-identified browser can manage, and
 an admin-owned hello_world session is created. Served through the
 public-looking loopback alias (``_PUBLIC_LOOPBACK_HOST``) so
 ``isCurrentServerLocal()`` is false and the Share affordances aren't masked by
@@ -48,7 +48,7 @@ from tests.e2e_ui.conftest import (
 )
 
 # Admin identity the browser presents via X-Forwarded-Email. Listed in the
-# admin-list file (OMNIGENT_ADMIN_LIST_PATH) so it resolves as an admin —
+# admin-list file (AGENTNEXUS_ADMIN_LIST_PATH) so it resolves as an admin —
 # is_admin:true on /v1/me → the Settings Admin group renders, and manage on any
 # session → the Share button shows.
 ADMIN_EMAIL = "admin@ui.test"
@@ -100,7 +100,7 @@ def spawn_multi_user_server(
     cleared and an admin declared, and NO runner (the Share/settings chrome
     under test needs only a session to exist, not an online runner).
     ``extra_server_env`` overrides/augments the server env (e.g.
-    ``OMNIGENT_SHARING_MODE=off``).
+    ``AGENTNEXUS_SHARING_MODE=off``).
 
     :param mock_llm_server_url: Session-scoped mock LLM base (no real creds).
     :param server_tmp: A per-test temp dir (``tmp_path_factory.mktemp(...)``).
@@ -117,7 +117,7 @@ def spawn_multi_user_server(
     # Declare the admin roster via the admin-list file (one identity per line;
     # see omnigent/server/admin_list.py). There is no admin *env var* — the
     # roster is the config ``admins:`` list or this file — so point
-    # OMNIGENT_ADMIN_LIST_PATH at it. This makes ADMIN_EMAIL resolve as admin
+    # AGENTNEXUS_ADMIN_LIST_PATH at it. This makes ADMIN_EMAIL resolve as admin
     # so /v1/me reports is_admin:true and the Settings Admin group renders.
     admins_path = server_tmp / "admins"
     admins_path.write_text(f"{ADMIN_EMAIL}\n")
@@ -133,10 +133,10 @@ def spawn_multi_user_server(
         "PYTHONPATH": pythonpath,
         # The whole point: NOT single-user. Clear the marker the suite sets so
         # /v1/info reports single_user:false and the Share chrome stays.
-        "OMNIGENT_LOCAL_SINGLE_USER": "",
+        "AGENTNEXUS_LOCAL_SINGLE_USER": "",
         # A header-identified admin so the browser (X-Forwarded-Email) can
         # manage its session (Share button) and see the admin settings group.
-        "OMNIGENT_ADMIN_LIST_PATH": str(admins_path),
+        "AGENTNEXUS_ADMIN_LIST_PATH": str(admins_path),
         "OPENAI_BASE_URL": f"{mock_llm_server_url}/v1",
         "OPENAI_API_KEY": "mock-key",
         "ANTHROPIC_API_KEY": "",
@@ -149,7 +149,7 @@ def spawn_multi_user_server(
         [
             sys.executable,
             "-c",
-            "from omnigent.cli import main; main()",
+            "from agentnexus.cli import main; main()",
             "server",
             "--host",
             "127.0.0.1",

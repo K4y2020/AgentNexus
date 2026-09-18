@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from omnigent.inner.acp_subagents import (
+from agentnexus.inner.acp_subagents import (
     AcpSubAgentSource,
     SubAgentEnd,
     SubAgentEvent,
@@ -53,7 +53,7 @@ def test_sources_satisfy_the_protocol() -> None:
 def test_read_subagent_events_without_sources_is_inert() -> None:
     """No sources -> no events, whatever the frame carries.
 
-    This is the generic ACP harness's configuration: an agent Omnigent knows
+    This is the generic ACP harness's configuration: an agent AgentNexus knows
     nothing vendor-specific about must produce no sub-agent surfacing at all.
     """
     assert read_subagent_events({"acme.dev/spawn": {"id": "w1"}}, ()) == []

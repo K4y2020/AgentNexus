@@ -88,7 +88,7 @@ def _row(
 
 # Canonical pin label the client reads (the server collapses each viewer's
 # per-user key back to this bare key on the wire); value is the epoch-ms pin time.
-_PINNED_LABEL_KEY = "omnigent.pinned"
+_PINNED_LABEL_KEY = "agentnexus.pinned"
 _PINNED_AT_MS = str(_NOW_S * 1000)
 
 # One pinned, project-owned row: it carries the pin label (so it peels into the
@@ -167,7 +167,7 @@ def test_pinned_project_flyout_matches_baseline(
     # localStorage pref — the Pinned section is driven by the `?pinned=true`
     # route stubbed above.
     page.add_init_script(
-        f'window.localStorage.setItem("omnigent:recent-workspaces",'
+        f'window.localStorage.setItem("agentnexus:recent-workspaces",'
         f' JSON.stringify({{"{_HOST_ID}": ["/work/repo"]}}));'
     )
 

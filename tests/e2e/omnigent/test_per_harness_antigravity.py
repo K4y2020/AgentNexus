@@ -17,7 +17,7 @@ the antigravity harness is **Gemini-native**: the SDK has no OpenAI-compatible
 ``base_url`` and there is deliberately no Databricks-gateway path, so this test
 does NOT use ``patched_databrickscfg`` / ``omnigent_credentials_env``'s gateway
 URL — it authenticates purely from the configured / ambient Gemini key. This
-mirrors :mod:`tests.e2e.omnigent.test_per_harness_cursor` (the other
+mirrors :mod:`tests.e2e.agentnexus.test_per_harness_cursor` (the other
 backend-native SDK harness): because a Gemini key is not provisioned on CI, the
 test **skips** (rather than fails) when no key is present, so the e2e shards stay
 green; it runs for real wherever a key is configured.
@@ -33,8 +33,8 @@ Gemini SDK, so the mock-LLM approach used by other harness tests (e.g.
 when the SDK or key is absent.
 
 **Prerequisites (skipped cleanly when absent):**
-- ``google.antigravity`` importable in the Omnigent venv (the ``antigravity``
-  extra — ``pip install 'omnigent[antigravity]'``).
+- ``google.antigravity`` importable in the AgentNexus venv (the ``antigravity``
+  extra — ``pip install 'agentnexus[antigravity]'``).
 - A Gemini / Antigravity API key configured (a stored ``antigravity:`` config
   block resolvable via
   :func:`omnigent.onboarding.antigravity_auth.antigravity_api_key_configured`,
@@ -80,7 +80,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.entities.conversation import MessageData
+from agentnexus.entities.conversation import MessageData
 
 _HARNESS = "antigravity"
 
@@ -138,7 +138,7 @@ def _antigravity_skip_reason(omnigent_python: Path) -> str | None:
     than a failure — keeping the e2e shards green while the test runs for real
     wherever a key is configured.
 
-    Both prerequisites are probed in the *Omnigent venv* interpreter (the one the
+    Both prerequisites are probed in the *AgentNexus venv* interpreter (the one the
     subprocess uses), not the current pytest interpreter, because the test shells
     out: the SDK import and the key-config resolution must hold *there*.
 
@@ -155,7 +155,7 @@ def _antigravity_skip_reason(omnigent_python: Path) -> str | None:
             # SDK's direct fallback (and what ``_build_antigravity_spawn_env`` adopts).
             "import importlib.util, os, sys;"
             "have_sdk = importlib.util.find_spec('google.antigravity') is not None;"
-            "from omnigent.onboarding.antigravity_auth import "
+            "from agentnexus.onboarding.antigravity_auth import "
             "antigravity_api_key_configured as cfg, ANTIGRAVITY_ENV_VARS;"
             "have_key = cfg() or any(os.environ.get(v) for v in ANTIGRAVITY_ENV_VARS);"
             "sys.stdout.write(f'{int(have_sdk)}{int(have_key)}')",
@@ -167,7 +167,7 @@ def _antigravity_skip_reason(omnigent_python: Path) -> str | None:
         # The probe itself failed to import the onboarding module — treat as a
         # missing/installation-broken prerequisite and skip with the detail.
         return (
-            "antigravity prerequisite probe failed in the Omnigent venv "
+            "antigravity prerequisite probe failed in the AgentNexus venv "
             f"(exit {probe.returncode}): {probe.stderr.strip()[:400]!r}"
         )
     flags = probe.stdout.strip()
@@ -176,8 +176,8 @@ def _antigravity_skip_reason(omnigent_python: Path) -> str | None:
     if not have_sdk:
         return (
             "antigravity prerequisite missing: the 'google.antigravity' SDK is "
-            "not importable in the Omnigent venv (install the 'antigravity' "
-            "extra: pip install 'omnigent[antigravity]')."
+            "not importable in the AgentNexus venv (install the 'antigravity' "
+            "extra: pip install 'agentnexus[antigravity]')."
         )
     if not have_key:
         return (
@@ -208,8 +208,8 @@ def _antigravity_env(base_env: dict[str, str], home: Path) -> dict[str, str]:
 
     Starts from the shared ``omnigent_credentials_env`` (so PATH, the onboarding
     suppression knobs, and the worktree ``PYTHONPATH`` propagate) but isolates
-    ``$HOME`` and the Omnigent state/config roots into the test's temp dir, so
-    the persistent conversation store this test reads (``$HOME/.omnigent/chat.db``)
+    ``$HOME`` and the AgentNexus state/config roots into the test's temp dir, so
+    the persistent conversation store this test reads (``$HOME/.agentnexus/chat.db``)
     is private and the run never threads onto an unrelated prior conversation.
 
     The gateway-oriented ``OPENAI_BASE_URL`` / ``OPENAI_API_KEY`` keys inherited
@@ -225,8 +225,8 @@ def _antigravity_env(base_env: dict[str, str], home: Path) -> dict[str, str]:
     """
     env = dict(base_env)
     env["HOME"] = str(home)
-    env["OMNIGENT_CONFIG_HOME"] = str(home / ".omnigent")
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_CONFIG_HOME"] = str(home / ".agentnexus")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
     return env
 
 
@@ -237,16 +237,16 @@ def _assistant_transcript_texts(db_path: Path) -> list[str]:
     subprocess wrote, rather than scraping the CLI's stdout — the transcript is
     the durable record of what the harness actually produced. Mirrors
     ``_conversation_texts`` in
-    :mod:`tests.e2e.omnigent.test_server_remote_omnigent_autonomous_flows`, but
+    :mod:`tests.e2e.agentnexus.test_server_remote_omnigent_autonomous_flows`, but
     filtered to assistant-authored messages so the assertions can't be satisfied
     by the echoed user prompt.
 
-    :param db_path: Path to ``$HOME/.omnigent/chat.db``.
+    :param db_path: Path to ``$HOME/.agentnexus/chat.db``.
     :returns: Assistant message texts across every conversation in the store.
     """
     # Lazy import: the conversation store pulls in SQLAlchemy, and keeping it out
     # of module import time means a skipped test (no SDK / key) never pays for it.
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -281,7 +281,7 @@ def _run_one_shot(
     """Run a one-shot ``omnigent run <spec> --harness antigravity -p <prompt>``.
 
     Session-backed (no ``--no-session``) so the turn is persisted to
-    ``$HOME/.omnigent/chat.db`` for transcript inspection and so a later
+    ``$HOME/.agentnexus/chat.db`` for transcript inspection and so a later
     ``--continue`` can thread onto it.
 
     :param omnigent_python: Interpreter from the ``omnigent_python`` fixture.
@@ -296,7 +296,7 @@ def _run_one_shot(
     argv = [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(spec_path),
         "--harness",
@@ -392,7 +392,7 @@ def test_per_harness_antigravity_smoke(
         prompt="Reply in one short sentence that you are ready.",
         model=None,
     )
-    _assert_clean_assistant_reply(fake_home / ".omnigent" / "chat.db", result, label="smoke")
+    _assert_clean_assistant_reply(fake_home / ".agentnexus" / "chat.db", result, label="smoke")
 
 
 @pytest.mark.parametrize(
@@ -440,7 +440,7 @@ def test_per_harness_antigravity_model_selection(
         model=model,
     )
     _assert_clean_assistant_reply(
-        fake_home / ".omnigent" / "chat.db", result, label=f"model={model}"
+        fake_home / ".agentnexus" / "chat.db", result, label=f"model={model}"
     )
 
 
@@ -479,7 +479,7 @@ def test_per_harness_antigravity_multi_turn_history_retention(
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     env = _antigravity_env(mock_credentials_env, fake_home)
-    db_path = fake_home / ".omnigent" / "chat.db"
+    db_path = fake_home / ".agentnexus" / "chat.db"
     # Fresh per-run nonce so a parallel run can't leak it, and so the model can't
     # "recover" a popular fixture word from its training data instead of history.
     nonce = "nonce" + uuid.uuid4().hex[:12]
@@ -519,7 +519,7 @@ def test_per_harness_antigravity_multi_turn_history_retention(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(antigravity_spec),
             "--harness",
@@ -585,7 +585,7 @@ def test_per_harness_antigravity_graceful_completion(
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     env = _antigravity_env(mock_credentials_env, fake_home)
-    db_path = fake_home / ".omnigent" / "chat.db"
+    db_path = fake_home / ".agentnexus" / "chat.db"
 
     result = _run_one_shot(
         omnigent_python=omnigent_python,

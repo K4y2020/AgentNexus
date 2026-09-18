@@ -1,18 +1,18 @@
 # repro-agent
 
-Reproduce a bug **live in your running Omnigent app** and capture it as a
+Reproduce a bug **live in your running AgentNexus app** and capture it as a
 durable end-to-end test. It runs against whatever server you already have (the
-server `omnigent run` spins up, or one you pass with `--server`) and authors the
+server `agentnexus run` spins up, or one you pass with `--server`) and authors the
 reproduction test into **this** checkout.
 
 ## Prerequisites
 
-- A configured Claude provider (`omnigent setup` — an Anthropic API key, a
+- A configured Claude provider (`agentnexus setup` — an Anthropic API key, a
   Claude subscription, an OpenAI-compatible gateway, or a Databricks workspace).
   The agent's brain runs on the Claude Agent SDK.
 - `gh` authenticated (`gh auth login`) if your `bug_url` is a GitHub issue, so
   the agent can read the report.
-- Run it **from the root of your `omnigent-ai/omnigent` checkout** so the agent's
+- Run it **from the root of your `agentnexus-ai/agentnexus` checkout** so the agent's
   working directory is this repo and it can author tests into `tests/e2e_ui/` or
   `tests/e2e/`.
 - Optional, for reproduction recordings (skipped gracefully when absent):
@@ -23,13 +23,13 @@ reproduction test into **this** checkout.
 ## Usage
 
 ```bash
-# Against the server `omnigent run` spins up:
-omnigent run dev/repro-agent \
-  -p '{"bug_url":"https://github.com/omnigent-ai/omnigent/issues/1234"}'
+# Against the server `agentnexus run` spins up:
+agentnexus run dev/repro-agent \
+  -p '{"bug_url":"https://github.com/agentnexus-ai/agentnexus/issues/1234"}'
 
 # Against a server you already run:
-omnigent run dev/repro-agent --server http://localhost:6767 \
-  -p '{"bug_url":"https://linear.app/omnigent/issue/OMNI-1234"}'
+agentnexus run dev/repro-agent --server http://localhost:6767 \
+  -p '{"bug_url":"https://linear.app/agentnexus/issue/OMNI-1234"}'
 ```
 
 The `-p` payload is the input contract — just `bug_url`. The agent always
@@ -45,7 +45,7 @@ checkout, and runs the agent from there.
 
 ```bash
 python dev/repro.py                     # prompts for the bug URL
-python dev/repro.py https://github.com/omnigent-ai/omnigent/issues/1234
+python dev/repro.py https://github.com/agentnexus-ai/agentnexus/issues/1234
 python dev/repro.py OMNI-1234 --server http://localhost:6767
 python dev/repro.py <bug_url> --public  # share the session public-read at start
 ```
@@ -72,7 +72,7 @@ with `git worktree remove <path>` when done.
    filmed passing (proof-it-works footage). Best-effort: skipped (and noted) when
    the recorders aren't installed.
 5. Checkpoints the machine-readable handoff to
-   `.omnigent/repro-handoff.json` as soon as the verdict is known, updating it
+   `.agentnexus/repro-handoff.json` as soon as the verdict is known, updating it
    as test and recording evidence lands so an interrupted final response does
    not lose a completed reproduction.
 6. Emits a single fenced ```json block (the machine-readable handoff) whose

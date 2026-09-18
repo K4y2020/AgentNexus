@@ -3,7 +3,7 @@ Unit tests for the native-terminal cost-approval popup script.
 
 Covers :mod:`omnigent.native_cost_popup` — the program that runs inside
 a ``tmux display-popup`` on a native harness pane, reads an
-approve/decline answer, and POSTs the verdict to the Omnigent elicitation-
+approve/decline answer, and POSTs the verdict to the AgentNexus elicitation-
 resolve endpoint (the same endpoint the web ApprovalCard uses).
 
 The tests drive the public :func:`omnigent.native_cost_popup.main`
@@ -22,7 +22,7 @@ from urllib import request
 
 import pytest
 
-from omnigent import native_cost_popup
+from agentnexus import native_cost_popup
 
 _AP_URL = "http://127.0.0.1:8787"
 _SESSION_ID = "conv_abc123"
@@ -291,7 +291,7 @@ def test_main_missing_omnigent_server_url_fails_loud(
     """
     A config file without ``ap_server_url`` aborts via ``SystemExit``.
 
-    There is no safe default for "where is the Omnigent server", so the script
+    There is no safe default for "where is the AgentNexus server", so the script
     fails loud (the popup just closes; the web card remains answerable)
     rather than POSTing to a guessed URL.
     """

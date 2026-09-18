@@ -122,7 +122,7 @@ def test_comment_requests_specific_information_with_seven_day_deadline() -> None
 
     assert '"needs_info_deadline":"2026-09-04"' in body.splitlines()[0]
     assert "exact action, input, or sequence" in body
-    assert "Omnigent version and relevant environment" in body
+    assert "AgentNexus version and relevant environment" in body
     assert "what you expected" not in body
     assert "within 7 days" in body
 

@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from omnigent.runner.model_selection import restore_turn_model
+from agentnexus.runner.model_selection import restore_turn_model
 
 
 @pytest.mark.asyncio
@@ -93,7 +93,7 @@ async def test_child_background_uses_current_worker_binding():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["gemini-3.8-flash-high", "deepseek-v4-flash"])
 async def test_background_model_reaches_harness_request(model):
-    from omnigent.runner.app import create_runner_app
+    from agentnexus.runner.app import create_runner_app
     from tests.runner.test_runner_dispatch import (
         _INSTRUCTION_WARN_CHUNKS,
         _contract_resolver_for,

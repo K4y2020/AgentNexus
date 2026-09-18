@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import execute_tool
+from agentnexus.runner.tool_dispatch import execute_tool
 
 
 class _TimerPostRecorder:
@@ -171,7 +171,7 @@ async def test_timer_delivery_logs_http_error_status(caplog: pytest.LogCaptureFi
     responder = _ErrorResponder()
     transport = httpx.MockTransport(responder)
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.runner.tool_dispatch"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.runner.tool_dispatch"):
         async with httpx.AsyncClient(
             transport=transport, base_url="http://server"
         ) as server_client:

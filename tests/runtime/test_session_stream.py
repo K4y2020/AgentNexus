@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.runtime import session_stream
+from agentnexus.runtime import session_stream
 
 
 # Each test resets the global subscriber registry so cross-test leak
@@ -307,7 +307,7 @@ def test_publishing_elicitation_event_updates_pending_index() -> None:
     that decouples them would silently break the sidebar for every
     session whose chat isn't currently open.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     pending_elicitations.reset_for_tests()
     session_stream.publish(
@@ -335,7 +335,7 @@ def test_publishing_non_elicitation_event_leaves_pending_index_untouched() -> No
     immediately. Without this guard, every text delta would inflate
     the sidebar badge.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     pending_elicitations.reset_for_tests()
     session_stream.publish(
@@ -512,7 +512,7 @@ def test_publishing_text_delta_records_inflight_text() -> None:
     the ``inflight_text.record_publish`` call in ``publish`` would make
     every reconnect lose the in-flight bubble again.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     inflight_text.reset_for_tests()
     session_stream.publish(
@@ -545,7 +545,7 @@ def test_publishing_unrelated_event_leaves_inflight_index_untouched() -> None:
     filter (and starts replaying e.g. tool events as assistant text) is
     caught immediately.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     inflight_text.reset_for_tests()
     session_stream.publish(
@@ -576,7 +576,7 @@ async def test_publish_withholds_committed_native_duplicate_from_live_stream() -
     ``final`` delta. The subscriber must see the committed item and a later
     sentinel, but NOT the duplicate delta wedged between them.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     inflight_text.reset_for_tests()
     cid = "conv_live_gate"
@@ -621,7 +621,7 @@ async def test_publish_withholds_committed_native_duplicate_from_live_stream() -
 @pytest.mark.asyncio
 async def test_publish_fans_out_recovered_native_aggregate_on_divergence() -> None:
     """The publish chokepoint broadcasts the reconciler's rewritten event."""
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     inflight_text.reset_for_tests()
     cid = "conv_live_recovery"
@@ -682,7 +682,7 @@ async def test_inflight_replay_via_pre_ready_snapshot_does_not_duplicate_window_
     "!" is in BOTH the replayed snapshot text AND the live tail, and the
     bubble renders "Hello world!!" instead of "Hello world!".
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     inflight_text.reset_for_tests()
     cid = "conv_window"

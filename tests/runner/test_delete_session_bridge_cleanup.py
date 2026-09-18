@@ -6,7 +6,7 @@ Covers two independent problems:
 Each native session's bridge dir holds a per-conversation bridge token + MCP
 config (secret material). ``DELETE /v1/sessions/{id}`` closes the pane but
 historically never removed this SEPARATE dir, so token-bearing
-``/tmp/omnigent-*`` (and ``~/.omnigent``) dirs accumulated even on a clean
+``/tmp/omnigent-*`` (and ``~/.agentnexus``) dirs accumulated even on a clean
 delete. The delete path must now ``rmtree`` it — for ALL 11 native families,
 not just the original 5.
 
@@ -31,42 +31,42 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.antigravity_native_bridge import (
+from agentnexus.antigravity_native_bridge import (
     bridge_dir_for_bridge_id as antigravity_bridge_dir,
 )
-from omnigent.claude_native_bridge import bridge_dir_for_bridge_id, prepare_bridge_dir
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import bridge_dir_for_bridge_id, prepare_bridge_dir
+from agentnexus.claude_native_bridge import (
     bridge_dir_for_bridge_id as claude_bridge_dir,
 )
-from omnigent.codex_native_bridge import (
+from agentnexus.codex_native_bridge import (
     bridge_dir_for_bridge_id as codex_bridge_dir,
 )
-from omnigent.cursor_native_bridge import (
+from agentnexus.cursor_native_bridge import (
     bridge_dir_for_session_id as cursor_bridge_dir,
 )
-from omnigent.goose_native_bridge import (
+from agentnexus.goose_native_bridge import (
     bridge_dir_for_session_id as goose_bridge_dir,
 )
-from omnigent.hermes_native_bridge import (
+from agentnexus.hermes_native_bridge import (
     bridge_dir_for_session_id as hermes_bridge_dir,
 )
-from omnigent.kimi_native_bridge import (
+from agentnexus.kimi_native_bridge import (
     bridge_dir_for_session_id as kimi_bridge_dir,
 )
-from omnigent.kiro_native_bridge import (
+from agentnexus.kiro_native_bridge import (
     bridge_dir_for_session_id as kiro_bridge_dir,
 )
-from omnigent.opencode_native_bridge import (
+from agentnexus.opencode_native_bridge import (
     bridge_dir_for_bridge_id as opencode_bridge_dir,
 )
-from omnigent.pi_native_bridge import (
+from agentnexus.pi_native_bridge import (
     bridge_dir_for_session_id as pi_bridge_dir,
 )
-from omnigent.qwen_native_bridge import (
+from agentnexus.qwen_native_bridge import (
     bridge_dir_for_session_id as qwen_bridge_dir,
 )
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import _runner_client
 from tests.runner.helpers import NullServerClient
 
@@ -208,7 +208,7 @@ async def test_spec_fill_parked_across_delete_discards(tmp_path: Path) -> None:
         return AgentSpec(
             spec_version=1,
             name=agent_id,
-            executor=ExecutorSpec(type="omnigent"),
+            executor=ExecutorSpec(type="agentnexus"),
         )
 
     app = create_runner_app(

@@ -75,7 +75,7 @@ const CONV: Conversation = {
   title: "My Session",
   created_at: 1_700_000_000,
   updated_at: 1_700_000_000,
-  labels: { "omnigent.wrapper": "claude-code-native-ui" },
+  labels: { "agentnexus.wrapper": "claude-code-native-ui" },
   permission_level: null,
   status: "idle",
 };

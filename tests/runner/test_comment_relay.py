@@ -27,16 +27,16 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     BRIDGE_ID_LABEL_KEY,
     bridge_dir_for_bridge_id,
     prepare_bridge_dir,
 )
-from omnigent.entities.session_resources import SessionResourceView, terminal_resource_view
-from omnigent.inner.datamodel import TerminalEnvSpec
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ToolsConfig
-from omnigent.terminals import TerminalListEntry
+from agentnexus.entities.session_resources import SessionResourceView, terminal_resource_view
+from agentnexus.inner.datamodel import TerminalEnvSpec
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ToolsConfig
+from agentnexus.terminals import TerminalListEntry
 from tests.runner.helpers import NullServerClient, make_test_terminal_instance
 
 # Matches ``_TOOL_RELAY_FILE`` in ``omnigent.claude_native_bridge``.
@@ -258,7 +258,7 @@ def _skip_tools_changed_notification(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # The runner imports the name from this module at call time, so patching
     # the module attribute is picked up by _ensure_comment_relay_started.
-    monkeypatch.setattr("omnigent.claude_native_bridge.post_tools_changed", _noop)
+    monkeypatch.setattr("agentnexus.claude_native_bridge.post_tools_changed", _noop)
 
 
 @pytest.fixture
@@ -462,7 +462,7 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Route relay tool execution through Omnigent ``/mcp`` for policy enforcement.
+    """Route relay tool execution through AgentNexus ``/mcp`` for policy enforcement.
 
     Verifies that when the runner is configured with a server_client (AP mode),
     the ``_relay_tool_executor`` closure routes calls through
@@ -470,16 +470,16 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
     dispatching directly to comment/session-query handlers.  Policy enforcement
     on these relay tools was previously bypassed; this test pins the fix.
     """
-    import omnigent.claude_native_bridge as _bridge_mod
+    import agentnexus.claude_native_bridge as _bridge_mod
 
-    # Records every POST sent to the fake Omnigent server.
+    # Records every POST sent to the fake AgentNexus server.
     ap_mcp_posts: list[dict[str, Any]] = []
 
     class _FakeApClient:
-        """Fake Omnigent server client that captures /mcp calls and returns a fixed result.
+        """Fake AgentNexus server client that captures /mcp calls and returns a fixed result.
 
         Appends each POST request body to the outer ``ap_mcp_posts`` list via
-        closure so the test can assert on what was sent to the Omnigent server.
+        closure so the test can assert on what was sent to the AgentNexus server.
         """
 
         async def get(self, url: str, *, timeout: float = 10.0) -> httpx.Response:
@@ -570,8 +570,8 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
         # Call the relay executor directly (simulates Claude Code invoking list_comments).
         result = await executor("list_comments", {"status": "pending"})
 
-        # In Omnigent mode the executor must have POSTed a tools/call JSON-RPC to the
-        # Omnigent server's /mcp endpoint, not called the direct comment handler.
+        # In AgentNexus mode the executor must have POSTed a tools/call JSON-RPC to the
+        # AgentNexus server's /mcp endpoint, not called the direct comment handler.
         mcp_call = next(
             (
                 r
@@ -581,7 +581,7 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
             None,
         )
         assert mcp_call is not None, (
-            "No tools/call request reached the Omnigent /mcp endpoint. "
+            "No tools/call request reached the AgentNexus /mcp endpoint. "
             "The relay executor is bypassing ProxyMcpManager and policy enforcement."
         )
         # Tool name and arguments must be forwarded verbatim.
@@ -589,14 +589,14 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
             "Wrong tool name forwarded; policy would be evaluated against the wrong tool."
         )
         assert mcp_call["json"]["params"]["arguments"] == {"status": "pending"}, (
-            "Arguments were not forwarded correctly to Omnigent /mcp."
+            "Arguments were not forwarded correctly to AgentNexus /mcp."
         )
         # The request URL must be scoped to this session's /mcp endpoint.
         assert session_id in mcp_call["url"], (
             f"AP /mcp request URL {mcp_call['url']!r} does not contain session_id {session_id!r}."
         )
-        # The Omnigent response's text content must be parsed back to a dict.
-        assert result == {"items": []}, f"Expected parsed Omnigent response dict, got {result!r}."
+        # The AgentNexus response's text content must be parsed back to a dict.
+        assert result == {"items": []}, f"Expected parsed AgentNexus response dict, got {result!r}."
     finally:
         shutil.rmtree(bridge_dir, ignore_errors=True)
 
@@ -625,11 +625,11 @@ async def test_relay_policy_evaluate_proxies_to_server_client(
     """Relay POST /policies/evaluate forwards body to server_client and returns verdict."""
     import asyncio
 
-    from omnigent.claude_native_bridge import prepare_bridge_dir as _prep
-    from omnigent.claude_native_bridge import start_tool_relay
+    from agentnexus.claude_native_bridge import prepare_bridge_dir as _prep
+    from agentnexus.claude_native_bridge import start_tool_relay
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
 
     bridge_dir = _prep("relay-policy-test", workspace=tmp_path)
     session_id = "conv_relay_test"
@@ -692,11 +692,11 @@ async def test_relay_policy_evaluate_rejects_wrong_token(
     """Relay /policies/evaluate returns 401 for wrong bearer token."""
     import asyncio
 
-    from omnigent.claude_native_bridge import prepare_bridge_dir as _prep
-    from omnigent.claude_native_bridge import start_tool_relay
+    from agentnexus.claude_native_bridge import prepare_bridge_dir as _prep
+    from agentnexus.claude_native_bridge import start_tool_relay
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
 
     bridge_dir = _prep("relay-policy-auth-test", workspace=tmp_path)
 
@@ -743,11 +743,11 @@ async def test_relay_policy_evaluate_surfaces_upstream_error_in_502_body(
     """
     import asyncio
 
-    from omnigent.claude_native_bridge import prepare_bridge_dir as _prep
-    from omnigent.claude_native_bridge import start_tool_relay
+    from agentnexus.claude_native_bridge import prepare_bridge_dir as _prep
+    from agentnexus.claude_native_bridge import start_tool_relay
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
 
     bridge_dir = _prep("relay-policy-error-test", workspace=tmp_path)
 
@@ -801,11 +801,11 @@ async def test_relay_policy_evaluate_truncates_long_upstream_error(
     """
     import asyncio
 
-    from omnigent.claude_native_bridge import prepare_bridge_dir as _prep
-    from omnigent.claude_native_bridge import start_tool_relay
+    from agentnexus.claude_native_bridge import prepare_bridge_dir as _prep
+    from agentnexus.claude_native_bridge import start_tool_relay
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
 
     bridge_dir = _prep("relay-policy-trunc-test", workspace=tmp_path)
 
@@ -841,7 +841,7 @@ async def test_relay_policy_evaluate_truncates_long_upstream_error(
         body = resp.text
         # The actionable prefix + leading cause survive; the tail is elided.
         assert body.startswith(
-            "omnigent policy-eval proxy could not reach the Omnigent server: RequestError: "
+            "agentnexus policy-eval proxy could not reach the AgentNexus server: RequestError: "
         )
         assert body.endswith("...")
         # Bounded well under the raw 5000-char reason.
@@ -967,8 +967,8 @@ def terminal_registry_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.runtime import _globals as rt_globals
-    from omnigent.terminals.registry import TerminalRegistry
+    from agentnexus.runtime import _globals as rt_globals
+    from agentnexus.terminals.registry import TerminalRegistry
 
     monkeypatch.setattr(rt_globals, "_terminal_registry", TerminalRegistry())
 

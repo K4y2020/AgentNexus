@@ -15,7 +15,7 @@ The behavior under test:
   snapshot and is unaffected — but the sidebar affordances are owner-only.
 
 Runs against a dedicated multi-user server: the shared ``live_server`` is
-single-user (``OMNIGENT_LOCAL_SINGLE_USER=1``), which hides the Shared filter
+single-user (``AGENTNEXUS_LOCAL_SINGLE_USER=1``), which hides the Shared filter
 AND the Share item entirely, so the ownership split can't be observed there.
 The multi-user server clears that marker and declares an admin identity, exactly
 like a Databricks Apps / SSO-proxy install — the deployment shape this gating

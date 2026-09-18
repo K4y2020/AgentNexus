@@ -54,44 +54,44 @@ import pytest
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse as _StreamingResponse
 
-import omnigent.runtime.harnesses._executor_adapter as _adapter_mod_recovery
-from omnigent.inner.executor import (
+import agentnexus.runtime.harnesses._executor_adapter as _adapter_mod_recovery
+from agentnexus.inner.executor import (
     Executor as _RecoveryExecutor,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig as _RecoveryExecutorConfig,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorEvent as _RecoveryExecutorEvent,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     Message as _RecoveryMessage,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ToolSpec as _RecoveryToolSpec,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     TurnComplete as _RecoveryTurnComplete,
 )
-from omnigent.process_logging import process_log_reference
-from omnigent.runner import create_runner_app
-from omnigent.runner.app import (
+from agentnexus.process_logging import process_log_reference
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.app import (
     _RUNNER_TURN_CONTEXT_DESYNC_CODE,
     _build_spawn_env_from_spec,
     _evaluate_policy_via_omnigent,
     _forward_harness_response,
     _resolve_harness_config,
 )
-from omnigent.runtime.harnesses import _HARNESS_MODULES
-from omnigent.runtime.harnesses._executor_adapter import (
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.runtime.harnesses._executor_adapter import (
     _ORPHAN_RESYNC_THRESHOLD,
     ExecutorAdapter,
 )
-from omnigent.runtime.harnesses._scaffold import ToolResultEvent as _ToolResultEvent
-from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
-from omnigent.server.schemas import CreateResponseRequest as _CreateResponseRequest
-from omnigent.session_lifecycle import CLOSED_LABEL_KEY, CLOSED_LABEL_VALUE
-from omnigent.spec.types import AgentSpec, ExecutorSpec, SharePolicy
+from agentnexus.runtime.harnesses._scaffold import ToolResultEvent as _ToolResultEvent
+from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
+from agentnexus.server.schemas import CreateResponseRequest as _CreateResponseRequest
+from agentnexus.session_lifecycle import CLOSED_LABEL_KEY, CLOSED_LABEL_VALUE
+from agentnexus.spec.types import AgentSpec, ExecutorSpec, SharePolicy
 from tests.runner.conftest import (
     _FakeProcessManager as _RecoveryFakeProcessManager,
 )
@@ -123,7 +123,7 @@ def _assume_harness_clis_installed(monkeypatch: pytest.MonkeyPatch) -> None:
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.missing_harness_cli",
+        "agentnexus.onboarding.harness_install.missing_harness_cli",
         lambda harness: None,
     )
 
@@ -361,7 +361,7 @@ class _FakeProcessManager:
         """
         Return the configured fake harness client.
 
-        :param conversation_id: Omnigent conversation id.
+        :param conversation_id: AgentNexus conversation id.
         :param harness_name: Harness name requested by the runner.
         :param env: Optional spawn environment.
         :returns: Configured fake harness client.
@@ -548,7 +548,7 @@ async def test_resolve_harness_config_raises_when_agent_id_missing_with_spec_res
         return AgentSpec(
             spec_version=1,
             name="x",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         )
 
     with pytest.raises(RuntimeError, match="agent_id is missing"):
@@ -641,7 +641,7 @@ class _RecordingProcessManager:
         """
         Record the harness name and return an empty fake harness client.
 
-        :param conversation_id: Omnigent conversation id.
+        :param conversation_id: AgentNexus conversation id.
         :param harness_name: Harness name the runner resolved — the
             value under test.
         :param env: Optional spawn environment (ignored).
@@ -677,7 +677,7 @@ async def test_runner_resolves_agent_from_server_snapshot_when_msg_lacks_agent_i
 
     def _server_handler(request: httpx.Request) -> httpx.Response:
         """
-        Stub Omnigent server: the session snapshot carries the agent_id.
+        Stub AgentNexus server: the session snapshot carries the agent_id.
 
         :param request: Outbound request from the runner.
         :returns: Snapshot with ``agent_id`` for the session GET; benign
@@ -722,7 +722,7 @@ async def test_runner_resolves_agent_from_server_snapshot_when_msg_lacks_agent_i
         return AgentSpec(
             spec_version=1,
             name="ondemand-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": resolved_harness}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": resolved_harness}),
         )
 
     captured: dict[str, str] = {}
@@ -739,7 +739,7 @@ async def test_runner_resolves_agent_from_server_snapshot_when_msg_lacks_agent_i
         async with _runner_test_client(app) as http:
             response = await http.post(
                 # No ``?stream=true`` → background turn, the production
-                # path the Omnigent server uses to forward session messages.
+                # path the AgentNexus server uses to forward session messages.
                 f"/v1/sessions/{conv}/events",
                 json={
                     "type": "message",
@@ -796,7 +796,7 @@ class _ContentCapturingProcessManager:
         """
         Return a harness client that records the body it is sent.
 
-        :param conversation_id: Omnigent conversation id (unused).
+        :param conversation_id: AgentNexus conversation id (unused).
         :param harness_name: Harness name the runner resolved (unused).
         :param env: Optional spawn environment (unused).
         :returns: A capturing harness client.
@@ -875,7 +875,7 @@ async def test_runner_reloads_full_history_on_cold_cache_after_restart() -> None
     ``persisted_item_id="item_3"`` — so the reload drops that exact item by
     id and appends the runner's copy, proving no duplication.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     conv = "conv_restart_history_reload"
     prior_user = "what is the capital of France?"
@@ -884,7 +884,7 @@ async def test_runner_reloads_full_history_on_cold_cache_after_restart() -> None
 
     def _server_handler(request: httpx.Request) -> httpx.Response:
         """
-        Stub Omnigent server: snapshot + full persisted history on ``/items``.
+        Stub AgentNexus server: snapshot + full persisted history on ``/items``.
 
         :param request: Outbound request from the runner.
         :returns: Snapshot for the session GET; the persisted history
@@ -947,7 +947,7 @@ async def test_runner_reloads_full_history_on_cold_cache_after_restart() -> None
             spec_version=1,
             name="restart-agent",
             executor=ExecutorSpec(
-                type="omnigent",
+                type="agentnexus",
                 config={"harness": "runner-test-resolved"},
             ),
         )
@@ -968,13 +968,13 @@ async def test_runner_reloads_full_history_on_cold_cache_after_restart() -> None
         async with _runner_test_client(app) as http:
             response = await http.post(
                 # No ``?stream=true`` → background turn, the production path
-                # the Omnigent server uses to forward session messages.
+                # the AgentNexus server uses to forward session messages.
                 f"/v1/sessions/{conv}/events",
                 json={
                     "type": "message",
                     "role": "user",
                     "model": "x",
-                    # The store id the Omnigent server persisted for this turn
+                    # The store id the AgentNexus server persisted for this turn
                     # (matches ``item_3`` from the stub ``/items``), so the
                     # cold-cache reload drops that exact item and the dedup
                     # fires (no duplicate).
@@ -1021,7 +1021,7 @@ async def test_runner_cold_cache_appends_message_when_store_lacks_it() -> None:
     excludes the new message and asserts the harness still receives it,
     appended as the latest turn, with prior context preserved.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     conv = "conv_cold_cache_append"
     prior_user = "first question"
@@ -1030,7 +1030,7 @@ async def test_runner_cold_cache_appends_message_when_store_lacks_it() -> None:
 
     def _server_handler(request: httpx.Request) -> httpx.Response:
         """
-        Stub Omnigent server: history reload that does NOT include the new message.
+        Stub AgentNexus server: history reload that does NOT include the new message.
 
         :param request: Outbound request from the runner.
         :returns: Snapshot for the session GET; prior turns only (no
@@ -1087,7 +1087,7 @@ async def test_runner_cold_cache_appends_message_when_store_lacks_it() -> None:
             spec_version=1,
             name="cold-cache-agent",
             executor=ExecutorSpec(
-                type="omnigent",
+                type="agentnexus",
                 config={"harness": "runner-test-resolved"},
             ),
         )
@@ -1153,7 +1153,7 @@ async def test_runner_cold_cache_keeps_trailing_user_when_no_persisted_id() -> N
     With id-based dedup, no ``persisted_item_id`` means nothing is dropped: the
     real trailing user message survives and the new message is appended.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     conv = "conv_cold_cache_keep_user"
     # A prior user prompt whose assistant reply was never persisted (e.g. the
@@ -1163,7 +1163,7 @@ async def test_runner_cold_cache_keeps_trailing_user_when_no_persisted_id() -> N
 
     def _server_handler(request: httpx.Request) -> httpx.Response:
         """
-        Stub Omnigent server: history reload ending on a real prior user message.
+        Stub AgentNexus server: history reload ending on a real prior user message.
 
         :param request: Outbound request from the runner.
         :returns: Snapshot for the session GET; a single prior user item
@@ -1212,7 +1212,7 @@ async def test_runner_cold_cache_keeps_trailing_user_when_no_persisted_id() -> N
             spec_version=1,
             name="keep-user-agent",
             executor=ExecutorSpec(
-                type="omnigent",
+                type="agentnexus",
                 config={"harness": "runner-test-resolved"},
             ),
         )
@@ -1276,7 +1276,7 @@ async def test_runner_cold_cache_uses_resolved_message_not_stored_file_id() -> N
     the server) and appends the runner-resolved message, so the harness sees
     exactly one, fully resolved copy regardless of the content mismatch.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     conv = "conv_cold_cache_media"
     prior_user = "earlier question"
@@ -1285,7 +1285,7 @@ async def test_runner_cold_cache_uses_resolved_message_not_stored_file_id() -> N
 
     def _server_handler(request: httpx.Request) -> httpx.Response:
         """
-        Stub Omnigent server: file resolution, snapshot, and a history reload
+        Stub AgentNexus server: file resolution, snapshot, and a history reload
         whose tail is the UNRESOLVED (``file_id``) copy of this message.
 
         :param request: Outbound request from the runner.
@@ -1364,7 +1364,7 @@ async def test_runner_cold_cache_uses_resolved_message_not_stored_file_id() -> N
             spec_version=1,
             name="media-agent",
             executor=ExecutorSpec(
-                type="omnigent",
+                type="agentnexus",
                 config={"harness": "runner-test-resolved"},
             ),
         )
@@ -1451,7 +1451,7 @@ async def test_runner_post_returns_503_when_spec_resolver_fails(
         server_client=NullServerClient(),  # type: ignore[arg-type]
     )
     async with _runner_test_client(app) as http:
-        with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
             response = await http.post(
                 "/v1/sessions/conv_spec_resolver_failed/events?stream=true",
                 json={
@@ -1547,7 +1547,7 @@ def test_direct_and_background_switch_sites_share_one_invalidation_routine() -> 
     """Both dispatch paths must call the shared `_invalidate_session_agent_state` helper."""
     import inspect
 
-    import omnigent.runner.app as runner_app_mod
+    import agentnexus.runner.app as runner_app_mod
 
     source = inspect.getsource(runner_app_mod)
     direct_stream_start = source.index("async def _stream_message_to_harness(")
@@ -1571,7 +1571,7 @@ def test_agent_cache_reset_clears_the_agent_id_marker_too() -> None:
     """`_clear_session_agent_caches` must pop `_session_agent_ids` with the other tagged caches."""
     import inspect
 
-    import omnigent.runner.app as runner_app_mod
+    import agentnexus.runner.app as runner_app_mod
 
     source = inspect.getsource(runner_app_mod)
     start = source.index("def _clear_session_agent_caches(")
@@ -1648,8 +1648,8 @@ def test_build_spawn_env_applies_model_override(
     :param tmp_path: Pytest temp dir for an isolated provider config.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     (tmp_path / "config.yaml").write_text(
         "providers:\n"
@@ -1665,7 +1665,7 @@ def test_build_spawn_env_applies_model_override(
     spec = AgentSpec(
         spec_version=1,
         name="x",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
     )
 
     base = _build_spawn_env_from_spec(spec, "claude-sdk")
@@ -1689,17 +1689,17 @@ def test_build_spawn_env_routes_hermes(tmp_path: Path, monkeypatch: pytest.Monke
     :param tmp_path: Pytest temp dir for an isolated provider config.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
-    monkeypatch.delenv("OMNIGENT_HERMES_PATH", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
+    monkeypatch.delenv("AGENTNEXUS_HERMES_PATH", raising=False)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     spec = AgentSpec(
         spec_version=1,
         name="x",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "hermes"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "hermes"}),
         os_env=OSEnvSpec(type="caller_process", sandbox=OSEnvSandboxSpec(type="linux_bwrap")),
     )
 
@@ -1730,8 +1730,8 @@ async def test_resolve_harness_config_applies_harness_override(
     :param tmp_path: Pytest temp dir for an isolated provider config.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     (tmp_path / "config.yaml").write_text(
         "providers:\n"
@@ -1747,7 +1747,7 @@ async def test_resolve_harness_config_applies_harness_override(
     spec = AgentSpec(
         spec_version=1,
         name="x",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
     )
 
     async def _resolver(_agent_id: str, _session_id: str | None) -> AgentSpec:
@@ -1788,7 +1788,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
     Regression for the silent-hang failure mode: when
     ``_build_claude_sdk_spawn_env`` raises (e.g. a generic provider routed
     to the claude-sdk harness has no resolvable model, raising
-    ``OmnigentError``), the setup phase of ``_run_turn_bg`` failed before
+    ``AgentNexusError``), the setup phase of ``_run_turn_bg`` failed before
     the streaming block's own error handling. Because the background turn
     task's only done-callback was ``_background_tasks.discard``, the
     exception was swallowed: ``_active_turns`` stayed set and no terminal
@@ -1798,13 +1798,13 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
     The fix wraps the setup phase so any pre-stream exception routes through
     ``_on_proxy_stream_end``, which clears the active turn and publishes
     ``session.status: failed``. This test drives the background-turn path
-    (no ``?stream=true`` — the production path the Omnigent server uses) and
+    (no ``?stream=true`` — the production path the AgentNexus server uses) and
     asserts the ``failed`` status reaches the session SSE stream.
 
     :param monkeypatch: pytest fixture used to force the spawn-env build to
         raise the same error class the no-model provider path produces.
     """
-    from omnigent.errors import ErrorCode, OmnigentError
+    from agentnexus.errors import ErrorCode, AgentNexusError
 
     conv = "conv_spawn_env_build_raises"
 
@@ -1821,7 +1821,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
         return AgentSpec(
             spec_version=1,
             name="claude-sdk-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         )
 
     def _raising_build(
@@ -1834,10 +1834,10 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
         :param spec: The agent spec (unused).
         :param workdir: Bundle workdir (unused).
         :returns: Never returns.
-        :raises OmnigentError: Always — mirrors the no-model provider error.
+        :raises AgentNexusError: Always — mirrors the no-model provider error.
         """
         del spec, workdir
-        raise OmnigentError(
+        raise AgentNexusError(
             "No model resolved for the 'claude-sdk' harness on a generic provider.",
             code=ErrorCode.INVALID_INPUT,
         )
@@ -1845,7 +1845,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
     # ``_build_spawn_env_from_spec`` imports this from workflow at call time,
     # so patching the workflow attribute reaches the runner's call site.
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._build_claude_sdk_spawn_env",
+        "agentnexus.runtime.workflow._build_claude_sdk_spawn_env",
         _raising_build,
     )
 
@@ -1861,7 +1861,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
     async with _runner_test_client(app) as http:
         response = await http.post(
             # No ``?stream=true`` → background turn (the production path the
-            # Omnigent server uses to forward session messages).
+            # AgentNexus server uses to forward session messages).
             f"/v1/sessions/{conv}/events",
             json={
                 "type": "message",
@@ -1880,7 +1880,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
         )
 
     # The turn published "running" then "failed" — it reached a terminal
-    # state and cleared. Without the fix, the setup-phase OmnigentError is
+    # state and cleared. Without the fix, the setup-phase AgentNexusError is
     # swallowed: only "running" is published, ``_active_turns`` stays set, and
     # the session hangs on "working" forever (the silent-hang regression).
     assert statuses == ["running", "failed"]
@@ -1899,12 +1899,12 @@ async def test_runner_failed_status_carries_setup_error_message(
     spawn-env-build failure as
     :func:`test_runner_background_turn_emits_failed_when_spawn_env_build_raises`
     and asserts the published ``failed`` event now carries the normalized
-    ``{code, message}`` error so Omnigent and the REPL can render it.
+    ``{code, message}`` error so AgentNexus and the REPL can render it.
 
     :param monkeypatch: pytest fixture used to force the spawn-env build to
         raise the no-model provider error.
     """
-    from omnigent.errors import ErrorCode, OmnigentError
+    from agentnexus.errors import ErrorCode, AgentNexusError
 
     conv = "conv_failed_status_carries_error"
     raised_message = "No model resolved for the 'claude-sdk' harness on a generic provider."
@@ -1921,7 +1921,7 @@ async def test_runner_failed_status_carries_setup_error_message(
         return AgentSpec(
             spec_version=1,
             name="claude-sdk-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         )
 
     def _raising_build(
@@ -1933,13 +1933,13 @@ async def test_runner_failed_status_carries_setup_error_message(
         :param spec: The agent spec (unused).
         :param workdir: Bundle workdir (unused).
         :returns: Never returns.
-        :raises OmnigentError: Always.
+        :raises AgentNexusError: Always.
         """
         del spec, workdir
-        raise OmnigentError(raised_message, code=ErrorCode.INVALID_INPUT)
+        raise AgentNexusError(raised_message, code=ErrorCode.INVALID_INPUT)
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._build_claude_sdk_spawn_env",
+        "agentnexus.runtime.workflow._build_claude_sdk_spawn_env",
         _raising_build,
     )
 
@@ -1977,7 +1977,7 @@ async def test_runner_failed_status_carries_setup_error_message(
     assert failed_event is not None
     error = failed_event.get("error")
     assert isinstance(error, dict)
-    # The raised OmnigentError message is wrapped as "turn setup
+    # The raised AgentNexusError message is wrapped as "turn setup
     # failed: <message>" by _run_turn_bg's setup-phase handler.
     assert raised_message in error["message"]
     # Normalized shape always has a code so the wire ErrorDetail validates.
@@ -2108,9 +2108,9 @@ async def test_runner_publishes_terminal_failed_when_harness_stream_fails(
     """
     conv = f"conv_stream_failed_{until}_{harness.replace('-', '_')}"
     # Keep the codex-native pre-turn bridge writes (write_mcp_bridge_config)
-    # out of the real ``~/.omnigent/codex-native`` tree. The module documents
+    # out of the real ``~/.agentnexus/codex-native`` tree. The module documents
     # this monkeypatch as the supported test isolation point.
-    monkeypatch.setattr("omnigent.codex_native_bridge._BRIDGE_ROOT", tmp_path)
+    monkeypatch.setattr("agentnexus.codex_native_bridge._BRIDGE_ROOT", tmp_path)
 
     async def _spec_resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
         """
@@ -2124,7 +2124,7 @@ async def test_runner_publishes_terminal_failed_when_harness_stream_fails(
         return AgentSpec(
             spec_version=1,
             name="stream-fail-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": harness}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": harness}),
         )
 
     app = create_runner_app(
@@ -2139,7 +2139,7 @@ async def test_runner_publishes_terminal_failed_when_harness_stream_fails(
     async with _runner_test_client(app) as http:
         response = await http.post(
             # No ``?stream=true`` → background turn (the production path the
-            # Omnigent server uses to forward session messages).
+            # AgentNexus server uses to forward session messages).
             f"/v1/sessions/{conv}/events",
             json={
                 "type": "message",
@@ -2184,9 +2184,9 @@ async def test_runner_publishes_terminal_failed_when_harness_stream_fails(
 
 @pytest.mark.asyncio
 async def test_runner_os_env_tools_use_agent_spec_cwd() -> None:
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _execute_os_env_tool
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _execute_os_env_tool
+    from agentnexus.spec.types import AgentSpec
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -2254,12 +2254,12 @@ async def test_runner_os_env_placeholder_cwd_uses_cli_workspace(
     :param tmp_path: Per-test temp root for workspace and fallback paths.
     :returns: None.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _execute_os_env_tool
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _execute_os_env_tool
 
     workspace = tmp_path / "project"
     workspace.mkdir()
-    monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", str(tmp_path / "fallback"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", str(tmp_path / "fallback"))
     spec = AgentSpec(
         spec_version=1,
         os_env=OSEnvSpec(
@@ -2284,12 +2284,12 @@ async def test_runner_os_env_placeholder_cwd_uses_cli_workspace(
 
 @pytest.mark.asyncio
 async def test_runner_os_env_tools_default_to_conversation_workspace(monkeypatch) -> None:
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _execute_os_env_tool
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _execute_os_env_tool
+    from agentnexus.spec.types import AgentSpec
 
     with tempfile.TemporaryDirectory() as td:
-        monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", td)
+        monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", td)
         spec = AgentSpec(
             spec_version=1,
             os_env=OSEnvSpec(
@@ -2323,8 +2323,8 @@ def test_clone_os_env_spec_preserves_all_sandbox_fields() -> None:
     """
     import dataclasses
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _clone_os_env_spec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _clone_os_env_spec
 
     sandbox = OSEnvSandboxSpec(
         type="darwin_seatbelt",
@@ -2379,11 +2379,11 @@ def test_effective_runner_os_env_defaults_when_spec_has_no_os_env(monkeypatch) -
     :param monkeypatch: Pytest environment patch fixture.
     :returns: None.
     """
-    from omnigent.runner.tool_dispatch import _effective_runner_os_env_spec
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.runner.tool_dispatch import _effective_runner_os_env_spec
+    from agentnexus.spec.types import AgentSpec
 
     with tempfile.TemporaryDirectory() as td:
-        monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", td)
+        monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", td)
         spec = AgentSpec(spec_version=1)
 
         os_env = _effective_runner_os_env_spec(spec, "conv/no os env")
@@ -2403,12 +2403,12 @@ def test_effective_runner_os_env_uses_cli_workspace_when_spec_has_no_os_env(
     :param tmp_path: Per-test temp root for workspace and fallback paths.
     :returns: None.
     """
-    from omnigent.runner.tool_dispatch import _effective_runner_os_env_spec
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.runner.tool_dispatch import _effective_runner_os_env_spec
+    from agentnexus.spec.types import AgentSpec
 
     workspace = tmp_path / "project"
     workspace.mkdir()
-    monkeypatch.setenv("OMNIGENT_RUNNER_OS_ENV_ROOT", str(tmp_path / "fallback"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_OS_ENV_ROOT", str(tmp_path / "fallback"))
     spec = AgentSpec(spec_version=1)
 
     os_env = _effective_runner_os_env_spec(
@@ -2431,14 +2431,14 @@ def test_effective_runner_os_env_runner_workspace_overrides_absolute_spec_cwd(
     Per designs/SESSION_WORKSPACE_SELECTION.md "How this maps onto
     runtime": absolute spec cwds are session-create-time
     boundaries, not runtime overrides. When the runner is launched
-    with ``OMNIGENT_RUNNER_WORKSPACE`` set, it always wins —
+    with ``AGENTNEXUS_RUNNER_WORKSPACE`` set, it always wins —
     otherwise picking ``~/universe/src/foo`` for an agent
     declaring ``cwd: ~/universe`` would silently relocate up to
     ``~/universe`` at runtime.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _effective_runner_os_env_spec
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _effective_runner_os_env_spec
+    from agentnexus.spec.types import AgentSpec
 
     workspace = tmp_path / "picked-subdir"
     workspace.mkdir()
@@ -2475,9 +2475,9 @@ def test_effective_runner_os_env_absolute_spec_cwd_used_without_runner_workspace
     runs that construct an agent spec directly without the env
     var continue to honor whatever the spec declared.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner.tool_dispatch import _effective_runner_os_env_spec
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner.tool_dispatch import _effective_runner_os_env_spec
+    from agentnexus.spec.types import AgentSpec
 
     spec_cwd = tmp_path / "agent-spec-cwd"
     spec_cwd.mkdir()
@@ -2510,11 +2510,11 @@ async def test_runner_terminal_dispatch_passes_cli_workspace(
     :param tmp_path: Workspace path exported to the runner.
     :returns: None.
     """
-    from omnigent.inner.datamodel import TerminalEnvSpec
-    from omnigent.runner.tool_dispatch import _execute_terminal_tool
-    from omnigent.terminals import TerminalRegistry
-    from omnigent.tools.base import ToolContext
-    from omnigent.tools.builtins.sys_terminal import SysTerminalLaunchTool
+    from agentnexus.inner.datamodel import TerminalEnvSpec
+    from agentnexus.runner.tool_dispatch import _execute_terminal_tool
+    from agentnexus.terminals import TerminalRegistry
+    from agentnexus.tools.base import ToolContext
+    from agentnexus.tools.builtins.sys_terminal import SysTerminalLaunchTool
 
     workspace = tmp_path / "project"
     workspace.mkdir()
@@ -2656,9 +2656,9 @@ async def test_terminal_launch_dispatch_emits_resource_created(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner.tool_dispatch import _execute_terminal_tool
-    from omnigent.tools.base import ToolContext
-    from omnigent.tools.builtins.sys_terminal import SysTerminalLaunchTool
+    from agentnexus.runner.tool_dispatch import _execute_terminal_tool
+    from agentnexus.tools.base import ToolContext
+    from agentnexus.tools.builtins.sys_terminal import SysTerminalLaunchTool
 
     spec = AgentSpec(spec_version=1)
 
@@ -2710,9 +2710,9 @@ async def test_terminal_launch_idempotent_does_not_emit(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner.tool_dispatch import _execute_terminal_tool
-    from omnigent.tools.base import ToolContext
-    from omnigent.tools.builtins.sys_terminal import SysTerminalLaunchTool
+    from agentnexus.runner.tool_dispatch import _execute_terminal_tool
+    from agentnexus.tools.base import ToolContext
+    from agentnexus.tools.builtins.sys_terminal import SysTerminalLaunchTool
 
     spec = AgentSpec(spec_version=1)
 
@@ -2754,9 +2754,9 @@ async def test_terminal_close_dispatch_emits_resource_deleted(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner.tool_dispatch import _execute_terminal_tool
-    from omnigent.tools.base import ToolContext
-    from omnigent.tools.builtins.sys_terminal import SysTerminalCloseTool
+    from agentnexus.runner.tool_dispatch import _execute_terminal_tool
+    from agentnexus.tools.base import ToolContext
+    from agentnexus.tools.builtins.sys_terminal import SysTerminalCloseTool
 
     spec = AgentSpec(spec_version=1)
 
@@ -2799,7 +2799,7 @@ async def test_runner_read_inbox_continues_after_malformed_terminal_idle_item() 
 
     :returns: None.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     session_inbox.put_nowait(
@@ -2860,8 +2860,8 @@ async def test_execute_tool_rejects_non_object_arguments(
     tool after bad input; the shared parser must reject these shapes and
     the underlying OS-env handler must never be entered.
     """
-    from omnigent.runner import tool_dispatch
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import tool_dispatch
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     calls: list[object] = []
 
@@ -2882,8 +2882,8 @@ async def test_execute_tool_accepts_empty_object_arguments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Valid ``{}`` still reaches the tool with an empty argument dict."""
-    from omnigent.runner import tool_dispatch
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import tool_dispatch
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     calls: list[dict[str, Any]] = []
 
@@ -3017,7 +3017,7 @@ def test_maybe_signal_changed_files_throttles_within_window() -> None:
     real sleep. Regression target: a multi-file turn must collapse to
     one refetch trigger (leading-edge throttle), not fire per write.
     """
-    from omnigent.runner.tool_dispatch import (
+    from agentnexus.runner.tool_dispatch import (
         _CHANGED_FILES_SIGNAL_THROTTLE_S,
         _maybe_signal_changed_files,
     )
@@ -3058,7 +3058,7 @@ def test_subagent_read_tools_are_runner_local() -> None:
     spec-callable resolution and the user sees "not in local dispatch table"
     instead of sub-agent recovery data.
     """
-    from omnigent.runner.tool_dispatch import should_dispatch_locally
+    from agentnexus.runner.tool_dispatch import should_dispatch_locally
 
     assert should_dispatch_locally("sys_session_list") is True
     assert should_dispatch_locally("sys_session_get_history") is True
@@ -3092,8 +3092,8 @@ async def test_sys_session_send_reuses_existing_child_session(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param subagent_args: ``sys_session_send`` ``args`` payload.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_posts = 0
     event_posts: list[dict[str, Any]] = []
@@ -3108,7 +3108,7 @@ async def test_sys_session_send_reuses_existing_child_session(
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent":
             return httpx.Response(
                 200,
-                json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
+                json={"labels": {"agentnexus.turn_actor": "bob@example.com"}},
             )
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent/labels":
             return httpx.Response(200, json={"labels": {}})
@@ -3178,8 +3178,8 @@ async def test_sys_session_send_applies_saved_model_to_existing_sdk_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A Partner picker change affects the next turn of a reused SDK child."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     patched: list[dict[str, Any]] = []
     event_posts: list[dict[str, Any]] = []
@@ -3254,8 +3254,8 @@ async def test_sys_session_send_named_child_retries_without_rejected_actor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing runner token cannot make new-child dispatch teardown the child."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     event_posts: list[dict[str, Any]] = []
     delete_posts = 0
@@ -3269,7 +3269,7 @@ async def test_sys_session_send_named_child_retries_without_rejected_actor(
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_retry":
             return httpx.Response(
                 200,
-                json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
+                json={"labels": {"agentnexus.turn_actor": "bob@example.com"}},
             )
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_retry/labels":
             return httpx.Response(200, json={"labels": {}})
@@ -3321,8 +3321,8 @@ async def test_sys_session_send_existing_child_retries_without_rejected_actor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing runner token cannot make existing-child dispatch fail closed."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     event_posts: list[dict[str, Any]] = []
 
@@ -3333,7 +3333,7 @@ async def test_sys_session_send_existing_child_retries_without_rejected_actor(
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_parent_existing":
             return httpx.Response(
                 200,
-                json={"labels": {"omnigent.turn_actor": "bob@example.com"}},
+                json={"labels": {"agentnexus.turn_actor": "bob@example.com"}},
             )
         if (
             request.method == "GET"
@@ -3400,7 +3400,7 @@ def _spec_with_subagent_harness(harness: str) -> SimpleNamespace:
         sub_agents=[
             SimpleNamespace(
                 name="worker",
-                executor=SimpleNamespace(type="omnigent", config={"harness": harness}),
+                executor=SimpleNamespace(type="agentnexus", config={"harness": harness}),
             )
         ]
     )
@@ -3433,8 +3433,8 @@ async def test_sys_session_send_model_lands_in_child_create_body(
     :param harness: Declared sub-agent harness under test.
     :param model: Family-appropriate model id for *harness*.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_bodies: list[dict[str, Any]] = []
 
@@ -3508,13 +3508,13 @@ async def test_sys_session_send_blocks_fresh_dispatch_when_harness_cli_missing(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.onboarding.harness_install import HarnessInstallSpec
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.onboarding.harness_install import HarnessInstallSpec
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     # Override the autouse "all CLIs present" stub: pi's CLI is absent here.
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.missing_harness_cli",
+        "agentnexus.onboarding.harness_install.missing_harness_cli",
         lambda harness: HarnessInstallSpec("Pi", "pi", "@earendil-works/pi-coding-agent"),
     )
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
@@ -3585,8 +3585,8 @@ async def test_sys_session_send_model_rejected_for_existing_child(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_posts = 0
     event_posts = 0
@@ -3664,8 +3664,8 @@ async def test_saved_model_overrides_dispatch_model_when_continuing_sdk_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A saved worker binding also governs an existing SDK child."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     patches: list[dict[str, Any]] = []
     event_posts = 0
@@ -3739,8 +3739,8 @@ async def test_sys_session_send_model_rejected_in_by_id_mode() -> None:
     override cannot take effect — the tool must reject it instead of
     silently dropping the field.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     requests_seen = 0
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -3791,8 +3791,8 @@ async def test_sys_session_send_model_rejected_for_unplumbed_harness(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_posts = 0
 
@@ -3887,8 +3887,8 @@ async def test_sys_session_send_model_rejected_for_wrong_family(
     :param model: Cross-family or undeterminable model id.
     :param expected_rule: Rule text the error must contain.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_posts = 0
 
@@ -3965,8 +3965,8 @@ async def test_sys_session_send_model_invalid_rejected_before_any_server_call(
 
     :param bad_model: The invalid ``model`` payload under test.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     requests_seen = 0
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -4025,7 +4025,7 @@ def _spec_with_real_subagent(harness: str) -> AgentSpec:
             AgentSpec(
                 spec_version=1,
                 name="worker",
-                executor=ExecutorSpec(type="omnigent", config={"harness": harness}),
+                executor=ExecutorSpec(type="agentnexus", config={"harness": harness}),
             )
         ],
     )
@@ -4041,10 +4041,10 @@ def _isolate_model_providers(
     :param tmp_path: Per-test temp dir holding ``config.yaml``.
     :param yaml_text: The config contents, e.g. a ``providers:`` block.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.onboarding.detected.detect_providers", list)
+    monkeypatch.setattr("agentnexus.onboarding.detected.detect_providers", list)
     (tmp_path / "config.yaml").write_text(yaml_text)
 
 
@@ -4080,8 +4080,8 @@ async def _dispatch_model_send(
     :param conv_id: A unique parent conversation id per test.
     :returns: The tool output and the captured create bodies.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_bodies: list[dict[str, Any]] = []
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
@@ -4163,7 +4163,7 @@ async def test_sys_session_send_binds_child_behavior_from_purpose(
 
     assert json.loads(result.output)["status"] == "launching"
     assert result.create_bodies[0]["labels"] == {
-        "omnigent.behavior_mode": expected_mode,
+        "agentnexus.behavior_mode": expected_mode,
     }
 
 
@@ -4396,7 +4396,7 @@ async def test_sys_list_models_dispatches_locally_with_static_provider(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Per-test temp dir for the isolated provider config.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     _isolate_model_providers(
         monkeypatch,
@@ -4428,7 +4428,7 @@ async def test_sys_list_models_requires_agent_spec() -> None:
     A silent ``{}`` would read as "no workers exist" — the error string
     tells the orchestrator the runner couldn't resolve its spec.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     output = await execute_tool(
         tool_name="sys_list_models",
@@ -4454,8 +4454,8 @@ async def test_sys_session_send_by_id_rejects_closed_child(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     event_posts = 0
     registrations: list[str] = []
@@ -4523,8 +4523,8 @@ async def test_sys_session_send_completion_drains_from_parent_inbox(
     tool result. If completion delivery is not wired, the drain returns the
     empty-inbox sentinel instead of the child marker.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
@@ -4605,8 +4605,8 @@ async def test_subagent_inbox_cleanup_does_not_unregister_next_turn(
     first inbox item's cleanup is guarded by the per-dispatch work id so it
     cannot unregister the second running turn.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
@@ -4911,7 +4911,7 @@ async def test_scaffold_subagent_defers_terminal_delivery_while_continuation_buf
     continuation). Releasing turn 1 then lets the continuation run to its own
     empty-buffer stream end. No sleeps, no polling of runner internals.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "conv_parent_multiturn_defer"
     child_id = "conv_child_multiturn_defer"
@@ -4935,7 +4935,7 @@ async def test_scaffold_subagent_defers_terminal_delivery_while_continuation_buf
         return AgentSpec(
             spec_version=1,
             name="scaffold-multiturn-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": _TEST_HARNESS_NAME}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": _TEST_HARNESS_NAME}),
         )
 
     app = create_runner_app(
@@ -5081,15 +5081,15 @@ async def test_sys_read_inbox_applies_subagent_tool_result_policy(
 
     ``sys_session_send`` returns a launching handle immediately, so the
     child output arrives after the original tool call. The delayed
-    output must still pass through Omnigent policy evaluation before the LLM
+    output must still pass through AgentNexus policy evaluation before the LLM
     sees it in the inbox drain.
 
     :param status: Terminal sub-agent status being drained.
-    :param policy_response: Fake Omnigent policy verdict body.
+    :param policy_response: Fake AgentNexus policy verdict body.
     :param expected_output: Output expected in the drained inbox text.
     :param blocked_output: Raw child output that policy must remove.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     session_inbox.put_nowait(
@@ -5108,7 +5108,7 @@ async def test_sys_read_inbox_applies_subagent_tool_result_policy(
     policy_requests: list[dict[str, Any]] = []
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
-        """Capture the Omnigent policy evaluation request."""
+        """Capture the AgentNexus policy evaluation request."""
         if (
             request.method == "POST"
             and request.url.path == "/v1/sessions/conv_parent_policy/policies/evaluate"
@@ -5157,8 +5157,8 @@ async def test_sys_read_inbox_requeues_subagent_output_on_transient_policy_failu
     payload must remain retryable; otherwise the second drain could not
     return the child result after the policy service recovers.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     parent_id = "conv_parent_policy_retry"
     child_id = "conv_child_policy_retry"
@@ -5182,7 +5182,7 @@ async def test_sys_read_inbox_requeues_subagent_output_on_transient_policy_failu
         """
         Fail policy evaluation once, then allow the retry.
 
-        :param request: Omnigent policy-evaluation request.
+        :param request: AgentNexus policy-evaluation request.
         :returns: Non-JSON response on first call, allow verdict later.
         """
         nonlocal policy_attempts
@@ -5244,7 +5244,7 @@ def test_list_tasks_is_not_runner_local_builtin() -> None:
     claim it as a local lifecycle tool or relay it to native harnesses as
     a framework-owned builtin.
     """
-    from omnigent.runner.tool_dispatch import (
+    from agentnexus.runner.tool_dispatch import (
         _NATIVE_RELAY_BUILTIN_TOOLS,
         should_dispatch_locally,
     )
@@ -5267,8 +5267,8 @@ async def test_sys_cancel_task_stops_subagent_and_dedupes_late_completion(
     kills the pane and reclaims the work entry). A later completion attempt
     must not enqueue a second completed inbox item.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
@@ -5294,7 +5294,7 @@ async def test_sys_cancel_task_stops_subagent_and_dedupes_late_completion(
                 201,
                 json={
                     "id": "conv_child_cancel",
-                    "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+                    "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
                 },
             )
         if (
@@ -5379,8 +5379,8 @@ async def test_sys_cancel_task_reports_codex_native_cancel_as_best_effort() -> N
     so the tool result must say cancellation is best-effort instead of telling
     the parent to wait forever for a terminal inbox item.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     parent_id = "conv_parent_codex_cancel"
     child_id = "conv_child_codex_cancel"
@@ -5453,8 +5453,8 @@ async def test_sys_cancel_task_interrupts_non_native_subagent() -> None:
     cancelled and wakes the parent. This guards against regressing to an
     unconditional ``stop_session`` (which dropped in-process cancellation).
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     parent_id = "conv_parent_inproc_cancel"
     child_id = "conv_child_inproc_cancel"
@@ -5517,8 +5517,8 @@ async def test_sys_cancel_task_interrupts_non_native_subagent() -> None:
 @pytest.mark.asyncio
 async def test_sys_cancel_task_stops_terminal_claude_native_entry() -> None:
     """A failed work status does not block cleanup of a live Claude pane."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import _cancel_subagent_task
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import _cancel_subagent_task
 
     parent_id = "conv_parent_terminal"
     child_id = "conv_child_terminal"
@@ -5566,8 +5566,8 @@ async def test_sys_cancel_task_returns_cached_finished_claude_native_status(
     cancelled: bool,
 ) -> None:
     """Finished Claude work does not issue a redundant hard-stop."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import _cancel_subagent_task
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import _cancel_subagent_task
 
     parent_id = "conv_parent_finished"
     child_id = f"conv_child_{status}"
@@ -5597,7 +5597,7 @@ async def test_sys_cancel_task_returns_cached_finished_claude_native_status(
 @pytest.mark.asyncio
 async def test_sys_cancel_task_stops_evicted_claude_native_entry() -> None:
     """Server metadata restores the cleanup path after local eviction."""
-    from omnigent.runner.tool_dispatch import _cancel_subagent_task
+    from agentnexus.runner.tool_dispatch import _cancel_subagent_task
 
     parent_id = "conv_parent_evicted"
     child_id = "conv_child_evicted"
@@ -5610,7 +5610,7 @@ async def test_sys_cancel_task_stops_evicted_claude_native_entry() -> None:
                 json={
                     "id": child_id,
                     "parent_session_id": parent_id,
-                    "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+                    "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
                 },
             )
         posts.append(json.loads(request.content))
@@ -5635,7 +5635,7 @@ async def test_sys_cancel_task_stops_evicted_claude_native_entry() -> None:
 @pytest.mark.asyncio
 async def test_sys_cancel_task_rejects_foreign_evicted_entry() -> None:
     """Eviction recovery cannot stop another parent's child."""
-    from omnigent.runner.tool_dispatch import _cancel_subagent_task
+    from agentnexus.runner.tool_dispatch import _cancel_subagent_task
 
     child_id = "conv_child_foreign"
     posts: list[dict[str, Any]] = []
@@ -5647,7 +5647,7 @@ async def test_sys_cancel_task_rejects_foreign_evicted_entry() -> None:
                 json={
                     "id": child_id,
                     "parent_session_id": "conv_other_parent",
-                    "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+                    "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
                 },
             )
         posts.append(json.loads(request.content))
@@ -5673,7 +5673,7 @@ def test_session_status_to_task_status_maps_known_values() -> None:
     child-summary ``current_task_status`` (different vocabularies), and
     returns None for unknown values so the caller omits the field.
     """
-    from omnigent.runner.app import _session_status_to_task_status
+    from agentnexus.runner.app import _session_status_to_task_status
 
     assert _session_status_to_task_status("launching") == "launching"
     assert _session_status_to_task_status("running") == "in_progress"
@@ -5689,7 +5689,7 @@ def test_truncate_child_preview_caps_with_ellipsis() -> None:
     text past the cap to exactly the cap + a single ellipsis char (so the
     child rail preview matches the server-side truncation).
     """
-    from omnigent.runner.app import _CHILD_PREVIEW_MAX_CHARS, _truncate_child_preview
+    from agentnexus.runner.app import _CHILD_PREVIEW_MAX_CHARS, _truncate_child_preview
 
     assert _truncate_child_preview("hello world") == "hello world"
 
@@ -5705,7 +5705,7 @@ def test_register_unregister_child_session_roundtrip() -> None:
     ``unregister_child_session`` drops it (used to mirror a child's
     status/preview deltas onto the parent stream).
     """
-    from omnigent.runner.app import (
+    from agentnexus.runner.app import (
         _child_session_parents,
         register_child_session,
         unregister_child_session,
@@ -5733,11 +5733,11 @@ def test_register_unregister_child_session_roundtrip() -> None:
 #
 # These verify the runner-local handler that makes get_history/list/close
 # work for harness agents (claude-sdk/codex/openai-agents), whose
-# Omnigent tool calls surface as action_required and route through
+# AgentNexus tool calls surface as action_required and route through
 # the runner — NOT the in-process inner Session. Confirmed empirically:
 # without this dispatch the runner returns "not in local dispatch
 # table"; with it, a live harness agent reads a sibling's items. The
-# handler calls the Omnigent server's existing REST endpoints, so tests use a
+# handler calls the AgentNexus server's existing REST endpoints, so tests use a
 # real httpx.AsyncClient backed by MockTransport (not a MagicMock) — the
 # code exercises the same request/response objects it sees in production.
 
@@ -5750,7 +5750,7 @@ def _session_query_client(
 
     :param handler: Maps an ``httpx.Request`` to a canned
         ``httpx.Response`` (routes by method + path).
-    :returns: An ``httpx.AsyncClient`` pointed at a fake Omnigent server.
+    :returns: An ``httpx.AsyncClient`` pointed at a fake AgentNexus server.
     """
     return httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -5765,7 +5765,7 @@ async def test_session_list_maps_children_and_skips_closed() -> None:
     ``{agent, title, conversation_id}`` and drops closed and
     colonless rows, matching ``SysSessionListTool``.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     def handler(request: httpx.Request) -> httpx.Response:
         # Parent-detection snapshot: this caller is top-level (no parent),
@@ -5840,7 +5840,7 @@ async def test_session_list_adds_main_and_siblings_for_child_caller() -> None:
     with no children of its own can still discover the conversation_ids to
     peek. The caller is excluded from its own sibling list.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -5895,7 +5895,7 @@ async def test_session_peek_returns_chronological_projected_items() -> None:
     chronological, projects each item, and labels with the target's
     parsed agent/title from its snapshot — matching ``SysSessionGetHistoryTool``.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/sessions/conv_target/items":
@@ -5964,7 +5964,7 @@ async def test_session_peek_rest_content_limit_scenario(
     expected: str,
 ) -> None:
     """Apply one history content-limit scenario through runner REST dispatch."""
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     content = "R" * content_length if content_length is not None else None
     arguments: dict[str, object] = {"conversation_id": "conv_target"}
@@ -6025,7 +6025,7 @@ async def test_session_peek_appends_pending_elicitation_from_snapshot() -> None:
     get_history must read it and project a ``pending_elicitation`` item so the
     parent agent isn't blind to a sub-agent awaiting input.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/sessions/conv_target/items":
@@ -6095,7 +6095,7 @@ async def test_session_peek_appends_pending_elicitation_from_snapshot() -> None:
 )
 async def test_session_peek_maps_access_errors(status: int, expected_error: str) -> None:
     """A 404/403 from ``GET /items`` maps to the in-process tool's typed errors."""
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, json={"error": "x"})
@@ -6132,7 +6132,7 @@ async def test_session_close_patches_tombstoned_title() -> None:
     # tests validate the REST path's tree-scoping (_session_close_via_rest)
     # specifically, distinct from the in-process path covered in
     # tests/tools/builtins/test_sys_session.py.
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     patched: dict[str, Any] = {}
 
@@ -6193,7 +6193,7 @@ async def test_session_close_rejects_out_of_tree_target_without_patch() -> None:
     gate, edit access alone would let an agent close a sub-agent in one
     of its other, unrelated trees.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     patched = False
 
@@ -6243,7 +6243,7 @@ async def test_session_close_rejects_top_level_target() -> None:
     ``parent_session_id``; close only operates on sub-agents, so the
     tool returns ``session_not_a_sub_agent``.
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     patched = False
 
@@ -6285,7 +6285,7 @@ def test_agent_tools_are_runner_local() -> None:
     through to spec-callable resolution and the orchestrator can't
     inspect or fork agents.
     """
-    from omnigent.runner.tool_dispatch import should_dispatch_locally
+    from agentnexus.runner.tool_dispatch import should_dispatch_locally
 
     assert should_dispatch_locally("sys_agent_get") is True
     assert should_dispatch_locally("sys_agent_download") is True
@@ -6313,7 +6313,7 @@ async def test_agent_tools_map_404_to_agent_not_found(
     :param tool_name: The agent tool under test.
     :param tmp_path: Workspace dir (only the download path needs it).
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": "missing"})
@@ -6382,9 +6382,9 @@ def test_native_relay_builtin_set_matches_toolmanager_gating(
     :param expected_writes: Exact spawn-write tool names expected in
         the relayed set for this opt-in arm.
     """
-    from omnigent.runner.tool_dispatch import _NATIVE_RELAY_BUILTIN_TOOLS
-    from omnigent.spec.types import ToolsConfig
-    from omnigent.tools.manager import ToolManager
+    from agentnexus.runner.tool_dispatch import _NATIVE_RELAY_BUILTIN_TOOLS
+    from agentnexus.spec.types import ToolsConfig
+    from agentnexus.tools.manager import ToolManager
 
     if opt_in == "agents":
         spec = AgentSpec(
@@ -6474,11 +6474,11 @@ def test_native_relay_advertises_terminal_tools_per_spec_gate(
         terminal-tool registration (which looks it up via
         ``get_terminal_registry()``) works without runtime ``init()``.
     """
-    from omnigent.inner.datamodel import TerminalEnvSpec
-    from omnigent.runner.tool_dispatch import _NATIVE_RELAY_BUILTIN_TOOLS
-    from omnigent.runtime import _globals as rt_globals
-    from omnigent.terminals.registry import TerminalRegistry
-    from omnigent.tools.manager import ToolManager
+    from agentnexus.inner.datamodel import TerminalEnvSpec
+    from agentnexus.runner.tool_dispatch import _NATIVE_RELAY_BUILTIN_TOOLS
+    from agentnexus.runtime import _globals as rt_globals
+    from agentnexus.terminals.registry import TerminalRegistry
+    from agentnexus.tools.manager import ToolManager
 
     monkeypatch.setattr(rt_globals, "_terminal_registry", TerminalRegistry())
 
@@ -6510,7 +6510,7 @@ def test_session_create_is_runner_local() -> None:
     through to spec-callable resolution and the orchestrator can't spawn
     child sessions.
     """
-    from omnigent.runner.tool_dispatch import should_dispatch_locally
+    from agentnexus.runner.tool_dispatch import should_dispatch_locally
 
     assert should_dispatch_locally("sys_session_create") is True
 
@@ -6526,7 +6526,7 @@ async def test_session_list_global_sessions_filter_and_connectivity() -> None:
     per-session status fan-out (two sessions share runner r1 → exactly
     one /v1/runners/r1/status call).
     """
-    from omnigent.runner.tool_dispatch import _execute_session_query_tool
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
 
     runner_status_calls: list[str] = []
     sessions_params: dict[str, str] = {}
@@ -6617,7 +6617,7 @@ async def test_sys_agent_download_rejects_path_in_dest_filename(tmp_path: Path) 
 
     :param tmp_path: Pytest temp dir used as the runner workspace.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -6657,7 +6657,7 @@ async def test_sys_agent_download_rejects_symlink_escape_from_cwd(tmp_path: Path
     :param tmp_path: Pytest temp dir; holds both the workspace and an
         outside directory the symlink points at.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -6706,7 +6706,7 @@ async def test_sys_agent_download_writes_bundle_to_workspace(tmp_path: Path) -> 
     :param tmp_path: Pytest temp dir used as the runner workspace, so the
         resolved os_env cwd is a real local directory.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     bundle_bytes = b"\x1f\x8b\x08fake-tar-gz-bytes"
 
@@ -6750,7 +6750,7 @@ async def test_sys_agent_get_projects_agent_metadata() -> None:
     projection dropped a field or used the wrong key, the asserted
     values would differ.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_x/agent":
@@ -6802,7 +6802,7 @@ async def test_sys_agent_list_degrades_when_sources_fail(tmp_path: Path) -> None
 
     :param tmp_path: Workspace dir with no agent-config subdir.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={"error": "boom"})
@@ -6845,7 +6845,7 @@ async def test_sys_agent_list_merges_three_sources(tmp_path: Path) -> None:
     :param tmp_path: Pytest temp dir used as the runner workspace, so the
         local-config scan reads a real directory.
     """
-    from omnigent.runner.tool_dispatch import _AGENT_CONFIG_SUBDIR, execute_tool
+    from agentnexus.runner.tool_dispatch import _AGENT_CONFIG_SUBDIR, execute_tool
 
     # Author a local config on disk so the scan has something to find.
     configs_dir = tmp_path / _AGENT_CONFIG_SUBDIR
@@ -6912,7 +6912,7 @@ async def test_sys_session_create_maps_agent_not_found() -> None:
     typed reason rather than a raw status. If the mapping regressed, the
     orchestrator couldn't tell a bad agent_id from a transport failure.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": "no agent"})
@@ -6943,7 +6943,7 @@ async def test_sys_session_create_spawns_child_under_caller() -> None:
     the caller, an orchestrator could create top-level/sibling sessions —
     so the asserted request body is the security-critical check.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     captured: dict[str, Any] = {}
 
@@ -7005,7 +7005,7 @@ async def test_sys_session_create_requires_exactly_one_mode(
     If the mode split regressed to a silent preference, an orchestrator
     passing both could launch the wrong agent with no signal.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f"server must not be reached on invalid mode args: {request.url}")
@@ -7070,7 +7070,7 @@ async def test_sys_session_create_bundle_mode_uploads_child_under_caller(
     import io
     import tarfile
 
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     config_text = "name: helper\nprompt: do helpful things\n"
     (tmp_path / "helper.yaml").write_bytes(config_text.encode("utf-8"))
@@ -7150,7 +7150,7 @@ async def test_sys_session_create_config_path_escape_rejected(
     without it, an orchestrator could exfiltrate arbitrary host files
     by bundling them into an uploaded agent.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     workdir = tmp_path / "work"
     workdir.mkdir()
@@ -7182,7 +7182,7 @@ async def test_sys_session_create_config_not_found(tmp_path: Path) -> None:
     error so the LLM can distinguish a bad path from a transport
     failure, without any server call.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f"server must not be reached: {request.url}")
@@ -7213,7 +7213,7 @@ async def test_sys_session_get_info_defaults_to_caller_session() -> None:
     runner-status call is made. If the default-to-caller logic
     regressed, the request path would be wrong and the GET would 404.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     requested_paths: list[str] = []
 
@@ -7278,10 +7278,10 @@ async def test_sys_session_get_info_maps_error_statuses(
     HTTP status. If the mapping regressed, the orchestrator couldn't
     distinguish "no such session" from "you can't read it".
 
-    :param status_code: HTTP status the mocked Omnigent server returns.
+    :param status_code: HTTP status the mocked AgentNexus server returns.
     :param expected_error: The typed error string the tool should emit.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status_code, json={"error": "x"})
@@ -7312,7 +7312,7 @@ async def test_sys_session_share_defaults_to_caller_and_puts_grant() -> None:
     request path or body would be wrong (and an agent's "share this
     session" would silently hit the wrong session or wrong level).
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -7373,10 +7373,10 @@ async def test_sys_session_share_maps_error_statuses(
     session tools so the LLM can distinguish "no such session" from
     "you can't manage it".
 
-    :param status_code: HTTP status the mocked Omnigent server returns.
+    :param status_code: HTTP status the mocked AgentNexus server returns.
     :param expected_error: The typed error string the tool should emit.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status_code, json={"detail": "x"})
@@ -7406,7 +7406,7 @@ async def test_sys_session_share_rejects_bad_level_without_calling_server() -> N
     request reaching the handler would mean the level validation
     regressed.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     called = False
 
@@ -7442,9 +7442,9 @@ async def test_sys_session_share_surfaces_server_message_on_4xx() -> None:
     the status code and couldn't tell that public is read-only — the
     exact actionable reason the server gave.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
-    # Mirrors the OmnigentError envelope the server's exception handler
+    # Mirrors the AgentNexusError envelope the server's exception handler
     # emits (omnigent/server/app.py) for the public + level>read guard.
     server_message = "Public access is limited to read-only (level 1)"
 
@@ -7498,7 +7498,7 @@ async def test_sys_session_share_disabled_without_share_flag(
     :param share_policy: The spec's ``agent_session_sharing`` policy
         under test (or ``None`` for a missing spec).
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     called = False
 
@@ -7538,7 +7538,7 @@ async def test_sys_session_share_non_public_rejects_public_grant() -> None:
     even if the model (or an injection) asks for it. A PUT here would
     mean the public sub-gate regressed.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     called = False
 
@@ -7572,7 +7572,7 @@ async def test_sys_session_share_public_allows_public_grant() -> None:
     non-public/none gates exclude. If the gate wrongly blocked it, public
     sharing would be impossible even when the spec explicitly opts in.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     requests: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -7624,7 +7624,7 @@ async def test_sys_session_get_info_projects_metadata_and_runner_connectivity() 
     absent — get_info is metadata-only (``sys_session_get_history`` returns
     items).
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_target":
@@ -7703,7 +7703,7 @@ async def test_sys_session_get_info_hides_native_ui_wrapper_agent_name() -> None
     internal ``-native-ui`` wrapper name to its display name (``"Pi"``) so the
     implementation detail never reaches the model.
     """
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_pi":
@@ -7756,8 +7756,8 @@ async def test_sys_session_send_session_id_posts_to_direct_child(
     :param monkeypatch: Stubs the runner-local child registration so the
         dispatch runs without a live runner.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -7811,8 +7811,8 @@ async def test_sys_session_send_session_id_applies_saved_model_preference(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A task-id continuation honors the parent's saved worker model."""
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
     patches: list[dict[str, Any]] = []
@@ -7874,7 +7874,7 @@ async def test_sys_session_send_session_id_applies_saved_model_preference(
 @pytest.mark.asyncio
 async def test_saved_model_preference_lookup_failure_fails_closed() -> None:
     """A preference outage cannot silently fall back to the worker default."""
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET" and request.url.path == "/v1/sessions/conv_child":
@@ -7920,8 +7920,8 @@ async def test_sys_session_send_session_id_rejects_non_child(address_key: str) -
     check regressed, the message would be posted and the assertion on
     ``event_posts`` would fail.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     event_posts: list[dict[str, Any]] = []
@@ -7980,7 +7980,7 @@ def test_format_async_task_item_empty_subagent_completion_reads_as_no_output(
 
     :param empty_output: An empty or whitespace-only child output.
     """
-    from omnigent.runner.tool_dispatch import _format_async_task_item
+    from agentnexus.runner.tool_dispatch import _format_async_task_item
 
     line = _format_async_task_item(
         {
@@ -8005,7 +8005,7 @@ def test_format_async_task_item_nonempty_subagent_completion_shows_output() -> N
 
     Guards against the empty-output branch swallowing a real result.
     """
-    from omnigent.runner.tool_dispatch import _format_async_task_item
+    from agentnexus.runner.tool_dispatch import _format_async_task_item
 
     line = _format_async_task_item(
         {
@@ -8022,8 +8022,8 @@ def test_format_async_task_item_nonempty_subagent_completion_shows_output() -> N
 
 
 def test_subagent_completed_execution_does_not_certify_task_success() -> None:
-    from omnigent.runner.app import _format_subagent_wake_notice
-    from omnigent.runner.tool_dispatch import _format_async_task_item
+    from agentnexus.runner.app import _format_subagent_wake_notice
+    from agentnexus.runner.tool_dispatch import _format_async_task_item
 
     report = "Unable to modify: ModalPanel.prefab was not found in this workspace."
     line = _format_async_task_item(
@@ -8055,8 +8055,8 @@ async def test_sys_session_send_rejects_both_session_id_and_named_target() -> No
     with no signal to the caller. The dispatch must reject the ambiguity before
     making any server call.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     server_called = False
 
@@ -8064,7 +8064,7 @@ async def test_sys_session_send_rejects_both_session_id_and_named_target() -> No
         """
         Fail the test if any server call is made.
 
-        :param request: Any Omnigent request — none should occur on the reject path.
+        :param request: Any AgentNexus request — none should occur on the reject path.
         :returns: A 404 (also records the unexpected call).
         """
         nonlocal server_called
@@ -8107,7 +8107,7 @@ async def test_create_session_reinit_preserves_existing_inbox() -> None:
     """
     A reconnect re-POST of ``/v1/sessions`` must not wipe the session inbox.
 
-    The Omnigent server re-POSTs ``/v1/sessions`` for every bound conversation
+    The AgentNexus server re-POSTs ``/v1/sessions`` for every bound conversation
     on each runner WebSocket (re)connect — including in-process reconnects of a
     still-alive runner after a transient blip. A sub-agent completion that lands
     while the socket is down delivers its result into the parent's
@@ -8120,7 +8120,7 @@ async def test_create_session_reinit_preserves_existing_inbox() -> None:
 
     :returns: None.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     session_id = "conv_reinit_inbox_guard"
     agent_id = "ag_reinit_inbox_guard"
@@ -8222,7 +8222,7 @@ async def test_unresolvable_sub_agent_warns_again_on_later_turns(
         spec_version=1,
         name="worker",
         instructions="Root instructions.",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
     )
 
     async def _spec_resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -8237,7 +8237,7 @@ async def test_unresolvable_sub_agent_warns_again_on_later_turns(
         server_client=NullServerClient(),  # type: ignore[arg-type]
     )
     async with _runner_test_client(app) as http:
-        with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
             created = await http.post(
                 "/v1/sessions",
                 json={
@@ -8250,7 +8250,7 @@ async def test_unresolvable_sub_agent_warns_again_on_later_turns(
         assert "did not resolve" in caplog.text
 
         caplog.clear()
-        with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
             if second_turn == "background":
                 bg = await http.post(
                     f"/v1/sessions/{conv}/events",
@@ -8299,7 +8299,7 @@ async def test_approval_event_flattened_for_harness_scaffold() -> None:
     turn hangs after a human approves). The runner must translate the envelope
     into the flat event the scaffold validates — for every scaffold harness.
     """
-    from omnigent.runtime.harnesses._scaffold import ApprovalEvent
+    from agentnexus.runtime.harnesses._scaffold import ApprovalEvent
 
     captured: dict[str, Any] = {}
 
@@ -8344,7 +8344,7 @@ async def test_approval_event_flattened_for_harness_scaffold() -> None:
 @pytest.mark.asyncio
 async def test_approval_event_without_content_flattened() -> None:
     """A decline verdict with no form content flattens without a ``content`` key."""
-    from omnigent.runtime.harnesses._scaffold import ApprovalEvent
+    from agentnexus.runtime.harnesses._scaffold import ApprovalEvent
 
     captured: dict[str, Any] = {}
 
@@ -8376,7 +8376,7 @@ async def test_spawn_handle_round_trips_to_sys_cancel_async(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A spawned handle can be passed directly to ``sys_cancel_async``."""
-    from omnigent.runner import tool_dispatch
+    from agentnexus.runner import tool_dispatch
 
     async def _slow(**_kw: Any) -> str:
         await asyncio.sleep(30)
@@ -8435,7 +8435,7 @@ async def test_spawn_async_tool_cancels_losing_future_no_leak(
     pending task (the orphaned ``cancel_event.wait()`` on success, or the
     orphaned tool coro on cancel).
     """
-    from omnigent.runner import tool_dispatch
+    from agentnexus.runner import tool_dispatch
 
     spawn_kw: dict[str, Any] = {
         "server_client": None,
@@ -8512,7 +8512,7 @@ async def test_spawn_async_tool_phase_tool_call_policy_deny(
     before dispatching.  A DENY verdict must suppress execution and push a
     failed item to the inbox — the tool must never run.
     """
-    from omnigent.runner import tool_dispatch
+    from agentnexus.runner import tool_dispatch
 
     executed: list[str] = []
 
@@ -8583,7 +8583,7 @@ async def test_spawn_async_tool_phase_tool_call_policy_allow(
     """
     A PHASE_TOOL_CALL ALLOW verdict must let the tool execute normally.
     """
-    from omnigent.runner import tool_dispatch
+    from agentnexus.runner import tool_dispatch
 
     executed: list[str] = []
 
@@ -8649,10 +8649,10 @@ async def test_web_fetch_dispatch_admits_researcher_without_harness_override(
     """
     import shutil
 
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
-    from omnigent.spec.types import BuiltinToolConfig, LLMConfig, ToolsConfig
-    from omnigent.tools.builtins.web_fetch import RESEARCHER_NAME
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
+    from agentnexus.spec.types import BuiltinToolConfig, LLMConfig, ToolsConfig
+    from agentnexus.tools.builtins.web_fetch import RESEARCHER_NAME
 
     # Hermetic bwrap probe: ``build_researcher_spec`` probes PATH for a
     # no-``os_env`` parent; don't depend on bubblewrap on the test host.
@@ -8739,7 +8739,7 @@ async def test_setup_cancel_does_not_leave_active_turn() -> None:
         return AgentSpec(
             spec_version=1,
             name="claude-sdk-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         )
 
     app = create_runner_app(
@@ -8834,7 +8834,7 @@ async def test_setup_base_exception_does_not_leave_active_turn(
         return AgentSpec(
             spec_version=1,
             name="claude-sdk-agent",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         )
 
     def _raising_build(
@@ -8846,7 +8846,7 @@ async def test_setup_base_exception_does_not_leave_active_turn(
         raise _SetupBoom("spawn-env aborted")
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._build_claude_sdk_spawn_env",
+        "agentnexus.runtime.workflow._build_claude_sdk_spawn_env",
         _raising_build,
     )
 
@@ -9917,8 +9917,8 @@ async def test_old_recovery_does_not_strip_nested_recovery_token() -> None:
 
 # ── Three-factor causal chain tests (from test_desync_live_repro) ─────────
 
-_ADAPTER_LOGGER_RECOVERY = "omnigent.runtime.harnesses._executor_adapter"
-_APP_LOGGER_RECOVERY = "omnigent.runner.app"
+_ADAPTER_LOGGER_RECOVERY = "agentnexus.runtime.harnesses._executor_adapter"
+_APP_LOGGER_RECOVERY = "agentnexus.runner.app"
 
 _ORPHAN_RESYNC_THRESHOLD_DEFAULT_RECOVERY = _ORPHAN_RESYNC_THRESHOLD
 
@@ -10296,7 +10296,7 @@ async def test_negative_control_runner_legacy_swallow_leaves_turn_wedged() -> No
 
 def _fake_entry(harness: str, model: str | None, returncode: int | None = None) -> Any:
     """Build a ``_SubprocessEntry`` with a fake process + client."""
-    from omnigent.runtime.harnesses.process_manager import _SubprocessEntry
+    from agentnexus.runtime.harnesses.process_manager import _SubprocessEntry
 
     class _FakeProc:
         def __init__(self, rc: int | None) -> None:
@@ -10315,7 +10315,7 @@ async def test_get_client_signals_resync_on_model_and_agent_switch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Gap 1 (process-manager half): a model/agent-switch respawn fires the hook."""
-    from omnigent.runtime.harnesses.process_manager import (
+    from agentnexus.runtime.harnesses.process_manager import (
         HarnessProcessManager,
         _model_env_key,
     )
@@ -10379,7 +10379,7 @@ async def test_get_client_isolates_respawn_hook_failure(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A raising respawn hook must NOT break harness acquisition."""
-    from omnigent.runtime.harnesses.process_manager import (
+    from agentnexus.runtime.harnesses.process_manager import (
         HarnessProcessManager,
         _model_env_key,
     )
@@ -10413,7 +10413,7 @@ async def test_get_client_isolates_respawn_hook_failure(
     pm._entries[conv] = _fake_entry(harness, "model-A")
     pm._in_flight_response_ids[conv] = "resp_live"
 
-    with caplog.at_level(logging.ERROR, logger="omnigent.runtime.harnesses.process_manager"):
+    with caplog.at_level(logging.ERROR, logger="agentnexus.runtime.harnesses.process_manager"):
         client = await pm.get_client(conv, harness, env={model_key: "model-B"})
 
     assert spawned
@@ -10625,14 +10625,14 @@ def _contract_root_spec(*, with_child: bool) -> AgentSpec:
         spec_version=1,
         name=_CONTRACT_PARENT_WITH_CHILD["name"],
         instructions=_CONTRACT_PARENT_WITH_CHILD["instructions"],
-        executor=ExecutorSpec(type="omnigent", config={"harness": "hermes"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "hermes"}),
         sub_agents=(
             [
                 AgentSpec(
                     spec_version=1,
                     name=_CONTRACT_PARENT_WITH_CHILD["child"],
                     instructions=_CONTRACT_PARENT_WITH_CHILD["child_instructions"],
-                    executor=ExecutorSpec(type="omnigent", config={"harness": "hermes"}),
+                    executor=ExecutorSpec(type="agentnexus", config={"harness": "hermes"}),
                 )
             ]
             if with_child

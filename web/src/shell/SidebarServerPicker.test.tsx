@@ -58,8 +58,8 @@ describe("SidebarServerPicker", () => {
       currentOrigin: "http://localhost:8000",
       recentServers: [
         "http://localhost:8000/",
-        "https://omnigents-3272836215725701.aws.databricksapps.com/",
-        "https://omnigents-9147263058412098.aws.databricksapps.com/",
+        "https://agentnexuss-3272836215725701.aws.databricksapps.com/",
+        "https://agentnexuss-9147263058412098.aws.databricksapps.com/",
       ],
     });
     renderPicker();
@@ -73,17 +73,17 @@ describe("SidebarServerPicker", () => {
     // which collapses into that entry.
     expect(screen.getAllByText("localhost:8000")).toHaveLength(2);
     expect(
-      screen.getByText("omnigents-3272836215725701.aws.databricksapps.com"),
+      screen.getByText("agentnexuss-3272836215725701.aws.databricksapps.com"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("omnigents-9147263058412098.aws.databricksapps.com"),
+      screen.getByText("agentnexuss-9147263058412098.aws.databricksapps.com"),
     ).toBeInTheDocument();
   });
 
   it("shows managed servers before recents and switches to one", async () => {
     getServerPicker.mockResolvedValue({
       currentOrigin: "https://personal.example.com",
-      managedServers: ["https://managed.example.com/ml/omnigents"],
+      managedServers: ["https://managed.example.com/ml/agentnexuss"],
       recentServers: ["https://managed.example.com/old-mount", "https://recent.example.com/"],
     });
     renderPicker();
@@ -96,14 +96,14 @@ describe("SidebarServerPicker", () => {
 
     fireEvent.click(screen.getByText("managed.example.com"));
     await waitFor(() =>
-      expect(switchServer).toHaveBeenCalledWith("https://managed.example.com/ml/omnigents"),
+      expect(switchServer).toHaveBeenCalledWith("https://managed.example.com/ml/agentnexuss"),
     );
   });
 
   it("shows a managed current server only in the organization section", async () => {
     getServerPicker.mockResolvedValue({
       currentOrigin: "https://managed.example.com",
-      managedServers: ["https://managed.example.com/ml/omnigents"],
+      managedServers: ["https://managed.example.com/ml/agentnexuss"],
       recentServers: [],
     });
     renderPicker();

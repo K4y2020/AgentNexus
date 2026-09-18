@@ -7,11 +7,11 @@ and used for cost computation.
 
 import pytest
 
-from omnigent.llms.context_window import (
+from agentnexus.llms.context_window import (
     compute_llm_cost,
     fetch_model_pricing_with_provider,
 )
-from omnigent.onboarding.provider_config import (
+from agentnexus.onboarding.provider_config import (
     ModelPricingConfig,
     _parse_family,
 )
@@ -64,7 +64,7 @@ def test_parse_family_with_cache_pricing():
 
 def test_parse_family_pricing_validation():
     """Test that negative pricing values are rejected."""
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     raw = {
         "base_url": "http://localhost/v1",
@@ -75,13 +75,13 @@ def test_parse_family_pricing_validation():
         },
     }
 
-    with pytest.raises(OmnigentError, match="input_per_million must be >= 0"):
+    with pytest.raises(AgentNexusError, match="input_per_million must be >= 0"):
         _parse_family("provider", "openai", raw)
 
 
 def test_parse_family_pricing_missing_fields():
     """Test that pricing with missing required fields is rejected."""
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     raw = {
         "base_url": "http://localhost/v1",
@@ -93,7 +93,7 @@ def test_parse_family_pricing_missing_fields():
     }
 
     with pytest.raises(
-        OmnigentError, match="requires both 'input_per_million' and 'output_per_million'"
+        AgentNexusError, match="requires both 'input_per_million' and 'output_per_million'"
     ):
         _parse_family("provider", "openai", raw)
 
@@ -131,7 +131,7 @@ def test_fetch_pricing_with_custom_provider():
 
 def test_fetch_pricing_fallback_to_catalog(monkeypatch: pytest.MonkeyPatch):
     """Test that pricing falls back to catalog when no custom pricing."""
-    from omnigent.llms.context_window import ModelPricing
+    from agentnexus.llms.context_window import ModelPricing
 
     catalog_pricing = ModelPricing(input_per_token=1.0, output_per_token=2.0)
     requested_models: list[str] = []
@@ -141,7 +141,7 @@ def test_fetch_pricing_fallback_to_catalog(monkeypatch: pytest.MonkeyPatch):
         return catalog_pricing
 
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         fetch_catalog_pricing,
     )
     # Provider with no custom pricing

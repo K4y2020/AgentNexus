@@ -36,8 +36,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.harnesses import _HARNESS_MODULES
-from omnigent.runtime.harnesses.process_manager import (
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.runtime.harnesses.process_manager import (
     _AP_PID_FILE,
     _TMP_PARENT_ENV_VAR,
     HarnessProcessManager,
@@ -146,7 +146,7 @@ async def test_start_creates_instance_dir_with_sentinel(
     """start() creates the per-AP-instance dir and writes AP_PID.
 
     The sentinel is what the orphan sweep keys off; without it,
-    a subsequent Omnigent boot can't tell live instances from dead.
+    a subsequent AgentNexus boot can't tell live instances from dead.
     """
     await manager.start()
     try:
@@ -154,7 +154,7 @@ async def test_start_creates_instance_dir_with_sentinel(
         sentinel = manager.instance_dir / _AP_PID_FILE
         assert sentinel.exists()
         # The recorded PID is this process — proves the sweep on
-        # a sibling Omnigent boot would correctly identify us as alive.
+        # a sibling AgentNexus boot would correctly identify us as alive.
         assert sentinel.read_text(encoding="utf-8").strip() == str(os.getpid())
     finally:
         await manager.shutdown()
@@ -873,7 +873,7 @@ async def test_idle_reaper_disabled_when_timeout_zero(
     register_test_harness: None,
     short_tmp_parent: Path,
 ) -> None:
-    """A non-positive idle window disables reaping (``OMNIGENT_HARNESS_IDLE_TIMEOUT_S=0``).
+    """A non-positive idle window disables reaping (``AGENTNEXUS_HARNESS_IDLE_TIMEOUT_S=0``).
 
     Regression: ``0`` must mean "never reap", not "reap everything". Without the
     ``idle_timeout_s <= 0`` guard the reaper computes ``cutoff = now - 0 == now``,
@@ -903,7 +903,7 @@ async def test_idle_reaper_disabled_when_timeout_zero(
 async def test_orphan_sweep_removes_dead_omnigent_dirs(
     short_tmp_parent: Path,
 ) -> None:
-    """A sibling Omnigent dir with a non-running PID gets cleaned.
+    """A sibling AgentNexus dir with a non-running PID gets cleaned.
 
     Plants a fake AP-instance dir under tmp_parent with an
     AP_PID sentinel pointing at a non-running PID, then boots a
@@ -935,7 +935,7 @@ async def test_orphan_sweep_removes_dead_omnigent_dirs(
 async def test_orphan_sweep_preserves_live_omnigent_dirs(
     short_tmp_parent: Path,
 ) -> None:
-    """A sibling Omnigent dir with a live PID is left alone.
+    """A sibling AgentNexus dir with a live PID is left alone.
 
     Plants a fake AP-instance dir whose AP_PID sentinel points at
     *this test process* (which is live by definition). The
@@ -950,7 +950,7 @@ async def test_orphan_sweep_preserves_live_omnigent_dirs(
     fresh = HarnessProcessManager(tmp_parent=short_tmp_parent)
     await fresh.start()
     try:
-        # If sweep removed the sibling, a concurrent Omnigent would
+        # If sweep removed the sibling, a concurrent AgentNexus would
         # have its dir deleted out from under it — exactly the
         # bug the live-PID check is meant to prevent.
         assert sibling_dir.exists()
@@ -1018,10 +1018,10 @@ async def test_get_client_env_override_propagates_to_subprocess(
 ) -> None:
     """``get_client(env=...)`` threads env vars into the spawned subprocess.
 
-    Verifies the v1 spec-config flow: Omnigent passes per-spec env vars
+    Verifies the v1 spec-config flow: AgentNexus passes per-spec env vars
     via ``env`` to ``get_client``, and the spawned subprocess
     sees them in its own ``os.environ``. Without this propagation,
-    Omnigent would have to mutate its own ``os.environ`` (which races
+    AgentNexus would have to mutate its own ``os.environ`` (which races
     across concurrent conversations with different specs).
     """
     await manager.start()
@@ -1118,8 +1118,8 @@ async def test_runner_subprocess_exits_when_spawning_parent_exits(
         import asyncio
         import os
         import pathlib
-        from omnigent.runtime.harnesses import _HARNESS_MODULES
-        from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+        from agentnexus.runtime.harnesses import _HARNESS_MODULES
+        from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
         async def main():
             _HARNESS_MODULES[{_TEST_HARNESS_NAME!r}] = {_TEST_HARNESS_MODULE!r}
@@ -1168,8 +1168,8 @@ async def test_runner_subprocess_hard_exits_when_sigterm_shutdown_wedges(
     should not remain alive forever just because graceful shutdown is
     stuck.
     """
-    monkeypatch.setenv("OMNIGENT_HARNESS_SHUTDOWN_TIMEOUT_S", "0.2")
-    monkeypatch.setenv("OMNIGENT_HARNESS_HARD_EXIT_TIMEOUT_S", "0.5")
+    monkeypatch.setenv("AGENTNEXUS_HARNESS_SHUTDOWN_TIMEOUT_S", "0.2")
+    monkeypatch.setenv("AGENTNEXUS_HARNESS_HARD_EXIT_TIMEOUT_S", "0.5")
     await manager.start()
     try:
         client = await manager.get_client("conv_stuck_sigterm", _TEST_HARNESS_NAME)
@@ -1193,7 +1193,7 @@ async def test_orphan_sweep_escalates_to_sigkill(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Orphan sweep SIGKILLs runners that survive SIGTERM."""
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     killed: list[tuple[int, signal.Signals]] = []
     calls = 0
@@ -1245,7 +1245,7 @@ async def test_mid_spawn_cancellation_reaps_subprocess(
     to leak it — unregistered, so ``release()`` no-ops and the idle
     reaper never sees it.
     """
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     await manager.start()
     try:
@@ -1299,7 +1299,7 @@ async def test_mid_spawn_double_cancellation_still_reaps(
     is shielded, so the process is still collected and the task
     still ends cancelled.
     """
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     await manager.start()
     try:
@@ -1373,7 +1373,7 @@ async def test_release_during_spawn_leaves_no_live_process(
     owned. Barriers pin the race: release is queued while bind is gated,
     then bind completes so both sides settle under the shared spawn lock.
     """
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     await manager.start()
     get_task: asyncio.Task[object] | None = None
@@ -1445,7 +1445,7 @@ async def test_release_invalidates_queued_get_client(
     leaving ``has_session`` True after release. B must fail; a fresh
     ``get_client`` after release may still respawn.
     """
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     await manager.start()
     get_a: asyncio.Task[object] | None = None
@@ -1531,7 +1531,7 @@ async def test_shutdown_during_spawn_leaves_no_live_process(
     Barriers pin the race; after both settle there must be no process,
     socket, or ``_entries`` record.
     """
-    from omnigent.runtime.harnesses import process_manager as pm_mod
+    from agentnexus.runtime.harnesses import process_manager as pm_mod
 
     await manager.start()
     get_task: asyncio.Task[object] | None = None

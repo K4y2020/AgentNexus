@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec import load
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec import load
+from agentnexus.spec.types import AgentSpec
 
 # tests/e2e/omnigent/test_deep_research_example.py -> repo root is 3 parents up.
 _DEEP_RESEARCH_BUNDLE = Path(__file__).resolve().parents[3] / "examples" / "deep-research"

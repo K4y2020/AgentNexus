@@ -9,7 +9,7 @@ send a user message -> poll session items until the assistant echoes a marker.
 
 Opt-in (needs a pinned ``opencode`` binary + LLM credentials)::
 
-    OMNIGENT_E2E_OPENCODE_NATIVE=1 \
+    AGENTNEXUS_E2E_OPENCODE_NATIVE=1 \
     HOME=/tmp/omni-isolated DATABRICKS_CONFIG_FILE=$REAL_HOME/.databrickscfg \
     .venv/bin/python -m pytest tests/e2e/test_host_opencode_native_e2e.py \
         --profile ai-devtools-prod \
@@ -18,7 +18,7 @@ Opt-in (needs a pinned ``opencode`` binary + LLM credentials)::
         -v
 
 Running under an isolated ``$HOME`` keeps the runner-owned ``opencode serve``
-bridge dirs (``~/.omnigent/opencode-native``) and the daemon registry off the
+bridge dirs (``~/.agentnexus/opencode-native``) and the daemon registry off the
 developer's real ones, so a co-resident daemon is never disturbed.
 """
 
@@ -33,16 +33,16 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.entities.session_resources import terminal_resource_id
-from omnigent.native_coding_agents import OPENCODE_NATIVE_AGENT_NAME
+from agentnexus.entities.session_resources import terminal_resource_id
+from agentnexus.native_coding_agents import OPENCODE_NATIVE_AGENT_NAME
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests.e2e.helpers import POLL_INTERVAL_S
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_OPENCODE_NATIVE") != "1" or shutil.which("opencode") is None,
+    os.environ.get("AGENTNEXUS_E2E_OPENCODE_NATIVE") != "1" or shutil.which("opencode") is None,
     reason=(
         "opencode-native host e2e needs a pinned `opencode` binary + LLM creds; "
-        "set OMNIGENT_E2E_OPENCODE_NATIVE=1 (and pass --profile/--llm-api-key) to run"
+        "set AGENTNEXUS_E2E_OPENCODE_NATIVE=1 (and pass --profile/--llm-api-key) to run"
     ),
 )
 
@@ -55,7 +55,7 @@ def _spawn_host_daemon(*, tmp_path: Path, live_server: str) -> subprocess.Popen[
     daemon_log = tmp_path / "host-daemon.log"
     with open(daemon_log, "w") as log_fh:
         return subprocess.Popen(
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=apply_runner_env(env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,

@@ -33,20 +33,20 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.function import (
+from agentnexus.policies.function import (
     FunctionPolicy,
     resolve_function_policy,
 )
-from omnigent.policies.types import EvaluationContext, PolicyResult
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.policies.types import EvaluationContext, PolicyResult
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     FunctionPolicySpec,
     FunctionRef,
     Phase,
     PhaseSelector,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_policy
@@ -259,7 +259,7 @@ async def test_callable_returns_foreign_policy_result_shape() -> None:
     class _ForeignAction(enum.Enum):
         """
         Mimics ``omnigent.policies.PolicyAction`` — wire
-        values match Omnigent', but the enum class is
+        values match AgentNexus', but the enum class is
         distinct so ``isinstance(x, PolicyAction)`` fails.
         """
 
@@ -473,9 +473,9 @@ def test_resolve_function_policy_short_form(tmp_path: Path) -> None:
         tmp_path,
         "probe",
         """
-        from omnigent.policies.types import PolicyResult
+        from agentnexus.policies.types import PolicyResult
 
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.spec.types import PolicyAction
 
         def noop(event):
             return PolicyResult(action=PolicyAction.ALLOW)
@@ -500,9 +500,9 @@ def test_resolve_function_policy_factory_form(tmp_path: Path) -> None:
         tmp_path,
         "probe_factory",
         """
-        from omnigent.policies.types import PolicyResult
+        from agentnexus.policies.types import PolicyResult
 
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.spec.types import PolicyAction
 
         def make(limit):
             calls = 0
@@ -542,8 +542,8 @@ def test_resolve_function_policy_empty_arguments_invokes_factory(
         tmp_path,
         "probe_empty_args",
         """
-        from omnigent.policies.types import PolicyResult
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.policies.types import PolicyResult
+        from agentnexus.spec.types import PolicyAction
 
         def make(limit=5):
             def _eval(event):
@@ -580,8 +580,8 @@ def test_resolve_function_policy_none_arguments_auto_detects_factory(
         tmp_path,
         "probe_auto",
         """
-        from omnigent.policies.types import PolicyResult
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.policies.types import PolicyResult
+        from agentnexus.spec.types import PolicyAction
 
         def factory_all_defaults(limit=10, action="ALLOW"):
             def _eval(event):
@@ -634,9 +634,9 @@ async def test_factory_closure_counter_isolated_per_build(
         tmp_path,
         "probe_iso",
         """
-        from omnigent.policies.types import PolicyResult
+        from agentnexus.policies.types import PolicyResult
 
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.spec.types import PolicyAction
 
         def make(limit):
             calls = 0
@@ -1171,8 +1171,8 @@ def test_resolve_function_policy_modern_callable_not_wrapped(tmp_path: Path) -> 
         tmp_path,
         "probe_modern",
         """
-        from omnigent.policies.types import PolicyResult
-        from omnigent.spec.types import PolicyAction
+        from agentnexus.policies.types import PolicyResult
+        from agentnexus.spec.types import PolicyAction
 
         def modern_allow(event):
             return PolicyResult(action=PolicyAction.ALLOW)

@@ -26,13 +26,13 @@ from playwright.sync_api import Page, Route, expect
 
 from tests.e2e_ui.conftest import fetch_with_retry
 
-# Must match the OmnigentError raised in the compact branch of
+# Must match the AgentNexusError raised in the compact branch of
 # omnigent/server/routes/sessions/routes_events.py.
 _RECONNECT_ERROR = (
     "Can't compact this session while its runner is offline. "
     "Reconnect the session (send a message to wake it), then run /compact again."
 )
-_WRAPPER_LABEL_KEY = "omnigent.wrapper"
+_WRAPPER_LABEL_KEY = "agentnexus.wrapper"
 _CLAUDE_NATIVE_WRAPPER = "claude-code-native-ui"
 
 

@@ -24,8 +24,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import cursor_native_forwarder as fwd
-from omnigent import cursor_native_status as status
+from agentnexus import cursor_native_forwarder as fwd
+from agentnexus import cursor_native_status as status
 
 # --- status store: markers + poster state ------------------------------------
 
@@ -70,7 +70,7 @@ def test_read_posted_count_ignores_corrupt_state(tmp_path: Path) -> None:
 
 def test_cli_record_usage_records_turn_end(tmp_path: Path, monkeypatch) -> None:
     """The cursor ``stop`` hook entrypoint records a turn-end marker per firing."""
-    from omnigent import cursor_native_usage
+    from agentnexus import cursor_native_usage
 
     bridge = tmp_path / "cursor-native" / "sess"
     bridge.mkdir(parents=True)
@@ -83,7 +83,7 @@ def test_cli_record_usage_records_turn_end(tmp_path: Path, monkeypatch) -> None:
 
 def test_cli_record_usage_records_turn_end_on_empty_stdin(tmp_path: Path, monkeypatch) -> None:
     """Even an empty hook payload (no usage) still records the turn-end marker."""
-    from omnigent import cursor_native_usage
+    from agentnexus import cursor_native_usage
 
     bridge = tmp_path / "b"
     bridge.mkdir(parents=True)

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import model_catalog_store as store
+from agentnexus import model_catalog_store as store
 
 _ROWS = [
     {"id": "sonnet", "model": "claude-sonnet-5", "displayName": "Sonnet 5"},
@@ -23,7 +23,7 @@ _ROWS = [
 
 @pytest.fixture(autouse=True)
 def _isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path))
 
 
 def test_write_then_read_round_trips_verbatim() -> None:

@@ -29,7 +29,7 @@ def _stub_executor_catalog_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     def _resolve(provider_name: str, *, family: str, **kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(model_id=f"catalog-{provider_name}-{family}-default")
 
-    monkeypatch.setattr("omnigent.model_catalog.resolve_catalog_model", _resolve)
+    monkeypatch.setattr("agentnexus.model_catalog.resolve_catalog_model", _resolve)
 
 
 # Diagnostic: dump every thread's stack every 90s. The dispatcher's
@@ -171,7 +171,7 @@ def advertise_router(
     :param extra: Extra advertisement keys to merge in.
     :returns: *router_dir*, for use as the hook's ``--bridge-dir``.
     """
-    from omnigent.inner.hook_scripts import subagent_router
+    from agentnexus.inner.hook_scripts import subagent_router
 
     # A live ``pid`` by default: the hook rejects an advertisement without
     # one, since the runner always writes it.
@@ -195,11 +195,11 @@ def advertise_relay_tools(bridge_dir: pathlib.Path, *tool_names: str) -> pathlib
     constant so a rename fails these tests instead of silently reading nothing.
 
     :param bridge_dir: Bridge directory the hook is pointed at.
-    :param tool_names: Omnigent tool names to advertise; none writes an empty
+    :param tool_names: AgentNexus tool names to advertise; none writes an empty
         list, which is how "the session holds no spawn tool" is expressed.
     :returns: *bridge_dir*, for use as the hook's ``--bridge-dir``.
     """
-    from omnigent.inner.hook_scripts import subagent_router
+    from agentnexus.inner.hook_scripts import subagent_router
 
     payload = {
         "url": "http://127.0.0.1:2/",
@@ -225,7 +225,7 @@ def model_name(request: pytest.FixtureRequest) -> str:
 
     Explicit choices skip :mod:`tests._model_pools` spreading but still
     rotate on ``llm_flaky`` reruns; the ``--model`` default is also
-    spread when ``OMNIGENT_TEST_MODEL_SPREAD`` is on.
+    spread when ``AGENTNEXUS_TEST_MODEL_SPREAD`` is on.
 
     :param request: Pytest fixture request for the consuming test.
     :returns: The model name to use, e.g. ``"databricks-claude-sonnet-4-6"``.
@@ -247,7 +247,7 @@ _OPENAI_CYBER_POLICY_HARNESSES = frozenset({"openai-agents", "codex"})
 @pytest.fixture(autouse=True)
 def _capture_codex_executor_diag(caplog: pytest.LogCaptureFixture) -> None:
     """Lower threshold so codex executor diag logs appear in junit failure reports."""
-    caplog.set_level(logging.INFO, logger="omnigent.inner.codex_executor")
+    caplog.set_level(logging.INFO, logger="agentnexus.inner.codex_executor")
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 """Tests for the RPC read driver (:mod:`omnigent.antigravity_native_reader`).
 
 The reader replaces the transcript-tail forwarder's read loop: it polls agy's
-connect-RPC for trajectory steps, maps each new step to Omnigent conversation
+connect-RPC for trajectory steps, maps each new step to AgentNexus conversation
 items (via the pure Task 4 mapper), POSTs them, emits session-status edges on
 transition, and hands WAITING steps to the Task 8 interaction bridge through an
 ``on_pending_interaction`` callback.
@@ -58,10 +58,10 @@ from typing import Any, cast
 import httpx
 import pytest
 
-from omnigent import antigravity_native_reader as reader
-from omnigent.antigravity_native_bridge import read_bridge_state
-from omnigent.antigravity_native_rpc import AntigravityRpcError
-from omnigent.antigravity_native_steps import PendingInteraction
+from agentnexus import antigravity_native_reader as reader
+from agentnexus.antigravity_native_bridge import read_bridge_state
+from agentnexus.antigravity_native_rpc import AntigravityRpcError
+from agentnexus.antigravity_native_steps import PendingInteraction
 
 # ---------------------------------------------------------------------------
 # Fixtures + scaffolding
@@ -1098,7 +1098,7 @@ async def test_step_leaving_waiting_withdraws_surfaced_elicitation(
     ``external_elicitation_resolved`` for that step's deterministic elicitation id
     so the lingering web card clears (#1200, direction 2).
     """
-    from omnigent.antigravity_native_interactions import agy_elicitation_id
+    from agentnexus.antigravity_native_interactions import agy_elicitation_id
 
     waiting = _permission_waiting()
     done = _permission_done()
@@ -1249,7 +1249,7 @@ async def test_withdraw_helper_pops_and_posts_once_directly() -> None:
     Drives the helper directly with a surfaced id so the pop/no-double-post
     contract is asserted without the full supervise loop.
     """
-    from omnigent.antigravity_native_interactions import agy_elicitation_id
+    from agentnexus.antigravity_native_interactions import agy_elicitation_id
 
     waiting = _permission_waiting()
     done = _permission_done()
@@ -1286,7 +1286,7 @@ async def test_withdraw_helper_pops_and_posts_once_directly() -> None:
 @pytest.mark.asyncio
 async def test_withdraw_helper_noop_while_still_waiting() -> None:
     """``_maybe_withdraw_interaction`` does nothing while the step is still WAITING."""
-    from omnigent.antigravity_native_interactions import agy_elicitation_id
+    from agentnexus.antigravity_native_interactions import agy_elicitation_id
 
     waiting = _permission_waiting()
     key = reader._step_key(waiting)
@@ -1712,7 +1712,7 @@ async def test_a_transient_shrink_does_not_duplicate_text_or_strand_the_message(
     cannot fully close (published deltas cannot be unsent), this one it can — the
     text re-grows past what was sent, so tracking sent-so-far is exactly enough.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     full = "The plan is complete."
     frames = [
@@ -1841,7 +1841,7 @@ async def test_multi_chunk_answer_leaves_nothing_in_flight_on_the_server(
 
     A single-chunk answer hid this: its one chunk IS the whole text.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     growth = ["Kyoto ", "Kyoto Studio ", "Kyoto Studio is ", "Kyoto Studio is a studio app."]
     full = growth[-1]
@@ -1912,7 +1912,7 @@ async def test_committed_turn_leaves_nothing_in_flight_on_the_server(
     and their interleaving is not fixed. Whatever the order, nothing may
     survive the turn.
     """
-    from omnigent.runtime import inflight_text
+    from agentnexus.runtime import inflight_text
 
     full = "apple banana cherry"
     sink = _PostSink()
@@ -2327,7 +2327,7 @@ async def test_stream_waiting_then_non_waiting_withdraws_elicitation(
     poll fallback (a permission answered in the TUI / timed out surfaces as a
     DONE frame after the WAITING frame).
     """
-    from omnigent.antigravity_native_interactions import agy_elicitation_id
+    from agentnexus.antigravity_native_interactions import agy_elicitation_id
 
     waiting = _permission_waiting()
     done = _permission_done()
@@ -2680,7 +2680,7 @@ async def test_planner_done_emits_session_usage(
 ) -> None:
     """A PLANNER_RESPONSE DONE with modelUsage emits exactly one external_session_usage.
 
-    The event data must map agy's string-int fields onto the Omnigent shape:
+    The event data must map agy's string-int fields onto the AgentNexus shape:
     - cumulative_input_tokens = inputTokens (int)
     - cumulative_output_tokens = outputTokens (int)
     - cumulative_cache_read_input_tokens = cacheReadTokens (int)
@@ -3464,7 +3464,7 @@ def test_detect_rotation_subagent_child_is_never_a_rotation_target() -> None:
     agy spawns each subagent as a child conversation that reports the SAME
     ``trajectoryType`` as a real root, and is always more recently active than the
     parent it is working for. Rotating onto it promotes a sub-conversation to a
-    new top-level Omnigent session (and drags the tmux pane with it), which is
+    new top-level AgentNexus session (and drags the tmux pane with it), which is
     what made a single subagent fan-out explode into a session per agent.
     """
     summaries = {
@@ -3872,7 +3872,7 @@ async def test_rotate_session_for_cascade_mirrors_claude_sequence(
     ``_create_clear_replacement_session`` makes no such PATCH. The old code PATCHed
     it, which 400'd on the auto-cold-started session and looped the rotation.
     """
-    from omnigent.antigravity_native_bridge import (
+    from agentnexus.antigravity_native_bridge import (
         ANTIGRAVITY_NATIVE_BRIDGE_ID_LABEL_KEY,
         read_bridge_state,
     )
@@ -3943,7 +3943,7 @@ async def test_rotate_session_for_cascade_returns_none_on_create_failure(
     binding: ``_rotate_session_for_cascade`` returns ``None`` and bridge state still
     names the OLD cascade (no half-rotation).
     """
-    from omnigent.antigravity_native_bridge import read_bridge_state
+    from agentnexus.antigravity_native_bridge import read_bridge_state
 
     bridge_dir = _bridge_dir(tmp_path)
     snapshot: dict[str, object] = {"agent_id": "agent_xyz", "runner_id": "runner_abc"}
@@ -4022,7 +4022,7 @@ async def test_run_reader_with_bridge_rebinds_after_rotation(
     monkeypatch.setattr(reader, "_rotate_session_for_cascade", _fake_rotate)
     # Avoid importing the heavy interaction-bridge module in this unit test.
     monkeypatch.setattr(
-        "omnigent.antigravity_native_interactions.bridge_interaction",
+        "agentnexus.antigravity_native_interactions.bridge_interaction",
         lambda *a, **k: None,
     )
 
@@ -4051,7 +4051,7 @@ async def test_run_reader_with_bridge_adopts_first_cascade_in_place(
     The cold-start ``StartCascade`` cascade is a headless placeholder the agy TUI
     never shows; the TUI mints its OWN cascade on the first typed turn. That first
     transition is the conversation STARTING, not a ``/clear`` — so the loop must
-    adopt the new cascade in the SAME Omnigent session (rewrite bridge state, NO
+    adopt the new cascade in the SAME AgentNexus session (rewrite bridge state, NO
     fork) so the user's current session starts mirroring (#1156/#1158). Modeled by
     a supervise_reader that reports ZERO committed turns on the rotation run.
     """
@@ -4088,7 +4088,7 @@ async def test_run_reader_with_bridge_adopts_first_cascade_in_place(
     monkeypatch.setattr(reader, "_rotate_session_for_cascade", _fake_rotate)
     monkeypatch.setattr(reader, "_record_external_session_id", _fake_record_external)
     monkeypatch.setattr(
-        "omnigent.antigravity_native_interactions.bridge_interaction",
+        "agentnexus.antigravity_native_interactions.bridge_interaction",
         lambda *a, **k: None,
     )
 
@@ -4162,7 +4162,7 @@ async def test_run_reader_with_bridge_keeps_old_binding_when_rotation_fails(
     monkeypatch.setattr(reader, "supervise_reader", _fake_supervise)
     monkeypatch.setattr(reader, "_rotate_session_for_cascade", _fake_rotate_fail)
     monkeypatch.setattr(
-        "omnigent.antigravity_native_interactions.bridge_interaction",
+        "agentnexus.antigravity_native_interactions.bridge_interaction",
         lambda *a, **k: None,
     )
 

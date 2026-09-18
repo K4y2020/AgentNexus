@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 import respx
-from omnigent_slack.databricks_oauth import (
+from agentnexus_slack.databricks_oauth import (
     DatabricksAuthExpiredError,
     DatabricksOAuthClient,
     DatabricksOAuthError,

@@ -7,7 +7,7 @@
 // into a bundle the shell ships and loads in a transparent corner window.
 //
 // It talks to the shell's updater over the native bridge exposed by the
-// overlay's preload (window.omnigentNative.updates), identical to the in-page
+// overlay's preload (window.agentnexusNative.updates), identical to the in-page
 // build; only the outer chrome differs (`variant="bare"`, since the shell
 // window supplies position/size).
 
@@ -32,12 +32,12 @@ if (container) {
   // the card (0 when UpdateBanner renders nothing → shell hides the window).
   const overlay = (
     window as unknown as {
-      omnigentUpdateOverlay?: {
+      agentnexusUpdateOverlay?: {
         reportHeight?: (h: number) => void;
         onTheme?: (cb: (theme: string) => void) => void;
       };
     }
-  ).omnigentUpdateOverlay;
+  ).agentnexusUpdateOverlay;
   const report = () => overlay?.reportHeight?.(container.getBoundingClientRect().height);
   new ResizeObserver(report).observe(container);
   report();

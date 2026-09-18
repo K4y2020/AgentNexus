@@ -45,7 +45,7 @@ defaults:
 jobs:
   build-and-release:
     # Inert in forks / mirrors — only the canonical repo cuts releases.
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -75,9 +75,9 @@ jobs:
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: |
-          pnpm install --frozen-lockfile --filter omnigent-vscode
-          pnpm --filter omnigent-vscode run build
-          pnpm --filter omnigent-vscode run package
+          pnpm install --frozen-lockfile --filter agentnexus-vscode
+          pnpm --filter agentnexus-vscode run build
+          pnpm --filter agentnexus-vscode run package
 
       - name: Resolve tag and verify package.json version
         id: meta
@@ -98,7 +98,7 @@ jobs:
 
       - name: Compute SHA256 checksum
         run: |
-          vsix=$(ls omnigent-vscode-*.vsix)
+          vsix=$(ls agentnexus-vscode-*.vsix)
           sha256sum "$vsix" > "$vsix.sha256"
           echo "Built $vsix" | tee -a "$GITHUB_STEP_SUMMARY"
           cat "$vsix.sha256" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -127,7 +127,7 @@ jobs:
           else:
               # Fallback: no matching section — keep a minimal generic note.
               out.write_text(
-                  f"Omnigent VS Code extension `{version}`.\n", encoding="utf-8"
+                  f"AgentNexus VS Code extension `{version}`.\n", encoding="utf-8"
               )
               print(f"::warning::No '## [{version}]' CHANGELOG section found — using a generic note.")
           PY
@@ -154,11 +154,11 @@ jobs:
           # commit when the draft is published).
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             # Rerun: refresh assets and the notes on the existing draft.
-            gh release upload "$TAG" omnigent-vscode-*.vsix omnigent-vscode-*.vsix.sha256 \
+            gh release upload "$TAG" agentnexus-vscode-*.vsix agentnexus-vscode-*.vsix.sha256 \
               --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/release_notes.md
           else
-            gh release create "$TAG" omnigent-vscode-*.vsix omnigent-vscode-*.vsix.sha256 \
+            gh release create "$TAG" agentnexus-vscode-*.vsix agentnexus-vscode-*.vsix.sha256 \
               --repo "$GITHUB_REPOSITORY" \
               --draft \
               --target "${{ steps.meta.outputs.sha }}" \

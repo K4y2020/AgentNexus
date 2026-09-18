@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.tools._pep723 import InlineMetadata, parse_inline_metadata
+from agentnexus.tools._pep723 import InlineMetadata, parse_inline_metadata
 
 
 def test_parse_with_dependencies() -> None:

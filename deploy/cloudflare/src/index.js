@@ -4,7 +4,7 @@
 import { Container, getContainer } from "@cloudflare/containers";
 
 export class OmnigentServer extends Container {
-  // Port the omnigent server listens on inside the container.
+  // Port the agentnexus server listens on inside the container.
   defaultPort = 8000;
   // Keep the container warm so D1-backed sessions don't cold-start constantly.
   sleepAfter = "30m";
@@ -22,7 +22,7 @@ export class OmnigentServer extends Container {
       OMNIGENT_ACCOUNTS_AUTO_OPEN: "0",
       HOST: "0.0.0.0",
       PORT: "8000",
-      // Artifact store -> R2 over the S3 API (omnigent's native S3 backend).
+      // Artifact store -> R2 over the S3 API (agentnexus's native S3 backend).
       // OMNIGENT_ARTIFACT_URI selects it; AWS_* point boto3 at R2.
       OMNIGENT_ARTIFACT_URI: env.OMNIGENT_ARTIFACT_URI,
       AWS_ENDPOINT_URL_S3: env.AWS_ENDPOINT_URL_S3,

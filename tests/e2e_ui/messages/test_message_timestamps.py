@@ -176,8 +176,8 @@ def test_assistant_bubble_timestamp_tracks_latest_turn_activity(
     turn whose items span an hour and asserts the hydrated bubble reads
     the latest item's minute.
     """
-    from omnigent.db.db_models import uuid_to_bytes
-    from omnigent.entities import MessageData, NewConversationItem
+    from agentnexus.db.db_models import uuid_to_bytes
+    from agentnexus.entities import MessageData, NewConversationItem
 
     base_url, session_id = seeded_session
     response_id = "resp_ts_latest_activity"

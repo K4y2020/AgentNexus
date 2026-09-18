@@ -520,7 +520,7 @@ describe("ComposerMicButton (server dictation)", () => {
     // Electron HAS a SpeechRecognition constructor but no backend: a Web Speech
     // take always fails with "network" and only then falls back, a visible ~1s
     // stall. With the server available the button must skip it entirely.
-    (window as unknown as Record<string, unknown>).omnigentDesktop = { kind: "electron" };
+    (window as unknown as Record<string, unknown>).agentnexusDesktop = { kind: "electron" };
     try {
       render(
         <CapabilitiesContext.Provider value={DICTATION_INFO}>
@@ -537,7 +537,7 @@ describe("ComposerMicButton (server dictation)", () => {
         "true",
       );
     } finally {
-      delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+      delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
     }
   });
 

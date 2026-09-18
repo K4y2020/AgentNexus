@@ -27,11 +27,11 @@ from types import SimpleNamespace
 import pytest
 import yaml as _yaml
 
-from omnigent.claude_api_key_helper import (
+from agentnexus.claude_api_key_helper import (
     CLAUDE_API_KEY_HELPER_TOKEN_ENV,
     claude_api_key_helper_command,
 )
-from omnigent.runtime.workflow import (
+from agentnexus.runtime.workflow import (
     _build_claude_sdk_spawn_env,
     _build_codex_spawn_env,
     _build_goose_spawn_env,
@@ -43,7 +43,7 @@ from omnigent.runtime.workflow import (
     _resolve_catalog_default_model,
     _resolve_provider_for_build,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -83,11 +83,11 @@ def _clear_ambient_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DATABRICKS_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._resolve_catalog_default_model",
+        "agentnexus.runtime.workflow._resolve_catalog_default_model",
         lambda provider_name, family, *, context: _CATALOG_DEFAULTS[(provider_name, family)],
     )
     monkeypatch.setattr(
-        "omnigent.model_catalog.resolve_catalog_model",
+        "agentnexus.model_catalog.resolve_catalog_model",
         lambda provider_name, *, family, **kwargs: SimpleNamespace(
             model_id=_CATALOG_DEFAULTS[(provider_name, family)]
         ),
@@ -97,7 +97,7 @@ def _clear_ambient_keys(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def config_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """
-    Point ``$OMNIGENT_CONFIG_HOME`` at an isolated temp dir.
+    Point ``$AGENTNEXUS_CONFIG_HOME`` at an isolated temp dir.
 
     Both the readout (provider_config) and the spawn-env builders read the
     global config through this env var, so writing a ``config.yaml`` under
@@ -107,7 +107,7 @@ def config_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     :param tmp_path: Per-test temp directory.
     :returns: The temp directory used as the config home.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     return tmp_path
 
 
@@ -115,7 +115,7 @@ def _write_config(config_home: Path, config: dict[str, object]) -> None:
     """
     Write *config* as ``config.yaml`` under *config_home*.
 
-    :param config_home: The ``$OMNIGENT_CONFIG_HOME`` directory.
+    :param config_home: The ``$AGENTNEXUS_CONFIG_HOME`` directory.
     :param config: The config mapping to serialize, e.g.
         ``{"providers": {"openrouter": {...}}}``.
     """
@@ -156,7 +156,7 @@ def _make_spec(
         spec_version=1,
         name=f"test-{harness}",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
         os_env=os_env,  # type: ignore[arg-type]
     )
@@ -527,11 +527,11 @@ def test_pi_gateway_routing_log_reports_the_resolved_base_url(
     routed fine. Failure means that fallback is gone and the line is
     misleading again.
     """
-    from omnigent.runner.app import _build_spawn_env_from_spec
+    from agentnexus.runner.app import _build_spawn_env_from_spec
 
     _write_config(config_home, _anthropic_default_config())
 
-    with caplog.at_level(logging.INFO, logger="omnigent.runner.app"):
+    with caplog.at_level(logging.INFO, logger="agentnexus.runner.app"):
         env = _build_spawn_env_from_spec(_make_spec(harness="pi"), "pi")
 
     assert env is not None
@@ -709,12 +709,12 @@ def test_catalog_default_fails_clearly_when_discovery_is_unavailable(
     catalog_family: str,
 ) -> None:
     """Known-family runtime defaults fail clearly without catalog data."""
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda _provider: [])
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: [])
 
     with pytest.raises(
-        OmnigentError,
+        AgentNexusError,
         match=r"Set 'executor.model'.*provider 'models.default'.*retry",
     ):
         _resolve_catalog_default_model(
@@ -1004,7 +1004,7 @@ def test_databricks_kind_default_routes_through_profile(
     # Stub ucode enrichment: it would otherwise read ~/.databrickscfg + ucode
     # state for the profile. We assert the profile wiring this branch owns,
     # independent of whether ucode state exists on the test machine.
-    import omnigent.runtime.workflow as workflow_mod
+    import agentnexus.runtime.workflow as workflow_mod
 
     def _noop_ucode(env: dict[str, str], profile: str | None, *, harness_type: str) -> None:
         # Record the profile passed through so the test can confirm delegation.
@@ -1191,12 +1191,12 @@ def test_openai_agents_cli_config_default_fails_loud(config_home: Path) -> None:
     the codex CLI reads. Failure (no exception) means openai-agents would
     launch with no credential at all and die opaquely at the first request.
     """
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     _write_config(config_home, _cli_config_default_config())
     spec = _make_spec(harness="openai-agents")
 
-    with pytest.raises(OmnigentError, match=r"cli-config.*codex"):
+    with pytest.raises(AgentNexusError, match=r"cli-config.*codex"):
         _build_openai_agents_sdk_spawn_env(spec)
 
 
@@ -1244,10 +1244,10 @@ def test_pi_gateway_default_pi_scope_unresolved_credential_names_var(
     variable. The original credential-resolution error from ``resolve_secret``
     is surfaced rather than a generic message that omits the variable name.
     """
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     monkeypatch.delenv("MY_GATEWAY_TOKEN", raising=False)
-    monkeypatch.delenv("OMNIGENT_MY_GATEWAY_TOKEN", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_MY_GATEWAY_TOKEN", raising=False)
     config: dict[str, object] = {
         "providers": {
             "my-gateway": {
@@ -1264,7 +1264,7 @@ def test_pi_gateway_default_pi_scope_unresolved_credential_names_var(
     _write_config(config_home, config)
     spec = _make_spec(harness="pi")
 
-    with pytest.raises(OmnigentError, match="MY_GATEWAY_TOKEN"):
+    with pytest.raises(AgentNexusError, match="MY_GATEWAY_TOKEN"):
         _build_pi_spawn_env(spec, workdir=None)
 
 
@@ -1318,7 +1318,7 @@ command = "jq"
 def _isolate_home_with_codex_config(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point ``$HOME`` at the config home and write a custom codex config there.
 
-    :param config_home: The isolated ``OMNIGENT_CONFIG_HOME`` directory,
+    :param config_home: The isolated ``AGENTNEXUS_CONFIG_HOME`` directory,
         reused as ``$HOME`` so ambient detection reads a controlled
         ``~/.codex/config.toml`` instead of the developer's real one.
     :param monkeypatch: Pytest monkeypatch fixture.
@@ -1406,7 +1406,7 @@ def test_kimi_no_provider_emits_no_gateway_vars(config_home: Path) -> None:
 
     A regression here would either steal an ambient OPENAI_API_KEY (mis-billing)
     or point at a stale URL the user never configured. Upstream kimi reads its
-    provider config from ``~/.kimi/config.toml``; Omnigent never injects."""
+    provider config from ``~/.kimi/config.toml``; AgentNexus never injects."""
     _write_config(config_home, {"providers": {}})
     spec = _make_spec(harness="kimi")
 
@@ -1456,13 +1456,13 @@ def test_kimi_declared_auth_raises(
     ``--mcp-config-file``), so declared auth can't be threaded. Silently
     launching against whatever ambient ``~/.kimi/config.toml`` resolves to
     would be a confused-deputy / mis-attribution risk, so the builder raises
-    instead. Regression guard for the originally-dead ``OmnigentError``."""
-    from omnigent.errors import OmnigentError
+    instead. Regression guard for the originally-dead ``AgentNexusError``."""
+    from agentnexus.errors import AgentNexusError
 
     _write_config(config_home, {"providers": {}})
     spec = _make_spec(harness="kimi", auth=auth)
 
-    with pytest.raises(OmnigentError, match=r"kimi.*does not support"):
+    with pytest.raises(AgentNexusError, match=r"kimi.*does not support"):
         _build_kimi_spawn_env(spec, cwd=None)
 
 
@@ -1473,7 +1473,7 @@ def test_kimi_os_env_serialized(config_home: Path) -> None:
     sandbox launcher never engages and kimi runs unconfined."""
     import json as _json
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     _write_config(config_home, {"providers": {}})
     os_env = OSEnvSpec(
@@ -1538,7 +1538,7 @@ def test_hermes_os_env_serialized(config_home: Path) -> None:
     reported a sandbox."""
     import json as _json
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     _write_config(config_home, {"providers": {}})
     os_env = OSEnvSpec(
@@ -1572,7 +1572,7 @@ def test_hermes_omits_reserved_bundle_dir(config_home: Path, tmp_path: Path) -> 
 
 
 # ---------------------------------------------------------------------------
-# harness.<canonical>.command → OMNIGENT_<NAME>_PATH (spawn-env builders)
+# harness.<canonical>.command → AGENTNEXUS_<NAME>_PATH (spawn-env builders)
 # ---------------------------------------------------------------------------
 
 
@@ -1595,12 +1595,12 @@ def _call_builder(builder: object, spec: AgentSpec) -> dict[str, str]:  # type: 
 @pytest.mark.parametrize(
     ("harness", "builder", "env_var"),
     [
-        ("codex", _build_codex_spawn_env, "OMNIGENT_CODEX_PATH"),
-        ("pi", _build_pi_spawn_env, "OMNIGENT_PI_PATH"),
-        ("kimi", _build_kimi_spawn_env, "OMNIGENT_KIMI_PATH"),
-        ("goose", _build_goose_spawn_env, "OMNIGENT_GOOSE_PATH"),
-        ("qwen", _build_qwen_spawn_env, "OMNIGENT_QWEN_PATH"),
-        ("hermes", _build_hermes_spawn_env, "OMNIGENT_HERMES_PATH"),
+        ("codex", _build_codex_spawn_env, "AGENTNEXUS_CODEX_PATH"),
+        ("pi", _build_pi_spawn_env, "AGENTNEXUS_PI_PATH"),
+        ("kimi", _build_kimi_spawn_env, "AGENTNEXUS_KIMI_PATH"),
+        ("goose", _build_goose_spawn_env, "AGENTNEXUS_GOOSE_PATH"),
+        ("qwen", _build_qwen_spawn_env, "AGENTNEXUS_QWEN_PATH"),
+        ("hermes", _build_hermes_spawn_env, "AGENTNEXUS_HERMES_PATH"),
     ],
 )
 def test_spawn_env_threads_config_command_to_path(
@@ -1609,7 +1609,7 @@ def test_spawn_env_threads_config_command_to_path(
     builder: object,
     env_var: str,
 ) -> None:
-    """A config ``harness.<canonical>.command`` lands as ``OMNIGENT_<NAME>_PATH``."""
+    """A config ``harness.<canonical>.command`` lands as ``AGENTNEXUS_<NAME>_PATH``."""
     cfg = _openai_default_config()
     cfg["harness"] = {harness: {"command": "/custom/bin"}}
     _write_config(config_home, cfg)
@@ -1623,12 +1623,12 @@ def test_spawn_env_threads_config_command_to_path(
 @pytest.mark.parametrize(
     ("harness", "builder", "env_var"),
     [
-        ("codex", _build_codex_spawn_env, "OMNIGENT_CODEX_PATH"),
-        ("pi", _build_pi_spawn_env, "OMNIGENT_PI_PATH"),
-        ("kimi", _build_kimi_spawn_env, "OMNIGENT_KIMI_PATH"),
-        ("goose", _build_goose_spawn_env, "OMNIGENT_GOOSE_PATH"),
-        ("qwen", _build_qwen_spawn_env, "OMNIGENT_QWEN_PATH"),
-        ("hermes", _build_hermes_spawn_env, "OMNIGENT_HERMES_PATH"),
+        ("codex", _build_codex_spawn_env, "AGENTNEXUS_CODEX_PATH"),
+        ("pi", _build_pi_spawn_env, "AGENTNEXUS_PI_PATH"),
+        ("kimi", _build_kimi_spawn_env, "AGENTNEXUS_KIMI_PATH"),
+        ("goose", _build_goose_spawn_env, "AGENTNEXUS_GOOSE_PATH"),
+        ("qwen", _build_qwen_spawn_env, "AGENTNEXUS_QWEN_PATH"),
+        ("hermes", _build_hermes_spawn_env, "AGENTNEXUS_HERMES_PATH"),
     ],
 )
 def test_spawn_env_ambient_env_wins_over_config_command(
@@ -1638,7 +1638,7 @@ def test_spawn_env_ambient_env_wins_over_config_command(
     builder: object,
     env_var: str,
 ) -> None:
-    """The ambient ``OMNIGENT_<NAME>_PATH`` env var wins over config ``command``."""
+    """The ambient ``AGENTNEXUS_<NAME>_PATH`` env var wins over config ``command``."""
     cfg = _openai_default_config()
     cfg["harness"] = {harness: {"command": "/config/bin"}}
     _write_config(config_home, cfg)
@@ -1673,8 +1673,8 @@ def test_spawn_env_no_command_emits_no_path(
     env = _call_builder(builder, spec)
 
     suffix = harness.upper()
-    # Neither the canonical OMNIGENT_* nor the legacy HARNESS_* is emitted.
-    assert f"OMNIGENT_{suffix}_PATH" not in env
+    # Neither the canonical AGENTNEXUS_* nor the legacy HARNESS_* is emitted.
+    assert f"AGENTNEXUS_{suffix}_PATH" not in env
     assert f"HARNESS_{suffix}_PATH" not in env
 
 
@@ -1698,11 +1698,11 @@ def test_spawn_env_legacy_env_wins_over_config_command(
 
     Per ``env > config``, the legacy env var must not be shadowed by config.
     """
-    from omnigent.harness_startup_config import _LEGACY_PATH_WARNED
+    from agentnexus.harness_startup_config import _LEGACY_PATH_WARNED
 
     legacy_var = f"HARNESS_{harness.upper()}_PATH"
     _LEGACY_PATH_WARNED.discard(legacy_var)
-    monkeypatch.delenv(f"OMNIGENT_{harness.upper()}_PATH", raising=False)
+    monkeypatch.delenv(f"AGENTNEXUS_{harness.upper()}_PATH", raising=False)
     monkeypatch.setenv(legacy_var, "/legacy/bin")
     cfg = _openai_default_config()
     cfg["harness"] = {harness: {"command": "/config/bin"}}
@@ -1711,5 +1711,5 @@ def test_spawn_env_legacy_env_wins_over_config_command(
 
     env = _call_builder(builder, spec)
 
-    # The builder must not set OMNIGENT_* from config when the legacy env wins.
-    assert f"OMNIGENT_{harness.upper()}_PATH" not in env
+    # The builder must not set AGENTNEXUS_* from config when the legacy env wins.
+    assert f"AGENTNEXUS_{harness.upper()}_PATH" not in env

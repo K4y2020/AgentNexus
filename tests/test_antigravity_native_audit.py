@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from omnigent.antigravity_native_audit import (
+from agentnexus.antigravity_native_audit import (
     DEGRADE_NOTICE_TEXT,
     HARNESS_NAME,
     audit_verdict_is_violation,
@@ -133,7 +133,7 @@ def test_audit_request_omits_model_when_none() -> None:
 def test_audit_request_skips_omnigent_mcp_tools() -> None:
     """``mcp__omnigent__*`` tools are relay-enforced; the audit returns None.
 
-    Only the Omnigent MCP tools are double-counted by the relay path, so
+    Only the AgentNexus MCP tools are double-counted by the relay path, so
     :func:`build_audit_evaluation_request` (delegating to
     ``hook_payload_to_evaluation_request``) skips exactly those.
     """

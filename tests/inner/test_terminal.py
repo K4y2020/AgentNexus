@@ -14,16 +14,16 @@ from types import SimpleNamespace
 
 import pytest
 
-import omnigent.inner.terminal as terminal_mod
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
-from omnigent.inner.terminal import (
+import agentnexus.inner.terminal as terminal_mod
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
+from agentnexus.inner.terminal import (
     TerminalInstance,
     _apply_utf8_locale_default,
     _has_utf8_locale,
     _is_utf8_locale_value,
     create_terminal_instance,
 )
-from omnigent.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
 
 
 @dataclass
@@ -780,7 +780,7 @@ async def test_launch_disables_tmux_pane_and_window_creation_controls(
 
     The launcher should not leave tmux's default prefix table or
     right-click menus available, because those let an attached user
-    create extra panes, windows, or sessions outside Omnigent' terminal
+    create extra panes, windows, or sessions outside AgentNexus' terminal
     registry.
 
     :param tmp_path: Temporary directory used for the fake tmux socket.
@@ -909,14 +909,14 @@ async def test_launch_strips_env_unset_keys_from_inherited_environment(
     monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "ambient-host-profile")
     # A benign ambient var that is NOT in env_unset — proves the strip
     # is surgical rather than a wholesale wipe. (We can't use
-    # ``OMNIGENT_TMUX_SOCK`` for this any more: the sandbox hardening
+    # ``AGENTNEXUS_TMUX_SOCK`` for this any more: the sandbox hardening
     # stopped ``launch`` from advertising the control-socket path to the pane.)
-    monkeypatch.setenv("OMNIGENT_BENIGN_SENTINEL", "keep-me")
-    # Seed an inherited OMNIGENT_TMUX_SOCK so the negative assertion
+    monkeypatch.setenv("AGENTNEXUS_BENIGN_SENTINEL", "keep-me")
+    # Seed an inherited AGENTNEXUS_TMUX_SOCK so the negative assertion
     # below exercises ``launch``'s explicit ``env.pop`` of any ambient
     # value — not merely the fact that launch stopped *setting* it
     # (``launch`` strips both the self-set and any inherited value).
-    monkeypatch.setenv("OMNIGENT_TMUX_SOCK", "/leaked/from/parent.sock")
+    monkeypatch.setenv("AGENTNEXUS_TMUX_SOCK", "/leaked/from/parent.sock")
 
     instance = TerminalInstance(
         name="bash",
@@ -955,15 +955,15 @@ async def test_launch_strips_env_unset_keys_from_inherited_environment(
     # Sanity check that ordinary env still flows through — the strip
     # must be surgical, not a wholesale wipe. The benign ambient var
     # set above must survive since it is not in ``env_unset``.
-    assert spawned_env.get("OMNIGENT_BENIGN_SENTINEL") == "keep-me", (
+    assert spawned_env.get("AGENTNEXUS_BENIGN_SENTINEL") == "keep-me", (
         "benign ambient var missing from tmux env — env_unset "
         "must remove only the listed keys, not the entire env."
     )
     # And the control-socket path must NOT be advertised to the pane
     # the tmux server is unsandboxed, so a pane that knows
     # the socket path could ``tmux -S <sock> run-shell`` out of the box.
-    assert "OMNIGENT_TMUX_SOCK" not in spawned_env, (
-        "OMNIGENT_TMUX_SOCK leaked into the tmux child env — the pane "
+    assert "AGENTNEXUS_TMUX_SOCK" not in spawned_env, (
+        "AGENTNEXUS_TMUX_SOCK leaked into the tmux child env — the pane "
         "must not be told the unsandboxed control socket's path."
     )
 
@@ -1132,7 +1132,7 @@ async def test_launch_strips_runner_binding_token_from_tmux_child(
     # The control-socket path must not be advertised to the
     # pane — the unsandboxed tmux server's run-shell would otherwise be
     # one ``tmux -S <sock>`` away for the agent payload in the pane.
-    assert "OMNIGENT_TMUX_SOCK" not in spawned_env
+    assert "AGENTNEXUS_TMUX_SOCK" not in spawned_env
 
 
 @pytest.mark.asyncio
@@ -1294,7 +1294,7 @@ def _write_instance_dir(root: Path, name: str, owner_pid: int | None) -> Path:
     Create a fake terminal instance dir under the sweep root.
 
     :param root: Fake temp root the sweep scans.
-    :param name: Directory name, e.g. ``"omnigent-terminal-dead1"``.
+    :param name: Directory name, e.g. ``"agentnexus-terminal-dead1"``.
     :param owner_pid: Owner pid to record, or ``None`` for no marker
         (an unrelated / pre-marker dir the sweep must not touch).
     :returns: The created directory path.
@@ -1356,9 +1356,9 @@ def test_reap_orphaned_terminals_reaps_only_dead_owner_dirs(
         "subprocess",
         SimpleNamespace(run=_raise_if_called, TimeoutExpired=TimeoutError),
     )
-    dead_dir = _write_instance_dir(tmp_path, "omnigent-terminal-dead1", _dead_pid())
-    live_dir = _write_instance_dir(tmp_path, "omnigent-terminal-live1", os.getpid())
-    unmarked_dir = _write_instance_dir(tmp_path, "omnigent-terminal-old1", None)
+    dead_dir = _write_instance_dir(tmp_path, "agentnexus-terminal-dead1", _dead_pid())
+    live_dir = _write_instance_dir(tmp_path, "agentnexus-terminal-live1", os.getpid())
+    unmarked_dir = _write_instance_dir(tmp_path, "agentnexus-terminal-old1", None)
 
     reaped = terminal_mod.reap_orphaned_terminals()
 
@@ -1400,7 +1400,7 @@ def test_reap_orphaned_terminals_kills_server_for_dead_owner_socket(
         "subprocess",
         SimpleNamespace(run=_record_run, TimeoutExpired=TimeoutError),
     )
-    dead_dir = _write_instance_dir(tmp_path, "omnigent-terminal-dead2", _dead_pid())
+    dead_dir = _write_instance_dir(tmp_path, "agentnexus-terminal-dead2", _dead_pid())
     socket_path = dead_dir / "tmux.sock"
     socket_path.touch()
 

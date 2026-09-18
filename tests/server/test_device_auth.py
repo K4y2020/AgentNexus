@@ -23,7 +23,7 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from omnigent.server.device_grant_store import DeviceGrantStore, hash_secret
+from agentnexus.server.device_grant_store import DeviceGrantStore, hash_secret
 
 _KEY = b"k" * 32
 
@@ -38,7 +38,7 @@ def test_router_factory_rejects_non_accounts_mode(source: str, tmp_path: Path) -
     ``create_device_auth_router`` must refuse to build for either."""
     from types import SimpleNamespace
 
-    from omnigent.server.routes.device_auth import create_device_auth_router
+    from agentnexus.server.routes.device_auth import create_device_auth_router
 
     provider = SimpleNamespace(_source=source)
     store = DeviceGrantStore(f"sqlite:///{tmp_path}/dg.db")
@@ -82,7 +82,7 @@ _LIFETIME = 30 * 24 * 3600
 
 
 def test_approve_binds_identity(store: DeviceGrantStore) -> None:
-    """Approval binds the Omnigent identity and stamps approved_at."""
+    """Approval binds the AgentNexus identity and stamps approved_at."""
     g = _new_grant(store)
     ok = store.approve(g.id, user_id="a@x", now_epoch_seconds=1010)
     assert ok is not None and ok.status == "approved" and ok.user_id == "a@x"
@@ -207,36 +207,36 @@ def test_revoke_is_fail_closed(store: DeviceGrantStore) -> None:
 def _build_accounts_app(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, device_grant_enabled: bool = True
 ) -> Iterator[TestClient]:
-    monkeypatch.delenv("OMNIGENT_OIDC_ISSUER", raising=False)
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "accounts")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", "admin-pw-12345")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_AUTO_OPEN", "0")
+    monkeypatch.delenv("AGENTNEXUS_OIDC_ISSUER", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "accounts")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", "admin-pw-12345")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_AUTO_OPEN", "0")
     # Device grant is opt-in / default-off; the route tests need it mounted.
     if device_grant_enabled:
-        monkeypatch.setenv("OMNIGENT_DEVICE_GRANT_ENABLED", "1")
+        monkeypatch.setenv("AGENTNEXUS_DEVICE_GRANT_ENABLED", "1")
     else:
-        monkeypatch.delenv("OMNIGENT_DEVICE_GRANT_ENABLED", raising=False)
+        monkeypatch.delenv("AGENTNEXUS_DEVICE_GRANT_ENABLED", raising=False)
 
     db_url = f"sqlite:///{tmp_path}/test.db"
-    from omnigent.db.utils import get_or_create_engine
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.accounts_store import SqlAlchemyAccountStore
-    from omnigent.server.app import create_app
-    from omnigent.server.auth import create_auth_provider
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-    from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
-    from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+    from agentnexus.db.utils import get_or_create_engine
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+    from agentnexus.server.app import create_app
+    from agentnexus.server.auth import create_auth_provider
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
+    from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
     get_or_create_engine(db_url)
     telemetry.init()
@@ -471,15 +471,15 @@ def test_account_auth_available_when_device_grant_disabled(disabled_app: TestCli
 
 @pytest.fixture
 def secret_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """An accounts-mode app with OMNIGENT_DEVICE_CLIENT_SECRET enforced."""
-    monkeypatch.setenv("OMNIGENT_DEVICE_CLIENT_SECRET", _SECRET)
+    """An accounts-mode app with AGENTNEXUS_DEVICE_CLIENT_SECRET enforced."""
+    monkeypatch.setenv("AGENTNEXUS_DEVICE_CLIENT_SECRET", _SECRET)
     yield from _build_accounts_app(tmp_path, monkeypatch)
 
 
 def test_client_secret_required_when_configured(secret_app: TestClient) -> None:
     """With the secret set, the endpoints that mint from an ephemeral code
     reject a missing/wrong header and accept the matching one."""
-    hdr = {"X-Omnigent-Client-Secret": _SECRET}
+    hdr = {"X-AgentNexus-Client-Secret": _SECRET}
 
     # authorize: no header → 401 invalid_client; wrong → 401; correct → 200.
     r = secret_app.post("/oauth/device/authorize", json={"client_id": "slack"})
@@ -487,7 +487,7 @@ def test_client_secret_required_when_configured(secret_app: TestClient) -> None:
     r = secret_app.post(
         "/oauth/device/authorize",
         json={"client_id": "slack"},
-        headers={"X-Omnigent-Client-Secret": "wrong"},
+        headers={"X-AgentNexus-Client-Secret": "wrong"},
     )
     assert r.status_code == 401
     r = secret_app.post("/oauth/device/authorize", json={"client_id": "slack"}, headers=hdr)
@@ -546,7 +546,7 @@ def test_create_redeemed_grant_refresh_cycle(store: DeviceGrantStore) -> None:
     g = store.create_redeemed_grant(
         "lg1",
         user_id="alice@example.com",
-        client_id="omnigent-cli",
+        client_id="agentnexus-cli",
         refresh_token_hash=refresh_hash,
         created_at=1000,
     )
@@ -575,7 +575,7 @@ def test_create_redeemed_grant_survives_pending_purge(store: DeviceGrantStore) -
     store.create_redeemed_grant(
         "lg2",
         user_id="alice@example.com",
-        client_id="omnigent-cli",
+        client_id="agentnexus-cli",
         refresh_token_hash=hash_secret("r1", _KEY),
         created_at=1000,
     )
@@ -599,10 +599,10 @@ def test_login_grant_refresh_round_trip(disabled_app: TestClient, tmp_path: Path
     # /auth/login never does (see test_web_login_never_issues_refresh).
     import os
 
-    from omnigent.server.routes.device_auth import issue_login_grant
+    from agentnexus.server.routes.device_auth import issue_login_grant
 
     store = DeviceGrantStore(f"sqlite:///{tmp_path}/test.db")
-    secret = bytes.fromhex(os.environ["OMNIGENT_ACCOUNTS_COOKIE_SECRET"])
+    secret = bytes.fromhex(os.environ["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"])
     refresh = issue_login_grant(store, user_id="admin", cookie_secret=secret)
 
     # Refresh: fresh access token, SAME refresh token handed back.
@@ -640,10 +640,10 @@ def test_login_grant_token_keeps_session_authority(
     """
     import os
 
-    from omnigent.server.routes.device_auth import issue_login_grant
+    from agentnexus.server.routes.device_auth import issue_login_grant
 
     store = DeviceGrantStore(f"sqlite:///{tmp_path}/test.db")
-    secret = bytes.fromhex(os.environ["OMNIGENT_ACCOUNTS_COOKIE_SECRET"])
+    secret = bytes.fromhex(os.environ["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"])
     refresh = issue_login_grant(store, user_id="admin", cookie_secret=secret)
     r = disabled_app.post(
         "/oauth/token", data={"grant_type": "refresh_token", "refresh_token": refresh}
@@ -676,7 +676,7 @@ def test_device_authorize_refuses_reserved_login_client_id(app: TestClient) -> N
     """A device client cannot self-declare into the first-party login-grant
     class by naming its reserved client_id — that would hand it a
     full-authority (unscoped) token on refresh."""
-    from omnigent.server.routes.device_auth import LOGIN_GRANT_CLIENT_ID
+    from agentnexus.server.routes.device_auth import LOGIN_GRANT_CLIENT_ID
 
     r = app.post("/oauth/device/authorize", json={"client_id": LOGIN_GRANT_CLIENT_ID})
     assert r.status_code == 400 and r.json()["error"] == "invalid_request"
@@ -730,20 +730,20 @@ def test_web_login_never_issues_refresh(disabled_app: TestClient) -> None:
 
 
 def test_grant_lifetime_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    """OMNIGENT_GRANT_MAX_LIFETIME_DAYS scales the absolute lifetime; junk
+    """AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS scales the absolute lifetime; junk
     and non-positive values fall back to the 30-day default."""
-    from omnigent.server.routes.device_auth import (
+    from agentnexus.server.routes.device_auth import (
         _GRANT_MAX_LIFETIME_SECONDS,
         _grant_max_lifetime_seconds,
     )
 
-    monkeypatch.delenv("OMNIGENT_GRANT_MAX_LIFETIME_DAYS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS", raising=False)
     assert _grant_max_lifetime_seconds() == _GRANT_MAX_LIFETIME_SECONDS
-    monkeypatch.setenv("OMNIGENT_GRANT_MAX_LIFETIME_DAYS", "90")
+    monkeypatch.setenv("AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS", "90")
     assert _grant_max_lifetime_seconds() == 90 * 86400
-    monkeypatch.setenv("OMNIGENT_GRANT_MAX_LIFETIME_DAYS", "0")
+    monkeypatch.setenv("AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS", "0")
     assert _grant_max_lifetime_seconds() == _GRANT_MAX_LIFETIME_SECONDS
-    monkeypatch.setenv("OMNIGENT_GRANT_MAX_LIFETIME_DAYS", "soon")
+    monkeypatch.setenv("AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS", "soon")
     assert _grant_max_lifetime_seconds() == _GRANT_MAX_LIFETIME_SECONDS
 
 
@@ -755,7 +755,7 @@ def test_oauth_token_router_oidc_mode(tmp_path: Path) -> None:
 
     from fastapi import FastAPI
 
-    from omnigent.server.routes.device_auth import (
+    from agentnexus.server.routes.device_auth import (
         create_oauth_token_router,
         issue_login_grant,
     )
@@ -805,7 +805,7 @@ def test_redeemed_grant_persistence_regression(store: DeviceGrantStore) -> None:
     grant = store.create_redeemed_grant(
         "lg-persist-test",
         user_id="alice@example.com",
-        client_id="omnigent-cli",
+        client_id="agentnexus-cli",
         refresh_token_hash=refresh_hash,
         created_at=1000,
     )

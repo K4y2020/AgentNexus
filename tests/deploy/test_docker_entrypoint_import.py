@@ -18,18 +18,18 @@ from typing import NoReturn
 
 import pytest
 
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.artifact_store.s3 import S3ArtifactStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.artifact_store.s3 import S3ArtifactStore
 
 _ENTRYPOINT_MODULE = "deploy.docker.entrypoint"
 _BOOT_MODULES = (
     "fastapi",
-    "omnigent.db.utils",
-    "omnigent.runtime",
-    "omnigent.server.app",
-    "omnigent.server.server_config",
-    "omnigent.stores.agent_store.sqlalchemy_store",
-    "omnigent.stores.artifact_store.local",
+    "agentnexus.db.utils",
+    "agentnexus.runtime",
+    "agentnexus.server.app",
+    "agentnexus.server.server_config",
+    "agentnexus.stores.agent_store.sqlalchemy_store",
+    "agentnexus.stores.artifact_store.local",
     "uvicorn",
 )
 
@@ -86,7 +86,7 @@ def test_entrypoint_imports_without_side_effects(
 
 
 # ── artifact-store resolution + selection ────────────────────────────────
-# OMNIGENT_ARTIFACT_URI=s3://… selects the remote S3ArtifactStore (durable on an
+# AGENTNEXUS_ARTIFACT_URI=s3://… selects the remote S3ArtifactStore (durable on an
 # ephemeral/multi-replica deploy); anything else falls back to local. The URI is
 # validated up front (must be s3://), mirroring how DATABASE_URL picks the DB.
 
@@ -97,14 +97,14 @@ def _entrypoint_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     auth disabled so it doesn't mint accounts secrets, and no ambient
     artifact-store URI (each test sets it as needed)."""
     # Point config at an empty file so the resolver doesn't read the developer's
-    # ambient ~/.omnigent/config.yaml (keeps the test hermetic; CI has none).
+    # ambient ~/.agentnexus/config.yaml (keeps the test hermetic; CI has none).
     config_file = tmp_path / "config.yaml"
     config_file.write_text("{}\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config_file))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config_file))
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/omnigent")
     monkeypatch.setenv("ARTIFACT_DIR", str(tmp_path / "artifacts"))
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
-    monkeypatch.delenv("OMNIGENT_ARTIFACT_URI", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
+    monkeypatch.delenv("AGENTNEXUS_ARTIFACT_URI", raising=False)
 
 
 def test_resolve_config_captures_s3_artifact_uri(
@@ -112,7 +112,7 @@ def test_resolve_config_captures_s3_artifact_uri(
 ) -> None:
     from deploy.docker.entrypoint import _resolve_config
 
-    monkeypatch.setenv("OMNIGENT_ARTIFACT_URI", "s3://my-bucket/artifacts")
+    monkeypatch.setenv("AGENTNEXUS_ARTIFACT_URI", "s3://my-bucket/artifacts")
     assert _resolve_config().artifact_store_uri == "s3://my-bucket/artifacts"
 
 
@@ -127,7 +127,7 @@ def test_resolve_config_rejects_non_s3_artifact_uri(
 ) -> None:
     from deploy.docker.entrypoint import _resolve_config
 
-    monkeypatch.setenv("OMNIGENT_ARTIFACT_URI", "gs://my-bucket")
+    monkeypatch.setenv("AGENTNEXUS_ARTIFACT_URI", "gs://my-bucket")
     with pytest.raises(RuntimeError, match="s3://"):
         _resolve_config()
 
@@ -180,7 +180,7 @@ def test_build_routing_carries_the_configured_settings() -> None:
 
 def test_build_routing_defaults_without_a_routing_block() -> None:
     from deploy.docker.entrypoint import _build_routing
-    from omnigent.server.smart_routing import RoutingSettings
+    from agentnexus.server.smart_routing import RoutingSettings
 
     client, settings = _build_routing({}, None)
     assert client is None

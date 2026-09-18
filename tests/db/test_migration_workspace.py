@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
-from omnigent.db.utils import clear_engine_cache, get_or_create_engine
+from agentnexus.db.utils import clear_engine_cache, get_or_create_engine
 
 
 @pytest.fixture
@@ -59,7 +59,7 @@ def test_workspace_column_present_and_nullable(db_engine: Engine) -> None:
     reject every legacy row at first read. (3) failing would silently
     truncate workspace paths, leaving the runner unable to find them.
     """
-    cols = sa.inspect(db_engine).get_columns("omnigent_conversation_metadata")
+    cols = sa.inspect(db_engine).get_columns("agentnexus_conversation_metadata")
     workspace_cols = [c for c in cols if c["name"] == "workspace"]
     assert len(workspace_cols) == 1, (
         f"Expected exactly one 'workspace' column on omnigent_conversation_metadata, "
@@ -67,7 +67,7 @@ def test_workspace_column_present_and_nullable(db_engine: Engine) -> None:
     )
     workspace_col = workspace_cols[0]
     assert workspace_col["nullable"], (
-        "omnigent_conversation_metadata.workspace must be NULLABLE — pre-feature rows "
+        "agentnexus_conversation_metadata.workspace must be NULLABLE — pre-feature rows "
         "have no workspace and would otherwise be rejected on read."
     )
     assert "VARCHAR" in str(workspace_col["type"]).upper(), (
@@ -261,7 +261,7 @@ def test_runner_id_is_indexed(db_engine: Engine) -> None:
     full table scan.
     """
     index_names = {
-        ix["name"] for ix in sa.inspect(db_engine).get_indexes("omnigent_conversation_metadata")
+        ix["name"] for ix in sa.inspect(db_engine).get_indexes("agentnexus_conversation_metadata")
     }
     assert "ix_conversation_metadata_runner_id" in index_names, (
         f"Expected ix_conversation_metadata_runner_id on omnigent_conversation_metadata; "
@@ -392,7 +392,7 @@ def test_compressed_columns_are_binary_at_head(db_engine: Engine) -> None:
     """
     inspector = sa.inspect(db_engine)
     expected = {
-        "omnigent_conversation_metadata": [
+        "agentnexus_conversation_metadata": [
             "session_usage",
             "session_state",
             "terminal_launch_args",

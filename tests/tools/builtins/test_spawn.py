@@ -12,8 +12,8 @@ from __future__ import annotations
 import jsonschema
 import pytest
 
-from omnigent.spec.types import AgentSpec
-from omnigent.tools.builtins.spawn import _build_sys_session_send_schema
+from agentnexus.spec.types import AgentSpec
+from agentnexus.tools.builtins.spawn import _build_sys_session_send_schema
 
 
 def _args_schema() -> dict:

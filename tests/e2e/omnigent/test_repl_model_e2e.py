@@ -1,4 +1,4 @@
-"""E2E: /model command in the Omnigent REPL under pexpect.
+"""E2E: /model command in the AgentNexus REPL under pexpect.
 
 Migrated to mock LLM: drives ``/model`` against a mock ``omnigent run``
 REPL and asserts the slash-command surface — show / set / show-after-set
@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
     submit_prompt,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _MODEL = "mock-repl-model"
 _HARNESS = "openai-agents"

@@ -488,7 +488,7 @@ describe('WorkspacePanel "+" new-tab menu', () => {
   });
 
   it("remembers the picked shell type as the new default (persisted + check-marked)", async () => {
-    window.localStorage.removeItem("omnigent:preferred-shell");
+    window.localStorage.removeItem("agentnexus:preferred-shell");
     useSessionAgentMock.mockReturnValue({
       data: { terminals: ["zsh", "bash", "fish"] },
     } as unknown as ReturnType<typeof useSessionAgent>);
@@ -509,7 +509,7 @@ describe('WorkspacePanel "+" new-tab menu', () => {
     fireEvent.keyDown(shellTrigger, { key: "ArrowRight" });
     fireEvent.click(await screen.findByRole("menuitem", { name: /^bash$/i }));
     expect(mutate).toHaveBeenCalledWith("bash", expect.any(Object));
-    expect(window.localStorage.getItem("omnigent:preferred-shell")).toBe("bash");
+    expect(window.localStorage.getItem("agentnexus:preferred-shell")).toBe("bash");
 
     // A fresh menu seeds its default from the persisted pick — clicking "Shell"
     // now launches bash without opening the submenu.
@@ -523,7 +523,7 @@ describe('WorkspacePanel "+" new-tab menu', () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: /shell/i }));
     expect(mutate).toHaveBeenCalledWith("bash", expect.any(Object));
 
-    window.localStorage.removeItem("omnigent:preferred-shell");
+    window.localStorage.removeItem("agentnexus:preferred-shell");
   });
 
   it("keeps Shell enabled on a wakeable session — the server reconnects on create", async () => {

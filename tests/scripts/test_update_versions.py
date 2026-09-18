@@ -39,7 +39,7 @@ _PYPROJECTS = [
     "integrations/slack/pyproject.toml",
 ]
 # The runtime version constant is stamped/verified alongside the pyprojects.
-_VERSION_PY = "omnigent/version.py"
+_VERSION_PY = "agentnexus/version.py"
 # The desktop app co-versions via the semver translation of the lockstep version.
 _ELECTRON_PKG = "web/electron/package.json"
 
@@ -89,7 +89,7 @@ def test_check_detects_version_py_drift(repo_copy: Path) -> None:
     update_versions.set_version(repo_copy, "9.9.9")
     version_py = repo_copy / _VERSION_PY
     version_py.write_text(version_py.read_text().replace('VERSION = "9.9.9"', 'VERSION = "9.9.8"'))
-    with pytest.raises(ValueError, match=r"omnigent/version\.py VERSION"):
+    with pytest.raises(ValueError, match=r"agentnexus/version\.py VERSION"):
         update_versions.check(repo_copy)
 
 
@@ -126,7 +126,7 @@ def test_check_detects_missing_pin(repo_copy: Path) -> None:
     update_versions.set_version(repo_copy, "9.9.9")
     # Break the sibling pin while leaving the version intact.
     client = repo_copy / "sdks/python-client/pyproject.toml"
-    client.write_text(client.read_text().replace('"omnigent==9.9.9"', '"omnigent==9.9.8"'))
+    client.write_text(client.read_text().replace('"agentnexus==9.9.9"', '"agentnexus==9.9.8"'))
     with pytest.raises(ValueError, match="missing exact pin"):
         update_versions.check(repo_copy)
 
@@ -137,7 +137,7 @@ def test_set_version_fails_loud_when_line_absent(tmp_path: Path) -> None:
     (root / "sdks/python-client").mkdir(parents=True)
     (root / "sdks/ui").mkdir(parents=True)
     (root / "integrations/slack").mkdir(parents=True)
-    (root / "pyproject.toml").write_text('[project]\nname = "omnigent"\n')
+    (root / "pyproject.toml").write_text('[project]\nname = "agentnexus"\n')
     (root / "sdks/python-client/pyproject.toml").write_text("[project]\n")
     (root / "sdks/ui/pyproject.toml").write_text("[project]\n")
     (root / "integrations/slack/pyproject.toml").write_text("[project]\n")

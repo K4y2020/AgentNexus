@@ -18,9 +18,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from omnigent.server import dictation as dictation_engine
-from omnigent.server.dictation import FAKE_SCRIPT, MAX_STREAMS_ENV, FakeDictationEngine
-from omnigent.server.routes.dictation import create_dictation_router
+from agentnexus.server import dictation as dictation_engine
+from agentnexus.server.dictation import FAKE_SCRIPT, MAX_STREAMS_ENV, FakeDictationEngine
+from agentnexus.server.routes.dictation import create_dictation_router
 
 # One fake-engine "word" of audio: 100 ms of 16 kHz mono s16le.
 _WORD_BYTES = b"\x00" * (16000 * 2 // 10)

@@ -834,7 +834,7 @@ export function ChatPage() {
   const conversationLoadError = useChatStore((s) => s.conversationLoadError);
   const boundAgentId = useChatStore((s) => s.boundAgentId);
   const boundAgentName = useChatStore((s) => s.boundAgentName);
-  // Fallback for session-scoped agents (created by `omnigent run --server`):
+  // Fallback for session-scoped agents (created by `agentnexus run --server`):
   // the sessions-derived list only carries id+name, so fetch the full
   // agent object for the active session. Drives the picker's
   // name/description; the same react-query cache also feeds the header
@@ -907,7 +907,7 @@ export function ChatPage() {
   // picker alone in those cases.
   //
   // On the landing page, if the bound agent isn't in the cached list
-  // (e.g. a new agent registered by a fresh `omnigent run` after load),
+  // (e.g. a new agent registered by a fresh `agentnexus run` after load),
   // refetch on demand — useAgents is only enabled there.
   useEffect(() => {
     if (boundAgentId === null) return;
@@ -1071,8 +1071,8 @@ export function ChatPage() {
   // NOT sufficient to decide whether to OPEN the picker. Prefer the
   // snapshot's labels, falling back to the sidebar row.
   const forkSourceId =
-    activeSession?.labels?.["omnigent.fork.source_id"] ??
-    activeConv?.labels?.["omnigent.fork.source_id"] ??
+    activeSession?.labels?.["agentnexus.fork.source_id"] ??
+    activeConv?.labels?.["agentnexus.fork.source_id"] ??
     null;
   // Only an *unbound* fork (no workspace yet) routes the offline guard to
   // the directory picker — which binds + launches. A bound fork that is
@@ -1088,7 +1088,7 @@ export function ChatPage() {
   // machine) instead of the terminal reconnect dead-end — but only when that
   // resume would actually work. The picker calls launch_runner, which requires
   // the caller to OWN the session (a shared non-owner 404s), and — for imports —
-  // only harnesses that reconstruct context from the omnigent transcript carry
+  // only harnesses that reconstruct context from the agentnexus transcript carry
   // onto a chosen host (kimi can't resume at all; kiro/qwen resume from a local
   // file that lives on the original machine). Everything else falls through to
   // the reconnect path rather than a picker that would fail or start blank.
@@ -1422,7 +1422,7 @@ export function ChatPage() {
   // composer's host badge, which offers reconnect whenever the host tunnel is
   // down — including states liveness still calls reachable (a runner that
   // outlived its host). A host-bound session always reconnects via
-  // `omnigent host`; only an unbound one relaunches locally. Ownership gates
+  // `agentnexus host`; only an unbound one relaunches locally. Ownership gates
   // the host command — a non-owner can't reach that machine.
   const hostBound = !!(activeSession?.hostId ?? activeConv?.host_id);
   const reconnectState = hostBound ? "host_offline" : "local_stranded";
@@ -1436,7 +1436,7 @@ export function ChatPage() {
         onOpenChange={setReconnectDialogOpen}
         conversationId={urlConvId}
         serverUrl={getCliServerUrl()}
-        wrapper={activeConv?.labels?.["omnigent.wrapper"]}
+        wrapper={activeConv?.labels?.["agentnexus.wrapper"]}
         state={reconnectState}
         isOwner={reconnectIsOwner}
         // Source prefill for the Clone tab's fork form. Mirrors AppShell's
@@ -1461,7 +1461,7 @@ export function ChatPage() {
             gitBranch: activeSession?.gitBranch ?? null,
           }}
           serverUrl={getCliServerUrl()}
-          wrapper={activeConv?.labels?.["omnigent.wrapper"]}
+          wrapper={activeConv?.labels?.["agentnexus.wrapper"]}
         />
       )}
     </SessionSharedContext.Provider>
@@ -1663,7 +1663,7 @@ interface MainAgentSurfaceProps {
    * ``subAgentComposerLabel``.
    */
   subAgentLabel: string | null;
-  /** The session's ``omnigent.wrapper`` label; see ``ComposerProps``. */
+  /** The session's ``agentnexus.wrapper`` label; see ``ComposerProps``. */
   wrapperLabel: string | null;
 }
 
@@ -2984,9 +2984,9 @@ export function JumpToTopButton({
       // top 50px centers the pill on the chat-scroll-fade border (the mask ramps
       // 48px→80px), just below the h-14 ChatHeader. z-40 > header z-30. On the
       // iOS shell the header and fade border shift down by the safe-area inset
-      // (see .chat-scroll-fade in index.css), so add --omnigent-inset-top here
+      // (see .chat-scroll-fade in index.css), so add --agentnexus-inset-top here
       // too to keep the pill centered on the border. The var is 0px off-shell.
-      style={{ top: "calc(50px + var(--omnigent-inset-top))" }}
+      style={{ top: "calc(50px + var(--agentnexus-inset-top))" }}
       className={cn(
         "pointer-events-none absolute inset-x-0 z-40 flex justify-center transition-opacity duration-150",
         visible ? "opacity-100" : "opacity-0",
@@ -3777,7 +3777,7 @@ interface ComposerProps {
    */
   subAgentLabel?: string | null;
   /**
-   * The session's ``omnigent.wrapper`` label, or ``null`` when it carries
+   * The session's ``agentnexus.wrapper`` label, or ``null`` when it carries
    * none. Only the identity label reads it — to name the vendor running a
    * native sub-agent child (see ``composerHarnessLabel``). Behavior gates
    * keep using ``modelPickerKind`` / ``isNativeWrapper``.
@@ -3975,7 +3975,7 @@ export function formatModelEffortStatusLabel(
  * @param agentName - Bound agent name (lowercase slug), if any.
  * @param sessionHarness - Effective brain harness id (override-aware).
  * @param harnessLabels - harness id → picker label.
- * @param wrapper - The session's ``omnigent.wrapper`` label, if any.
+ * @param wrapper - The session's ``agentnexus.wrapper`` label, if any.
  * @returns Display label, or ``null`` when nothing is known.
  */
 export function composerHarnessLabel(
@@ -5897,7 +5897,7 @@ export function dispatchInitialPrompt(
  * Whether a session is an *unbound* coding fork — one that still needs the
  * directory picker to bind a host + workspace before it can run.
  *
- * The ``omnigent.fork.source_id`` label is *provenance*: it stays on the
+ * The ``agentnexus.fork.source_id`` label is *provenance*: it stays on the
  * clone forever, including after it is bound. So the label alone can't gate
  * the picker — a bound fork whose runner is merely offline would wrongly
  * open the picker, and the bind endpoint would 400 with "session already
@@ -5907,7 +5907,7 @@ export function dispatchInitialPrompt(
  * returns false, routing an offline bound fork to the CLI reconnect dialog
  * like any other session.
  *
- * @param forkSourceId - The `omnigent.fork.source_id` label value, or null.
+ * @param forkSourceId - The `agentnexus.fork.source_id` label value, or null.
  * @param workspace - The session's bound workspace, or null/undefined when
  *   never bound.
  */
@@ -5919,7 +5919,7 @@ export function isUnboundCodingFork(params: {
 }
 
 // Import sources whose resume reconstructs conversation context from the
-// omnigent-stored transcript, so it carries onto any chosen host. Kimi has no
+// agentnexus-stored transcript, so it carries onto any chosen host. Kimi has no
 // resume path (blank context regardless of host); kiro/qwen resume only from a
 // local recording file that exists on the original machine, so a different host
 // starts blank. The in-app resume picker is restricted to this portable set.
@@ -5935,7 +5935,7 @@ const HOST_PORTABLE_IMPORT_SOURCES = new Set(["claude", "codex", "pi", "opencode
  *
  * @param unbound - Session has no host and no runner.
  * @param isOwner - Caller holds owner level on the session.
- * @param importSource - `omnigent.import.source` label, or null for non-imports
+ * @param importSource - `agentnexus.import.source` label, or null for non-imports
  *   (e.g. an unbound fork, which is host-portable and owned by its creator).
  */
 export function unboundSessionResumableInApp(params: {
@@ -5973,7 +5973,7 @@ type LabelSource = { labels?: Record<string, string | null> | null } | null | un
  * The live session snapshot is checked first because child sessions do
  * not appear in the sidebar list and because labels can change after
  * initial navigation (for example ``sys_session_close`` marks a child
- * ``omnigent.closed=true``). The sidebar row is only a fallback.
+ * ``agentnexus.closed=true``). The sidebar row is only a fallback.
  *
  * @param activeSession - Live session snapshot, if loaded.
  * @param activeConv - Sidebar/session-list row fallback.
@@ -5985,10 +5985,10 @@ export function readOnlyReasonForSessionLabels(
   activeConv: LabelSource,
 ): string | null {
   const closed =
-    activeSession?.labels?.["omnigent.closed"] ?? activeConv?.labels?.["omnigent.closed"];
+    activeSession?.labels?.["agentnexus.closed"] ?? activeConv?.labels?.["agentnexus.closed"];
   if (closed === "true") return "This sub-agent session is closed";
   const wrapper =
-    activeSession?.labels?.["omnigent.wrapper"] ?? activeConv?.labels?.["omnigent.wrapper"];
+    activeSession?.labels?.["agentnexus.wrapper"] ?? activeConv?.labels?.["agentnexus.wrapper"];
   if (wrapper === "claude-code-native-ui-subagent") {
     return "Claude Code sub-agents are read-only";
   }
@@ -6000,7 +6000,7 @@ export function effortLevelsForConv(
   codexModelOptions: readonly NativeModelOption[] = [],
   currentModel: string | null = null,
 ): readonly string[] {
-  switch (conv?.labels?.["omnigent.wrapper"]) {
+  switch (conv?.labels?.["agentnexus.wrapper"]) {
     case "claude-code-native-ui":
       return CLAUDE_NATIVE_EFFORT_LEVELS;
     case "codex-native-ui":
@@ -6015,14 +6015,14 @@ export function effortLevelsForConv(
 /**
  * Which native model picker should be visible for *conv*?
  *
- * Gated on the wrapper label, not `omnigent.ui === "terminal"`:
+ * Gated on the wrapper label, not `agentnexus.ui === "terminal"`:
  * other terminal-first wrappers may not be Claude/Codex-native (see
  * `TerminalFirstContext.tsx`).
  */
 export function modelPickerKindForConv(
   conv: { labels?: Record<string, string | null> | null } | null | undefined,
 ): NativeModelPickerKind | null {
-  switch (conv?.labels?.["omnigent.wrapper"]) {
+  switch (conv?.labels?.["agentnexus.wrapper"]) {
     case "claude-code-native-ui":
       return "claude";
     case "codex-native-ui":

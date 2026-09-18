@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import opencode_native_app_server as appsrv
-from omnigent.opencode_native_app_server import (
+from agentnexus import opencode_native_app_server as appsrv
+from agentnexus.opencode_native_app_server import (
     OpenCodeCliNotFoundError,
     OpenCodeNativeServer,
     OpenCodeVersionError,
@@ -189,7 +189,7 @@ async def test_start_raises_on_unsupported_version_without_env(
 ) -> None:
     monkeypatch.setattr(appsrv.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(appsrv, "resolve_opencode_version", lambda _path: "1.19.0")
-    monkeypatch.delenv("OMNIGENT_OPENCODE_SKIP_VERSION_CHECK", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OPENCODE_SKIP_VERSION_CHECK", raising=False)
     server = OpenCodeNativeServer(
         bridge_dir=tmp_path,
         workspace=tmp_path,
@@ -217,7 +217,7 @@ async def test_start_skips_version_gate_when_env_set(
 ) -> None:
     monkeypatch.setattr(appsrv.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(appsrv, "resolve_opencode_version", lambda _path: "1.19.0")
-    monkeypatch.setenv("OMNIGENT_OPENCODE_SKIP_VERSION_CHECK", "1")
+    monkeypatch.setenv("AGENTNEXUS_OPENCODE_SKIP_VERSION_CHECK", "1")
     server = OpenCodeNativeServer(
         bridge_dir=tmp_path,
         workspace=tmp_path,

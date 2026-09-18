@@ -1,6 +1,6 @@
-// Discovery and invocation of the local `omnigent` CLI for the desktop shell.
+// Discovery and invocation of the local `agentnexus` CLI for the desktop shell.
 //
-// The desktop manages servers by shelling out to the same `omnigent` binary a
+// The desktop manages servers by shelling out to the same `agentnexus` binary a
 // user would run by hand — `server --background/stop/status` and `host status` (the
 // long-lived `host` connection is spawned by server_manager.js, which owns its
 // lifetime). This module locates the binary, runs the short exit-quick
@@ -12,7 +12,7 @@
 //
 // The pure helpers (matchesServer, parseDaemonRecord, normalizeServerUrl,
 // candidatePaths, resolveCliPath with injected probes) are unit-tested in
-// test/omnigent_cli.test.js; the functions that actually spawn a binary are
+// test/agentnexus_cli.test.js; the functions that actually spawn a binary are
 // exercised in the manual verification flow.
 
 "use strict";
@@ -33,7 +33,7 @@ const DEFAULT_TIMEOUT_MS = 10000;
  * install instructions in the repo root README.
  */
 const INSTALL_COMMAND =
-  "curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/install_oss.sh | sh";
+  "curl -fsSL https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/scripts/install_oss.sh | sh";
 
 /**
  * Strip a trailing slash so URL comparisons survive the difference between
@@ -87,8 +87,8 @@ function sameLoopbackServer(a, b) {
 
 /**
  * The Omnigent local runtime data dir — `$OMNIGENT_DATA_DIR` (with `~`
- * expanded) or `~/.omnigent`. Mirrors `_local_data_dir()` in
- * omnigent/host/local_server.py. The local-server pidfile lives here.
+ * expanded) or `~/.agentnexus`. Mirrors `_local_data_dir()` in
+ * agentnexus/host/local_server.py. The local-server pidfile lives here.
  *
  * @returns {string}
  */
@@ -98,12 +98,12 @@ function localDataDir() {
     const expanded = raw.startsWith("~") ? path.join(os.homedir(), raw.slice(1)) : raw;
     return path.resolve(expanded);
   }
-  return path.join(os.homedir(), ".omnigent");
+  return path.join(os.homedir(), ".agentnexus");
 }
 
 /**
  * The Omnigent config dir — `$OMNIGENT_CONFIG_HOME` (with `~` expanded) or
- * `~/.omnigent`. config.yaml (machine identity) lives here; it can differ from
+ * `~/.agentnexus`. config.yaml (machine identity) lives here; it can differ from
  * the data dir under test env overrides, but is the same by default.
  *
  * @returns {string}
@@ -114,21 +114,21 @@ function localConfigDir() {
     const expanded = raw.startsWith("~") ? path.join(os.homedir(), raw.slice(1)) : raw;
     return path.resolve(expanded);
   }
-  return path.join(os.homedir(), ".omnigent");
+  return path.join(os.homedir(), ".agentnexus");
 }
 
 /**
- * The shared Omnigent state dir, ALWAYS `~/.omnigent` — it ignores
+ * The shared Omnigent state dir, ALWAYS `~/.agentnexus` — it ignores
  * `$OMNIGENT_DATA_DIR`, mirroring `state_dir()` in
- * sdks/ui/omnigent_ui_sdk/terminal/_config.py and `_HOST_PID_PATH` in
- * omnigent/cli.py (both hardcode `Path.home()/".omnigent"`). The auth-token
+ * sdks/ui/agentnexus_ui_sdk/terminal/_config.py and `_HOST_PID_PATH` in
+ * agentnexus/cli.py (both hardcode `Path.home()/".agentnexus"`). The auth-token
  * store and the daemon registry live here — NOT under the data dir. Only the
  * local-server pidfile honors `$OMNIGENT_DATA_DIR` (see {@link localDataDir}).
  *
  * @returns {string}
  */
 function stateDir() {
-  return path.join(os.homedir(), ".omnigent");
+  return path.join(os.homedir(), ".agentnexus");
 }
 
 /** Memoized machine host id (stable once generated; never cache a null). */
@@ -137,7 +137,7 @@ let cachedHostId = null;
 /**
  * This machine's Omnigent host id (bare 32-char hex, e.g. "ab12…"), read from
  * the machine identity in `config.yaml` (`host: host_id:`, written by
- * omnigent/host/identity.py) — instant, no subprocess. Present once generated,
+ * agentnexus/host/identity.py) — instant, no subprocess. Present once generated,
  * even before connecting to any server. Returns null when no id exists yet;
  * after the first connect it resolves. Lets the renderer match "this machine"
  * against the server's /v1/hosts list and select it after an auto-connect.
@@ -146,7 +146,7 @@ let cachedHostId = null;
  * spelling on disk, while /v1/hosts always reports the bare form (`hosts.host_id`
  * is a Uuid16 column). The renderer compares these as plain strings — it is the
  * one consumer the server's own prefix-tolerance can't rescue — so strip the
- * prefix here, mirroring `_normalize_host_id` in omnigent/host/identity.py.
+ * prefix here, mirroring `_normalize_host_id` in agentnexus/host/identity.py.
  *
  * @returns {string | null}
  */
@@ -165,7 +165,7 @@ function localHostId() {
 /**
  * Parse the local-server pidfile contents: two lines, PID then port. Returns
  * null when malformed. Mirrors `_read_local_server_pid_file()` in
- * omnigent/host/local_server.py.
+ * agentnexus/host/local_server.py.
  *
  * @param {string} text
  * @returns {{ pid: number, port: number } | null}
@@ -214,7 +214,7 @@ function readLocalServerPidfile() {
 }
 
 /**
- * Local-server status from the pidfile + a pid-liveness check — no `omnigent
+ * Local-server status from the pidfile + a pid-liveness check — no `agentnexus
  * server status` subprocess, so it's instant. Returns null when no live local
  * server is recorded.
  *
@@ -236,7 +236,7 @@ function localServerStatus() {
 /**
  * Health-verified local-server lookup: pidfile + pid liveness + a `/health`
  * probe (short timeout), mirroring `local_server_url_if_healthy()` in
- * omnigent/host/local_server.py. Returns null for a stale pidfile (dead pid, a
+ * agentnexus/host/local_server.py. Returns null for a stale pidfile (dead pid, a
  * reused pid with nothing listening → connection refused fast, or a hung server
  * → times out). Use this before reusing a server you're about to navigate to,
  * so a stale pidfile doesn't send the window to a dead URL.
@@ -267,15 +267,15 @@ async function localServerHealthy(timeoutMs = 1500) {
 
 /**
  * The CLI binary's two console-script names — both resolve to the same entry
- * point (`omnigent.cli:main`); `omni` is the short alias. We probe `omnigent`
+ * point (`agentnexus.cli:main`); `omni` is the short alias. We probe `agentnexus`
  * first (canonical) but accept `omni` so a machine that only installed the
  * alias still resolves. See pyproject.toml `[project.scripts]`.
  */
-const CLI_NAMES = ["omnigent", "omni"];
+const CLI_NAMES = ["agentnexus", "omni"];
 
 /**
  * Well-known install locations for the CLI binary, in priority order. For each
- * directory we list the `omnigent` name then the `omni` alias.
+ * directory we list the `agentnexus` name then the `omni` alias.
  * `uv tool install` (the documented installer) drops it in ~/.local/bin;
  * the rest cover Homebrew and source/cargo installs. Probing these matters
  * because a GUI-launched Electron app inherits a minimal PATH that usually
@@ -318,7 +318,7 @@ function isExecutableFile(p) {
  * null when not found. On POSIX we go through `command -v` so shell-managed
  * PATHs (uv shims) resolve; on Windows we use `where`.
  *
- * @param {string} name e.g. "omnigent" or "omni"
+ * @param {string} name e.g. "agentnexus" or "omni"
  * @returns {string | null}
  */
 function whichName(name) {
@@ -337,7 +337,7 @@ function whichName(name) {
 }
 
 /**
- * Resolve the CLI on PATH, trying `omnigent` then the `omni` alias. Returns the
+ * Resolve the CLI on PATH, trying `agentnexus` then the `omni` alias. Returns the
  * first hit, or null when neither is on PATH.
  *
  * @returns {string | null}
@@ -351,14 +351,14 @@ function whichOmnigent() {
 }
 
 /**
- * Locate the `omnigent` binary. Resolution order: a user-configured path, then
+ * Locate the `agentnexus` binary. Resolution order: a user-configured path, then
  * PATH, then the well-known candidate locations. Returns the resolved path and
  * which source matched, or null if nothing usable was found.
  *
  * `deps` lets the tests inject the executability/PATH probes so the resolution
  * order can be verified without a real binary on disk.
  *
- * @param {string | null | undefined} configuredPath settings.omnigent_path
+ * @param {string | null | undefined} configuredPath settings.agentnexus_path
  * @param {{
  *   isExecutableFile?: (p: string) => boolean,
  *   whichOmnigent?: () => string | null,
@@ -387,7 +387,7 @@ function resolveCliPath(configuredPath, deps = {}) {
 }
 
 /**
- * Run an `omnigent` subcommand and resolve with its captured output. Never
+ * Run an `agentnexus` subcommand and resolve with its captured output. Never
  * rejects — a failure surfaces as a non-zero `code` plus stderr so callers can
  * decide. `execFile` (no shell) avoids quoting pitfalls.
  *
@@ -409,10 +409,10 @@ function runCli(cliPath, args, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
 
 /**
  * Whether the CLI holds valid stored credentials for a server — read straight
- * from `~/.omnigent/auth_tokens.json` (no subprocess), mirroring
- * omnigent/cli_auth.py: keyed by the trailing-slash-stripped URL, a record is
+ * from `~/.agentnexus/auth_tokens.json` (no subprocess), mirroring
+ * agentnexus/cli_auth.py: keyed by the trailing-slash-stripped URL, a record is
  * valid if it's a Databricks pointer (has `workspace_host`) or a non-expired
- * session token. The CLI's `state_dir()` is hardcoded to `~/.omnigent`.
+ * session token. The CLI's `state_dir()` is hardcoded to `~/.agentnexus`.
  *
  * @param {string} serverUrl
  * @returns {boolean}
@@ -440,12 +440,12 @@ function serverAuthed(serverUrl) {
 }
 
 /**
- * Run `omnigent login <serverUrl>` to authenticate the CLI to a server. It's a
+ * Run `agentnexus login <serverUrl>` to authenticate the CLI to a server. It's a
  * no-op when the server needs no auth (header mode), opens the system browser
  * for OIDC / Databricks, and fails fast for password (TTY) modes when run
  * without a terminal. The default timeout is generous (~300s) so a human
  * completing the browser sign-in isn't SIGKILLed mid-flow — the CLI's own OIDC
- * ticket deadline (300s, `_CLI_LOGIN_TIMEOUT_SECONDS` in omnigent/cli.py)
+ * ticket deadline (300s, `_CLI_LOGIN_TIMEOUT_SECONDS` in agentnexus/cli.py)
  * governs first.
  *
  * @param {string} cliPath
@@ -513,8 +513,8 @@ async function getCliStatus(configuredPath) {
   }
   const res = await runCli(resolved.path, ["--version"], { timeoutMs: 5000 });
   const version = res.stdout.trim() || res.stderr.trim() || "";
-  // Must exit cleanly AND identify itself as omni — `omnigent --version` prints
-  // e.g. "omnigent 0.3.0.dev0 (…)". The exit-code alone isn't enough: an
+  // Must exit cleanly AND identify itself as omni — `agentnexus --version` prints
+  // e.g. "agentnexus 0.3.0.dev0 (…)". The exit-code alone isn't enough: an
   // unrelated binary (e.g. /bin/echo) also exits 0 on `--version`, and we must
   // not accept it as the CLI (it would later fail to run a server / host).
   const ok = res.code === 0 && /\bomni/i.test(version);
@@ -528,7 +528,7 @@ async function getCliStatus(configuredPath) {
 }
 
 /**
- * `omnigent server status --json`. Returns the parsed payload, or a synthetic
+ * `agentnexus server status --json`. Returns the parsed payload, or a synthetic
  * not-running shape when the command produced no JSON.
  *
  * @param {string} cliPath
@@ -612,7 +612,7 @@ function matchesServer(daemon, serverUrl) {
 
 /**
  * Directory holding per-target daemon registry records, mirroring
- * `_daemon_registry_dir()` in omnigent/cli.py (`<state_dir>/daemons`).
+ * `_daemon_registry_dir()` in agentnexus/cli.py (`<state_dir>/daemons`).
  *
  * @returns {string}
  */
@@ -622,7 +622,7 @@ function daemonRegistryDir() {
 
 /**
  * Parse one decoded daemon registry record into the subset the desktop needs.
- * Mirrors the validation in `_record_from_json()` (omnigent/cli.py): a usable
+ * Mirrors the validation in `_record_from_json()` (agentnexus/cli.py): a usable
  * record needs a positive integer `pid`, a non-empty `target`, and a known
  * `mode`. Returns null for malformed records.
  *
@@ -662,8 +662,8 @@ function parseDaemonRecord(raw) {
 }
 
 /**
- * Read every daemon registry record from disk (`~/.omnigent/daemons/*.json`).
- * This is the fast substitute for `omnigent host status --json`: it gives the
+ * Read every daemon registry record from disk (`~/.agentnexus/daemons/*.json`).
+ * This is the fast substitute for `agentnexus host status --json`: it gives the
  * daemon metadata and (with a pid-liveness check) process state without the
  * per-session runner probes that make the CLI command slow. Tunnel health
  * ({@link probeHostTunnel}) is layered on separately. Returns [] when the
@@ -695,7 +695,7 @@ function readDaemonRecords() {
 
 /**
  * The Omnigent server URL a daemon record talks to, mirroring
- * `_daemon_base_url()` (omnigent/cli.py): a local-mode daemon's URL lives in
+ * `_daemon_base_url()` (agentnexus/cli.py): a local-mode daemon's URL lives in
  * `resolved_server_url` (falling back to a healthy local server's URL); a
  * server-mode daemon's is its `server_url`/`target`.
  *
@@ -713,17 +713,17 @@ function daemonServerUrl(record) {
 
 /**
  * The bearer token to authenticate an in-process request to `serverUrl`: a
- * non-expired session token stored by `omnigent login` in `auth_tokens.json`,
+ * non-expired session token stored by `agentnexus login` in `auth_tokens.json`,
  * looked up by the exact server URL. Returns null for a Databricks-pointer login
  * (no token is stored — the SDK mints one per request) or when nothing is stored
  * for this URL.
  *
- * Unlike `_remote_headers()` (omnigent/chat.py), this deliberately does NOT
+ * Unlike `_remote_headers()` (agentnexus/chat.py), this deliberately does NOT
  * honor `OMNIGENT_REMOTE_AUTH_TOKEN`. That token is destination-independent — it
  * authenticates to whatever URL it's sent to — and this function's only caller
  * (the status probe) targets a URL adjacent to an on-disk daemon record, so a
  * destination-blind token there could be sent to an attacker URL planted in
- * `~/.omnigent/daemons/`. The desktop never needs it: it's not inherited by a
+ * `~/.agentnexus/daemons/`. The desktop never needs it: it's not inherited by a
  * GUI launch and the per-URL stored token below covers the real auth path. A
  * desktop started with the env var set just falls to the optimistic/unverified
  * status path — already the behavior for SDK / Databricks-pointer auth.
@@ -752,7 +752,7 @@ function bearerTokenFor(serverUrl) {
 /**
  * The "basic request" that detects whether a host's tunnel is up: a single
  * `GET {serverUrl}/v1/hosts/{host_id}`, reading `body.status` — the same probe
- * `_add_daemon_host_status()` (omnigent/cli.py) makes, minus the per-session
+ * `_add_daemon_host_status()` (agentnexus/cli.py) makes, minus the per-session
  * runner enumeration. Loopback servers are single-user (no auth); a remote
  * server needs a bearer ({@link bearerTokenFor}). When no bearer is obtainable
  * in-process (a Databricks-pointer login, or auth supplied only via the SDK /
@@ -798,13 +798,13 @@ async function probeHostTunnel(serverUrl, hostId, { timeoutMs = 2000 } = {}) {
  * {serverUrl}/v1/me`. A 200 means authed; anything else (a 401, or a
  * Databricks-edge 302 to the workspace OAuth page) means a login is needed —
  * mirroring `_ensure_databricks_server_auth()` and the `login` command in
- * omnigent/cli.py, so the desktop and CLI agree on "is auth needed?".
+ * agentnexus/cli.py, so the desktop and CLI agree on "is auth needed?".
  *
  * Sends a stored session token ({@link bearerTokenFor}) when one exists, so an
  * already-authed OIDC/accounts server answers 200 and we skip a needless
- * `omnigent login`. A Databricks-pointer login stores no in-process token (the
+ * `agentnexus login`. A Databricks-pointer login stores no in-process token (the
  * SDK mints one per request), so the probe is unauthenticated and returns
- * not-authed — which correctly defers to `omnigent login`, itself browserless
+ * not-authed — which correctly defers to `agentnexus login`, itself browserless
  * while the workspace grant is still live and refreshable.
  *
  * `redirect: "manual"` so a Databricks 302 is never followed into a 200 login
@@ -840,7 +840,7 @@ async function probeServerAuth(serverUrl, { timeoutMs = 10000 } = {}) {
 }
 
 /**
- * This machine's connection to `serverUrl`, resolved WITHOUT the slow `omnigent
+ * This machine's connection to `serverUrl`, resolved WITHOUT the slow `agentnexus
  * host status` subprocess: daemon metadata + process state come from the
  * on-disk registry ({@link readDaemonRecords}), and tunnel health from one
  * basic request ({@link probeHostTunnel}). Returns `{ connected, process,

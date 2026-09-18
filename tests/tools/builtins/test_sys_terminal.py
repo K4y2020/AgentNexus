@@ -1,7 +1,7 @@
 """
 Unit tests for the ``sys_terminal_*`` tool family.
 
-Per ``designs/OMNIGENT_TERMINAL_BRIDGE.md`` §8.2, these tests use the
+Per ``designs/AGENTNEXUS_TERMINAL_BRIDGE.md`` §8.2, these tests use the
 established ``tests/tools/builtins/test_terminal.py`` pattern from
 the deleted legacy suite: monkeypatch
 ``_globals._terminal_registry`` to inject a fresh
@@ -22,16 +22,16 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities.conversation import MessageData
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
-from omnigent.runtime import _globals
-from omnigent.spec.types import AgentSpec
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.entities.conversation import MessageData
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
+from agentnexus.runtime import _globals
+from agentnexus.spec.types import AgentSpec
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.terminals.registry import TerminalRegistry
-from omnigent.tools.base import Tool, ToolContext
-from omnigent.tools.builtins.sys_terminal import (
+from agentnexus.terminals.registry import TerminalRegistry
+from agentnexus.tools.base import Tool, ToolContext
+from agentnexus.tools.builtins.sys_terminal import (
     SysTerminalCloseTool,
     SysTerminalLaunchTool,
     SysTerminalListTool,
@@ -494,7 +494,7 @@ def test_cwd_resolution_uses_workspace_when_spec_cwd_is_dot(
     """
     Per §4.6: when the spec's ``os_env.cwd`` is the bare ``"."``
     placeholder, the launch falls through to ``ctx.workspace``.
-    This is the load-bearing fix — under Omnigent mode, AP's process
+    This is the load-bearing fix — under AgentNexus mode, AP's process
     cwd is meaningless to the agent.
 
     Tests the resolver in isolation by inspecting the resolved

@@ -25,13 +25,13 @@ describe("alwaysSteerPreferences", () => {
   it('treats any non-"true" stored value as off (defensive against hand edits)', () => {
     // Only the exact string "true" enables always-steer; garbage or a stale
     // format reads as off rather than silently changing dispatch behavior.
-    localStorage.setItem("omnigent:always-steer", "1");
+    localStorage.setItem("agentnexus:always-steer", "1");
     expect(readAlwaysSteer()).toBe(false);
 
-    localStorage.setItem("omnigent:always-steer", "yes");
+    localStorage.setItem("agentnexus:always-steer", "yes");
     expect(readAlwaysSteer()).toBe(false);
 
-    localStorage.setItem("omnigent:always-steer", "true");
+    localStorage.setItem("agentnexus:always-steer", "true");
     expect(readAlwaysSteer()).toBe(true);
   });
 

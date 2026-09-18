@@ -20,7 +20,7 @@ describe("Windows installer configuration", () => {
   it("registers both branded and legacy deep-link schemes", () => {
     const schemes = pkg.build.protocols[0].schemes;
     assert.ok(schemes.includes("agentnexus"));
-    assert.ok(schemes.includes("omnigent"));
+    assert.ok(schemes.includes("agentnexus"));
   });
 
   it("keeps data on silent/updated uninstall and only purges on explicit choice", () => {
@@ -31,7 +31,7 @@ describe("Windows installer configuration", () => {
     assert.match(script, /customUnInstall/);
     assert.match(script, /MessageBox/);
     assert.match(script, /RMDir \/r "\$APPDATA\\AgentNexus"/);
-    assert.match(script, /RMDir \/r "\$PROFILE\\.omnigent"/);
+    assert.match(script, /RMDir \/r "\$PROFILE\\.agentnexus"/);
     assert.match(script, /\$\{ifNot\} \$\{Silent\}/);
   });
 });

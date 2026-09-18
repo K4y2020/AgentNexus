@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from sqlalchemy.exc import StatementError
 
-from omnigent.entities import Conversation, ConversationItem, MessageData, PagedList
-from omnigent.server.routes import sessions as _sessions_mod
-from omnigent.server.routes.sessions import (
+from agentnexus.entities import Conversation, ConversationItem, MessageData, PagedList
+from agentnexus.server.routes import sessions as _sessions_mod
+from agentnexus.server.routes.sessions import (
     _LABEL_VALUE_MAX_LEN,
     SessionLiveness,
     _get_session_snapshot,
@@ -20,7 +20,7 @@ from omnigent.server.routes.sessions import (
     _publish_subtree_cost_to_ancestors,
     _truncate_label,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 
 async def _drain_runner_skills(session_id: str) -> None:
@@ -322,8 +322,8 @@ async def test_session_snapshot_uses_child_spec_metadata(
             cache_loads.append(expand_env)
             return type("LoadedAgent", (), {"spec": parent_spec})()
 
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: None)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     parent = await _get_session_snapshot(
         conv_store,  # type: ignore[arg-type]
@@ -426,10 +426,10 @@ async def test_session_snapshot_unresolvable_sub_agent_warns_and_reports_parent(
             assert (agent_id, bundle_location) == ("ag_advisor", "bundle")
             return type("LoadedAgent", (), {"spec": parent_spec})()
 
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: None)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.server.routes._sessions.orchestration"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.server.routes._sessions.orchestration"):
         child = await _get_session_snapshot(
             conv_store,  # type: ignore[arg-type]
             "conv_child",
@@ -491,7 +491,7 @@ async def test_session_snapshot_surfaces_runner_exit_report_as_failed() -> None:
     the web's synthetic-error path renders. Without this, a reload after a
     runner crash shows no error.
     """
-    from omnigent.server.host_registry import RunnerExitReports
+    from agentnexus.server.host_registry import RunnerExitReports
 
     conv = Conversation(
         id="87876a3cec563d43c2430b633747c7b7",
@@ -541,8 +541,8 @@ async def test_session_snapshot_surfaces_status_error_labels_as_last_task_error(
         root_conversation_id="bb66c1adb93f9520bc882bcd05c838e2",
         agent_id="087b7cb7ac30abf4debfaa578d052ec6",
         labels={
-            "omnigent.last_task_error_code": "required_terminal_exited",
-            "omnigent.last_task_error_message": "Required terminal exited unexpectedly",
+            "agentnexus.last_task_error_code": "required_terminal_exited",
+            "agentnexus.last_task_error_message": "Required terminal exited unexpectedly",
         },
     )
     conv_store = _ConversationStore(
@@ -568,7 +568,7 @@ async def test_session_snapshot_no_exit_report_stays_unfailed() -> None:
     Guards the override from firing for healthy/idle sessions — only a
     recorded crash for THIS session's runner should flip it.
     """
-    from omnigent.server.host_registry import RunnerExitReports
+    from agentnexus.server.host_registry import RunnerExitReports
 
     conv = Conversation(
         id="428fdbbaac5e190e6360103acc4fe6c5",
@@ -601,7 +601,7 @@ async def test_session_snapshot_queries_runner_on_cache_miss(
 ) -> None:
     """When _session_status_cache is empty, the snapshot should
     query the runner for live status."""
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
 
@@ -622,7 +622,7 @@ async def test_session_snapshot_queries_runner_on_cache_miss(
 
     fake_client = _FakeRunnerClient()
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_client",
+        "agentnexus.runtime.get_runner_client",
         lambda: fake_client,
     )
 
@@ -662,17 +662,17 @@ async def test_session_snapshot_defaults_idle_when_runner_unreachable(
 ) -> None:
     """When the runner is unreachable on cache miss, status
     defaults to idle rather than crashing."""
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
 
     # No runner client available (both router and singleton).
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_client",
+        "agentnexus.runtime.get_runner_client",
         lambda: None,
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_router",
+        "agentnexus.runtime.get_runner_router",
         lambda: None,
     )
 
@@ -698,7 +698,7 @@ async def test_session_snapshot_uses_router_when_singleton_unset(
     had an active turn — which is exactly the cold-start race that
     flaked ``test_native_session_happy_path_via_ws_tunnel``.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -718,7 +718,7 @@ async def test_session_snapshot_uses_router_when_singleton_unset(
             self.get_calls.append(url)
             return _FakeResponse()
 
-    from omnigent.runner.routing import RoutedRunner
+    from agentnexus.runner.routing import RoutedRunner
 
     fake_client = _FakeRunnerClient()
 
@@ -735,11 +735,11 @@ async def test_session_snapshot_uses_router_when_singleton_unset(
     # Singleton stays None (production-shape router-only deployment);
     # router resolves the runner via the conversation's affinity.
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_client",
+        "agentnexus.runtime.get_runner_client",
         lambda: None,
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_router",
+        "agentnexus.runtime.get_runner_router",
         lambda: fake_router,
     )
 
@@ -772,7 +772,7 @@ async def test_session_snapshot_includes_skills_from_runner(
     (discovered against the runner's filesystem), so the web composer
     can list them in its slash-command menu.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -804,8 +804,8 @@ async def test_session_snapshot_includes_skills_from_runner(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv_store = _ConversationStore([_message_item("item_1", "hi")])
     # First poll returns [] and kicks the background fetch; a later poll serves them.
@@ -847,7 +847,7 @@ async def test_session_snapshot_includes_model_options_from_runner(
     regresses to a hardcoded frontend list, this runner path would not be
     called and the snapshot would stay empty.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -894,8 +894,8 @@ async def test_session_snapshot_includes_model_options_from_runner(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id=session_id,
@@ -947,7 +947,7 @@ async def test_kiro_session_snapshot_loads_runner_model_catalog(
     route), so the server's loader must drop to the legacy harness-named
     route and serve its rows — the compat lane until 0.11.0.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._runner_skills_cache.clear()
     _mod._runner_skills_inflight.clear()
@@ -993,8 +993,8 @@ async def test_kiro_session_snapshot_loads_runner_model_catalog(
 
     session_id = "5c782829093f4ebcbf18684eed8a9155"
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
     conv = Conversation(
         id=session_id,
         created_at=1,
@@ -1032,7 +1032,7 @@ async def test_claude_session_snapshot_loads_launch_time_model_aliases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Claude snapshots populate from the runner's launch-time catalog."""
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1080,8 +1080,8 @@ async def test_claude_session_snapshot_loads_launch_time_model_aliases(
 
     session_id = "conv_claude_options"
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
     conv = Conversation(
         id=session_id,
         created_at=1,
@@ -1120,10 +1120,10 @@ async def test_session_snapshot_serves_pi_model_options_from_extension_push(
     ``ctx.modelRegistry``) via ``external_model_options``, landing in
     ``_pushed_model_options_cache``. The snapshot serves that directly — no
     runner round-trip — so the picker populates regardless of how pi
-    authenticated (Omnigent provider OR pi's own ``/login``). Before any push,
+    authenticated (AgentNexus provider OR pi's own ``/login``). Before any push,
     the snapshot returns ``[]`` and hides the picker.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1151,8 +1151,8 @@ async def test_session_snapshot_serves_pi_model_options_from_extension_push(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id="conv_pi_options",
@@ -1177,7 +1177,7 @@ async def test_session_snapshot_serves_pi_model_options_from_extension_push(
     assert before.model_options == []
 
     # The ``external_model_options`` handler lands the catalog here.
-    from omnigent.server.schemas import SessionEventInput
+    from agentnexus.server.schemas import SessionEventInput
 
     _mod._persist_external_model_options(
         "conv_pi_options",
@@ -1212,7 +1212,7 @@ async def test_session_snapshot_fetches_live_cursor_model_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Cursor options are fetched from the runner and cached for later snapshots."""
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1251,8 +1251,8 @@ async def test_session_snapshot_fetches_live_cursor_model_options(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id="4747fb03a3b45bb1f96bf130f4d704e5",
@@ -1301,7 +1301,7 @@ async def test_snapshot_refresh_scopes_cached_options_to_cursor(
     for Cursor until the live response replaces it; Codex retains its existing
     drop-on-refresh behavior.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1350,8 +1350,8 @@ async def test_snapshot_refresh_scopes_cached_options_to_cursor(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id="3626053dfa9668a8604cc06e0b590ae0",
@@ -1402,7 +1402,7 @@ async def test_session_snapshot_serves_cached_model_options_while_runner_offline
     marks the catalog stale, and a ``refresh_state`` snapshot that resolves
     no runner client keeps serving the cached rows.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     session_id = "conv_offline_catalog"
     _mod._session_status_cache.clear()
@@ -1429,8 +1429,8 @@ async def test_session_snapshot_serves_cached_model_options_while_runner_offline
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id=session_id,
@@ -1459,7 +1459,7 @@ async def test_session_snapshot_serves_cached_model_options_while_runner_offline
     _mod._invalidate_runner_backed_snapshot_state(
         session_id, cancel_inflight=True, drop_model_options=False
     )
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: None)
 
     refreshed = await _get_session_snapshot(
         conv_store,  # type: ignore[arg-type]
@@ -1481,7 +1481,7 @@ async def test_session_snapshot_refetches_stale_model_options_after_relaunch(
     while a background re-fetch runs, and once that lands a later snapshot
     serves the runner's current catalog.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     session_id = "conv_stale_catalog"
     _mod._session_status_cache.clear()
@@ -1511,8 +1511,8 @@ async def test_session_snapshot_refetches_stale_model_options_after_relaunch(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id=session_id,
@@ -1573,7 +1573,7 @@ async def test_session_snapshot_fills_cold_claude_catalog_from_host(
     Host rows are stale-marked so the next live runner replaces them with
     its launch-exact catalog.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     session_id = "conv_host_catalog"
     _mod._session_status_cache.clear()
@@ -1583,8 +1583,8 @@ async def test_session_snapshot_fills_cold_claude_catalog_from_host(
     _mod._model_options_inflight.clear()
     _mod._model_options_stale.discard(session_id)
 
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: None)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     host_queries: list[str] = []
 
@@ -1637,7 +1637,7 @@ async def test_session_snapshot_retries_empty_model_options(
     Older runners returned ``200 {"models": []}`` for that window; caching
     that response permanently hid the picker until AP restart.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1685,8 +1685,8 @@ async def test_session_snapshot_retries_empty_model_options(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id="a17f935755fe66e4a0f42878eee28820",
@@ -1736,7 +1736,7 @@ async def test_session_snapshot_retries_503_model_options(
     should stay alive across that transient 503 and publish/cache the catalog
     once the next retry succeeds.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1797,8 +1797,8 @@ async def test_session_snapshot_retries_503_model_options(
             return _FakeResponse({"status": "idle"})
 
     fake_client = _FakeRunnerClient()
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: fake_client)
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: fake_client)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     conv = Conversation(
         id="a5cf1ddab988dcc43e643401b70c56d0",
@@ -1847,7 +1847,7 @@ async def test_session_snapshot_publishes_skills_event_when_fetch_resolves(
     empty until the next bind (the bug that motivated this event): the
     first snapshot poll serves ``[]`` and the web query does not poll.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -1869,8 +1869,8 @@ async def test_session_snapshot_publishes_skills_event_when_fetch_resolves(
                 )
             return _FakeResponse({"status": "idle"})
 
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: _FakeRunnerClient())
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: _FakeRunnerClient())
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
     # Capture session-stream publishes by rebinding the module's
     # ``session_stream`` reference to a recorder. Rebinding the name in
@@ -1917,15 +1917,15 @@ async def test_session_snapshot_skills_empty_without_runner(
     client), skills come back ``[]`` rather than crashing — discovery
     is runner-owned and there is nothing to query.
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_client",
+        "agentnexus.runtime.get_runner_client",
         lambda: None,
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_router",
+        "agentnexus.runtime.get_runner_router",
         lambda: None,
     )
     conv_store = _ConversationStore([_message_item("item_1", "hi")])
@@ -1947,7 +1947,7 @@ async def test_session_snapshot_skills_empty_on_malformed_runner_payload(
     or a non-JSON body) must not break the snapshot — skills fall back to
     ``[]`` (the documented best-effort contract).
     """
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
 
@@ -1966,8 +1966,8 @@ async def test_session_snapshot_skills_empty_on_malformed_runner_payload(
                 return _FakeResponse({"skills": [{"oops": "no name"}]})
             return _FakeResponse({"status": "idle"})
 
-    monkeypatch.setattr("omnigent.runtime.get_runner_client", lambda: _FakeRunnerClient())
-    monkeypatch.setattr("omnigent.runtime.get_runner_router", lambda: None)
+    monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: _FakeRunnerClient())
+    monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
     conv_store = _ConversationStore([_message_item("item_1", "hi")])
 
     snapshot = await _get_session_snapshot(
@@ -1986,8 +1986,8 @@ async def test_session_snapshot_prefers_router_over_singleton(
     router wins — it knows the per-conversation runner affinity, the
     singleton is process-wide and only correct in single-runner mode.
     """
-    from omnigent.runner.routing import RoutedRunner
-    from omnigent.server.routes import sessions as _mod
+    from agentnexus.runner.routing import RoutedRunner
+    from agentnexus.server.routes import sessions as _mod
 
     _mod._session_status_cache.clear()
     _mod._runner_skills_cache.clear()
@@ -2018,11 +2018,11 @@ async def test_session_snapshot_prefers_router_over_singleton(
             return RoutedRunner(runner_id="runner_test", client=router_client)  # type: ignore[arg-type]
 
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_router",
+        "agentnexus.runtime.get_runner_router",
         lambda: _FakeRouter(),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_runner_client",
+        "agentnexus.runtime.get_runner_client",
         lambda: singleton_client,
     )
 
@@ -2392,7 +2392,7 @@ def test_truncate_label_empty_string() -> None:
 async def test_persist_error_labels_truncates_long_message() -> None:
     """A failure message longer than 256 chars is truncated before the store
     write, preventing the ``DataError`` that silently dropped the reason."""
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.server.schemas import ErrorDetail
 
     captured: dict[str, dict[str, str]] = {}
 
@@ -2407,7 +2407,7 @@ async def test_persist_error_labels_truncates_long_message() -> None:
         "0099dc8be6d82871e2e450424d46d1b7", error, _MockStore()
     )  # type: ignore[arg-type]
 
-    stored = captured["0099dc8be6d82871e2e450424d46d1b7"]["omnigent.last_task_error_message"]
+    stored = captured["0099dc8be6d82871e2e450424d46d1b7"]["agentnexus.last_task_error_message"]
     assert len(stored) <= _LABEL_VALUE_MAX_LEN
     # The diagnostic prefix survives so the reload-visible reason is still useful.
     assert stored.startswith("Runner MCP execute failed: ")
@@ -2416,7 +2416,7 @@ async def test_persist_error_labels_truncates_long_message() -> None:
 @pytest.mark.asyncio
 async def test_persist_error_labels_short_message_stored_verbatim() -> None:
     """A short failure message is stored without modification."""
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.server.schemas import ErrorDetail
 
     captured: dict[str, dict[str, str]] = {}
 
@@ -2431,11 +2431,11 @@ async def test_persist_error_labels_short_message_stored_verbatim() -> None:
     )  # type: ignore[arg-type]
 
     assert (
-        captured["d6e1678fb446a1cf5a892e0df60aaba3"]["omnigent.last_task_error_message"]
+        captured["d6e1678fb446a1cf5a892e0df60aaba3"]["agentnexus.last_task_error_message"]
         == "Process exited with code 1"
     )
     assert (
-        captured["d6e1678fb446a1cf5a892e0df60aaba3"]["omnigent.last_task_error_code"]
+        captured["d6e1678fb446a1cf5a892e0df60aaba3"]["agentnexus.last_task_error_code"]
         == "runner_error"
     )
 
@@ -2447,7 +2447,7 @@ def test_runner_reject_detail_combines_error_code_and_detail() -> None:
     """The runner's own ``{error, detail}`` shape reads as ``code: detail``."""
     import httpx
 
-    from omnigent.server.routes.sessions import _runner_reject_detail
+    from agentnexus.server.routes.sessions import _runner_reject_detail
 
     resp = httpx.Response(
         503,
@@ -2466,7 +2466,7 @@ def test_runner_reject_detail_falls_back_through_code_body_and_status() -> None:
     """
     import httpx
 
-    from omnigent.server.routes.sessions import _runner_reject_detail
+    from agentnexus.server.routes.sessions import _runner_reject_detail
 
     req = httpx.Request("POST", "http://runner/v1/sessions/conv_x/events")
 
@@ -2486,7 +2486,7 @@ def test_runner_reject_detail_tolerates_status_only_response_fake() -> None:
     Runner-client stubs across the server tests return lightweight fakes
     without ``json()``; the helper must not raise on them.
     """
-    from omnigent.server.routes.sessions import _runner_reject_detail
+    from agentnexus.server.routes.sessions import _runner_reject_detail
 
     class _Fake:
         status_code = 503
@@ -2502,8 +2502,8 @@ async def test_persist_and_project_structured_error_round_trip() -> None:
     ``_last_task_error_from_labels`` projects them back so a reload renders the
     same clear card instead of just code + message.
     """
-    from omnigent.server.routes.sessions import _last_task_error_from_labels
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.server.routes.sessions import _last_task_error_from_labels
+    from agentnexus.server.schemas import ErrorDetail
 
     captured: dict[str, dict[str, str]] = {}
 
@@ -2542,8 +2542,8 @@ async def test_persist_error_labels_clears_stale_structured_fields() -> None:
     (empty when absent). An error with no title/cause/remediation therefore
     projects back to just code + message.
     """
-    from omnigent.server.routes.sessions import _last_task_error_from_labels
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.server.routes.sessions import _last_task_error_from_labels
+    from agentnexus.server.schemas import ErrorDetail
 
     captured: dict[str, dict[str, str]] = {}
 
@@ -2558,9 +2558,9 @@ async def test_persist_error_labels_clears_stale_structured_fields() -> None:
 
     labels = captured["bb22cc33dd44ee55ff66778899001122"]
     # All structured keys are written empty so a stale value can't leak.
-    assert labels["omnigent.last_task_error_title"] == ""
-    assert labels["omnigent.last_task_error_cause"] == ""
-    assert labels["omnigent.last_task_error_remediation"] == ""
+    assert labels["agentnexus.last_task_error_title"] == ""
+    assert labels["agentnexus.last_task_error_cause"] == ""
+    assert labels["agentnexus.last_task_error_remediation"] == ""
     assert _last_task_error_from_labels(labels) == {
         "code": "runner_error",
         "message": "turn setup failed",

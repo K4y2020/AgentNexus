@@ -10,11 +10,11 @@ strip.
 
 from __future__ import annotations
 
-from omnigent.entities import Conversation
-from omnigent.server.routes._sessions.helpers import (
+from agentnexus.entities import Conversation
+from agentnexus.server.routes._sessions.helpers import (
     _child_session_summary_from_conversation,
 )
-from omnigent.stores.conversation_store import pinned_label_key
+from agentnexus.stores.conversation_store import pinned_label_key
 
 
 def _child(labels: dict[str, str]) -> Conversation:
@@ -41,6 +41,6 @@ def test_child_summary_strips_per_user_pin_keys() -> None:
     )
     summary = _child_session_summary_from_conversation(conv, "conv_parent", None)
     # No pin key of any kind survives — not the canonical one, not a per-user one.
-    assert not any(k.startswith("omnigent.pinned") for k in summary.labels)
+    assert not any(k.startswith("agentnexus.pinned") for k in summary.labels)
     # Unrelated labels are preserved.
     assert summary.labels.get("omni_project") == "Moonshot"

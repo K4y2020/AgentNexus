@@ -18,8 +18,8 @@ import asyncio
 import contextlib
 import sys
 
-from omnigent_ui_sdk.terminal._formatter import StreamingText, StreamReplace
-from omnigent_ui_sdk.terminal._host import TerminalHost
+from agentnexus_ui_sdk.terminal._formatter import StreamingText, StreamReplace
+from agentnexus_ui_sdk.terminal._host import TerminalHost
 from prompt_toolkit.application import get_app
 from rich.markdown import Markdown
 from rich.padding import Padding

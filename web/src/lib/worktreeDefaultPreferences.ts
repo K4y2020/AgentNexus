@@ -2,7 +2,7 @@
 // randomly-named worktree. A project's stored `use_worktree` overrides it;
 // an unset project falls through to this. Mirrors baseBranchPreferences.
 
-const STORAGE_KEY = "omnigent:always-use-worktree";
+const STORAGE_KEY = "agentnexus:always-use-worktree";
 
 /**
  * Read the global "always use a worktree" default. `false` on a server render

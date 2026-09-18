@@ -25,15 +25,15 @@ import shutil
 
 import pytest
 
-from omnigent.runtime.workflow import _find_spec_by_name
-from omnigent.spec.types import (
+from agentnexus.runtime.workflow import _find_spec_by_name
+from agentnexus.spec.types import (
     AgentSpec,
     BuiltinToolConfig,
     ExecutorSpec,
     LLMConfig,
     ToolsConfig,
 )
-from omnigent.tools.builtins.web_fetch import RESEARCHER_NAME, build_researcher_spec
+from agentnexus.tools.builtins.web_fetch import RESEARCHER_NAME, build_researcher_spec
 
 
 @pytest.fixture(autouse=True)

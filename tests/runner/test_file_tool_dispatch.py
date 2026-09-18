@@ -24,7 +24,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import _execute_file_tool, execute_tool
+from agentnexus.runner.tool_dispatch import _execute_file_tool, execute_tool
 
 _CONVERSATION_ID = "conv_sec20870"
 
@@ -240,7 +240,7 @@ def _spawn_server_handler(
     meta_gets: list[str] | None = None,
 ):
     """
-    Build a mock Omnigent-server handler for a fresh named spawn.
+    Build a mock AgentNexus-server handler for a fresh named spawn.
 
     Serves the no-existing-child lookup, the child create, the copy
     endpoint (recording its body and answering with ``mapping`` or an
@@ -323,7 +323,7 @@ async def _run_spawn(
     handler,
 ) -> str:
     """Dispatch one ``sys_session_send`` against ``handler`` and clean up."""
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
@@ -504,7 +504,7 @@ async def test_send_without_file_ids_is_unchanged_and_skips_copy(
 @pytest.mark.asyncio
 async def test_send_by_session_id_rejects_file_ids_before_server_call() -> None:
     """By-session-id sends cannot forward files."""
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     async def _handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f"unexpected server call: {request.method} {request.url}")
@@ -547,7 +547,7 @@ async def test_send_rejects_invalid_file_ids_before_server_call(
     file_ids: list[str],
 ) -> None:
     """Malformed file_ids are rejected before child lookup or copy."""
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     async def _handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f"unexpected server call: {request.method} {request.url}")

@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
-from omnigent.db.db_models import (
+from agentnexus.db.db_models import (
     DEFAULT_WORKSPACE_ID,
     current_workspace_id,
     workspace_scope,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
 
 
 def test_default_workspace_is_zero() -> None:

@@ -60,18 +60,18 @@ function DialogContent({
   // `.ignoresSafeArea(.keyboard)`), so a modal centered on `50%` and capped at
   // `85vh` sizes and positions against the whole screen — its lower half (and a
   // focused field) sit behind the keyboard. `useIOSViewportLock` publishes the
-  // keyboard-aware visible height as `--omnigent-viewport-height` on :root, so
+  // keyboard-aware visible height as `--agentnexus-viewport-height` on :root, so
   // pin both the centering origin and the height cap to it (less the safe-area
   // insets) via inline style — inline beats callers' `max-h-[85vh]`/`top`
   // Tailwind classes (which `cn`'s twMerge would otherwise keep). No-op off iOS.
   const iosViewportStyle: React.CSSProperties = isIOSShell()
     ? {
         // Center within the visible viewport (not the full layout height).
-        top: "calc(var(--omnigent-viewport-height, 100lvh) / 2)",
+        top: "calc(var(--agentnexus-viewport-height, 100lvh) / 2)",
         // Cap to the visible area less both safe insets and a small margin, so
         // the modal can never extend behind the keyboard, notch, or home bar.
         maxHeight:
-          "calc(var(--omnigent-viewport-height, 100lvh) - var(--omnigent-safe-top, 0px) - var(--omnigent-safe-bottom, 0px) - 1rem)",
+          "calc(var(--agentnexus-viewport-height, 100lvh) - var(--agentnexus-safe-top, 0px) - var(--agentnexus-safe-bottom, 0px) - 1rem)",
       }
     : {};
   return (

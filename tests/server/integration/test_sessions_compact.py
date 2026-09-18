@@ -3,7 +3,7 @@
 The web-UI ``/compact`` command and compact button POST
 ``{"type": "compact"}`` to ``POST /v1/sessions/{id}/events``. Per
 ``designs/CLAUDE_NATIVE.md`` ("Control events dispatch on the runner"),
-the Omnigent server forwards the control to the bound runner and lets the
+the AgentNexus server forwards the control to the bound runner and lets the
 runner's harness-specific handler own the operation.
 
 The runner's dispatch contract (verified in
@@ -15,7 +15,7 @@ The runner's dispatch contract (verified in
   entirely by the vendor harness; the server surfaces a 400 error.
 * A failed injection (pane not attached) returns **503**.
 
-These tests pin the Omnigent side of that contract by stubbing the runner's
+These tests pin the AgentNexus side of that contract by stubbing the runner's
 HTTP response and asserting the correct server behaviour.
 """
 
@@ -27,7 +27,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runtime.compaction import CompactionResult
+from agentnexus.runtime.compaction import CompactionResult
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
@@ -54,7 +54,7 @@ def _fake_runner_returning(compact_status: int) -> tuple[httpx.AsyncClient, list
     Build a mock runner client that returns *compact_status* for compact.
 
     The transport records every ``{"type": "compact"}`` body it sees so
-    the test can assert the Omnigent server actually forwarded the control,
+    the test can assert the AgentNexus server actually forwarded the control,
     and returns *compact_status* for those POSTs (204 for any other
     runner POST so unrelated session traffic passes through).
 
@@ -94,23 +94,23 @@ async def test_compact_skips_omnigent_compaction_when_runner_handles_it(
 ) -> None:
     """
     A 200 from the runner (claude-native injected ``/compact``) makes
-    the Omnigent server skip its own compaction.
+    the AgentNexus server skip its own compaction.
 
-    When the runner reports it handled the control (200), the Omnigent
+    When the runner reports it handled the control (200), the AgentNexus
     server must NOT run ``compact_conversation_now`` at all.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     async def _must_not_run(**_: Any) -> CompactionResult:
         """Fail loudly if AP-side compaction is reached on the 200 path."""
         raise AssertionError(
             "compact_conversation_now must not run when the runner "
-            "reported it handled /compact (200). The Omnigent server fell "
+            "reported it handled /compact (200). The AgentNexus server fell "
             "through to its own compaction instead of skipping."
         )
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.compact_conversation_now",
+        "agentnexus.runtime.workflow.compact_conversation_now",
         _must_not_run,
     )
 
@@ -128,7 +128,7 @@ async def test_compact_skips_omnigent_compaction_when_runner_handles_it(
         set_runner_client(None)
 
     # 202 (route default) with queued=False: control forwarded, runner
-    # handled it, Omnigent returned without running (or raising from) its own
+    # handled it, AgentNexus returned without running (or raising from) its own
     # compaction.
     assert resp.status_code == 202, resp.text
     assert resp.json() == {"queued": False}, resp.text
@@ -149,13 +149,13 @@ async def test_compact_returns_error_when_runner_noops(
     behalf. The 204 no-op signals "not handled here" and the server must
     reject the request rather than attempting AP-side compaction.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     async def _must_not_run(**_: Any) -> CompactionResult:
         raise AssertionError("compact_conversation_now must not run when the runner returned 204")
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.compact_conversation_now",
+        "agentnexus.runtime.workflow.compact_conversation_now",
         _must_not_run,
     )
 
@@ -191,7 +191,7 @@ async def test_compact_sdk_harness_no_runner_returns_not_available(
     agent = await create_test_agent(
         client,
         name="sdk-no-runner-compact",
-        executor={"type": "omnigent", "config": {"harness": "openai-agents"}},
+        executor={"type": "agentnexus", "config": {"harness": "openai-agents"}},
         include_llm=False,
     )
     sid = await _create_session(client, agent["id"])
@@ -215,10 +215,10 @@ async def test_compact_errors_when_runner_injection_fails(
 
     A claude-native session whose tmux pane is gone cannot compact, and
     AP-side compaction would be both broken (no LLM) and semantically
-    wrong (summarising the mirror). The Omnigent server must surface the
+    wrong (summarising the mirror). The AgentNexus server must surface the
     failure rather than silently running its own compaction.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     async def _must_not_run(**_: Any) -> CompactionResult:
         raise AssertionError(
@@ -226,7 +226,7 @@ async def test_compact_errors_when_runner_injection_fails(
         )
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.compact_conversation_now",
+        "agentnexus.runtime.workflow.compact_conversation_now",
         _must_not_run,
     )
 
@@ -270,7 +270,7 @@ async def test_compact_native_session_no_runner_returns_reconnect_error(
         )
 
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.compact_conversation_now",
+        "agentnexus.runtime.workflow.compact_conversation_now",
         _must_not_run,
     )
 
@@ -278,7 +278,7 @@ async def test_compact_native_session_no_runner_returns_reconnect_error(
     agent = await create_test_agent(
         client,
         name="claude-native-compact",
-        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        executor={"type": "agentnexus", "config": {"harness": "claude-native"}},
     )
     sid = await _create_session(client, agent["id"])
 
@@ -318,7 +318,7 @@ async def test_external_compaction_status_publishes_compaction_sse(
     external_compaction_status republishes the matching compaction SSE.
 
     The forwarder posts this from Claude's PreCompact (in_progress) and
-    post-compaction SessionStart (completed) hooks. Omnigent must translate it
+    post-compaction SessionStart (completed) hooks. AgentNexus must translate it
     into the same response.compaction.* SSE the web client already
     renders, otherwise the spinner never appears for claude-native
     sessions (the gap the user reported: summary flushes with no
@@ -331,7 +331,7 @@ async def test_external_compaction_status_publishes_compaction_sse(
         published.append((session_id, event))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.session_stream.publish",
+        "agentnexus.server.routes.sessions.session_stream.publish",
         capture_publish,
     )
     agent = await create_test_agent(client)

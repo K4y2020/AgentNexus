@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.errors import _CODE_TO_HTTP_STATUS, ErrorCode, OmnigentError
+from agentnexus.errors import _CODE_TO_HTTP_STATUS, ErrorCode, AgentNexusError
 
 
 def test_harness_protocol_violation_string_value() -> None:
@@ -28,14 +28,14 @@ def test_harness_protocol_violation_maps_to_500() -> None:
 
 
 def test_omnigent_error_with_harness_violation_code_returns_500() -> None:
-    """End-to-end: OmnigentError(code=HARNESS_PROTOCOL_VIOLATION).http_status == 500.
+    """End-to-end: AgentNexusError(code=HARNESS_PROTOCOL_VIOLATION).http_status == 500.
 
     Exercises the public API path that FastAPI's exception handler uses
     to map an error to an HTTP status. If this fails, harness protocol
     violations would surface to clients as 500-with-default rather than
     500-with-the-right-code, masking the bug class.
     """
-    err = OmnigentError(
+    err = AgentNexusError(
         "harness emitted response.completed with outstanding elicitations",
         code=ErrorCode.HARNESS_PROTOCOL_VIOLATION,
     )
@@ -59,7 +59,7 @@ def test_all_error_codes_have_http_status_mapping(code: str, expected_status: in
     """Every public ErrorCode value MUST appear in the mapping.
 
     A code without a mapping silently defaults to 500 in
-    OmnigentError.http_status — not wrong, but it hides drift.
+    AgentNexusError.http_status — not wrong, but it hides drift.
     This parametrized test makes adding a new ErrorCode without
     updating the mapping a noisy failure rather than a silent
     default.

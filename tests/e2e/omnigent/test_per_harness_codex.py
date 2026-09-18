@@ -6,7 +6,7 @@ server and snapshots structural observations (exit code, stderr
 cleanliness, assistant text length).
 
 **What breaks if this fails:**
-- Omnigent' ``CodexExecutor`` regresses (``codex app-server``
+- AgentNexus' ``CodexExecutor`` regresses (``codex app-server``
   subprocess orchestration, App Server JSON-RPC protocol, the
   message-stream translation in ``codex_executor.run_turn``).
 - The ``codex`` CLI binary disappears from PATH or its
@@ -14,7 +14,7 @@ cleanliness, assistant text length).
 - ``omnigent.cli._run_agent`` for the ``-p`` one-shot path
   stops printing assistant text to stdout on turn complete.
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 per-harness suite.
 
 **Serial execution note:** These tests are designed for serial
@@ -37,8 +37,8 @@ from typing import Any
 
 import pytest
 
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 _HARNESS = "codex"
 _PROMPT = "say hi in 5 words"
@@ -119,7 +119,7 @@ def test_per_harness_codex_one_shot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

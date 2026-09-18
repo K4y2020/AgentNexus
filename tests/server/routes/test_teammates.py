@@ -14,14 +14,14 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.db.utils import generate_agent_id
-from omnigent.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.routes.teammates import create_teammates_router
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.routes.teammates import create_teammates_router
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
     SqlAlchemyScheduledTaskStore,
 )
 
@@ -119,8 +119,8 @@ async def test_teammates_backfills_primary_a2a_and_topics_once(
     primary = conversation_store.create_conversation(agent_id=agent_id, title="Polly")
     a2a = conversation_store.create_conversation(agent_id=agent_id, title="A2A")
     topic = conversation_store.create_conversation(agent_id=agent_id, title="Topic")
-    conversation_store.set_labels(primary.id, {"omnigent.teammate.primary": "true"})
-    conversation_store.set_labels(a2a.id, {"omnigent.teammate.channel": "a2a"})
+    conversation_store.set_labels(primary.id, {"agentnexus.teammate.primary": "true"})
+    conversation_store.set_labels(a2a.id, {"agentnexus.teammate.channel": "a2a"})
 
     async with await _client(stores) as client:
         first = await client.get("/v1/teammates")
@@ -173,7 +173,7 @@ async def test_teammates_resolves_primary_conversation(
     stores: dict[str, object],
     db_uri: str,
 ) -> None:
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -190,7 +190,7 @@ async def test_teammates_resolves_primary_conversation(
         agent_id=agent_id,
         title="bot-with-dm",
     )
-    conv_store.set_labels(primary_conv_id, {"omnigent.teammate.primary": "true"})
+    conv_store.set_labels(primary_conv_id, {"agentnexus.teammate.primary": "true"})
 
     async with await _client(stores) as client:
         resp = await client.get("/v1/teammates")

@@ -29,9 +29,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent import qwen_native_permissions as qnp
-from omnigent.qwen_native_bridge import events_file_path, input_file_path
-from omnigent.qwen_native_permissions import (
+from agentnexus import qwen_native_permissions as qnp
+from agentnexus.qwen_native_bridge import events_file_path, input_file_path
+from agentnexus.qwen_native_permissions import (
     parse_can_use_tool,
     qwen_permission_elicitation_id,
 )

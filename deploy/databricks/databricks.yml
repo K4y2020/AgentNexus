@@ -1,15 +1,15 @@
-# Databricks Asset Bundle config for the Omnigent Databricks App.
+# Databricks Asset Bundle config for the AgentNexus Databricks App.
 #
 # Every knob the app exposes lives here. deploy.py wraps `databricks
 # bundle deploy` + `bundle run`; per-app values are passed as `--var`
 # pairs (see deploy.py / README.md).
 
 bundle:
-  name: omnigent
+  name: agentnexus
 
 variables:
   app_name:
-    description: "Databricks App name (e.g. omnigent)."
+    description: "Databricks App name (e.g. agentnexus)."
   lakebase_branch:
     description: "projects/<app>/branches/production"
   lakebase_database:
@@ -20,7 +20,7 @@ variables:
     description: >
       UC schema (catalog.schema) holding the OTel destination tables.
       The platform writes to <schema>.otel_logs, otel_metrics, otel_spans.
-    default: main.omnigent_logs
+    default: main.agentnexus_logs
   features:
     description: "Comma-separated deployment-wide release features."
     default: ""
@@ -49,7 +49,7 @@ variables:
         value_from: artifact_volume
       - name: OTEL_TRACES_SAMPLER
         value: 'always_on'
-      - name: OMNIGENT_FEATURES
+      - name: AGENTNEXUS_FEATURES
         value: "${var.features}"
   otel_export_destinations:
     type: complex
@@ -68,9 +68,9 @@ resources:
   apps:
     # Resource key must match _BUNDLE_RESOURCE_KEY in deploy.py. The app's
     # display name comes from ${var.app_name}.
-    omnigent:
+    agentnexus:
       name: ${var.app_name}
-      description: "Omnigent server backed by Lakebase + UC Volumes."
+      description: "AgentNexus server backed by Lakebase + UC Volumes."
       source_code_path: ./src
       # compute_size is intentionally NOT declared here. Terraform's
       # databricks_app provider uses an apps update API that rejects
@@ -111,7 +111,7 @@ targets:
     workspace: *prod_workspace
     resources:
       apps:
-        omnigent:
+        agentnexus:
           # Databricks Apps platform OTel export. The platform auto-injects
           # OTEL_EXPORTER_OTLP_ENDPOINT into the app container so any OTLP
           # emitter (including telemetry.init() in src/app.py) routes to the
@@ -139,6 +139,6 @@ targets:
           value_from: postgres
         - name: AP_ARTIFACT_VOLUME_PATH
           value_from: artifact_volume
-        - name: OMNIGENT_FEATURES
+        - name: AGENTNEXUS_FEATURES
           value: "${var.features}"
       otel_export_destinations: []

@@ -17,7 +17,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import clear_engine_cache, get_or_create_engine
+from agentnexus.db.utils import clear_engine_cache, get_or_create_engine
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_migration_adds_runner_id_column_nullable(db_engine: Engine) -> None:
     it'd need a value at insert time; (3) is mostly cosmetic but a
     drift signal.
     """
-    cols = sa.inspect(db_engine).get_columns("omnigent_conversation_metadata")
+    cols = sa.inspect(db_engine).get_columns("agentnexus_conversation_metadata")
     runner_id_cols = [c for c in cols if c["name"] == "runner_id"]
     assert len(runner_id_cols) == 1, (
         f"Expected exactly one 'runner_id' column on omnigent_conversation_metadata, "
@@ -54,7 +54,7 @@ def test_migration_adds_runner_id_column_nullable(db_engine: Engine) -> None:
         f"If 0, the migration didn't include the column."
     )
     runner_id_col = runner_id_cols[0]
-    assert runner_id_col["nullable"], "omnigent_conversation_metadata.runner_id must be NULLABLE"
+    assert runner_id_col["nullable"], "agentnexus_conversation_metadata.runner_id must be NULLABLE"
     # SQLite reports VARCHAR(64) as VARCHAR(64); SQLAlchemy normalizes the
     # type. Compare on the type's class string rather than the raw repr.
     assert "VARCHAR" in str(runner_id_col["type"]).upper(), (
@@ -126,9 +126,9 @@ def test_no_foreign_key_constraint_on_runner_id(db_engine: Engine) -> None:
     A FK here would either (a) require a runners table we don't have,
     or (b) silently succeed against a phantom row. Either is wrong.
     """
-    fks = sa.inspect(db_engine).get_foreign_keys("omnigent_conversation_metadata")
+    fks = sa.inspect(db_engine).get_foreign_keys("agentnexus_conversation_metadata")
     runner_fks = [fk for fk in fks if "runner_id" in fk.get("constrained_columns", [])]
     assert runner_fks == [], (
-        f"omnigent_conversation_metadata.runner_id should have no FK; got {runner_fks}. "
+        f"agentnexus_conversation_metadata.runner_id should have no FK; got {runner_fks}. "
         f"Runner records aren't persisted in v1, so any FK would be a bug."
     )

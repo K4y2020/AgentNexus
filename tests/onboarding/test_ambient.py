@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.onboarding import ambient
-from omnigent.onboarding.ambient import (
+from agentnexus.onboarding import ambient
+from agentnexus.onboarding.ambient import (
     DetectedProvider,
     detect_providers,
 )
@@ -25,15 +25,15 @@ from omnigent.onboarding.ambient import (
 # the host's own keys don't leak into the deterministic detection tests.
 _PROVIDER_ENV_VARS = [
     "ANTHROPIC_API_KEY",
-    "OMNIGENT_ANTHROPIC_API_KEY",
+    "AGENTNEXUS_ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
-    "OMNIGENT_OPENAI_API_KEY",
+    "AGENTNEXUS_OPENAI_API_KEY",
     "OPENAI_BASE_URL",
-    "OMNIGENT_OPENAI_BASE_URL",
+    "AGENTNEXUS_OPENAI_BASE_URL",
     "OPENROUTER_API_KEY",
-    "OMNIGENT_OPENROUTER_API_KEY",
+    "AGENTNEXUS_OPENROUTER_API_KEY",
     "GEMINI_API_KEY",
-    "OMNIGENT_GEMINI_API_KEY",
+    "AGENTNEXUS_GEMINI_API_KEY",
     "CLAUDE_CODE_USE_VERTEX",
     "ANTHROPIC_VERTEX_PROJECT_ID",
     "CLOUD_ML_REGION",
@@ -56,7 +56,7 @@ def clean_env(tmp_path, monkeypatch: pytest.MonkeyPatch):
     :param monkeypatch: pytest's env/attr patching fixture.
     :returns: The tmp HOME path, e.g. ``"/tmp/pytest-.../test_x0"``.
     """
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     monkeypatch.setenv("HOME", str(tmp_path))
     for var in _PROVIDER_ENV_VARS:
@@ -122,8 +122,8 @@ def test_env_key_detection(
 def test_env_key_detection_accepts_omnigent_prefixed_alias(
     clean_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An ``OMNIGENT_``-prefixed key is detected without setting the raw name."""
-    monkeypatch.setenv("OMNIGENT_ANTHROPIC_API_KEY", "some-secret-value")
+    """An ``AGENTNEXUS_``-prefixed key is detected without setting the raw name."""
+    monkeypatch.setenv("AGENTNEXUS_ANTHROPIC_API_KEY", "some-secret-value")
 
     detected = detect_providers()
 
@@ -132,7 +132,7 @@ def test_env_key_detection_accepts_omnigent_prefixed_alias(
             name="anthropic",
             kind="key",
             family="anthropic",
-            source="$OMNIGENT_ANTHROPIC_API_KEY",
+            source="$AGENTNEXUS_ANTHROPIC_API_KEY",
         )
     ]
 
@@ -330,7 +330,7 @@ def test_claude_macos_keychain_login_detected(clean_env, monkeypatch: pytest.Mon
     # No ~/.claude/.credentials.json under the tmp HOME → file check is False,
     # forcing the macOS Keychain fallback. The fallback asks the CLI (which
     # reads the Keychain); stub it so no real ``claude auth status`` runs.
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     seen_keys: list[str] = []
 
@@ -362,7 +362,7 @@ def test_claude_macos_keychain_absent_not_detected(
     fallback fabricates a subscription whenever the file happens to be missing.
     """
     monkeypatch.setattr(ambient.sys, "platform", "darwin")
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     seen_keys: list[str] = []
 
@@ -385,7 +385,7 @@ def test_claude_linux_no_keychain_cli_fallback(clean_env, monkeypatch: pytest.Mo
     called, so any Linux invocation of the CLI fallback fails the test.
     """
     monkeypatch.setattr(ambient.sys, "platform", "linux")
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     def _must_not_call(key: str) -> bool:
         raise AssertionError(f"CLI fallback must not run on Linux (key={key!r})")
@@ -406,7 +406,7 @@ def test_claude_macos_file_present_skips_cli_fallback(
     fallback fails the test.
     """
     monkeypatch.setattr(ambient.sys, "platform", "darwin")
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     def _must_not_call(key: str) -> bool:
         raise AssertionError(f"file-present path must not invoke the CLI (key={key!r})")
@@ -543,7 +543,7 @@ def test_codex_config_provider_transport_reads_base_url_and_auth(clean_env) -> N
     point Pi at the user's Databricks gateway. The ``[X.auth]`` command + args
     are rebuilt into a single shell-safe string.
     """
-    from omnigent.onboarding.ambient import (
+    from agentnexus.onboarding.ambient import (
         _codex_config_path,
         codex_config_provider_transport,
     )
@@ -559,7 +559,7 @@ def test_codex_config_provider_transport_reads_base_url_and_auth(clean_env) -> N
 
 def test_codex_config_provider_transport_missing_table_returns_none(clean_env) -> None:
     """An absent / unnamed ``[model_providers.X]`` table → ``None``."""
-    from omnigent.onboarding.ambient import (
+    from agentnexus.onboarding.ambient import (
         _codex_config_path,
         codex_config_provider_transport,
     )
@@ -748,7 +748,7 @@ def test_vertex_claude_detected_with_all_env_vars(
     Claude Code natively supports Vertex AI via CLAUDE_CODE_USE_VERTEX,
     ANTHROPIC_VERTEX_PROJECT_ID, and CLOUD_ML_REGION. When all three are
     set, ambient detection must surface a vertex-claude provider so
-    Omnigent recognises the credential and routes through the CLI's own
+    AgentNexus recognises the credential and routes through the CLI's own
     Vertex auth (GCP ADC).
     """
     monkeypatch.setenv("CLAUDE_CODE_USE_VERTEX", "1")
@@ -915,7 +915,7 @@ def test_claude_managed_gateway_wins_over_cli_login_no_double_count(
     `claude auth status` reports a managed apiKeyHelper as logged in, so the two
     signals describe the same credential; detection must not emit it twice.
     """
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     monkeypatch.setattr(harness_install, "harness_cli_logged_in", lambda key: True)
     _write_managed_settings(clean_env, monkeypatch, _ISAAC_CLAUDE_SETTINGS)
@@ -926,7 +926,7 @@ def test_claude_managed_gateway_wins_over_cli_login_no_double_count(
 
 def test_claude_cli_login_still_detected_without_managed_gateway(clean_env, monkeypatch) -> None:
     """With no managed gateway, an ordinary CLI login is still detected."""
-    from omnigent.onboarding import harness_install
+    from agentnexus.onboarding import harness_install
 
     monkeypatch.setattr(harness_install, "harness_cli_logged_in", lambda key: True)
     monkeypatch.setattr(ambient.sys, "platform", "darwin")
@@ -942,7 +942,7 @@ def test_claude_managed_gateway_synthesizes_a_subscription_entry(clean_env, monk
     `{kind: subscription, cli: claude}` — a value every released parser accepts —
     with NO `cli-config` / `model_provider` / new field.
     """
-    from omnigent.onboarding.detected import synthesize_detected_entries
+    from agentnexus.onboarding.detected import synthesize_detected_entries
 
     _write_managed_settings(clean_env, monkeypatch, _ISAAC_CLAUDE_SETTINGS)
     entries = synthesize_detected_entries(detect_providers())

@@ -39,7 +39,7 @@ import pytest
 # module name so we're actually testing the code we just
 # edited. Same pattern the e2e suite uses via PYTHONPATH.
 _SDK_ROOT = (
-    Path(__file__).resolve().parents[2].parent / "sdks" / "python-client" / "omnigent_client"
+    Path(__file__).resolve().parents[2].parent / "sdks" / "python-client" / "agentnexus_client"
 )
 
 
@@ -534,7 +534,7 @@ def _load_repl_module() -> Any:
     """
     import importlib
 
-    import omnigent.repl._repl as repl_mod
+    import agentnexus.repl._repl as repl_mod
 
     importlib.reload(repl_mod)
     return repl_mod

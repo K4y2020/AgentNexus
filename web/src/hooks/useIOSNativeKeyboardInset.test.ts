@@ -12,9 +12,9 @@ import { useIOSNativeKeyboardVisible } from "./useIOSNativeKeyboardInset";
 
 function setIOS(on: boolean): void {
   if (on) {
-    (window as unknown as Record<string, unknown>).omnigentNative = { kind: "ios" };
+    (window as unknown as Record<string, unknown>).agentnexusNative = { kind: "ios" };
   } else {
-    delete (window as unknown as Record<string, unknown>).omnigentNative;
+    delete (window as unknown as Record<string, unknown>).agentnexusNative;
   }
 }
 

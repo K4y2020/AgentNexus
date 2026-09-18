@@ -8,7 +8,7 @@ so request-phase policies read the typed message and attachments uniformly.
 
 from __future__ import annotations
 
-from omnigent.policies.schema import request_attachments, request_user_text
+from agentnexus.policies.schema import request_attachments, request_user_text
 
 
 def test_request_user_text_from_dict() -> None:

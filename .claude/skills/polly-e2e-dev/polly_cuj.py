@@ -2,7 +2,7 @@
 """Deterministic mock-LLM CUJ driver for the polly coding orchestrator.
 
 This is the *reproducible loop* half of the ``polly-e2e-dev`` skill. It boots a
-throwaway local Omnigent server from the current checkout (which carries
+throwaway local AgentNexus server from the current checkout (which carries
 ``omnigent.inner.nessie.policies`` — the module polly's guardrails resolve) plus
 the repo's mock-LLM server, rewrites the ``examples/polly`` bundle to the
 ``openai-agents`` harness wired to the mock, then drives ``omnigent run`` turns
@@ -234,11 +234,11 @@ _CREDENTIAL_VARS = (
 def _run_env(mock_url: str) -> dict[str, str]:
     """Env for the ``omnigent run`` subprocess: isolated config, mock provider."""
     env = dict(os.environ)
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
     config_home = Path(tempfile.mkdtemp(prefix="polly-cuj-config-"))
     (config_home / "config.yaml").write_text("", encoding="utf-8")
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
     for stale in _CREDENTIAL_VARS:
         env.pop(stale, None)
     env["OPENAI_BASE_URL"] = f"{mock_url}/v1"
@@ -264,9 +264,9 @@ def _runner_pids() -> set[int]:
     """
     pids: set[int] = set()
     for module in (
-        "omnigent.host._daemon_entry",
-        "omnigent.runner._entry",
-        "omnigent.runtime.harnesses._runner",
+        "agentnexus.host._daemon_entry",
+        "agentnexus.runner._entry",
+        "agentnexus.runtime.harnesses._runner",
     ):
         try:
             out = subprocess.run(
@@ -296,7 +296,7 @@ def _kill(pids: set[int]) -> None:
 
 @dataclass
 class _Servers:
-    """Handles for the mock LLM + local Omnigent server."""
+    """Handles for the mock LLM + local AgentNexus server."""
 
     mock_url: str
     server_url: str
@@ -307,7 +307,7 @@ class _Servers:
 
 @contextmanager
 def _servers(tmp: Path) -> Iterator[_Servers]:
-    """Start the mock LLM and a throwaway local Omnigent server; reap both.
+    """Start the mock LLM and a throwaway local AgentNexus server; reap both.
 
     ``omni run`` turns make the server spawn per-conversation runner/harness
     subprocesses that a plain server SIGTERM does not reap. We snapshot runner
@@ -337,7 +337,7 @@ def _servers(tmp: Path) -> Iterator[_Servers]:
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -349,7 +349,7 @@ def _servers(tmp: Path) -> Iterator[_Servers]:
             str(tmp / "artifacts"),
         ],
         cwd=str(repo),
-        env={**os.environ, "OMNIGENT_SKIP_ONBOARD": "1", "OMNIGENT_NO_UPDATE_CHECK": "1"},
+        env={**os.environ, "AGENTNEXUS_SKIP_ONBOARD": "1", "AGENTNEXUS_NO_UPDATE_CHECK": "1"},
         stdout=server_log,
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -380,7 +380,7 @@ def _run_polly(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(bundle),
             "--server",

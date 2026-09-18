@@ -22,22 +22,22 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.entities import MessageData, NewConversationItem
-from omnigent.runner.identity import RUNNER_TUNNEL_TOKEN_HEADER, token_bound_runner_id
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.auth import LEVEL_EDIT
-from omnigent.server.routes._auth_helpers import attribution_user
-from omnigent.server.routes.sessions import _build_new_item
-from omnigent.server.schemas import SessionEventInput
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.entities import MessageData, NewConversationItem
+from agentnexus.runner.identity import RUNNER_TUNNEL_TOKEN_HEADER, token_bound_runner_id
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import LEVEL_EDIT
+from agentnexus.server.routes._auth_helpers import attribution_user
+from agentnexus.server.routes.sessions import _build_new_item
+from agentnexus.server.schemas import SessionEventInput
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 from tests.server.conftest import ControllableMockClient
@@ -161,7 +161,7 @@ def auth_app(runtime_init: None, db_uri: str, tmp_path: Path) -> FastAPI:
     sentinel (exercised by the attribution tests below) instead of
     being rejected with 401 as on a deployed multi-user server.
     """
-    from omnigent.server.auth import UnifiedAuthProvider
+    from agentnexus.server.auth import UnifiedAuthProvider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -186,8 +186,8 @@ async def auth_client(
     tmp_path: Path,
 ) -> AsyncIterator[httpx.AsyncClient]:
     """Async HTTP client wired to the auth-enabled app."""
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -275,7 +275,7 @@ async def test_post_event_records_authenticated_poster(
     persisted ``created_by``. If the route stopped threading the
     user_id, the read-back below would be ``None``.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub(*_: Any, **__: Any) -> _CaptureRunnerClient:
         return _CaptureRunnerClient()
@@ -310,8 +310,8 @@ async def test_post_event_uses_runner_supplied_created_by(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Runner-originated wake events preserve the triggering collaborator."""
-    from omnigent.server.routes import sessions as sessions_mod
-    from omnigent.server.routes.sessions import routes_events as events_mod
+    from agentnexus.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes.sessions import routes_events as events_mod
 
     async def _stub(*_: Any, **__: Any) -> _CaptureRunnerClient:
         return _CaptureRunnerClient()
@@ -351,7 +351,7 @@ async def test_post_event_rejects_client_supplied_created_by(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Co-editors cannot spoof another editor as the policy actor."""
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub(*_: Any, **__: Any) -> _CaptureRunnerClient:
         return _CaptureRunnerClient()
@@ -383,8 +383,8 @@ async def test_post_event_stale_runner_created_by_falls_back_to_runner_user(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A revoked collaborator cannot strand a trusted runner wake notice."""
-    from omnigent.server.routes import sessions as sessions_mod
-    from omnigent.server.routes.sessions import routes_events as events_mod
+    from agentnexus.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes.sessions import routes_events as events_mod
 
     async def _stub(*_: Any, **__: Any) -> _CaptureRunnerClient:
         return _CaptureRunnerClient()
@@ -429,7 +429,7 @@ async def test_input_consumed_event_carries_created_by(
     would omit it (``None``) and the other client's bubble would stay
     unlabeled until refresh.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub(*_: Any, **__: Any) -> _CaptureRunnerClient:
         return _CaptureRunnerClient()
@@ -551,7 +551,7 @@ async def test_external_conversation_item_direct_terminal_attributes_request_act
     argument, so items persisted with ``None`` and the author label never
     appeared in the web UI for terminal-typed messages.
     """
-    from omnigent.runtime import pending_inputs
+    from agentnexus.runtime import pending_inputs
 
     session_id = _seed_shared_session(db_uri, {"alice@example.com": LEVEL_EDIT})
 

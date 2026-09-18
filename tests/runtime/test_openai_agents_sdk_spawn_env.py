@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 import yaml as _yaml
 
-from omnigent.runtime.workflow import _build_openai_agents_sdk_spawn_env, _load_global_auth
-from omnigent.spec.types import (
+from agentnexus.runtime.workflow import _build_openai_agents_sdk_spawn_env, _load_global_auth
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -33,15 +33,15 @@ from omnigent.spec.types import (
 @pytest.fixture(autouse=True)
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Point OMNIGENT_CONFIG_HOME at an empty temp dir for every test in
+    Point AGENTNEXUS_CONFIG_HOME at an empty temp dir for every test in
     this file so tests that don't explicitly set up a global config are
-    not affected by the developer's real ``~/.omnigent/config.yaml``.
+    not affected by the developer's real ``~/.agentnexus/config.yaml``.
 
     Tests that need a specific global config write their own config.yaml
-    into a separate temp dir and set OMNIGENT_CONFIG_HOME themselves —
+    into a separate temp dir and set AGENTNEXUS_CONFIG_HOME themselves —
     that setenv call wins because monkeypatch applies in call order.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
 
 
 def _make_spec(
@@ -80,7 +80,7 @@ def _make_spec(
         spec_version=1,
         name="test-openai-agents",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -105,7 +105,7 @@ def test_use_responses_config_value_is_interpreted_as_boolean(
 ) -> None:
     """Stringified YAML booleans must not be evaluated by Python truthiness."""
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._resolve_provider_for_build",
+        "agentnexus.runtime.workflow._resolve_provider_for_build",
         lambda *args, **kwargs: None,
     )
     env = _build_openai_agents_sdk_spawn_env(
@@ -216,7 +216,7 @@ def test_reasoning_item_id_policy_threads_into_env_var(
     policy: str,
 ) -> None:
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._resolve_provider_for_build",
+        "agentnexus.runtime.workflow._resolve_provider_for_build",
         lambda *args, **kwargs: None,
     )
     env = _build_openai_agents_sdk_spawn_env(
@@ -249,7 +249,7 @@ def test_profile_injects_ucode_state(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
+    from agentnexus.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
 
     state = UcodeWorkspaceState(
         workspace_url="https://example.databricks.com",
@@ -266,11 +266,11 @@ def test_profile_injects_ucode_state(
         },
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.get_workspace_url_for_profile",
+        "agentnexus.runtime.workflow.get_workspace_url_for_profile",
         lambda profile: "https://example.databricks.com",
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.read_ucode_state",
+        "agentnexus.runtime.workflow.read_ucode_state",
         lambda workspace_url: state,
     )
 
@@ -343,7 +343,7 @@ def test_spec_auth_takes_precedence_over_global_config(
         cfg_path.write_text(
             _yaml.dump({"auth": {"type": "databricks", "profile": "global-profile"}})
         )
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
 
         spec = _make_spec(
             model="databricks-gpt-5-4-mini",
@@ -371,7 +371,7 @@ def test_global_config_auth_used_when_spec_auth_absent(
         cfg_path.write_text(
             _yaml.dump({"auth": {"type": "databricks", "profile": "global-profile"}})
         )
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
         spec = _make_spec(model="databricks-gpt-5-4-mini", auth=None, profile=None)
@@ -390,7 +390,7 @@ def test_load_global_auth_databricks(
     with tempfile.TemporaryDirectory() as td:
         cfg_path = Path(td) / "config.yaml"
         cfg_path.write_text(_yaml.dump({"auth": {"type": "databricks", "profile": "my-profile"}}))
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         result = _load_global_auth()
 
     assert isinstance(result, DatabricksAuth)
@@ -409,7 +409,7 @@ def test_load_global_auth_api_key(
     with tempfile.TemporaryDirectory() as td:
         cfg_path = Path(td) / "config.yaml"
         cfg_path.write_text(_yaml.dump({"auth": {"type": "api_key", "api_key": "$MY_GLOBAL_KEY"}}))
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         result = _load_global_auth()
 
     assert isinstance(result, ApiKeyAuth)
@@ -432,7 +432,7 @@ def test_global_config_auth_not_applied_when_spec_has_legacy_profile(
         cfg_path = Path(td) / "config.yaml"
         # Global config has api_key auth — should NOT apply when spec has a profile.
         cfg_path.write_text(_yaml.dump({"auth": {"type": "api_key", "api_key": "sk-global"}}))
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
         # Spec declares profile via the legacy config dict (omnigent compat path).
@@ -449,7 +449,7 @@ def test_load_global_auth_missing_file(
 ) -> None:
     """``_load_global_auth()`` returns ``None`` when no config file exists."""
     with tempfile.TemporaryDirectory() as td:
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         result = _load_global_auth()
 
     assert result is None
@@ -463,7 +463,7 @@ def test_load_global_auth_api_key_with_base_url(
     and expands env-var references in it.
 
     Failure means a user who configures a custom endpoint in
-    ``~/.omnigent/config.yaml`` via an env-var reference has the
+    ``~/.agentnexus/config.yaml`` via an env-var reference has the
     literal ``$VAR`` string passed as the base URL.
     """
     monkeypatch.setenv("MY_GLOBAL_KEY", "sk-global-abc")
@@ -481,7 +481,7 @@ def test_load_global_auth_api_key_with_base_url(
                 }
             )
         )
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
         result = _load_global_auth()
 
     assert isinstance(result, ApiKeyAuth)
@@ -500,15 +500,15 @@ def test_load_global_auth_unresolved_env_var_raises(
     the literal ``$MISSING_KEY`` string to the API, producing a confusing
     401 "invalid API key" error rather than a clear configuration error.
     """
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     monkeypatch.delenv("MISSING_KEY", raising=False)
     with tempfile.TemporaryDirectory() as td:
         cfg_path = Path(td) / "config.yaml"
         cfg_path.write_text(_yaml.dump({"auth": {"type": "api_key", "api_key": "$MISSING_KEY"}}))
-        monkeypatch.setenv("OMNIGENT_CONFIG_HOME", td)
+        monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", td)
 
-        with pytest.raises(OmnigentError):
+        with pytest.raises(AgentNexusError):
             _load_global_auth()
 
 

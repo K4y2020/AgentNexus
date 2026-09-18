@@ -200,11 +200,11 @@ async def _drive_recent(base_url: str) -> None:
             await _register_routes(page)
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );
                 window.localStorage.setItem(
-                    "omnigent:recent-harnesses",
+                    "agentnexus:recent-harnesses",
                     JSON.stringify(["pi-native"])
                 );"""
             )
@@ -254,7 +254,7 @@ async def _drive(base_url: str) -> None:
             # never has to touch the host-less file browser).
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )

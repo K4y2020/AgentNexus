@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import omnigent.onboarding.opencode_auth as oc
+import agentnexus.onboarding.opencode_auth as oc
 
 
 @pytest.fixture(autouse=True)

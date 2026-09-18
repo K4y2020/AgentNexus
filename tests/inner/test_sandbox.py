@@ -10,12 +10,12 @@ import os
 import subprocess
 import sys
 
-from omnigent.inner.sandbox import (
+from agentnexus.inner.sandbox import (
     SandboxPolicy,
     create_exec_launcher,
     run_launcher,
 )
-from omnigent.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
 
 
 def _noop_policy() -> SandboxPolicy:
@@ -52,7 +52,7 @@ def test_run_launcher_emits_logger_checkpoints(caplog) -> None:
     erases the diagnostic signal the claude-sdk leg relies on to
     pinpoint a silent connect hang.
     """
-    with caplog.at_level(logging.INFO, logger="omnigent.inner.sandbox"):
+    with caplog.at_level(logging.INFO, logger="agentnexus.inner.sandbox"):
         rc = run_launcher(_noop_policy_arg(), sys.executable, ["-c", "pass"])
     assert rc == 0
 
@@ -99,7 +99,7 @@ def test_run_launcher_strips_runner_binding_token_from_target_env(monkeypatch) -
 
 def test_run_launcher_propagates_target_returncode(caplog) -> None:
     """``run_launcher`` returns the spawned target's exit code verbatim."""
-    with caplog.at_level(logging.INFO, logger="omnigent.inner.sandbox"):
+    with caplog.at_level(logging.INFO, logger="agentnexus.inner.sandbox"):
         rc = run_launcher(
             _noop_policy_arg(),
             sys.executable,
@@ -139,11 +139,11 @@ def test_exec_launcher_wrapper_subprocess_emits_markers_to_stderr() -> None:
 
 def test_run_launcher_wraps_target_with_strace_when_env_set(monkeypatch, caplog) -> None:
     """
-    ``OMNIGENT_SANDBOX_STRACE=1`` must prepend ``strace -f -y -e
+    ``AGENTNEXUS_SANDBOX_STRACE=1`` must prepend ``strace -f -y -e
     trace=file`` to the spawned target's argv so the wrapper's stderr
     captures file-syscall denials (EACCES) from the sandbox.
     """
-    from omnigent.inner import sandbox as sb
+    from agentnexus.inner import sandbox as sb
 
     captured: list[list[str]] = []
 
@@ -160,9 +160,9 @@ def test_run_launcher_wraps_target_with_strace_when_env_set(monkeypatch, caplog)
         "which",
         lambda name: "/usr/bin/strace" if name == "strace" else None,
     )
-    monkeypatch.setenv("OMNIGENT_SANDBOX_STRACE", "1")
+    monkeypatch.setenv("AGENTNEXUS_SANDBOX_STRACE", "1")
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.inner.sandbox"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.inner.sandbox"):
         rc = sb.run_launcher(_noop_policy_arg(), "/bin/echo", ["hi"])
 
     assert rc == 0
@@ -176,11 +176,11 @@ def test_run_launcher_wraps_target_with_strace_when_env_set(monkeypatch, caplog)
 
 
 def test_run_launcher_skips_strace_when_binary_missing(monkeypatch, caplog) -> None:
-    """If ``OMNIGENT_SANDBOX_STRACE`` is set but strace is not on
+    """If ``AGENTNEXUS_SANDBOX_STRACE`` is set but strace is not on
     PATH, the wrapper must log a warning and run the target unwrapped
     rather than failing the spawn.
     """
-    from omnigent.inner import sandbox as sb
+    from agentnexus.inner import sandbox as sb
 
     captured: list[list[str]] = []
 
@@ -193,9 +193,9 @@ def test_run_launcher_skips_strace_when_binary_missing(monkeypatch, caplog) -> N
 
     monkeypatch.setattr(sb.subprocess, "run", _fake_run)
     monkeypatch.setattr(sb.shutil, "which", lambda name: None)
-    monkeypatch.setenv("OMNIGENT_SANDBOX_STRACE", "1")
+    monkeypatch.setenv("AGENTNEXUS_SANDBOX_STRACE", "1")
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.inner.sandbox"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.inner.sandbox"):
         rc = sb.run_launcher(_noop_policy_arg(), "/bin/echo", ["hi"])
 
     assert rc == 0
@@ -292,7 +292,7 @@ def test_with_additional_write_roots_records_mask_scan_skip_roots() -> None:
     """
     from pathlib import Path
 
-    from omnigent.inner.sandbox import with_additional_write_roots
+    from agentnexus.inner.sandbox import with_additional_write_roots
 
     policy = _noop_policy()
     scratch = Path("/tmp/omnigent-helper-ab12")
@@ -320,7 +320,7 @@ def test_with_denied_unix_sockets_resolves_dedupes_and_is_pure() -> None:
     """
     from pathlib import Path
 
-    from omnigent.inner.sandbox import with_denied_unix_sockets
+    from agentnexus.inner.sandbox import with_denied_unix_sockets
 
     policy = _noop_policy()
     sock = Path("/tmp/inst/tmux.sock")
@@ -340,7 +340,7 @@ def test_with_spawn_env_allowlist_sets_sorted_deduped_copy() -> None:
     policy unchanged rather than attaching an empty allowlist (which
     would prune EVERYTHING in the launcher).
     """
-    from omnigent.inner.sandbox import with_spawn_env_allowlist
+    from agentnexus.inner.sandbox import with_spawn_env_allowlist
 
     policy = _noop_policy()
 

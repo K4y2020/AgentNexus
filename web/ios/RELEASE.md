@@ -1,4 +1,4 @@
-# Releasing Omnigent iOS
+# Releasing AgentNexus iOS
 
 Releases are built locally with [fastlane](https://fastlane.tools). The `beta`
 lane archives a signed Release build and uploads it to TestFlight; the `release`
@@ -15,7 +15,7 @@ follow-up).
    bundle install
    ```
 3. **Create the app record** in [App Store Connect](https://appstoreconnect.apple.com)
-   for bundle ID `ai.omnigent.ios` (My Apps → +), if it doesn't exist yet.
+   for bundle ID `ai.agentnexus.ios` (My Apps → +), if it doesn't exist yet.
 4. **Generate an App Store Connect API key**: Users and Access → Integrations →
    App Store Connect API → generate a key with the **App Manager** role.
    Download the `.p8` (you can only download it once) and place it in
@@ -50,7 +50,7 @@ Apple finishes processing.
   number with no version churn in git. Don't bump it by hand.
 - **Marketing version** (`CFBundleShortVersionString`, currently `0.1.0`) is set
   manually. Bump `MARKETING_VERSION` for both the Debug and Release
-  configurations of the **Omnigent** target in Xcode (or via `fastlane
+  configurations of the **AgentNexus** target in Xcode (or via `fastlane
 increment_version_number`) when shipping a new user-facing version.
 - **App icon** is the shared Icon Composer source at
   `platform-assets/AppIcon.icon`, which the iOS target includes directly for
@@ -65,14 +65,14 @@ bundle exec fastlane prod
 Prepares the App Store version without submitting for review. The lane reuses
 the latest uploaded TestFlight build and uploads `fastlane/metadata` plus
 `fastlane/screenshots`. Set
-`OMNIGENT_PROD_BUILD_NUMBER=4` to pin a specific processed build.
+`AGENTNEXUS_PROD_BUILD_NUMBER=4` to pin a specific processed build.
 
 ## Other commands
 
-- `bundle exec fastlane tests` — run the `OmnigentTests` unit suite.
+- `bundle exec fastlane tests` — run the `AgentNexusTests` unit suite.
 - `bundle exec fastlane screenshots` — build and capture App Store screenshots
-  into `fastlane/screenshots` using the `OmnigentUITests` snapshot target. The
-  lane rebuilds the web UI, starts an isolated local Omnigent server via `uv` on
+  into `fastlane/screenshots` using the `AgentNexusUITests` snapshot target. The
+  lane rebuilds the web UI, starts an isolated local AgentNexus server via `uv` on
   a non-6767 port, and connects the simulator to that server automatically.
 - `bundle exec fastlane release` — upload a new binary to App Store Connect
   without submitting it for review. Prefer `prod` after a TestFlight build is

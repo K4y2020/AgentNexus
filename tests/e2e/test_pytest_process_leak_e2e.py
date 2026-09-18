@@ -1,10 +1,10 @@
-"""End-to-end regression test: pytest must not leave Omnigent processes behind.
+"""End-to-end regression test: pytest must not leave AgentNexus processes behind.
 
-Reproduces the developer journey from the bug report "pytest leaves Omnigent
+Reproduces the developer journey from the bug report "pytest leaves AgentNexus
 servers and host daemons running after the suite exits":
 
-1. run pytest on a CLI test that spawns a real detached Omnigent child,
-2. pytest exits (green) and removes its temp ``OMNIGENT_DATA_DIR``,
+1. run pytest on a CLI test that spawns a real detached AgentNexus child,
+2. pytest exits (green) and removes its temp ``AGENTNEXUS_DATA_DIR``,
 3. ``ps`` still shows ``omnigent.host._daemon_entry`` / ``omnigent.cli
    server`` / ``omnigent.runner._zygote`` processes spawned by the run —
    orphans that squat port 6767 (so a later ``omni start`` silently falls
@@ -24,7 +24,7 @@ orphan lifetime varies with how fast that host answers).
 
 The nested pytest loads ``tests/conftest.py`` as a plugin, so it exercises
 the session-level spawn/teardown wiring under test: the conftest points
-``OMNIGENT_DATA_DIR`` at a fresh ``mkdtemp(prefix="omnigent-pytest-")``
+``AGENTNEXUS_DATA_DIR`` at a fresh ``mkdtemp(prefix="agentnexus-pytest-")``
 (honoring ``TMPDIR``), and its ``pytest_unconfigure`` owns reaping.
 Confining the nested run to a private ``TMPDIR`` lets survivors be matched
 by their environment or command line without ever touching unrelated
@@ -67,7 +67,7 @@ import socket
 
 from click.testing import CliRunner
 
-from omnigent.cli import cli
+from agentnexus.cli import cli
 
 
 _detached_server = None
@@ -90,7 +90,7 @@ def test_claude_command_spawns_detached_host_daemon(monkeypatch) -> None:
         import sys
         import time
 
-        data_dir = os.environ["OMNIGENT_DATA_DIR"]
+        data_dir = os.environ["AGENTNEXUS_DATA_DIR"]
         port = _free_loopback_port()
         kwargs: dict[str, int] = {
             "creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -99,7 +99,7 @@ def test_claude_command_spawns_detached_host_daemon(monkeypatch) -> None:
             [
                 sys.executable,
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--port",
                 str(port),
@@ -126,9 +126,9 @@ def test_claude_command_spawns_detached_host_daemon(monkeypatch) -> None:
         assert _detached_server.poll() is None, "detached server exited before teardown"
         captured["server"] = f"http://127.0.0.1:{port}"
     else:
-        monkeypatch.setattr("omnigent.cli._load_effective_config", dict)
+        monkeypatch.setattr("agentnexus.cli._load_effective_config", dict)
         monkeypatch.setattr(
-            "omnigent.claude_native.run_claude_native",
+            "agentnexus.claude_native.run_claude_native",
             lambda **kwargs: captured.update(kwargs),
         )
 
@@ -199,10 +199,10 @@ def _proc_cmdline(proc: psutil.Process) -> str:
 
 
 def _surviving_omnigent_procs(tmp_root: Path, nested_pid: int) -> list[tuple[int, str]]:
-    """Find live Omnigent processes attributable to the nested pytest run.
+    """Find live AgentNexus processes attributable to the nested pytest run.
 
     A survivor is attributed by the private ``TMPDIR`` the nested run was
-    confined to: its ``OMNIGENT_DATA_DIR`` env (inherited by host daemons
+    confined to: its ``AGENTNEXUS_DATA_DIR`` env (inherited by host daemons
     and servers via the spawn-env allowlists) or its command line (a
     spawned server's ``--database-uri sqlite:///<data_dir>/chat.db``)
     references a path under ``tmp_root``. The nested pytest process itself
@@ -211,7 +211,7 @@ def _surviving_omnigent_procs(tmp_root: Path, nested_pid: int) -> list[tuple[int
 
     :param tmp_root: The private ``TMPDIR`` the nested run used.
     :param nested_pid: The nested pytest's pid, excluded from the scan.
-    :returns: ``(pid, cmdline)`` pairs of surviving Omnigent processes.
+    :returns: ``(pid, cmdline)`` pairs of surviving AgentNexus processes.
     """
     tmp_prefix = f"{tmp_root}{os.sep}"
     survivors: list[tuple[int, str]] = []
@@ -219,10 +219,10 @@ def _surviving_omnigent_procs(tmp_root: Path, nested_pid: int) -> list[tuple[int
         if proc.pid in (nested_pid, os.getpid()):
             continue
         cmdline = _proc_cmdline(proc)
-        if "omnigent" not in cmdline:
+        if "agentnexus" not in cmdline:
             continue
         env = _proc_env(proc)
-        data_dir = env.get("OMNIGENT_DATA_DIR", "")
+        data_dir = env.get("AGENTNEXUS_DATA_DIR", "")
         if not (data_dir.startswith(tmp_prefix) or tmp_prefix in cmdline):
             continue
         survivors.append((proc.pid, cmdline))
@@ -246,10 +246,10 @@ def _reap(pid: int) -> None:
 
 
 def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
-    """A pytest session must reap every Omnigent child its tests spawned.
+    """A pytest session must reap every AgentNexus child its tests spawned.
 
     Drives the real journey: run pytest on a CLI test that spawns a
-    detached Omnigent host daemon, let pytest exit, then assert nothing
+    detached AgentNexus host daemon, let pytest exit, then assert nothing
     from the run is still alive. Without session-teardown reaping this
     FAILS: the run leaves a ``python -m omnigent.host._daemon_entry``
     orphan behind (and, on runs that exercise the local-backend path,
@@ -263,7 +263,7 @@ def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
     nested_test.write_text(_NESTED_LEAKY_TEST, encoding="utf-8")
 
     env = os.environ.copy()
-    # Confine the nested run's mkdtemp'd OMNIGENT_DATA_DIR to a private
+    # Confine the nested run's mkdtemp'd AGENTNEXUS_DATA_DIR to a private
     # TMPDIR so survivors are attributable to THIS run and nothing else.
     env["TMPDIR"] = str(tmp_root)
     # Windows tempfile honors TMP/TEMP, not TMPDIR.
@@ -288,7 +288,7 @@ def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
             # The probe file lives outside the repo tree, so pytest would
             # not discover tests/conftest.py for it. Load it explicitly:
             # it is the session-level spawn/teardown wiring under test
-            # (OMNIGENT_DATA_DIR isolation + unconfigure cleanup).
+            # (AGENTNEXUS_DATA_DIR isolation + unconfigure cleanup).
             "-p",
             "tests.conftest",
         ],
@@ -313,7 +313,7 @@ def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
 
         leaked = "\n".join(f"  pid {pid}: {cmd}" for pid, cmd in survivors)
         assert not survivors, (
-            "pytest exited but left Omnigent processes from its run alive "
+            "pytest exited but left AgentNexus processes from its run alive "
             "(session teardown never reaped spawned children — they squat "
             "port 6767 and keep serving after their temp data dir is "
             f"deleted):\n{leaked}"

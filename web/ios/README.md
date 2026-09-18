@@ -1,11 +1,11 @@
-# Omnigent iOS
+# AgentNexus iOS
 
-Thin SwiftUI/WKWebView shell for Omnigent. Like the Electron app, this target
+Thin SwiftUI/WKWebView shell for AgentNexus. Like the Electron app, this target
 loads the server-served web UI instead of shipping a duplicate copy of the SPA.
 
 ## Development
 
-Open `Omnigent.xcodeproj` in Xcode 26 or newer and run the `Omnigent` scheme on
+Open `AgentNexus.xcodeproj` in Xcode 26 or newer and run the `AgentNexus` scheme on
 an iOS 26 simulator.
 
 Debug builds allow `http://` web content for local development by enabling
@@ -44,7 +44,7 @@ cannot do at all — it has no MDM enrollment and `simctl` has no profile-instal
 command. To exercise the UI, pass the DEBUG-only launch argument:
 
 ```
---omnigent-managed-servers https://one.example.com,https://two.example.com
+--agentnexus-managed-servers https://one.example.com,https://two.example.com
 ```
 
 Set it in the scheme's arguments (Product › Scheme › Edit Scheme › Run ›
@@ -56,14 +56,14 @@ exactly like the feature not working:
 ````sh
 cd web/ios
 DEVICE='platform=iOS Simulator,name=iPhone 17,OS=26.5'
-xcodebuild build -project Omnigent.xcodeproj -scheme Omnigent -destination "$DEVICE" -quiet
-APP="$(xcodebuild -project Omnigent.xcodeproj -scheme Omnigent -destination "$DEVICE" \
-  -showBuildSettings | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')/Omnigent.app"
+xcodebuild build -project AgentNexus.xcodeproj -scheme AgentNexus -destination "$DEVICE" -quiet
+APP="$(xcodebuild -project AgentNexus.xcodeproj -scheme AgentNexus -destination "$DEVICE" \
+  -showBuildSettings | awk -F' = ' '/ BUILT_PRODUCTS_DIR/{print $2; exit}')/AgentNexus.app"
 
 xcrun simctl boot 'iPhone 17' 2>/dev/null
 xcrun simctl install booted "$APP"
-xcrun simctl launch booted ai.omnigent.ios --omnigent-reset-state \
-  --omnigent-managed-servers 'https://omnigent.corp.example.com,https://my-workspace.cloud.databricks.com/ml/omnigents'
+xcrun simctl launch booted ai.agentnexus.ios --agentnexus-reset-state \
+  --agentnexus-managed-servers 'https://agentnexus.corp.example.com,https://my-workspace.cloud.databricks.com/ml/agentnexuss'
 ```
 
 To exercise the real configuration plumbing instead of a test seam, push a classic
@@ -71,15 +71,15 @@ configuration into the app's own defaults — this is the same key an MDM writes
 nothing about the app's code path is faked:
 
 ```sh
-xcrun simctl spawn booted defaults write ai.omnigent.ios com.apple.configuration.managed \
-  '{ serverUrls = ("https://omnigent.corp.example.com", "https://my-workspace.cloud.databricks.com/ml/omnigents"); }'
-xcrun simctl terminate booted ai.omnigent.ios
-xcrun simctl launch booted ai.omnigent.ios
+xcrun simctl spawn booted defaults write ai.agentnexus.ios com.apple.configuration.managed \
+  '{ serverUrls = ("https://agentnexus.corp.example.com", "https://my-workspace.cloud.databricks.com/ml/agentnexuss"); }'
+xcrun simctl terminate booted ai.agentnexus.ios
+xcrun simctl launch booted ai.agentnexus.ios
 
 # Simulate an administrator changing it later: rewrite the key, then leave and
 # re-enter the app. Out-of-process writes don't notify the app, so the list is
 # re-read when it next becomes active.
-xcrun simctl spawn booted defaults delete ai.omnigent.ios com.apple.configuration.managed
+xcrun simctl spawn booted defaults delete ai.agentnexus.ios com.apple.configuration.managed
 ```
 
 The declarative channel cannot be exercised this way; only a real enrolled device
@@ -90,21 +90,21 @@ device enrolled in an MDM that supports declarative app configuration.
 
 ## Deep links
 
-An `omnigent://<hostname>/c/<session_id>` URL opens that session on that server
+An `agentnexus://<hostname>/c/<session_id>` URL opens that session on that server
 in the app, mirroring the Electron desktop shell (see
 `designs/desktop-deep-link.md` for the shared design):
 
 ````
 
-omnigent://localhost:8000/c/conv_abc → http://localhost:8000/c/conv_abc
-omnigent://my-workspace.cloud.databricks.com/c/x → https://…/ml/omnigents/c/x
+agentnexus://localhost:8000/c/conv_abc → http://localhost:8000/c/conv_abc
+agentnexus://my-workspace.cloud.databricks.com/c/x → https://…/ml/agentnexuss/c/x
 
 ```
 
 The link names a server by **host** (with port if non-default) and carries no
 `http`/`https`; the scheme is inferred with the same rule as the setup page
 (`http` for loopback, `https` for a remote host), so a deep link and a pasted
-URL never disagree. The Databricks workspace mount (`/ml/omnigents`) is **not**
+URL never disagree. The Databricks workspace mount (`/ml/agentnexuss`) is **not**
 in the link; it is discovered by `WorkspaceURLExpander`. v1 accepts only
 `/c/<session_id>`.
 
@@ -124,7 +124,7 @@ in the link; it is discovered by `WorkspaceURLExpander`. v1 accepts only
 The conversation path never enters the saved server URL or recents (only the
 load URL carries it), so a later deep link resolves against a clean server
 identity. The scheme is registered via `CFBundleURLSchemes` in both Info plists;
-test from the simulator with `xcrun simctl openurl booted 'omnigent://...'`.
+test from the simulator with `xcrun simctl openurl booted 'agentnexus://...'`.
 The web UI must be rebuilt (`pnpm --filter web run build`) for the SPA's `onOpenPath`
 subscriber to be present in the served bundle.
 ```

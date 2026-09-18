@@ -22,18 +22,18 @@ suggests. Per release step:
 | Step | Mechanism today | Deterministic? |
 | --- | --- | --- |
 | Cut `release/vX.Y.0` from green main/SHA | human CLI | ❌ manual |
-| Lockstep bump (3 `pyproject.toml` + `omnigent/version.py` + `uv.lock`) | `scripts/update_versions.py` (+ `bump-version.yml` wrapper) | ✅ exists, but human-invoked; RELEASING.md still says "hand-edit `uv.lock`" (CI `uv lock` has no proxy problem) |
+| Lockstep bump (3 `pyproject.toml` + `agentnexus/version.py` + `uv.lock`) | `scripts/update_versions.py` (+ `bump-version.yml` wrapper) | ✅ exists, but human-invoked; RELEASING.md still says "hand-edit `uv.lock`" (CI `uv lock` has no proxy problem) |
 | Tag `vX.Y.Z[rcN]` + push | human CLI | ❌ manual |
 | Bump main to next `.dev0` | human CLI (or `bump-version.yml` post-release) | 🟡 semi |
 | Draft GH release (prerelease flag for rc, rerun-safe) | `github-release.yml` on tag push | ✅ |
 | CHANGELOG PR + LLM-curated draft notes | `draft-release-notes.yml` via `workflow_run` (final tags only) | ✅ |
-| Secure-repo gates + PyPI publish | manual `gh workflow run omnigent.yml` ×2–3 (dry-run, [test-pypi], pypi) in the internal secure-release repo | ❌ manual dispatches |
+| Secure-repo gates + PyPI publish | manual `gh workflow run agentnexus.yml` ×2–3 (dry-run, [test-pypi], pypi) in the internal secure-release repo | ❌ manual dispatches |
 | Post-publish validation (clean venv install + `--version`) | human CLI recipe | ❌ manual |
 | Publish GH release as Latest | human UI click | ❌ manual (and API publish does **not** set `make_latest` unless told to) |
 | Site release post + `X.Y-docs → main` PR | `publish-changelog.yml` on `release: published` | ✅ |
 | Sweep open doc PRs against `X.Y-docs` before docs go live | nobody | ❌ missing |
 | Docker images (`:vX.Y.Z`, `:latest`, `:latest-rc`) | `oss-publish-images.yml` on tag push, PEP 440-ordered moving tags | ✅ |
-| Homebrew formula bump (`omnigent-ai/homebrew-tap`) | nobody — tap frozen at **0.2.0** while PyPI is at 0.5.1 | ❌ missing |
+| Homebrew formula bump (`agentnexus-ai/homebrew-tap`) | nobody — tap frozen at **0.2.0** while PyPI is at 0.5.1 | ❌ missing |
 
 Internal precedent: the VS Code extension track already ships the exact target
 shape — `vscode-release-pr.yml` (`version`, `dry_run` → bump PR) +
@@ -50,9 +50,9 @@ Per phase (rc or final), the human does:
 
 ```
 rc:    dispatch release.yml (version=0.6.0rc1)      # cut/bump/tag — one run
-       dispatch secure omnigent.yml (ref=v0.6.0rc1) # gates → [approve] → publish → validate
+       dispatch secure agentnexus.yml (ref=v0.6.0rc1) # gates → [approve] → publish → validate
 final: dispatch release.yml (version=0.6.0)
-       dispatch secure omnigent.yml (ref=v0.6.0)
+       dispatch secure agentnexus.yml (ref=v0.6.0)
        …curate the draft notes, merge the CHANGELOG PR…
        dispatch finalize-release.yml (tag=v0.6.0)   # checks → [approve] → publish-as-Latest
        …merge the two site PRs it triggers…
@@ -66,10 +66,10 @@ and re-dispatchable after a failure with the same inputs.
 Deliberately **not** one run: the secure-repo dispatch stays separate because it
 crosses the org/account boundary that repo exists to enforce. Auto-dispatching
 it from the public repo would require storing a Databricks-account PAT in
-`omnigent-ai/omnigent` — weakening the isolation for the sake of one saved
+`agentnexus-ai/agentnexus` — weakening the isolation for the sake of one saved
 click. Rejected.
 
-## Workflow 1 — `release.yml` (new, omnigent-ai/omnigent)
+## Workflow 1 — `release.yml` (new, agentnexus-ai/agentnexus)
 
 `workflow_dispatch` inputs:
 
@@ -90,7 +90,7 @@ Jobs:
    SHA's check suites are green (not just "some run on main succeeded"); for a
    final, warn if no `vX.Y.*rc*` tag exists on the branch. Write the plan to the
    step summary.
-2. **execute** (`dry_run == false`): mint the omnigent-ci App token; create
+2. **execute** (`dry_run == false`): mint the agentnexus-ci App token; create
    `release/vX.Y.0` at the base SHA if missing; `update_versions.py pre-release
    --new-version $VERSION`; `uv lock` (runner resolves against real PyPI — this
    *retires the hand-edit-uv.lock ritual entirely*); `update_versions.py check`;
@@ -105,7 +105,7 @@ Jobs:
    step 1 prescribes ("keep main from re-freezing"). Merging it promptly also
    matters for docs: `doc-sync.yml` derives the `X.Y-docs` staging branch from
    main's version. **Decided:** `bump-version.yml` switches its PR-creation
-   push to the omnigent-ci App token (falling back to `GITHUB_TOKEN` where the
+   push to the agentnexus-ci App token (falling back to `GITHUB_TOKEN` where the
    App vars are absent, e.g. forks) so CI runs on bump PRs — retiring the
    documented "push an empty commit to kick CI" workaround.
 4. **summary**: print the exact secure-repo dispatch command for this tag.
@@ -119,7 +119,7 @@ CI-green commit under `workflow_dispatch` — the same trust level as the
 existing `bump-version.yml`. The no-code-exec guarantee of `github-release.yml`
 (which is *tag-triggered*, attacker-influenceable) is unaffected.
 
-## Workflow 2 — secure repo `omnigent.yml` restructure
+## Workflow 2 — secure repo `agentnexus.yml` restructure
 
 Today: 2–3 dispatches (dry-run=true, optional test-pypi, then pypi) with manual
 validation between. Proposal — same file, split into three chained jobs so one
@@ -137,13 +137,13 @@ dispatch covers the user flow "dry-run, then real publish, then validate":
    identical artifacts complete the set.
 3. **validate**: `needs: publish`. Clean venv; poll the real index until all
    three resolve (propagation lag, bounded ~10 min); `pip install
-   omnigent==X omnigent-client==X omnigent-ui-sdk==X` (exact rc pins resolve
-   without `--pre`); assert `omnigent --version` == X; import smoke. Replaces
+   agentnexus==X agentnexus-client==X agentnexus-ui-sdk==X` (exact rc pins resolve
+   without `--pre`); assert `agentnexus --version` == X; import smoke. Replaces
    the manual venv recipe.
 
 `destination=test-pypi` and `dry-run=true` inputs stay for rehearsals, but the
 standard flow no longer uses TestPyPI (per new policy: rc goes to real PyPI as a
-PEP 440 prerelease, which default `pip install omnigent` never resolves — safer
+PEP 440 prerelease, which default `pip install agentnexus` never resolves — safer
 than the TestPyPI dependency-confusion dance RELEASING.md currently documents).
 
 Net: one dispatch, one approval click, per phase.
@@ -157,7 +157,7 @@ Net: one dispatch, one approval click, per phase.
    - PyPI serves all three packages at the version (JSON API) — never publish
      release notes for something uninstallable;
    - the `auto/changelog/vX.Y.Z` CHANGELOG PR is merged;
-   - **docs sweep**: zero open PRs in `omnigent-site` with base `X.Y-docs` —
+   - **docs sweep**: zero open PRs in `agentnexus-site` with base `X.Y-docs` —
      the deterministic form of "all release docs PRs reviewed + merged/closed".
      Each open PR is listed in the summary; resolving them stays human work.
 2. **publish** behind a `publish-release` environment (required reviewer).
@@ -178,7 +178,7 @@ GitHub).
 
 > **Superseded.** This shipped as `update-homebrew.yml`, then was replaced by
 > `.github/workflows/homebrew-tap-pr.yml`, which renders the formula from a
-> checked-in template (`.github/scripts/homebrew/omnigent.rb.template`) plus a
+> checked-in template (`.github/scripts/homebrew/agentnexus.rb.template`) plus a
 > `uv pip compile` closure instead of mutating the tap's formula in place with
 > `brew update-python-resources`. That answers open question 2 below: the
 > hand-maintained sections are owned by the template, so nothing has to survive
@@ -187,10 +187,10 @@ GitHub).
 > sections survived" assertion checked for stanzas the template no longer emits,
 > so it failed on every run. The design below is kept as the original record.
 
-Current state of `omnigent-ai/homebrew-tap`: a homebrew-core-style tap that is
+Current state of `agentnexus-ai/homebrew-tap`: a homebrew-core-style tap that is
 already 2/3 automated —
 
-- `Formula/omnigent.rb`: `Language::Python::Virtualenv` formula; stable
+- `Formula/agentnexus.rb`: `Language::Python::Virtualenv` formula; stable
   installs the **PyPI sdist** (url + sha256) with **94 pinned Python
   resources**; a few deps come from brewed formulae instead
   (`certifi`/`cryptography`/`pydantic`/`rpds-py` as `:no_linkage`, plus
@@ -204,10 +204,10 @@ already 2/3 automated —
 
 The **only missing link is the bump PR** — nobody opens it, which is exactly
 why the tap froze at 0.2.0 (2026-06-23) while PyPI moved to 0.5.1. The
-`omnigent-desktop` cask needs nothing: it is `version :latest` /
-`sha256 :no_check` against `omnigent.ai/download/mac`, i.e. evergreen.
+`agentnexus-desktop` cask needs nothing: it is `version :latest` /
+`sha256 :no_check` against `agentnexus.ai/download/mac`, i.e. evergreen.
 
-New workflow in omnigent-ai/omnigent, shaped exactly like
+New workflow in agentnexus-ai/agentnexus, shaped exactly like
 `publish-changelog.yml` (event + dispatch fallback, App token, idempotent
 PR-opening):
 
@@ -220,7 +220,7 @@ PR-opening):
   the PyPI metadata and drop any `revision`; regenerate the resource pins with
   `brew update-python-resources` (excluding the brewed-formula deps and the
   hand-maintained `google-antigravity` stanzas so they're preserved); run
-  `brew style`/`brew audit` as a sanity gate; push `bump-omnigent-<version>`
+  `brew style`/`brew audit` as a sanity gate; push `bump-agentnexus-<version>`
   and open (or update) the tap PR.
 - From there the tap's own machinery takes over: test-bot builds the bottles
   on the PR; a human reviews the resource diff and applies `pr-pull`; the
@@ -246,7 +246,7 @@ case "$role" in admin|maintain) ;; *) fail "release workflows require maintain/a
 come from repo settings, so there's no hand-kept allowlist to rot. Defense in
 depth stacks three independent layers: this actor gate (highest repo
 privilege to start anything), the `v[0-9]*` **tag ruleset** (create/update/
-delete restricted to the omnigent-ci App + admins — even a bypassed workflow
+delete restricted to the agentnexus-ci App + admins — even a bypassed workflow
 can't tag; goose's primary gate), and the secure repo's own access model
 (admin/maintain to dispatch, environment reviewers on the upload). The
 alternative — a required-reviewer environment on the first job — adds an
@@ -274,7 +274,7 @@ RELEASING.md. Post-publish: fix forward to the next version.
 
 ## Cleanups this unlocks
 
-- **Delete `release-omnigent.yml`** — its own header says "to be deleted once
+- **Delete `release-agentnexus.yml`** — its own header says "to be deleted once
   the secure path has done a prod release", which has now happened repeatedly.
   Also retire its `pypi`/`test-pypi` Trusted Publishers on PyPI: a live trusted
   publisher pointing at the public repo is standing attack surface.
@@ -315,7 +315,7 @@ Docker, AUR, Homebrew, LLM-authored release notes, Discord announce, all
 unattended. Relevant mechanics:
 
 - Bot pushes via a **GitHub App token** (`create-github-app-token`), never a
-  PAT — same identity pattern as our omnigent-ci App.
+  PAT — same identity pattern as our agentnexus-ci App.
 - Same idempotent already-published-skip before every npm publish.
 - npm auth is OIDC trusted publishing, zero registry tokens in CI.
 - Fully autonomous LLM changelog with *no* human review gate, and no
@@ -328,7 +328,7 @@ unattended. Relevant mechanics:
 
 - **Neither peer automates post-publish validation** (clean-env install of
   the just-published artifact + run it). The `validate` job in the secure repo
-  puts omnigent ahead of both, not just at parity.
+  puts agentnexus ahead of both, not just at parity.
 - **Neither has an rc→final concept** — both rebuild rather than promote.
   Rebuilding the final from the same `release/vX.Y.0` (rather than promoting rc
   artifacts) is also what our model does; PyPI's no-reupload rule makes
@@ -351,7 +351,7 @@ changelog PR — despite appearances, no bot writes their bumps. Worth stealing:
 - **Gate placement**: the named-required-reviewer GitHub Environment guards
   *only* the VS Code Marketplace publish (highest blast radius); CLI/SDK get a
   typed `confirm_publish: "publish"` string. Principle: spend the heavyweight
-  second-person gate on the irreversible step only — for omnigent, that is the
+  second-person gate on the irreversible step only — for agentnexus, that is the
   secure-repo PyPI upload, which already has exactly such an environment.
 - **Changelog-as-gate**: publish hard-fails if the changelog's top entry ≠ the
   version, then reuses that section as the release body (and a Slack post).
@@ -374,7 +374,7 @@ rc→stable promotion: `prepare-jetbrains-release.yml` (`kind: rc|stable`,
 PR is the approval gate; `publish-jetbrains.yml` fires on the merge, with a
 dispatch fallback for re-runs; rc tags chain `-rc.1 … -rc.15 → stable`.
 
-**Considered variant for omnigent** (from the JetBrains pattern): have
+**Considered variant for agentnexus** (from the JetBrains pattern): have
 `release.yml` open a bump *PR* onto `release/vX.Y.0` instead of pushing directly,
 making the merge a second-person cut-approval and running CI on the bump
 commit. Rejected as the default: the bump is deterministic robot output
@@ -448,7 +448,7 @@ effects. Worth stealing:
   all (goose canary→stable, kilocode JetBrains) — never artifact relabeling.
   Validates our model: the final independently re-runs build+scan+publish
   from `release/vX.Y.0`, which the mandatory dependency scan requires anyway.
-- omnigent's mandatory scan-gates-publish + separate-org publisher is
+- agentnexus's mandatory scan-gates-publish + separate-org publisher is
   **stricter than every peer surveyed** (goose's scan isn't a gate; hermes's
   review gate was self-merged around; opencode/kilocode publish unattended).
 
@@ -459,7 +459,7 @@ effects. Worth stealing:
   drifted out of lockstep for lack of exactly this assertion (hermes has it
   and it works).
 - **Tag ruleset on `v[0-9]*`**: restrict create/update/delete to maintainers +
-  the omnigent-ci App. Today any write-access account can push a version tag
+  the agentnexus-ci App. Today any write-access account can push a version tag
   and set off the draft-release + docker-publish chain; goose treats tag
   protection as their primary release gate.
 

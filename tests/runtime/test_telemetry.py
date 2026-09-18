@@ -24,7 +24,7 @@ from opentelemetry.trace import (
     StatusCode,
 )
 
-from omnigent.runtime import telemetry
+from agentnexus.runtime import telemetry
 
 _RESP_HEX = "d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3"
 _RESP_ID = f"resp_{_RESP_HEX}"
@@ -36,7 +36,7 @@ _RESP_ID = f"resp_{_RESP_HEX}"
 @pytest.fixture(autouse=True)
 def _opt_in_telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
-    Telemetry is opt-in (``OMNIGENT_TELEMETRY_ENABLED``, off by default).
+    Telemetry is opt-in (``AGENTNEXUS_TELEMETRY_ENABLED``, off by default).
     This module exercises telemetry behavior, so opt in for every test; the
     opt-out test clears it explicitly. Also resets the session-id contextvar
     around each test so a ``set_session_id`` / hook call in one test (which
@@ -45,7 +45,7 @@ def _opt_in_telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.setenv("OMNIGENT_TELEMETRY_ENABLED", "true")
+    monkeypatch.setenv("AGENTNEXUS_TELEMETRY_ENABLED", "true")
     token = telemetry._session_id_var.set(None)
     try:
         yield
@@ -54,7 +54,7 @@ def _opt_in_telemetry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         # init()/enable_tracing() in a telemetry test flips global tracing on
         # and never resets it; clear it so it can't leak "tracing on" into
         # other suites (e.g. the executor-adapter tests).
-        from omnigent.inner.tracing import disable_tracing
+        from agentnexus.inner.tracing import disable_tracing
 
         disable_tracing()
         telemetry._initialized = False
@@ -489,7 +489,7 @@ def test_init_respects_capture_content_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``init`` reads ``OMNIGENT_OTEL_CAPTURE_CONTENT`` each call
+    ``init`` reads ``AGENTNEXUS_OTEL_CAPTURE_CONTENT`` each call
     so operators can toggle it after restart.
     """
     monkeypatch.setenv("OTEL_METRICS_EXPORTER", "none")
@@ -497,11 +497,11 @@ def test_init_respects_capture_content_flag(
     monkeypatch.setattr(telemetry, "_initialized", False)
     monkeypatch.setattr(telemetry, "_metrics_initialized", False)
     monkeypatch.setattr(telemetry, "_logs_initialized", False)
-    monkeypatch.setenv("OMNIGENT_OTEL_CAPTURE_CONTENT", "true")
+    monkeypatch.setenv("AGENTNEXUS_OTEL_CAPTURE_CONTENT", "true")
     telemetry.init()
     assert telemetry.should_capture_content() is True
 
-    monkeypatch.setenv("OMNIGENT_OTEL_CAPTURE_CONTENT", "false")
+    monkeypatch.setenv("AGENTNEXUS_OTEL_CAPTURE_CONTENT", "false")
     telemetry.init()
     assert telemetry.should_capture_content() is False
 
@@ -510,13 +510,13 @@ def test_init_disabled_by_default_is_noop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Telemetry is opt-in: with ``OMNIGENT_TELEMETRY_ENABLED`` unset,
+    Telemetry is opt-in: with ``AGENTNEXUS_TELEMETRY_ENABLED`` unset,
     ``init`` is a no-op even when an OTLP endpoint is configured — no
     provider is installed, so a default install pays nothing.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.delenv("OMNIGENT_TELEMETRY_ENABLED", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_TELEMETRY_ENABLED", raising=False)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     monkeypatch.setattr(telemetry, "_initialized", False)
 
@@ -531,7 +531,7 @@ def test_fastapi_session_id_hook_stamps_session_id(
 ) -> None:
     """
     The FastAPI server-request hook tags the server span with the
-    Omnigent session id parsed from a ``/sessions/<conv_…>/`` path, so
+    AgentNexus session id parsed from a ``/sessions/<conv_…>/`` path, so
     every session-scoped request span is findable by session.
 
     :param in_memory_exporter: In-memory span exporter fixture.
@@ -575,7 +575,7 @@ def test_tracing_context_stamps_session_id_on_agent_span(
 
     :param in_memory_exporter: In-memory span exporter fixture.
     """
-    from omnigent.inner.tracing import TracingContext
+    from agentnexus.inner.tracing import TracingContext
 
     tctx = TracingContext(session_id="d1f9214d74c38b9f9a9db17ed8352dc4")
     agent_span = tctx.start_agent_span("my-agent", "hello")
@@ -677,7 +677,7 @@ def test_init_defaults_service_name_when_unset(
 
     telemetry.init()
 
-    assert os.environ["OTEL_SERVICE_NAME"] == "omnigent"
+    assert os.environ["OTEL_SERVICE_NAME"] == "agentnexus"
 
 
 def test_init_honors_operator_service_name_without_argument(
@@ -723,7 +723,7 @@ def test_instrument_fastapi_app_disabled_without_backend(
     With no flag and no tracing backend configured, FastAPI
     instrumentation is skipped — bare installs pay no span overhead.
     """
-    monkeypatch.delenv("OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     calls = _stub_fastapi_instrumentor(monkeypatch)
 
@@ -740,7 +740,7 @@ def test_instrument_fastapi_app_default_on_with_backend(
     endpoint is configured — that is when HTTP server spans have
     somewhere to go and when cross-app trace propagation matters.
     """
-    monkeypatch.delenv("OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION", raising=False)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     app = FastAPI()
     calls = _stub_fastapi_instrumentor(monkeypatch)
@@ -754,10 +754,10 @@ def test_instrument_fastapi_app_explicit_false_overrides_backend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    An explicit ``OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION=false`` wins
+    An explicit ``AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION=false`` wins
     even when a backend is configured — operators can force it off.
     """
-    monkeypatch.setenv("OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION", "false")
+    monkeypatch.setenv("AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION", "false")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     calls = _stub_fastapi_instrumentor(monkeypatch)
 
@@ -774,7 +774,7 @@ def test_instrument_fastapi_app_calls_instrumentor_when_enabled(
     even with no backend configured (the in-memory-exporter test path).
     """
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-    monkeypatch.setenv("OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION", "true")
+    monkeypatch.setenv("AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION", "true")
     app = FastAPI()
     calls = _stub_fastapi_instrumentor(monkeypatch)
 
@@ -899,7 +899,7 @@ def test_consume_frame_span_omits_payload_when_capture_off(
     ):
         pass
     span = in_memory_exporter.get_finished_spans()[-1]
-    assert "omnigent.message.payload" not in (span.attributes or {})
+    assert "agentnexus.message.payload" not in (span.attributes or {})
 
 
 def test_consume_frame_span_records_redacted_payload_when_capture_on(
@@ -923,7 +923,7 @@ def test_consume_frame_span_records_redacted_payload_when_capture_on(
     ):
         pass
     span = in_memory_exporter.get_finished_spans()[-1]
-    payload = (span.attributes or {})["omnigent.message.payload"]
+    payload = (span.attributes or {})["agentnexus.message.payload"]
     assert "SUPER_SECRET" not in payload
     assert "[redacted]" in payload
     assert "traceparent" not in payload
@@ -942,7 +942,7 @@ def test_record_message_payload_truncates(
     with telemetry.span("x") as span:
         telemetry.record_message_payload({"blob": "A" * 9000}, span=span)
     out = in_memory_exporter.get_finished_spans()[-1]
-    payload = (out.attributes or {})["omnigent.message.payload"]
+    payload = (out.attributes or {})["agentnexus.message.payload"]
     assert payload.endswith("…[truncated]")
     assert len(payload) <= telemetry._CONTENT_MAX_LEN + len("…[truncated]")
 
@@ -1004,7 +1004,7 @@ def test_httpx_to_fastapi_propagates_trace_across_http_hop(
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
     from starlette.testclient import TestClient
 
-    monkeypatch.setenv("OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION", "true")
+    monkeypatch.setenv("AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION", "true")
 
     app = FastAPI()
     handler_trace_id: dict[str, str] = {}

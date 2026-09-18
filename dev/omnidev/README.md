@@ -1,20 +1,20 @@
 # omnidev
 
-Dev tooling for Omnigent, in one binary with three surfaces:
+Dev tooling for AgentNexus, in one binary with three surfaces:
 
 1. A per-repo dev **pod supervisor** (bare `omnidev`) — the default.
 2. **Install management** (`omnidev install`/`update`/`check`) — install
-   and keep a git-based omnigent up to date. See
-   [Managing your omnigent install](#managing-your-omnigent-install). These
+   and keep a git-based agentnexus up to date. See
+   [Managing your agentnexus install](#managing-your-agentnexus-install). These
    need no checkout and run anywhere.
-3. **An omnigent passthrough** (`omnidev omnigent …`) — run any omnigent command
+3. **An agentnexus passthrough** (`omnidev agentnexus …`) — run any agentnexus command
    against the current checkout's pod, with the pod's isolated env applied.
-   See [Running omnigent commands](#running-omnigent-commands).
+   See [Running agentnexus commands](#running-agentnexus-commands).
 
 ## Pod supervisor
 
 A per-repo dev **pod** supervisor, as a single long-running terminal UI. It
-replaces the three-terminal local dev flow (`omnigent server`, `omnigent host`,
+replaces the three-terminal local dev flow (`agentnexus server`, `agentnexus host`,
 `pnpm run dev`) with one process that:
 
 - runs each checkout in an **isolated pod** — its own state dir, database,
@@ -22,8 +22,8 @@ replaces the three-terminal local dev flow (`omnigent server`, `omnigent host`,
   collide;
 - **supervises** the backend server, the host daemon, and the Vite frontend,
   restarting any that crash (with backoff);
-- **reloads the backend** (server → host) when you edit `omnigent/**/*.py`;
-  gitignored files under `omnigent/` (e.g. the build-time `_build_info.py`) are
+- **reloads the backend** (server → host) when you edit `agentnexus/**/*.py`;
+  gitignored files under `agentnexus/` (e.g. the build-time `_build_info.py`) are
   skipped so generated churn doesn't reload; the frontend self-reloads through
   Vite HMR;
 - **prefills ten example conversations** after the OSS server first becomes
@@ -43,7 +43,7 @@ cargo run            # launches the TUI for the surrounding checkout
 ```
 
 Run it from anywhere inside the checkout — it walks up to the repo root
-(the `.jj`/`.git` marker) and requires `omnigent/` and
+(the `.jj`/`.git` marker) and requires `agentnexus/` and
 `web/` to be present. Build a release binary with `cargo build --release`
 (lands at `target/release/omnidev`).
 
@@ -51,9 +51,9 @@ Run it from anywhere inside the checkout — it walks up to the repo root
 
 | Process | Command | Notes |
 |---|---|---|
-| server | `uv run omnigent --log-to-stderr server --host 127.0.0.1 --port <p> --database-uri … --artifact-location …` | Waited on via `GET /health`. |
-| host   | `uv run omnigent --log-to-stderr host --server http://127.0.0.1:<p>` | Started once the server is healthy. |
-| vite   | `pnpm run dev --host <host> --port <p> --strictPort` (cwd `web/`) | `OMNIGENT_URL` points its proxy at the pod's server. |
+| server | `uv run agentnexus --log-to-stderr server --host 127.0.0.1 --port <p> --database-uri … --artifact-location …` | Waited on via `GET /health`. |
+| host   | `uv run agentnexus --log-to-stderr host --server http://127.0.0.1:<p>` | Started once the server is healthy. |
+| vite   | `pnpm run dev --host <host> --port <p> --strictPort` (cwd `web/`) | `AGENTNEXUS_URL` points its proxy at the pod's server. |
 
 Before Vite starts (and on a manual Vite restart), omnidev runs `pnpm install`
 in `web/` when needed — `node_modules/` is missing, or `package.json` /
@@ -66,22 +66,22 @@ continues and the combined log tells you to open that URL manually.
 
 ## Isolation
 
-Only Omnigent's own state is isolated per pod — enough that concurrent pods
+Only AgentNexus's own state is isolated per pod — enough that concurrent pods
 never share a database, server pidfile, or `config.yaml` — via
-`OMNIGENT_DATA_DIR`, `OMNIGENT_DATABASE_URI`, `OMNIGENT_URL`, and
-`OMNIGENT_CONFIG_HOME`. Everything else (your real `HOME`, credentials, and
-uv/pnpm caches) is inherited, because the agents Omnigent runs need it. This is
+`AGENTNEXUS_DATA_DIR`, `AGENTNEXUS_DATABASE_URI`, `AGENTNEXUS_URL`, and
+`AGENTNEXUS_CONFIG_HOME`. Everything else (your real `HOME`, credentials, and
+uv/pnpm caches) is inherited, because the agents AgentNexus runs need it. This is
 deliberately lighter than the hermetic `scripts/backend-smoke.sh` sandbox,
 which repoints `HOME`/`XDG_*` to touch nothing real.
 
 Each pod gets its own `config.yaml` under `<pod>/config/`, pointed to by
-`OMNIGENT_CONFIG_HOME`. On first create it's **seeded** from your real
-`~/.omnigent/config.yaml` (if present) so the pod works out of the box — it
+`AGENTNEXUS_CONFIG_HOME`. On first create it's **seeded** from your real
+`~/.agentnexus/config.yaml` (if present) so the pod works out of the box — it
 keeps your providers — after which the two are independent: server-config edits
-inside a pod (via the UI or `omnigent config`) don't touch your real config.
+inside a pod (via the UI or `agentnexus config`) don't touch your real config.
 
 The OSS pod also imports the curated JSONL transcripts under
-`dev/omnidev/fixtures/conversations/` through `omnigent session import` once the
+`dev/omnidev/fixtures/conversations/` through `agentnexus session import` once the
 server is healthy. Versioned per-fixture markers in the pod make normal starts
 and backend reloads idempotent. The imported rows remain ordinary conversations:
 you can edit, archive, or delete them without omnidev recreating them on the next
@@ -121,7 +121,7 @@ rejects multipart uploads (403) and refuses the live WebSocket stream.
 
 `--trust-lan-origins` fixes that: omnidev enumerates this machine's LAN IPv4
 addresses and trusts the matching `http://<ip>:<vite-port>` origins via the
-server's `OMNIGENT_WS_ALLOWED_ORIGINS` allowlist (merged with any value you
+server's `AGENTNEXUS_WS_ALLOWED_ORIGINS` allowlist (merged with any value you
 already export). It stays exact-match — only those origins are trusted, nothing
 is disabled — so it's for dev pods, not deployed servers. The trusted origins
 are printed in the combined log at startup.
@@ -131,7 +131,7 @@ omnidev --vite-host 0.0.0.0 --trust-lan-origins
 ```
 
 This covers IPv4 LAN addresses; mDNS `.local` hostnames and HTTPS origins are
-not auto-trusted (add those to `OMNIGENT_WS_ALLOWED_ORIGINS` yourself).
+not auto-trusted (add those to `AGENTNEXUS_WS_ALLOWED_ORIGINS` yourself).
 
 ## Keys
 
@@ -155,46 +155,46 @@ feel familiar.
 | `c` | Clear the focused pane |
 | `q` / `Ctrl-C` | Quit and tear down all processes |
 
-## Running omnigent commands
+## Running agentnexus commands
 
-`omnidev omnigent …` runs any omnigent command against the current checkout's
-pod, via `uv run omnigent …`, with the pod's isolated env applied
-(`OMNIGENT_DATA_DIR`, `OMNIGENT_DATABASE_URI`, `OMNIGENT_CONFIG_HOME`,
-`OMNIGENT_URL`). It resolves the same repo root and pod dir the supervisor
-uses, so a command talks to the pod's database and config — and `OMNIGENT_URL`
+`omnidev agentnexus …` runs any agentnexus command against the current checkout's
+pod, via `uv run agentnexus …`, with the pod's isolated env applied
+(`AGENTNEXUS_DATA_DIR`, `AGENTNEXUS_DATABASE_URI`, `AGENTNEXUS_CONFIG_HOME`,
+`AGENTNEXUS_URL`). It resolves the same repo root and pod dir the supervisor
+uses, so a command talks to the pod's database and config — and `AGENTNEXUS_URL`
 points at a running supervisor's server when one is up.
 
 ```bash
-omnidev omnigent agent run "fix the flaky test"
-omnidev omnigent config show
-omnidev --pod-dir /tmp/x omnigent agent list   # target a specific pod
+omnidev agentnexus agent run "fix the flaky test"
+omnidev agentnexus config show
+omnidev --pod-dir /tmp/x agentnexus agent list   # target a specific pod
 ```
 
-Everything after the subcommand is forwarded verbatim to omnigent. It runs in
-the foreground (inheriting your stdio) and exits with omnigent's status code.
+Everything after the subcommand is forwarded verbatim to agentnexus. It runs in
+the foreground (inheriting your stdio) and exits with agentnexus's status code.
 It acquires **no** lock, so it coexists with a running supervisor — the common
 case: the server is up and you issue a command against it. Use `--` to pass
 flags that look like omnidev's own:
 
 ```bash
-omnidev omnigent -- --verbose agent run …
+omnidev agentnexus -- --verbose agent run …
 ```
 
 Supervisor-only flags (`--server-port`, `--clean`, `--no-vite`, …) don't apply
 to the passthrough; only `--pod-dir` is shared.
 
-## Managing your omnigent install
+## Managing your agentnexus install
 
-For people who *run* omnigent (installed from git via `uv tool install`) rather
+For people who *run* agentnexus (installed from git via `uv tool install`) rather
 than develop it. This wraps the fiddly PEP 508 install syntax and adds a daily
-update check — filling a gap, since omnigent's own update notice only works for
+update check — filling a gap, since agentnexus's own update notice only works for
 PyPI-wheel installs and skips git installs.
 
 These subcommands manage the global tool and work from **any directory**
 (no checkout needed).
 
 ```
-omnidev install     # uv tool install omnigent from git (databricks extra, main)
+omnidev install     # uv tool install agentnexus from git (databricks extra, main)
 omnidev update      # reinstall the latest of the tracked ref/extras
 omnidev check       # check for an update; prompt to update on a TTY
 omnidev refresh     # refresh the check cache from the network (usually detached)
@@ -226,17 +226,17 @@ every shell startup and print a "command not found" error whenever omnidev is
 absent.)
 
 On each interactive shell it runs `omnidev check --quiet`, which reads a cached
-result (`${XDG_CACHE_HOME:-~/.cache}/omnidev/omnigent-check.json`) and, when
+result (`${XDG_CACHE_HOME:-~/.cache}/omnidev/agentnexus-check.json`) and, when
 stale (>24h), refreshes it in a detached background process — so shell startup
 never blocks on the network. When a newer commit is available it prints a notice
-and, on a terminal, prompts `Update omnigent now? [y/N]`; on yes it runs
+and, on a terminal, prompts `Update agentnexus now? [y/N]`; on yes it runs
 `omnidev update` in the foreground. Declining suppresses that same commit until
-a newer one lands. Set `OMNIGENT_NO_UPDATE_CHECK` in your environment if you want
-to silence omnigent's own separate notice.
+a newer one lands. Set `AGENTNEXUS_NO_UPDATE_CHECK` in your environment if you want
+to silence agentnexus's own separate notice.
 
 # External process profiles
 
-Integrations that embed the Omnigent server in another repository can reuse
+Integrations that embed the AgentNexus server in another repository can reuse
 the supervisor without copying it:
 
 ```bash
@@ -247,4 +247,4 @@ The profile supplies the server, optional host, Vite, and optional dependency
 preparation commands plus the backend and web directories. Command arguments
 may contain `{server_port}`, `{vite_port}`, `{vite_host}`, `{pod_dir}`, and
 `{repo_root}`. Environment variables from the launching integration are
-inherited; `OMNIGENT_URL` is set to the isolated backend as usual.
+inherited; `AGENTNEXUS_URL` is set to the isolated backend as usual.

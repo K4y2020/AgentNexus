@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from omnigent_slack.app import _register_error_handler
+from agentnexus_slack.app import _register_error_handler
 from slack_bolt.async_app import AsyncApp
 
 

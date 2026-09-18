@@ -40,7 +40,7 @@ def test_build_script_propagates_api_only_mode_to_wheel_builds(
     _write_executable(
         fake_bin / "uv",
         "#!/usr/bin/env bash\n"
-        'printf "uv|%s|%s\\n" "${OMNIGENT_SKIP_WEB_UI-<unset>}" "$*" '
+        'printf "uv|%s|%s\\n" "${AGENTNEXUS_SKIP_WEB_UI-<unset>}" "$*" '
         '>> "$COMMAND_LOG"\n'
         "mkdir -p dist\n"
         "touch dist/fake.whl\n",
@@ -53,7 +53,7 @@ def test_build_script_propagates_api_only_mode_to_wheel_builds(
             "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
         }
     )
-    env.pop("OMNIGENT_SKIP_WEB_UI", None)
+    env.pop("AGENTNEXUS_SKIP_WEB_UI", None)
     if skip_web_ui:
         env["SKIP_WEB_UI"] = "1"
     else:

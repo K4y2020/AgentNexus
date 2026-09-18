@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.llms.summarize import build_summarization_input
+from agentnexus.llms.summarize import build_summarization_input
 
 
 def test_build_summarization_input_appends_trigger_when_last_role_is_assistant() -> None:

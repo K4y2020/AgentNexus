@@ -56,7 +56,7 @@ class FakeIdP:
     """A running fake OIDC IdP.
 
     :param issuer: The issuer URL (also the discovery base) — feed this to
-        ``OMNIGENT_OIDC_ISSUER``.
+        ``AGENTNEXUS_OIDC_ISSUER``.
     :param client_id: The client id the server must present (and that the
         signed ``id_token`` carries as its audience).
     :param client_secret: The client secret the server presents at ``/token``.

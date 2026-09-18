@@ -22,15 +22,15 @@ describe("worktreeDefaultPreferences", () => {
     writeAlwaysUseWorktree(true);
     writeAlwaysUseWorktree(false);
     expect(readAlwaysUseWorktree()).toBe(false);
-    expect(localStorage.getItem("omnigent:always-use-worktree")).toBeNull();
+    expect(localStorage.getItem("agentnexus:always-use-worktree")).toBeNull();
   });
 
   it("only the literal 'true' reads as on (defensive against hand edits)", () => {
     // A stale or hand-edited value that isn't exactly "true" must not enable it.
-    localStorage.setItem("omnigent:always-use-worktree", "1");
+    localStorage.setItem("agentnexus:always-use-worktree", "1");
     expect(readAlwaysUseWorktree()).toBe(false);
 
-    localStorage.setItem("omnigent:always-use-worktree", "true");
+    localStorage.setItem("agentnexus:always-use-worktree", "true");
     expect(readAlwaysUseWorktree()).toBe(true);
   });
 

@@ -17,7 +17,7 @@ classification, durable label persistence, SSE/API passthrough, and UI layer
 badges.
 
 Updated 2026-09-02 with the standard event catalog and transparent cockpit
-layered health topology: `omnigent/event_catalog.py`, `GET /v1/diagnostics/health`,
+layered health topology: `agentnexus/event_catalog.py`, `GET /v1/diagnostics/health`,
 CoordinationEvent derived categories, and targeted route/runtime coverage.
 
 ## Quality checks (fresh, this machine)
@@ -71,15 +71,15 @@ CoordinationEvent derived categories, and targeted route/runtime coverage.
   verified through real SQLite store round-trip.
 - AgentInspector reads the latest fact from the items endpoint and renders
   Unknown only with its stated reason; before any fact exists it no longer
-  guesses upstream from `omnigent.upstream_model` labels.
+  guesses upstream from `agentnexus.upstream_model` labels.
 - Tool calls now have an independent 30-sample mock-LLM benchmark on this
-  machine (`tool_call_running` in `dev/benchmarks/omnigent/journeys.py`):
+  machine (`tool_call_running` in `dev/benchmarks/agentnexus/journeys.py`):
   p95 76.6ms, p99 80.8ms, 0 failures, below the <1s gate. The timed span is
   POST message → runner turn → first `response.output_item.done` carrying a
   live `function_call` (`in_progress`/`action_required`) on the UI stream,
   which is the event that paints the tool card as running.
 - Failures now carry the planned 11-layer error envelope end to end:
-  `omnigent/error_layers.py` classifies by error code, prefix, and source;
+  `agentnexus/error_layers.py` classifies by error code, prefix, and source;
   the API schema, SSE events, durable labels, and harness error paths
   preserve `layer`, `retryable`, `suggested_action`, `correlation_id`, and
   `diagnostic_refs`; and the error status block renders the layer badge plus
@@ -96,7 +96,7 @@ CoordinationEvent derived categories, and targeted route/runtime coverage.
   `consumed: 4` and terminal-idle receipts from real Codex turns
   (`tests/integration/test_real_provider_control_plane.py`).
 - `live message` p95 now has an independent 30-sample mock-LLM benchmark
-  (`a2a_message_delivery` in `dev/benchmarks/omnigent/journeys.py`): p95
+  (`a2a_message_delivery` in `dev/benchmarks/agentnexus/journeys.py`): p95
   565.6ms, p99 568.4ms, 0 failures on this machine, below the <1s gate.
   The measured span is POST message → durable outbox → Dispatcher → runner
   injection → terminal-idle consumption receipt.
@@ -104,7 +104,7 @@ CoordinationEvent derived categories, and targeted route/runtime coverage.
   workspace; on Windows a drive-relative `\tmp\...` path previously failed
   session-create validation with HTTP 400, blocking the cold-start journeys.
 - Server/UI stream reconnect p95 now has an independent 30-sample mock-LLM
-  benchmark (`server_stream_reconnect` in `dev/benchmarks/omnigent/journeys.py`):
+  benchmark (`server_stream_reconnect` in `dev/benchmarks/agentnexus/journeys.py`):
   p95 780.5ms, p99 801.6ms, 0 failures on this machine, below the <5s gate.
   The sample drops an open stream, posts a gated turn, reattaches, releases the
   mock gate, and times to the first output delta with model block time excluded.

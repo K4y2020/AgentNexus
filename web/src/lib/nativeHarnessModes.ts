@@ -116,12 +116,12 @@ export const CODEX_NATIVE_APPROVAL_MODES: NativeHarnessMode[] = [
 // Conversation-label key for the DANGEROUS codex full-bypass opt-in. When
 // set to "1" the runner launches Codex with
 // `--dangerously-bypass-approvals-and-sandbox` (no approval prompts, no
-// command sandbox) — see omnigent.stores.conversation_store
+// command sandbox) — see agentnexus.stores.conversation_store
 // CODEX_NATIVE_BYPASS_SANDBOX_LABEL_KEY. Stored as a label (cheap thread
 // metadata) so it survives reload. Mutually exclusive in spirit with the
 // approval-mode presets above: when bypass is on the runner strips any
 // `--sandbox` / `--ask-for-approval` flags those presets would emit.
-export const CODEX_NATIVE_BYPASS_SANDBOX_LABEL_KEY = "omnigent.codex_native.bypass_sandbox";
+export const CODEX_NATIVE_BYPASS_SANDBOX_LABEL_KEY = "agentnexus.codex_native.bypass_sandbox";
 // Bypass is the most-permissive Codex approval stance — presented as a 4th
 // option in the Codex approval dropdown (Codex only; OpenCode shares the
 // presets above but has no bypass). It rides as a conversation label, not

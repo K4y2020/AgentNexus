@@ -1,7 +1,7 @@
-# Omnigent CUJ Map
+# AgentNexus CUJ Map
 
 The team-editable **inventory of Critical User Journeys (CUJs)** — every interaction a user (or an agent on
-their behalf) can have with Omnigent — plus open questions. This file is the **list**; the **answers** (how each
+their behalf) can have with AgentNexus — plus open questions. This file is the **list**; the **answers** (how each
 journey actually works, with code anchors + the verified capability matrix) live in
 [`CUJ-ANALYSIS.md`](./CUJ-ANALYSIS.md).
 
@@ -57,7 +57,7 @@ TURN STATE: idle · working · awaiting-elicitation · interrupted · compacting
 - [ ] Native vs SDK behavioral differences
 
 ### 2.C  Tools, MCP, shells, files, timers
-- [ ] Use the Omnigent MCP (`sys_*` tools) (#6)
+- [ ] Use the AgentNexus MCP (`sys_*` tools) (#6)
 - [ ] Register & use a custom (user-defined) MCP server
 - [ ] MCP routing — who routes a tool call where?
 - [ ] Use shells (#4) — *how is the working dir determined? how are shells exposed to agents?*

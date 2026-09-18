@@ -36,11 +36,11 @@ def test_bundle_vars_provide_a_valid_empty_feature_source(
     deploy_mod: ModuleType, features: str, expected: str
 ) -> None:
     args = Namespace(
-        app_name="omnigent",
+        app_name="agentnexus",
         lakebase_branch="projects/omnigent/branches/production",
         lakebase_database="projects/omnigent/branches/production/databases/databricks-postgres",
-        volume_name="main.omnigent.artifacts",
-        otel_table_schema="main.omnigent_logs",
+        volume_name="main.agentnexus.artifacts",
+        otel_table_schema="main.agentnexus_logs",
         features=features,
     )
 

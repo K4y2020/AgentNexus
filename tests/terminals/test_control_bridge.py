@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.terminals.control_bridge import (
+from agentnexus.terminals.control_bridge import (
     _SEND_KEYS_HEX_BYTES_PER_CALL,
     _clipboard_buffer_name,
     _hex_send_keys_commands,
@@ -465,7 +465,7 @@ async def test_seed_restores_cursor_position() -> None:
     reposition it explicitly or the browser cursor sits at the end of the
     seeded text instead of inside the app's prompt.
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     # Park the cursor at row 9, col 8 (1-based) and hold the pane open.
     sock, target = await _new_private_tmux(
@@ -496,7 +496,7 @@ async def test_seed_full_height_pane_does_not_scroll_or_shift_cursor() -> None:
     """
     import pyte
 
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     # Fill all 24 rows (row1..row24) and park the cursor at row24 col6.
     sock, target = await _new_private_tmux(
@@ -529,7 +529,7 @@ async def test_seed_full_height_pane_does_not_scroll_or_shift_cursor() -> None:
 @pytest.mark.asyncio
 async def test_seed_recovers_primary_screen_scrollback() -> None:
     """On the primary screen the seed captures full history, not just the screen."""
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     sock, target = await _new_private_tmux("bash --norc")
     await asyncio.sleep(0.2)
@@ -572,7 +572,7 @@ async def test_seed_alternate_screen_does_not_leak_primary_history() -> None:
     scrollback from before the app switched — lines that were never part of
     the app's UI. The bridge must capture the visible screen only there.
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     # 50 primary-screen "OLD" lines, then enter the alternate screen and draw.
     sock, target = await _new_private_tmux(
@@ -604,7 +604,7 @@ async def test_seed_replays_alt_screen_and_mouse_modes() -> None:
     would otherwise leave the browser xterm believing no tracking is active —
     wheel events then send nothing and the view cannot scroll.
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     # The OpenCode/bubbletea shape: alt screen + any-motion mouse + SGR.
     sock, target = await _new_private_tmux(
@@ -638,7 +638,7 @@ async def test_seed_rejoins_soft_wrapped_lines() -> None:
     insert a newline at each wrap point (xterm only rejoins rows it flagged
     as wrapped itself).
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     # 150 chars in an 80-col pane wraps across two rows.
     sock, target = await _new_private_tmux(
@@ -666,7 +666,7 @@ async def test_seed_replays_bracketed_paste_mode() -> None:
     attached would otherwise leave the browser xterm unaware, so a multi-line
     paste arrives as raw newlines and readline executes each line on arrival.
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     sock, target = await _new_private_tmux(
         "python3 -c 'import sys,time; "
@@ -690,7 +690,7 @@ async def test_seed_plain_shell_replays_no_modes() -> None:
     native scrollback) or swallow wheel events into mouse reports the shell
     can't use.
     """
-    from omnigent.terminals.control_bridge import _run_tmux_capture
+    from agentnexus.terminals.control_bridge import _run_tmux_capture
 
     sock, target = await _new_private_tmux("bash")
     await asyncio.sleep(0.5)

@@ -19,7 +19,7 @@ import sys
 
 import pytest
 
-from omnigent.onboarding import interactive
+from agentnexus.onboarding import interactive
 
 
 @pytest.fixture()

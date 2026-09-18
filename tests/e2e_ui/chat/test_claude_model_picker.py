@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import Page, Route, expect
 
-from omnigent.claude_native import ClaudeNativeUcodeConfig, claude_native_model_options
+from agentnexus.claude_native import ClaudeNativeUcodeConfig, claude_native_model_options
 from tests.e2e_ui.conftest import fetch_with_retry, seed_committed_turn
 
 _EXPECTED_ROWS = [
@@ -103,10 +103,10 @@ def _patch_session_as_claude_native(
 
         extra_labels: dict[str, str] = {}
         if cur_permission_mode[0] is not None:
-            extra_labels["omnigent.claude_native.permission_mode"] = cur_permission_mode[0]
+            extra_labels["agentnexus.claude_native.permission_mode"] = cur_permission_mode[0]
         payload["labels"] = {
             **payload.get("labels", {}),
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.wrapper": "claude-code-native-ui",
             **extra_labels,
         }
         payload["harness"] = "claude"
@@ -217,7 +217,7 @@ def test_claude_native_picker_updates_after_delayed_catalog(
     page.add_init_script(
         stream_script,
     )
-    page.add_init_script("window.localStorage.setItem('omnigent.picker.model', 'opus')")
+    page.add_init_script("window.localStorage.setItem('agentnexus.picker.model', 'opus')")
 
     page.goto(f"{base_url}/c/{session_id}")
 
@@ -549,7 +549,7 @@ def _patch_native_session_pair(page: Page, codex_session_id: str, claude_session
             wrapper, harness = "claude-code-native-ui", "claude"
             payload["llm_model"] = _CLAUDE_LLM_MODEL
             payload["model_options"] = _MODEL_OPTIONS
-        payload["labels"] = {**payload.get("labels", {}), "omnigent.wrapper": wrapper}
+        payload["labels"] = {**payload.get("labels", {}), "agentnexus.wrapper": wrapper}
         payload["harness"] = harness
         route.fulfill(
             status=200,
@@ -809,7 +809,7 @@ def test_claude_native_picker_highlights_the_reported_model(
     sticky pick ("haiku"), but the pane reports Sonnet 5: only its row may
     read as active.
     """
-    page.add_init_script("window.localStorage.setItem('omnigent.picker.model', 'haiku')")
+    page.add_init_script("window.localStorage.setItem('agentnexus.picker.model', 'haiku')")
     base_url, session_id = seeded_session
     _patch_session_as_claude_native(page, session_id, model_override="opus")
 

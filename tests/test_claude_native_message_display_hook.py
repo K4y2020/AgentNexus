@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import claude_native_message_display_hook as hook
-from omnigent.claude_native_bridge import read_message_deltas_from_offset
+from agentnexus import claude_native_message_display_hook as hook
+from agentnexus.claude_native_bridge import read_message_deltas_from_offset
 
 
 def _run_hook(
@@ -220,10 +220,10 @@ def test_message_display_hook_many_appends_stay_line_clean(
 _HEAVY_IMPORTS = (
     "fastapi",
     "httpx",
-    "omnigent.inner.databricks_executor",
-    "omnigent.inner.datamodel",
-    "omnigent.model_catalog",
-    "omnigent.spec.parser",
+    "agentnexus.inner.databricks_executor",
+    "agentnexus.inner.datamodel",
+    "agentnexus.model_catalog",
+    "agentnexus.spec.parser",
     "pydantic",
 )
 
@@ -233,7 +233,7 @@ def _heavy_imports_after(statements: str) -> list[str]:
     Run *statements* in a fresh interpreter and report loaded heavy modules.
 
     :param statements: Newline-joined Python statements to execute, e.g.
-        ``"import omnigent"``.
+        ``"import agentnexus"``.
     :returns: The subset of :data:`_HEAVY_IMPORTS` present in the child's
         ``sys.modules`` after *statements* ran.
     """
@@ -260,7 +260,7 @@ def _heavy_imports_after(statements: str) -> list[str]:
 
 def test_package_init_defers_the_heavy_import_graph() -> None:
     """
-    ``import omnigent`` alone loads none of the heavy graph.
+    ``import agentnexus`` alone loads none of the heavy graph.
 
     The package init used to eagerly import the datamodel/executor graph,
     taxing every hook subprocess ~250 ms before its first line ran. The
@@ -269,7 +269,7 @@ def test_package_init_defers_the_heavy_import_graph() -> None:
     """
     statements = "\n".join(
         (
-            "import omnigent",
+            "import agentnexus",
             "import hashlib",
             "assert hashlib.md5.__name__ == '_fips_safe_md5', hashlib.md5.__name__",
         )
@@ -281,16 +281,16 @@ def test_package_lazy_exports_resolve_on_access() -> None:
     """
     The lazy re-exports keep the package's public import contract.
 
-    Plain and optional exports, ``from omnigent import`` forms, bare
+    Plain and optional exports, ``from agentnexus import`` forms, bare
     submodule attribute access, and ``dir()`` all resolve exactly as the
     eager init did — laziness must never be observable beyond timing.
     """
     statements = "\n".join(
         (
-            "import omnigent",
-            "from omnigent import AgentDef, Executor, load_agent_def",
+            "import agentnexus",
+            "from agentnexus import AgentDef, Executor, load_agent_def",
             "assert omnigent.TurnComplete is not None",
-            "assert 'omnigent.inner.executor' in sys.modules",
+            "assert 'agentnexus.inner.executor' in sys.modules",
             "_ = omnigent.DatabricksExecutor  # optional: a class or None, never a raise",
             "assert omnigent.inner is not None",
             "assert 'TurnComplete' in dir(omnigent)",
@@ -302,10 +302,10 @@ def test_package_lazy_exports_resolve_on_access() -> None:
 @pytest.mark.parametrize(
     ("module", "allowed"),
     [
-        ("omnigent.claude_native_message_display_hook", frozenset()),
-        ("omnigent.claude_native_status", frozenset()),
+        ("agentnexus.claude_native_message_display_hook", frozenset()),
+        ("agentnexus.claude_native_status", frozenset()),
         (
-            "omnigent.claude_native_hook",
+            "agentnexus.claude_native_hook",
             # The observer path (the most frequent invocation) is pure
             # stdlib + light bridge state: httpx and the policy machinery
             # are imported inside the subcommands that speak HTTP, and the

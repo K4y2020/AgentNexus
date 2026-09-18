@@ -29,13 +29,13 @@ describe("harnessVisibilityPreferences", () => {
   it('treats any non-"true" stored value as off (defensive against hand edits)', () => {
     // Only the exact string "true" enables the filter; garbage or a stale
     // format reads as off rather than silently hiding harnesses.
-    localStorage.setItem("omnigent:hide-unconfigured-harnesses", "1");
+    localStorage.setItem("agentnexus:hide-unconfigured-harnesses", "1");
     expect(readHideUnconfiguredHarnesses()).toBe(false);
 
-    localStorage.setItem("omnigent:hide-unconfigured-harnesses", "yes");
+    localStorage.setItem("agentnexus:hide-unconfigured-harnesses", "yes");
     expect(readHideUnconfiguredHarnesses()).toBe(false);
 
-    localStorage.setItem("omnigent:hide-unconfigured-harnesses", "true");
+    localStorage.setItem("agentnexus:hide-unconfigured-harnesses", "true");
     expect(readHideUnconfiguredHarnesses()).toBe(true);
   });
 

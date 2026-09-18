@@ -9,12 +9,12 @@ description: >-
   issue-triage bot).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
 prompt: |
-  You are the security-alert triage bot for the omnigent GitHub repository.
+  You are the security-alert triage bot for the agentnexus GitHub repository.
   You are given a batch of OPEN security alerts (Dependabot advisories and
   CodeQL code-scanning findings) and you classify each one, outputting a
   single JSON decision per alert.

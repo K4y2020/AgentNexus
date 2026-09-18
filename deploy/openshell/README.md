@@ -1,25 +1,25 @@
-# Omnigent on NVIDIA OpenShell
+# AgentNexus on NVIDIA OpenShell
 
 [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) is a self-hosted sandbox
-provider. Omnigent connects to an OpenShell **gateway** with the official
+provider. AgentNexus connects to an OpenShell **gateway** with the official
 [`openshell`](https://pypi.org/project/openshell/) Python SDK and asks that
 gateway to create, execute in, and delete sandboxes on the gateway's configured
 compute driver.
 
-This guide covers the Omnigent-specific OpenShell setup:
+This guide covers the AgentNexus-specific OpenShell setup:
 
 - install the `openshell` extra;
 - select a working OpenShell gateway;
-- use an OpenShell-compatible Omnigent host image;
+- use an OpenShell-compatible AgentNexus host image;
 - configure CLI-launched or server-managed sandboxes.
 
 ```bash
-uv pip install 'omnigent[openshell]'
+uv pip install 'agentnexus[openshell]'
 ```
 
-Omnigent uses OpenShell two ways:
+AgentNexus uses OpenShell two ways:
 
-- **CLI-launched**: `omnigent sandbox create` / `connect` provisions a sandbox
+- **CLI-launched**: `agentnexus sandbox create` / `connect` provisions a sandbox
   from your terminal, ships your local checkout into it, and registers it as a
   host with your server.
 - **Server-managed**: the server provisions a sandbox automatically when a
@@ -30,14 +30,14 @@ This is a sandbox-provider guide, not a server deploy target.
 
 Two traits shape the rest of this guide:
 
-- **gRPC, and a gateway you select — not an API key.** Omnigent connects through
+- **gRPC, and a gateway you select — not an API key.** AgentNexus connects through
   the OpenShell gateway you've made active with `openshell gateway select`. The
   SDK's `from_active_cluster()` resolves that gateway's endpoint, TLS material,
   and OIDC token from `$OPENSHELL_GATEWAY` / `~/.config/openshell/active_gateway`.
-  There is no base-URL or token knob in Omnigent — gateway setup and auth are an
+  There is no base-URL or token knob in AgentNexus — gateway setup and auth are an
   OpenShell concern.
 - **No local port forward.** OpenShell has no sandbox→laptop callback path, so
-  the interactive in-sandbox `omnigent login` / App OAuth step is skipped
+  the interactive in-sandbox `agentnexus login` / App OAuth step is skipped
   automatically (as on Modal, Daytona, and CoreWeave) — fine for token/OIDC-auth
   servers.
 
@@ -91,7 +91,7 @@ gateway logs at `~/.openshell-local/gateway.log`.
 For a real deployment, run the gateway behind TLS with OIDC or mTLS (see the
 OpenShell docs), then `openshell gateway add <https-url>` and `openshell gateway
 login`; the SDK picks up the TLS/OIDC material from the gateway metadata
-automatically — Omnigent needs no extra configuration.
+automatically — AgentNexus needs no extra configuration.
 
 > [!WARNING]
 > `allow_unauthenticated_users = true` and `--disable-tls` are local-development
@@ -99,9 +99,9 @@ automatically — Omnigent needs no extra configuration.
 
 ## The host image
 
-Sandboxes boot from `ghcr.io/omnigent-ai/omnigent-host:latest`, published by CI
+Sandboxes boot from `ghcr.io/agentnexus-ai/agentnexus-host:latest`, published by CI
 from the `host` target of [`deploy/docker/Dockerfile`](../docker/Dockerfile) with
-Omnigent and its dependencies preinstalled — including the coding-harness CLIs
+AgentNexus and its dependencies preinstalled — including the coding-harness CLIs
 (`claude`, `codex`, `pi`, `kiro-cli`), so agents on any harness run without an in-sandbox
 install. OpenShell injects its own supervisor as the container entrypoint.
 
@@ -117,22 +117,22 @@ Before using an image with OpenShell, smoke-test that contract from the same
 Docker daemon the gateway uses:
 
 ```bash
-docker run --rm --entrypoint sh ghcr.io/omnigent-ai/omnigent-host:latest \
+docker run --rm --entrypoint sh ghcr.io/agentnexus-ai/agentnexus-host:latest \
   -lc 'id sandbox && command -v ip && command -v nft'
 ```
 
 To use a different image (a fork, or extra tooling baked in), run the build from
-an Omnigent repository checkout on an amd64 Docker-capable machine, then push it
+an AgentNexus repository checkout on an amd64 Docker-capable machine, then push it
 where the gateway's driver can pull from:
 
 ```bash
 docker build -f deploy/docker/Dockerfile --target host \
   --platform linux/amd64 \
-  -t docker.io/<you>/omnigent-host:latest .
-docker push docker.io/<you>/omnigent-host:latest
+  -t docker.io/<you>/agentnexus-host:latest .
+docker push docker.io/<you>/agentnexus-host:latest
 ```
 
-Then point Omnigent at it with `OMNIGENT_OPENSHELL_HOST_IMAGE`.
+Then point AgentNexus at it with `AGENTNEXUS_OPENSHELL_HOST_IMAGE`.
 
 > [!NOTE]
 > **Air-gapped?** Pre-load the host image (and OpenShell's supervisor image) into
@@ -145,7 +145,7 @@ With a gateway selected, provision a sandbox and ship your local checkout into
 it:
 
 ```bash
-omnigent sandbox create --provider openshell --server https://your-host
+agentnexus sandbox create --provider openshell --server https://your-host
 ```
 
 This creates a sandbox from the host image, builds wheels from your local
@@ -153,19 +153,19 @@ checkout, and overlays them on top — so the sandbox runs *your* code, not
 whatever the image was built from. Then register it as a host with your server:
 
 ```bash
-omnigent sandbox connect --provider openshell \
+agentnexus sandbox connect --provider openshell \
   --sandbox-id <id-printed-by-create> \
   --server https://your-host
 ```
 
-`connect` runs `omnigent host` inside the sandbox and holds the connection open
+`connect` runs `agentnexus host` inside the sandbox and holds the connection open
 in your terminal — Ctrl-C tears it down (stopping the in-sandbox host). New
 sessions targeting that host now run in the sandbox. Pass a unique `--host-name
 <label>` per sandbox when connecting several to one server (the server keys hosts
 on (owner, name)). Sandboxes are disposable; when your code changes, create a new
 one.
 
-To inject LLM/git credentials into the sandbox, set `OMNIGENT_OPENSHELL_SANDBOX_ENV`
+To inject LLM/git credentials into the sandbox, set `AGENTNEXUS_OPENSHELL_SANDBOX_ENV`
 in your shell to a comma-separated list of variable names before running
 `create` — the named variables are copied from your environment into the sandbox
 at provision time. A listed name that is **not** set fails the launch loudly (it
@@ -173,13 +173,13 @@ would otherwise surface much later as an opaque harness auth failure inside the
 sandbox):
 
 ```bash
-export OMNIGENT_OPENSHELL_SANDBOX_ENV=ANTHROPIC_API_KEY,GIT_TOKEN
-omnigent sandbox create --provider openshell --server https://your-host
+export AGENTNEXUS_OPENSHELL_SANDBOX_ENV=ANTHROPIC_API_KEY,GIT_TOKEN
+agentnexus sandbox create --provider openshell --server https://your-host
 ```
 
 ## Server-managed sandboxes
 
-Add a `sandbox:` section to the server config (`omnigent server -c config.yaml`,
+Add a `sandbox:` section to the server config (`agentnexus server -c config.yaml`,
 or `<data_dir>/config.yaml`):
 
 ```yaml
@@ -189,9 +189,9 @@ sandbox:
 ```
 
 A top-level `sandbox.host_config:` (provider-agnostic) holds verbatim
-in-sandbox `~/.omnigent/config.yaml` content — e.g. a `providers:`
+in-sandbox `~/.agentnexus/config.yaml` content — e.g. a `providers:`
 block routing a harness through a self-hosted gateway — installed into
-the sandbox before `omnigent host` starts. The block is server-managed:
+the sandbox before `agentnexus host` starts. The block is server-managed:
 entries injected by a previous launch are replaced or removed on the
 next launch/resume, while config created inside the sandbox survives.
 Keep secrets out via
@@ -229,7 +229,7 @@ sandbox:
   provider: openshell
   server_url: https://your-host
   openshell:
-    image: docker.io/<you>/omnigent-host:latest         # default: official image
+    image: docker.io/<you>/agentnexus-host:latest         # default: official image
     env: [OPENAI_API_KEY, ANTHROPIC_API_KEY, GIT_TOKEN]  # server env var NAMES to inject
     cluster: my-gateway                                  # default: active gateway
 ```
@@ -274,13 +274,13 @@ network_policies:
 > **Forward the proxy vars to the runner.** The host inherits the sandbox's
 > `https_proxy`/`http_proxy`, but the runner subprocess it spawns does **not** —
 > so the runner fails with `Temporary failure in name resolution` even though the
-> host connected. Inject `OMNIGENT_RUNNER_ENV_PASSTHROUGH` naming the proxy vars so
+> host connected. Inject `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH` naming the proxy vars so
 > the host forwards them:
 > ```yaml
 > sandbox:
 >   openshell:
->     env: [OMNIGENT_RUNNER_ENV_PASSTHROUGH, …]   # value set in the server env:
-> # OMNIGENT_RUNNER_ENV_PASSTHROUGH=https_proxy,http_proxy,HTTPS_PROXY,HTTP_PROXY,NO_PROXY,no_proxy
+>     env: [AGENTNEXUS_RUNNER_ENV_PASSTHROUGH, …]   # value set in the server env:
+> # AGENTNEXUS_RUNNER_ENV_PASSTHROUGH=https_proxy,http_proxy,HTTPS_PROXY,HTTP_PROXY,NO_PROXY,no_proxy
 > ```
 
 > [!TIP]
@@ -292,14 +292,14 @@ network_policies:
 ## Model credentials (LLM keys)
 
 A fresh sandbox has no model credentials. Name the variables to inject in
-`OMNIGENT_OPENSHELL_SANDBOX_ENV`; the launcher copies the value from your
+`AGENTNEXUS_OPENSHELL_SANDBOX_ENV`; the launcher copies the value from your
 environment into the sandbox, and the in-sandbox host forwards the standard
 harness credential vars (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`,
 `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `GEMINI_API_KEY`, …) to its runners.
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-…
-export OMNIGENT_OPENSHELL_SANDBOX_ENV=ANTHROPIC_API_KEY
+export AGENTNEXUS_OPENSHELL_SANDBOX_ENV=ANTHROPIC_API_KEY
 ```
 
 Which variables to inject — providers, gateways, subscriptions — is identical to
@@ -307,17 +307,17 @@ the other providers; see the [Modal variable table and per-plan
 recipes](../modal/README.md#llm-credentials-for-managed-sandboxes). For a Claude
 **subscription**, run `claude setup-token` on your own machine (one-time browser
 auth) and inject the resulting `CLAUDE_CODE_OAUTH_TOKEN`. For env vars beyond the
-standard set, inject `OMNIGENT_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2`.
+standard set, inject `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2`.
 
 > [!TIP]
 > OpenShell can also enforce credential and egress policy at the sandbox boundary
 > via its declarative YAML policy (a gateway-side feature, independent of
-> Omnigent). See the [OpenShell policy docs](https://docs.nvidia.com/openshell).
+> AgentNexus). See the [OpenShell policy docs](https://docs.nvidia.com/openshell).
 
 ## Git credentials (private repositories)
 
 Inject an HTTPS token as `GIT_TOKEN` (GitLab: add `GIT_USERNAME=oauth2`) via
-`OMNIGENT_OPENSHELL_SANDBOX_ENV`. The host image's git credential helper answers
+`AGENTNEXUS_OPENSHELL_SANDBOX_ENV`. The host image's git credential helper answers
 HTTPS auth from it for both the launch-time clone and the agent's later `fetch` /
 `push`, writing nothing to disk. Use HTTPS repository URLs. Details by provider
 match the [Modal git guide](../modal/README.md#git-credentials-private-repositories).
@@ -333,7 +333,7 @@ match the [Modal git guide](../modal/README.md#git-credentials-private-repositor
   approach NVIDIA's own LangChain backend uses). Wheels are shipped this way, then
   installed with the shared host-image overlay command.
 - **Sandbox identity.** OpenShell assigns each sandbox a petname (e.g.
-  `touched-urial`); that name is the handle Omnigent prints and reuses. The
+  `touched-urial`); that name is the handle AgentNexus prints and reuses. The
   requested `--name` is advisory.
 - **Non-root execution.** OpenShell runs the agent as the `sandbox` user, so the
   launcher pins every exec's cwd and `$HOME` to `/home/sandbox` (the image keeps
@@ -359,11 +359,11 @@ match the [Modal git guide](../modal/README.md#git-credentials-private-repositor
   was started with `DOCKER_HOST` pointed at colima's socket — `/var/run/docker.sock`
   may point at a different (stopped) Docker.
 - **Agent has no credentials** — verify the injected var names match the forwarded
-  set (or are named in `OMNIGENT_RUNNER_ENV_PASSTHROUGH`), and that each name was
+  set (or are named in `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH`), and that each name was
   actually set in the launching environment.
 - **Host registers but the runner never comes online / runner log shows
   `Temporary failure in name resolution`** — the runner subprocess isn't getting
-  the sandbox's proxy vars. Forward them with `OMNIGENT_RUNNER_ENV_PASSTHROUGH`
+  the sandbox's proxy vars. Forward them with `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH`
   (see [Network egress policy](#network-egress-policy)).
 - **Turn fails reaching the model, or proxy returns `403`** — the destination
   isn't in the sandbox's egress allow-list. Add the LLM host (and any
@@ -379,9 +379,9 @@ match the [Modal git guide](../modal/README.md#git-credentials-private-repositor
 | Variable | Where it's read | Purpose |
 |---|---|---|
 | `OPENSHELL_GATEWAY` | CLI machine / server | Gateway name to use; overrides `~/.config/openshell/active_gateway` (read by the SDK). `sandbox.openshell.cluster` takes precedence for managed. |
-| `OMNIGENT_OPENSHELL_HOST_IMAGE` | CLI machine | Override the host image ref (default `ghcr.io/omnigent-ai/omnigent-host:latest`); `sandbox.openshell.image` is the managed equivalent |
-| `OMNIGENT_OPENSHELL_SANDBOX_ENV` | CLI machine | Comma-separated launcher-side env var names to inject into the sandbox; `sandbox.openshell.env` is the managed equivalent |
-| `OMNIGENT_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (injected) | Extra env var names the host forwards to runners |
+| `AGENTNEXUS_OPENSHELL_HOST_IMAGE` | CLI machine | Override the host image ref (default `ghcr.io/agentnexus-ai/agentnexus-host:latest`); `sandbox.openshell.image` is the managed equivalent |
+| `AGENTNEXUS_OPENSHELL_SANDBOX_ENV` | CLI machine | Comma-separated launcher-side env var names to inject into the sandbox; `sandbox.openshell.env` is the managed equivalent |
+| `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (injected) | Extra env var names the host forwards to runners |
 | `GIT_TOKEN` / `GIT_USERNAME` | inside the sandbox (injected) | HTTPS credentials for private repository clone / fetch / push |
 
 ## Validation
@@ -394,7 +394,7 @@ Exercised end-to-end against a live OpenShell gateway on an **amd64 Linux** host
   primitive) streaming output and propagating exit codes; the gateway logs the
   matching `CreateSandbox` / `ExecSandbox` / `DeleteSandbox` RPCs.
 - **Full server-managed session** — a `host_type:"managed"` session drove the
-  server to provision a sandbox on the gateway, start `omnigent host` in it (held
+  server to provision a sandbox on the gateway, start `agentnexus host` in it (held
   foreground exec), dial back over the tunnel, register, spawn the runner, and
   complete a real agent turn (a Gemini model via the openai-agents harness) — the
   agent's reply came back from inside the sandbox.

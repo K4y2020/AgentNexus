@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.policies.builtins.context import (
+from agentnexus.policies.builtins.context import (
     _TASK_SWITCH_HISTORY_KEY,
     _THRASHING_HISTORY_KEY,
     _looks_like_error,

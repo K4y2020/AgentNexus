@@ -17,7 +17,7 @@ bot's own Databricks App URL:
   Persists the tokens exchanged on the GET (stashed under a single-use confirm
   id) so the Socket-Mode bot can act as the user — and refresh without
   re-enrollment. Storing only on this explicit POST means a credential is never
-  persisted without the user affirming the Omnigent↔Slack account linkage.
+  persisted without the user affirming the AgentNexus↔Slack account linkage.
 
 The authorization code is single-use, so it's exchanged once on the GET and the
 resulting tokens held in a short-lived in-memory stash until the confirming POST.
@@ -37,15 +37,15 @@ from dataclasses import dataclass
 
 from aiohttp import web
 
-from omnigent_slack.config import Settings
-from omnigent_slack.databricks_oauth import (
+from agentnexus_slack.config import Settings
+from agentnexus_slack.databricks_oauth import (
     DatabricksOAuthClient,
     DatabricksOAuthError,
     DatabricksTokens,
     derive_code_challenge,
     generate_code_verifier,
 )
-from omnigent_slack.enrollment_state import (
+from agentnexus_slack.enrollment_state import (
     EnrollmentState,
     StateError,
     emails_match,
@@ -53,7 +53,7 @@ from omnigent_slack.enrollment_state import (
     sign_state,
     verify_state,
 )
-from omnigent_slack.tokens import TokenStore
+from agentnexus_slack.tokens import TokenStore
 
 _logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class WebAuthServer:
         is the Slack user's email (from ``users.info``); it is signed into the
         state and later matched against the OAuth-authenticated email, so the
         enrolled token can only be the requesting user's own. ``None`` when the
-        redirect URI isn't configured (no ``OMNIGENT_SLACK_DATABRICKS_APP_URL``),
+        redirect URI isn't configured (no ``AGENTNEXUS_SLACK_DATABRICKS_APP_URL``),
         the state secret is missing, or the email is absent — so the caller
         surfaces a clear message instead of a broken (or unverifiable) link.
         """
@@ -165,7 +165,7 @@ class WebAuthServer:
                 # consent page naming the identities. POST — the consent page's
                 # Confirm button — is the only thing that stores the token, so a
                 # credential is never persisted without the user affirming the
-                # Omnigent↔Slack account linkage.
+                # AgentNexus↔Slack account linkage.
                 web.get("/auth/callback", self._handle_callback),
                 web.post("/auth/callback", self._handle_confirm),
             ]
@@ -246,7 +246,7 @@ class WebAuthServer:
         pair, then — the confused-deputy guard — requires the OAuth-authenticated
         email to equal the email the link was issued for. On success it stashes
         the tokens under a single-use confirm id and renders a consent page naming
-        the exact Omnigent + Slack identities; the token is persisted to the store
+        the exact AgentNexus + Slack identities; the token is persisted to the store
         only when the user clicks Confirm (the POST). The code is single-use, so
         it's exchanged here (not re-exchanged on the POST).
 
@@ -338,7 +338,7 @@ class WebAuthServer:
         Looks up the single-use confirm id, then stores the tokens for the Slack
         identity the signed state bound them to. Storing only on this explicit
         POST means a credential is never persisted without the user affirming the
-        Omnigent↔Slack linkage on a page that named both identities.
+        AgentNexus↔Slack linkage on a page that named both identities.
         """
         data = await request.post()
         confirm_id = str(data.get("confirm_id", ""))
@@ -442,7 +442,7 @@ def _identity_summary(
     """
     workspace = f" in Slack workspace <b>{html.escape(team_name)}</b>" if team_name else ""
     return (
-        f"You are {verb} your Omnigent <b>{html.escape(server_url)}</b> account "
+        f"You are {verb} your AgentNexus <b>{html.escape(server_url)}</b> account "
         f"<b>{html.escape(idp_email)}</b> with Slack user "
         f"<b>{html.escape(slack_email)}</b>{workspace}."
     )
@@ -452,7 +452,7 @@ def _consent_page(
     *, confirm_id: str, server_url: str, idp_email: str, slack_email: str, team_name: str
 ) -> str:
     # Shown after the code exchange but BEFORE anything is stored. Names the exact
-    # Omnigent + Slack identities being linked and requires an explicit Confirm (a
+    # AgentNexus + Slack identities being linked and requires an explicit Confirm (a
     # POST carrying the single-use confirm id) before the token is saved — so a
     # credential is never persisted without the user affirming the linkage.
     summary = _identity_summary(
@@ -466,7 +466,7 @@ def _consent_page(
         f"{summary}<br><br>"
         "Only continue if <b>all of the above</b> are correct and this is you. If "
         "anything is unrecognized, do <b>NOT</b> confirm — doing so lets that Slack "
-        "user act as you and use your Omnigent account. Close this tab instead."
+        "user act as you and use your AgentNexus account. Close this tab instead."
         "<br><br>"
         '<form method="post" action="/auth/callback">'
         f'<input type="hidden" name="confirm_id" value="{html.escape(confirm_id)}">'
@@ -474,13 +474,13 @@ def _consent_page(
         'border:0;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">'
         "Confirm &amp; connect</button></form>"
     )
-    return _page("Confirm your Omnigent connection", message)
+    return _page("Confirm your AgentNexus connection", message)
 
 
 def _success_page(*, server_url: str, idp_email: str, slack_email: str, team_name: str) -> str:
     workspace = f" in Slack workspace <b>{html.escape(team_name)}</b>" if team_name else ""
     summary = (
-        f"You connected your Omnigent <b>{html.escape(server_url)}</b> account "
+        f"You connected your AgentNexus <b>{html.escape(server_url)}</b> account "
         f"<b>{html.escape(idp_email)}</b> with Slack user "
         f"<b>{html.escape(slack_email)}</b>{workspace}."
     )

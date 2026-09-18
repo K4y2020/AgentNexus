@@ -1,5 +1,5 @@
 // Hand-written client for the six `/v1/scheduled-tasks` endpoints, mirroring
-// `omnigent/server/routes/scheduled_tasks.py`. Follows the same conventions as
+// `agentnexus/server/routes/scheduled_tasks.py`. Follows the same conventions as
 // the sibling `sessionsApi.ts`: requests go through the Vite `/v1` proxy, the
 // wire is snake_case while the TS surface is camelCase, and non-OK responses
 // throw a typed error carrying the server's machine-readable `code`.

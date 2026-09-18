@@ -14,7 +14,7 @@ flow control:
 
 from __future__ import annotations
 
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
 
 _ALLOW: PolicyResponse = {"result": "ALLOW"}
 

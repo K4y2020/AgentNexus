@@ -33,7 +33,7 @@ import { isNativeShell } from "@/lib/nativeBridge";
 
 // Custom event the dialog listens for, so non-adjacent surfaces (e.g. the
 // account menu) can open it without threading state through the tree.
-export const KEYBOARD_SHORTCUTS_EVENT = "omnigent:open-keyboard-shortcuts";
+export const KEYBOARD_SHORTCUTS_EVENT = "agentnexus:open-keyboard-shortcuts";
 
 /** Dispatch the open event — used by menu entries that can't reach the state. */
 export function openKeyboardShortcuts(): void {

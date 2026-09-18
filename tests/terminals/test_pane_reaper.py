@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.terminals.pane_reaper import (
+from agentnexus.terminals.pane_reaper import (
     _DEFAULT_IDLE_TIMEOUT_S,
     _IDLE_TIMEOUT_ENV,
     NativePaneReaper,

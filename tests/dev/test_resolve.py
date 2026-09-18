@@ -45,7 +45,7 @@ def test_parse_session_ref_rejects_empty() -> None:
     [
         (
             "https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184",
-            {"org": "omnigent-ai", "repo": "omnigent-internal", "run_id": "30974269184"},
+            {"org": "agentnexus-ai", "repo": "agentnexus-internal", "run_id": "30974269184"},
         ),
         (
             "https://github.com/o/r/actions/runs/123/job/456",

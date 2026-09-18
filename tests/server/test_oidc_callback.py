@@ -33,15 +33,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig
-from omnigent.server.routes.auth import (
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig
+from agentnexus.server.routes.auth import (
     _AUTH_STATE_COOKIE_PLAIN,
     _resolve_oidc_email,
     create_auth_router,
 )
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 _TEST_SECRET = bytes.fromhex("aa" * 32)
 _ISSUER = "https://accounts.google.com"
@@ -58,9 +58,9 @@ def _oidc_config(
     ``email_verified`` gate from the domain-allowlist check.
 
     :param skip_email_verification: Waive the ``email_verified`` gate,
-        as ``OMNIGENT_OIDC_SKIP_EMAIL_VERIFICATION`` would.
+        as ``AGENTNEXUS_OIDC_SKIP_EMAIL_VERIFICATION`` would.
     :param email_claim: Claim carrying the email identity, as
-        ``OMNIGENT_OIDC_EMAIL_CLAIM`` would set it.
+        ``AGENTNEXUS_OIDC_EMAIL_CLAIM`` would set it.
     """
     return OIDCConfig(
         issuer=_ISSUER,
@@ -324,7 +324,7 @@ def test_callback_skip_verification_flag_admits_unverified(
     Models Okta tiers that drop ``email_verified`` for
     directory-provisioned users: the same absent-claim token rejected
     by default (covered above) mints a session when the operator has
-    opted out via ``OMNIGENT_OIDC_SKIP_EMAIL_VERIFICATION``.
+    opted out via ``AGENTNEXUS_OIDC_SKIP_EMAIL_VERIFICATION``.
     """
     client, keys = callback_client
     token = keys.sign_id_token(claims)
@@ -350,7 +350,7 @@ def test_callback_custom_email_claim_admits_upn(
 
     Models Microsoft Entra ID id_tokens that carry only
     ``preferred_username`` (the UPN) and no ``email`` claim: with the
-    claim configured via ``OMNIGENT_OIDC_EMAIL_CLAIM`` and the
+    claim configured via ``AGENTNEXUS_OIDC_EMAIL_CLAIM`` and the
     verification opt-out set (a custom claim has no ``email_verified``
     marker), the UPN mints the session. Before the fix this token was
     rejected outright. Surrounding whitespace is removed before the
@@ -425,7 +425,7 @@ def test_callback_custom_email_claim_still_requires_verification_optout(
     nothing about a custom identity claim — a token carrying
     ``email_verified: true`` for a *different* address must not smuggle
     the custom claim past the gate. Without
-    ``OMNIGENT_OIDC_SKIP_EMAIL_VERIFICATION`` both shapes are rejected.
+    ``AGENTNEXUS_OIDC_SKIP_EMAIL_VERIFICATION`` both shapes are rejected.
     """
     client, keys = callback_client
     token = keys.sign_id_token(claims)
@@ -496,8 +496,8 @@ def test_cli_ticket_fulfillment_issues_refresh_grant(
     This is the renewal path that keeps an unattended host alive past
     session-JWT expiry.
     """
-    from omnigent.server.device_grant_store import DeviceGrantStore
-    from omnigent.server.routes.device_auth import create_oauth_token_router
+    from agentnexus.server.device_grant_store import DeviceGrantStore
+    from agentnexus.server.routes.device_auth import create_oauth_token_router
 
     keys = _IdpKeys()
     perm_store = SqlAlchemyPermissionStore(db_uri)

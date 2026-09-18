@@ -14,7 +14,7 @@ from issue_prioritization.domain import (
 )
 from issue_prioritization.mutations import MutationPlan
 
-COMMENT_MARKER = "omnigent-issue-prioritization-v2"
+COMMENT_MARKER = "agentnexus-issue-prioritization-v2"
 NEEDS_INFO_DAYS = 7
 _SPACE = re.compile(r"\s+")
 _MISSING_INFORMATION_TEXT = {
@@ -22,7 +22,7 @@ _MISSING_INFORMATION_TEXT = {
     MissingInformation.EXPECTED_BEHAVIOR: "what you expected to happen",
     MissingInformation.OBSERVED_BEHAVIOR: "what happened instead, including the exact error",
     MissingInformation.VERSION_OR_ENVIRONMENT: (
-        "the Omnigent version and relevant environment details"
+        "the AgentNexus version and relevant environment details"
     ),
     MissingInformation.DIAGNOSTIC_EVIDENCE: (
         "logs, screenshots, or session IDs that show the failure"

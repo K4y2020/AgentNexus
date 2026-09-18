@@ -11,13 +11,13 @@ description: >-
 #
 # Why codex rather than openai-agents: the openai-agents harness treats an
 # unpinned model as a Databricks model (see
-# omnigent/inner/openai_agents_sdk_executor.py — `is_databricks_model =
+# agentnexus/inner/openai_agents_sdk_executor.py — `is_databricks_model =
 # model is None`) and, with no OPENAI_API_KEY/OPENAI_BASE_URL in the
 # environment, silently falls back to ambient Databricks credentials — routing
 # Debby's "GPT" head through the Databricks gateway instead of OpenAI. The
 # codex harness has no such unpinned-model Databricks fallback.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: codex
 
@@ -42,7 +42,7 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
 

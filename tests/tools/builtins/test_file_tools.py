@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.download_file import DownloadFileTool
-from omnigent.tools.builtins.list_files import ListFilesTool
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.download_file import DownloadFileTool
+from agentnexus.tools.builtins.list_files import ListFilesTool
 
 # ── Stubs ─────────────────────────────────────────────────
 
@@ -164,7 +164,7 @@ def test_list_files_returns_metadata(
         _FakeFile("file_2", "chart.png", 2048, "image/png", 2000, session_id="conv_alice"),
     ]
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(files),
     )
 
@@ -190,7 +190,7 @@ def test_list_files_empty(
     :param tool_ctx: Tool execution context.
     """
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore([]),
     )
 
@@ -212,7 +212,7 @@ def test_list_files_allows_empty_arguments(
     :param tool_ctx: Tool execution context.
     """
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -266,7 +266,7 @@ def test_list_files_respects_limit(
         for i in range(50)
     ]
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(files),
     )
 
@@ -291,7 +291,7 @@ def test_list_files_caps_limit_at_100(
         for i in range(150)
     ]
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(files),
     )
 
@@ -360,7 +360,7 @@ def test_list_files_excludes_other_sessions(
         _FakeFile("file_g", "global.txt", 300, "text/plain", 3000, session_id=None),
     ]
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(files),
     )
 
@@ -389,7 +389,7 @@ def test_download_file_saves_to_workspace(
     """
     content = b"hello world"
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -404,7 +404,7 @@ def test_download_file_saves_to_workspace(
         ),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({"file_abc": content}),
     )
 
@@ -483,7 +483,7 @@ def test_download_file_rejects_path_bearing_store_filename(
     """
     content = b"payload"
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -498,7 +498,7 @@ def test_download_file_rejects_path_bearing_store_filename(
         ),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({"file_evil": content}),
     )
 
@@ -524,11 +524,11 @@ def test_download_file_not_found(
     :param tool_ctx: Tool execution context.
     """
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore([]),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({}),
     )
 
@@ -584,7 +584,7 @@ def test_download_file_missing_content(
     :param tool_ctx: Tool execution context.
     """
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -599,7 +599,7 @@ def test_download_file_missing_content(
         ),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({}),
     )
 
@@ -626,7 +626,7 @@ def test_download_file_rejects_cross_session_file(
     """
     content = b"secret data"
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -641,7 +641,7 @@ def test_download_file_rejects_cross_session_file(
         ),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({"file_bob": content}),
     )
 
@@ -665,7 +665,7 @@ def test_download_file_allows_global_file(
     """
     content = b"shared resource"
     monkeypatch.setattr(
-        "omnigent.runtime.get_file_store",
+        "agentnexus.runtime.get_file_store",
         lambda: _FakeFileStore(
             [
                 _FakeFile(
@@ -680,7 +680,7 @@ def test_download_file_allows_global_file(
         ),
     )
     monkeypatch.setattr(
-        "omnigent.runtime.get_artifact_store",
+        "agentnexus.runtime.get_artifact_store",
         lambda: _FakeArtifactStore({"file_global": content}),
     )
 

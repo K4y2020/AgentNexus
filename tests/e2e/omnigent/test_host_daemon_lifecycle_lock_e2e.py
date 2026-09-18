@@ -1,7 +1,7 @@
 """E2E coverage for the host daemon lifecycle-lock self-termination guard.
 
 A running host daemon binds its lifetime to its registry record: it holds an
-exclusive ``flock`` on ``~/.omnigent/daemons/<hash>.json`` and watches that
+exclusive ``flock`` on ``~/.agentnexus/daemons/<hash>.json`` and watches that
 same file. When the record is deleted (``omnigent host stop``) or its ``pid``
 is reassigned (a newer daemon claimed the target), the daemon retires itself
 instead of lingering as a stale process.
@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pexpect
 
-from tests.e2e.omnigent.test_host_ctrl_c_stop_server import (
+from tests.e2e.agentnexus.test_host_ctrl_c_stop_server import (
     _BOOT_TIMEOUT,
     _EXIT_TIMEOUT,
     _LEFT_RUNNING_MARKER,
@@ -64,22 +64,22 @@ _PROMPT_TIMEOUT = 30.0
 def _lifecycle_env(base_env: dict[str, str], home: Path) -> dict[str, str]:
     """Isolated subprocess env with the lifecycle monitor polling fast.
 
-    ``OMNIGENT_HOST_LIFECYCLE_POLL_S`` is on the daemon env allowlist (the
-    ``OMNIGENT_`` prefix), so it reaches the detached background daemon too.
+    ``AGENTNEXUS_HOST_LIFECYCLE_POLL_S`` is on the daemon env allowlist (the
+    ``AGENTNEXUS_`` prefix), so it reaches the detached background daemon too.
 
     :param base_env: Fixture credential environment.
     :param home: Isolated HOME for this run.
     :returns: Environment dict for the CLI/daemon subprocess.
     """
     env = _connect_env(base_env, home)
-    env["OMNIGENT_HOST_LIFECYCLE_POLL_S"] = _FAST_LIFECYCLE_POLL_S
+    env["AGENTNEXUS_HOST_LIFECYCLE_POLL_S"] = _FAST_LIFECYCLE_POLL_S
     return env
 
 
 def _wait_for_daemon_record(daemons_dir: Path, *, timeout: float) -> Path:
     """Wait for the daemon to write its record, then return its path.
 
-    :param daemons_dir: ``<home>/.omnigent/daemons`` for the isolated run.
+    :param daemons_dir: ``<home>/.agentnexus/daemons`` for the isolated run.
     :param timeout: Max seconds to poll for the record to appear.
     :returns: The ``<hash>.json`` record path for the (single) local daemon.
     :raises AssertionError: If no record appears within *timeout*.
@@ -143,7 +143,7 @@ def _drive_self_termination(
     :param mutate: ``"delete"`` to unlink the record, ``"reassign"`` to
         rewrite it with a foreign pid.
     """
-    daemons = home / ".omnigent" / "daemons"
+    daemons = home / ".agentnexus" / "daemons"
     record = _wait_for_daemon_record(daemons, timeout=_BOOT_TIMEOUT)
     _assert_daemon_owns_record(record, child.pid)
 
@@ -261,7 +261,7 @@ def _spawn_background_daemon(
     :returns: The completed process (returns once the daemon has registered).
     """
     return subprocess.run(
-        [str(omnigent_python), "-m", "omnigent", "host", "--background", ""],
+        [str(omnigent_python), "-m", "agentnexus", "host", "--background", ""],
         env=dict(env),
         cwd=str(repo_root),
         capture_output=True,
@@ -277,7 +277,7 @@ def _drive_background_self_termination(home: Path, mutate: str) -> None:
     :param mutate: ``"delete"`` to unlink the record, ``"reassign"`` to rewrite
         it with a foreign pid.
     """
-    daemons = home / ".omnigent" / "daemons"
+    daemons = home / ".agentnexus" / "daemons"
     record = _wait_for_daemon_record(daemons, timeout=_BOOT_TIMEOUT)
     daemon_pid = json.loads(record.read_text())["pid"]
 
@@ -320,7 +320,7 @@ def _run_background_lifecycle_test(
         # The detached server outlives the daemon; capture its pid/port so the
         # assertion can confirm it survived and teardown can stop it.
         server_pid, port = _read_local_server_record(home)
-        record = next((home / ".omnigent" / "daemons").glob("*.json"))
+        record = next((home / ".agentnexus" / "daemons").glob("*.json"))
         daemon_pid = json.loads(record.read_text())["pid"]
 
         _drive_background_self_termination(home, mutate)
@@ -391,7 +391,7 @@ def test_background_spawn_reuses_daemon_when_flock_held(
     proc1 = _spawn_background_daemon(omnigent_python, omnigent_repo_root, env)
     assert proc1.returncode == 0, f"first spawn failed (rc={proc1.returncode}):\n{proc1.stderr}"
 
-    daemons = home / ".omnigent" / "daemons"
+    daemons = home / ".agentnexus" / "daemons"
     record = _wait_for_daemon_record(daemons, timeout=_BOOT_TIMEOUT)
     pid1 = json.loads(record.read_text())["pid"]
     server_pid = -1

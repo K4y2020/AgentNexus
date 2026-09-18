@@ -1,6 +1,6 @@
 """Guard that every Alembic migration is SQLite-compatible.
 
-Omnigent runs the same migration chain against Postgres/Lakebase (the
+AgentNexus runs the same migration chain against Postgres/Lakebase (the
 server) and a local SQLite ``chat.db`` (the machine-global default). SQLite's
 ``ALTER TABLE`` is far more limited than Postgres': it cannot ``DROP COLUMN``
 (before SQLite 3.35), ``ALTER COLUMN``, or add/drop most constraints. Alembic's
@@ -28,7 +28,7 @@ import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 
-import omnigent.db
+import agentnexus.db
 
 # DDL ops that SQLite's native ALTER TABLE cannot perform — they MUST be issued
 # through ``op.batch_alter_table`` (table recreate). Index ops

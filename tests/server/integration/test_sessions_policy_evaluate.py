@@ -32,11 +32,11 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.runtime import get_caps, session_stream
-from omnigent.runtime.caps import RuntimeCaps
-from omnigent.server.routes import sessions as sessions_routes
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime import get_caps, session_stream
+from agentnexus.runtime.caps import RuntimeCaps
+from agentnexus.server.routes import sessions as sessions_routes
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.server.helpers import CapturingRunnerClient, create_test_agent
@@ -333,7 +333,7 @@ async def test_tool_call_deny_with_default_policy(
         default_policies=[deny_bash_policy],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
 
@@ -380,7 +380,7 @@ async def test_tool_result_deny_with_default_policy(
         default_policies=[deny_sensitive],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
 
@@ -477,7 +477,7 @@ def test_build_actor_with_user_id() -> None:
     authenticated. Without this, ``event.context.actor`` is always empty
     and policies that gate on identity are blind.
     """
-    from omnigent.server.routes.sessions import _build_actor
+    from agentnexus.server.routes.sessions import _build_actor
 
     assert _build_actor("alice@example.com") == {"run_as": "alice@example.com"}
 
@@ -487,7 +487,7 @@ def test_build_actor_without_user_id() -> None:
     ``_build_actor`` returns ``None`` when no user is authenticated (tests,
     legacy callers). Policies should see an empty actor dict.
     """
-    from omnigent.server.routes.sessions import _build_actor
+    from agentnexus.server.routes.sessions import _build_actor
 
     assert _build_actor(None) is None
 
@@ -516,12 +516,12 @@ async def test_evaluate_endpoint_passes_actor_to_policy(
         default_policies=[policy],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
     # Patch _get_user_id to simulate an authenticated user.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_user_id",
+        "agentnexus.server.routes.sessions._get_user_id",
         lambda _req, _auth: "blocked@test.com",
     )
 
@@ -557,7 +557,7 @@ async def test_evaluate_server_stashed_turn_actor_overrides_request_user_id(
     )
     original_caps = get_caps()
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: RuntimeCaps(
             execution_timeout=original_caps.execution_timeout,
             default_policies=[policy],
@@ -565,7 +565,7 @@ async def test_evaluate_server_stashed_turn_actor_overrides_request_user_id(
     )
     # HTTP request carries the runner's service-account identity.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_user_id",
+        "agentnexus.server.routes.sessions._get_user_id",
         lambda _req, _auth: "runner-svc@example.com",
     )
 
@@ -574,8 +574,8 @@ async def test_evaluate_server_stashed_turn_actor_overrides_request_user_id(
 
     # Simulate the server persisting the turn-initiating human's identity
     # (normally written by _forward_event_to_runner via set_labels).
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes.sessions import _TURN_ACTOR_LABEL
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes.sessions import _TURN_ACTOR_LABEL
 
     await asyncio.to_thread(
         get_conversation_store().set_labels,
@@ -611,7 +611,7 @@ async def test_evaluate_body_actor_field_is_ignored(
     )
     original_caps = get_caps()
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: RuntimeCaps(
             execution_timeout=original_caps.execution_timeout,
             default_policies=[policy],
@@ -619,7 +619,7 @@ async def test_evaluate_body_actor_field_is_ignored(
     )
     # HTTP request is unauthenticated; no turn actor stashed server-side.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_user_id",
+        "agentnexus.server.routes.sessions._get_user_id",
         lambda _req, _auth: None,
     )
 
@@ -656,14 +656,14 @@ async def test_evaluate_falls_back_to_request_user_id_when_no_turn_actor(
     )
     original_caps = get_caps()
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: RuntimeCaps(
             execution_timeout=original_caps.execution_timeout,
             default_policies=[policy],
         ),
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_user_id",
+        "agentnexus.server.routes.sessions._get_user_id",
         lambda _req, _auth: "blocked@test.com",
     )
 
@@ -720,7 +720,7 @@ def _patch_default_policies(monkeypatch: pytest.MonkeyPatch, fn_path: str) -> No
         default_policies=[policy],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
 
@@ -824,7 +824,7 @@ async def test_tool_call_ask_forwards_popup_event_to_runner(
     # itself touches the runner snapshot path); the forward falls back to
     # the global runner client when no runner is bound for the session.
     capturing = CapturingRunnerClient()
-    monkeypatch.setattr("omnigent.runtime._globals._runner_client", capturing)
+    monkeypatch.setattr("agentnexus.runtime._globals._runner_client", capturing)
 
     drain = asyncio.create_task(_drain_elicitation_id(session_id))
     await asyncio.sleep(0.05)
@@ -874,7 +874,7 @@ def test_native_ask_gate_lock_keys_by_session_and_policy() -> None:
     queue). If the helper ignored either key dimension, two of these
     asserts would see the same object and fail.
     """
-    from omnigent.server.routes.sessions import _native_ask_gate_lock
+    from agentnexus.server.routes.sessions import _native_ask_gate_lock
 
     lock_a = _native_ask_gate_lock("8e32600337d08f59ad381caf96a90659", "session_cost_guard")
     # Same key → same lock: this is what makes parallel tool calls that
@@ -927,7 +927,7 @@ async def test_concurrent_cost_asks_serialize_and_collapse_sibling(
                 "session_cost_guard": {
                     "type": "function",
                     "function": {
-                        "path": "omnigent.policies.builtins.cost.cost_budget",
+                        "path": "agentnexus.policies.builtins.cost.cost_budget",
                         "arguments": {
                             # Hard cap far above the seeded cost so only the
                             # soft warning (ASK) fires, never a DENY.
@@ -1332,7 +1332,7 @@ async def test_policy_evaluate_gates_every_first_party_tool_result_shape(
     )
     original_caps = get_caps()
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: RuntimeCaps(
             execution_timeout=original_caps.execution_timeout,
             default_policies=[deny_policy],
@@ -1370,14 +1370,14 @@ _EVALUATE_USER = "alice@example.com"
 @pytest.fixture()
 def auth_app(runtime_init: None, db_uri: str, tmp_path: Path) -> FastAPI:
     """App with permissions + header auth, for route-level SQL budgeting."""
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.server.app import create_app
-    from omnigent.server.auth import UnifiedAuthProvider
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.server.app import create_app
+    from agentnexus.server.auth import UnifiedAuthProvider
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -1395,8 +1395,8 @@ def auth_app(runtime_init: None, db_uri: str, tmp_path: Path) -> FastAPI:
 @pytest_asyncio.fixture()
 async def auth_client(auth_app: FastAPI, mock_llm: Any, tmp_path: Path):
     """Async client against the auth-enabled app."""
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -1419,8 +1419,8 @@ async def _seed_authenticated_session(auth_client: httpx.AsyncClient, db_uri: st
     """
     import json as _json
 
-    from omnigent.server.auth import LEVEL_OWNER
-    from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+    from agentnexus.server.auth import LEVEL_OWNER
+    from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
     from tests.server.helpers import build_agent_bundle
 
     perms = SqlAlchemyPermissionStore(db_uri)
@@ -1501,7 +1501,7 @@ async def test_authenticated_evaluate_route_sql_budget(
     """
     from sqlalchemy import event as sa_event
 
-    from omnigent.db.utils import _engine_cache
+    from agentnexus.db.utils import _engine_cache
 
     session_id = await _seed_authenticated_session(auth_client, db_uri)
     headers = {"X-Forwarded-Email": _EVALUATE_USER}

@@ -13,8 +13,8 @@ import {
   writeUiFontSizePx,
 } from "./uiFontPreferences";
 
-const STORAGE_KEY = "omnigent:ui-font-size";
-const FAMILY_STORAGE_KEY = "omnigent:ui-font-family";
+const STORAGE_KEY = "agentnexus:ui-font-size";
+const FAMILY_STORAGE_KEY = "agentnexus:ui-font-family";
 
 afterEach(() => {
   localStorage.clear();
@@ -73,7 +73,7 @@ describe("uiFontPreferences", () => {
   });
 
   it("applies onto the embed scope root when embedded, not the document root", () => {
-    // Embedded, the scoped `.omnigent-app` redefines the font tokens locally, so
+    // Embedded, the scoped `.agentnexus-app` redefines the font tokens locally, so
     // a value set on <html> is shadowed for the subtree — it must land on the
     // scope root instead.
     const scope = document.createElement("div");

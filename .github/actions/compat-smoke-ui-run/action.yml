@@ -9,7 +9,7 @@ description: >
 
   Config B — old SPA, new server + new runner (ui_version set):
     The SPA is built from the released tag's web/ source and the HEAD
-    server is pointed at it via OMNIGENT_WEB_UI_DIST. Tests cached-SPA
+    server is pointed at it via AGENTNEXUS_WEB_UI_DIST. Tests cached-SPA
     scenarios where a user's browser has an older bundle after a server
     upgrade.
 
@@ -29,7 +29,7 @@ inputs:
   ui_version:
     description: >
       Release tag whose web/ source is used to build the OLD SPA (e.g.
-      v0.9.0). Server and runner stay on HEAD; OMNIGENT_WEB_UI_DIST is
+      v0.9.0). Server and runner stay on HEAD; AGENTNEXUS_WEB_UI_DIST is
       set to the old built bundle. Mutually exclusive with server_version.
     required: false
     default: ""
@@ -60,7 +60,7 @@ runs:
       shell: bash
       run: |
         {
-          echo "OMNIGENT_SKIP_WEB_UI=true"
+          echo "AGENTNEXUS_SKIP_WEB_UI=true"
           echo "ANTHROPIC_API_KEY="
           echo "OPENAI_API_KEY="
           echo "CODEX="
@@ -111,7 +111,7 @@ runs:
     - name: Build HEAD SPA
       # Tests run with --ui-skip-build, so the built_spa fixture never builds
       # and nothing else produces the SPA the server serves. In Config B
-      # OMNIGENT_WEB_UI_DIST is then set to the old bundle, so the server serves
+      # AGENTNEXUS_WEB_UI_DIST is then set to the old bundle, so the server serves
       # that instead — but the HEAD build must still exist in its static mount.
       shell: bash
       env:
@@ -136,13 +136,13 @@ runs:
         uv venv --python 3.12 "$venv"
         uv pip install --python "$venv/bin/python" \
           -e "$src" -e "$src/sdks/python-client" -e "$src/sdks/ui"
-        "$venv/bin/omnigent" --version
-        echo "OMNIGENT_COMPAT_SERVER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
-        echo "OMNIGENT_COMPAT_SERVER_VERSION=${tag#v}" >> "$GITHUB_ENV"
+        "$venv/bin/agentnexus" --version
+        echo "AGENTNEXUS_COMPAT_SERVER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
+        echo "AGENTNEXUS_COMPAT_SERVER_VERSION=${tag#v}" >> "$GITHUB_ENV"
 
     - name: "Build old SPA from release tag (Config B: old SPA / new server)"
       # Check out the old tag's web/ source into a temp dir, build it there,
-      # then set OMNIGENT_WEB_UI_DIST so the HEAD server serves that bundle.
+      # then set AGENTNEXUS_WEB_UI_DIST so the HEAD server serves that bundle.
       if: ${{ inputs.ui_version != '' }}
       shell: bash
       env:
@@ -160,23 +160,23 @@ runs:
         cd "$src"
         pnpm install --frozen-lockfile --filter web
         pnpm --filter web run build
-        # vite.config.ts writes to ../omnigent/server/static/web-ui relative
+        # vite.config.ts writes to ../agentnexus/server/static/web-ui relative
         # to web/ — resolve to the absolute path inside the old checkout.
         built=$(cd web && node -e "const p=require('./vite.config.ts')" 2>/dev/null \
-          || echo "$src/omnigent/server/static/web-ui")
+          || echo "$src/agentnexus/server/static/web-ui")
         # Fall back to checking both known locations.
-        if [ -d "$src/omnigent/server/static/web-ui" ]; then
-          built="$src/omnigent/server/static/web-ui"
+        if [ -d "$src/agentnexus/server/static/web-ui" ]; then
+          built="$src/agentnexus/server/static/web-ui"
         elif [ -d "$src/web/dist" ]; then
           built="$src/web/dist"
         else
           echo "Could not locate built SPA under $src" >&2; exit 1
         fi
-        # Set OMNIGENT_WEB_UI_DIST so the HEAD server serves this old bundle.
+        # Set AGENTNEXUS_WEB_UI_DIST so the HEAD server serves this old bundle.
         # The HEAD SPA is still built above (the fixture never builds under
         # --ui-skip-build, and the static mount must exist); the server uses
-        # OMNIGENT_WEB_UI_DIST to override which bundle it actually mounts.
-        echo "OMNIGENT_WEB_UI_DIST=$built" >> "$GITHUB_ENV"
+        # AGENTNEXUS_WEB_UI_DIST to override which bundle it actually mounts.
+        echo "AGENTNEXUS_WEB_UI_DIST=$built" >> "$GITHUB_ENV"
 
     - name: Run UI compat tests
       shell: bash
@@ -184,7 +184,7 @@ runs:
         FULL_SUITE: ${{ inputs.full_suite }}
         SHARD_ID: ${{ inputs.shard_id }}
         NUM_SHARDS: ${{ inputs.num_shards }}
-        E2E_TMP_BASE: /tmp/omnigent-compat-ui-${{ github.run_id }}
+        E2E_TMP_BASE: /tmp/agentnexus-compat-ui-${{ github.run_id }}
       run: |
         mkdir -p "$E2E_TMP_BASE"
         if [[ "$FULL_SUITE" == "true" ]]; then
@@ -218,10 +218,10 @@ runs:
       with:
         name: compat-ui-smoke-logs-${{ github.run_id }}${{ inputs.artifact_suffix }}
         path: |
-          /tmp/omnigent-compat-ui-${{ github.run_id }}/**/server.log
-          /tmp/omnigent-compat-ui-${{ github.run_id }}/**/runner.log
-          /tmp/omnigent-compat-ui-${{ github.run_id }}/**/.omnigent/logs/**/*.log
-          /tmp/omnigent-compat-ui-${{ github.run_id }}/junit.xml
+          /tmp/agentnexus-compat-ui-${{ github.run_id }}/**/server.log
+          /tmp/agentnexus-compat-ui-${{ github.run_id }}/**/runner.log
+          /tmp/agentnexus-compat-ui-${{ github.run_id }}/**/.agentnexus/logs/**/*.log
+          /tmp/agentnexus-compat-ui-${{ github.run_id }}/junit.xml
         retention-days: 7
         if-no-files-found: warn
         include-hidden-files: true

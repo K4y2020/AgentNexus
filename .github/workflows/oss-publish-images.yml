@@ -1,9 +1,9 @@
 # Builds + pushes server image variants and the host image to GHCR via
 # GITHUB_TOKEN. The base server image
-# (ghcr.io/omnigent-ai/omnigent-server) is referenced by every deploy template,
+# (ghcr.io/agentnexus-ai/agentnexus-server) is referenced by every deploy template,
 # while provider variants include their optional SDK. The host image (the
 # `host` target of the same Dockerfile,
-# ghcr.io/omnigent-ai/omnigent-host — default for `sandbox create --provider
+# ghcr.io/agentnexus-ai/agentnexus-host — default for `sandbox create --provider
 # modal` and server-launched managed hosts). Dockerfile ARGs default to public
 # registries, so no build-args needed.
 #
@@ -11,7 +11,7 @@
 #   :sha-<short>    immutable per-commit pin, published on EVERY qualifying build.
 #   :vX.Y.Z[rcN]    immutable version pin, published for every release + pre-release tag.
 #   :latest         the highest FINAL release (max over vX.Y.Z) — tracks what
-#                   `pip install omnigent` resolves to. Pre-releases never move it.
+#                   `pip install agentnexus` resolves to. Pre-releases never move it.
 #   :latest-rc      the highest version OVERALL, max(release, rc) — the newest
 #                   thing tagged, pre-release or not.
 #   :latest-nightly the most recent nightly main build (bleeding edge); moves
@@ -67,7 +67,7 @@ jobs:
     # the nightly schedule (rebuild of main HEAD), and bump_latest dispatches.
     # Skipped on reconcile_floating dispatches — that only drives the
     # reconcile-floating retag job.
-    if: github.repository == 'omnigent-ai/omnigent' && !inputs.reconcile_floating
+    if: github.repository == 'agentnexus-ai/agentnexus' && !inputs.reconcile_floating
     runs-on: ubuntu-latest
     # Multi-arch: the linux/arm64 leg cross-builds under QEMU emulation on this
     # amd64 runner, which roughly doubles the host-image build time (emulated
@@ -113,11 +113,11 @@ jobs:
           BUMP_LATEST: ${{ inputs.bump_latest }}
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/omnigent-ai/omnigent-server"
-          HOST_IMAGE="ghcr.io/omnigent-ai/omnigent-host"
-          OPENSHELL_IMAGE="ghcr.io/omnigent-ai/omnigent-server-openshell"
-          KUBERNETES_IMAGE="ghcr.io/omnigent-ai/omnigent-server-kubernetes"
-          MODAL_IMAGE="ghcr.io/omnigent-ai/omnigent-server-modal"
+          IMAGE="ghcr.io/agentnexus-ai/agentnexus-server"
+          HOST_IMAGE="ghcr.io/agentnexus-ai/agentnexus-host"
+          OPENSHELL_IMAGE="ghcr.io/agentnexus-ai/agentnexus-server-openshell"
+          KUBERNETES_IMAGE="ghcr.io/agentnexus-ai/agentnexus-server-kubernetes"
+          MODAL_IMAGE="ghcr.io/agentnexus-ai/agentnexus-server-modal"
           SHORT_SHA=$(git rev-parse --short HEAD)
 
           # Immutable per-commit pin, always.
@@ -216,7 +216,7 @@ jobs:
           sbom: true
 
       # OpenShell server variant: the default server image plus the
-      # openshell SDK extra (OMNIGENT_EXTRAS=openshell). Used by the
+      # openshell SDK extra (AGENTNEXUS_EXTRAS=openshell). Used by the
       # deploy/kubernetes/overlays/openshell kustomize overlay. Reuses
       # the shared builder-stage layers from the gha cache.
       - name: Build and push openshell server image
@@ -229,14 +229,14 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.openshell_tags }}
           build-args: |
-            OMNIGENT_EXTRAS=openshell
+            AGENTNEXUS_EXTRAS=openshell
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
           sbom: true
 
       # Kubernetes server variant: the default server image plus the kubernetes
-      # client extra (OMNIGENT_EXTRAS=kubernetes), so `sandbox.provider:
+      # client extra (AGENTNEXUS_EXTRAS=kubernetes), so `sandbox.provider:
       # kubernetes` works without a self-built image. Used by the
       # deploy/kubernetes/overlays/sandbox-runners kustomize overlay. Reuses
       # the shared builder-stage layers from the gha cache.
@@ -250,14 +250,14 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.kubernetes_tags }}
           build-args: |
-            OMNIGENT_EXTRAS=kubernetes
+            AGENTNEXUS_EXTRAS=kubernetes
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
           sbom: true
 
       # Modal server variant: the default server image plus the modal SDK
-      # extra (OMNIGENT_EXTRAS=modal), so a server running outside Modal can
+      # extra (AGENTNEXUS_EXTRAS=modal), so a server running outside Modal can
       # provision managed Modal sandboxes. Reuses the shared builder-stage
       # layers from the gha cache.
       - name: Build and push modal server image
@@ -270,7 +270,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.modal_tags }}
           build-args: |
-            OMNIGENT_EXTRAS=modal
+            AGENTNEXUS_EXTRAS=modal
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -306,35 +306,35 @@ jobs:
       - name: Generate server SBOM
         run: |
           set -euo pipefail
-          syft "ghcr.io/omnigent-ai/omnigent-server@${{ needs.build-and-push.outputs.server-digest }}" \
+          syft "ghcr.io/agentnexus-ai/agentnexus-server@${{ needs.build-and-push.outputs.server-digest }}" \
             -o cyclonedx-json=server-sbom.cdx.json \
             -o spdx-json=server-sbom.spdx.json
 
       - name: Generate host SBOM
         run: |
           set -euo pipefail
-          syft "ghcr.io/omnigent-ai/omnigent-host@${{ needs.build-and-push.outputs.host-digest }}" \
+          syft "ghcr.io/agentnexus-ai/agentnexus-host@${{ needs.build-and-push.outputs.host-digest }}" \
             -o cyclonedx-json=host-sbom.cdx.json \
             -o spdx-json=host-sbom.spdx.json
 
       - name: Generate openshell server SBOM
         run: |
           set -euo pipefail
-          syft "ghcr.io/omnigent-ai/omnigent-server-openshell@${{ needs.build-and-push.outputs.openshell-digest }}" \
+          syft "ghcr.io/agentnexus-ai/agentnexus-server-openshell@${{ needs.build-and-push.outputs.openshell-digest }}" \
             -o cyclonedx-json=openshell-sbom.cdx.json \
             -o spdx-json=openshell-sbom.spdx.json
 
       - name: Generate kubernetes server SBOM
         run: |
           set -euo pipefail
-          syft "ghcr.io/omnigent-ai/omnigent-server-kubernetes@${{ needs.build-and-push.outputs.kubernetes-digest }}" \
+          syft "ghcr.io/agentnexus-ai/agentnexus-server-kubernetes@${{ needs.build-and-push.outputs.kubernetes-digest }}" \
             -o cyclonedx-json=kubernetes-sbom.cdx.json \
             -o spdx-json=kubernetes-sbom.spdx.json
 
       - name: Generate modal server SBOM
         run: |
           set -euo pipefail
-          syft "ghcr.io/omnigent-ai/omnigent-server-modal@${{ needs.build-and-push.outputs.modal-digest }}" \
+          syft "ghcr.io/agentnexus-ai/agentnexus-server-modal@${{ needs.build-and-push.outputs.modal-digest }}" \
             -o cyclonedx-json=modal-sbom.cdx.json \
             -o spdx-json=modal-sbom.spdx.json
 
@@ -361,7 +361,7 @@ jobs:
     # from the tag list with PEP 440 ordering. Retags with `crane tag`
     # (digest-preserving). Idempotent — also a "fix the floating tags if they drift"
     # button, and the way to backfill them for releases cut before this scheme.
-    if: github.repository == 'omnigent-ai/omnigent' && inputs.reconcile_floating
+    if: github.repository == 'agentnexus-ai/agentnexus' && inputs.reconcile_floating
     permissions:
       contents: read
       packages: write # retag within GHCR via GITHUB_TOKEN
@@ -417,7 +417,7 @@ jobs:
             fi
           }
 
-          for img in ghcr.io/omnigent-ai/omnigent-server ghcr.io/omnigent-ai/omnigent-host ghcr.io/omnigent-ai/omnigent-server-openshell ghcr.io/omnigent-ai/omnigent-server-kubernetes ghcr.io/omnigent-ai/omnigent-server-modal; do
+          for img in ghcr.io/agentnexus-ai/agentnexus-server ghcr.io/agentnexus-ai/agentnexus-host ghcr.io/agentnexus-ai/agentnexus-server-openshell ghcr.io/agentnexus-ai/agentnexus-server-kubernetes ghcr.io/agentnexus-ai/agentnexus-server-modal; do
             retag "${img}" "latest-rc" "${RC_TAG}"
             retag "${img}" "latest" "${LATEST_TAG}"
           done

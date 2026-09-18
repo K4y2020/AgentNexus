@@ -1,17 +1,17 @@
-# Omnigent CLI output contract
+# AgentNexus CLI output contract
 
-This is the contract every `omnigent` command follows when it writes to a
+This is the contract every `agentnexus` command follows when it writes to a
 terminal, so the whole CLI reads as one coherent, branded product. The
 runtime lives in two small modules:
 
-- **`omnigent/inner/ui.py`** — the styling layer: shared consoles, the
+- **`agentnexus/inner/ui.py`** — the styling layer: shared consoles, the
   brand palette/theme, and the status/structure helpers. This is the
   module command code should import.
-- **`omnigent/inner/wordmark.py`** — the brand art: the Otto + "omnigent"
+- **`agentnexus/inner/wordmark.py`** — the brand art: the Otto + "agentnexus"
   wordmark lockup and the compact one-line brandmark. Imported by `ui`.
 
 The interactive REPL header keeps its own builder
-(`omnigent/inner/banner.py`) — that's the live-session box, not part of
+(`agentnexus/inner/banner.py`) — that's the live-session box, not part of
 this non-interactive contract.
 
 ## The one rule: stdout is data, stderr is decoration
@@ -25,7 +25,7 @@ Everything else follows from this:
   brand banner, spinners, progress. Use `ui.err_console` / `ui.warn` /
   `ui.error` / the banner helpers.
 
-So `omnigent version | cat`, `omnigent config list | jq`, and piped
+So `agentnexus version | cat`, `agentnexus config list | jq`, and piped
 one-shot output stay byte-clean, while the human at a terminal still gets
 color and branding on stderr.
 
@@ -47,18 +47,18 @@ One brand accent; semantic colors stay conventional. Defined as a
 | `omni.muted`   | dim                | Metadata, secondary text             |
 
 `#F43BA6` is Otto's magenta — the single source is
-`omnigent.inner.mascots.MASCOT_ART_COLOR`, re-exported as `ui.ACCENT`.
+`agentnexus.inner.mascots.MASCOT_ART_COLOR`, re-exported as `ui.ACCENT`.
 The `scripts/install_oss.sh` installer mirrors the same accent
 (`\033[38;2;244;59;166m`) so the installer and the tool agree.
 
-## Helper API (`omnigent.inner.ui`)
+## Helper API (`agentnexus.inner.ui`)
 
 Status lines — consistent glyph + color, correct stream:
 
 ```python
-ui.step("Installing Omnigent")     # ==>  accent   (stdout)
-ui.success("Verified omnigent")    #  ✓   green    (stdout)
-ui.info("Using ~/.omnigent")       #  ·   dim      (stdout)
+ui.step("Installing AgentNexus")     # ==>  accent   (stdout)
+ui.success("Verified agentnexus")    #  ✓   green    (stdout)
+ui.info("Using ~/.agentnexus")       #  ·   dim      (stdout)
 ui.warn("tmux not found")          #  !   yellow   (stderr)
 ui.error("uv is required")         #  ✗   red      (stderr)
 ```
@@ -82,13 +82,13 @@ Raw streams when you need them: `ui.console` (stdout), `ui.err_console`
 ## When to show the banner
 
 Banner output is drawn on stderr and TTY-gated by `ui.show_banner()` (a
-no-op off a TTY or when `OMNIGENT_NO_BANNER` is set):
+no-op off a TTY or when `AGENTNEXUS_NO_BANNER` is set):
 
 - **Full lockup** — `ui.print_landing(...)` — Otto + wordmark, optional
   gradient / tagline / epilogue. The hero moment, reserved for the few
   landing surfaces:
-  - `omnigent --help` (the top-level group, via `_OmnigentCLI.format_help`)
-  - `omnigent setup` (first-run experience)
+  - `agentnexus --help` (the top-level group, via `_AgentNexusCLI.format_help`)
+  - `agentnexus setup` (first-run experience)
   - the installer banner
 - **Nothing** — every other command. Regular commands (`version`,
   `upgrade`, `server status`, `config list`, …) print their output
@@ -96,11 +96,11 @@ no-op off a TTY or when `OMNIGENT_NO_BANNER` is set):
   *not* sprinkle a brandmark on individual commands.
 
 A compact one-line brandmark helper (`ui.print_brandmark(subtitle=...)`,
-`✦ omnigent`) exists for opt-in use, but is intentionally **not** wired
+`✦ agentnexus`) exists for opt-in use, but is intentionally **not** wired
 onto any command today — add it only if a specific surface clearly wants
 light branding.
 
-The bare `omnigent` invocation on a TTY launches the REPL (its own
+The bare `agentnexus` invocation on a TTY launches the REPL (its own
 branded header); it only falls back to `--help` when non-interactive, so
 the landing banner naturally appears there.
 
@@ -110,12 +110,12 @@ the landing banner naturally appears there.
 | ---------------------------- | ------------------------------------------ |
 | stdout/stderr not a TTY      | No banner; rich emits no color (data clean)|
 | `NO_COLOR` set               | rich renders monochrome (art still shows)  |
-| `OMNIGENT_NO_BANNER` truthy  | No banner/brandmark even on a TTY          |
-| `OMNIGENT_NO_SPINNER` truthy | No startup spinner (pre-existing)          |
+| `AGENTNEXUS_NO_BANNER` truthy  | No banner/brandmark even on a TTY          |
+| `AGENTNEXUS_NO_SPINNER` truthy | No startup spinner (pre-existing)          |
 
 ## Adding a new command — checklist
 
-1. `from omnigent.inner import ui` (import lazily inside the command body
+1. `from agentnexus.inner import ui` (import lazily inside the command body
    if the module is import-cost sensitive).
 2. Print **data** to stdout via `ui.console.print` / `click.echo`.
 3. Print **status** via `ui.step/success/info`; **problems** via

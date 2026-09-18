@@ -8,12 +8,12 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     execute_tool,
     should_dispatch_locally,
 )
-from omnigent.spec.types import AgentSpec
-from omnigent.tools.manager import ToolManager
+from agentnexus.spec.types import AgentSpec
+from agentnexus.tools.manager import ToolManager
 
 
 def test_should_dispatch_memory_locally():

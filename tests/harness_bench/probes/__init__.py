@@ -8,7 +8,7 @@ from tests.harness_bench.probes.cost_tracking import CostTrackingProbe
 from tests.harness_bench.probes.fork_replay import ForkReplayProbe
 from tests.harness_bench.probes.interrupt import InterruptProbe
 from tests.harness_bench.probes.model_override import ModelOverrideProbe
-from tests.harness_bench.probes.omnigent_mcp import OmnigentMcpProbe
+from tests.harness_bench.probes.agentnexus_mcp import AgentNexusMcpProbe
 from tests.harness_bench.probes.policy_allow import PolicyAllowProbe
 from tests.harness_bench.probes.policy_ask import PolicyAskProbe
 from tests.harness_bench.probes.policy_deny import PolicyDenyProbe
@@ -23,7 +23,7 @@ ALL_PROBES: list[CapabilityProbe] = [
     StreamingProbe(),
     ReasoningProbe(),
     ToolCallingProbe(),
-    OmnigentMcpProbe(),
+    AgentNexusMcpProbe(),
     PolicyDenyProbe(),
     PolicyAllowProbe(),
     PolicyAskProbe(),

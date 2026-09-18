@@ -28,7 +28,7 @@ import sys
 
 import httpx
 
-from omnigent.tools.builtins.web_search_duckduckgo import (
+from agentnexus.tools.builtins.web_search_duckduckgo import (
     _DDG_HTML_URL,
     _HEADERS,
     _parse_results,

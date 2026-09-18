@@ -1,42 +1,42 @@
-# Running omnigent on Databricks
+# Running agentnexus on Databricks
 
-A production deployment guide for running omnigent agents on Databricks
+A production deployment guide for running agentnexus agents on Databricks
 infrastructure. Covers the four canonical integration points:
 
-1. **Databricks Apps** as the managed runtime for the omnigent server
+1. **Databricks Apps** as the managed runtime for the agentnexus server
 2. **Mosaic AI Foundation Model APIs** as the LLM provider
 3. **Mosaic AI Gateway** as the governance and audit layer over LLM calls
 4. **MLflow Tracing in Unity Catalog** as the long-term trace store
 
-omnigent's fine standalone with any OTLP backend and any LLM
+agentnexus's fine standalone with any OTLP backend and any LLM
 provider. This guide's for the production deployment story where
 governance, audit, cost tracking, and managed scale matter.
 
 > **Databricks customer? Start with the managed offering.**
-> [Omnigent on Databricks](https://docs.databricks.com/aws/en/omnigent/)
-> (Beta) is a fully managed service: Databricks operates the omnigent
+> [AgentNexus on Databricks](https://docs.databricks.com/aws/en/agentnexus/)
+> (Beta) is a fully managed service: Databricks operates the agentnexus
 > server for you, already wired to workspace identity, Foundation
-> Models, AI Gateway, and MLflow Tracing. You enable the **Omnigent**
+> Models, AI Gateway, and MLflow Tracing. You enable the **AgentNexus**
 > preview in your workspace settings and follow the quickstart there.
 > No deploy tooling, no Lakebase bootstrap, no bundle to maintain. That
 > is the recommended path for most Databricks users.
 >
 > This guide covers the **self-managed** path: deploying and operating
-> the omnigent server yourself on Databricks Apps. Reach for it when the
+> the agentnexus server yourself on Databricks Apps. Reach for it when the
 > managed service is not available in your region, or when you need
 > something it does not expose today (custom YAML policies, bring-your-own
 > provider API keys, custom egress controls).
 
 ## Who this is for
 
-This guide assumes you're new to both omnigent and Databricks. Each
+This guide assumes you're new to both agentnexus and Databricks. Each
 section starts with a short context paragraph, then the concrete
 commands. If you already use both, skim the quick start at the top of
 each section.
 
 ## What you get
 
-When omnigent runs on Databricks with the four integration points
+When agentnexus runs on Databricks with the four integration points
 wired:
 
 - **Single trace per agent turn.** Every span the agent emits lands
@@ -50,7 +50,7 @@ wired:
   rate limits, PII guardrails, audit logs, all enforced at the
   gateway. Switching providers or rotating keys is a Gateway config
   change, not an agent change.
-- **Managed runtime with workspace identity.** The omnigent server
+- **Managed runtime with workspace identity.** The agentnexus server
   runs on Databricks Apps with the workspace SSO as the user
   identity. No separate auth to set up.
 - **Lakehouse-native state.** Conversation state, agent bundles, and
@@ -69,16 +69,16 @@ wired:
 
 ## Architecture
 
-The integration is layered. The omnigent server runs on Databricks
+The integration is layered. The agentnexus server runs on Databricks
 Apps. It exports OpenTelemetry traces (via the work landed in [PR
-#1050](https://github.com/omnigent-ai/omnigent/pull/1050)) to MLflow
+#1050](https://github.com/agentnexus-ai/agentnexus/pull/1050)) to MLflow
 Tracing's OTLP receiver. Agent runs make LLM calls through Mosaic AI
 Gateway, which proxies to either Mosaic AI Foundation Models or an
 external provider (OpenAI, Anthropic) configured as an External Model.
 
-![omnigent on Databricks architecture](images/databricks/architecture.png)
+![agentnexus on Databricks architecture](images/databricks/architecture.png)
 
-The boundary stays sharp. omnigent itself remains a standalone Apache
+The boundary stays sharp. agentnexus itself remains a standalone Apache
 2.0 Python package. Each integration point is an env var or a config
 file, not a fork.
 
@@ -95,7 +95,7 @@ file, not a fork.
    installed and authenticated against your workspace. Either a CLI
    profile (`DATABRICKS_CONFIG_PROFILE=<profile>`) or env-based auth
    (`DATABRICKS_HOST` + `DATABRICKS_CLIENT_ID` + `DATABRICKS_CLIENT_SECRET`).
-3. **Python 3.11+** locally with `uv` installed (the omnigent project
+3. **Python 3.11+** locally with `uv` installed (the agentnexus project
    standard).
 4. **Workspace permissions** to:
    - Create or use a Unity Catalog catalog and schema for trace
@@ -118,21 +118,21 @@ and try again.
 ## Quick start (5 minutes)
 
 If you want to see the integration working before reading the full
-guide, this is the fastest path. It runs omnigent locally (not on
+guide, this is the fastest path. It runs agentnexus locally (not on
 Apps) but wires up Foundation Models + Gateway + tracing to the
 workspace.
 
 ```bash
-pip install 'omnigent[tracing]' openai
+pip install 'agentnexus[tracing]' openai
 
 export DATABRICKS_HOST=https://<your-workspace>.cloud.databricks.com
 export DATABRICKS_TOKEN=<personal-access-token>
 
-# Point omnigent at Mosaic AI Foundation Models as the LLM provider
+# Point agentnexus at Mosaic AI Foundation Models as the LLM provider
 export OPENAI_BASE_URL=$DATABRICKS_HOST/serving-endpoints
 export OPENAI_API_KEY=$DATABRICKS_TOKEN
 
-# Point omnigent's OTel exporter at the MLflow OTLP receiver in UC
+# Point agentnexus's OTel exporter at the MLflow OTLP receiver in UC
 export MLFLOW_TRACKING_URI=databricks
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_EXPORTER_OTLP_ENDPOINT=$DATABRICKS_HOST
@@ -152,7 +152,7 @@ print(r.choices[0].message.content)
 print(f'input={r.usage.prompt_tokens} output={r.usage.completion_tokens}')
 "
 
-# Start the local omnigent server with tracing
+# Start the local agentnexus server with tracing
 omni server
 ```
 
@@ -175,7 +175,7 @@ The rest of this guide walks each piece in depth.
 ### Context
 
 Databricks Apps is a managed runtime for HTTP applications inside the
-Databricks workspace. omnigent's server is an HTTP app, so it fits
+Databricks workspace. agentnexus's server is an HTTP app, so it fits
 natively. Apps gives you workspace SSO (the agent's user identity is
 the workspace identity), Lakebase Postgres for state, Unity Catalog
 Volumes for files, and access to all workspace data through the same
@@ -183,19 +183,19 @@ identity.
 
 ### Quick deploy
 
-The `deploy/databricks/` directory in the omnigent repository contains
-a complete Databricks Asset Bundle for deploying the omnigent server
+The `deploy/databricks/` directory in the agentnexus repository contains
+a complete Databricks Asset Bundle for deploying the agentnexus server
 to Apps backed by Lakebase. Use it as-is for a first deploy:
 
 ```bash
-git clone https://github.com/omnigent-ai/omnigent
-cd omnigent
+git clone https://github.com/agentnexus-ai/agentnexus
+cd agentnexus
 uv sync --extra databricks
 
 # Set targets.prod.workspace.host in deploy/databricks/databricks.yml, then run
 # the deploy orchestrator — it builds the wheels and runs `databricks bundle
 # deploy` + `bundle run` for you:
-#   uv run python deploy/databricks/deploy.py --app-name omnigent --profile <profile> ...
+#   uv run python deploy/databricks/deploy.py --app-name agentnexus --profile <profile> ...
 # See deploy/databricks/README.md for the full command and required flags.
 ```
 
@@ -207,7 +207,7 @@ the integration knobs you set on top of that deploy.
 
 ### What you get on Databricks vs DIY
 
-Self-hosting the omnigent server (e.g., on a VM or in a container)
+Self-hosting the agentnexus server (e.g., on a VM or in a container)
 works fine. The Apps path adds:
 
 | Capability | Self-hosted | Databricks Apps |
@@ -231,7 +231,7 @@ pay-per-token endpoint. The endpoints speak the OpenAI Chat
 Completions API, so any client that targets OpenAI also targets
 Databricks Foundation Models with two env vars.
 
-omnigent's harnesses (`claude_sdk`, `openai_agents_sdk`, `pi`, and
+agentnexus's harnesses (`claude_sdk`, `openai_agents_sdk`, `pi`, and
 others) talk to LLMs via OpenAI-compatible HTTP. Pointing those
 harnesses at Foundation Models is the same two env vars.
 
@@ -242,7 +242,7 @@ export OPENAI_BASE_URL=$DATABRICKS_HOST/serving-endpoints
 export OPENAI_API_KEY=$DATABRICKS_TOKEN
 ```
 
-Then any omnigent agent spec that points at a `databricks-` model
+Then any agentnexus agent spec that points at a `databricks-` model
 (for example `databricks-claude-sonnet-4`, `databricks-meta-llama-3-1-70b-instruct`,
 or `databricks-gpt-oss-20b`) resolves to a Foundation Model call.
 
@@ -307,9 +307,9 @@ endpoint that adds:
 - A stable endpoint URL even when you change providers behind it
 - Optional fallback to a backup provider on failure
 
-omnigent doesn't need to know it's calling a Gateway. The Gateway
+agentnexus doesn't need to know it's calling a Gateway. The Gateway
 endpoint speaks the OpenAI API, so the same `OPENAI_BASE_URL` knob
-that points omnigent at Foundation Models points it at the Gateway.
+that points agentnexus at Foundation Models points it at the Gateway.
 
 ### Create an External Model endpoint
 
@@ -352,7 +352,7 @@ After creation, the endpoint URL is:
 https://<your-workspace>.cloud.databricks.com/serving-endpoints/production-openai-gateway/invocations
 ```
 
-The OpenAI-style chat completions URL (what omnigent uses) is:
+The OpenAI-style chat completions URL (what agentnexus uses) is:
 
 ```
 https://<your-workspace>.cloud.databricks.com/serving-endpoints
@@ -360,7 +360,7 @@ https://<your-workspace>.cloud.databricks.com/serving-endpoints
 
 with the endpoint name passed as the `model` parameter on the request.
 
-### Point omnigent at the Gateway endpoint
+### Point agentnexus at the Gateway endpoint
 
 For each harness that calls LLMs (claude-sdk, openai-agents-sdk, pi,
 etc.), set:
@@ -370,7 +370,7 @@ export OPENAI_BASE_URL=$DATABRICKS_HOST/serving-endpoints
 export OPENAI_API_KEY=$DATABRICKS_TOKEN
 ```
 
-Then in the omnigent agent spec, use the Gateway endpoint name as the
+Then in the agentnexus agent spec, use the Gateway endpoint name as the
 model:
 
 ```yaml
@@ -390,7 +390,7 @@ restart.
 
 Created a real External Model endpoint on e2-dogfood that proxies
 through `databricks-model-serving` to `databricks-claude-sonnet-4`,
-then called it via the same OpenAI SDK pattern omnigent uses. The
+then called it via the same OpenAI SDK pattern agentnexus uses. The
 Gateway config included `usage_tracking_config.enabled=true` and a
 `60 calls/minute/user` rate limit.
 
@@ -398,7 +398,7 @@ Gateway config included `usage_tracking_config.enabled=true` and a
 from openai import OpenAI
 client = OpenAI(base_url=f'{DATABRICKS_HOST}/serving-endpoints', api_key=DATABRICKS_TOKEN)
 resp = client.chat.completions.create(
-    model='omnigent-docs-test-gateway',   # the Gateway endpoint, not the backing model
+    model='agentnexus-docs-test-gateway',   # the Gateway endpoint, not the backing model
     messages=[{'role':'user','content':'Reply with exactly two words: PROXY OK'}],
     max_tokens=10,
 )
@@ -414,7 +414,7 @@ Model:    global.anthropic.claude-sonnet-4-20250514-v1:0
 
 The `model` in the response is the backing model the Gateway forwarded
 to (Anthropic Claude Sonnet 4 via Bedrock). The Gateway endpoint name
-(`omnigent-docs-test-gateway`) is what omnigent calls. Swapping the
+(`agentnexus-docs-test-gateway`) is what agentnexus calls. Swapping the
 backing model is a Gateway config update, zero change in the agent.
 
 ### Auth tier compatibility (API key vs subscription / OAuth)
@@ -442,7 +442,7 @@ the terms of service allow that pattern before relying on it.
 | Auth tier | Works with Gateway proxy? | Workspace audit? | Central cost tracking? |
 |---|---|---|---|
 | API key (Anthropic API, OpenAI API, etc.) | Yes | Yes — every prompt / response in UC | Yes — Gateway `usage_tracking_config.enabled` |
-| Claude Max / ChatGPT Plus / Cursor Pro (OAuth subscription) | No | omnigent session metadata only; LLM calls invisible | No — billed to the individual's consumer account |
+| Claude Max / ChatGPT Plus / Cursor Pro (OAuth subscription) | No | agentnexus session metadata only; LLM calls invisible | No — billed to the individual's consumer account |
 
 **Practical guidance for an org deployment.** Most enterprise
 Anthropic / OpenAI deals are API-tier with a volume agreement and an
@@ -451,7 +451,7 @@ developers want to keep their consumer subscriptions for personal
 usage, that's fine, but those sessions sit outside the workspace
 audit and cost tracking.
 
-If centralized governance is a hard requirement, the omnigent host
+If centralized governance is a hard requirement, the agentnexus host
 can enforce API-key-only by setting the provider's API-key env var
 (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) before invoking the SDK
 subprocess and refusing to launch the SDK in OAuth mode. With
@@ -466,7 +466,7 @@ subscriptions but is out of band for compliance.
 
 ### What you get on Databricks vs raw provider calls
 
-| Capability | Raw provider call from omnigent | Through AI Gateway |
+| Capability | Raw provider call from agentnexus | Through AI Gateway |
 |---|---|---|
 | Cost tracking per agent / user | Build it yourself | Automatic, queryable in UC |
 | Rate limits per key | Provider-level, coarse | Per-key, configurable per minute / hour / day |
@@ -484,11 +484,11 @@ subscriptions but is out of band for compliance.
 
 ### Context
 
-omnigent emits OpenTelemetry spans for every agent turn, LLM call, and
+agentnexus emits OpenTelemetry spans for every agent turn, LLM call, and
 tool invocation. The spans follow the OpenTelemetry GenAI semantic
 conventions (`gen_ai.operation.name`, `gen_ai.agent.name`,
 `gen_ai.provider.name`, `gen_ai.request.model`, `tool.name`) shipped
-in [PR #1050](https://github.com/omnigent-ai/omnigent/pull/1050). Any
+in [PR #1050](https://github.com/agentnexus-ai/agentnexus/pull/1050). Any
 OTLP-compatible backend (Jaeger, Tempo, Datadog) can receive them.
 
 MLflow Tracing exposes an OTLP/HTTP receiver at the MLflow tracking
@@ -499,7 +499,7 @@ free.
 
 ### Setup
 
-Three env vars on the omnigent server:
+Three env vars on the agentnexus server:
 
 ```bash
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
@@ -507,7 +507,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=$DATABRICKS_HOST
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $DATABRICKS_TOKEN"
 ```
 
-omnigent's `telemetry.init()` auto-detects the OTLP endpoint and wires
+agentnexus's `telemetry.init()` auto-detects the OTLP endpoint and wires
 up the MLflow OTel exporter. No code changes in the agent.
 
 ### What the trace looks like
@@ -542,13 +542,13 @@ for a specific request in MLflow by stripping the `resp_` prefix.
 ### Verified end-to-end
 
 Emitted a synthetic trace from a local Python script (using the same
-`mlflow.start_span` API omnigent's `TracingContext` wraps) against the
+`mlflow.start_span` API agentnexus's `TracingContext` wraps) against the
 e2-dogfood Databricks workspace's MLflow OTLP receiver. Verified the
 trace landed in UC and the spans carry the expected attributes:
 
 ```
 Tracking URI: databricks
-Experiment:   id=3163592711242134 path=/Users/.../omnigent-databricks-docs-verification
+Experiment:   id=3163592711242134 path=/Users/.../agentnexus-databricks-docs-verification
 Trace ID:     tr-f13c03f61e44a0442c8865ab2c79e5a4
 Total traces found: 1
   trace_id: tr-f13c03f61e44a0442c8865ab2c79e5a4
@@ -576,10 +576,10 @@ expanded:
 
 ### Content capture and privacy
 
-omnigent does not capture message bodies into traces by default. Set:
+agentnexus does not capture message bodies into traces by default. Set:
 
 ```bash
-export OMNIGENT_OTEL_CAPTURE_CONTENT=true
+export AGENTNEXUS_OTEL_CAPTURE_CONTENT=true
 ```
 
 to include user messages and tool arguments in `mlflow.spanInputs` /
@@ -611,31 +611,31 @@ explicit consent and PII handling in place.
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | Set to `http/protobuf` for the MLflow OTLP receiver | Apps env |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Workspace URL (same as `DATABRICKS_HOST`) | Apps env |
 | `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Bearer $DATABRICKS_TOKEN` | Apps env |
-| `OMNIGENT_OTEL_CAPTURE_CONTENT` | `true` to include message bodies in traces | Apps env (default off) |
+| `AGENTNEXUS_OTEL_CAPTURE_CONTENT` | `true` to include message bodies in traces | Apps env (default off) |
 
 ---
 
 ## Roadmap
 
-The four sections above cover the V1 integration. The omnigent +
+The four sections above cover the V1 integration. The agentnexus +
 Databricks story extends further. Planned follow-ups, each as a
 separate PR:
 
 - **Unity Catalog functions as agent tools.** A `databricks-tools`
-  optional extra in omnigent that exposes UC functions as
+  optional extra in agentnexus that exposes UC functions as
   first-class agent tools with full UC governance and audit.
 - **Mosaic AI Vector Search as agent tool.** A vector search tool
   for RAG agents that uses UC-governed vector indexes.
 - **Mosaic AI Agent Evaluation integration.** Sample production
-  traces from omnigent for the managed Mosaic AI Agent Evaluation
+  traces from agentnexus for the managed Mosaic AI Agent Evaluation
   pipeline.
 - **Inference Tables.** Auto-logged Mosaic AI Model Serving requests
   as a second observability path alongside OTel traces.
 - **Lakehouse Monitoring for agent drift.** Long-term drift
   detection on agent trace tables.
 
-Track these on the [omnigent issues
-list](https://github.com/omnigent-ai/omnigent/issues) under the
+Track these on the [agentnexus issues
+list](https://github.com/agentnexus-ai/agentnexus/issues) under the
 `databricks` label.
 
 ---
@@ -659,13 +659,13 @@ client = OpenAI(base_url=os.environ['OPENAI_BASE_URL'], api_key=os.environ['DATA
 2. Confirm `OTEL_EXPORTER_OTLP_HEADERS` includes the Bearer token.
 3. Check `mlflow tracking get-uri` returns `databricks`.
 4. Run a small synthetic trace and watch for OTLP export errors in
-   the omnigent server logs.
+   the agentnexus server logs.
 
 ### Apps deployment fails with "permission denied for table agents"
 
 This typically means a shared Lakebase project. Per
 [`deploy/databricks/README.md`](../deploy/databricks/README.md), use a
-fresh Lakebase project per omnigent app rather than sharing one.
+fresh Lakebase project per agentnexus app rather than sharing one.
 
 ### Gateway endpoint returns 403 "Invalid access token"
 
@@ -680,12 +680,12 @@ the endpoint config via `databricks serving-endpoints update`.
 This guide was authored by [Debu Sinha](https://github.com/debu-sinha)
 (Lead Applied AI/ML Engineer, Databricks Solutions Architecture).
 The MLflow Tracing integration section depends on the OTel
-observability series shipped in PRs [#1050](https://github.com/omnigent-ai/omnigent/pull/1050),
-[#1068](https://github.com/omnigent-ai/omnigent/pull/1068),
-[#1070](https://github.com/omnigent-ai/omnigent/pull/1070),
-[#1071](https://github.com/omnigent-ai/omnigent/pull/1071),
-[#1072](https://github.com/omnigent-ai/omnigent/pull/1072), and
-[#1083](https://github.com/omnigent-ai/omnigent/pull/1083).
+observability series shipped in PRs [#1050](https://github.com/agentnexus-ai/agentnexus/pull/1050),
+[#1068](https://github.com/agentnexus-ai/agentnexus/pull/1068),
+[#1070](https://github.com/agentnexus-ai/agentnexus/pull/1070),
+[#1071](https://github.com/agentnexus-ai/agentnexus/pull/1071),
+[#1072](https://github.com/agentnexus-ai/agentnexus/pull/1072), and
+[#1083](https://github.com/agentnexus-ai/agentnexus/pull/1083).
 
 Verified end-to-end against the e2-dogfood Databricks workspace
 (2026-06-24):
@@ -694,7 +694,7 @@ Verified end-to-end against the e2-dogfood Databricks workspace
   18 tokens in / 5 tokens out via CLI and 16 / 6 via OpenAI SDK)
 - OpenAI SDK pattern against `/serving-endpoints` with PAT auth
 - External Model (Gateway) endpoint created, called, and torn down:
-  `omnigent-docs-test-gateway` proxied to `databricks-claude-sonnet-4`
+  `agentnexus-docs-test-gateway` proxied to `databricks-claude-sonnet-4`
   via `provider=databricks-model-serving`, with
   `ai_gateway.usage_tracking_config.enabled=true` and a
   `60 calls/minute/user` rate limit. CLI call returned `PROXY OK`,
@@ -712,4 +712,4 @@ The Apps deployment section links to `deploy/databricks/README.md`
 which is the canonical, already-merged recipe.
 
 Maintenance and updates: open an issue with the `databricks` label, or
-ping @debu-sinha on the omnigent Slack channel.
+ping @debu-sinha on the agentnexus Slack channel.

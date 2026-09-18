@@ -2,9 +2,9 @@
 
 Drives the click command tree with :class:`click.testing.CliRunner` and
 piped stdin, then asserts on the **exact config mutations** written to a
-tmp ``~/.omnigent/config.yaml`` (isolated via ``OMNIGENT_CONFIG_HOME``)
+tmp ``~/.agentnexus/config.yaml`` (isolated via ``AGENTNEXUS_CONFIG_HOME``)
 and the secret store (forced to the file backend via
-``OMNIGENT_DISABLE_KEYRING``). Each test asserts on the persisted YAML
+``AGENTNEXUS_DISABLE_KEYRING``). Each test asserts on the persisted YAML
 shape, not just the command's exit code, so a regression in the
 add/set-default/remove write paths surfaces here rather than silently.
 
@@ -45,10 +45,10 @@ import tomllib
 import yaml
 from click.testing import CliRunner
 
-from omnigent.cli import cli
-from omnigent.onboarding import providers as provider_catalog
-from omnigent.onboarding import secrets
-from omnigent.onboarding.configure_models import (
+from agentnexus.cli import cli
+from agentnexus.onboarding import providers as provider_catalog
+from agentnexus.onboarding import secrets
+from agentnexus.onboarding.configure_models import (
     add_menu_options,
     add_menu_options_for_family,
     build_bedrock_provider_entry,
@@ -56,7 +56,7 @@ from omnigent.onboarding.configure_models import (
     kind_glyph,
     provider_display_name,
 )
-from omnigent.onboarding.provider_config import (
+from agentnexus.onboarding.provider_config import (
     ANTHROPIC_FAMILY,
     GEMINI_FAMILY,
     OPENAI_FAMILY,
@@ -70,8 +70,8 @@ from omnigent.onboarding.provider_config import (
 def isolated_config(tmp_path, monkeypatch):
     """Isolate config + secrets to a tmp dir with the file secret backend.
 
-    Sets ``OMNIGENT_CONFIG_HOME`` so config and secrets land under
-    *tmp_path*, ``OMNIGENT_DISABLE_KEYRING`` so the secret store uses the
+    Sets ``AGENTNEXUS_CONFIG_HOME`` so config and secrets land under
+    *tmp_path*, ``AGENTNEXUS_DISABLE_KEYRING`` so the secret store uses the
     ``0600`` JSON file (no OS keychain dependency in CI), and clears any
     ambient vendor keys so detection is deterministic.
 
@@ -79,8 +79,8 @@ def isolated_config(tmp_path, monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: The tmp config-home directory path.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     for var in (
         "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
@@ -102,8 +102,8 @@ def isolated_config(tmp_path, monkeypatch):
     # - _claude_login_detected: on macOS falls back to `claude auth status`
     #   which reads the Keychain (not HOME), so a real Claude subscription
     #   leaks through even with HOME redirected to tmp_path.
-    monkeypatch.setattr("omnigent.onboarding.ambient._ollama_reachable", lambda: False)
-    monkeypatch.setattr("omnigent.onboarding.ambient._claude_login_detected", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.ambient._ollama_reachable", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.ambient._claude_login_detected", lambda: False)
     return tmp_path
 
 
@@ -121,19 +121,19 @@ def _harnesses_installed(monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed",
+        "agentnexus.onboarding.harness_install.harness_cli_installed",
         lambda family: True,
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_login",
+        "agentnexus.onboarding.harness_install.harness_login",
         lambda family: True,
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_logout",
+        "agentnexus.onboarding.harness_install.harness_logout",
         lambda family: True,
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_logged_in",
+        "agentnexus.onboarding.harness_install.harness_cli_logged_in",
         lambda family: True,
     )
 
@@ -284,7 +284,7 @@ def test_configure_models_add_key_persists_catalog_default_when_declined(
     to the bundled catalog's default model for that provider, so an anthropic
     ``key`` provider always carries a real ``models.default``.
     """
-    from omnigent.onboarding.providers import default_chat_model
+    from agentnexus.onboarding.providers import default_chat_model
 
     # L1 1=Claude → L2 1=+Add → anthropic menu 1=Anthropic key → key →
     # default model blank (declined) → L2 q=back → L1 q=exit. Blank model
@@ -310,7 +310,7 @@ def test_configure_models_readd_key_does_not_drop_default(isolated_config) -> No
     catalog fallback the pin would vanish. Asserts the re-added entry still
     carries a (catalog) default rather than dropping ``models`` entirely.
     """
-    from omnigent.onboarding.providers import default_chat_model
+    from agentnexus.onboarding.providers import default_chat_model
 
     config_path = os.path.join(isolated_config, "config.yaml")
     with open(config_path, "w") as f:
@@ -639,7 +639,7 @@ def test_add_menu_databricks_option_gated_on_extra(monkeypatch) -> None:
     # calls this exact name, so the patch deterministically simulates a
     # bare install without touching the process-wide importlib machinery.
     monkeypatch.setattr(
-        "omnigent.onboarding.configure_models.databricks_sdk_installed",
+        "agentnexus.onboarding.configure_models.databricks_sdk_installed",
         lambda: False,
     )
     options = add_menu_options()
@@ -675,7 +675,7 @@ def test_configure_models_add_databricks_aborts_without_extra(
     # cli.py's databricks branch resolves databricks_sdk_installed from the
     # source module at call time, so patching the module attribute is seen.
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: False,
     )
 
@@ -687,7 +687,7 @@ def test_configure_models_add_databricks_aborts_without_extra(
         )
 
     monkeypatch.setattr(
-        "omnigent.onboarding.setup.login_databricks_workspace",
+        "agentnexus.onboarding.setup.login_databricks_workspace",
         _login_must_not_run,
     )
 
@@ -742,7 +742,7 @@ def test_kind_glyph_uniform_display_width(kind: str) -> None:
     a VS16-forced wide emoji as the two cells terminals render). A regression
     that dropped the VS16 (or a glyph) yields width != 2.
     """
-    from omnigent.inner.banner import _display_width
+    from agentnexus.inner.banner import _display_width
 
     g = kind_glyph(kind)
     width = _display_width(g)
@@ -801,7 +801,7 @@ def test_add_subscription_invokes_harness_login(isolated_config, monkeypatch) ->
     """
     calls: list[str] = []
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_login",
+        "agentnexus.onboarding.harness_install.harness_login",
         lambda family: calls.append(family) or True,
     )
     stdin = "\n".join(["1", "1", "2", "q", "q"]) + "\n"  # Claude → +Add → subscription
@@ -820,7 +820,7 @@ def test_add_subscription_aborts_when_login_fails(isolated_config, monkeypatch) 
     must not persist a subscription entry — otherwise routing would later strand
     the user at the harness's own login screen, exactly what we're fixing.
     """
-    monkeypatch.setattr("omnigent.onboarding.harness_install.harness_login", lambda family: False)
+    monkeypatch.setattr("agentnexus.onboarding.harness_install.harness_login", lambda family: False)
     stdin = "\n".join(["1", "1", "2", "q", "q"]) + "\n"  # Claude → +Add → subscription
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"], input=stdin)
     assert result.exit_code == 0, result.output
@@ -843,7 +843,7 @@ def test_remove_subscription_signs_out_and_removes(isolated_config, monkeypatch)
         )
     calls: list[str] = []
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_logout",
+        "agentnexus.onboarding.harness_install.harness_logout",
         lambda family: calls.append(family) or True,
     )
     # L1 1=Claude → L2 1=select the subscription → L3 2=Remove → confirm 1=Yes
@@ -873,7 +873,7 @@ def test_remove_subscription_declined_keeps_it_and_login(isolated_config, monkey
     def _no_logout(family: str) -> bool:
         raise AssertionError("harness_logout called despite the user declining removal")
 
-    monkeypatch.setattr("omnigent.onboarding.harness_install.harness_logout", _no_logout)
+    monkeypatch.setattr("agentnexus.onboarding.harness_install.harness_logout", _no_logout)
     # L1 1=Claude → L2 1=select → L3 2=Remove → confirm 2=No → L2 q → L1 q.
     stdin = "\n".join(["1", "1", "2", "2", "q", "q"]) + "\n"
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"], input=stdin)
@@ -974,9 +974,9 @@ def test_render_listing_excludes_configured_subscription_clis(
     it. The CLI must be excluded once a subscription wraps it, while an
     unrelated detection still shows.
     """
-    from omnigent.onboarding.ambient import DetectedProvider
-    from omnigent.onboarding.configure_models import render_provider_listing
-    from omnigent.onboarding.provider_config import load_providers
+    from agentnexus.onboarding.ambient import DetectedProvider
+    from agentnexus.onboarding.configure_models import render_provider_listing
+    from agentnexus.onboarding.provider_config import load_providers
 
     config: dict[str, object] = {
         "providers": {"claude-subscription": {"kind": "subscription", "cli": "claude"}}
@@ -1360,8 +1360,8 @@ def test_promote_global_auth_backfills_databricks_for_existing_configs(isolated_
     defaulting both families (the config only ever had the auth: block, so
     routing already used databricks for both).
     """
-    from omnigent.cli import _save_global_config
-    from omnigent.cli_config import _promote_global_auth_to_provider
+    from agentnexus.cli import _save_global_config
+    from agentnexus.cli_config import _promote_global_auth_to_provider
 
     _save_global_config({"auth": {"type": "databricks", "profile": "oss"}})
 
@@ -1387,8 +1387,8 @@ def test_promote_global_auth_respects_explicit_default(isolated_config) -> None:
     must NOT steal it — it only claims families with no existing default. Here
     an explicit anthropic key default is kept while databricks takes openai.
     """
-    from omnigent.cli import _save_global_config
-    from omnigent.cli_config import _promote_global_auth_to_provider
+    from agentnexus.cli import _save_global_config
+    from agentnexus.cli_config import _promote_global_auth_to_provider
 
     _save_global_config(
         {
@@ -1418,8 +1418,8 @@ def test_promote_global_auth_respects_explicit_default(isolated_config) -> None:
 
 def test_promote_global_auth_noop_without_databricks_auth(isolated_config) -> None:
     """No databricks ``auth:`` block → nothing to backfill (returns None)."""
-    from omnigent.cli import _save_global_config
-    from omnigent.cli_config import _promote_global_auth_to_provider
+    from agentnexus.cli import _save_global_config
+    from agentnexus.cli_config import _promote_global_auth_to_provider
 
     # An api_key auth block (not databricks) must not synthesize a databricks
     # provider, and a config with no auth: block at all is a clean no-op.
@@ -1438,8 +1438,8 @@ def _databricks_add_menu_index() -> int:
     :returns: The 1-based index of the ``databricks``-kind option within the
         Claude (anthropic) add menu, e.g. ``4``.
     """
-    from omnigent.onboarding.configure_models import add_menu_options_for_family
-    from omnigent.onboarding.provider_config import ANTHROPIC_FAMILY, DATABRICKS_KIND
+    from agentnexus.onboarding.configure_models import add_menu_options_for_family
+    from agentnexus.onboarding.provider_config import ANTHROPIC_FAMILY, DATABRICKS_KIND
 
     opts = add_menu_options_for_family(ANTHROPIC_FAMILY)
     return next(i for i, o in enumerate(opts) if o.kind == DATABRICKS_KIND) + 1
@@ -1479,11 +1479,11 @@ def test_configure_harnesses_add_databricks_normalizes_url_and_persists(
 
     # Patch at the source modules — the databricks branch imports these at call
     # time, so the attribute lookup resolves to these stubs.
-    monkeypatch.setattr("omnigent.onboarding.setup.login_databricks_workspace", _fake_login)
+    monkeypatch.setattr("agentnexus.onboarding.setup.login_databricks_workspace", _fake_login)
     monkeypatch.setattr(
-        "omnigent.onboarding.ucode_setup.configure_ucode_for_workspace", _fake_configure_ucode
+        "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace", _fake_configure_ucode
     )
-    monkeypatch.setattr("omnigent.onboarding.ucode_setup.ucode_workspace_exists", _fake_exists)
+    monkeypatch.setattr("agentnexus.onboarding.ucode_setup.ucode_workspace_exists", _fake_exists)
 
     db = _databricks_add_menu_index()
     # L1 1=Claude → L2 1=+Add → add menu <db>=Databricks → workspace URL (no
@@ -1530,16 +1530,16 @@ def test_configure_harnesses_add_databricks_fails_loud_when_ucode_records_no_sta
     the command exits non-zero and ``providers`` stays empty.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.setup.login_databricks_workspace",
+        "agentnexus.onboarding.setup.login_databricks_workspace",
         lambda url, *, console=None: "my-ws",
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.ucode_setup.configure_ucode_for_workspace",
+        "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace",
         lambda url, *, agents=None: None,
     )
     # ucode "succeeded" but left no state for this workspace.
     monkeypatch.setattr(
-        "omnigent.onboarding.ucode_setup.ucode_workspace_exists", lambda url: False
+        "agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: False
     )
 
     db = _databricks_add_menu_index()
@@ -1564,19 +1564,19 @@ def test_configure_harnesses_add_databricks_under_codex_scopes_to_codex(
     whichever harness the user drilled into, so the Claude family is left
     untouched here.
     """
-    from omnigent.onboarding.configure_models import add_menu_options_for_family
-    from omnigent.onboarding.provider_config import DATABRICKS_KIND, OPENAI_FAMILY
+    from agentnexus.onboarding.configure_models import add_menu_options_for_family
+    from agentnexus.onboarding.provider_config import DATABRICKS_KIND, OPENAI_FAMILY
 
     ucode_calls: list[tuple[str, list[str] | None]] = []
     monkeypatch.setattr(
-        "omnigent.onboarding.setup.login_databricks_workspace",
+        "agentnexus.onboarding.setup.login_databricks_workspace",
         lambda url, *, console=None: "my-ws",
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.ucode_setup.configure_ucode_for_workspace",
+        "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace",
         lambda url, *, agents=None: ucode_calls.append((url, agents)),
     )
-    monkeypatch.setattr("omnigent.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
+    monkeypatch.setattr("agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
 
     # Databricks position within the Codex (openai) add menu, computed live.
     codex_opts = add_menu_options_for_family(OPENAI_FAMILY)
@@ -1602,7 +1602,7 @@ def test_uninstalled_harness_shows_x_and_not_installed(isolated_config, monkeypa
     row).
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: False
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: False
     )
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"], input="q\n")
     assert result.exit_code == 0, result.output
@@ -1691,7 +1691,7 @@ def _capture_setup_overview(
         )
         return -1
 
-    monkeypatch.setattr("omnigent.onboarding.interactive.select", _capture_select)
+    monkeypatch.setattr("agentnexus.onboarding.interactive.select", _capture_select)
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"])
     assert result.exit_code == 0, result.output
     return (
@@ -1731,7 +1731,7 @@ def test_overview_lists_all_harnesses_in_priority_order(isolated_config, monkeyp
     reintroduces a collapse row fails here. The menu also opts into the compact
     top-level rendering.
     """
-    from omnigent.onboarding import interactive
+    from agentnexus.onboarding import interactive
 
     options, selectable, descriptions, compact, max_visible = _capture_setup_overview(monkeypatch)
     expected = [
@@ -1851,7 +1851,7 @@ def test_setup_reports_invalid_acp_omnigent_mcp(isolated_config) -> None:
                         {
                             "name": "OpenClaw",
                             "command": "openclaw acp",
-                            "omnigent_mcp": "false",
+                            "agentnexus_mcp": "false",
                         }
                     ]
                 }
@@ -1986,7 +1986,7 @@ def test_overview_lists_kiro_row(isolated_config, monkeypatch) -> None:
     from rich.text import Text
 
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: False
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: False
     )
     options, selectable, descriptions, _, _max_visible = _capture_setup_overview(monkeypatch)
     names = _overview_row_names(options, selectable)
@@ -1995,7 +1995,7 @@ def test_overview_lists_kiro_row(isolated_config, monkeypatch) -> None:
     assert "cli.kiro.dev/install" in Text.from_markup(descriptions[kiro]).plain
 
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: True
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: True
     )
     options, selectable, descriptions, _, _max_visible = _capture_setup_overview(monkeypatch)
     names = _overview_row_names(options, selectable)
@@ -2012,7 +2012,7 @@ def test_overview_reports_missing_cursor_cli_despite_sdk_api_key(
 
     monkeypatch.setenv("CURSOR_API_KEY", "crsr_sdk_only")
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed",
+        "agentnexus.onboarding.harness_install.harness_cli_installed",
         lambda key: key != "cursor",
     )
 
@@ -2030,7 +2030,7 @@ def test_overview_reports_missing_cursor_cli_despite_sdk_api_key(
 def test_missing_cursor_cli_drillin_shows_install_and_login(isolated_config, monkeypatch) -> None:
     """The consolidated Cursor setup gives both steps needed by the web agent."""
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed",
+        "agentnexus.onboarding.harness_install.harness_cli_installed",
         lambda key: key != "cursor",
     )
 
@@ -2060,7 +2060,7 @@ def test_overview_hermes_row_reflects_configured_model(isolated_config, monkeypa
     """
     from rich.text import Text
 
-    monkeypatch.setattr("omnigent.onboarding.hermes_auth.hermes_cli_installed", lambda: True)
+    monkeypatch.setattr("agentnexus.onboarding.hermes_auth.hermes_cli_installed", lambda: True)
     hermes_dir = os.path.join(isolated_config, ".hermes")
     os.makedirs(hermes_dir, exist_ok=True)
     hermes_config = os.path.join(hermes_dir, "config.yaml")
@@ -2102,14 +2102,14 @@ def test_overview_truncates_long_status_for_narrow_terminal(isolated_config, mon
 
     from rich.cells import cell_len
 
-    from omnigent.onboarding import interactive
-    from omnigent.onboarding.opencode_auth import OpenCodeAuthSummary
+    from agentnexus.onboarding import interactive
+    from agentnexus.onboarding.opencode_auth import OpenCodeAuthSummary
 
     monkeypatch.setattr(
-        "omnigent.cli.shutil.get_terminal_size", lambda fallback: os.terminal_size((40, 24))
+        "agentnexus.cli.shutil.get_terminal_size", lambda fallback: os.terminal_size((40, 24))
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.opencode_auth.opencode_auth_summary",
+        "agentnexus.onboarding.opencode_auth.opencode_auth_summary",
         lambda: OpenCodeAuthSummary(
             installed=True,
             stored_providers=("anthropic", "データブリックス", "🚀provider"),
@@ -2166,7 +2166,7 @@ def test_overview_dispatches_to_correct_manager(
     """
     called: list[str] = []
     monkeypatch.setattr(
-        f"omnigent.cli_config.{manager_attr}", lambda *a, **k: called.append(manager_attr)
+        f"agentnexus.cli_config.{manager_attr}", lambda *a, **k: called.append(manager_attr)
     )
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"], input=f"{choice}\nq\n")
     assert result.exit_code == 0, result.output
@@ -2186,7 +2186,7 @@ def test_overview_status_color_distinguishes_missing_from_unconfigured(
     """
     # Installed but unconfigured → yellow ✗ (a usable harness awaiting setup).
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: True
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: True
     )
     options, selectable, _descriptions, _compact, _max_visible = _capture_setup_overview(
         monkeypatch
@@ -2196,9 +2196,9 @@ def test_overview_status_color_distinguishes_missing_from_unconfigured(
 
     # CLI absent → red ✗ (nothing to use yet).
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: False
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: False
     )
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _name: None)
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _name: None)
     options, selectable, _descriptions, _compact, _max_visible = _capture_setup_overview(
         monkeypatch
     )
@@ -2224,11 +2224,11 @@ def test_installed_native_cli_auth_unknown_rows_are_not_configured(
     the not-configured case, so ``kimi_auth_configured`` is forced ``False``.)
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: True
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: True
     )
     # Kimi's row now consults a combined auth probe; force "not configured" so
     # the assertion is deterministic regardless of the dev machine.
-    monkeypatch.setattr("omnigent.onboarding.kimi_auth.kimi_auth_configured", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.kimi_auth.kimi_auth_configured", lambda: False)
     options, selectable, descriptions, _compact, _max_visible = _capture_setup_overview(
         monkeypatch
     )
@@ -2247,9 +2247,9 @@ def test_overview_kimi_row_reflects_detected_login(isolated_config, monkeypatch)
     ready row when a login credential or a pay-per-use API key is present.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: True
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: True
     )
-    monkeypatch.setattr("omnigent.onboarding.kimi_auth.kimi_auth_configured", lambda: True)
+    monkeypatch.setattr("agentnexus.onboarding.kimi_auth.kimi_auth_configured", lambda: True)
     options, selectable, descriptions, _compact, _max_visible = _capture_setup_overview(
         monkeypatch
     )
@@ -2271,33 +2271,33 @@ def test_overview_descriptions_map_to_their_rows(isolated_config, monkeypatch) -
     """
     from rich.text import Text
 
-    from omnigent.onboarding.goose_auth import GooseConfigSummary
-    from omnigent.onboarding.hermes_auth import HermesConfigSummary
-    from omnigent.onboarding.opencode_auth import OpenCodeAuthSummary
+    from agentnexus.onboarding.goose_auth import GooseConfigSummary
+    from agentnexus.onboarding.hermes_auth import HermesConfigSummary
+    from agentnexus.onboarding.opencode_auth import OpenCodeAuthSummary
 
-    monkeypatch.setattr("omnigent.onboarding.cursor_auth.cursor_sdk_installed", lambda: True)
+    monkeypatch.setattr("agentnexus.onboarding.cursor_auth.cursor_sdk_installed", lambda: True)
     monkeypatch.setattr(
-        "omnigent.onboarding.antigravity_auth.antigravity_sdk_installed", lambda: True
+        "agentnexus.onboarding.antigravity_auth.antigravity_sdk_installed", lambda: True
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed",
+        "agentnexus.onboarding.harness_install.harness_cli_installed",
         lambda family: family != GEMINI_FAMILY,
     )
-    monkeypatch.setattr("omnigent.onboarding.copilot_auth.copilot_sdk_installed", lambda: True)
+    monkeypatch.setattr("agentnexus.onboarding.copilot_auth.copilot_sdk_installed", lambda: True)
     # Kimi's row consults a combined auth probe; force "not configured" so the
     # hint is asserted deterministically.
-    monkeypatch.setattr("omnigent.onboarding.kimi_auth.kimi_auth_configured", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.kimi_auth.kimi_auth_configured", lambda: False)
     monkeypatch.setattr(
-        "omnigent.onboarding.opencode_auth.opencode_auth_summary",
+        "agentnexus.onboarding.opencode_auth.opencode_auth_summary",
         lambda: OpenCodeAuthSummary(installed=True, stored_providers=(), env_providers=()),
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.goose_auth.goose_config_summary",
+        "agentnexus.onboarding.goose_auth.goose_config_summary",
         lambda: GooseConfigSummary(installed=True, provider=None, model=None),
     )
     # Installed but no provider picked → the "Open to configure" warn hint.
     monkeypatch.setattr(
-        "omnigent.onboarding.hermes_auth.hermes_config_summary",
+        "agentnexus.onboarding.hermes_auth.hermes_config_summary",
         lambda: HermesConfigSummary(installed=True, provider=None, model=None),
     )
 
@@ -2338,11 +2338,11 @@ def test_drill_into_uninstalled_installs_then_proceeds(isolated_config, monkeypa
     the install or called it for the wrong harness fails here.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: False
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: False
     )
     installed: list[str] = []
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.install_harness_cli",
+        "agentnexus.onboarding.harness_install.install_harness_cli",
         lambda family: installed.append(family) or True,
     )
     # L1 1=Claude → install prompt 1=Yes (install) → L2 credential menu q=back
@@ -2356,14 +2356,14 @@ def test_drill_into_uninstalled_installs_then_proceeds(isolated_config, monkeypa
 def test_decline_install_returns_without_installing(isolated_config, monkeypatch) -> None:
     """Choosing 'No' at the install prompt returns to the picker, no install."""
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: False
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: False
     )
 
     def _must_not_install(family: str) -> bool:
         raise AssertionError("install_harness_cli called despite declining")
 
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.install_harness_cli", _must_not_install
+        "agentnexus.onboarding.harness_install.install_harness_cli", _must_not_install
     )
     # L1 1=Claude → install prompt 2=No → L1 q=exit.
     stdin = "\n".join(["1", "2", "q"]) + "\n"
@@ -2382,12 +2382,12 @@ def test_pi_add_menu_offers_keys_gateway_databricks_but_no_subscription() -> Non
     codex subscriptions must NOT (a CLI login is unusable outside its own
     CLI — offering it would configure a credential pi silently can't use).
     """
-    from omnigent.onboarding.provider_config import PI_SURFACE
+    from agentnexus.onboarding.provider_config import PI_SURFACE
 
     options = add_menu_options_for_family(PI_SURFACE)
     kinds = {o.kind for o in options}
     # The pi subscription ("Pi — original auth") IS offered for pi — it lets
-    # users bypass Omnigent-managed auth and use Pi's own credentials.
+    # users bypass AgentNexus-managed auth and use Pi's own credentials.
     assert any(o.kind == "subscription" and o.cli == "pi" for o in options)
     # claude/codex subscriptions must NOT appear — a CLI login is unusable
     # outside its own CLI, so offering one would configure a broken credential.
@@ -2409,7 +2409,7 @@ def test_configure_harnesses_pi_page_sets_explicit_pi_default(isolated_config) -
     scope, pi resolution must follow it, and BOTH family defaults must be
     untouched — the per-surface coexistence invariant extended to pi.
     """
-    from omnigent.onboarding.provider_config import default_provider_for_harness
+    from agentnexus.onboarding.provider_config import default_provider_for_harness
 
     config_path = os.path.join(isolated_config, "config.yaml")
     with open(config_path, "w") as f:
@@ -2518,8 +2518,8 @@ def test_configure_harnesses_add_databricks_under_pi_scopes_to_pi(
     routing Claude/Codex through a workspace ucode never configured for
     them would be the regression.
     """
-    from omnigent.onboarding.configure_models import add_menu_options_for_family
-    from omnigent.onboarding.provider_config import (
+    from agentnexus.onboarding.configure_models import add_menu_options_for_family
+    from agentnexus.onboarding.provider_config import (
         DATABRICKS_KIND,
         PI_SURFACE,
         default_provider_for_harness,
@@ -2527,14 +2527,14 @@ def test_configure_harnesses_add_databricks_under_pi_scopes_to_pi(
 
     ucode_calls: list[tuple[str, list[str] | None]] = []
     monkeypatch.setattr(
-        "omnigent.onboarding.setup.login_databricks_workspace",
+        "agentnexus.onboarding.setup.login_databricks_workspace",
         lambda url, *, console=None: "my-ws",
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.ucode_setup.configure_ucode_for_workspace",
+        "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace",
         lambda url, *, agents=None: ucode_calls.append((url, agents)),
     )
-    monkeypatch.setattr("omnigent.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
+    monkeypatch.setattr("agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
 
     # Databricks position within the Pi add menu, computed live.
     pi_opts = add_menu_options_for_family(PI_SURFACE)
@@ -2568,7 +2568,7 @@ def test_add_key_does_not_steal_pi_from_fallback_default(isolated_config) -> Non
     pi scope: pi's effective default already resolves, and stealing it
     would silently re-route pi to the brand-new key.
     """
-    from omnigent.onboarding.provider_config import default_provider_for_harness
+    from agentnexus.onboarding.provider_config import default_provider_for_harness
 
     config_path = os.path.join(isolated_config, "config.yaml")
     with open(config_path, "w") as f:
@@ -2613,7 +2613,7 @@ def test_credential_label_cli_config_uses_provider_name() -> None:
     The display_name is ignored so cli-config providers show consistently
     alongside other kinds (e.g. isaac-databricks-codex → Isaac-Databricks-Codex).
     """
-    from omnigent.onboarding.configure_models import credential_label
+    from agentnexus.onboarding.configure_models import credential_label
 
     label = credential_label(
         "cli-config", "isaac-databricks-codex", display_name="Databricks AI Gateway"
@@ -2626,7 +2626,7 @@ def test_credential_label_cli_config_falls_back_to_entry_name() -> None:
 
     Failure (empty/None label) would render a blank credential row.
     """
-    from omnigent.onboarding.configure_models import credential_label
+    from agentnexus.onboarding.configure_models import credential_label
 
     assert credential_label("cli-config", "codex-myproxy") == "Codex-Myproxy"
 
@@ -2637,7 +2637,7 @@ def test_build_cli_config_provider_entry_shapes() -> None:
     Full-equality assertions: a drifted key would make adoption write
     entries that fail to load on the next configure open.
     """
-    from omnigent.onboarding.configure_models import build_cli_config_provider_entry
+    from agentnexus.onboarding.configure_models import build_cli_config_provider_entry
 
     assert build_cli_config_provider_entry("codex", "Databricks", "Databricks AI Gateway") == {
         "kind": "cli-config",
@@ -2723,8 +2723,8 @@ def test_add_menu_readds_dismissed_cli_config_credential(isolated_config) -> Non
     detected-config row is the only way back. Re-adding must persist the
     entry, restore it as the codex default, and clear the dismissal.
     """
-    from omnigent.onboarding.configure_models import add_menu_options_for_family
-    from omnigent.onboarding.provider_config import OPENAI_FAMILY
+    from agentnexus.onboarding.configure_models import add_menu_options_for_family
+    from agentnexus.onboarding.provider_config import OPENAI_FAMILY
 
     _write_codex_config_toml(isolated_config)
     config_path = os.path.join(isolated_config, "config.yaml")
@@ -2778,7 +2778,7 @@ def _cursor_sdk_present(monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.cursor_auth.cursor_sdk_installed",
+        "agentnexus.onboarding.cursor_auth.cursor_sdk_installed",
         lambda: True,
     )
 
@@ -2876,7 +2876,7 @@ def _cursor_sdk_absent(monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.cursor_auth.cursor_sdk_installed",
+        "agentnexus.onboarding.cursor_auth.cursor_sdk_installed",
         lambda: False,
     )
 
@@ -2909,7 +2909,7 @@ def test_cursor_drillin_offers_install_when_sdk_missing(
     assert result.exit_code == 0, result.output
     out = result.output
     assert "isn't installed" in out
-    assert "omnigent[cursor]" in out
+    assert "agentnexus[cursor]" in out
 
 
 def test_cursor_key_settable_when_sdk_missing(isolated_config, _cursor_sdk_absent) -> None:
@@ -2945,9 +2945,9 @@ def test_cursor_install_now_invokes_runner_without_index(
         calls.append(argv)
         return subprocess.CompletedProcess(args=argv, returncode=0)
 
-    monkeypatch.setattr("omnigent.onboarding.extra_install._is_uv_tool_install", lambda: False)
-    monkeypatch.setattr("omnigent.onboarding.extra_install.shutil.which", lambda name: None)
-    monkeypatch.setattr("omnigent.onboarding.cursor_auth.subprocess.run", _run)
+    monkeypatch.setattr("agentnexus.onboarding.extra_install._is_uv_tool_install", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.extra_install.shutil.which", lambda name: None)
+    monkeypatch.setattr("agentnexus.onboarding.cursor_auth.subprocess.run", _run)
 
     # Cursor → Cursor SDK → install now → back through both menus.
     stdin = "\n".join(["3", "2", "1", "q", "q", "q"]) + "\n"
@@ -2956,7 +2956,7 @@ def test_cursor_install_now_invokes_runner_without_index(
 
     assert len(calls) == 1, f"expected exactly one install invocation, got {calls}"
     argv = calls[0]
-    assert "omnigent[cursor]" in argv
+    assert "agentnexus[cursor]" in argv
     assert "install" in argv
     # No index URL / proxy is baked into committed code.
     assert not any("index" in part or "://" in part for part in argv)
@@ -2983,7 +2983,7 @@ def _antigravity_sdk_present(monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.antigravity_auth.antigravity_sdk_installed",
+        "agentnexus.onboarding.antigravity_auth.antigravity_sdk_installed",
         lambda: True,
     )
 
@@ -3034,7 +3034,7 @@ def test_antigravity_sign_in_runs_agy_auth_service(
 ) -> None:
     """Selecting Antigravity sign-in launches bare ``agy`` through harness auth."""
     login = Mock(return_value=True)
-    monkeypatch.setattr("omnigent.onboarding.harness_install.harness_login", login)
+    monkeypatch.setattr("agentnexus.onboarding.harness_install.harness_login", login)
 
     # L1 7=Antigravity → 2=Sign in → q back → q quit.
     result = CliRunner().invoke(
@@ -3050,13 +3050,13 @@ def test_antigravity_sign_in_runs_agy_auth_service(
 def test_antigravity_sign_in_skips_sdk_install_prompt(isolated_config, monkeypatch) -> None:
     """An installed agy can sign in even when the optional SDK is absent."""
     monkeypatch.setattr(
-        "omnigent.onboarding.antigravity_auth.antigravity_sdk_installed",
+        "agentnexus.onboarding.antigravity_auth.antigravity_sdk_installed",
         lambda: False,
     )
     prompt = Mock()
-    monkeypatch.setattr("omnigent.cli_config._prompt_install_antigravity", prompt)
+    monkeypatch.setattr("agentnexus.cli_config._prompt_install_antigravity", prompt)
     login = Mock(return_value=True)
-    monkeypatch.setattr("omnigent.onboarding.harness_install.harness_login", login)
+    monkeypatch.setattr("agentnexus.onboarding.harness_install.harness_login", login)
 
     result = CliRunner().invoke(
         cli,
@@ -3156,11 +3156,11 @@ def _antigravity_sdk_absent(monkeypatch):
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     monkeypatch.setattr(
-        "omnigent.onboarding.antigravity_auth.antigravity_sdk_installed",
+        "agentnexus.onboarding.antigravity_auth.antigravity_sdk_installed",
         lambda: False,
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed",
+        "agentnexus.onboarding.harness_install.harness_cli_installed",
         lambda family: family != GEMINI_FAMILY,
     )
 
@@ -3179,8 +3179,8 @@ def test_antigravity_overview_install_command_is_selection_only(
     options, selectable, descriptions, _, _max_visible = _capture_setup_overview(monkeypatch)
     names = _overview_row_names(options, selectable)
     antigravity = names.index("Antigravity")
-    assert "omnigent[antigravity]" in Text.from_markup(descriptions[antigravity]).plain
-    assert "omnigent[antigravity]" not in Text.from_markup(options[antigravity]).plain
+    assert "agentnexus[antigravity]" in Text.from_markup(descriptions[antigravity]).plain
+    assert "agentnexus[antigravity]" not in Text.from_markup(options[antigravity]).plain
 
 
 @pytest.fixture()
@@ -3197,7 +3197,7 @@ def _copilot_sdk_absent(monkeypatch):
     """
     for var in ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr("omnigent.onboarding.copilot_auth.copilot_sdk_installed", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.copilot_auth.copilot_sdk_installed", lambda: False)
 
 
 def test_copilot_overview_install_command_is_selection_only(
@@ -3215,7 +3215,7 @@ def test_copilot_overview_install_command_is_selection_only(
     options, selectable, descriptions, _, _max_visible = _capture_setup_overview(monkeypatch)
     names = _overview_row_names(options, selectable)
     copilot = names.index("Copilot")
-    assert "omnigent[copilot]" in Text.from_markup(descriptions[copilot]).plain
+    assert "agentnexus[copilot]" in Text.from_markup(descriptions[copilot]).plain
     assert "pip install" not in Text.from_markup(options[copilot]).plain
 
 
@@ -3224,17 +3224,17 @@ def test_copilot_overview_install_command_is_selection_only(
     [
         (
             "3\n2",
-            "omnigent.onboarding.cursor_auth.cursor_sdk_installed",
+            "agentnexus.onboarding.cursor_auth.cursor_sdk_installed",
             "Cursor — no API key yet",
         ),
         (
             "7",
-            "omnigent.onboarding.antigravity_auth.antigravity_sdk_installed",
+            "agentnexus.onboarding.antigravity_auth.antigravity_sdk_installed",
             "Antigravity — no Gemini API key yet",
         ),
         (
             "10",
-            "omnigent.onboarding.copilot_auth.copilot_sdk_installed",
+            "agentnexus.onboarding.copilot_auth.copilot_sdk_installed",
             "Copilot — no GitHub token yet",
         ),
     ],
@@ -3272,7 +3272,7 @@ def test_antigravity_drillin_offers_install_when_sdk_missing(
     assert result.exit_code == 0, result.output
     out = result.output
     assert "isn't installed" in out
-    assert "omnigent[antigravity]" in out
+    assert "agentnexus[antigravity]" in out
 
 
 def test_antigravity_key_settable_when_sdk_missing(
@@ -3311,9 +3311,9 @@ def test_antigravity_install_now_invokes_runner_without_index(
         calls.append(argv)
         return subprocess.CompletedProcess(args=argv, returncode=0)
 
-    monkeypatch.setattr("omnigent.onboarding.extra_install._is_uv_tool_install", lambda: False)
-    monkeypatch.setattr("omnigent.onboarding.extra_install.shutil.which", lambda name: None)
-    monkeypatch.setattr("omnigent.onboarding.antigravity_auth.subprocess.run", _run)
+    monkeypatch.setattr("agentnexus.onboarding.extra_install._is_uv_tool_install", lambda: False)
+    monkeypatch.setattr("agentnexus.onboarding.extra_install.shutil.which", lambda name: None)
+    monkeypatch.setattr("agentnexus.onboarding.antigravity_auth.subprocess.run", _run)
 
     # L1 7=Antigravity → install offer 1=install now →
     # key menu q=back → L1 q.
@@ -3323,7 +3323,7 @@ def test_antigravity_install_now_invokes_runner_without_index(
 
     assert len(calls) == 1, f"expected exactly one install invocation, got {calls}"
     argv = calls[0]
-    assert "omnigent[antigravity]" in argv
+    assert "agentnexus[antigravity]" in argv
     assert "install" in argv
     # No index URL / proxy is baked into committed code.
     assert not any("index" in part or "://" in part for part in argv)
@@ -3339,8 +3339,8 @@ def _other_key_add_menu_index(family: str) -> int:
     :param family: The harness surface whose add menu is inspected.
     :returns: The 1-based index of the catch-all ``other``-key option.
     """
-    from omnigent.onboarding.configure_models import add_menu_options_for_family
-    from omnigent.onboarding.provider_config import KEY_KIND
+    from agentnexus.onboarding.configure_models import add_menu_options_for_family
+    from agentnexus.onboarding.provider_config import KEY_KIND
 
     opts = add_menu_options_for_family(family)
     return next(i for i, o in enumerate(opts) if o.kind == KEY_KIND and o.other) + 1
@@ -3360,15 +3360,15 @@ def test_configure_harnesses_add_other_key_no_remaining_providers_aborts_cleanly
     (the surface from the report), with the harness CLI forced installed so the
     drill-in reaches the add menu.
     """
-    from omnigent.onboarding.provider_config import PI_SURFACE
+    from agentnexus.onboarding.provider_config import PI_SURFACE
 
     # Force the harness CLI "installed" so the Pi drill-in shows the add menu
     # rather than the install prompt, and pretend the catch-all catalog is
     # exhausted (the real-world trigger: all of Groq/DeepSeek/… already added).
     monkeypatch.setattr(
-        "omnigent.onboarding.harness_install.harness_cli_installed", lambda family: True
+        "agentnexus.onboarding.harness_install.harness_cli_installed", lambda family: True
     )
-    monkeypatch.setattr("omnigent.onboarding.configure_models.other_key_providers", list)
+    monkeypatch.setattr("agentnexus.onboarding.configure_models.other_key_providers", list)
 
     other = _other_key_add_menu_index(PI_SURFACE)
     # L1 6=Pi → L2 1=+Add → add menu <other>=Other provider — API key → L2 q=back → L1 q=exit.
@@ -3453,8 +3453,8 @@ def test_credential_label_bedrock_not_duplicated() -> None:
     credential after the provider id used to render 'Bedrock Bedrock'. The
     generic default collapses to 'AWS Bedrock'; a custom name is qualified.
     """
-    from omnigent.onboarding.configure_models import credential_label
-    from omnigent.onboarding.provider_config import BEDROCK_KIND
+    from agentnexus.onboarding.configure_models import credential_label
+    from agentnexus.onboarding.provider_config import BEDROCK_KIND
 
     assert credential_label(BEDROCK_KIND, "bedrock") == "AWS Bedrock"
     assert credential_label(BEDROCK_KIND, "nexus") == "AWS Bedrock (nexus)"
@@ -3472,10 +3472,10 @@ def test_claude_subscription_relabeled_as_managed_gateway(tmp_path, monkeypatch)
     """
     import json
 
-    from omnigent.cli_config import _compact_credential_label, _credential_label
-    from omnigent.onboarding import ambient
-    from omnigent.onboarding.ambient import DetectedProvider
-    from omnigent.onboarding.provider_config import ProviderEntry
+    from agentnexus.cli_config import _compact_credential_label, _credential_label
+    from agentnexus.onboarding import ambient
+    from agentnexus.onboarding.ambient import DetectedProvider
+    from agentnexus.onboarding.provider_config import ProviderEntry
 
     entry = ProviderEntry(name="claude", kind="subscription", cli="claude")
     det = DetectedProvider(

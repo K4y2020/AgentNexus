@@ -86,6 +86,6 @@ def mcp_call_output(*content_blocks: Any, is_error: bool = False) -> str:
     """
     from mcp.types import CallToolResult
 
-    from omnigent.tools.mcp import _format_call_result
+    from agentnexus.tools.mcp import _format_call_result
 
     return _format_call_result(CallToolResult(content=list(content_blocks), isError=is_error))

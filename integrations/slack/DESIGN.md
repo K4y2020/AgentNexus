@@ -1,17 +1,17 @@
 # Slack integration — design & architecture
 
-How the Omnigent Slack bot is built and the key technical decisions behind it.
+How the AgentNexus Slack bot is built and the key technical decisions behind it.
 For operator setup (scopes, `.env`, running the daemon) see `README.md`; this
 doc is for people working on the code.
 
 ## What it is
 
 A Slack **Socket Mode** bot that bridges Slack to a single, operator-configured
-Omnigent server. It maps **one Slack thread ↔ one Omnigent session**, streams
+AgentNexus server. It maps **one Slack thread ↔ one AgentNexus session**, streams
 the agent's answer into the thread live, and renders tool-approval /
 `AskUserQuestion` prompts as interactive Block Kit cards.
 
-The **guiding principle**: the Omnigent **web UI is the reference client** for
+The **guiding principle**: the AgentNexus **web UI is the reference client** for
 the server API. Where possible the bot mirrors how the web UI consumes the
 server (server-authoritative state, push-driven streaming, no invented polling);
 deviations exist only where Slack's transport genuinely differs from a browser
@@ -26,12 +26,12 @@ is the Python analogue).
 | Module | Responsibility |
 | --- | --- |
 | `events.py` | Pure SSE parsing + event DTOs + extractors (`extract_delta`, `session_status`, `extract_elicitation_request`, …). No I/O, no state. |
-| `omnigent.py` | HTTP/SSE client (`OmnigentClient`), connection pool, the `run_turn` stream loop and turn-end detection, error subclasses. |
+| `agentnexus.py` | HTTP/SSE client (`AgentNexusClient`), connection pool, the `run_turn` stream loop and turn-end detection, error subclasses. |
 | `streaming.py` | The streamed-answer state machine: `_LiveReply` (Slack `chat.*Stream` buffering/seal/reopen) and `_AnswerReply` (ack lifecycle, seal-⇒-forget, tail reconciliation). Home of the `SlackClientProtocol`/`SlackStreamProtocol` structural types. |
 | `elicitation.py` | `ElicitationController` — in-turn approval/question orchestration (post card, spawn resolver, finalize on `elicitation_resolved`). |
 | `approvals.py` | Elicitation vocabulary: `ElicitationCoordinator` (click↔resolver bridge), Block Kit card builders, `ElicitationOutcome`, click routing/parsing. |
 | `notifications.py` | `SlackNotifier` — all outbound Slack messages (acks, replies, ephemerals, todo plan, deflection notices) + the text formatters. |
-| `service.py` | `SlackOmnigentService` — event acceptance, turn routing, turn lifecycle. Delegates streaming to `streaming.py`, elicitation to `elicitation.py`, messages to `notifications.py`. |
+| `service.py` | `SlackAgentNexusService` — event acceptance, turn routing, turn lifecycle. Delegates streaming to `streaming.py`, elicitation to `elicitation.py`, messages to `notifications.py`. |
 | `setup.py` / `oauth.py` / `auth_manager.py` / `tokens.py` | Per-user setup modal, device/OIDC login flows, token storage (encrypted at rest). |
 | `store.py` | SQLite: thread→session mapping and per-user config. |
 | `app.py` | slack_bolt wiring: event handlers + the Block Kit action handlers. |
@@ -45,7 +45,7 @@ SSE stream → render events into the thread → detect turn end → stop readin
 
 The web UI holds **one long-lived SSE stream per session** open for the whole
 time the conversation is on screen; a turn boundary is just a reducer event. The
-Slack bot instead opens **one stream per turn** (`OmnigentClient.run_turn`).
+Slack bot instead opens **one stream per turn** (`AgentNexusClient.run_turn`).
 
 Why: Slack has no persistent per-thread viewer — events arrive as discrete
 webhook callbacks, and a thread can sit idle for days. Holding an SSE stream
@@ -212,30 +212,30 @@ in place.
 `_turn_error_text` is the single source of truth mapping known errors to
 user-facing messages, shared by the session-startup and mid-turn paths:
 
-- **401** → "log in again" (`/omnigent`).
-- **Unreachable** → "reconfigure" (`/omnigent`).
+- **401** → "log in again" (`/agentnexus`).
+- **Unreachable** → "reconfigure" (`/agentnexus`).
 - **No online host** → the `omni host --server …` command.
 - **412 `harness_not_configured`** → the server's *curated* `error.message` (run
-  `omnigent setup` on the host). Server error bodies are otherwise **not** echoed
+  `agentnexus setup` on the host). Server error bodies are otherwise **not** echoed
   to the channel (they can leak internal paths/stack traces) — only this specific,
   actionable code's message is surfaced; everything else is logged server-side and
   shown as a generic failure.
 
 ## Authentication (per-user, delegated)
 
-Each Slack user authenticates as their own Omnigent identity — no Omnigent
+Each Slack user authenticates as their own AgentNexus identity — no AgentNexus
 credential passes through Slack. The bot auto-detects the server's auth mode
 (unauthenticated `GET /v1/me`) and drives `accounts`-mode device grant (RFC 8628)
-or `oidc` cli-login inside the `/omnigent` modal; `header`/proxy mode is
+or `oidc` cli-login inside the `/agentnexus` modal; `header`/proxy mode is
 unsupported. Tokens are encrypted at rest when
-`OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY` is set, else in-memory only. The 401-retry
+`AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY` is set, else in-memory only. The 401-retry
 path refreshes a delegated token once mid-request. See `README.md#authentication`
 for the operator/user view and `designs/DEVICE_AUTH.md` in the main repo for the
 threat model.
 
 ## Testing notes
 
-Unit tests use fakes (`FakeOmnigentClient`, `FakeSlackClient`) that mirror the
+Unit tests use fakes (`FakeAgentNexusClient`, `FakeSlackClient`) that mirror the
 real SSE event shapes — including the id-bearing vs id-less `session.status`
 distinction and the SDK's buffer/flush behavior — so the turn-end and streaming
 invariants above are exercised without a live server. The trickiest behaviors

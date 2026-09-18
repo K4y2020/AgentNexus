@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import httpx
 import respx
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _ALL_LOCAL_TOOLS,
     _NATIVE_RELAY_BUILTIN_TOOLS,
     _execute_nimble_research_tool,
@@ -108,7 +108,7 @@ def test_dispatch_executes_v2_lifecycle() -> None:
 
     assert create.call_count == 1
     assert result.call_count == 1
-    assert create.calls.last.request.headers["X-Client-Source"] == "omnigent"
+    assert create.calls.last.request.headers["X-Client-Source"] == "agentnexus"
     assert json.loads(create.calls.last.request.content)["input"] == "profile Nimbleway"
     envelope = json.loads(out)
     assert envelope["run_id"] == _RUN_ID

@@ -14,7 +14,7 @@ const terminalError = [
   "Terminal diagnostics:",
   "terminal: claude:main",
   "command: claude (arguments omitted)",
-  "cwd: /workspace/omnigent",
+  "cwd: /workspace/agentnexus",
   "pid: 48291",
   "runtime: claude-code 1.0.83",
   "exit_code: 0",

@@ -8,7 +8,7 @@ still picks up openai-agents without needing the ``claude`` / ``codex``
 / ``pi`` binaries.
 
 **What breaks if this fails:**
-- Omnigent' YAML spec parser regresses on ``tools.*`` entries
+- AgentNexus' YAML spec parser regresses on ``tools.*`` entries
   (``function`` / ``cancellable_function`` types).
 - The wrapped harness loses its MCP tool bridging or its
   prompt-construction path.
@@ -22,7 +22,7 @@ still picks up openai-agents without needing the ``claude`` / ``codex``
   to stdout — see #783 — so the tool is verified via the sentinel,
   not those markers.)
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 YAML→agent characterization.
 """
 
@@ -40,7 +40,7 @@ from tests.e2e._harness_probes import (
     skip_if_harness_cli_missing,
 )
 from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
-from tests.e2e.omnigent._snapshot import compare_snapshot
+from tests.e2e.agentnexus._snapshot import compare_snapshot
 
 _PROMPT = "What is 3 + 4? Use the calculate tool."
 
@@ -180,7 +180,7 @@ def test_yaml_agent_with_tools(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

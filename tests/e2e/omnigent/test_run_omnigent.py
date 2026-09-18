@@ -8,7 +8,7 @@ deterministic and need no real credentials.
 - The shim's YAML preparation pipeline breaks silently.
 - The in-process omnigent app fails to answer.
 - The output extraction regresses.
-- ``OMNIGENT_RUNTIME=1`` stops being honored.
+- ``AGENTNEXUS_RUNTIME=1`` stops being honored.
 - ``omnigent version`` diverges.
 """
 
@@ -44,7 +44,7 @@ def _run_omnigent_run_omnigent(
     argv: list[str] = [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -165,13 +165,13 @@ def test_run_omnigent_env_var_enables_integration(
     mock_llm_server_url: str,
 ) -> None:
     """
-    ``OMNIGENT_RUNTIME=1`` (with no flag on argv) must route
+    ``AGENTNEXUS_RUNTIME=1`` (with no flag on argv) must route
     through the omnigent shim.
     """
     reset_mock_llm(mock_llm_server_url)
     configure_mock_llm(
         mock_llm_server_url,
-        [{"text": "Hello from OMNIGENT_RUNTIME path!"}],
+        [{"text": "Hello from AGENTNEXUS_RUNTIME path!"}],
         key=_MODEL,
     )
 
@@ -179,20 +179,20 @@ def test_run_omnigent_env_var_enables_integration(
         omnigent_python=omnigent_python,
         omnigent_repo_root=omnigent_repo_root,
         mock_credentials_env=mock_credentials_env,
-        extra_env={"OMNIGENT_RUNTIME": "1"},
+        extra_env={"AGENTNEXUS_RUNTIME": "1"},
     )
     assert result.returncode == 0, (
-        f"OMNIGENT_RUNTIME=1 did not yield exit 0; "
+        f"AGENTNEXUS_RUNTIME=1 did not yield exit 0; "
         f"got {result.returncode}.\n"
         f"stdout:\n{result.stdout!r}\n\nstderr:\n{result.stderr!r}"
     )
     assistant_text = result.stdout.strip()
     assert len(assistant_text) >= _MIN_ASSISTANT_CHARS, (
-        f"OMNIGENT_RUNTIME=1 assistant text shorter than "
+        f"AGENTNEXUS_RUNTIME=1 assistant text shorter than "
         f"{_MIN_ASSISTANT_CHARS} chars; got {assistant_text!r}"
     )
     assert "phase 5" not in result.stderr, (
-        f"OMNIGENT_RUNTIME=1 fell back to the pre-phase-5 hard error. stderr={result.stderr!r}"
+        f"AGENTNEXUS_RUNTIME=1 fell back to the pre-phase-5 hard error. stderr={result.stderr!r}"
     )
 
 
@@ -202,16 +202,16 @@ def test_version_omnigent_matches_version(
 ) -> None:
     """
     ``omnigent version`` must be stable and independent of
-    OMNIGENT_RUNTIME. No LLM credentials needed.
+    AGENTNEXUS_RUNTIME. No LLM credentials needed.
     """
     baseline = subprocess.run(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "version",
         ],
-        env={k: v for k, v in os.environ.items() if k != "OMNIGENT_RUNTIME"},
+        env={k: v for k, v in os.environ.items() if k != "AGENTNEXUS_RUNTIME"},
         cwd=str(omnigent_repo_root),
         capture_output=True,
         text=True,
@@ -221,10 +221,10 @@ def test_version_omnigent_matches_version(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "version",
         ],
-        env={**os.environ, "OMNIGENT_RUNTIME": "1"},
+        env={**os.environ, "AGENTNEXUS_RUNTIME": "1"},
         cwd=str(omnigent_repo_root),
         capture_output=True,
         text=True,
@@ -233,13 +233,13 @@ def test_version_omnigent_matches_version(
     assert baseline.returncode == 0
     assert with_ap.returncode == 0
     assert baseline.stdout == with_ap.stdout, (
-        "omnigent version diverged between baseline and OMNIGENT_RUNTIME=1. "
+        "agentnexus version diverged between baseline and AGENTNEXUS_RUNTIME=1. "
         f"baseline={baseline.stdout!r} ap={with_ap.stdout!r}"
     )
     version_text = baseline.stdout.strip()
-    assert version_text, "omnigent version printed no stdout"
-    assert version_text.startswith("omnigent "), f"unexpected version output: {baseline.stdout!r}"
-    after_prefix = version_text[len("omnigent ") :]
+    assert version_text, "agentnexus version printed no stdout"
+    assert version_text.startswith("agentnexus "), f"unexpected version output: {baseline.stdout!r}"
+    after_prefix = version_text[len("agentnexus ") :]
     assert after_prefix and after_prefix[0].isdigit(), (
         f"unexpected version output: {baseline.stdout!r}"
     )

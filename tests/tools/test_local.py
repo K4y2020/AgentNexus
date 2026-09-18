@@ -13,10 +13,10 @@ from typing import Any
 
 import pytest
 
-from omnigent.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
-from omnigent.spec.types import LocalToolInfo, SandboxConfig, ToolRuntime
-from omnigent.tools.base import ToolContext
-from omnigent.tools.local import (
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
+from agentnexus.spec.types import LocalToolInfo, SandboxConfig, ToolRuntime
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.local import (
     LocalPythonTool,
     LocalToolLoadError,
     load_local_python_tools,
@@ -25,8 +25,8 @@ from omnigent.tools.local import (
 
 @pytest.fixture(autouse=True)
 def _clean_container_runtime_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure OMNIGENT_CONTAINER_RUNTIME never leaks from the host environment."""
-    monkeypatch.delenv("OMNIGENT_CONTAINER_RUNTIME", raising=False)
+    """Ensure AGENTNEXUS_CONTAINER_RUNTIME never leaks from the host environment."""
+    monkeypatch.delenv("AGENTNEXUS_CONTAINER_RUNTIME", raising=False)
 
 
 # ─── Helpers ────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ def _write_decorated_tool(
     indented_body = "\n".join(f"    {line}" for line in body_lines)
     code = (
         '"""Test tool."""\n'
-        "from omnigent_client import tool\n"
+        "from agentnexus_client import tool\n"
         "\n"
         "\n"
         f"@tool{extra_decoration}\n"
@@ -284,7 +284,7 @@ def test_load_multiple_tools_in_one_file(tmp_path: Path) -> None:
     multi = textwrap.dedent(
         '''\
         """Multi-tool file."""
-        from omnigent_client import tool
+        from agentnexus_client import tool
 
 
         @tool
@@ -566,22 +566,22 @@ def test_sandbox_config_rejects_invalid_runtime() -> None:
 
 
 def test_sandbox_config_env_var_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """OMNIGENT_CONTAINER_RUNTIME env var overrides the built-in default."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "podman")
+    """AGENTNEXUS_CONTAINER_RUNTIME env var overrides the built-in default."""
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "podman")
     cfg = SandboxConfig()
     assert cfg.container_runtime == "podman"
 
 
 def test_sandbox_config_explicit_beats_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """An explicit constructor argument takes precedence over the env var."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "podman")
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "podman")
     cfg = SandboxConfig(container_runtime="docker")
     assert cfg.container_runtime == "docker"
 
 
 def test_sandbox_config_env_var_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
     """An invalid env var value is rejected just like an invalid argument."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "rkt")
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "rkt")
     with pytest.raises(ValueError, match="container_runtime"):
         SandboxConfig()
 
@@ -590,8 +590,8 @@ def test_build_command_container_env_var(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """OMNIGENT_CONTAINER_RUNTIME env var is picked up by the tool command builder."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "podman")
+    """AGENTNEXUS_CONTAINER_RUNTIME env var is picked up by the tool command builder."""
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "podman")
     tool = _make_tool(tmp_path, container_image="python:3.11")
     cmd = tool._build_command(state_root=None)
     assert cmd[0] == "podman"
@@ -610,7 +610,7 @@ def test_tool_get_schema_uses_metadata_name_and_description(
         textwrap.dedent(
             '''\
             """Doctool file."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -648,7 +648,7 @@ def test_pep723_scanning_at_load_time(tmp_path: Path) -> None:
             # dependencies = ["requests>=2.0"]
             # ///
             """A tool with PEP 723 deps."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -676,7 +676,7 @@ def _run_runner_with_request(tool_path: Path, tool_name: str, arguments: dict) -
     Uses fd 3 protocol so the test mirrors the real production
     invocation path, not the Docker fallback.
     """
-    runner = Path(__file__).parent.parent.parent / "omnigent" / "tools" / "_runner.py"
+    runner = Path(__file__).parent.parent.parent / "agentnexus" / "tools" / "_runner.py"
     request = json.dumps(
         {
             "module_path": str(tool_path),
@@ -714,7 +714,7 @@ def test_runner_dispatches_to_named_function(tmp_path: Path) -> None:
         textwrap.dedent(
             '''\
             """Multi-tool file."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -743,7 +743,7 @@ def test_runner_rejects_undecorated_function(tmp_path: Path) -> None:
         textwrap.dedent(
             '''\
             """Mixed file with both decorated and bare functions."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -782,7 +782,7 @@ def test_runner_runtime_error(tmp_path: Path) -> None:
         textwrap.dedent(
             '''\
             """Tool that always raises."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -808,7 +808,7 @@ def test_runner_serializes_dict_return(tmp_path: Path) -> None:
         textwrap.dedent(
             '''\
             """Returns a dict."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool
@@ -832,7 +832,7 @@ def test_runner_passes_string_return_unchanged(tmp_path: Path) -> None:
         textwrap.dedent(
             '''\
             """Returns a string."""
-            from omnigent_client import tool
+            from agentnexus_client import tool
 
 
             @tool

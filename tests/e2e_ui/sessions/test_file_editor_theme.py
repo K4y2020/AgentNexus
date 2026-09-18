@@ -1,4 +1,4 @@
-"""E2E: Monaco file surfaces follow Omnigent's theme, not the OS scheme."""
+"""E2E: Monaco file surfaces follow AgentNexus's theme, not the OS scheme."""
 
 from __future__ import annotations
 
@@ -32,12 +32,12 @@ def seeded_python(seeded_session: tuple[str, str]) -> Iterator[tuple[str, str]]:
 def test_file_editor_uses_explicit_omnigent_theme(
     page: Page, seeded_python: tuple[str, str]
 ) -> None:
-    """A light Omnigent palette overrides a dark system for Monaco surfaces."""
+    """A light AgentNexus palette overrides a dark system for Monaco surfaces."""
     page.emulate_media(color_scheme="dark")
     page.add_init_script(
         """
         localStorage.setItem("web-theme", "light");
-        localStorage.setItem("omnigent:ui-theme-palette", JSON.stringify("gruvbox"));
+        localStorage.setItem("agentnexus:ui-theme-palette", JSON.stringify("gruvbox"));
         """
     )
 

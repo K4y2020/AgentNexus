@@ -14,16 +14,16 @@
  * On a workspace the SPA is mounted as a workspace *page*, so Databricks wraps
  * it in its top-nav shell (the dark bar with the workspace switcher). In a
  * dedicated desktop window that chrome is just noise. We promote Omnigent's
- * own root — ``.omnigent-app``, the wrapper web's embed entry sets
+ * own root — ``.agentnexus-app``, the wrapper web's embed entry sets
  * (``web/src/embed.tsx``) — to a full-viewport overlay so it paints over
  * the workspace bar. Keying on Omnigent's wrapper (defined in THIS repo)
  * rather than the monolith-owned, unstable workspace nav markup keeps this
  * from silently breaking when Databricks reshuffles its chrome; on a
- * standalone (non-embed) build there is no ``.omnigent-app``, so the rule is
+ * standalone (non-embed) build there is no ``.agentnexus-app``, so the rule is
  * a harmless no-op.
  */
 const WORKSPACE_CHROME_HIDE_CSS = `
-  .omnigent-app {
+  .agentnexus-app {
     position: fixed !important;
     inset: 0 !important;
     z-index: 2147483647 !important;
@@ -37,7 +37,7 @@ const WORKSPACE_CHROME_HIDE_CSS = `
  * ``pathname.startsWith(WORKSPACE_UI_PATH)``, which silently skipped injection
  * whenever the loaded URL didn't match the mount path (auth redirects, path
  * variants) and left the workspace switcher visible. Because the CSS only
- * targets ``.omnigent-app`` — which exists solely in the workspace-embedded
+ * targets ``.agentnexus-app`` — which exists solely in the workspace-embedded
  * build — injecting on every load is a harmless no-op on standalone servers.
  * Do not reintroduce a URL/path guard here.
  *

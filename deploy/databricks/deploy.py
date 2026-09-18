@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy Omnigent to a Databricks App via Databricks Asset Bundles.
+"""Deploy AgentNexus to a Databricks App via Databricks Asset Bundles.
 
 End-to-end orchestrator that wraps `databricks bundle deploy` +
 `databricks bundle run`. The build pieces (version stamp, wheel
@@ -16,7 +16,7 @@ Usage example:
         --lakebase-branch projects/omnigent/branches/production \\
         --lakebase-database \\
             projects/omnigent/branches/production/databases/databricks-postgres \\
-        --volume-name main.omnigent.artifacts
+        --volume-name main.agentnexus.artifacts
 
 See ``README.md`` in the same directory for the full guide,
 including first-time infrastructure setup.
@@ -62,9 +62,9 @@ _ENV_VARS_TO_CLEAR = (
 )
 
 # Must match the `resources.apps.<key>` and `bundle.name` in databricks.yml.
-_BUNDLE_RESOURCE_KEY = "omnigent"
+_BUNDLE_RESOURCE_KEY = "agentnexus"
 
-_WHEEL_PREFIXES = ("omnigent-", "omnigent_client-", "omnigent_ui_sdk-")
+_WHEEL_PREFIXES = ("agentnexus-", "agentnexus_client-", "agentnexus_ui_sdk-")
 
 
 def _log(msg: str) -> None:
@@ -132,7 +132,7 @@ def set_version_in_pyproject(path: Path, new_version: str) -> str:
     """Rewrite the version line and lockstep sibling pins in a pyproject.
 
     The release process pins the sibling SDK packages in lockstep
-    (e.g. ``"omnigent-client==0.1.0rc2"``). Stamping only the
+    (e.g. ``"agentnexus-client==0.1.0rc2"``). Stamping only the
     ``version = "..."`` line would leave those exact pins pointing at
     the unstamped base version, which no built wheel carries — so the
     app-level ``uv lock`` becomes unsatisfiable. Rewrite both.
@@ -186,10 +186,10 @@ def _clean_build_artifacts() -> None:
     """
     root = _repo_root()
     targets = [
-        root / "omnigent" / "server" / "static" / "web-ui",
+        root / "agentnexus" / "server" / "static" / "web-ui",
         root / "dist",
         root / "build",
-        root / "omnigent.egg-info",
+        root / "agentnexus.egg-info",
     ]
     for target in targets:
         if target.exists():
@@ -216,7 +216,7 @@ def _build_wheels(skip_web_ui: bool) -> list[Path]:
         # so no caller-controlled path reaches rm or mv.
         env["EXTERNALIZE_WEB_UI"] = "1"
         env.pop("SKIP_WEB_UI", None)
-        env.pop("OMNIGENT_SKIP_WEB_UI", None)
+        env.pop("AGENTNEXUS_SKIP_WEB_UI", None)
     _log(f"$ {build_sh}" + (" (SKIP_WEB_UI=1)" if skip_web_ui else " (EXTERNALIZE_WEB_UI=1)"))
     subprocess.run([str(build_sh)], cwd=root, env=env, check=True)
     wheels = sorted((root / "dist").glob("*.whl"))
@@ -244,7 +244,7 @@ class _ClassifiedWheels:
 
 
 def _classify_wheels(wheels: Iterable[Path]) -> _ClassifiedWheels:
-    main_wheel = next(w for w in wheels if w.name.startswith("omnigent-"))
+    main_wheel = next(w for w in wheels if w.name.startswith("agentnexus-"))
     small: list[Path] = []
     oversize: list[Path] = []
     for wheel in wheels:
@@ -256,11 +256,11 @@ def _classify_wheels(wheels: Iterable[Path]) -> _ClassifiedWheels:
 
 
 def _wheel_version(wheel: Path, prefix: str) -> str:
-    """Extract a deploy version from an Omnigent wheel filename.
+    """Extract a deploy version from an AgentNexus wheel filename.
 
     :param wheel: Built wheel path, e.g.
         ``dist/omnigent-0.1.0.post123-py3-none-any.whl``.
-    :param prefix: Expected wheel filename prefix, e.g. ``"omnigent-"``.
+    :param prefix: Expected wheel filename prefix, e.g. ``"agentnexus-"``.
     :returns: Version embedded in the wheel filename, e.g.
         ``"0.1.0.post123"``.
     :raises RuntimeError: If the wheel filename does not match the
@@ -281,7 +281,7 @@ def _derive_deploy_version_from_wheels(wheels: list[Path]) -> str:
     :raises RuntimeError: If any required wheel is missing or the
         wheel versions do not match.
     """
-    expected_prefixes = ("omnigent-", "omnigent_client-", "omnigent_ui_sdk-")
+    expected_prefixes = ("agentnexus-", "agentnexus_client-", "agentnexus_ui_sdk-")
     versions = []
     for prefix in expected_prefixes:
         matching = [wheel for wheel in wheels if wheel.name.startswith(prefix)]
@@ -294,7 +294,7 @@ def _derive_deploy_version_from_wheels(wheels: list[Path]) -> str:
 
 
 def _sweep_local_src_wheels(keep: set[str]) -> None:
-    """Delete Omnigent wheels from src/ whose filename is not in `keep`.
+    """Delete AgentNexus wheels from src/ whose filename is not in `keep`.
 
     Old deploys accumulate wheels here. Databricks Apps installs the
     source directory as a project, so stale wheels can keep local path
@@ -321,7 +321,7 @@ def _stage_web_ui(skip_web_ui: bool) -> Path | None:
     A previous version staged the SPA as hundreds of loose files. The archive
     keeps the same source-code sync path while reducing the Workspace upload
     round-trips to one file. ``src/app.py`` extracts it before importing the
-    server and points ``OMNIGENT_WEB_UI_DIST`` at the extracted directory.
+    server and points ``AGENTNEXUS_WEB_UI_DIST`` at the extracted directory.
     """
     src = _src_dir()
     stale_dir = src / _WEB_UI_DIR_NAME
@@ -414,9 +414,9 @@ def _uv_source_lines(
         raise RuntimeError(f"main wheel {main_wheel.name} was not classified for deployment")
     source_lines = []
     for package_name, wheel_prefix in (
-        ("omnigent", "omnigent-"),
-        ("omnigent-client", "omnigent_client-"),
-        ("omnigent-ui-sdk", "omnigent_ui_sdk-"),
+        ("agentnexus", "agentnexus-"),
+        ("agentnexus-client", "agentnexus_client-"),
+        ("agentnexus-ui-sdk", "agentnexus_ui_sdk-"),
     ):
         wheel = next(wheel for name, wheel in wheels.items() if name.startswith(wheel_prefix))
         source = _wheel_source_path(wheel)
@@ -442,13 +442,13 @@ def build_uv_pyproject(
     """
     source_lines = _uv_source_lines(main_wheel, small_wheels, oversize_wheels)
     dependencies = [
-        f'"omnigent[databricks,tracing]=={deploy_version}"',
-        f'"omnigent-client=={deploy_version}"',
-        f'"omnigent-ui-sdk=={deploy_version}"',
+        f'"agentnexus[databricks,tracing]=={deploy_version}"',
+        f'"agentnexus-client=={deploy_version}"',
+        f'"agentnexus-ui-sdk=={deploy_version}"',
     ]
     return (
         "[project]\n"
-        'name = "omnigent-databricks-app"\n'
+        'name = "agentnexus-databricks-app"\n'
         'version = "0.0.0"\n'
         f"requires-python = {_toml_string(_APP_REQUIRES_PYTHON)}\n"
         "dependencies = [\n"
@@ -626,7 +626,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--app-name",
         required=True,
-        help="Databricks App name, e.g. 'omnigent'.",
+        help="Databricks App name, e.g. 'agentnexus'.",
     )
     parser.add_argument(
         "--lakebase-branch",
@@ -646,7 +646,7 @@ def _parse_args() -> argparse.Namespace:
         required=True,
         help=(
             "UC Volume full name (catalog.schema.volume) for artifact storage, "
-            "e.g. 'main.omnigent.artifacts'."
+            "e.g. 'main.agentnexus.artifacts'."
         ),
     )
     parser.add_argument(
@@ -657,7 +657,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--otel-table-schema",
-        default="main.omnigent_logs",
+        default="main.agentnexus_logs",
         help=(
             "UC schema (catalog.schema) holding the OTel destination tables. "
             "The Databricks Apps platform writes logs/metrics/spans to "
@@ -1013,7 +1013,7 @@ def main() -> int:
         _log(f"  {wheel.name}  {size_mb:.2f} MB")
     if classified.oversize:
         raise SystemExit(
-            "uv-based Databricks Apps deploys require every Omnigent wheel to "
+            "uv-based Databricks Apps deploys require every AgentNexus wheel to "
             "fit under the 10 MB Workspace file cap. Reduce the Python payload "
             "or pass --skip-web-ui; the SPA ships outside the wheel."
         )

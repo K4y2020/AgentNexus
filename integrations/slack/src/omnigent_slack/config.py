@@ -17,7 +17,7 @@ class ConfigError(Exception):
     """
 
 
-# Auth posture the bot assumes for its Omnigent server. ``auto`` probes the
+# Auth posture the bot assumes for its AgentNexus server. ``auto`` probes the
 # server (the historical behaviour — device grant / OIDC ticket). ``databricks``
 # is for a server fronted by the Databricks Apps proxy (header mode), which the
 # probe can't drive: identity is asserted by the proxy. The bot runs its own
@@ -81,17 +81,17 @@ def _normalize_oauth_scopes(raw: str) -> str:
 def _local_data_dir() -> Path:
     """Return the local runtime data dir for the bot's SQLite store.
 
-    Honors ``OMNIGENT_DATA_DIR`` (the shared data-isolation knob, so a
-    checkout/worktree keeps its own state), else ``~/.omnigent``. Kept as a
+    Honors ``AGENTNEXUS_DATA_DIR`` (the shared data-isolation knob, so a
+    checkout/worktree keeps its own state), else ``~/.agentnexus``. Kept as a
     local copy rather than an import so the standalone ``omnigent-slack``
-    package stays decoupled from omnigent core.
+    package stays decoupled from agentnexus core.
 
     :returns: The data directory path (callers create it lazily).
     """
-    value = os.environ.get("OMNIGENT_DATA_DIR")
+    value = os.environ.get("AGENTNEXUS_DATA_DIR")
     if value:
         return Path(value).expanduser()
-    return Path.home() / ".omnigent"
+    return Path.home() / ".agentnexus"
 
 
 class Settings(BaseSettings):
@@ -106,37 +106,37 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    slack_bot_token: str = Field(validation_alias="OMNIGENT_SLACK_BOT_TOKEN")
-    slack_app_token: str = Field(validation_alias="OMNIGENT_SLACK_APP_TOKEN")
+    slack_bot_token: str = Field(validation_alias="AGENTNEXUS_SLACK_BOT_TOKEN")
+    slack_app_token: str = Field(validation_alias="AGENTNEXUS_SLACK_APP_TOKEN")
 
-    # The one Omnigent server this bot talks to. Set by the operator, never
+    # The one AgentNexus server this bot talks to. Set by the operator, never
     # by a Slack user — so the bot only ever issues requests to this fixed
     # host (closes the SSRF vector a user-supplied URL would open). Every
     # user still authenticates as their own identity against it.
-    server_url: str = Field(validation_alias="OMNIGENT_SERVER_URL")
+    server_url: str = Field(validation_alias="AGENTNEXUS_SERVER_URL")
 
     # Optional shared secret proving this socket server is an authorized
-    # device-grant client. When the Omnigent server has
-    # OMNIGENT_DEVICE_CLIENT_SECRET set, this must match; the bot sends it
-    # in the X-Omnigent-Client-Secret header on device authorize/token/
+    # device-grant client. When the AgentNexus server has
+    # AGENTNEXUS_DEVICE_CLIENT_SECRET set, this must match; the bot sends it
+    # in the X-AgentNexus-Client-Secret header on device authorize/token/
     # revoke. Leave unset when the server doesn't require it.
     device_client_secret: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_DEVICE_CLIENT_SECRET",
+        validation_alias="AGENTNEXUS_DEVICE_CLIENT_SECRET",
     )
 
     # Bot SQLite store (thread→session map, user configs, encrypted tokens).
-    # Defaults under the runtime data dir (``OMNIGENT_DATA_DIR`` or
-    # ``~/.omnigent``) so the daemon doesn't depend on its launch cwd — set
-    # OMNIGENT_SLACK_DATABASE_PATH to override.
+    # Defaults under the runtime data dir (``AGENTNEXUS_DATA_DIR`` or
+    # ``~/.agentnexus``) so the daemon doesn't depend on its launch cwd — set
+    # AGENTNEXUS_SLACK_DATABASE_PATH to override.
     database_path: Path = Field(
-        default_factory=lambda: _local_data_dir() / "omnigent_slack.sqlite3",
-        validation_alias="OMNIGENT_SLACK_DATABASE_PATH",
+        default_factory=lambda: _local_data_dir() / "agentnexus_slack.sqlite3",
+        validation_alias="AGENTNEXUS_SLACK_DATABASE_PATH",
     )
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     # Fernet key (urlsafe-base64, 32 bytes) that encrypts the delegated
-    # Omnigent access/refresh tokens at rest in the local SQLite store.
+    # AgentNexus access/refresh tokens at rest in the local SQLite store.
     # Generate with ``python -c "from cryptography.fernet import Fernet;
     # print(Fernet.generate_key().decode())"``. Set this so a stolen
     # database file cannot be used to impersonate users — see
@@ -145,21 +145,21 @@ class Settings(BaseSettings):
     # re-authenticate; the integration still works either way.
     token_encryption_key: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY",
+        validation_alias="AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY",
     )
 
     # ── Databricks Apps web-auth (header/proxy-mode servers) ──────────────
     #
-    # When the Omnigent server is deployed as a Databricks App, its proxy
+    # When the AgentNexus server is deployed as a Databricks App, its proxy
     # asserts identity via a header the bot can't produce from a Socket-Mode
-    # event. Set OMNIGENT_SLACK_SERVER_AUTH=databricks and register a custom U2M
+    # event. Set AGENTNEXUS_SLACK_SERVER_AUTH=databricks and register a custom U2M
     # OAuth app (authorization code + PKCE) in the workspace: the bot runs that
     # OAuth flow through a web page it serves as its own Databricks App, so each
     # user gets a durable, refreshable token. See
     # docs/DATABRICKS_APP_WEBAUTH_DESIGN.md.
     server_auth_mode: ServerAuthMode = Field(
         default="auto",
-        validation_alias="OMNIGENT_SLACK_SERVER_AUTH",
+        validation_alias="AGENTNEXUS_SLACK_SERVER_AUTH",
     )
 
     # Custom U2M OAuth app credentials (client id + secret) registered in the
@@ -167,11 +167,11 @@ class Settings(BaseSettings):
     # token/refresh calls. Both required in databricks mode.
     databricks_oauth_client_id: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_SLACK_DATABRICKS_CLIENT_ID",
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID",
     )
     databricks_oauth_client_secret: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET",
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET",
     )
 
     # HMAC key (any long random string) that signs the enrollment ``state``.
@@ -181,7 +181,7 @@ class Settings(BaseSettings):
     # radius. Required in databricks mode.
     databricks_state_secret: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_SLACK_DATABRICKS_STATE_SECRET",
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET",
     )
 
     # Space-separated OAuth scopes to request. ``openid`` and ``offline_access``
@@ -193,7 +193,7 @@ class Settings(BaseSettings):
     # only to the exact scope the server app declares once that's known.
     databricks_oauth_scopes: str = Field(
         default="all-apis",
-        validation_alias="OMNIGENT_SLACK_DATABRICKS_SCOPES",
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_SCOPES",
     )
 
     # Public base URL of this bot's own Databricks App (where the enrollment
@@ -202,7 +202,7 @@ class Settings(BaseSettings):
     # app-URL env var, and the app's URL only exists after its first deploy.
     databricks_app_url: str | None = Field(
         default=None,
-        validation_alias="OMNIGENT_SLACK_DATABRICKS_APP_URL",
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_APP_URL",
     )
 
     @field_validator("server_url")
@@ -210,14 +210,14 @@ class Settings(BaseSettings):
     def _normalize_server_url(cls, value: str) -> str:
         value = value.strip().rstrip("/")
         if not value.startswith(("http://", "https://")):
-            raise ValueError("OMNIGENT_SERVER_URL must start with http:// or https://")
+            raise ValueError("AGENTNEXUS_SERVER_URL must start with http:// or https://")
         # The per-user delegated bearer is sent to this host on every request
         # (see omnigent.py). Plaintext http:// would transmit that credential in
         # the clear, so reject it for any non-loopback host — same rule the
         # Databricks workspace host uses. Loopback stays allowed for local dev.
         if value.startswith("http://") and not _is_loopback_url(value):
             raise ValueError(
-                "OMNIGENT_SERVER_URL must use https:// (plaintext would leak the "
+                "AGENTNEXUS_SERVER_URL must use https:// (plaintext would leak the "
                 "delegated bearer token); http:// is allowed only for loopback"
             )
         return value
@@ -278,9 +278,9 @@ class Settings(BaseSettings):
         missing = [
             name
             for name, value in (
-                ("OMNIGENT_SLACK_DATABRICKS_CLIENT_ID", self.databricks_oauth_client_id),
-                ("OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET", self.databricks_oauth_client_secret),
-                ("OMNIGENT_SLACK_DATABRICKS_STATE_SECRET", self.databricks_state_secret),
+                ("AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID", self.databricks_oauth_client_id),
+                ("AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET", self.databricks_oauth_client_secret),
+                ("AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET", self.databricks_state_secret),
                 # workspace_host is DATABRICKS_HOST (injected on the platform);
                 # still required for a laptop run where it's unset.
                 ("DATABRICKS_HOST", self.databricks_workspace_host),
@@ -289,7 +289,7 @@ class Settings(BaseSettings):
         ]
         if missing:
             raise ValueError(
-                "OMNIGENT_SLACK_SERVER_AUTH=databricks requires " + ", ".join(missing)
+                "AGENTNEXUS_SLACK_SERVER_AUTH=databricks requires " + ", ".join(missing)
             )
         # The OAuth flow's security rests on TLS: the client secret rides HTTP
         # Basic on the token call, and the id_token (the confused-deputy anchor)
@@ -313,7 +313,7 @@ class Settings(BaseSettings):
         base = self.webauth_base_url or ""
         if base.startswith("http://") and not _is_loopback_url(base):
             raise ValueError(
-                "OMNIGENT_SLACK_DATABRICKS_APP_URL must use https:// "
+                "AGENTNEXUS_SLACK_DATABRICKS_APP_URL must use https:// "
                 "(it is the OAuth redirect target — plaintext would expose the "
                 "authorization code and the consent page's identity data)"
             )
@@ -323,7 +323,7 @@ class Settings(BaseSettings):
         # the attacker's email (identity corruption). Require real entropy.
         if len(self.databricks_state_secret or "") < _MIN_STATE_SECRET_LEN:
             raise ValueError(
-                f"OMNIGENT_SLACK_DATABRICKS_STATE_SECRET must be at least "
+                f"AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET must be at least "
                 f"{_MIN_STATE_SECRET_LEN} characters (use e.g. `openssl rand -hex 32`)"
             )
         return self
@@ -332,9 +332,9 @@ class Settings(BaseSettings):
 # Required env vars → a short human label, so a missing-config error can name
 # exactly what to set. Only the fields with no default are truly required.
 _REQUIRED_ENV_VARS: dict[str, str] = {
-    "OMNIGENT_SLACK_BOT_TOKEN": "Slack bot token (xoxb-…)",
-    "OMNIGENT_SLACK_APP_TOKEN": "Slack app-level token (xapp-…)",
-    "OMNIGENT_SERVER_URL": "Omnigent server URL (https://…)",
+    "AGENTNEXUS_SLACK_BOT_TOKEN": "Slack bot token (xoxb-…)",
+    "AGENTNEXUS_SLACK_APP_TOKEN": "Slack app-level token (xapp-…)",
+    "AGENTNEXUS_SERVER_URL": "AgentNexus server URL (https://…)",
 }
 
 
@@ -389,7 +389,7 @@ def _env_alias_for(field_name: str) -> str:
     """Return the env-var alias for a Settings field (fallback: the field name).
 
     The friendly error names the environment variable the operator sets (e.g.
-    ``OMNIGENT_SERVER_URL``), not the internal snake_case field (``server_url``).
+    ``AGENTNEXUS_SERVER_URL``), not the internal snake_case field (``server_url``).
     """
     info = Settings.model_fields.get(field_name)
     alias = getattr(info, "validation_alias", None) if info is not None else None

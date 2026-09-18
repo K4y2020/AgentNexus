@@ -5,7 +5,7 @@ import {
   writeFilesPanelPreferences,
 } from "./filesPanelPreferences";
 
-const STORAGE_KEY = "omnigent:files-panel-preferences";
+const STORAGE_KEY = "agentnexus:files-panel-preferences";
 
 afterEach(() => {
   localStorage.clear();

@@ -24,7 +24,7 @@
 // `allowImportingTsExtensions`, and Vite resolves it the same either way.
 import { getThemeRoots } from "./host.ts";
 
-const STORAGE_KEY = "omnigent:ui-theme-palette";
+const STORAGE_KEY = "agentnexus:ui-theme-palette";
 
 /** Selectable color palettes. The first entry is the default (brand) look. */
 export const themePalettes = [

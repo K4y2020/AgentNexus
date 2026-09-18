@@ -8,12 +8,12 @@
 # and can't hang. The feature-blog.yml workflow parses its output and runs the
 # feature-blog-drafter once per selected feature.
 #
-# Run headlessly:  omnigent run .github/agents/feature-blog-scout -p "<pr material>" --no-session
+# Run headlessly:  agentnexus run .github/agents/feature-blog-scout -p "<pr material>" --no-session
 #
 # Security posture (mirrors doc-classifier / release-notes-drafter): runs only on
 # ALREADY-RELEASED history (every PR was maintainer-reviewed + merged), on the
 # trusted default branch, with LLM_API_KEY the only secret in env. The
-# omnigent-site write-token is minted by the workflow AFTER this agent finishes.
+# agentnexus-site write-token is minted by the workflow AFTER this agent finishes.
 # Its input is author-written PR text (a prose injection surface) — the workflow
 # secret-scans stdout and redacts artifacts, and every post is a human-reviewed
 # DRAFT PR.
@@ -28,12 +28,12 @@ description: >-
   sub-agents — a pure selection turn.
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
 prompt: |
-  You are the Omnigent feature-blog scout. A new version has just been cut. You
+  You are the AgentNexus feature-blog scout. A new version has just been cut. You
   are given the list of pull requests merged since the previous release — each
   with its number, title, type tag, and (when the author filled it in) the
   one-line changelog entry — plus a MECHANICAL DRAFT that groups them into

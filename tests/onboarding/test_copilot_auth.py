@@ -18,9 +18,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.onboarding import copilot_auth, extra_install
-from omnigent.onboarding import secrets as secret_store
-from omnigent.onboarding.copilot_auth import (
+from agentnexus.onboarding import copilot_auth, extra_install
+from agentnexus.onboarding import secrets as secret_store
+from agentnexus.onboarding.copilot_auth import (
     COPILOT_SECRET_NAME,
     copilot_github_token_configured,
     copilot_github_token_ref,
@@ -39,8 +39,8 @@ def _isolate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
     :returns: The tmp config-home dir, so a test can write a ``config.yaml``.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     for var in ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     return tmp_path
@@ -243,7 +243,7 @@ def test_gh_cli_github_token_soft_none(monkeypatch: pytest.MonkeyPatch, outcome:
 def test_copilot_extra_install_command_targets_extra() -> None:
     """The install command targets the optional ``copilot`` extra."""
     cmd = copilot_install_command()
-    assert "omnigent[copilot]" in cmd
+    assert "agentnexus[copilot]" in cmd
     assert "install" in cmd
 
 
@@ -287,7 +287,7 @@ def test_copilot_install_command_prefers_uv(monkeypatch: pytest.MonkeyPatch) -> 
         "install",
         "--python",
         "/opt/venv/bin/python",
-        "omnigent[copilot]",
+        "agentnexus[copilot]",
     ]
     assert not any("index" in part or "://" in part for part in cmd)
 
@@ -302,7 +302,7 @@ def test_copilot_install_command_falls_back_to_pip(monkeypatch: pytest.MonkeyPat
         "-m",
         "pip",
         "install",
-        "omnigent[copilot]",
+        "agentnexus[copilot]",
     ]
     assert not any("index" in part or "://" in part for part in cmd)
 
@@ -317,8 +317,8 @@ def test_copilot_install_command_uv_tool(monkeypatch: pytest.MonkeyPatch) -> Non
         "tool",
         "install",
         "--with",
-        "omnigent[copilot]",
-        "omnigent",
+        "agentnexus[copilot]",
+        "agentnexus",
         "--force",
     ]
 
@@ -347,7 +347,7 @@ def test_install_copilot_sdk_runs_command_then_rechecks(
     monkeypatch.setattr(copilot_auth, "copilot_sdk_installed", lambda: state["installed"])
 
     assert install_copilot_sdk() is True
-    assert calls == [[extra_install.sys.executable, "-m", "pip", "install", "omnigent[copilot]"]]
+    assert calls == [[extra_install.sys.executable, "-m", "pip", "install", "agentnexus[copilot]"]]
 
 
 def test_install_copilot_sdk_false_on_spawn_failure(monkeypatch: pytest.MonkeyPatch) -> None:

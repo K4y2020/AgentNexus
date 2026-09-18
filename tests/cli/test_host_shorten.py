@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.cli import _host_shorten
+from agentnexus.cli import _host_shorten
 
 
 @pytest.mark.parametrize("max_chars", [0, 1, 2, 3, 4, 5, 10, 24])

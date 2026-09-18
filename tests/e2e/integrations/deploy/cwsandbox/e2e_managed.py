@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-End-to-end test: create a managed session against an Omnigent server, and have
+End-to-end test: create a managed session against an AgentNexus server, and have
 the agent run a REAL workload — an LLM turn against the CoreWeave / W&B inference
 endpoint — from inside the managed CHILD sandbox the server provisions.
 
@@ -36,7 +36,7 @@ import httpx
 from cwsandbox import NetworkOptions, Sandbox
 
 SERVER_PORT = 6767
-CONFIG_HOME = "/root/.omnigent"
+CONFIG_HOME = "/root/.agentnexus"
 WANDB_BASE_URL = "https://api.inference.wandb.ai/v1"
 WANDB_MODEL = "Qwen/Qwen3-Coder-480B-A35B-Instruct"
 PROMPT = "What is 2+2? Reply with ONLY the number, nothing else."
@@ -47,7 +47,7 @@ def _child_env(wandb_key: str) -> dict[str, str]:
 
     The launcher forwards these by NAME from the server process env. OPENAI_*
     reach the harness automatically; the HARNESS_* knobs ride
-    OMNIGENT_RUNNER_ENV_PASSTHROUGH. The config's `sandbox.cwsandbox.env` name
+    AGENTNEXUS_RUNNER_ENV_PASSTHROUGH. The config's `sandbox.cwsandbox.env` name
     list and the server sandbox's env values both derive from this dict.
     """
     return {
@@ -57,7 +57,7 @@ def _child_env(wandb_key: str) -> dict[str, str]:
         # W&B is chat/completions-compatible, not the Responses API.
         "HARNESS_OPENAI_AGENTS_USE_RESPONSES": "0",
         # Tell the in-child host to forward the HARNESS_* knobs to the runner.
-        "OMNIGENT_RUNNER_ENV_PASSTHROUGH": (
+        "AGENTNEXUS_RUNNER_ENV_PASSTHROUGH": (
             "HARNESS_OPENAI_AGENTS_MODEL,HARNESS_OPENAI_AGENTS_USE_RESPONSES"
         ),
     }
@@ -82,11 +82,11 @@ def start_server_sandbox(image: str, cw_key: str, wandb_key: str) -> tuple[Sandb
         ),
         environment_variables={
             "CWSANDBOX_API_KEY": cw_key,
-            "OMNIGENT_CWSANDBOX_HOST_IMAGE": image,
+            "AGENTNEXUS_CWSANDBOX_HOST_IMAGE": image,
             # Values the launcher passes through (by name) into each child:
             **_child_env(wandb_key),
         },
-        tags=["omnigent-e2e", "server"],
+        tags=["agentnexus-e2e", "server"],
     )
     sb.wait()
     ip = (sb.service_address or "").split(":")[0]
@@ -134,7 +134,7 @@ def configure_and_start_server(sb: Sandbox, server_url: str, wandb_key: str) -> 
         f"    base_url: {WANDB_BASE_URL}\n",
     )
     start = (
-        f"OMNIGENT_CONFIG_HOME={CONFIG_HOME} OMNIGENT_LOCAL_SINGLE_USER=1 "
+        f"AGENTNEXUS_CONFIG_HOME={CONFIG_HOME} AGENTNEXUS_LOCAL_SINGLE_USER=1 "
         f"setsid nohup omnigent server --host 0.0.0.0 --port {SERVER_PORT} "
         f"--config {CONFIG_HOME}/config.yaml --no-open --agent /root/e2e-agent "
         "> /tmp/omnigent-server.log 2>&1 < /dev/null & echo started"
@@ -205,7 +205,7 @@ def _dump_server_logs(sb: Sandbox | None) -> None:
         [
             "bash",
             "-lc",
-            "tail -50 ~/.omnigent/logs/cli/cli-*.log 2>/dev/null; "
+            "tail -50 ~/.agentnexus/logs/cli/cli-*.log 2>/dev/null; "
             "echo '--- stdout ---'; tail -15 /tmp/omnigent-server.log",
         ]
     ).result()
@@ -213,9 +213,9 @@ def _dump_server_logs(sb: Sandbox | None) -> None:
 
 
 def _omnigent_children() -> list:
-    """List sandboxes the launcher tags 'omnigent' (managed hosts); [] on error."""
+    """List sandboxes the launcher tags 'agentnexus' (managed hosts); [] on error."""
     try:
-        return Sandbox.list(tags=["omnigent"]).result()
+        return Sandbox.list(tags=["agentnexus"]).result()
     except Exception as exc:
         log(f"  (could not list child sandboxes: {exc})")
         return []
@@ -224,7 +224,7 @@ def _omnigent_children() -> list:
 def dump_child_logs(exclude: set[str]) -> None:
     """Dump runner/harness logs from a CHILD this run created (not in *exclude*)."""
     # Scope to children NOT present before this run — never touch sandboxes
-    # belonging to other runs / deployments that share the 'omnigent' tag.
+    # belonging to other runs / deployments that share the 'agentnexus' tag.
     children = [c for c in _omnigent_children() if c.sandbox_id not in exclude]
     running = [c for c in children if "RUNNING" in str(getattr(c, "status", "")).upper()]
     target = (running or children or [None])[0]
@@ -237,7 +237,7 @@ def dump_child_logs(exclude: set[str]) -> None:
             [
                 "bash",
                 "-lc",
-                "tail -60 ~/.omnigent/logs/*.log 2>/dev/null; echo '--- host log ---'; "
+                "tail -60 ~/.agentnexus/logs/*.log 2>/dev/null; echo '--- host log ---'; "
                 "tail -40 /tmp/omnigent-host.log 2>/dev/null",
             ]
         ).result()
@@ -369,7 +369,7 @@ def main() -> int:
         sb, ip = start_server_sandbox(args.image, cw_key, wandb_key)
         base = f"http://{ip}:{SERVER_PORT}"
 
-    # Children carry the shared "omnigent" tag, so snapshot which ones already
+    # Children carry the shared "agentnexus" tag, so snapshot which ones already
     # existed before this run — we only ever touch the ones WE cause to appear,
     # never another run's / deployment's managed hosts.
     pre_children = {c.sandbox_id for c in _omnigent_children()} if sb is not None else set()

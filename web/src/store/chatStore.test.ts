@@ -338,7 +338,7 @@ function defaultFetchHandler(input: RequestInfo | URL, init?: RequestInit): Resp
       }
     }
     if ("collaboration_mode" in body && typeof body.collaboration_mode === "string") {
-      labels["omnigent.codex_native.collaboration_mode"] = body.collaboration_mode;
+      labels["agentnexus.codex_native.collaboration_mode"] = body.collaboration_mode;
       sessionLabels.set(sessionId, labels);
     }
     return mockResponse({
@@ -941,7 +941,7 @@ describe("chatStore — switchTo", () => {
             status: "idle",
             created_at: 0,
             items: [],
-            labels: wrapper === null ? {} : { "omnigent.wrapper": wrapper },
+            labels: wrapper === null ? {} : { "agentnexus.wrapper": wrapper },
           });
         }
         return defaultFetchHandler(input, init);
@@ -1388,7 +1388,7 @@ describe("chatStore — switchTo", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           reasoning_effort: path.endsWith("conv_eff_a") ? "high" : "low",
         });
       }
@@ -1938,7 +1938,7 @@ describe("chatStore — send (first-send ordering)", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
         });
       }
       return defaultFetchHandler(input, init);
@@ -4149,7 +4149,7 @@ describe("chatStore — handleSessionEvent (session.* events)", () => {
             status: "idle",
             created_at: 0,
             items: [],
-            labels: { "omnigent.wrapper": "claude-code-native-ui" },
+            labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           });
         }
         return defaultFetchHandler(input, init);
@@ -4580,7 +4580,7 @@ describe("chatStore — handleSessionEvent (session.* events)", () => {
             status: "idle",
             created_at: 0,
             items: [],
-            labels: { "omnigent.wrapper": "codex-native-ui" },
+            labels: { "agentnexus.wrapper": "codex-native-ui" },
             llm_model: "gpt-5.5",
             harness: "codex",
             skills: [{ name: "inspect", description: "Read session state" }],
@@ -6548,7 +6548,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // session as a request the pane was never asked to honor.
     seedSession("conv_cn", []);
     withSnapshot("conv_cn", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       model_options: CLAUDE_MODEL_OPTIONS,
     });
 
@@ -6583,7 +6583,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
       status: "idle",
       created_at: 0,
       items: [],
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       reasoning_effort: null,
       model_override: null,
       model_options: CLAUDE_MODEL_OPTIONS,
@@ -6594,8 +6594,8 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // these re-fire on every bind/switch and pile onto the failing server.
     seedSession("conv_bo1", []);
     seedSession("conv_bo2", []);
-    sessionLabels.set("conv_bo1", { "omnigent.wrapper": "claude-code-native-ui" });
-    sessionLabels.set("conv_bo2", { "omnigent.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_bo1", { "agentnexus.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_bo2", { "agentnexus.wrapper": "claude-code-native-ui" });
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const path = (typeof input === "string" ? input : input.toString()).split("?")[0];
       const ours = path === "/v1/sessions/conv_bo1" || path === "/v1/sessions/conv_bo2";
@@ -6630,8 +6630,8 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // than singling out the session that happened to 404.
     seedSession("conv_p1", []);
     seedSession("conv_p2", []);
-    sessionLabels.set("conv_p1", { "omnigent.wrapper": "claude-code-native-ui" });
-    sessionLabels.set("conv_p2", { "omnigent.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_p1", { "agentnexus.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_p2", { "agentnexus.wrapper": "claude-code-native-ui" });
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const path = (typeof input === "string" ? input : input.toString()).split("?")[0];
       const ours = path === "/v1/sessions/conv_p1" || path === "/v1/sessions/conv_p2";
@@ -6662,8 +6662,8 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // apply each time. A successful bind here must leave the cooldown armed.
     seedSession("conv_f1", []);
     seedSession("conv_f2", []);
-    sessionLabels.set("conv_f1", { "omnigent.wrapper": "claude-code-native-ui" });
-    sessionLabels.set("conv_f2", { "omnigent.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_f1", { "agentnexus.wrapper": "claude-code-native-ui" });
+    sessionLabels.set("conv_f2", { "agentnexus.wrapper": "claude-code-native-ui" });
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const path = (typeof input === "string" ? input : input.toString()).split("?")[0];
       if (path === "/v1/sessions/conv_f1" && init?.method === "PATCH") {
@@ -6703,8 +6703,8 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     try {
       seedSession("conv_e1", []);
       seedSession("conv_e3", []);
-      sessionLabels.set("conv_e1", { "omnigent.wrapper": "claude-code-native-ui" });
-      sessionLabels.set("conv_e3", { "omnigent.wrapper": "claude-code-native-ui" });
+      sessionLabels.set("conv_e1", { "agentnexus.wrapper": "claude-code-native-ui" });
+      sessionLabels.set("conv_e3", { "agentnexus.wrapper": "claude-code-native-ui" });
       fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
         const path = (typeof input === "string" ? input : input.toString()).split("?")[0];
         if (path === "/v1/sessions/conv_e1" && init?.method === "PATCH") {
@@ -6781,13 +6781,13 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // Switch to B and pick a NEWER model, which settles first.
     await useChatStore.getState().switchTo("conv_pick_b");
     await useChatStore.getState().setModel("opus");
-    expect(window.localStorage.getItem("omnigent.picker.model")).toBe("opus");
+    expect(window.localStorage.getItem("agentnexus.picker.model")).toBe("opus");
 
     // A's slower PATCH now resolves last. It must not revive the older pick.
     releaseA!();
     await pickA;
 
-    expect(window.localStorage.getItem("omnigent.picker.model")).toBe("opus");
+    expect(window.localStorage.getItem("agentnexus.picker.model")).toBe("opus");
     expect(useChatStore.getState().selectedModel).toBe("opus");
     // A's own session override still settled to its canonical value.
     expect(conversationRegistry.peek("conv_pick_a")!.getState().sessionModelOverride).toBe(
@@ -6820,7 +6820,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
                 status: "idle",
                 created_at: 0,
                 items: [],
-                labels: { "omnigent.wrapper": "claude-code-native-ui" },
+                labels: { "agentnexus.wrapper": "claude-code-native-ui" },
                 // The snapshot would hand "sonnet" to the picker.
                 model_override: "sonnet",
                 reasoning_effort: "low",
@@ -6851,7 +6851,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
 
   it("keeps the sticky as a preference when delayed model options arrive", async () => {
     seedSession("conv_cn_delayed", []);
-    window.localStorage.setItem("omnigent.picker.model", "opus");
+    window.localStorage.setItem("agentnexus.picker.model", "opus");
     let snapshotCount = 0;
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -6866,7 +6866,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           model_override: null,
           model_options: snapshotCount === 1 ? [] : CLAUDE_MODEL_OPTIONS,
         });
@@ -6893,12 +6893,12 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
       sessionModelOverride: null,
       codexModelOptions: CLAUDE_MODEL_OPTIONS,
     });
-    window.localStorage.removeItem("omnigent.picker.model");
+    window.localStorage.removeItem("agentnexus.picker.model");
   });
 
   it("refetches a resolved Claude catalog when its event races the bind snapshot", async () => {
     seedSession("conv_cn_race", []);
-    window.localStorage.setItem("omnigent.picker.model", "opus");
+    window.localStorage.setItem("agentnexus.picker.model", "opus");
     let resolveInitialSnapshot: ((response: Response) => void) | null = null;
     let resolveItems: ((response: Response) => void) | null = null;
     let snapshotCount = 0;
@@ -6918,7 +6918,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           model_override: null,
           model_options: snapshotCount === 1 ? [] : CLAUDE_MODEL_OPTIONS,
         });
@@ -6948,7 +6948,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
         status: "idle",
         created_at: 0,
         items: [],
-        labels: { "omnigent.wrapper": "claude-code-native-ui" },
+        labels: { "agentnexus.wrapper": "claude-code-native-ui" },
         model_override: null,
         model_options: [],
       }),
@@ -6967,7 +6967,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
       sessionModelOverride: null,
       codexModelOptions: CLAUDE_MODEL_OPTIONS,
     });
-    window.localStorage.removeItem("omnigent.picker.model");
+    window.localStorage.removeItem("agentnexus.picker.model");
   });
 
   it("keeps a catalog-absent sticky as a preference when the catalog wins the race", async () => {
@@ -6975,7 +6975,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // raced catalog. Display never derives from the sticky, so nothing needs
     // clearing — the preference survives and no request is written.
     seedSession("conv_cn_race_removed", []);
-    window.localStorage.setItem("omnigent.picker.model", "fable");
+    window.localStorage.setItem("agentnexus.picker.model", "fable");
     let resolveInitialSnapshot: ((response: Response) => void) | null = null;
     let resolveItems: ((response: Response) => void) | null = null;
     let snapshotCount = 0;
@@ -6998,7 +6998,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           model_override: null,
           model_options: snapshotCount === 1 ? [] : CLAUDE_MODEL_OPTIONS,
         });
@@ -7028,7 +7028,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
         status: "idle",
         created_at: 0,
         items: [],
-        labels: { "omnigent.wrapper": "claude-code-native-ui" },
+        labels: { "agentnexus.wrapper": "claude-code-native-ui" },
         model_override: null,
         model_options: [],
       }),
@@ -7046,12 +7046,12 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
       sessionModelOverride: null,
       codexModelOptions: CLAUDE_MODEL_OPTIONS,
     });
-    window.localStorage.removeItem("omnigent.picker.model");
+    window.localStorage.removeItem("agentnexus.picker.model");
   });
 
   it("does not apply a persisted Claude alias removed from the delayed catalog", async () => {
     seedSession("conv_cn_delayed_removed", []);
-    window.localStorage.setItem("omnigent.picker.model", "fable");
+    window.localStorage.setItem("agentnexus.picker.model", "fable");
     let snapshotCount = 0;
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -7066,7 +7066,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
           status: "idle",
           created_at: 0,
           items: [],
-          labels: { "omnigent.wrapper": "claude-code-native-ui" },
+          labels: { "agentnexus.wrapper": "claude-code-native-ui" },
           model_override: null,
           model_options: snapshotCount === 1 ? [] : CLAUDE_MODEL_OPTIONS,
         });
@@ -7086,7 +7086,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
       patchCallsFor("conv_cn_delayed_removed").some((patch) => "model_override" in patch),
     ).toBe(false);
     expect(useChatStore.getState().sessionModelOverride).toBeNull();
-    window.localStorage.removeItem("omnigent.picker.model");
+    window.localStorage.removeItem("agentnexus.picker.model");
   });
 
   it("does NOT apply a sticky model to a routing-enabled session", async () => {
@@ -7096,7 +7096,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // never run. (This is the claude-native repro: new chat + routing on.)
     seedSession("conv_routing", []);
     withSnapshot("conv_routing", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       cost_control_mode_override: "on",
       model_override: null,
     });
@@ -7114,7 +7114,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
   it("applies sticky effort but never the sticky model on a codex-native session", async () => {
     seedSession("conv_codex", []);
     withSnapshot("conv_codex", {
-      labels: { "omnigent.wrapper": "codex-native-ui" },
+      labels: { "agentnexus.wrapper": "codex-native-ui" },
       model_options: [
         {
           id: "gpt-5.4",
@@ -7152,7 +7152,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // Observer sticky prefs must not overwrite child sessions.
     seedSession("conv_child", []);
     withSnapshot("conv_child", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       parent_session_id: "conv_parent",
       model_options: CLAUDE_MODEL_OPTIONS,
     });
@@ -7181,7 +7181,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // The handoff must skip a non-Claude model and leave the session on its
     // own default (model_override untouched).
     seedSession("conv_cn_gpt", []);
-    withSnapshot("conv_cn_gpt", { labels: { "omnigent.wrapper": "claude-code-native-ui" } });
+    withSnapshot("conv_cn_gpt", { labels: { "agentnexus.wrapper": "claude-code-native-ui" } });
 
     useChatStore.setState({ selectedEffort: null, selectedModel: "gpt-5.4" });
     await useChatStore.getState().switchTo("conv_cn_gpt");
@@ -7193,7 +7193,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
   it("does NOT PATCH a removed Claude alias onto a new session", async () => {
     seedSession("conv_cn_removed", []);
     withSnapshot("conv_cn_removed", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       model_options: CLAUDE_MODEL_OPTIONS,
     });
 
@@ -7208,7 +7208,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // Same guard in the opposite direction: a Claude alias from the global
     // picker must not be handed to Codex app-server as its next-turn model.
     seedSession("conv_codex_claude", []);
-    withSnapshot("conv_codex_claude", { labels: { "omnigent.wrapper": "codex-native-ui" } });
+    withSnapshot("conv_codex_claude", { labels: { "agentnexus.wrapper": "codex-native-ui" } });
 
     useChatStore.setState({ selectedEffort: null, selectedModel: "opus" });
     await useChatStore.getState().switchTo("conv_codex_claude");
@@ -7220,7 +7220,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
   it("shows a claude-native session's stamped effort and does not overwrite it", async () => {
     seedSession("conv_cn_eff", []);
     withSnapshot("conv_cn_eff", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       reasoning_effort: "medium",
     });
 
@@ -7268,7 +7268,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
 
   it("PATCHes effort on an active claude-native session", async () => {
     seedSession("conv_supported", []);
-    withSnapshot("conv_supported", { labels: { "omnigent.wrapper": "claude-code-native-ui" } });
+    withSnapshot("conv_supported", { labels: { "agentnexus.wrapper": "claude-code-native-ui" } });
     await useChatStore.getState().switchTo("conv_supported");
     fetchMock.mockClear();
 
@@ -7280,7 +7280,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
 
   it("PATCHes effort on an active codex-native session", async () => {
     seedSession("conv_codex_supported", []);
-    withSnapshot("conv_codex_supported", { labels: { "omnigent.wrapper": "codex-native-ui" } });
+    withSnapshot("conv_codex_supported", { labels: { "agentnexus.wrapper": "codex-native-ui" } });
     await useChatStore.getState().switchTo("conv_codex_supported");
     fetchMock.mockClear();
 
@@ -7294,8 +7294,8 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     seedSession("conv_plan", []);
     withSnapshot("conv_plan", {
       labels: {
-        "omnigent.wrapper": "codex-native-ui",
-        "omnigent.codex_native.collaboration_mode": "plan",
+        "agentnexus.wrapper": "codex-native-ui",
+        "agentnexus.codex_native.collaboration_mode": "plan",
       },
     });
 
@@ -7308,7 +7308,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     seedSession("conv_not_codex_plan", []);
     withSnapshot("conv_not_codex_plan", {
       labels: {
-        "omnigent.codex_native.collaboration_mode": "plan",
+        "agentnexus.codex_native.collaboration_mode": "plan",
       },
     });
 
@@ -7319,7 +7319,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
 
   it("PATCHes Codex Plan mode and settles from the returned labels", async () => {
     seedSession("conv_plan_toggle", []);
-    withSnapshot("conv_plan_toggle", { labels: { "omnigent.wrapper": "codex-native-ui" } });
+    withSnapshot("conv_plan_toggle", { labels: { "agentnexus.wrapper": "codex-native-ui" } });
     await useChatStore.getState().switchTo("conv_plan_toggle");
     fetchMock.mockClear();
 
@@ -7331,7 +7331,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
 
   it("rolls back Codex Plan mode when the PATCH is rejected", async () => {
     seedSession("conv_plan_failure", []);
-    withSnapshot("conv_plan_failure", { labels: { "omnigent.wrapper": "codex-native-ui" } });
+    withSnapshot("conv_plan_failure", { labels: { "agentnexus.wrapper": "codex-native-ui" } });
     await useChatStore.getState().switchTo("conv_plan_failure");
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -7358,14 +7358,14 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     expect(patchCallsFor("conv_plan_failure")).toEqual([{ collaboration_mode: "plan" }]);
     expect(useChatStore.getState().codexPlanMode).toBe(false);
     expect(sessionLabels.get("conv_plan_failure")).not.toHaveProperty(
-      "omnigent.codex_native.collaboration_mode",
+      "agentnexus.codex_native.collaboration_mode",
     );
   });
 
   it("server-side overrides win over sticky pref and skip the PATCH", async () => {
     seedSession("conv_existing", []);
     withSnapshot("conv_existing", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       reasoning_effort: "low",
       model_override: "claude-sonnet-4-6",
     });
@@ -7417,7 +7417,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // neither PATCH it nor present it as the session's active override.
     seedSession("conv_sticky_cn", []);
     withSnapshot("conv_sticky_cn", {
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       model_options: CLAUDE_MODEL_OPTIONS,
     });
 
@@ -7432,7 +7432,7 @@ describe("chatStore — bindStream sticky-pref handoff", () => {
     // The handoff skips a non-Claude sticky pick (Claude Code can't run
     // it), so it never becomes the session override.
     seedSession("conv_sticky_gpt", []);
-    withSnapshot("conv_sticky_gpt", { labels: { "omnigent.wrapper": "claude-code-native-ui" } });
+    withSnapshot("conv_sticky_gpt", { labels: { "agentnexus.wrapper": "claude-code-native-ui" } });
 
     useChatStore.setState({ selectedModel: "gpt-5.4", sessionModelOverride: null });
     await useChatStore.getState().switchTo("conv_sticky_gpt");
@@ -9418,7 +9418,7 @@ describe("chatStore — live delta streaming (claude-native)", () => {
 
   it("does not double-render pi-native text when the harness response completes before the deltas", async () => {
     // Faithful replay of a real pi-native turn (captured from a live
-    // `omnigent pi` server). The harness PiNativeExecutor completes its
+    // `agentnexus pi` server). The harness PiNativeExecutor completes its
     // Omnigent response the instant it enqueues the user message — so
     // `response.in_progress` + `response.completed` arrive BEFORE Pi's
     // extension streams the assistant text deltas and the authoritative

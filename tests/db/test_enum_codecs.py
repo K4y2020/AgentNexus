@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.db import enum_codecs as ec
-from omnigent.entities.conversation import ITEM_TYPE_TO_DATA_CLS
+from agentnexus.db import enum_codecs as ec
+from agentnexus.entities.conversation import ITEM_TYPE_TO_DATA_CLS
 
 # Each entry: (name→code table, encode fn, decode fn).
 _CODECS = [

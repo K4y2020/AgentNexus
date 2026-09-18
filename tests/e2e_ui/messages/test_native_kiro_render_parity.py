@@ -63,7 +63,7 @@ def _kiro_unavailable_reason() -> str | None:
 
     kiro-native needs the ``kiro-cli`` binary + ``tmux`` on PATH and a signed-in
     Kiro account (``kiro`` authenticates against its own backend; there is no
-    Omnigent-managed credential). CI provisions no Kiro account, so any missing
+    AgentNexus-managed credential). CI provisions no Kiro account, so any missing
     prerequisite → a clean skip (not a failure), matching the cursor/goose suites.
 
     :returns: A human-readable skip reason, or ``None`` when prerequisites exist.

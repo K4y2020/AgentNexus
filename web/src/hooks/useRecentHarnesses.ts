@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-const STORAGE_KEY = "omnigent:recent-harnesses";
+const STORAGE_KEY = "agentnexus:recent-harnesses";
 const MAX_ENTRIES = 4;
 
 /** Most-recent-first canonical harness ids, e.g. ``["pi-native", …]``. */

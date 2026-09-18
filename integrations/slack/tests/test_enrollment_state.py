@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from omnigent_slack.enrollment_state import (
+from agentnexus_slack.enrollment_state import (
     StateError,
     emails_match,
     sign_state,

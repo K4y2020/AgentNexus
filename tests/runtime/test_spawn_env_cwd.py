@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.workflow import (
+from agentnexus.runtime.workflow import (
     _build_acp_spawn_env,
     _build_claude_sdk_spawn_env,
     _build_codex_spawn_env,
@@ -29,7 +29,7 @@ from omnigent.runtime.workflow import (
     _build_hermes_spawn_env,
     _build_qwen_spawn_env,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 # (harness name, builder callable, HARNESS_<H>_CWD env var)
 _BUILDERS = [
@@ -46,16 +46,16 @@ _BUILDERS = [
 
 @pytest.fixture(autouse=True)
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Point OMNIGENT_CONFIG_HOME at an empty temp dir so the developer's real
-    ``~/.omnigent/config.yaml`` cannot influence provider/model resolution.
+    """Point AGENTNEXUS_CONFIG_HOME at an empty temp dir so the developer's real
+    ``~/.agentnexus/config.yaml`` cannot influence provider/model resolution.
 
     Also stub ``detect_providers`` so ambient CLI config files (e.g.
     ``~/.codex/config.toml``) on a developer's machine cannot leak into the
     provider resolution path and cause spurious failures (matches the
     isolation pattern in ``test_runner_dispatch.py`` / ``test_cli.py``).
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.setattr("omnigent.onboarding.detected.detect_providers", list)
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setattr("agentnexus.onboarding.detected.detect_providers", list)
 
 
 def _make_spec(harness: str) -> AgentSpec:
@@ -63,7 +63,7 @@ def _make_spec(harness: str) -> AgentSpec:
         spec_version=1,
         name=f"test-{harness}",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config={"harness": harness}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": harness}),
     )
 
 
@@ -86,7 +86,7 @@ def test_builder_threads_session_cwd_distinct_from_bundle(
 @pytest.mark.parametrize("harness,builder,cwd_var", _BUILDERS)
 def test_builder_omits_cwd_when_none(harness: str, builder, cwd_var: str) -> None:
     """When no session workspace is provided the CWD var is absent, so the
-    harness applies its own OMNIGENT_RUNNER_WORKSPACE / inherited-cwd fallback."""
+    harness applies its own AGENTNEXUS_RUNNER_WORKSPACE / inherited-cwd fallback."""
     env = builder(_make_spec(harness), cwd=None, workdir=None)
 
     assert cwd_var not in env

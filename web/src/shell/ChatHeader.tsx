@@ -136,7 +136,7 @@ interface ChatHeaderProps {
   /** The bound agent (mcp_servers + policies) for the info popover. */
   boundAgent: Agent | undefined;
   /**
-   * The session's ``omnigent.wrapper`` label, or ``null``. Names the vendor
+   * The session's ``agentnexus.wrapper`` label, or ``null``. Names the vendor
    * in the sub-agent breadcrumb: a native sub-agent child reuses its
    * parent's ``<vendor>-native-ui`` agent row, whose name is an Omnigent
    * internal the user should never see.

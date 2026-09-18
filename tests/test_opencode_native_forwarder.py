@@ -1,4 +1,4 @@
-"""Tests for the OpenCode SSE -> Omnigent event forwarder translation."""
+"""Tests for the OpenCode SSE -> AgentNexus event forwarder translation."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from typing import Any
 
 import httpx
 
-import omnigent.opencode_native_forwarder as fwd_mod
-from omnigent.opencode_native_client import OpenCodeEvent
+import agentnexus.opencode_native_forwarder as fwd_mod
+from agentnexus.opencode_native_client import OpenCodeEvent
 
 _SESSION = "ses_1"
 
 
 class _RecordingServerClient:
-    """httpx-shaped stub recording Omnigent event POSTs."""
+    """httpx-shaped stub recording AgentNexus event POSTs."""
 
     def __init__(self) -> None:
         self.posts: list[tuple[str, dict[str, Any]]] = []
@@ -438,7 +438,7 @@ async def test_permission_asked_rejects_when_no_policy_wired() -> None:
     await fwd.handle_event(
         _event("permission.v2.asked", id="per_1", action="bash", resources=[{"command": "ls"}])
     )
-    assert opencode.replies == [("per_1", {"reply": "reject", "message": "omnigent-policy"})]
+    assert opencode.replies == [("per_1", {"reply": "reject", "message": "agentnexus-policy"})]
 
 
 async def test_permission_asked_rejects_when_policy_denies() -> None:
@@ -524,7 +524,7 @@ async def test_permission_asked_passes_normalized_input_to_evaluator() -> None:
     assert seen[0]["action"] == "bash"
     assert seen[0]["command"] == "ls"
     assert seen[0]["working_directory"] == "/work/repo"
-    assert seen[0]["omnigent_session_id"] == "conv_1"
+    assert seen[0]["agentnexus_session_id"] == "conv_1"
 
 
 async def test_permission_asked_dedupes() -> None:

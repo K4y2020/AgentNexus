@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner import antigravity_executor as ag
-from omnigent.inner.antigravity_executor import AntigravityExecutor, _latest_user_text
-from omnigent.inner.executor import (
+from agentnexus.inner import antigravity_executor as ag
+from agentnexus.inner.antigravity_executor import AntigravityExecutor, _latest_user_text
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     ReasoningChunk,
@@ -34,7 +34,7 @@ from omnigent.inner.executor import (
     TurnCancelled,
     TurnComplete,
 )
-from omnigent.llms._usage_observer import add_observer
+from agentnexus.llms._usage_observer import add_observer
 
 # ── Fakes mirroring the real SDK streaming shapes ───────────────────────
 
@@ -354,7 +354,7 @@ async def test_streaming_maps_text_reasoning_and_usage(monkeypatch: pytest.Monke
     assert len(completes) == 1
     # Final text is the accumulation of the streamed deltas.
     assert completes[0].response == "Hello world"
-    # Usage maps the SDK's UsageMetadata field names onto Omnigent's keys and
+    # Usage maps the SDK's UsageMetadata field names onto AgentNexus's keys and
     # stamps the resolved model so the scaffold can price the turn.
     # input_tokens is the NON-cached portion: Gemini's prompt_token_count (11)
     # is inclusive of cached_content_token_count (2), and compute_llm_cost
@@ -749,9 +749,9 @@ async def test_missing_sdk_yields_executor_error(monkeypatch: pytest.MonkeyPatch
 async def test_sys_tools_exposed_as_callables_routing_through_executor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Omnigent tools become callable SDK tools whose calls hit ``_tool_executor``.
+    """AgentNexus tools become callable SDK tools whose calls hit ``_tool_executor``.
 
-    This is what lets an Antigravity agent drive Omnigent's sys / sub-agent
+    This is what lets an Antigravity agent drive AgentNexus's sys / sub-agent
     tools under policy (needed to run Polly / Debby).
     """
     captured = _install_fake_sdk(monkeypatch, scripts=[[_text_step("done")]])

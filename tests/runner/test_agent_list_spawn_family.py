@@ -21,14 +21,14 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner import tool_dispatch
-from omnigent.runner.subagent_routing import (
+from agentnexus.runner import tool_dispatch
+from agentnexus.runner.subagent_routing import (
     AUTO_HARNESS_LABEL_KEY,
     SessionRoutingClass,
     forget_session_routing_class,
     remember_session_routing_class,
 )
-from omnigent.runner.tool_dispatch import execute_tool
+from agentnexus.runner.tool_dispatch import execute_tool
 
 _BUILTINS = [
     {"id": "ag_claude", "name": "claude-code", "harness": "claude-native"},

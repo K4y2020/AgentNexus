@@ -7,10 +7,10 @@ description: >-
   independent sources, and returns a synthesized, cited answer.
 
 # "Brain": Claude Agent SDK. No model is pinned, so it runs on whatever
-# Claude provider is configured as the default (`omnigent setup`), and on
+# Claude provider is configured as the default (`agentnexus setup`), and on
 # whichever model that provider's catalog resolves as its default.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 

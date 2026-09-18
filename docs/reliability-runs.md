@@ -131,7 +131,7 @@ This run was reproduced on Windows with a fully isolated environment:
 
 - Server bound to `127.0.0.1:8769`.
 - Chat DB, conversation DB, artifacts dir, and workspace all under a temp
-  data dir; the production `~/.omnigent/chat.db` is never touched.
+  data dir; the production `~/.agentnexus/chat.db` is never touched.
 - A real `claude-sdk` session acted as the Implementer/Reviewer/Tester
   harness so delivery went through the actual runner inbox rather than the
   mock sender.
@@ -175,7 +175,7 @@ healthy provider route.
 The control-plane-native workflow was rerun against a real local Codex
 provider (the machine's own `~/.codex` config, `provider: custom`) with no
 mock LLM auth. `tests/integration/test_real_provider_control_plane.py` is an
-operator-gated acceptance test (`OMNIGENT_REAL_PROVIDER_E2E=1`) that
+operator-gated acceptance test (`AGENTNEXUS_REAL_PROVIDER_E2E=1`) that
 registers four Codex harness agents with no `mock_llm_base_url`, so every
 LLM call comes from the real CLI login/config.
 

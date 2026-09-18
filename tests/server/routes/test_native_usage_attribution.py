@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.server.routes._sessions.orchestration import (
+from agentnexus.server.routes._sessions.orchestration import (
     _persist_native_cumulative_usage,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -198,11 +198,11 @@ def test_token_priced_bucket_matches_flat_cost(
     # depend on the live catalog; assert the per-model cost bucket still tracks
     # the flat token-priced total (the elif-has_tokens branch feeds by_model).
     monkeypatch.setattr(
-        "omnigent.llms.context_window.fetch_model_pricing",
+        "agentnexus.llms.context_window.fetch_model_pricing",
         lambda model: {"stub": True},
     )
     monkeypatch.setattr(
-        "omnigent.llms.context_window.compute_llm_cost",
+        "agentnexus.llms.context_window.compute_llm_cost",
         lambda usage, pricing: float(usage.get("total_tokens", 0)) * 0.01,
     )
 

@@ -33,13 +33,13 @@ const urlHelpers = require("../src/url");
 const liveCode = mainSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 function loadNavigationHarness({
-  serverUrl = "https://host.example/ml/omnigents",
+  serverUrl = "https://host.example/ml/agentnexuss",
   savedServerUrl,
   registerFallbacks = true,
   cliPath = null,
   startLocalResult = { ok: false },
 } = {}) {
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "omnigent-navigation-test-"));
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "agentnexus-navigation-test-"));
   if (savedServerUrl) {
     fs.writeFileSync(
       path.join(userData, "settings.json"),
@@ -180,7 +180,7 @@ function loadNavigationHarness({
       stripCrossOriginOpenerHeaders: () => {},
       WEB_SCHEMES: new Set(),
     },
-    "./omnigent_cli": {
+    "./agentnexus_cli": {
       isExecutableFile: () => false,
       resolveCliPath: () => (cliPath ? { path: cliPath } : null),
       isLoopbackServer: (url) => /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::|\/|$)/i.test(url),
@@ -262,14 +262,14 @@ describe("setup clipboard IPC wiring", () => {
   it("exposes a narrow copy action through the setup bridge", () => {
     assert.match(
       preloadSource,
-      /copyText:\s*\(text\)\s*=>\s*ipcRenderer\.invoke\("omnigent:copy-setup-text",\s*text\)/,
+      /copyText:\s*\(text\)\s*=>\s*ipcRenderer\.invoke\("agentnexus:copy-setup-text",\s*text\)/,
     );
   });
 
   it("checks the setup-page sender before writing to the clipboard", () => {
     assert.match(
       liveCode,
-      /ipcMain\.handle\("omnigent:copy-setup-text",[\s\S]{0,200}!isSetupPageSender\(event\)[\s\S]{0,300}clipboard\.writeText\(text\)/,
+      /ipcMain\.handle\("agentnexus:copy-setup-text",[\s\S]{0,200}!isSetupPageSender\(event\)[\s\S]{0,300}clipboard\.writeText\(text\)/,
     );
   });
 });
@@ -278,11 +278,11 @@ describe("managed server preference wiring", () => {
   it("exposes managed servers only through the setup-page bridge", () => {
     assert.match(
       preloadSource,
-      /getManagedServers:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("omnigent:get-managed-servers"\)/,
+      /getManagedServers:\s*\(\)\s*=>\s*ipcRenderer\.invoke\("agentnexus:get-managed-servers"\)/,
     );
     assert.match(
       liveCode,
-      /ipcMain\.handle\("omnigent:get-managed-servers"[\s\S]{0,180}!isSetupPageSender\(event\)[\s\S]{0,180}return managedServerUrls\(\)/,
+      /ipcMain\.handle\("agentnexus:get-managed-servers"[\s\S]{0,180}!isSetupPageSender\(event\)[\s\S]{0,180}return managedServerUrls\(\)/,
     );
   });
 
@@ -296,14 +296,14 @@ describe("managed server preference wiring", () => {
   it("returns managed choices in the connected-server picker", () => {
     assert.match(
       liveCode,
-      /ipcMain\.handle\("omnigent:get-server-picker"[\s\S]{0,500}managedServers[\s\S]{0,100}recentServers:\s*recents/,
+      /ipcMain\.handle\("agentnexus:get-server-picker"[\s\S]{0,500}managedServers[\s\S]{0,100}recentServers:\s*recents/,
     );
   });
 
   it("allows switching only to a recent or currently managed target", () => {
     assert.match(
       liveCode,
-      /ipcMain\.handle\("omnigent:switch-server"[\s\S]{0,500}knownRecent[\s\S]{0,200}managedServerUrls\(\)\.includes\(url\)[\s\S]{0,150}!knownRecent\s*&&\s*!knownManaged/,
+      /ipcMain\.handle\("agentnexus:switch-server"[\s\S]{0,500}knownRecent[\s\S]{0,200}managedServerUrls\(\)\.includes\(url\)[\s\S]{0,150}!knownRecent\s*&&\s*!knownManaged/,
     );
   });
 
@@ -354,7 +354,7 @@ describe("return-to-server banner wiring (src/main.js)", () => {
     // option never reached the watch.
     const harness = loadNavigationHarness({ registerFallbacks: false });
     harness.api.setAwayBannerDelayMs(5);
-    harness.api.createWindow("https://host.example/ml/omnigents");
+    harness.api.createWindow("https://host.example/ml/agentnexuss");
 
     // SSO navigates the window to the IdP and leaves it there.
     harness.setUrl("https://company.okta.com/login");
@@ -367,11 +367,11 @@ describe("return-to-server banner wiring (src/main.js)", () => {
     // offer falls back to the stored server URL.
     assert.equal(harness.bannerCalls.show.length, 1);
     assert.equal(harness.bannerCalls.show[0].win, harness.win);
-    assert.equal(harness.bannerCalls.show[0].returnUrl, "https://host.example/ml/omnigents");
+    assert.equal(harness.bannerCalls.show[0].returnUrl, "https://host.example/ml/agentnexuss");
 
     // Coming back to the server hides the banner.
-    harness.setUrl("https://host.example/ml/omnigents");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents", 200, "OK");
+    harness.setUrl("https://host.example/ml/agentnexuss");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss", 200, "OK");
     assert.equal(harness.bannerCalls.hide, 1);
     harness.cleanup();
   });
@@ -383,14 +383,14 @@ describe("return-to-server banner wiring (src/main.js)", () => {
     // login page the user was stuck behind.
     const harness = loadNavigationHarness({ registerFallbacks: false });
     harness.api.setAwayBannerDelayMs(5);
-    harness.api.createWindow("https://host.example/ml/omnigents");
+    harness.api.createWindow("https://host.example/ml/agentnexuss");
 
-    harness.setUrl("https://host.example/ml/omnigents");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents", 200, "OK");
-    harness.setUrl("https://host.example/login.html?next_url=%2Fml%2Fomnigents");
+    harness.setUrl("https://host.example/ml/agentnexuss");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss", 200, "OK");
+    harness.setUrl("https://host.example/login.html?next_url=%2Fml%2Fagentnexuss");
     harness.emit(
       "did-navigate",
-      "https://host.example/login.html?next_url=%2Fml%2Fomnigents",
+      "https://host.example/login.html?next_url=%2Fml%2Fagentnexuss",
       200,
       "OK",
     );
@@ -401,23 +401,23 @@ describe("return-to-server banner wiring (src/main.js)", () => {
     });
 
     assert.equal(harness.bannerCalls.show.length, 1);
-    assert.equal(harness.bannerCalls.show[0].returnUrl, "https://host.example/ml/omnigents");
+    assert.equal(harness.bannerCalls.show[0].returnUrl, "https://host.example/ml/agentnexuss");
     // Clean up the episode (hides the banner, cancels any re-arm).
-    harness.setUrl("https://host.example/ml/omnigents");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents", 200, "OK");
+    harness.setUrl("https://host.example/ml/agentnexuss");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss", 200, "OK");
     harness.cleanup();
   });
 
   it("does not show the banner for a quick SSO round-trip", async () => {
     const harness = loadNavigationHarness({ registerFallbacks: false });
     harness.api.setAwayBannerDelayMs(50);
-    harness.api.createWindow("https://host.example/ml/omnigents");
+    harness.api.createWindow("https://host.example/ml/agentnexuss");
 
     harness.setUrl("https://company.okta.com/login");
     harness.emit("did-navigate", "https://company.okta.com/login", 200, "OK");
     // The flow hands back to the server before the delay elapses.
-    harness.setUrl("https://host.example/ml/omnigents");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents", 200, "OK");
+    harness.setUrl("https://host.example/ml/agentnexuss");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss", 200, "OK");
     await new Promise((resolve) => {
       setTimeout(resolve, 100);
     });
@@ -451,7 +451,7 @@ describe("workspace chrome injection wiring (src/main.js)", () => {
         "A URL/path gate was reintroduced around the chrome-hide wiring. It must stay",
         "UNCONDITIONAL: the original bug gated on pathname.startsWith(WORKSPACE_UI_PATH),",
         "which skipped injection on auth redirects and path variants and left the workspace",
-        "switcher visible. The CSS targets .omnigent-app (workspace-embedded build only), so",
+        "switcher visible. The CSS targets .agentnexus-app (workspace-embedded build only), so",
         "injecting on every load is a safe no-op elsewhere. See src/workspace-chrome.js.",
       ].join(" "),
     );
@@ -460,7 +460,7 @@ describe("workspace chrome injection wiring (src/main.js)", () => {
 
 describe("navigation fallback wiring (src/main.js)", () => {
   it("boots a saved Databricks API URL on the UI mount without losing URL state", () => {
-    const saved = "https://workspace.cloud.databricks.com/api/2.0/omnigent/?o=123#conversation";
+    const saved = "https://workspace.cloud.databricks.com/api/2.0/agentnexus/?o=123#conversation";
     const harness = loadNavigationHarness({
       savedServerUrl: saved,
       registerFallbacks: false,
@@ -470,7 +470,7 @@ describe("navigation fallback wiring (src/main.js)", () => {
 
     assert.equal(
       harness.calls.loadURL[0][0],
-      "https://workspace.cloud.databricks.com/omnigent?o=123#conversation",
+      "https://workspace.cloud.databricks.com/agentnexus?o=123#conversation",
     );
     harness.cleanup();
   });
@@ -478,8 +478,8 @@ describe("navigation fallback wiring (src/main.js)", () => {
   it("registers navigation fallbacks when createWindow builds a window", () => {
     const harness = loadNavigationHarness({ registerFallbacks: false });
 
-    const win = harness.api.createWindow("https://host.example/ml/omnigents");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents/", 503, "Unavailable");
+    const win = harness.api.createWindow("https://host.example/ml/agentnexuss");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/", 503, "Unavailable");
 
     assert.equal(win, harness.win);
     assert.equal(harness.hasListener("did-fail-load"), true);
@@ -609,7 +609,7 @@ describe("recent-server startup wiring (src/main.js)", () => {
   it("normalizes persisted targets and excludes managed origins from setup recents", () => {
     assert.match(
       liveCode,
-      /ipcMain\.handle\("omnigent:get-recent-servers"[\s\S]{0,400}excludingManagedServers\(\s*normalizeRecentServers\(loadSettings\(\)\.recent_servers\),\s*managed/,
+      /ipcMain\.handle\("agentnexus:get-recent-servers"[\s\S]{0,400}excludingManagedServers\(\s*normalizeRecentServers\(loadSettings\(\)\.recent_servers\),\s*managed/,
     );
   });
 });
@@ -617,12 +617,12 @@ describe("recent-server startup wiring (src/main.js)", () => {
 describe("automatic local server startup", () => {
   it("starts and opens local when no server is saved and the CLI exists", async () => {
     const harness = loadNavigationHarness({
-      cliPath: "C:/AgentNexus/omnigent.exe",
+      cliPath: "C:/AgentNexus/agentnexus.exe",
       startLocalResult: { ok: true, url: "http://127.0.0.1:6767" },
     });
     try {
       await harness.api.openDefaultWindow();
-      assert.deepEqual(harness.calls.startLocalServer, ["C:/AgentNexus/omnigent.exe"]);
+      assert.deepEqual(harness.calls.startLocalServer, ["C:/AgentNexus/agentnexus.exe"]);
       assert.equal(harness.calls.loadURL.at(-1)[0], "http://127.0.0.1:6767");
     } finally {
       harness.cleanup();
@@ -632,7 +632,7 @@ describe("automatic local server startup", () => {
   it("keeps a saved remote server authoritative", async () => {
     const harness = loadNavigationHarness({
       savedServerUrl: "https://agents.example.com",
-      cliPath: "C:/AgentNexus/omnigent.exe",
+      cliPath: "C:/AgentNexus/agentnexus.exe",
       startLocalResult: { ok: true, url: "http://127.0.0.1:6767" },
     });
     try {
@@ -657,7 +657,7 @@ describe("automatic local server startup", () => {
 });
 
 // Guard for the deep-link path join in createWindow. A basename-less SPA path
-// (/c/<id>) lives UNDER the server's workspace mount (/omnigent), so it
+// (/c/<id>) lives UNDER the server's workspace mount (/agentnexus), so it
 // must be string-concatenated (resolveServerPath) — NOT resolved with
 // `new URL(path, serverUrl)`, which would anchor against the ORIGIN and drop
 // the mount, opening the wrong URL for every workspace deep link. This catches
@@ -669,7 +669,7 @@ describe("deep-link path join wiring (src/main.js)", () => {
       /resolveServerPath\(serverUrl, opts\.path\)/,
       [
         "createWindow no longer joins opts.path onto opts.serverUrl via",
-        "resolveServerPath. A deep link to a workspace server (origin + /omnigent",
+        "resolveServerPath. A deep link to a workspace server (origin + /agentnexus",
         "mount) would lose the mount and 404. Restore the mount-aware join (see",
         "resolveServerPath); do not replace it with `new URL(path, serverUrl)`.",
       ].join(" "),
@@ -677,7 +677,7 @@ describe("deep-link path join wiring (src/main.js)", () => {
   });
 
   it("stores the clean serverUrl (no conversation path) separately from loadUrl", () => {
-    // The window's server IDENTITY (for `omnigent host --server` etc.) must not
+    // The window's server IDENTITY (for `agentnexus host --server` etc.) must not
     // carry the /c/<id> path. Guard that createWindow sets `serverUrl: serverUrl`
     // (the clean value), not `serverUrl: destination`/`loadUrl`.
     assert.match(
@@ -685,7 +685,7 @@ describe("deep-link path join wiring (src/main.js)", () => {
       /serverUrl:\s*destination\s*\?\s*serverUrl\s*:\s*null/,
       [
         "createWindow no longer stores the clean serverUrl as the window's server",
-        "identity — it must keep the /c/<id> path out of `omnigent host --server`.",
+        "identity — it must keep the /c/<id> path out of `agentnexus host --server`.",
         "Restore `serverUrl: destination ? serverUrl : null` in the windows.set call.",
       ].join(" "),
     );
@@ -712,26 +712,26 @@ describe("deep-link ingestion wiring (src/main.js)", () => {
     );
   });
 
-  it("scans second-instance argv for omnigent:// and enqueues as live code", () => {
+  it("scans second-instance argv for agentnexus:// and enqueues as live code", () => {
     assert.match(
       liveCode,
-      /app\.on\("second-instance"[\s\S]{0,220}(?:isDeepLinkArg|startsWith\("omnigent:\/\/"\))[\s\S]{0,80}enqueueDeepLink\(/,
+      /app\.on\("second-instance"[\s\S]{0,220}(?:isDeepLinkArg|startsWith\("agentnexus:\/\/"\))[\s\S]{0,80}enqueueDeepLink\(/,
       [
         "main.js no longer scans second-instance argv for agentnexus:// (or legacy",
-        "omnigent://). Windows/Linux",
+        "agentnexus://). Windows/Linux",
         "warm-start deep links (a second launch funneled by the single-instance lock)",
         "would be ignored. Restore the argv scan → enqueueDeepLink inside second-instance.",
       ].join(" "),
     );
   });
 
-  it("registers the omnigent:// scheme as live code", () => {
+  it("registers the agentnexus:// scheme as live code", () => {
     assert.match(
       liveCode,
-      /setAsDefaultProtocolClient\("omnigent"\)/,
+      /setAsDefaultProtocolClient\("agentnexus"\)/,
       [
-        "main.js no longer calls app.setAsDefaultProtocolClient('omnigent'), so dev",
-        "(`electron .`) clicks on an omnigent:// link won't route to the running dev",
+        "main.js no longer calls app.setAsDefaultProtocolClient('agentnexus'), so dev",
+        "(`electron .`) clicks on an agentnexus:// link won't route to the running dev",
         "instance. The packaged build's manifest registration is separate (package.json",
         "build.protocols). Restore the runtime call.",
       ].join(" "),
@@ -761,14 +761,14 @@ describe("deep-link ingestion wiring (src/main.js)", () => {
     );
   });
 
-  it("routes in-place navigation through the omnigent:open-path channel", () => {
+  it("routes in-place navigation through the agentnexus:open-path channel", () => {
     assert.match(
       liveCode,
-      /send\("omnigent:open-path"/,
+      /send\("agentnexus:open-path"/,
       [
-        "main.js no longer sends omnigent:open-path to the SPA, so reuse-inplace deep",
+        "main.js no longer sends agentnexus:open-path to the SPA, so reuse-inplace deep",
         "links would focus a window without navigating it. Restore sendOpenPath's",
-        "webContents.send('omnigent:open-path', path).",
+        "webContents.send('agentnexus:open-path', path).",
       ].join(" "),
     );
   });
@@ -837,33 +837,33 @@ describe("HTTP error status fallback (src/main.js)", () => {
     const harness = loadNavigationHarness();
     t.after(harness.cleanup);
 
-    harness.emit("did-navigate", "https://host.example/ml/omnigents/health", 404, "Not Found");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/health", 404, "Not Found");
 
     assert.equal(harness.calls.loadFile.length, 1);
     assert.equal(harness.calls.loadFile[0][0], harness.api.SETUP_PAGE);
     const params = new URLSearchParams(harness.calls.loadFile[0][1].search);
     assert.equal(params.get("error"), "404 Not Found");
-    assert.equal(params.get("url"), "https://host.example/ml/omnigents");
+    assert.equal(params.get("url"), "https://host.example/ml/agentnexuss");
   });
 
   it("routes a 503 to the same setup error surface", (t) => {
     const harness = loadNavigationHarness();
     t.after(harness.cleanup);
 
-    harness.emit("did-navigate", "https://host.example/ml/omnigents/", 503, "Service Unavailable");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/", 503, "Service Unavailable");
 
     assert.equal(harness.calls.loadFile.length, 1);
     const params = new URLSearchParams(harness.calls.loadFile[0][1].search);
     assert.equal(params.get("error"), "503 Service Unavailable");
-    assert.equal(params.get("url"), "https://host.example/ml/omnigents");
+    assert.equal(params.get("url"), "https://host.example/ml/agentnexuss");
   });
 
   it("does not fall back for successful or redirect navigations", (t) => {
     const harness = loadNavigationHarness();
     t.after(harness.cleanup);
 
-    harness.emit("did-navigate", "https://host.example/ml/omnigents/", 200, "OK");
-    harness.emit("did-navigate", "https://host.example/ml/omnigents/login", 302, "Found");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/", 200, "OK");
+    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/login", 302, "Found");
 
     assert.deepEqual(harness.calls.loadFile, []);
   });
@@ -872,7 +872,7 @@ describe("HTTP error status fallback (src/main.js)", () => {
     const harness = loadNavigationHarness();
     t.after(harness.cleanup);
 
-    const failedUrl = "https://host.example/ml/omnigents/health";
+    const failedUrl = "https://host.example/ml/agentnexuss/health";
     harness.emit("did-navigate", failedUrl, 503, "Service Unavailable");
 
     assert.equal(harness.api.windows.get(harness.win).origin, null);
@@ -890,14 +890,14 @@ describe("HTTP error status fallback (src/main.js)", () => {
       "did-fail-load",
       -105,
       "NAME_NOT_RESOLVED",
-      "https://host.example/ml/omnigents/",
+      "https://host.example/ml/agentnexuss/",
       true,
     );
     assert.equal(harness.calls.loadFile.length, 1);
 
     const aborted = loadNavigationHarness();
     t.after(aborted.cleanup);
-    aborted.emit("did-fail-load", -3, "ABORTED", "https://host.example/ml/omnigents/", true);
+    aborted.emit("did-fail-load", -3, "ABORTED", "https://host.example/ml/agentnexuss/", true);
     assert.deepEqual(aborted.calls.loadFile, []);
   });
 });

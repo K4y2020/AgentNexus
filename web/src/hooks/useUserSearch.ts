@@ -35,7 +35,7 @@ export function useUserSearch(query: string): UseUserSearchResult {
   const enabled = !!searchUsers && trimmed.length > 0;
 
   const { data, isFetching } = useQuery({
-    queryKey: ["omnigentUserSearch", trimmed],
+    queryKey: ["agentnexusUserSearch", trimmed],
     queryFn: ({ signal }) => searchUsers!(trimmed, { signal }),
     enabled,
   });

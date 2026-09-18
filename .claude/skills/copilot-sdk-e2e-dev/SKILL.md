@@ -1,13 +1,13 @@
 ---
 name: copilot-sdk-e2e-dev
-description: Spin up a live local Omnigent server and exercise the GitHub Copilot SDK harness end-to-end — build copilot agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the copilot harness (omnigent/inner/copilot_executor.py, copilot_harness.py, omnigent/onboarding/copilot_auth.py) or its auth / model / tool-bridge behavior.
+description: Spin up a live local AgentNexus server and exercise the GitHub Copilot SDK harness end-to-end — build copilot agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the copilot harness (agentnexus/inner/copilot_executor.py, copilot_harness.py, agentnexus/onboarding/copilot_auth.py) or its auth / model / tool-bridge behavior.
 ---
 
 # Copilot SDK harness: end-to-end dev & testing
 
 The `copilot` harness drives the **GitHub Copilot SDK** (`github-copilot-sdk`,
 imported as `copilot`) — a persistent `CopilotClient` + `CopilotSession` per
-Omnigent conversation — and bridges Omnigent's `sys_*` tools into Copilot as SDK
+AgentNexus conversation — and bridges AgentNexus's `sys_*` tools into Copilot as SDK
 `Tool`s. The Python SDK **bundles the Copilot CLI binary it drives** as a backing
 server, so there is no separate `@github/copilot` install. This skill is the
 proven recipe for running it **for real** against a live local server — not just
@@ -31,7 +31,7 @@ the unit tests.
    from the GitHub CLI / Copilot CLI app (classic `ghp_` PATs are rejected).
    Verify (booleans only — never print the token):
    ```bash
-   .venv/bin/python -c "from omnigent.onboarding.copilot_auth import copilot_github_token_configured; import os; print('config:', copilot_github_token_configured(), 'env:', bool(os.environ.get('GH_TOKEN') or os.environ.get('COPILOT_GITHUB_TOKEN')))"
+   .venv/bin/python -c "from agentnexus.onboarding.copilot_auth import copilot_github_token_configured; import os; print('config:', copilot_github_token_configured(), 'env:', bool(os.environ.get('GH_TOKEN') or os.environ.get('COPILOT_GITHUB_TOKEN')))"
    ```
    If both are `False`, run `omni setup` and register a Copilot token, or
    `export GH_TOKEN=$(gh auth token)` (when `gh` is logged into an account with
@@ -43,7 +43,7 @@ the unit tests.
 ## Step 1 — start a local server
 
 ```bash
-cd /path/to/omnigent
+cd /path/to/agentnexus
 .venv/bin/omni server --port 7788 --no-open    # foreground; or `omni server --background` for detached
 curl -s http://127.0.0.1:7788/health           # {"status":"ok"}
 ```
@@ -62,7 +62,7 @@ spec_version: 1
 name: copilot-dev
 description: Copilot SDK dev/test agent.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: copilot
     # model: gpt-5-mini      # optional; omit for Copilot auto-select
@@ -129,7 +129,7 @@ pass a Copilot-catalog `--brain-model`** (`auto`, `claude-haiku-4.5`,
 .venv/bin/python .claude/skills/polly-e2e-dev/polly_driver.py \
   --local --code-dir <this-worktree> \
   --cuj smoke --brain-harness copilot --brain-model auto      # brain only
-# --cuj fanout  …  and  --cuj review-pr --repo omnigent-ai/omnigent --pr <n>  …
+# --cuj fanout  …  and  --cuj review-pr --repo agentnexus-ai/agentnexus --pr <n>  …
 #   exercise real sub-agent dispatch (claude_code + codex) under a copilot brain.
 ```
 
@@ -163,10 +163,10 @@ final answer lands server-side — read it over the AP API
 
 ## Code & tests
 
-- **Executor (SDK bridge):** `omnigent/inner/copilot_executor.py`
-- **Wrap (HARNESS_COPILOT_* env → executor):** `omnigent/inner/copilot_harness.py`
-- **Auth / token resolution:** `omnigent/onboarding/copilot_auth.py`
-- **Spawn env:** `_build_copilot_spawn_env` in `omnigent/runtime/workflow.py`
+- **Executor (SDK bridge):** `agentnexus/inner/copilot_executor.py`
+- **Wrap (HARNESS_COPILOT_* env → executor):** `agentnexus/inner/copilot_harness.py`
+- **Auth / token resolution:** `agentnexus/onboarding/copilot_auth.py`
+- **Spawn env:** `_build_copilot_spawn_env` in `agentnexus/runtime/workflow.py`
 
 ```bash
 uv run --frozen --group test python -m pytest \

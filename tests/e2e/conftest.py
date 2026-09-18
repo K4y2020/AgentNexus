@@ -41,8 +41,8 @@ import httpx
 import pytest
 import yaml
 
-from omnigent.inner import _proc
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.inner import _proc
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests._helpers.compat import (
     apply_runner_env,
     apply_server_env,
@@ -100,7 +100,7 @@ def _enforce_min_server_version(request: pytest.FixtureRequest) -> None:
 
     Resolves :func:`server_version` (and thus requires a live server) when a
     test carries the marker OR when a compat run is active
-    (``OMNIGENT_COMPAT_SERVER_VERSION`` set). The latter makes the
+    (``AGENTNEXUS_COMPAT_SERVER_VERSION`` set). The latter makes the
     ``/api/version`` ↔ env cross-check (the PYTHONPATH/CWD-shadow tripwire in
     :func:`resolve_server_version`) fire once per session even before any
     feature has a marker. In normal runs with no marker, nothing is resolved,
@@ -113,7 +113,7 @@ def _enforce_min_server_version(request: pytest.FixtureRequest) -> None:
         resolve the ``server_version`` fixture.
     """
     marker = request.node.get_closest_marker("min_server_version")
-    compat_pinned = os.environ.get("OMNIGENT_COMPAT_SERVER_VERSION")
+    compat_pinned = os.environ.get("AGENTNEXUS_COMPAT_SERVER_VERSION")
     if marker is None and not compat_pinned:
         return
     # Resolving server_version cross-checks /api/version against the pinned
@@ -134,7 +134,7 @@ def _enforce_min_runner_version(request: pytest.FixtureRequest) -> None:
 
     The runner/host backwards-compat run (Config 2) pins the
     ``omnigent.runner._entry`` / ``omnigent.host._daemon_entry`` subprocesses to
-    an older build and sets ``OMNIGENT_COMPAT_RUNNER_VERSION``. The runner/host
+    an older build and sets ``AGENTNEXUS_COMPAT_RUNNER_VERSION``. The runner/host
     expose no ``/api/version`` endpoint, so — unlike the server skip — the
     version comes purely from that env backstop
     (:func:`tests._helpers.compat.pinned_runner_version`); ``None`` (normal
@@ -190,7 +190,7 @@ _OPENAI_CODER_DIR = _REPO_ROOT / "tests" / "resources" / "examples" / "openai-co
 _SANDBOX_DEPS_OS_ENV_DIR = _REPO_ROOT / "tests" / "resources" / "agents" / "sandbox-deps-os-env"
 _SYS_TERMINAL_TEST_DIR = _REPO_ROOT / "tests" / "resources" / "agents" / "sys-terminal-test"
 # A plain claude-sdk chat agent seeded as a BUILT-IN (via the server's
-# OMNIGENT_BUILTIN_AGENT_DIRS hook) so fork-switch e2e tests have a
+# AGENTNEXUS_BUILTIN_AGENT_DIRS hook) so fork-switch e2e tests have a
 # deterministic SDK target to switch INTO — built-in because the fork route
 # only binds built-in agents, and plain (not the polly supervisor) so a
 # recall assertion isn't flaky.
@@ -558,7 +558,7 @@ def live_runner_id() -> str:
     """
     import secrets as _secrets
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     if "runner_id" not in _live_runner_state:
         token = _secrets.token_urlsafe(32)
@@ -631,7 +631,7 @@ def live_server(
     env = {
         **os.environ,
         "OPENAI_API_KEY": llm_api_key,
-        "OMNIGENT_BUILTIN_AGENT_DIRS": str(builtin_sdk_chat_spec),
+        "AGENTNEXUS_BUILTIN_AGENT_DIRS": str(builtin_sdk_chat_spec),
     }
     if using_mock_llm and mock_llm_server_url is not None:
         # Codex agents route through the ``providers:`` config, not a raw
@@ -657,7 +657,7 @@ def live_server(
             ),
             encoding="utf-8",
         )
-        env["OMNIGENT_CONFIG_HOME"] = str(provider_config_home)
+        env["AGENTNEXUS_CONFIG_HOME"] = str(provider_config_home)
     # Prepend the worktree so the server imports the branch's source (see
     # comment above). Dropped in compat mode so the pinned older server in
     # the compat venv resolves instead of being shadowed by main.
@@ -705,7 +705,7 @@ def live_server(
         # sys.executable (it tracks the test process / client version).
         server_executable(),
         "-m",
-        "omnigent.cli",
+        "agentnexus.cli",
         "server",
         "--port",
         str(port),
@@ -755,7 +755,7 @@ def live_server(
         server_args,
         env={
             **env,
-            "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token,
         },
         # Compat mode: neutral CWD so the worktree omnigent/ doesn't shadow
         # the pinned old install via sys.path[0]. None (inherit) otherwise.
@@ -775,14 +775,14 @@ def live_server(
     runner_env = apply_runner_env(
         {
             **env,
-            "OMNIGENT_RUNNER_ID": runner_id,
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-            "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+            "AGENTNEXUS_RUNNER_ID": runner_id,
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
             "RUNNER_SERVER_URL": base_url,
         }
     )
     runner_proc = subprocess.Popen(
-        [runner_executable(), "-m", "omnigent.runner._entry"],
+        [runner_executable(), "-m", "agentnexus.runner._entry"],
         env=runner_env,
         cwd=compat_runner_cwd(),
         stdout=runner_log_handle,
@@ -868,7 +868,7 @@ def http_client(live_server: str) -> Iterator[httpx.Client]:
     with httpx.Client(
         base_url=live_server,
         timeout=300,
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     ) as client:
         yield client
 
@@ -922,7 +922,7 @@ def upload_agent(
         },
         # First-party sentinel Origin so the multipart create passes the
         # require_trusted_origin guard regardless of which client is passed.
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     if resp.status_code == 409:
         return agent_dir.name
@@ -1028,7 +1028,7 @@ def register_inline_agent(
         files={"bundle": ("agent.tar.gz", bundle, "application/gzip")},
         # First-party sentinel Origin so the multipart create passes the
         # require_trusted_origin guard regardless of which client is passed.
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     # 409 = already registered by a prior parametrize row against the
     # same session-scoped server; treat as success. Explicit raise (not
@@ -1107,7 +1107,7 @@ def register_dir_agent_with_mock_llm(
         "/v1/sessions",
         data={"metadata": _json.dumps({})},
         files={"bundle": ("agent.tar.gz", bundle, "application/gzip")},
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     if resp.status_code not in (200, 201, 409):
         raise RuntimeError(f"dir-agent register failed: {resp.status_code} {resp.text[:500]}")
@@ -1233,7 +1233,7 @@ def _materialize_builtin_sdk_chat_spec(
     Write a profile-aware copy of ``sdk-chat-builtin.yaml`` to seed as a built-in.
 
     The built-in fork/switch TARGET is seeded via
-    ``OMNIGENT_BUILTIN_AGENT_DIRS``, which reads the spec verbatim — it
+    ``AGENTNEXUS_BUILTIN_AGENT_DIRS``, which reads the spec verbatim — it
     does NOT pass through :func:`upload_agent`'s model rewrite. The on-disk
     spec (``model: claude-sonnet-4-20250514``, no profile) therefore
     authenticates via the ``claude`` CLI's OAuth session, which hosted CI
@@ -1547,7 +1547,7 @@ def create_runner_bound_session(
     resp = client.post(
         "/v1/sessions",
         json={"agent_id": agent_id},
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     resp.raise_for_status()
     session_id = str(resp.json()["id"])
@@ -1570,7 +1570,7 @@ def send_user_message_to_session(
     POST a user message to *session_id* and return the input response_id.
 
     The events endpoint returns ``{"queued": True, "item_id": "..."}``
-    but runner-native sessions do not create Omnigent DBOS task rows for
+    but runner-native sessions do not create AgentNexus DBOS task rows for
     the turn. For session-dispatch tests, use this id only as the
     turn grouping key in ``conversation_items``; poll the session
     snapshot with :func:`poll_session_until_terminal` instead of
@@ -1683,7 +1683,7 @@ def poll_session_until_terminal(
     Poll a runner-native session snapshot until the turn is terminal.
 
     Session dispatch runs on the runner and therefore may not create a
-    pollable Omnigent ``Task`` for ``GET /v1/responses/{response_id}``. This
+    pollable AgentNexus ``Task`` for ``GET /v1/responses/{response_id}``. This
     helper returns a Responses-like dict synthesized from the session
     snapshot: terminal status from ``session.status`` and output from
     non-user ``conversation_items`` sharing the turn ``response_id``.
@@ -1744,7 +1744,7 @@ def poll_for_pending_tool_calls(
 
     By default this uses ``GET /v1/responses/{response_id}`` for
     legacy/background response tests. Pass ``session_id`` for
-    runner-native session turns, which do not create Omnigent DBOS task rows
+    runner-native session turns, which do not create AgentNexus DBOS task rows
     for ``response_id`` and must be observed through the session
     snapshot.
 
@@ -1804,7 +1804,7 @@ def resume_test_server(
     which drive the real ``omnigent claude/codex --server`` CLI. It differs
     from :func:`live_server` in two ways, both required for that:
 
-    * **No tunnel-token allow-list.** ``OMNIGENT_RUNNER_TUNNEL_TOKEN``
+    * **No tunnel-token allow-list.** ``AGENTNEXUS_RUNNER_TUNNEL_TOKEN``
       installs a binding-token allow-list (see
       ``runner_tunnel.create_runner_tunnel_router``) that rejects the runner
       the CLI spawns with its own per-run token. Omitting it selects the
@@ -1840,14 +1840,14 @@ def resume_test_server(
     if databricks_workspace_host is not None:
         env["OPENAI_BASE_URL"] = f"{databricks_workspace_host}/serving-endpoints"
     # See docstring: an allow-list would reject the CLI's own runner.
-    env.pop("OMNIGENT_RUNNER_TUNNEL_TOKEN", None)
+    env.pop("AGENTNEXUS_RUNNER_TUNNEL_TOKEN", None)
 
     log_handle = open(server_log, "w")  # noqa: SIM115 — lives for the Popen lifetime; closed in finally
     proc = subprocess.Popen(
         [
             server_executable(),
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),

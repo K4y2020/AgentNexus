@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 import click
 import pytest
 
-from omnigent.cli import _build_external_routing_client, _build_local_llm_routing_client
-from omnigent.server.smart_routing import ExternalRoutingClient, LLMRoutingClient
+from agentnexus.cli import _build_external_routing_client, _build_local_llm_routing_client
+from agentnexus.server.smart_routing import ExternalRoutingClient, LLMRoutingClient
 
 
 def test_external_builds_client() -> None:
@@ -31,7 +31,7 @@ def test_external_builds_client() -> None:
     assert client._auth is None  # no profile -> unauthenticated
     # No prefix configured -> the module's shared catalog-prefix list, so the
     # client and the server-side seam can't disagree about a catalog id.
-    from omnigent.server.smart_routing import MODEL_ID_PREFIXES
+    from agentnexus.server.smart_routing import MODEL_ID_PREFIXES
 
     assert client._model_prefixes == list(MODEL_ID_PREFIXES)
 
@@ -77,7 +77,7 @@ def test_external_defers_profile_auth_to_per_call() -> None:
         "profile": "staging",
     }
     with patch(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace",
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace",
     ) as resolve:
         client = _build_external_routing_client(cfg)
     resolve.assert_not_called()  # deferred to per-call, not resolved at build
@@ -130,12 +130,12 @@ def test_external_api_key_expands_env(monkeypatch: Any) -> None:
     """api_key is provider-agnostic and ${ENV}-expanded into a bearer header."""
     import httpx
 
-    monkeypatch.setenv("OMNIGENT_TEST_ROUTING_KEY", "sekret")
+    monkeypatch.setenv("AGENTNEXUS_TEST_ROUTING_KEY", "sekret")
     cfg = {
         "provider": "external",
         "base_url": "https://host/v1",
         "router_name": "task_v0",
-        "api_key": "${OMNIGENT_TEST_ROUTING_KEY}",
+        "api_key": "${AGENTNEXUS_TEST_ROUTING_KEY}",
     }
     client = _build_external_routing_client(cfg)
     assert isinstance(client, ExternalRoutingClient)
@@ -147,16 +147,16 @@ def test_external_api_key_expands_env(monkeypatch: Any) -> None:
 
 def test_external_api_key_wins_over_profile(monkeypatch: Any) -> None:
     """When both are set, api_key takes precedence; profile is not resolved."""
-    monkeypatch.setenv("OMNIGENT_TEST_ROUTING_KEY", "sekret")
+    monkeypatch.setenv("AGENTNEXUS_TEST_ROUTING_KEY", "sekret")
     cfg = {
         "provider": "external",
         "base_url": "https://host/v1",
         "router_name": "task_v0",
-        "api_key": "${OMNIGENT_TEST_ROUTING_KEY}",
+        "api_key": "${AGENTNEXUS_TEST_ROUTING_KEY}",
         "profile": "staging",
     }
     with patch(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace",
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace",
     ) as resolve:
         client = _build_external_routing_client(cfg)
     resolve.assert_not_called()
@@ -192,11 +192,11 @@ def test_llm_builds_client() -> None:
     server_llm = object()
     with (
         patch(
-            "omnigent.runtime.policies.builder._resolve_server_llm_connection",
+            "agentnexus.runtime.policies.builder._resolve_server_llm_connection",
             return_value={"base_url": "b", "api_key": "k"},
         ),
         patch(
-            "omnigent.runtime.policies.builder._build_policy_llm_client",
+            "agentnexus.runtime.policies.builder._build_policy_llm_client",
             return_value=MagicMock(),
         ),
     ):

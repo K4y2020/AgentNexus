@@ -34,7 +34,7 @@ import uuid
 import httpx
 import yaml
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests.e2e.conftest import (
     configure_mock_llm,
     create_runner_bound_session,
@@ -76,7 +76,7 @@ def _register_web_search_agent(
             "You are a research assistant. Use the web_search tool for any live question."
         ),
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "model": model,
             "config": {"harness": "claude-sdk"},
             "auth": {
@@ -101,7 +101,7 @@ def _register_web_search_agent(
         "/v1/sessions",
         data={"metadata": json.dumps({})},
         files={"bundle": ("agent.tar.gz", buf.getvalue(), "application/gzip")},
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     )
     if resp.status_code not in (200, 201, 409):
         raise RuntimeError(f"agent register failed: {resp.status_code} {resp.text[:500]}")
@@ -196,10 +196,10 @@ def test_web_search_advertised_with_bare_model_on_claude_sdk(
         agent_label="bare",
     )
     names = _advertised_tool_names(reqs)
-    # Guard the guard: the Omnigent MCP relay must be alive, otherwise a
+    # Guard the guard: the AgentNexus MCP relay must be alive, otherwise a
     # missing web_search would prove nothing about provider inference.
     assert any(n.startswith("mcp__omnigent__") for n in names), (
-        f"no Omnigent MCP tools advertised at all — relay broken? tools: {sorted(names)}"
+        f"no AgentNexus MCP tools advertised at all — relay broken? tools: {sorted(names)}"
     )
     assert "mcp__omnigent__web_search" in names, (
         "web_search builtin (search_provider: duckduckgo) is absent from the "

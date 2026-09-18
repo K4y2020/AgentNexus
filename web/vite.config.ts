@@ -6,11 +6,11 @@ import type { Plugin, ProxyOptions } from "vite";
 import { defineConfig } from "vitest/config";
 import { shikiManualChunk } from "./vite.shiki";
 
-// Databricks workspace-hosted omnigent is mounted behind the api-proxy at this
+// Databricks workspace-hosted agentnexus is mounted behind the api-proxy at this
 // path; a local / self-hosted server mounts at the root. Mirrors the Python
-// WORKSPACE_API_PATH (omnigent/cli_auth.py) so both sides agree on the shape of
+// WORKSPACE_API_PATH (agentnexus/cli_auth.py) so both sides agree on the shape of
 // a workspace URL.
-const WORKSPACE_API_PATH = "/api/2.0/omnigent";
+const WORKSPACE_API_PATH = "/api/2.0/agentnexus";
 
 function isWorkspaceHost(hostname: string): boolean {
   return hostname.endsWith(".databricks.com") || hostname.endsWith(".azuredatabricks.net");
@@ -19,7 +19,7 @@ function isWorkspaceHost(hostname: string): boolean {
 // Resolve the proxy target. Point OMNIGENT_URL at a bare workspace origin
 // (https://<ws>.databricks.com) and the api-proxy mount is filled in
 // automatically, so the browser's relative /v1/... paths reach the
-// workspace-hosted server without hand-typing the /api/2.0/omnigent prefix. An
+// workspace-hosted server without hand-typing the /api/2.0/agentnexus prefix. An
 // explicit non-root path is respected (a custom mount, or a local server).
 function resolveTarget(raw: string): string {
   const url = new URL(raw);
@@ -63,8 +63,8 @@ function configureProxy(target: string, useAuth: boolean): NonNullable<ProxyOpti
   const parsed = new URL(target);
   const host = parsed.origin;
   // The URL pathname becomes a prefix prepended to every proxied request.
-  // e.g. OMNIGENT_URL=https://host.com/api/2.0/omnigent means the browser's
-  // /v1/sessions is rewritten to /api/2.0/omnigent/v1/sessions before forwarding.
+  // e.g. OMNIGENT_URL=https://host.com/api/2.0/agentnexus means the browser's
+  // /v1/sessions is rewritten to /api/2.0/agentnexus/v1/sessions before forwarding.
   const basePath = parsed.pathname.replace(/\/$/, "");
 
   return (proxy) => {
@@ -121,7 +121,7 @@ function createProxyConfig(target: string, useAuth: boolean): Record<string, Pro
       changeOrigin: true,
       configure,
     },
-    // The server's version manifest (/.well-known/omnigent.json), which the
+    // The server's version manifest (/.well-known/agentnexus.json), which the
     // desktop shell reads to learn what it's talking to. Without this the dev
     // server answers with the SPA's index.html, and the shell — which rightly
     // refuses to parse HTML as a manifest — sees every dev server as
@@ -235,7 +235,7 @@ export default defineConfig({
       provider: "v8",
       // With `include` set, vitest counts every matching source file (untested
       // ones as 0%), so the total reflects the whole frontend — parity with the
-      // backend's --cov=omnigent, not just files a test happened to import.
+      // backend's --cov=agentnexus, not just files a test happened to import.
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
@@ -261,7 +261,7 @@ export default defineConfig({
   build: {
     // default baseline is Safari 16.4+; iPadOS 15 can't parse dep regex lookbehinds (#1978)
     target: ["chrome111", "edge111", "firefox114", "safari15", "ios15"],
-    outDir: path.resolve(__dirname, "../omnigent/server/static/web-ui"),
+    outDir: path.resolve(__dirname, "../agentnexus/server/static/web-ui"),
     emptyOutDir: true,
     rollupOptions: {
       output: {

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from omnigent.policies.schema import PolicyEvent
+from agentnexus.policies.schema import PolicyEvent
 
 
 def tool_call_event(

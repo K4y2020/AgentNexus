@@ -2,7 +2,7 @@
 
 The browser pane is desktop-only: ``AppShell`` marks the Browser rail tab
 available when ``supportsBrowser()`` is true, i.e. when the Electron preload
-exposes ``window.omnigentDesktop.kind === "electron"`` *and* the embedded-
+exposes ``window.agentnexusDesktop.kind === "electron"`` *and* the embedded-
 browser bridge method ``browserOpenOrNavigate`` (an older desktop build that
 predates the feature lacks it) — see ``web/src/lib/nativeBridge.ts``. The tab
 is deliberately the LAST tab in the rail (Files · Agents · Shells · Tasks ·
@@ -10,7 +10,7 @@ Browser).
 
 The e2e_ui harness runs the SPA in a plain Chromium browser, not Electron, so
 by default the tab is absent. To exercise the desktop path end-to-end we inject
-a minimal ``window.omnigentDesktop`` stub via ``add_init_script`` *before any
+a minimal ``window.agentnexusDesktop`` stub via ``add_init_script`` *before any
 app script runs* — the same feature-detection stubbing
 ``sessions/test_pinned_session_hotkeys.py`` uses. That covers the chain the
 component/unit tests can't reach end to end: the injected bridge ->
@@ -39,7 +39,7 @@ from tests.e2e_ui.conftest import open_right_rail
 # under the stub. ``browserHasView`` resolves "no view yet" so the pane shows
 # its empty state instead of trying to attach a native WebContentsView.
 _ELECTRON_SHELL_INIT_SCRIPT = """
-window.omnigentDesktop = {
+window.agentnexusDesktop = {
   kind: "electron",
   setBadgeCount: function () {},
   notify: function () { return Promise.resolve(false); },
@@ -109,7 +109,7 @@ def test_no_browser_tab_in_plain_browser(
 ) -> None:
     """A plain browser tab (no Electron bridge) never shows the Browser tab.
 
-    Without the ``window.omnigentDesktop`` stub, ``supportsBrowser()`` is
+    Without the ``window.agentnexusDesktop`` stub, ``supportsBrowser()`` is
     false, so ``AppShell`` marks the Browser rail tab unavailable and it must
     not render — the gate that keeps the embedded browser off the plain web
     app (there is no WebContentsView to host). This is the half of the

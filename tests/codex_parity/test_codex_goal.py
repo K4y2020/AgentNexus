@@ -9,11 +9,11 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from omnigent.entities import Conversation
-from omnigent.errors import OmnigentError
-from omnigent.inner.codex_executor import CodexExecutor
-from omnigent.server import app as app_module
-from omnigent.server.routes.sessions import create_sessions_router
+from agentnexus.entities import Conversation
+from agentnexus.errors import AgentNexusError
+from agentnexus.inner.codex_executor import CodexExecutor
+from agentnexus.server import app as app_module
+from agentnexus.server.routes.sessions import create_sessions_router
 from tests.codex_parity.helpers import (
     assert_completed as _assert_completed,
 )
@@ -49,8 +49,8 @@ class _CodexGoalConversationStore:
                 root_conversation_id="conv_codex",
                 agent_id="ag_codex",
                 labels={
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "codex-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "codex-native-ui",
                 },
             ),
             "conv_codex_no_runner": Conversation(
@@ -60,8 +60,8 @@ class _CodexGoalConversationStore:
                 root_conversation_id="conv_codex_no_runner",
                 agent_id="ag_codex",
                 labels={
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "codex-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "codex-native-ui",
                 },
             ),
         }
@@ -149,10 +149,10 @@ class _CodexGoalRunnerRouter:
 def _codex_goal_api_app(runner_client: _CodexGoalRunnerClient | None) -> FastAPI:
     app = FastAPI()
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         del request
         return JSONResponse(

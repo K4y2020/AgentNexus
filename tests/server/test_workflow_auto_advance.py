@@ -14,17 +14,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.coordination.store import CoordinationStore
-from omnigent.coordination.workflow_auto_advance import (
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.coordination.workflow_auto_advance import (
     WorkflowAutoAdvancer,
     _stage_artifacts,
     assistant_text_from_items,
     declared_outcome,
 )
-from omnigent.coordination.workflow_engine import CoordinationWorkflowEngine
-from omnigent.entities.conversation import ConversationItem, MessageData
-from omnigent.server import session_live_state
-from omnigent.workspaces.lease import WorkspaceCoordinator
+from agentnexus.coordination.workflow_engine import CoordinationWorkflowEngine
+from agentnexus.entities.conversation import ConversationItem, MessageData
+from agentnexus.server import session_live_state
+from agentnexus.workspaces.lease import WorkspaceCoordinator
 
 
 def _wait_until(predicate, *, timeout_s: float = 10.0) -> None:
@@ -315,7 +315,7 @@ async def test_dispatched_workflow_message_auto_advances_on_turn_completed(
     tmp_path: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from omnigent.coordination.dispatcher import CoordinationDispatcher
+    from agentnexus.coordination.dispatcher import CoordinationDispatcher
 
     store = CoordinationStore(tmp_path / "auto_dispatch.db")
     engine = CoordinationWorkflowEngine(store, WorkspaceCoordinator())
@@ -332,7 +332,7 @@ async def test_dispatched_workflow_message_auto_advances_on_turn_completed(
 
     router = _DispatchRunnerRouter()
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
     dispatcher = CoordinationDispatcher(store)

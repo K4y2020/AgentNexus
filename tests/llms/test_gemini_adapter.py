@@ -6,8 +6,8 @@ import json
 import httpx
 import pytest
 
-from omnigent.llms._responses_to_chat import chat_stream_to_response_events
-from omnigent.llms.adapters.gemini import (
+from agentnexus.llms._responses_to_chat import chat_stream_to_response_events
+from agentnexus.llms.adapters.gemini import (
     GeminiAdapter,
     _chat_to_gemini,
     _convert_tools,
@@ -17,9 +17,9 @@ from omnigent.llms.adapters.gemini import (
     _normalize_finish_reason,
     _translate_part_to_gemini,
 )
-from omnigent.llms.errors import ContextWindowExceededError
-from omnigent.llms.types import FunctionCallOutput
-from omnigent.runtime.llm_retry import classify_llm_error
+from agentnexus.llms.errors import ContextWindowExceededError
+from agentnexus.llms.types import FunctionCallOutput
+from agentnexus.runtime.llm_retry import classify_llm_error
 
 # ── Request translation ──────────────────────────────────
 
@@ -379,7 +379,7 @@ async def test_stream_parallel_function_calls_survive_accumulation() -> None:
 
 def test_gemini_stream_text_chunk() -> None:
     """A streaming chunk with text produces a Chat Completions text delta."""
-    from omnigent.llms.adapters.gemini import _gemini_stream_chunk_to_chat
+    from agentnexus.llms.adapters.gemini import _gemini_stream_chunk_to_chat
 
     data = {
         "candidates": [
@@ -396,7 +396,7 @@ def test_gemini_stream_text_chunk() -> None:
 
 def test_gemini_stream_function_call_chunk() -> None:
     """A streaming chunk with functionCall produces a tool_calls delta."""
-    from omnigent.llms.adapters.gemini import _gemini_stream_chunk_to_chat
+    from agentnexus.llms.adapters.gemini import _gemini_stream_chunk_to_chat
 
     data = {
         "candidates": [
@@ -424,7 +424,7 @@ def test_gemini_stream_function_call_chunk() -> None:
 
 def test_gemini_stream_finish_reason_chunk() -> None:
     """A streaming chunk with finishReason emits a separate finish chunk."""
-    from omnigent.llms.adapters.gemini import _gemini_stream_chunk_to_chat
+    from agentnexus.llms.adapters.gemini import _gemini_stream_chunk_to_chat
 
     data = {
         "candidates": [
@@ -442,7 +442,7 @@ def test_gemini_stream_finish_reason_chunk() -> None:
 
 def test_gemini_stream_usage_only_chunk() -> None:
     """A streaming chunk with no candidates but usageMetadata yields usage."""
-    from omnigent.llms.adapters.gemini import _gemini_stream_chunk_to_chat
+    from agentnexus.llms.adapters.gemini import _gemini_stream_chunk_to_chat
 
     data = {
         "usageMetadata": {
@@ -459,7 +459,7 @@ def test_gemini_stream_usage_only_chunk() -> None:
 
 def test_gemini_stream_empty_candidates_no_usage() -> None:
     """A streaming chunk with empty candidates and no usage yields nothing."""
-    from omnigent.llms.adapters.gemini import _gemini_stream_chunk_to_chat
+    from agentnexus.llms.adapters.gemini import _gemini_stream_chunk_to_chat
 
     chunks = list(_gemini_stream_chunk_to_chat({"candidates": []}))
     assert chunks == []
@@ -470,7 +470,7 @@ def test_gemini_stream_empty_candidates_no_usage() -> None:
 
 def test_empty_chat_response_structure() -> None:
     """_empty_chat_response returns a well-formed empty response."""
-    from omnigent.llms.adapters.gemini import _empty_chat_response
+    from agentnexus.llms.adapters.gemini import _empty_chat_response
 
     resp = _empty_chat_response("gemini-test")
     assert resp["model"] == "gemini-test"
@@ -484,7 +484,7 @@ def test_empty_chat_response_structure() -> None:
 
 def test_none_content_becomes_empty_parts() -> None:
     """None content (e.g. assistant with tool_calls only) yields empty parts."""
-    from omnigent.llms.adapters.gemini import _content_to_gemini_parts
+    from agentnexus.llms.adapters.gemini import _content_to_gemini_parts
 
     assert _content_to_gemini_parts(None) == []
 
@@ -495,7 +495,7 @@ def test_none_content_becomes_empty_parts() -> None:
 @pytest.mark.asyncio
 async def test_get_headers_with_api_key() -> None:
     """API key is set in x-goog-api-key header."""
-    from omnigent.llms.adapters.gemini import GeminiAdapter
+    from agentnexus.llms.adapters.gemini import GeminiAdapter
 
     adapter = GeminiAdapter()
     headers = await adapter._get_headers(api_key_override="test-key")
@@ -505,12 +505,12 @@ async def test_get_headers_with_api_key() -> None:
 
 @pytest.mark.asyncio
 async def test_get_headers_raises_without_api_key() -> None:
-    """Missing API key raises OmnigentError."""
-    from omnigent.errors import OmnigentError
-    from omnigent.llms.adapters.gemini import GeminiAdapter
+    """Missing API key raises AgentNexusError."""
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.llms.adapters.gemini import GeminiAdapter
 
     adapter = GeminiAdapter()
-    with pytest.raises(OmnigentError, match="api_key"):
+    with pytest.raises(AgentNexusError, match="api_key"):
         await adapter._get_headers(api_key_override=None)
 
 

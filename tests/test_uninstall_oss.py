@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from omnigent.install_ledger import sha256_text
+from agentnexus.install_ledger import sha256_text
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "uninstall_oss.sh"
 
@@ -16,7 +16,7 @@ def _run_uninstall(
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["HOME"] = str(home)
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
     env["PATH"] = path or env.get("PATH", "")
     if env_updates:
         env.update(env_updates)
@@ -74,9 +74,9 @@ def test_uninstall_script_removes_profile_block_and_runs_wheel_last(tmp_path: Pa
     profile = home / ".zshrc"
     profile.write_text(
         "keep\n"
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         'export PATH="/fake/bin:$PATH"\n'
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
         "keep2\n"
     )
     fake_bin, uv_log = _fake_uv(tmp_path)
@@ -88,10 +88,10 @@ def test_uninstall_script_removes_profile_block_and_runs_wheel_last(tmp_path: Pa
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["summary"]["done"] >= 2
-    assert "Omnigent installer" not in profile.read_text()
+    assert "AgentNexus installer" not in profile.read_text()
     assert profile.read_text() == "keep\nkeep2\n"
     assert uv_log.read_text().strip() == "tool uninstall omnigent"
-    assert list(home.glob(".zshrc.omnigent.bak.*"))
+    assert list(home.glob(".zshrc.agentnexus.bak.*"))
 
 
 def test_uninstall_script_bare_command_is_dry_run(tmp_path: Path) -> None:
@@ -100,9 +100,9 @@ def test_uninstall_script_bare_command_is_dry_run(tmp_path: Path) -> None:
     profile = home / ".zshrc"
     profile.write_text(
         "keep\n"
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         'export PATH="/fake/bin:$PATH"\n'
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
         "keep2\n"
     )
     fake_bin, uv_log = _fake_uv(tmp_path)
@@ -113,7 +113,7 @@ def test_uninstall_script_bare_command_is_dry_run(tmp_path: Path) -> None:
     assert "reported: profile_block" in result.stdout
     assert "reported: wheel" in result.stdout
     assert "Preview only" in result.stdout
-    assert profile.read_text().startswith("keep\n# >>> Omnigent installer >>>")
+    assert profile.read_text().startswith("keep\n# >>> AgentNexus installer >>>")
     assert not uv_log.exists()
 
 
@@ -121,8 +121,8 @@ def test_uninstall_script_purge_backs_up_state_and_keeps_workspace_without_gate(
     tmp_path: Path,
 ) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
-    workspace = home / "omnigent"
+    state = home / ".agentnexus"
+    workspace = home / "agentnexus"
     state.mkdir(parents=True)
     workspace.mkdir(parents=True)
     (state / "config.yaml").write_text("x: y\n")
@@ -142,15 +142,15 @@ def test_uninstall_script_purge_backs_up_state_and_keeps_workspace_without_gate(
 
 def test_uninstall_script_purge_without_target_also_removes_cli(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
     profile = home / ".zshrc"
     profile.write_text(
         "keep\n"
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         'export PATH="/fake/bin:$PATH"\n'
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
         "keep2\n"
     )
     fake_bin, uv_log = _fake_uv(tmp_path)
@@ -161,7 +161,7 @@ def test_uninstall_script_purge_without_target_also_removes_cli(tmp_path: Path) 
 
     assert result.returncode == 0, result.stderr
     assert not state.exists()
-    assert "Omnigent installer" not in profile.read_text()
+    assert "AgentNexus installer" not in profile.read_text()
     assert uv_log.read_text().strip() == "tool uninstall omnigent"
 
 
@@ -169,17 +169,17 @@ def test_uninstall_script_purge_uses_unique_backup_paths_for_multiple_trees(
     tmp_path: Path,
 ) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
-    workspace = home / "omnigent"
+    state = home / ".agentnexus"
+    workspace = home / "agentnexus"
     linux_desktop_dirs = (
-        home / ".config" / "Omnigent",
-        home / ".cache" / "Omnigent",
-        home / ".local" / "state" / "Omnigent",
+        home / ".config" / "AgentNexus",
+        home / ".cache" / "AgentNexus",
+        home / ".local" / "state" / "AgentNexus",
     )
     mac_desktop_dirs = (
-        home / "Library" / "Application Support" / "Omnigent",
-        home / "Library" / "Caches" / "Omnigent",
-        home / "Library" / "Logs" / "Omnigent",
+        home / "Library" / "Application Support" / "AgentNexus",
+        home / "Library" / "Caches" / "AgentNexus",
+        home / "Library" / "Logs" / "AgentNexus",
     )
     for directory in (state, workspace, *linux_desktop_dirs, *mac_desktop_dirs):
         directory.mkdir(parents=True)
@@ -212,9 +212,9 @@ def test_uninstall_script_refuses_tampered_profile_and_skips_wheel(tmp_path: Pat
     home = tmp_path / "home"
     home.mkdir()
     original_block = (
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         'export PATH="/fake/bin:$PATH"\n'
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
     )
     profile = home / ".zshrc"
     profile.write_text(original_block.replace("/fake/bin", "/tampered/bin"))
@@ -227,10 +227,10 @@ def test_uninstall_script_refuses_tampered_profile_and_skips_wheel(tmp_path: Pat
     )
     fake_bin, uv_log = _fake_uv(tmp_path)
     env = os.environ.copy()
-    env["OMNIGENT_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
-    env["OMNIGENT_UNINSTALL_LEDGER_SOURCE"] = "backfill"
+    env["AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
+    env["AGENTNEXUS_UNINSTALL_LEDGER_SOURCE"] = "backfill"
     env["HOME"] = str(home)
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
     env["PATH"] = f"{fake_bin}:{os.environ.get('PATH', '')}"
 
     result = subprocess.run(
@@ -254,14 +254,14 @@ def test_uninstall_script_external_config_requires_gate_then_removes_json_key(
     home = tmp_path / "home"
     home.mkdir()
     config = tmp_path / "harness.json"
-    config.write_text('{"mcp_servers": {"omnigent": {"url": "x"}, "other": {}}}\n')
+    config.write_text('{"mcp_servers": {"agentnexus": {"url": "x"}, "other": {}}}\n')
     manifest = tmp_path / "manifest.tsv"
     manifest.write_text(
         "\t".join(
             [
                 "external_config",
                 str(config),
-                "mcp_servers.omnigent",
+                "mcp_servers.agentnexus",
                 "json",
                 "",
                 "observed",
@@ -271,10 +271,10 @@ def test_uninstall_script_external_config_requires_gate_then_removes_json_key(
         + "\n"
     )
     env = os.environ.copy()
-    env["OMNIGENT_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
-    env["OMNIGENT_UNINSTALL_LEDGER_SOURCE"] = "backfill"
+    env["AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
+    env["AGENTNEXUS_UNINSTALL_LEDGER_SOURCE"] = "backfill"
     env["HOME"] = str(home)
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
 
     skipped = subprocess.run(
         ["sh", str(SCRIPT), "--yes", "--json"],
@@ -284,7 +284,7 @@ def test_uninstall_script_external_config_requires_gate_then_removes_json_key(
         env=env,
     )
     assert skipped.returncode == 0
-    assert "omnigent" in config.read_text()
+    assert "agentnexus" in config.read_text()
     assert any(
         action["gate"] == "--modify-external-config"
         for action in json.loads(skipped.stdout)["actions"]
@@ -300,7 +300,7 @@ def test_uninstall_script_external_config_requires_gate_then_removes_json_key(
 
     assert removed.returncode == 0, removed.stderr
     payload = json.loads(config.read_text())
-    assert "omnigent" not in payload["mcp_servers"]
+    assert "agentnexus" not in payload["mcp_servers"]
     assert "other" in payload["mcp_servers"]
 
 
@@ -309,9 +309,9 @@ def test_uninstall_script_toml_config_and_launch_agent_reporting(tmp_path: Path)
     home.mkdir()
     config = tmp_path / "config.toml"
     config.write_text(
-        '[mcp_servers.omnigent]\ncommand = "omnigent"\n\n[mcp_servers.other]\ncommand = "other"\n'
+        '[mcp_servers.agentnexus]\ncommand = "agentnexus"\n\n[mcp_servers.other]\ncommand = "other"\n'
     )
-    launch_agent = tmp_path / "ai.omnigent.plist"
+    launch_agent = tmp_path / "ai.agentnexus.plist"
     launch_agent.write_text("plist\n")
     manifest = tmp_path / "manifest.tsv"
     manifest.write_text(
@@ -319,7 +319,7 @@ def test_uninstall_script_toml_config_and_launch_agent_reporting(tmp_path: Path)
             [
                 "external_config",
                 str(config),
-                "mcp_servers.omnigent",
+                "mcp_servers.agentnexus",
                 "toml",
                 "",
                 "observed",
@@ -328,14 +328,14 @@ def test_uninstall_script_toml_config_and_launch_agent_reporting(tmp_path: Path)
         )
         + "\n"
         + "\t".join(
-            ["launch_agent", "launchd", str(launch_agent), "ai.omnigent", "observed", "high"]
+            ["launch_agent", "launchd", str(launch_agent), "ai.agentnexus", "observed", "high"]
         )
         + "\n"
     )
     env = os.environ.copy()
-    env["OMNIGENT_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
+    env["AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"] = str(manifest)
     env["HOME"] = str(home)
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
 
     result = subprocess.run(
         ["sh", str(SCRIPT), "--dry-run", "--json", "--modify-external-config"],
@@ -359,7 +359,7 @@ def test_uninstall_script_toml_config_and_launch_agent_reporting(tmp_path: Path)
     )
 
     assert removed.returncode == 0, removed.stderr
-    assert "mcp_servers.omnigent" not in config.read_text()
+    assert "mcp_servers.agentnexus" not in config.read_text()
     assert "mcp_servers.other" in config.read_text()
 
 
@@ -367,14 +367,14 @@ def test_uninstall_script_unloads_launch_agent_before_stopping_host_pid(
     tmp_path: Path,
 ) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
-    launch_agent = tmp_path / "ai.omnigent.plist"
+    launch_agent = tmp_path / "ai.agentnexus.plist"
     launch_agent.write_text("plist\n")
     manifest = tmp_path / "manifest.tsv"
     manifest.write_text(
         "\t".join(
-            ["launch_agent", "launchd", str(launch_agent), "ai.omnigent", "observed", "high"]
+            ["launch_agent", "launchd", str(launch_agent), "ai.agentnexus", "observed", "high"]
         )
         + "\n"
     )
@@ -392,8 +392,8 @@ def test_uninstall_script_unloads_launch_agent_before_stopping_host_pid(
             "--json",
             path=f"{fake_bin}:{os.environ.get('PATH', '')}",
             env_updates={
-                "OMNIGENT_UNINSTALL_LEDGER_MANIFEST": str(manifest),
-                "OMNIGENT_UNINSTALL_LEDGER_SOURCE": "installer",
+                "AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST": str(manifest),
+                "AGENTNEXUS_UNINSTALL_LEDGER_SOURCE": "installer",
             },
         )
 
@@ -418,14 +418,14 @@ def test_uninstall_script_external_json_preserves_key_order(tmp_path: Path) -> N
     home = tmp_path / "home"
     home.mkdir()
     config = tmp_path / "harness.json"
-    config.write_text('{"z": 1, "mcp_servers": {"other": {}, "omnigent": {}}, "a": 2}\n')
+    config.write_text('{"z": 1, "mcp_servers": {"other": {}, "agentnexus": {}}, "a": 2}\n')
     manifest = tmp_path / "manifest.tsv"
     manifest.write_text(
         "\t".join(
             [
                 "external_config",
                 str(config),
-                "mcp_servers.omnigent",
+                "mcp_servers.agentnexus",
                 "json",
                 "",
                 "observed",
@@ -441,15 +441,15 @@ def test_uninstall_script_external_json_preserves_key_order(tmp_path: Path) -> N
         "--json",
         "--modify-external-config",
         env_updates={
-            "OMNIGENT_UNINSTALL_LEDGER_MANIFEST": str(manifest),
-            "OMNIGENT_UNINSTALL_LEDGER_SOURCE": "backfill",
+            "AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST": str(manifest),
+            "AGENTNEXUS_UNINSTALL_LEDGER_SOURCE": "backfill",
         },
     )
 
     assert result.returncode == 0, result.stderr
     text = config.read_text()
     assert text.index('"z"') < text.index('"mcp_servers"') < text.index('"a"')
-    assert "omnigent" not in text
+    assert "agentnexus" not in text
 
 
 def test_uninstall_script_toml_removes_nested_subtables(tmp_path: Path) -> None:
@@ -457,8 +457,8 @@ def test_uninstall_script_toml_removes_nested_subtables(tmp_path: Path) -> None:
     home.mkdir()
     config = tmp_path / "config.toml"
     config.write_text(
-        '[mcp_servers.omnigent]\ncommand = "omnigent"\n\n'
-        '[mcp_servers.omnigent.env]\nFOO = "bar"\n\n'
+        '[mcp_servers.agentnexus]\ncommand = "agentnexus"\n\n'
+        '[mcp_servers.agentnexus.env]\nFOO = "bar"\n\n'
         '[mcp_servers.other]\ncommand = "other"\n'
     )
     manifest = tmp_path / "manifest.tsv"
@@ -467,7 +467,7 @@ def test_uninstall_script_toml_removes_nested_subtables(tmp_path: Path) -> None:
             [
                 "external_config",
                 str(config),
-                "mcp_servers.omnigent",
+                "mcp_servers.agentnexus",
                 "toml",
                 "",
                 "observed",
@@ -483,14 +483,14 @@ def test_uninstall_script_toml_removes_nested_subtables(tmp_path: Path) -> None:
         "--json",
         "--modify-external-config",
         env_updates={
-            "OMNIGENT_UNINSTALL_LEDGER_MANIFEST": str(manifest),
-            "OMNIGENT_UNINSTALL_LEDGER_SOURCE": "backfill",
+            "AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST": str(manifest),
+            "AGENTNEXUS_UNINSTALL_LEDGER_SOURCE": "backfill",
         },
     )
 
     assert result.returncode == 0, result.stderr
     text = config.read_text()
-    assert "mcp_servers.omnigent" not in text
+    assert "mcp_servers.agentnexus" not in text
     assert "mcp_servers.other" in text
 
 
@@ -509,13 +509,13 @@ def test_uninstall_script_refuses_without_install_signal(tmp_path: Path) -> None
 def test_uninstall_script_removes_fish_profile_blocks(tmp_path: Path) -> None:
     home = tmp_path / "home"
     fish_conf = home / ".config" / "fish" / "config.fish"
-    fish_confd = home / ".config" / "fish" / "conf.d" / "omnigent.fish"
+    fish_confd = home / ".config" / "fish" / "conf.d" / "agentnexus.fish"
     fish_conf.parent.mkdir(parents=True)
     fish_confd.parent.mkdir(parents=True)
     block = (
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         "set -gx PATH /fake/bin $PATH\n"
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
     )
     fish_conf.write_text(f"keep\n{block}keep2\n")
     fish_confd.write_text(f"before\n{block}after\n")
@@ -529,7 +529,7 @@ def test_uninstall_script_removes_fish_profile_blocks(tmp_path: Path) -> None:
 
 def test_uninstall_script_purge_no_backup_removes_state_without_archive(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
 
@@ -545,7 +545,7 @@ def test_uninstall_script_purge_no_backup_removes_state_without_archive(tmp_path
 
 def test_uninstall_script_purge_uses_gzip_when_zstd_missing(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
     (state / "config.yaml").write_text("x: y\n")
@@ -563,7 +563,7 @@ def test_uninstall_script_purge_uses_gzip_when_zstd_missing(tmp_path: Path) -> N
 def test_uninstall_script_purge_namespaces_xdg_state_backups(tmp_path: Path) -> None:
     home = tmp_path / "home"
     state_home = tmp_path / "xdg-state"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
     (state / "config.yaml").write_text("x: y\n")
@@ -581,12 +581,12 @@ def test_uninstall_script_purge_namespaces_xdg_state_backups(tmp_path: Path) -> 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["backups"]
-    assert Path(payload["backups"][0]).parent == state_home / "omnigent-backups"
+    assert Path(payload["backups"][0]).parent == state_home / "agentnexus-backups"
 
 
 def test_uninstall_script_keeps_state_when_zstd_backup_tar_fails(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
     (state / "config.yaml").write_text("x: y\n")
@@ -614,7 +614,7 @@ def test_uninstall_script_keeps_state_when_zstd_backup_tar_fails(tmp_path: Path)
 
 def test_uninstall_script_stops_live_pid_from_state_run_dir(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     run_dir = state / "run"
     run_dir.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
@@ -640,15 +640,15 @@ def test_uninstall_script_stops_live_pid_from_state_run_dir(tmp_path: Path) -> N
 
 def test_uninstall_script_rerun_is_idempotent(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    state = home / ".omnigent"
+    state = home / ".agentnexus"
     state.mkdir(parents=True)
     (state / "installation_id").write_text("install-123\n")
     profile = home / ".zshrc"
     profile.write_text(
         "keep\n"
-        "# >>> Omnigent installer >>>\n"
+        "# >>> AgentNexus installer >>>\n"
         'export PATH="/fake/bin:$PATH"\n'
-        "# <<< Omnigent installer <<<\n"
+        "# <<< AgentNexus installer <<<\n"
     )
     fake_bin, _ = _fake_uv(tmp_path)
     path = f"{fake_bin}:{os.environ.get('PATH', '')}"
@@ -658,4 +658,4 @@ def test_uninstall_script_rerun_is_idempotent(tmp_path: Path) -> None:
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
-    assert "Omnigent installer" not in profile.read_text()
+    assert "AgentNexus installer" not in profile.read_text()

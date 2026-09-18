@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import stat
 
-from omnigent.kiro_native_bridge import (
+from agentnexus.kiro_native_bridge import (
     KIRO_ACP_RECORD_PATH_ENV_VAR,
     KIRO_NATIVE_BRIDGE_DIR_ENV_VAR,
     acp_record_path,

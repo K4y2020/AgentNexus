@@ -1,4 +1,4 @@
-"""Databricks Apps entry point for the Omnigent Slack bot.
+"""Databricks Apps entry point for the AgentNexus Slack bot.
 
 Runs the Socket-Mode bot and, in Databricks web-auth mode, the enrollment web
 server. The ``omnigent_slack`` package is installed from the wheel ``deploy.py``
@@ -17,16 +17,16 @@ import time
 import traceback
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, force=True)
-logger = logging.getLogger("omnigent-slack-app")
+logger = logging.getLogger("agentnexus-slack-app")
 
 try:
-    from omnigent_slack.app import run
+    from agentnexus_slack.app import run
 
     if __name__ == "__main__":
-        logger.info("Starting Omnigent Slack bot (Databricks App)")
+        logger.info("Starting AgentNexus Slack bot (Databricks App)")
         asyncio.run(run())
 except Exception:  # startup catch-all; we want every failure logged to /logz
-    logger.error("FATAL: Omnigent Slack bot failed to start:\n%s", traceback.format_exc())
+    logger.error("FATAL: AgentNexus Slack bot failed to start:\n%s", traceback.format_exc())
     # Keep the process alive briefly so the platform captures the traceback.
     time.sleep(30)
     sys.exit(1)

@@ -44,7 +44,7 @@ from tests.e2e.conftest import (
 # The fork-switch TARGET. Only BUILT-IN agents (``session_id IS NULL``)
 # are bindable fork targets — agents uploaded via multipart
 # ``POST /v1/sessions`` are session-scoped and the route rejects them.
-# The live-server fixture seeds this one via OMNIGENT_BUILTIN_AGENT_DIRS
+# The live-server fixture seeds this one via AGENTNEXUS_BUILTIN_AGENT_DIRS
 # precisely for fork/switch e2e tests (see conftest).
 _BUILTIN_TARGET = "sdk-chat-builtin"
 

@@ -88,7 +88,7 @@ export function TeammatesPage() {
       ) ?? chatHost;
 
     if (!targetHost) {
-      setChatError("No host is online. Connect one with `omnigent host`, then try again.");
+      setChatError("No host is online. Connect one with `agentnexus host`, then try again.");
       return;
     }
     setStartingAgentId(teammate.agent.id);
@@ -98,7 +98,7 @@ export function TeammatesPage() {
         hostId: targetHost.host_id,
         workspace: targetWorkspace,
         title: forceNew ? `${teammate.bot.name} Topic` : teammate.bot.name,
-        labels: forceNew ? {} : { "omnigent.teammate.primary": "true" },
+        labels: forceNew ? {} : { "agentnexus.teammate.primary": "true" },
         botId: teammate.bot.id,
         purpose: forceNew ? "topic" : "primary",
       });

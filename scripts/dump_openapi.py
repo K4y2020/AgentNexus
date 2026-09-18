@@ -105,7 +105,7 @@ _SSE_ROUTES: list[tuple[str, str]] = [
 _SERVERS: list[dict[str, str]] = [
     {
         "url": "http://127.0.0.1:6767",
-        "description": "Self-hosted Omnigent server (default local port).",
+        "description": "Self-hosted AgentNexus server (default local port).",
     },
 ]
 
@@ -114,8 +114,8 @@ _SERVERS: list[dict[str, str]] = [
 # auth model (there is no bearer/API-key scheme — see
 # ``omnigent/server/auth.py``).
 _INFO_DESCRIPTION: str = """\
-Omnigent is an open-source meta-harness for building and running AI \
-agents. This is the REST API exposed by the Omnigent server: use it to \
+AgentNexus is an open-source meta-harness for building and running AI \
+agents. This is the REST API exposed by the AgentNexus server: use it to \
 create and drive **sessions**, manage **agents**, **hosts**, and \
 **runners**, attach **contextual policies**, post **comments**, and work \
 with session **resources** — files, terminals, and sandboxed \
@@ -123,13 +123,13 @@ environments.
 
 ## Base URL
 
-Omnigent is self-hosted. The server binds `http://127.0.0.1:6767` by \
+AgentNexus is self-hosted. The server binds `http://127.0.0.1:6767` by \
 default (`omnigent server`); point the base URL at your own deployment.
 
 ## Authentication
 
 There is no API-key or bearer-token scheme. Identity is supplied by the \
-deployment's configured auth provider (`OMNIGENT_AUTH_PROVIDER`):
+deployment's configured auth provider (`AGENTNEXUS_AUTH_PROVIDER`):
 
 - **Trusted proxy header** (default) — an upstream proxy injects an \
 identity header (`X-Forwarded-Email`, configurable). Single-user local \
@@ -149,9 +149,9 @@ according to your deployment.
 schema documented below.
 """
 
-# Auth representations. Omnigent has no bearer/API-key scheme — identity
+# Auth representations. AgentNexus has no bearer/API-key scheme — identity
 # arrives via a trusted-proxy header or a signed session cookie,
-# selected by ``OMNIGENT_AUTH_PROVIDER``. We model both as OpenAPI
+# selected by ``AGENTNEXUS_AUTH_PROVIDER``. We model both as OpenAPI
 # ``apiKey`` schemes so SDK generators and the reference can surface
 # them. We deliberately do NOT assert a top-level ``security``
 # requirement: the active scheme is deployment-specific, and public
@@ -165,7 +165,7 @@ _SECURITY_SCHEMES: dict[str, dict[str, str]] = {
         "description": (
             "Trusted-proxy identity header (header-auth mode, the "
             "default). The header name is configurable via "
-            "``OMNIGENT_AUTH_HEADER``."
+            "``AGENTNEXUS_AUTH_HEADER``."
         ),
     },
     "sessionCookieAuth": {
@@ -326,19 +326,19 @@ def _build_app_with_stub_stores() -> Any:
     """
     import tempfile
 
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.server.app import create_app
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
-    from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
-    from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
+    from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+    from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -384,7 +384,7 @@ def _server_stream_event_schema() -> dict[str, Any]:
         * ``"definitions"`` — the per-variant component schemas
           (merged into ``components.schemas``).
     """
-    from omnigent.server.schemas import ServerStreamEvent
+    from agentnexus.server.schemas import ServerStreamEvent
 
     adapter: TypeAdapter[ServerStreamEvent] = TypeAdapter(ServerStreamEvent)
     schema = adapter.json_schema(ref_template="#/components/schemas/{model}")

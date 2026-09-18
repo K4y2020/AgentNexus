@@ -17,17 +17,17 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.db.utils import generate_agent_id
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
 
 @pytest.fixture()
@@ -265,9 +265,9 @@ async def test_create_session_policy_emits_telemetry(
     client: httpx.AsyncClient, session_id: str
 ) -> None:
     """``POST /v1/sessions/{id}/policies`` emits a ``PolicyRegisteredEvent`` with scope='session'."""  # noqa: E501
-    from omnigent.telemetry.events import PolicyRegisteredEvent
+    from agentnexus.telemetry.events import PolicyRegisteredEvent
 
-    with patch("omnigent.server.routes.session_policies._tel_emit") as mock_emit:
+    with patch("agentnexus.server.routes.session_policies._tel_emit") as mock_emit:
         resp = await client.post(
             f"/v1/sessions/{session_id}/policies",
             json=_policy_payload(),
@@ -287,7 +287,7 @@ async def test_create_session_policy_no_telemetry_on_error(
     client: httpx.AsyncClient, session_id: str
 ) -> None:
     """``POST /v1/sessions/{id}/policies`` does not emit telemetry when the request fails."""
-    with patch("omnigent.server.routes.session_policies._tel_emit") as mock_emit:
+    with patch("agentnexus.server.routes.session_policies._tel_emit") as mock_emit:
         # Duplicate name → 409 before the emit block is reached.
         await client.post(f"/v1/sessions/{session_id}/policies", json=_policy_payload(name="dup"))
         mock_emit.reset_mock()

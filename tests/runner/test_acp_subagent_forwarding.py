@@ -24,7 +24,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner import app as runner_app_mod
+from agentnexus.runner import app as runner_app_mod
 
 
 @dataclass

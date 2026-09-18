@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.runner.launch_failure import (
+from agentnexus.runner.launch_failure import (
     FailureDiagnosis,
     classify_terminal_failure,
     describe_failure_code,

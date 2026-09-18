@@ -54,7 +54,7 @@ export const CodexCommand: Story = {
     contentPreview: "",
     codexCommand: {
       command: "pnpm --filter web run type-check",
-      cwd: "/workspace/omnigent",
+      cwd: "/workspace/agentnexus",
       reason: "Verify the new component stories compile.",
       execPolicyAmendment: ["pnpm", "--filter", "web"],
     },

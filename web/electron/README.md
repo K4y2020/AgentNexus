@@ -26,7 +26,7 @@ adds native niceties:
   frontmost app _can_ produce: it **bounces the macOS dock icon** (or flashes
   the taskbar frame on Windows/Linux), and on macOS it **plays the chosen sound
   itself** (via `afplay`) instead of the suppressed notification sound. Because
-  the shell plays it, the alert is audible **whether Omnigent is backgrounded or
+  the shell plays it, the alert is audible **whether AgentNexus is backgrounded or
   in front** — and the toast's own sound is muted so the cue never doubles.
 - **Multiple windows** (**Server → New Window**, `Cmd/Ctrl+N`). Each window is
   an independent view, opening on the current window's URL so you can then
@@ -93,7 +93,7 @@ The desktop app does **not** ship a copy of the web UI. It bundles only a tiny
 "connect to server" page (`setup/index.html`). On launch:
 
 1. If no server URL is saved yet, it shows the setup page (one input +
-   Connect). You enter your Omnigent server URL (default
+   Connect). You enter your AgentNexus server URL (default
    `http://localhost:8000`).
 2. It persists that URL to the per-user app data dir (`settings.json` under
    Electron's `userData` path) and **loads the server's own origin**, where
@@ -120,17 +120,17 @@ conversations can be watched at once.
 ## Debugging a packaged macOS build
 
 Developer Tools are disabled by default in the production app. To opt in, quit
-Omnigent, set its macOS user default, and reopen it:
+AgentNexus, set its macOS user default, and reopen it:
 
 ```bash
-defaults write ai.omnigent.desktop DeveloperMode -bool true
+defaults write ai.agentnexus.desktop DeveloperMode -bool true
 ```
 
 The **Debug → Developer Tools** menu is then available in the packaged app. To
-turn production debugging off again, quit Omnigent and remove the override:
+turn production debugging off again, quit AgentNexus and remove the override:
 
 ```bash
-defaults delete ai.omnigent.desktop DeveloperMode
+defaults delete ai.agentnexus.desktop DeveloperMode
 ```
 
 Development (`pnpm --dir web/electron dev`) builds keep Developer Tools enabled
@@ -139,7 +139,7 @@ relax production update security checks.
 
 The native enhancements live on the web side in
 [`../src/lib/nativeBridge.ts`](../src/lib/nativeBridge.ts). It detects the
-Electron shell at runtime (the preload exposes `window.omnigentDesktop`
+Electron shell at runtime (the preload exposes `window.agentnexusDesktop`
 with `kind: "electron"`) and routes notifications/badge through the IPC
 bridge; in a plain browser it falls back to the Web Notifications path. So the
 one `web` bundle works both in a browser and under Electron.
@@ -150,12 +150,12 @@ one `web` bundle works both in a browser and under Electron.
 electron/
   package.json             # Electron + electron-builder deps and build config
   src/main.js              # main process: window, settings, menu, IPC, badge, notify
-  src/preload.js           # contextBridge: window.omnigentDesktop + omnigentSetup
+  src/preload.js           # contextBridge: window.agentnexusDesktop + agentnexusSetup
   src/managed_preferences.js # read/validate macOS MDM server choices
-  src/find_preload.js      # contextBridge for the find bar: window.omnigentFind
+  src/find_preload.js      # contextBridge for the find bar: window.agentnexusFind
   src/browserViewRegistry.js  # per-conversation WebContentsView registry (browser pane)
   src/browserViewBounds.js    # CSS-px → window-DIP bounds conversion (browser pane)
-  src/browserIpc.js           # omnigent:browser-* IPC handlers (extracted from main.js)
+  src/browserIpc.js           # agentnexus:browser-* IPC handlers (extracted from main.js)
   setup/index.html         # the bundled "connect to server" setup page
   find/index.html          # the bundled find-in-page bar (Cmd/Ctrl+F)
   icons/                   # app icons
@@ -194,7 +194,7 @@ dismisses.
     `notify` / `setBadgeCount` only work when both the calling frame _and_
     the window's top-level page are on the pinned origin (so a pinned-origin
     iframe embedded in a hostile page gets nothing); the setup bridge
-    (`omnigentSetup`) only works for the bundled setup page itself, so a
+    (`agentnexusSetup`) only works for the bundled setup page itself, so a
     server page can never read or silently re-point the saved server URL.
     Foreign pages get an inert bridge.
   - The microphone permission grant is likewise scoped: only the audio set,
@@ -247,7 +247,7 @@ positioned over a placeholder `<div>` the SPA measures — not an in-page elemen
 ```mermaid
 sequenceDiagram
     participant A as Agent (runner — any host)
-    participant S as Omnigent server
+    participant S as AgentNexus server
     participant R as Renderer / BrowserPane (this PR)
     participant V as WebContentsView (local Chromium)
 
@@ -278,7 +278,7 @@ against its local Chromium, and the result is posted back.
   window device-independent pixels (they diverge after `Cmd+/Cmd-` zoom).
 - `src/main.js` — instantiates one registry **per shell window** and injects it
   (plus the `isPinnedOriginSender` trust gate) into `registerBrowserIpc(...)`.
-- `src/browserIpc.js` — the whole `ipcMain.handle('omnigent:browser-*')` surface,
+- `src/browserIpc.js` — the whole `ipcMain.handle('agentnexus:browser-*')` surface,
   extracted out of `main.js` so that file stays bounded:
   `open-or-navigate`, `set-active`, `resize`, `screenshot`
   (`capturePage().toPNG()` → base64), `execute`, `has-view`, `close`, plus the
@@ -300,7 +300,7 @@ against its local Chromium, and the result is posted back.
   subscriptions `onBrowserViewCreated` / `onBrowserHostActiveChanged` /
   `onBrowserViewClosed` / `onBrowserUrlChanged` / `onBrowserNavState` +
   `onBrowserElementSelected` / `onBrowserElementPromptSubmit` /
-  `onBrowserElementPromptDismiss` to `window.omnigentDesktop`, each a thin
+  `onBrowserElementPromptDismiss` to `window.agentnexusDesktop`, each a thin
   `ipcRenderer.invoke` / `ipcRenderer.on`.
 - Renderer side (in `web/src`): `hooks/useBrowserAgentRelay.ts` receives the
   `browser.action_request` SSE event (emitted by the separate agent-tools PR),
@@ -355,7 +355,7 @@ console listener is stored on the registry entry
 `close()` detaches it on teardown. Electron-only (needs `executeJavaScript` +
 the native view); no server flag.
 
-**JS trust boundary (important):** `omnigent:browser-execute` runs
+**JS trust boundary (important):** `agentnexus:browser-execute` runs
 arbitrary JS in the child view via `executeJavaScript(js, true)`. It is exposed
 to the SPA **only for the relay's own fixed templates** (the DOM-snapshot walk,
 and the click / type element resolvers) — there is deliberately **no
@@ -389,7 +389,7 @@ pnpm install     # installs electron + electron-builder
 pnpm start        # launches the Electron shell
 ```
 
-The shell opens on the bundled setup page. Point it at a running Omnigent
+The shell opens on the bundled setup page. Point it at a running AgentNexus
 server (see below), Connect, and you're in.
 
 > Note: this loads the UI from whatever server URL you give it — it does
@@ -402,7 +402,7 @@ To override the current version used by development update checks, launch the
 unpackaged app with a valid semantic version:
 
 ```bash
-OMNIGENT_DESKTOP_VERSION_OVERRIDE=0.9.0 pnpm start
+AGENTNEXUS_DESKTOP_VERSION_OVERRIDE=0.9.0 pnpm start
 ```
 
 The override controls both the **Current version** shown in update prompts and
@@ -506,9 +506,9 @@ to add a few minutes per architecture (Apple-side processing). Verify the
 result with:
 
 ```bash
-spctl -a -vv dist/mac-arm64/Omnigent.app   # → "accepted, source=Notarized Developer ID"
-codesign --verify --verbose=2 dist/Omnigent-*-arm64.dmg
-xcrun stapler validate -v dist/Omnigent-*-arm64.dmg
+spctl -a -vv dist/mac-arm64/AgentNexus.app   # → "accepted, source=Notarized Developer ID"
+codesign --verify --verbose=2 dist/AgentNexus-*-arm64.dmg
+xcrun stapler validate -v dist/AgentNexus-*-arm64.dmg
 ```
 
 `build:mac:release` **fails loudly** if signing or notarization credentials
@@ -517,12 +517,12 @@ so a release artifact can't silently ship unsigned or unnotarized.
 
 ## Getting a server to point at
 
-Any reachable Omnigent server works. For a quick local target, run the
+Any reachable AgentNexus server works. For a quick local target, run the
 server from this repo:
 
 ```bash
 # from the repo root, with the project venv:
-.venv/bin/python -m omnigent.server   # serves on http://localhost:8000
+.venv/bin/python -m agentnexus.server   # serves on http://localhost:8000
 ```
 
 Then enter `http://localhost:8000` in the setup page.
@@ -530,7 +530,7 @@ Then enter `http://localhost:8000` in the setup page.
 ## Managing servers and hosting
 
 Beyond pointing at an already-running server, the shell can drive the local
-`omnigent` CLI to start a server and register this machine as a **host** (a
+`agentnexus` CLI to start a server and register this machine as a **host** (a
 machine that runs the agent work a server dispatches). Two concepts stay
 deliberately separate:
 
@@ -547,9 +547,9 @@ deliberately separate:
 
 ### Detecting the CLI and customizing its path
 
-The CLI ships under two names that resolve to the same entry point — `omnigent`
+The CLI ships under two names that resolve to the same entry point — `agentnexus`
 (canonical) and `omni` (short alias) — and the shell probes **both**:
-`settings.omnigent_path` first, then `PATH` (`omnigent` then `omni`), then the
+`settings.agentnexus_path` first, then `PATH` (`agentnexus` then `omni`), then the
 well-known install locations (`~/.local/bin`, `~/.cargo/bin`, Homebrew,
 `/usr/local/bin`, each tried under both names). A GUI-launched app inherits a
 minimal `PATH`, which is why the install locations are probed directly. The path
@@ -563,7 +563,7 @@ You can see and change which binary is used in two places:
   free-text or a native file picker. When nothing is found the gear gets an
   accent dot and the modal shows the install one-liner
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/install_oss.sh | sh
+  curl -fsSL https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/scripts/install_oss.sh | sh
   ```
 - **In-app** — **Settings → Local CLI** (desktop only): shows the resolved path
   and version, a **Change…** button (native file picker) and **Reset to
@@ -571,13 +571,13 @@ You can see and change which binary is used in two places:
   — a connected server must not be able to silently repoint the CLI at an
   arbitrary binary, so changing it requires a user-driven OS dialog.
 
-A configured path is saved to `settings.json` (`omnigent_path`) only once it
+A configured path is saved to `settings.json` (`agentnexus_path`) only once it
 validates as a runnable CLI; clearing it reverts to auto-detection. Connecting
 to a **remote** server never needs the CLI — only "Start locally" and hosting do.
 
 ### Start locally
 
-**"Start a server on this machine"** runs `omnigent server --background` (idempotent —
+**"Start a server on this machine"** runs `agentnexus server --background` (idempotent —
 reuses a healthy one) and then connects this window to its
 `http://127.0.0.1:<port>` URL through the normal connect flow. It does not
 connect this machine as a runner — that stays an explicit step in the app.
@@ -590,18 +590,18 @@ menu (when starting a chat) tags this machine and offers to connect it. Choosing
 it calls `controlHost("start")` over the bridge. Because that call originates in
 server-served code, the main process does not treat it as the user's consent: on
 the first `start`/`restart` for a server origin it shows a **native confirmation
-dialog** ("Allow _host_ to manage Omnigent on this machine?") with **Don't Allow**
+dialog** ("Allow _host_ to manage AgentNexus on this machine?") with **Don't Allow**
 (default) / **Allow Once** / **Always Allow**. Only after approval does it — once
 the CLI is authenticated for the server (remote only; local needs none) — either
 adopt a daemon already serving that server (one you started by hand) or spawn
-`omnigent host --server <url>`. **Allow Once** connects this time and re-prompts
+`agentnexus host --server <url>`. **Allow Once** connects this time and re-prompts
 next time; **Always Allow** records the origin in `settings.json`
 (`allowed_hosting_origins`) so later connects skip the prompt. `stop` is
 fail-safe and needs no confirmation. The same bridge exposes `stop` / `restart`.
 
 Status is read live (host connected = a live daemon process **and** an online
 host tunnel; the shell never caches it). The host surface goes through the JS
-bridge — `window.omnigentDesktop` → `getHostStatus` / `getHostIdentity` /
+bridge — `window.agentnexusDesktop` → `getHostStatus` / `getHostIdentity` /
 `onHostStatusChanged` (read + live) and `controlHost` (start/stop/restart),
 typed in [`../src/lib/nativeBridge.ts`](../src/lib/nativeBridge.ts) and gated to
 the window's **pinned origin** like the badge/notification bridge.
@@ -691,19 +691,19 @@ count and notification titles are prefixed with the firing server's hostname.
 ## Deep links
 
 An `agentnexus://<hostname>/c/<session_id>` URL (the legacy
-`omnigent://<hostname>/c/<session_id>` spelling still works) opens that
+`agentnexus://<hostname>/c/<session_id>` spelling still works) opens that
 session on that server in the desktop app — the way a browser deep link opens
 a page:
 
 ```
 agentnexus://localhost:8000/c/conv_abc              → http://localhost:8000/c/conv_abc
-agentnexus://my-workspace.cloud.databricks.com/c/x → https://…/omnigent/c/x
+agentnexus://my-workspace.cloud.databricks.com/c/x → https://…/agentnexus/c/x
 ```
 
 The link names a server by **host** (with port if non-default) and carries no
 `http`/`https` — the shell infers the scheme with the same rule the setup page
 uses (`http` for loopback, `https` for a remote host), so a deep link and a
-pasted URL can never disagree. The Databricks workspace mount (`/omnigent`)
+pasted URL can never disagree. The Databricks workspace mount (`/agentnexus`)
 is **not** in the link; it is server-determined and discovered the same way a
 pasted workspace URL is. v1 accepts only `/c/<session_id>`; other paths are
 ignored.
@@ -737,7 +737,7 @@ cancel an unknown-server prompt, a normal launch window opens instead.
 **Registration.** The scheme is registered two ways: the build manifest
 (`build.protocols` in `package.json`, which writes `CFBundleURLSchemes` on
 macOS, a `.desktop` `MimeType` on Linux, and registry entries on Windows) for
-packaged installs, plus a runtime `app.setAsDefaultProtocolClient("omnigent")`
+packaged installs, plus a runtime `app.setAsDefaultProtocolClient("agentnexus")`
 call so `electron .` dev clicks route to the running dev instance.
 
 The decision logic (parse + window selection) is pure and unit-tested in
@@ -747,7 +747,7 @@ The decision logic (parse + window selection) is pure and unit-tested in
 
 - **Runtime:** bundled Chromium (so the build is ~100+ MB, but the renderer
   matches Chrome's behavior exactly — no OS-webview quirks).
-- **Native bridge detection:** `window.omnigentDesktop` (`kind: "electron"`),
+- **Native bridge detection:** `window.agentnexusDesktop` (`kind: "electron"`),
   exposed by the preload. The web-side `nativeBridge.ts` routes the badge to
   `app.setBadgeCount` and notifications to the main-process `Notification` API
   via IPC; in a plain browser it falls back to the Web Notifications path.

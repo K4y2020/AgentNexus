@@ -44,7 +44,7 @@ jobs:
     # commenter is the PR author or has write access. `issue.user.login` is the
     # PR author; `comment.user.login` is the commenter.
     if: >-
-      github.repository == 'omnigent-ai/omnigent'
+      github.repository == 'agentnexus-ai/agentnexus'
       && github.event.issue.pull_request != null
       && startsWith(github.event.comment.body, '/rerun')
       && !endsWith(github.actor, '[bot]')

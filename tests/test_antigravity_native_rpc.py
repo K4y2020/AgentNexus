@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-import omnigent.antigravity_native_rpc as rpc
+import agentnexus.antigravity_native_rpc as rpc
 
 # Realistic two-port agy ``lsof`` output: the LOWER (52548) is the TLS
 # connect-RPC port; the higher (52549) is plain HTTP. Mirrors the verified
@@ -933,7 +933,7 @@ def test_send_user_cascade_message_posts_exact_nested_body(
     rpc.send_user_cascade_message(
         52548,
         "conv-uuid",
-        "hello from omnigent",
+        "hello from agentnexus",
         plan_model="gemini-2.5-pro",
     )
     assert seen["url"] == (
@@ -943,7 +943,7 @@ def test_send_user_cascade_message_posts_exact_nested_body(
     assert seen["content_type"] == "application/json"
     assert seen["body"] == {
         "cascadeId": "conv-uuid",
-        "items": [{"text": "hello from omnigent"}],
+        "items": [{"text": "hello from agentnexus"}],
         "cascadeConfig": {"plannerConfig": {"planModel": "gemini-2.5-pro"}},
     }
 

@@ -12,13 +12,13 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.db.utils import now_epoch, utc_day
-from omnigent.policies.builtins.cost import user_daily_cost_budget
-from omnigent.policies.function import FunctionPolicy
-from omnigent.policies.schema import USER_DAILY_ASK_APPROVED_STATE_KEY
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.db.utils import now_epoch, utc_day
+from agentnexus.policies.builtins.cost import user_daily_cost_budget
+from agentnexus.policies.function import FunctionPolicy
+from agentnexus.policies.schema import USER_DAILY_ASK_APPROVED_STATE_KEY
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     FunctionPolicySpec,
     FunctionRef,
     Phase,
@@ -27,10 +27,10 @@ from omnigent.spec.types import (
     StateUpdate,
     StateUpdateAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 
 def _engine_with_owner(
@@ -126,7 +126,7 @@ async def test_approval_updates_in_memory_so_same_engine_does_not_reask(
         FunctionPolicySpec(
             name="daily",
             on=[PhaseSelector(phase=Phase.TOOL_CALL, tool_name=None)],
-            function=FunctionRef(path="omnigent.policies.builtins.cost.user_daily_cost_budget"),
+            function=FunctionRef(path="agentnexus.policies.builtins.cost.user_daily_cost_budget"),
         ),
         user_daily_cost_budget(max_cost_usd=5.0, ask_thresholds_usd=[2.0]),
     )

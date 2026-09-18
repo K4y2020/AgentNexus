@@ -56,8 +56,8 @@ def _seed_error_item(session_id: str, *, code: str, message: str) -> None:
     :param message: Raw error message stored alongside the code.
     :raises RuntimeError: If the server under test isn't one we spawned.
     """
-    from omnigent.entities import ErrorData, NewConversationItem
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import ErrorData, NewConversationItem
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 

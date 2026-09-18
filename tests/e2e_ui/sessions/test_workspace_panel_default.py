@@ -3,7 +3,7 @@
 The Workspace panel control (``WorkspacePanelDefaultControl`` on
 ``pages/SettingsPage.tsx``) is a two-card radiogroup — Open / Collapsed —
 under Settings → Appearance. Picking a mode writes to
-``localStorage["omnigent:default-workspace-panel"]`` (absent = "open").
+``localStorage["agentnexus:default-workspace-panel"]`` (absent = "open").
 
 AppShell applies that preference only when a session has no saved
 ``SessionWorkspaceState.open``. Once the user toggles the rail in a chat,
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-STORAGE_KEY = "omnigent:default-workspace-panel"
+STORAGE_KEY = "agentnexus:default-workspace-panel"
 _COMPOSER = "Send a message…"
 
 

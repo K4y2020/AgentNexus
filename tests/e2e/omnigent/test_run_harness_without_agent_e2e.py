@@ -17,21 +17,21 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
-from omnigent.runtime.harnesses import _HARNESS_MODULES
-from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
+from agentnexus.acp_cli_harnesses import ACP_CLI_HARNESSES
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESSES
 from tests.e2e._harness_probes import (
     HARNESS_IDS,
     HARNESS_PROBES,
     HarnessProbe,
     skip_if_harness_cli_missing,
 )
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
     strip_ansi,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm, set_fallback_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm, set_fallback_mock_llm
 
 _PROMPT_TEMPLATE = (
     "Reply with exactly the identifier between <answer> tags, but omit the tags: "
@@ -132,7 +132,7 @@ def test_run_harness_without_agent_live_repl_round_trip(
 def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
     """The live no-AGENT e2e matrix tracks REPL-launchable harnesses.
 
-    ``OMNIGENT_HARNESSES`` also contains ``open-responses`` for the
+    ``AGENTNEXUS_HARNESSES`` also contains ``open-responses`` for the
     legacy in-process executor path, but that harness is not currently
     registered in the server-backed REPL harness registry. This test
     makes the distinction explicit: when a coding harness is added to
@@ -234,7 +234,7 @@ def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
     Their shared wiring is covered by ``tests/test_acp_cli_harnesses.py`` and
     the ``tests/inner/test_acp_executor.py`` suite.
     """
-    expected_live_harnesses = set(OMNIGENT_HARNESSES).intersection(_HARNESS_MODULES) - {
+    expected_live_harnesses = set(AGENTNEXUS_HARNESSES).intersection(_HARNESS_MODULES) - {
         "acp",
         "claude-native",
         "codex-native",

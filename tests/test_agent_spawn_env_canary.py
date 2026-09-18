@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from omnigent.inner.agent_env import (
+from agentnexus.inner.agent_env import (
     BASE_ALLOW_EXACT,
     BASE_ALLOW_PREFIXES,
     clean_agent_env,
@@ -85,13 +85,13 @@ def _bare(cls, **attrs):
 
 
 def _acp_spawn_env():
-    from omnigent.inner.acp_executor import AcpExecutor
+    from agentnexus.inner.acp_executor import AcpExecutor
 
     return _bare(AcpExecutor)._build_spawn_env()
 
 
 def _goose_spawn_env():
-    from omnigent.inner.goose_executor import GooseExecutor
+    from agentnexus.inner.goose_executor import GooseExecutor
 
     # Provider/gateway overrides are deliberate additions layered on top of the
     # filtered base, not leaks; stub them so this asserts the filtering alone.
@@ -99,7 +99,7 @@ def _goose_spawn_env():
 
 
 def _qwen_spawn_env():
-    from omnigent.inner.qwen_executor import QwenExecutor
+    from agentnexus.inner.qwen_executor import QwenExecutor
 
     async def _no_gateway():
         return {}
@@ -108,13 +108,13 @@ def _qwen_spawn_env():
 
 
 def _kimi_spawn_env():
-    from omnigent.inner.kimi_executor import KimiExecutor
+    from agentnexus.inner.kimi_executor import KimiExecutor
 
     return _bare(KimiExecutor)._build_spawn_env()
 
 
 def _hermes_spawn_env():
-    from omnigent.inner.hermes_executor import HermesExecutor
+    from agentnexus.inner.hermes_executor import HermesExecutor
 
     # The no-HERMES_HOME branch: the one that used to pass env=None and inherit
     # the entire host environment, so it is the branch worth pinning.
@@ -122,13 +122,13 @@ def _hermes_spawn_env():
 
 
 def _pi_spawn_env():
-    from omnigent.inner.pi_executor import _clean_pi_env
+    from agentnexus.inner.pi_executor import _clean_pi_env
 
     return _clean_pi_env()
 
 
 def _codex_spawn_env():
-    from omnigent.inner.codex_executor import _clean_codex_env
+    from agentnexus.inner.codex_executor import _clean_codex_env
 
     return _clean_codex_env()
 
@@ -269,7 +269,7 @@ def test_acp_agent_declaration_passes_only_what_it_names(hostile_env, monkeypatc
     with, so the agent names its variables. Everything it does not name stays
     withheld — a declaration must not reopen the whole environment.
     """
-    from omnigent.inner.acp_executor import AcpAgentConfig, AcpExecutor
+    from agentnexus.inner.acp_executor import AcpAgentConfig, AcpExecutor
 
     monkeypatch.setattr("os.environ", {**hostile_env, "XAI_API_KEY": "declared-and-wanted"})
     ex = AcpExecutor(

@@ -3,18 +3,18 @@
 // and are covered by the manual verification flow; here we test the pure
 // decision logic: loopback skip → /v1/me probe → (idempotent) login → error.
 //
-// `server_manager` captures the `omnigent_cli` module object once at require
+// `server_manager` captures the `agentnexus_cli` module object once at require
 // time, so mocking methods on that same shared object (via `mock.method`) is
 // seen by the code under test.
 
 const { describe, it, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-const cli = require("../src/omnigent_cli");
+const cli = require("../src/agentnexus_cli");
 const { ensureServerAuth, isHostConnectedMarker } = require("../src/server_manager");
 
 const SERVER = "https://app.example.com";
-const CLI_PATH = "/bin/omnigent";
+const CLI_PATH = "/bin/agentnexus";
 
 describe("ensureServerAuth", () => {
   afterEach(() => {
@@ -73,7 +73,7 @@ describe("ensureServerAuth", () => {
   it("returns an authError with a generic message and does NOT surface raw login output", async () => {
     mock.method(cli, "isLoopbackServer", () => false);
     mock.method(cli, "probeServerAuth", async () => ({ authed: false, reachable: true }));
-    // `omnigent login` stdout on the OIDC path can carry the login-ticket URL
+    // `agentnexus login` stdout on the OIDC path can carry the login-ticket URL
     // (auth material); it must never reach the renderer via the error string.
     mock.method(cli, "loginServer", async () => ({
       ok: false,
@@ -85,7 +85,7 @@ describe("ensureServerAuth", () => {
     assert.equal(res.ok, false);
     assert.equal(res.authError, true);
     assert.doesNotMatch(res.error, /ticket=|SECRET123/);
-    assert.match(res.error, /omnigent login https:\/\/app\.example\.com/);
+    assert.match(res.error, /agentnexus login https:\/\/app\.example\.com/);
   });
 
   it("uses the same generic message when login fails with no output", async () => {
@@ -97,7 +97,7 @@ describe("ensureServerAuth", () => {
 
     assert.equal(res.ok, false);
     assert.equal(res.authError, true);
-    assert.match(res.error, /omnigent login https:\/\/app\.example\.com/);
+    assert.match(res.error, /agentnexus login https:\/\/app\.example\.com/);
   });
 });
 
@@ -117,7 +117,7 @@ describe("isHostConnectedMarker", () => {
 
   it("rejects unrelated or booting log messages", () => {
     assert.equal(isHostConnectedMarker("Connecting to http://127.0.0.1:6767"), false);
-    assert.equal(isHostConnectedMarker("Session logs: ~/.omnigent/logs/runner/"), false);
+    assert.equal(isHostConnectedMarker("Session logs: ~/.agentnexus/logs/runner/"), false);
     assert.equal(isHostConnectedMarker(null), false);
     assert.equal(isHostConnectedMarker(""), false);
   });

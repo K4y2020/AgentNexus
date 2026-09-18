@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.tools.builtins.web_search_duckduckgo import _search_duckduckgo
+from agentnexus.tools.builtins.web_search_duckduckgo import _search_duckduckgo
 
 
 @pytest.mark.nightly

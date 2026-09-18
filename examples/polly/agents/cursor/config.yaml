@@ -5,11 +5,11 @@ description: Cursor coding sub-agent — implements, cross-vendor reviews, or ex
 # Native Cursor TUI harness (`cursor-agent`): runs in its own terminal the
 # human can open in the UI's Subagents panel and TAKE OVER. Headless workers
 # can't answer ApprovalCards, so YOLO skips cursor-agent's in-terminal
-# prompts (and the mirrored web cards). Omnigent ``blast_radius`` still
+# prompts (and the mirrored web cards). AgentNexus ``blast_radius`` still
 # DENYs the catastrophic set. Opt out with ``yolo: false``; or set
 # ``permission_mode: auto`` for Smart Auto (``--auto-review``) instead.
 executor:
-  type: omnigent
+  type: agentnexus
   # Faster default for Polly Cursor workers; override per-session with ``/model``.
   # Use the base id from Cursor's model list / SDK (``grok-4.5``). The compound
   # ``cursor-grok-4.5-high`` also works on cursor-agent, but the SDK catalog
@@ -36,7 +36,7 @@ prompt: |
     you mention counts, distinguish collected test cases from test functions.
   - Co-sign every commit you author: end each commit message with a blank line
     followed by this exact trailer as its final line —
-    `Co-authored-by: omnigent <noreply@omnigent.ai>`
+    `Co-authored-by: agentnexus <noreply@agentnexus.ai>`
   - When green, push your task branch and open a PR with `gh pr create` (clear
     title, what changed, how you verified). Never push to a protected branch
     (e.g. main) or force-push — open a PR and let it be reviewed/merged.
@@ -70,6 +70,6 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from omnigent.inner.executor import ExecutorConfig, ExecutorError, TurnComplete
-from omnigent.native_server_harness import NativeServerHarness
-from omnigent.native_server_transport import NativePrompt
+from agentnexus.inner.executor import ExecutorConfig, ExecutorError, TurnComplete
+from agentnexus.native_server_harness import NativeServerHarness
+from agentnexus.native_server_transport import NativePrompt
 
 
 class _FakeTransport:

@@ -1,7 +1,7 @@
 """Regression target: ``blast_radius`` must gate the direct ``codex`` harness too.
 
 The ``blast_radius`` policy (and any policy built on the ``tool_call`` seam) is
-enforced for harnesses whose shell surfaces as an Omnigent ``tool_call``
+enforced for harnesses whose shell surfaces as an AgentNexus ``tool_call``
 (``sys_os_shell`` / claude-native ``Bash``), but is *silently not enforced* for
 the direct ``codex`` harness, whose shell executes inside the Codex process and
 is surfaced only *observationally*.
@@ -50,11 +50,11 @@ import asyncio
 
 import pytest
 
-from omnigent.inner.codex_executor import _codex_builtin_tool_request
-from omnigent.policies import resolve_function_policy
-from omnigent.policies.builtins._shell import SHELL_TOOLS
-from omnigent.runner.policy import RunnerToolPolicyGate, _GatedPolicy
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase
+from agentnexus.inner.codex_executor import _codex_builtin_tool_request
+from agentnexus.policies import resolve_function_policy
+from agentnexus.policies.builtins._shell import SHELL_TOOLS
+from agentnexus.runner.policy import RunnerToolPolicyGate, _GatedPolicy
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef, Phase
 
 # The genuinely-irreversible operation from the ticket's minimal reproduction.
 _FORCE_PUSH = "git push --force origin HEAD:refs/heads/main"
@@ -75,7 +75,7 @@ def _blast_radius_gate() -> RunnerToolPolicyGate:
         name="blast_radius",
         on=[Phase.TOOL_CALL],
         function=FunctionRef(
-            path="omnigent.policies.builtins.orchestration.blast_radius",
+            path="agentnexus.policies.builtins.orchestration.blast_radius",
             arguments={"gate_pushes": False},
         ),
     )

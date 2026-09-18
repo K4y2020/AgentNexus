@@ -1,5 +1,5 @@
 """
-Unit tests for the Omnigent YAML spec adapter.
+Unit tests for the AgentNexus YAML spec adapter.
 
 Covers:
 
@@ -12,7 +12,7 @@ Covers:
   (identified by ``spec_version``) use the existing parser.
 
 These are the phase 2 translation unit tests + fail-loud tests
-called out in ``designs/OMNIGENT_INTEGRATION.md`` under the
+called out in ``designs/AGENTNEXUS_INTEGRATION.md`` under the
 phase 2 test scope.
 
 Round-trip tests live in ``test_omnigent_roundtrip.py`` since
@@ -28,17 +28,17 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 import pytest
 import yaml
 
-from omnigent.errors import OmnigentError
-from omnigent.spec import load
-from omnigent.spec.omnigent import (
-    OMNIGENT_EXECUTOR_TYPE,
-    OMNIGENT_TOOL_LANGUAGE,
+from agentnexus.errors import AgentNexusError
+from agentnexus.spec import load
+from agentnexus.spec.agentnexus import (
+    AGENTNEXUS_EXECUTOR_TYPE,
+    AGENTNEXUS_TOOL_LANGUAGE,
     agent_def_to_agent_spec,
 )
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec
 
 if TYPE_CHECKING:
-    from omnigent.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import AgentDef
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ def hello_world_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def executor_block_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with an ``executor:`` block declaring
+    AgentNexus YAML with an ``executor:`` block declaring
     model, harness, and profile.
     """
     config = {
@@ -83,7 +83,7 @@ def executor_block_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def function_tools_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with one function-type tool whose
+    AgentNexus YAML with one function-type tool whose
     ``callable:`` points at a real, importable Python function
     (``tests.resources.examples._shared.tool_functions.get_current_time``). The adapter
     recovers the dotted path from the resolved callable's
@@ -109,7 +109,7 @@ def function_tools_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def policies_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML declaring a ``policies:`` block. The adapter
+    AgentNexus YAML declaring a ``policies:`` block. The adapter
     lifts this into ``AgentSpec.guardrails.policies`` so the
     omnigent workflow enforces it at the configured phases.
 
@@ -140,7 +140,7 @@ def policies_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def os_env_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML declaring a top-level ``os_env:`` block. The
+    AgentNexus YAML declaring a top-level ``os_env:`` block. The
     adapter carries it through the top-level ``AgentSpec.os_env`` field as an
     :class:`OSEnvSpec` dataclass so sub-agents that declare
     ``os_env: inherit`` can resolve to it at translation time.
@@ -169,7 +169,7 @@ def os_env_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def mcp_tool_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with a stdio MCP-type tool.
+    AgentNexus YAML with a stdio MCP-type tool.
 
     Translated to an ``MCPServerConfig(transport="stdio",
     command=..., args=...)`` by the adapter — the
@@ -189,7 +189,7 @@ def mcp_tool_yaml(tmp_path: Path) -> Path:
             "glean": {
                 "type": "mcp",
                 "command": ".venv/bin/python",
-                "args": ["-m", "omnigent.inner.databricks_mcps.glean"],
+                "args": ["-m", "agentnexus.inner.databricks_mcps.glean"],
             },
         },
     }
@@ -201,7 +201,7 @@ def mcp_tool_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def mcp_http_tool_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with an HTTP MCP-type tool (``url`` + headers).
+    AgentNexus YAML with an HTTP MCP-type tool (``url`` + headers).
 
     Translated to an ``MCPServerConfig(transport="http", url=...,
     headers=...)`` by the adapter. Covers the non-stdio
@@ -227,7 +227,7 @@ def mcp_http_tool_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def mcp_databricks_server_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML with the ``databricks_server`` MCP shape —
+    AgentNexus YAML with the ``databricks_server`` MCP shape —
     omnigent has no resolver for it, so the adapter rejects.
     """
     config = {
@@ -250,7 +250,7 @@ def mcp_databricks_server_yaml(tmp_path: Path) -> Path:
 @pytest.fixture()
 def cancellable_tool_yaml(tmp_path: Path) -> Path:
     """
-    Omnigent YAML declaring a legacy ``cancellable_function``
+    AgentNexus YAML declaring a legacy ``cancellable_function``
     tool. Used to verify the adapter REJECTS this shape post-step
     (c) — the runner protocol was retired in favor of plain
     callables dispatched via ``sys_call_async``.
@@ -291,7 +291,7 @@ def omnigent_spec_dir(tmp_path: Path) -> Path:
     config = {
         "spec_version": 1,
         "name": "ap-agent",
-        "executor": {"type": "omnigent", "config": {"harness": "claude-sdk"}},
+        "executor": {"type": "agentnexus", "config": {"harness": "claude-sdk"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
     return tmp_path
@@ -306,13 +306,13 @@ def test_agent_def_to_agent_spec_hello_world(
     """
     A minimal YAML (name + prompt only) translates to an
     AgentSpec with name, instructions, spec_version=1, and
-    executor.type='omnigent'.
+    executor.type='agentnexus'.
 
     What breaks if this fails: the baseline phase 2 dispatch —
     ``omnigent chat hello_world.yaml`` can't produce a valid spec
     without this path working.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     agent_def = load_agent_def(hello_world_yaml)
     spec = agent_def_to_agent_spec(agent_def)
@@ -324,15 +324,15 @@ def test_agent_def_to_agent_spec_hello_world(
     # spec_version is synthesized to the current omnigent
     # schema version (no spec_version in omnigent YAMLs).
     assert spec.spec_version == 1
-    # executor.type drives the runtime to pick OmnigentExecutor.
-    assert spec.executor.type == OMNIGENT_EXECUTOR_TYPE
+    # executor.type drives the runtime to pick AgentNexusExecutor.
+    assert spec.executor.type == AGENTNEXUS_EXECUTOR_TYPE
     # Hello world has no executor block, no llm, no tools.
     assert spec.llm is None
     assert spec.local_tools == []
 
 
 def test_agent_def_to_agent_spec_accepts_claude_harness_alias(tmp_path: Path) -> None:
-    """Omnigent YAML may use ``harness: claude`` as a spec-level alias."""
+    """AgentNexus YAML may use ``harness: claude`` as a spec-level alias."""
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
         yaml.dump(
@@ -349,7 +349,7 @@ def test_agent_def_to_agent_spec_accepts_claude_harness_alias(tmp_path: Path) ->
 
     spec = load(yaml_path)
 
-    assert spec.executor.type == OMNIGENT_EXECUTOR_TYPE
+    assert spec.executor.type == AGENTNEXUS_EXECUTOR_TYPE
     assert spec.executor.config["harness"] == "claude-sdk"
 
 
@@ -363,19 +363,19 @@ def test_agent_def_to_agent_spec_executor_block(
     round-trip contract with phase 1's
     ``agent_spec_to_agent_def``).
 
-    What breaks if this fails: the OmnigentExecutor cannot
+    What breaks if this fails: the AgentNexusExecutor cannot
     pick a harness or workspace profile at instantiation time,
     so every non-trivial omnigent YAML routes to the wrong
     harness (or fails).
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     agent_def = load_agent_def(executor_block_yaml)
     spec = agent_def_to_agent_spec(agent_def)
 
     assert spec.llm is not None
     assert spec.llm.model == "databricks-claude-sonnet-4"
-    assert spec.executor.type == OMNIGENT_EXECUTOR_TYPE
+    assert spec.executor.type == AGENTNEXUS_EXECUTOR_TYPE
     # harness / profile land in executor.config (typed dict),
     # NOT setattr-added attributes. This is the shared wire
     # contract with phase 1's agent_spec_to_agent_def.
@@ -419,11 +419,11 @@ def test_agent_def_to_agent_spec_function_tool(
     :class:`LocalToolInfo` whose ``path`` is the recovered
     dotted module path.
 
-    What breaks if this fails: OmnigentExecutor cannot resolve
+    What breaks if this fails: AgentNexusExecutor cannot resolve
     the tool callable on the reverse trip, so the harness starts
     without its tools.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     agent_def = load_agent_def(function_tools_yaml)
     spec = agent_def_to_agent_spec(agent_def)
@@ -439,7 +439,7 @@ def test_agent_def_to_agent_spec_function_tool(
     # (agent_spec_to_agent_def, phase 1) knows this tool came
     # from an omnigent YAML and must be re-resolved via
     # importlib.import_module rather than read off disk.
-    assert tool.language == OMNIGENT_TOOL_LANGUAGE
+    assert tool.language == AGENTNEXUS_TOOL_LANGUAGE
 
 
 def test_agent_def_to_agent_spec_translates_catalog_path_tool(tmp_path: Path) -> None:
@@ -453,8 +453,8 @@ def test_agent_def_to_agent_spec_translates_catalog_path_tool(tmp_path: Path) ->
 
     :param tmp_path: Pytest temporary directory for the YAML fixture.
     """
-    from omnigent.inner.loader import load_agent_def
-    from omnigent.spec.types import ToolRuntime
+    from agentnexus.inner.loader import load_agent_def
+    from agentnexus.spec.types import ToolRuntime
 
     yaml_path = tmp_path / "uc.yaml"
     yaml_path.write_text(
@@ -497,7 +497,7 @@ def test_function_tool_parameters_derived_from_callable_signature(
 ) -> None:
     """
     When the YAML's function tool declares no ``input_schema:``,
-    the Omnigent adapter introspects the resolved Python callable's
+    the AgentNexus adapter introspects the resolved Python callable's
     signature and exposes that as the LLM-facing JSON-Schema
     ``parameters`` block. Without this fallback, omnigent
     YAMLs that point at plain Python functions ship to the LLM
@@ -514,13 +514,13 @@ def test_function_tool_parameters_derived_from_callable_signature(
       - The adapter reverts to forwarding only an explicit
         ``input_schema:`` block from YAML (the prior buggy
         behaviour); plain Python tools become unusable under
-        Omnigent mode.
+        AgentNexus mode.
       - The schema-derivation helper changes its output shape —
         e.g. drops ``required`` for keyword-only-with-default
         params, or starts emitting required entries for
         defaulted ones.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     agent_def = load_agent_def(function_tools_yaml)
     spec = agent_def_to_agent_spec(agent_def)
@@ -561,13 +561,13 @@ def test_load_omnigent_yaml_missing_package_raises_with_install_hint(
     When the ``omnigent`` package is not importable (e.g. agent-
     plane pip-installed standalone without the sibling omnigent
     source on PYTHONPATH), loading an omnigent YAML must surface
-    a friendly :class:`OmnigentError` with an install hint —
+    a friendly :class:`AgentNexusError` with an install hint —
     not a bare ``ModuleNotFoundError`` from deep in the import
     machinery.
 
     What breaks if this fails: a user running ``omnigent chat foo.yaml``
     from an env that only has omnigent gets a cryptic
-    ``ModuleNotFoundError: No module named 'omnigent'`` from
+    ``ModuleNotFoundError: No module named 'agentnexus'`` from
     ``_omnigent_compat.py``'s import line, with no clue what
     to install. The rewritten error says what's missing and how
     to fix it.
@@ -580,14 +580,14 @@ def test_load_omnigent_yaml_missing_package_raises_with_install_hint(
     import sys
 
     for mod_name in list(sys.modules):
-        if mod_name == "omnigent" or mod_name.startswith("omnigent."):
+        if mod_name == "agentnexus" or mod_name.startswith("agentnexus."):
             monkeypatch.delitem(sys.modules, mod_name, raising=False)
 
     from collections.abc import Sequence
     from importlib.machinery import ModuleSpec
     from types import ModuleType
 
-    class _OmnigentBlocker:
+    class _AgentNexusBlocker:
         """Meta-path finder that refuses to resolve omnigent."""
 
         def find_spec(
@@ -597,7 +597,7 @@ def test_load_omnigent_yaml_missing_package_raises_with_install_hint(
             target: ModuleType | None = None,
         ) -> ModuleSpec | None:
             del path, target
-            if fullname == "omnigent" or fullname.startswith("omnigent."):
+            if fullname == "agentnexus" or fullname.startswith("agentnexus."):
                 # Pretend the package doesn't exist at all.
                 raise ModuleNotFoundError(
                     f"No module named {fullname!r}",
@@ -605,17 +605,17 @@ def test_load_omnigent_yaml_missing_package_raises_with_install_hint(
                 )
             return None
 
-    blocker = _OmnigentBlocker()
+    blocker = _AgentNexusBlocker()
     monkeypatch.setattr(sys, "meta_path", [blocker, *sys.meta_path])
 
-    with pytest.raises(OmnigentError) as exc_info:
+    with pytest.raises(AgentNexusError) as exc_info:
         load(hello_world_yaml)
 
     # Error message points at the missing package by name AND
     # gives an actionable install instruction. A bare
     # ModuleNotFoundError would say neither.
     message = str(exc_info.value)
-    assert "omnigent" in message
+    assert "agentnexus" in message
     assert "pip install" in message, (
         f"Expected an install hint in the error message; got: {message!r}"
     )
@@ -623,7 +623,7 @@ def test_load_omnigent_yaml_missing_package_raises_with_install_hint(
 
 def test_load_policies_yaml_lifts_into_guardrails(policies_yaml: Path) -> None:
     """
-    Omnigent YAMLs with a ``policies:`` block produce an
+    AgentNexus YAMLs with a ``policies:`` block produce an
     AgentSpec whose ``guardrails.policies`` carries the
     translated policy, preserving ``name``, the dotted callable
     path, and the phase. The omnigent workflow then enforces
@@ -634,7 +634,7 @@ def test_load_policies_yaml_lifts_into_guardrails(policies_yaml: Path) -> None:
     author's declared guardrails) or fail spec-load (regression
     to the pre-lift rejection path).
     """
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     spec = load(policies_yaml)
     assert spec.guardrails is not None
@@ -651,7 +651,7 @@ def test_load_policies_yaml_lifts_into_guardrails(policies_yaml: Path) -> None:
     # ``target`` argument so legacy ``(content, phase)`` callables
     # get adapted at policy-build time.
     assert policy.function is not None
-    assert policy.function.path == "omnigent.spec._omnigent_legacy_shim.build"
+    assert policy.function.path == "agentnexus.spec._omnigent_legacy_shim.build"
     assert policy.function.arguments == {
         "target": "tests.resources.examples._shared.tool_functions.block_long_sleep",
     }
@@ -674,7 +674,7 @@ def test_load_os_env_yaml_carries_through_top_level_field(
     sub-agents has no concrete parent to resolve against and
     sub-agents boot without filesystem access.
     """
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     spec = load(os_env_yaml)
 
@@ -695,7 +695,7 @@ def test_load_os_env_yaml_carries_through_top_level_field(
 
 def test_load_mcp_stdio_yaml_translates_to_mcp_server(mcp_tool_yaml: Path) -> None:
     """
-    Omnigent YAMLs declaring a subprocess MCP tool translate to
+    AgentNexus YAMLs declaring a subprocess MCP tool translate to
     a native ``MCPServerConfig(transport="stdio", ...)`` entry on
     ``AgentSpec.mcp_servers``. At runtime
     :class:`~omnigent.tools.mcp.McpServerConnection` spawns the
@@ -704,7 +704,7 @@ def test_load_mcp_stdio_yaml_translates_to_mcp_server(mcp_tool_yaml: Path) -> No
     What breaks if this fails: the adapter regresses to the
     old fail-loud rejection, making agents with MCPs
     (e.g. databricks_coding_agent's glean/google) unusable
-    under the Omnigent integration path.
+    under the AgentNexus integration path.
     """
     spec = load(mcp_tool_yaml)
     assert len(spec.mcp_servers) == 1
@@ -715,7 +715,7 @@ def test_load_mcp_stdio_yaml_translates_to_mcp_server(mcp_tool_yaml: Path) -> No
     # Command + args carry through verbatim so the subprocess
     # spawn matches what legacy omnigent ran.
     assert mcp.command == ".venv/bin/python"
-    assert mcp.args == ["-m", "omnigent.inner.databricks_mcps.glean"]
+    assert mcp.args == ["-m", "agentnexus.inner.databricks_mcps.glean"]
     # HTTP fields must stay None / empty on the stdio branch.
     assert mcp.url is None
     assert mcp.headers == {}
@@ -723,13 +723,13 @@ def test_load_mcp_stdio_yaml_translates_to_mcp_server(mcp_tool_yaml: Path) -> No
 
 def test_load_mcp_http_yaml_translates_to_mcp_server(mcp_http_tool_yaml: Path) -> None:
     """
-    Omnigent YAMLs with an HTTP MCP (``url`` + headers)
+    AgentNexus YAMLs with an HTTP MCP (``url`` + headers)
     translate to an ``MCPServerConfig(transport="http", ...)``
     entry. Covers the non-stdio branch of
     :func:`_translate_mcp_tool_from_def`.
 
     What breaks if this fails: users migrating HTTP MCPs from
-    omnigent-legacy to Omnigent mode get either a translator crash
+    omnigent-legacy to AgentNexus mode get either a translator crash
     (``None`` command) or a silently dropped tool.
     """
     spec = load(mcp_http_tool_yaml)
@@ -751,12 +751,12 @@ def test_mcp_stdio_yaml_reverse_trip_recovers_mcp_tool(mcp_tool_yaml: Path) -> N
     """
     Forward + reverse round-trip: YAML → AgentSpec (with
     MCPServerConfig) → AgentDef (with MCPTool). The reverse
-    path is what :meth:`OmnigentExecutor.from_spec` calls
+    path is what :meth:`AgentNexusExecutor.from_spec` calls
     when wrapping an omnigent spec for an omnigent
     harness; a missing reverse translation drops every MCP
     tool from the AgentDef the harness sees.
 
-    What breaks if this fails: a live Omnigent mode run with a
+    What breaks if this fails: a live AgentNexus mode run with a
     stdio MCP either crashes (reverse path raises
     ``unsupported concept``) or silently drops the MCP tool
     (LLM sees no MCP tool, never calls it, agent returns
@@ -764,8 +764,8 @@ def test_mcp_stdio_yaml_reverse_trip_recovers_mcp_tool(mcp_tool_yaml: Path) -> N
     the live E2E test under tests/e2e/omnigent/ guards
     against.
     """
-    from omnigent.inner.tools import MCPTool
-    from omnigent.spec.omnigent import agent_spec_to_agent_def
+    from agentnexus.inner.tools import MCPTool
+    from agentnexus.spec.agentnexus import agent_spec_to_agent_def
 
     spec = load(mcp_tool_yaml)
     agent_def = agent_spec_to_agent_def(spec)
@@ -778,13 +778,13 @@ def test_mcp_stdio_yaml_reverse_trip_recovers_mcp_tool(mcp_tool_yaml: Path) -> N
     # Transport fields round-trip: command + args must match the
     # originally-declared subprocess, not some lossy approximation.
     assert tool.command == ".venv/bin/python"
-    assert tool.args == ["-m", "omnigent.inner.databricks_mcps.glean"]
+    assert tool.args == ["-m", "agentnexus.inner.databricks_mcps.glean"]
 
 
 def test_load_mcp_databricks_server_yaml_raises(mcp_databricks_server_yaml: Path) -> None:
     """
-    Omnigent MCP tools using the ``databricks_server=<name>``
-    shape fail loud — Omnigent' MCPServerConfig doesn't
+    AgentNexus MCP tools using the ``databricks_server=<name>``
+    shape fail loud — AgentNexus' MCPServerConfig doesn't
     resolve named Databricks servers. The translator needs a
     concrete ``url`` or ``command`` to emit a functional config.
 
@@ -794,7 +794,7 @@ def test_load_mcp_databricks_server_yaml_raises(mcp_databricks_server_yaml: Path
     validator would then reject the spec at load, but with a
     less-helpful message than the pinpoint fail here.
     """
-    with pytest.raises(OmnigentError, match="databricks_server"):
+    with pytest.raises(AgentNexusError, match="databricks_server"):
         load(mcp_databricks_server_yaml)
 
 
@@ -802,14 +802,14 @@ def test_load_cancellable_function_yaml_rejected_post_step_c(
     cancellable_tool_yaml: Path,
 ) -> None:
     """
-    Omnigent YAMLs declaring ``type: cancellable_function``
-    are rejected by the Omnigent adapter with a clear migration hint.
+    AgentNexus YAMLs declaring ``type: cancellable_function``
+    are rejected by the AgentNexus adapter with a clear migration hint.
 
     Step (c) retired the runner-protocol shape (``runner:`` +
     ``CancellableFunctionTool``) in favor of plain callables
     dispatched via ``sys_call_async``. The adapter fails loud
     rather than silently translating, so anyone porting an old
-    inner-stack YAML to Omnigent mode gets pointed at the new shape.
+    inner-stack YAML to AgentNexus mode gets pointed at the new shape.
 
     What breaks if this fails: either the adapter regresses to
     silently accept runner instances (the bug that motivated
@@ -818,7 +818,7 @@ def test_load_cancellable_function_yaml_rejected_post_step_c(
     hint disappears and users hit a confusing internal
     ``TypeError`` instead.
     """
-    with pytest.raises(OmnigentError, match="cancellable_function"):
+    with pytest.raises(AgentNexusError, match="cancellable_function"):
         load(cancellable_tool_yaml)
 
 
@@ -831,7 +831,7 @@ def test_load_omnigent_yaml_routes_to_adapter(
     """
     A ``.yaml`` file with ``name`` + ``prompt`` and no
     ``spec_version`` routes through the omnigent adapter.
-    The produced spec has ``executor.type='omnigent'``, which
+    The produced spec has ``executor.type='agentnexus'``, which
     no omnigent native spec ever emits.
 
     Uses ``executor_block_yaml`` (which declares a harness) rather
@@ -845,7 +845,7 @@ def test_load_omnigent_yaml_routes_to_adapter(
     spec, producing nonsense.
     """
     spec = load(executor_block_yaml)
-    assert spec.executor.type == OMNIGENT_EXECUTOR_TYPE
+    assert spec.executor.type == AGENTNEXUS_EXECUTOR_TYPE
     assert spec.name == "executor_example"
     assert spec.executor.config["harness"] == "claude-sdk"
 
@@ -856,7 +856,7 @@ def test_load_omnigent_directory_uses_existing_parser(
     """
     An omnigent spec directory (``spec_version`` declared)
     routes through the existing parser unchanged. The resulting
-    spec has ``executor.type='omnigent'`` (the default)
+    spec has ``executor.type='agentnexus'`` (the default)
     and no omnigent extras.
 
     What breaks if this fails: all existing omnigent specs
@@ -865,7 +865,7 @@ def test_load_omnigent_directory_uses_existing_parser(
     """
     spec = load(omnigent_spec_dir)
     # Default executor type, proving the dispatch routed correctly.
-    assert spec.executor.type == "omnigent"
+    assert spec.executor.type == "agentnexus"
     assert spec.name == "ap-agent"
 
 
@@ -903,7 +903,7 @@ def test_load_yaml_with_spec_version_not_routed_to_adapter(
     # an actionable diagnostic. If detection were wrong, we'd get an
     # omnigent-adapter error (e.g. "missing system-prompt key")
     # instead — the assertion below pins the omnigent shape.
-    with pytest.raises(OmnigentError, match="spec_version"):
+    with pytest.raises(AgentNexusError, match="spec_version"):
         load(path)
 
 
@@ -924,10 +924,10 @@ def test_cancellable_function_parameters_forward_trip_preserves_input_schema() -
     catches the regression at translation time with an actionable
     message.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.inner.tools import CancellableFunctionTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.tools import CancellableFunctionTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     seconds_schema = {
         "type": "object",
@@ -951,7 +951,7 @@ def test_cancellable_function_parameters_forward_trip_preserves_input_schema() -
         },
     )
 
-    with pytest.raises(OmnigentError, match="cancellable_function"):
+    with pytest.raises(AgentNexusError, match="cancellable_function"):
         agent_def_to_agent_spec(original)
 
 
@@ -964,7 +964,7 @@ def test_function_tool_parameters_round_trip_preserves_input_schema(
     translation and back without losing the schema.
 
     Step (c) made plain callables the only supported function-tool
-    shape on the Omnigent path. Schema preservation matters because the
+    shape on the AgentNexus path. Schema preservation matters because the
     inner harness's ``tool_schema()`` falls back to introspecting
     the callable when ``input_schema`` is absent — fine for
     well-typed functions, but fragile for tools with non-trivial
@@ -972,11 +972,11 @@ def test_function_tool_parameters_round_trip_preserves_input_schema(
     Pinning the round-trip catches regressions where the
     translator drops ``parameters`` somewhere along the way.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.inner.tools import FunctionTool
-    from omnigent.spec import omnigent as spec_omni
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.tools import FunctionTool
+    from agentnexus.spec import agentnexus as spec_omni
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     seconds_schema = {
         "type": "object",
@@ -1061,15 +1061,15 @@ def test_os_env_round_trips_through_translator() -> None:
     without FS access) or crash (hand-rolled dict conversion
     reintroduced and lost a field).
     """
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         AgentDef,
         OSEnvSandboxSpec,
         OSEnvSpec,
     )
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.spec.omnigent import (
+    from agentnexus.spec.agentnexus import (
         agent_def_to_agent_spec,
         agent_spec_to_agent_def,
     )
@@ -1110,8 +1110,8 @@ def test_inline_agent_tool_preserves_launch_settings_across_translation(
     tmp_path: Path,
 ) -> None:
     """Sub-agent history and session limits survive the real YAML load path."""
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_spec_to_agent_def
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_spec_to_agent_def
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -1163,15 +1163,15 @@ def test_inline_agent_tool_inherit_resolves_to_parent_os_env() -> None:
     the repo. The whole point of ``os_env: inherit`` — matching
     legacy omnigent semantics — silently breaks.
     """
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         AgentDef,
         OSEnvSpec,
     )
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent_os_env = OSEnvSpec(type="caller_process", cwd=".")
     parent = AgentDef(
@@ -1219,15 +1219,15 @@ def test_inline_agent_tool_concrete_os_env_not_overridden_by_parent() -> None:
     only fires when the tool uses the string sentinel. Explicit
     always wins, same as the ``profile`` propagation rule.
     """
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         AgentDef,
         OSEnvSpec,
     )
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent_os_env = OSEnvSpec(type="caller_process", cwd=".")
     child_os_env = OSEnvSpec(type="caller_process", cwd="/tmp/sandbox")
@@ -1268,14 +1268,14 @@ def test_inline_agent_tool_inherit_with_no_parent_os_env_yields_none() -> None:
     commented-out ``coding_supervisor.yaml`` state the user
     experienced before this feature landed).
     """
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         AgentDef,
     )
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="supervisor",
@@ -1322,8 +1322,8 @@ def test_instructions_field_resolved_path_wins_over_prompt() -> None:
     compat, ends up with the placeholder instead of the real
     instructions.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     agent_def = AgentDef(
         name="instr-precedence",
@@ -1340,8 +1340,8 @@ def test_instructions_field_falls_back_to_prompt_when_unset() -> None:
     back to ``prompt:`` — preserves backward compat for every
     omnigent YAML written before the field existed.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     agent_def = AgentDef(name="prompt-only", prompt="just the prompt")
     spec = agent_def_to_agent_spec(agent_def)
@@ -1351,12 +1351,12 @@ def test_instructions_field_falls_back_to_prompt_when_unset() -> None:
 def test_instructions_yaml_loads_through_full_pipeline(tmp_path: Path) -> None:
     """
     End-to-end through ``load_omnigent_yaml`` (the integration
-    path the Omnigent server hits when registering an omnigent
+    path the AgentNexus server hits when registering an omnigent
     bundle): YAML with ``instructions: AGENTS.md`` produces a
     spec whose ``instructions`` field carries the file's
     contents.
     """
-    from omnigent.spec._omnigent_compat import load_omnigent_yaml
+    from agentnexus.spec._omnigent_compat import load_omnigent_yaml
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -1372,7 +1372,7 @@ def test_instructions_yaml_loads_through_full_pipeline(tmp_path: Path) -> None:
     assert spec.instructions == "FROM AGENTS DOT MD"
 
 
-# ── Terminals threading (OMNIGENT_TERMINAL_BRIDGE §6.1) ────────────
+# ── Terminals threading (AGENTNEXUS_TERMINAL_BRIDGE §6.1) ────────────
 
 
 def test_terminals_thread_through_translator() -> None:
@@ -1381,24 +1381,24 @@ def test_terminals_thread_through_translator() -> None:
     ``AgentSpec.terminals``. This is the load-bearing path that
     makes ``terminals:`` declarations in omnigent YAML reach the
     AP-side ``sys_terminal_*`` tools — the whole feature from
-    ``designs/OMNIGENT_TERMINAL_BRIDGE.md`` collapses if this breaks.
+    ``designs/AGENTNEXUS_TERMINAL_BRIDGE.md`` collapses if this breaks.
 
     What breaks if this fails: omnigent YAMLs that declare
-    ``terminals:`` boot under Omnigent mode with
+    ``terminals:`` boot under AgentNexus mode with
     ``AgentSpec.terminals=None``. The AP-side ToolManager doesn't
     register ``sys_terminal_*``, and the LLM gets a "tool not
     available" error mid-conversation.
     """
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         AgentDef,
         OSEnvSandboxSpec,
         OSEnvSpec,
         TerminalEnvSpec,
     )
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     bash_terminal = TerminalEnvSpec(
         command="bash",
@@ -1451,11 +1451,11 @@ def test_terminals_none_when_parent_has_no_terminals() -> None:
     same "no terminals declared" semantics with a confusingly
     different error message.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="no_terminals",
@@ -1505,12 +1505,12 @@ def test_inline_agent_tool_inherits_parent_terminals() -> None:
     no way to launch a terminal even though the parent has one
     configured. The supervisor pattern stops working again.
     """
-    from omnigent.inner.datamodel import AgentDef, TerminalEnvSpec
-    from omnigent.inner.datamodel import (
+    from agentnexus.inner.datamodel import AgentDef, TerminalEnvSpec
+    from agentnexus.inner.datamodel import (
         ExecutorSpec as OmniExecutorSpec,
     )
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="supervisor",
@@ -1571,21 +1571,21 @@ def test_harness_auto_picks_from_model_prefix(
     When an omnigent YAML declares a model but no harness,
     the adapter fills in the right harness by matching the
     model prefix against
-    :data:`~omnigent.spec.omnigent._HARNESS_FOR_MODEL_PREFIX`.
+    :data:`~omnigent.spec.agentnexus._HARNESS_FOR_MODEL_PREFIX`.
 
     Mirrors the auto-pick pure omnigent' CLI does at
     ``create_executor`` time, so YAMLs that relied on the
     implicit behavior don't need to be touched to work under
-    Omnigent mode.
+    AgentNexus mode.
 
     What breaks if this fails: every YAML lacking an explicit
     ``harness:`` field trips the validator's
     ``executor.config.harness: required`` error at spec-load,
-    blocking the entire Omnigent path.
+    blocking the entire AgentNexus path.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     agent_def = AgentDef(
         name="auto_pick_probe",
@@ -1607,9 +1607,9 @@ def test_harness_auto_pick_doesnt_override_explicit_declaration() -> None:
     NOT override it. Explicit always wins — same precedence
     rule as the profile and os_env fallbacks.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     agent_def = AgentDef(
         name="explicit_probe",
@@ -1633,13 +1633,13 @@ def test_harness_auto_pick_unknown_model_raises() -> None:
     at translation time — every agent must resolve to a named
     harness.
 
-    :raises OmnigentError: With a message explaining that the
+    :raises AgentNexusError: With a message explaining that the
         model could not be mapped to a harness.
     """
-    from omnigent.errors import OmnigentError
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     agent_def = AgentDef(
         name="unknown_probe",
@@ -1647,7 +1647,7 @@ def test_harness_auto_pick_unknown_model_raises() -> None:
         tools={},
         executor=OmniExecutorSpec(model="exotic/some-new-model-v1"),
     )
-    with pytest.raises(OmnigentError, match=r"[Hh]arness"):
+    with pytest.raises(AgentNexusError, match=r"[Hh]arness"):
         agent_def_to_agent_spec(agent_def)
 
 
@@ -1670,10 +1670,10 @@ def test_inline_agent_tool_without_executor_inherits_parent_harness() -> None:
     with ``sub_agents[...].executor.config.harness: required``
     before any LLM request.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="supervisor",
@@ -1705,10 +1705,10 @@ def test_inline_agent_tool_explicit_harness_wins_over_parent() -> None:
     When the inline AgentTool declares its own harness, parent
     inheritance must NOT override it. Explicit always wins.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="supervisor",
@@ -1740,10 +1740,10 @@ def test_inline_agent_tool_falls_through_to_model_auto_pick() -> None:
     When neither the child NOR the parent declares a harness,
     the adapter's model-prefix auto-pick still fires.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-    from omnigent.inner.tools import AgentTool
-    from omnigent.spec.omnigent import agent_def_to_agent_spec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.tools import AgentTool
+    from agentnexus.spec.agentnexus import agent_def_to_agent_spec
 
     parent = AgentDef(
         name="supervisor",
@@ -1829,8 +1829,8 @@ def _build_agent_def_with_raw_yaml(
     :returns: Tuple of (AgentDef with a valid executor, raw
         YAML dict suitable for the ``raw_yaml`` kwarg).
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
 
     agent_def = AgentDef(
         name="polled",
@@ -1862,7 +1862,7 @@ def test_function_policy_routes_callable_through_legacy_shim() -> None:
 
     The indirection exists so author callables written with the
     legacy omnigent ``(content, phase)`` convention keep
-    working under Omnigent' ``(ctx, context)`` convention —
+    working under AgentNexus' ``(ctx, context)`` convention —
     see ``omnigent.spec._omnigent_legacy_shim``. The shim
     is a runtime no-op for omnigent-native callables, so
     routing everything through it is safe.
@@ -1874,7 +1874,7 @@ def test_function_policy_routes_callable_through_legacy_shim() -> None:
     ``importlib.import_module`` call inside ``build()`` can't
     find the author's callable.
     """
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     agent_def, raw_yaml = _build_agent_def_with_raw_yaml(
         policies={
@@ -1895,7 +1895,7 @@ def test_function_policy_routes_callable_through_legacy_shim() -> None:
     assert policy.function is not None
     # Factory path is the shim — exact string so a typo in the
     # translator can't route to some other builder silently.
-    assert policy.function.path == "omnigent.spec._omnigent_legacy_shim.build"
+    assert policy.function.path == "agentnexus.spec._omnigent_legacy_shim.build"
     # The author's original callable travels in factory arguments under
     # the ``target`` key; no ``factory_kwargs`` because the YAML didn't
     # declare ``factory_params``.
@@ -1918,7 +1918,7 @@ def test_function_policy_with_factory_params_routes_through_legacy_shim() -> Non
     revert to their defaults — the policy still loads but
     enforces nothing useful.
     """
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     agent_def, raw_yaml = _build_agent_def_with_raw_yaml(
         policies={
@@ -1938,7 +1938,7 @@ def test_function_policy_with_factory_params_routes_through_legacy_shim() -> Non
     policy = spec.guardrails.policies[0]
     assert isinstance(policy, FunctionPolicySpec)
     assert policy.function is not None
-    assert policy.function.path == "omnigent.spec._omnigent_legacy_shim.build"
+    assert policy.function.path == "agentnexus.spec._omnigent_legacy_shim.build"
     # Both the original target AND the factory kwargs are
     # preserved byte-for-byte on the arguments dict.
     assert policy.function.arguments == {
@@ -1961,7 +1961,7 @@ def test_function_policy_callable_alias_resolves_identically_to_handler() -> Non
     refuses to start — the user has no path to run their agent without
     manually editing every stored YAML.
     """
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     agent_def, raw_yaml = _build_agent_def_with_raw_yaml(
         policies={
@@ -1980,7 +1980,7 @@ def test_function_policy_callable_alias_resolves_identically_to_handler() -> Non
     assert isinstance(policy, FunctionPolicySpec)
     assert policy.name == "block_sleep"
     assert policy.function is not None
-    assert policy.function.path == "omnigent.spec._omnigent_legacy_shim.build"
+    assert policy.function.path == "agentnexus.spec._omnigent_legacy_shim.build"
     assert policy.function.arguments == {
         "target": "tests.resources.examples._shared.tool_functions.block_long_sleep",
     }
@@ -1995,7 +1995,7 @@ def test_function_policy_callable_alias_with_factory_params() -> None:
     factory kwargs (e.g. ``read_all: true``) silently lose their
     configuration and revert to defaults.
     """
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     agent_def, raw_yaml = _build_agent_def_with_raw_yaml(
         policies={
@@ -2015,7 +2015,7 @@ def test_function_policy_callable_alias_with_factory_params() -> None:
     policy = spec.guardrails.policies[0]
     assert isinstance(policy, FunctionPolicySpec)
     assert policy.function is not None
-    assert policy.function.path == "omnigent.spec._omnigent_legacy_shim.build"
+    assert policy.function.path == "agentnexus.spec._omnigent_legacy_shim.build"
     assert policy.function.arguments == {
         "target": "tests.resources.examples._shared.rate_limit_policy.max_tool_calls_per_turn",
         "factory_kwargs": {"limit": 5},
@@ -2034,8 +2034,8 @@ def test_databricks_slash_model_without_profile_leaves_connection_none() -> None
     (no ``--profile`` flag) suddenly get a spec-load error because the
     translator tries to resolve a profile that was never set.
     """
-    from omnigent.inner.datamodel import AgentDef
-    from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+    from agentnexus.inner.datamodel import AgentDef
+    from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
 
     agent_def = AgentDef(
         name="slash_model_no_profile",
@@ -2055,7 +2055,7 @@ def test_databricks_slash_model_without_profile_leaves_connection_none() -> None
 def test_labels_and_schema_merge() -> None:
     """
     Top-level ``labels:`` (initial values) and ``label_schema:``
-    (values) merge into Omnigent's
+    (values) merge into AgentNexus's
     :attr:`GuardrailsSpec.labels` as :class:`LabelDef` entries.
 
     What breaks if this fails: the workflow runs with the wrong
@@ -2125,7 +2125,7 @@ def test_executor_extra_field_propagates_to_llm_config() -> None:
     produces an :class:`AgentSpec` whose ``llm.extra`` carries
     those kwargs byte-for-byte.
 
-    The downstream chain (``OmnigentExecutor.run_turn`` →
+    The downstream chain (``AgentNexusExecutor.run_turn`` →
     ``OmniExecutorConfig.extra`` → ``cfg.extra.get("max_turns")``
     in the per-harness executor) then reads these kwargs at
     runtime. This field is not part of the omnigent
@@ -2134,9 +2134,9 @@ def test_executor_extra_field_propagates_to_llm_config() -> None:
 
     What breaks if this fails: agent authors lose the ability to
     override per-harness knobs (``max_turns``, ``temperature``,
-    ``parallel_tool_calls``, etc.) through the Omnigent path, even
+    ``parallel_tool_calls``, etc.) through the AgentNexus path, even
     though those knobs work fine via legacy omnigent. Makes
-    Omnigent mode a downgrade rather than a compatible integration.
+    AgentNexus mode a downgrade rather than a compatible integration.
     """
     agent_def, raw_yaml = _build_agent_def_with_raw_yaml()
     raw_yaml["executor"] = {
@@ -2274,7 +2274,7 @@ def test_unknown_policy_type_rejected_with_clear_message() -> None:
             },
         },
     )
-    with pytest.raises(OmnigentError, match="weird") as exc_info:
+    with pytest.raises(AgentNexusError, match="weird") as exc_info:
         agent_def_to_agent_spec(agent_def, raw_yaml=raw_yaml)
     assert "regex" in str(exc_info.value)
 
@@ -2295,8 +2295,8 @@ def test_self_clone_string_shorthand_loader_produces_selfagent_tool(
     silently becomes a default-everything AgentTool — the
     cloned-from-parent behavior is lost.
     """
-    from omnigent.inner.loader import load_agent_def
-    from omnigent.inner.tools import SelfAgentTool
+    from agentnexus.inner.loader import load_agent_def
+    from agentnexus.inner.tools import SelfAgentTool
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -2333,8 +2333,8 @@ def test_self_clone_dict_form_loader_produces_selfagent_tool(
     translator would build a default sub-agent instead of
     cloning the parent.
     """
-    from omnigent.inner.loader import load_agent_def
-    from omnigent.inner.tools import SelfAgentTool
+    from agentnexus.inner.loader import load_agent_def
+    from agentnexus.inner.tools import SelfAgentTool
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -2377,7 +2377,7 @@ def test_self_clone_dict_form_rejects_conflicting_overrides(
     message names the conflicting field so the author can fix
     the YAML.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -2426,7 +2426,7 @@ def test_agent_def_to_agent_spec_self_clone_propagates_parent_config(
     inheriting the parent's harness/model/prompt — both render
     self-clone unusable in practice.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -2465,7 +2465,7 @@ def test_agent_def_to_agent_spec_self_clone_propagates_parent_config(
     # Parent's model + harness propagate.
     assert sub.llm is not None
     assert sub.llm.model == "databricks-claude-sonnet-4-6"
-    assert sub.executor.type == OMNIGENT_EXECUTOR_TYPE
+    assert sub.executor.type == AGENTNEXUS_EXECUTOR_TYPE
     assert sub.executor.config["harness"] == "claude-sdk"
 
 
@@ -2488,7 +2488,7 @@ def test_agent_def_to_agent_spec_self_clone_recursion_guard(
     workflow ``max_iterations``, not by this guard. This test
     pins the parse-time invariant only.
     """
-    from omnigent.inner.loader import load_agent_def
+    from agentnexus.inner.loader import load_agent_def
 
     yaml_path = tmp_path / "agent.yaml"
     yaml_path.write_text(
@@ -2531,8 +2531,8 @@ def test_compat_yaml_executor_auth_is_not_dropped(tmp_path: Path) -> None:
 
     :param tmp_path: Temporary directory for the test YAML.
     """
-    from omnigent.spec._omnigent_compat import load_omnigent_yaml
-    from omnigent.spec.types import DatabricksAuth
+    from agentnexus.spec._omnigent_compat import load_omnigent_yaml
+    from agentnexus.spec.types import DatabricksAuth
 
     yaml_path = tmp_path / "agent_with_auth.yaml"
     yaml_path.write_text(
@@ -2569,8 +2569,8 @@ def test_compat_yaml_executor_api_key_auth_is_not_dropped(tmp_path: Path) -> Non
 
     :param tmp_path: Temporary directory for the test YAML.
     """
-    from omnigent.spec._omnigent_compat import load_omnigent_yaml
-    from omnigent.spec.types import ApiKeyAuth
+    from agentnexus.spec._omnigent_compat import load_omnigent_yaml
+    from agentnexus.spec.types import ApiKeyAuth
 
     yaml_path = tmp_path / "agent_api_key.yaml"
     yaml_path.write_text(

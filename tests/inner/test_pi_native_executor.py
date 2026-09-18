@@ -2,7 +2,7 @@
 
 These cover the pi-native happy path WITHOUT a real LLM or a live Pi TUI.
 The pi-native executor never drives a model: a native Pi process is already
-running in the session terminal with the Omnigent extension loaded, and each
+running in the session terminal with the AgentNexus extension loaded, and each
 turn merely queues the latest user message into the bridge inbox for that
 extension to consume. The "LLM" is the out-of-process Pi TUI, so the happy
 path is verified by mocking the bridge sink (``enqueue_user_message``) and
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner import pi_native_executor as pne
-from omnigent.inner.executor import ExecutorError, TurnComplete
+from agentnexus.inner import pi_native_executor as pne
+from agentnexus.inner.executor import ExecutorError, TurnComplete
 
 
 def test_supports_flags(tmp_path: Path) -> None:
@@ -114,7 +114,7 @@ async def test_turn_refreshes_baked_bearer(tmp_path: Path, monkeypatch) -> None:
     extension's policy/MCP POSTs fail closed once the session outlives it.
     Both turn paths (``run_turn`` and live steering) must refresh.
     """
-    import omnigent.runner._entry as entry
+    import agentnexus.runner._entry as entry
 
     monkeypatch.setattr(entry, "_make_auth_token_factory", lambda *a, **k: lambda: "tok")
     monkeypatch.setattr(pne, "enqueue_user_message", lambda *a: "msg")
@@ -133,7 +133,7 @@ async def test_turn_refreshes_baked_bearer(tmp_path: Path, monkeypatch) -> None:
 
 async def test_turn_refresh_is_best_effort(tmp_path: Path, monkeypatch) -> None:
     """A mint failure never blocks the turn (best-effort refresh)."""
-    import omnigent.runner._entry as entry
+    import agentnexus.runner._entry as entry
 
     def _boom(*_a, **_k):
         raise RuntimeError("sdk down")

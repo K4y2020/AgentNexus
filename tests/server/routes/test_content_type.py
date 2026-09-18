@@ -21,7 +21,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from omnigent.server.routes._content_type import (
+from agentnexus.server.routes._content_type import (
     require_json_content_type,
     require_json_or_multipart_content_type,
 )

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Downloads the sherpa-onnx models the server dictation engine expects
-# (designs/server-dictation.md) into ~/.omnigent/models/dictation/:
+# (designs/server-dictation.md) into ~/.agentnexus/models/dictation/:
 #   asr/    streaming Nemotron transducer (int8, ~650 MB) — the recognizer
 #   punct/  online CNN-BiLSTM punctuation (int8, ~38 MB) — live re-punctuation
 #
@@ -9,11 +9,11 @@
 #   https://k2-fsa.github.io/sherpa/onnx/pretrained_models/index.html
 #   https://k2-fsa.github.io/sherpa/onnx/punctuation/pretrained_models.html
 # Any streaming transducer dir (encoder/decoder/joiner + tokens.txt) works;
-# point OMNIGENT_DICTATION_MODEL_DIR / OMNIGENT_DICTATION_PUNCT_DIR at
+# point AGENTNEXUS_DICTATION_MODEL_DIR / AGENTNEXUS_DICTATION_PUNCT_DIR at
 # alternates.
 set -euo pipefail
 
-DEST="${OMNIGENT_DICTATION_MODEL_ROOT:-$HOME/.omnigent/models/dictation}"
+DEST="${AGENTNEXUS_DICTATION_MODEL_ROOT:-$HOME/.agentnexus/models/dictation}"
 ASR_TARBALL="sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25"
 PUNCT_TARBALL="sherpa-onnx-online-punct-en-2024-08-06"
 ASR_GH="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"

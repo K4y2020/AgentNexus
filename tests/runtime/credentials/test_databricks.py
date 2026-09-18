@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.credentials.databricks import (
+from agentnexus.runtime.credentials.databricks import (
     WorkspaceCreds,
     resolve_databricks_workspace,
 )
@@ -310,7 +310,7 @@ def test_oauth_profile_error_recommends_extra_when_sdk_absent(
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(cfg))
     # Simulate the base install: the SDK package is not importable.
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks._databricks_sdk_importable",
+        "agentnexus.runtime.credentials.databricks._databricks_sdk_importable",
         lambda: False,
     )
 
@@ -321,7 +321,7 @@ def test_oauth_profile_error_recommends_extra_when_sdk_absent(
     assert "[oss]" in msg
     assert "malformed" not in msg.lower()
     # Points at the missing package / extra, not the CLI/login session.
-    assert "omnigent[databricks]" in msg
+    assert "agentnexus[databricks]" in msg
     assert "databricks auth login" not in msg
 
 
@@ -437,11 +437,11 @@ def test_sdk_value_error_does_not_emit_warning(
     )
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(cfg))
 
-    with caplog.at_level(logging.DEBUG, logger="omnigent.runtime.credentials.databricks"):
+    with caplog.at_level(logging.DEBUG, logger="agentnexus.runtime.credentials.databricks"):
         resolve_databricks_workspace(profile="dev")
 
     module_records = [
-        r for r in caplog.records if r.name == "omnigent.runtime.credentials.databricks"
+        r for r in caplog.records if r.name == "agentnexus.runtime.credentials.databricks"
     ]
     # WARNING+ would re-introduce the stderr traceback.
     warnings_or_louder = [r for r in module_records if r.levelno >= logging.WARNING]

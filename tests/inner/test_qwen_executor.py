@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     ReasoningChunk,
@@ -31,7 +31,7 @@ from omnigent.inner.executor import (
     ToolCallStatus,
     TurnComplete,
 )
-from omnigent.inner.qwen_executor import QwenExecutor
+from agentnexus.inner.qwen_executor import QwenExecutor
 
 # ---------------------------------------------------------------------------
 # Construction / attribute defaults
@@ -288,7 +288,7 @@ async def test_read_stdout_wakes_pending_futures_on_eof() -> None:
 
 def test_sandbox_launch_path_bare_when_no_sandbox() -> None:
     """No os_env, or sandbox type 'none', spawns the bare qwen binary."""
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     # os_env not provided at all.
     bare = QwenExecutor(qwen_path="/usr/bin/qwen")
@@ -310,9 +310,9 @@ def test_sandbox_launch_path_wraps_active_policy(
     tool call can't escape the spec's read/write roots. Asserts the launcher is
     returned and the policy carries qwen's own paths and our spawn env names.
     """
-    from omnigent.inner import sandbox as sandbox_mod
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.inner.sandbox import SandboxPolicy
+    from agentnexus.inner import sandbox as sandbox_mod
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.sandbox import SandboxPolicy
 
     captured: dict = {}
 
@@ -356,8 +356,8 @@ def test_sandbox_launch_path_falls_back_when_backend_unavailable(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     """A backend failure degrades to the bare binary, never blocks startup."""
-    from omnigent.inner import sandbox as sandbox_mod
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner import sandbox as sandbox_mod
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     def _boom(_os_env, _cwd) -> None:
         raise NotImplementedError("no bwrap on this platform")
@@ -775,7 +775,7 @@ async def test_run_turn_emits_usage_on_turn_complete(monkeypatch: pytest.MonkeyP
     """A usage-bearing chunk surfaces as TurnComplete.usage and notifies cost."""
     notified: list[dict] = []
     monkeypatch.setattr(
-        "omnigent.inner.qwen_executor._notify_usage_from_dict",
+        "agentnexus.inner.qwen_executor._notify_usage_from_dict",
         lambda model, usage: notified.append({"model": model, "usage": usage}),
     )
 
@@ -854,7 +854,7 @@ async def test_run_turn_usage_none_when_unreported(monkeypatch: pytest.MonkeyPat
     """No usage chunk → TurnComplete.usage is None and the observer isn't called."""
     notified: list[dict] = []
     monkeypatch.setattr(
-        "omnigent.inner.qwen_executor._notify_usage_from_dict",
+        "agentnexus.inner.qwen_executor._notify_usage_from_dict",
         lambda model, usage: notified.append({"model": model, "usage": usage}),
     )
 
@@ -953,7 +953,7 @@ async def test_run_turn_approval_does_not_count_against_idle_timeout(
     With a tiny timeout and an elicitation handler slower than it, the turn must
     still complete: the idle deadline resets after the approval round-trip.
     """
-    monkeypatch.setattr("omnigent.inner.qwen_executor._PROMPT_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr("agentnexus.inner.qwen_executor._PROMPT_TIMEOUT_SECONDS", 0.05)
 
     executor = QwenExecutor()
     executor._initialized = True
@@ -1073,30 +1073,30 @@ async def test_run_turn_resets_session_on_not_found_error() -> None:
 
 def test_qwen_in_harness_registry() -> None:
     """'qwen' must be in the _HARNESS_MODULES dispatch table."""
-    from omnigent.runtime.harnesses import _HARNESS_MODULES
+    from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
     assert "qwen" in _HARNESS_MODULES
 
 
 def test_qwen_in_harness_allowlist() -> None:
-    """'qwen' must be in OMNIGENT_HARNESSES."""
-    from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
+    """'qwen' must be in AGENTNEXUS_HARNESSES."""
+    from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESSES
 
-    assert "qwen" in OMNIGENT_HARNESSES
+    assert "qwen" in AGENTNEXUS_HARNESSES
 
 
 def test_qwen_code_alias_resolves_to_qwen() -> None:
     """'qwen-code' alias maps to the canonical 'qwen' harness id."""
-    from omnigent.harness_aliases import canonicalize_harness
+    from agentnexus.harness_aliases import canonicalize_harness
 
     assert canonicalize_harness("qwen-code") == "qwen"
 
 
 def test_qwen_code_in_harness_aliases() -> None:
-    """'qwen-code' must be in OMNIGENT_HARNESS_ALIASES."""
-    from omnigent.spec._omnigent_compat import OMNIGENT_HARNESS_ALIASES
+    """'qwen-code' must be in AGENTNEXUS_HARNESS_ALIASES."""
+    from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESS_ALIASES
 
-    assert "qwen-code" in OMNIGENT_HARNESS_ALIASES
+    assert "qwen-code" in AGENTNEXUS_HARNESS_ALIASES
 
 
 # ---------------------------------------------------------------------------
@@ -1106,7 +1106,7 @@ def test_qwen_code_in_harness_aliases() -> None:
 
 def test_qwen_harness_creates_fastapi_app() -> None:
     """create_app() returns a FastAPI app with at least a /health route."""
-    from omnigent.inner.qwen_harness import create_app
+    from agentnexus.inner.qwen_harness import create_app
 
     app = create_app()
     assert app is not None
@@ -1117,14 +1117,14 @@ def test_qwen_harness_creates_fastapi_app() -> None:
 
 def test_qwen_harness_module_importable() -> None:
     """qwen_harness can be imported and exposes create_app."""
-    from omnigent.inner import qwen_harness
+    from agentnexus.inner import qwen_harness
 
     assert hasattr(qwen_harness, "create_app")
 
 
 def test_wrap_passes_gateway_env_to_executor(monkeypatch: pytest.MonkeyPatch) -> None:
     """_build_qwen_executor threads HARNESS_QWEN_GATEWAY_* into the executor."""
-    from omnigent.inner import qwen_harness
+    from agentnexus.inner import qwen_harness
 
     monkeypatch.setenv("HARNESS_QWEN_MODEL", "qwen/qwen3-coder")
     monkeypatch.setenv("HARNESS_QWEN_GATEWAY_BASE_URL", "https://gw.example/v1")
@@ -1140,7 +1140,7 @@ def test_wrap_gateway_env_absent_leaves_executor_ungated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Without the gateway env vars, the executor has no gateway config."""
-    from omnigent.inner import qwen_harness
+    from agentnexus.inner import qwen_harness
 
     monkeypatch.delenv("HARNESS_QWEN_GATEWAY_BASE_URL", raising=False)
     monkeypatch.delenv("HARNESS_QWEN_GATEWAY_AUTH_COMMAND", raising=False)
@@ -1473,7 +1473,7 @@ class _FakeOSEnv:
 
 def test_fs_delegation_flag_tracks_os_env() -> None:
     """Delegation is on with an os_env, off without one or for a fork env."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     assert QwenExecutor()._fs_delegation is False  # no os_env
     assert QwenExecutor(os_env=OSEnvSpec(type="caller_process"))._fs_delegation is True
@@ -1485,7 +1485,7 @@ def test_fs_delegation_flag_tracks_os_env() -> None:
 @pytest.mark.asyncio
 async def test_initialize_advertises_fs_capability_per_delegation() -> None:
     """initialize advertises clientCapabilities.fs matching the delegation flag."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     init_result = {"result": {"agentCapabilities": {"promptCapabilities": {}}}}
 
@@ -1507,7 +1507,7 @@ async def test_initialize_advertises_fs_capability_per_delegation() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_returns_content_and_maps_window() -> None:
     """fs/read_text_file reads through the OSEnvironment; line/limit → offset/limit."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(read_result={"content": "hello\nworld\n", "encoding": "utf-8"})
@@ -1531,7 +1531,7 @@ async def test_fs_read_returns_content_and_maps_window() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_whole_file_when_no_window() -> None:
     """Absent line/limit reads the whole file (offset=1, limit=None)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(read_result={"content": "x", "encoding": "utf-8"})
@@ -1548,7 +1548,7 @@ async def test_fs_read_whole_file_when_no_window() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_missing_file_maps_to_enoent() -> None:
     """A 'no such file' read error maps to qwen's ENOENT code (-32002)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv(  # type: ignore[assignment]
@@ -1568,7 +1568,7 @@ async def test_fs_read_missing_file_maps_to_enoent() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_binary_file_is_rejected() -> None:
     """A non-utf-8 (binary) file is refused rather than returned as bytes."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv(  # type: ignore[assignment]
@@ -1588,7 +1588,7 @@ async def test_fs_read_binary_file_is_rejected() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_writes_through_os_env() -> None:
     """fs/write_text_file writes via the OSEnvironment and returns an empty result."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(write_result={"path": "out.txt", "bytes": 3})
@@ -1612,7 +1612,7 @@ async def test_fs_write_writes_through_os_env() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_error_surfaces_as_internal_error() -> None:
     """A write failure surfaces as a JSON-RPC internal error (-32603)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv(  # type: ignore[assignment]
@@ -1637,7 +1637,7 @@ async def test_fs_write_error_surfaces_as_internal_error() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_rejects_missing_args() -> None:
     """Missing path / non-string content is an invalid-params error (-32602)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv()  # type: ignore[assignment]
@@ -1659,7 +1659,7 @@ async def test_fs_write_rejects_missing_args() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_records_tool_call_events() -> None:
     """A delegated read buffers a paired ToolCallRequest + ToolCallComplete."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv(  # type: ignore[assignment]
@@ -1684,7 +1684,7 @@ async def test_fs_read_records_tool_call_events() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_records_tool_call_events() -> None:
     """A delegated write buffers a paired ToolCallRequest + ToolCallComplete."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     write_result = {"bytes": 3}
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
@@ -1711,7 +1711,7 @@ async def test_fs_write_records_tool_call_events() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_blocked_by_call_policy() -> None:
     """A TOOL_CALL-phase DENY refuses the read by path before it runs."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(read_result={"content": "secret", "encoding": "utf-8"})
@@ -1737,7 +1737,7 @@ async def test_fs_read_blocked_by_call_policy() -> None:
 @pytest.mark.asyncio
 async def test_fs_read_blocked_by_result_policy() -> None:
     """A TOOL_RESULT-phase DENY on read content refuses delivery and records BLOCKED."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._os_environment = _FakeOSEnv(  # type: ignore[assignment]
@@ -1766,7 +1766,7 @@ async def test_fs_read_blocked_by_result_policy() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_blocked_by_result_policy() -> None:
     """A TOOL_RESULT-phase DENY on the write result records BLOCKED."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     write_result = {"path": "out.txt", "bytes": 3, "marker": "actual"}
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
@@ -1798,7 +1798,7 @@ async def test_fs_write_blocked_by_result_policy() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_blocked_by_call_policy_prevents_write() -> None:
     """A TOOL_CALL-phase DENY (path + content) prevents the write."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(write_result={})
@@ -1829,7 +1829,7 @@ async def test_fs_write_blocked_by_call_policy_prevents_write() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_call_policy_fails_closed() -> None:
     """A TOOL_CALL-phase eval error prevents the write (fail closed for side effects)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(write_result={})
@@ -1857,7 +1857,7 @@ async def test_fs_write_call_policy_fails_closed() -> None:
 @pytest.mark.asyncio
 async def test_fs_write_call_policy_ask_blocks() -> None:
     """A TOOL_CALL-phase ASK blocks the write (delegated fs has no elicitation path)."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv(write_result={})
@@ -1883,7 +1883,7 @@ async def test_fs_write_call_policy_ask_blocks() -> None:
 @pytest.mark.asyncio
 async def test_run_turn_surfaces_delegated_fs_ops() -> None:
     """run_turn drains recorded fs ops onto the turn stream as ToolCall events."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._initialized = True
@@ -1929,7 +1929,7 @@ async def test_run_turn_surfaces_delegated_fs_ops() -> None:
 @pytest.mark.asyncio
 async def test_run_turn_records_stale_fs_op_from_prior_turn() -> None:
     """A stale server fs request answered at turn start is still audited, not dropped."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     executor._initialized = True
@@ -1973,7 +1973,7 @@ async def test_run_turn_records_stale_fs_op_from_prior_turn() -> None:
 @pytest.mark.asyncio
 async def test_close_releases_fs_os_environment() -> None:
     """close() tears down a lazily-created fs-delegation OSEnvironment."""
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     executor = QwenExecutor(os_env=OSEnvSpec(type="caller_process"))
     fake = _FakeOSEnv()
@@ -2214,7 +2214,7 @@ def test_image_blocks_from_content_uses_file_data_fallback() -> None:
 
 def test_parse_image_data_uri_edge_cases() -> None:
     """Malformed / non-image data URIs return None rather than raising."""
-    from omnigent.inner.qwen_executor import _parse_image_data_uri
+    from agentnexus.inner.qwen_executor import _parse_image_data_uri
 
     assert _parse_image_data_uri("data:image/png;base64") is None  # no comma
     assert _parse_image_data_uri("data:image/png;base64,") is None  # empty payload

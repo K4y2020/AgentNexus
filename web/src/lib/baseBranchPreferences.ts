@@ -7,7 +7,7 @@
 // the field stays blank and the worktree defaults to the current branch. Set
 // from the Git settings section.
 
-const STORAGE_KEY = "omnigent:default-base-branch";
+const STORAGE_KEY = "agentnexus:default-base-branch";
 
 /**
  * Read the user's default base branch: the stored branch name, or `null` when

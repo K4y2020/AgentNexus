@@ -13,14 +13,14 @@ from unittest.mock import MagicMock
 import jwt
 import pytest
 
-from omnigent.server.auth import (
+from agentnexus.server.auth import (
     RESERVED_USER_LOCAL,
     UnifiedAuthProvider,
     create_auth_provider,
     resolve_auth_header,
     resolve_auth_header_strip_prefix,
 )
-from omnigent.server.oidc import (
+from agentnexus.server.oidc import (
     OIDCConfig,
     derive_code_challenge,
     generate_code_verifier,
@@ -221,11 +221,11 @@ def test_header_source_rejects_missing_header(
     unauthenticated request would share one identity with OWNER
     access to every other unauthenticated user's sessions.
     """
-    # The provider resolves OMNIGENT_LOCAL_SINGLE_USER at
+    # The provider resolves AGENTNEXUS_LOCAL_SINGLE_USER at
     # construction; clear it so an ambient value (e.g. a dev shell
     # that ran a local server) can't flip this test to the
     # single-user fallback path.
-    monkeypatch.delenv("OMNIGENT_LOCAL_SINGLE_USER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_LOCAL_SINGLE_USER", raising=False)
     provider = UnifiedAuthProvider(source="header")
     request = _mock_request()
     assert provider.get_user_id(request) is None
@@ -235,7 +235,7 @@ def test_header_source_local_single_user_falls_back_to_local() -> None:
     """Explicit single-user runtime keeps the ``"local"`` fallback.
 
     ``local_single_user=True`` models a server spawned with
-    ``OMNIGENT_LOCAL_SINGLE_USER=1`` (the managed local spawn
+    ``AGENTNEXUS_LOCAL_SINGLE_USER=1`` (the managed local spawn
     paths) — its only user IS the local user, and no proxy exists
     to inject identity.
     """
@@ -250,10 +250,10 @@ def test_header_source_resolves_single_user_from_env(
     """``local_single_user=None`` resolves from the env at construction.
 
     The managed local spawn paths configure single-user mode via the
-    ``OMNIGENT_LOCAL_SINGLE_USER=1`` env var, not a constructor
+    ``AGENTNEXUS_LOCAL_SINGLE_USER=1`` env var, not a constructor
     argument — this pins the env-resolution path they rely on.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
     provider = UnifiedAuthProvider(source="header")
     request = _mock_request()
     assert provider.get_user_id(request) == RESERVED_USER_LOCAL
@@ -333,12 +333,12 @@ def test_header_source_custom_header_ignores_default_header() -> None:
 def test_header_source_resolves_header_name_from_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``header_name=None`` resolves from ``OMNIGENT_AUTH_HEADER``.
+    """``header_name=None`` resolves from ``AGENTNEXUS_AUTH_HEADER``.
 
     The deploy path configures the header name via env var, not a
     constructor argument — this pins the env-resolution path.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_HEADER", "Cf-Access-Authenticated-User-Email")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_HEADER", "Cf-Access-Authenticated-User-Email")
     provider = UnifiedAuthProvider(source="header")
     request = _mock_request(
         headers={"Cf-Access-Authenticated-User-Email": "alice@example.com"},
@@ -349,15 +349,15 @@ def test_header_source_resolves_header_name_from_env(
 def test_resolve_auth_header_defaults_to_x_forwarded_email(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unset/empty ``OMNIGENT_AUTH_HEADER`` falls back to the default.
+    """Unset/empty ``AGENTNEXUS_AUTH_HEADER`` falls back to the default.
 
     The override must be strictly additive: the overwhelming majority
     of header-mode deploys (and every existing test) rely on
     ``X-Forwarded-Email`` being the default.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_HEADER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_HEADER", raising=False)
     assert resolve_auth_header() == "X-Forwarded-Email"
-    monkeypatch.setenv("OMNIGENT_AUTH_HEADER", "   ")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_HEADER", "   ")
     assert resolve_auth_header() == "X-Forwarded-Email"
 
 
@@ -443,11 +443,11 @@ def test_header_source_resolves_strip_prefix_from_env(
     """``header_strip_prefix=None`` resolves from the env var.
 
     The deploy path configures the prefix via
-    ``OMNIGENT_AUTH_HEADER_STRIP_PREFIX``, not a constructor argument —
+    ``AGENTNEXUS_AUTH_HEADER_STRIP_PREFIX``, not a constructor argument —
     this pins the env-resolution path IAP deployments rely on.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_HEADER", _IAP_HEADER)
-    monkeypatch.setenv("OMNIGENT_AUTH_HEADER_STRIP_PREFIX", _IAP_PREFIX)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_HEADER", _IAP_HEADER)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_HEADER_STRIP_PREFIX", _IAP_PREFIX)
     provider = UnifiedAuthProvider(source="header")
     request = _mock_request(headers={_IAP_HEADER: f"{_IAP_PREFIX}alice@example.com"})
     assert provider.get_user_id(request) == "alice@example.com"
@@ -456,15 +456,15 @@ def test_header_source_resolves_strip_prefix_from_env(
 def test_resolve_auth_header_strip_prefix_defaults_to_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unset/whitespace ``OMNIGENT_AUTH_HEADER_STRIP_PREFIX`` → ``""``.
+    """Unset/whitespace ``AGENTNEXUS_AUTH_HEADER_STRIP_PREFIX`` → ``""``.
 
     The default must strip nothing so every existing header-mode deploy
     (none of which set this) keeps passing the header value through
     verbatim.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_HEADER_STRIP_PREFIX", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_HEADER_STRIP_PREFIX", raising=False)
     assert resolve_auth_header_strip_prefix() == ""
-    monkeypatch.setenv("OMNIGENT_AUTH_HEADER_STRIP_PREFIX", "   ")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_HEADER_STRIP_PREFIX", "   ")
     assert resolve_auth_header_strip_prefix() == ""
 
 
@@ -747,15 +747,15 @@ def test_oidc_source_login_url() -> None:
 def test_factory_returns_header_provider_explicit_zero_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Explicit OMNIGENT_AUTH_PROVIDER=header returns a header provider.
+    """Explicit AGENTNEXUS_AUTH_PROVIDER=header returns a header provider.
 
     This is the zero-config path for Databricks Apps and any deploy
     behind a proxy that injects ``X-Forwarded-Email``. Header is the
     env-unset default, but proxy-fronted deploys set the value
-    explicitly so an ambient ``OMNIGENT_AUTH_ENABLED=1`` can't
+    explicitly so an ambient ``AGENTNEXUS_AUTH_ENABLED=1`` can't
     flip them into accounts (or oidc) mode.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
     provider = create_auth_provider()
     assert isinstance(provider, UnifiedAuthProvider)
     assert provider._source == "header"
@@ -765,8 +765,8 @@ def test_factory_returns_header_provider_explicit_zero_config(
 def test_factory_returns_header_provider_explicit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Explicit OMNIGENT_AUTH_PROVIDER=header returns a header provider."""
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    """Explicit AGENTNEXUS_AUTH_PROVIDER=header returns a header provider."""
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
     provider = create_auth_provider()
     assert isinstance(provider, UnifiedAuthProvider)
     assert provider._source == "header"
@@ -780,8 +780,8 @@ def test_factory_rejects_unknown_source(
     This is the fail-loud behavior: a typo in the env var
     surfaces immediately, not at the first request.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "saml")
-    with pytest.raises(RuntimeError, match="Unknown OMNIGENT_AUTH_PROVIDER"):
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "saml")
+    with pytest.raises(RuntimeError, match="Unknown AGENTNEXUS_AUTH_PROVIDER"):
         create_auth_provider()
 
 
@@ -793,13 +793,13 @@ def test_factory_oidc_fails_without_config(
     This is the fail-loud startup validation: missing OIDC config
     surfaces as a clear error before the server accepts connections.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "oidc")
-    # Don't set any OMNIGENT_OIDC_* vars.
-    monkeypatch.delenv("OMNIGENT_OIDC_ISSUER", raising=False)
-    monkeypatch.delenv("OMNIGENT_OIDC_CLIENT_ID", raising=False)
-    monkeypatch.delenv("OMNIGENT_OIDC_CLIENT_SECRET", raising=False)
-    monkeypatch.delenv("OMNIGENT_OIDC_REDIRECT_URI", raising=False)
-    monkeypatch.delenv("OMNIGENT_OIDC_COOKIE_SECRET", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "oidc")
+    # Don't set any AGENTNEXUS_OIDC_* vars.
+    monkeypatch.delenv("AGENTNEXUS_OIDC_ISSUER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_CLIENT_ID", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_REDIRECT_URI", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_COOKIE_SECRET", raising=False)
     with pytest.raises(RuntimeError, match="Missing required environment variable"):
         create_auth_provider()
 
@@ -815,12 +815,12 @@ def test_oidc_config_rejects_short_cookie_secret(
     A short secret weakens the HMAC-SHA256 signing and makes
     brute-force attacks feasible.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app/callback")
     # 16 bytes = 32 hex chars, but we need 32 bytes = 64 hex chars.
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 16)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 16)
     with pytest.raises(RuntimeError, match="at least 32 bytes"):
         OIDCConfig.from_env()
 
@@ -833,11 +833,11 @@ def test_oidc_config_rejects_invalid_hex_secret(
     The secret must be hex-encoded so it can be safely stored in
     environment variables.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app/callback")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "not-hex-at-all")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "not-hex-at-all")
     with pytest.raises(RuntimeError, match="valid hex string"):
         OIDCConfig.from_env()
 
@@ -850,11 +850,11 @@ def test_oidc_config_github_provider(
     GitHub doesn't implement OIDC discovery, so we hardcode the
     endpoints. If this test fails, the GitHub login flow will break.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test-client")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test-secret")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app/callback")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test-client")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
 
     config = OIDCConfig.from_env()
 
@@ -869,13 +869,13 @@ def test_oidc_config_github_provider(
 def test_oidc_config_github_empty_scopes_env_falls_back_to_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Empty OMNIGENT_OIDC_SCOPES → provider default (else GitHub 404s consent)."""
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app/callback")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
-    monkeypatch.setenv("OMNIGENT_OIDC_SCOPES", "")
+    """Empty AGENTNEXUS_OIDC_SCOPES → provider default (else GitHub 404s consent)."""
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_SCOPES", "")
 
     config = OIDCConfig.from_env()
 
@@ -886,18 +886,18 @@ def test_oidc_config_github_empty_scopes_env_falls_back_to_default(
 def test_oidc_config_allowed_domains_parsing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """OMNIGENT_OIDC_ALLOWED_DOMAINS is parsed into a frozenset.
+    """AGENTNEXUS_OIDC_ALLOWED_DOMAINS is parsed into a frozenset.
 
     Domains are lowercased and trimmed. If parsing is broken,
     the domain allowlist check in the callback would accept or
     reject the wrong domains.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app/callback")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
-    monkeypatch.setenv("OMNIGENT_OIDC_ALLOWED_DOMAINS", " Example.COM , test.org ")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ALLOWED_DOMAINS", " Example.COM , test.org ")
 
     config = OIDCConfig.from_env()
 
@@ -905,18 +905,18 @@ def test_oidc_config_allowed_domains_parsing(
 
 
 def test_oidc_redirect_uri_derived_from_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With REDIRECT_URI unset, it's derived as https://<OMNIGENT_DOMAIN>/auth/callback.
+    """With REDIRECT_URI unset, it's derived as https://<AGENTNEXUS_DOMAIN>/auth/callback.
 
-    Lets a domain-based deploy set one var (OMNIGENT_DOMAIN, already
+    Lets a domain-based deploy set one var (AGENTNEXUS_DOMAIN, already
     needed by the Caddy overlay) instead of two, and removes the
     http/https scheme mistake. GitHub branch → no network discovery.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.delenv("OMNIGENT_OIDC_REDIRECT_URI", raising=False)
-    monkeypatch.setenv("OMNIGENT_DOMAIN", "omnigent.example.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.delenv("AGENTNEXUS_OIDC_REDIRECT_URI", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_DOMAIN", "agentnexus.example.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
 
     config = OIDCConfig.from_env()
 
@@ -926,13 +926,13 @@ def test_oidc_redirect_uri_derived_from_domain(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_oidc_explicit_redirect_uri_wins_over_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An explicit REDIRECT_URI is used verbatim even when OMNIGENT_DOMAIN is set."""
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "http://10.0.0.5:8000/auth/callback")
-    monkeypatch.setenv("OMNIGENT_DOMAIN", "omnigent.example.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
+    """An explicit REDIRECT_URI is used verbatim even when AGENTNEXUS_DOMAIN is set."""
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "http://10.0.0.5:8000/auth/callback")
+    monkeypatch.setenv("AGENTNEXUS_DOMAIN", "agentnexus.example.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
 
     config = OIDCConfig.from_env()
 
@@ -940,13 +940,13 @@ def test_oidc_explicit_redirect_uri_wins_over_domain(monkeypatch: pytest.MonkeyP
 
 
 def test_oidc_redirect_uri_required_without_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fail loud when neither REDIRECT_URI nor OMNIGENT_DOMAIN is set."""
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "test")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "test")
-    monkeypatch.delenv("OMNIGENT_OIDC_REDIRECT_URI", raising=False)
-    monkeypatch.delenv("OMNIGENT_DOMAIN", raising=False)
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
+    """Fail loud when neither REDIRECT_URI nor AGENTNEXUS_DOMAIN is set."""
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "test")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "test")
+    monkeypatch.delenv("AGENTNEXUS_OIDC_REDIRECT_URI", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DOMAIN", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
 
-    with pytest.raises(RuntimeError, match="OMNIGENT_OIDC_REDIRECT_URI"):
+    with pytest.raises(RuntimeError, match="AGENTNEXUS_OIDC_REDIRECT_URI"):
         OIDCConfig.from_env()

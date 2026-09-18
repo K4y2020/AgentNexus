@@ -703,9 +703,9 @@ function renderToolRunFragment(
   return renderItem(fragment.tool, runStart + fragment.index, false);
 }
 
-const ADVISE_MODELS_NAMES = new Set(["sys_advise_models", "mcp__omnigent__sys_advise_models"]);
-const SESSION_SEND_NAMES = new Set(["sys_session_send", "mcp__omnigent__sys_session_send"]);
-const TEAMMATE_SEND_NAMES = new Set(["send_to_teammate", "mcp__omnigent__send_to_teammate"]);
+const ADVISE_MODELS_NAMES = new Set(["sys_advise_models", "mcp__agentnexus__sys_advise_models"]);
+const SESSION_SEND_NAMES = new Set(["sys_session_send", "mcp__agentnexus__sys_session_send"]);
+const TEAMMATE_SEND_NAMES = new Set(["send_to_teammate", "mcp__agentnexus__send_to_teammate"]);
 
 function isPersistentToolCard(item: RenderItem): boolean {
   return (

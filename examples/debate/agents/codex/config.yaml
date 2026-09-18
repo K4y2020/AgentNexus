@@ -3,7 +3,7 @@ name: codex
 description: Codex discussion participant — argues its position across rounds until consensus or stalemate.
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     # SDK harness — works on Windows (native tmux/PTY terminals do not).
     harness: codex

@@ -14,7 +14,7 @@ from importlib.machinery import ModuleSpec
 
 import pytest
 
-import omnigent.onboarding.agent.tools.python.list_builtin_tools as list_tools_mod
+import agentnexus.onboarding.agent.tools.python.list_builtin_tools as list_tools_mod
 
 
 def _reload_with_specs(

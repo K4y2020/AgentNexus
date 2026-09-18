@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.onboarding.acp_auth import AcpAgentEntry, acp_agents_settings
-from omnigent.onboarding.openclaw_config import (
+from agentnexus.onboarding.acp_auth import AcpAgentEntry, acp_agents_settings
+from agentnexus.onboarding.openclaw_config import (
     discover_openclaw_agents,
     merge_imported_acp_entries,
     openclaw_agents_to_acp_entries,

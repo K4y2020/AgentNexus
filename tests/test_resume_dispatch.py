@@ -4,7 +4,7 @@ Tests for :mod:`omnigent.resume_dispatch` — the top-level
 
 The dispatcher's job is to translate the user's "take me back to
 where I was" intent into the right wrapper call. The two important
-properties under test are (a) we always preserve the Omnigent
+properties under test are (a) we always preserve the AgentNexus
 conversation id end-to-end (no new id minted on resume) and (b)
 claude-native conversations route to ``run_claude_native``,
 everything else surfaces a clear redirect hint.
@@ -19,7 +19,7 @@ import click
 import httpx
 import pytest
 
-from omnigent import resume_dispatch
+from agentnexus import resume_dispatch
 
 # ── run_resume — top-level entry ──────────────────────────
 
@@ -29,7 +29,7 @@ def test_run_resume_picker_form_requires_server() -> None:
     ``omnigent resume`` (no conv id, no --server) must fail loud.
 
     Without ``target`` we'd open the cross-agent picker; without
-    ``--server`` we have no Omnigent endpoint to query. Starting an
+    ``--server`` we have no AgentNexus endpoint to query. Starting an
     empty local server just for the picker would race with any
     other ``omnigent`` process the user has running, so we
     redirect via UsageError instead of silently doing it.
@@ -66,7 +66,7 @@ def test_run_resume_picker_cancel_exits_cleanly(monkeypatch: pytest.MonkeyPatch)
         invoked.append("run_claude_native")
 
     monkeypatch.setattr(
-        "omnigent.claude_native.run_claude_native",
+        "agentnexus.claude_native.run_claude_native",
         _fail_if_called,
     )
 
@@ -88,11 +88,11 @@ def test_dispatch_by_runtime_claude_native_remote_routes_to_wrapper(
     """
     Remote claude-native conv ⇒ ``run_claude_native(server=..., session_id=conv_id)``.
 
-    The Omnigent conv id MUST be preserved as ``session_id`` (the
+    The AgentNexus conv id MUST be preserved as ``session_id`` (the
     wrapper's resume kwarg). A bug that passed ``None`` would mint a
     fresh session and the user would lose their prior context.
     Also asserts ``server`` carries through so the wrapper hits the
-    right Omnigent server.
+    right AgentNexus server.
     """
     monkeypatch.setattr(
         resume_dispatch,
@@ -109,14 +109,14 @@ def test_dispatch_by_runtime_claude_native_remote_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.claude_native.run_claude_native", _capture)
+    monkeypatch.setattr("agentnexus.claude_native.run_claude_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="4e92b5a0c0ee6db3f874f9c4a3f855a5",
         server="https://example.com/",  # trailing slash — must be normalized
     )
 
-    # session_id preserves the Omnigent conv id end-to-end.
+    # session_id preserves the AgentNexus conv id end-to-end.
     assert captured["session_id"] == "4e92b5a0c0ee6db3f874f9c4a3f855a5"
     # Trailing slash stripped — the wrapper expects a bare base URL.
     assert captured["server"] == "https://example.com"
@@ -131,7 +131,7 @@ def test_dispatch_by_runtime_opencode_native_routes_to_wrapper(
 
     Regression for the seam's coverage expansion: the old hand-written
     ``if native_agent.key == "<x>"`` chain covered 10 harnesses but *not*
-    ``opencode``, so an opencode-native resume fell through to the Omnigent
+    ``opencode``, so an opencode-native resume fell through to the AgentNexus
     REPL and double-posted each turn (the same latent bug the chat-redirect
     path had). Routing through ``resolve_hook_for_key`` covers all 11; this
     pins that opencode now reaches its wrapper.
@@ -151,7 +151,7 @@ def test_dispatch_by_runtime_opencode_native_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.opencode_native.run_opencode_native", _capture)
+    monkeypatch.setattr("agentnexus.opencode_native.run_opencode_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="4e92b5a0c0ee6db3f874f9c4a3f855a5",
@@ -169,7 +169,7 @@ def test_dispatch_by_runtime_codex_native_remote_routes_to_wrapper(
     """
     Remote codex-native conv ⇒ ``run_codex_native(server=..., session_id=conv_id)``.
 
-    The Omnigent conv id must be preserved exactly like the
+    The AgentNexus conv id must be preserved exactly like the
     claude-native path, but the runtime-specific passthrough kwarg is
     ``codex_args``.
     """
@@ -188,7 +188,7 @@ def test_dispatch_by_runtime_codex_native_remote_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.codex_native.run_codex_native", _capture)
+    monkeypatch.setattr("agentnexus.codex_native.run_codex_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="4e92b5a0c0ee6db3f874f9c4a3f855a5",
@@ -225,7 +225,7 @@ def test_dispatch_by_runtime_codex_native_local_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.codex_native.run_codex_native", _capture)
+    monkeypatch.setattr("agentnexus.codex_native.run_codex_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="415c9954e2fe4b9276083a4d2c66f689",
@@ -251,7 +251,7 @@ def test_dispatch_by_runtime_kiro_native_remote_routes_to_wrapper(
     def _capture(**kwargs: Any) -> None:
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.kiro_native.run_kiro_native", _capture)
+    monkeypatch.setattr("agentnexus.kiro_native.run_kiro_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="823dbd1aab969b5a813fac59bb977a77",
@@ -269,7 +269,7 @@ def test_dispatch_by_runtime_antigravity_native_remote_routes_to_wrapper(
     """
     Remote antigravity-native conv ⇒ ``run_antigravity_native(server=..., session_id=...)``.
 
-    The Omnigent conv id must be preserved exactly like the codex/claude
+    The AgentNexus conv id must be preserved exactly like the codex/claude
     paths, but the runtime-specific passthrough kwarg is
     ``antigravity_args``.
 
@@ -292,7 +292,7 @@ def test_dispatch_by_runtime_antigravity_native_remote_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.antigravity_native.run_antigravity_native", _capture)
+    monkeypatch.setattr("agentnexus.antigravity_native.run_antigravity_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="a8bcbee631c58ddb98fb5e3f54a1592a",
@@ -329,7 +329,7 @@ def test_dispatch_by_runtime_antigravity_native_local_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.antigravity_native.run_antigravity_native", _capture)
+    monkeypatch.setattr("agentnexus.antigravity_native.run_antigravity_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="e85224ee39457def1d20bcce5b74ed8c",
@@ -366,7 +366,7 @@ def test_dispatch_by_runtime_claude_native_local_still_routes_to_wrapper(
         """
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.claude_native.run_claude_native", _capture)
+    monkeypatch.setattr("agentnexus.claude_native.run_claude_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="64a784c3aa907d1774f44313546947c6",
@@ -411,7 +411,7 @@ def test_dispatch_by_runtime_accepts_id_with_paste_punctuation(
         """Record the kwargs ``run_codex_native`` was called with."""
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.codex_native.run_codex_native", _capture)
+    monkeypatch.setattr("agentnexus.codex_native.run_codex_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(target=pasted, server=None)
 
@@ -469,7 +469,7 @@ def test_dispatch_by_runtime_legacy_prefixed_id_canonicalized_to_bare_hex(
         """Record the kwargs ``run_codex_native`` was called with."""
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.codex_native.run_codex_native", _capture)
+    monkeypatch.setattr("agentnexus.codex_native.run_codex_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="conv_415c9954e2fe4b9276083a4d2c66f689",
@@ -504,7 +504,7 @@ def test_dispatch_by_runtime_remote_forwards_non_uuid_id(
         """Record the kwargs ``run_claude_native`` was called with."""
         captured.update(kwargs)
 
-    monkeypatch.setattr("omnigent.claude_native.run_claude_native", _capture)
+    monkeypatch.setattr("agentnexus.claude_native.run_claude_native", _capture)
 
     resume_dispatch._dispatch_by_runtime(
         target="2048200000527758",
@@ -539,7 +539,7 @@ def test_dispatch_by_runtime_non_wrapper_local_raises_with_hint(
 
     msg = excinfo.value.message
     assert "11dc2163ab84c5afa09348998a2b6690" in msg
-    assert "omnigent run --resume" in msg
+    assert "agentnexus run --resume" in msg
     assert "<agent.yaml>" in msg
 
 
@@ -548,14 +548,14 @@ def test_read_wrapper_label_local_reads_persistent_store(
     tmp_path: Path,
 ) -> None:
     """
-    Local dispatch classifies sessions from ``~/.omnigent/chat.db``.
+    Local dispatch classifies sessions from ``~/.agentnexus/chat.db``.
 
     :param monkeypatch: Pytest monkeypatch fixture.
-    :param tmp_path: Temporary persistent Omnigent directory.
+    :param tmp_path: Temporary persistent AgentNexus directory.
     :returns: None.
     """
-    import omnigent.chat as chat_mod
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    import agentnexus.chat as chat_mod
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -566,7 +566,7 @@ def test_read_wrapper_label_local_reads_persistent_store(
         agent_name="codex-native-ui",
         agent_bundle_location="12c8c7631b209d1027416b4bf7604999/bundle",
         agent_description=None,
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
     monkeypatch.setattr(chat_mod, "_omnigent_persistent_dir", lambda: tmp_path)
 
@@ -599,7 +599,7 @@ def test_dispatch_by_runtime_non_claude_native_remote_raises_with_hint(
         del kwargs
         raise AssertionError("run_claude_native invoked on non-claude conv")
 
-    monkeypatch.setattr("omnigent.claude_native.run_claude_native", _fail_if_called)
+    monkeypatch.setattr("agentnexus.claude_native.run_claude_native", _fail_if_called)
 
     with pytest.raises(click.ClickException) as excinfo:
         resume_dispatch._dispatch_by_runtime(
@@ -609,7 +609,7 @@ def test_dispatch_by_runtime_non_claude_native_remote_raises_with_hint(
     msg = excinfo.value.message
     # All three load-bearing pieces of the hint must appear.
     assert "12b8fd5b4413ededb99560e847b32b0e" in msg
-    assert "omnigent run --resume" in msg
+    assert "agentnexus run --resume" in msg
     assert "https://example.com" in msg
 
 
@@ -643,13 +643,13 @@ def test_read_wrapper_label_remote_returns_label_when_present(
                 "agent_id": "880b5afda28ad55ff74cbeb9b5fc67fb",
                 "status": "idle",
                 "created_at": 1,
-                "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+                "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
             },
         )
 
     monkeypatch.setattr(httpx, "get", _fake_get)
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda *, server_url, host_id=None: {},
     )
 
@@ -686,7 +686,7 @@ def test_read_wrapper_label_remote_returns_none_when_label_missing(
 
     monkeypatch.setattr(httpx, "get", _fake_get)
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda *, server_url, host_id=None: {},
     )
 
@@ -715,7 +715,7 @@ def test_read_wrapper_label_remote_raises_on_404(
 
     monkeypatch.setattr(httpx, "get", _fake_get)
     monkeypatch.setattr(
-        "omnigent.chat._remote_headers",
+        "agentnexus.chat._remote_headers",
         lambda *, server_url, host_id=None: {},
     )
 

@@ -4,7 +4,7 @@
 // vars), so a mid-session change is pushed to mounted terminals via a pub/sub;
 // `auto` follows the app's resolved theme while `light`/`dark` pin it.
 
-const STORAGE_KEY = "omnigent:terminal-theme";
+const STORAGE_KEY = "agentnexus:terminal-theme";
 
 export const terminalThemeModes = ["auto", "light", "dark"] as const;
 export type TerminalThemeMode = (typeof terminalThemeModes)[number];

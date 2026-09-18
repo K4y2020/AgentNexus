@@ -16,7 +16,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import _build_alembic_config, clear_engine_cache
+from agentnexus.db.utils import _build_alembic_config, clear_engine_cache
 
 _PRIOR = "t1a2b3c4d5e6"
 _THIS = "u1a2b3c4d5e6"

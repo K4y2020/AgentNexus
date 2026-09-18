@@ -48,13 +48,13 @@ policy_modules:
 policies:
   session_budget:
     type: function
-    handler: omnigent.policies.builtins.cost.cost_budget
+    handler: agentnexus.policies.builtins.cost.cost_budget
     factory_params:
       max_cost_usd: 10.00
       ask_thresholds_usd: [5.00]
   global_rate_limit:
     type: function
-    handler: omnigent.policies.builtins.safety.max_tool_calls_per_session
+    handler: agentnexus.policies.builtins.safety.max_tool_calls_per_session
     factory_params:
       limit: 200
 ```
@@ -62,7 +62,7 @@ policies:
 **4. Start the server.**
 
 ```bash
-omnigent server --config server_config.yaml
+agentnexus server --config server_config.yaml
 ```
 
 After starting, you can also add or remove policies at runtime through the REST API (see [Admin policy REST API](#admin-policy-rest-api)).
@@ -91,12 +91,12 @@ tools:
 policies:
   limit_tool_calls:
     type: function
-    handler: omnigent.policies.builtins.safety.max_tool_calls_per_session
+    handler: agentnexus.policies.builtins.safety.max_tool_calls_per_session
     factory_params:
       limit: 100
   github_access:
     type: function
-    handler: omnigent.policies.builtins.github.github_policy
+    handler: agentnexus.policies.builtins.github.github_policy
     factory_params:
       write_repos:
         - myorg/my-repo
@@ -104,7 +104,7 @@ policies:
         - "feature/*"
   google_policy:
     type: function
-    handler: omnigent.policies.builtins.google.gdrive_policy
+    handler: agentnexus.policies.builtins.google.gdrive_policy
     factory_params:
       read_all: true
       allow_create: true
@@ -125,7 +125,7 @@ Each policy entry has:
 ```yaml
 approve_file_ops:
   type: function
-  handler: omnigent.policies.builtins.safety.ask_on_os_tools
+  handler: agentnexus.policies.builtins.safety.ask_on_os_tools
 ```
 
 **Factory** (with parameters -- called once at build time to produce the evaluator):
@@ -133,7 +133,7 @@ approve_file_ops:
 ```yaml
 rate_limit:
   type: function
-  handler: omnigent.policies.builtins.safety.max_tool_calls_per_session
+  handler: agentnexus.policies.builtins.safety.max_tool_calls_per_session
   factory_params:
     limit: 50
 ```
@@ -168,7 +168,7 @@ Limits the total number of tool calls in a session. DENYs after the limit is rea
 ```yaml
 rate_limit:
   type: function
-  handler: omnigent.policies.builtins.safety.max_tool_calls_per_session
+  handler: agentnexus.policies.builtins.safety.max_tool_calls_per_session
   factory_params:
     limit: 50
 ```
@@ -180,7 +180,7 @@ Requires user approval before any `sys_os_read`, `sys_os_write`, `sys_os_edit`, 
 ```yaml
 approve_file_ops:
   type: function
-  handler: omnigent.policies.builtins.safety.ask_on_os_tools
+  handler: agentnexus.policies.builtins.safety.ask_on_os_tools
 ```
 
 #### `block_skills`
@@ -194,7 +194,7 @@ Prevents the agent from loading specific skills.
 ```yaml
 no_deploy_skill:
   type: function
-  handler: omnigent.policies.builtins.safety.block_skills
+  handler: agentnexus.policies.builtins.safety.block_skills
   factory_params:
     blocked: [deploy, rollback]
 ```
@@ -214,16 +214,16 @@ Forces a specific sandbox configuration on agent start.
 `env_passthrough` is the escape hatch for an agent that authenticates from an
 environment variable. Agent CLIs are spawned with a **deny-by-default**
 environment: the shared base (`HOME`, `PATH`, proxy/TLS, locale, `TMPDIR`, the
-Omnigent session marker) plus the harness's own variable family, and nothing
+AgentNexus session marker) plus the harness's own variable family, and nothing
 else. A host secret belonging to some other provider is not inherited.
 
 That means an ambient key which used to reach the CLI implicitly now has to be
 declared. Two cases worth knowing:
 
 - **A generic ACP agent** (`type: acp`) gets no vendor family at all, because
-  Omnigent cannot know which vendor an arbitrary agent belongs to. Gemini via
+  AgentNexus cannot know which vendor an arbitrary agent belongs to. Gemini via
   ACP needs `env_passthrough: ["GEMINI_API_KEY"]`.
-- **Goose** owns `GOOSE_*` only. Goose configured through Omnigent's
+- **Goose** owns `GOOSE_*` only. Goose configured through AgentNexus's
   provider/gateway routing is unaffected, but a goose set up against an ambient
   provider key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) needs that name
   declared here.
@@ -256,7 +256,7 @@ Gates a session on cumulative LLM spend, at the **request** phase (before the LL
 ```yaml
 budget:
   type: function
-  handler: omnigent.policies.builtins.cost.cost_budget
+  handler: agentnexus.policies.builtins.cost.cost_budget
   factory_params:
     max_cost_usd: 5.00
     ask_thresholds_usd: [1.00, 3.00]
@@ -277,7 +277,7 @@ Same ASK / downgrade-gate behavior as `cost_budget`, but the budget is the **ses
 # server_config.yaml -- a per-user daily cap applied to every session
 daily_budget:
   type: function
-  handler: omnigent.policies.builtins.cost.user_daily_cost_budget
+  handler: agentnexus.policies.builtins.cost.user_daily_cost_budget
   factory_params:
     max_cost_usd: 25.00
     ask_thresholds_usd: [10.00, 20.00]
@@ -301,7 +301,7 @@ Controls GitHub access across MCP tools and `git`/`gh` shell commands. Restricts
 ```yaml
 github_access:
   type: function
-  handler: omnigent.policies.builtins.github.github_policy
+  handler: agentnexus.policies.builtins.github.github_policy
   factory_params:
     write_repos:
       - myorg/frontend
@@ -398,7 +398,7 @@ llm:
 policies:
   deny_trivial_opus:
     type: function
-    handler: omnigent.policies.builtins.routing.deny_trivial_to_expensive_model
+    handler: agentnexus.policies.builtins.routing.deny_trivial_to_expensive_model
     factory_params:
       expensive_models:
         - databricks-claude-opus-4-6
@@ -413,7 +413,7 @@ policies:
 A policy function receives an event dict and returns a response dict (or `None` to abstain).
 
 ```python
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
 
 def my_policy(event: PolicyEvent) -> PolicyResponse | None:
     if event["type"] != "tool_call":
@@ -534,7 +534,7 @@ curl -X POST http://localhost:6767/v1/policies \
   -d '{
     "name": "global_rate_limit",
     "type": "python",
-    "handler": "omnigent.policies.builtins.safety.max_tool_calls_per_session",
+    "handler": "agentnexus.policies.builtins.safety.max_tool_calls_per_session",
     "factory_params": {"limit": 200}
   }'
 ```

@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.host.frames import HostFsRequestFrame, HostHelloFrame, decode_host_frame
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._host_filesystem import (
+from agentnexus.host.frames import HostFsRequestFrame, HostHelloFrame, decode_host_frame
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._host_filesystem import (
     HostFsError,
     HostFsUnavailableError,
     read_workspace_from_host,

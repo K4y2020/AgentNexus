@@ -14,18 +14,18 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from omnigent.entities import DEFAULT_ENVIRONMENT_ID, Conversation, ConversationItem, PagedList
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.runtime import (
+from agentnexus.entities import DEFAULT_ENVIRONMENT_ID, Conversation, ConversationItem, PagedList
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.runtime import (
     _globals,
     session_stream,
     set_runner_client,
     set_runner_direct_attach_resolver,
     set_runner_router,
 )
-from omnigent.server._runner_ws_tunnel import DirectAttachEndpoint
-from omnigent.server.routes.sessions import _ancestor_session_ids, create_sessions_router
-from omnigent.server.schemas import SessionEventInput
+from agentnexus.server._runner_ws_tunnel import DirectAttachEndpoint
+from agentnexus.server.routes.sessions import _ancestor_session_ids, create_sessions_router
+from agentnexus.server.schemas import SessionEventInput
 
 
 class _ConversationStore:
@@ -62,8 +62,8 @@ class _ConversationStore:
                 root_conversation_id="64a784c3aa907d1774f44313546947c6",
                 agent_id="087b7cb7ac30abf4debfaa578d052ec6",
                 labels={
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "claude-code-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "claude-code-native-ui",
                 },
             ),
             "823dbd1aab969b5a813fac59bb977a77": Conversation(
@@ -73,8 +73,8 @@ class _ConversationStore:
                 root_conversation_id="823dbd1aab969b5a813fac59bb977a77",
                 agent_id="2c515637c67d0717ad0bebc2747b71bc",
                 labels={
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "kiro-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "kiro-native-ui",
                 },
             ),
             # A spec-driven native sub-agent child (e.g. a nessie
@@ -91,8 +91,8 @@ class _ConversationStore:
                 parent_conversation_id="ead6d59a6b650d19dbdf61ec32426f4e",
                 agent_id="087b7cb7ac30abf4debfaa578d052ec6",
                 labels={
-                    "omnigent.ui": "terminal",
-                    "omnigent.wrapper": "claude-code-native-ui",
+                    "agentnexus.ui": "terminal",
+                    "agentnexus.wrapper": "claude-code-native-ui",
                 },
             ),
             # A three-level spawn lineage for the file-copy tests:
@@ -198,7 +198,7 @@ class _ConversationStore:
         """
         import time
 
-        from omnigent.entities import ConversationItem
+        from agentnexus.entities import ConversationItem
 
         result = []
         for item in items:
@@ -451,10 +451,10 @@ def app(runner_globals_reset: None) -> FastAPI:
     del runner_globals_reset
     app = FastAPI()
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         del request
         return JSONResponse(
@@ -549,8 +549,8 @@ async def test_get_session_labels_uses_labels_only_path(
     assert resp.json() == {
         "id": "64a784c3aa907d1774f44313546947c6",
         "labels": {
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     }
     assert fake_runner.calls == []
@@ -639,10 +639,10 @@ async def test_claude_native_message_forwards_to_runner_without_persisting(
     client: httpx.AsyncClient,
 ) -> None:
     """
-    Claude-native web-chat input is runner injection, not Omnigent persistence.
+    Claude-native web-chat input is runner injection, not AgentNexus persistence.
 
     This fails if the route regresses to the legacy create-or-steer
-    path, which would either start a duplicate Omnigent agent task or make
+    path, which would either start a duplicate AgentNexus agent task or make
     the web UI render a non-terminal-originated user message.
     """
     fake_runner = _FakeRunnerClient(payload={})
@@ -730,7 +730,7 @@ async def test_claude_native_message_surfaces_runner_sse_failure(
     """
     Runner SSE ``response.failed`` means terminal injection failed.
 
-    This fails if the Omnigent route treats the runner's streaming HTTP 200
+    This fails if the AgentNexus route treats the runner's streaming HTTP 200
     as success while the harness reports that ``tmux send-keys`` did
     not deliver the message.
     """
@@ -1293,9 +1293,9 @@ def bash_terminal_spec(monkeypatch: pytest.MonkeyPatch) -> None:
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.inner.datamodel import TerminalEnvSpec
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.spec.types import AgentSpec
+    from agentnexus.inner.datamodel import TerminalEnvSpec
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.spec.types import AgentSpec
 
     spec = AgentSpec(spec_version=1, terminals={"bash": TerminalEnvSpec(command="bash")})
     monkeypatch.setattr(
@@ -1517,7 +1517,7 @@ async def test_create_terminal_surfaces_runner_error_without_crashing(
     """A runner ``>=400`` on terminal launch yields a clean error, not a 500 crash.
 
     Regression for the masking bug at ``create_session_terminal``: it built
-    ``OmnigentError(..., http_status=status)``, but ``OmnigentError``
+    ``AgentNexusError(..., http_status=status)``, but ``AgentNexusError``
     has no ``http_status`` arg (it is a derived property), so any runner
     error turned into an unhandled ``TypeError`` instead of a legible error.
     With the bug present, ``client.post`` below raises ``TypeError`` rather
@@ -1670,8 +1670,8 @@ async def test_transfer_terminal_surfaces_runner_error_without_crashing(
 
     Regression for the masking bug at ``transfer_session_terminal`` — the
     exact sibling of the one already fixed at ``create_session_terminal``:
-    its ``status >= 400`` branch built ``OmnigentError(..., http_status=status)``,
-    but ``OmnigentError`` has no ``http_status`` arg (it is a derived
+    its ``status >= 400`` branch built ``AgentNexusError(..., http_status=status)``,
+    but ``AgentNexusError`` has no ``http_status`` arg (it is a derived
     property), so any runner error other than 404/409 turned into an
     unhandled ``TypeError`` instead of a legible error. With the bug present,
     ``client.post`` below raises ``TypeError`` rather than returning a
@@ -1769,7 +1769,7 @@ def file_conv_store() -> _ConversationStore:
 @pytest.fixture
 def file_store(db_uri: str) -> Any:
     """Real SqlAlchemy file store for file endpoint tests."""
-    from omnigent.stores.file_store.sqlalchemy_store import (
+    from agentnexus.stores.file_store.sqlalchemy_store import (
         SqlAlchemyFileStore,
     )
 
@@ -1794,10 +1794,10 @@ def file_app(
 
     test_app = FastAPI()
 
-    @test_app.exception_handler(OmnigentError)
+    @test_app.exception_handler(AgentNexusError)
     async def _handle(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         del request
         return JSONResponse(
@@ -2342,7 +2342,7 @@ async def test_copy_files_rollback_deletes_blobs_when_row_delete_fails(
     artifact_store.put = _put_then_fail  # type: ignore[assignment]
     artifact_store.delete = _record_blob_delete  # type: ignore[assignment]
     monkeypatch.setattr(file_store, "delete", _row_delete_fails)
-    caplog.set_level(logging.WARNING, logger="omnigent.server.routes.sessions")
+    caplog.set_level(logging.WARNING, logger="agentnexus.server.routes.sessions")
 
     resp = await file_client.post(
         "/v1/sessions/405bfe154d5c0e795a2b87021bc897bf/resources/files:copy",
@@ -2389,7 +2389,7 @@ async def test_copy_files_rollback_logs_blob_delete_failures(
     artifact_store.put = _put_then_fail  # type: ignore[assignment]
     artifact_store.delete = _blob_delete_fails  # type: ignore[assignment]
     monkeypatch.setattr(file_store, "delete", _record_row_delete)
-    caplog.set_level(logging.WARNING, logger="omnigent.server.routes.sessions")
+    caplog.set_level(logging.WARNING, logger="agentnexus.server.routes.sessions")
 
     resp = await file_client.post(
         "/v1/sessions/405bfe154d5c0e795a2b87021bc897bf/resources/files:copy",
@@ -2435,7 +2435,7 @@ async def test_copy_files_rejects_over_count_before_any_blob_read(
     request must not call ``artifact_store.get`` even once — that is the
     whole point of the bound (a rejected request never buffers a blob).
     """
-    import omnigent.server.server_config as server_config
+    import agentnexus.server.server_config as server_config
 
     monkeypatch.setattr(server_config, "copy_file_count_limit", lambda: 2)
     f1 = await _upload_file(file_client, "b460374fc8e697b296708f52dc9d8179", "a.txt", b"a")
@@ -2472,7 +2472,7 @@ async def test_copy_files_rejects_over_total_bytes_before_any_blob_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Over the total-bytes limit → 400, with NO blob reads and no copies."""
-    import omnigent.server.server_config as server_config
+    import agentnexus.server.server_config as server_config
 
     monkeypatch.setattr(server_config, "copy_total_bytes_limit", lambda: 5)
     f1 = await _upload_file(file_client, "b460374fc8e697b296708f52dc9d8179", "a.txt", b"aaa")
@@ -2506,7 +2506,7 @@ async def test_copy_files_at_limit_boundary_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Exactly at the count and total-bytes limits → succeeds."""
-    import omnigent.server.server_config as server_config
+    import agentnexus.server.server_config as server_config
 
     monkeypatch.setattr(server_config, "copy_file_count_limit", lambda: 2)
     monkeypatch.setattr(server_config, "copy_total_bytes_limit", lambda: 6)
@@ -2613,7 +2613,7 @@ def test_resource_lifecycle_event_schemas_in_union() -> None:
     """Session resource events are part of the ServerStreamEvent union."""
     from pydantic import TypeAdapter
 
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         ServerStreamEvent,
         SessionResourceCreatedEvent,
         SessionResourceDeletedEvent,
@@ -3338,12 +3338,12 @@ async def test_relay_persists_terminal_resource_created_from_runner() -> None:
     """The relay persists a ``resource_event`` for a runner-emitted create.
 
     An agent ``sys_terminal_launch`` makes the runner emit
-    ``session.resource.created`` on its SSE stream. The Omnigent relay must
+    ``session.resource.created`` on its SSE stream. The AgentNexus relay must
     persist a durable ``resource_event`` item so a client reconnecting
     mid-turn rediscovers the terminal in the snapshot — matching the
     REST resource path.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3383,7 +3383,7 @@ async def test_relay_persists_terminal_resource_created_from_runner() -> None:
 @pytest.mark.asyncio
 async def test_relay_does_not_persist_transient_terminal_resource_created() -> None:
     """Retry recovery publishes terminal readiness without changing history."""
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3418,7 +3418,7 @@ async def test_relay_persists_terminal_resource_deleted_from_runner() -> None:
     runner emit ``session.resource.deleted``; the relay persists the
     durable delete item.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3449,7 +3449,7 @@ async def test_relay_persists_terminal_resource_deleted_from_runner() -> None:
 @pytest.mark.asyncio
 async def test_relay_persists_failed_status_error_labels_from_runner() -> None:
     """Runner ``session.status: failed`` error details survive reload."""
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3472,13 +3472,13 @@ async def test_relay_persists_failed_status_error_labels_from_runner() -> None:
 
     assert (
         store._conversations["79b22ebd2309e48fdeb450c65611d51b"].labels[
-            "omnigent.last_task_error_code"
+            "agentnexus.last_task_error_code"
         ]
         == "required_terminal_exited"
     )
     assert (
         store._conversations["79b22ebd2309e48fdeb450c65611d51b"].labels[
-            "omnigent.last_task_error_message"
+            "agentnexus.last_task_error_message"
         ]
         == "Required terminal exited unexpectedly"
     )
@@ -3495,7 +3495,7 @@ async def test_relay_truncates_long_error_message_before_persisting() -> None:
     Truncation must happen inside the relay (the real call site) so no
     long message ever reaches the store.
     """
-    from omnigent.server.routes.sessions import _LABEL_VALUE_MAX_LEN, _relay_runner_stream
+    from agentnexus.server.routes.sessions import _LABEL_VALUE_MAX_LEN, _relay_runner_stream
 
     store = _ConversationStore()
     long_message = "Runner MCP execute failed: " + "x" * 300  # 327 chars, well over 256
@@ -3518,7 +3518,7 @@ async def test_relay_truncates_long_error_message_before_persisting() -> None:
     await _relay_runner_stream("79b22ebd2309e48fdeb450c65611d51b", client, store)  # type: ignore[arg-type]
 
     stored = store._conversations["79b22ebd2309e48fdeb450c65611d51b"].labels[
-        "omnigent.last_task_error_message"
+        "agentnexus.last_task_error_message"
     ]
     assert len(stored) <= _LABEL_VALUE_MAX_LEN
 
@@ -3534,7 +3534,7 @@ async def test_relay_persists_routing_decision_before_assistant_output() -> None
     relay must persist it as a durable, display-only item at that position
     so a reload renders the chip before the answer it sized — not after.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3596,8 +3596,8 @@ async def test_relay_routing_decision_live_event_carries_persisted_id() -> None:
     ``response.output_item.done`` carrying the persisted item id so the
     web UI dedups both copies by ``ctx.itemId`` — exactly one chip.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     published: list[dict[str, Any]] = []
     routing_seen = asyncio.Event()
@@ -3667,7 +3667,7 @@ async def test_relay_drops_malformed_routing_decision() -> None:
     ``RoutingDecisionData`` (which rejects an empty model); on failure the
     relay drops it.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3704,7 +3704,7 @@ async def test_relay_persists_model_fact_on_completed_turn() -> None:
     three layers after reload without guessing. ``upstream_model`` is
     only recorded when the runner/gateway actually provides it.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     store._conversations["79b22ebd2309e48fdeb450c65611d51b"].model_override = (
@@ -3752,7 +3752,7 @@ async def test_relay_persists_model_fact_unknown_reasons_on_failure() -> None:
     Every layer stays Unknown with a specific reason; the Inspector must
     not fill them in from session defaults or model-name heuristics.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3798,7 +3798,7 @@ async def test_relay_does_not_persist_session_level_response_error() -> None:
     message fast-fails and records its own ordered ``message,error``
     pair.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3832,7 +3832,7 @@ async def test_relay_persists_in_turn_response_error_once_from_runner() -> None:
     persists that visible error payload so refresh shows the banner, but
     still dedupes identical frames so history is not spammed.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -3889,8 +3889,8 @@ async def test_relay_dedupes_duplicate_error_persistence_but_forwards_live_frame
     persists only the first matching banner until another user message
     starts a new transcript turn.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     published: list[dict[str, Any]] = []
     live_errors_seen = asyncio.Event()
@@ -3959,12 +3959,12 @@ async def test_relay_dedupes_duplicate_error_persistence_but_forwards_live_frame
 async def test_native_dispatch_fast_fails_and_consumes_message_on_terminal_error() -> None:
     """Definitive native terminal failure consumes the user message quickly.
 
-    The Omnigent server first asks the runner to ensure the native terminal.
-    When the runner returns a structured startup failure, Omnigent must not
+    The AgentNexus server first asks the runner to ensure the native terminal.
+    When the runner returns a structured startup failure, AgentNexus must not
     create a pending input or forward into the dead terminal. It should
     persist the user message plus a durable error item instead.
     """
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4008,7 +4008,7 @@ async def test_native_dispatch_fast_fails_and_consumes_message_on_terminal_error
     errors = [i for i in store.appended_items if i.type == "error"]
     assert [i.type for i in store.appended_items] == ["message", "error"]
     # One message means the failed turn was consumed. Zero would leave
-    # the input pending forever; two would mean the Omnigent fast-fail path
+    # the input pending forever; two would mean the AgentNexus fast-fail path
     # duplicated the user's message.
     assert len(messages) == 1
     assert messages[0].created_by == "alice@example.com"
@@ -4024,8 +4024,8 @@ async def test_native_dispatch_fast_fails_and_consumes_message_on_terminal_error
 @pytest.mark.asyncio
 async def test_kiro_native_dispatch_forwards_without_persisting() -> None:
     """Kiro web-chat input is mirrored by Kiro's session forwarder."""
-    from omnigent.runtime import pending_inputs
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.runtime import pending_inputs
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     pending_inputs.reset_for_tests()
     store = _ConversationStore()
@@ -4071,8 +4071,8 @@ async def test_kiro_native_dispatch_forwards_without_persisting() -> None:
 @pytest.mark.asyncio
 async def test_kiro_native_dispatch_clears_pending_when_injection_fails() -> None:
     """A failed Kiro tmux injection must not leave a ghost pending input."""
-    from omnigent.runtime import pending_inputs
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.runtime import pending_inputs
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     pending_inputs.reset_for_tests()
     store = _ConversationStore()
@@ -4115,8 +4115,8 @@ async def test_kiro_native_dispatch_clears_pending_when_injection_fails() -> Non
 @pytest.mark.asyncio
 async def test_kiro_external_prompt_matches_pending_and_reports_skipped_input() -> None:
     """A failed Kiro prompt must not make the next prompt clear the wrong pending input."""
-    from omnigent.runtime import pending_inputs
-    from omnigent.server.routes.sessions import _persist_external_conversation_item
+    from agentnexus.runtime import pending_inputs
+    from agentnexus.server.routes.sessions import _persist_external_conversation_item
 
     pending_inputs.reset_for_tests()
     store = _ConversationStore()
@@ -4173,12 +4173,12 @@ async def test_native_dispatch_reports_malformed_runner_error_body() -> None:
     """Opaque framework 500 bodies become explicit ensure errors.
 
     If the runner/tunnel returns a plain ``Internal Server Error`` body
-    instead of the structured native startup error JSON, Omnigent still fast
+    instead of the structured native startup error JSON, AgentNexus still fast
     fails the message. The transcript should not invent a missing
     native CLI cause or persist the raw HTTP body; it should say the
     runner returned a malformed ensure response.
     """
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4226,12 +4226,12 @@ async def test_native_dispatch_reports_malformed_runner_error_body() -> None:
 async def test_native_dispatch_transport_error_does_not_fallback_to_forwarding() -> None:
     """Runner transport failure is a definitive AP-side ensure error.
 
-    If Omnigent cannot reach the runner's terminal ensure endpoint, it must
+    If AgentNexus cannot reach the runner's terminal ensure endpoint, it must
     consume the user message and record an explicit ensure failure. It
     should not fall back to forwarding the message and waiting on the
     old boot grace path, because that reintroduces the slow hang.
     """
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4292,7 +4292,7 @@ async def test_native_dispatch_tunnel_close_is_definitive_ensure_error() -> None
     error. The dispatch must treat it exactly like an httpx transport
     failure: consume the user message and persist an explicit error.
     """
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4338,7 +4338,7 @@ async def test_native_dispatch_persists_error_for_each_user_retry() -> None:
     must be written after that user message so refresh still shows why
     the retry failed.
     """
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4401,8 +4401,8 @@ async def test_native_dispatch_records_same_error_after_recovery_boundary() -> N
     retry should record a new visible error instead of being suppressed
     by the previous failure.
     """
-    from omnigent.entities import MessageData, NewConversationItem
-    from omnigent.server.routes.sessions import _dispatch_session_event_to_runner
+    from agentnexus.entities import MessageData, NewConversationItem
+    from agentnexus.server.routes.sessions import _dispatch_session_event_to_runner
 
     store = _ConversationStore()
     conv = store.get_conversation("64a784c3aa907d1774f44313546947c6")
@@ -4483,7 +4483,7 @@ async def test_relay_skips_malformed_resource_created_from_runner() -> None:
     A malformed frame must not poison the relay or persist a partial
     item — the snapshot endpoint stays the source of truth.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -4532,7 +4532,7 @@ async def test_relay_skips_empty_resource_id_or_type_from_runner(
     to a real resource. The relay must drop it (regression guard for
     the ``isinstance(x, str)``-only check that accepted ``""``).
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient([_sse_frame(frame_payload), "data: [DONE]\n\n"])
@@ -4554,7 +4554,7 @@ async def test_relay_pairs_function_call_output_with_call_response_id() -> None:
     new id and the web UI can't pair it with the spinner — the tool
     card shows "Waiting for output" forever.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
     client = _FakeStreamingRunnerClient(
@@ -4641,8 +4641,8 @@ async def test_relay_publishes_inflight_frames_and_discards_on_exit() -> None:
       would strand the entry forever and replay stale text on the next
       reload (and grow the index unbounded).
     """
-    from omnigent.runtime import inflight_text, session_stream
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text, session_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     published: list[dict[str, Any]] = []
@@ -4717,9 +4717,9 @@ async def test_relay_fences_cancelled_turn_and_resumes_on_next_turn(
     and is processed normally) flushes nothing for the abandoned tail. The
     follow-up turn persists + forwards normally so it has a real effect.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     sid = "693c79ed3286f353bfb89489e0f4f643"
     published: list[dict[str, Any]] = []
@@ -4786,8 +4786,8 @@ async def test_relay_flushes_partial_text_on_failed_turn_before_error_item() -> 
     (before the durable error item, matching what the user watched stream),
     and the terminal's publish must clear the in-flight replay entry.
     """
-    from omnigent.runtime import inflight_text
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     sid = "79b22ebd2309e48fdeb450c65611d51b"
@@ -4875,9 +4875,9 @@ async def test_relay_flushes_final_text_on_fenced_response_completed(
     completed proves the turn was NOT cancelled: it must flush + publish
     normally and lift the fence.
     """
-    from omnigent.runtime import inflight_text, session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text, session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     sid = "0324351dd7cff62baefd1172b4d99a31"
@@ -4944,9 +4944,9 @@ async def test_relay_persists_pre_stop_narration_on_fenced_incomplete(
     stream, so persisting them would make reload diverge from what was
     watched.
     """
-    from omnigent.runtime import inflight_text, session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text, session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     sid = "b47007d2de93605dd8229a49620b190a"
@@ -5016,9 +5016,9 @@ async def test_relay_lets_elicitation_resolved_pass_the_fence(
     event, so swallowing it leaks the entry — every later snapshot replays a
     dead approval card and the "Needs input" badge never clears.
     """
-    from omnigent.runtime import inflight_text, pending_elicitations, session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text, pending_elicitations, session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     pending_elicitations.reset_for_tests()
@@ -5090,9 +5090,9 @@ async def test_relay_suppresses_fenced_deltas_until_running_when_no_terminal_arr
     trailing deltas and lift only on the next turn's ``running`` status, so
     the follow-up turn flows normally.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     sid = "7e19212006f58af9e334464ad92d69d8"
     published: list[dict[str, Any]] = []
@@ -5150,8 +5150,8 @@ async def test_relay_interleaves_text_segments_with_tool_calls() -> None:
     the tool call that followed it — not one concatenated message after all
     the tools (which renders tools-above-text + run-on text on reload).
     """
-    from omnigent.runtime import inflight_text
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     store = _ConversationStore()
@@ -5252,8 +5252,8 @@ async def test_relay_flush_drops_committed_text_from_inflight_replay(
     text both committed AND no longer replays. Without the reset call this
     fails (the in-flight buffer would still replay the committed text).
     """
-    from omnigent.runtime import inflight_text
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.runtime import inflight_text
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     inflight_text.reset_for_tests()
     # The relay's finally discards the in-flight entry (the leak fix);
@@ -5370,7 +5370,7 @@ class _SubagentTerminalStore:
         type: str,
     ) -> Any:
         """Return a one-item assistant page (or empty) as a real PagedList."""
-        from omnigent.entities import ConversationItem, MessageData, PagedList
+        from agentnexus.entities import ConversationItem, MessageData, PagedList
 
         del conversation_id, limit, order, type
         if self._assistant_text is None:
@@ -5407,7 +5407,7 @@ def _make_subagent_conv(child_id: str, *, wrapper: str, kind: str = "sub_agent")
         parent_conversation_id="ead6d59a6b650d19dbdf61ec32426f4e",
         agent_id="087b7cb7ac30abf4debfaa578d052ec6",
         kind=kind,
-        labels={"omnigent.ui": "terminal", "omnigent.wrapper": wrapper},
+        labels={"agentnexus.ui": "terminal", "agentnexus.wrapper": wrapper},
     )
 
 
@@ -5438,7 +5438,7 @@ async def test_relay_never_delivers_terminal_on_pty_status(
     must forward nothing on a PTY status edge — it only republishes the UI
     status. Were the relay to deliver here, ``posts`` would be non-empty.
     """
-    from omnigent.server.routes.sessions import _relay_runner_stream
+    from agentnexus.server.routes.sessions import _relay_runner_stream
 
     child_id = "d30d5c132923e646113e9a2bfb28f15a"
     store = _SubagentTerminalStore(
@@ -5465,7 +5465,7 @@ class _OfflineRunnerClient:
 
     async def get(self, url: str, *, params: Any = None, timeout: float | None = None) -> Any:
         del params, timeout
-        raise OmnigentError(f"runner is not connected ({url})", code=ErrorCode.RUNNER_UNAVAILABLE)
+        raise AgentNexusError(f"runner is not connected ({url})", code=ErrorCode.RUNNER_UNAVAILABLE)
 
 
 @pytest.fixture
@@ -5477,8 +5477,8 @@ def offline_env_app(
     del runner_globals_reset
     from types import SimpleNamespace
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.server.routes.sessions import routes_resources as _routes
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.server.routes.sessions import routes_resources as _routes
 
     conv = Conversation(
         id=_OFFLINE_SESSION,
@@ -5506,8 +5506,8 @@ def offline_env_app(
 
     application = FastAPI()
 
-    @application.exception_handler(OmnigentError)
-    async def _handle(request: Request, exc: OmnigentError) -> JSONResponse:
+    @application.exception_handler(AgentNexusError)
+    async def _handle(request: Request, exc: AgentNexusError) -> JSONResponse:
         del request
         return JSONResponse(
             status_code=exc.http_status,

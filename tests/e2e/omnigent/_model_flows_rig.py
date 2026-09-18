@@ -1,10 +1,10 @@
 """Sandbox rig for the live model-flows CUJs (design: model-flows-design.md §10.1).
 
 Boots a real ``omnigent server`` + ``omnigent host`` from a chosen checkout —
-``OMNIGENT_E2E_MODEL_FLOWS_REPO`` selects which, so the identical tests can run
+``AGENTNEXUS_E2E_MODEL_FLOWS_REPO`` selects which, so the identical tests can run
 against unmodified main (the red-on-main matrix) and against this branch — with
 the developer's real ``$HOME`` (the claude/codex logins cannot be relocated) but
-an isolated ``OMNIGENT_CONFIG_HOME`` / ``OMNIGENT_DATA_DIR``. Provider *shapes*
+an isolated ``AGENTNEXUS_CONFIG_HOME`` / ``AGENTNEXUS_DATA_DIR``. Provider *shapes*
 (which provider entry is the default for each model family) are rewritten into
 the sandbox config per test group, mirroring how ``omnigent setup`` flips the
 ``default:`` claims.
@@ -41,18 +41,18 @@ from tests.e2e.routing._helpers import wait_for
 
 #: Opt-in gate: this suite launches real claude/codex TUIs and does real
 #: inference, so it never runs in CI by accident.
-RUN_GATE_ENV = "OMNIGENT_E2E_MODEL_FLOWS"
+RUN_GATE_ENV = "AGENTNEXUS_E2E_MODEL_FLOWS"
 
 #: Checkout to boot the rig from. Defaults to this test file's repo. Point it
 #: at an unmodified main checkout to produce the red-on-main matrix; the rig
 #: prefers that checkout's own ``.venv`` interpreter so its dependency set
 #: matches its code.
-RIG_REPO_ENV = "OMNIGENT_E2E_MODEL_FLOWS_REPO"
+RIG_REPO_ENV = "AGENTNEXUS_E2E_MODEL_FLOWS_REPO"
 
-#: Optional prebuilt SPA dist for the rig server (``OMNIGENT_WEB_UI_DIST``
+#: Optional prebuilt SPA dist for the rig server (``AGENTNEXUS_WEB_UI_DIST``
 #: passthrough) — needed when the target checkout's packaged SPA is stale
 #: relative to its web/ sources.
-SPA_DIST_ENV = "OMNIGENT_E2E_MODEL_FLOWS_WEB_DIST"
+SPA_DIST_ENV = "AGENTNEXUS_E2E_MODEL_FLOWS_WEB_DIST"
 
 _THIS_REPO = Path(__file__).resolve().parents[3]
 
@@ -107,15 +107,15 @@ def developer_providers() -> dict[str, Any]:
     logins, the gateway entry, the databricks profile); the sandbox copies the
     block and only flips ``default:`` claims per shape.
 
-    :returns: The ``providers`` mapping from ``~/.omnigent/config.yaml``.
+    :returns: The ``providers`` mapping from ``~/.agentnexus/config.yaml``.
     """
-    path = Path.home() / ".omnigent" / "config.yaml"
+    path = Path.home() / ".agentnexus" / "config.yaml"
     if not path.is_file():
-        pytest.skip("no ~/.omnigent/config.yaml; the live model-flow CUJs need real providers")
+        pytest.skip("no ~/.agentnexus/config.yaml; the live model-flow CUJs need real providers")
     parsed = yaml.safe_load(path.read_text()) or {}
     providers = parsed.get("providers")
     if not isinstance(providers, dict) or not providers:
-        pytest.skip("~/.omnigent/config.yaml has no providers block")
+        pytest.skip("~/.agentnexus/config.yaml has no providers block")
     return {name: dict(body) for name, body in providers.items() if isinstance(body, dict)}
 
 
@@ -215,16 +215,16 @@ class ModelFlowsRig:
 
     @property
     def data_dir(self) -> Path:
-        """The sandbox ``OMNIGENT_DATA_DIR``."""
+        """The sandbox ``AGENTNEXUS_DATA_DIR``."""
         return self.root / "data"
 
     def _env(self) -> dict[str, str]:
         env = {
             **os.environ,
-            "OMNIGENT_CONFIG_HOME": str(self.root / "config-home"),
-            "OMNIGENT_DATA_DIR": str(self.data_dir),
+            "AGENTNEXUS_CONFIG_HOME": str(self.root / "config-home"),
+            "AGENTNEXUS_DATA_DIR": str(self.data_dir),
             "PYTHONPATH": str(self.repo),
-            "OMNIGENT_LOG_TO_STDERR": "1",
+            "AGENTNEXUS_LOG_TO_STDERR": "1",
         }
         # Claude Code refuses nested sessions; the agent driving this suite
         # may export the marker. And when this suite itself runs inside an
@@ -233,17 +233,17 @@ class ModelFlowsRig:
         env.pop("CLAUDECODE", None)
         env.pop("RUNNER_SERVER_URL", None)
         env.pop("OMNIGENT", None)
-        for key in [k for k in env if k.startswith(("OMNIGENT_RUNNER", "OMNIGENT_PROCESS"))]:
+        for key in [k for k in env if k.startswith(("AGENTNEXUS_RUNNER", "AGENTNEXUS_PROCESS"))]:
             env.pop(key, None)
-        # tests/conftest.py exports OMNIGENT_DISABLE_CATALOG_LOOKUP=1 for the
+        # tests/conftest.py exports AGENTNEXUS_DISABLE_CATALOG_LOOKUP=1 for the
         # whole pytest process (hermetic suites must not hit the network). This
         # suite is the OPPOSITE: a live rig whose databricks shapes need the
         # real provider catalog, and the spawned server/host inherit our env —
         # so drop the kill switch for them.
-        env.pop("OMNIGENT_DISABLE_CATALOG_LOOKUP", None)
+        env.pop("AGENTNEXUS_DISABLE_CATALOG_LOOKUP", None)
         spa_dist = os.environ.get(SPA_DIST_ENV)
         if spa_dist:
-            env["OMNIGENT_WEB_UI_DIST"] = spa_dist
+            env["AGENTNEXUS_WEB_UI_DIST"] = spa_dist
         return env
 
     def start_server(self) -> None:
@@ -261,7 +261,7 @@ class ModelFlowsRig:
             [
                 _rig_python(self.repo),
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--host",
                 "127.0.0.1",
@@ -309,7 +309,7 @@ class ModelFlowsRig:
             [
                 _rig_python(self.repo),
                 "-m",
-                "omnigent.host._daemon_entry",
+                "agentnexus.host._daemon_entry",
                 "--server",
                 self.base_url,
             ],
@@ -407,7 +407,7 @@ def booted_rig(tmp_root: Path) -> Iterator[ModelFlowsRig]:
 def _terminal_socket_dirs() -> set[Path]:
     """Return the omnigent terminal tmux socket dirs currently on disk."""
     tmp = Path(tempfile.gettempdir())
-    return {p for p in tmp.glob("omnigent-terminal-*") if (p / "tmux.sock").exists()}
+    return {p for p in tmp.glob("agentnexus-terminal-*") if (p / "tmux.sock").exists()}
 
 
 @dataclass
@@ -545,14 +545,14 @@ def codex_config_copy_model(session_id: str) -> str | None:
     """Return the ``model =`` line of a codex session's private config copy.
 
     The per-session ``CODEX_HOME`` lives under the real home dir regardless of
-    ``OMNIGENT_DATA_DIR`` (it is harness state, not omnigent state) — but its
+    ``AGENTNEXUS_DATA_DIR`` (it is harness state, not omnigent state) — but its
     directory is named by a runner-GENERATED bridge id, recorded only in the
     bridge's own ``state.json`` (as ``session_id``). Resolve by scanning.
 
     :param session_id: The session/conversation id.
     :returns: The pinned model string, or ``None``.
     """
-    root = Path.home() / ".omnigent" / "codex-native"
+    root = Path.home() / ".agentnexus" / "codex-native"
     for state_path in root.glob("*/state.json"):
         try:
             state = json.loads(state_path.read_text())
@@ -853,7 +853,7 @@ def browser_ui(base_url: str) -> Iterator[Ui]:
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         page = browser.new_context(viewport={"width": 1440, "height": 950}).new_page()
-        if os.environ.get("OMNIGENT_E2E_MODEL_FLOWS_TRACE") == "1":
+        if os.environ.get("AGENTNEXUS_E2E_MODEL_FLOWS_TRACE") == "1":
             # Debug tap: print API traffic, console errors, and failed
             # requests so a stalled flow can be attributed from the test log.
             page.on(

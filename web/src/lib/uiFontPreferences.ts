@@ -14,14 +14,14 @@
 // the system stack and any value we set on the style root wins.
 //
 // The DOM mutations target `getStyleRoot()`, not `document.documentElement`
-// directly: embedded, the scoped `.omnigent-app` redefines the font tokens
+// directly: embedded, the scoped `.agentnexus-app` redefines the font tokens
 // locally, so a value set on the real document root is shadowed for the subtree
 // and must be set on the scope root instead. Standalone `getStyleRoot()` IS the
 // document root, so behavior is unchanged.
 
 import { getStyleRoot } from "./host";
 
-const STORAGE_KEY = "omnigent:ui-font-size";
+const STORAGE_KEY = "agentnexus:ui-font-size";
 
 export const UI_FONT_SIZE_DEFAULT = 13;
 export const UI_FONT_SIZE_MIN = 11;
@@ -85,7 +85,7 @@ export function applyDesktopUiFontSize(px: number): void {
 
 // ---- Font family ---------------------------------------------------------
 
-const FONT_FAMILY_STORAGE_KEY = "omnigent:ui-font-family";
+const FONT_FAMILY_STORAGE_KEY = "agentnexus:ui-font-family";
 
 /** Empty string = "System default": no override, falls back to `--font-sans`. */
 export const UI_FONT_FAMILY_DEFAULT = "";

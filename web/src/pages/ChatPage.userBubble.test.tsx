@@ -260,14 +260,14 @@ describe("UserBubble copy button", () => {
       dispatchEvent: () => false,
     })) as typeof window.matchMedia;
     const onToast = vi.fn();
-    window.addEventListener("omnigent:toast", onToast);
+    window.addEventListener("agentnexus:toast", onToast);
 
     try {
       renderBubble(userBubble("copy me please"));
       fireEvent.click(screen.getByRole("button", { name: "Copy" }));
       await waitFor(() => expect(onToast).toHaveBeenCalled());
     } finally {
-      window.removeEventListener("omnigent:toast", onToast);
+      window.removeEventListener("agentnexus:toast", onToast);
       window.matchMedia = real;
     }
   });
@@ -314,7 +314,7 @@ describe("UserBubble @-mention attachment chips", () => {
   it("does not chip an absolute upload marker (already shown via its file block)", () => {
     renderBubble(
       userBubble(
-        "[Attached: /var/folders/x/omnigent-1/claude-native/abc/uploads/image.png]\n\nwhat is this",
+        "[Attached: /var/folders/x/agentnexus-1/claude-native/abc/uploads/image.png]\n\nwhat is this",
       ),
     );
     // No "@…" chip for the absolute upload path.
@@ -329,9 +329,9 @@ describe("UserBubble @-mention attachment chips", () => {
   // chip if an executor ever materializes an upload on a Windows host
   // (drive-letter or UNC root), where the marker wouldn't start with "/".
   it.each([
-    ["C:\\Users\\me\\AppData\\Local\\Temp\\omnigent\\uploads\\image.png", "drive (backslash)"],
-    ["C:/Users/me/AppData/Local/Temp/omnigent/uploads/image.png", "drive (forward slash)"],
-    ["\\\\host\\share\\omnigent\\uploads\\image.png", "UNC"],
+    ["C:\\Users\\me\\AppData\\Local\\Temp\\agentnexus\\uploads\\image.png", "drive (backslash)"],
+    ["C:/Users/me/AppData/Local/Temp/agentnexus/uploads/image.png", "drive (forward slash)"],
+    ["\\\\host\\share\\agentnexus\\uploads\\image.png", "UNC"],
   ])("does not chip a Windows-style absolute upload marker (%s)", (path) => {
     renderBubble(userBubble(`[Attached: ${path}]\n\nwhat is this`));
     expect(screen.queryByText(/uploads/)).toBeNull();
@@ -341,7 +341,7 @@ describe("UserBubble @-mention attachment chips", () => {
   it("chips a relative @-mention but not an absolute upload in the same message", () => {
     renderBubble(
       userBubble(
-        "[Attached: /tmp/omnigent/claude-native/abc/uploads/image.png]\n" +
+        "[Attached: /tmp/agentnexus/claude-native/abc/uploads/image.png]\n" +
           "[Attached: src/server.ts]\n\ncompare",
       ),
     );

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from omnigent_ui_sdk.terminal import (
+from agentnexus_ui_sdk.terminal import (
     DEFAULT_USER_CONFIG,
     UserConfig,
     UserConfigError,
@@ -17,29 +17,29 @@ from omnigent_ui_sdk.terminal import (
 
 
 def test_user_config_path_uses_home_fallback(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("OMNIGENT_DATA_DIR", raising=False)
-    monkeypatch.delenv("OMNIGENT_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DATA_DIR", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_CONFIG_HOME", raising=False)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
-    assert state_dir() == tmp_path / ".omnigent"
-    assert user_config_path() == tmp_path / ".omnigent" / "config.yaml"
+    assert state_dir() == tmp_path / ".agentnexus"
+    assert user_config_path() == tmp_path / ".agentnexus" / "config.yaml"
 
 
 def test_state_dir_honors_data_dir(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "data"))
 
     assert state_dir() == tmp_path / "data"
 
 
 def test_user_config_path_honors_config_home(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "config"))
 
     assert user_config_path() == tmp_path / "config" / "config.yaml"
 
 
 def test_user_config_path_accepts_explicit_state_dir(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "ignored"))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "ignored"))
 
     assert user_config_path(tmp_path) == tmp_path / "config.yaml"
 
@@ -55,7 +55,7 @@ def test_save_and_load_user_config_round_trips_yaml(tmp_path) -> None:
 
     assert written == path
     assert path.read_text(encoding="utf-8") == (
-        "# Omnigent user configuration\ntui:\n  theme: dark\n"
+        "# AgentNexus user configuration\ntui:\n  theme: dark\n"
     )
     assert load_user_config(path) == UserConfig(theme="dark")
 
@@ -68,7 +68,7 @@ def test_save_preserves_sibling_cli_keys(tmp_path) -> None:
     save_user_config(UserConfig(theme="dark"), path)
 
     assert path.read_text(encoding="utf-8") == (
-        "# Omnigent user configuration\ndefault_agent: foo\nprofile: bar\ntui:\n  theme: dark\n"
+        "# AgentNexus user configuration\ndefault_agent: foo\nprofile: bar\ntui:\n  theme: dark\n"
     )
 
 
@@ -83,7 +83,7 @@ def test_save_default_removes_tui_but_keeps_siblings(tmp_path) -> None:
     save_user_config(DEFAULT_USER_CONFIG, path)
 
     assert path.read_text(encoding="utf-8") == (
-        "# Omnigent user configuration\ndefault_agent: foo\n"
+        "# AgentNexus user configuration\ndefault_agent: foo\n"
     )
 
 
@@ -113,7 +113,7 @@ def test_save_default_user_config_round_trips_without_tui_table(tmp_path) -> Non
 
     save_user_config(DEFAULT_USER_CONFIG, path)
 
-    assert path.read_text(encoding="utf-8") == "# Omnigent user configuration\n"
+    assert path.read_text(encoding="utf-8") == "# AgentNexus user configuration\n"
     assert load_user_config(path) == DEFAULT_USER_CONFIG
 
 

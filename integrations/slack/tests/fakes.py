@@ -7,14 +7,14 @@ Two halves:
   a test can assert what the bot showed the user. Bolt itself is bypassed: tests
   call ``service.handle_*`` / ``setup._handle_*`` directly, exactly as the unit
   tests do.
-- :class:`FakeOmnigentServer` — a ``respx`` router that stands in for the
-  Omnigent HTTP API. It owns the endpoint contract (paths, status codes, body
-  shapes drawn from ``OmnigentClient``) in ONE place, exposes scenario knobs
+- :class:`FakeAgentNexusServer` — a ``respx`` router that stands in for the
+  AgentNexus HTTP API. It owns the endpoint contract (paths, status codes, body
+  shapes drawn from ``AgentNexusClient``) in ONE place, exposes scenario knobs
   (``auth_required``, ``agents``, ``hosts``, ``sse_body`` …) rather than raw
   routes, and records every request so a test can assert the bot issued
   spec-correct calls (method, path, bearer header, JSON body).
 
-The point of pairing them: drive a real ``OmnigentClient`` (real ``httpx``)
+The point of pairing them: drive a real ``AgentNexusClient`` (real ``httpx``)
 against the fake server, and assert both sides of the seam — the HTTP requests
 the bot sent, and the Slack method it called in reaction to each response.
 """
@@ -30,7 +30,7 @@ import respx
 # The placeholder text the bot posts as its "Working on it…" ack. Kept in sync
 # with the service module so a recorded ack is recognizable.
 try:  # pragma: no cover - import shape only
-    from omnigent_slack.service import _ACK_TEXT
+    from agentnexus_slack.service import _ACK_TEXT
 except Exception:  # pragma: no cover
     _ACK_TEXT = "Working on it…"
 
@@ -193,7 +193,7 @@ def _flatten_blocks(view: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-# ── Omnigent API contract the Slack client depends on ─────────────────────────
+# ── AgentNexus API contract the Slack client depends on ─────────────────────────
 #
 # The single source of truth for which server endpoints the bot calls, and
 # which of those are part of the server's PUBLIC (schema-documented) surface.
@@ -209,9 +209,9 @@ def _flatten_blocks(view: dict[str, Any]) -> str:
 # those are ABSENT from the schema so a future decision to publish one is a
 # deliberate, noticed change.
 #
-# Keep in sync with ``OmnigentClient`` (integrations/slack/src/omnigent_slack/
+# Keep in sync with ``AgentNexusClient`` (integrations/slack/src/omnigent_slack/
 # omnigent.py) and the login flow (oauth.py / auth_manager.py).
-OMNIGENT_ENDPOINTS: list[tuple[str, str, bool]] = [
+AGENTNEXUS_ENDPOINTS: list[tuple[str, str, bool]] = [
     # Setup / validation.
     ("GET", "/health", True),
     ("GET", "/v1/me", True),
@@ -243,7 +243,7 @@ OMNIGENT_ENDPOINTS: list[tuple[str, str, bool]] = [
 # Response fields the client actually reads off the two richest documented
 # schemas. If the server renames one of these, the client silently degrades
 # (a None harness, an empty agent list), so the drift test pins them.
-OMNIGENT_RESPONSE_FIELDS: dict[str, tuple[str, ...]] = {
+AGENTNEXUS_RESPONSE_FIELDS: dict[str, tuple[str, ...]] = {
     # GET /v1/sessions/{session_id} → SessionResponse (get_session_info).
     "SessionResponse": ("harness", "agent_name"),
     # GET /v1/agents → PaginatedList (list_agents reads .data).
@@ -277,8 +277,8 @@ DEFAULT_SSE_BODY = (
 )
 
 
-class FakeOmnigentServer:
-    """A ``respx`` router standing in for the Omnigent HTTP API.
+class FakeAgentNexusServer:
+    """A ``respx`` router standing in for the AgentNexus HTTP API.
 
     Install it inside a ``respx.mock`` block with :meth:`install`. Tests set
     scenario knobs (``auth_required``, ``agents``, ``hosts``, ``sse_body`` …);
@@ -345,7 +345,7 @@ class FakeOmnigentServer:
 
         return _handler
 
-    def install(self, respx_mock: respx.MockRouter) -> FakeOmnigentServer:
+    def install(self, respx_mock: respx.MockRouter) -> FakeAgentNexusServer:
         b = self.base_url
 
         # Health is always reachable (setup probes it before the auth-gated list).

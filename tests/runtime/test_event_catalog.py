@@ -1,7 +1,7 @@
 """Targeted tests for the control plane's normalized event categories."""
 
-from omnigent.coordination.types import CoordinationEvent
-from omnigent.event_catalog import (
+from agentnexus.coordination.types import CoordinationEvent
+from agentnexus.event_catalog import (
     STANDARD_EVENT_CATEGORIES,
     classify_event_category,
 )

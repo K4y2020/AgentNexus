@@ -3,7 +3,7 @@
 A real-LLM agent with the ``nimble_research`` builtin runs a research task, and
 the runner dispatches the full v2 lifecycle — start run, poll to terminal,
 fetch result — against a local Agent API stub (pointed at via
-``OMNIGENT_NIMBLE_RESEARCH_BASE_URL``, set at import time so the session-scoped
+``AGENTNEXUS_NIMBLE_RESEARCH_BASE_URL``, set at import time so the session-scoped
 server/runner subprocesses inherit it — no live Nimble key needed).
 
 Like the repo's other spec-level builtin e2e tests (see
@@ -50,7 +50,7 @@ def _reserve_port() -> int:
 
 
 _STUB_PORT = _reserve_port()
-os.environ["OMNIGENT_NIMBLE_RESEARCH_BASE_URL"] = f"http://127.0.0.1:{_STUB_PORT}"
+os.environ["AGENTNEXUS_NIMBLE_RESEARCH_BASE_URL"] = f"http://127.0.0.1:{_STUB_PORT}"
 
 _E2E_AGENT_ID = "wsa_e2e00000-0000-4000-8000-000000000000"
 _E2E_RUN_ID = "task_run_e2e00000-0000-4000-8000-000000000000"
@@ -224,7 +224,7 @@ def test_nimble_research_v2_happy_path(
     for entry in agent_v2_stub:
         headers = entry["headers"]
         assert isinstance(headers, dict)
-        assert headers.get("X-Client-Source") == "omnigent", (
+        assert headers.get("X-Client-Source") == "agentnexus", (
             f"{entry['kind']} request missing X-Client-Source: {headers.get('X-Client-Source')!r}"
         )
         assert headers.get("Authorization") == "Bearer test-key"

@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.repl._tmux_pane import (
+from agentnexus.repl._tmux_pane import (
     OPT_AGENT_NAME,
     OPT_AGENT_YAML,
     OPT_CONV_ID,
@@ -401,7 +401,7 @@ def test_wrap_binding_supports_python_m_fallback_argv(
 ) -> None:
     """
     When :func:`_resolve_omnigent_argv` falls back to
-    ``[sys.executable, "-m", "omnigent.cli"]`` (no resolvable
+    ``[sys.executable, "-m", "agentnexus.cli"]`` (no resolvable
     binary on the PATH the running process inherited), the
     wrapper must embed the full three-element argv into the
     chooser shell command.
@@ -415,7 +415,7 @@ def test_wrap_binding_supports_python_m_fallback_argv(
     monkeypatch.setattr(subprocess, "run", _make_capturing_runner(captured))
     _wrap_binding(
         SplitBinding(key='"', direction="v", original_command="split-window"),
-        ["/usr/bin/python3", "-m", "omnigent.cli"],
+        ["/usr/bin/python3", "-m", "agentnexus.cli"],
     )
     chooser = captured[0][8]
     # All three prefix tokens must appear, joined by spaces, BEFORE
@@ -444,7 +444,7 @@ def test_resolve_argv_uses_abspath_when_argv0_is_path_shaped(
     would lose user-supplied paths that aren't on the PATH the
     Python process inherited.
     """
-    from omnigent.repl._tmux_pane import _resolve_omnigent_argv
+    from agentnexus.repl._tmux_pane import _resolve_omnigent_argv
 
     monkeypatch.setattr("sys.argv", ["/some/abs/path/omnigent", "run"])
     argv = _resolve_omnigent_argv()
@@ -457,7 +457,7 @@ def test_resolve_argv_uses_which_when_argv0_is_bare_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    When ``sys.argv[0]`` is a bare name like ``"omnigent"`` (the
+    When ``sys.argv[0]`` is a bare name like ``"agentnexus"`` (the
     shell already resolved it via PATH but didn't pass the
     absolute path along), the resolver does its own
     :func:`shutil.which` lookup.
@@ -467,9 +467,9 @@ def test_resolve_argv_uses_which_when_argv0_is_bare_name(
     would fall through to the python-m fallback even though a
     perfectly good binary is on PATH.
     """
-    from omnigent.repl._tmux_pane import _resolve_omnigent_argv
+    from agentnexus.repl._tmux_pane import _resolve_omnigent_argv
 
-    monkeypatch.setattr("sys.argv", ["omnigent", "run"])
+    monkeypatch.setattr("sys.argv", ["agentnexus", "run"])
     monkeypatch.setattr(shutil, "which", lambda name: "/resolved/bin/omnigent")
     argv = _resolve_omnigent_argv()
     assert argv == ["/resolved/bin/omnigent"]
@@ -482,7 +482,7 @@ def test_resolve_argv_falls_back_to_python_m_when_which_misses(
     When neither argv[0] inspection nor ``shutil.which`` can find a
     binary (degraded environment, sandboxed PATH, etc.), the
     resolver falls back to ``[sys.executable, "-m",
-    "omnigent.cli"]`` — bulletproof because if Python is
+    "agentnexus.cli"]`` — bulletproof because if Python is
     running this code, ``omnigent.cli`` is importable.
 
     Claim: the fallback is exactly three elements with the
@@ -490,13 +490,13 @@ def test_resolve_argv_falls_back_to_python_m_when_which_misses(
     that returned a bare name would propagate the 127 ("command
     not found") error the original bug report described.
     """
-    from omnigent.repl._tmux_pane import _resolve_omnigent_argv
+    from agentnexus.repl._tmux_pane import _resolve_omnigent_argv
 
-    monkeypatch.setattr("sys.argv", ["omnigent", "run"])
+    monkeypatch.setattr("sys.argv", ["agentnexus", "run"])
     monkeypatch.setattr(shutil, "which", lambda name: None)
     monkeypatch.setattr("sys.executable", "/path/to/python")
     argv = _resolve_omnigent_argv()
-    assert argv == ["/path/to/python", "-m", "omnigent.cli"], (
+    assert argv == ["/path/to/python", "-m", "agentnexus.cli"], (
         f"python-m fallback regressed; got {argv!r}. The fallback is "
         f"the only path that works in environments where the omnigent "
         f"binary isn't directly findable, so silent breakage here means "
@@ -534,7 +534,7 @@ def test_discover_unwraps_existing_wrapper_to_recover_original(
         # "#{pane_current_path}"`` original.
         'bind-key -T prefix \\" if-shell -F '
         '"#{?#{@omnigent-conv-id},1,0}" '
-        "\"run-shell 'omnigent pane-split -v -p #{pane_id}'\" "
+        "\"run-shell 'agentnexus pane-split -v -p #{pane_id}'\" "
         '"split-window -c \\"#{pane_current_path}\\""'
     )
     monkeypatch.setattr(
@@ -543,7 +543,7 @@ def test_discover_unwraps_existing_wrapper_to_recover_original(
         lambda cmd, **_: type("R", (), {"stdout": fake_output, "returncode": 0})(),
     )
 
-    from omnigent.repl._tmux_pane import _discover_split_bindings
+    from agentnexus.repl._tmux_pane import _discover_split_bindings
 
     bindings = _discover_split_bindings()
     assert len(bindings) == 1, (
@@ -616,7 +616,7 @@ def test_register_pane_strips_existing_python_m_prefix_idempotently(
         conv_id="conv_x",
         agent_name="a",
         agent_yaml=None,
-        launch_argv=["/p/python", "-m", "omnigent.cli", "run", "/x.yaml", "--omnigent"],
+        launch_argv=["/p/python", "-m", "agentnexus.cli", "run", "/x.yaml", "--omnigent"],
         server_url=None,
     )
 
@@ -626,7 +626,7 @@ def test_register_pane_strips_existing_python_m_prefix_idempotently(
     assert stored_argv == [
         "/p/python",
         "-m",
-        "omnigent.cli",
+        "agentnexus.cli",
         "run",
         "/x.yaml",
         "--omnigent",
@@ -684,9 +684,9 @@ def test_register_pane_repairs_already_doubled_prefix(
         launch_argv=[
             "/p/python",
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "run",
             "/x.yaml",
             "--omnigent",
@@ -702,7 +702,7 @@ def test_register_pane_repairs_already_doubled_prefix(
     assert stored_argv == [
         "/p/python",
         "-m",
-        "omnigent.cli",
+        "agentnexus.cli",
         "run",
         "/x.yaml",
         "--omnigent",
@@ -814,7 +814,7 @@ def _pane_integration_enabled(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
     wrapper logic to actually run must explicitly enable it; this
     fixture makes the dependency obvious at the test signature.
     """
-    monkeypatch.setattr("omnigent.repl._tmux_pane.PANE_INTEGRATION_ENABLED", True)
+    monkeypatch.setattr("agentnexus.repl._tmux_pane.PANE_INTEGRATION_ENABLED", True)
     yield
 
 
@@ -837,7 +837,7 @@ def test_register_pane_no_op_when_kill_switch_disabled_outside_tmux(
         conv_id="conv_x",
         agent_name="a",
         agent_yaml=None,
-        launch_argv=["omnigent", "run"],
+        launch_argv=["agentnexus", "run"],
         server_url=None,
     )
     assert captured == [], f"kill-switch + outside-tmux must be a complete no-op; got {captured!r}"
@@ -870,7 +870,7 @@ def test_register_pane_unmarks_pane_when_kill_switch_disabled_inside_tmux(
         conv_id="conv_x",
         agent_name="a",
         agent_yaml=None,
-        launch_argv=["omnigent", "run"],
+        launch_argv=["agentnexus", "run"],
         server_url=None,
     )
 
@@ -929,7 +929,7 @@ def test_register_pane_no_op_outside_tmux(
         conv_id="conv_xyz",
         agent_name="test-agent",
         agent_yaml=Path("/tmp/x.yaml"),
-        launch_argv=["omnigent", "run", "/tmp/x.yaml"],
+        launch_argv=["agentnexus", "run", "/tmp/x.yaml"],
         server_url="http://127.0.0.1:9000",
     )
     assert captured == [], (
@@ -961,7 +961,7 @@ def test_register_pane_skips_when_tmux_pane_unset(
         conv_id="conv_xyz",
         agent_name="test-agent",
         agent_yaml=None,
-        launch_argv=["omnigent", "run"],
+        launch_argv=["agentnexus", "run"],
         server_url=None,
     )
     assert captured == []
@@ -996,7 +996,7 @@ def test_register_pane_advertises_options_and_wraps_bindings(
     # absolute path. This is the path register_pane will splice
     # into ``launch_argv[0]`` and the wrapper's chooser command
     # so the assertions below can predict the exact stored value.
-    monkeypatch.setattr("sys.argv", ["omnigent", "run", "/agents/cs.yaml", "--omnigent"])
+    monkeypatch.setattr("sys.argv", ["agentnexus", "run", "/agents/cs.yaml", "--omnigent"])
     monkeypatch.setattr(shutil, "which", lambda name: "/venv/bin/omnigent")
 
     list_keys_output = "\n".join(
@@ -1024,7 +1024,7 @@ def test_register_pane_advertises_options_and_wraps_bindings(
         conv_id="conv_abc123",
         agent_name="coding-supervisor",
         agent_yaml=Path("/agents/cs.yaml"),
-        launch_argv=["omnigent", "run", "/agents/cs.yaml", "--omnigent"],
+        launch_argv=["agentnexus", "run", "/agents/cs.yaml", "--omnigent"],
         server_url="http://127.0.0.1:8123",
     )
 
@@ -1044,7 +1044,7 @@ def test_register_pane_advertises_options_and_wraps_bindings(
     assert parsed_argv == ["/venv/bin/omnigent", "run", "/agents/cs.yaml", "--omnigent"], (
         f"launch-argv[0] must be normalized to the resolved absolute "
         f"path so the picker's exec doesn't depend on tmux's PATH; got "
-        f"{parsed_argv!r}. If argv[0] is still 'omnigent' (bare), the "
+        f"{parsed_argv!r}. If argv[0] is still 'agentnexus' (bare), the "
         f"picker will hit exit 127 when it tries to relaunch."
     )
     assert set_option_values[OPT_SERVER_URL] == "http://127.0.0.1:8123"
@@ -1107,7 +1107,7 @@ def test_register_pane_skips_on_old_tmux(
         conv_id="conv_abc",
         agent_name="agent",
         agent_yaml=None,
-        launch_argv=["omnigent", "run"],
+        launch_argv=["agentnexus", "run"],
         server_url=None,
     )
 

@@ -8,15 +8,15 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.db.utils import generate_agent_id
-from omnigent.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.routes.teammate_memories import create_teammate_memories_router
-from omnigent.stores.agent_memory_store.sqlalchemy_store import (
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.routes.teammate_memories import create_teammate_memories_router
+from agentnexus.stores.agent_memory_store.sqlalchemy_store import (
     SqlAlchemyAgentMemoryStore,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
 
 pytestmark = pytest.mark.asyncio
 

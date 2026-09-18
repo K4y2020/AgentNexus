@@ -24,17 +24,17 @@ from typing import Any
 
 import pytest
 
-from omnigent.errors import ElicitationDeclinedError
-from omnigent.policies.function import FunctionPolicy
-from omnigent.policies.types import EvaluationContext, PolicyResult
-from omnigent.runtime.policies import _await_elicitation
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.errors import ElicitationDeclinedError
+from agentnexus.policies.function import FunctionPolicy
+from agentnexus.policies.types import EvaluationContext, PolicyResult
+from agentnexus.runtime.policies import _await_elicitation
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     Phase,
     PhaseSelector,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_policy

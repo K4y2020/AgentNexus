@@ -9,7 +9,7 @@
 //
 // The embed:
 //   - injects the host transport config (API fetcher + WebSocket URL),
-//   - tags a root element with `.omnigent-app` so the scoped stylesheet
+//   - tags a root element with `.agentnexus-app` so the scoped stylesheet
 //     applies and Radix overlays portal back into this subtree,
 //   - applies the host-provided color scheme (`isDarkMode`): the embed is not
 //     user-toggleable (the theme switcher is hidden via `useIsEmbedded`); the
@@ -82,7 +82,7 @@ const queryClient = new QueryClient({
 
 export interface OmnigentAppProps extends OmnigentHostConfig {
   /**
-   * Router basename, e.g. `/ml/omnigent-embed`. web's routes + navigation
+   * Router basename, e.g. `/ml/agentnexus-embed`. web's routes + navigation
    * use absolute paths (`/`, `/c/:conversationId`), so the app must be nested
    * under the host mount path.
    *
@@ -110,7 +110,7 @@ export interface OmnigentAppProps extends OmnigentHostConfig {
  * already be present — the host (universe) supplies it; the embed renders in
  * the host's same React tree (shared react-router). The embed brings its OWN
  * `<QueryClientProvider>` (react-query is bundled, not shared). Self-contained
- * for styling: renders its own `.omnigent-app` scope wrapper and registers it
+ * for styling: renders its own `.agentnexus-app` scope wrapper and registers it
  * as the Radix portal root, so the host only renders this — no class/portal
  * wiring needed.
  */
@@ -124,7 +124,7 @@ export interface OmnigentAppProps extends OmnigentHostConfig {
  *
  * WITHOUT this provider, `useServerInfo()` returns the context default
  * (`"loading"`) forever, so `App` hits its `if (info === "loading") return
- * null` guard and the embed renders a permanently blank `.omnigent-app` div.
+ * null` guard and the embed renders a permanently blank `.agentnexus-app` div.
  */
 function EmbedCapabilitiesProvider({ children }: { children: ReactNode }) {
   const [info, setInfo] = useState<ServerInfo | "loading">("loading");
@@ -166,13 +166,13 @@ function OmnigentProviders({
 
   // Register the theme wrapper as the Radix portal container so overlays land
   // inside the themed subtree (and clear it on unmount). It's the inner div —
-  // not the `.omnigent-app` scope root — so portaled overlays inherit the
+  // not the `.agentnexus-app` scope root — so portaled overlays inherit the
   // `.dark` token overrides too.
   const scopeRef = useCallback((el: HTMLDivElement | null) => {
     setEmbedRoot(el);
   }, []);
 
-  // The outer `.omnigent-app` scope root is where the scoped `:root` tokens
+  // The outer `.agentnexus-app` scope root is where the scoped `:root` tokens
   // live, so per-device preferences (UI font, color palette, custom theme) must
   // be applied here — standalone main.tsx applies them to <html> at boot; the
   // embed applies them once the scope root mounts. The inner `scopeRef` runs
@@ -190,15 +190,15 @@ function OmnigentProviders({
 
   return (
     // Two nested wrappers on purpose:
-    //   - `.omnigent-app` (outer) is the scope anchor. The scoped stylesheet
-    //     rewrites `:root` → `.omnigent-app` (light tokens) and `.dark` →
-    //     `.omnigent-app .dark`, so the dark class must be a DESCENDANT of the
+    //   - `.agentnexus-app` (outer) is the scope anchor. The scoped stylesheet
+    //     rewrites `:root` → `.agentnexus-app` (light tokens) and `.dark` →
+    //     `.agentnexus-app .dark`, so the dark class must be a DESCENDANT of the
     //     scope root, not the root itself.
     //   - the inner div carries the host-driven `dark` class (when dark) and is
     //     the Radix portal root, so both the app and its overlays read the dark
     //     token overrides. Light mode = no class → inherits the scope root's
     //     light tokens.
-    <div ref={scopeRootRef} className="omnigent-app" style={{ height: "100%", width: "100%" }}>
+    <div ref={scopeRootRef} className="agentnexus-app" style={{ height: "100%", width: "100%" }}>
       <div
         ref={scopeRef}
         className={isDarkMode ? "dark" : undefined}
@@ -211,7 +211,7 @@ function OmnigentProviders({
               `enableColorScheme={false}` keep it from mutating the host's
               `<html>` class or `color-scheme`. */}
           <NextThemesProvider
-            attribute="data-omnigent-theme"
+            attribute="data-agentnexus-theme"
             forcedTheme={isDarkMode ? "dark" : "light"}
             enableColorScheme={false}
             disableTransitionOnChange

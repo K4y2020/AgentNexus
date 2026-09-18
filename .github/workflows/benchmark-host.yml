@@ -9,16 +9,16 @@ name: Benchmark (host sessions)
 # trend numbers stay with the nightly benchmark.yml; this workflow's value is
 # a fresh matrix on the PRs that actually move these numbers.
 #
-# Uses dev/benchmarks/omnigent (real server + real `omni host` daemon +
+# Uses dev/benchmarks/agentnexus (real server + real `omni host` daemon +
 # runner against a zero-latency mock LLM — no agent CLI or credentials).
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "omnigent/host/**"
-      - "omnigent/runner/**"
-      - "omnigent/server/**"
+      - "agentnexus/host/**"
+      - "agentnexus/runner/**"
+      - "agentnexus/server/**"
       - "dev/benchmarks/**"
       - ".github/workflows/benchmark-host.yml"
   workflow_dispatch:
@@ -42,12 +42,12 @@ permissions:
 env:
   # No web SPA build during `uv sync` (setup.py _build_web_ui): nothing here
   # serves the bundle, and the build otherwise times out on public npm.
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
   # The host-session set: the host-bound lifecycle journeys first, then the
   # common HTTP session actions a user drives around them. Matches the
-  # journey names in dev/benchmarks/omnigent/journeys.py (ALL_JOURNEYS).
+  # journey names in dev/benchmarks/agentnexus/journeys.py (ALL_JOURNEYS).
   DEFAULT_JOURNEYS: >-
     session_cold_start,session_cold_restart,warm_turn,time_to_first_token,interrupt,create_session,fork_session,list_sessions,get_session,load_conversation_history
   JOURNEYS: ${{ (github.event_name == 'workflow_dispatch' && inputs.journeys) || '' }}
@@ -63,7 +63,7 @@ concurrency:
 jobs:
   benchmark-host:
     name: Host session benchmark (sqlite)
-    if: github.repository == 'omnigent-ai/omnigent' && !github.event.pull_request.draft
+    if: github.repository == 'agentnexus-ai/agentnexus' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -93,7 +93,7 @@ jobs:
         # process spin-up and turn latency, not query scale — corpus-scale
         # numbers live in the nightly benchmark.yml.
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/run.py \
+          uv run --no-sync dev/benchmarks/agentnexus/run.py \
             --journeys "${JOURNEYS:-$DEFAULT_JOURNEYS}" \
             --iterations "$ITERATIONS" \
             --runs "$RUNS" \
@@ -103,7 +103,7 @@ jobs:
         if: always()
         run: |
           if [[ -f benchmark-results-host.json ]]; then
-            uv run --no-sync dev/benchmarks/omnigent/report_markdown.py \
+            uv run --no-sync dev/benchmarks/agentnexus/report_markdown.py \
               --title "Host session benchmark" \
               benchmark-results-host.json >> "$GITHUB_STEP_SUMMARY"
           fi

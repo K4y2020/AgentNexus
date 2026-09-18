@@ -1,6 +1,6 @@
 name: Issue Triage
 
-# AI-powered triage for new issues via Omnigent.
+# AI-powered triage for new issues via AgentNexus.
 # Implements Stage 2 of the issue triage proposal (designs/issue-triage-proposal.md).
 #
 # Architecture (prompt injection resistant):
@@ -61,7 +61,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
   CLOSE_DUPLICATE_ISSUES: ${{ vars.ISSUE_TRIAGE_CLOSE_DUPLICATES || 'false' }}
@@ -231,7 +231,7 @@ jobs:
           # Install outside the checked-out tree: a repo-root package.json would
           # otherwise capture this bare `npm install` and hoist it there, leaving
           # this dir's node_modules empty.
-          CC_CLI_DIR="${RUNNER_TEMP}/omnigent-cc-cli"
+          CC_CLI_DIR="${RUNNER_TEMP}/agentnexus-cc-cli"
           mkdir -p "$CC_CLI_DIR" && cd "$CC_CLI_DIR"
           npm install --ignore-scripts --no-audit --no-fund @anthropic-ai/claude-code@2.1.212
           node node_modules/@anthropic-ai/claude-code/install.cjs
@@ -259,14 +259,14 @@ jobs:
           "
           echo "DATABRICKS_BEARER=${LLM_API_KEY}" >> "$GITHUB_ENV"
 
-      - name: Write Omnigent provider config
+      - name: Write AgentNexus provider config
         if: steps.creds.outputs.available == 'true'
         env:
           GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
-          OMNIGENT_AGENT_MODEL: ${{ vars.OMNIGENT_CI_FAST_ANTHROPIC_MODEL }}
+          AGENTNEXUS_AGENT_MODEL: ${{ vars.AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL }}
         run: |
-          : "${OMNIGENT_AGENT_MODEL:?Set OMNIGENT_CI_FAST_ANTHROPIC_MODEL}"
-          mkdir -p "$HOME/.omnigent"
+          : "${AGENTNEXUS_AGENT_MODEL:?Set AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL}"
+          mkdir -p "$HOME/.agentnexus"
           python3 -c "
           import pathlib, os, json
           gw = os.environ['GATEWAY_BASE_URL']
@@ -279,12 +279,12 @@ jobs:
                       'anthropic': {
                           'base_url': gw + '/anthropic',
                           'api_key_ref': 'env:LLM_API_KEY',
-                          'models': {'default': os.environ['OMNIGENT_AGENT_MODEL']},
+                          'models': {'default': os.environ['AGENTNEXUS_AGENT_MODEL']},
                       },
                   }
               }
           }
-          pathlib.Path.home().joinpath('.omnigent', 'config.yaml').write_text(
+          pathlib.Path.home().joinpath('.agentnexus', 'config.yaml').write_text(
               json.dumps(cfg, indent=2)
           )
           "
@@ -355,7 +355,7 @@ jobs:
 
           echo "::stop-commands::$stop_token"
           set +e
-          uv run omnigent run .github/triage/ \
+          uv run agentnexus run .github/triage/ \
             -p "$prompt" \
             --no-session \
             2>triage-stderr.log \
@@ -639,7 +639,7 @@ jobs:
           post_duplicate_comment=$(jq -r '.post_duplicate_comment' /tmp/triage_result.json)
           comment_id=$(gh api --paginate \
             "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
-            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- omnigent-duplicate-check -->"))) | .id' \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- agentnexus-duplicate-check -->"))) | .id' \
             | sed -n '1p')
           if [ "$post_duplicate_comment" != "true" ]; then
             echo "Not commenting. The comment that would have been posted:"

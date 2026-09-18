@@ -14,12 +14,12 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from omnigent.db.utils import generate_agent_id
-from omnigent.entities import USER_SESSION_TITLE_MAX_CHARS
-from omnigent.server.routes import sessions as sessions_module
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.entities import USER_SESSION_TITLE_MAX_CHARS
+from agentnexus.server.routes import sessions as sessions_module
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -95,7 +95,7 @@ async def test_bot_session_uses_durable_home_and_singleton_slot(
             "bot_id": bot.id,
             "purpose": "primary",
             "workspace": "U:/wrong/recent/project",
-            "labels": {"omnigent.teammate.primary": "true"},
+            "labels": {"agentnexus.teammate.primary": "true"},
         },
     )
     assert response.status_code == 201, response.text
@@ -106,9 +106,9 @@ async def test_bot_session_uses_durable_home_and_singleton_slot(
 
     assert Path(body["workspace"]).name == body["id"]
     assert Path(body["workspace"]).parent.name == "topics"
-    assert body["labels"]["omnigent.workspace_layout"] == "topic-v1"
+    assert body["labels"]["agentnexus.workspace_layout"] == "topic-v1"
     assert body["model_override"] == "gpt-5.6-luna"
-    assert body["labels"]["omnigent.behavior_mode"] == "lean"
+    assert body["labels"]["agentnexus.behavior_mode"] == "lean"
 
     topic_a2a = await client.post(
         "/v1/sessions",
@@ -117,10 +117,10 @@ async def test_bot_session_uses_durable_home_and_singleton_slot(
             "bot_id": bot.id,
             "purpose": "a2a",
             "labels": {
-                "omnigent.teammate.channel": "a2a",
-                "omnigent.teammate.channel_scope": "topic:topic_a",
-                "omnigent.teammate.channel_kind": "topic",
-                "omnigent.teammate.channel_source": "topic_a",
+                "agentnexus.teammate.channel": "a2a",
+                "agentnexus.teammate.channel_scope": "topic:topic_a",
+                "agentnexus.teammate.channel_kind": "topic",
+                "agentnexus.teammate.channel_source": "topic_a",
             },
         },
     )
@@ -132,10 +132,10 @@ async def test_bot_session_uses_durable_home_and_singleton_slot(
             "bot_id": bot.id,
             "purpose": "a2a",
             "labels": {
-                "omnigent.teammate.channel": "a2a",
-                "omnigent.teammate.channel_scope": "topic:topic_b",
-                "omnigent.teammate.channel_kind": "topic",
-                "omnigent.teammate.channel_source": "topic_b",
+                "agentnexus.teammate.channel": "a2a",
+                "agentnexus.teammate.channel_scope": "topic:topic_b",
+                "agentnexus.teammate.channel_kind": "topic",
+                "agentnexus.teammate.channel_source": "topic_b",
             },
         },
     )
@@ -583,11 +583,11 @@ async def test_patch_session_pins_and_unpins(
     session_id: str,
     db_uri: str,
 ) -> None:
-    """PATCH with the canonical ``labels: {"omnigent.pinned": <pin-time>}`` pins
+    """PATCH with the canonical ``labels: {"agentnexus.pinned": <pin-time>}`` pins
     the session for the CALLER: the server rewrites it to the per-user key
     ``omnigent.pinned.<user>`` in storage (so it doesn't pin for others), and an
     empty value deletes that per-user key (unpin)."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     conv_store = SqlAlchemyConversationStore(db_uri)
     # No auth header on this client ⇒ the single-user ``local`` identity.
@@ -595,7 +595,7 @@ async def test_patch_session_pins_and_unpins(
 
     resp = await client.patch(
         f"/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.pinned": "1721760000000"}},
+        json={"labels": {"agentnexus.pinned": "1721760000000"}},
         headers={"Content-Type": "application/json"},
     )
     assert resp.status_code == 200
@@ -603,14 +603,14 @@ async def test_patch_session_pins_and_unpins(
     assert conv is not None
     # Stored under the per-user key, NOT the bare canonical key.
     assert conv.labels.get(user_key) == "1721760000000"
-    assert "omnigent.pinned" not in conv.labels
+    assert "agentnexus.pinned" not in conv.labels
     # …but the response collapses it back to the canonical key for the caller.
-    assert resp.json()["labels"].get("omnigent.pinned") == "1721760000000"
+    assert resp.json()["labels"].get("agentnexus.pinned") == "1721760000000"
 
     # Unpin: empty string clears the per-user key.
     resp = await client.patch(
         f"/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.pinned": ""}},
+        json={"labels": {"agentnexus.pinned": ""}},
         headers={"Content-Type": "application/json"},
     )
     assert resp.status_code == 200
@@ -627,7 +627,7 @@ async def test_archiving_clears_the_callers_pin(
     """Archiving a session drops the caller's own pin: a pinned row shouldn't
     linger if the session is later unarchived. Only the requester's per-user key
     is cleared."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     conv_store = SqlAlchemyConversationStore(db_uri)
     user_key = pinned_label_key(None)
@@ -635,7 +635,7 @@ async def test_archiving_clears_the_callers_pin(
     # Pin, then archive.
     resp = await client.patch(
         f"/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.pinned": "1721760000000"}},
+        json={"labels": {"agentnexus.pinned": "1721760000000"}},
         headers={"Content-Type": "application/json"},
     )
     assert resp.status_code == 200
@@ -663,14 +663,14 @@ async def test_archiving_wins_over_a_same_request_pin(
     """A single PATCH carrying both ``archived: true`` and a pin is
     contradictory; archive is authoritative. The pin-clear runs after the label
     upsert, so the session ends up archived and unpinned, not re-pinned."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     conv_store = SqlAlchemyConversationStore(db_uri)
     user_key = pinned_label_key(None)
 
     resp = await client.patch(
         f"/v1/sessions/{session_id}",
-        json={"archived": True, "labels": {"omnigent.pinned": "1721760000000"}},
+        json={"archived": True, "labels": {"agentnexus.pinned": "1721760000000"}},
         headers={"Content-Type": "application/json"},
     )
     assert resp.status_code == 200
@@ -694,13 +694,13 @@ async def test_patch_rejects_client_supplied_per_user_pin_key(
     for value in ("1721760000000", ""):
         resp = await client.patch(
             f"/v1/sessions/{session_id}",
-            json={"labels": {"omnigent.pinned.bob@example.com": value}},
+            json={"labels": {"agentnexus.pinned.bob@example.com": value}},
             headers={"Content-Type": "application/json"},
         )
         assert resp.status_code == 400
     conv = conv_store.get_conversation(session_id)
     assert conv is not None
-    assert "omnigent.pinned.bob@example.com" not in conv.labels
+    assert "agentnexus.pinned.bob@example.com" not in conv.labels
 
 
 async def test_patch_rejects_client_supplied_sandbox_labels(
@@ -717,9 +717,9 @@ async def test_patch_rejects_client_supplied_sandbox_labels(
     conv_store = SqlAlchemyConversationStore(db_uri)
 
     for key in (
-        "omnigent.sandbox.agent",
-        "omnigent.sandbox.repo",
-        "omnigent.sandbox.future",
+        "agentnexus.sandbox.agent",
+        "agentnexus.sandbox.repo",
+        "agentnexus.sandbox.future",
     ):
         resp = await client.patch(
             f"/v1/sessions/{session_id}",
@@ -738,7 +738,7 @@ async def test_list_sessions_pinned_filter(
 ) -> None:
     """``?pinned=true`` returns only sessions the CALLER pinned — matched by
     their per-user key. Another user's pin on a session does not surface."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     agent_store = SqlAlchemyAgentStore(db_uri)
     conv_store = SqlAlchemyConversationStore(db_uri)
@@ -766,9 +766,9 @@ async def test_windows_native_codex_adapts_to_sdk(
     db_uri: str,
 ) -> None:
     """On Windows, creating a session with codex-native-ui adapts to codex SDK."""
-    from omnigent._platform import IS_WINDOWS
-    from omnigent.db.utils import generate_agent_id
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus._platform import IS_WINDOWS
+    from agentnexus.db.utils import generate_agent_id
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
     if not IS_WINDOWS:
         pytest.skip("Windows adaptation test only runs on Windows")
     agent_store = SqlAlchemyAgentStore(db_uri)
@@ -779,4 +779,4 @@ async def test_windows_native_codex_adapts_to_sdk(
     assert create_resp.status_code == 201
     created = create_resp.json()
     assert created["harness"] == "codex"
-    assert created["labels"]["omnigent.ui"] == "chat"
+    assert created["labels"]["agentnexus.ui"] == "chat"

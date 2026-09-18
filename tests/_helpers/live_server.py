@@ -2,7 +2,7 @@
 Shared fixtures for tests that need a live ``omnigent.cli server`` subprocess.
 
 Lifted out of ``tests/e2e/conftest.py`` so the inner test suite
-(``tests/inner/test_integration.py`` running with Omnigent mode) can
+(``tests/inner/test_integration.py`` running with AgentNexus mode) can
 reuse the same machinery without duplication. The e2e conftest
 re-exports from here.
 
@@ -162,7 +162,7 @@ def start_live_server(
     # Force the subprocess to import from the worktree, not whatever's
     # installed in the venv — otherwise a branch with schema/model changes
     # runs against a stale installed copy and fails with cryptic "no such
-    # column" errors. In compat mode (OMNIGENT_COMPAT_SERVER_PYTHON set) this
+    # column" errors. In compat mode (AGENTNEXUS_COMPAT_SERVER_PYTHON set) this
     # prepend is dropped so the pinned older build in the compat venv wins.
     apply_server_env(env, _REPO_ROOT)
     log_handle = open(log_path, "w")  # noqa: SIM115 — handle lives for Popen lifetime
@@ -174,7 +174,7 @@ def start_live_server(
             # system Python 2.7 and SyntaxError.
             server_executable(),
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),

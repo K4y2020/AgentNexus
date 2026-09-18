@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities.project import Project
+from agentnexus.entities.project import Project
 
 # ── Project ───────────────────────────────────────────
 

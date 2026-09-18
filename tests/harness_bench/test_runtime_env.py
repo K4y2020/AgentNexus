@@ -38,7 +38,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _stub_resolver(monkeypatch: pytest.MonkeyPatch, host: str, token: str) -> None:
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace",
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace",
         lambda profile: _Creds(host, token),
     )
 
@@ -61,7 +61,7 @@ def test_ambient_openai_wins_and_skips_resolver(monkeypatch: pytest.MonkeyPatch)
         raise AssertionError("resolver must not be called when ambient OPENAI_* is set")
 
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace", _boom
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace", _boom
     )
     env = resolve_bench_env(None)
     assert env.base_env["OPENAI_API_KEY"] == "ambient-key"
@@ -77,7 +77,7 @@ def test_config_profile_used_when_no_flag(monkeypatch: pytest.MonkeyPatch) -> No
         return _Creds("https://cfg.example.com", "cfg-tok")
 
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace", _resolver
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace", _resolver
     )
     env = resolve_bench_env(None)
     assert seen["profile"] == "from-config"
@@ -94,7 +94,7 @@ def test_explicit_profile_overrides_config(monkeypatch: pytest.MonkeyPatch) -> N
         return _Creds("https://x", "t")
 
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace", _resolver
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace", _resolver
     )
     resolve_bench_env("explicit")
     assert seen["profile"] == "explicit"  # flag wins over config
@@ -108,9 +108,9 @@ def test_profile_from_providers_block(monkeypatch: pytest.MonkeyPatch) -> None:
     Exercises the real ``_profile_from_config`` (captured before the autouse
     stub) by monkeypatching the two upstream config sources it reads.
     """
-    monkeypatch.setattr("omnigent.config.load_global_config", dict)
+    monkeypatch.setattr("agentnexus.config.load_global_config", dict)
     monkeypatch.setattr(
-        "omnigent.config.load_effective_config",
+        "agentnexus.config.load_effective_config",
         lambda: {
             "providers": {
                 "databricks": {"kind": "databricks", "default": True, "profile": "DEFAULT"}
@@ -122,7 +122,7 @@ def test_profile_from_providers_block(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_profile_from_auth_block(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "omnigent.config.load_global_config",
+        "agentnexus.config.load_global_config",
         lambda: {"auth": {"type": "databricks", "profile": "AUTH_PROFILE"}},
     )
     assert _REAL_PROFILE_FROM_CONFIG() == "AUTH_PROFILE"
@@ -130,20 +130,20 @@ def test_profile_from_auth_block(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_project_auth_does_not_override_global_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "omnigent.config.load_global_config",
+        "agentnexus.config.load_global_config",
         lambda: {"auth": {"type": "databricks", "profile": "GLOBAL_AUTH"}},
     )
     monkeypatch.setattr(
-        "omnigent.config.load_effective_config",
+        "agentnexus.config.load_effective_config",
         lambda: {"auth": {"type": "databricks", "profile": "PROJECT_AUTH"}},
     )
     assert _REAL_PROFILE_FROM_CONFIG() == "GLOBAL_AUTH"
 
 
 def test_project_only_auth_is_not_used_for_tier_one(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("omnigent.config.load_global_config", dict)
+    monkeypatch.setattr("agentnexus.config.load_global_config", dict)
     monkeypatch.setattr(
-        "omnigent.config.load_effective_config",
+        "agentnexus.config.load_effective_config",
         lambda: {"auth": {"type": "databricks", "profile": "PROJECT_AUTH"}},
     )
     assert _REAL_PROFILE_FROM_CONFIG() is None
@@ -153,15 +153,15 @@ def test_profile_from_config_tolerates_malformed_config(monkeypatch: pytest.Monk
     def _malformed() -> dict[str, object]:
         raise ValueError("malformed yaml")
 
-    monkeypatch.setattr("omnigent.config.load_global_config", _malformed)
-    monkeypatch.setattr("omnigent.config.load_effective_config", _malformed)
+    monkeypatch.setattr("agentnexus.config.load_global_config", _malformed)
+    monkeypatch.setattr("agentnexus.config.load_effective_config", _malformed)
     assert _REAL_PROFILE_FROM_CONFIG() is None
 
 
 def test_top_level_profile_precedes_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("omnigent.config.load_global_config", dict)
+    monkeypatch.setattr("agentnexus.config.load_global_config", dict)
     monkeypatch.setattr(
-        "omnigent.config.load_effective_config",
+        "agentnexus.config.load_effective_config",
         lambda: {
             "profile": "TOP_LEVEL",
             "providers": {
@@ -208,7 +208,7 @@ def test_resolve_env_tolerates_missing_creds_when_gateway_optional(
         raise OSError("no databricks credentials")
 
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace", _no_creds
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace", _no_creds
     )
     env = resolve_bench_env(None, require_gateway=False)
     assert isinstance(env, BenchRuntimeEnv)
@@ -226,7 +226,7 @@ def test_resolve_env_still_raises_when_gateway_required(
         raise OSError("no databricks credentials")
 
     monkeypatch.setattr(
-        "omnigent.runtime.credentials.databricks.resolve_databricks_workspace", _no_creds
+        "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace", _no_creds
     )
     with pytest.raises(OSError):
         resolve_bench_env(None)

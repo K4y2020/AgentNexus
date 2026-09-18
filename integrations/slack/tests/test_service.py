@@ -3,25 +3,25 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-import omnigent_slack.service as service_module
+import agentnexus_slack.service as service_module
 import pytest
-from omnigent_slack.approvals import Verdict, parse_action_value
-from omnigent_slack.models import ThreadKey, UserConfig
-from omnigent_slack.omnigent import (
+from agentnexus_slack.approvals import Verdict, parse_action_value
+from agentnexus_slack.models import ThreadKey, UserConfig
+from agentnexus_slack.agentnexus import (
     AuthRequiredError,
     HarnessNotConfiguredError,
     HostUnavailableError,
-    OmnigentError,
+    AgentNexusError,
     ServerUnreachableError,
     StreamInterruptedError,
 )
-from omnigent_slack.service import (
+from agentnexus_slack.service import (
     _ACK_TEXT,
     _SERVER_UNREACHABLE_TEXT,
     _STREAM_INTERRUPTED_TEXT,
-    SlackOmnigentService,
+    SlackAgentNexusService,
 )
-from omnigent_slack.store import SQLiteStore
+from agentnexus_slack.store import SQLiteStore
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
@@ -229,7 +229,7 @@ class FakeSlackClient:
         return "".join(s.text for s in self.streams)
 
 
-class FakeOmnigentClient:
+class FakeAgentNexusClient:
     def __init__(self, final_text: str = "hello final") -> None:
         self.created: list[tuple[str, str]] = []
         self.bound: list[str] = []
@@ -261,14 +261,14 @@ class FakeOmnigentClient:
         self.info_agent_name: str | None = "debby"
 
     async def get_session_activity(self, session_id: str) -> Any:
-        from omnigent_slack.omnigent import SessionActivity
+        from agentnexus_slack.agentnexus import SessionActivity
 
         return SessionActivity(
             status=self.route_status, pending_elicitation=self.route_pending_elicitation
         )
 
     async def get_session_info(self, session_id: str) -> Any:
-        from omnigent_slack.omnigent import SessionInfo
+        from agentnexus_slack.agentnexus import SessionInfo
 
         return SessionInfo(harness=self.info_harness, agent_name=self.info_agent_name)
 
@@ -329,13 +329,13 @@ class FakeOmnigentClient:
 
 
 class FakePool:
-    """Returns the same FakeOmnigentClient for every server URL, recording URLs."""
+    """Returns the same FakeAgentNexusClient for every server URL, recording URLs."""
 
-    def __init__(self, client: FakeOmnigentClient) -> None:
+    def __init__(self, client: FakeAgentNexusClient) -> None:
         self._client = client
         self.requested: list[str] = []
 
-    async def get(self, server_url: str, user_id: str = "") -> FakeOmnigentClient:
+    async def get(self, server_url: str, user_id: str = "") -> FakeAgentNexusClient:
         self.requested.append(server_url)
         return self._client
 
@@ -393,13 +393,13 @@ async def _store(tmp_path: Path) -> SQLiteStore:
 
 def _service(
     store: SQLiteStore,
-    omnigent: FakeOmnigentClient,
+    omnigent: FakeAgentNexusClient,
     *,
     setup: FakeSetup | None = None,
-) -> tuple[SlackOmnigentService, FakePool, FakeSetup]:
+) -> tuple[SlackAgentNexusService, FakePool, FakeSetup]:
     pool = FakePool(omnigent)
     setup = setup or FakeSetup()
-    service = SlackOmnigentService(
+    service = SlackAgentNexusService(
         store=store,
         pool=pool,  # type: ignore[arg-type]
         setup=setup,  # type: ignore[arg-type]
@@ -441,7 +441,7 @@ async def _wait_for_stream_stop(client: FakeSlackClient) -> FakeStream:
 async def test_app_mention_creates_session_and_posts_response(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -478,7 +478,7 @@ async def test_app_mention_creates_session_and_posts_response(tmp_path: Path) ->
     info_text = slack.posts[0]["text"]
     assert "debby" in info_text  # agent name
     assert "claude-native" in info_text  # harness
-    assert "/c/conv_1|Open in Omnigent>" in info_text  # web-UI link
+    assert "/c/conv_1|Open in AgentNexus>" in info_text  # web-UI link
     # The config summary comes FIRST, then the "Working on it…" ack: the thread
     # reads metadata → ack → answer.
     assert slack.posts[0]["order"] < slack.acks[0]["order"]
@@ -496,7 +496,7 @@ async def test_failed_handle_unclaims_event_so_it_can_retry(tmp_path: Path) -> N
     # re-send with the same id is deduped away.
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -544,7 +544,7 @@ async def test_session_title_falls_back_when_permalink_unavailable(tmp_path: Pat
             raise RuntimeError("missing scope")
 
     slack = NoPermalinkSlack()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -566,7 +566,7 @@ async def test_session_info_omits_missing_fields(tmp_path: Path) -> None:
     # agent (unreadable or older session) — no "None", no crash.
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     omnigent.info_harness = None
     omnigent.info_agent_name = None
     service, _pool, _setup = _service(store, omnigent)
@@ -583,7 +583,7 @@ async def test_session_info_omits_missing_fields(tmp_path: Path) -> None:
 
     info_text = slack.posts[0]["text"]
     assert "None" not in info_text
-    assert "/c/conv_1|Open in Omnigent>" in info_text  # link still present
+    assert "/c/conv_1|Open in AgentNexus>" in info_text  # link still present
 
 
 async def test_no_ack_when_session_cannot_start_host_unavailable(tmp_path: Path) -> None:
@@ -616,7 +616,7 @@ async def test_channel_stream_passes_recipient_ids(tmp_path: Path) -> None:
     # bot supplies them from the turn (owner + team).
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -634,7 +634,7 @@ async def test_channel_stream_passes_recipient_ids(tmp_path: Path) -> None:
     assert stream.start_kwargs["recipient_team_id"] == "T1"
 
 
-class StreamingClient(FakeOmnigentClient):
+class StreamingClient(FakeAgentNexusClient):
     """Streams ``final_text`` as delta chunks, then reports it as the final item.
 
     Mirrors a real turn where the delta events accumulate into exactly the final
@@ -666,7 +666,7 @@ class StreamingClient(FakeOmnigentClient):
         yield {"type": "response.completed", "response": {"status": "completed"}}
 
 
-class NoDeltaIdleClient(FakeOmnigentClient):
+class NoDeltaIdleClient(FakeAgentNexusClient):
     """Mirrors a real claude-native short answer: NO text deltas — the answer
     arrives only as a committed ``output_item.done`` — and the turn ends on
     ``session.status: idle`` (not ``response.completed``). The ack must stay live
@@ -722,7 +722,7 @@ async def test_no_delta_idle_answer_keeps_ack_until_visible(tmp_path: Path) -> N
     assert slack.acks[0]["ts"] in slack.deleted_ts
 
 
-class MultiMessageClient(FakeOmnigentClient):
+class MultiMessageClient(FakeAgentNexusClient):
     """Streams two assistant messages back to back, each tagged with its own
     ``message_id`` — the claude-native shape when the agent narrates between tool
     calls. The deltas arrive with no boundary between the two messages.
@@ -814,7 +814,7 @@ async def test_turn_error_posts_separate_reply_and_keeps_answer(tmp_path: Path) 
     store = await _store(tmp_path)
     slack = FakeSlackClient()
 
-    class ErroringAfterAnswerClient(FakeOmnigentClient):
+    class ErroringAfterAnswerClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -873,7 +873,7 @@ async def test_turn_error_without_answer_finalizes_with_generic_message(tmp_path
     store = await _store(tmp_path)
     slack = FakeSlackClient()
 
-    class ErroringNoAnswerClient(FakeOmnigentClient):
+    class ErroringNoAnswerClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -915,7 +915,7 @@ async def test_exhausted_reconnect_shows_non_alarming_text(tmp_path: Path) -> No
     store = await _store(tmp_path)
     slack = FakeSlackClient()
 
-    class StreamInterruptedClient(FakeOmnigentClient):
+    class StreamInterruptedClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -1017,7 +1017,7 @@ async def test_stream_closed_then_error_continues_and_posts_failure(tmp_path: Pa
     slack = FakeSlackClient()
     slack.stream_close_after = 1
 
-    class ClosedThenErrorClient(FakeOmnigentClient):
+    class ClosedThenErrorClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -1056,7 +1056,7 @@ async def test_stream_closed_then_error_continues_and_posts_failure(tmp_path: Pa
 async def test_empty_app_mention_prompts_without_creating_session(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_app_mention(
@@ -1079,7 +1079,7 @@ async def test_channel_thread_reply_without_mention_is_ignored(tmp_path: Path) -
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(key, "conv_existing", "title")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_message(
@@ -1107,7 +1107,7 @@ async def test_channel_thread_reply_without_mention_is_ignored(tmp_path: Path) -
 async def test_direct_message_creates_session(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -1154,7 +1154,7 @@ async def test_direct_message_threaded_reply_reuses_existing_session(tmp_path: P
         owner_user_id="U1",
     )
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_message(
@@ -1187,7 +1187,7 @@ async def test_direct_message_top_level_starts_new_session_per_thread(tmp_path: 
         ThreadKey("T1", "D1", "099.9"), "conv_old", "title", owner_user_id="U1"
     )
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -1221,7 +1221,7 @@ async def test_message_while_server_busy_is_deflected(tmp_path: Path) -> None:
     key = ThreadKey(team_id="T1", channel_id="D1", thread_ts="100.1")
     await store.upsert_session(key, "conv_existing", "title", owner_user_id="U1")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     omnigent.route_status = "running"  # server is busy at route time
     service, _pool, _setup = _service(store, omnigent)
 
@@ -1262,7 +1262,7 @@ async def test_second_message_while_local_stream_active_is_deflected(tmp_path: P
 
     release = asyncio.Event()
 
-    class BlockingClient(FakeOmnigentClient):
+    class BlockingClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -1317,7 +1317,7 @@ async def test_message_while_awaiting_action_points_to_pending_request(tmp_path:
     key = ThreadKey(team_id="T1", channel_id="D1", thread_ts="100.1")
     await store.upsert_session(key, "conv_existing", "title", owner_user_id="U1")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     omnigent.route_status = "waiting"
     omnigent.route_pending_elicitation = True
     service, _pool, _setup = _service(store, omnigent)
@@ -1398,7 +1398,7 @@ async def test_idle_follow_up_message_runs_in_thread(tmp_path: Path) -> None:
     key = ThreadKey(team_id="T1", channel_id="D1", thread_ts="100.1")
     await store.upsert_session(key, "conv_existing", "title", owner_user_id="U1")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_message(
@@ -1428,7 +1428,7 @@ async def test_direct_message_with_bot_mention_is_handled(tmp_path: Path) -> Non
     # get — it must be handled (mention stripped), not dropped as a duplicate.
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -1454,7 +1454,7 @@ async def test_direct_message_with_bot_mention_is_handled(tmp_path: Path) -> Non
 async def test_channel_message_without_session_is_ignored(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_message(
@@ -1479,7 +1479,7 @@ async def test_channel_message_without_session_is_ignored(tmp_path: Path) -> Non
 async def test_duplicate_event_is_ignored(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
     body = {"team_id": "T1", "event_id": "Ev1"}
@@ -1508,7 +1508,7 @@ async def test_generic_message_with_bot_mention_is_ignored(tmp_path: Path) -> No
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(key, "conv_existing", "title")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_message(
@@ -1532,7 +1532,7 @@ async def test_generic_message_with_bot_mention_is_ignored(tmp_path: Path) -> No
 async def test_unconfigured_user_is_prompted_and_no_turn_runs(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, setup = _service(store, omnigent)
 
     await service.handle_app_mention(
@@ -1567,7 +1567,7 @@ async def test_channel_binding_routes_new_thread_to_teammate(tmp_path: Path) -> 
     # The user's own choice exists but must NOT win in a bound channel.
     await _configure_user(store, "T1", "U1", agent_id="ag_user")
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
 
     await service.handle_app_mention(
@@ -1600,7 +1600,7 @@ async def test_channel_followup_from_other_user_is_ignored(tmp_path: Path) -> No
         owner_user_id="U1",
     )
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, setup = _service(store, omnigent)
 
     await service.handle_app_mention(
@@ -1637,7 +1637,7 @@ async def test_non_owner_reply_rejected_without_session_record(tmp_path: Path) -
     # granted a fresh session in someone else's thread.
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, setup = _service(store, omnigent)
     # U2 is configured, so the only thing stopping them is the ownership gate.
     await _configure_user(store, "T1", "U2")
@@ -1672,7 +1672,7 @@ async def test_owner_reply_in_own_thread_is_allowed(tmp_path: Path) -> None:
     # the ownership gate and runs, even after a store wipe (no session record).
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, _pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1")
 
@@ -1702,7 +1702,7 @@ async def test_turn_runs_against_the_fixed_operator_server(tmp_path: Path) -> No
     # config only carries the agent/host/workspace choice.
     store = await _store(tmp_path)
     slack = FakeSlackClient()
-    omnigent = FakeOmnigentClient()
+    omnigent = FakeAgentNexusClient()
     service, pool, _setup = _service(store, omnigent)
     await _configure_user(store, "T1", "U1", agent_id="ag_custom")
 
@@ -1723,28 +1723,28 @@ async def test_turn_runs_against_the_fixed_operator_server(tmp_path: Path) -> No
     assert record.owner_user_id == "U1"
 
 
-class ServerUnreachableClient(FakeOmnigentClient):
+class ServerUnreachableClient(FakeAgentNexusClient):
     async def create_session(self, agent_id: str, title: str) -> str:
         raise ServerUnreachableError("boom")
 
 
-class HostUnavailableClient(FakeOmnigentClient):
+class HostUnavailableClient(FakeAgentNexusClient):
     async def launch_runner(
         self, session_id: str, *, workspace: str, host_id: str | None = None
     ) -> str:
         raise HostUnavailableError("no host")
 
 
-class AuthRequiredClient(FakeOmnigentClient):
+class AuthRequiredClient(FakeAgentNexusClient):
     async def create_session(self, agent_id: str, title: str) -> str:
         raise AuthRequiredError("401")
 
 
-class ServerErrorClient(FakeOmnigentClient):
+class ServerErrorClient(FakeAgentNexusClient):
     async def create_session(self, agent_id: str, title: str) -> str:
-        # Mirrors a 500 from POST /v1/sessions: a bare OmnigentError, NOT one of
+        # Mirrors a 500 from POST /v1/sessions: a bare AgentNexusError, NOT one of
         # the specifically-handled subclasses.
-        raise OmnigentError("Omnigent request failed with 500: internal_error")
+        raise AgentNexusError("AgentNexus request failed with 500: internal_error")
 
 
 async def _wait_for_posts(client: FakeSlackClient, count: int) -> None:
@@ -1832,7 +1832,7 @@ async def test_auth_required_mid_stream_prompts_relogin(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = FakeSlackClient()
 
-    class AuthMidStreamClient(FakeOmnigentClient):
+    class AuthMidStreamClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -1904,7 +1904,7 @@ async def test_auth_required_in_dm_skips_in_channel_pointer(tmp_path: Path) -> N
 
 
 async def test_server_error_creating_session_reports(tmp_path: Path) -> None:
-    # A 500 from create_session raises a bare OmnigentError (not one of the
+    # A 500 from create_session raises a bare AgentNexusError (not one of the
     # specifically-handled subclasses). It must still post a failure and never
     # strand the thread. The ack posts only after the session starts, so a
     # failed start leaves no placeholder to clear.
@@ -1928,7 +1928,7 @@ async def test_server_error_creating_session_reports(tmp_path: Path) -> None:
     # A failure reply was posted, and no session was persisted.
     assert await store.get_session(ThreadKey("T1", "C1", "100.1")) is None
     text = slack.posts[-1]["text"]
-    # A GENERIC startup-failure message — the raw OmnigentError detail (which can
+    # A GENERIC startup-failure message — the raw AgentNexusError detail (which can
     # carry a server status / internal string) is NOT echoed to the channel.
     assert "went wrong" in text.lower()
     assert "internal_error" not in text
@@ -1960,7 +1960,7 @@ async def test_no_online_host_prompts_omni_host_command(tmp_path: Path) -> None:
     assert "/omnigent" in text
 
 
-class HarnessNotConfiguredClient(FakeOmnigentClient):
+class HarnessNotConfiguredClient(FakeAgentNexusClient):
     async def launch_runner(
         self, session_id: str, *, workspace: str, host_id: str | None = None
     ) -> str:
@@ -1991,7 +1991,7 @@ async def test_harness_not_configured_412_surfaces_server_message(tmp_path: Path
     # Session was not persisted (startup failed) and the actionable message shows.
     assert await store.get_session(ThreadKey("T1", "C1", "100.1")) is None
     text = slack.posts[-1]["text"]
-    assert "omnigent setup" in text
+    assert "agentnexus setup" in text
     assert "status 412" not in text  # not the generic fallback
 
 
@@ -2049,7 +2049,7 @@ async def _wait_any(*events: asyncio.Event) -> None:
                 w.cancel()
 
 
-class ApprovalClient(FakeOmnigentClient):
+class ApprovalClient(FakeAgentNexusClient):
     """A turn that streams, parks on an elicitation, then streams a tail.
 
     Pure-push model: the generator yields the elicitation event, then WAITS for
@@ -2092,7 +2092,7 @@ class ApprovalClient(FakeOmnigentClient):
         yield {"type": "session.status", "status": "idle", "response_id": "resp_1"}
 
 
-class PreambleThenCommittedAnswerClient(FakeOmnigentClient):
+class PreambleThenCommittedAnswerClient(FakeAgentNexusClient):
     """Mirrors the real AskUserQuestion shape: a preamble message (delta +
     committed), the elicitation, then a post-answer message delivered ONLY as a
     committed ``output_item.done`` (no deltas) — the deltas-race-behind-commit
@@ -2167,7 +2167,7 @@ def _card_session_id(card: dict[str, Any]) -> str:
     return str(_card_target(card).session_id)
 
 
-async def _wait_for_resolved(omnigent: "FakeOmnigentClient", count: int = 1) -> None:
+async def _wait_for_resolved(omnigent: "FakeAgentNexusClient", count: int = 1) -> None:
     """Wait until the turn has forwarded ``count`` approval verdicts to the server.
 
     The answer is now split across stream segments by an approval seal, so
@@ -2267,7 +2267,7 @@ async def test_idle_stream_flushes_buffered_text_before_turn_end(
 
     release = asyncio.Event()
 
-    class IdleThenEndClient(FakeOmnigentClient):
+    class IdleThenEndClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -2571,7 +2571,7 @@ async def test_denied_approval_does_not_resurrect_prior_answer(tmp_path: Path) -
     store = await _store(tmp_path)
     slack = FakeSlackClient()
 
-    class DeniedNoAnswerClient(FakeOmnigentClient):
+    class DeniedNoAnswerClient(FakeAgentNexusClient):
         async def run_turn(
             self,
             session_id: str,
@@ -2649,7 +2649,7 @@ async def test_tool_approval_timeout_declines(tmp_path: Path) -> None:
 
 async def test_stale_approval_click_is_reported_as_not_delivered(tmp_path: Path) -> None:
     store = await _store(tmp_path)
-    service, _pool, _setup = _service(store, FakeOmnigentClient())
+    service, _pool, _setup = _service(store, FakeAgentNexusClient())
 
     # No turn is parked on this id, so the click finds no waiter.
     delivered = await service.handle_elicitation_action(
@@ -2815,7 +2815,7 @@ async def test_post_answer_message_only_committed_is_not_dropped(tmp_path: Path)
     assert any("You picked A. Full summary here." in s.text for s in slack.streams)
 
 
-class PreambleThenSilentAfterElicitationClient(FakeOmnigentClient):
+class PreambleThenSilentAfterElicitationClient(FakeAgentNexusClient):
     """The turn produces NO answer text on the stream at all — a preamble seals
     at the elicitation, and after resolution the answer never streams (it lives
     only in the server's committed message). Exercises the no-delta fallback
@@ -2914,7 +2914,7 @@ async def test_elicitation_clears_working_placeholder(tmp_path: Path) -> None:
 # ── Stream enhancements: reasoning, policy-deny, files, todos ─────────
 
 
-class EventScriptClient(FakeOmnigentClient):
+class EventScriptClient(FakeAgentNexusClient):
     """Streams a fixed list of events, then settles idle.
 
     Lets a test assert how the service surfaces reasoning / policy-deny /

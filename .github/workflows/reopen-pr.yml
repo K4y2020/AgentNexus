@@ -22,7 +22,7 @@ concurrency:
 jobs:
   reopen:
     if: >-
-      github.repository == 'omnigent-ai/omnigent'
+      github.repository == 'agentnexus-ai/agentnexus'
       && github.event.issue.pull_request
       && contains(github.event.comment.body, '/reopen')
       && !endsWith(github.event.comment.user.login, '[bot]')

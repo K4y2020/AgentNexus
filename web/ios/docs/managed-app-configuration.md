@@ -1,6 +1,6 @@
 # Managed app configuration (iOS)
 
-Administrators can preset the server URLs the Omnigent iOS app offers, so people
+Administrators can preset the server URLs the AgentNexus iOS app offers, so people
 in an organization pick their server from a list instead of typing it.
 
 This page is the configuration specification. Apple's guidance is to publish it
@@ -32,10 +32,10 @@ as before: no preset servers, and the person types a URL.
 
 Notes:
 
-- A bare host is accepted and read as `https://` — `omnigent.corp.example.com`
-  becomes `https://omnigent.corp.example.com`.
+- A bare host is accepted and read as `https://` — `agentnexus.corp.example.com`
+  becomes `https://agentnexus.corp.example.com`.
 - Include the workspace path if your deployment uses one, for example
-  `https://my-workspace.cloud.databricks.com/ml/omnigents`. The app can discover
+  `https://my-workspace.cloud.databricks.com/ml/agentnexuss`. The app can discover
   a Databricks workspace mount on its own, but naming it here skips that lookup.
 - Entries that resolve to the same origin are collapsed, keeping the first.
 - `http://` is rejected. iOS App Transport Security blocks plain HTTP in release
@@ -73,8 +73,8 @@ while someone is using the app appears when they next return to it.
     <dict>
         <key>serverUrls</key>
         <array>
-            <string>https://omnigent.corp.example.com</string>
-            <string>https://my-workspace.cloud.databricks.com/ml/omnigents</string>
+            <string>https://agentnexus.corp.example.com</string>
+            <string>https://my-workspace.cloud.databricks.com/ml/agentnexuss</string>
         </array>
     </dict>
 </dict>

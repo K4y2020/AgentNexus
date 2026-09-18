@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
-from omnigent.inner.codex_executor import CodexExecutor
-from omnigent.inner.executor import ExecutorConfig, ExecutorError, TurnComplete
-from omnigent.inner.openai_agents_sdk_executor import OpenAIAgentsSDKExecutor
-from omnigent.llms.adapters.anthropic import _effort_to_budget
-from omnigent.llms.errors import PermanentLLMError
+from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
+from agentnexus.inner.codex_executor import CodexExecutor
+from agentnexus.inner.executor import ExecutorConfig, ExecutorError, TurnComplete
+from agentnexus.inner.openai_agents_sdk_executor import OpenAIAgentsSDKExecutor
+from agentnexus.llms.adapters.anthropic import _effort_to_budget
+from agentnexus.llms.errors import PermanentLLMError
 
 
 @pytest.mark.parametrize("effort", ["none", "minimal"])
@@ -83,11 +83,11 @@ async def test_openai_agents_coerces_max_to_xhigh(monkeypatch: pytest.MonkeyPatc
     """
     import types
 
-    from omnigent.inner.openai_agents_sdk_executor import _AgentsSessionState
+    from agentnexus.inner.openai_agents_sdk_executor import _AgentsSessionState
 
     fake_agents = types.SimpleNamespace(OpenAIProvider=lambda **kwargs: types.SimpleNamespace())
     monkeypatch.setattr(
-        "omnigent.inner.openai_agents_sdk_executor._ensure_agents_sdk", lambda: fake_agents
+        "agentnexus.inner.openai_agents_sdk_executor._ensure_agents_sdk", lambda: fake_agents
     )
     executor = OpenAIAgentsSDKExecutor(client=object())
     monkeypatch.setattr(

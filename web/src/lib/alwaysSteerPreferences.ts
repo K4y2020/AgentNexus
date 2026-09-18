@@ -9,7 +9,7 @@
 // dispatch preference — no account or session state changes — so it lives in
 // localStorage like the other `*Preferences` helpers.
 
-const STORAGE_KEY = "omnigent:always-steer";
+const STORAGE_KEY = "agentnexus:always-steer";
 
 export const DEFAULT_ALWAYS_STEER = false;
 

@@ -1,6 +1,6 @@
 "use strict";
 
-/** Public macOS Managed Preferences key in the ai.omnigent.desktop domain. */
+/** Public macOS Managed Preferences key in the ai.agentnexus.desktop domain. */
 const SERVER_URLS_KEY = "serverUrls";
 
 /** Keep organization-provided choices bounded on the connect screen. */

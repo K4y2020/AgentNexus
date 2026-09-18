@@ -18,7 +18,7 @@ export interface FilesPanelPreferences {
   sort: ChangedSort;
 }
 
-const STORAGE_KEY = "omnigent:files-panel-preferences";
+const STORAGE_KEY = "agentnexus:files-panel-preferences";
 
 export const DEFAULT_FILES_PANEL_PREFERENCES: FilesPanelPreferences = {
   sort: "recent",

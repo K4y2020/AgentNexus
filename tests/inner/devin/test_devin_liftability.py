@@ -15,33 +15,33 @@ from __future__ import annotations
 import ast
 import pathlib
 
-import omnigent
+import agentnexus
 
-_OMNIGENT_ROOT = pathlib.Path(omnigent.__file__).parent
-_DEVIN_PKG = _OMNIGENT_ROOT / "inner" / "devin"
+_AGENTNEXUS_ROOT = pathlib.Path(omnigent.__file__).parent
+_DEVIN_PKG = _AGENTNEXUS_ROOT / "inner" / "devin"
 
 # What a lifted ``omnigent-devin`` package could still import from core. The ACP
-# executor/wrap entries are the deliberate coupling: reusing Omnigent's ACP
+# executor/wrap entries are the deliberate coupling: reusing AgentNexus's ACP
 # client is why this package is ~150 lines instead of the ~750 a from-scratch
 # community ACP harness carries (cf. ``omnigent-rovo``). Everything else here is
 # the plugin contract's own public surface.
 _ALLOWED_CORE_IMPORTS = frozenset(
     {
-        "omnigent.inner.acp_executor",
-        "omnigent.inner.acp_extension",
-        "omnigent.inner.acp_harness",
-        "omnigent.inner.acp_subagents",
-        "omnigent.inner.executor",
-        "omnigent.runtime.harnesses._executor_adapter",
+        "agentnexus.inner.acp_executor",
+        "agentnexus.inner.acp_extension",
+        "agentnexus.inner.acp_harness",
+        "agentnexus.inner.acp_subagents",
+        "agentnexus.inner.executor",
+        "agentnexus.runtime.harnesses._executor_adapter",
     }
 )
 
 # The generic ACP layer. None of it may depend on a vendor package.
 _GENERIC_ACP_MODULES = (
-    _OMNIGENT_ROOT / "inner" / "acp_executor.py",
-    _OMNIGENT_ROOT / "inner" / "acp_extension.py",
-    _OMNIGENT_ROOT / "inner" / "acp_harness.py",
-    _OMNIGENT_ROOT / "inner" / "acp_subagents.py",
+    _AGENTNEXUS_ROOT / "inner" / "acp_executor.py",
+    _AGENTNEXUS_ROOT / "inner" / "acp_extension.py",
+    _AGENTNEXUS_ROOT / "inner" / "acp_harness.py",
+    _AGENTNEXUS_ROOT / "inner" / "acp_subagents.py",
 )
 
 
@@ -68,7 +68,7 @@ def _is_allowed(name: str, allowed: frozenset[str]) -> bool:
 
     Accepts an allowed module itself, a symbol imported from one
     (``…acp_subagents.SubAgentStart``), and a parent package on the way to one
-    (``omnigent.inner`` from ``from omnigent.inner import acp_harness``) — none of
+    (``omnigent.inner`` from ``from agentnexus.inner import acp_harness``) — none of
     which is a dependency beyond the allowed module.
     """
     return any(
@@ -91,8 +91,8 @@ def test_devin_package_only_imports_the_liftable_core_surface() -> None:
         core = {
             name
             for name in _imported_modules(path)
-            if name.split(".")[0] == "omnigent"
-            and not name.startswith("omnigent.inner.devin")
+            if name.split(".")[0] == "agentnexus"
+            and not name.startswith("agentnexus.inner.devin")
             and not _is_allowed(name, _ALLOWED_CORE_IMPORTS)
         }
         if core:
@@ -127,7 +127,7 @@ def test_devin_wrap_exposes_the_harness_entry_point() -> None:
     Same requirement a community plugin's ``harness_modules`` target must meet,
     so the wrap already satisfies the plugin contract as written.
     """
-    from omnigent.inner.devin import harness
+    from agentnexus.inner.devin import harness
 
     assert callable(harness.create_app)
     assert harness.create_app.__code__.co_argcount == 0

@@ -4,7 +4,7 @@ independently of the app theme, and persists.
 The terminal-theme control lives on the Settings page (``pages/SettingsPage.tsx``,
 ``TerminalThemeControl``): three radio cards — Match app / Light / Dark — under a
 ``role="radiogroup"`` labelled "Terminal theme". Picking a mode writes the choice
-to ``localStorage["omnigent:terminal-theme"]`` (absent = "auto" = follow the app).
+to ``localStorage["agentnexus:terminal-theme"]`` (absent = "auto" = follow the app).
 
 Unlike the chrome, the terminal is an xterm.js widget whose colors are a JS
 ``ITheme`` object, so the choice can't ride the ``.dark`` class the app theme
@@ -29,7 +29,7 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e_ui.conftest import open_right_rail
 
-TERMINAL_THEME_KEY = "omnigent:terminal-theme"
+TERMINAL_THEME_KEY = "agentnexus:terminal-theme"
 APP_THEME_KEY = "web-theme"
 
 

@@ -47,7 +47,7 @@ fixtures **spawn their own local server + runner** (the default when no
 
 ## Build the SPA up front — before you run the recorder, not during it
 
-The `tests/e2e_ui/` server serves the SPA from `omnigent/server/static/web-ui/`,
+The `tests/e2e_ui/` server serves the SPA from `agentnexus/server/static/web-ui/`,
 which starts empty in your worktree (the deploy's pre-built bundle lives in the
 serving layer, not the source tree). The suite *can* build it lazily on first
 boot, but that build pins the machine's cores for a few minutes **while** the
@@ -57,32 +57,32 @@ like an environment failure but is really the build starving the boot. So
 **always build the SPA first as its own step**, then run the recorder.
 
 When you are yourself running inside a server-spawned runner (the `--server`
-path — check with `echo "$OMNIGENT_RUNNER_ID"`, which is set there), you **must
+path — check with `echo "$AGENTNEXUS_RUNNER_ID"`, which is set there), you **must
 strip the ambient runner/host env vars** so the fixture's own runner starts clean.
-This is not optional: those vars (`OMNIGENT_RUNNER_ZYGOTE*` FDs,
-`OMNIGENT_RUNNER_ID`, tunnel/host tokens) leak into the spawned child, make it take
+This is not optional: those vars (`AGENTNEXUS_RUNNER_ZYGOTE*` FDs,
+`AGENTNEXUS_RUNNER_ID`, tunnel/host tokens) leak into the spawned child, make it take
 the zygote-fork path and block on control FDs it doesn't have, so it hangs with an
 empty `runner.log` and stays `online: false`. A bare `pytest`/`uv run pytest` with
-`OMNIGENT_RUNNER_ID` still set is the single most common way the after-clip
+`AGENTNEXUS_RUNNER_ID` still set is the single most common way the after-clip
 silently fails to record. Strip them with `env -u`:
 
 ```bash
 # Point npm/pnpm at the Databricks registry proxy first (see
 # dev/agent-environment.md) or this install fails with an auth error.
 pnpm --filter web install && pnpm --filter web run build   # once, up front
-env -u OMNIGENT_RUNNER_ID -u OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN \
-    -u OMNIGENT_RUNNER_TUNNEL_TOKEN -u OMNIGENT_RUNNER_PARENT_PID \
-    -u OMNIGENT_RUNNER_ISOLATE_SESSION -u OMNIGENT_RUNNER_WORKSPACE \
-    -u OMNIGENT_HOST_ID -u OMNIGENT_HOST_TOKEN -u OMNIGENT_HOST_NAME \
-    -u RUNNER_SERVER_URL -u OMNIGENT_REMOTE_AUTH_TOKEN \
-    $(env | grep -oE '^OMNIGENT_RUNNER_ZYGOTE[A-Z_]*' | sed 's/^/-u /' | tr '\n' ' ') \
-    OMNIGENT_E2E_RECORD_DIR="$PWD/recordings/<slug>/raw" \
+env -u AGENTNEXUS_RUNNER_ID -u AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN \
+    -u AGENTNEXUS_RUNNER_TUNNEL_TOKEN -u AGENTNEXUS_RUNNER_PARENT_PID \
+    -u AGENTNEXUS_RUNNER_ISOLATE_SESSION -u AGENTNEXUS_RUNNER_WORKSPACE \
+    -u AGENTNEXUS_HOST_ID -u AGENTNEXUS_HOST_TOKEN -u AGENTNEXUS_HOST_NAME \
+    -u RUNNER_SERVER_URL -u AGENTNEXUS_REMOTE_AUTH_TOKEN \
+    $(env | grep -oE '^AGENTNEXUS_RUNNER_ZYGOTE[A-Z_]*' | sed 's/^/-u /' | tr '\n' ' ') \
+    AGENTNEXUS_E2E_RECORD_DIR="$PWD/recordings/<slug>/raw" \
     pytest <test_path> --screenshot on --output recordings/<slug>
 ```
 
 Only *after* the SPA is built and the env is stripped is an `online: false` a
 real environment limit. If you see `online: false` and you have **not** stripped
-the leaked vars (`OMNIGENT_RUNNER_ID` was set in your shell), that failure is your
+the leaked vars (`AGENTNEXUS_RUNNER_ID` was set in your shell), that failure is your
 own un-stripped env, not the harness — re-run with the `env -u` prefix before
 concluding anything; do **not** file it as an environmental blocker or a "runner
 not coming online" env problem. Once the SPA is built, the env is stripped, and the
@@ -97,13 +97,13 @@ cause is named from what you observed rather than guessed.
 
 Run the authored Playwright test with recording on.
 
-**Record via `OMNIGENT_E2E_RECORD_DIR`, not `--video on`.** `--video on` only
+**Record via `AGENTNEXUS_E2E_RECORD_DIR`, not `--video on`.** `--video on` only
 instruments pytest-playwright's own `page` fixture. Many e2e_ui tests (e.g. the
 whole `tests/e2e_ui/start_session/` suite) drive Playwright *manually* —
 `async_playwright()` + `browser.new_page()`/`new_context()` — instead of taking
 the `page` fixture, and `--video on` records **nothing** for those: the flag never
 sees their browser, so you get a green/red test but an empty `recordings/`.
-Setting `OMNIGENT_E2E_RECORD_DIR` makes the e2e_ui conftest inject
+Setting `AGENTNEXUS_E2E_RECORD_DIR` makes the e2e_ui conftest inject
 `record_video_dir` into every page/context the test opens, so the journey is
 filmed no matter how the test opened the browser. Playwright writes the `.webm` (a
 random hash name) into that dir when the context closes. (If a test already
@@ -111,7 +111,7 @@ hard-codes its own `record_video_dir` — some authored reproductions do — tha
 explicit dir wins and the video lands there instead; check both locations.)
 
 **Move the emitted clip to a stable name.** The video lands under
-`OMNIGENT_E2E_RECORD_DIR` (or the test's own dir) as a random hash name; **move**
+`AGENTNEXUS_E2E_RECORD_DIR` (or the test's own dir) as a random hash name; **move**
 it (do not copy) to a stable `recordings/<slug>/<kind>-<facet>.webm` and delete
 the leftover raw dir, so the same footage isn't collected twice. If that dir has
 **no** `.webm` after the run, the recording genuinely didn't happen (the test
@@ -130,13 +130,13 @@ context becomes mobile (phone viewport, `is_mobile`, touch, a mobile user-agent)
 video included:
 
 ```bash
-OMNIGENT_E2E_RECORD_DIR="$PWD/recordings/<slug>/raw" \
+AGENTNEXUS_E2E_RECORD_DIR="$PWD/recordings/<slug>/raw" \
   pytest <test_path> --device "iPhone 13" --screenshot on --output recordings/<slug>
 ```
 
 Pick a device whose form factor matches the report (`"iPhone 13"`, `"Pixel 7"`, an
 `... landscape` variant). Everything else about the `web` lane applies unchanged
-(build the SPA first, strip the runner env, record via `OMNIGENT_E2E_RECORD_DIR`,
+(build the SPA first, strip the runner env, record via `AGENTNEXUS_E2E_RECORD_DIR`,
 move the emitted clip to a stable name). Author the test itself with touch/tap
 interactions where the journey needs them. Stamp the facet `mobile` (it's a
 mobile-surface bug) even though the recorder is the browser at a phone profile —
@@ -189,7 +189,7 @@ tape and note that rendering was skipped.
   stage first. Do **not** substitute a `curl`/`httpx`/Python poke of the underlying
   endpoint — that films the mechanism, not the failure the user sees. Example: for
   "host 403s after its login expires", seed an **expired** `auth_tokens.json`
-  (a past `expires_at`), then `Type` the actual `omnigent host --server <url>` and
+  (a past `expires_at`), then `Type` the actual `agentnexus host --server <url>` and
   `Wait` for the console failure it prints. Only when the command genuinely can't
   be driven here (name why) fall back to `recordings: []`.
 - **End the tape on the OUTPUT, not a fixed timer.** End on a `Wait /<pattern>/`
@@ -214,13 +214,13 @@ it: the defect is in Electron's main process, and Python Playwright has **no**
 Electron API. Use the JS desktop lane in `web/electron/e2e/` instead — **copy the
 reference test `desktop_connect.e2e.js`**, which launches the REAL packaged shell
 under `_electron.launch({ recordVideo })` (via `desktopHarness.js`, which spawns
-the same mock-LLM + `omnigent server` pair the Python suite does) and films the
+the same mock-LLM + `agentnexus server` pair the Python suite does) and films the
 actual window. Pass `serverUrl` to `launchDesktop` when the failure is *past*
 connect (boot straight into the shell); omit it to film the connect/setup/fallback
 flow itself. Run with `node --test e2e/desktop_<slug>.e2e.js` from `web/electron`,
 after building the SPA. On a headless box wrap it in `xvfb-run -a` and set
-`OMNIGENT_PW_NO_SANDBOX=1` so Electron's Chromium starts (repro-agent CI sets both
-for you, and points `OMNIGENT_PYTHON` at the venv the harness spawns the server
+`AGENTNEXUS_PW_NO_SANDBOX=1` so Electron's Chromium starts (repro-agent CI sets both
+for you, and points `AGENTNEXUS_PYTHON` at the venv the harness spawns the server
 with). This lane needs `electron` + `playwright` on disk (neither is in the fast
 `web-test` CI path); the harness **skips** cleanly when they're absent, so if they
 can't be installed here keep `recordings: []` and name the missing dep in your

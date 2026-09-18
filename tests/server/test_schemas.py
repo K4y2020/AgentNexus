@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     CancelledEvent,
     CompletedEvent,
     CreatedEvent,
@@ -48,7 +48,7 @@ from omnigent.server.schemas import (
 
 
 def test_bot_topic_creation_has_optional_project_id() -> None:
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     topic = SessionCreateRequest(agent_id="debby", bot_id="bot-debby", purpose="topic")
     assert topic.project_id is None
@@ -580,7 +580,7 @@ def test_elicitation_request_params_preserves_unknown_fields() -> None:
     MCP's ElicitRequestParams allows arbitrary extras under params
     (the spec uses extra="allow") so MCP servers can attach context.
     Our params model preserves the same behavior so an MCP server's
-    elicitation/create call traversing harness → Omnigent → client doesn't
+    elicitation/create call traversing harness → AgentNexus → client doesn't
     lose fields the MCP server attached.
     """
     params = ElicitationRequestParams(
@@ -684,7 +684,7 @@ def test_session_create_git_requires_host_id() -> None:
     failing late. If this validator is dropped, the request would
     validate and the error would surface deeper in the create flow.
     """
-    from omnigent.server.schemas import SessionCreateRequest, SessionGitOptions
+    from agentnexus.server.schemas import SessionCreateRequest, SessionGitOptions
 
     with pytest.raises(ValidationError, match="git worktree creation requires host_id"):
         SessionCreateRequest(
@@ -695,11 +695,11 @@ def test_session_create_git_requires_host_id() -> None:
 
 def test_session_title_request_limits() -> None:
     """User titles allow 200 characters, while default generated titles allow 100."""
-    from omnigent.entities import (
+    from agentnexus.entities import (
         DEFAULT_GENERATED_TITLE_MAX_CHARS,
         USER_SESSION_TITLE_MAX_CHARS,
     )
-    from omnigent.server.schemas import (
+    from agentnexus.server.schemas import (
         AutomaticSessionRenameRequest,
         SessionCreateMetadata,
         SessionCreateRequest,
@@ -733,7 +733,7 @@ def test_session_title_request_limits() -> None:
 
 def test_session_create_git_with_host_id_ok() -> None:
     """``git`` with ``host_id`` validates cleanly."""
-    from omnigent.server.schemas import SessionCreateRequest, SessionGitOptions
+    from agentnexus.server.schemas import SessionCreateRequest, SessionGitOptions
 
     req = SessionCreateRequest(
         agent_id="ag_x",
@@ -752,7 +752,7 @@ def test_session_git_existing_worktree_still_requires_host_id() -> None:
     ``git_branch``, which is only meaningful for a host-bound session —
     so the ``git`` → ``host_id`` requirement applies to bind mode too.
     """
-    from omnigent.server.schemas import SessionCreateRequest, SessionGitOptions
+    from agentnexus.server.schemas import SessionCreateRequest, SessionGitOptions
 
     with pytest.raises(ValidationError, match="git worktree creation requires host_id"):
         SessionCreateRequest(
@@ -768,7 +768,7 @@ def test_session_git_existing_worktree_rejects_base_branch() -> None:
     ``base_branch`` selects the ref a *new* branch forks from; it is
     meaningless when binding to a worktree that already exists.
     """
-    from omnigent.server.schemas import SessionGitOptions
+    from agentnexus.server.schemas import SessionGitOptions
 
     with pytest.raises(
         ValidationError, match="base_branch cannot be set when existing_worktree is true"
@@ -778,7 +778,7 @@ def test_session_git_existing_worktree_rejects_base_branch() -> None:
 
 def test_session_git_existing_worktree_with_host_id_ok() -> None:
     """Bind mode with ``host_id`` and no ``base_branch`` validates cleanly."""
-    from omnigent.server.schemas import SessionCreateRequest, SessionGitOptions
+    from agentnexus.server.schemas import SessionCreateRequest, SessionGitOptions
 
     req = SessionCreateRequest(
         agent_id="ag_x",
@@ -796,7 +796,7 @@ def test_session_create_host_type_defaults_external() -> None:
     ``host_type`` defaults to ``"external"`` — the pre-existing
     contract for every client that doesn't send the field (backcompat).
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     req = SessionCreateRequest(agent_id="ag_x")
     assert req.host_type == "external"
@@ -808,7 +808,7 @@ def test_session_create_managed_rejects_host_id() -> None:
     contradiction (the server provisions the host) — must 422 at
     validation instead of silently ignoring the caller's host.
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     with pytest.raises(ValidationError, match="host_id must not be set"):
         SessionCreateRequest(agent_id="ag_x", host_type="managed", host_id="host_abc")
@@ -821,7 +821,7 @@ def test_session_create_managed_rejects_path_workspace() -> None:
     at. Managed workspaces are repository URLs; must 422 at
     validation with the URL form named.
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     with pytest.raises(ValidationError, match="takes a git repository URL"):
         SessionCreateRequest(agent_id="ag_x", host_type="managed", workspace="/tmp/w")
@@ -841,7 +841,7 @@ def test_session_create_managed_accepts_repo_url_workspace(workspace: str) -> No
     forms — the value passes through verbatim for the launch path to
     parse and clone.
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     req = SessionCreateRequest(agent_id="ag_x", host_type="managed", workspace=workspace)
     assert req.workspace == workspace
@@ -867,7 +867,7 @@ def test_session_create_managed_rejects_malformed_repo_workspace(
     error embedded) instead of failing mid-provision inside a
     half-launched sandbox.
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     with pytest.raises(ValidationError, match="") as exc:
         SessionCreateRequest(agent_id="ag_x", host_type="managed", workspace=workspace)
@@ -881,7 +881,7 @@ def test_session_create_external_rejects_repo_url_workspace() -> None:
     the URL as a path would fail later in workspace validation with a
     confusing "no such directory".
     """
-    from omnigent.server.schemas import SessionCreateRequest
+    from agentnexus.server.schemas import SessionCreateRequest
 
     with pytest.raises(ValidationError, match="requires host_type 'managed'"):
         SessionCreateRequest(
@@ -897,7 +897,7 @@ def test_session_metadata_host_type_defaults_external() -> None:
     ``"external"`` — every existing bundle-upload client that omits the
     field keeps its current external-host behaviour (backcompat).
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     assert SessionCreateMetadata().host_type == "external"
 
@@ -908,7 +908,7 @@ def test_session_metadata_managed_rejects_host_id() -> None:
     a contradiction (the server provisions the host) — mirrors the JSON
     path's contract.
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     with pytest.raises(ValidationError, match="host_id must not be set"):
         SessionCreateMetadata(host_type="managed", host_id="host_abc")
@@ -919,7 +919,7 @@ def test_session_metadata_managed_rejects_path_workspace() -> None:
     Multipart ``host_type="managed"`` + a PATH workspace 422s — a
     managed workspace is a repository URL cloned into the sandbox.
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     with pytest.raises(ValidationError, match="takes a git repository URL"):
         SessionCreateMetadata(host_type="managed", workspace="/tmp/w")
@@ -938,7 +938,7 @@ def test_session_metadata_managed_accepts_repo_url_workspace(workspace: str) -> 
     Multipart ``host_type="managed"`` accepts the ``<repo>[#<branch>]``
     workspace forms verbatim for the launch path to clone.
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     meta = SessionCreateMetadata(host_type="managed", workspace=workspace)
     assert meta.workspace == workspace
@@ -949,7 +949,7 @@ def test_session_metadata_managed_accepts_sandbox_provider() -> None:
     ``sandbox_provider`` is accepted with ``host_type="managed"`` (chooses
     which configured provider the server provisions).
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     meta = SessionCreateMetadata(host_type="managed", sandbox_provider="lakebox")
     assert meta.sandbox_provider == "lakebox"
@@ -960,7 +960,7 @@ def test_session_metadata_external_rejects_sandbox_provider() -> None:
     ``sandbox_provider`` without ``host_type="managed"`` 422s — external
     hosts are not server-provisioned.
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     with pytest.raises(ValidationError, match="sandbox_provider only applies"):
         SessionCreateMetadata(sandbox_provider="lakebox")
@@ -971,7 +971,7 @@ def test_session_metadata_external_rejects_repo_url_workspace() -> None:
     A repository-URL workspace on an external multipart create 422s —
     there, ``workspace`` is an absolute path on the host.
     """
-    from omnigent.server.schemas import SessionCreateMetadata
+    from agentnexus.server.schemas import SessionCreateMetadata
 
     with pytest.raises(ValidationError, match="requires host_type 'managed'"):
         SessionCreateMetadata(workspace="https://github.com/org/repo")
@@ -992,7 +992,7 @@ def test_session_response_status_accepts_canonical_set(status: str) -> None:
     forwards the raw status would 500 on serialization. Widening keeps the
     model a superset of what the runtime can produce.
     """
-    from omnigent.server.schemas import SessionResponse
+    from agentnexus.server.schemas import SessionResponse
 
     resp = SessionResponse(id="conv_x", agent_id="ag_x", status=status, created_at=0)
     assert resp.status == status
@@ -1002,7 +1002,7 @@ def test_session_response_status_accepts_canonical_set(status: str) -> None:
 @pytest.mark.parametrize("status", ["idle", "running", "waiting", "failed"])
 def test_session_list_item_status_accepts_canonical_set(status: str) -> None:
     """``SessionListItem.status`` accepts the same canonical set as the snapshot."""
-    from omnigent.server.schemas import SessionListItem
+    from agentnexus.server.schemas import SessionListItem
 
     item = SessionListItem(id="conv_x", agent_id="ag_x", status=status, created_at=0, updated_at=0)
     assert item.status == status
@@ -1010,7 +1010,7 @@ def test_session_list_item_status_accepts_canonical_set(status: str) -> None:
 
 def test_session_response_status_rejects_unknown_value() -> None:
     """A status outside the canonical set still fails loud (fail-closed wire shape)."""
-    from omnigent.server.schemas import SessionResponse
+    from agentnexus.server.schemas import SessionResponse
 
     with pytest.raises(ValidationError):
         SessionResponse(id="conv_x", agent_id="ag_x", status="launching", created_at=0)

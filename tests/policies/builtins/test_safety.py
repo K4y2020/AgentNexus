@@ -5,7 +5,7 @@ Tests for the built-in safety policies
 Covers:
 
 - ``ask_on_os_tools`` — ASKs approval before file/shell tool calls,
-  including Omnigent ``sys_os_*`` tools, Claude Code native tools
+  including AgentNexus ``sys_os_*`` tools, Claude Code native tools
   (``Bash``, ``Read``, ``Write``, ``Edit``, ``Glob``, ``Grep``),
   and Codex native tools (same ``PreToolUse`` hook contract).
 - ``block_skills`` — factory that denies skill loading via two paths:
@@ -19,11 +19,11 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.policies.builtins.safety import ask_on_os_tools, block_skills
-from omnigent.policies.schema import PolicyEvent
+from agentnexus.policies.builtins.safety import ask_on_os_tools, block_skills
+from agentnexus.policies.schema import PolicyEvent
 from tests.policies.builtins.helpers import tool_call_event as tc
 
-# ── ask_on_os_tools: Omnigent sys_os_* tools ─────────────────────────────
+# ── ask_on_os_tools: AgentNexus sys_os_* tools ─────────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -34,7 +34,7 @@ from tests.policies.builtins.helpers import tool_call_event as tc
 def test_ask_on_os_tools_asks_for_sys_os_tools(tool: str) -> None:
     """Each ``sys_os_*`` tool triggers ASK.
 
-    If any returns ALLOW, the policy is not matching the Omnigent
+    If any returns ALLOW, the policy is not matching the AgentNexus
     built-in OS tool set.
     """
     args = {"command": "ls"} if tool == "sys_os_shell" else {"path": "/tmp/f"}
@@ -113,7 +113,7 @@ def test_ask_on_os_tools_asks_for_pi_native_tools(
     un-gated. If any returns ALLOW, the lowercase name isn't covered.
 
     Asserts the preview too, proving pi's ``command`` / ``path`` arg keys
-    (which match the Omnigent convention, not Claude's ``file_path``)
+    (which match the AgentNexus convention, not Claude's ``file_path``)
     resolve through the existing preview branches without a pi-specific
     arg path.
 
@@ -428,7 +428,7 @@ def test_block_skills_missing_name_argument_allows() -> None:
 def _request_event(text: str) -> PolicyEvent:
     """Build a ``request`` :class:`PolicyEvent` with the given text.
 
-    The Omnigent server evaluates skill slash commands at the REQUEST phase
+    The AgentNexus server evaluates skill slash commands at the REQUEST phase
     as synthetic ``"/<name> <args>"`` strings via
     ``_build_skill_slash_command_policy_body``.
 
@@ -447,7 +447,7 @@ def _request_event(text: str) -> PolicyEvent:
 def test_block_skills_denies_slash_command_blocked_skill() -> None:
     """A ``/blocked-skill`` slash command is denied at the request phase.
 
-    This is the path the Omnigent server takes when the user types
+    This is the path the AgentNexus server takes when the user types
     ``/skill-name`` in the UI — it converts to a synthetic request
     with text ``"/skill-name"``. If this returns ALLOW, the slash
     command bypass is not covered.
@@ -518,7 +518,7 @@ def test_block_skills_slash_then_whitespace_allows(text: str) -> None:
 
 def test_ask_on_add_policy_asks_for_sys_add_policy() -> None:
     """sys_add_policy tool call triggers ASK with a preview."""
-    from omnigent.policies.builtins.safety import ask_on_add_policy
+    from agentnexus.policies.builtins.safety import ask_on_add_policy
 
     result = ask_on_add_policy(
         {
@@ -527,7 +527,7 @@ def test_ask_on_add_policy_asks_for_sys_add_policy() -> None:
                 "name": "sys_add_policy",
                 "arguments": {
                     "name": "block_shell",
-                    "handler": "omnigent.policies.builtins.cel.cel_policy",
+                    "handler": "agentnexus.policies.builtins.cel.cel_policy",
                 },
             },
         }
@@ -539,7 +539,7 @@ def test_ask_on_add_policy_asks_for_sys_add_policy() -> None:
 
 def test_ask_on_add_policy_allows_other_tools() -> None:
     """Non-policy tool calls pass through."""
-    from omnigent.policies.builtins.safety import ask_on_add_policy
+    from agentnexus.policies.builtins.safety import ask_on_add_policy
 
     result = ask_on_add_policy(
         {
@@ -552,7 +552,7 @@ def test_ask_on_add_policy_allows_other_tools() -> None:
 
 def test_ask_on_add_policy_allows_non_tool_events() -> None:
     """Non-tool_call events pass through."""
-    from omnigent.policies.builtins.safety import ask_on_add_policy
+    from agentnexus.policies.builtins.safety import ask_on_add_policy
 
     result = ask_on_add_policy({"type": "request", "data": "hello"})
     assert result["result"] == "ALLOW"
@@ -560,7 +560,7 @@ def test_ask_on_add_policy_allows_non_tool_events() -> None:
 
 def test_ask_on_add_policy_handles_missing_arguments() -> None:
     """Missing or non-dict arguments doesn't crash."""
-    from omnigent.policies.builtins.safety import ask_on_add_policy
+    from agentnexus.policies.builtins.safety import ask_on_add_policy
 
     result = ask_on_add_policy(
         {
@@ -579,7 +579,7 @@ def test_block_skills_denies_native_skill_tool() -> None:
 
     This is the primary enforcement path for native Claude Code and Codex
     harnesses, where there is no ``load_skill`` runner tool. The
-    ``PreToolUse`` hook fires → Omnigent server evaluates → this policy denies.
+    ``PreToolUse`` hook fires → AgentNexus server evaluates → this policy denies.
     If this returns ALLOW, native harnesses can load blocked skills.
     """
     policy = block_skills(blocked=["deploy"])

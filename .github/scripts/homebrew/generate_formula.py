@@ -60,7 +60,7 @@ PYPI_JSON_API = "https://pypi.org/pypi"
 # The three packages that release together at one version. At release time they
 # are minutes old, so they are the only ones that legitimately need to be exempt
 # from the supply-chain cooldown re-applied below.
-LOCKSTEP_PACKAGES = ("omnigent", "omnigent-client", "omnigent-ui-sdk")
+LOCKSTEP_PACKAGES = ("agentnexus", "agentnexus-client", "agentnexus-ui-sdk")
 # Fallback when `exclude-newer` can't be read out of uv.toml.
 DEFAULT_COOLDOWN_DAYS = 7
 
@@ -78,7 +78,7 @@ BREWED_EXCLUSIONS = {
     "pycparser",
 }
 # omnigent is the stable `url` itself, so it's never a resource.
-SELF_EXCLUSIONS = {"omnigent"}
+SELF_EXCLUSIONS = {"agentnexus"}
 
 # Packages pinned to an upstream platform wheel instead of the sdist, emitted as
 # an arch-conditional `resource` (the template's install block pip-installs any
@@ -141,8 +141,8 @@ _WHEEL_RE = re.compile(
 )
 
 _PLACEHOLDERS = (
-    "__OMNIGENT_URL__",
-    "__OMNIGENT_SHA256__",
+    "__AGENTNEXUS_URL__",
+    "__AGENTNEXUS_SHA256__",
     "__RESOURCES__",
 )
 
@@ -354,7 +354,7 @@ def resolve_closure(
     PEP 440 version wins and a warning is printed (rare for sdists).
     """
     extras_spec = f"[{','.join(extras)}]" if extras else ""
-    requirement = f"omnigent{extras_spec}=={version}"
+    requirement = f"agentnexus{extras_spec}=={version}"
     now = datetime.datetime.now(datetime.timezone.utc)
     cutoff = (now - datetime.timedelta(days=cooldown)).strftime("%Y-%m-%dT%H:%M:%SZ")
     # The lockstep packages are exempted up to "now" rather than skipped, so a
@@ -446,8 +446,8 @@ def render_template(template: str, url: str, sha256: str, resources: str) -> str
     if missing:
         raise RuntimeError(f"template missing placeholder(s): {missing}")
     out = template
-    out = out.replace("__OMNIGENT_URL__", url)
-    out = out.replace("__OMNIGENT_SHA256__", sha256)
+    out = out.replace("__AGENTNEXUS_URL__", url)
+    out = out.replace("__AGENTNEXUS_SHA256__", sha256)
     out = out.replace("__RESOURCES__", resources)
     leftover = [p for p in _PLACEHOLDERS if p in out]
     if leftover:
@@ -489,15 +489,15 @@ def generate(
         print(f"URL rewrites: {rewrites}", file=sys.stderr)
 
     # Stable sdist for omnigent itself.
-    omnigent_files = pypi_release_files("omnigent", version, api_base)
+    omnigent_files = pypi_release_files("agentnexus", version, api_base)
     sdist = pick_sdist(omnigent_files)
     if not sdist:
         raise RuntimeError(
-            f"omnigent=={version} has no sdist on PyPI — cannot set the stable url."
+            f"agentnexus=={version} has no sdist on PyPI — cannot set the stable url."
         )
     stable_url, stable_sha = sdist
     stable_url = rewrite_url(stable_url, rewrites)
-    print(f"omnigent {version}: {stable_url}", file=sys.stderr)
+    print(f"agentnexus {version}: {stable_url}", file=sys.stderr)
 
     # Every resolved package (other than omnigent itself and the brewed set) ->
     # a sdist resource stanza. `exclude` is the caller-supplied set (CLI --exclude);
@@ -607,7 +607,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument(
         "--template",
         type=Path,
-        default=Path(__file__).with_name("omnigent.rb.template"),
+        default=Path(__file__).with_name("agentnexus.rb.template"),
         help="Path to the formula template.",
     )
     ap.add_argument(

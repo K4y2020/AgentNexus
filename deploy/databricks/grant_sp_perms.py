@@ -3,7 +3,7 @@ Grant a Databricks App service principal Lakebase schema privileges.
 
 Run this after ``wc.apps.create`` creates the app service principal and
 before ``wc.apps.deploy`` starts the app. The app needs these grants so
-Alembic can create and migrate Omnigent tables on first boot.
+Alembic can create and migrate AgentNexus tables on first boot.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ class _GrantArgs(Protocol):
     """
     Parsed CLI arguments for the grant helper.
 
-    :param app_name: Databricks App name, e.g. ``"omnigent"``.
+    :param app_name: Databricks App name, e.g. ``"agentnexus"``.
     :param lakebase_endpoint: Full Lakebase endpoint resource path, e.g.
         ``"projects/omnigent/branches/production/endpoints/primary"``.
     :param database: PostgreSQL database name, e.g.
@@ -45,7 +45,7 @@ def _parse_args() -> _GrantArgs:
     parser.add_argument(
         "--app-name",
         required=True,
-        help="Databricks App name, e.g. 'omnigent'.",
+        help="Databricks App name, e.g. 'agentnexus'.",
     )
     parser.add_argument(
         "--lakebase-endpoint",
@@ -171,7 +171,7 @@ def main() -> int:
     with psycopg.connect(autocommit=True, **params) as conn, conn.cursor() as cur:
         cur.execute(_grant_sql(sp_uuid))
 
-    print("Done. The app can create and migrate Omnigent tables on first boot.")
+    print("Done. The app can create and migrate AgentNexus tables on first boot.")
     return 0
 
 

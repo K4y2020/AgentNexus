@@ -10,7 +10,7 @@ when the tool function is called.
 
 Tool authors see::
 
-    from omnigent_client import tool, ToolState
+    from agentnexus_client import tool, ToolState
 
     @tool
     def add_task(desc: str, state: ToolState) -> str:

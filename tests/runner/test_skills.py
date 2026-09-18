@@ -1,7 +1,7 @@
 """
 Runner-owned skill discovery + resolution endpoints.
 
-Skills are resolved on the runner, not the Omnigent server, because the
+Skills are resolved on the runner, not the AgentNexus server, because the
 runner is where the harness executes and may read a skill's local
 resource files. These tests exercise the two runner endpoints the AP
 server delegates to:
@@ -23,9 +23,9 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner import create_runner_app
-from omnigent.runner.app import ResolvedSpec
-from omnigent.spec.types import SkillSpec
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.app import ResolvedSpec
+from agentnexus.spec.types import SkillSpec
 
 
 def _skill_md(name: str, description: str) -> str:
@@ -78,7 +78,7 @@ class _SpecStub:
 
 class _ServerClient:
     """
-    Fake Omnigent server client whose session snapshot carries an agent_id and
+    Fake AgentNexus server client whose session snapshot carries an agent_id and
     (optionally) the session's workspace.
 
     The runner reads ``agent_id`` from ``GET /v1/sessions/{id}`` to drive
@@ -332,7 +332,7 @@ async def test_resolve_session_skill_returns_runner_side_meta_text(tmp_path: Pat
 async def test_resolve_session_skill_unknown_returns_404_with_available(tmp_path: Path) -> None:
     """
     Resolving a skill the session does not expose returns 404 plus the
-    sorted list of available skill names (the error the Omnigent server
+    sorted list of available skill names (the error the AgentNexus server
     surfaces to the user).
     """
     bundle = tmp_path / "bundle"
@@ -453,7 +453,7 @@ async def test_session_skills_cache_ttl_expiry_rediscovers(
     home = tmp_path / "home"
     (home / ".claude" / "skills").mkdir(parents=True)
     monkeypatch.setattr("pathlib.Path.home", lambda: home)
-    monkeypatch.setattr("omnigent.runner.app._SESSION_SKILLS_CACHE_TTL_SECONDS", 0.0)
+    monkeypatch.setattr("agentnexus.runner.app._SESSION_SKILLS_CACHE_TTL_SECONDS", 0.0)
 
     workspace = tmp_path / "workspace"
     first_skill = workspace / ".claude" / "skills" / "first"

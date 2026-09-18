@@ -19,13 +19,13 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runtime import get_caps
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase, PhaseSelector
+from agentnexus.runtime import get_caps
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef, Phase, PhaseSelector
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
 
-_DETECT_THRASHING = "omnigent.policies.builtins.context.detect_thrashing"
+_DETECT_THRASHING = "agentnexus.policies.builtins.context.detect_thrashing"
 
 
 def _install_thrashing_policy(
@@ -63,7 +63,7 @@ def _install_thrashing_policy(
         default_policies=[policy],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
 

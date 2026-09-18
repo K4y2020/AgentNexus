@@ -14,9 +14,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 
-from omnigent.entities import Agent, Conversation, ConversationItem, MessageData, PagedList
-from omnigent.errors import OmnigentError
-from omnigent.server.routes.sessions import create_sessions_router
+from agentnexus.entities import Agent, Conversation, ConversationItem, MessageData, PagedList
+from agentnexus.errors import AgentNexusError
+from agentnexus.server.routes.sessions import create_sessions_router
 
 # ── Minimal store stubs ──────────────────────────────────────────
 
@@ -330,7 +330,7 @@ def _build_app(
     Build a FastAPI app with the sessions router and error handler.
 
     Mirrors the error-handler registration in ``create_app()`` so
-    that ``OmnigentError`` is translated into the correct HTTP
+    that ``AgentNexusError`` is translated into the correct HTTP
     status rather than surfacing as an unhandled 500.
 
     :param store: The conversation store stub.
@@ -356,12 +356,12 @@ def _build_app(
     )
     app = FastAPI()
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
-        """Translate OmnigentError to an HTTP error response."""
+        """Translate AgentNexusError to an HTTP error response."""
         del request
         return JSONResponse(
             status_code=exc.http_status,
@@ -500,7 +500,7 @@ async def test_fork_session_run_config_overrides_pass_through() -> None:
     assert fork_call["override_terminal_launch_args"] == ["--permission-mode", "auto"]
     # Explicit launch args ⇒ drop the source's copied mode labels so a stale
     # permission-mode label can't shadow the freshly chosen mode.
-    assert "omnigent.claude_native.permission_mode" in fork_call["dropped_label_keys"]
+    assert "agentnexus.claude_native.permission_mode" in fork_call["dropped_label_keys"]
 
 
 @pytest.mark.asyncio
@@ -904,7 +904,7 @@ async def test_fork_switch_drops_claude_permission_mode_label() -> None:
 
     assert resp.status_code == 201, f"got {resp.status_code}: {resp.text}"
     dropped = conv_store.fork_calls[0]["dropped_label_keys"]
-    assert "omnigent.claude_native.permission_mode" in dropped, (
+    assert "agentnexus.claude_native.permission_mode" in dropped, (
         f"agent switch must drop the claude permission-mode label, got {dropped!r}"
     )
 
@@ -949,7 +949,7 @@ async def test_fork_codex_bypass_stamps_label_on_codex_target(
     )
     # The codex target (44b4…) must report codex-native so the route stamps.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache(
             {
                 "087b7cb7ac30abf4debfaa578d052ec6": "claude_sdk",
@@ -966,7 +966,7 @@ async def test_fork_codex_bypass_stamps_label_on_codex_target(
 
     assert resp.status_code == 201, f"got {resp.status_code}: {resp.text}"
     extra = conv_store.fork_calls[0]["extra_labels"]
-    assert extra == {"omnigent.codex_native.bypass_sandbox": "1"}, (
+    assert extra == {"agentnexus.codex_native.bypass_sandbox": "1"}, (
         f"bypass opt-in must stamp the codex bypass label, got {extra!r}"
     )
 
@@ -990,7 +990,7 @@ async def test_fork_codex_bypass_rejected_on_non_codex_target(
         },
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache(
             {
                 "087b7cb7ac30abf4debfaa578d052ec6": "claude_sdk",
@@ -1064,11 +1064,11 @@ async def test_fork_switch_404_unknown_target() -> None:
             True,
             True,
             True,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "claude-code-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "claude-code-native-ui"},
         ),
         # cross-family into a native target: model id is meaningless across
         # providers → reset. History still carries — the runner rebuilds the
-        # native transcript from the copied Omnigent items — but the source's
+        # native transcript from the copied AgentNexus items — but the source's
         # native session id must NOT be stamped (wrong transcript format for
         # the target; a doomed clone attempt would launch fresh instead).
         # Still terminal-first, but the codex wrapper.
@@ -1078,7 +1078,7 @@ async def test_fork_switch_404_unknown_target() -> None:
             False,
             True,
             False,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "codex-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "codex-native-ui"},
         ),
         # cursor target carries history via a text preamble (its conversation
         # is server-backed, so the runner can't seed a local store for --resume),
@@ -1090,10 +1090,10 @@ async def test_fork_switch_404_unknown_target() -> None:
             False,
             True,
             False,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "cursor-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "cursor-native-ui"},
         ),
         # pi-native CAN carry fork history: the runner rebuilds Pi's JSONL
-        # session file from the copied Omnigent items. Cross-family from a
+        # session file from the copied AgentNexus items. Cross-family from a
         # claude SDK source, so model settings reset and the source's native
         # session id is NOT stamped (Pi rebuilds from items, not a source
         # file) — same shape as the codex-native cross-family case.
@@ -1103,10 +1103,10 @@ async def test_fork_switch_404_unknown_target() -> None:
             False,
             True,
             False,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "pi-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "pi-native-ui"},
         ),
         # qwen-native CAN carry fork history: the runner rebuilds qwen's on-disk
-        # chat recording (+ runtime/meta sidecars) from the copied Omnigent items
+        # chat recording (+ runtime/meta sidecars) from the copied AgentNexus items
         # (see write_qwen_session_recording). Cross-family here (claude SDK source
         # is anthropic, qwen is openai-family), so model settings reset and the
         # source's native session id is NOT stamped — same shape as the pi-native
@@ -1117,7 +1117,7 @@ async def test_fork_switch_404_unknown_target() -> None:
             False,
             True,
             False,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "qwen-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "qwen-native-ui"},
         ),
         # native → SDK, same family: model carries, but an SDK target
         # replays the transcript itself so no native-rebuild marker is set.
@@ -1133,7 +1133,7 @@ async def test_fork_switch_404_unknown_target() -> None:
             False,
             True,
             False,
-            {"omnigent.ui": "terminal", "omnigent.wrapper": "claude-code-native-ui"},
+            {"agentnexus.ui": "terminal", "agentnexus.wrapper": "claude-code-native-ui"},
         ),
     ],
 )
@@ -1175,7 +1175,7 @@ async def test_fork_switch_model_and_carry_gating(
     # Target every switch at ag_claude_native; the stub cache, not the
     # bundle, dictates the harness each agent reports.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache(
             {
                 "087b7cb7ac30abf4debfaa578d052ec6": source_harness,
@@ -1237,7 +1237,7 @@ async def test_fork_no_switch_native_source_carries_history(
         },
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache({"087b7cb7ac30abf4debfaa578d052ec6": "claude-native"}),
     )
     client = TestClient(_build_app(conv_store))
@@ -1268,7 +1268,7 @@ async def test_fork_no_switch_native_source_carries_history(
         # first message (its conversation is server-backed, so no local store to
         # seed for --resume) — so a same-agent fork DOES mark native carry.
         ("cursor-native", True),
-        # pi rebuilds its JSONL session file from the copied Omnigent items
+        # pi rebuilds its JSONL session file from the copied AgentNexus items
         # (it is in _FORK_HISTORY_NATIVE_HARNESSES), so a same-agent fork marks
         # native carry — parity with claude/codex.
         ("pi-native", True),
@@ -1284,7 +1284,7 @@ async def test_fork_cursor_pi_native_carry_gating(
 
     cursor carries fork history via a text preamble (its conversation is
     server-backed, so no local store to seed for --resume); pi rebuilds its
-    JSONL session file from the copied Omnigent items. Both therefore mark
+    JSONL session file from the copied AgentNexus items. Both therefore mark
     ``carry_history_into_native``.
     """
     conv = _make_conversation()
@@ -1297,7 +1297,7 @@ async def test_fork_cursor_pi_native_carry_gating(
         },
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache({"087b7cb7ac30abf4debfaa578d052ec6": harness}),
     )
     client = TestClient(_build_app(conv_store))
@@ -1349,7 +1349,7 @@ async def test_fork_reversed_native_spelling_carry_gating(
         },
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_agent_cache",
+        "agentnexus.server.routes.sessions.get_agent_cache",
         lambda: _StubAgentCache({"087b7cb7ac30abf4debfaa578d052ec6": harness}),
     )
     client = TestClient(_build_app(conv_store))

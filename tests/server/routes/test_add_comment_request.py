@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from omnigent.server.routes.comments import AddCommentRequest
+from agentnexus.server.routes.comments import AddCommentRequest
 
 
 def _valid_kwargs(**overrides: object) -> dict:

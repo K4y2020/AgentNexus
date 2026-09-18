@@ -71,7 +71,7 @@ policies:
     type: function
     on: [tool_call:search_web]
     function:
-      path: omnigent.policies.function.make_fixed_action_callable
+      path: agentnexus.policies.function.make_fixed_action_callable
       arguments:
         action: allow
         set_labels: {integrity: "0"}
@@ -83,7 +83,7 @@ policies:
     type: function
     on: [tool_call:read_internal_doc]
     function:
-      path: omnigent.policies.function.make_fixed_action_callable
+      path: agentnexus.policies.function.make_fixed_action_callable
       arguments:
         action: allow
         set_labels: {confidentiality: "1"}
@@ -98,7 +98,7 @@ policies:
       confidentiality: "1"
       integrity: "0"
     function:
-      path: omnigent.policies.function.make_fixed_action_callable
+      path: agentnexus.policies.function.make_fixed_action_callable
       arguments:
         action: deny
         reason: |
@@ -113,7 +113,7 @@ policies:
     condition:
       confidentiality: "1"
     function:
-      path: omnigent.policies.function.make_fixed_action_callable
+      path: agentnexus.policies.function.make_fixed_action_callable
       arguments:
         action: ask
         reason: |
@@ -128,7 +128,7 @@ policies:
     condition:
       integrity: "0"
     function:
-      path: omnigent.policies.function.make_fixed_action_callable
+      path: agentnexus.policies.function.make_fixed_action_callable
       arguments:
         action: ask
         reason: |

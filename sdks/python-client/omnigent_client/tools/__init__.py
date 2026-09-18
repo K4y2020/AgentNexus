@@ -5,7 +5,7 @@ as a tool the agent can call. The decorator derives the LLM-facing
 JSON schema from the function's signature and Google-style docstring;
 the caller just writes Python::
 
-    from omnigent_client import tool
+    from agentnexus_client import tool
 
     @tool
     def get_current_time() -> dict[str, str]:
@@ -13,7 +13,7 @@ the caller just writes Python::
         return {"now": datetime.now(timezone.utc).isoformat()}
 
 Pass decorated functions as the ``tools=`` argument to
-:meth:`OmnigentClient.query` or :meth:`Session.query`.
+:meth:`AgentNexusClient.query` or :meth:`Session.query`.
 
 Server-side runtime (``omnigent.tools.local``) also consumes this
 decorator to load ``@tool``-decorated functions bundled inside agent

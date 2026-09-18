@@ -8,20 +8,20 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.db.utils import generate_agent_id
-from omnigent.entities import Conversation
-from omnigent.runner.session_init_protocol import (
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.entities import Conversation
+from agentnexus.runner.session_init_protocol import (
     build_runner_session_init_payload,
     parse_runner_session_init_envelope,
 )
-from omnigent.server.runner_session_init import RunnerSessionInitializer
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store import (
+from agentnexus.server.runner_session_init import RunnerSessionInitializer
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store import (
     FORK_CARRY_HISTORY_LABEL_KEY,
     FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
     FORK_SOURCE_LABEL_KEY,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 class _Registry:
@@ -123,7 +123,7 @@ async def test_session_init_readiness_is_explicit_and_backward_compatible(
     expected_ready: bool,
 ) -> None:
     """Only a current runner response suppresses the terminal ensure."""
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     async def _noop_recovered(*_args: Any, **_kwargs: Any) -> None:
         return None
@@ -206,7 +206,7 @@ def test_reconnect_init_envelope_carries_fork_history_directives(db_uri: str) ->
 
     # And the runner's own projection reads them as launch directives -- the
     # boolean the clone/rebuild branch gates on.
-    from omnigent.runner.app import _claude_launch_metadata_from_envelope
+    from agentnexus.runner.app import _claude_launch_metadata_from_envelope
 
     metadata = _claude_launch_metadata_from_envelope(envelope)
     assert metadata.fork_carry_history is True

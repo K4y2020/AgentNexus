@@ -50,13 +50,13 @@ issue-write token automatically; no GitHub PAT is stored in Actions. Enable v2
 last:
 
 ```bash
-gh secret set DATABRICKS_HOST --repo omnigent-ai/omnigent
-gh secret set DATABRICKS_CLIENT_ID --repo omnigent-ai/omnigent
-gh secret set DATABRICKS_CLIENT_SECRET --repo omnigent-ai/omnigent
+gh secret set DATABRICKS_HOST --repo agentnexus-ai/agentnexus
+gh secret set DATABRICKS_CLIENT_ID --repo agentnexus-ai/agentnexus
+gh secret set DATABRICKS_CLIENT_SECRET --repo agentnexus-ai/agentnexus
 gh variable set ISSUE_PRIORITIZATION_V2_MODEL_ENDPOINT \
-  --repo omnigent-ai/omnigent --body databricks-gpt-5-6-luna
+  --repo agentnexus-ai/agentnexus --body databricks-gpt-5-6-luna
 gh variable set ISSUE_PRIORITIZATION_V2_ENABLED \
-  --repo omnigent-ai/omnigent --body true
+  --repo agentnexus-ai/agentnexus --body true
 ```
 
 For a no-write check, export the same Databricks credentials plus
@@ -65,7 +65,7 @@ For a no-write check, export the same Databricks credentials plus
 ```bash
 uv run --frozen --project .github/triage_v2 issue-priority-event \
   --issue-number 2125 \
-  --github-repo omnigent-ai/omnigent \
+  --github-repo agentnexus-ai/agentnexus \
   --model-endpoint databricks-gpt-5-6-luna \
   --areas .github/areas.json \
   --label-manifest .github/issue-prioritization-labels.json \
@@ -187,7 +187,7 @@ durable override; human-added component labels are never removed. Retired
 scoring.
 
 For scheduled runs, prefer a GitHub App installation token over a personal PAT.
-Install the App on `omnigent-ai/omnigent` with metadata read and issues read/write,
+Install the App on `agentnexus-ai/agentnexus` with metadata read and issues read/write,
 then store its client ID and PEM private key. The job discovers the installation
 ID from the repository and mints a fresh token for every run:
 
@@ -243,7 +243,7 @@ databricks bundle run issue_prioritization --target dev --profile <profile> \
 ```
 
 That apply run is also the comment backfill. The bot finds comments by the
-`omnigent-issue-prioritization-v2` marker and updates the existing comment rather
+`agentnexus-issue-prioritization-v2` marker and updates the existing comment rather
 than posting another one. The base score is embedded in HTML metadata for audit
 and is not rendered by GitHub; it is hidden, not secret. Visible text contains
 the bot assessment, effective priority, the automated recommendation when a

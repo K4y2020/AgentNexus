@@ -39,7 +39,7 @@ def build_tool_handler(functions: list[Callable[..., Any]]) -> ToolHandler:
         ``@tool``.
     :returns: A :class:`ToolHandler` ready to pass as
         ``session.tool_handler`` or via the ``tools=`` keyword on
-        ``OmnigentClient.query`` / ``Session.query``.
+        ``AgentNexusClient.query`` / ``Session.query``.
     :raises TypeError: If any function is missing the ``@tool``
         marker (i.e. wasn't decorated).
     :raises ValueError: If two functions share the same tool name
@@ -56,7 +56,7 @@ def build_tool_handler(functions: list[Callable[..., Any]]) -> ToolHandler:
         if meta is None:
             raise TypeError(
                 f"{fn.__module__}.{fn.__qualname__} is not decorated with "
-                f"@tool. Decorate it with `from omnigent_client import tool` "
+                f"@tool. Decorate it with `from agentnexus_client import tool` "
                 f"and apply @tool above the function definition."
             )
         if meta.name in funcs_by_name:

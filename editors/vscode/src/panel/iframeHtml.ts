@@ -39,7 +39,7 @@ export function buildIframeHtml(opts: BuildIframeHtmlOptions): string {
   <style nonce="${nonce}">
     html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
     body { background: var(--vscode-editor-background, #1e1e1e); }
-    #omnigent-frame { border: 0; width: 100%; height: 100%; display: block; }
+    #agentnexus-frame { border: 0; width: 100%; height: 100%; display: block; }
   </style>
 </head>
 <body>
@@ -50,7 +50,7 @@ export function buildIframeHtml(opts: BuildIframeHtmlOptions): string {
       clipboard on non-macOS. See the macOS keystroke limitation noted above the
       buildIframeHtml docblock (microsoft/vscode#129178, #182642).
     -->
-    <iframe id="omnigent-frame" src="${escapeAttr(src)}" allow="clipboard-read; clipboard-write" style="border:0;width:100%;height:100%"></iframe>
+    <iframe id="agentnexus-frame" src="${escapeAttr(src)}" allow="clipboard-read; clipboard-write" style="border:0;width:100%;height:100%"></iframe>
   </div>
 </body>
 </html>`;

@@ -1,12 +1,12 @@
-# Omnigent on Modal
+# AgentNexus on Modal
 
-[Modal](https://modal.com) plays two distinct roles for Omnigent:
+[Modal](https://modal.com) plays two distinct roles for AgentNexus:
 
 1. **[Server deploy target](#deploying-the-server)** — run the
-   Omnigent server itself on Modal as a single always-on web server
+   AgentNexus server itself on Modal as a single always-on web server
    (`modal_app.py` in this directory).
 2. **[Sandbox provider](#sandboxes-for-runner-hosts)** — disposable
-   cloud machines for running Omnigent *hosts*, so sessions execute in
+   cloud machines for running AgentNexus *hosts*, so sessions execute in
    the cloud instead of on your laptop.
 
 The two are independent: you can deploy the server anywhere and still
@@ -14,7 +14,7 @@ use Modal sandboxes for hosts, or vice versa.
 
 ## Deploying the server
 
-Run the Omnigent server on Modal as a single always-on web server.
+Run the AgentNexus server on Modal as a single always-on web server.
 `modal_app.py` pulls the standard server image and launches the same
 Docker entrypoint every other platform uses; Modal provides the HTTPS
 URL, log streaming, and a persistent Volume for the artifact store —
@@ -33,12 +33,12 @@ Heroku or Cloudflare.
 
 ```bash
 # 1. One secret bundle with the three required values. The app URL is
-#    deterministic: https://<workspace>--omnigent-server.modal.run
+#    deterministic: https://<workspace>--agentnexus-server.modal.run
 #    (your workspace name is shown by `modal profile current`).
-modal secret create omnigent-deploy \
+modal secret create agentnexus-deploy \
   DATABASE_URL='postgres://…neon.tech/…' \
-  OMNIGENT_ACCOUNTS_COOKIE_SECRET="$(openssl rand -hex 32)" \
-  OMNIGENT_ACCOUNTS_BASE_URL='https://<workspace>--omnigent-server.modal.run'
+  AGENTNEXUS_ACCOUNTS_COOKIE_SECRET="$(openssl rand -hex 32)" \
+  AGENTNEXUS_ACCOUNTS_BASE_URL='https://<workspace>--agentnexus-server.modal.run'
 
 # 2. Ship it.
 modal deploy deploy/modal/modal_app.py
@@ -54,20 +54,20 @@ The first boot runs DB migrations over the network (~1 minute on Neon).
 prints a "No admin yet" line pointing at your `*.modal.run` URL:
 
 ```bash
-modal app logs omnigent
+modal app logs agentnexus
 ```
 
 Open that URL and use the web Create-admin form to pick your own username +
 password, then invite teammates from **Members** in the web UI.
 
 > To create the admin directly instead of claiming it through the web form,
-> add `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD=<password>` to the
-> `omnigent-deploy` secret before the first deploy.
+> add `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD=<password>` to the
+> `agentnexus-deploy` secret before the first deploy.
 
 > **Security note for public deployments:** `POST /auth/setup` is
 > unauthenticated while no password-bearing account exists, so an instance
 > exposed before you reach the Create-admin form can be claimed by the first
-> visitor. Pre-seed `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
+> visitor. Pre-seed `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
 > promptly after the deploy goes live.
 
 ### Modal-specific caveats
@@ -91,19 +91,19 @@ password, then invite teammates from **Members** in the web UI.
 
 ### Use your own IdP instead (OIDC)
 
-Add the OIDC values to the `omnigent-deploy` secret (Modal secrets are
+Add the OIDC values to the `agentnexus-deploy` secret (Modal secrets are
 key-value bundles; `modal secret create` with the same name replaces it)
 and redeploy:
 
 ```bash
-modal secret create omnigent-deploy \
+modal secret create agentnexus-deploy \
   DATABASE_URL='…' \
-  OMNIGENT_AUTH_PROVIDER=oidc \
-  OMNIGENT_OIDC_ISSUER='https://github.com' \
-  OMNIGENT_OIDC_CLIENT_ID='…' \
-  OMNIGENT_OIDC_CLIENT_SECRET='…' \
-  OMNIGENT_OIDC_REDIRECT_URI='https://<workspace>--omnigent-server.modal.run/auth/callback' \
-  OMNIGENT_OIDC_COOKIE_SECRET="$(openssl rand -hex 32)"
+  AGENTNEXUS_AUTH_PROVIDER=oidc \
+  AGENTNEXUS_OIDC_ISSUER='https://github.com' \
+  AGENTNEXUS_OIDC_CLIENT_ID='…' \
+  AGENTNEXUS_OIDC_CLIENT_SECRET='…' \
+  AGENTNEXUS_OIDC_REDIRECT_URI='https://<workspace>--agentnexus-server.modal.run/auth/callback' \
+  AGENTNEXUS_OIDC_COOKIE_SECRET="$(openssl rand -hex 32)"
 ```
 
 The IdP registration steps (GitHub / Google / Okta callback URLs, domain
@@ -112,15 +112,15 @@ allow-listing) are identical to the other platforms — see
 
 ### Custom domain
 
-Pass `custom_domains=["omnigent.example.com"]` to `@modal.web_server`
+Pass `custom_domains=["agentnexus.example.com"]` to `@modal.web_server`
 in `modal_app.py` (requires a paid Modal plan), point your DNS at Modal
-per the printed instructions, and update `OMNIGENT_ACCOUNTS_BASE_URL`
+per the printed instructions, and update `AGENTNEXUS_ACCOUNTS_BASE_URL`
 (or the OIDC redirect URI) to match.
 
 ### Upgrading
 
 `modal deploy deploy/modal/modal_app.py` again — Modal re-resolves
-`ghcr.io/omnigent-ai/omnigent-server:latest`, so a redeploy is an
+`ghcr.io/agentnexus-ai/agentnexus-server:latest`, so a redeploy is an
 upgrade. The rollout replaces the container; runners reconnect.
 
 ### Cost
@@ -134,7 +134,7 @@ a lightly loaded server. Rates: [modal.com/pricing](https://modal.com/pricing).
 ## Sandboxes for runner hosts
 
 Modal sandboxes give you disposable cloud machines for running
-Omnigent hosts — no laptop tethered to a session, no VM to babysit.
+AgentNexus hosts — no laptop tethered to a session, no VM to babysit.
 There are two ways to use them:
 
 1. **CLI-launched sandboxes** — you provision a sandbox from your
@@ -152,20 +152,20 @@ not minutes.
 ### Sandbox prerequisites
 
 ```bash
-pip install 'omnigent[modal]'   # installs the modal SDK extra
+pip install 'agentnexus[modal]'   # installs the modal SDK extra
 modal token new                  # one-time browser auth with Modal
 ```
 
-`modal token new` writes `~/.modal.toml`. Anywhere Omnigent needs to
+`modal token new` writes `~/.modal.toml`. Anywhere AgentNexus needs to
 talk to Modal (your laptop for the CLI flow, the server for the managed
 flow), Modal credentials must be available — either that file or the
 `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` environment variables.
 
 ### The host image
 
-Sandboxes boot from `ghcr.io/omnigent-ai/omnigent-host:latest`, an image
+Sandboxes boot from `ghcr.io/agentnexus-ai/agentnexus-host:latest`, an image
 published by CI from the `host` target of
-[`deploy/docker/Dockerfile`](../docker/Dockerfile) with Omnigent
+[`deploy/docker/Dockerfile`](../docker/Dockerfile) with AgentNexus
 and its dependencies preinstalled — including the coding-harness CLIs
 (`claude`, `codex`, `pi`, `kiro-cli`), so agents on any harness run without an
 in-sandbox install.
@@ -175,14 +175,14 @@ same target and push it anywhere Modal can pull from:
 
 ```bash
 docker build -f deploy/docker/Dockerfile --target host \
-  -t docker.io/<you>/omnigent-host:latest .
-docker push docker.io/<you>/omnigent-host:latest
+  -t docker.io/<you>/agentnexus-host:latest .
+docker push docker.io/<you>/agentnexus-host:latest
 ```
 
-Then point Omnigent at it — `OMNIGENT_MODAL_HOST_IMAGE` for the CLI
+Then point AgentNexus at it — `AGENTNEXUS_MODAL_HOST_IMAGE` for the CLI
 flow, or `sandbox.modal.image` in the server config for the managed
 flow (see below). For private registries, set
-`OMNIGENT_MODAL_REGISTRY_SECRET` to the name of a
+`AGENTNEXUS_MODAL_REGISTRY_SECRET` to the name of a
 [Modal secret](https://modal.com/secrets) containing
 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`.
 
@@ -195,7 +195,7 @@ flow (see below). For private registries, set
 Provision a sandbox and ship your local checkout into it:
 
 ```bash
-omnigent sandbox create --provider modal
+agentnexus sandbox create --provider modal
 ```
 
 This pulls the host image, builds wheels from your local checkout, and
@@ -203,12 +203,12 @@ overlays them on top — so the sandbox runs *your* code, not whatever
 the image was built from. Then register it as a host with your server:
 
 ```bash
-omnigent sandbox connect --provider modal \
+agentnexus sandbox connect --provider modal \
   --sandbox-id <id-printed-by-create> \
   --server https://your-host
 ```
 
-`connect` runs `omnigent host` inside the sandbox and holds the
+`connect` runs `agentnexus host` inside the sandbox and holds the
 connection open in your terminal — Ctrl-C tears it down. New sessions
 targeting that host now run in the sandbox.
 
@@ -228,20 +228,20 @@ own tooling — the [Modal dashboard](https://modal.com/sandboxes) or the
 
 ### Connecting to an authenticated server
 
-`connect` runs `omnigent host` inside the sandbox, and that host must
+`connect` runs `agentnexus host` inside the sandbox, and that host must
 present credentials when it dials back to a server that requires
-authentication. The interactive `omnigent login` browser flow can't
+authentication. The interactive `agentnexus login` browser flow can't
 run inside a sandbox, so inject the keys for the relevant server
 instead: park them in a [Modal secret](https://modal.com/secrets) and
-name it in `OMNIGENT_MODAL_SANDBOX_SECRETS` (comma-separated) before
+name it in `AGENTNEXUS_MODAL_SANDBOX_SECRETS` (comma-separated) before
 running `create`:
 
 ```bash
-modal secret create omnigent-server-auth \
+modal secret create agentnexus-server-auth \
   DATABRICKS_HOST=https://example.databricks.com \
   DATABRICKS_TOKEN=<your-pat>
-export OMNIGENT_MODAL_SANDBOX_SECRETS=omnigent-server-auth
-omnigent sandbox create --provider modal
+export AGENTNEXUS_MODAL_SANDBOX_SECRETS=agentnexus-server-auth
+agentnexus sandbox create --provider modal
 ```
 
 The in-sandbox host mints a fresh bearer token from those credentials
@@ -256,7 +256,7 @@ and neither do [server-managed sandboxes](#server-managed-sandboxes) —
 those authenticate with a server-minted per-launch token automatically.
 
 (The same env var also carries LLM / git credentials for CLI-launched
-sandboxes — any secret named in `OMNIGENT_MODAL_SANDBOX_SECRETS` lands
+sandboxes — any secret named in `AGENTNEXUS_MODAL_SANDBOX_SECRETS` lands
 in the sandbox environment, exactly like `sandbox.modal.secrets` does
 for managed launches.)
 
@@ -264,11 +264,11 @@ for managed launches.)
 
 With managed hosts, the server does all of the above per session.
 When the server runs outside Modal, use
-`ghcr.io/omnigent-ai/omnigent-server-modal:latest`; this variant includes
+`ghcr.io/agentnexus-ai/agentnexus-server-modal:latest`; this variant includes
 the Modal SDK required to provision sandboxes. For a custom server image,
-build with `--build-arg OMNIGENT_EXTRAS=modal`.
+build with `--build-arg AGENTNEXUS_EXTRAS=modal`.
 
-Add a `sandbox:` section to the server config (`omnigent server -c
+Add a `sandbox:` section to the server config (`agentnexus server -c
 config.yaml`, or `<data_dir>/config.yaml`):
 
 ```yaml
@@ -306,14 +306,14 @@ sandbox:
   provider: modal
   server_url: https://your-host
   modal:
-    image: docker.io/<you>/omnigent-host:latest   # default: official image
-    secrets: [omnigent-llm]                       # Modal secrets to inject
+    image: docker.io/<you>/agentnexus-host:latest   # default: official image
+    secrets: [agentnexus-llm]                       # Modal secrets to inject
 ```
 
 A top-level `sandbox.host_config:` (provider-agnostic) holds verbatim
-in-sandbox `~/.omnigent/config.yaml` content — e.g. a `providers:`
+in-sandbox `~/.agentnexus/config.yaml` content — e.g. a `providers:`
 block routing a harness through a self-hosted gateway — installed into
-the sandbox before `omnigent host` starts. The block is server-managed:
+the sandbox before `agentnexus host` starts. The block is server-managed:
 entries injected by a previous launch are replaced or removed on the
 next launch/resume, while config created inside the sandbox survives.
 Keep secrets out via
@@ -331,8 +331,8 @@ sandbox, and the in-sandbox host forwards the standard harness
 credential vars to its runners:
 
 ```bash
-modal secret create omnigent-llm \
-  OMNIGENT_ANTHROPIC_API_KEY=sk-ant-… OPENAI_API_KEY=sk-…
+modal secret create agentnexus-llm \
+  AGENTNEXUS_ANTHROPIC_API_KEY=sk-ant-… OPENAI_API_KEY=sk-…
 ```
 
 The forwarded set covers the variables the harnesses themselves
@@ -344,7 +344,7 @@ like [OpenRouter](https://openrouter.ai) and
 
 | Variable | Enables |
 |---|---|
-| `OMNIGENT_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` | Claude models on the Anthropic API (claude-sdk, pi, claude-code harnesses). Prefer the `OMNIGENT_` form for Claude Code so the raw `ANTHROPIC_API_KEY` env var is not present in the CLI process. |
+| `AGENTNEXUS_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` | Claude models on the Anthropic API (claude-sdk, pi, claude-code harnesses). Prefer the `AGENTNEXUS_` form for Claude Code so the raw `ANTHROPIC_API_KEY` env var is not present in the CLI process. |
 | `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` | Anthropic-compatible gateways — point claude-code at a LiteLLM proxy, a Bedrock/Vertex bridge, or a corporate gateway |
 | `CLAUDE_CODE_OAUTH_TOKEN` | claude-code with a Claude subscription (no API key) |
 | `OPENAI_API_KEY` | OpenAI models on the OpenAI API (codex, openai-agents harnesses) |
@@ -354,8 +354,8 @@ like [OpenRouter](https://openrouter.ai) and
 
 Common setups:
 
-- **Claude with an API key** — put `OMNIGENT_ANTHROPIC_API_KEY` in the secret.
-  Omnigent resolves it into Claude Code's `apiKeyHelper`; do not also set
+- **Claude with an API key** — put `AGENTNEXUS_ANTHROPIC_API_KEY` in the secret.
+  AgentNexus resolves it into Claude Code's `apiKeyHelper`; do not also set
   `ANTHROPIC_API_KEY` unless you are okay with Claude Code detecting the raw
   custom key env var.
 - **Claude with a subscription** — run `claude setup-token` on your own
@@ -381,7 +381,7 @@ Common setups:
   the same way via `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`.
 
 For env vars beyond the standard set, add
-`OMNIGENT_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2` to the secret — the
+`AGENTNEXUS_RUNNER_ENV_PASSTHROUGH=NAME1,NAME2` to the secret — the
 host forwards the named extras to its runners.
 
 To check what actually landed in a sandbox, exec into it with Modal's
@@ -401,7 +401,7 @@ push` the agent runs later — put an HTTPS token in a Modal secret as
 `GIT_TOKEN`:
 
 ```bash
-modal secret create omnigent-git GIT_TOKEN=github_pat_…
+modal secret create agentnexus-git GIT_TOKEN=github_pat_…
 ```
 
 and list the secret under `sandbox.modal.secrets` (multiple secrets
@@ -413,7 +413,7 @@ sandbox:
   provider: modal
   server_url: https://your-host
   modal:
-    secrets: [omnigent-llm, omnigent-git]
+    secrets: [agentnexus-llm, agentnexus-git]
 ```
 
 The host image ships a git credential helper that answers HTTPS
@@ -447,16 +447,16 @@ or a custom image.
 | Variable | Where it's read | Purpose |
 |---|---|---|
 | `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | CLI machine / server | Modal API credentials (alternative to `~/.modal.toml`) |
-| `OMNIGENT_MODAL_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.modal.image` takes precedence for managed) |
-| `OMNIGENT_MODAL_REGISTRY_SECRET` | CLI machine / server | Modal secret name with `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` for private image pulls |
-| `OMNIGENT_MODAL_SANDBOX_SECRETS` | CLI machine / server | Comma-separated Modal secret names to inject (`sandbox.modal.secrets` takes precedence for managed) |
-| `OMNIGENT_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (set via a Modal secret) | Extra env var names the host forwards to runners |
+| `AGENTNEXUS_MODAL_HOST_IMAGE` | CLI machine / server | Override the host image ref (`sandbox.modal.image` takes precedence for managed) |
+| `AGENTNEXUS_MODAL_REGISTRY_SECRET` | CLI machine / server | Modal secret name with `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` for private image pulls |
+| `AGENTNEXUS_MODAL_SANDBOX_SECRETS` | CLI machine / server | Comma-separated Modal secret names to inject (`sandbox.modal.secrets` takes precedence for managed) |
+| `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH` | inside the sandbox (set via a Modal secret) | Extra env var names the host forwards to runners |
 | `GIT_TOKEN` | inside the sandbox (set via a Modal secret) | HTTPS token for private repository clone / fetch / push |
 | `GIT_USERNAME` | inside the sandbox (set via a Modal secret) | Auth username paired with `GIT_TOKEN` (default `x-access-token`; GitLab uses `oauth2`) |
 
 All of the above are supported public configuration. The variables the
 managed launcher itself sets inside the sandbox —
-`OMNIGENT_HOST_TOKEN`, `OMNIGENT_HOST_ID`, `OMNIGENT_HOST_NAME` —
+`AGENTNEXUS_HOST_TOKEN`, `AGENTNEXUS_HOST_ID`, `AGENTNEXUS_HOST_NAME` —
 are internal plumbing (server-minted per launch) and are never set by
 users.
 
@@ -473,10 +473,10 @@ users.
 - **Managed launch hangs then fails.** The server waits up to two
   minutes for the in-sandbox host to come online. If it times out,
   check that `server_url` is publicly reachable from Modal, then
-  inspect the host log inside the sandbox: `/tmp/omnigent-host.log`.
+  inspect the host log inside the sandbox: `/tmp/agentnexus-host.log`.
 - **Image pull failures.** Private image without
-  `OMNIGENT_MODAL_REGISTRY_SECRET` set, or a secret missing
+  `AGENTNEXUS_MODAL_REGISTRY_SECRET` set, or a secret missing
   `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`.
 - **Agent has no credentials.** Verify the Modal secret is listed in
   `sandbox.modal.secrets` and its var names match the forwarded set
-  above (or are named in `OMNIGENT_RUNNER_ENV_PASSTHROUGH`).
+  above (or are named in `AGENTNEXUS_RUNNER_ENV_PASSTHROUGH`).

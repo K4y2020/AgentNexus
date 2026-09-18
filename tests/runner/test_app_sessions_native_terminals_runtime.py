@@ -14,31 +14,31 @@ from typing import Any, cast
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     codex_native_bridge,
     cursor_native_bridge,
     kiro_native_bridge,
 )
-from omnigent.antigravity_native_bridge import (
+from agentnexus.antigravity_native_bridge import (
     is_placeholder_conversation_id as bridge_mod_is_placeholder,
 )
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     bridge_dir_for_bridge_id,
     prepare_bridge_dir,
 )
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.runner import create_runner_app
-from omnigent.runner.app import (
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.app import (
     ResolvedSpec,
     _auto_create_antigravity_terminal,
     _auto_create_codex_terminal,
 )
-from omnigent.runner.resource_registry import (
+from agentnexus.runner.resource_registry import (
     ANTIGRAVITY_NATIVE_TERMINAL_ROLE,
     CODEX_NATIVE_TERMINAL_ROLE,
     SessionResourceRegistry,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -157,7 +157,7 @@ async def test_create_session_threads_workspace_to_pi_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Pi pre-spawn receives the session workspace, not the bundle dir."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "config-home"))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "config-home"))
     session_id = "18f39ab73f49285e4dab0c80ff7b8455"
     runner_workspace = tmp_path / "runner-workspace"
     runner_workspace.mkdir()
@@ -225,7 +225,7 @@ async def test_create_session_threads_runner_workspace_to_pi_cwd_when_session_wo
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pi pre-spawn falls back to runner workspace when session workspace is empty."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "config-home"))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "config-home"))
     session_id = "3f1d20a97a7d0ba93e02cf17aeb92367"
     runner_workspace = tmp_path / "runner-workspace"
     runner_workspace.mkdir()
@@ -312,7 +312,7 @@ async def test_codex_top_level_session_needs_runner_terminal_for_all_session_sha
     host-id gate returns ``False`` here, ``omnigent codex`` falls back to
     a CLI-owned app-server.
     """
-    from omnigent.runner.app import _codex_session_needs_runner_terminal
+    from agentnexus.runner.app import _codex_session_needs_runner_terminal
 
     class _Client:
         async def get(self, url: str, *, timeout: float) -> httpx.Response:
@@ -334,7 +334,7 @@ async def test_auto_create_codex_terminal_uses_persisted_resume_launch_config(
 
     The CLI now persists launch intent and asks the runner to ensure the
     terminal. This test exercises the runner helper directly: it must read
-    ``terminal_launch_args`` and ``external_session_id`` from the Omnigent snapshot,
+    ``terminal_launch_args`` and ``external_session_id`` from the AgentNexus snapshot,
     start the app-server itself, launch the TUI as ``codex ... resume
     --remote <runner-ws> <thread>``, and run the known-thread forwarder. If
     this regresses, the CLI falls back into split ownership or loses user
@@ -344,16 +344,16 @@ async def test_auto_create_codex_terminal_uses_persisted_resume_launch_config(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "76cbdcbbf84d4149b2a7d7441b6966c1"
     thread_id = "019e96aa-0be2-7343-8d3b-6f914d60936b"
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     bridge_dir = codex_native_bridge.bridge_dir_for_bridge_id(session_id)
     codex_native_bridge.write_bridge_state(
         bridge_dir,
@@ -561,7 +561,7 @@ async def test_auto_create_codex_terminal_uses_persisted_resume_launch_config(
         name="codex",
         instructions="Be a concise, careful coding assistant.",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )
@@ -645,7 +645,7 @@ async def test_auto_create_codex_terminal_fork_clones_rollout_and_resumes(
     When the clone has no ``external_session_id`` but carries the fork
     labels, the runner must clone the SOURCE's rollout into the clone's
     own ``CODEX_HOME`` under a freshly minted thread id, pre-set that id
-    on the Omnigent session, and launch ``codex resume <minted_id>`` (not the
+    on the AgentNexus session, and launch ``codex resume <minted_id>`` (not the
     source thread). A regression launches fresh (no ``resume`` subcommand)
     and the clone loses the source's Codex history.
 
@@ -653,11 +653,11 @@ async def test_auto_create_codex_terminal_fork_clones_rollout_and_resumes(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent import codex_native
-    from omnigent.codex_native_bridge import bridge_dir_for_bridge_id, codex_home_for_bridge_dir
-    from omnigent.runner import app as runner_app_mod
-    from omnigent.stores.conversation_store import (
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus import codex_native
+    from agentnexus.codex_native_bridge import bridge_dir_for_bridge_id, codex_home_for_bridge_dir
+    from agentnexus.runner import app as runner_app_mod
+    from agentnexus.stores.conversation_store import (
         FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
         FORK_SOURCE_LABEL_KEY,
     )
@@ -669,10 +669,10 @@ async def test_auto_create_codex_terminal_fork_clones_rollout_and_resumes(
     workspace.mkdir()
 
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(workspace))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(workspace))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     bridge_dir = bridge_dir_for_bridge_id(session_id)
     codex_native_bridge.write_bridge_state(
         bridge_dir,
@@ -867,7 +867,7 @@ async def test_auto_create_codex_terminal_fork_clones_rollout_and_resumes(
         spec_version=1,
         name="codex",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )
@@ -923,18 +923,18 @@ async def test_auto_create_codex_terminal_fork_builds_rollout_from_items_and_res
     """A forked codex clone builds from items when its source rollout is unavailable.
 
     This covers both a non-Codex source with no source thread id and an imported
-    Codex source whose rollout lives outside Omnigent's private ``CODEX_HOME``.
+    Codex source whose rollout lives outside AgentNexus's private ``CODEX_HOME``.
 
     :param tmp_path: Temporary directory for isolated bridge state.
     :param monkeypatch: Pytest monkeypatch fixture.
     :param source_thread: Optional unavailable source Codex thread id.
     :returns: None.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent import codex_native
-    from omnigent.codex_native_bridge import bridge_dir_for_bridge_id, codex_home_for_bridge_dir
-    from omnigent.runner import app as runner_app_mod
-    from omnigent.stores.conversation_store import (
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus import codex_native
+    from agentnexus.codex_native_bridge import bridge_dir_for_bridge_id, codex_home_for_bridge_dir
+    from agentnexus.runner import app as runner_app_mod
+    from agentnexus.stores.conversation_store import (
         FORK_CARRY_HISTORY_LABEL_KEY,
         FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
         FORK_SOURCE_LABEL_KEY,
@@ -947,16 +947,16 @@ async def test_auto_create_codex_terminal_fork_builds_rollout_from_items_and_res
     workspace.mkdir()
 
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(workspace))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(workspace))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     patched_external_ids: list[str] = []
 
     class _ItemsForkSnapshotClient:
         """Server client: clone snapshot (carry-history, no source thread)
-        plus the copied Omnigent items the rollout is built from."""
+        plus the copied AgentNexus items the rollout is built from."""
 
         async def get(
             self,
@@ -1124,7 +1124,7 @@ async def test_auto_create_codex_terminal_fork_builds_rollout_from_items_and_res
         spec_version=1,
         name="codex",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )
@@ -1156,7 +1156,7 @@ async def test_auto_create_codex_terminal_fork_builds_rollout_from_items_and_res
 
     # The rollout was BUILT (not cloned) in the clone's CODEX_HOME under the
     # minted id, carrying the source conversation's codeword — proving the
-    # copied Omnigent items, not a source rollout, seeded the history.
+    # copied AgentNexus items, not a source rollout, seeded the history.
     clone_home = codex_home_for_bridge_dir(bridge_dir_for_bridge_id(session_id))
     built = list(clone_home.glob(f"sessions/**/rollout-*-{minted}.jsonl"))
     assert len(built) == 1, f"expected one built rollout under {clone_home}, found {built}"
@@ -1166,7 +1166,7 @@ async def test_auto_create_codex_terminal_fork_builds_rollout_from_items_and_res
     assert meta["cwd"] == str(workspace.resolve())
     assert codeword in body, (
         "Built rollout must carry the source conversation's text from the "
-        "copied Omnigent items; missing it means history was not seeded."
+        "copied AgentNexus items; missing it means history was not seeded."
     )
 
 
@@ -1195,13 +1195,13 @@ async def test_auto_create_codex_terminal_uses_worktree_workspace_not_bundle_dir
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "54e4d4410c43954c11e702f5a8646483"
     # Three distinct dirs so the assertion can only pass for the worktree:
-    #   runner_env  — OMNIGENT_RUNNER_WORKSPACE (claude-native's source)
+    #   runner_env  — AGENTNEXUS_RUNNER_WORKSPACE (claude-native's source)
     #   bundle_dir  — ResolvedSpec.workdir (what the bug used)
     #   worktree    — the session's stored workspace (correct answer)
     runner_env = tmp_path / "runner_workspace"
@@ -1212,10 +1212,10 @@ async def test_auto_create_codex_terminal_uses_worktree_workspace_not_bundle_dir
     worktree.mkdir(parents=True)
 
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(runner_env))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(runner_env))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     bridge_dir = codex_native_bridge.bridge_dir_for_bridge_id(session_id)
     codex_native_bridge.write_bridge_state(
         bridge_dir,
@@ -1381,7 +1381,7 @@ async def test_auto_create_codex_terminal_uses_worktree_workspace_not_bundle_dir
             name="codex",
             instructions="Be a concise, careful coding assistant.",
             executor=ExecutorSpec(
-                type="omnigent",
+                type="agentnexus",
                 config={"harness": "codex-native", "model": "gpt-5-default"},
             ),
             os_env=codex_os_env,
@@ -1424,7 +1424,7 @@ async def test_auto_create_codex_terminal_uses_worktree_workspace_not_bundle_dir
     assert launch_captured["parent_os_env"] is codex_os_env
 
     # A transient / unparseable version probe must not strand a runner-owned
-    # session behind Codex's terminal-only hook review screen. Omnigent's
+    # session behind Codex's terminal-only hook review screen. AgentNexus's
     # supported Codex floor is newer than the release that added this flag.
     assert app_server.codex_cli_version is None
     assert launch_captured["spec"].args[0] == "--dangerously-bypass-hook-trust"
@@ -1455,15 +1455,15 @@ async def test_auto_create_codex_terminal_starts_relay_at_session_creation(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "de154ca6405fb8912623984a14a2b044"
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     class _SnapshotClient:
         """Fresh-session snapshot (no external thread → discovery path)."""
@@ -1557,7 +1557,7 @@ async def test_auto_create_codex_terminal_starts_relay_at_session_creation(
         spec_version=1,
         name="codex",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )
@@ -1650,14 +1650,14 @@ async def test_claude_native_first_turn_not_blocked_by_cold_bridge_notify(
     # The runner imports post_tools_changed from this module at call time, so
     # patching the module attribute is picked up by _ensure_comment_relay_started.
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.post_tools_changed",
+        "agentnexus.claude_native_bridge.post_tools_changed",
         _blocking_post_tools_changed,
     )
 
     spec = AgentSpec(
         spec_version=1,
         name="claude",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1764,7 +1764,7 @@ async def _run_antigravity_auto_create(
     :param tmp_path: Temporary directory for isolated bridge state.
     :param monkeypatch: Pytest monkeypatch fixture.
     :param session_id: Session/conversation id under test.
-    :param snapshot: The Omnigent session snapshot the helper should read.
+    :param snapshot: The AgentNexus session snapshot the helper should read.
     :param candidate_ports: Ports ``_candidate_agy_rpc_ports`` yields (``[]`` →
         the bootstrap never finds a candidate port).
     :param pane: ``(tmux_socket, tmux_target)`` ``_terminal_tmux_pane`` returns,
@@ -1781,18 +1781,18 @@ async def _run_antigravity_auto_create(
     :returns: ``(bridge_state_after, start_cascade_calls, reader_calls,
         external_session_id_patch_calls)``.
     """
-    import omnigent.antigravity_native_launch as launch_mod
-    import omnigent.antigravity_native_reader as reader_mod
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_launch as launch_mod
+    import agentnexus.antigravity_native_reader as reader_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     (tmp_path / "workspace").mkdir(parents=True, exist_ok=True)
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     # No-op the launch builder + onboarding seed so nothing tries to find agy.
     def _fake_build_agy_launch(**kwargs: Any) -> tuple[tuple[str, ...], dict[str, str]]:
@@ -1806,7 +1806,7 @@ async def _run_antigravity_auto_create(
     # ``supervise_reader`` at its definition module (the helper imports it lazily)
     # so the test does not start a real one. The reader is wrapped in
     # ``_run_antigravity_reader``, which still opens (and, on teardown, closes) a
-    # real Omnigent client around this stub — fine, since nothing posts here.
+    # real AgentNexus client around this stub — fine, since nothing posts here.
     reader_calls: list[dict[str, Any]] = []
 
     def _counting_reader(*args: Any, **kwargs: Any) -> Any:
@@ -2015,20 +2015,20 @@ async def test_auto_create_kimi_forwards_launch_args_to_kimi_argv(
     as plain ``kimi``, and every risky tool call parks on an approval prompt
     no headless pane can answer.
     """
-    import omnigent.kimi_native as kimi_mod
-    import omnigent.kimi_native_credentials as kimi_creds_mod
-    import omnigent.kimi_native_forwarder as kimi_fwd_mod
-    from omnigent import kimi_native_bridge as kimi_bridge_mod
-    from omnigent.runner import app as runner_app_mod
-    from omnigent.runner.app import _auto_create_kimi_terminal
-    from omnigent.runner.resource_registry import KIMI_NATIVE_TERMINAL_ROLE
+    import agentnexus.kimi_native as kimi_mod
+    import agentnexus.kimi_native_credentials as kimi_creds_mod
+    import agentnexus.kimi_native_forwarder as kimi_fwd_mod
+    from agentnexus import kimi_native_bridge as kimi_bridge_mod
+    from agentnexus.runner import app as runner_app_mod
+    from agentnexus.runner.app import _auto_create_kimi_terminal
+    from agentnexus.runner.resource_registry import KIMI_NATIVE_TERMINAL_ROLE
 
     session_id = "92c6f9222c7ac0f45ba2736b57b51f88"
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(kimi_bridge_mod, "_BRIDGE_ROOT", tmp_path / "kimi-native")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     monkeypatch.setattr(kimi_mod, "resolve_kimi_executable", lambda: "/fake/bin/kimi")
     # Keep the session-home build off the user's real kimi config.
     monkeypatch.setattr(
@@ -2307,9 +2307,9 @@ async def test_cold_start_agy_conversation_returns_early_on_real_id_in_bridge_st
     early-return BEFORE probing for a port or calling ``StartCascade`` — so even a
     future caller that forgets the resume gate cannot cold-start over a real id.
     """
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     session_id = "0f44894f77886259ee71e892a9e2afd7"
@@ -2366,9 +2366,9 @@ async def test_cold_start_agy_conversation_waits_for_model_readiness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """StartCascade runs only after models appear and the settling delay passes."""
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner.native import orchestration as runner_app_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner.native import orchestration as runner_app_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     session_id = "158889f76b7143cd97d1c564db115235"
@@ -2441,9 +2441,9 @@ async def test_cold_start_agy_conversation_model_timeout_keeps_placeholder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A bound RPC port without models never receives StartCascade."""
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner.native import orchestration as runner_app_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner.native import orchestration as runner_app_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     session_id = "4908a3a50e4c4323a3f0183013ea79ba"
@@ -2526,22 +2526,22 @@ async def test_auto_create_antigravity_wires_reader_task_and_interaction_bridge(
       with ``{elicitation_id, params}``, then — on the human verdict — delivers
       the answer to agy via ``handle_user_interaction`` (the bridge default).
     """
-    import omnigent.antigravity_native_launch as launch_mod
-    import omnigent.antigravity_native_reader as reader_mod
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent import antigravity_native_interactions as interactions_mod
-    from omnigent.antigravity_native_interactions import agy_elicitation_id
-    from omnigent.antigravity_native_steps import pending_interaction
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_launch as launch_mod
+    import agentnexus.antigravity_native_reader as reader_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus import antigravity_native_interactions as interactions_mod
+    from agentnexus.antigravity_native_interactions import agy_elicitation_id
+    from agentnexus.antigravity_native_steps import pending_interaction
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "b68c3f1da613f48fb4126e965ab594a3"
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     (tmp_path / "workspace").mkdir(parents=True, exist_ok=True)
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     monkeypatch.setattr(
         launch_mod, "build_agy_launch", lambda **_kwargs: (("agy",), {"AGY_ENV": "1"})
     )
@@ -2569,7 +2569,7 @@ async def test_auto_create_antigravity_wires_reader_task_and_interaction_bridge(
 
     monkeypatch.setattr(reader_mod, "supervise_reader", _capturing_reader)
 
-    # Control the reader's Omnigent client transport: record the elicitation hook
+    # Control the reader's AgentNexus client transport: record the elicitation hook
     # POST and return the human's ACCEPT verdict as an ElicitationResult body.
     hook_posts: list[tuple[str, dict[str, Any]]] = []
 
@@ -2696,7 +2696,7 @@ async def test_auto_create_antigravity_wires_omnigent_mcp_relay(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Auto-create wires the Omnigent MCP relay so agy gets the sys_* tools (#1194).
+    """Auto-create wires the AgentNexus MCP relay so agy gets the sys_* tools (#1194).
 
     Asserts the three wiring points end-to-end against fakes:
 
@@ -2710,19 +2710,19 @@ async def test_auto_create_antigravity_wires_omnigent_mcp_relay(
       env does not override ``HOME``, so agy keeps platform auth such as macOS
       Keychain but loads the bridge-scoped config.
     """
-    import omnigent.antigravity_native_launch as launch_mod
-    import omnigent.antigravity_native_reader as reader_mod
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_launch as launch_mod
+    import agentnexus.antigravity_native_reader as reader_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "1fd85439049bbfc88cbf04221bad5079"
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     (tmp_path / "workspace").mkdir(parents=True, exist_ok=True)
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     monkeypatch.setattr(bridge_mod, "ensure_agy_onboarding_complete", lambda: None)
     monkeypatch.setattr(runner_app_mod, "_terminal_tmux_pane", lambda *_a, **_k: (None, None))
     monkeypatch.setattr(rpc_mod, "_candidate_agy_rpc_ports", list)
@@ -2807,8 +2807,8 @@ async def test_auto_create_antigravity_wires_omnigent_mcp_relay(
     mcp_config = iso_home / ".gemini" / "config" / "mcp_config.json"
     assert mcp_config.is_file()
     payload = json.loads(mcp_config.read_text(encoding="utf-8"))
-    server = payload["mcpServers"]["omnigent"]
-    assert server["args"][:4] == ["-I", "-m", "omnigent.claude_native_bridge", "serve-mcp"]
+    server = payload["mcpServers"]["agentnexus"]
+    assert server["args"][:4] == ["-I", "-m", "agentnexus.claude_native_bridge", "serve-mcp"]
     assert str(bridge_dir) in server["args"]
     assert "sys_session_create" in server["enabledTools"]
     # The bridge token the shared relay needs was written into the bridge dir.
@@ -2847,19 +2847,19 @@ async def test_auto_create_antigravity_prepends_gemini_dir_to_generated_flags(
     argv is preserved verbatim. This guards that invariant against a future change
     to the argv-composition line in ``_auto_create_antigravity_terminal``.
     """
-    import omnigent.antigravity_native_launch as launch_mod
-    import omnigent.antigravity_native_reader as reader_mod
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_launch as launch_mod
+    import agentnexus.antigravity_native_reader as reader_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "976793baf55bcdf96830aa376e394f80"
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     (tmp_path / "workspace").mkdir(parents=True, exist_ok=True)
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
     monkeypatch.setattr(bridge_mod, "ensure_agy_onboarding_complete", lambda: None)
     monkeypatch.setattr(runner_app_mod, "_terminal_tmux_pane", lambda *_a, **_k: (None, None))
     monkeypatch.setattr(rpc_mod, "_candidate_agy_rpc_ports", list)
@@ -2970,16 +2970,16 @@ async def test_codex_subagent_always_needs_runner_terminal(
     :param parent_host_id: The parent session's ``host_id`` value to simulate;
         ``"21506f91db53823dba9a99e9b0db742d"`` (web-UI parent) or ``None`` (CLI-driven parent).
     """
-    from omnigent.runner.app import _codex_session_needs_runner_terminal
+    from agentnexus.runner.app import _codex_session_needs_runner_terminal
 
     class _Client:
         async def get(self, url: str, *, timeout: float) -> httpx.Response:
             """
             Return child then parent session snapshots.
 
-            :param url: Omnigent session snapshot URL.
+            :param url: AgentNexus session snapshot URL.
             :param timeout: HTTP timeout in seconds.
-            :returns: Fake Omnigent session response.
+            :returns: Fake AgentNexus session response.
             """
             del timeout
             if url.endswith("/ff5cac23d0beb79fad914046049f32ff"):
@@ -3014,7 +3014,7 @@ async def test_codex_session_needs_runner_terminal_false_without_client() -> Non
     host-spawned or sub-agent session, so it returns ``False`` — skipping
     auto-create rather than risking a competing setup.
     """
-    from omnigent.runner.app import _codex_session_needs_runner_terminal
+    from agentnexus.runner.app import _codex_session_needs_runner_terminal
 
     assert (
         await _codex_session_needs_runner_terminal(None, "8af356d908005a65f872c246158c6293")
@@ -3032,8 +3032,8 @@ async def test_codex_discover_thread_and_forward_cleans_up_on_discovery_failure(
     Otherwise each failed host-spawned codex session orphans an app-server
     subprocess (and a dangling listener) for the runner's lifetime.
     """
-    from omnigent import codex_native_forwarder
-    from omnigent.runner.app import (
+    from agentnexus import codex_native_forwarder
+    from agentnexus.runner.app import (
         _AUTO_CODEX_APP_SERVERS,
         _codex_discover_thread_and_forward,
     )
@@ -3098,9 +3098,9 @@ async def test_codex_discover_thread_and_forward_records_accurate_startup_error(
     reads as "startup timed out", while a RuntimeError (TUI exited / event
     stream ended) must NOT be mislabeled as a timeout.
     """
-    from omnigent import codex_native_forwarder
-    from omnigent.codex_native_bridge import read_bridge_startup_error
-    from omnigent.runner.app import (
+    from agentnexus import codex_native_forwarder
+    from agentnexus.codex_native_bridge import read_bridge_startup_error
+    from agentnexus.runner.app import (
         _AUTO_CODEX_APP_SERVERS,
         _codex_discover_thread_and_forward,
     )
@@ -3156,9 +3156,9 @@ async def test_cold_start_agy_conversation_rejects_a_foreign_agy_cascade(
     never arrive. Refusing leaves the placeholder, which the reader's own
     discovery later resolves correctly.
     """
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     session_id = "aa44894f77886259ee71e892a9e2af00"
@@ -3194,10 +3194,10 @@ async def test_cold_start_agy_conversation_accepts_a_locally_owned_cascade(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The happy path still persists: our own agy wrote the conversation here."""
-    import omnigent.antigravity_native_rpc as rpc_mod
-    from omnigent import antigravity_native_bridge as bridge_mod
-    from omnigent.runner import app as runner_app_mod
-    from omnigent.runner.native import orchestration as orchestration_mod
+    import agentnexus.antigravity_native_rpc as rpc_mod
+    from agentnexus import antigravity_native_bridge as bridge_mod
+    from agentnexus.runner import app as runner_app_mod
+    from agentnexus.runner.native import orchestration as orchestration_mod
 
     monkeypatch.setattr(bridge_mod, "_BRIDGE_ROOT", tmp_path / "antigravity-native")
     session_id = "bb44894f77886259ee71e892a9e2af11"
@@ -3258,18 +3258,18 @@ async def test_auto_create_codex_terminal_default_pin_requires_a_fresh_catalog(
     import os
     import time
 
-    import omnigent.codex_native_app_server as codex_app_mod
-    from omnigent import model_catalog_store
-    from omnigent.runner import app as runner_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
+    from agentnexus import model_catalog_store
+    from agentnexus.runner import app as runner_app_mod
     from tests.runner.conftest import REAL_CODEX_LAUNCH_CATALOG
 
     session_id = "83acdbadf84d4149b2a7d7441b6966aa"
     thread_id = "019e96aa-0be2-7343-8d3b-6f914d60936c"
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     # A bare subscription default shape, with the real store-backed catalog
     # serving the seeded rows; the re-probe is stubbed off the real CLI.
@@ -3460,7 +3460,7 @@ async def test_auto_create_codex_terminal_default_pin_requires_a_fresh_catalog(
     agent_spec = AgentSpec(
         spec_version=1,
         name="codex",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
     try:
         await _auto_create_codex_terminal(

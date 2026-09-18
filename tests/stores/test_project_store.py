@@ -11,8 +11,8 @@ import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
 
 # projects.id is a Uuid16 column (16 raw bytes) read back as bare 32-char hex.
@@ -138,7 +138,7 @@ def test_named_owner_cannot_mutate_none_owner_project(store: SqlAlchemyProjectSt
 def test_create_rejects_duplicate_name_per_owner(store: SqlAlchemyProjectStore) -> None:
     """Two projects with the same name for one owner are rejected."""
     store.create(_uid("p1"), "Dup", "alice@example.com")
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         store.create(_uid("p2"), "Dup", "alice@example.com")
     assert exc.value.code == ErrorCode.ALREADY_EXISTS
 
@@ -157,7 +157,7 @@ def test_duplicate_name_rejected_for_null_owner(store: SqlAlchemyProjectStore) -
     index backs it.
     """
     store.create(_uid("p1"), "Solo", None)
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         store.create(_uid("p2"), "Solo", None)
     assert exc.value.code == ErrorCode.ALREADY_EXISTS
 
@@ -257,7 +257,7 @@ def test_create_rejects_oversized_config(store: SqlAlchemyProjectStore) -> None:
     unbounded blob is capped as defense-in-depth (INVALID_INPUT → HTTP 400).
     """
     huge = {"blob": "x" * (64 * 1024 + 1)}
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         store.create(_uid("p1"), "Big", "alice@example.com", huge)
     assert exc.value.code == ErrorCode.INVALID_INPUT
 
@@ -266,7 +266,7 @@ def test_update_rejects_oversized_config(store: SqlAlchemyProjectStore) -> None:
     """An oversized config is rejected on update, leaving the row unchanged."""
     store.create(_uid("p1"), "P", "alice@example.com", {"host_id": "keep"})
     huge = {"blob": "x" * (64 * 1024 + 1)}
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         store.update(_uid("p1"), user_id="alice@example.com", config=huge)
     assert exc.value.code == ErrorCode.INVALID_INPUT
     # The prior config is untouched (the encode guard fires before any write).
@@ -332,7 +332,7 @@ def test_update_rejects_duplicate_name(store: SqlAlchemyProjectStore) -> None:
     """Renaming onto another of the owner's project names is rejected."""
     store.create(_uid("p1"), "First", "alice@example.com")
     store.create(_uid("p2"), "Second", "alice@example.com")
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         store.update(_uid("p2"), user_id="alice@example.com", name="First")
     assert exc.value.code == ErrorCode.ALREADY_EXISTS
 

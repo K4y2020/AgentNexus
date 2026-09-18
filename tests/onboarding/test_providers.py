@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.onboarding import providers as _providers_mod
-from omnigent.onboarding.providers import (
+from agentnexus.onboarding import providers as _providers_mod
+from agentnexus.onboarding.providers import (
     ModelInfo,
     ProviderConfig,
     default_chat_model,
@@ -140,7 +140,7 @@ def real_catalog_loader(
     del mock_catalog
     monkeypatch.setattr(_providers_mod, "_fetch_provider_catalog", _REAL_FETCH_PROVIDER_CATALOG)
     monkeypatch.setattr(_providers_mod, "_catalog_cache_root", lambda: tmp_path)
-    monkeypatch.delenv("OMNIGENT_DISABLE_CATALOG_LOOKUP", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DISABLE_CATALOG_LOOKUP", raising=False)
     _providers_mod._catalog_cache.clear()
     return tmp_path
 
@@ -171,7 +171,7 @@ def test_get_all_providers_contains_major_providers() -> None:
 
 def test_get_all_providers_popular_first() -> None:
     """Popular providers must appear before the rest."""
-    from omnigent.onboarding.providers import COMMON_PROVIDERS
+    from agentnexus.onboarding.providers import COMMON_PROVIDERS
 
     providers = get_all_providers()
     # The first entries should be the popular providers (in order).
@@ -532,7 +532,7 @@ def test_disabled_catalog_lookup_bypasses_memory_disk_and_network(
     )
     _REAL_FETCH_PROVIDER_CATALOG("anthropic")
     assert (real_catalog_loader / "anthropic.json").is_file()
-    monkeypatch.setenv("OMNIGENT_DISABLE_CATALOG_LOOKUP", "1")
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_CATALOG_LOOKUP", "1")
 
     def _unexpected(*_args: object) -> None:
         raise AssertionError("disabled lookup must bypass every catalog cache tier")
@@ -599,7 +599,7 @@ def test_get_chat_models_sorted_newest_first() -> None:
     # gpt-5.x models should appear before gpt-4.x models, which
     # should appear before gpt-3.5 models. Check that the first
     # model has a higher version than the last.
-    from omnigent.onboarding.providers import _extract_model_version
+    from agentnexus.onboarding.providers import _extract_model_version
 
     first_version = _extract_model_version(chat_models[0].name)
     last_version = _extract_model_version(chat_models[-1].name)
@@ -626,7 +626,7 @@ def test_extract_model_version_ignores_dates_sizes_and_unknown_families(
     name: str, expected: float
 ) -> None:
     """Only vendor version tokens influence newest-first ordering."""
-    from omnigent.onboarding.providers import _extract_model_version
+    from agentnexus.onboarding.providers import _extract_model_version
 
     assert _extract_model_version(name) == expected
 
@@ -665,7 +665,7 @@ def test_default_chat_model_without_catalog_is_none() -> None:
 
 def test_default_chat_model_dynamic_skips_specialty_variants() -> None:
     """The catalog rule drops specialty modalities."""
-    from omnigent.onboarding.providers import _SPECIALTY_MODEL_TOKENS
+    from agentnexus.onboarding.providers import _SPECIALTY_MODEL_TOKENS
 
     general = [
         m.name

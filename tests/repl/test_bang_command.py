@@ -15,8 +15,8 @@ import pathlib
 import pytest
 from prompt_toolkit.document import Document
 
-from omnigent.repl import _repl
-from omnigent.repl._repl import (
+from agentnexus.repl import _repl
+from agentnexus.repl._repl import (
     _BANG_INPUT_STYLE,
     _bang_shell_argv,
     _BangInputLexer,

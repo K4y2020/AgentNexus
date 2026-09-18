@@ -8,7 +8,7 @@ import {
   writeTerminalThemeMode,
 } from "./terminalThemePreferences";
 
-const STORAGE_KEY = "omnigent:terminal-theme";
+const STORAGE_KEY = "agentnexus:terminal-theme";
 
 afterEach(() => {
   localStorage.clear();

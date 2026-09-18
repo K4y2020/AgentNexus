@@ -11,8 +11,8 @@ without needing a running HTTP server.
 
 from __future__ import annotations
 
-from omnigent.entities import Comment
-from omnigent.server.routes.comments import _format_message
+from agentnexus.entities import Comment
+from agentnexus.server.routes.comments import _format_message
 
 
 def _make_comment(

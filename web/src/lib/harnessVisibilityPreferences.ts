@@ -9,7 +9,7 @@
 // host state is changed — so it lives in localStorage like the other
 // `*Preferences` helpers.
 
-const STORAGE_KEY = "omnigent:hide-unconfigured-harnesses";
+const STORAGE_KEY = "agentnexus:hide-unconfigured-harnesses";
 
 export const DEFAULT_HIDE_UNCONFIGURED_HARNESSES = false;
 

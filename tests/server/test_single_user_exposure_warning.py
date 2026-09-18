@@ -11,16 +11,16 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.server.auth import (
+from agentnexus.server.auth import (
     bind_host_is_loopback,
     warn_if_single_user_exposed,
 )
 
 _AUTH_ENVS = (
-    "OMNIGENT_AUTH_PROVIDER",
-    "OMNIGENT_AUTH_ENABLED",
-    "OMNIGENT_LOCAL_SINGLE_USER",
-    "OMNIGENT_OIDC_ISSUER",
+    "AGENTNEXUS_AUTH_PROVIDER",
+    "AGENTNEXUS_AUTH_ENABLED",
+    "AGENTNEXUS_LOCAL_SINGLE_USER",
+    "AGENTNEXUS_OIDC_ISSUER",
 )
 
 
@@ -60,19 +60,19 @@ def test_warns_on_reachable_bind_with_truthy_marker(
     host: str, marker: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Reachable bind + truthy marker + header mode → warning names the exposure."""
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", marker)
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", marker)
 
     msg = warn_if_single_user_exposed(host)
 
     assert msg is not None
     assert host in msg
     assert "unauthenticated" in msg.lower()
-    assert "OMNIGENT_LOCAL_SINGLE_USER" in msg
+    assert "AGENTNEXUS_LOCAL_SINGLE_USER" in msg
 
 
 def test_silent_on_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     """On loopback the marker is the normal, safe local posture."""
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
 
     assert warn_if_single_user_exposed("127.0.0.1") is None
 
@@ -84,7 +84,7 @@ def test_silent_without_marker() -> None:
 
 def test_silent_with_falsy_marker(monkeypatch: pytest.MonkeyPatch) -> None:
     """``=0`` is an explicit opt-out, not a declaration."""
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "0")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "0")
 
     assert warn_if_single_user_exposed("0.0.0.0") is None
 
@@ -97,18 +97,18 @@ def test_silent_under_explicit_login_provider(
 
     Login is required there, so claiming exposure would be false.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", provider)
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", provider)
     if provider == "oidc":
-        monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://idp.example.com")
+        monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://idp.example.com")
 
     assert warn_if_single_user_exposed("0.0.0.0") is None
 
 
 def test_warns_under_explicit_header_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pinning header mode deliberately is still exposure, so still warn."""
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
 
     assert warn_if_single_user_exposed("0.0.0.0") is not None
 
@@ -118,15 +118,15 @@ def test_warns_under_auth_enabled_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 
     The Docker kill-switch posture, which also sets the marker.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
 
     assert warn_if_single_user_exposed("0.0.0.0") is not None
 
 
 def test_silent_under_auth_enabled_one(monkeypatch: pytest.MonkeyPatch) -> None:
     """A truthy enable switch resolves to accounts — login required."""
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
 
     assert warn_if_single_user_exposed("0.0.0.0") is None

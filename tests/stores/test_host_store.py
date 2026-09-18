@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from omnigent.db.db_models import SqlHost
-from omnigent.db.utils import get_or_create_engine, now_epoch
-from omnigent.stores.host_store import (
+from agentnexus.db.db_models import SqlHost
+from agentnexus.db.utils import get_or_create_engine, now_epoch
+from agentnexus.stores.host_store import (
     HOST_LIVENESS_TTL_S,
     Host,
     HostStore,
@@ -258,7 +258,7 @@ def test_reconnect_with_rotated_host_id_repoints_bound_conversations(
     (b) repoint the conversation to the new host_id so its binding
     survives the rotation.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -309,7 +309,7 @@ def test_reown_host_id_across_owner_change_preserves_conversation_binding(
     place — keeping the host_id and its conversation binding — instead of
     colliding on the host_id UNIQUE constraint.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -901,7 +901,7 @@ def test_managed_host_raw_token_never_stored(db_uri: str) -> None:
     """
     from sqlalchemy import select
 
-    from omnigent.stores.host_store import hash_host_launch_token
+    from agentnexus.stores.host_store import hash_host_launch_token
 
     store = HostStore(db_uri)
     store.register_managed_host(

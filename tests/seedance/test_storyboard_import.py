@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-from omnigent.seedance.production_gate import ProductionRejected
-from omnigent.seedance.storyboard_import import import_storyboard
+from agentnexus.seedance.production_gate import ProductionRejected
+from agentnexus.seedance.storyboard_import import import_storyboard
 
 
 @pytest.mark.asyncio

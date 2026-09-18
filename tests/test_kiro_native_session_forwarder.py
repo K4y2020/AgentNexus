@@ -1,4 +1,4 @@
-"""Tests for mirroring Kiro's persisted CLI session into Omnigent."""
+"""Tests for mirroring Kiro's persisted CLI session into AgentNexus."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-import omnigent.kiro_native_session_forwarder as forwarder
+import agentnexus.kiro_native_session_forwarder as forwarder
 
 
 def _write_kiro_session(

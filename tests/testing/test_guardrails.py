@@ -12,7 +12,7 @@ import logging
 
 import pytest
 
-from omnigent.testing.guardrails import (
+from agentnexus.testing.guardrails import (
     DEV_PORTS,
     TestGuardrailError,
     base_url_violation,
@@ -23,7 +23,7 @@ from omnigent.testing.guardrails import (
 
 # An env that asserts a test run without relying on the ambient
 # PYTEST_CURRENT_TEST (which pytest only sets per-test).
-_TEST_ENV = {"OMNIGENT_TEST_MODE": "1"}
+_TEST_ENV = {"AGENTNEXUS_TEST_MODE": "1"}
 _TMP_DB = "sqlite:////tmp/pytest-abc/test.db"
 
 
@@ -32,7 +32,7 @@ def _guardrail_warnings(records: list[logging.LogRecord]) -> list[str]:
     return [
         r.getMessage()
         for r in records
-        if r.name == "omnigent.testing.guardrails" and "TEST GUARDRAIL:" in r.getMessage()
+        if r.name == "agentnexus.testing.guardrails" and "TEST GUARDRAIL:" in r.getMessage()
     ]
 
 
@@ -74,7 +74,7 @@ def test_looks_like_test_db_accepts_throwaway_uris(db_uri: str) -> None:
     "db_uri",
     [
         "",
-        "sqlite:////home/alice/.omnigent/chat.db",
+        "sqlite:////home/alice/.agentnexus/chat.db",
         "sqlite:///testing.db",
         "sqlite:///test123.db",
         "sqlite:///contest.db",
@@ -115,7 +115,7 @@ def test_empty_db_uri_skips_db_check(
 
 
 def test_looks_like_pytest_via_flag() -> None:
-    assert looks_like_pytest({"OMNIGENT_TEST_MODE": "1"}) is True
+    assert looks_like_pytest({"AGENTNEXUS_TEST_MODE": "1"}) is True
     assert looks_like_pytest({"PYTEST_CURRENT_TEST": "x::y (call)"}) is True
 
 
@@ -132,7 +132,7 @@ def test_non_test_process_warns(
     simulate a non-test process, then confirm the violation is logged and
     warn mode still returns rather than raising.
     """
-    from omnigent.testing import guardrails
+    from agentnexus.testing import guardrails
 
     monkeypatch.setattr(guardrails, "_imported_modules", frozenset)
     with caplog.at_level(logging.WARNING):
@@ -150,7 +150,7 @@ def test_real_db_warns(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
         check_test_environment(
             env=_TEST_ENV,
-            db_uri="sqlite:////home/alice/.omnigent/chat.db",
+            db_uri="sqlite:////home/alice/.agentnexus/chat.db",
             warn_only=True,
         )
     warnings = _guardrail_warnings(caplog.records)
@@ -185,7 +185,7 @@ def test_multiple_violations_each_warn(caplog: pytest.LogCaptureFixture) -> None
     with caplog.at_level(logging.WARNING):
         violations = check_test_environment(
             env=_TEST_ENV,
-            db_uri="sqlite:////home/alice/.omnigent/chat.db",
+            db_uri="sqlite:////home/alice/.agentnexus/chat.db",
             base_url="http://localhost:8000",
             warn_only=True,
         )
@@ -203,7 +203,7 @@ def test_warn_only_never_raises() -> None:
     # check has its best shot at a violation; warn mode must still return.
     violations = check_test_environment(
         env={},
-        db_uri="sqlite:////home/alice/.omnigent/chat.db",
+        db_uri="sqlite:////home/alice/.agentnexus/chat.db",
         base_url="http://localhost:6767",
         warn_only=True,
     )
@@ -220,7 +220,7 @@ def test_hard_fail_raises_on_violation() -> None:
     with pytest.raises(TestGuardrailError) as exc:
         check_test_environment(
             env=_TEST_ENV,
-            db_uri="sqlite:////home/alice/.omnigent/chat.db",
+            db_uri="sqlite:////home/alice/.agentnexus/chat.db",
             warn_only=False,
         )
     assert "TEST GUARDRAIL:" in str(exc.value)
@@ -242,11 +242,11 @@ def test_hard_fail_rejects_non_sqlite_test_substrings(db_uri: str) -> None:
 def test_escape_hatch_downgrades_hard_fail_to_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    env = {**_TEST_ENV, "OMNIGENT_DISABLE_TEST_GUARDRAILS": "yes"}
+    env = {**_TEST_ENV, "AGENTNEXUS_DISABLE_TEST_GUARDRAILS": "yes"}
     with caplog.at_level(logging.WARNING):
         violations = check_test_environment(
             env=env,
-            db_uri="sqlite:////home/alice/.omnigent/chat.db",
+            db_uri="sqlite:////home/alice/.agentnexus/chat.db",
             warn_only=False,
         )
     assert any("does not look like a test DB" in v for v in violations)
@@ -257,11 +257,11 @@ def test_escape_hatch_downgrades_hard_fail_to_warning(
 def test_escape_hatch_message_only_for_hard_fail_suppression(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    env = {**_TEST_ENV, "OMNIGENT_DISABLE_TEST_GUARDRAILS": "yes"}
+    env = {**_TEST_ENV, "AGENTNEXUS_DISABLE_TEST_GUARDRAILS": "yes"}
     with caplog.at_level(logging.WARNING):
         check_test_environment(
             env=env,
-            db_uri="sqlite:////home/alice/.omnigent/chat.db",
+            db_uri="sqlite:////home/alice/.agentnexus/chat.db",
             warn_only=True,
         )
         check_test_environment(env=env, db_uri=_TMP_DB, warn_only=False)

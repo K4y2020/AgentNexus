@@ -14,14 +14,14 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.codex_native_app_server import NativeCodexLaunch
-from omnigent.harness_plugins import BackgroundTitleGeneratorSpec
-from omnigent.inner.codex_executor import _provider_codex_config_overrides
-from omnigent.runner import create_runner_app
-from omnigent.runner.background_titles import BackgroundTitleContext
-from omnigent.runner.background_titles import claude_native as claude_native_titles
-from omnigent.runner.background_titles import codex_native as codex_native_titles
-from omnigent.runner.background_titles.service import build_background_title_instructions
+from agentnexus.codex_native_app_server import NativeCodexLaunch
+from agentnexus.harness_plugins import BackgroundTitleGeneratorSpec
+from agentnexus.inner.codex_executor import _provider_codex_config_overrides
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.background_titles import BackgroundTitleContext
+from agentnexus.runner.background_titles import claude_native as claude_native_titles
+from agentnexus.runner.background_titles import codex_native as codex_native_titles
+from agentnexus.runner.background_titles.service import build_background_title_instructions
 from tests.runner.helpers import NullServerClient
 
 
@@ -107,7 +107,7 @@ async def test_background_title_uses_isolated_codex_process(
         return "codex", {"HARNESS_CODEX_MODEL": "gpt-5.4-mini"}
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     app = create_runner_app(
@@ -236,11 +236,11 @@ async def test_background_title_resolves_synthetic_claude_policy_gate(
         return "claude-sdk", None
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.sdk.BACKGROUND_TITLE_INFERENCE_TIMEOUT_SECONDS",
+        "agentnexus.runner.background_titles.sdk.BACKGROUND_TITLE_INFERENCE_TIMEOUT_SECONDS",
         0.05,
     )
     app = create_runner_app(
@@ -310,7 +310,7 @@ async def test_background_title_rejects_policy_gate_without_evaluation_id(
         return "claude-sdk", None
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     app = create_runner_app(
@@ -361,11 +361,11 @@ async def test_background_title_maps_claude_native_to_claude_cli(
         return "Debug authentication timeout"
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.claude_native.generate_background_title",
+        "agentnexus.runner.background_titles.claude_native.generate_background_title",
         generate_claude_title,
     )
     app = create_runner_app(
@@ -422,11 +422,11 @@ async def test_claude_native_title_uses_tool_free_print_mode(
         return FakeProcess()
 
     monkeypatch.setattr(
-        "omnigent.claude_native.resolve_native_claude_config",
+        "agentnexus.claude_native.resolve_native_claude_config",
         lambda spec=None: None,
     )
     monkeypatch.setattr(
-        "omnigent.claude_launcher.resolve_claude_launch",
+        "agentnexus.claude_launcher.resolve_claude_launch",
         lambda command, args: (command, args),
     )
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
@@ -482,11 +482,11 @@ async def test_claude_native_title_kills_process_when_cancelled(
     process = FakeProcess()
 
     monkeypatch.setattr(
-        "omnigent.claude_native.resolve_native_claude_config",
+        "agentnexus.claude_native.resolve_native_claude_config",
         lambda spec=None: None,
     )
     monkeypatch.setattr(
-        "omnigent.claude_launcher.resolve_claude_launch",
+        "agentnexus.claude_launcher.resolve_claude_launch",
         lambda command, args: (command, args),
     )
     monkeypatch.setattr(
@@ -534,11 +534,11 @@ async def test_background_title_uses_native_codex_without_spawning_headless_harn
         return "Debug authentication timeout"
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.codex_native.generate_background_title",
+        "agentnexus.runner.background_titles.codex_native.generate_background_title",
         generate_codex_title,
     )
     app = create_runner_app(
@@ -630,15 +630,15 @@ async def test_codex_native_title_uses_ephemeral_tool_free_exec(
         wire_api="responses",
     )
     monkeypatch.setattr(
-        "omnigent.codex_native_app_server.resolve_native_codex_launch",
+        "agentnexus.codex_native_app_server.resolve_native_codex_launch",
         lambda *, model, spec=None: NativeCodexLaunch(provider_overrides, model, None),
     )
     monkeypatch.setattr(
-        "omnigent.codex_native_app_server._find_codex_cli",
+        "agentnexus.codex_native_app_server._find_codex_cli",
         lambda: "codex",
     )
     monkeypatch.setattr(
-        "omnigent.inner.codex_executor._codex_home_config_source_from_env",
+        "agentnexus.inner.codex_executor._codex_home_config_source_from_env",
         lambda: source_home,
     )
 
@@ -663,7 +663,7 @@ async def test_codex_native_title_uses_ephemeral_tool_free_exec(
     assert "features.shell_tool=false" in args
     assert 'web_search="disabled"' in args
     assert all("sk-sentinel-do-not-use" not in arg for arg in args)
-    assert "omnigent-codex-title-" in captured["kwargs"]["cwd"]
+    assert "agentnexus-codex-title-" in captured["kwargs"]["cwd"]
     codex_home = Path(captured["kwargs"]["env"]["CODEX_HOME"])
     assert codex_home != source_home
     assert captured["auth_text"] == '{"auth_mode": "oauth"}'
@@ -675,7 +675,7 @@ async def test_codex_native_title_uses_ephemeral_tool_free_exec(
     assert "mcp_servers" not in config_text
     assert "[features]" not in config_text
     assert "sk-sentinel-do-not-use" in config_text
-    assert "omnigent_provider" in config_text
+    assert "agentnexus_provider" in config_text
     assert captured["codex_home_mode"] == 0o700
     assert captured["config_mode"] == 0o600
     assert captured["agents_exists"] is False
@@ -706,11 +706,11 @@ async def test_codex_native_title_kills_process_when_cancelled(
     process = FakeProcess()
 
     monkeypatch.setattr(
-        "omnigent.codex_native_app_server.resolve_native_codex_launch",
+        "agentnexus.codex_native_app_server.resolve_native_codex_launch",
         lambda *, model, spec=None: NativeCodexLaunch([], model, None),
     )
     monkeypatch.setattr(
-        "omnigent.codex_native_app_server._find_codex_cli",
+        "agentnexus.codex_native_app_server._find_codex_cli",
         lambda: "codex",
     )
     monkeypatch.setattr(
@@ -719,7 +719,7 @@ async def test_codex_native_title_kills_process_when_cancelled(
         lambda *args, **kwargs: asyncio.sleep(0, result=process),
     )
     monkeypatch.setattr(
-        "omnigent.inner._proc.kill_tree",
+        "agentnexus.inner._proc.kill_tree",
         lambda candidate: killed.append(candidate),
     )
 
@@ -759,19 +759,19 @@ async def test_background_title_dispatches_any_registered_harness(
         return "Review generic dispatch"
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.service.background_title_generators",
+        "agentnexus.runner.background_titles.service.background_title_generators",
         lambda: {
             "community-example": BackgroundTitleGeneratorSpec(
-                "omnigent.community.harness.example.background_titles:generate"
+                "agentnexus.community.harness.example.background_titles:generate"
             )
         },
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.service.load_object",
+        "agentnexus.runner.background_titles.service.load_object",
         lambda _path: generate_title,
     )
     app = create_runner_app(
@@ -813,7 +813,7 @@ async def test_background_title_skips_unsupported_harness_without_spawning(
         return "pi", None
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     app = create_runner_app(
@@ -869,7 +869,7 @@ async def test_background_title_surfaces_harness_failure_and_releases_process(
         return "codex", None
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     app = create_runner_app(
@@ -922,11 +922,11 @@ async def test_background_title_timeout_releases_process(
         return "codex", None
 
     monkeypatch.setattr(
-        "omnigent.runner.app._resolve_harness_config",
+        "agentnexus.runner.app._resolve_harness_config",
         resolve_harness_config,
     )
     monkeypatch.setattr(
-        "omnigent.runner.background_titles.sdk.BACKGROUND_TITLE_INFERENCE_TIMEOUT_SECONDS",
+        "agentnexus.runner.background_titles.sdk.BACKGROUND_TITLE_INFERENCE_TIMEOUT_SECONDS",
         0.01,
     )
     app = create_runner_app(

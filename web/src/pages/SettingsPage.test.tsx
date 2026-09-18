@@ -217,7 +217,7 @@ beforeEach(() => {
   mocks.pages = undefined;
   mocks.projectNames = [];
   mocks.hasNextPage = false;
-  delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+  delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
 });
 afterEach(() => {
   cleanup();
@@ -232,7 +232,7 @@ afterEach(() => {
   for (const property of Array.from(document.documentElement.style)) {
     if (property.startsWith("--custom-")) document.documentElement.style.removeProperty(property);
   }
-  delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+  delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
 });
 
 const DEFAULT_UPDATE_CONFIG: UpdateConfig = {
@@ -261,7 +261,7 @@ function installUpdateBridge(config: UpdateConfig = DEFAULT_UPDATE_CONFIG) {
       return unsubscribe;
     }),
   };
-  (window as unknown as Record<string, unknown>).omnigentDesktop = {
+  (window as unknown as Record<string, unknown>).agentnexusDesktop = {
     kind: "electron",
     setBadgeCount: vi.fn(),
     notify: vi.fn(),
@@ -309,7 +309,7 @@ describe("SettingsPage", () => {
     expect(screen.getByTestId("terminal-theme-auto")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("terminal-theme-light")).toHaveAttribute("aria-checked", "false");
     expect(screen.getByTestId("terminal-theme-dark")).toHaveAttribute("aria-checked", "false");
-    expect(localStorage.getItem("omnigent:terminal-theme")).toBeNull();
+    expect(localStorage.getItem("agentnexus:terminal-theme")).toBeNull();
   });
 
   it("renders Terminal theme before Color theme", () => {
@@ -323,18 +323,18 @@ describe("SettingsPage", () => {
     renderPage("/settings/appearance");
 
     fireEvent.click(screen.getByTestId("terminal-theme-dark"));
-    expect(localStorage.getItem("omnigent:terminal-theme")).toBe("dark");
+    expect(localStorage.getItem("agentnexus:terminal-theme")).toBe("dark");
     expect(screen.getByTestId("terminal-theme-dark")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("terminal-theme-auto")).toHaveAttribute("aria-checked", "false");
 
     fireEvent.click(screen.getByTestId("terminal-theme-light"));
-    expect(localStorage.getItem("omnigent:terminal-theme")).toBe("light");
+    expect(localStorage.getItem("agentnexus:terminal-theme")).toBe("light");
     expect(screen.getByTestId("terminal-theme-light")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("terminal-theme-dark")).toHaveAttribute("aria-checked", "false");
   });
 
   it("reflects a stored light terminal theme on mount", () => {
-    localStorage.setItem("omnigent:terminal-theme", "light");
+    localStorage.setItem("agentnexus:terminal-theme", "light");
     renderPage("/settings/appearance");
     expect(screen.getByTestId("terminal-theme-light")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("terminal-theme-auto")).toHaveAttribute("aria-checked", "false");
@@ -348,14 +348,14 @@ describe("SettingsPage", () => {
       "aria-checked",
       "true",
     );
-    expect(localStorage.getItem("omnigent:default-transcript-view")).toBeNull();
+    expect(localStorage.getItem("agentnexus:default-transcript-view")).toBeNull();
 
     fireEvent.click(screen.getByTestId("transcript-view-default-terminal"));
     expect(screen.getByTestId("transcript-view-default-terminal")).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(localStorage.getItem("omnigent:default-transcript-view")).toBe("terminal");
+    expect(localStorage.getItem("agentnexus:default-transcript-view")).toBe("terminal");
   });
 
   it("renders the color theme dropdown, defaults to AgentNexus, and applies a palette on change", () => {
@@ -372,7 +372,7 @@ describe("SettingsPage", () => {
     fireEvent.change(select, { target: { value: "github" } });
     expect(select.value).toBe("github");
     expect(document.documentElement.getAttribute("data-theme")).toBe("github");
-    expect(localStorage.getItem("omnigent:ui-theme-palette")).toBe(JSON.stringify("github"));
+    expect(localStorage.getItem("agentnexus:ui-theme-palette")).toBe(JSON.stringify("github"));
   });
 
   it("creates and applies a custom theme when a guided color control changes", () => {
@@ -387,8 +387,8 @@ describe("SettingsPage", () => {
 
     expect(select.value).toBe("custom");
     expect(document.documentElement.getAttribute("data-theme")).toBe("custom");
-    expect(localStorage.getItem("omnigent:ui-theme-palette")).toBe(JSON.stringify("custom"));
-    expect(JSON.parse(localStorage.getItem("omnigent:custom-theme") ?? "null")).toMatchObject({
+    expect(localStorage.getItem("agentnexus:ui-theme-palette")).toBe(JSON.stringify("custom"));
+    expect(JSON.parse(localStorage.getItem("agentnexus:custom-theme") ?? "null")).toMatchObject({
       basePalette: "github",
       accent: "#2563eb",
       darkAccent: "#2563eb",
@@ -451,7 +451,7 @@ describe("SettingsPage", () => {
     });
     expect(screen.getByTestId("color-theme-select")).toHaveValue("custom");
     expect(screen.getByTestId("custom-theme-contrast-value")).toHaveTextContent("68");
-    expect(JSON.parse(localStorage.getItem("omnigent:custom-theme") ?? "null")).toMatchObject({
+    expect(JSON.parse(localStorage.getItem("agentnexus:custom-theme") ?? "null")).toMatchObject({
       contrast: 68,
       translucentSidebar: true,
     });
@@ -485,20 +485,20 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByTestId("ui-font-size-inc"));
     expect(input.value).toBe("14");
     // The choice is persisted so it survives a refresh.
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("14");
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("14");
     // The discrete desktop size is applied live to the document root.
     expect(document.documentElement.style.getPropertyValue("--desktop-ui-font-size")).toBe("14px");
   });
 
   it("disables the steppers at the min and max bounds", () => {
-    localStorage.setItem("omnigent:ui-font-size", "18");
+    localStorage.setItem("agentnexus:ui-font-size", "18");
     renderPage("/settings/appearance");
     // At the 18px max, only the increase button is disabled.
     expect(screen.getByTestId("ui-font-size-inc")).toBeDisabled();
     expect(screen.getByTestId("ui-font-size-dec")).not.toBeDisabled();
 
     cleanup();
-    localStorage.setItem("omnigent:ui-font-size", "11");
+    localStorage.setItem("agentnexus:ui-font-size", "11");
     renderPage("/settings/appearance");
     // At the 11px min, only the decrease button is disabled.
     expect(screen.getByTestId("ui-font-size-dec")).toBeDisabled();
@@ -520,7 +520,7 @@ describe("SettingsPage", () => {
     fireEvent.change(input, { target: { value: "Inter" } });
     expect(input.value).toBe("Inter");
     // The choice is persisted so it survives a refresh...
-    expect(localStorage.getItem("omnigent:ui-font-family")).toBe(JSON.stringify("Inter"));
+    expect(localStorage.getItem("agentnexus:ui-font-family")).toBe(JSON.stringify("Inter"));
     // ...and applied live to the document root, with the system stack appended
     // so an uninstalled/partial name degrades to the default sans, not serif.
     expect(document.documentElement.style.getPropertyValue("--ui-font-family")).toBe(
@@ -530,7 +530,7 @@ describe("SettingsPage", () => {
   });
 
   it("reset restores the system default font family", () => {
-    localStorage.setItem("omnigent:ui-font-family", JSON.stringify("Georgia"));
+    localStorage.setItem("agentnexus:ui-font-family", JSON.stringify("Georgia"));
     renderPage("/settings/appearance");
     const input = screen.getByTestId("ui-font-family-input") as HTMLInputElement;
     // The control reflects the stored preference on mount.
@@ -540,7 +540,7 @@ describe("SettingsPage", () => {
     // Reset clears the field, the applied property, and the stored key.
     expect(input.value).toBe("");
     expect(document.documentElement.style.getPropertyValue("--ui-font-family")).toBe("");
-    expect(localStorage.getItem("omnigent:ui-font-family")).toBeNull();
+    expect(localStorage.getItem("agentnexus:ui-font-family")).toBeNull();
   });
 
   it("resets every appearance preference back to product defaults", () => {
@@ -570,12 +570,12 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByTestId("heavier-code-text-toggle"));
 
     // Sanity: the non-default choices were persisted.
-    expect(localStorage.getItem("omnigent:terminal-theme")).toBe("dark");
-    expect(localStorage.getItem("omnigent:default-transcript-view")).toBe("terminal");
-    expect(localStorage.getItem("omnigent:ui-theme-palette")).toBe(JSON.stringify("github"));
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("15");
-    expect(localStorage.getItem("omnigent:code-font-size")).toBe("15");
-    expect(localStorage.getItem("omnigent:code-font-weight")).toBe("500");
+    expect(localStorage.getItem("agentnexus:terminal-theme")).toBe("dark");
+    expect(localStorage.getItem("agentnexus:default-transcript-view")).toBe("terminal");
+    expect(localStorage.getItem("agentnexus:ui-theme-palette")).toBe(JSON.stringify("github"));
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("15");
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBe("15");
+    expect(localStorage.getItem("agentnexus:code-font-weight")).toBe("500");
 
     // Open the confirmation dialog and confirm the reset.
     fireEvent.click(screen.getByTestId("reset-appearance-button"));
@@ -591,9 +591,9 @@ describe("SettingsPage", () => {
     expect((screen.getByTestId("code-font-family-input") as HTMLInputElement).value).toBe("");
     expect(document.documentElement.style.getPropertyValue("--desktop-ui-font-size")).toBe("13px");
     expect(document.documentElement.style.getPropertyValue("--ui-font-family")).toBe("");
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBeNull();
-    expect(localStorage.getItem("omnigent:code-font-size")).toBeNull();
-    expect(localStorage.getItem("omnigent:code-font-weight")).toBeNull();
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBeNull();
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBeNull();
+    expect(localStorage.getItem("agentnexus:code-font-weight")).toBeNull();
 
     // Color theme is back to AgentNexus.
     expect((screen.getByTestId("color-theme-select") as HTMLSelectElement).value).toBe("omni");
@@ -616,7 +616,7 @@ describe("SettingsPage", () => {
   });
 
   it("lets you clear and retype the font size without clamping mid-edit", () => {
-    localStorage.setItem("omnigent:ui-font-size", "13");
+    localStorage.setItem("agentnexus:ui-font-size", "13");
     renderPage("/settings/appearance");
     const input = screen.getByTestId("ui-font-size-input") as HTMLInputElement;
     expect(input.value).toBe("13");
@@ -625,18 +625,18 @@ describe("SettingsPage", () => {
     // (free editing) without snapping to 11 or persisting the transient value.
     fireEvent.change(input, { target: { value: "1" } });
     expect(input.value).toBe("1");
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("13");
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("13");
     expect(document.documentElement.style.getPropertyValue("--desktop-ui-font-size")).toBe("");
 
     // Finishing the number to a valid size applies it live and persists it.
     fireEvent.change(input, { target: { value: "18" } });
     expect(input.value).toBe("18");
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("18");
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("18");
     expect(document.documentElement.style.getPropertyValue("--desktop-ui-font-size")).toBe("18px");
   });
 
   it("clamps a below-min entry to the minimum on blur", () => {
-    localStorage.setItem("omnigent:ui-font-size", "16");
+    localStorage.setItem("agentnexus:ui-font-size", "16");
     renderPage("/settings/appearance");
     const input = screen.getByTestId("ui-font-size-input") as HTMLInputElement;
 
@@ -644,11 +644,11 @@ describe("SettingsPage", () => {
     fireEvent.blur(input);
     // On blur the draft settles to the clamped minimum.
     expect(input.value).toBe("11");
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("11");
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("11");
   });
 
   it("reverts an empty entry to the committed size on blur", () => {
-    localStorage.setItem("omnigent:ui-font-size", "15");
+    localStorage.setItem("agentnexus:ui-font-size", "15");
     renderPage("/settings/appearance");
     const input = screen.getByTestId("ui-font-size-input") as HTMLInputElement;
 
@@ -657,7 +657,7 @@ describe("SettingsPage", () => {
     fireEvent.blur(input);
     // An empty field restores the last committed value rather than a bogus one.
     expect(input.value).toBe("15");
-    expect(localStorage.getItem("omnigent:ui-font-size")).toBe("15");
+    expect(localStorage.getItem("agentnexus:ui-font-size")).toBe("15");
   });
 
   it("shows the default code font size and steps it up, persisting the choice", () => {
@@ -672,18 +672,18 @@ describe("SettingsPage", () => {
     // Persisted under the code-font key (distinct from the chrome font's) so it
     // survives a refresh. It doesn't use --desktop-ui-font-size — the pref
     // reaches the editor/terminal imperatively, not via a CSS variable.
-    expect(localStorage.getItem("omnigent:code-font-size")).toBe("14");
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBe("14");
   });
 
   it("disables the code font steppers at the min and max bounds", () => {
-    localStorage.setItem("omnigent:code-font-size", "24");
+    localStorage.setItem("agentnexus:code-font-size", "24");
     renderPage("/settings/appearance");
     // At the 24px max, only the increase button is disabled.
     expect(screen.getByTestId("code-font-size-inc")).toBeDisabled();
     expect(screen.getByTestId("code-font-size-dec")).not.toBeDisabled();
 
     cleanup();
-    localStorage.setItem("omnigent:code-font-size", "10");
+    localStorage.setItem("agentnexus:code-font-size", "10");
     renderPage("/settings/appearance");
     // At the 10px min, only the decrease button is disabled.
     expect(screen.getByTestId("code-font-size-dec")).toBeDisabled();
@@ -691,7 +691,7 @@ describe("SettingsPage", () => {
   });
 
   it("lets you clear and retype the code font size, clamping below-min on blur", () => {
-    localStorage.setItem("omnigent:code-font-size", "13");
+    localStorage.setItem("agentnexus:code-font-size", "13");
     renderPage("/settings/appearance");
     const input = screen.getByTestId("code-font-size-input") as HTMLInputElement;
     expect(input.value).toBe("13");
@@ -700,18 +700,18 @@ describe("SettingsPage", () => {
     // without snapping or persisting the transient value.
     fireEvent.change(input, { target: { value: "1" } });
     expect(input.value).toBe("1");
-    expect(localStorage.getItem("omnigent:code-font-size")).toBe("13");
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBe("13");
 
     // Finishing to a valid size applies + persists it.
     fireEvent.change(input, { target: { value: "20" } });
     expect(input.value).toBe("20");
-    expect(localStorage.getItem("omnigent:code-font-size")).toBe("20");
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBe("20");
 
     // A still-out-of-range draft clamps to the minimum on blur.
     fireEvent.change(input, { target: { value: "2" } });
     fireEvent.blur(input);
     expect(input.value).toBe("10");
-    expect(localStorage.getItem("omnigent:code-font-size")).toBe("10");
+    expect(localStorage.getItem("agentnexus:code-font-size")).toBe("10");
   });
 
   it("shows the empty code font family default and applies + persists a typed name", () => {
@@ -727,12 +727,12 @@ describe("SettingsPage", () => {
     fireEvent.change(input, { target: { value: "Fira Code" } });
     expect(input.value).toBe("Fira Code");
     // The choice is persisted under the code-font family key so it survives a refresh.
-    expect(localStorage.getItem("omnigent:code-font-family")).toBe(JSON.stringify("Fira Code"));
+    expect(localStorage.getItem("agentnexus:code-font-family")).toBe(JSON.stringify("Fira Code"));
     expect(screen.getByTestId("code-font-family-reset")).not.toBeDisabled();
   });
 
   it("reset restores the default code font family", () => {
-    localStorage.setItem("omnigent:code-font-family", JSON.stringify("JetBrains Mono"));
+    localStorage.setItem("agentnexus:code-font-family", JSON.stringify("JetBrains Mono"));
     renderPage("/settings/appearance");
     const input = screen.getByTestId("code-font-family-input") as HTMLInputElement;
     // The control reflects the stored preference on mount.
@@ -741,7 +741,7 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByTestId("code-font-family-reset"));
     // Reset clears the field and the stored key.
     expect(input.value).toBe("");
-    expect(localStorage.getItem("omnigent:code-font-family")).toBeNull();
+    expect(localStorage.getItem("agentnexus:code-font-family")).toBeNull();
   });
 
   it("shows and persists the code font weight", () => {
@@ -752,16 +752,16 @@ describe("SettingsPage", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-checked", "true");
-    expect(localStorage.getItem("omnigent:code-font-weight")).toBe("500");
+    expect(localStorage.getItem("agentnexus:code-font-weight")).toBe("500");
   });
 
   it("maps legacy font weights to the supported presets", () => {
-    localStorage.setItem("omnigent:code-font-weight", "900");
+    localStorage.setItem("agentnexus:code-font-weight", "900");
     renderPage("/settings/appearance");
     expect(screen.getByTestId("heavier-code-text-toggle")).toHaveAttribute("aria-checked", "true");
 
     cleanup();
-    localStorage.setItem("omnigent:code-font-weight", "100");
+    localStorage.setItem("agentnexus:code-font-weight", "100");
     renderPage("/settings/appearance");
     expect(screen.getByTestId("heavier-code-text-toggle")).toHaveAttribute("aria-checked", "false");
   });
@@ -897,18 +897,18 @@ describe("SettingsPage", () => {
     fireEvent.change(input, { target: { value: "main" } });
     expect(input.value).toBe("main");
     // The choice persists so the composer can read it on the next new branch.
-    expect(localStorage.getItem("omnigent:default-base-branch")).toBe("main");
+    expect(localStorage.getItem("agentnexus:default-base-branch")).toBe("main");
   });
 
   it("reflects a stored default base branch on mount", () => {
-    localStorage.setItem("omnigent:default-base-branch", "develop");
+    localStorage.setItem("agentnexus:default-base-branch", "develop");
     renderPage("/settings/git");
     const input = screen.getByTestId("settings-default-base-branch-input") as HTMLInputElement;
     expect(input.value).toBe("develop");
   });
 
   it("clears the default base branch preference when emptied", () => {
-    localStorage.setItem("omnigent:default-base-branch", "main");
+    localStorage.setItem("agentnexus:default-base-branch", "main");
     renderPage("/settings/git");
     const input = screen.getByTestId("settings-default-base-branch-input") as HTMLInputElement;
     expect(input.value).toBe("main");
@@ -916,7 +916,7 @@ describe("SettingsPage", () => {
     // Emptying the field turns auto-fill off — the key is removed, not stored blank.
     fireEvent.change(input, { target: { value: "" } });
     expect(input.value).toBe("");
-    expect(localStorage.getItem("omnigent:default-base-branch")).toBeNull();
+    expect(localStorage.getItem("agentnexus:default-base-branch")).toBeNull();
   });
 
   it("lists archived sessions and unarchives on click", () => {

@@ -40,7 +40,7 @@ def test_appearance_reset_restores_defaults(page: Page, seeded_session: tuple[st
     # Fresh context: the defaults are applied and nothing is persisted yet.
     expect(font_size_input).to_have_value("13")
     expect(page.get_by_test_id("terminal-theme-auto")).to_have_attribute("aria-checked", "true")
-    stored_font_size = page.evaluate("() => window.localStorage.getItem('omnigent:ui-font-size')")
+    stored_font_size = page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')")
     assert stored_font_size is None, "expected no persisted font size on a fresh load"
 
     # Change two unrelated appearance preferences away from their defaults.
@@ -51,8 +51,8 @@ def test_appearance_reset_restores_defaults(page: Page, seeded_session: tuple[st
     expect(page.get_by_test_id("terminal-theme-dark")).to_have_attribute("aria-checked", "true")
 
     # Confirm both changes were persisted.
-    assert page.evaluate("() => window.localStorage.getItem('omnigent:ui-font-size')") == "18"
-    assert page.evaluate("() => window.localStorage.getItem('omnigent:terminal-theme')") == "dark"
+    assert page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')") == "18"
+    assert page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')") == "dark"
 
     # Reset, confirming through the dialog.
     page.get_by_test_id("reset-appearance-button").click()
@@ -62,5 +62,5 @@ def test_appearance_reset_restores_defaults(page: Page, seeded_session: tuple[st
     # Both choices are back to the product defaults.
     expect(font_size_input).to_have_value("13")
     expect(page.get_by_test_id("terminal-theme-auto")).to_have_attribute("aria-checked", "true")
-    assert page.evaluate("() => window.localStorage.getItem('omnigent:ui-font-size')") is None
-    assert page.evaluate("() => window.localStorage.getItem('omnigent:terminal-theme')") is None
+    assert page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')") is None
+    assert page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')") is None

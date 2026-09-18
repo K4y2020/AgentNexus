@@ -74,7 +74,7 @@ def _patch_session_as_harness(
         else:
             route.continue_()
             return
-        payload["labels"] = {**payload.get("labels", {}), "omnigent.wrapper": wrapper}
+        payload["labels"] = {**payload.get("labels", {}), "agentnexus.wrapper": wrapper}
         payload["harness"] = harness
         payload["llm_model"] = llm_model
         payload["model_options"] = model_options
@@ -172,12 +172,12 @@ _HARNESS_CASES = [
     pytest.param(
         "pi-native-ui",
         "pi",
-        "omnigent-openai/system.ai.gpt-5-6-sol",
+        "agentnexus-openai/system.ai.gpt-5-6-sol",
         None,
         [
             {
-                "id": "omnigent-openai/system.ai.gpt-5-6-sol",
-                "model": "omnigent-openai/system.ai.gpt-5-6-sol",
+                "id": "agentnexus-openai/system.ai.gpt-5-6-sol",
+                "model": "agentnexus-openai/system.ai.gpt-5-6-sol",
                 "displayName": "system.ai.gpt-5-6-sol",
             }
         ],

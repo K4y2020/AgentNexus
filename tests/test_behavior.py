@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.coordination.behavior import (
+from agentnexus.coordination.behavior import (
     LEAN_ENGINEERING_PACK,
     compose_injection_prompt,
     framework_instructions_for_session,
@@ -87,15 +87,15 @@ def test_injection_prompt_never_skips_guardrail() -> None:
 def test_framework_instructions_for_session_label() -> None:
     assert framework_instructions_for_session(None) == ()
     assert framework_instructions_for_session({}) == ()
-    assert framework_instructions_for_session({"omnigent.behavior_mode": "bogus"}) == ()
-    assert framework_instructions_for_session({"omnigent.behavior_mode": "off"}) == ()
+    assert framework_instructions_for_session({"agentnexus.behavior_mode": "bogus"}) == ()
+    assert framework_instructions_for_session({"agentnexus.behavior_mode": "off"}) == ()
 
-    fragments = framework_instructions_for_session({"omnigent.behavior_mode": "lean"})
+    fragments = framework_instructions_for_session({"agentnexus.behavior_mode": "lean"})
     assert len(fragments) == 2
     assert "smallest correct change" in fragments[0]
     assert "security checks" in fragments[1]
 
-    advisory = framework_instructions_for_session({"omnigent.behavior_mode": "advisory"})
+    advisory = framework_instructions_for_session({"agentnexus.behavior_mode": "advisory"})
     assert len(advisory) == 2
     assert advisory[0] != fragments[0]
 
@@ -124,8 +124,8 @@ def test_workflow_behavior_payload_records_requested_and_downgrade() -> None:
 
 
 def test_session_behavior_mode_reads_only_valid_label() -> None:
-    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "lean"}) == "lean"
-    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "strict"}) == "strict"
-    assert session_behavior_mode_from_labels({"omnigent.behavior_mode": "bogus"}) is None
+    assert session_behavior_mode_from_labels({"agentnexus.behavior_mode": "lean"}) == "lean"
+    assert session_behavior_mode_from_labels({"agentnexus.behavior_mode": "strict"}) == "strict"
+    assert session_behavior_mode_from_labels({"agentnexus.behavior_mode": "bogus"}) is None
     assert session_behavior_mode_from_labels({}) is None
     assert session_behavior_mode_from_labels(None) is None

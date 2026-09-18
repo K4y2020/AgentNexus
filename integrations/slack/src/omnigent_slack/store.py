@@ -5,7 +5,7 @@ from pathlib import Path
 
 import aiosqlite
 
-from omnigent_slack.models import ChannelBinding, SessionRecord, ThreadKey, UserConfig
+from agentnexus_slack.models import ChannelBinding, SessionRecord, ThreadKey, UserConfig
 
 
 class SQLiteStore:
@@ -130,7 +130,7 @@ class SQLiteStore:
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(team_id, channel_id, thread_ts) DO UPDATE SET
-                    omnigent_session_id = excluded.omnigent_session_id,
+                    omnigent_session_id = excluded.agentnexus_session_id,
                     title = excluded.title,
                     owner_user_id = excluded.owner_user_id,
                     host_id = excluded.host_id,
@@ -370,7 +370,7 @@ class SQLiteStore:
 
         Backs ``/omnigent logout``: after this the user is fully reset —
         their agent/host/workspace choice is gone and their channel/DM
-        threads no longer map to any Omnigent session, so a later message
+        threads no longer map to any AgentNexus session, so a later message
         starts fresh (once they reconfigure).
         """
         async with aiosqlite.connect(self._path) as db:

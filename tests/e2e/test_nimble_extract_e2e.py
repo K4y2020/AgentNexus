@@ -2,7 +2,7 @@
 
 A real-LLM agent with the ``nimble_extract`` builtin runs an extract template,
 and the runner dispatches to ``POST /v2/extract/templates/run`` (stubbed
-locally via ``OMNIGENT_NIMBLE_EXTRACT_BASE_URL``, set at import time so the
+locally via ``AGENTNEXUS_NIMBLE_EXTRACT_BASE_URL``, set at import time so the
 session-scoped server/runner subprocesses inherit it — no live Nimble key
 needed).
 
@@ -50,7 +50,7 @@ def _reserve_port() -> int:
 
 
 _STUB_PORT = _reserve_port()
-os.environ["OMNIGENT_NIMBLE_EXTRACT_BASE_URL"] = f"http://127.0.0.1:{_STUB_PORT}"
+os.environ["AGENTNEXUS_NIMBLE_EXTRACT_BASE_URL"] = f"http://127.0.0.1:{_STUB_PORT}"
 
 _SENTINEL_URL = "https://e2e-extract.nimbleway.com/result-1"
 
@@ -174,8 +174,8 @@ def test_nimble_extract_happy_path(
     assert last["path"] == "/v2/extract/templates/run"
     headers = last["headers"]
     assert isinstance(headers, dict)
-    assert headers.get("X-Client-Source") == "omnigent", (
-        f"Expected X-Client-Source 'omnigent', got {headers.get('X-Client-Source')!r}"
+    assert headers.get("X-Client-Source") == "agentnexus", (
+        f"Expected X-Client-Source 'agentnexus', got {headers.get('X-Client-Source')!r}"
     )
     assert headers.get("Authorization") == "Bearer test-key"
     request_body = last["body"]

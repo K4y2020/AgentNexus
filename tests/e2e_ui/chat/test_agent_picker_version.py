@@ -170,7 +170,7 @@ async def _register_routes(page, *, created_session_id: str, create_requests: li
 async def _seed_workspace(page) -> None:
     await page.add_init_script(
         f"""window.localStorage.setItem(
-            "omnigent:recent-workspaces",
+            "agentnexus:recent-workspaces",
             JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
         );"""
     )

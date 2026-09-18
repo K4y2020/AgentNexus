@@ -19,13 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     TextChunk,
     TurnComplete,
 )
-from omnigent.inner.hermes_executor import (
+from agentnexus.inner.hermes_executor import (
     HermesExecutor,
     _build_hermes_args,
     _extract_last_user_message,
@@ -155,12 +155,12 @@ class TestSetupHermesHome:
 
         Returns (home, bridge_dir): the credential-bearing HERMES_HOME (a private
         tempdir) and the deterministic bridge dir (runner rendezvous)."""
-        import omnigent.hermes_native_bridge as hnb
+        import agentnexus.hermes_native_bridge as hnb
 
         monkeypatch.setattr(hnb, "_BRIDGE_ROOT", tmp_path)
         monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:6767")
         monkeypatch.setattr(
-            "omnigent.inner.hermes_executor._get_conversation_id",
+            "agentnexus.inner.hermes_executor._get_conversation_id",
             lambda: "conv_test123",
         )
         monkeypatch.setattr(pathlib.Path, "home", classmethod(lambda cls: tmp_path / "nohome"))
@@ -176,18 +176,18 @@ class TestSetupHermesHome:
         assert config["hooks_auto_accept"] is True
         hooks = config["hooks"]["pre_tool_call"]
         assert len(hooks) == 1
-        assert "omnigent-policy-hook.sh" in hooks[0]["command"]
+        assert "agentnexus-policy-hook.sh" in hooks[0]["command"]
 
     def test_config_registers_omnigent_mcp_server(self, setup) -> None:
-        """config.yaml carries mcp_servers.omnigent (serve-mcp) pointed at the bridge
+        """config.yaml carries mcp_servers.agentnexus (serve-mcp) pointed at the bridge
         dir — the parity gap. Fails on the previous setup, which wrote no mcp_servers
-        key: a headless Hermes agent had zero Omnigent tools."""
+        key: a headless Hermes agent had zero AgentNexus tools."""
         home, bridge_dir = setup
-        omnigent_mcp = json.loads((home / "config.yaml").read_text())["mcp_servers"]["omnigent"]
+        omnigent_mcp = json.loads((home / "config.yaml").read_text())["mcp_servers"]["agentnexus"]
         assert omnigent_mcp["args"][:4] == [
             "-I",
             "-m",
-            "omnigent.claude_native_bridge",
+            "agentnexus.claude_native_bridge",
             "serve-mcp",
         ]
         assert "serve-mcp" in omnigent_mcp["args"]
@@ -199,7 +199,7 @@ class TestSetupHermesHome:
         land on a predictable path another local user could pre-create."""
         home, bridge_dir = setup
         assert not home.is_relative_to(tmp_path)  # bridge root is tmp_path; home is elsewhere
-        assert (home / "omnigent-policy-hook.sh").is_file()
+        assert (home / "agentnexus-policy-hook.sh").is_file()
         assert not (bridge_dir / "hermes_home").exists()  # no creds under the bridge dir
 
     def test_home_is_owner_only(self, setup) -> None:

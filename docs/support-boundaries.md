@@ -2,14 +2,14 @@
 
 ## Supported platforms
 
-- **Tier 1**: Windows x64. `omnigent server`, the web UI, SDK-based
+- **Tier 1**: Windows x64. `agentnexus server`, the web UI, SDK-based
   harnesses (`claude-sdk`, `codex`, `openai-agents`, cursor), the Electron
   desktop shell, and the Job Object process-tree containment are the
   supported path.
 - **Tier 2 (beta)**: macOS ARM64 and Linux via the desktop smoke workflow.
   Unsigned artifacts only until signing/notarization secrets are attached.
 - **Not supported on Windows**: native tmux/PTY wrappers
-  (`omnigent claude`, `omnigent codex`, `omnigent cursor`), `bwrap`/
+  (`agentnexus claude`, `agentnexus codex`, `agentnexus cursor`), `bwrap`/
   `seatbelt` filesystem and network sandboxing, and the L7 egress proxy.
   Use an SDK harness or the web UI instead.
 

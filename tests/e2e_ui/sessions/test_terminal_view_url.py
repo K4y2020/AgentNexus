@@ -17,7 +17,7 @@ def test_transcript_views_survive_cold_reload(
     base_url, session_id = seeded_session
     response = httpx.patch(
         f"{base_url}/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.ui": "terminal"}},
+        json={"labels": {"agentnexus.ui": "terminal"}},
         timeout=10.0,
     )
     response.raise_for_status()

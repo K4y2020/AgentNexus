@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     TextChunk,
@@ -14,7 +14,7 @@ from omnigent.inner.executor import (
     ToolCallStatus,
     TurnComplete,
 )
-from omnigent.spec.types import RetryPolicy
+from agentnexus.spec.types import RetryPolicy
 from tests.codex_parity.helpers import (
     assert_completed as _assert_completed,
 )

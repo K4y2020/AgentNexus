@@ -25,7 +25,7 @@ export function StreamBudgetBanner() {
       // Below the h-14 (56px) header; z-40 clears the z-30 header, matching
       // JumpToTopButton. The inset var (0px off the iOS shell) keeps it aligned
       // when the header shifts down by the safe-area inset. Right-aligned.
-      style={{ top: "calc(56px + var(--omnigent-inset-top, 0px))" }}
+      style={{ top: "calc(56px + var(--agentnexus-inset-top, 0px))" }}
       className="pointer-events-none absolute inset-x-0 z-40 flex justify-end px-3"
     >
       <div

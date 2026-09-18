@@ -22,15 +22,15 @@ from pathlib import Path
 
 import httpx
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     await_turn_complete,
     clean_exit,
     spawn_omnigent_run,
     strip_ansi,
     submit_prompt,
 )
-from tests.e2e.omnigent._repl_test_helpers import drain_for
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus._repl_test_helpers import drain_for
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 _MODEL = "mock-model"
 _HARNESS = "openai-agents"

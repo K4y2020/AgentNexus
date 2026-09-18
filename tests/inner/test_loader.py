@@ -11,10 +11,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from omnigent.inner.datamodel import ExecutorSpec, OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.loader import load_agent_def
-from omnigent.inner.policies import FunctionPolicy, PromptPolicy
-from omnigent.inner.tools import (
+from agentnexus.inner.datamodel import ExecutorSpec, OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.loader import load_agent_def
+from agentnexus.inner.policies import FunctionPolicy, PromptPolicy
+from agentnexus.inner.tools import (
     AgentTool,
     CancellableFunctionTool,
     FunctionTool,
@@ -78,7 +78,7 @@ class TestLoadFromDict(unittest.TestCase):
                 {
                     "name": "t",
                     "executor": {
-                        "type": "omnigent",
+                        "type": "agentnexus",
                         "config": {"harness": "codex-native"},
                         "model": "databricks-gpt-5-4-mini",
                     },
@@ -445,7 +445,7 @@ class TestLoadFromDict(unittest.TestCase):
         )
 
     def test_os_env_auto_sandbox_uses_platform_default(self):
-        from omnigent.inner.sandbox import _default_sandbox_for_platform
+        from agentnexus.inner.sandbox import _default_sandbox_for_platform
 
         agent = load_agent_def(
             {
@@ -463,7 +463,7 @@ class TestLoadFromDict(unittest.TestCase):
         self.assertEqual(agent.os_env.sandbox.write_paths, ["."])
 
     def test_os_env_omitted_sandbox_type_uses_platform_default(self):
-        from omnigent.inner.sandbox import _default_sandbox_for_platform
+        from agentnexus.inner.sandbox import _default_sandbox_for_platform
 
         agent = load_agent_def(
             {
@@ -606,9 +606,9 @@ class TestInstructionsField(unittest.TestCase):
     """
     ``instructions:`` field handling in omnigent-flavored YAML.
 
-    Native Omnigent YAMLs have always supported ``instructions: <path>``
+    Native AgentNexus YAMLs have always supported ``instructions: <path>``
     (path relative to the bundle dir, falling through to inline
-    text if not a file). Omnigent-flavored YAMLs silently
+    text if not a file). AgentNexus-flavored YAMLs silently
     dropped the field — the loader didn't read it, the translator
     didn't see it. Bug from kasey_uhlenhuth's report. These tests
     pin the cross-format parity.
@@ -630,7 +630,7 @@ class TestInstructionsField(unittest.TestCase):
     def test_instructions_inline_text_when_no_matching_file(self):
         """A value that doesn't match any sibling file is treated as inline.
 
-        Matches the native Omnigent behavior — silent fall-through to
+        Matches the native AgentNexus behavior — silent fall-through to
         inline avoids breaking specs whose authors typed an
         instruction that happens to look pathy.
         """
@@ -733,7 +733,7 @@ def test_instructions_rejects_path_traversal() -> None:
 
 
 class TestLoaderOsEnvValidation(unittest.TestCase):
-    """Validate that ``inner.loader`` mirrors Omnigent parser sandbox checks.
+    """Validate that ``inner.loader`` mirrors AgentNexus parser sandbox checks.
 
     The legacy ``load_agent_def`` is what the CLI ``omnigent run``
     actually invokes (via the omnigent-compat shim). If the legacy
@@ -1148,7 +1148,7 @@ def test_load_agent_def_enforce_allows_registered_handler() -> None:
             "policies": {
                 "ask_os": {
                     "type": "function",
-                    "handler": "omnigent.policies.builtins.safety.ask_on_os_tools",
+                    "handler": "agentnexus.policies.builtins.safety.ask_on_os_tools",
                 }
             },
         },

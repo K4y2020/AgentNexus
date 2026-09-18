@@ -11,7 +11,7 @@ import {
 import { PALETTES } from "./themePalette";
 import { setEmbedRoot, setEmbedScopeRoot } from "./host";
 
-const STORAGE_KEY = "omnigent:custom-theme";
+const STORAGE_KEY = "agentnexus:custom-theme";
 
 afterEach(() => {
   localStorage.clear();

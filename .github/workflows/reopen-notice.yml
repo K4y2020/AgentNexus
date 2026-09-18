@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   notice:
-    if: github.repository == 'omnigent-ai/omnigent' && !github.event.pull_request.merged
+    if: github.repository == 'agentnexus-ai/agentnexus' && !github.event.pull_request.merged
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

@@ -8,7 +8,7 @@ This test drives a real ``omnigent run --harness pi`` subprocess with:
 
 - an isolated ``HOME`` carrying ``~/.pi/agent/settings.json`` + a marker
   extension;
-- a mock OpenAI provider in ``OMNIGENT_CONFIG_HOME`` so pi enters gateway mode
+- a mock OpenAI provider in ``AGENTNEXUS_CONFIG_HOME`` so pi enters gateway mode
   while still routing LLM calls to the session mock server;
 - a marker file the extension writes on ``session_start``.
 
@@ -27,12 +27,12 @@ import pytest
 import yaml
 
 from tests.e2e._harness_probes import cli_unavailable_reason
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 _EXTENSION_PATH = (
     Path(__file__).resolve().parents[2] / "resources" / "pi_extensions" / "e2e_marker_extension.js"
 )
-_MARKER_NAME = "omnigent-pi-ext-marker"
+_MARKER_NAME = "agentnexus-pi-ext-marker"
 _PROMPT = "say hi in 5 words"
 _RUN_TIMEOUT_SEC = 180
 
@@ -112,19 +112,19 @@ def test_pi_gateway_run_loads_global_extensions(
     marker_path = _seed_pi_extension_home(fake_home)
     assert not marker_path.exists()
 
-    config_home = tmp_path / "omnigent-config"
+    config_home = tmp_path / "agentnexus-config"
     _write_pi_gateway_config(config_home, mock_url=mock_llm_server_url, model=model)
 
     env = dict(mock_credentials_env)
     env["HOME"] = str(fake_home)
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
 
     yaml_path = omnigent_repo_root / "tests" / "resources" / "examples" / "hello_world.yaml"
     result = subprocess.run(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

@@ -5,7 +5,7 @@ export interface SessionDraft {
   files: File[];
 }
 
-const SESSION_DRAFTS_KEY = "omnigent.sessionDrafts";
+const SESSION_DRAFTS_KEY = "agentnexus.sessionDrafts";
 const listeners = new Set<() => void>();
 
 function loadDraftsFromStorage(): Map<string, SessionDraft> {

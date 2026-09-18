@@ -1,7 +1,7 @@
 """Benchmark environment lifecycle.
 
 :class:`BenchEnvironment` is an async context manager that stands up a real
-Omnigent ``server`` with no Databricks credentials. Two modes:
+AgentNexus ``server`` with no Databricks credentials. Two modes:
 
 - ``with_runner=False`` (default): server + SQLite DB only. Enough for the
   HTTP/API journeys, which never drive an agent turn.
@@ -40,8 +40,8 @@ from typing import IO, NamedTuple
 import httpx
 import yaml
 
-from omnigent.host.identity import HOST_ID_ENV_VAR, HOST_NAME_ENV_VAR
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN, token_bound_runner_id
+from agentnexus.host.identity import HOST_ID_ENV_VAR, HOST_NAME_ENV_VAR
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN, token_bound_runner_id
 from tests._helpers.compat import (
     apply_runner_env,
     apply_server_env,
@@ -89,7 +89,7 @@ _POLICY_ALLOW = '{"action": "allow", "reason": ""}'
 # Dotted path to the CI-only debug router (under ``dev/``, never shipped in the
 # wheel). The server loads it via the ``debug_router_modules`` config key to
 # expose ``GET /debug/server-metrics`` for per-journey request counting.
-_DEBUG_ROUTER_MODULE = "dev.benchmarks.omnigent.debug_router"
+_DEBUG_ROUTER_MODULE = "dev.benchmarks.agentnexus.debug_router"
 _SERVER_METRICS_PATH = "/debug/server-metrics"
 
 
@@ -242,7 +242,7 @@ class BenchEnvironment:
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=300.0,
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
             event_hooks=event_hooks,  # type: ignore[arg-type]
         )
         # Start background resource sampler (server CPU + memory).
@@ -474,7 +474,7 @@ class BenchEnvironment:
                     "api_key": "mock-key",
                 },
             }
-            env["OMNIGENT_RUNNER_TUNNEL_TOKEN"] = binding_token
+            env["AGENTNEXUS_RUNNER_TUNNEL_TOKEN"] = binding_token
         server_cfg = self._tmp / "server.yaml"
         server_cfg.write_text(yaml.safe_dump(server_config))
         args.extend(["--config", str(server_cfg)])
@@ -521,15 +521,15 @@ class BenchEnvironment:
         runner_env = apply_runner_env(
             {
                 **base_env,
-                "OMNIGENT_RUNNER_ID": runner_id,
-                "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-                "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+                "AGENTNEXUS_RUNNER_ID": runner_id,
+                "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+                "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
                 "RUNNER_SERVER_URL": self.base_url,
-                "OMNIGENT_RUNNER_WORKSPACE": str(workspace),
+                "AGENTNEXUS_RUNNER_WORKSPACE": str(workspace),
             }
         )
         return subprocess.Popen(
-            [runner_executable(), "-m", "omnigent.runner._entry"],
+            [runner_executable(), "-m", "agentnexus.runner._entry"],
             env=runner_env,
             cwd=compat_runner_cwd(),
             stdout=self._log(log_name),
@@ -543,7 +543,7 @@ class BenchEnvironment:
         developer starts by hand. Identity comes from :data:`HOST_ID_ENV_VAR` /
         :data:`HOST_NAME_ENV_VAR`: with both set, ``load_or_create_host_identity``
         returns that identity WITHOUT reading or writing any ``config.yaml``, so
-        the daemon never touches the developer's real ``~/.omnigent`` (nor
+        the daemon never touches the developer's real ``~/.agentnexus`` (nor
         collides with a sibling bench leg). ``--non-interactive`` keeps it from
         ever launching a browser login (moot for the loopback server, which is
         not Databricks-fronted, but explicit for CI). The daemon self-registers
@@ -716,7 +716,7 @@ class BenchEnvironment:
         needs to be a valid spec the server can register and bind sessions to.
         """
         executor: dict[str, object] = {
-            "type": "omnigent",
+            "type": "agentnexus",
             "model": self.model,
             "config": {"harness": self.harness},
         }
@@ -802,7 +802,7 @@ class BenchEnvironment:
                 "parent_session_id": parent_session_id,
                 "title": title,
             },
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         )
         created.raise_for_status()
         return str(created.json()["id"])

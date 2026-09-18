@@ -199,7 +199,7 @@ export const DeepTreeActiveGrandchild: Story = {
       activeId: "grandchild-active",
       session: rootSession({
         agentName: "claude-native-ui",
-        labels: { "omnigent.wrapper": "claude-code-native-ui" },
+        labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       }),
       tree: deepTree,
     }),
@@ -213,7 +213,7 @@ const iconTree = {
       title: "claude_code:review",
       tool: "claude_code",
       session_name: "review",
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       busy: true,
     }),
     child({
@@ -221,7 +221,7 @@ const iconTree = {
       title: "codex:port-fix",
       tool: "codex",
       session_name: "port-fix",
-      labels: { "omnigent.wrapper": "codex-native-ui" },
+      labels: { "agentnexus.wrapper": "codex-native-ui" },
       current_task_status: "completed",
     }),
     child({ id: "child-pi", title: "pi:review-auth", tool: "pi", session_name: "review-auth" }),
@@ -230,7 +230,7 @@ const iconTree = {
       title: "ui:claude-native-ui:jimmy",
       tool: "claude-native-ui",
       session_name: "jimmy",
-      labels: { "omnigent.wrapper": "claude-code-native-ui" },
+      labels: { "agentnexus.wrapper": "claude-code-native-ui" },
     }),
   ],
   "child-claude": [

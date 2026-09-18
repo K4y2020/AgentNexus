@@ -27,10 +27,10 @@ describe("sessionFilterPreferences", () => {
   it("falls back to the default for an unknown stored value", () => {
     // Guards against a hand-edited entry or a filter this build dropped:
     // scoping the list to a slice with no menu entry would strand the viewer.
-    localStorage.setItem("omnigent:session-filter", "starred");
+    localStorage.setItem("agentnexus:session-filter", "starred");
     expect(readSessionFilter(true)).toBe("mine");
 
-    localStorage.setItem("omnigent:session-filter", "");
+    localStorage.setItem("agentnexus:session-filter", "");
     expect(readSessionFilter(true)).toBe("mine");
   });
 

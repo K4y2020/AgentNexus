@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from omnigent_client._types import File, PaginatedList, Response
+from agentnexus_client._types import File, PaginatedList, Response
 
 
 def test_response_from_dict_parses_integer_compatible_json_scalars() -> None:

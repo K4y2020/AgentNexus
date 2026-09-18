@@ -12,12 +12,12 @@
 # workflow drops its output into the site page; on any failure the publish step
 # falls back to the raw release body.
 #
-# Run headlessly:  omnigent run .github/agents/release-post-formatter -p "<release body>" --no-session
+# Run headlessly:  agentnexus run .github/agents/release-post-formatter -p "<release body>" --no-session
 #
 # Security posture (mirrors release-notes-drafter / doc-drafter):
 #   - Runs only on an ALREADY-PUBLISHED, maintainer-curated release body, at
 #     publish time on the trusted default branch.
-#   - The only secret in this process's env is LLM_API_KEY. The omnigent-site
+#   - The only secret in this process's env is LLM_API_KEY. The agentnexus-site
 #     write-token that opens the release-post PR is minted by the workflow AFTER
 #     this agent finishes, so it never coexists with model input.
 #   - Its input is maintainer-written release text — a prose prompt-injection
@@ -41,12 +41,12 @@ description: >-
   No tools, no sub-agents.
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
 prompt: |
-  You are the Omnigent release-POST formatter. A version has just been published.
+  You are the AgentNexus release-POST formatter. A version has just been published.
   You are given two inputs: the curated GitHub Release body — crisp, emoji-prefixed
   bullets under headings like "Major new features" and "Bug fixes", each bullet
   ending with the contributing PR references, e.g. `(#123, #456)` — and a list of
@@ -107,7 +107,7 @@ prompt: |
     section — omit it entirely. (MLflow 3.14.0 has 6 feature sections and no fixes
     section; comprehensive changes live behind the Full Changelog link only.)
   - Intro: ONE flowing paragraph. First sentence follows the shape
-    "Omnigent <version> is a major release focused on <core theme>, from <X> to
+    "AgentNexus <version> is a major release focused on <core theme>, from <X> to
     <Y>." — theme and X→Y span drawn from the outstanding features. Then a sentence
     or two naming the biggest ones as prose. No bullets.
     (MLflow's reads: "MLflow 3.14.0 is a major release focused on closing the GenAI
@@ -115,7 +115,7 @@ prompt: |
     reviewing, testing, and iterating on it.")
   - Headings: `## N. <Title>` — a NOUN PHRASE naming the feature, including the
     concrete command/flag/UI name when the input gives one (e.g.
-    "## 1. Omnigent for iOS"). Never a verb phrase.
+    "## 1. AgentNexus for iOS"). Never a verb phrase.
   - Each feature section, in order: a demo placeholder line, then the prose, then —
     only when a docs page genuinely matches — a "Learn more" link (see "Demo
     placeholder" and "Docs links" below). The prose is 1-3 short paragraphs,

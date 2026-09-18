@@ -71,7 +71,7 @@ from ._tool_handler import (
 )
 from ._types import Response
 
-_log = logging.getLogger("omnigent_client.responses")
+_log = logging.getLogger("agentnexus_client.responses")
 
 # Terminal statuses — the response won't change further.
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "incomplete", "cancelled"})

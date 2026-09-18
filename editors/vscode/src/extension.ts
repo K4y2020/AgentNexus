@@ -6,7 +6,7 @@
  *  - A minimal Sessions/home tree view (so the activity-bar icon renders) whose
  *    welcome content offers an "Open Omnigent" button
  *  - EditorPanelController: the single editor-beside iframe surface
- *  - The omnigent.open command
+ *  - The agentnexus.open command
  */
 import * as vscode from "vscode";
 import { discoverLocalServer, DEFAULT_HEALTH_TIMEOUT_MS } from "./discovery";
@@ -16,7 +16,7 @@ import { EditorPanelController } from "./panel/EditorPanelController";
 import { registerOpenPanel } from "./commands/openPanel";
 
 /** Id of the minimal activity-bar view (declared in package.json contributes.views). */
-const HOME_VIEW_ID = "omnigent.home";
+const HOME_VIEW_ID = "agentnexus.home";
 
 let output: vscode.OutputChannel | undefined;
 let controller: EditorPanelController | undefined;
@@ -38,7 +38,7 @@ class HomeTreeProvider implements vscode.TreeDataProvider<never> {
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel("Omnigent");
   context.subscriptions.push(output);
-  output.appendLine("[omnigent] activating");
+  output.appendLine("[agentnexus] activating");
 
   // ── Single editor-beside iframe surface ───────────────────────────────────
   controller = new EditorPanelController(context.extensionUri, output);
@@ -48,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerTreeDataProvider(HOME_VIEW_ID, new HomeTreeProvider()),
   );
 
-  // ── omnigent.open command ──────────────────────────────────────────────────
+  // ── agentnexus.open command ──────────────────────────────────────────────────
   registerOpenPanel(context, controller);
 
   // ── Resolve the local server at activation ────────────────────────────────
@@ -65,25 +65,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const target = resolution.target;
       controller.setResolved(target);
       output.appendLine(
-        `[omnigent] target: ${target.baseUrl} (hostType=${target.hostType}, source=${target.source})`,
+        `[agentnexus] target: ${target.baseUrl} (hostType=${target.hostType}, source=${target.source})`,
       );
     } else {
       output.appendLine(
-        `[omnigent] no local server (${resolution.reason}); start \`omnigent server\` or set omnigent.serverUrl to a localhost URL`,
+        `[agentnexus] no local server (${resolution.reason}); start \`agentnexus server\` or set agentnexus.serverUrl to a localhost URL`,
       );
     }
   } catch (err) {
     output.appendLine(
-      `[omnigent] init error: ${err instanceof Error ? err.message : String(err)}`,
+      `[agentnexus] init error: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
-  output.appendLine("[omnigent] ready");
+  output.appendLine("[agentnexus] ready");
 }
 
 export function deactivate(): void {
   controller?.dispose();
   controller = undefined;
-  output?.appendLine("[omnigent] deactivating");
+  output?.appendLine("[agentnexus] deactivating");
   output = undefined;
 }

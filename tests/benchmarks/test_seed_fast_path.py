@@ -21,9 +21,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
-from omnigent.db.utils import get_or_create_engine
-from omnigent.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.db.utils import get_or_create_engine
+from agentnexus.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 # ── helpers ──────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ def _membership_counts(engine):
 
 def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
     """The fast path writes every table the store path would, listable as "local"."""
-    from dev.benchmarks.omnigent import seed as seed_mod
+    from dev.benchmarks.agentnexus import seed as seed_mod
 
     db_uri = f"sqlite:///{tmp_path / 'fast.db'}"
 
@@ -112,7 +112,7 @@ def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
     assert _count(engine, "conversation_items") == 500
     assert _count(engine, "conversation_items_fts") == 500
     assert _count(engine, "agents") == 50
-    assert _count(engine, "omnigent_conversation_metadata") == 50
+    assert _count(engine, "agentnexus_conversation_metadata") == 50
     assert _count(engine, "session_permissions") == 50
     assert _count(engine, "users") == 1
     assert _count(engine, "conversation_labels") == 1
@@ -196,7 +196,7 @@ def test_seed_fast_path_corpus_matches_store_path(tmp_path: Path) -> None:
     project ids ARE deterministic (derived from the index), so project rows and
     per-project membership counts are compared directly.
     """
-    from dev.benchmarks.omnigent import seed as seed_mod
+    from dev.benchmarks.agentnexus import seed as seed_mod
 
     cfg = {
         "sessions": 50,
@@ -219,7 +219,7 @@ def test_seed_fast_path_corpus_matches_store_path(tmp_path: Path) -> None:
         "conversation_items",
         "conversation_items_fts",
         "agents",
-        "omnigent_conversation_metadata",
+        "agentnexus_conversation_metadata",
         "session_permissions",
         "users",
         "conversation_labels",
@@ -243,18 +243,18 @@ def test_seed_fast_path_corpus_matches_store_path(tmp_path: Path) -> None:
 def test_seed_slow_path_non_sqlite() -> None:
     """The store-API loop remains the path on non-SQLite dialects.
 
-    Skipped unless ``OMNIGENT_BENCH_NONSQLITE_URI`` points at a real non-SQLite
+    Skipped unless ``AGENTNEXUS_BENCH_NONSQLITE_URI`` points at a real non-SQLite
     DB (e.g. the nightly Postgres benchmark). The fast path is SQLite-only, so
     this guards the fallback the nightly run relies on.
     """
-    uri = os.environ.get("OMNIGENT_BENCH_NONSQLITE_URI")
+    uri = os.environ.get("AGENTNEXUS_BENCH_NONSQLITE_URI")
     if not uri:
         pytest.skip(
-            "set OMNIGENT_BENCH_NONSQLITE_URI to a non-SQLite URI to exercise the slow seed path"
+            "set AGENTNEXUS_BENCH_NONSQLITE_URI to a non-SQLite URI to exercise the slow seed path"
         )
     assert make_url(uri).get_backend_name() != "sqlite"
 
-    from dev.benchmarks.omnigent import seed as seed_mod
+    from dev.benchmarks.agentnexus import seed as seed_mod
 
     # --reseed so the count assertion holds against a DB that may already have a corpus.
     created = seed_mod.seed(uri, sessions=20, items_per_session=5, reseed=True)

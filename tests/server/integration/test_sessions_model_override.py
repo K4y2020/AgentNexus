@@ -303,7 +303,7 @@ async def test_create_session_inherits_spec_reasoning_effort(
     agent = await create_test_agent(
         client,
         executor={
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk"},
             "model": "databricks-claude-sonnet-4-6",
             "reasoning_effort": "high",
@@ -324,7 +324,7 @@ async def test_create_session_explicit_reasoning_effort_overrides_spec(
     agent = await create_test_agent(
         client,
         executor={
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk"},
             "model": "databricks-claude-sonnet-4-6",
             "reasoning_effort": "high",
@@ -352,7 +352,7 @@ async def test_bundle_create_inherits_spec_reasoning_effort(
     agent = await create_test_agent(
         client,
         executor={
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk"},
             "model": "databricks-claude-sonnet-4-6",
             "reasoning_effort": "high",
@@ -392,7 +392,7 @@ def _stub_runner_client(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     :returns: A dict the test inspects after the runner POST runs;
         contains ``path`` and ``body`` keys once the route fires.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     captured: dict[str, Any] = {}
 
@@ -509,7 +509,7 @@ async def test_context_window_uses_effective_model(
     the override is cleared. Stub the litellm lookup so we can assert
     *which* model the snapshot used to size the window.
     """
-    from omnigent.llms import context_window as context_window_mod
+    from agentnexus.llms import context_window as context_window_mod
 
     lookup_calls: list[str] = []
 
@@ -559,7 +559,7 @@ async def test_context_window_override_bypasses_declared_window(
     model's real window instead. Before the shared resolver these two paths
     drifted (PR #769).
     """
-    from omnigent.llms import context_window as context_window_mod
+    from agentnexus.llms import context_window as context_window_mod
 
     lookup_calls: list[str] = []
 
@@ -572,7 +572,7 @@ async def test_context_window_override_bypasses_declared_window(
     agent = await create_test_agent(
         client,
         name="declared-window-agent",
-        executor={"type": "omnigent", "context_window": 1_000_000},
+        executor={"type": "agentnexus", "context_window": 1_000_000},
     )
     session = await _create_session(client, agent["id"])
     sid = session["id"]
@@ -611,7 +611,7 @@ async def test_silent_patch_skips_claude_native_forward(
     would render a leading "Command model X" slash-command item
     before the user has sent anything — the bug a user reported.
 
-    Updated for the unified-events refactor: Omnigent server no longer
+    Updated for the unified-events refactor: AgentNexus server no longer
     calls a dedicated ``_forward_claude_native_model`` helper. It
     POSTs ``{"type": "model_change", "model": <override>}`` to the
     runner's ``/v1/sessions/{id}/events``. The silent-skip semantic
@@ -620,7 +620,7 @@ async def test_silent_patch_skips_claude_native_forward(
     """
     import json
 
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     captured: list[tuple[str, dict[str, Any] | None]] = []
 
@@ -649,7 +649,7 @@ async def test_silent_patch_skips_claude_native_forward(
         # Mark the session as claude-native so the forward gate is True.
         await client.patch(
             f"/v1/sessions/{sid}",
-            json={"labels": {"omnigent.wrapper": "claude-code-native-ui"}},
+            json={"labels": {"agentnexus.wrapper": "claude-code-native-ui"}},
         )
         captured.clear()
 
@@ -707,7 +707,7 @@ async def test_silent_patch_skips_claude_native_forward(
     )
 
     # No POST to the legacy ``/claude-native-model`` route should
-    # happen anymore — its callsite is gone from Omnigent server.
+    # happen anymore — its callsite is gone from AgentNexus server.
     legacy_forwards = [url for url, _ in captured if "/claude-native-model" in url]
     assert legacy_forwards == [], (
         f"Legacy /claude-native-model POSTs must not happen anymore; "
@@ -785,7 +785,7 @@ async def test_smart_routing_overrides_orchestrator_model_for_child_session(
             None,
         )
 
-    with patch("omnigent.server.smart_routing.route_session_harness", _fake_route_session_harness):
+    with patch("agentnexus.server.smart_routing.route_session_harness", _fake_route_session_harness):
         agent = await create_test_agent(client)
 
         # Parent session with routing toggle on.

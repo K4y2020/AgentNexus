@@ -2,7 +2,7 @@
 
 Regression test for the headless login-fallback timeout: on a machine where the
 native-Codex launch routing resolves to "Codex CLI login" with no usable
-stored credential (no Omnigent provider configured, empty ``CODEX_HOME``),
+stored credential (no AgentNexus provider configured, empty ``CODEX_HOME``),
 the runner still launches the ``--remote`` Codex TUI headlessly. The TUI
 parks on the ChatGPT sign-in / onboarding screen, never emits
 ``thread/started``, and the user's first chat message hangs for the whole
@@ -25,7 +25,7 @@ headlessly) or fail with a clear, non-timeout error. Either way the
 ``startup timed out`` marker disappears, which is what this test asserts.
 
 The rig mirrors ``mocked_native_codex_session`` (own server + runner so the
-credential-less ``CODEX_HOME`` / ``OMNIGENT_CONFIG_HOME`` cannot leak into
+credential-less ``CODEX_HOME`` / ``AGENTNEXUS_CONFIG_HOME`` cannot leak into
 other tests), minus any provider config — the whole point is that nothing
 routes.
 """
@@ -99,7 +99,7 @@ def headless_codex_session(
     """A codex-native wrapper session on a rig with no usable Codex credential.
 
     Spawns a dedicated server + runner whose ``CODEX_HOME`` is empty (no
-    ``auth.json`` — Codex not logged in) and whose ``OMNIGENT_CONFIG_HOME``
+    ``auth.json`` — Codex not logged in) and whose ``AGENTNEXUS_CONFIG_HOME``
     is empty (no provider routes the codex harness), then creates and binds
     the same codex-native wrapper session ``omnigent codex`` ships. This is
     the launch-routing state in which the reported thread-start timeout
@@ -123,24 +123,24 @@ def headless_codex_session(
     base_url = f"http://127.0.0.1:{port}"
     binding_token = secrets.token_urlsafe(32)
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     runner_id = token_bound_runner_id(binding_token)
 
     shared_env = {
         **_no_proxy_env(),
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_CONFIG_HOME": str(config_home),
-        "OMNIGENT_CODEX_NATIVE_STATE_DIR": str(state_dir),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_CODEX_NATIVE_STATE_DIR": str(state_dir),
         "CODEX_HOME": str(codex_home),
         "HOME": str(home_dir),
     }
-    server_env = {**shared_env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token}
+    server_env = {**shared_env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token}
     runner_env = {
         **shared_env,
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
     }
 
@@ -156,7 +156,7 @@ def headless_codex_session(
             [
                 sys.executable,
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--host",
                 "127.0.0.1",
@@ -173,7 +173,7 @@ def headless_codex_session(
             cwd=str(_REPO_ROOT),
         )
         runner_proc = subprocess.Popen(
-            [sys.executable, "-m", "omnigent.runner._entry"],
+            [sys.executable, "-m", "agentnexus.runner._entry"],
             env=runner_env,
             stdout=runner_handle,
             stderr=subprocess.STDOUT,

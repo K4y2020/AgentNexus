@@ -18,8 +18,8 @@ from websockets.datastructures import Headers
 from websockets.exceptions import ConnectionClosedError, InvalidStatus, InvalidURI
 from websockets.http11 import Response
 
-from omnigent.host import HOST_FATAL_EXIT_CODE
-from omnigent.host.connect import (
+from agentnexus.host import HOST_FATAL_EXIT_CODE
+from agentnexus.host.connect import (
     HostConnectError,
     HostProcess,
     HostRetryableConnectionError,
@@ -27,7 +27,7 @@ from omnigent.host.connect import (
     _RunnerHandle,
     run_host_process,
 )
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE,
     HostConnectionErrorFrame,
     HostCreateDirFrame,
@@ -59,9 +59,9 @@ from omnigent.host.frames import (
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.host.identity import HostIdentity
-from omnigent.host.runner_zygote import ZygoteUnavailable
-from omnigent.runner.identity import (
+from agentnexus.host.identity import HostIdentity
+from agentnexus.host.runner_zygote import ZygoteUnavailable
+from agentnexus.runner.identity import (
     RUNNER_DELEGATED_AUTH_ENV_VAR,
     RUNNER_ID_ENV_VAR,
     RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR,
@@ -83,12 +83,12 @@ def _isolated_model_catalog_store(
 
     The model-options lanes read and write the on-disk catalog store; a
     test must never touch (or be poisoned by) the developer's real
-    ``~/.omnigent`` cache. Only the store's directory seam is redirected —
-    ``OMNIGENT_DATA_DIR`` itself stays untouched so log-path tests keep
+    ``~/.agentnexus`` cache. Only the store's directory seam is redirected —
+    ``AGENTNEXUS_DATA_DIR`` itself stays untouched so log-path tests keep
     seeing the real default layout.
     """
     store_dir = tmp_path_factory.mktemp("model_catalog_store")
-    monkeypatch.setattr("omnigent.model_catalog_store._data_dir", lambda: store_dir)
+    monkeypatch.setattr("agentnexus.model_catalog_store._data_dir", lambda: store_dir)
 
 
 @pytest.fixture(autouse=True)
@@ -102,7 +102,7 @@ def _no_real_zygote(monkeypatch: pytest.MonkeyPatch) -> None:
     and with real ``ZygoteManager`` instances in ``test_runner_zygote.py``
     (which this construction-time gate does not affect).
     """
-    from omnigent.runner._zygote import ZYGOTE_ENABLED_ENV_VAR
+    from agentnexus.runner._zygote import ZYGOTE_ENABLED_ENV_VAR
 
     monkeypatch.setenv(ZYGOTE_ENABLED_ENV_VAR, "0")
 
@@ -116,7 +116,7 @@ async def test_handle_model_options_serves_the_claude_catalog(
     the endpoint's routable set rides along, and the second request is
     served from the fingerprint store — the harness is probed once.
     """
-    from omnigent import claude_native
+    from agentnexus import claude_native
 
     config = claude_native.ClaudeNativeUcodeConfig(
         env={"ANTHROPIC_BASE_URL": "https://gw.example"},
@@ -186,7 +186,7 @@ async def test_handle_model_options_claude_probe_failure_is_an_honest_empty(
     run yields an honest empty listing with the reason, never invented
     rows.
     """
-    from omnigent import claude_native
+    from agentnexus import claude_native
 
     monkeypatch.setattr(
         claude_native,
@@ -216,17 +216,17 @@ async def test_handle_model_options_claude_probe_failure_is_an_honest_empty(
 async def test_handle_model_options_uses_host_pi_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Pi's launch picker uses only models configured through Omnigent."""
-    from omnigent import pi_native_credentials
+    """Pi's launch picker uses only models configured through AgentNexus."""
+    from agentnexus import pi_native_credentials
 
     monkeypatch.setattr(
         pi_native_credentials,
         "pi_native_model_options",
         lambda: [
             {
-                "id": "omnigent-openai/system.ai.gpt-5-6-sol",
-                "model": "omnigent-openai/system.ai.gpt-5-6-sol",
-                "displayName": "omnigent-openai/GPT 5.6 Sol",
+                "id": "agentnexus-openai/system.ai.gpt-5-6-sol",
+                "model": "agentnexus-openai/system.ai.gpt-5-6-sol",
+                "displayName": "agentnexus-openai/GPT 5.6 Sol",
             }
         ],
     )
@@ -241,9 +241,9 @@ async def test_handle_model_options_uses_host_pi_configuration(
         status="ok",
         models=[
             {
-                "id": "omnigent-openai/system.ai.gpt-5-6-sol",
-                "model": "omnigent-openai/system.ai.gpt-5-6-sol",
-                "displayName": "omnigent-openai/GPT 5.6 Sol",
+                "id": "agentnexus-openai/system.ai.gpt-5-6-sol",
+                "model": "agentnexus-openai/system.ai.gpt-5-6-sol",
+                "displayName": "agentnexus-openai/GPT 5.6 Sol",
             }
         ],
     )
@@ -259,7 +259,7 @@ async def test_handle_model_options_codex_probe_failure_is_an_honest_empty(
     machinery raises or resolves nothing, the picker gets an honest empty
     listing with the reason, never invented rows.
     """
-    from omnigent import codex_native_app_server
+    from agentnexus import codex_native_app_server
 
     async def _no_catalog(**_kwargs: object) -> list[dict[str, object]] | None:
         if failure == "raises":
@@ -301,7 +301,7 @@ async def test_handle_model_options_reports_the_endpoints_wider_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Generations no picker row names are still launchable, so they ship too."""
-    from omnigent import claude_native
+    from agentnexus import claude_native
 
     monkeypatch.setattr(
         claude_native,
@@ -408,7 +408,7 @@ async def test_handle_launch_spawns_subprocess(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
 
     assert isinstance(result, HostLaunchRunnerResultFrame)
@@ -425,9 +425,9 @@ async def test_handle_launch_spawns_subprocess(
 
     # Verify env vars passed to the subprocess.
     assert spawned_env.get("RUNNER_SERVER_URL") == "http://localhost:8000"
-    assert spawned_env.get("OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN") == "test_token_abc"
+    assert spawned_env.get("AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN") == "test_token_abc"
     assert spawned_env.get(RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR) == "host-bootstrap-bearer"
-    assert spawned_env.get("OMNIGENT_RUNNER_WORKSPACE") == str(workspace)
+    assert spawned_env.get("AGENTNEXUS_RUNNER_WORKSPACE") == str(workspace)
 
     # Runners must get a clean /dev/null stdin, not the daemon's inherited fd:
     # a long-lived (e.g. nohup'd) daemon can end up with a closed/recycled
@@ -498,7 +498,7 @@ async def test_handle_launch_refuses_unconfigured_harness(
     # Patch the symbol connect.py imported, with the real function's
     # signature; the workspace exists so ONLY the harness check can fail.
     monkeypatch.setattr(
-        "omnigent.host.connect.harness_is_configured",
+        "agentnexus.host.connect.harness_is_configured",
         lambda harness: False,
     )
 
@@ -540,7 +540,7 @@ async def test_handle_launch_native_cursor_message_points_at_cursor_installer(
     workspace = tmp_path / "project"
     workspace.mkdir()
     monkeypatch.setattr(
-        "omnigent.host.connect.harness_is_configured",
+        "agentnexus.host.connect.harness_is_configured",
         lambda harness: False,
     )
 
@@ -579,7 +579,7 @@ async def test_handle_launch_configured_harness_proceeds_to_spawn(
     workspace = tmp_path / "project"
     workspace.mkdir()
     monkeypatch.setattr(
-        "omnigent.host.connect.harness_is_configured",
+        "agentnexus.host.connect.harness_is_configured",
         lambda harness: True,
     )
 
@@ -604,7 +604,7 @@ async def test_handle_launch_configured_harness_proceeds_to_spawn(
         workspace=str(workspace),
         harness="claude-sdk",
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
 
     assert result.status == "launched", (
@@ -641,7 +641,7 @@ async def test_handle_launch_without_harness_skips_check(
         raise AssertionError("harness_is_configured must not be called when frame.harness is None")
 
     monkeypatch.setattr(
-        "omnigent.host.connect.harness_is_configured",
+        "agentnexus.host.connect.harness_is_configured",
         _must_not_be_called,
     )
 
@@ -665,7 +665,7 @@ async def test_handle_launch_without_harness_skips_check(
         binding_token="token_ghi",
         workspace=str(workspace),
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
 
     assert result.status == "launched"
@@ -685,10 +685,10 @@ async def test_handle_launch_prints_exact_runner_log_path(
     real output — the agent turn, tracebacks — lands only in the per-runner
     log file. The user needs that precise path to tail it, so the launch
     print must include it. We repoint ``Path.home`` so the log lands under
-    tmp (no write to the developer's real ``~/.omnigent``).
+    tmp (no write to the developer's real ``~/.agentnexus``).
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / ".agentnexus"))
     host = _make_host_process()
     workspace = tmp_path / "project"
     workspace.mkdir()
@@ -715,18 +715,18 @@ async def test_handle_launch_prints_exact_runner_log_path(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
 
     assert result.status == "launched", result.error
     # Exactly one runner-*.log was created under the runner log dir.
-    runner_log_dir = tmp_path / ".omnigent" / "logs" / "runner"
+    runner_log_dir = tmp_path / ".agentnexus" / "logs" / "runner"
     log_files = list(runner_log_dir.glob("runner-*.log"))
     assert len(log_files) == 1
     out = capsys.readouterr().out
     assert "↑ Runner started:" in out
     # The exact file path is printed, home-collapsed to ``~`` for readability.
-    assert f"log: ~/.omnigent/logs/runner/{log_files[0].name}" in out
+    assert f"log: ~/.agentnexus/logs/runner/{log_files[0].name}" in out
     assert "session: conv_log" in out
 
     _cleanup_host(host)
@@ -810,7 +810,7 @@ def test_unavailable_harness_quick_probe_is_ttl_cached(monkeypatch: pytest.Monke
     the TTL the cached verdict serves the cadence; expiry re-probes so a
     new install still surfaces.
     """
-    from omnigent.host import connect as connect_mod
+    from agentnexus.host import connect as connect_mod
 
     calls: list[str] = []
     monkeypatch.setattr(connect_mod, "harness_is_configured", lambda h: calls.append(h) or False)
@@ -838,7 +838,7 @@ def test_quick_probe_cache_survives_configured_flip_within_ttl(
 ) -> None:
     """Within the TTL a cached miss is authoritative — an external install
     surfaces on the next expiry, not the next 5s tick."""
-    from omnigent.host import connect as connect_mod
+    from agentnexus.host import connect as connect_mod
 
     state = {"configured": False}
     monkeypatch.setattr(connect_mod, "harness_is_configured", lambda _h: state["configured"])
@@ -864,17 +864,17 @@ async def test_live_host_refreshes_harness_readiness_without_reconnect(
     receive loop, so a slow probe can never stall the tunnel keepalive.
     """
     readiness = iter(({"pi": True},))
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", lambda: {"codex": True})
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", lambda: {"codex": True})
     monkeypatch.setattr(
-        "omnigent.host.connect.configured_harness_map",
+        "agentnexus.host.connect.configured_harness_map",
         lambda: next(readiness),
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.harness_is_configured",
+        "agentnexus.host.connect.harness_is_configured",
         lambda harness: harness == "pi",
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.HARNESS_READINESS_REFRESH_INTERVAL_S",
+        "agentnexus.host.connect.HARNESS_READINESS_REFRESH_INTERVAL_S",
         0.01,
     )
     host = _make_host_process()
@@ -900,13 +900,13 @@ async def test_live_host_full_refresh_detects_auth_completion(
 ) -> None:
     """The full-refresh fallback catches readiness changes beyond binary installs."""
     readiness = iter(({"codex": True},))
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", lambda: {"codex": True})
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", lambda: {"codex": True})
     monkeypatch.setattr(
-        "omnigent.host.connect.configured_harness_map",
+        "agentnexus.host.connect.configured_harness_map",
         lambda: next(readiness),
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
+        "agentnexus.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
         0.01,
     )
     host = _make_host_process()
@@ -937,10 +937,10 @@ async def test_live_host_does_not_repeat_unchanged_readiness(
         calls["n"] += 1
         return {"codex": "needs-auth"}
 
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", _unchanged_map)
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", lambda: {"codex": True})
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", _unchanged_map)
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", lambda: {"codex": True})
     monkeypatch.setattr(
-        "omnigent.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
+        "agentnexus.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
         0.01,
     )
     host = _make_host_process()
@@ -969,15 +969,15 @@ async def test_live_host_repushes_when_only_gateway_inference_changes(
     """A gateway-inference flip alone must reach the server, readiness unchanged."""
     gateway = iter(({"codex": False}, {"codex": True}))
     monkeypatch.setattr(
-        "omnigent.host.connect.configured_harness_map",
+        "agentnexus.host.connect.configured_harness_map",
         lambda: {"codex": True},
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.gateway_inference_map",
+        "agentnexus.host.connect.gateway_inference_map",
         lambda: next(gateway, {"codex": True}),
     )
     monkeypatch.setattr(
-        "omnigent.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
+        "agentnexus.host.connect.HARNESS_READINESS_FULL_REFRESH_INTERVAL_S",
         0.01,
     )
     host = _make_host_process()
@@ -1012,7 +1012,7 @@ async def test_handle_launch_immediate_exit_reports_exit_code_and_log_tail(
     can surface the cause to the user verbatim.
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / ".agentnexus"))
     host = _make_host_process()
     workspace = tmp_path / "project"
     workspace.mkdir()
@@ -1045,7 +1045,7 @@ async def test_handle_launch_immediate_exit_reports_exit_code_and_log_tail(
         binding_token="tok_dead",
         workspace=str(workspace),
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
 
     assert result.status == "failed"
@@ -1053,7 +1053,7 @@ async def test_handle_launch_immediate_exit_reports_exit_code_and_log_tail(
     # The exit code identifies the failure class without log-reading.
     assert "code 7" in error
     # The log path lets the user fetch the full log on the host.
-    assert "~/.omnigent/logs/runner/runner-" in error
+    assert "~/.agentnexus/logs/runner/runner-" in error
     # The tail carries the actual cause — the whole point of the report.
     assert "RuntimeError: boom-traceback" in error
 
@@ -1071,7 +1071,7 @@ async def test_watch_runner_reports_unexpected_exit(
     directory on the host.
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setattr("omnigent.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
     host = _make_host_process()
     tunnel = _FakeTunnel()
     host._ws = tunnel  # type: ignore[assignment] — duck-typed send
@@ -1104,7 +1104,7 @@ async def test_watch_runner_reports_unexpected_exit(
         binding_token="tok_watch",
         workspace=str(workspace),
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
     assert result.status == "launched", result.error
 
@@ -1134,7 +1134,7 @@ async def test_watch_runner_silent_on_intentional_stop(
     cleanly stopped session.
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setattr("omnigent.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
     host = _make_host_process()
     tunnel = _FakeTunnel()
     host._ws = tunnel  # type: ignore[assignment] — duck-typed send
@@ -1162,7 +1162,7 @@ async def test_watch_runner_silent_on_intentional_stop(
         binding_token="tok_stop",
         workspace=str(workspace),
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(launch)
     assert result.status == "launched", result.error
 
@@ -1197,7 +1197,7 @@ async def test_watch_runner_silent_on_clean_exit(
     ``test_watch_runner_reports_unexpected_exit``.
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setattr("omnigent.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.host.connect._RUNNER_WATCH_INTERVAL_S", 0.01)
     host = _make_host_process()
     tunnel = _FakeTunnel()
     host._ws = tunnel  # type: ignore[assignment] — duck-typed send
@@ -1229,7 +1229,7 @@ async def test_watch_runner_silent_on_clean_exit(
         binding_token="tok_clean",
         workspace=str(workspace),
     )
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         result = await host._handle_launch(frame)
     assert result.status == "launched", result.error
 
@@ -1286,7 +1286,7 @@ async def test_capability_probe_timeout_does_not_block_connection(
 
     monkeypatch.setattr(host, "_probe_configured_harnesses", _blocked)
     monkeypatch.setattr(host, "_probe_gateway_inference", _blocked)
-    monkeypatch.setattr("omnigent.host.connect._HOST_CAPABILITY_INIT_TIMEOUT_S", 0.01)
+    monkeypatch.setattr("agentnexus.host.connect._HOST_CAPABILITY_INIT_TIMEOUT_S", 0.01)
 
     await host._initialize_capabilities()
 
@@ -1304,9 +1304,9 @@ async def test_capability_probe_failure_does_not_block_registration(
     def _denied() -> dict[str, bool]:
         raise PermissionError(13, "Permission denied", "/usr/local/bin/codex")
 
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", _denied)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", _denied)
     monkeypatch.setattr(
-        "omnigent.host.connect.gateway_inference_map",
+        "agentnexus.host.connect.gateway_inference_map",
         lambda: {"codex": False},
     )
     host = _make_host_process()
@@ -1330,7 +1330,7 @@ async def test_hello_advertises_installed_version() -> None:
     stale build in the server's version popover. The hello must carry the
     shared resolved version this host is actually running.
     """
-    from omnigent.version import VERSION
+    from agentnexus.version import VERSION
 
     host = _make_host_process()
     tunnel = _FakeTunnel()
@@ -1694,7 +1694,7 @@ def test_install_child_subreaper_is_safe_to_call() -> None:
     """
     import sys
 
-    from omnigent.host.connect import _install_child_subreaper
+    from agentnexus.host.connect import _install_child_subreaper
 
     result = _install_child_subreaper()
     assert isinstance(result, bool)
@@ -1707,7 +1707,7 @@ def test_host_spawned_runner_has_parent_pid_env(
 ) -> None:
     """
     Verify that runners spawned by the host have
-    OMNIGENT_RUNNER_PARENT_PID set to the host's PID.
+    AGENTNEXUS_RUNNER_PARENT_PID set to the host's PID.
 
     The runner's parent-PID watchdog uses this to auto-exit when
     the host dies. If the env var is missing or wrong, runners
@@ -1743,14 +1743,14 @@ def test_host_spawned_runner_has_parent_pid_env(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_capture_env):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_capture_env):
         import asyncio
 
         result = asyncio.run(host._handle_launch(frame))
 
     assert result.status == "launched"
     # RUNNER_PARENT_PID should be the host's own PID.
-    parent_pid = spawned_env.get("OMNIGENT_RUNNER_PARENT_PID")
+    parent_pid = spawned_env.get("AGENTNEXUS_RUNNER_PARENT_PID")
     assert parent_pid == str(os.getpid()), (
         f"Expected RUNNER_PARENT_PID={os.getpid()}, got {parent_pid}. "
         "Without this, the runner watchdog can't detect host death."
@@ -1971,14 +1971,14 @@ def test_build_runner_env_allowlists_host_env_and_strips_secrets() -> None:
         "DATABRICKS_TOKEN": "dapi-secret",
         "AWS_SECRET_ACCESS_KEY": "aws-secret",
         "SOME_RANDOM_VAR": "x",
-        "OMNIGENT_CLAUDE_SDK_NO_SANDBOX": "1",
+        "AGENTNEXUS_CLAUDE_SDK_NO_SANDBOX": "1",
         "KUBECONFIG": "/home/alice/.kube/config",
         "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.7Qk/Listeners",
         "CLAUDE_CODE_SKIP_BEDROCK_AUTH": "1",
-        "OMNIGENT_DATABRICKS_EXTRA_HEADERS": '{"x-databricks-route-hint": "instance-abc"}',
-        "OMNIGENT_LOG_LEVEL": "DEBUG",
-        "OMNIGENT_LOG_TO_STDERR": "1",
-        "OMNIGENT_LOG_TTY_FD": "9",
+        "AGENTNEXUS_DATABRICKS_EXTRA_HEADERS": '{"x-databricks-route-hint": "instance-abc"}',
+        "AGENTNEXUS_LOG_LEVEL": "DEBUG",
+        "AGENTNEXUS_LOG_TO_STDERR": "1",
+        "AGENTNEXUS_LOG_TTY_FD": "9",
     }
 
     env = _build_runner_env(
@@ -2013,10 +2013,10 @@ def test_build_runner_env_allowlists_host_env_and_strips_secrets() -> None:
     # sandbox containers. Only the baked host image ever sets it.
     assert env["IS_SANDBOX"] == "1"
     # The claude-sdk sandbox bypass flag forwards — it is read inside the
-    # harness, so a bare ``OMNIGENT_CLAUDE_SDK_NO_SANDBOX=1 omnigent run …``
+    # harness, so a bare ``AGENTNEXUS_CLAUDE_SDK_NO_SANDBOX=1 omnigent run …``
     # must reach the runner without also forcing
-    # ``OMNIGENT_RUNNER_ENV_PASSTHROUGH=OMNIGENT_CLAUDE_SDK_NO_SANDBOX``.
-    assert env["OMNIGENT_CLAUDE_SDK_NO_SANDBOX"] == "1"
+    # ``AGENTNEXUS_RUNNER_ENV_PASSTHROUGH=AGENTNEXUS_CLAUDE_SDK_NO_SANDBOX``.
+    assert env["AGENTNEXUS_CLAUDE_SDK_NO_SANDBOX"] == "1"
     # KUBECONFIG is a filesystem path (not a secret) — kubectl, helm, k9s
     # need it to resolve the user's cluster contexts and namespaces.
     assert env["KUBECONFIG"] == "/home/alice/.kube/config"
@@ -2029,15 +2029,15 @@ def test_build_runner_env_allowlists_host_env_and_strips_secrets() -> None:
     assert env["CLAUDE_CODE_SKIP_BEDROCK_AUTH"] == "1"
     # Opaque request-routing headers forward host→runner so the runner's tunnel
     # and server callbacks reach the same server instance the host registered on
-    # (without the operator also listing it in OMNIGENT_RUNNER_ENV_PASSTHROUGH).
+    # (without the operator also listing it in AGENTNEXUS_RUNNER_ENV_PASSTHROUGH).
     assert (
-        env["OMNIGENT_DATABRICKS_EXTRA_HEADERS"] == '{"x-databricks-route-hint": "instance-abc"}'
+        env["AGENTNEXUS_DATABRICKS_EXTRA_HEADERS"] == '{"x-databricks-route-hint": "instance-abc"}'
     )
     # Process logging controls forward so host-spawned runners honor --debug
     # and --log-to-stderr.
-    assert env["OMNIGENT_LOG_LEVEL"] == "DEBUG"
-    assert env["OMNIGENT_LOG_TO_STDERR"] == "1"
-    assert env["OMNIGENT_LOG_TTY_FD"] == "9"
+    assert env["AGENTNEXUS_LOG_LEVEL"] == "DEBUG"
+    assert env["AGENTNEXUS_LOG_TO_STDERR"] == "1"
+    assert env["AGENTNEXUS_LOG_TTY_FD"] == "9"
     # Non-harness secrets are stripped — the point of the allowlist.
     assert "DATABRICKS_TOKEN" not in env
     assert "AWS_SECRET_ACCESS_KEY" not in env
@@ -2060,7 +2060,7 @@ def test_build_runner_env_forwards_harness_credentials_and_endpoints() -> None:
     or gateway setups break in confusing ways). Absent vars are simply
     not set rather than defaulted.
     """
-    from omnigent.host.connect import HARNESS_CREDENTIAL_ENV_VARS
+    from agentnexus.host.connect import HARNESS_CREDENTIAL_ENV_VARS
 
     base = {
         "PATH": "/usr/bin",
@@ -2117,12 +2117,12 @@ def test_build_runner_env_forwards_harness_credentials_and_endpoints() -> None:
 
 def test_build_runner_env_forwards_omnigent_prefixed_harness_credentials() -> None:
     """Prefixed harness credential aliases forward without creating raw names."""
-    from omnigent.host.connect import HARNESS_CREDENTIAL_ENV_VARS
+    from agentnexus.host.connect import HARNESS_CREDENTIAL_ENV_VARS
 
     base = {
         "PATH": "/usr/bin",
         "HOME": "/root",
-        "OMNIGENT_ANTHROPIC_API_KEY": "sk-prefixed",
+        "AGENTNEXUS_ANTHROPIC_API_KEY": "sk-prefixed",
     }
 
     env = _build_runner_env(
@@ -2134,21 +2134,21 @@ def test_build_runner_env_forwards_omnigent_prefixed_harness_credentials() -> No
         parent_pid=42,
     )
 
-    assert "OMNIGENT_ANTHROPIC_API_KEY" in HARNESS_CREDENTIAL_ENV_VARS
-    assert env["OMNIGENT_ANTHROPIC_API_KEY"] == "sk-prefixed"
+    assert "AGENTNEXUS_ANTHROPIC_API_KEY" in HARNESS_CREDENTIAL_ENV_VARS
+    assert env["AGENTNEXUS_ANTHROPIC_API_KEY"] == "sk-prefixed"
     assert "ANTHROPIC_API_KEY" not in env
 
 
 def test_build_runner_env_passthrough_extends_forwarded_set() -> None:
     """
-    OMNIGENT_RUNNER_ENV_PASSTHROUGH names EXTRA vars to forward (for
+    AGENTNEXUS_RUNNER_ENV_PASSTHROUGH names EXTRA vars to forward (for
     `providers:`-config `env:` refs and custom gateway wiring) without
     opening the allowlist to anything unnamed.
     """
     base = {
         "PATH": "/usr/bin",
         "HOME": "/root",
-        "OMNIGENT_RUNNER_ENV_PASSTHROUGH": "MY_GATEWAY_TOKEN, MY_GATEWAY_URL",
+        "AGENTNEXUS_RUNNER_ENV_PASSTHROUGH": "MY_GATEWAY_TOKEN, MY_GATEWAY_URL",
         "MY_GATEWAY_TOKEN": "tok-123",
         "MY_GATEWAY_URL": "https://llm.internal.example.com",
         "UNLISTED_SECRET": "nope",
@@ -2173,7 +2173,7 @@ def test_build_runner_env_passthrough_extends_forwarded_set() -> None:
 def test_build_runner_env_passthrough_survives_remote_daemon_hop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """OMNIGENT_RUNNER_ENV_PASSTHROUGH forwards a named var through BOTH hops.
+    """AGENTNEXUS_RUNNER_ENV_PASSTHROUGH forwards a named var through BOTH hops.
 
     In ``--server`` mode the env crosses two strips: CLI→daemon
     (``_build_host_daemon_env``) then daemon→runner (``_build_runner_env``). The
@@ -2182,17 +2182,17 @@ def test_build_runner_env_passthrough_survives_remote_daemon_hop(
     the passthrough on the second, so it must reach the runner; an unnamed secret
     must not.
     """
-    from omnigent.cli import _build_host_daemon_env
+    from agentnexus.cli import _build_host_daemon_env
 
     monkeypatch.setenv("PATH", "/usr/bin")
-    monkeypatch.setenv("OMNIGENT_RUNNER_ENV_PASSTHROUGH", "DATABRICKS_LINEAR_API_KEY")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_ENV_PASSTHROUGH", "DATABRICKS_LINEAR_API_KEY")
     monkeypatch.setenv("DATABRICKS_LINEAR_API_KEY", "lin-secret")
     monkeypatch.setenv("DATABRICKS_UNNAMED", "should-not-forward")
 
     server = "https://example.databricksapps.com"
     daemon_env = _build_host_daemon_env(server_url=server)
     # The first hop must keep the control var (regression guard for the remote no-op).
-    assert daemon_env["OMNIGENT_RUNNER_ENV_PASSTHROUGH"] == "DATABRICKS_LINEAR_API_KEY"
+    assert daemon_env["AGENTNEXUS_RUNNER_ENV_PASSTHROUGH"] == "DATABRICKS_LINEAR_API_KEY"
 
     runner_env = _build_runner_env(
         daemon_env,
@@ -2240,19 +2240,19 @@ def test_build_runner_env_propagates_data_dir_paths_not_db_uri() -> None:
     local chain agrees on where config + data live, but the DB URI (which may
     embed a password) does not.
 
-    Regression guard: ``OMNIGENT_CONFIG_HOME`` was absent from the
-    allowlist, so the daemon/runner used ``~/.omnigent`` while a CLI run
+    Regression guard: ``AGENTNEXUS_CONFIG_HOME`` was absent from the
+    allowlist, so the daemon/runner used ``~/.agentnexus`` while a CLI run
     under an isolated config home read the local-server pidfile elsewhere —
-    discovery then timed out (the e2e ``OMNIGENT_CONFIG_HOME`` isolation
+    discovery then timed out (the e2e ``AGENTNEXUS_CONFIG_HOME`` isolation
     case). A failure of the first two asserts means that regression is back;
     a failure of the third means a DB secret can now leak into a (possibly
     hosted) runner.
     """
     base = {
         "PATH": "/usr/bin:/bin",
-        "OMNIGENT_CONFIG_HOME": "/tmp/iso-home",
-        "OMNIGENT_DATA_DIR": "/tmp/iso-data",
-        "OMNIGENT_DATABASE_URI": "postgresql://user:pw@host/db",
+        "AGENTNEXUS_CONFIG_HOME": "/tmp/iso-home",
+        "AGENTNEXUS_DATA_DIR": "/tmp/iso-data",
+        "AGENTNEXUS_DATABASE_URI": "postgresql://user:pw@host/db",
     }
 
     env = _build_runner_env(
@@ -2266,15 +2266,15 @@ def test_build_runner_env_propagates_data_dir_paths_not_db_uri() -> None:
 
     # Path vars propagate — they're how the runner finds the same config/data
     # dir the CLI + daemon + local server use.
-    assert env["OMNIGENT_CONFIG_HOME"] == "/tmp/iso-home"
-    assert env["OMNIGENT_DATA_DIR"] == "/tmp/iso-data"
+    assert env["AGENTNEXUS_CONFIG_HOME"] == "/tmp/iso-home"
+    assert env["AGENTNEXUS_DATA_DIR"] == "/tmp/iso-data"
     # The DB URI is NOT propagated — it may carry credentials and a runner
     # (hosted or local) has no business holding the server's DB connection.
-    assert "OMNIGENT_DATABASE_URI" not in env
+    assert "AGENTNEXUS_DATABASE_URI" not in env
 
 
 def test_build_runner_env_propagates_disable_keyring() -> None:
-    """``OMNIGENT_DISABLE_KEYRING`` propagates so the runner resolves
+    """``AGENTNEXUS_DISABLE_KEYRING`` propagates so the runner resolves
     ``keychain:`` secret refs against the SAME backend the CLI configured.
 
     Regression guard: with the flag set, ``configure harnesses`` stores pasted
@@ -2284,7 +2284,7 @@ def test_build_runner_env_propagates_disable_keyring() -> None:
     the CLI just saved — the headless / file-backend deploy case (and the exact
     failure hit while dogfooding the first-run flow).
     """
-    base = {"PATH": "/usr/bin:/bin", "OMNIGENT_DISABLE_KEYRING": "1"}
+    base = {"PATH": "/usr/bin:/bin", "AGENTNEXUS_DISABLE_KEYRING": "1"}
     env = _build_runner_env(
         base,
         server_url="http://server",
@@ -2293,7 +2293,7 @@ def test_build_runner_env_propagates_disable_keyring() -> None:
         workspace="/ws",
         parent_pid=42,
     )
-    assert env["OMNIGENT_DISABLE_KEYRING"] == "1"
+    assert env["AGENTNEXUS_DISABLE_KEYRING"] == "1"
 
 
 # ── host.list_dir handler ───────────────────────────────
@@ -2662,7 +2662,7 @@ def test_handle_install_harness_success_returns_refreshed_readiness(
     The server flips the UI badge off this map, so the handler must run the
     installer and then re-probe readiness, returning the fresh result.
     """
-    import omnigent.host.connect as connect
+    import agentnexus.host.connect as connect
 
     # Not yet installed, so the handler runs the installer.
     monkeypatch.setattr(connect, "harness_cli_installed", lambda key: False)
@@ -2695,7 +2695,7 @@ def test_handle_install_harness_already_installed_skips_installer(
     otherwise a user clicking Install on an installed harness waits pointlessly
     (and can hit the request timeout).
     """
-    import omnigent.host.connect as connect
+    import agentnexus.host.connect as connect
 
     monkeypatch.setattr(connect, "harness_cli_installed", lambda key: True)
 
@@ -2721,7 +2721,7 @@ def test_handle_install_harness_failure_surfaces_reason(
     A failed install returns ``failed`` with the installer's reason and no
     readiness map (the server keeps its prior view).
     """
-    import omnigent.host.connect as connect
+    import agentnexus.host.connect as connect
 
     monkeypatch.setattr(connect, "harness_cli_installed", lambda key: False)
     monkeypatch.setattr(
@@ -2749,7 +2749,7 @@ def test_handle_install_harness_rejects_non_allowlisted(
     Defence in depth: even if a stray frame reaches the daemon, a harness
     whose installer is a ``curl | bash`` (e.g. hermes) must never run.
     """
-    import omnigent.host.connect as connect
+    import agentnexus.host.connect as connect
 
     def _must_not_install(key: str) -> tuple[bool, str | None]:
         raise AssertionError("installer reached for a non-allowlisted harness")
@@ -2775,8 +2775,8 @@ def test_handle_store_secret_key_writes_and_returns_readiness(
     core, then recompute readiness so the server flips the badge (yellow →
     green) without a reconnect.
     """
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import StoreCredentialResult
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import StoreCredentialResult
 
     calls: list[dict[str, object]] = []
 
@@ -2817,8 +2817,8 @@ def test_handle_store_secret_pi_maps_to_anthropic_family(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Pi (which consumes both families) writes to its preferred anthropic family."""
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import StoreCredentialResult
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import StoreCredentialResult
 
     seen: dict[str, object] = {}
 
@@ -2841,8 +2841,8 @@ def test_handle_store_secret_adopt_calls_adopt_core(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An adopt request references an env var via the adopt core."""
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import DetectedCredential, StoreCredentialResult
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import DetectedCredential, StoreCredentialResult
 
     seen: dict[str, object] = {}
 
@@ -2881,8 +2881,8 @@ def test_handle_store_secret_pi_adopt_uses_detected_family_not_harness(
     (mis-routed, fails at run time). The daemon must use the env var's OWN
     detected family instead.
     """
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import DetectedCredential, StoreCredentialResult
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import DetectedCredential, StoreCredentialResult
 
     seen: dict[str, object] = {}
 
@@ -2920,8 +2920,8 @@ def test_handle_store_secret_adopt_refuses_undetected_env_var(
     an arbitrary set env var (a DB password, an unrelated secret) and have it
     persisted as a provider credential and sent to the vendor endpoint as auth.
     """
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import DetectedCredential
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import DetectedCredential
 
     def _must_not_write(**kwargs: object) -> object:
         raise AssertionError("adopt core reached for an undetected env var")
@@ -2951,7 +2951,7 @@ def test_handle_store_secret_adopt_refuses_undetected_env_var(
 
 def test_handle_store_secret_rejects_non_ui_harness(monkeypatch: pytest.MonkeyPatch) -> None:
     """A harness outside the UI-auth families is refused without a write."""
-    import omnigent.host.connect as connect
+    import agentnexus.host.connect as connect
 
     def _must_not_write(**kwargs: object) -> object:
         raise AssertionError("credential core reached for a non-UI-auth harness")
@@ -2967,8 +2967,8 @@ def test_handle_store_secret_rejects_non_ui_harness(monkeypatch: pytest.MonkeyPa
 
 def test_handle_store_secret_surfaces_core_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """A core write failure surfaces its non-secret reason as ``failed``."""
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import StoreCredentialResult
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import StoreCredentialResult
 
     monkeypatch.setattr(
         connect,
@@ -2988,8 +2988,8 @@ def test_handle_detect_credentials_returns_non_secret_descriptors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The detect handler returns the core's descriptors as plain dicts."""
-    import omnigent.host.connect as connect
-    from omnigent.onboarding.harness_auth import DetectedCredential
+    import agentnexus.host.connect as connect
+    from agentnexus.onboarding.harness_auth import DetectedCredential
 
     monkeypatch.setattr(
         connect,
@@ -3190,7 +3190,7 @@ def _patch_connect(monkeypatch: pytest.MonkeyPatch, spy: _ConnectSpy) -> None:
     """
     import websockets.asyncio.client as ws_client
 
-    import omnigent.runner._entry as entry_mod
+    import agentnexus.runner._entry as entry_mod
 
     monkeypatch.setattr(entry_mod, "_make_auth_token_factory", lambda *, server_url=None: None)
     monkeypatch.setattr(ws_client, "connect", spy)
@@ -3219,14 +3219,14 @@ def test_build_connect_headers_adds_org_header(monkeypatch: pytest.MonkeyPatch) 
     :param monkeypatch: The pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.runner._entry as entry_mod
+    import agentnexus.runner._entry as entry_mod
 
     # No managed token + no real Databricks creds: isolate the bearer
     # branch so only the routing header is under test.
-    monkeypatch.delenv("OMNIGENT_HOST_TOKEN", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_HOST_TOKEN", raising=False)
     monkeypatch.setattr(entry_mod, "_make_auth_token_factory", lambda *, server_url=None: None)
     monkeypatch.setattr(
-        "omnigent.cli_auth.load_databricks_org_id", lambda _url: "2850744067564480"
+        "agentnexus.cli_auth.load_databricks_org_id", lambda _url: "2850744067564480"
     )
 
     headers = _host("https://acme.databricks.com/api/2.0/omnigent")._build_connect_headers()
@@ -3238,7 +3238,7 @@ def test_build_connect_headers_retains_auth_factory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Host reconnects and runner launches share one warm auth factory."""
-    import omnigent.runner._entry as entry_mod
+    import agentnexus.runner._entry as entry_mod
 
     factory_builds: list[str | None] = []
     token_calls: list[int] = []
@@ -3251,7 +3251,7 @@ def test_build_connect_headers_retains_auth_factory(
         factory_builds.append(server_url)
         return _factory
 
-    monkeypatch.delenv("OMNIGENT_HOST_TOKEN", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_HOST_TOKEN", raising=False)
     monkeypatch.setattr(entry_mod, "_make_auth_token_factory", _make_factory)
 
     host = _host("https://app.example.databricksapps.com")
@@ -3279,17 +3279,17 @@ def test_build_connect_headers_slice_key_only_on_workspace_host(
     :param monkeypatch: The pytest monkeypatch fixture.
     :returns: None.
     """
-    import omnigent.runner._entry as entry_mod
+    import agentnexus.runner._entry as entry_mod
 
     # Isolate the slice-key branch from the bearer/managed-token paths.
-    monkeypatch.delenv("OMNIGENT_HOST_TOKEN", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_HOST_TOKEN", raising=False)
     monkeypatch.setattr(entry_mod, "_make_auth_token_factory", lambda *, server_url=None: None)
 
     workspace = _host("https://acme.databricks.com/api/2.0/omnigent")._build_connect_headers()
-    assert workspace["X-Databricks-Omnigent-Slice-Key"] == "host_test_connect"
+    assert workspace["X-Databricks-AgentNexus-Slice-Key"] == "host_test_connect"
 
     self_hosted = _host("http://127.0.0.1:6767")._build_connect_headers()
-    assert "X-Databricks-Omnigent-Slice-Key" not in self_hosted
+    assert "X-Databricks-AgentNexus-Slice-Key" not in self_hosted
 
 
 def test_build_runner_env_carries_host_id() -> None:
@@ -3301,7 +3301,7 @@ def test_build_runner_env_carries_host_id() -> None:
     ``test_cli_auth.test_databricks_request_headers_slice_key``). With no
     host_id (a CLI-local runner), the env var is omitted.
     """
-    from omnigent.runner.identity import RUNNER_SLICE_KEY_ENV_VAR
+    from agentnexus.runner.identity import RUNNER_SLICE_KEY_ENV_VAR
 
     def _env(*, server_url: str, host_id: str | None) -> dict[str, str]:
         return _build_runner_env(
@@ -3365,7 +3365,7 @@ async def test_run_retries_on_login_redirect(
     ``omnigent login`` remediation so the operator can act if the cause
     is persistent.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy(
         [
             InvalidURI("https://w/oidc/authorize", "scheme isn't ws or wss"),
@@ -3375,7 +3375,7 @@ async def test_run_retries_on_login_redirect(
     _patch_connect(monkeypatch, spy)
     host = _host()
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.host.connect"):
         await host.run()
 
     # 2 = redirect attempt + cancel attempt → it genuinely reconnected.
@@ -3384,7 +3384,7 @@ async def test_run_retries_on_login_redirect(
     # the single remediation message recommending `omnigent login <url>`.
     assert any("login page" in r.message for r in caplog.records)
     assert any(
-        "omnigent login https://app.example.databricks.com" in r.message for r in caplog.records
+        "agentnexus login https://app.example.databricks.com" in r.message for r in caplog.records
     )
 
 
@@ -3400,7 +3400,7 @@ async def test_login_redirect_prints_warning_to_terminal(
     The terminal warning must name the cause and the copy-pasteable
     ``omnigent login <url>`` remedy.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy(
         [
             InvalidURI("https://w/oidc/authorize", "scheme isn't ws or wss"),
@@ -3417,7 +3417,7 @@ async def test_login_redirect_prints_warning_to_terminal(
     # regression is back (warning only in the log file).
     assert "login page" in err
     # The exact remedy command, URL included, so the user can copy-paste.
-    assert "omnigent login https://app.example.databricks.com" in err
+    assert "agentnexus login https://app.example.databricks.com" in err
 
 
 async def test_fresh_host_fails_loud_after_persistent_login_redirects(
@@ -3431,7 +3431,7 @@ async def test_fresh_host_fails_loud_after_persistent_login_redirects(
     of retrying forever with the terminal silent (the silent-hang regression
     could resurface once the redirect was made retryable).
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     # A single queued redirect repeats forever — the streak only ends
     # because the host gives up.
     spy = _ConnectSpy([InvalidURI("https://w/oidc/authorize", "scheme isn't ws or wss")])
@@ -3444,7 +3444,7 @@ async def test_fresh_host_fails_loud_after_persistent_login_redirects(
     message = str(excinfo.value)
     # The fatal message identifies the auth cause and the exact remedy.
     assert "login page" in message
-    assert "omnigent login https://app.example.databricks.com" in message
+    assert "agentnexus login https://app.example.databricks.com" in message
     # 3 = _LOGIN_REDIRECT_FATAL_ATTEMPTS: enough retries to absorb a
     # one-off proxy blip, then fail. 1 would mean the blip
     # tolerance regressed; more (or no raise at all) would mean the
@@ -3462,7 +3462,7 @@ async def test_login_redirect_streak_resets_on_other_transient_errors(
     otherwise a fresh host riding out a restart would die from redirects
     accumulated across unrelated errors instead of three in a row.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     redirect = InvalidURI("https://w/oidc/authorize", "scheme isn't ws or wss")
     # Two redirects, then a 503 (must reset the streak), then redirects
     # repeating forever until the host gives up.
@@ -3490,7 +3490,7 @@ async def test_connected_host_retries_login_redirects_indefinitely(
     killing it would drop its live runners. It must keep retrying past
     the fresh-host fatal threshold.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     redirect = InvalidURI("https://w/oidc/authorize", "scheme isn't ws or wss")
     # Accepted upgrade first (None), then MORE redirects than the
     # fresh-host fatal threshold of 3, then a cancel to end the test.
@@ -3521,7 +3521,7 @@ async def test_connected_host_retries_auth_rejection_indefinitely(
     manual ``omnigent host`` restart once the VPN reconnects. It must keep
     retrying past the fresh-host fatal threshold instead.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     rejection = _invalid_status(status)
     # Accepted upgrade first (None), then several rejections (more than the
     # fresh-host login-redirect fatal threshold of 3 to prove there is no
@@ -3552,7 +3552,7 @@ async def test_connected_host_auth_rejection_prints_notice_once(
     print only once per outage (not on every retry) so it doesn't spam
     stderr while connectivity is down.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     rejection = _invalid_status(status)
     spy = _ConnectSpy([None, rejection, rejection, rejection, asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
@@ -3580,7 +3580,7 @@ async def test_fresh_host_retries_auth_rejection_before_failing_loud(
     tunnel upgrade. The host gets a few attempts, then still raises a
     clear credential failure instead of looping forever.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy([_invalid_status(status)])
     _patch_connect(monkeypatch, spy)
     host = _host()
@@ -3630,7 +3630,7 @@ async def test_auth_rejection_suggests_omnigent_login(
     server URL, so the user can copy-paste it.
     """
     server_url = "https://app.example.databricks.com"
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy([_invalid_status(status)])
     _patch_connect(monkeypatch, spy)
     host = _host(server_url=server_url)
@@ -3640,7 +3640,7 @@ async def test_auth_rejection_suggests_omnigent_login(
 
     # The exact, copy-pasteable command — URL included — must be present,
     # not just the bare word "login".
-    assert f"omnigent login {server_url}" in str(excinfo.value)
+    assert f"agentnexus login {server_url}" in str(excinfo.value)
 
 
 async def test_non_auth_permanent_4xx_omits_login_hint(
@@ -3663,7 +3663,7 @@ async def test_non_auth_permanent_4xx_omits_login_hint(
     # Confirm we got the actual 404 fatal message (not some unrelated
     # error that happens to lack "login") before asserting the absence.
     assert "HTTP 404" in message
-    assert "omnigent login" not in message
+    assert "agentnexus login" not in message
 
 
 @pytest.mark.parametrize("status", [408, 429, 500, 503])
@@ -3677,7 +3677,7 @@ async def test_run_reconnects_on_transient_upgrade_failure(
     ``CancelledError`` on the second attempt ends the loop so the test
     terminates; with backoff zeroed the retry is immediate.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy([_invalid_status(status), asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
     host = _host()
@@ -3696,9 +3696,9 @@ async def test_reconnect_uses_shorter_handshake_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Only reconnects use the shorter open timeout; cold startup stays tolerant."""
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", dict)
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", dict)
     spy = _ConnectSpy([None, asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
     host = _host()
@@ -3755,13 +3755,13 @@ async def test_loopback_host_exits_after_sustained_connection_refused(
     path. Dual-stack refusals arrive as asyncio's combined ``OSError``
     (errno lost) and must count exactly the same.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
     spy = _ConnectSpy([refused_exc])
     _patch_connect(monkeypatch, spy)
     host = _host(server_url)
 
-    with caplog.at_level(logging.ERROR, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.ERROR, logger="agentnexus.host.connect"):
         with pytest.raises(HostConnectError) as excinfo:
             await host.run()
 
@@ -3786,8 +3786,8 @@ async def test_remote_host_retries_connection_refused_past_threshold(
     loopback fatal threshold. Only loopback refusals prove the server
     is gone for good.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
     refused = _refused_exc()
     # More refusals than the threshold, then a cancel to end the test.
     spy = _ConnectSpy([refused, refused, refused, refused, asyncio.CancelledError()])
@@ -3811,11 +3811,11 @@ async def test_accepted_connect_resets_loopback_refused_streak(
     a real connection (server came back, then died again) must start
     counting from zero, not inherit pre-recovery refusals.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._LOOPBACK_REFUSED_FATAL_ATTEMPTS", 3)
     # The accepted connect sends a real hello; skip its slow CLI probes —
     # only the streak accounting is under test here.
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", dict)
     refused = _refused_exc()
     # 2 refusals (one short of fatal), an accepted upgrade (its tunnel
     # drops on first recv), then refusals repeating until fatal.
@@ -3866,8 +3866,8 @@ async def test_run_host_process_invalid_host_id_exits_actionably(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A malformed configured identity is a user error, not a CLI crash."""
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "not-a-uuid")
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "managed-test")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "not-a-uuid")
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "managed-test")
 
     with pytest.raises(SystemExit) as excinfo:
         run_host_process(
@@ -3878,7 +3878,7 @@ async def test_run_host_process_invalid_host_id_exits_actionably(
     assert excinfo.value.code == HOST_FATAL_EXIT_CODE
     err = capsys.readouterr().err
     assert "Could not start host" in err
-    assert "OMNIGENT_HOST_ID" in err
+    assert "AGENTNEXUS_HOST_ID" in err
     assert "not-a-uuid" in err
 
 
@@ -3895,7 +3895,7 @@ def test_run_host_process_announces_session_log_dir_on_start(
     advertised dir resolves under tmp.
     """
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / ".agentnexus"))
     # A single CancelledError ends the connect loop cleanly (no fatal exit),
     # so run_host_process returns after printing the startup banner.
     _patch_connect(monkeypatch, _ConnectSpy([asyncio.CancelledError()]))
@@ -3906,8 +3906,8 @@ def test_run_host_process_announces_session_log_dir_on_start(
     )
 
     out = capsys.readouterr().out
-    assert "Session logs: ~/.omnigent/logs/runner/" in out
-    assert "This host's log: ~/.omnigent/logs/host/host-" in out
+    assert "Session logs: ~/.agentnexus/logs/runner/" in out
+    assert "This host's log: ~/.agentnexus/logs/host/host-" in out
 
 
 async def test_launch_cancelled_midspawn_does_not_leak_untracked_runner(
@@ -3958,7 +3958,7 @@ async def test_launch_cancelled_midspawn_does_not_leak_untracked_runner(
         workspace=str(workspace),
     )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_slow_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_slow_popen):
         task = asyncio.create_task(host._handle_launch(frame))
         # Cancel only once the spawn thread has actually created the process,
         # so we exercise the real leak window rather than a pre-spawn cancel.
@@ -3987,7 +3987,7 @@ async def test_handle_model_options_serves_codex_probe_rows_and_caches(
     set, and the second request is served from the fingerprint cache —
     the harness is booted once.
     """
-    from omnigent import codex_native_app_server
+    from agentnexus import codex_native_app_server
 
     monkeypatch.setattr(
         codex_native_app_server,
@@ -4036,7 +4036,7 @@ async def test_handle_model_options_serves_claude_sdk_endpoint_listing(
 ) -> None:
     """SDK-mode Claude is a pass-through client, so the endpoint listing is
     the harness truth — served in the exact wire spelling the SDK sends."""
-    from omnigent.model_catalog import ModelEntry, ModelListing
+    from agentnexus.model_catalog import ModelEntry, ModelListing
 
     def _fake_listing(spec: object, harness: str) -> ModelListing:
         assert harness == "claude-sdk"
@@ -4050,7 +4050,7 @@ async def test_handle_model_options_serves_claude_sdk_endpoint_listing(
             note="test catalog",
         )
 
-    monkeypatch.setattr("omnigent.model_catalog.list_models_for_worker", _fake_listing)
+    monkeypatch.setattr("agentnexus.model_catalog.list_models_for_worker", _fake_listing)
     host = _make_host_process()
 
     result = await host._handle_model_options(
@@ -4073,7 +4073,7 @@ async def test_handle_model_options_serves_openai_agents_gateway_listing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The configurable OpenAI Agents worker exposes its gateway catalog."""
-    from omnigent.model_catalog import ModelEntry, ModelListing
+    from agentnexus.model_catalog import ModelEntry, ModelListing
 
     def _fake_listing(spec: object, harness: str) -> ModelListing:
         assert harness == "openai-agents"
@@ -4087,7 +4087,7 @@ async def test_handle_model_options_serves_openai_agents_gateway_listing(
             note="test gateway catalog",
         )
 
-    monkeypatch.setattr("omnigent.model_catalog.list_provider_models_for_worker", _fake_listing)
+    monkeypatch.setattr("agentnexus.model_catalog.list_provider_models_for_worker", _fake_listing)
     host = _make_host_process()
 
     result = await host._handle_model_options(
@@ -4134,7 +4134,7 @@ async def test_handle_model_options_serves_exact_codex_gateway_listing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The wrapped Codex partner sees the gateway's complete ordered catalog."""
-    from omnigent.model_catalog import ModelEntry, ModelListing
+    from agentnexus.model_catalog import ModelEntry, ModelListing
 
     def _fake_listing(spec: object, harness: str) -> ModelListing:
         assert harness == "codex"
@@ -4150,7 +4150,7 @@ async def test_handle_model_options_serves_exact_codex_gateway_listing(
         )
 
     monkeypatch.setattr(
-        "omnigent.model_catalog.list_provider_models_for_worker",
+        "agentnexus.model_catalog.list_provider_models_for_worker",
         _fake_listing,
     )
     host = _make_host_process()
@@ -4185,8 +4185,8 @@ async def test_handle_model_options_claude_sdk_rides_the_probe_when_endpoints_li
     stand-ins are gone), and the SDK drives the claude CLI — so the CLI's
     probed listing is the truth for this lane too.
     """
-    from omnigent.host.connect import ModelOptionsResult
-    from omnigent.model_catalog import ModelListing
+    from agentnexus.host.connect import ModelOptionsResult
+    from agentnexus.model_catalog import ModelListing
 
     def _fake_listing(spec: object, harness: str) -> ModelListing:
         assert harness == "claude-sdk"
@@ -4197,7 +4197,7 @@ async def test_handle_model_options_claude_sdk_rides_the_probe_when_endpoints_li
             note="the claude CLI login exposes no model-listing API before launch",
         )
 
-    monkeypatch.setattr("omnigent.model_catalog.list_models_for_worker", _fake_listing)
+    monkeypatch.setattr("agentnexus.model_catalog.list_models_for_worker", _fake_listing)
     host = _make_host_process()
 
     async def _fake_probed() -> ModelOptionsResult:
@@ -4225,11 +4225,11 @@ async def test_handle_model_options_claude_sdk_uses_configured_routable_aliases(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Mapping proxies can hide valid Claude input aliases from /v1/models."""
-    from omnigent.host.connect import ModelOptionsResult
-    from omnigent.model_catalog import ModelListing
+    from agentnexus.host.connect import ModelOptionsResult
+    from agentnexus.model_catalog import ModelListing
 
     monkeypatch.setattr(
-        "omnigent.model_catalog.list_models_for_worker",
+        "agentnexus.model_catalog.list_models_for_worker",
         lambda _spec, harness: ModelListing(
             source="openai-compatible",
             verified=True,
@@ -4280,8 +4280,8 @@ async def test_model_options_frame_replies_off_the_receive_loop(
     ``_handle_raw_message`` returns while the probe is still blocked; the
     reply frame arrives from the dispatched task once the probe finishes.
     """
-    from omnigent import codex_native_app_server
-    from omnigent.host.frames import encode_host_frame
+    from agentnexus import codex_native_app_server
+    from agentnexus.host.frames import encode_host_frame
 
     monkeypatch.setattr(
         codex_native_app_server,
@@ -4325,16 +4325,16 @@ async def test_silent_connect_streak_escalates_and_slows_reconnects(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Repeated accepted-but-silent connections escalate to slow backoff."""
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_CAP_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._SILENT_CONNECT_ESCALATE_ATTEMPTS", 3)
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", dict)
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_CAP_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._SILENT_CONNECT_ESCALATE_ATTEMPTS", 3)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", dict)
     spy = _ConnectSpy([None, None, None, None, None, asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
     host = _host()
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.host.connect"):
         await host.run()
 
     errors = [record for record in caplog.records if record.levelno == logging.ERROR]
@@ -4354,16 +4354,16 @@ async def test_inbound_frame_resets_silent_connect_streak(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Any inbound frame resets consecutive silent-connection accounting."""
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_CAP_S", 0.0)
-    monkeypatch.setattr("omnigent.host.connect._SILENT_CONNECT_ESCALATE_ATTEMPTS", 3)
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", dict)
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_CAP_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._SILENT_CONNECT_ESCALATE_ATTEMPTS", 3)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", dict)
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", dict)
     spy = _ConnectSpy([None, None, 1, None, None, asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
     host = _host()
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.host.connect"):
         await host.run()
 
     assert host._silent_connect_streak == 2
@@ -4410,7 +4410,7 @@ async def test_capabilities_are_initialized_once_across_reconnects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Reconnect handshakes reuse startup metadata instead of rerunning probes."""
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     calls = {"readiness": 0, "gateway": 0}
 
     def _readiness() -> dict[str, bool]:
@@ -4421,8 +4421,8 @@ async def test_capabilities_are_initialized_once_across_reconnects(
         calls["gateway"] += 1
         return {"codex": True}
 
-    monkeypatch.setattr("omnigent.host.connect.configured_harness_map", _readiness)
-    monkeypatch.setattr("omnigent.host.connect.gateway_inference_map", _gateway)
+    monkeypatch.setattr("agentnexus.host.connect.configured_harness_map", _readiness)
+    monkeypatch.setattr("agentnexus.host.connect.gateway_inference_map", _gateway)
     spy = _ConnectSpy([None, None, asyncio.CancelledError()])
     _patch_connect(monkeypatch, spy)
     host = _host()
@@ -4519,8 +4519,8 @@ def _spawn_with_fake_zygote(
         popen_argvs.append(list(argv))
         return _FakeSpawnedProc()
 
-    monkeypatch.setattr("omnigent.host.connect.open_process_log_file", _fake_open_log)
-    monkeypatch.setattr("omnigent.host.connect.subprocess.Popen", _fake_popen)
+    monkeypatch.setattr("agentnexus.host.connect.open_process_log_file", _fake_open_log)
+    monkeypatch.setattr("agentnexus.host.connect.subprocess.Popen", _fake_popen)
     host._spawn_runner_proc({}, "slug", tmp_path)
     return host, popen_argvs
 
@@ -4748,7 +4748,7 @@ async def test_frame_handler_failure_is_contained(
         raise RuntimeError("scripted stat failure")
 
     monkeypatch.setattr(HostProcess, "_handle_stat", _boom)
-    with caplog.at_level(logging.ERROR, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.ERROR, logger="agentnexus.host.connect"):
         host._start_frame_task(
             ws,  # type: ignore[arg-type] — duck-typed ws
             encode_host_frame(HostStatFrame(request_id="req_boom", path=str(tmp_path))),
@@ -4782,7 +4782,7 @@ def test_direct_spawn_keeps_the_workspace_off_sys_path(
 
     _host, popen_argvs = _spawn_with_fake_zygote(monkeypatch, tmp_path, zygote)
 
-    assert popen_argvs[0][1:] == ["-P", "-m", "omnigent.runner._entry"]
+    assert popen_argvs[0][1:] == ["-P", "-m", "agentnexus.runner._entry"]
 
 
 async def test_on_resume_from_suspend_aborts_live_tunnel() -> None:
@@ -4853,7 +4853,7 @@ async def test_run_reconnects_promptly_after_suspend(
     :param caplog: Log capture fixture.
     :returns: None.
     """
-    monkeypatch.setattr("omnigent.host.connect._RECONNECT_BASE_S", 0.0)
+    monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
 
     class _BlockingTunnel:
         """Accepted tunnel whose ``recv()`` blocks until the transport aborts."""
@@ -4936,13 +4936,13 @@ async def test_run_reconnects_promptly_after_suspend(
 
     import websockets.asyncio.client as ws_client
 
-    import omnigent.runner._entry as entry_mod
+    import agentnexus.runner._entry as entry_mod
 
     monkeypatch.setattr(entry_mod, "_make_auth_token_factory", lambda *, server_url=None: None)
     monkeypatch.setattr(ws_client, "connect", _connect)
-    monkeypatch.setattr("omnigent.host.connect.watch_for_resume", _fake_watch)
+    monkeypatch.setattr("agentnexus.host.connect.watch_for_resume", _fake_watch)
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.host.connect"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.host.connect"):
         await host.run()
 
     # Two connects: the initial live tunnel + the prompt reconnect after wake.
@@ -4960,7 +4960,7 @@ def test_post_connect_auth_rejection_escalates_without_going_fatal(
     network hint to a re-auth prompt that names ``omnigent login`` — so a
     permanently-rejected credential surfaces instead of looping silently.
     """
-    from omnigent.host.connect import _AUTH_REJECT_ESCALATE_ATTEMPTS
+    from agentnexus.host.connect import _AUTH_REJECT_ESCALATE_ATTEMPTS
 
     host = _make_host_process()
     host._ever_connected = True
@@ -4969,19 +4969,19 @@ def test_post_connect_auth_rejection_escalates_without_going_fatal(
     assert host._classify_http_status(403) is None
     first = capsys.readouterr().err
     assert "network dropped" in first
-    assert "omnigent login" not in first
+    assert "agentnexus login" not in first
 
     # Streak climbs toward — but not to — the escalation threshold: stays quiet
     # so a brief VPN outage never raises a false re-auth alarm.
     for _ in range(2, _AUTH_REJECT_ESCALATE_ATTEMPTS):
         assert host._classify_http_status(403) is None
-    assert "omnigent login" not in capsys.readouterr().err
+    assert "agentnexus login" not in capsys.readouterr().err
 
     # Crossing the threshold escalates — names the real remedy — and is STILL
     # retryable (no fatal error, so a recoverable daemon is never killed).
     assert host._classify_http_status(403) is None
     escalated = capsys.readouterr().err
-    assert "omnigent login http://localhost:8000" in escalated
+    assert "agentnexus login http://localhost:8000" in escalated
     assert "no longer a transient network blip" in escalated
     assert host._auth_retry_streak == _AUTH_REJECT_ESCALATE_ATTEMPTS
 
@@ -4994,7 +4994,7 @@ async def test_fatal_upgrade_error_surfaces_server_refusal_body() -> None:
     host = _make_host_process()
     server_reason = (
         "Invalid host id 'superagent-databricks-host': host ids must be UUIDs. "
-        "Set OMNIGENT_HOST_ID to a UUID (or unset it to have one generated) and reconnect."
+        "Set AGENTNEXUS_HOST_ID to a UUID (or unset it to have one generated) and reconnect."
     )
     err = host._fatal_upgrade_error(_invalid_status(400, server_reason.encode()))
     assert err is not None  # 400 is a permanent refusal, not retried
@@ -5037,7 +5037,7 @@ async def test_handle_launch_supersedes_previous_runner_for_same_session(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         first = await host._handle_launch(
             HostLaunchRunnerFrame(
                 request_id="req_a",
@@ -5090,7 +5090,7 @@ async def test_handle_launch_leaves_other_sessions_runners_alone(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_fake_popen):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_fake_popen):
         first = await host._handle_launch(
             HostLaunchRunnerFrame(
                 request_id="req_a",
@@ -5142,7 +5142,7 @@ async def test_handle_launch_spawn_failure_preserves_previous_runner(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_popen_second_fails):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_popen_second_fails):
         first = await host._handle_launch(
             HostLaunchRunnerFrame(
                 request_id="req_a",
@@ -5202,7 +5202,7 @@ async def test_supersede_stop_does_not_block_the_launch(
             stderr=subprocess.DEVNULL,
         )
 
-    with patch("omnigent.host.connect.subprocess.Popen", side_effect=_popen_first_stubborn):
+    with patch("agentnexus.host.connect.subprocess.Popen", side_effect=_popen_first_stubborn):
         first = await host._handle_launch(
             HostLaunchRunnerFrame(
                 request_id="req_a",
@@ -5243,7 +5243,7 @@ async def test_handle_import_local_all_streams_a_frame_per_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``source="all"`` streams one session frame each (tagged), then a done frame."""
-    from omnigent.host.frames import (
+    from agentnexus.host.frames import (
         HostImportLocalDoneFrame,
         HostImportLocalSessionFrame,
         decode_host_frame,
@@ -5270,9 +5270,9 @@ async def test_handle_import_local_all_streams_a_frame_per_session(
         )
 
     monkeypatch.setattr(
-        "omnigent.session_import.local.list_recent_sessions_across_harnesses", _fake_across
+        "agentnexus.session_import.local.list_recent_sessions_across_harnesses", _fake_across
     )
-    monkeypatch.setattr("omnigent.session_import.local.load_local_session", _fake_load)
+    monkeypatch.setattr("agentnexus.session_import.local.load_local_session", _fake_load)
 
     sent: list[str] = []
 
@@ -5301,7 +5301,7 @@ async def test_handle_import_local_reports_unreadable_sessions_as_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A session that fails to load sends no frame but is counted on the done frame."""
-    from omnigent.host.frames import (
+    from agentnexus.host.frames import (
         HostImportLocalDoneFrame,
         HostImportLocalSessionFrame,
         decode_host_frame,
@@ -5329,9 +5329,9 @@ async def test_handle_import_local_reports_unreadable_sessions_as_failed(
         )
 
     monkeypatch.setattr(
-        "omnigent.session_import.local.list_recent_sessions_across_harnesses", _fake_across
+        "agentnexus.session_import.local.list_recent_sessions_across_harnesses", _fake_across
     )
-    monkeypatch.setattr("omnigent.session_import.local.load_local_session", _fake_load)
+    monkeypatch.setattr("agentnexus.session_import.local.load_local_session", _fake_load)
 
     sent: list[str] = []
 

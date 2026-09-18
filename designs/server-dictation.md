@@ -8,7 +8,7 @@ official Chrome/Safari builds (Google/Apple cloud speech); it is unavailable
 in Electron, Firefox, Chromium, and most self-hosted contexts. Today the
 button renders nothing (or "Dictation unavailable") in those environments —
 `web/electron/README.md` documents the gap and prescribes the fix: capture
-audio in the client and transcribe it on the Omnigent server.
+audio in the client and transcribe it on the AgentNexus server.
 
 This design adds that path: a streaming speech-to-text WebSocket on the
 server, backed by a local [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
@@ -23,7 +23,7 @@ to it whenever Web Speech is unavailable.
 - Live partial transcripts stream into the composer while the user speaks
   (the Web Speech path today only inserts final utterances).
 - Zero new required dependencies: the STT engine ships as an optional extra
-  (`omnigent[dictation]`), imported lazily, mirroring the `s3`/`modal`/
+  (`agentnexus[dictation]`), imported lazily, mirroring the `s3`/`modal`/
   `daytona` extras' posture. Servers without the extra (or without models)
   report `available: false` and the web UI silently keeps its current
   behavior.
@@ -38,7 +38,7 @@ to it whenever Web Speech is unavailable.
 
 ## Server
 
-### Engine — `omnigent/server/dictation.py`
+### Engine — `agentnexus/server/dictation.py`
 
 A small engine layer isolates the recognizer behind a protocol so tests
 (and alternate backends, e.g. Whisper or an OpenAI-compatible
@@ -62,7 +62,7 @@ engine-agnostic. Most modern models (Whisper, Parakeet) punctuate
 themselves; sherpa is the exception (see below).
 
 **Engine registry.** Engines are registered by name and selected via
-`OMNIGENT_DICTATION_ENGINE`:
+`AGENTNEXUS_DICTATION_ENGINE`:
 
 ```python
 register_engine("sherpa", lambda: SherpaDictationEngine(...), available=_sherpa_available)
@@ -88,17 +88,17 @@ the streams beautify before returning; it is not part of the protocol.
 Decode calls are CPU-bound → they run via `asyncio.to_thread`, serialized by
 a per-engine `threading.Lock` (sherpa recognizer streams are not documented
 thread-safe), with a module-level semaphore capping concurrent dictation
-connections (default 2, `OMNIGENT_DICTATION_MAX_STREAMS`).
+connections (default 2, `AGENTNEXUS_DICTATION_MAX_STREAMS`).
 
 ### Configuration
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `OMNIGENT_DICTATION_MODEL_DIR` | `~/.omnigent/models/dictation/asr` | dir containing `encoder*.onnx`, `decoder*.onnx`, `joiner*.onnx`, `tokens.txt` |
-| `OMNIGENT_DICTATION_PUNCT_DIR` | `~/.omnigent/models/dictation/punct` | optional online-punctuation model dir (`model*.onnx` + `bpe.vocab`) |
-| `OMNIGENT_DICTATION_MAX_STREAMS` | `2` | concurrent dictation WebSockets |
-| `OMNIGENT_DICTATION_ENGINE` | unset (`sherpa`) | engine to use by registered name (`sherpa`, `remote`, `fake`) |
-| `OMNIGENT_DICTATION_REMOTE_URL` | unset | worker stream URL for the `remote` engine, e.g. `ws://venus:8100/v1/dictation/stream` |
+| `AGENTNEXUS_DICTATION_MODEL_DIR` | `~/.agentnexus/models/dictation/asr` | dir containing `encoder*.onnx`, `decoder*.onnx`, `joiner*.onnx`, `tokens.txt` |
+| `AGENTNEXUS_DICTATION_PUNCT_DIR` | `~/.agentnexus/models/dictation/punct` | optional online-punctuation model dir (`model*.onnx` + `bpe.vocab`) |
+| `AGENTNEXUS_DICTATION_MAX_STREAMS` | `2` | concurrent dictation WebSockets |
+| `AGENTNEXUS_DICTATION_ENGINE` | unset (`sherpa`) | engine to use by registered name (`sherpa`, `remote`, `fake`) |
+| `AGENTNEXUS_DICTATION_REMOTE_URL` | unset | worker stream URL for the `remote` engine, e.g. `ws://venus:8100/v1/dictation/stream` |
 
 `scripts/fetch-dictation-models.sh` downloads a known-good pair (streaming
 Nemotron 0.6 B int8 + English online punctuation, both Apache-2.0 upstream)
@@ -106,7 +106,7 @@ into the default locations. Availability is computed lazily and cached:
 extra installed **and** ASR model dir populated.
 
 **Hardware sizing.** Any sherpa-onnx streaming transducer directory works —
-point `OMNIGENT_DICTATION_MODEL_DIR` at it. Streaming dictation needs ≥1×
+point `AGENTNEXUS_DICTATION_MODEL_DIR` at it. Streaming dictation needs ≥1×
 realtime decode; measured with this engine loop (int8, 4 threads, 100 ms
 chunks):
 
@@ -118,7 +118,7 @@ chunks):
 
 On N100/N95-class mini-PC servers, use the mid-size zipformer (accuracy held
 up in spot checks; the 20 M model audibly degrades) and consider
-`OMNIGENT_DICTATION_MAX_STREAMS=1`.
+`AGENTNEXUS_DICTATION_MAX_STREAMS=1`.
 
 **Other languages.** The engine is language-agnostic — dictation speaks
 whatever language the installed model was trained on. The
@@ -126,9 +126,9 @@ whatever language the installed model was trained on. The
 includes Chinese, Chinese/English bilingual
 (`sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20`), French
 (`sherpa-onnx-streaming-zipformer-fr-2023-04-14`), Korean, and more; point
-`OMNIGENT_DICTATION_MODEL_DIR` at any of them. Two caveats: the fetch
+`AGENTNEXUS_DICTATION_MODEL_DIR` at any of them. Two caveats: the fetch
 script's punctuation model is English-only, so leave
-`OMNIGENT_DICTATION_PUNCT_DIR` unpopulated for other languages (raw
+`AGENTNEXUS_DICTATION_PUNCT_DIR` unpopulated for other languages (raw
 recognizer output is emitted as-is), and the mic button's `lang` prop only
 affects the Web Speech path — the server path's language is decided by the
 operator's model choice.
@@ -147,17 +147,17 @@ Run the worker wherever the models live (it is **unauthenticated** — bind it
 to a trusted LAN/VPN only):
 
 ```
-pip install omnigent[dictation] && scripts/fetch-dictation-models.sh
-python -m omnigent.server.dictation_worker --host 0.0.0.0 --port 8100
+pip install agentnexus[dictation] && scripts/fetch-dictation-models.sh
+python -m agentnexus.server.dictation_worker --host 0.0.0.0 --port 8100
 ```
 
 Then select the `remote` engine on the main server via env vars — no CLI
 integration is required:
 
 ```
-OMNIGENT_DICTATION_ENGINE=remote \
-OMNIGENT_DICTATION_REMOTE_URL=ws://<worker-host>:8100/v1/dictation/stream \
-omnigent server ...
+AGENTNEXUS_DICTATION_ENGINE=remote \
+AGENTNEXUS_DICTATION_REMOTE_URL=ws://<worker-host>:8100/v1/dictation/stream \
+agentnexus server ...
 ```
 
 `RemoteDictationEngine` registers by name like every other engine (no changes
@@ -174,7 +174,7 @@ worker's cold-load budget (`_REMOTE_READY_TIMEOUT_S` / `_REMOTE_STOP_TIMEOUT_S`
 in `dictation.py`) so a relayed take doesn't time out on the browser side just
 as the worker finishes loading its model.
 
-### Routes — `omnigent/server/routes/dictation.py`
+### Routes — `agentnexus/server/routes/dictation.py`
 
 `create_dictation_router(*, auth_provider=None, engine_provider=None)`,
 registered in `create_app` under `/v1` like every other router. Dictation is
@@ -259,7 +259,7 @@ mode), behavior is exactly today's.
   mode selection, partial/final callback flow against a mocked WebSocket and
   mocked AudioWorklet capture.
 - **e2e (Playwright, `tests/e2e_ui/`)**: a fake engine selected via env
-  (`OMNIGENT_DICTATION_ENGINE=fake`, emits a scripted transcript) lets the
+  (`AGENTNEXUS_DICTATION_ENGINE=fake`, emits a scripted transcript) lets the
   full browser→WS→server→composer loop run headless without a mic:
   the test grants fake mic permissions, clicks the mic button, and asserts
   the scripted text lands in the composer.

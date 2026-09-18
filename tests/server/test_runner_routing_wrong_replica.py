@@ -1,7 +1,7 @@
 """Tests for WRONG_REPLICA classification in RunnerRouter._runner_absent_code."""
 
-from omnigent.errors import ErrorCode
-from omnigent.runner.routing import RunnerRouter
+from agentnexus.errors import ErrorCode
+from agentnexus.runner.routing import RunnerRouter
 
 
 class MockHostRegistry:

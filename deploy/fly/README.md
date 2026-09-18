@@ -1,6 +1,6 @@
-# Omnigent on Fly.io
+# AgentNexus on Fly.io
 
-Deploy Omnigent to Fly.io. Fly pulls the prebuilt image, runs it next to a
+Deploy AgentNexus to Fly.io. Fly pulls the prebuilt image, runs it next to a
 persistent volume, and serves it over HTTPS on `*.fly.dev`.
 
 > **Fly is CLI-first.** There's no embeddable one-click button like Render's;
@@ -9,7 +9,7 @@ persistent volume, and serves it over HTTPS on `*.fly.dev`.
 
 ## What gets provisioned
 
-- **omnigent** — a machine that pulls `ghcr.io/omnigent-ai/omnigent-server`,
+- **agentnexus** — a machine that pulls `ghcr.io/agentnexus-ai/agentnexus-server`,
   served on `https://<app>.fly.dev`.
 - **artifact_data** — a persistent volume mounted at `/data/artifacts`, holding
   the artifact store, the minted cookie secret, and (by default) the SQLite
@@ -42,7 +42,7 @@ Then:
    ```
    Open `https://<your-app>.fly.dev` and use the web Create-admin form to pick
    your own username + password. For a headless deploy, pre-seed
-   `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` (`fly secrets set …`) before first
+   `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD` (`fly secrets set …`) before first
    boot to create the admin directly instead.
 3. Log in with the admin you just created. The cookie secret and base URL
    (`FLY_APP_NAME` -> `<app>.fly.dev`) are handled automatically.
@@ -50,7 +50,7 @@ Then:
 > **Security note for public deployments:** `POST /auth/setup` is
 > unauthenticated while no password-bearing account exists, so an instance
 > exposed before you reach the Create-admin form can be claimed by the first
-> visitor. Pre-seed `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
+> visitor. Pre-seed `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD`, or complete setup
 > promptly after the deploy goes live.
 
 ## Deploy (Fly web-UI Launch)
@@ -64,7 +64,7 @@ no "deploy this external image" mode, so the default `[build] image = ...`
   dockerfile = "deploy/docker/Dockerfile.prebuilt"
 ```
 
-The shim is `FROM ghcr.io/omnigent-ai/omnigent-server` with nothing added, so
+The shim is `FROM ghcr.io/agentnexus-ai/agentnexus-server` with nothing added, so
 Fly **pulls the prebuilt image and re-tags it** — no source rebuild. Launch
 still won't auto-create the `artifact_data` volume or bump memory, so create
 the volume (above) and confirm 1 GB after Launch finishes.
@@ -99,16 +99,16 @@ provides on `*.fly.dev`):
 
 ```bash
 fly secrets set \
-  OMNIGENT_AUTH_PROVIDER=oidc \
-  OMNIGENT_OIDC_ISSUER=https://github.com \
-  OMNIGENT_OIDC_CLIENT_ID=<client-id> \
-  OMNIGENT_OIDC_CLIENT_SECRET=<client-secret> \
-  OMNIGENT_OIDC_REDIRECT_URI=https://<your-app>.fly.dev/auth/callback \
-  OMNIGENT_OIDC_COOKIE_SECRET=$(openssl rand -hex 32) \
+  AGENTNEXUS_AUTH_PROVIDER=oidc \
+  AGENTNEXUS_OIDC_ISSUER=https://github.com \
+  AGENTNEXUS_OIDC_CLIENT_ID=<client-id> \
+  AGENTNEXUS_OIDC_CLIENT_SECRET=<client-secret> \
+  AGENTNEXUS_OIDC_REDIRECT_URI=https://<your-app>.fly.dev/auth/callback \
+  AGENTNEXUS_OIDC_COOKIE_SECRET=$(openssl rand -hex 32) \
   -a <your-app>
 ```
 
-For Google Workspace, also set `OMNIGENT_OIDC_ALLOWED_DOMAINS` to restrict
+For Google Workspace, also set `AGENTNEXUS_OIDC_ALLOWED_DOMAINS` to restrict
 logins to your domain.
 
 ## Cost

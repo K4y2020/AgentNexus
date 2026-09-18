@@ -23,13 +23,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-import omnigent.server.routes.sessions as sessions_routes
-from omnigent.server.auth import LEVEL_OWNER, UnifiedAuthProvider
-from omnigent.server.routes.sessions import SessionLiveness, create_sessions_router
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+import agentnexus.server.routes.sessions as sessions_routes
+from agentnexus.server.auth import LEVEL_OWNER, UnifiedAuthProvider
+from agentnexus.server.routes.sessions import SessionLiveness, create_sessions_router
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 ALICE = "alice@example.com"
 BOB = "bob@example.com"
@@ -447,7 +447,7 @@ def test_watch_set_truncated_at_cap(
     s1 = _seed_session(stores, owner=ALICE, title="one")
     s2 = _seed_session(stores, owner=ALICE, title="two")
     s3 = _seed_session(stores, owner=ALICE, title="three")
-    with caplog.at_level(logging.WARNING, logger="omnigent.server.routes.sessions"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.server.routes.sessions"):
         with TestClient(app).websocket_connect(
             "/v1/sessions/updates", headers={"X-Forwarded-Email": ALICE}
         ) as ws:
@@ -591,7 +591,7 @@ def test_pin_label_collapses_to_canonical_key_on_the_wire(
     via the normal rescan-diff path: pinning a watched session out of band
     surfaces on the next ``changed`` frame (``fast_rescan`` shrinks the tick).
     """
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     conversation_store, _agent_store, _permission_store = stores
     s1 = _seed_session(stores, owner=ALICE, title="watched")
@@ -614,7 +614,7 @@ def test_pin_label_collapses_to_canonical_key_on_the_wire(
         assert s1 in items
         labels = items[s1]["labels"]
         # Alice's pin surfaces as the canonical bare key…
-        assert labels.get("omnigent.pinned") == "1721760000000"
+        assert labels.get("agentnexus.pinned") == "1721760000000"
         # …and neither per-user key (hers or Bob's) leaks onto the wire.
         assert pinned_label_key(ALICE) not in labels
         assert pinned_label_key(BOB) not in labels
@@ -641,7 +641,7 @@ def comment_clock(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     """
     state = {"now": 1_000}
     monkeypatch.setattr(
-        "omnigent.stores.comment_store.sqlalchemy_store.now_epoch_us",
+        "agentnexus.stores.comment_store.sqlalchemy_store.now_epoch_us",
         lambda: state["now"] * _US,
     )
     return state

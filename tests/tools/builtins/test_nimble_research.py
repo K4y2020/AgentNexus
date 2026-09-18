@@ -23,10 +23,10 @@ import httpx
 import pytest
 import respx
 
-import omnigent.tools.builtins.nimble_research as nimble_research_mod
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins import get_builtin_tool
-from omnigent.tools.builtins.nimble_research import (
+import agentnexus.tools.builtins.nimble_research as nimble_research_mod
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins import get_builtin_tool
+from agentnexus.tools.builtins.nimble_research import (
     NimbleResearchTool,
     _clamp_seconds,
     _map_trust,
@@ -352,7 +352,7 @@ def test_missing_sdk_names_the_nimble_extra_unbilled(
     monkeypatch.setitem(sys.modules, "nimble_python", None)
     out = _invoke(_config(), tool_ctx, args={"task": "x"})
     assert "nimble-python client is not installed" in out
-    assert "omnigent[nimble]" in out
+    assert "agentnexus[nimble]" in out
     assert respx.calls.call_count == 0
 
 
@@ -388,11 +388,11 @@ def test_create_request_shape_and_headers(tool_ctx: ToolContext, fake_clock: _Fa
     assert create.called
     request = create.calls.last.request
     assert request.headers["Authorization"] == "Bearer test-key"
-    assert request.headers["X-Client-Source"] == "omnigent"
+    assert request.headers["X-Client-Source"] == "agentnexus"
     assert request.headers["Content-Type"] == "application/json"
     body = json.loads(request.content)
     assert body == {"input": "profile Nimbleway", "effort": "low"}
-    assert result.calls.last.request.headers["X-Client-Source"] == "omnigent"
+    assert result.calls.last.request.headers["X-Client-Source"] == "agentnexus"
     assert json.loads(out)["status"] == "completed"
 
 
@@ -421,8 +421,8 @@ def test_effort_is_omitted_when_unset(tool_ctx: ToolContext, fake_clock: _FakeCl
 def test_base_url_env_override(
     tool_ctx: ToolContext, fake_clock: _FakeClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``OMNIGENT_NIMBLE_RESEARCH_BASE_URL`` reroutes every request (test/e2e seam)."""
-    monkeypatch.setenv("OMNIGENT_NIMBLE_RESEARCH_BASE_URL", "http://127.0.0.1:9999/")
+    """``AGENTNEXUS_NIMBLE_RESEARCH_BASE_URL`` reroutes every request (test/e2e seam)."""
+    monkeypatch.setenv("AGENTNEXUS_NIMBLE_RESEARCH_BASE_URL", "http://127.0.0.1:9999/")
     stub_base = "http://127.0.0.1:9999"
     create = respx.post(f"{stub_base}/v2/agents/{_AGENT_ID}/runs").mock(
         return_value=httpx.Response(202, json=_run("completed"))
@@ -460,7 +460,7 @@ def test_lifecycle_queued_running_completed_text(
     assert result.call_count == 1
     for route_calls in (poll.calls, result.calls):
         headers = route_calls.last.request.headers
-        assert headers["X-Client-Source"] == "omnigent"
+        assert headers["X-Client-Source"] == "agentnexus"
         assert headers["Authorization"] == "Bearer test-key"
     envelope = json.loads(out)
     assert envelope["run_id"] == _RUN_ID
@@ -1395,7 +1395,7 @@ def test_client_source_and_no_credential_reflection_on_every_hop(
 
     for route in (create, poll, result):
         headers = route.calls.last.request.headers
-        assert headers["X-Client-Source"] == "omnigent"
+        assert headers["X-Client-Source"] == "agentnexus"
         assert headers["Authorization"] == f"Bearer {secret}"
     assert secret not in json.loads(create.calls.last.request.content.decode()).get("input", "")
     assert secret not in out, "the credential must never reach the model-visible envelope"

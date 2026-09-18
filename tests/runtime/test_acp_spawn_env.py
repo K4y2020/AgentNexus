@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.runtime.workflow import _build_acp_spawn_env
-from omnigent.spec.types import AgentSpec, ExecutorSpec, LLMConfig
+from agentnexus.runtime.workflow import _build_acp_spawn_env
+from agentnexus.spec.types import AgentSpec, ExecutorSpec, LLMConfig
 
 _AGENTS = [
     {"name": "Gemini CLI", "command": "gemini --experimental-acp"},
@@ -26,7 +26,7 @@ _AGENTS = [
     {
         "name": "OpenClaw",
         "command": "openclaw acp --url https://gateway --token token",
-        "omnigent_mcp": False,
+        "agentnexus_mcp": False,
     },
 ]
 _MISSING = object()
@@ -34,8 +34,8 @@ _MISSING = object()
 
 @pytest.fixture(autouse=True)
 def _isolate_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point OMNIGENT_CONFIG_HOME at a temp dir so the real config can't leak in."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    """Point AGENTNEXUS_CONFIG_HOME at a temp dir so the real config can't leak in."""
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     return tmp_path
 
 
@@ -63,7 +63,7 @@ def _make_spec(
         spec_version=1,
         name="test-acp",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -74,7 +74,7 @@ def test_slug_resolves_to_command(_isolate_config: Path) -> None:
     assert env["HARNESS_ACP_COMMAND"] == "goose acp"
     assert env["HARNESS_ACP_NAME"] == "Goose"
     assert env["HARNESS_ACP_SESSION_ID_MODE"] == "client"
-    assert env["HARNESS_ACP_OMNIGENT_MCP"] == "1"
+    assert env["HARNESS_ACP_AGENTNEXUS_MCP"] == "1"
     # Per-agent model applies when the spec pins none.
     assert env["HARNESS_ACP_MODEL"] == "gpt-5.3"
 
@@ -133,7 +133,7 @@ def test_omnigent_mcp_flag_forwarded(_isolate_config: Path) -> None:
     _write_acp_config(_isolate_config)
     env = _build_acp_spawn_env(_make_spec(harness="acp:openclaw"))
     assert env["HARNESS_ACP_COMMAND"] == "openclaw acp --url https://gateway --token token"
-    assert env["HARNESS_ACP_OMNIGENT_MCP"] == "0"
+    assert env["HARNESS_ACP_AGENTNEXUS_MCP"] == "0"
 
 
 def test_embedded_omnigent_mcp_flag_forwarded() -> None:
@@ -143,11 +143,11 @@ def test_embedded_omnigent_mcp_flag_forwarded() -> None:
             acp_agent={
                 "name": "OpenClaw",
                 "command": "openclaw acp",
-                "omnigent_mcp": False,
+                "agentnexus_mcp": False,
             },
         )
     )
-    assert env["HARNESS_ACP_OMNIGENT_MCP"] == "0"
+    assert env["HARNESS_ACP_AGENTNEXUS_MCP"] == "0"
 
 
 @pytest.mark.parametrize(
@@ -158,7 +158,7 @@ def test_embedded_omnigent_mcp_flag_forwarded() -> None:
         {},
         {"name": "Helper"},
         {"name": "Helper", "command": " "},
-        {"name": "Helper", "command": "helper", "omnigent_mcp": "false"},
+        {"name": "Helper", "command": "helper", "agentnexus_mcp": "false"},
     ],
 )
 def test_malformed_embedded_agent_fails_loudly(acp_agent: object) -> None:
@@ -246,7 +246,7 @@ def test_embedded_agent_overrides_config_lookup(_isolate_config: Path) -> None:
         {
             "name": "Custom",
             "command": "custom acp",
-            "omnigent_mcp": False,
+            "agentnexus_mcp": False,
             "expected_omnigent_mcp": False,
         },
         # Agent with environment passthrough
@@ -283,7 +283,7 @@ def test_embedded_agent_round_trip_preserves_all_fields(
         "command": agent_fields["command"],
     }
     # Add optional fields that were declared
-    for field in ("model", "session_id_mode", "send_model", "omnigent_mcp", "env_passthrough"):
+    for field in ("model", "session_id_mode", "send_model", "agentnexus_mcp", "env_passthrough"):
         if field in agent_fields:
             agent_dict[field] = agent_fields[field]
 
@@ -309,7 +309,7 @@ def test_embedded_agent_round_trip_preserves_all_fields(
     # omnigent_mcp preservation
     if "expected_omnigent_mcp" in agent_fields:
         expected_mcp = "1" if agent_fields["expected_omnigent_mcp"] else "0"
-        assert env["HARNESS_ACP_OMNIGENT_MCP"] == expected_mcp
+        assert env["HARNESS_ACP_AGENTNEXUS_MCP"] == expected_mcp
 
     # model preservation
     if "expected_model" in agent_fields:

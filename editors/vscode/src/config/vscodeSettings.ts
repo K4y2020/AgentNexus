@@ -7,7 +7,7 @@ import * as vscode from "vscode";
 import type { Settings } from "./index";
 
 export function readSettings(): Settings {
-  const cfg = vscode.workspace.getConfiguration("omnigent");
+  const cfg = vscode.workspace.getConfiguration("agentnexus");
   return {
     serverUrl: cfg.get<string>("serverUrl", ""),
   };

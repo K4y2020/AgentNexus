@@ -1,11 +1,11 @@
 """Entry point for the per-PR UI Preview app (Databricks Apps).
 
-Unlike Omnigent's production Databricks deploy (``deploy/databricks/``, which
+Unlike AgentNexus's production Databricks deploy (``deploy/databricks/``, which
 uses Lakebase Postgres + UC Volumes), this preview is deliberately *ephemeral
 and self-contained* so a fresh app can be created and torn down per PR with no
 external state: a SQLite database + local-disk artifact store under a temp dir.
 
-There is no bundled LLM or runner. Omnigent executes agent turns on a runner
+There is no bundled LLM or runner. AgentNexus executes agent turns on a runner
 that the user connects from their own machine/sandbox (``omnigent host --server
 <url>``), so the preview only needs to serve the web UI + API. A reviewer browses
 the UI as-is, and can connect their own host to drive a real session.
@@ -24,14 +24,14 @@ import tarfile
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, force=True)
-logger = logging.getLogger("omnigent-ui-preview")
+logger = logging.getLogger("agentnexus-ui-preview")
 
 HERE = Path(__file__).parent.resolve()
 # Databricks Apps expects the app to listen on DATABRICKS_APP_PORT (8000 by
 # convention); fall back to 8000 for local runs of this script.
 PORT = int(os.environ.get("DATABRICKS_APP_PORT", "8000"))
-WORK_DIR = Path(os.environ.get("OMNIGENT_PREVIEW_WORKDIR", "/tmp/omnigent-preview"))
-DB_PATH = WORK_DIR / "omnigent.db"
+WORK_DIR = Path(os.environ.get("AGENTNEXUS_PREVIEW_WORKDIR", "/tmp/omnigent-preview"))
+DB_PATH = WORK_DIR / "agentnexus.db"
 ARTIFACT_DIR = WORK_DIR / "artifacts"
 
 
@@ -45,7 +45,7 @@ def _extract_spa() -> None:
     if not tar_path.is_file():
         logger.warning("No build.tar.gz found at %s -- UI will be API-only", tar_path)
         return
-    import omnigent.server
+    import agentnexus.server
 
     target = Path(omnigent.server.__file__).parent / "static"
     target.mkdir(parents=True, exist_ok=True)
@@ -64,12 +64,12 @@ def main() -> None:
     # The Databricks Apps proxy injects X-Forwarded-Email on every request, so
     # run in header auth mode (matches deploy/databricks/src/app.py) -- no login
     # page, and the proxy is the trust boundary.
-    os.environ.setdefault("OMNIGENT_AUTH_PROVIDER", "header")
+    os.environ.setdefault("AGENTNEXUS_AUTH_PROVIDER", "header")
 
     cmd = [
         sys.executable,
         "-m",
-        "omnigent.cli",
+        "agentnexus.cli",
         "server",
         "--host",
         "0.0.0.0",
@@ -81,7 +81,7 @@ def main() -> None:
         str(ARTIFACT_DIR),
         "--no-open",
     ]
-    logger.info("Starting Omnigent server: %s", " ".join(cmd))
+    logger.info("Starting AgentNexus server: %s", " ".join(cmd))
     os.execvp(cmd[0], cmd)
 
 

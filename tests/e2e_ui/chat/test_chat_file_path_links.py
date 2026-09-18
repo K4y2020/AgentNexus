@@ -18,7 +18,7 @@ mentions three paths in backticks:
 ``~`` expansion can only land inside the workspace when the root is itself
 under the runner's home. The default e2e workspace lives under ``$TMPDIR``
 (not home), so this test pins the agent's ``os_env.cwd`` to a fresh directory
-under ``Path.home()``: with no ``OMNIGENT_RUNNER_WORKSPACE`` set (the e2e
+under ``Path.home()``: with no ``AGENTNEXUS_RUNNER_WORKSPACE`` set (the e2e
 runner inherits none), ``compute_default_env_root`` uses that absolute cwd, so
 the root is deterministically under home in both CI and local runs. The tilde
 and absolute paths are still derived from the *live* ``metadata.root`` /
@@ -104,7 +104,7 @@ def linkify_session(
     """
     # Under $HOME so the runner's default-env root is under home — the
     # precondition for "~" expansion to resolve inside the workspace.
-    ws = Path(tempfile.mkdtemp(prefix="omnigent-e2e-ui-links-", dir=Path.home()))
+    ws = Path(tempfile.mkdtemp(prefix="agentnexus-e2e-ui-links-", dir=Path.home()))
     (ws / _ROOT_FILE).write_text(_README_CONTENT)
 
     create_resp = httpx.post(

@@ -14,9 +14,9 @@ resources:
 patches:
   # Namespaces and the artifact PVC must survive Application deletion and
   # accidental prune (a rename in base/ or a stale targetRevision). Without
-  # Prune=false, `kubectl delete application omnigent` cascades through the
+  # Prune=false, `kubectl delete application agentnexus` cascades through the
   # finalizer to both namespaces and everything inside them — including the
-  # operator-created omnigent-creds Secret and any pvc_mounts claims.
+  # operator-created agentnexus-creds Secret and any pvc_mounts claims.
   - target:
       kind: Namespace
     patch: |

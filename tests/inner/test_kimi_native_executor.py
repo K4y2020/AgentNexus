@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import kimi_native_bridge
-from omnigent.inner.kimi_native_executor import (
+from agentnexus import kimi_native_bridge
+from agentnexus.inner.kimi_native_executor import (
     KimiNativeExecutor,
     _content_to_text,
     _latest_user_text,
 )
-from omnigent.kimi_native_bridge import (
+from agentnexus.kimi_native_bridge import (
     APPROVE_KEY,
     BRIDGE_DIR_ENV_VAR,
     DENY_KEY,
@@ -210,26 +210,26 @@ class TestSettlePaneReadiness:
 
 class TestRegistration:
     def test_harness_is_registered(self) -> None:
-        from omnigent.runtime.harnesses import _HARNESS_MODULES
+        from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
-        assert _HARNESS_MODULES["kimi-native"] == "omnigent.inner.kimi_native_harness"
+        assert _HARNESS_MODULES["kimi-native"] == "agentnexus.inner.kimi_native_harness"
 
     def test_harness_is_allowlisted(self) -> None:
-        from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
+        from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESSES
 
-        assert "kimi-native" in OMNIGENT_HARNESSES
+        assert "kimi-native" in AGENTNEXUS_HARNESSES
 
     def test_kimi_native_is_terminal_native(self) -> None:
         # kimi-native launches the kimi TUI in an omnigent terminal (like
         # claude/codex/cursor-native), so the runner must treat it as a native
         # terminal harness.
-        from omnigent.harness_aliases import is_native_harness
+        from agentnexus.harness_aliases import is_native_harness
 
         assert is_native_harness("kimi-native") is True
         assert is_native_harness("native-kimi") is True
 
     def test_native_coding_agent_record(self) -> None:
-        from omnigent.native_coding_agents import native_coding_agent_for_harness
+        from agentnexus.native_coding_agents import native_coding_agent_for_harness
 
         agent = native_coding_agent_for_harness("kimi-native")
         assert agent is not None
@@ -239,6 +239,6 @@ class TestRegistration:
     def test_distinct_from_headless_kimi_harness(self) -> None:
         # The bare ``kimi`` harness is the headless SDK path; ``kimi-native`` is
         # the TUI path. They must resolve to different harness modules.
-        from omnigent.runtime.harnesses import _HARNESS_MODULES
+        from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
         assert _HARNESS_MODULES["kimi"] != _HARNESS_MODULES["kimi-native"]

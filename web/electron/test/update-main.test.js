@@ -17,7 +17,7 @@ function loadMainHarness({
   developerMode = false,
   desktopVersionOverride,
 } = {}) {
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "omnigent-update-test-"));
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "agentnexus-update-test-"));
   fs.writeFileSync(path.join(userData, "settings.json"), JSON.stringify(settings), "utf8");
 
   const ipcHandlers = new Map();
@@ -137,14 +137,14 @@ function loadMainHarness({
     },
     "./workspace-chrome": { registerWorkspaceChromeHide: () => {} },
     "./workspace-root-bounce": { registerWorkspaceRootBounce: () => {} },
-    "./omnigent_cli": {
+    "./agentnexus_cli": {
       isExecutableFile: () => false,
       resolveCliPath: () => null,
       localHostId: () => "host_test",
       getCliStatus: () => ({ installed: false }),
-      localDataDir: () => path.join(userData, "omnigent-data"),
-      localConfigDir: () => path.join(userData, "omnigent-config"),
-      stateDir: () => path.join(userData, "omnigent-state"),
+      localDataDir: () => path.join(userData, "agentnexus-data"),
+      localConfigDir: () => path.join(userData, "agentnexus-config"),
+      stateDir: () => path.join(userData, "agentnexus-state"),
     },
     "./server_manager": {
       shutdown: () => serverShutdown(),
@@ -267,7 +267,7 @@ describe("in-app navigation menu actions", () => {
     const newWindowItem = findMenuItem(menu, "new_window");
 
     settingsItem.click();
-    assert.deepEqual(harness.calls.sent, [{ channel: "omnigent:open-path", payload: "/settings" }]);
+    assert.deepEqual(harness.calls.sent, [{ channel: "agentnexus:open-path", payload: "/settings" }]);
 
     assert.equal(newSessionItem.label, "New Session");
     assert.equal(newSessionItem.accelerator, "CmdOrCtrl+N");
@@ -276,7 +276,7 @@ describe("in-app navigation menu actions", () => {
     newSessionItem.click();
 
     assert.deepEqual(harness.calls.sent.at(-1), {
-      channel: "omnigent:open-path",
+      channel: "agentnexus:open-path",
       payload: "/",
     });
   });
@@ -362,12 +362,12 @@ describe("auto-update main-process wiring", () => {
     harness.api.registerIpc();
 
     const cases = [
-      ["omnigent:get-update-config", []],
-      ["omnigent:get-update-status", []],
-      ["omnigent:update-check", []],
-      ["omnigent:update-download", []],
-      ["omnigent:update-install", []],
-      ["omnigent:set-update-config", [{ mode: "manual" }]],
+      ["agentnexus:get-update-config", []],
+      ["agentnexus:get-update-status", []],
+      ["agentnexus:update-check", []],
+      ["agentnexus:update-download", []],
+      ["agentnexus:update-install", []],
+      ["agentnexus:set-update-config", [{ mode: "manual" }]],
     ];
     await Promise.all(
       cases.map(([channel, args]) => {
@@ -383,7 +383,7 @@ describe("auto-update main-process wiring", () => {
   it("prompts for every privileged update channel before running it", async (t) => {
     const cases = [
       {
-        channel: "omnigent:update-download",
+        channel: "agentnexus:update-download",
         args: [],
         message: "Download an AgentNexus update?",
         prepare: () => {},
@@ -392,7 +392,7 @@ describe("auto-update main-process wiring", () => {
         },
       },
       {
-        channel: "omnigent:update-install",
+        channel: "agentnexus:update-install",
         args: [],
         message: "Restart AgentNexus to install an update?",
         prepare: (harness) => {
@@ -404,7 +404,7 @@ describe("auto-update main-process wiring", () => {
         },
       },
       {
-        channel: "omnigent:set-update-config",
+        channel: "agentnexus:set-update-config",
         args: [{ mode: "manual" }],
         message: "Change AgentNexus update settings?",
         prepare: () => {},
@@ -444,7 +444,7 @@ describe("auto-update main-process wiring", () => {
   it("does not let a cached hosting grant bypass update-control consent", async (t) => {
     const cases = [
       {
-        channel: "omnigent:update-download",
+        channel: "agentnexus:update-download",
         args: [],
         prepare: () => {},
         assertBlocked: (harness) => {
@@ -452,7 +452,7 @@ describe("auto-update main-process wiring", () => {
         },
       },
       {
-        channel: "omnigent:update-install",
+        channel: "agentnexus:update-install",
         args: [],
         prepare: (harness) => {
           harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
@@ -463,7 +463,7 @@ describe("auto-update main-process wiring", () => {
         },
       },
       {
-        channel: "omnigent:set-update-config",
+        channel: "agentnexus:set-update-config",
         args: [{ mode: "manual" }],
         prepare: () => {},
         assertBlocked: (harness) => {
@@ -509,7 +509,7 @@ describe("auto-update main-process wiring", () => {
     harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
     harness.api.registerIpc();
 
-    await harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned);
+    await harness.ipcHandlers.get("agentnexus:update-install")(harness.events.pinned);
 
     assert.equal(harness.calls.showMessageBox.length, 1);
     assert.equal(harness.api.updater.installPending, true);
@@ -543,7 +543,7 @@ describe("auto-update main-process wiring", () => {
     harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
     harness.api.registerIpc();
 
-    await harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned);
+    await harness.ipcHandlers.get("agentnexus:update-install")(harness.events.pinned);
 
     assert.equal(shutdowns, 1);
     assert.equal(harness.api.updater.installPending, true);
@@ -564,7 +564,7 @@ describe("auto-update main-process wiring", () => {
     harness.api.updater.init();
     harness.autoUpdater.emit("update-downloaded", { version: "0.4.0" });
     harness.api.registerIpc();
-    await harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned);
+    await harness.ipcHandlers.get("agentnexus:update-install")(harness.events.pinned);
     assert.equal(harness.api.updater.installPending, true);
     assert.equal(harness.calls.appQuit, 1); // installUpdateNow → app.quit()
 
@@ -629,7 +629,7 @@ describe("auto-update main-process wiring", () => {
   });
 
   it("force-exits if before-quit cleanup hangs past the safety cap", async (t) => {
-    // A stuck shutdown (e.g. a hung `omnigent server stop`, or the known
+    // A stuck shutdown (e.g. a hung `agentnexus server stop`, or the known
     // Electron hazard where re-issuing app.quit() after before-quit's
     // preventDefault doesn't terminate) must not strand the quit. The hard cap
     // force-exits. Here shutdown never settles, so the re-issued app.quit() in
@@ -688,7 +688,7 @@ describe("auto-update main-process wiring", () => {
     harness.api.registerIpc();
 
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned),
+      harness.ipcHandlers.get("agentnexus:update-install")(harness.events.pinned),
       /No downloaded update/,
     );
     assert.equal(harness.calls.showMessageBox.length, 1);
@@ -720,7 +720,7 @@ describe("auto-update main-process wiring", () => {
     harness.api.registerIpc();
 
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:update-check")(harness.events.pinned),
+      harness.ipcHandlers.get("agentnexus:update-check")(harness.events.pinned),
       /latest\.yml/,
     );
 
@@ -737,19 +737,19 @@ describe("auto-update main-process wiring", () => {
     harness.api.registerIpc();
 
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:update-check")(harness.events.pinned),
+      harness.ipcHandlers.get("agentnexus:update-check")(harness.events.pinned),
       /unavailable in development/,
     );
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:update-download")(harness.events.pinned),
+      harness.ipcHandlers.get("agentnexus:update-download")(harness.events.pinned),
       /unavailable in development/,
     );
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:update-install")(harness.events.pinned),
+      harness.ipcHandlers.get("agentnexus:update-install")(harness.events.pinned),
       /unavailable in development/,
     );
     await assert.rejects(
-      harness.ipcHandlers.get("omnigent:set-update-config")(harness.events.pinned, {
+      harness.ipcHandlers.get("agentnexus:set-update-config")(harness.events.pinned, {
         mode: "manual",
       }),
       /unavailable in development/,
@@ -814,7 +814,7 @@ describe("auto-update main-process wiring", () => {
     });
     assert.deepEqual(plain(harness.calls.sent), [
       {
-        channel: "omnigent:update-status",
+        channel: "agentnexus:update-status",
         payload: {
           state: "available",
           currentVersion: "0.3.0",

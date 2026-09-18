@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities.permission import ResolvedAccess, SessionPermission
+from agentnexus.entities.permission import ResolvedAccess, SessionPermission
 
 # ── SessionPermission ─────────────────────────────────
 

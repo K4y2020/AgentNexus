@@ -22,7 +22,7 @@ permissions:
 env:
   # No web SPA build during `uv sync` (setup.py _build_web_ui): this job never
   # serves the bundle, and the build otherwise times out on public npm.
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   # Route uv and pip at PyPI. pre-commit installs hook repos via pip (not uv),
   # so PIP_INDEX_URL is needed even though the workflow only invokes uv.
   UV_INDEX_URL: https://pypi.org/simple
@@ -95,7 +95,7 @@ jobs:
         # checked here so Electron's large native devDependencies are not fetched.
         env:
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-        run: pnpm install --frozen-lockfile --filter web --filter omnigent-vscode
+        run: pnpm install --frozen-lockfile --filter web --filter agentnexus-vscode
 
       # The pnpm equivalent of the `uv sync --locked` gate above.
       # `pnpm install --frozen-lockfile` only checks the lockfile is CONSISTENT

@@ -16,16 +16,16 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from omnigent.runner import subagent_routing
-from omnigent.runner.subagent_routing import (
+from agentnexus.runner import subagent_routing
+from agentnexus.runner.subagent_routing import (
     AUTO_HARNESS_LABEL_KEY,
     ROUTING_DECISION_LABEL_KEY,
 )
-from omnigent.server.routes._sessions import orchestration as orchestration_module
-from omnigent.server.routes._sessions.common import get_server_host_registry
-from omnigent.server.schemas import SessionEventInput
-from omnigent.server.smart_routing import RoutingResult
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.server.routes._sessions import orchestration as orchestration_module
+from agentnexus.server.routes._sessions.common import get_server_host_registry
+from agentnexus.server.schemas import SessionEventInput
+from agentnexus.server.smart_routing import RoutingResult
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 from tests.server.helpers import (
     FakeCaps,
     FakeRoutingClient,
@@ -117,7 +117,7 @@ async def test_router_overrides_llm_supplied_child_model(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "refactor auth"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child.id,
@@ -213,7 +213,7 @@ async def test_another_spelling_of_the_routed_model_is_no_override(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "fix the typo"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child.id,
@@ -256,7 +256,7 @@ async def test_routed_model_publishes_session_model_event(
     )
     published: list[tuple[str, dict[str, Any]]] = []
     with (
-        patch("omnigent.runtime._globals._caps", new=caps),
+        patch("agentnexus.runtime._globals._caps", new=caps),
         patch.object(
             orchestration_module.session_stream,
             "publish",
@@ -286,8 +286,8 @@ async def test_the_router_source_reaches_the_transcript_item_and_the_sse(
     db_uri: str,
 ) -> None:
     """The chip needs to know which router answered, live and on reload."""
-    from omnigent.server.routing_backend import RoutingBackends
-    from omnigent.server.smart_routing import ExternalRoutingClient
+    from agentnexus.server.routing_backend import RoutingBackends
+    from agentnexus.server.smart_routing import ExternalRoutingClient
 
     _parent, child, conv_store = await _parent_and_child(
         client, db_uri, agent_name="routing-source"
@@ -306,7 +306,7 @@ async def test_the_router_source_reaches_the_transcript_item_and_the_sse(
     )
     published: list[tuple[str, dict[str, Any]]] = []
     with (
-        patch("omnigent.runtime._globals._caps", new=caps),
+        patch("agentnexus.runtime._globals._caps", new=caps),
         patch.object(
             orchestration_module.session_stream,
             "publish",
@@ -341,7 +341,7 @@ async def test_the_subagent_relay_falls_back_to_the_judge_off_the_gateway(
     db_uri: str,
 ) -> None:
     """An ungatewayed parent still routes its spawns, with the built-in judge."""
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     parent, _child, conv_store = await _parent_and_child(
         client, db_uri, agent_name="routing-subagent-source"
@@ -360,7 +360,7 @@ async def test_the_subagent_relay_falls_back_to_the_judge_off_the_gateway(
     # No runner is bound here, so stand in for the pane's live catalog — the only
     # provider-accurate candidate source once the static table is off the table.
     with (
-        patch("omnigent.runtime._globals._caps", new=caps),
+        patch("agentnexus.runtime._globals._caps", new=caps),
         patch.object(
             orchestration_module,
             "_session_routing_host",
@@ -402,7 +402,7 @@ async def test_native_subagent_relay_persists_decision_and_joins_child_row(
             RoutingResult(model=ROUTED_MODEL, rationale="deep reasoning", harness="claude_code")
         )
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         resp = await client.post(
             f"/v1/sessions/{parent['id']}/hooks/route-subagent",
             json={
@@ -467,7 +467,7 @@ async def test_dead_router_allows_the_spawn_unchanged(
     caps = FakeCaps(
         routing_client=FakeRoutingClient(None, error=RuntimeError("router down")),
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         route = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json={"harness": "codex-native", "task_name": "explore"},
@@ -544,7 +544,7 @@ async def test_subagent_gate_follows_the_session_setting(
     routing_client = FakeRoutingClient(
         RoutingResult(model=ROUTED_MODEL, rationale="deep reasoning", harness="claude_code")
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         resp = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json=SPAWN_PAYLOAD,
@@ -631,7 +631,7 @@ async def test_flipping_the_setting_mid_session_takes_effect_on_the_next_spawn(
         RoutingResult(model=ROUTED_MODEL, rationale="deep reasoning", harness="claude_code")
     )
     routes_before = 1 if start == "on" else 0
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         before = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json=SPAWN_PAYLOAD,
@@ -673,9 +673,9 @@ async def test_codex_session_keeps_glm_candidates_and_applies_a_glm_pick(
     applied — under the gateway's own ``system.ai.glm-5-2`` model route, which
     is the only name that serves.
     """
-    from omnigent.model_override import model_family_mismatch
-    from omnigent.server import smart_routing as smart_routing_module
-    from omnigent.server.routes import sessions as sessions_facade
+    from agentnexus.model_override import model_family_mismatch
+    from agentnexus.server import smart_routing as smart_routing_module
+    from agentnexus.server.routes import sessions as sessions_facade
 
     session_id = await _session_with_routing_flags(
         client,
@@ -694,7 +694,7 @@ async def test_codex_session_keeps_glm_candidates_and_applies_a_glm_pick(
         return live_catalog
 
     with (
-        patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)),
+        patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)),
         patch.object(sessions_facade, "_get_runner_client", _fake_runner_client),
         patch.object(smart_routing_module, "fetch_runner_models", _fake_fetch),
     ):
@@ -762,7 +762,7 @@ async def test_auto_session_and_its_children_keep_cross_harness_picks(
     routing_client = FakeRoutingClient(
         RoutingResult(model=GPT_MODEL, rationale="narrow change", harness="codex")
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         resp = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json=SPAWN_PAYLOAD,
@@ -781,7 +781,7 @@ async def test_auto_session_and_its_children_keep_cross_harness_picks(
     assert set(routing_client.offered[1]) == {"claude-native", "codex-native"}
 
 
-# ── 7. Omnigent child sessions stay in the parent's family ─────────
+# ── 7. AgentNexus child sessions stay in the parent's family ─────────
 
 
 async def _pinned_parent_and_child(
@@ -805,7 +805,7 @@ async def _pinned_parent_and_child(
     agent = await create_test_agent(
         client,
         name=agent_name,
-        executor={"type": "omnigent", "config": {"harness": harness}},
+        executor={"type": "agentnexus", "config": {"harness": harness}},
     )
     parent = await client.post(
         "/v1/sessions",
@@ -858,7 +858,7 @@ async def test_child_of_a_pinned_parent_is_routed_in_the_parents_family(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "audit routing"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child.id,
@@ -923,7 +923,7 @@ async def test_child_of_an_auto_parent_keeps_cross_harness_candidates(
     agent = await create_test_agent(
         client,
         name=f"routing-child-family-{case}",
-        executor={"type": "omnigent", "config": executor_config},
+        executor={"type": "agentnexus", "config": executor_config},
     )
     parent = await client.post("/v1/sessions", json={"agent_id": agent["id"], **create_body})
     assert parent.status_code == 201, parent.text
@@ -949,7 +949,7 @@ async def test_child_of_an_auto_parent_keeps_cross_harness_candidates(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": prompt}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child_conv.id,
@@ -991,10 +991,10 @@ async def test_named_worker_child_of_an_auto_parent_stays_on_its_own_harness(
         client,
         name=f"routing-child-named-worker-{case}",
         executor={
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk", "smart_routing_harness": "auto"},
         },
-        sub_agents=[{"name": "pi", "executor": {"type": "omnigent", "config": {"harness": "pi"}}}],
+        sub_agents=[{"name": "pi", "executor": {"type": "agentnexus", "config": {"harness": "pi"}}}],
     )
     parent = await client.post(
         "/v1/sessions",
@@ -1029,7 +1029,7 @@ async def test_named_worker_child_of_an_auto_parent_stays_on_its_own_harness(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "tell me a joke"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child_conv.id,
@@ -1085,7 +1085,7 @@ async def _auto_parent_and_child(
     agent = await create_test_agent(
         client,
         name=agent_name,
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     body: dict[str, Any] = {"agent_id": agent["id"], "harness_override": "auto"}
     if cost_control is not None:
@@ -1154,7 +1154,7 @@ async def test_child_spawn_gate_follows_the_parents_subagent_switch(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "rewrite the router"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child.id,
@@ -1228,7 +1228,7 @@ async def _pinned_parent(
     agent = await create_test_agent(
         client,
         name=agent_name,
-        executor={"type": "omnigent", "config": {"harness": harness}},
+        executor={"type": "agentnexus", "config": {"harness": harness}},
     )
     body: dict[str, Any] = {"agent_id": agent["id"]}
     if routing_on:
@@ -1256,7 +1256,7 @@ async def _create_child(
     child_agent = await create_test_agent(
         client,
         name=agent_name,
-        executor={"type": "omnigent", "config": {"harness": harness}},
+        executor={"type": "agentnexus", "config": {"harness": harness}},
     )
     return await client.post(
         "/v1/sessions",
@@ -1295,7 +1295,7 @@ async def test_auto_parent_may_create_a_child_in_another_family(
     agent = await create_test_agent(
         client,
         name="family-gate-auto-parent",
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     parent = await client.post(
         "/v1/sessions",
@@ -1339,7 +1339,7 @@ async def _claude_native_session(
     *,
     agent_name: str,
 ) -> tuple[Any, SqlAlchemyConversationStore]:
-    from omnigent.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
+    from agentnexus.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
 
     agent = await create_test_agent(client, name=agent_name)
     resp = await client.post(
@@ -1347,7 +1347,7 @@ async def _claude_native_session(
         json={
             "agent_id": agent["id"],
             "cost_control_mode_override": "on",
-            "labels": {"omnigent.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label},
+            "labels": {"agentnexus.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label},
         },
     )
     assert resp.status_code == 201, resp.text
@@ -1367,7 +1367,7 @@ async def _route_one_turn(conv: Any, conv_store: SqlAlchemyConversationStore) ->
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "refactor auth"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 conv.id,
@@ -1464,7 +1464,7 @@ async def _native_child(
     :param agent_name: Agent name to create the parent session with.
     :returns: The child conversation row and the store it lives in.
     """
-    from omnigent.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
+    from agentnexus.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
 
     agent = await create_test_agent(client, name=agent_name)
     parent = await client.post(
@@ -1482,8 +1482,8 @@ async def _native_child(
     conv_store.set_labels(
         child.id,
         {
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label,
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label,
         },
     )
     refreshed = conv_store.get_conversation(child.id)
@@ -1529,9 +1529,9 @@ async def _dispatch_native_turn(
         base_url="http://runner.test", transport=httpx.MockTransport(_handler)
     ) as runner_client:
         with (
-            patch("omnigent.runtime._globals._caps", new=caps),
+            patch("agentnexus.runtime._globals._caps", new=caps),
             patch(
-                "omnigent.server.routes.sessions._get_runner_client",
+                "agentnexus.server.routes.sessions._get_runner_client",
                 new=AsyncMock(return_value=runner_client),
             ),
         ):
@@ -1613,19 +1613,19 @@ async def _parent_with_native_child_pane(
         mode, the only mode allowed cross-family spawns.
     :returns: ``(parent_id, child_conversation, conversation_store)``.
     """
-    from omnigent.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
+    from agentnexus.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
 
     agent = await create_test_agent(
         client,
         name=agent_name,
-        executor={"type": "omnigent", "config": {"harness": parent_harness}},
+        executor={"type": "agentnexus", "config": {"harness": parent_harness}},
     )
     # The spawned child is bound to another family's native wrapper, exactly as
     # a ``sys_session_create`` that named ``claude-native-ui`` leaves it.
     child_agent = await create_test_agent(
         client,
         name=f"{agent_name}-claude-pane",
-        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        executor={"type": "agentnexus", "config": {"harness": "claude-native"}},
     )
     parent = await client.post(
         "/v1/sessions",
@@ -1653,8 +1653,8 @@ async def _parent_with_native_child_pane(
     conv_store.set_labels(
         child.id,
         {
-            "omnigent.ui": "terminal",
-            "omnigent.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label,
+            "agentnexus.ui": "terminal",
+            "agentnexus.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label,
         },
     )
     refreshed = conv_store.get_conversation(child.id)
@@ -1802,7 +1802,7 @@ async def test_turn_candidates_come_from_the_panes_own_vocabulary(
     )
     try:
         with patch(
-            "omnigent.runtime._globals._caps",
+            "agentnexus.runtime._globals._caps",
             new=FakeCaps(routing_client=routing_client),
         ):
             async with echo_runner_client() as runner_client:
@@ -1856,7 +1856,7 @@ async def _send_child_message(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": text}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         async with echo_runner_client() as runner_client:
             await orchestration_module._forward_event_to_runner(
                 child.id,
@@ -1995,7 +1995,7 @@ async def test_a_routing_outage_still_delivers_the_turn(
         type="message",
         data={"role": "user", "content": [{"type": "input_text", "text": "refactor auth"}]},
     )
-    with patch("omnigent.runtime._globals._caps", new=_outage_caps(failure)):
+    with patch("agentnexus.runtime._globals._caps", new=_outage_caps(failure)):
         async with echo_runner_client() as runner_client:
             item_id = await orchestration_module._forward_event_to_runner(
                 conv.id,
@@ -2056,9 +2056,9 @@ async def test_a_routing_outage_still_delivers_a_native_pane_turn(
         base_url="http://runner.test", transport=httpx.MockTransport(_handler)
     ) as runner_client:
         with (
-            patch("omnigent.runtime._globals._caps", new=_outage_caps(failure)),
+            patch("agentnexus.runtime._globals._caps", new=_outage_caps(failure)),
             patch(
-                "omnigent.server.routes.sessions._get_runner_client",
+                "agentnexus.server.routes.sessions._get_runner_client",
                 new=AsyncMock(return_value=runner_client),
             ),
         ):
@@ -2113,7 +2113,7 @@ async def test_a_routing_outage_still_allows_the_spawn(
     assert resp.status_code == 201, resp.text
     session_id = resp.json()["id"]
 
-    with patch("omnigent.runtime._globals._caps", new=_outage_caps(failure)):
+    with patch("agentnexus.runtime._globals._caps", new=_outage_caps(failure)):
         route = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json={"harness": "codex-native", "task_name": "explore", "prompt": "audit auth"},
@@ -2151,7 +2151,7 @@ async def test_a_routing_outage_still_allows_the_first_prompt(
     assert resp.status_code == 201, resp.text
     session_id = resp.json()["id"]
 
-    with patch("omnigent.runtime._globals._caps", new=_outage_caps(failure)):
+    with patch("agentnexus.runtime._globals._caps", new=_outage_caps(failure)):
         route = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-turn",
             json={"harness": "claude-native", "prompt": "refactor auth"},
@@ -2235,7 +2235,7 @@ async def test_an_auto_harness_outage_leaves_the_route_once_label_unclaimed(
     agent = await create_test_agent(
         client,
         name=f"routing-outage-auto-{label}",
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     created = await client.post(
         "/v1/sessions",
@@ -2267,7 +2267,7 @@ async def test_an_auto_harness_outage_leaves_the_route_once_label_unclaimed(
 
     # So the session's first in-harness prompt still routes.
     healthy = FakeRoutingClient(RoutingResult(model=GPT_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=healthy)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=healthy)):
         route = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-turn",
             json={"harness": "codex-native", "prompt": "refactor auth"},

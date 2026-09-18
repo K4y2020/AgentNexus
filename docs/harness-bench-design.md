@@ -24,8 +24,8 @@ given capability:
 2. **The `Executor` capability flags** — `supports_streaming()`,
    `supports_live_message_queue()`, `supports_tool_boundary_interrupt()`,
    `supports_stepwise_internal_turns()`, `handles_tools_internally()` in
-   `omnigent/inner/executor.py:541`.
-3. **`omnigent/model_override.py`** — already encodes per-harness facts
+   `agentnexus/inner/executor.py:541`.
+3. **`agentnexus/model_override.py`** — already encodes per-harness facts
    declaratively (`_SDK_MODEL_OVERRIDE_HARNESSES`, the `_*_FAMILY_HARNESSES`
    sets, single- vs multi-model rules).
 
@@ -57,7 +57,7 @@ production surprise.
 ## Key constraint: registration is a hardcoded dict today
 
 Harnesses register via a literal `_HARNESS_MODULES: dict[str, str]` mapping
-harness name to module path in `omnigent/runtime/harnesses/__init__.py:34`.
+harness name to module path in `agentnexus/runtime/harnesses/__init__.py:34`.
 There is **no entry-point / plugin discovery** mechanism. An out-of-repo harness
 cannot even register without editing that file — the same shared-file conflict
 pain tracked in #899, whose proposed fix was per-harness self-registration.
@@ -68,7 +68,7 @@ on how a harness gets *discovered*.
 
 > **Update since this was written:** entry-point plugin discovery now exists —
 > `harness_capabilities()` merges contributions from the
-> `omnigent.community.harness` entry-point group, and the bench derives
+> `agentnexus.community.harness` entry-point group, and the bench derives
 > everything from it. So the bench side of option B is realized: a plugin's
 > harness flows in with no bench edit. The remaining hardcoded seam is *not*
 > here — it is the server's native-agent seeding (see "Plugin seamlessness").
@@ -148,7 +148,7 @@ tests/harness_bench/
 ```
 
 Reusable configuration and runtime primitives live in production modules such
-as `omnigent.config`, `find_free_port`, and the harness registry rather than
+as `agentnexus.config`, `find_free_port`, and the harness registry rather than
 being reimplemented under tests.
 
 - **Layer 0 — Profile / manifest.** Static facts and declared verdicts are
@@ -206,7 +206,7 @@ Validated for presence and shape only: `Owner`, `Transport`, `Implementation`,
 | Streaming (P0) | count output-text deltas; repeated single-delta output is `PARTIAL` |
 | Reasoning (P1) | request high effort and require a forwarded reasoning delta or persisted reasoning item; no observation is inconclusive because the model may emit none |
 | Tool calling (P0) | provoke the transport's tool mechanism and require a surfaced call |
-| Omnigent MCP (P1, native only) | call read-only `sys_session_list` through the generated `omnigent` MCP relay and require a matching function-call item |
+| AgentNexus MCP (P1, native only) | call read-only `sys_session_list` through the generated `agentnexus` MCP relay and require a matching function-call item |
 | Policy DENY (P0) | apply a tool-call deny and require a blocked-call signal |
 | Policy ALLOW (P1) | attach an explicit allow and require a non-blocked tool output; native hooks expose no positive ALLOW event |
 | Policy ASK (P1) | apply ask and require an elicitation/approval request |
@@ -282,7 +282,7 @@ The bench on `main` includes:
 
 - **Six P0 probes:** Basic turn, Streaming, Tool calling, Policy DENY, Model
   override, and Interrupt.
-- **Six P1 probes:** Fork replay, Reasoning, Omnigent MCP, Policy ALLOW, Policy ASK, and Cost tracking. P1 verdicts
+- **Six P1 probes:** Fork replay, Reasoning, AgentNexus MCP, Policy ALLOW, Policy ASK, and Cost tracking. P1 verdicts
   are report-only and do not gate the same way as P0 declarations.
 - **Three transport drivers:** `full-server`, `native-tui`, and `sdk-inproc`,
   selected by harness family with `--transport` and `--fast` overrides.
@@ -368,7 +368,7 @@ stream, the bench flags a real drift on the next run, rather than a false
 | Basic turn, Streaming, Reasoning, Model override, Interrupt | Wrap-level observation; reasoning effort is set per request | End-to-end server/runner observation; reasoning effort is set on the session | End-to-end server/runner/vendor observation; reasoning effort is set on the session |
 | Fork replay | Not observable | Clone + copied-history replay through server/runner | Clone + copied-history replay through server/runner/vendor |
 | Tool calling | Request-level wrap tool | Server-dispatched builtin | Vendor tool mirrored into session items |
-| Omnigent MCP | Not applicable | Not applicable | Generated `omnigent` MCP relay when supported by the vendor |
+| AgentNexus MCP | Not applicable | Not applicable | Generated `agentnexus` MCP relay when supported by the vendor |
 | Policy DENY | Not observable | Fixed policy blocks the builtin | Session CEL policy triggers the native policy hook |
 | Policy ALLOW / ASK | Not observable | Fixed policy; ASK observes and resolves an elicitation | Temporary session CEL policy; ASK observes and resolves an elicitation |
 | Cost tracking | Completed-response usage when forwarded | Session snapshot usage/cost | Session snapshot when the vendor forwards usage |
@@ -387,7 +387,7 @@ The original goal (option B) was that a *community* harness ships a
 plugins via entry points. A plugged-in harness needs zero bench code to be
 recognized.
 
-The seam is **one level down, in the omnigent server**. A native harness is
+The seam is **one level down, in the agentnexus server**. A native harness is
 only drivable once the server has seeded a built-in `<harness>-native-ui`
 agent, and that seeding is a **hardcoded list** in
 `server/app.py:_ensure_default_agents` — one `_ensure_default_<harness>_agent()`
@@ -431,8 +431,8 @@ agree with it.
 
 - **Declarative native tool-relay mechanism** — extend the harness capability
   model to distinguish generated MCP, native registration, and no relay. Derive
-  the Omnigent MCP probe's applicability from that declaration instead of the
-  bench's temporary `_NATIVE_OMNIGENT_MCP_HARNESSES` list.
+  the AgentNexus MCP probe's applicability from that declaration instead of the
+  bench's temporary `_NATIVE_AGENTNEXUS_MCP_HARNESSES` list.
 - **Registry-driven native-agent seeding** — replace the hardcoded server
   seeding list with registry iteration so community native harnesses work end
   to end after plugin installation.

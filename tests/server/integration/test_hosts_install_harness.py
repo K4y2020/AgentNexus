@@ -10,7 +10,7 @@ owner-scoped, host-forwarded design.
 These are the executable acceptance criteria for Milestone 1 of the
 "Setup From the UI" project: turning the dead-end "binary missing"
 warning into a working Install action. The route is gated by
-``harness_install`` in ``OMNIGENT_FEATURES``; the fixture enables it so the
+``harness_install`` in ``AGENTNEXUS_FEATURES``; the fixture enables it so the
 happy-path and validation cases can run, and one test asserts the route is 404
 (invisible) when the flag is off.
 """
@@ -27,22 +27,22 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.errors import OmnigentError
-from omnigent.host.frames import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostInstallHarnessFrame,
     HostInstallHarnessResultFrame,
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.server.feature_flags import FeatureFlags
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes.host_tunnel import create_host_tunnel_router
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.feature_flags import FeatureFlags
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 # Same liveness-race flake guard as test_hosts_create_directory.py: the
 # mock WS host can be starved + deregistered under parallel CI load.
@@ -62,7 +62,7 @@ def _enable_install_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     The route is invisible (404) unless ``harness_install`` is in the enabled
     feature set; the happy-path and validation tests need it on.
     """
-    monkeypatch.setenv("OMNIGENT_FEATURES", "harness_install")
+    monkeypatch.setenv("AGENTNEXUS_FEATURES", "harness_install")
 
 
 def _websocket_scope(path: str) -> dict[str, object]:
@@ -140,10 +140,10 @@ def install_app(
         prefix="/v1",
     )
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         """Convert application errors to structured JSON responses."""
         return JSONResponse(
@@ -309,7 +309,7 @@ async def test_install_harness_tolerates_a_garbled_gateway_inference(
         }
 
     monkeypatch.setattr(
-        "omnigent.server.routes.hosts._proxy_install_harness",
+        "agentnexus.server.routes.hosts._proxy_install_harness",
         _garbled_reply,
     )
 
@@ -609,7 +609,7 @@ async def test_install_harness_non_owner_returns_403(
     comparison is skipped): a host owned by alice, hit with bob's identity, must
     403. Guards the ``host.user_id`` owner check against a field rename.
     """
-    from omnigent.server.auth import AuthProvider
+    from agentnexus.server.auth import AuthProvider
 
     _app, _reg, host_store, conv_store = install_app
 

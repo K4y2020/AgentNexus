@@ -419,7 +419,7 @@ const EMPTY_CONVERSATIONS: Conversation[] = [];
  * One-time migration of localStorage pins to server-side labels.
  *
  * Pins used to live only in `localStorage` under
- * `PINNED_CONVERSATION_IDS_STORAGE_KEY`. Now they're an `omnigent.pinned`
+ * `PINNED_CONVERSATION_IDS_STORAGE_KEY`. Now they're an `agentnexus.pinned`
  * session label so they follow the user across devices. On the first mount
  * after this ships, push any still-local pins the server doesn't already know
  * about (as the label) so no one loses their existing pins.
@@ -654,7 +654,7 @@ export function Sidebar({
   // the sidebar stays mounted across the transition into settings.
   useTrackSettingsReturn();
 
-  // Pins are stored on the server as an `omnigent.pinned` session label, so
+  // Pins are stored on the server as an `agentnexus.pinned` session label, so
   // they follow the user across devices. `usePinnedConversations` is the
   // authoritative pinned set (independent of the paginated window); the toggle
   // mutation flips the label and refreshes that query.
@@ -707,7 +707,7 @@ export function Sidebar({
   );
 
   // One-time migration: pins used to live only in localStorage. Push any
-  // still-local pins up to the server (as the `omnigent.pinned` label) the
+  // still-local pins up to the server (as the `agentnexus.pinned` label) the
   // first time this build runs, so no one loses their existing pins, then
   // clear the legacy key so this runs at most once.
   useMigrateLocalPinsToServer(serverPinnedIdSet, pinnedLoaded, pinnedFilterHonored);
@@ -1530,7 +1530,7 @@ function ConversationList({
           hostId: targetHost.host_id,
           workspace: targetWorkspace,
           title: forceNew ? `${teammate.bot.name} Topic` : teammate.bot.name,
-          labels: forceNew ? {} : { "omnigent.teammate.primary": "true" },
+          labels: forceNew ? {} : { "agentnexus.teammate.primary": "true" },
           botId: teammate.bot.id,
           purpose: forceNew ? "topic" : "primary",
         });
@@ -1624,7 +1624,7 @@ function ConversationList({
 
     // Pinned takes precedence over Project: pinning a session moves it OUT of
     // its project into the flat global Pinned section (no nested pins). Ordered
-    // by when they were pinned (the `omnigent.pinned` label's epoch-ms value;
+    // by when they were pinned (the `agentnexus.pinned` label's epoch-ms value;
     // oldest pin at the top, newest at the bottom), NOT by `updated_at`, so a
     // pinned session holds its slot when a new message bumps its `updated_at`.
     // Pins are ownership-agnostic, so the Pinned section always shows every
@@ -2057,7 +2057,7 @@ function ConversationList({
   );
   usePinnedSessionHotkeys(pinnedSessionIds, activeId);
 
-  // Pinned membership is server-authoritative (the `omnigent.pinned` label),
+  // Pinned membership is server-authoritative (the `agentnexus.pinned` label),
   // so there's no client-side list to normalize against the loaded window —
   // the pinned query returns exactly the pinned sessions, unpinning removes the
   // label, and a deleted session drops out of the query on the server.

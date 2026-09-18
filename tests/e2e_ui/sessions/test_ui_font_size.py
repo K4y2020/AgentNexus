@@ -3,7 +3,7 @@
 The font-size control lives on the Settings page (``pages/SettingsPage.tsx``,
 ``UiFontSizeControl``): a segmented pill with a ``−`` button, a numeric value,
 and a ``+`` button under a ``role="group"`` labelled "Interface font size". Stepping the
-value writes the px choice to ``localStorage["omnigent:ui-font-size"]`` and
+value writes the px choice to ``localStorage["agentnexus:ui-font-size"]`` and
 applies it as the ``--desktop-ui-font-size`` custom property on ``<html>`` (see
 ``lib/uiFontPreferences.ts``).
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-STORAGE_KEY = "omnigent:ui-font-size"
+STORAGE_KEY = "agentnexus:ui-font-size"
 GROUP_NAME = "Interface font size"
 
 

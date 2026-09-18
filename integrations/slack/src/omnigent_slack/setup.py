@@ -9,31 +9,31 @@ from typing import Any
 
 from slack_bolt.async_app import AsyncApp
 
-from omnigent_slack.auth_manager import AuthManager, pack_user_key, slack_client_id
-from omnigent_slack.events import host_id_of
-from omnigent_slack.models import UserConfig
-from omnigent_slack.oauth import DeviceGrantUnavailableError, OAuthError
-from omnigent_slack.omnigent import (
+from agentnexus_slack.auth_manager import AuthManager, pack_user_key, slack_client_id
+from agentnexus_slack.events import host_id_of
+from agentnexus_slack.models import UserConfig
+from agentnexus_slack.oauth import DeviceGrantUnavailableError, OAuthError
+from agentnexus_slack.agentnexus import (
     AuthRequiredError,
-    OmnigentClient,
-    OmnigentClientPool,
-    OmnigentError,
+    AgentNexusClient,
+    AgentNexusClientPool,
+    AgentNexusError,
     ValidatedServer,
 )
-from omnigent_slack.store import SQLiteStore
-from omnigent_slack.text import truncate_option
+from agentnexus_slack.store import SQLiteStore
+from agentnexus_slack.text import truncate_option
 
 # Block Kit identifiers shared by the modal builders and the submission
 # handlers. Keeping them in one place avoids drift between what a modal renders
 # and what its handler reads back out of the ``view.state`` payload.
-ACTION_SETUP_START = "omnigent_setup_start"
+ACTION_SETUP_START = "agentnexus_setup_start"
 # Info-only setup screens (connecting / login / no-host / failed). They have
 # no submit, so no view-submission handler is registered for this callback;
 # it exists only to give those modals a stable identifier.
-CALLBACK_SETUP_INFO = "omnigent_setup_info"
-CALLBACK_SELECT_MODAL = "omnigent_setup_select"
+CALLBACK_SETUP_INFO = "agentnexus_setup_info"
+CALLBACK_SELECT_MODAL = "agentnexus_setup_select"
 
-# Slash command that lets a user (re)configure their Omnigent setup.
+# Slash command that lets a user (re)configure their AgentNexus setup.
 COMMAND_NAME = "/omnigent"
 
 AGENT_BLOCK = "agent_block"
@@ -82,9 +82,9 @@ class _ViewUpdateAck:
 
 
 class SetupFlow:
-    """Per-user Omnigent setup for the operator-configured server.
+    """Per-user AgentNexus setup for the operator-configured server.
 
-    The bot talks to one fixed Omnigent server (``server_url``, set by the
+    The bot talks to one fixed AgentNexus server (``server_url``, set by the
     operator — never entered by a user), so setup no longer asks for a URL.
     Opening ``/omnigent`` validates connectivity against that server,
     logging the user in (in-modal) if it requires auth, then lets them pick
@@ -95,7 +95,7 @@ class SetupFlow:
     def __init__(
         self,
         store: SQLiteStore,
-        pool: OmnigentClientPool,
+        pool: AgentNexusClientPool,
         server_url: str,
         auth_manager: AuthManager | None = None,
         enrollment_url: Callable[[str, str, str, str], str | None] | None = None,
@@ -268,7 +268,7 @@ class SetupFlow:
             client,
             user_id,
             text=(
-                f":wave: Logged out{servers}. Your Omnigent settings were "
+                f":wave: Logged out{servers}. Your AgentNexus settings were "
                 "cleared — run `/omnigent` to set up again."
             ),
             purpose="logout confirmation",
@@ -293,7 +293,7 @@ class SetupFlow:
         await self._dm_user(
             client,
             user_id,
-            text="Set up Omnigent to start using me.",
+            text="Set up AgentNexus to start using me.",
             blocks=setup_prompt_blocks(),
             purpose="setup",
         )
@@ -302,7 +302,7 @@ class SetupFlow:
                 channel=channel,
                 user=user_id,
                 thread_ts=thread_ts,
-                text="Let's get you set up — check your DM with me to configure Omnigent.",
+                text="Let's get you set up — check your DM with me to configure AgentNexus.",
             )
 
     async def prompt_relogin(
@@ -327,7 +327,7 @@ class SetupFlow:
         delivered = await self._dm_user(
             client,
             user_id,
-            text="Your Omnigent login has expired. Sign in again to keep going.",
+            text="Your AgentNexus login has expired. Sign in again to keep going.",
             blocks=relogin_prompt_blocks(),
             purpose="re-login",
         )
@@ -339,7 +339,7 @@ class SetupFlow:
                 channel=channel,
                 user=user_id,
                 thread_ts=thread_ts,
-                text=("Your Omnigent login has expired — check your DM with me to sign in again."),
+                text=("Your AgentNexus login has expired — check your DM with me to sign in again."),
             )
         return True
 
@@ -432,12 +432,12 @@ class SetupFlow:
                 channel_id=channel_id,
             )
             return
-        except OmnigentError as exc:
+        except AgentNexusError as exc:
             self._logger.info("Setup validation failed url=%s error=%s", server_url, exc)
             await client.views_update(
                 view_id=view_id,
                 view=login_failed_modal(
-                    server_url, "Could not reach the Omnigent server. Try again shortly."
+                    server_url, "Could not reach the AgentNexus server. Try again shortly."
                 ),
             )
             return
@@ -449,7 +449,7 @@ class SetupFlow:
     async def _advance_to_select(
         self,
         ack: Any,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         server_url: str,
         validated: ValidatedServer,
         channel_id: str | None = None,
@@ -483,7 +483,7 @@ class SetupFlow:
                 validated,
                 workspace_default=workspace_default,
                 private_metadata=_bind_metadata(channel_id),
-                title="Bind teammate to this channel" if channel_id else "Set up Omnigent",
+                title="Bind teammate to this channel" if channel_id else "Set up AgentNexus",
             ),
         )
 
@@ -539,7 +539,7 @@ class SetupFlow:
                 view_id,
                 server_url,
                 "you're signed in, but the server rejected the sign-in when "
-                "validating it. Ask your Omnigent operator to confirm the OAuth "
+                "validating it. Ask your AgentNexus operator to confirm the OAuth "
                 "app's scopes are accepted by the server.",
                 context=context.capitalize(),
             )
@@ -589,8 +589,8 @@ class SetupFlow:
                 view_id=view_id,
                 view=login_failed_modal(
                     server_url,
-                    "the Omnigent server doesn't support Device Authorization Grant. "
-                    "Please contact your Omnigent server administrator.",
+                    "the AgentNexus server doesn't support Device Authorization Grant. "
+                    "Please contact your AgentNexus server administrator.",
                 ),
             )
             return
@@ -682,7 +682,7 @@ class SetupFlow:
                 view=login_failed_modal(
                     server_url,
                     "sign-in isn't fully configured (no enrollment URL). "
-                    "Contact your Omnigent operator.",
+                    "Contact your AgentNexus operator.",
                 ),
             )
             return
@@ -717,10 +717,10 @@ class SetupFlow:
     async def _team_name(self, client: Any, team_id: str) -> str:
         """Resolve the Slack workspace's display name via ``team.info``.
 
-        Used only to label the ``client_id`` sent to the Omnigent server.
+        Used only to label the ``client_id`` sent to the AgentNexus server.
         Best-effort: any API failure (missing ``team:read`` scope, network)
         falls back to an empty string, so login still proceeds with the
-        bare ``Slack-Omnigent`` client id.
+        bare ``Slack-AgentNexus`` client id.
         """
         try:
             resp = await client.team_info(team=team_id)
@@ -750,7 +750,7 @@ class SetupFlow:
         return str(email) if isinstance(email, str) and email else ""
 
     async def _resolve_default_workspace(
-        self, client: OmnigentClient, online_hosts: list[dict[str, Any]]
+        self, client: AgentNexusClient, online_hosts: list[dict[str, Any]]
     ) -> str:
         for host in online_hosts:
             host_id = host_id_of(host)
@@ -758,7 +758,7 @@ class SetupFlow:
                 continue
             try:
                 home = await client.get_host_home(host_id)
-            except OmnigentError as exc:
+            except AgentNexusError as exc:
                 self._logger.info("Could not resolve host home host_id=%s error=%s", host_id, exc)
                 home = None
             if home:
@@ -847,7 +847,7 @@ class SetupFlow:
         await self._store.upsert_user_config(team_id, user_id, config)
         await ack()
         self._logger.info(
-            "Saved Omnigent setup team=%s user=%s server=%s agent=%s host=%s",
+            "Saved AgentNexus setup team=%s user=%s server=%s agent=%s host=%s",
             team_id,
             user_id,
             server_url,
@@ -892,7 +892,7 @@ def setup_prompt_blocks() -> list[dict[str, Any]]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    "*Set up Omnigent*\nPick an agent and host so I can run sessions for you."
+                    "*Set up AgentNexus*\nPick an agent and host so I can run sessions for you."
                 ),
             },
         },
@@ -901,7 +901,7 @@ def setup_prompt_blocks() -> list[dict[str, Any]]:
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "⚙️ Set up Omnigent"},
+                    "text": {"type": "plain_text", "text": "⚙️ Set up AgentNexus"},
                     "style": "primary",
                     "action_id": ACTION_SETUP_START,
                 }
@@ -919,7 +919,7 @@ def relogin_prompt_blocks() -> list[dict[str, Any]]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    ":lock: *Your Omnigent login has expired.*\n"
+                    ":lock: *Your AgentNexus login has expired.*\n"
                     "Sign in again to keep running sessions."
                 ),
             },
@@ -929,7 +929,7 @@ def relogin_prompt_blocks() -> list[dict[str, Any]]:
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "🔑 Sign in to Omnigent"},
+                    "text": {"type": "plain_text", "text": "🔑 Sign in to AgentNexus"},
                     "style": "primary",
                     "action_id": ACTION_SETUP_START,
                 }
@@ -945,12 +945,12 @@ def connecting_modal() -> dict[str, Any]:
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": "Connecting to Omnigent…"},
+                "text": {"type": "mrkdwn", "text": "Connecting to AgentNexus…"},
             }
         ],
     }
@@ -960,7 +960,7 @@ def no_host_modal(server_url: str) -> dict[str, Any]:
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": [
             {
@@ -977,7 +977,7 @@ def no_agents_modal(server_url: str) -> dict[str, Any]:
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": [
             {
@@ -1009,7 +1009,7 @@ def login_waiting_modal(server_url: str, verification_url: str, user_code: str) 
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "blocks": [
             {
@@ -1042,7 +1042,7 @@ def enrollment_waiting_modal(server_url: str, enrollment_url: str) -> dict[str, 
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Cancel"},
         "blocks": [
             {
@@ -1074,7 +1074,7 @@ def login_failed_modal(server_url: str, reason: str) -> dict[str, Any]:
     return {
         "type": "modal",
         "callback_id": CALLBACK_SETUP_INFO,
-        "title": {"type": "plain_text", "text": "Set up Omnigent"},
+        "title": {"type": "plain_text", "text": "Set up AgentNexus"},
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": [
             {
@@ -1097,7 +1097,7 @@ def select_modal(
     workspace_default: str | None = None,
     *,
     private_metadata: str | None = None,
-    title: str = "Set up Omnigent",
+    title: str = "Set up AgentNexus",
 ) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = [
         {

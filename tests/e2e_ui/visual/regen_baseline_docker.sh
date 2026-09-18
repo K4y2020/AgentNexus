@@ -8,7 +8,7 @@
 # against -- commit it directly.
 #
 # Only a container runtime is required (no local Node/Python/uv).  Set
-# OMNIGENT_CONTAINER_RUNTIME=podman to use Podman instead of Docker.  It:
+# AGENTNEXUS_CONTAINER_RUNTIME=podman to use Podman instead of Docker.  It:
 #   1. builds the web SPA and static Storybook in a Node 20 container, then
 #   2. compares the whole visual suite in the pinned Playwright image and
 #      rewrites only the baselines that drift (or are missing) -- baselines that
@@ -34,7 +34,7 @@ NODE_IMAGE="node:20-bookworm"
 PLATFORM="linux/amd64"
 # Match the workspace package-manager pin used by CI.
 PNPM_VERSION="11.15.1"
-BUILD_OUTPUT="omnigent/server/static/web-ui"
+BUILD_OUTPUT="agentnexus/server/static/web-ui"
 STORYBOOK_OUTPUT="web/storybook-static"
 SNAP_ROOT="tests/e2e_ui/visual/snapshots"
 
@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-CONTAINER_RUNTIME="${OMNIGENT_CONTAINER_RUNTIME:-docker}"
+CONTAINER_RUNTIME="${AGENTNEXUS_CONTAINER_RUNTIME:-docker}"
 command -v "$CONTAINER_RUNTIME" >/dev/null || { echo "error: $CONTAINER_RUNTIME is required." >&2; exit 1; }
 cd "$(git rev-parse --show-toplevel)"
 
@@ -76,8 +76,8 @@ RENDER_FAILED=false
 if ! "$CONTAINER_RUNTIME" run --rm --platform "$PLATFORM" -v "$PWD":/work -w /work \
   -e CI=1 \
   -e GITHUB_ACTIONS=true \
-  -e OMNIGENT_PW_NO_SANDBOX=1 \
-  -e OMNIGENT_SKIP_WEB_UI=true \
+  -e AGENTNEXUS_PW_NO_SANDBOX=1 \
+  -e AGENTNEXUS_SKIP_WEB_UI=true \
   -e UV_PYTHON_PREFERENCE=only-system \
   -e UV_PROJECT_ENVIRONMENT=/opt/uv-venv \
   "$PW_IMAGE" bash -c '

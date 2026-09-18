@@ -1,8 +1,8 @@
-// Tests for the pure helpers in src/omnigent_cli.js, run with `node --test`
+// Tests for the pure helpers in src/agentnexus_cli.js, run with `node --test`
 // (no extra deps). The spawning functions need a real binary and are covered by
 // the manual verification flow; here we test path resolution order, server-URL
 // matching, and status parsing — the logic that decides "is this machine
-// connected to server X?" and "which omnigent binary do we run?".
+// connected to server X?" and "which agentnexus binary do we run?".
 
 const { describe, it, mock, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
@@ -24,13 +24,13 @@ const {
   getHostConnectionFast,
   probeServerAuth,
   localHostId,
-} = require("../src/omnigent_cli");
+} = require("../src/agentnexus_cli");
 
 describe("normalizeServerUrl", () => {
   it("strips trailing slashes and trims", () => {
     assert.equal(normalizeServerUrl("https://x.com/"), "https://x.com");
     assert.equal(normalizeServerUrl("  http://localhost:6767//  "), "http://localhost:6767");
-    assert.equal(normalizeServerUrl("https://x.com/ml/omnigents"), "https://x.com/ml/omnigents");
+    assert.equal(normalizeServerUrl("https://x.com/ml/agentnexuss"), "https://x.com/ml/agentnexuss");
   });
 
   it("returns empty string for non-strings", () => {
@@ -84,21 +84,21 @@ describe("parseLocalServerPidfile", () => {
 });
 
 describe("candidatePaths", () => {
-  it("probes both the omnigent name and the omni alias in each location", () => {
+  it("probes both the agentnexus name and the omni alias in each location", () => {
     const paths = candidatePaths();
-    // Every well-known dir contributes an `omnigent` and an `omni` entry.
+    // Every well-known dir contributes an `agentnexus` and an `omni` entry.
     assert.ok(
-      paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "omnigent")),
+      paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "agentnexus")),
     );
     assert.ok(paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "omni")));
-    assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "omnigent")));
+    assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "agentnexus")));
     assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "omni")));
     assert.ok(paths.includes(path.join("/usr", "local", "bin", "omni")));
   });
 
-  it("lists the canonical omnigent name before the omni alias within a dir", () => {
+  it("lists the canonical agentnexus name before the omni alias within a dir", () => {
     const paths = candidatePaths();
-    const og = paths.indexOf(path.join("/opt", "homebrew", "bin", "omnigent"));
+    const og = paths.indexOf(path.join("/opt", "homebrew", "bin", "agentnexus"));
     const omni = paths.indexOf(path.join("/opt", "homebrew", "bin", "omni"));
     assert.ok(og !== -1 && omni !== -1 && og < omni);
   });
@@ -109,36 +109,36 @@ describe("resolveCliPath", () => {
     const got = resolveCliPath(null, {
       isExecutableFile: (p) => p === "/home/me/.local/bin/omni",
       whichOmnigent: () => null,
-      candidatePaths: () => ["/home/me/.local/bin/omnigent", "/home/me/.local/bin/omni"],
+      candidatePaths: () => ["/home/me/.local/bin/agentnexus", "/home/me/.local/bin/omni"],
     });
     assert.deepEqual(got, { path: "/home/me/.local/bin/omni", source: "candidate" });
   });
 
   it("prefers a usable configured path", () => {
-    const got = resolveCliPath("/custom/omnigent", {
-      isExecutableFile: (p) => p === "/custom/omnigent",
-      whichOmnigent: () => "/usr/bin/omnigent",
-      candidatePaths: () => ["/home/me/.local/bin/omnigent"],
+    const got = resolveCliPath("/custom/agentnexus", {
+      isExecutableFile: (p) => p === "/custom/agentnexus",
+      whichOmnigent: () => "/usr/bin/agentnexus",
+      candidatePaths: () => ["/home/me/.local/bin/agentnexus"],
     });
-    assert.deepEqual(got, { path: "/custom/omnigent", source: "configured" });
+    assert.deepEqual(got, { path: "/custom/agentnexus", source: "configured" });
   });
 
   it("falls back to PATH when the configured path is unusable", () => {
     const got = resolveCliPath("/bad/path", {
-      isExecutableFile: (p) => p === "/usr/bin/omnigent",
-      whichOmnigent: () => "/usr/bin/omnigent",
-      candidatePaths: () => ["/home/me/.local/bin/omnigent"],
+      isExecutableFile: (p) => p === "/usr/bin/agentnexus",
+      whichOmnigent: () => "/usr/bin/agentnexus",
+      candidatePaths: () => ["/home/me/.local/bin/agentnexus"],
     });
-    assert.deepEqual(got, { path: "/usr/bin/omnigent", source: "path" });
+    assert.deepEqual(got, { path: "/usr/bin/agentnexus", source: "path" });
   });
 
   it("falls back to a candidate when PATH misses (GUI minimal PATH)", () => {
     const got = resolveCliPath(null, {
-      isExecutableFile: (p) => p === "/home/me/.local/bin/omnigent",
+      isExecutableFile: (p) => p === "/home/me/.local/bin/agentnexus",
       whichOmnigent: () => null,
-      candidatePaths: () => ["/home/me/.local/bin/omnigent", "/opt/homebrew/bin/omnigent"],
+      candidatePaths: () => ["/home/me/.local/bin/agentnexus", "/opt/homebrew/bin/agentnexus"],
     });
-    assert.deepEqual(got, { path: "/home/me/.local/bin/omnigent", source: "candidate" });
+    assert.deepEqual(got, { path: "/home/me/.local/bin/agentnexus", source: "candidate" });
   });
 
   it("returns null when nothing is usable", () => {

@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.coordination.probe import ProbeVerdict, probe_delivery_state
-from omnigent.coordination.reconciliation import EVENT_TYPE, reconcile_effect_unknown
-from omnigent.coordination.store import CoordinationStore
-from omnigent.coordination.types import (
+from agentnexus.coordination.probe import ProbeVerdict, probe_delivery_state
+from agentnexus.coordination.reconciliation import EVENT_TYPE, reconcile_effect_unknown
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.coordination.types import (
     DELIVERY_ERROR_REJECTED,
     DELIVERY_ERROR_UNPROVEN,
     DELIVERY_ERROR_UNREACHABLE,
@@ -24,7 +24,7 @@ from omnigent.coordination.types import (
     DeliveryAttempt,
     OutboxItem,
 )
-from omnigent.coordination.workflow_engine import _delivery_in_flight
+from agentnexus.coordination.workflow_engine import _delivery_in_flight
 
 # Far enough ahead that every lease in the fixture counts as stale without
 # sleeping or rewriting persisted timestamps.

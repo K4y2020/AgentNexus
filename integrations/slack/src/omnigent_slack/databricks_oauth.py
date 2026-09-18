@@ -3,7 +3,7 @@
 The bot registers a **custom OAuth app** in the Databricks workspace and drives
 its user-to-machine (U2M) authorization-code flow, with PKCE (RFC 7636) and
 ``offline_access``, so each Slack user signs in once and the bot receives a
-**durable, refreshable** access token it forwards to the Omnigent server.
+**durable, refreshable** access token it forwards to the AgentNexus server.
 
 This replaces the earlier forwarded-``x-forwarded-access-token`` pass-through,
 whose ~1h token had no refresh (users re-enrolled hourly — see the "Weaknesses"

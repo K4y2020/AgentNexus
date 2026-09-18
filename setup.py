@@ -53,7 +53,7 @@ class _GenerateBuildInfo(build_py):
         src = root / "scripts" / "uninstall_oss.sh"
         if not src.is_file():
             return
-        dest = Path(self.build_lib) / "omnigent" / "resources" / "scripts" / src.name
+        dest = Path(self.build_lib) / "agentnexus" / "resources" / "scripts" / src.name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
 
@@ -81,7 +81,7 @@ class _GenerateBuildInfo(build_py):
         import shutil
 
         root = Path(__file__).resolve().parent
-        dest_root = Path(self.build_lib) / "omnigent" / "resources" / "examples"
+        dest_root = Path(self.build_lib) / "agentnexus" / "resources" / "examples"
         for name in ("debby", "polly"):
             src = root / "examples" / name
             if not src.is_dir():
@@ -118,20 +118,20 @@ class _GenerateBuildInfo(build_py):
         backend-only dev loop or breaking node-less CI:
 
         - Skip if ``web/`` is absent (sdists that don't vendor it).
-        - Skip if ``OMNIGENT_SKIP_WEB_UI=true``. The hardened CI
+        - Skip if ``AGENTNEXUS_SKIP_WEB_UI=true``. The hardened CI
           runners ship pnpm but have no fast registry mirror
           configured for the lint/test shards, so ``pnpm install``
           crawls against the public registry and hits the 600s
           timeout — 10 wasted minutes per ``uv sync`` for a bundle
           those jobs never serve. They set this env var to opt out.
         - Skip if the bundle already exists, UNLESS
-          ``OMNIGENT_BUILD_WEB_UI=1`` forces a rebuild. This keeps
+          ``AGENTNEXUS_BUILD_WEB_UI=1`` forces a rebuild. This keeps
           repeat ``uv sync`` fast for backend devs (build once, reuse)
           while letting release builds force a fresh bundle.
         - Otherwise the build MUST succeed: a Node.js older than 22.13
           (or absent), a missing pnpm, or a failing ``pnpm install`` /
           ``pnpm --filter web run build`` aborts the install with an
-          actionable error. Omnigent needs Node 22 LTS + pnpm at
+          actionable error. AgentNexus needs Node 22 LTS + pnpm at
           runtime anyway (the Claude / Codex / Pi harness CLIs are
           npm packages, and the web UI is a pnpm workspace), so a
           node-less machine would get a broken install either way —
@@ -154,15 +154,15 @@ class _GenerateBuildInfo(build_py):
 
         root = Path(__file__).resolve().parent
         web_src = root / "web"
-        bundle = root / "omnigent" / "server" / "static" / "web-ui" / "index.html"
+        bundle = root / "agentnexus" / "server" / "static" / "web-ui" / "index.html"
 
         if not (web_src / "package.json").is_file():
             return
         # CI opt-out: exact "true" only — this is set by our own
         # workflows, not user-facing config.
-        if os.environ.get("OMNIGENT_SKIP_WEB_UI") == "true":
+        if os.environ.get("AGENTNEXUS_SKIP_WEB_UI") == "true":
             return
-        force_raw = os.environ.get("OMNIGENT_BUILD_WEB_UI")
+        force_raw = os.environ.get("AGENTNEXUS_BUILD_WEB_UI")
         force = force_raw is not None and force_raw.strip().lower() in (
             "1",
             "true",
@@ -188,15 +188,15 @@ class _GenerateBuildInfo(build_py):
                 pnpm_cmd = None
         if pnpm_cmd is None:
             raise SystemExit(
-                "omnigent build: pnpm not found on PATH, so the web UI "
-                "cannot be built. Omnigent requires Node.js 22 LTS or "
+                "agentnexus build: pnpm not found on PATH, so the web UI "
+                "cannot be built. AgentNexus requires Node.js 22 LTS or "
                 "newer with pnpm (the web UI is a pnpm workspace; the "
                 "Claude / Codex / Pi harness CLIs are npm packages). "
                 "Install Node from https://nodejs.org/en/download and "
                 "enable pnpm with `corepack enable` (or `npm install -g "
                 "pnpm`), then rerun the install. To deliberately install "
                 "without the web UI (API-only server), set "
-                "OMNIGENT_SKIP_WEB_UI=true."
+                "AGENTNEXUS_SKIP_WEB_UI=true."
             )
         # A ``pnpm`` on PATH is often a corepack shim, which asks "Do you
         # want to continue? [Y/n]" before fetching the pinned pnpm. That
@@ -227,14 +227,14 @@ class _GenerateBuildInfo(build_py):
             )
         except (subprocess.SubprocessError, OSError) as exc:
             raise SystemExit(
-                f"omnigent build: web UI build failed on Node.js {node_version} "
+                f"agentnexus build: web UI build failed on Node.js {node_version} "
                 f"({_subprocess_failure_details(exc)}). Fix the failure above "
                 "and rerun the install. If "
                 "this Node.js release is incompatible with pnpm or Vite, "
                 f"upgrade to Node.js {_MINIMUM_NODE_VERSION_TEXT} or newer and "
                 "retry. To deliberately install "
                 "without the web UI (API-only server), set "
-                "OMNIGENT_SKIP_WEB_UI=true."
+                "AGENTNEXUS_SKIP_WEB_UI=true."
             ) from exc
 
     def _write_build_info(self) -> None:
@@ -244,11 +244,11 @@ class _GenerateBuildInfo(build_py):
         build dir) means editable installs (``pip install -e .``,
         ``uv sync``) also get the file — they're a single
         ``build_py`` invocation against an in-place package — and
-        any later non-build code path that does ``from omnigent
+        any later non-build code path that does ``from agentnexus
         import _build_info`` works without re-running the build.
         """
         # Keep generated names and types aligned with omnigent/_build_info.pyi.
-        target = Path(__file__).resolve().parent / "omnigent" / "_build_info.py"
+        target = Path(__file__).resolve().parent / "agentnexus" / "_build_info.py"
         commit = _git_sha()
         # Use repr() for the SHA so quoting is always correct, even
         # for an empty fallback. The format is deliberately minimal
@@ -259,7 +259,7 @@ class _GenerateBuildInfo(build_py):
             "This module is created by ``setup.py`` immediately before\n"
             "``build_py`` packages the wheel, and is gitignored so it\n"
             "is recreated on every build. Consumers should import it\n"
-            "defensively (``try: from omnigent import _build_info``)\n"
+            "defensively (``try: from agentnexus import _build_info``)\n"
             "because source checkouts that have never been built will\n"
             "not have it on disk.\n"
             '"""\n'
@@ -284,10 +284,10 @@ def _require_supported_node() -> str:
     node = shutil.which("node")
     if node is None:
         raise SystemExit(
-            "omnigent build: Node.js not found on PATH, so the web UI "
+            "agentnexus build: Node.js not found on PATH, so the web UI "
             f"cannot be built. Node.js {_MINIMUM_NODE_VERSION_TEXT} or newer "
             "is required. Install it from https://nodejs.org/en/download and "
-            "retry, or run with OMNIGENT_SKIP_WEB_UI=true to skip the web UI "
+            "retry, or run with AGENTNEXUS_SKIP_WEB_UI=true to skip the web UI "
             "build."
         )
     try:
@@ -300,11 +300,11 @@ def _require_supported_node() -> str:
         )
     except (subprocess.SubprocessError, OSError) as exc:
         raise SystemExit(
-            f"omnigent build: could not determine the Node.js version "
+            f"agentnexus build: could not determine the Node.js version "
             f"(`node --version` failed: {exc}). Node.js "
             f"{_MINIMUM_NODE_VERSION_TEXT} or newer is required. Install it "
             "from https://nodejs.org/en/download and retry, or run with "
-            "OMNIGENT_SKIP_WEB_UI=true to skip the web UI build."
+            "AGENTNEXUS_SKIP_WEB_UI=true to skip the web UI build."
         ) from exc
     # ``node --version`` prints ``v22.14.0``.
     version_str = result.stdout.strip().lstrip("v")
@@ -314,18 +314,18 @@ def _require_supported_node() -> str:
             raise ValueError
     except ValueError:
         raise SystemExit(
-            f"omnigent build: could not parse Node.js version "
+            f"agentnexus build: could not parse Node.js version "
             f"{version_str or 'unknown'}. Node.js "
             f"{_MINIMUM_NODE_VERSION_TEXT} or newer is required. Install it "
             "from https://nodejs.org/en/download and retry, or run with "
-            "OMNIGENT_SKIP_WEB_UI=true to skip the web UI build."
+            "AGENTNEXUS_SKIP_WEB_UI=true to skip the web UI build."
         ) from None
     if version_parts < _MINIMUM_NODE_VERSION:
         raise SystemExit(
-            f"omnigent build: Node.js {_MINIMUM_NODE_VERSION_TEXT} or newer "
+            f"agentnexus build: Node.js {_MINIMUM_NODE_VERSION_TEXT} or newer "
             f"is required but found Node.js {version_str}. Upgrade from "
             "https://nodejs.org/en/download and retry, or run with "
-            "OMNIGENT_SKIP_WEB_UI=true to skip the web UI build."
+            "AGENTNEXUS_SKIP_WEB_UI=true to skip the web UI build."
         )
     return version_str
 

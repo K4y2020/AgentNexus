@@ -2,7 +2,7 @@
 
 The recording + JSON-writing logic lives in
 :mod:`omnigent.llms._usage_observer`, which auto-activates whenever
-``OMNIGENT_TOKEN_USAGE_JSON`` is set in the environment (including in
+``AGENTNEXUS_TOKEN_USAGE_JSON`` is set in the environment (including in
 subprocesses spawned by tests). This plugin's only job is to mark
 which test is currently running so LLM calls get attributed to the
 right ``nodeid``: both in-process calls (via a module global) and
@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.llms import _usage_observer
+from agentnexus.llms import _usage_observer
 
 
 @pytest.hookimpl(hookwrapper=True)

@@ -5,7 +5,7 @@ Covers the whole feature surface:
 - :meth:`SharingMode.coerce` — the fail-open-to-ON contract for the
   env-var and callable boundaries.
 - ``create_app(sharing_mode=…)`` wiring — static value, per-request
-  callable, and the ``OMNIGENT_SHARING_MODE`` env-var default.
+  callable, and the ``AGENTNEXUS_SHARING_MODE`` env-var default.
 - ``GET /v1/info`` reporting ``sharing_mode`` so the web app stays in
   lockstep with the server gate.
 - The ``PUT /v1/sessions/{id}/permissions`` gate: ``OFF`` rejects all
@@ -27,10 +27,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server import sharing_settings
-from omnigent.server.app import create_app
-from omnigent.server.auth import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server import sharing_settings
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import (
     LEVEL_EDIT,
     LEVEL_MANAGE,
     LEVEL_OWNER,
@@ -41,18 +41,18 @@ from omnigent.server.auth import (
     UnifiedAuthProvider,
     workspace_sharing_blocked,
 )
-from omnigent.server.sharing_settings import (
+from agentnexus.server.sharing_settings import (
     read_public_sharing_override,
     read_sharing_mode_override,
     resolve_sharing_mode_path,
     write_public_sharing_override,
     write_sharing_mode_override,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 # Reserved test identities. The owner is granted MANAGE so it can reach
 # the grant endpoint; the grantee is the target of each new grant; the admin
@@ -67,7 +67,7 @@ def _isolate_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Point ``resolve_data_dir()`` at the per-test tmp dir so the file-backed
     sharing overrides are isolated, and reset the module cache so no value
     leaks across tests."""
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
     sharing_settings._cache = {}
 
 
@@ -197,7 +197,7 @@ def test_wiring_defaults_to_on_when_env_unset(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No arg + unset env → the top-level default is ON."""
-    monkeypatch.delenv("OMNIGENT_SHARING_MODE", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_SHARING_MODE", raising=False)
     app = _build_app(db_uri, tmp_path)
     assert app.state.sharing_mode() is SharingMode.ON
 
@@ -218,8 +218,8 @@ def test_wiring_reads_env_var(
     raw: str,
     expected: SharingMode,
 ) -> None:
-    """``OMNIGENT_SHARING_MODE`` is the top-level control when no arg is given."""
-    monkeypatch.setenv("OMNIGENT_SHARING_MODE", raw)
+    """``AGENTNEXUS_SHARING_MODE`` is the top-level control when no arg is given."""
+    monkeypatch.setenv("AGENTNEXUS_SHARING_MODE", raw)
     app = _build_app(db_uri, tmp_path)
     assert app.state.sharing_mode() is expected
 
@@ -228,7 +228,7 @@ def test_wiring_static_value_overrides_env(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An explicit ``sharing_mode=`` beats the env var."""
-    monkeypatch.setenv("OMNIGENT_SHARING_MODE", "off")
+    monkeypatch.setenv("AGENTNEXUS_SHARING_MODE", "off")
     app = _build_app(db_uri, tmp_path, sharing_mode=SharingMode.READ_ONLY)
     assert app.state.sharing_mode() is SharingMode.READ_ONLY
 
@@ -249,7 +249,7 @@ def test_wiring_callable_is_resolved_per_request(db_uri: str, tmp_path: Path) ->
 async def test_info_reports_default_on(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("OMNIGENT_SHARING_MODE", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_SHARING_MODE", raising=False)
     app = _build_app(db_uri, tmp_path)
     async with _client(app) as c:
         resp = await c.get("/v1/info")
@@ -477,7 +477,7 @@ def test_override_beats_env_default(
 ) -> None:
     """When an override file exists, create_app's default resolver returns it,
     ignoring the env default; the path is marked editable."""
-    monkeypatch.setenv("OMNIGENT_SHARING_MODE", "on")
+    monkeypatch.setenv("AGENTNEXUS_SHARING_MODE", "on")
     write_sharing_mode_override(SharingMode.OFF)
     app = _build_app(db_uri, tmp_path)  # None → file-backed default
     assert app.state.sharing_mode() is SharingMode.OFF
@@ -488,7 +488,7 @@ def test_env_default_used_when_no_override(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """With no override file, the env default applies."""
-    monkeypatch.setenv("OMNIGENT_SHARING_MODE", "read_only")
+    monkeypatch.setenv("AGENTNEXUS_SHARING_MODE", "read_only")
     app = _build_app(db_uri, tmp_path)
     assert app.state.sharing_mode() is SharingMode.READ_ONLY
 
@@ -499,7 +499,7 @@ def test_env_default_used_when_no_override(
 async def test_get_reports_state(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_SHARING_MODE", "on")
+    monkeypatch.setenv("AGENTNEXUS_SHARING_MODE", "on")
     app = _admin_app(db_uri, tmp_path)
     async with _client(app, _ADMIN) as c:
         resp = await c.get("/v1/sharing")
@@ -562,14 +562,14 @@ async def test_put_requires_a_field(db_uri: str, tmp_path: Path) -> None:
         assert resp.status_code == 400, resp.text
 
 
-# ── Public-access switch (OMNIGENT_PUBLIC_SHARING) ───────────────────
+# ── Public-access switch (AGENTNEXUS_PUBLIC_SHARING) ───────────────────
 
 
 def test_public_sharing_defaults_enabled(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No arg + unset env → public sharing is enabled, file-editable."""
-    monkeypatch.delenv("OMNIGENT_PUBLIC_SHARING", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_PUBLIC_SHARING", raising=False)
     app = _build_app(db_uri, tmp_path)
     assert app.state.public_sharing() is True
     assert app.state.public_sharing_writable is True
@@ -581,8 +581,8 @@ def test_public_sharing_defaults_enabled(
 def test_public_sharing_reads_env_var(
     db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw: str, expected: bool
 ) -> None:
-    """``OMNIGENT_PUBLIC_SHARING`` is the top-level default when no arg is given."""
-    monkeypatch.setenv("OMNIGENT_PUBLIC_SHARING", raw)
+    """``AGENTNEXUS_PUBLIC_SHARING`` is the top-level default when no arg is given."""
+    monkeypatch.setenv("AGENTNEXUS_PUBLIC_SHARING", raw)
     app = _build_app(db_uri, tmp_path)
     assert app.state.public_sharing() is expected
 
@@ -599,7 +599,7 @@ def test_public_override_roundtrip_and_precedence(
 ) -> None:
     """The override file round-trips and beats the env default."""
     assert read_public_sharing_override() is None
-    monkeypatch.setenv("OMNIGENT_PUBLIC_SHARING", "1")
+    monkeypatch.setenv("AGENTNEXUS_PUBLIC_SHARING", "1")
     write_public_sharing_override(False)
     assert read_public_sharing_override() is False
     app = _build_app(db_uri, tmp_path)  # None → file-backed default
@@ -715,8 +715,8 @@ async def test_read_only_grantee_can_pin_shared_session(db_uri: str, tmp_path: P
     A ``LEVEL_READ`` collaborator on a session shared with them must be able to
     pin it — a pin-only PATCH needs only read access, and the pin is stored under
     the caller's own per-user key (not visible to other viewers)."""
-    from omnigent.db.utils import generate_agent_id
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.db.utils import generate_agent_id
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     permission_store = SqlAlchemyPermissionStore(db_uri)
     conversation_store = SqlAlchemyConversationStore(db_uri)
@@ -739,10 +739,10 @@ async def test_read_only_grantee_can_pin_shared_session(db_uri: str, tmp_path: P
     async with _client(app, _GRANTEE) as c:
         resp = await c.patch(
             f"/v1/sessions/{conv.id}",
-            json={"labels": {"omnigent.pinned": "1721760000000"}},
+            json={"labels": {"agentnexus.pinned": "1721760000000"}},
         )
         assert resp.status_code == 200, resp.text
-        assert resp.json()["labels"].get("omnigent.pinned") == "1721760000000"
+        assert resp.json()["labels"].get("agentnexus.pinned") == "1721760000000"
 
     # Stored under the grantee's per-user key, and it surfaces on their
     # ``?pinned=true`` list.
@@ -760,7 +760,7 @@ async def test_read_only_grantee_can_pin_shared_session(db_uri: str, tmp_path: P
         # clears the grantee's own per-user key.
         resp = await c.patch(
             f"/v1/sessions/{conv.id}",
-            json={"labels": {"omnigent.pinned": ""}},
+            json={"labels": {"agentnexus.pinned": ""}},
         )
         assert resp.status_code == 200, resp.text
 
@@ -772,7 +772,7 @@ async def test_read_only_grantee_can_pin_shared_session(db_uri: str, tmp_path: P
 async def test_read_only_grantee_cannot_edit_other_labels(db_uri: str, tmp_path: Path) -> None:
     """The pin-only downgrade is narrow: a read-only collaborator PATCHing any
     non-pin field (or bundling one alongside the pin) still hits the edit gate."""
-    from omnigent.db.utils import generate_agent_id
+    from agentnexus.db.utils import generate_agent_id
 
     permission_store = SqlAlchemyPermissionStore(db_uri)
     conversation_store = SqlAlchemyConversationStore(db_uri)
@@ -801,6 +801,6 @@ async def test_read_only_grantee_cannot_edit_other_labels(db_uri: str, tmp_path:
         # Pin bundled with another label → not pin-only → edit required → 403.
         resp = await c.patch(
             f"/v1/sessions/{conv.id}",
-            json={"labels": {"omnigent.pinned": "1721760000000", "omni_project": "Moonshot"}},
+            json={"labels": {"agentnexus.pinned": "1721760000000", "omni_project": "Moonshot"}},
         )
         assert resp.status_code == 403, resp.text

@@ -1246,7 +1246,7 @@ async def _setup_policy_evaluate_session(env: BenchEnvironment) -> str:
     # Build a bundle like BenchEnvironment._agent_bundle but with a policy
     # declared so any_policies_apply is true and the full engine runs.
     executor: dict[str, object] = {
-        "type": "omnigent",
+        "type": "agentnexus",
         "model": env.model,
         "config": {"harness": env.harness},
     }
@@ -1260,7 +1260,7 @@ async def _setup_policy_evaluate_session(env: BenchEnvironment) -> str:
                 "allow_all": {
                     "type": "function",
                     "on": ["tool_call"],
-                    "function": "dev.benchmarks.omnigent.journeys._bench_policy_allow",
+                    "function": "dev.benchmarks.agentnexus.journeys._bench_policy_allow",
                 }
             }
         },
@@ -1327,7 +1327,7 @@ async def _prepare_cli_startup(env: BenchEnvironment, _ctx: JourneyContext) -> N
     or "host is on another replica". Runs outside the latency timer.
     """
     del env
-    omnigent_bin = os.environ.get("OMNIGENT_BIN") or shutil.which("omnigent")
+    omnigent_bin = os.environ.get("AGENTNEXUS_BIN") or shutil.which("agentnexus")
     if omnigent_bin is None:
         return
     await asyncio.to_thread(
@@ -1362,9 +1362,9 @@ async def _measure_cli_startup(env: BenchEnvironment, _ctx: JourneyContext) -> N
             "pexpect is required for cli_startup. Install with: pip install pexpect"
         ) from exc
 
-    omnigent_bin = os.environ.get("OMNIGENT_BIN") or shutil.which("omnigent")
+    omnigent_bin = os.environ.get("AGENTNEXUS_BIN") or shutil.which("agentnexus")
     if omnigent_bin is None:
-        raise RuntimeError("omnigent binary not found. Set OMNIGENT_BIN or add omnigent to PATH.")
+        raise RuntimeError("agentnexus binary not found. Set AGENTNEXUS_BIN or add omnigent to PATH.")
 
     child = pexpect.spawn(
         omnigent_bin,
@@ -1417,7 +1417,7 @@ _HOOK_SPAWN_PAYLOAD = json.dumps(
 async def _setup_hook_spawn(env: BenchEnvironment) -> JourneyContext:
     """A throwaway bridge dir for the hook's appended deltas file."""
     del env
-    return tempfile.mkdtemp(prefix="omnigent-bench-hook-")
+    return tempfile.mkdtemp(prefix="agentnexus-bench-hook-")
 
 
 async def _measure_hook_spawn(env: BenchEnvironment, ctx: JourneyContext) -> None:
@@ -1427,7 +1427,7 @@ async def _measure_hook_spawn(env: BenchEnvironment, ctx: JourneyContext) -> Non
         sys.executable,
         "-I",
         "-m",
-        "omnigent.claude_native_message_display_hook",
+        "agentnexus.claude_native_message_display_hook",
         "--bridge-dir",
         str(ctx),
         stdin=asyncio.subprocess.PIPE,

@@ -43,7 +43,7 @@ CI coverage without a Cursor account
 ------------------------------------
 Because the live test above skips wherever Cursor is not logged in — i.e. on
 every PR — :func:`test_native_cursor_mirror_renders_without_live_agent` covers
-the same Omnigent-owned half (the forwarder mirroring cursor's transcript OUT as
+the same AgentNexus-owned half (the forwarder mirroring cursor's transcript OUT as
 conversation items the SPA renders as bubbles) with no live ``cursor-agent`` and
 no LLM. ``cursor-agent`` has no OpenAI-compatible / custom-endpoint shim (see
 ``omnigent.inner.cursor_harness``), so it cannot be pointed at the mock LLM the
@@ -70,7 +70,7 @@ import httpx
 import pytest
 from playwright.sync_api import Page, expect
 
-from omnigent import cursor_native_forwarder as fwd
+from agentnexus import cursor_native_forwarder as fwd
 
 # Reuse the custom-agent suite's helpers — both surfaces render from the same
 # canonical transcript, so parity / dedup / ordering are asserted identically.
@@ -454,7 +454,7 @@ def test_native_cursor_mirror_renders_without_live_agent(
     """Cursor's forwarder mirrors its chat store into the web chat — in CI.
 
     The live render-parity test above needs a real ``cursor-agent`` + Cursor
-    login, so it skips on every PR. This covers the SAME Omnigent-owned path —
+    login, so it skips on every PR. This covers the SAME AgentNexus-owned path —
     the forwarder mirroring cursor's transcript OUT as conversation items the SPA
     renders as bubbles — with no live agent and no LLM: seed a cursor chat store,
     run the real ``forward_cursor_store_to_session`` against the spawned server,

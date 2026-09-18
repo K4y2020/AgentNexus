@@ -127,7 +127,7 @@ function createReturnBanner({
     position(parent, banner);
     // showInactive: never steal focus from the page (e.g. an SSO form).
     if (!banner.isVisible()) banner.showInactive();
-    console.warn(`[omnigent] return-banner: shown (return to ${returnUrls.get(parent)})`);
+    console.warn(`[agentnexus] return-banner: shown (return to ${returnUrls.get(parent)})`);
   }
 
   /**
@@ -140,7 +140,7 @@ function createReturnBanner({
   function show(parent, returnUrl) {
     if (!parent || parent.isDestroyed()) return;
     if (!returnUrl) {
-      console.warn("[omnigent] return-banner: NOT shown — no return URL recorded");
+      console.warn("[agentnexus] return-banner: NOT shown — no return URL recorded");
       return;
     }
     returnUrls.set(parent, returnUrl);
@@ -154,7 +154,7 @@ function createReturnBanner({
   }
 
   function registerIpc() {
-    ipcMain.on("omnigent:return-banner-go-back", (event) => {
+    ipcMain.on("agentnexus:return-banner-go-back", (event) => {
       const banner = bannerForSender(event);
       if (!banner) return;
       const parent = parentOf(banner);
@@ -166,7 +166,7 @@ function createReturnBanner({
       onGoBack?.(parent);
       void parent.loadURL(target).catch(() => {});
     });
-    ipcMain.on("omnigent:return-banner-dismiss", (event) => {
+    ipcMain.on("agentnexus:return-banner-dismiss", (event) => {
       const banner = bannerForSender(event);
       if (!banner) return;
       const parent = parentOf(banner);

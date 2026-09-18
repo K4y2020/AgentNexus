@@ -36,7 +36,7 @@ from pathlib import Path
 
 # Env keys that would add ambient credential detections (or omnigent config)
 # from the CI machine into the listing under test.
-_AMBIENT_ENV_PREFIXES = ("OMNIGENT_", "OPENAI_", "ANTHROPIC_", "GEMINI_", "GOOGLE_")
+_AMBIENT_ENV_PREFIXES = ("AGENTNEXUS_", "OPENAI_", "ANTHROPIC_", "GEMINI_", "GOOGLE_")
 _AMBIENT_ENV_KEYS = ("LLM_API_KEY", "CLAUDE_CODE_USE_VERTEX", "CLOUD_ML_REGION")
 
 # The checkout under test. Pinned onto the subprocess PYTHONPATH so the child
@@ -77,12 +77,12 @@ def test_config_list_does_not_call_an_apikey_codex_login_a_subscription(
     )
 
     proc = subprocess.run(
-        [sys.executable, "-m", "omnigent", "config", "list"],
+        [sys.executable, "-m", "agentnexus", "config", "list"],
         capture_output=True,
         text=True,
         timeout=120.0,
         env=_clean_env(fake_home),
-        cwd=str(tmp_path),  # no project-level .omnigent config in scope
+        cwd=str(tmp_path),  # no project-level .agentnexus config in scope
     )
     assert proc.returncode == 0, proc.stderr
 

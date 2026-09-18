@@ -28,7 +28,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.server.smart_routing import models_in_family
+from agentnexus.server.smart_routing import models_in_family
 from tests.e2e.routing._helpers import (
     arm_in,
     claude_settings_apart_from_the_model,

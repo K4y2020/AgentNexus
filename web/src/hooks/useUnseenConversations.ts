@@ -44,7 +44,7 @@ const explicitlyUnread = new Set<string>();
 
 // localStorage persistence. Best-effort everywhere: storage can be
 // missing (SSR), full, or blocked — the in-memory mirror always works.
-const STORAGE_KEY = "omnigent.readState.v1";
+const STORAGE_KEY = "agentnexus.readState.v1";
 // Bound growth: keep only the newest baselines; older sessions fall back
 // to the seed's read-as-of-load behavior.
 const STORAGE_MAX_ENTRIES = 1000;

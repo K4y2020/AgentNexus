@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import pytest
 import tomllib
 
-from omnigent.onboarding import extra_install
-from omnigent.onboarding.antigravity_auth import ANTIGRAVITY_EXTRA
-from omnigent.onboarding.copilot_auth import COPILOT_EXTRA
-from omnigent.onboarding.cursor_auth import CURSOR_EXTRA
-from omnigent.onboarding.extra_install import (
+from agentnexus.onboarding import extra_install
+from agentnexus.onboarding.antigravity_auth import ANTIGRAVITY_EXTRA
+from agentnexus.onboarding.copilot_auth import COPILOT_EXTRA
+from agentnexus.onboarding.cursor_auth import CURSOR_EXTRA
+from agentnexus.onboarding.extra_install import (
     _installed_vcs_url,
     _is_uv_tool_install,
     extra_install_command,
@@ -50,7 +50,7 @@ def test_installed_vcs_url_git_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """Surfaces the ``vcs_url`` recorded for a git-source install."""
     url = "git+https://github.com/omnigent-ai/omnigent.git"
     monkeypatch.setattr(
-        "omnigent.update_check._read_installed_wheel_info",
+        "agentnexus.update_check._read_installed_wheel_info",
         lambda: SimpleNamespace(vcs_url=url),
     )
     assert _installed_vcs_url() == url
@@ -63,7 +63,7 @@ def test_installed_vcs_url_git_source(monkeypatch: pytest.MonkeyPatch) -> None:
 )
 def test_installed_vcs_url_none(monkeypatch: pytest.MonkeyPatch, info: object) -> None:
     """Returns ``None`` for registry installs and when the dist is absent."""
-    monkeypatch.setattr("omnigent.update_check._read_installed_wheel_info", lambda: info)
+    monkeypatch.setattr("agentnexus.update_check._read_installed_wheel_info", lambda: info)
     assert _installed_vcs_url() is None
 
 
@@ -80,8 +80,8 @@ def test_extra_install_command_uv_tool(monkeypatch: pytest.MonkeyPatch) -> None:
         "tool",
         "install",
         "--with",
-        "omnigent[cursor]",
-        "omnigent",
+        "agentnexus[cursor]",
+        "agentnexus",
         "--force",
     ]
 
@@ -92,7 +92,7 @@ def test_extra_install_command_uv_tool_git_source(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(extra_install, "_is_uv_tool_install", lambda: True)
     monkeypatch.setattr(extra_install, "_installed_vcs_url", lambda: url)
     cmd = extra_install_command("cursor")
-    assert cmd == ["uv", "tool", "install", "--force", f"omnigent[cursor] @ {url}"]
+    assert cmd == ["uv", "tool", "install", "--force", f"agentnexus[cursor] @ {url}"]
 
 
 def test_extra_install_command_uv_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -107,7 +107,7 @@ def test_extra_install_command_uv_on_path(monkeypatch: pytest.MonkeyPatch) -> No
         "install",
         "--python",
         "/opt/venv/bin/python",
-        "omnigent[antigravity]",
+        "agentnexus[antigravity]",
     ]
 
 
@@ -128,7 +128,7 @@ def test_extra_install_command_uv_on_path_targets_running_interpreter(
     monkeypatch.setattr(extra_install.sys, "executable", brew_python)
     monkeypatch.delenv("VIRTUAL_ENV", raising=False)
     cmd = extra_install_command("copilot")
-    assert cmd == ["uv", "pip", "install", "--python", brew_python, "omnigent[copilot]"]
+    assert cmd == ["uv", "pip", "install", "--python", brew_python, "agentnexus[copilot]"]
 
 
 def test_extra_install_command_pip_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,7 +141,7 @@ def test_extra_install_command_pip_fallback(monkeypatch: pytest.MonkeyPatch) -> 
         "-m",
         "pip",
         "install",
-        "omnigent[copilot]",
+        "agentnexus[copilot]",
     ]
 
 
@@ -155,7 +155,7 @@ def test_extra_install_display_matches_command(
     monkeypatch.setattr(extra_install, "_is_uv_tool_install", lambda: False)
     monkeypatch.setattr(extra_install.shutil, "which", lambda name: "/usr/bin/uv")
     display = extra_install_display("cursor")
-    assert "omnigent[cursor]" in display
+    assert "agentnexus[cursor]" in display
     assert display.startswith("uv")
 
 

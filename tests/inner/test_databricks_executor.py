@@ -15,12 +15,12 @@ import databricks.sdk.config as _sdk_config_mod
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from omnigent.inner.databricks_executor import (
+from agentnexus.inner.databricks_executor import (
     DatabricksExecutor,
     _convert_messages,
     _convert_tools_to_openai,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     TextChunk,
@@ -591,7 +591,7 @@ class TestDatabricksExecutorConfig(unittest.TestCase):
                 return SimpleNamespace(model_id="catalog-databricks-claude-default")
 
             with patch(
-                "omnigent.model_catalog.resolve_catalog_model",
+                "agentnexus.model_catalog.resolve_catalog_model",
                 side_effect=_resolve_model,
             ):
                 [e async for e in executor.run_turn([], [], "", config=ExecutorConfig())]
@@ -708,7 +708,7 @@ from pathlib import Path as _Path  # noqa: E402
 
 import pytest  # noqa: E402
 
-from omnigent.inner.databricks_executor import (  # noqa: E402
+from agentnexus.inner.databricks_executor import (  # noqa: E402
     DatabricksAuthError,
     _DatabricksBearerAuth,
     _read_databrickscfg,
@@ -900,7 +900,7 @@ def test_databricks_gateway_host_ignores_env_override_for_explicit_profile(
     URL and the token would target different workspaces and the gateway rejects
     the token. So the host must come from the profile section directly.
     """
-    from omnigent.inner.databricks_executor import _databricks_gateway_host
+    from agentnexus.inner.databricks_executor import _databricks_gateway_host
 
     cfg_path = tmp_path / "databrickscfg"
     cfg_path.write_text(
@@ -929,7 +929,7 @@ def test_databricks_gateway_host_missing_profile_falls_back_to_ambient(
     App container with no matching section: there is no profile-pinned token to
     diverge from, so ambient ``DATABRICKS_HOST`` is the right host.
     """
-    from omnigent.inner.databricks_executor import _databricks_gateway_host
+    from agentnexus.inner.databricks_executor import _databricks_gateway_host
 
     # Stub the SDK's host-metadata probe (a real HTTP GET with retries) so the
     # ambient-credential resolution stays offline and fast.
@@ -973,7 +973,7 @@ def test_codex_executor_gateway_uses_host_only_oauth_profile(
     )
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(cfg_path))
 
-    from omnigent.inner.codex_executor import CodexExecutor
+    from agentnexus.inner.codex_executor import CodexExecutor
 
     executor = CodexExecutor(
         codex_path=sys.executable,
@@ -1299,7 +1299,7 @@ def test_resolve_databricks_auth_returns_bearer_auth_and_host(
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.inner.databricks_executor import (
+    from agentnexus.inner.databricks_executor import (
         _DatabricksBearerAuth,
         _resolve_databricks_auth,
     )
@@ -1328,8 +1328,8 @@ def test_resolve_databricks_auth_invalid_profile_raises_clear_error(
     """
     import pytest
 
-    import omnigent.inner.databricks_executor as db_exec
-    from omnigent.inner.databricks_executor import (
+    import agentnexus.inner.databricks_executor as db_exec
+    from agentnexus.inner.databricks_executor import (
         DatabricksAuthError,
         _resolve_databricks_auth,
     )
@@ -1367,8 +1367,8 @@ def test_resolve_databricks_auth_env_profile_falls_back_to_ambient_with_warning(
     """
     import logging
 
-    import omnigent.inner.databricks_executor as db_exec
-    from omnigent.inner.databricks_executor import (
+    import agentnexus.inner.databricks_executor as db_exec
+    from agentnexus.inner.databricks_executor import (
         _DatabricksBearerAuth,
         _resolve_databricks_auth,
     )
@@ -1390,7 +1390,7 @@ def test_resolve_databricks_auth_env_profile_falls_back_to_ambient_with_warning(
     # Profile comes from env var, not an explicit argument.
     monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "missing-profile")
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.inner.databricks_executor"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.inner.databricks_executor"):
         auth, host = _resolve_databricks_auth()  # profile=None — uses env var
 
     assert isinstance(auth, _DatabricksBearerAuth), (
@@ -1421,8 +1421,8 @@ def test_resolve_databricks_auth_explicit_profile_not_found_raises(
     """
     import pytest
 
-    import omnigent.inner.databricks_executor as db_exec
-    from omnigent.inner.databricks_executor import (
+    import agentnexus.inner.databricks_executor as db_exec
+    from agentnexus.inner.databricks_executor import (
         DatabricksAuthError,
         _resolve_databricks_auth,
     )
@@ -1458,7 +1458,7 @@ def test_bearer_auth_injects_fresh_token_per_request():
     """
     import httpx
 
-    from omnigent.inner.databricks_executor import _DatabricksBearerAuth
+    from agentnexus.inner.databricks_executor import _DatabricksBearerAuth
 
     call_count = 0
 
@@ -1493,7 +1493,7 @@ def test_bearer_auth_raises_on_expired_refresh_token():
     import httpx
     import pytest
 
-    from omnigent.inner.databricks_executor import (
+    from agentnexus.inner.databricks_executor import (
         DatabricksAuthError,
         _DatabricksBearerAuth,
     )
@@ -1546,17 +1546,17 @@ def test_claude_sdk_executor_reuses_api_key_helper_between_turns(
         call_count += 1
         return {
             "ANTHROPIC_BASE_URL": "https://host/ai-gateway/anthropic",
-            "OMNIGENT_CLAUDE_API_KEY_HELPER": f"helper-{call_count}",
+            "AGENTNEXUS_CLAUDE_API_KEY_HELPER": f"helper-{call_count}",
             "CLAUDE_CODE_API_KEY_HELPER_TTL_MS": "900000",
             "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
         }
 
     monkeypatch.setattr(
-        "omnigent.inner.claude_sdk_executor._resolve_gateway_env",
+        "agentnexus.inner.claude_sdk_executor._resolve_gateway_env",
         _counting_resolve,
     )
 
-    from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+    from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
 
     # Construct with initial env.
     executor = ClaudeSDKExecutor.__new__(ClaudeSDKExecutor)
@@ -1565,7 +1565,7 @@ def test_claude_sdk_executor_reuses_api_key_helper_between_turns(
     executor._gateway_host = None
     executor._base_url_override = None
     executor._extra_env = {
-        "OMNIGENT_CLAUDE_API_KEY_HELPER": "helper-initial",
+        "AGENTNEXUS_CLAUDE_API_KEY_HELPER": "helper-initial",
         "ANTHROPIC_BASE_URL": "https://host/ai-gateway/anthropic",
         "CLAUDE_CODE_API_KEY_HELPER_TTL_MS": "900000",
         "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
@@ -1582,7 +1582,7 @@ def test_claude_sdk_executor_reuses_api_key_helper_between_turns(
                 pass
         except Exception:
             pass
-        return executor._extra_env.get("OMNIGENT_CLAUDE_API_KEY_HELPER")
+        return executor._extra_env.get("AGENTNEXUS_CLAUDE_API_KEY_HELPER")
 
     helper = _run(_trigger_refresh())
 
@@ -1607,11 +1607,11 @@ def test_codex_executor_uses_cli_auth_command_not_env_token(
         return "https://host"
 
     monkeypatch.setattr(
-        "omnigent.inner.codex_executor._databricks_gateway_host",
+        "agentnexus.inner.codex_executor._databricks_gateway_host",
         _counting_read,
     )
 
-    from omnigent.inner.codex_executor import CodexExecutor
+    from agentnexus.inner.codex_executor import CodexExecutor
 
     executor = CodexExecutor.__new__(CodexExecutor)
     executor._databricks = True
@@ -1683,7 +1683,7 @@ def test_bearer_auth_current_token_none_for_non_bearer(headers: dict[str, str]) 
     """
     ``current_token()`` returns ``None`` for a non-Bearer or empty
     ``Authorization`` header (the system only supports Bearer). Returning the
-    raw header would feed callers a credential the Omnigent server can't use.
+    raw header would feed callers a credential the AgentNexus server can't use.
     """
 
     class _Config:
@@ -1751,7 +1751,7 @@ def test_resolve_auth_for_host_prefers_matching_profile(
     workspace). If this regresses to the bare ``databricks-cli`` host
     lookup, the constructed kwargs below change and the test fails.
     """
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     cfg_path = tmp_path / "databrickscfg"
     cfg_path.write_text(
@@ -1789,7 +1789,7 @@ def test_resolve_auth_for_host_uses_profile_cli_when_sdk_is_ambiguous(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """SDK profile auth can still hit ambiguous host lookup for CLI profiles."""
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     cfg_path = tmp_path / "databrickscfg"
     cfg_path.write_text(
@@ -1868,7 +1868,7 @@ def test_profile_cli_auth_config_caches_until_token_nears_expiry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The profile CLI fallback does not re-shell for every auth header."""
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     calls = 0
     timestamps = iter([1000.0, 1001.0, 1020.0])
@@ -1901,7 +1901,7 @@ def test_profile_cli_token_error_does_not_include_stdout_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A non-zero CLI exit never reports stdout, which may contain a token."""
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     def _run_databricks(args: list[str], **kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(
@@ -1929,7 +1929,7 @@ def test_resolve_auth_for_host_falls_back_to_cli_when_no_profile_matches(
     cache from ``databricks auth login --host`` — dropping this fallback
     would strand them.
     """
-    from omnigent.inner import databricks_executor
+    from agentnexus.inner import databricks_executor
 
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(tmp_path / "absent"))
 
@@ -1961,7 +1961,7 @@ def test_profiles_for_host_normalizes_scheme_and_slash(
     trailing ``/`` in the wild; a strict string compare would silently
     miss the profile and fall through to the unreliable CLI host lookup.
     """
-    from omnigent.inner.databricks_executor import _databrickscfg_profiles_for_host
+    from agentnexus.inner.databricks_executor import _databrickscfg_profiles_for_host
 
     cfg_path = tmp_path / "databrickscfg"
     cfg_path.write_text(
@@ -1981,7 +1981,7 @@ def test_profiles_for_host_missing_file_returns_empty(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No config file → no profile candidates (CLI fallback territory)."""
-    from omnigent.inner.databricks_executor import _databrickscfg_profiles_for_host
+    from agentnexus.inner.databricks_executor import _databrickscfg_profiles_for_host
 
     monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(tmp_path / "absent"))
 

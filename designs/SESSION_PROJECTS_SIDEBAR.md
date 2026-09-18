@@ -1,7 +1,7 @@
 # Design: Organize sessions into Projects in the sidebar
 
-- Issue: [#863](https://github.com/omnigent-ai/omnigent/issues/863)
-- Builds on: PR [#869](https://github.com/omnigent-ai/omnigent/pull/869) (community implementation of "collections")
+- Issue: [#863](https://github.com/agentnexus-ai/agentnexus/issues/863)
+- Builds on: PR [#869](https://github.com/agentnexus-ai/agentnexus/pull/869) (community implementation of "collections")
 - Status: Draft
 - Author: Serena Ruan
 
@@ -141,7 +141,7 @@ create (acceptable fallback).
 - Project sections render between Pinned and Recent, one per name from `useProjects()`,
   driven by the **server project list** (a stale label with no matching project entry
   stays in Recent — projects are list-driven, not label-driven).
-- Collapsible, persisted in the existing `omnigent:collapsed-sidebar-sections`
+- Collapsible, persisted in the existing `agentnexus:collapsed-sidebar-sections`
   localStorage key. Default: **collapsed** (projects can be numerous).
 - Per-section count from `useProjects()` (server-authoritative, not the loaded page).
 - A collapsed project surfaces the aggregate `SessionStateBadge` of its hidden rows

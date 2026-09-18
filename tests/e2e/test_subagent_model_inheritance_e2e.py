@@ -107,7 +107,7 @@ def _run_polly_with_selected_model(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(polly_dir),
             "--server",

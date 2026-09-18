@@ -26,9 +26,9 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.terminals import TerminalRegistry
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.terminals import TerminalRegistry
 
 pytestmark = pytest.mark.skipif(
     shutil.which("tmux") is None,

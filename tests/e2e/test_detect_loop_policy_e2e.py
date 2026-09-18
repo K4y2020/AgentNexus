@@ -12,12 +12,12 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies import build_policy_engine
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.parser import parse
-from omnigent.spec.types import Phase, PolicyAction
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies import build_policy_engine
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import Phase, PolicyAction
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 

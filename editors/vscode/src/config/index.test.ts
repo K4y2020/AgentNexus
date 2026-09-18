@@ -6,7 +6,7 @@ describe("hostTypeOf", () => {
     ["http://127.0.0.1:6767", "local"],
     ["http://localhost:6767", "local"],
     ["http://[::1]:6767", "local"],
-    ["https://omnigent.example.com", "remote"],
+    ["https://agentnexus.example.com", "remote"],
     ["https://dbc-abc123.cloud.databricks.com", "remote"],
     ["not a url", "unknown"],
   ])("classifies %s as %s", (url, expected) => {
@@ -36,7 +36,7 @@ describe("resolveServerTarget (localhost-only)", () => {
 
   it("rejects a manual REMOTE override (remote-unsupported)", () => {
     const r = resolveServerTarget(
-      { serverUrl: "https://omnigent.example.com" },
+      { serverUrl: "https://agentnexus.example.com" },
       { found: true, baseUrl: "http://127.0.0.1:6767", health: "ok" },
     );
     expect(r).toEqual({ status: "needs-prompt", reason: "remote-unsupported" });

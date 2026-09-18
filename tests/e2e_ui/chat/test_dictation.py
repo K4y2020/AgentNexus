@@ -2,7 +2,7 @@
 
 Drives the full loop the unit tests can't: mic capture (Chromium's fake
 media device) → AudioWorklet 16 kHz PCM frames → ``WS /v1/dictation/stream``
-→ the server's fake engine (``OMNIGENT_DICTATION_ENGINE=fake``, set by the
+→ the server's fake engine (``AGENTNEXUS_DICTATION_ENGINE=fake``, set by the
 ``live_server`` fixture) → transcript events → live text in the composer
 textarea. The fake engine reveals one word of its script per 100 ms of
 audio received, so a second of fake-mic streaming produces the full
@@ -32,7 +32,7 @@ from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, Page, expect
 
-from omnigent.server.dictation import FAKE_SCRIPT as _FAKE_SCRIPT
+from agentnexus.server.dictation import FAKE_SCRIPT as _FAKE_SCRIPT
 
 # The capability probe caches per page load; the worklet chunks audio at
 # 100 ms; CI machines are slow — a generous ceiling keeps this deflaked.

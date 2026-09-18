@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.onboarding.provider_config import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.onboarding.provider_config import (
     ANTHROPIC_FAMILY,
     GEMINI_FAMILY,
     OPENAI_FAMILY,
@@ -107,9 +107,9 @@ def test_provider_family_for_harness_accepts_executor_type_spellings(
 def test_resolve_secret_env_ref_accepts_omnigent_prefixed_alias(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``env:ANTHROPIC_API_KEY`` falls back to ``OMNIGENT_ANTHROPIC_API_KEY``."""
+    """``env:ANTHROPIC_API_KEY`` falls back to ``AGENTNEXUS_ANTHROPIC_API_KEY``."""
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setenv("OMNIGENT_ANTHROPIC_API_KEY", "sk-ant-prefixed")
+    monkeypatch.setenv("AGENTNEXUS_ANTHROPIC_API_KEY", "sk-ant-prefixed")
 
     assert resolve_secret("env:ANTHROPIC_API_KEY") == "sk-ant-prefixed"
     assert resolve_secret("$ANTHROPIC_API_KEY") == "sk-ant-prefixed"
@@ -363,7 +363,7 @@ def test_gemini_key_not_pi_capable_surface() -> None:
     assert provider_families(entry) == frozenset({GEMINI_FAMILY})
     # set_default_provider refuses to scope a gemini key to pi.
     block = {"gemini": _key_entry(GEMINI_FAMILY)}
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         set_default_provider(block, "gemini", PI_SURFACE)
 
 
@@ -383,7 +383,7 @@ def test_gemini_key_cannot_claim_pi_scope_at_parse() -> None:
             "gemini": {"base_url": "https://x/v1", "api_key_ref": "env:K"},
             "default": bad,
         }
-        with pytest.raises(OmnigentError):
+        with pytest.raises(AgentNexusError):
             load_providers({"providers": {"gemini": raw}})
 
 
@@ -404,7 +404,7 @@ def test_databricks_does_not_serve_gemini_surface() -> None:
     assert default_provider_for_harness(config, "antigravity-native") is None
     # And a databricks profile cannot name the gemini scope at parse.
     bad = {"providers": {"dbx": {"kind": "databricks", "profile": "ws", "default": ["gemini"]}}}
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         load_providers(bad)
 
 
@@ -434,7 +434,7 @@ def test_gateway_local_does_not_serve_gemini_surface(kind: str) -> None:
     cfg = {"providers": {"gw": {**raw, "default": True}}}
     assert default_provider_for_harness(cfg, "antigravity-native") is None
     # …nor name the gemini scope explicitly at parse.
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         load_providers({"providers": {"gw": {**raw, "default": ["gemini"]}}})
 
 
@@ -448,7 +448,7 @@ def test_gemini_only_gateway_local_rejected_at_parse(kind: str) -> None:
     author to ``kind: 'key'`` for a real GEMINI_API_KEY.
     """
     raw = {"kind": kind, "gemini": {"base_url": "https://x/v1beta", "api_key_ref": "env:G"}}
-    with pytest.raises(OmnigentError, match="Gemini surface"):
+    with pytest.raises(AgentNexusError, match="Gemini surface"):
         load_providers({"providers": {"gw": raw}})
 
 
@@ -465,7 +465,7 @@ def test_gemini_auth_command_rejected_at_parse() -> None:
     configure-harness readiness path while spawn rejects it.
     """
     raw = {"kind": "key", "gemini": {"base_url": "https://x/v1beta", "auth_command": "echo tok"}}
-    with pytest.raises(OmnigentError, match="auth_command is not allowed on a 'gemini' family"):
+    with pytest.raises(AgentNexusError, match="auth_command is not allowed on a 'gemini' family"):
         load_providers({"providers": {"google": raw}})
 
 
@@ -519,10 +519,10 @@ def test_subscription_cannot_claim_pi_scope() -> None:
     persisting the scope would wedge pi on an unusable credential.
     """
     raw = {"kind": "subscription", "cli": "claude", "default": ["pi"]}
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         load_providers({"providers": {"claude-subscription": raw}})
     block = {"claude-subscription": {"kind": "subscription", "cli": "claude"}}
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         set_default_provider(block, "claude-subscription", PI_SURFACE)
 
 
@@ -677,7 +677,7 @@ def test_parse_cli_config_entry() -> None:
     Failure means adoption-written entries stop loading (every configure
     open would crash) or the entry loses its harness surface.
     """
-    from omnigent.onboarding.provider_config import load_providers, provider_families
+    from agentnexus.onboarding.provider_config import load_providers, provider_families
 
     entry = load_providers(
         {
@@ -723,14 +723,14 @@ def test_parse_cli_config_entry_invalid(body: dict[str, object], message_fragmen
     Failure means a broken entry would parse into a launch that pins
     nothing (or the wrong CLI) at run time.
     """
-    from omnigent.errors import OmnigentError
-    from omnigent.onboarding.provider_config import load_providers
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.onboarding.provider_config import load_providers
 
-    with pytest.raises(OmnigentError, match=r"cli-config|model_provider|cli"):
+    with pytest.raises(AgentNexusError, match=r"cli-config|model_provider|cli"):
         load_providers({"providers": {"bad": body}})
     try:
         load_providers({"providers": {"bad": body}})
-    except OmnigentError as exc:
+    except AgentNexusError as exc:
         # The message names the missing/wrong field so the user can fix
         # config.yaml without reading source.
         assert message_fragment in str(exc)
@@ -742,7 +742,7 @@ def test_describe_active_credential_cli_config() -> None:
     Failure means the readout would crash on (or misname) an adopted
     isaac-style provider.
     """
-    from omnigent.onboarding.provider_config import describe_active_credential
+    from agentnexus.onboarding.provider_config import describe_active_credential
 
     config = {
         "providers": {
@@ -774,8 +774,8 @@ def test_bedrock_kind_rejected_for_non_native_harnesses() -> None:
     the Bedrock endpoint as if it were the Anthropic Messages API. Each non-native
     harness must raise rather than mis-configure.
     """
-    from omnigent.errors import ErrorCode
-    from omnigent.runtime.workflow import configure_agent_harness_with_provider
+    from agentnexus.errors import ErrorCode
+    from agentnexus.runtime.workflow import configure_agent_harness_with_provider
 
     entry = load_providers(
         {
@@ -793,7 +793,7 @@ def test_bedrock_kind_rejected_for_non_native_harnesses() -> None:
     )["b"]
     for harness in ("claude-sdk", "pi"):
         env: dict[str, str] = {}
-        with pytest.raises(OmnigentError) as exc:
+        with pytest.raises(AgentNexusError) as exc:
             configure_agent_harness_with_provider(env, entry, harness_type=harness)
         assert exc.value.code == ErrorCode.INVALID_INPUT
         assert env == {}  # nothing written before the raise
@@ -857,10 +857,10 @@ def test_provider_credential_env_vars_collects_api_key_ref() -> None:
     """``provider_credential_env_vars`` collects ``api_key_ref: env:VAR`` names.
 
     When a gateway provider uses ``api_key_ref: env:MY_TOKEN``, both
-    ``MY_TOKEN`` and its ``OMNIGENT_MY_TOKEN`` alias must be returned so the
+    ``MY_TOKEN`` and its ``AGENTNEXUS_MY_TOKEN`` alias must be returned so the
     runner-spawn layer can forward them into the runner subprocess.
     """
-    from omnigent.onboarding.provider_config import provider_credential_env_vars
+    from agentnexus.onboarding.provider_config import provider_credential_env_vars
 
     config = {
         "providers": {
@@ -876,7 +876,7 @@ def test_provider_credential_env_vars_collects_api_key_ref() -> None:
     }
     result = provider_credential_env_vars(config)
     assert "MY_TOKEN" in result
-    assert "OMNIGENT_MY_TOKEN" in result
+    assert "AGENTNEXUS_MY_TOKEN" in result
 
 
 def test_provider_credential_env_vars_collects_inline_dollar_ref() -> None:
@@ -885,7 +885,7 @@ def test_provider_credential_env_vars_collects_inline_dollar_ref() -> None:
     An inline ``$VAR`` reference in ``api_key`` must also be returned, since
     it is resolved lazily from the environment just like ``api_key_ref: env:VAR``.
     """
-    from omnigent.onboarding.provider_config import provider_credential_env_vars
+    from agentnexus.onboarding.provider_config import provider_credential_env_vars
 
     config = {
         "providers": {
@@ -901,7 +901,7 @@ def test_provider_credential_env_vars_collects_inline_dollar_ref() -> None:
     }
     result = provider_credential_env_vars(config)
     assert "CUSTOM_KEY" in result
-    assert "OMNIGENT_CUSTOM_KEY" in result
+    assert "AGENTNEXUS_CUSTOM_KEY" in result
 
 
 def test_provider_credential_env_vars_empty_for_keychain_and_auth_command() -> None:
@@ -910,7 +910,7 @@ def test_provider_credential_env_vars_empty_for_keychain_and_auth_command() -> N
     Neither ``keychain:`` refs nor ``auth_command`` fields resolve from the
     environment, so they must not appear in the returned set.
     """
-    from omnigent.onboarding.provider_config import provider_credential_env_vars
+    from agentnexus.onboarding.provider_config import provider_credential_env_vars
 
     config = {
         "providers": {
@@ -936,7 +936,7 @@ def test_load_providers_skips_unrecognized_cli_config_cli_without_raising() -> N
     raised and crashed turn setup for EVERY harness. Now such an entry is
     dropped with a warning and the rest of the config still loads.
     """
-    from omnigent.onboarding.provider_config import load_providers
+    from agentnexus.onboarding.provider_config import load_providers
 
     config = {
         "providers": {
@@ -961,7 +961,7 @@ def test_load_providers_skips_unrecognized_cli_config_cli_without_raising() -> N
 
 def test_load_providers_still_accepts_codex_cli_config() -> None:
     """The recognized `cli: codex` cli-config still parses (no over-broad skip)."""
-    from omnigent.onboarding.provider_config import load_providers
+    from agentnexus.onboarding.provider_config import load_providers
 
     parsed = load_providers(
         {
@@ -985,10 +985,10 @@ def test_load_providers_still_raises_on_malformed_known_shape() -> None:
     A recognized shape with a real error (a `key` provider configuring no
     family) must still raise so user typos aren't silently dropped.
     """
-    from omnigent.errors import OmnigentError
-    from omnigent.onboarding.provider_config import load_providers
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.onboarding.provider_config import load_providers
 
-    with pytest.raises(OmnigentError):
+    with pytest.raises(AgentNexusError):
         load_providers({"providers": {"bad": {"kind": "key"}}})
 
 
@@ -1001,7 +1001,7 @@ def test_claude_sdk_resolution_survives_stray_cli_config_claude_entry() -> None:
     resolution returns the next usable anthropic default (or None) instead of
     crashing every claude-sdk turn.
     """
-    from omnigent.onboarding.provider_config import default_provider_for_harness
+    from agentnexus.onboarding.provider_config import default_provider_for_harness
 
     config = {
         "providers": {

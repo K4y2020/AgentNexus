@@ -222,7 +222,7 @@ function createCrashReporter({
       prune();
       return file;
     } catch (err) {
-      console.error("[omnigent] failed to write crash diagnostic:", String(err?.message ?? err));
+      console.error("[agentnexus] failed to write crash diagnostic:", String(err?.message ?? err));
       return null;
     }
   }
@@ -256,7 +256,7 @@ function createCrashReporter({
       });
     });
     wc.on("unresponsive", () => {
-      console.warn("[omnigent] renderer became unresponsive at", origin ?? "unknown origin");
+      console.warn("[agentnexus] renderer became unresponsive at", origin ?? "unknown origin");
       // A soft note only — the process may recover, so don't roll a full bundle.
       try {
         const file = path.join(diagnosticsDir(), "latest-unresponsive.txt");

@@ -6,14 +6,14 @@ import { Dialog, DialogContent, DialogTitle } from "./dialog";
 // The iOS shell keeps the WKWebView layout viewport full-height when the soft
 // keyboard opens, so a modal capped at `85vh` and centered on `50%` would sit
 // partly behind the keyboard. DialogContent pins its height cap and centering
-// origin to the keyboard-aware `--omnigent-viewport-height` — but only inside
+// origin to the keyboard-aware `--agentnexus-viewport-height` — but only inside
 // the iOS shell. These tests pin that gating.
 
 function setIOS(on: boolean): void {
   if (on) {
-    (window as unknown as Record<string, unknown>).omnigentNative = { kind: "ios" };
+    (window as unknown as Record<string, unknown>).agentnexusNative = { kind: "ios" };
   } else {
-    delete (window as unknown as Record<string, unknown>).omnigentNative;
+    delete (window as unknown as Record<string, unknown>).agentnexusNative;
   }
 }
 
@@ -38,8 +38,8 @@ describe("DialogContent keyboard-aware sizing", () => {
     renderDialog();
     const content = screen.getByRole("dialog");
     // Inline style (not a class) so it wins over any caller's max-h-[85vh].
-    expect(content.style.maxHeight).toContain("--omnigent-viewport-height");
-    expect(content.style.top).toContain("--omnigent-viewport-height");
+    expect(content.style.maxHeight).toContain("--agentnexus-viewport-height");
+    expect(content.style.top).toContain("--agentnexus-viewport-height");
   });
 
   it("applies no viewport inline style off the iOS shell", () => {

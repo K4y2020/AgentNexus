@@ -1,4 +1,4 @@
-# Omnigent CUJ Analysis (answers)
+# AgentNexus CUJ Analysis (answers)
 
 **This is the answers/findings companion to [`CUJ-MAP.md`](./CUJ-MAP.md).** `CUJ-MAP.md` is the
 team-editable *list* of CUJs + open questions; **this file is how each one actually works** — code
@@ -62,7 +62,7 @@ The per-harness support matrix (interrupt / queue / subagents / reasoning / elic
 
 ### 2.A  Session lifecycle & continuity ✅
 
-Most server logic lives in the (huge) `omnigent/server/routes/sessions.py` + `stores/conversation_store/`.
+Most server logic lives in the (huge) `agentnexus/server/routes/sessions.py` + `stores/conversation_store/`.
 
 - **Create session** — `POST /sessions` (`sessions.py:13329`). JSON (existing agent) vs multipart
   (bundled → session-scoped agent). Optional `host_id` (launch managed sandbox runner,
@@ -84,7 +84,7 @@ Most server logic lives in the (huge) `omnigent/server/routes/sessions.py` + `st
 - **Disconnect → reconnect** — stream ends with `[DONE]` on all exit paths; reconnect re-runs snapshot+tail;
   presence `idle` flip via param; `_poll_request_disconnect` (`:1093`) detects hangup.
 - **Close / archive** — `PATCH /sessions/{id}` archived=true (owner-only); `is_session_closed()`
-  (`session_lifecycle.py:70`) gates input (label `omnigent.closed` OR legacy title `:closed:` marker);
+  (`session_lifecycle.py:70`) gates input (label `agentnexus.closed` OR legacy title `:closed:` marker);
   read still allowed, writes rejected.
 - **Delete** — `DELETE /sessions/{id}` (`:18935`), owner-only; best-effort runner-resource cleanup, file/artifact
   delete, optional `delete_branch` worktree removal. ⚠️ runner offline → orphans runner resources.
@@ -107,17 +107,17 @@ runner binding via atomic CAS (`set_runner_id`, `WHERE runner_id IS NULL`).
 ### 2.B  Harnesses & per-harness features ✅
 
 **Taxonomy — two families** (this split explains most behavior differences). *In scope: claude + codex only.*
-- **SDK harnesses** — in-process agent loop; Omnigent owns prompt + tool set + turn loop;
-  user sees only the Omnigent WebUI; transcript is 100% Omnigent. Base `omnigent/inner/executor.py`.
+- **SDK harnesses** — in-process agent loop; AgentNexus owns prompt + tool set + turn loop;
+  user sees only the AgentNexus WebUI; transcript is 100% AgentNexus. Base `agentnexus/inner/executor.py`.
   (in scope: **claude-sdk**, **codex** — headless. **Polly / custom agents** run here too, typically on claude-sdk.)
 - **Native harnesses** — drive a resident vendor CLI/TUI in a tmux pane and **mirror** its
   transcript back; the *vendor* owns the system prompt + tool set; transcript lives in the
-  vendor store + mirrored. Base `omnigent/native_server_harness.py`; dispatch
+  vendor store + mirrored. Base `agentnexus/native_server_harness.py`; dispatch
   `cli.py:5740` (`_dispatch_native_terminal_harness`); metadata `native_coding_agents.py`.
   (in scope: **claude-native**, **codex-native**.)
 
 CUJs:
-- **Select harness at session start** — `omnigent <harness>` or `omnigent run --harness X`.
+- **Select harness at session start** — `agentnexus <harness>` or `agentnexus run --harness X`.
   Aliases `harness_aliases.py:9` (`claude`→`claude-sdk`). Validate `cli.py:5554`;
   ⚠️ native + AGENT-spec combo rejected `cli.py:5874`.
 - **Switch / override model & effort mid-session (from WebUI)** — SDK applies next turn via
@@ -126,7 +126,7 @@ CUJs:
   claude statusLine mirror `claude_native_forwarder.py:1485`).
   ⚠️ a native override may not affect the *running* turn. Effort validation `reasoning_effort.py`.
 - **Default model / provider resolution** — chain: CLI `--model` → YAML `executor.model` → env
-  (`ANTHROPIC_DEFAULT_MODEL`) → `~/.omnigent/config.yaml` → per-harness default. `chat.py:600`.
+  (`ANTHROPIC_DEFAULT_MODEL`) → `~/.agentnexus/config.yaml` → per-harness default. `chat.py:600`.
   Model catalog `model_catalog.py` (backs `sys_list_models`).
 - **Provider / credential resolution** — spec auth block (`spec/types.py` ExecutorAuth) → env →
   CLI login → ambient detection (`onboarding/ambient.py:500`). Types: databricks profile, api_key,
@@ -144,10 +144,10 @@ Failure branches: unsupported harness; native+agent combo; invalid model → rej
 user-config vs omni-managed credential mismatch; MCP relay missing → native can't reach `sys_*`
 (hooks still fire). [→ matrix §4]
 
-### 2.C  Tools, Omnigent MCP, custom MCP, shells, files, timers ✅
+### 2.C  Tools, AgentNexus MCP, custom MCP, shells, files, timers ✅
 
-**Omnigent MCP server (the `sys_*` surface)** — exposed via the `serve-mcp` subcommand;
-all tools registered in `omnigent/tools/manager.py`. Grouped (gating in parens):
+**AgentNexus MCP server (the `sys_*` surface)** — exposed via the `serve-mcp` subcommand;
+all tools registered in `agentnexus/tools/manager.py`. Grouped (gating in parens):
 - **File/shell:** `sys_os_read/write/edit/shell` — `tools/builtins/os_env.py` (reg `manager.py:519`);
   run inside an OSEnvironment (cwd + sandbox).
 - **Terminals:** `sys_terminal_launch/send/read/list/close` — `tools/builtins/sys_terminal.py`
@@ -236,15 +236,15 @@ PreToolUse hook reaching `/policies/evaluate` with a *fresh* token (→ §2.G bu
 
 ### 2.E  Web UI & client-facing features ✅
 
-React app under `web/src/` (note: renamed from `ap-web/` upstream). TUI/REPL under `omnigent/repl/`.
+React app under `web/src/` (note: renamed from `ap-web/` upstream). TUI/REPL under `agentnexus/repl/`.
 
 - **Sidebar list** — `shell/Sidebar.tsx`, `hooks/useConversations.ts` (`fetchConversationsPage`, cursor-paginated
   20/page, sort `updated_at` desc, `?search_query=`). Badges: awaiting count / running. Live via `WS /v1/sessions/updates`
   (watch-set snapshot then changed/removed deltas + heartbeat).
 - **Projects (#7)** — `useProjects()` → `GET /v1/sessions/projects`; **implicit** (exist iff ≥1 session); stored as
-  reserved label `omni_project`; collapsible (localStorage `omnigent:collapsed-sidebar-sections`); lazy
+  reserved label `omni_project`; collapsible (localStorage `agentnexus:collapsed-sidebar-sections`); lazy
   `GET /sessions?project=`. Set at start (NewChatDialog) or kebab → Change project. Design `SESSION_PROJECTS_SIDEBAR.md`.
-- **Pin / unpin (#7)** — localStorage `omnigent:pinned-conversation-ids`; drag-reorder; precedence
+- **Pin / unpin (#7)** — localStorage `agentnexus:pinned-conversation-ids`; drag-reorder; precedence
   Archived > Pinned > Project > Recent.
 - **Archive / unarchive · rename · delete** — PATCH `archived` / PATCH `title` / DELETE; archived hidden by default,
   also managed in Settings → Archived.
@@ -286,14 +286,14 @@ React app under `web/src/` (note: renamed from `ap-web/` upstream). TUI/REPL und
 - **Fork / clone** — `shell/ForkSessionDialog.tsx`. **Approve deep-link** — `pages/ApprovePage.tsx`
   (`/approve/:sessionId/:elicitationId`, pre-auth approval access).
 - **Capabilities probe** — `GET /v1/info` (`lib/CapabilitiesContext.tsx`) gates UI (accounts_enabled, etc.).
-- **TUI / REPL equivalents** — `omnigent/repl/_repl.py` (`run_repl`): rich streaming, slash commands, file-mention
+- **TUI / REPL equivalents** — `agentnexus/repl/_repl.py` (`run_repl`): rich streaming, slash commands, file-mention
   completer, resume picker (`_resume_picker.py`), theme picker, event tape (`_event_tape.py`); open-in-browser link
   `conversation_browser.py`.
 
-**OmniBox is *not* a web component** — it's Omnigent's **OS-level sandbox** (bubblewrap+seccomp / Seatbelt)
+**OmniBox is *not* a web component** — it's AgentNexus's **OS-level sandbox** (bubblewrap+seccomp / Seatbelt)
 that wraps any agent for unattended/YOLO runs: filesystem isolation + default-deny network egress + credential
 injection (agent holds a placeholder, proxy swaps the real secret). Mapped under §2.C (sandbox) and §2.G
-(credential proxy). Ref: omnigent-site `docs/omnibox`.
+(credential proxy). Ref: agentnexus-site `docs/omnibox`.
 
 ### 2.F  Agents, subagents, executor, routing, inbox mechanics ✅
 
@@ -301,7 +301,7 @@ injection (agent holds a placeholder, proxy swaps the real secret). Mapped under
   `runtime/workflow.py` orchestrates: config resolve (model/harness/auth) → agent-cache load → prompt build →
   executor instantiate (`inner/*_executor.py`) → consume streaming `ExecutorEvent`s (TextChunk, ReasoningChunk,
   ToolCallRequest, ToolCallComplete, TurnComplete, CompactionComplete, ExecutorError) → runner dispatches tools,
-  persists, forwards. `inner/executor.py:70` ExecutorConfig, `:97` event hierarchy. It translates Omnigent's abstract
+  persists, forwards. `inner/executor.py:70` ExecutorConfig, `:97` event hierarchy. It translates AgentNexus's abstract
   event model ↔ each vendor SDK.
 - **Subagent spawning** — `AgentTool` / `SelfAgentTool` (`inner/tools.py:267,298`). LLM calls a sub-agent tool →
   mints a child Conversation (parent link + labels) → child runs the same loop → results drain to parent via
@@ -321,7 +321,7 @@ injection (agent holds a placeholder, proxy swaps the real secret). Mapped under
 - **Runner dispatch / affinity** — `runner/routing.py:RunnerRouter.client_for_conversation` (`:88`): the conversation's
   `runner_id` is **hard affinity (no failover/rebalance)**; validate online + harness capability → httpx over WS tunnel.
   ⚠️ not bound → CONFLICT; offline → RUNNER_UNAVAILABLE; capability mismatch → RUNNER_CAPABILITY_MISMATCH.
-- **Custom agent creation / storage (#)** — `omnigent create` or POST bundle. **Three tiers:** ArtifactStore
+- **Custom agent creation / storage (#)** — `agentnexus create` or POST bundle. **Three tiers:** ArtifactStore
   (content-addressed tarball — source of truth) → Agent DB row (id/name/bundle_location/version/session_id) →
   AgentCache (`runtime/agent_cache.py`: disk extract + in-memory spec, **no TTL**, evict on delete, warm-swap on update).
   Session-scoped agents have non-null `session_id`; template agents null. Version bumps on update.
@@ -335,12 +335,12 @@ injection (agent holds a placeholder, proxy swaps the real secret). Mapped under
 - **Claude-native subagents** — forwarder watches `<bridge>/subagents/*.meta.json` → POST `external_subagent_start` →
   child Conversation (idempotent by `subagent_id` label) → publishes `session.created`.
 - **Resume dispatch** — `resume_dispatch.py:39 run_resume` reads the wrapper label → dispatches to the native harness
-  (direct-id / picker / remote-server forms). ⚠️ no wrapper label → hint to use `omnigent run --resume`.
+  (direct-id / picker / remote-server forms). ⚠️ no wrapper label → hint to use `agentnexus run --resume`.
 
 ### 2.G  Onboarding, credentials & auth (incl. token refresh) ✅
 
-**First-run setup** — `omnigent setup` (`cli.py` / `cli_config.py`): provider picker, **ambient detection**
-(`onboarding/ambient.py` scans installed CLIs — Claude.app, Codex, LM Studio), saves `~/.omnigent/config.yaml`.
+**First-run setup** — `agentnexus setup` (`cli.py` / `cli_config.py`): provider picker, **ambient detection**
+(`onboarding/ambient.py` scans installed CLIs — Claude.app, Codex, LM Studio), saves `~/.agentnexus/config.yaml`.
 Databricks profile aliasing reuses same-host profiles to avoid redundant OAuth (`onboarding/setup.py:_alias_profile`).
 
 **The three credential relationships:**
@@ -349,11 +349,11 @@ Databricks profile aliasing reuses same-host profiles to avoid redundant OAuth (
    `_DatabricksBearerAuth.auth_flow()` calls `Config.authenticate()` **every request** (`databricks_executor.py:289`),
    handles 401 + login-redirect, covers ~1h OAuth. API-key / subscription providers = static (no refresh).
 2. **Runner ↔ server** — `runner/_entry.py:_make_auth_token_factory` (`:271`): stored OIDC token
-   (`~/.omnigent/auth_tokens.json`) OR Databricks OAuth via SDK; `_RunnerDatabricksAuth` refreshes per request
+   (`~/.agentnexus/auth_tokens.json`) OR Databricks OAuth via SDK; `_RunnerDatabricksAuth` refreshes per request
    (handles 401/302, retry-once). ⚠️ **WS tunnel handshake injects the Bearer once at open — no per-message refresh** (§6).
 3. **Client ↔ server** — `server/auth.py:resolve_auth_source` (`:193`), `UnifiedAuthProvider` (`:250`). Three modes:
    **header** (`X-Forwarded-Email` from upstream proxy — default), **accounts** (built-in user/pass → cookie),
-   **oidc** (auth-code+PKCE → cookie). Cookie `__Host-ap_session` (HS256, validated every request). CLI: `omnigent login`
+   **oidc** (auth-code+PKCE → cookie). Cookie `__Host-ap_session` (HS256, validated every request). CLI: `agentnexus login`
    → browser OAuth → token to `auth_tokens.json` (`0600`, with `expires_at`; **no background refresh** — expired →
    re-login). Databricks Apps: stores a *pointer record* (no token; minted fresh) + `?o=` org selector →
    `X-Databricks-Org-Id` header on every request.
@@ -362,7 +362,7 @@ Databricks profile aliasing reuses same-host profiles to avoid redundant OAuth (
 - **Chat / active turn** — runner callbacks (`_RunnerDatabricksAuth`) + LLM executor (`_DatabricksBearerAuth`) both
   **refresh per request** → survive the ~1h OAuth lifetime. ✅
 - ⚠️ **Policy-hook path (native) — the known bug.** `runner/app.py:1137-1145` snapshots the auth token **once** into
-  `policy_hook.json` (`OMNIGENT_POLICY_AUTH`). The native PreToolUse hook reads it and **never refreshes** → after ~1h
+  `policy_hook.json` (`AGENTNEXUS_POLICY_AUTH`). The native PreToolUse hook reads it and **never refreshes** → after ~1h
   the token expires → `/policies/evaluate` POST 401 → hook **fails CLOSED** (`native_policy_hook.py`) → tool calls
   blocked even though chat still works. The relay/comment path uses `_make_auth_token_factory()` per call (fresh), so
   it's unaffected. Fix = rewrite `policy_hook.json` per turn. [memory: native-hook-token-expiry-failclosed,
@@ -412,7 +412,7 @@ all ❌ except `supports_tool_calling`) + native permission modules. SDK and nat
 - **subagents** = a sub-agent shows up as a child session — gated by the **tool surface** (SDK harnesses bridge
   `sys_session_send`; claude-native via `external_subagent_start`), *not* an executor flag.
 - **reasoning effort** = accepts a reasoning_effort **param** (≠ merely streaming thinking/`ReasoningChunk`):
-  cursor streams thinking without effort control; **pi has 7-level effort control (`--thinking`), and the omnigent
+  cursor streams thinking without effort control; **pi has 7-level effort control (`--thinking`), and the agentnexus
   harness plumbs it** (canonical `none` → pi's `off`).
 - **elicitation** = can surface a policy/permission prompt (via bridge/hook/policy layer, not the executor).
 - **mid-session model** = model change applies without a restart.
@@ -444,7 +444,7 @@ pi respawns its RPC subprocess and re-asserts the thinking level on the new one;
 codex-native `thread/settings/update`; claude-native statusLine mirror, next turn only). "own-config propagation"
 (§2.B #3) is strongest for claude-native (`use_claude_config`) and codex-native (`~/.codex/config.toml`).
 
-**Reasoning-effort source of truth = `omnigent/reasoning_effort.py`** (in-scope families):
+**Reasoning-effort source of truth = `agentnexus/reasoning_effort.py`** (in-scope families):
 `CLAUDE/ANTHROPIC = {low,medium,high,xhigh,max}`, `OPENAI/CODEX = {none,minimal,low,medium,high,xhigh}`,
 `PI = {none,minimal,low,medium,high,xhigh,max}` (`none` is sent to pi as `off`).
 Effort is selectable at session start (NewChatDialog) and mid-session (`/effort <level>`); claude-native mirrors
@@ -480,7 +480,7 @@ source-of-truth (SoT) anchor → issue/PR refs.
 
 ### Session lifecycle, streaming & continuity [§2.A]
 - 🔴 **Idle reaper / watchdog kills active turns; native sessions never reaped.** SoT: no writers to
-  `_in_flight_response_ids`, no `OMNIGENT_HARNESS_IDLE_TIMEOUT` knob on `main`. Issues #1414, #1349 (**no PR**),
+  `_in_flight_response_ids`, no `AGENTNEXUS_HARNESS_IDLE_TIMEOUT` knob on `main`. Issues #1414, #1349 (**no PR**),
   #1528, #1119 · PRs #1420, #1529, #371, #1227.
 - 🟠 **Runner tunnel / stream-recovery defects.** Issues #1116 (keepalive-1011 drops tunnels, **no PR**), #1117,
   #1118, #1026, #1076 · PRs #1198 (SSE teardown), #1189 (finish_reason), #1077 (desync recovery) · in `main` #1078.
@@ -512,7 +512,7 @@ source-of-truth (SoT) anchor → issue/PR refs.
 - 🟠 **Host daemon can't reach backend behind a corporate proxy.** SoT: `cli.py` daemon allowlist has no
   `HTTP(S)_PROXY`/`NO_PROXY`; no config workaround. Issue #1022 · PR #1029.
 - 🟠 **First-run install: Claude CLI via `npm -g` → EACCES.** Issue #890 · PR #891 (native installer). Also live,
-  no PR: #904 (`omnigent claude` config-json crash), #1023 (`[Errno 8]` macOS arm64).
+  no PR: #904 (`agentnexus claude` config-json crash), #1023 (`[Errno 8]` macOS arm64).
 - **(code-pass) Policy-hook static token → fail-closed after ~1 h** — native PreToolUse hook never refreshes its
   snapshot token (`runner/app.py:1137-1145`); tool calls die while chat survives. PR #1439 — **verify live**. [also §2.D]
 - **(code-pass) WS tunnel runner-auth: Bearer injected once at open, no per-message refresh** — survives token expiry?

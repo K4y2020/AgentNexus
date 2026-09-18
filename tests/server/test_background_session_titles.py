@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 
-from omnigent.server.background_session_titles import (
+from agentnexus.server.background_session_titles import (
     BACKGROUND_TITLE_MAX_CHARS,
     CUSTOM_BACKGROUND_TITLE_MAX_CHARS,
     BackgroundSessionTitleCoordinator,
@@ -15,8 +15,8 @@ from omnigent.server.background_session_titles import (
     normalize_background_title,
     prepare_background_session_title,
 )
-from omnigent.server.schemas import SessionEventInput
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.server.schemas import SessionEventInput
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 pytestmark = pytest.mark.asyncio
 

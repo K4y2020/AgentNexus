@@ -1,9 +1,9 @@
-from omnigent_slack.notifications import (
+from agentnexus_slack.notifications import (
     format_output_file,
     format_policy_denied,
     format_todos,
 )
-from omnigent_slack.omnigent import OutputFile
+from agentnexus_slack.agentnexus import OutputFile
 
 
 def test_format_todos_renders_marks_and_active_form() -> None:
@@ -44,7 +44,7 @@ def test_session_web_link_plain_server() -> None:
     """A plain server URL links straight to its /c/<id> conversation route."""
     import logging
 
-    from omnigent_slack.notifications import SlackNotifier
+    from agentnexus_slack.notifications import SlackNotifier
 
     notifier = SlackNotifier(server_url="http://localhost:6767/", logger=logging.getLogger("test"))
     assert notifier._session_web_link("conv_abc") == "http://localhost:6767/c/conv_abc"
@@ -60,7 +60,7 @@ def test_session_web_link_maps_workspace_api_mount_to_ui() -> None:
     """
     import logging
 
-    from omnigent_slack.notifications import SlackNotifier
+    from agentnexus_slack.notifications import SlackNotifier
 
     notifier = SlackNotifier(
         server_url="https://ws.databricks.com/api/2.0/omnigent?o=123",

@@ -4,11 +4,11 @@ This opt-in test covers the user-facing Kiro native path: the CLI starts a
 runner-owned ``kiro-cli chat --tui`` terminal, the server accepts a web-style
 ``POST /v1/sessions/{id}/events`` message, the Kiro bridge injects it into the
 TUI, and the Kiro session forwarder mirrors the assistant response back into
-the Omnigent conversation.
+the AgentNexus conversation.
 
 Run locally with a logged-in Kiro CLI::
 
-    OMNIGENT_E2E_KIRO_NATIVE=1 \
+    AGENTNEXUS_E2E_KIRO_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_kiro_native_cli_e2e.py -v
 
 The test is skipped by default because ``kiro-cli`` authentication is anchored
@@ -37,12 +37,12 @@ from tests.e2e._native_resume_helpers import (
 )
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_KIRO_NATIVE") != "1"
+    os.environ.get("AGENTNEXUS_E2E_KIRO_NATIVE") != "1"
     or shutil.which("kiro-cli") is None
     or shutil.which("tmux") is None,
     reason=(
         "kiro-native CLI e2e needs an interactive Kiro login and a `tmux` "
-        "binary; set OMNIGENT_E2E_KIRO_NATIVE=1 and have `kiro-cli` logged in"
+        "binary; set AGENTNEXUS_E2E_KIRO_NATIVE=1 and have `kiro-cli` logged in"
     ),
 )
 

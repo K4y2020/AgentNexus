@@ -11,15 +11,15 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
-from omnigent.coordination.dispatcher import CoordinationDispatcher
-from omnigent.coordination.store import CoordinationStore, StateTransitionConflict
-from omnigent.coordination.types import (
+from agentnexus.coordination.dispatcher import CoordinationDispatcher
+from agentnexus.coordination.store import CoordinationStore, StateTransitionConflict
+from agentnexus.coordination.types import (
     AgentMessage,
     CoordinationRun,
     CoordinationTask,
     DeliveryAttempt,
 )
-from omnigent.db.db_models import SqlAgentMessage
+from agentnexus.db.db_models import SqlAgentMessage
 
 
 @dataclass
@@ -136,7 +136,7 @@ async def test_g2_dispatcher_precheck_orphan_conversation_fails_immediately(
     """G2: Recipient conversation missing -> fails permanently immediately (0 retries)."""
     router = FakeRunnerRouter(status_code=200)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
 
@@ -188,7 +188,7 @@ async def test_g2_dispatcher_precheck_runner_unbound_records_code(
     """G2: Recipient conversation exists but runner_id is None -> records RUNNER_UNBOUND."""
     router = FakeRunnerRouter(status_code=200)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
 
@@ -241,13 +241,13 @@ async def test_result_wakes_bound_origin_before_delivery(memory_store, monkeypat
         return None
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router", lambda: router
+        "agentnexus.server.routes._sessions.common.get_server_runner_router", lambda: router
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.routes_events._retry_session_single_flight", recover
+        "agentnexus.server.routes.sessions.routes_events._retry_session_single_flight", recover
     )
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready", relay
+        "agentnexus.server.routes._sessions.orchestration._ensure_runner_relay_ready", relay
     )
     message = AgentMessage(
         sender_session_id="polly",

@@ -12,8 +12,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.x509.oid import NameOID
 
-from omnigent.inner.egress.ca import ensure_ca
-from omnigent.inner.egress.certs import HostCertCache
+from agentnexus.inner.egress.ca import ensure_ca
+from agentnexus.inner.egress.certs import HostCertCache
 
 
 def test_host_cert_cache_rejects_unsupported_ca_key(tmp_path: Path) -> None:

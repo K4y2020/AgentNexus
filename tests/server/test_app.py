@@ -18,15 +18,15 @@ import pytest
 from fastapi import FastAPI
 from PIL import Image
 
-from omnigent.native_coding_agents import (
+from agentnexus.native_coding_agents import (
     ANTIGRAVITY_NATIVE_AGENT_NAME,
     QWEN_NATIVE_AGENT_NAME,
 )
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server import app as server_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server import app as server_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 @pytest.mark.asyncio
@@ -52,7 +52,7 @@ async def test_version_returns_source_of_truth_version(
     install, or ``"source"`` placeholder metadata) — asserting equality would
     re-couple to exactly the metadata this change moved off of.
     """
-    from omnigent.version import VERSION
+    from agentnexus.version import VERSION
 
     resp = await client.get("/api/version")
     assert resp.status_code == 200
@@ -62,13 +62,13 @@ async def test_version_returns_source_of_truth_version(
     # fetchVersion() falls back to "unknown" in every bug report.
     assert "version" in body
     assert body["version"] == VERSION, (
-        f"Expected version {VERSION!r} from omnigent.version.VERSION, got {body['version']!r}."
+        f"Expected version {VERSION!r} from agentnexus.version.VERSION, got {body['version']!r}."
     )
 
 
 def test_server_version_reads_version_constant() -> None:
     """The server version is the shared ``omnigent.version.VERSION`` constant."""
-    from omnigent.version import VERSION
+    from agentnexus.version import VERSION
 
     assert server_app._server_version() == VERSION
 
@@ -81,7 +81,7 @@ async def test_well_known_manifest_shape(client: httpx.AsyncClient) -> None:
     window, so the envelope keys are a contract: every one asserted here is a
     key a shipped shell may branch on.
     """
-    from omnigent.version import VERSION
+    from agentnexus.version import VERSION
 
     resp = await client.get("/.well-known/omnigent.json")
     assert resp.status_code == 200
@@ -166,7 +166,7 @@ def _register_live_runner(app: FastAPI, runner_id: str) -> None:
         registry on ``app.state.tunnel_registry``).
     :param runner_id: Runner id to register, e.g. ``"rnr_live"``.
     """
-    from omnigent.runner.transports.ws_tunnel.frames import HelloFrame
+    from agentnexus.runner.transports.ws_tunnel.frames import HelloFrame
 
     app.state.tunnel_registry.register(
         runner_id,
@@ -202,9 +202,9 @@ def _build_liveness_app(
     :returns: A :class:`_LivenessApp` carrying the app to drive
         ``/health`` against and the store to seed conversations in.
     """
-    from omnigent.server.app import create_app
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     conversation_store = SqlAlchemyConversationStore(db_uri)
     host_store = HostStore(db_uri)
@@ -281,7 +281,7 @@ async def test_health_batch_reports_strict_runner_and_host_liveness(
     stopped = conversation_store.create_conversation(
         runner_id="rnr_dead4", host_id="2fd786c75c03cfbbec099a6820c08b62", workspace="/tmp/ws"
     )
-    conversation_store.set_labels(stopped.id, {"omnigent.stopped": "true"})
+    conversation_store.set_labels(stopped.id, {"agentnexus.stopped": "true"})
 
     ids = ",".join(
         [
@@ -407,7 +407,7 @@ async def test_health_reports_host_version_from_live_registry(
     session info popover renders next to the server version. This is the
     non-``None`` counterpart to the DB-only rows in the batch test.
     """
-    from omnigent.host.frames import HostHelloFrame
+    from agentnexus.host.frames import HostHelloFrame
 
     wired = _build_liveness_app(db_uri, tmp_path)
     app = wired.app
@@ -446,7 +446,7 @@ async def test_info_includes_server_version(
     constant (same source as ``/api/version``) — so the web UI can show it
     in the session info popover's version footer without a second fetch.
     """
-    from omnigent.version import VERSION
+    from agentnexus.version import VERSION
 
     resp = await client.get("/v1/info")
     assert resp.status_code == 200
@@ -470,7 +470,7 @@ def _build_branding_app(
     *,
     server_config: dict[str, object] | None = None,
 ) -> FastAPI:
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 
     artifact_store = LocalArtifactStore(str(tmp_path / f"artifacts-{label}"))
     return server_app.create_app(
@@ -517,7 +517,7 @@ async def test_branding_logo_route_serves_only_validated_asset_pre_auth(
     assets.mkdir()
     payload = _branding_png((25, 100, 200, 255))
     (assets / "logo.png").write_bytes(payload)
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
 
     app = _build_branding_app(db_uri, tmp_path, "pre-auth")
     transport = httpx.ASGITransport(app=app)
@@ -537,7 +537,7 @@ async def test_branding_snapshot_performs_no_request_time_io_or_decode(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from omnigent.server import server_config as server_config_module
+    from agentnexus.server import server_config as server_config_module
 
     config = tmp_path / "config.yaml"
     config.write_text(
@@ -553,7 +553,7 @@ async def test_branding_snapshot_performs_no_request_time_io_or_decode(
     logo = assets / "logo.png"
     payload = _branding_png((25, 100, 200, 255))
     logo.write_bytes(payload)
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
 
     config_loads = 0
     logo_reads = 0
@@ -637,7 +637,7 @@ async def test_branding_snapshot_is_immutable_and_isolated_per_app(
     first_logo = first_assets / "logo.png"
     first_payload = _branding_png((25, 100, 200, 255))
     first_logo.write_bytes(first_payload)
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(first_config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(first_config))
     first_app = _build_branding_app(db_uri, tmp_path, "first")
 
     updated_payload = _branding_png((200, 100, 25, 255))
@@ -652,10 +652,10 @@ async def test_branding_snapshot_is_immutable_and_isolated_per_app(
     second_assets.mkdir()
     second_payload = _branding_png((100, 25, 200, 255))
     (second_assets / "logo.png").write_bytes(second_payload)
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(second_config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(second_config))
     second_app = _build_branding_app(db_uri, tmp_path, "second")
 
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(first_config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(first_config))
     recreated_app = _build_branding_app(db_uri, tmp_path, "recreated")
 
     async def _branding(app: FastAPI) -> tuple[dict[str, object], bytes]:
@@ -691,7 +691,7 @@ async def test_branding_missing_at_startup_remains_missing_until_app_recreation(
     config.write_text("branding:\n  logo: logo.png\n")
     assets = tmp_path / "branding-assets"
     assets.mkdir()
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
     missing_app = _build_branding_app(db_uri, tmp_path, "missing")
 
     payload = _branding_png((25, 100, 200, 255))
@@ -784,12 +784,12 @@ async def test_health_unbound_fork_of_coding_session_reads_offline(
     ``_bulk_runner_online``: if that branch reverts to ``True`` for all
     unbound sessions, the coding-fork assertion fails.
     """
-    from omnigent.server.app import create_app
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     conversation_store = SqlAlchemyConversationStore(db_uri)
     host_store = HostStore(db_uri)
@@ -799,7 +799,7 @@ async def test_health_unbound_fork_of_coding_session_reads_offline(
     # difference between them.
     coding_fork = conversation_store.create_conversation()
     conversation_store.set_labels(
-        coding_fork.id, {"omnigent.fork.source_id": "e9f8f58523cec9a57d3bdf93be543e8c"}
+        coding_fork.id, {"agentnexus.fork.source_id": "e9f8f58523cec9a57d3bdf93be543e8c"}
     )
     chat_fork = conversation_store.create_conversation()
 
@@ -843,19 +843,19 @@ async def test_health_unbound_imported_session_reads_offline(
     resumes in-process and stays online. Regression guard for the
     ``imported`` branch of ``_bulk_session_liveness``.
     """
-    from omnigent.server.app import create_app
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     conversation_store = SqlAlchemyConversationStore(db_uri)
     host_store = HostStore(db_uri)
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
 
     imported = conversation_store.create_conversation()
-    conversation_store.set_labels(imported.id, {"omnigent.import.source": "claude"})
+    conversation_store.set_labels(imported.id, {"agentnexus.import.source": "claude"})
     plain = conversation_store.create_conversation()
 
     app = create_app(
@@ -945,7 +945,7 @@ def polly_src_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _independent_seed_stores(tmp_path: Path, label: str) -> _SeedStores:
     """A fresh, migrated, independent set of seed stores under ``tmp_path``."""
-    from omnigent.db.utils import get_or_create_engine
+    from agentnexus.db.utils import get_or_create_engine
 
     uri = f"sqlite:///{tmp_path / f'{label}.db'}"
     get_or_create_engine(uri)  # run migrations, same path as production
@@ -964,7 +964,7 @@ def test_builtin_agent_id_is_stable_across_independent_stores(tmp_path: Path) ->
     """A built-in's id is identical across two independent fresh stores — the
     contract the multi-tenant deployment needs. A revert to the random
     ``generate_agent_id()`` makes the two ids differ and fails this test."""
-    from omnigent.db.utils import builtin_agent_id
+    from agentnexus.db.utils import builtin_agent_id
 
     a = _independent_seed_stores(tmp_path, "a")
     b = _independent_seed_stores(tmp_path, "b")
@@ -982,7 +982,7 @@ def test_ensure_extra_builtin_agents_skips_bad_path_and_seeds_good(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A bad entry in OMNIGENT_BUILTIN_AGENT_DIRS is logged + skipped, not fatal.
+    """A bad entry in AGENTNEXUS_BUILTIN_AGENT_DIRS is logged + skipped, not fatal.
 
     Operator-supplied paths may be wrong (typo, stale mount). One bad entry
     must not crash server startup nor block a valid entry from registering.
@@ -1047,8 +1047,8 @@ def test_ensure_default_native_agents_seeds_every_native_agent(
     :func:`builtin_agent_id`, with a retrievable bundle. A harness dropped from
     the loop — or seeded under the wrong name/id — is caught here.
     """
-    from omnigent.db.utils import builtin_agent_id
-    from omnigent.native_coding_agents import NATIVE_CODING_AGENTS
+    from agentnexus.db.utils import builtin_agent_id
+    from agentnexus.native_coding_agents import NATIVE_CODING_AGENTS
 
     server_app._ensure_default_native_agents(
         seed_stores.agent_store,
@@ -1076,17 +1076,17 @@ def test_ensure_default_acp_agents_seeds_configured_agent(
     **What breaks if this fails**: a user with Devin (or any ``acp:`` agent) set
     up on their machine never sees it in the web picker.
     """
-    from omnigent.db.utils import builtin_agent_id
-    from omnigent.onboarding.acp_auth import AcpAgentEntry
+    from agentnexus.db.utils import builtin_agent_id
+    from agentnexus.onboarding.acp_auth import AcpAgentEntry
 
     # A display label with a space ("Gemini CLI") must not become the agent name
     # (spec names are [a-zA-Z0-9_-]+); the slug is used instead.
     entry = AcpAgentEntry(
         slug="gemini-cli", name="Gemini CLI", command="gemini --experimental-acp"
     )
-    monkeypatch.setattr("omnigent.onboarding.acp_auth.acp_agents", lambda *a, **k: [entry])
+    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", lambda *a, **k: [entry])
     # No builtin ACP CLI installed, so only the configured agent seeds.
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: None)
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: None)
 
     server_app._ensure_default_acp_agents(
         seed_stores.agent_store, seed_stores.artifact_store, seed_stores.agent_cache
@@ -1107,12 +1107,12 @@ def test_ensure_default_acp_agents_seeds_installed_builtin_cli(
     seed_stores: _SeedStores, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A builtin ACP CLI harness whose binary is on PATH seeds a picker built-in."""
-    from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
+    from agentnexus.acp_cli_harnesses import ACP_CLI_HARNESSES
 
-    monkeypatch.setattr("omnigent.onboarding.acp_auth.acp_agents", lambda *a, **k: [])
+    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", lambda *a, **k: [])
     # Every builtin ACP CLI resolves on PATH in this test.
     monkeypatch.setattr(
-        "omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/local/bin/x"
+        "agentnexus._platform.resolve_cli_binary", lambda _b, **k: "/usr/local/bin/x"
     )
 
     server_app._ensure_default_acp_agents(
@@ -1142,15 +1142,15 @@ def test_ensure_default_acp_agents_configured_agent_beats_same_slug_builtin(
     import io
     import tarfile
 
-    from omnigent.db.utils import builtin_agent_id
-    from omnigent.onboarding.acp_auth import AcpAgentEntry
-    from omnigent.spec import load
+    from agentnexus.db.utils import builtin_agent_id
+    from agentnexus.onboarding.acp_auth import AcpAgentEntry
+    from agentnexus.spec import load
 
     entry = AcpAgentEntry(slug="devin", name="Devin", command="devin acp --model swe-1-7-medium")
-    monkeypatch.setattr("omnigent.onboarding.acp_auth.acp_agents", lambda *a, **k: [entry])
+    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", lambda *a, **k: [entry])
     # Both vendor CLIs are installed, so the devin row would otherwise seed too.
     monkeypatch.setattr(
-        "omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/local/bin/x"
+        "agentnexus._platform.resolve_cli_binary", lambda _b, **k: "/usr/local/bin/x"
     )
 
     server_app._ensure_default_acp_agents(
@@ -1182,10 +1182,10 @@ def test_ensure_default_acp_agents_noop_when_nothing_set_up(
     **What breaks if this fails**: a remote server (no ``acp:`` config, ACP CLIs
     absent) shows phantom ACP picker rows that can't launch there.
     """
-    from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES
+    from agentnexus.acp_cli_harnesses import ACP_CLI_HARNESSES
 
-    monkeypatch.setattr("omnigent.onboarding.acp_auth.acp_agents", lambda *a, **k: [])
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: None)
+    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", lambda *a, **k: [])
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: None)
 
     server_app._ensure_default_acp_agents(
         seed_stores.agent_store, seed_stores.artifact_store, seed_stores.agent_cache
@@ -1203,8 +1203,8 @@ def test_ensure_default_acp_agents_survives_unreadable_config(
     def _boom(*_a: object, **_k: object) -> list[object]:
         raise ValueError("bad acp: block")
 
-    monkeypatch.setattr("omnigent.onboarding.acp_auth.acp_agents", _boom)
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: None)
+    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", _boom)
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: None)
 
     # Must not raise — startup calls this and a bad user config can't take the
     # whole server down.
@@ -1222,7 +1222,7 @@ def test_build_acp_bundle_carries_the_harness_id(tmp_path: Path) -> None:
     import io
     import tarfile
 
-    from omnigent.spec import load
+    from agentnexus.spec import load
 
     data = server_app._build_acp_bundle(harness="acp:devin", name="devin")
     dest = tmp_path / "bundle"
@@ -1237,10 +1237,10 @@ def test_ensure_default_native_agents_raises_when_provider_missing(
     seed_stores: _SeedStores, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A native agent with no provider row raises instead of silently unseeding."""
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     monkeypatch.setattr(server_app, "native_provider_for_key", lambda _key: None)
-    with pytest.raises(OmnigentError, match="no provider row to seed from"):
+    with pytest.raises(AgentNexusError, match="no provider row to seed from"):
         server_app._ensure_default_native_agents(
             seed_stores.agent_store,
             seed_stores.artifact_store,
@@ -1250,16 +1250,16 @@ def test_ensure_default_native_agents_raises_when_provider_missing(
 
 def test_build_native_bundle_raises_without_materialize_hook() -> None:
     """A provider missing its ``materialize_agent_spec`` hook raises loudly."""
-    from omnigent.errors import OmnigentError
-    from omnigent.harness_plugins import NativeHarnessProvider
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.harness_plugins import NativeHarnessProvider
 
     provider = NativeHarnessProvider(
         key="ghost",
-        run_native="omnigent.ghost_native:run_ghost_native",
-        auto_create_terminal="omnigent.runner.native:_launch_ghost",
+        run_native="agentnexus.ghost_native:run_ghost_native",
+        auto_create_terminal="agentnexus.runner.native:_launch_ghost",
         materialize_agent_spec=None,
     )
-    with pytest.raises(OmnigentError, match="no materialize_agent_spec hook"):
+    with pytest.raises(AgentNexusError, match="no materialize_agent_spec hook"):
         server_app._build_native_bundle(provider)
 
 
@@ -1751,9 +1751,9 @@ def _build_api_only_app(db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyP
     mount the SPA), so point ``_WEB_UI_DIST`` at an empty path to force the
     API-only fallback branch under test.
     """
-    from omnigent.server.app import create_app
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     monkeypatch.setattr(server_app, "_WEB_UI_DIST", tmp_path / "no-web-ui")
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
@@ -1782,7 +1782,7 @@ async def test_api_only_root_serves_html_200_to_any_client(
             assert resp.status_code == 200, headers
             assert resp.headers["content-type"].startswith("text/html"), headers
             assert "web UI" in resp.text
-            assert "OMNIGENT_SKIP_WEB_UI" in resp.text
+            assert "AGENTNEXUS_SKIP_WEB_UI" in resp.text
 
 
 @pytest.mark.asyncio
@@ -1832,7 +1832,7 @@ async def test_health_derives_runner_online_from_fresh_row_stamp(
     """
     import time
 
-    from omnigent.stores.conversation_store import RUNNER_LIVENESS_TTL_S
+    from agentnexus.stores.conversation_store import RUNNER_LIVENESS_TTL_S
 
     wired = _build_liveness_app(db_uri, tmp_path)
     app = wired.app
@@ -1886,7 +1886,7 @@ def test_load_debug_routers_module_without_list_is_skipped() -> None:
 
 def test_load_debug_routers_collects_entries() -> None:
     """The benchmark debug router module exposes a mountable DEBUG_ROUTERS entry."""
-    entries = server_app._load_debug_routers(["dev.benchmarks.omnigent.debug_router"])
+    entries = server_app._load_debug_routers(["dev.benchmarks.agentnexus.debug_router"])
     assert len(entries) == 1
     _router, prefix, tags = entries[0]
     assert prefix == "/debug"

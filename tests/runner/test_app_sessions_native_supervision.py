@@ -10,14 +10,14 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     claude_native_bridge,
 )
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     bridge_dir_for_conversation_id,
 )
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import (
     _BlockingHarnessClient,
     _build_interrupt_app,
@@ -45,7 +45,7 @@ async def test_interrupt_inserts_cancellation_items_in_history() -> None:
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     gate = _aio.Event()
     app, _pm, _hc = _build_interrupt_app(gate)
@@ -157,7 +157,7 @@ async def test_interrupt_cancel_floor_finalizes_stuck_turn() -> None:
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     gate = _aio.Event()  # never set — only the floor's task-cancel can end the turn
     app, _pm, _hc = _build_interrupt_app(gate)
@@ -212,7 +212,7 @@ async def test_stop_session_cancels_inprocess_turn() -> None:
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     gate = _aio.Event()  # never set
     app, _pm, _hc = _build_interrupt_app(gate)
@@ -272,7 +272,7 @@ async def test_interrupt_during_setup_phase_recovers_stuck_turn() -> None:
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     resolver_gate = _aio.Event()  # released only in teardown → spec resolution blocks
     resolver_entered = _aio.Event()
@@ -365,7 +365,7 @@ async def test_interrupt_marker_instructs_model_to_disregard_abandoned_request()
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     gate = _aio.Event()
     app, _pm, _hc = _build_interrupt_app(gate)
@@ -436,13 +436,13 @@ async def test_external_session_status_idle_delivers_forwarded_native_output_to_
     """
     Native idle status completes sub-agent work with AP-forwarded output.
 
-    Native harness transcript items are persisted by Omnigent server, so the
+    Native harness transcript items are persisted by AgentNexus server, so the
     runner's local history can be empty or stale. A forwarded
     ``data.output`` value must be used for the parent inbox instead of
     falling back to the runner-local history.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     parent_id = "d4cfd8ebd7ef0ae6f6f0c4310d2df7ce"
     child_id = "66a84f142181a489d004f744cc76c67b"
@@ -520,7 +520,7 @@ async def test_external_session_status_running_fans_out_child_busy_to_parent() -
     a ``session.child_session.updated`` delta with ``busy=True``; otherwise
     Nessie's Agents rail has no durable "Working" signal for native children.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "d72e6c2c5866b0f946739fa5a9f964f7"
     child_id = "8c9f35bc1cb0566b101c59941a576689"
@@ -596,7 +596,7 @@ async def test_external_status_sequence_coalesces_duplicates_but_emits_task_stat
     ``idle`` → ``failed`` sequence must still update ``current_task_status``
     from ``"completed"`` to ``"failed"`` even though both edges are non-busy.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "75115d379fc444a3731a92c930150c8e"
     child_id = "2d88f6c2b566daadfb256052a0ee5abe"
@@ -695,7 +695,7 @@ async def test_external_status_idle_fans_out_forwarded_output_preview_to_parent(
     value forwarded by AP; otherwise the Agents rail can replace the real
     native reply with stale runner-local text while clearing the spinner.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "83676fab214be9a9ba799712c450e385"
     child_id = "ffa0293c16d5a9e5e6c362846277c631"
@@ -763,13 +763,13 @@ async def test_external_status_idle_without_output_omits_stale_history_preview()
     """
     Native child ``idle`` without forwarded output omits stale local text.
 
-    If Omnigent has no authoritative native transcript text to forward, the parent
+    If AgentNexus has no authoritative native transcript text to forward, the parent
     rail and parent inbox must not fall back to runner-local history: native
     runner history may be stale because the terminal forwarder owns
     persistence. The inbox receives an explicit empty result so the parent can
     still observe completion without fabricated output.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "1dc34bd0fea39227de4779abc14c4b74"
     child_id = "f7423fb08cf726ea957c2f907d85edbd"
@@ -894,7 +894,7 @@ async def test_native_subagent_completion_wakes_idle_parent() -> None:
     the inbox still fills but no parent ``/events`` POST is made — exactly the
     "nessie doesn't know its sub-agent finished" bug this fixes.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "bf881b8f7e32add48bfcd6afc476452a"
     child_id = "7ec2f4cd958a2c2a8c02bd3c03cbacc6"
@@ -999,7 +999,7 @@ async def test_tracked_subagent_status_without_parent_inbox_returns_503() -> Non
     204 would tell AP/the forwarder the completion was delivered even though
     the parent can never drain it.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "41bd085f8d34ad9201cd59c372312a1a"
     child_id = "6d17e94dcad6a73de34441f490d140b4"
@@ -1047,7 +1047,7 @@ def test_subagent_terminal_delivery_retry_uses_latest_undelivered_report() -> No
     parent should receive that latest report rather than stale cancellation
     text from the first failed delivery attempt.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "05f117c03074f5d4b0ebe450f79b0684"
     child_id = "01a9880c1386637a7d0a154ecb2c4a72"
@@ -1106,7 +1106,7 @@ def test_stop_after_completed_does_not_downgrade_status() -> None:
     terminal status that is not ``"cancelled"`` is preserved: the parent
     receives ``"completed"``.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "aa11bb22cc33dd44aa11bb22cc330001"
     child_id = "aa11bb22cc33dd44aa11bb22cc330002"
@@ -1163,7 +1163,7 @@ def test_stop_after_failed_does_not_downgrade_status() -> None:
     reported failure before stop_session arrived, and the parent must see
     ``"failed"`` rather than ``"cancelled"``.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "aa11bb22cc33dd44aa11bb22cc330003"
     child_id = "aa11bb22cc33dd44aa11bb22cc330004"
@@ -1215,7 +1215,7 @@ def test_subagent_terminal_delivery_handles_missing_output() -> None:
     message. That must not become an unstructured ``RuntimeError`` after the
     parent inbox is available.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "9c98fbe12742d712819dd26553a7a9ee"
     child_id = "c2a7357e26dc400e4aa6e5c25c611853"
@@ -1297,7 +1297,7 @@ async def test_repeated_idle_status_wakes_parent_only_once() -> None:
     re-deliver or re-wake — this is what keeps a parallel fan-out (or a
     forwarder that re-sends idle) from triggering a wake storm.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "f42f428f0217c078c09803aea44cd57b"
     child_id = "e63625ecd31e483b65e5333e6195cc13"
@@ -1357,7 +1357,7 @@ async def test_delete_session_clears_pending_subagent_wake() -> None:
     away too; otherwise a later session reusing the same id can receive a child
     result in its inbox but never get the wake notice that tells it to drain.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "514616cf803ec0ca696db4cdf75be6f6"
     first_child_id = "7cb2d00b228b559198a369204d1e1ffd"
@@ -1444,7 +1444,7 @@ async def test_subagent_completion_during_parent_wake_turn_posts_followup_wake()
     turn is still active should therefore enqueue a follow-up wake rather than
     leaving the result stranded until a human sends another message.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "44026e683bcf8dd047e509d974196bf9"
     first_child_id = "1a9cf84a190d53d5e9b6ec4e9c534f31"
@@ -1555,7 +1555,7 @@ async def test_parent_idle_with_stuck_wake_flag_posts_recovery_wake() -> None:
     *coalesced* against the re-armed flag (inbox grows, no 4th wake). Child C is
     kept only to pin that coalesce contract — the signal is the step-3 wake.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "22b91e208e5501fb8d2b502837391f04"
     child_a = "27cb54833afaf691aacb1bb7ec7ce66b"
@@ -1770,7 +1770,7 @@ async def test_parent_idle_with_stuck_wake_flag_and_drained_inbox_clears_flag() 
     fresh wake [3]. Under the bug, step 4 leaves the flag set, so step 5's C
     is debounced (count stays [2]) and C's result strands.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "8f0e87b24df3f773e7f8de693347dad9"
     child_a = "95dae25caa3d012baa1a1309cde1674b"
@@ -1999,7 +1999,7 @@ async def test_repeat_identical_recovery_wake_is_suppressed() -> None:
     identical to step 3 — so it is SKIPPED (count stays [4]). Without the fix
     step 5 posts a 5th, duplicate wake — the discriminator.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "b3d5c9f1a26e4708b1f0c4d29e7a6f13"
     child_a = "5f2a1c8b90d34e6fa7c1b2d3e4f50617"
@@ -2164,7 +2164,7 @@ async def test_recovery_wake_fires_again_for_an_episode_after_a_full_drain() -> 
     record across the drain yields 5 and a parent stranded on 2 results — the
     discriminator.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "a1b2c3d4e5f60718293a4b5c6d7e8f01"
     child_a = "11112c8b90d34e6fa7c1b2d3e4f50617"
@@ -2315,8 +2315,8 @@ async def test_replayed_idle_status_after_inbox_drain_is_acknowledged() -> None:
     sees an already-delivered ack instead of a false ``missing_work_entry``
     503 for a still-known child session.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     parent_id = "fde99284fcd969bcadb10a80290e6dc5"
     child_id = "6ce8004b6fc222e4a2794d177dc55042"
@@ -2403,7 +2403,7 @@ async def test_concurrent_subagent_completions_coalesce_into_one_wake() -> None:
     and tripping the executor's per-turn tool-context guard ("no active turn
     context") — the regression this guards against.
     """
-    from omnigent.runner import app as runner_app
+    from agentnexus.runner import app as runner_app
 
     parent_id = "0c51258a4c62e5c390402b8473ae8271"
     child_ids = [
@@ -2493,8 +2493,8 @@ async def test_events_interrupt_on_native_session_injects_escape_without_marker(
     user bubble is back; if a synthesized idle reappears in 3, the
     watcher desync bug is back.
     """
-    from omnigent.runner.app import _session_event_queues_ref, _session_histories_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref, _session_histories_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     captured_inject: list[Any] = []
 
@@ -2504,14 +2504,14 @@ async def test_events_interrupt_on_native_session_injects_escape_without_marker(
 
     monkeypatch.setattr(claude_native_bridge, "inject_interrupt", _fake_inject)
 
-    # Native spec: executor.type="omnigent" + config.harness="claude-native"
+    # Native spec: executor.type="agentnexus" + config.harness="claude-native"
     # is the canonical shape the runner reads at session start to
     # populate _session_spec_cache; _session_harness_name reads it
     # back at interrupt time to pick the right dispatch branch.
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2631,7 +2631,7 @@ async def test_events_interrupt_on_native_session_injects_escape_without_marker(
         # own running/idle edges.
         ("claude-native", []),
         # codex-native may use the runner's running edge so the thread
-        # shows work as soon as Omnigent accepts the turn, but must not use the
+        # shows work as soon as AgentNexus accepts the turn, but must not use the
         # runner's idle edge because the injection task completes before
         # the user-visible Codex turn.
         ("codex-native", ["running"]),
@@ -2658,7 +2658,7 @@ async def test_message_turn_lifecycle_status_suppressed_for_terminal_backed_harn
     represent the user-visible model turn. For claude-native, the runner
     turn is only a pane-injection task, so its ``running`` and ``idle`` edges
     are both suppressed. For codex-native, the runner's ``running`` edge is a
-    useful immediate signal that Omnigent accepted the turn, but its ``idle`` edge
+    useful immediate signal that AgentNexus accepted the turn, but its ``idle`` edge
     is invalid because the injection task finishes before Codex is done.
 
     Drives the real ``POST /events`` message path and waits for the
@@ -2672,17 +2672,17 @@ async def test_message_turn_lifecycle_status_suppressed_for_terminal_backed_harn
         on the session stream, e.g. ``["running", "idle"]``.
     :returns: None.
     """
-    from omnigent.runner.app import _session_event_queues_ref
+    from agentnexus.runner.app import _session_event_queues_ref
 
     session_id = uuid.uuid4().hex
     spec = AgentSpec(
         spec_version=1,
         name="t",
-        # executor.type="omnigent" + config.harness=<harness> is the
+        # executor.type="agentnexus" + config.harness=<harness> is the
         # canonical shape the runner reads at session start to populate
         # _session_spec_cache; _session_harness_name reads it back to
         # decide whether a PTY watcher owns this session's status.
-        executor=ExecutorSpec(type="omnigent", config={"harness": harness}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": harness}),
     )
     stream_finished = asyncio.Event()
     harness_client = _ScriptedHarnessClient([], stream_finished=stream_finished)
@@ -2778,8 +2778,8 @@ async def test_events_interrupt_on_native_session_503_skips_cleanup_when_inject_
     refactor the responsibility lives on the runner, so the
     invariant is pinned here.
     """
-    from omnigent.runner.app import _session_event_queues_ref, _session_histories_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref, _session_histories_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(bridge_dir: Any, *, timeout_s: float) -> None:
         """Simulate the bridge-not-ready path."""
@@ -2791,7 +2791,7 @@ async def test_events_interrupt_on_native_session_503_skips_cleanup_when_inject_
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:

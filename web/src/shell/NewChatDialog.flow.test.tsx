@@ -27,11 +27,11 @@ import { writeDefaultBaseBranch } from "@/lib/baseBranchPreferences";
 const navigateMock = vi.fn();
 const setPendingInitialPromptMock = vi.fn();
 
-const RECENT_KEY = "omnigent:recent-workspaces";
+const RECENT_KEY = "agentnexus:recent-workspaces";
 // Prompt history is scoped per conversation; the landing composer writes under
 // the newly created session id (``conv_new`` in these tests), so the recall
 // stack lives at the prefixed key, not the bare one.
-const PROMPT_HISTORY_KEY = "omnigent:prompt-history:conv_new";
+const PROMPT_HISTORY_KEY = "agentnexus:prompt-history:conv_new";
 // The seeded working directory (from the host's persisted recent) that the
 // create body must carry through.
 const SEEDED_WORKSPACE = "/Users/corey/universe/src/foo";
@@ -325,7 +325,7 @@ describe("NewChatLandingScreen create flow", () => {
   });
 
   it("records the launched workspace under its host without corrupting other recents", async () => {
-    // Write-back hygiene for omnigent:recent-workspaces: the launched path
+    // Write-back hygiene for agentnexus:recent-workspaces: the launched path
     // moves to the front of ITS host's list (deduplicated, not appended
     // twice), and other hosts' lists survive untouched. A corrupted or
     // cross-host write here is what later feeds recent[0] into the composer's
@@ -528,7 +528,7 @@ describe("NewChatLandingScreen create flow", () => {
     renderLanding();
     await waitForWorkspaceSeed();
     const input = screen.getByTestId("new-chat-landing-input");
-    fireEvent.change(input, { target: { value: "omnigent" } });
+    fireEvent.change(input, { target: { value: "agentnexus" } });
 
     fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
     expect(authenticatedFetch).not.toHaveBeenCalled();
@@ -742,8 +742,8 @@ describe("NewChatLandingScreen create flow", () => {
     // the UI keys off to render the terminal wrapper. Dropping them would make
     // a native Claude Code session render as a plain chat.
     expect(body.labels).toEqual({
-      "omnigent.ui": "terminal",
-      "omnigent.wrapper": "claude-code-native-ui",
+      "agentnexus.ui": "terminal",
+      "agentnexus.wrapper": "claude-code-native-ui",
     });
   });
 
@@ -769,8 +769,8 @@ describe("NewChatLandingScreen create flow", () => {
     // agent name (unlike claude, whose wrapper is "claude-code-native-ui").
     // The runner/server key off exactly this value to boot the agy terminal.
     expect(body.labels).toEqual({
-      "omnigent.ui": "terminal",
-      "omnigent.wrapper": "antigravity-native-ui",
+      "agentnexus.ui": "terminal",
+      "agentnexus.wrapper": "antigravity-native-ui",
     });
   });
 
@@ -802,7 +802,7 @@ describe("NewChatLandingScreen create flow", () => {
     // permission mode.
     expect(body.terminal_launch_args).toEqual(["--permission-mode", "bypassPermissions"]);
     expect(
-      JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")["claude-native"]
+      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["claude-native"]
         ?.mode,
     ).toBe("bypassPermissions");
   });
@@ -812,7 +812,7 @@ describe("NewChatLandingScreen create flow", () => {
     // session must auto-fill it (the "Mode:" pill reflects it) and post it
     // WITHOUT the user re-opening the pill.
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ "claude-native": { mode: "plan" } }),
     );
     setAgents([agent({ id: "ag_native", name: "claude-native-ui", display_name: "Claude Code" })]);
@@ -858,7 +858,7 @@ describe("NewChatLandingScreen create flow", () => {
     },
   ])("seeds the last launched mode for $harness", async (testCase) => {
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ [testCase.harness]: { mode: testCase.mode } }),
     );
     setAgents([
@@ -902,7 +902,7 @@ describe("NewChatLandingScreen create flow", () => {
     // session's default.
     await waitFor(() =>
       expect(
-        JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")["claude-native"]
+        JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["claude-native"]
           ?.mode,
       ).toBe("acceptEdits"),
     );
@@ -925,7 +925,7 @@ describe("NewChatLandingScreen create flow", () => {
 
     await waitFor(() =>
       expect(
-        JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")["codex-native"]
+        JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["codex-native"]
           ?.mode,
       ).toBe("bypass"),
     );
@@ -943,7 +943,7 @@ describe("NewChatLandingScreen create flow", () => {
     // Codex has a pick on record; selecting Claude Code (no pick) must stay on
     // its default — modes are keyed per harness, not shared.
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ "codex-native": { mode: "full-access" } }),
     );
     setAgents([agent({ id: "ag_native", name: "claude-native-ui", display_name: "Claude Code" })]);
@@ -994,7 +994,7 @@ describe("NewChatLandingScreen create flow", () => {
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
     const [, init] = vi.mocked(authenticatedFetch).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.labels?.["omnigent.wrapper"]).toBe("opencode-native-ui");
+    expect(body.labels?.["agentnexus.wrapper"]).toBe("opencode-native-ui");
     expect(body.terminal_launch_args).toBeUndefined();
   });
 
@@ -1013,7 +1013,7 @@ describe("NewChatLandingScreen create flow", () => {
 
     renderLanding();
     await waitForWorkspaceSeed();
-    expect(localStorage.getItem("omnigent:recent-harnesses")).toBeNull();
+    expect(localStorage.getItem("agentnexus:recent-harnesses")).toBeNull();
 
     selectAgent("ag_opencode");
     typeMessage("go");
@@ -1021,7 +1021,7 @@ describe("NewChatLandingScreen create flow", () => {
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
     // Stored under the canonical harness id, not the agent name or wrapper.
     await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem("omnigent:recent-harnesses") ?? "[]")).toEqual([
+      expect(JSON.parse(localStorage.getItem("agentnexus:recent-harnesses") ?? "[]")).toEqual([
         "opencode-native",
       ]),
     );
@@ -1043,7 +1043,7 @@ describe("NewChatLandingScreen create flow", () => {
     typeMessage("go");
     fireEvent.click(screen.getByTestId("new-chat-landing-submit"));
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
-    expect(localStorage.getItem("omnigent:recent-harnesses")).toBeNull();
+    expect(localStorage.getItem("agentnexus:recent-harnesses")).toBeNull();
   });
 
   it("omits terminal_launch_args when permission mode is left at default for claude-native", async () => {
@@ -1066,7 +1066,7 @@ describe("NewChatLandingScreen create flow", () => {
     const body = JSON.parse(init.body as string);
     // Anchor on the wrapper label so the absence check below isn't vacuous
     // against a malformed body.
-    expect(body.labels?.["omnigent.wrapper"]).toBe("claude-code-native-ui");
+    expect(body.labels?.["agentnexus.wrapper"]).toBe("claude-code-native-ui");
     // "Default" → no flag persisted (undefined is dropped by JSON.stringify),
     // so the runner launches claude with its own default.
     expect(body.terminal_launch_args).toBeUndefined();
@@ -1097,7 +1097,7 @@ describe("NewChatLandingScreen create flow", () => {
     // such flag — so assert the exact spelling, not merely "some args".
     expect(body.terminal_launch_args).toEqual(["--dangerously-skip-permissions"]);
     expect(
-      JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")[
+      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")[
         "antigravity-native"
       ]?.mode,
     ).toBe("skip");
@@ -1119,7 +1119,7 @@ describe("NewChatLandingScreen create flow", () => {
     fireEvent.click(screen.getByTestId("new-chat-landing-submit"));
 
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
-    const stored = JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")[
+    const stored = JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")[
       "cursor-native"
     ];
     expect(stored?.mode).toBe("plan");
@@ -1143,7 +1143,7 @@ describe("NewChatLandingScreen create flow", () => {
     const [, init] = vi.mocked(authenticatedFetch).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
     // Anchor so the absence check is not vacuous against a malformed body.
-    expect(body.labels?.["omnigent.wrapper"]).toBe("antigravity-native-ui");
+    expect(body.labels?.["agentnexus.wrapper"]).toBe("antigravity-native-ui");
     // Untouched → agy keeps its own request-review prompt.
     expect(body.terminal_launch_args).toBeUndefined();
   });
@@ -1221,13 +1221,13 @@ describe("NewChatLandingScreen create flow", () => {
     vi.mocked(useHostModelOptions).mockReturnValue({
       data: [
         {
-          id: "omnigent-openai/system.ai.gpt-5-6-sol",
-          model: "omnigent-openai/system.ai.gpt-5-6-sol",
+          id: "agentnexus-openai/system.ai.gpt-5-6-sol",
+          model: "agentnexus-openai/system.ai.gpt-5-6-sol",
           displayName: "GPT 5.6 Sol",
         },
         {
-          id: "omnigent/databricks-claude-sonnet-4-6",
-          model: "omnigent/databricks-claude-sonnet-4-6",
+          id: "agentnexus/databricks-claude-sonnet-4-6",
+          model: "agentnexus/databricks-claude-sonnet-4-6",
           displayName: "Claude Sonnet 4.6",
         },
       ],
@@ -1243,7 +1243,7 @@ describe("NewChatLandingScreen create flow", () => {
     openAgentConfig("ag_pi");
     fireEvent.click(screen.getByTestId("new-chat-landing-config-model"));
     const fullNameRow = document.querySelector(
-      '[data-model-id="omnigent-openai/system.ai.gpt-5-6-sol"]',
+      '[data-model-id="agentnexus-openai/system.ai.gpt-5-6-sol"]',
     );
     expect(fullNameRow).not.toBeNull();
     expect(fullNameRow).toHaveAttribute("title", "GPT 5.6 Sol");
@@ -1260,12 +1260,12 @@ describe("NewChatLandingScreen create flow", () => {
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
     const [, init] = vi.mocked(authenticatedFetch).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.model_override).toBe("omnigent-openai/system.ai.gpt-5-6-sol");
+    expect(body.model_override).toBe("agentnexus-openai/system.ai.gpt-5-6-sol");
     expect(body.reasoning_effort).toBeUndefined();
-    expect(body.labels?.["omnigent.wrapper"]).toBe("pi-native-ui");
+    expect(body.labels?.["agentnexus.wrapper"]).toBe("pi-native-ui");
     expect(
-      JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")["pi-native"]?.model,
-    ).toBe("omnigent-openai/system.ai.gpt-5-6-sol");
+      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["pi-native"]?.model,
+    ).toBe("agentnexus-openai/system.ai.gpt-5-6-sol");
   });
 
   it("seeds the model + effort from the last pick for claude-native on a new session", async () => {
@@ -1273,7 +1273,7 @@ describe("NewChatLandingScreen create flow", () => {
     // the new session must auto-fill it and post it WITHOUT re-opening the
     // picker — the same remember-your-pick behavior the permission mode has.
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ "claude-native": { model: "opus", effort: "high" } }),
     );
     setAgents([agent({ id: "ag_native", name: "claude-native-ui", display_name: "Claude Code" })]);
@@ -1298,7 +1298,7 @@ describe("NewChatLandingScreen create flow", () => {
     // Effort is already on record. Picking only the model must merge — not
     // clobber — so the next session seeds BOTH from storage.
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ "claude-native": { effort: "high" } }),
     );
     setAgents([agent({ id: "ag_native", name: "claude-native-ui", display_name: "Claude Code" })]);
@@ -1318,7 +1318,7 @@ describe("NewChatLandingScreen create flow", () => {
 
     // The launched snapshot contains both the new model and seeded effort.
     await waitFor(() => {
-      const stored = JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")[
+      const stored = JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")[
         "claude-native"
       ];
       expect(stored?.model).toBe("opus");
@@ -1331,7 +1331,7 @@ describe("NewChatLandingScreen create flow", () => {
     // resolve to unselected so the create never posts a dead model id (and the
     // valid stored effort still seeds).
     localStorage.setItem(
-      "omnigent:last-mode-by-harness",
+      "agentnexus:last-mode-by-harness",
       JSON.stringify({ "claude-native": { model: "ancient-model", effort: "high" } }),
     );
     setAgents([agent({ id: "ag_native", name: "claude-native-ui", display_name: "Claude Code" })]);
@@ -1400,7 +1400,7 @@ describe("NewChatLandingScreen create flow", () => {
       "never",
     ]);
     expect(
-      JSON.parse(localStorage.getItem("omnigent:last-mode-by-harness") ?? "{}")["codex-native"]
+      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["codex-native"]
         ?.mode,
     ).toBe("full-access");
   });
@@ -1421,7 +1421,7 @@ describe("NewChatLandingScreen create flow", () => {
     await waitFor(() => expect(authenticatedFetch).toHaveBeenCalledTimes(1));
     const [, init] = vi.mocked(authenticatedFetch).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.labels?.["omnigent.wrapper"]).toBe("codex-native-ui");
+    expect(body.labels?.["agentnexus.wrapper"]).toBe("codex-native-ui");
     expect(body.terminal_launch_args).toBeUndefined();
   });
 
@@ -1591,7 +1591,7 @@ describe("NewChatLandingScreen create flow", () => {
     };
 
     it("auto-fills from the stored default when a branch is named", () => {
-      localStorage.setItem("omnigent:default-base-branch", "main");
+      localStorage.setItem("agentnexus:default-base-branch", "main");
       renderLanding();
       openWorktree();
       setBranch("feature/login");
@@ -1607,13 +1607,13 @@ describe("NewChatLandingScreen create flow", () => {
       // The user can type freely; it doesn't touch the setting.
       fireEvent.change(baseInput(), { target: { value: "whatever" } });
       expect(baseInput().value).toBe("whatever");
-      expect(localStorage.getItem("omnigent:default-base-branch")).toBeNull();
+      expect(localStorage.getItem("agentnexus:default-base-branch")).toBeNull();
     });
 
     it("keeps a base the user CLEARED, even after reopening the dropdown", () => {
       // The reported bug: explicitly emptying the base must stick — reopening
       // the dropdown must not re-fill it from the default.
-      localStorage.setItem("omnigent:default-base-branch", "main");
+      localStorage.setItem("agentnexus:default-base-branch", "main");
       renderLanding();
       openWorktree();
       setBranch("feature/login");
@@ -1627,7 +1627,7 @@ describe("NewChatLandingScreen create flow", () => {
     });
 
     it("keeps a base the user typed, even after reopening the dropdown", () => {
-      localStorage.setItem("omnigent:default-base-branch", "main");
+      localStorage.setItem("agentnexus:default-base-branch", "main");
       renderLanding();
       openWorktree();
       setBranch("feature/login");
@@ -1639,7 +1639,7 @@ describe("NewChatLandingScreen create flow", () => {
     });
 
     it("re-arms auto-fill when the branch name is cleared and re-entered", () => {
-      localStorage.setItem("omnigent:default-base-branch", "main");
+      localStorage.setItem("agentnexus:default-base-branch", "main");
       renderLanding();
       openWorktree();
       setBranch("feature/login");
@@ -1655,7 +1655,7 @@ describe("NewChatLandingScreen create flow", () => {
     });
 
     it("seeds from the current default after it changes, on a re-entered branch", () => {
-      localStorage.setItem("omnigent:default-base-branch", "main");
+      localStorage.setItem("agentnexus:default-base-branch", "main");
       renderLanding();
       openWorktree();
       setBranch("feature/login");
@@ -1670,7 +1670,7 @@ describe("NewChatLandingScreen create flow", () => {
   });
 
   it("posts the stored default base branch without the user touching the field", async () => {
-    localStorage.setItem("omnigent:default-base-branch", "main");
+    localStorage.setItem("agentnexus:default-base-branch", "main");
     vi.mocked(authenticatedFetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ id: "conv_new" }),
@@ -1773,7 +1773,7 @@ describe("NewChatLandingScreen create flow", () => {
     fireEvent.click(screen.getByTestId("new-chat-landing-agent-ag_two"));
     // The explicit pick persists immediately — no session has to be created
     // for the preference to stick.
-    expect(localStorage.getItem("omnigent:last-agent-id")).toBe("ag_two");
+    expect(localStorage.getItem("agentnexus:last-agent-id")).toBe("ag_two");
 
     // A fresh mount (the "next visit") must start on the remembered agent:
     // submitting without touching the picker posts ag_two, not the
@@ -1797,7 +1797,7 @@ describe("NewChatLandingScreen create flow", () => {
     // A persisted pick can outlive its agent (unregistered between visits).
     // The stale id must lose to the catalog default — not yield an unusable
     // composer or post a dangling agent_id.
-    localStorage.setItem("omnigent:last-agent-id", "ag_gone");
+    localStorage.setItem("agentnexus:last-agent-id", "ag_gone");
     vi.mocked(authenticatedFetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ id: "conv_new" }),

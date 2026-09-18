@@ -14,8 +14,8 @@
 // has.
 //
 // Design notes:
-//   * Detection is feature-based (an injected `window.omnigentNative` or the
-//     legacy Electron `window.omnigentDesktop` object), never a build flag —
+//   * Detection is feature-based (an injected `window.agentnexusNative` or the
+//     legacy Electron `window.agentnexusDesktop` object), never a build flag —
 //     one bundle, multiple runtimes, decided at runtime.
 //   * This module never throws: a broken/old shell must not take down
 //     notifications in the browser path.
@@ -45,7 +45,7 @@ export interface BadgeActivation {
 
 /**
  * Minimal API surface exposed by native shells. Electron exposes the legacy
- * `window.omnigentDesktop`; newer shells expose `window.omnigentNative`.
+ * `window.agentnexusDesktop`; newer shells expose `window.agentnexusNative`.
  * Kept intentionally tiny and string/number only so it survives bridge
  * serialization.
  */
@@ -212,7 +212,7 @@ export interface CliStatus {
 
 /** This machine's identity, read from local config (fast — no subprocess). */
 export interface HostIdentity {
-  /** Whether the `omnigent` CLI was found and is runnable. */
+  /** Whether the `agentnexus` CLI was found and is runnable. */
   cliInstalled: boolean;
   /** This machine's host id, or null if it has none yet. */
   hostId: string | null;
@@ -226,7 +226,7 @@ export interface HostActionResult {
    * True when the failure was an authentication/sign-in problem — e.g. the
    * server needs a Databricks/OIDC login the desktop couldn't complete
    * headlessly — so the UI can offer a sign-in/retry affordance rather than a
-   * generic error. Set by the desktop's `omnigent:host-control` handler.
+   * generic error. Set by the desktop's `agentnexus:host-control` handler.
    */
   authError?: boolean;
 }
@@ -295,7 +295,7 @@ export interface ServerPickerInfo {
   /** Recently-connected server URLs, most recent first. */
   recentServers: string[];
   /**
-   * The connected server's version manifest (`/.well-known/omnigent.json`),
+   * The connected server's version manifest (`/.well-known/agentnexus.json`),
    * forwarded by the shell. Optional: shells older than the manifest simply
    * don't send it — see {@link serverManifestOf}, which supplies the
    * pre-manifest baseline so callers never handle `undefined`.
@@ -305,7 +305,7 @@ export interface ServerPickerInfo {
 
 /**
  * The server's version manifest, as forwarded by the desktop shell from
- * `GET /.well-known/omnigent.json`.
+ * `GET /.well-known/agentnexus.json`.
  *
  * Read it through {@link serverManifestOf} and gate on `manifestVersion >= N`,
  * never `=== N`: a newer server must keep working with an older client, which
@@ -318,7 +318,7 @@ export interface ServerManifest {
    * `>= 1` gate excludes it without callers testing for null.
    */
   manifestVersion: number;
-  /** Installed omnigent package version. Display only, never gate on it. */
+  /** Installed agentnexus package version. Display only, never gate on it. */
   serverVersion: string | null;
   /** Oldest supported desktop build, or null for no floor (the normal case). */
   minDesktopVersion: string | null;
@@ -365,14 +365,14 @@ export function serverManifestOf(info: ServerPickerInfo | null): ServerManifest 
 /** The Electron preload bridge, or undefined outside the Electron shell. */
 function electronApi(): ElectronDesktopApi | undefined {
   if (typeof window === "undefined") return undefined;
-  const api = (window as unknown as { omnigentDesktop?: ElectronDesktopApi }).omnigentDesktop;
+  const api = (window as unknown as { agentnexusDesktop?: ElectronDesktopApi }).agentnexusDesktop;
   return api?.kind === "electron" ? api : undefined;
 }
 
 /** The native shell bridge, or undefined outside any native shell. */
 function nativeApi(): NativeShellApi | undefined {
   if (typeof window === "undefined") return undefined;
-  const api = (window as unknown as { omnigentNative?: NativeShellApi }).omnigentNative;
+  const api = (window as unknown as { agentnexusNative?: NativeShellApi }).agentnexusNative;
   if (api?.kind === "ios" || api?.kind === "android" || api?.kind === "electron") return api;
   return electronApi();
 }
@@ -401,7 +401,7 @@ export function updateBridge(): ElectronUpdateBridge | undefined {
 
 /**
  * True when the desktop shell is new enough to host the embedded browser pane.
- * Older installed builds expose `omnigentDesktop` but predate the `browser*`
+ * Older installed builds expose `agentnexusDesktop` but predate the `browser*`
  * bridge, so `isElectronShell()` alone would surface a dead Browser tab whose
  * calls no-op. Probes the foundational browser method (the suite ships
  * together); false in a plain browser and on shells without the feature.
@@ -443,7 +443,7 @@ export function isAndroidShell(): boolean {
  * The shell loads the same server-served SPA in a Chromium webview, so the
  * web code can do better than the Web platform: OS notifications and a
  * dock/taskbar badge. Detection is feature-based — the Electron preload
- * exposes `window.omnigentDesktop` — never a build flag. In a plain browser
+ * exposes `window.agentnexusDesktop` — never a build flag. In a plain browser
  * this is false and every native call here degrades to a no-op / web fallback.
  */
 export function isNativeShell(): boolean {
@@ -592,9 +592,9 @@ export async function setBadgeCount(count: number, activation?: BadgeActivation)
 /**
  * Set one of the inset-system CSS variables on the document root. Visibility of
  * the native bars is web-owned (the web app is what shows/hides them), so the
- * setters below fold it into `--omnigent-*-bar-visible`; the bars' size comes
+ * setters below fold it into `--agentnexus-*-bar-visible`; the bars' size comes
  * from the native bridge (see {@link onNativeInsets} / nativeInsets.ts). Both
- * combine in `--omnigent-inset-*` (index.css). Harmless off-shell — the size
+ * combine in `--agentnexus-inset-*` (index.css). Harmless off-shell — the size
  * vars stay 0 there, so a stray visibility flag contributes nothing.
  */
 function setInsetVar(name: string, value: string): void {
@@ -607,7 +607,7 @@ function setInsetVar(name: string, value: string): void {
  * simply lack this optional method, so this degrades to a no-op.
  */
 export function setNativeServerSwitcherHidden(hidden: boolean): void {
-  setInsetVar("--omnigent-top-bar-visible", hidden ? "0" : "1");
+  setInsetVar("--agentnexus-top-bar-visible", hidden ? "0" : "1");
   const native = nativeApi();
   const setter = native?.setServerSwitcherHidden ?? native?.setSidebarOpen;
   if (!setter) return;
@@ -631,7 +631,7 @@ export function setNativeSidebarOpen(open: boolean): void {
  * caller renders its own in-page pill there.
  */
 export function setNativeViewMode(params: NativeViewModeParams): void {
-  setInsetVar("--omnigent-bottom-bar-visible", params.visible ? "1" : "0");
+  setInsetVar("--agentnexus-bottom-bar-visible", params.visible ? "1" : "0");
   const native = nativeApi();
   if (!native?.setViewMode) return;
   try {

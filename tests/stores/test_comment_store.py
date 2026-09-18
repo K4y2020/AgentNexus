@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.entities.comment import CommentsFingerprint
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.entities.comment import CommentsFingerprint
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
 
 
 @pytest.fixture()
@@ -230,7 +230,7 @@ def test_list_for_conversation_ordered_by_created_at(
     # created_at is seconds-granular; advance the clock a second per add so the
     # two comments get distinct created_at and the chronological assertion does
     # not hinge on the same-second (id) tiebreaker.
-    from omnigent.stores.comment_store import sqlalchemy_store as _comment_store_mod
+    from agentnexus.stores.comment_store import sqlalchemy_store as _comment_store_mod
 
     clock_us = [1_700_000_000_000_000]
 
@@ -660,7 +660,7 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     """
     state = {"now": 1_000}
     monkeypatch.setattr(
-        "omnigent.stores.comment_store.sqlalchemy_store.now_epoch_us",
+        "agentnexus.stores.comment_store.sqlalchemy_store.now_epoch_us",
         lambda: state["now"] * _US,
     )
     return state

@@ -32,8 +32,8 @@ from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
-from omnigent.entities import ConversationItem, MessageData
-from omnigent.repl._resume_picker import (
+from agentnexus.entities import ConversationItem, MessageData
+from agentnexus.repl._resume_picker import (
     _extract_text_from_content_blocks,
     _last_message_preview_from_dicts,
     _last_message_preview_from_entities,
@@ -42,8 +42,8 @@ from omnigent.repl._resume_picker import (
     pick_conversation_cross_agent_from_sdk,
     pick_conversation_from_store,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -855,9 +855,9 @@ def test_runtime_badge_claude_native() -> None:
     server-side label — a typo here would silently route every
     session to ``[chat]`` in the cross-agent picker.
     """
-    from omnigent.repl._resume_picker import _runtime_badge
+    from agentnexus.repl._resume_picker import _runtime_badge
 
-    row = _BadgeRow(labels={"omnigent.wrapper": "claude-code-native-ui"})
+    row = _BadgeRow(labels={"agentnexus.wrapper": "claude-code-native-ui"})
     assert _runtime_badge(row) == "[claude]"
 
 
@@ -867,9 +867,9 @@ def test_runtime_badge_codex_native() -> None:
     ``[codex]`` so the cross-agent picker identifies the terminal UI
     owner before dispatch.
     """
-    from omnigent.repl._resume_picker import _runtime_badge
+    from agentnexus.repl._resume_picker import _runtime_badge
 
-    row = _BadgeRow(labels={"omnigent.wrapper": "codex-native-ui"})
+    row = _BadgeRow(labels={"agentnexus.wrapper": "codex-native-ui"})
     assert _runtime_badge(row) == "[codex]"
 
 
@@ -877,12 +877,12 @@ def test_read_only_mapping_labels_drive_badge_and_launch_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """All Mapping implementations follow the same wrapper-label paths."""
-    from omnigent.repl import _resume_picker
+    from agentnexus.repl import _resume_picker
 
     state = SimpleNamespace(working_directory="/tmp/workspace")
     monkeypatch.setattr(_resume_picker, "_read_codex_launch_state", lambda _session_id: state)
     row = _BadgeRow(
-        labels=MappingProxyType({"omnigent.wrapper": "codex-native-ui"}),
+        labels=MappingProxyType({"agentnexus.wrapper": "codex-native-ui"}),
     )
 
     assert _resume_picker._runtime_badge(row) == "[codex]"
@@ -893,7 +893,7 @@ def test_read_only_mapping_labels_drive_badge_and_launch_state(
     "labels",
     [
         {},
-        {"omnigent.wrapper": "some-other-wrapper"},
+        {"agentnexus.wrapper": "some-other-wrapper"},
         {"unrelated": "x"},
         # Defensive: legacy fakes without a ``labels`` attribute
         # surface as ``None`` (handled via ``getattr`` in production).
@@ -908,7 +908,7 @@ def test_runtime_badge_non_claude_native(labels: Mapping[str, str] | None) -> No
     doesn't know about), and the no-labels-attribute case (legacy
     test rows). All three must NOT raise.
     """
-    from omnigent.repl._resume_picker import _runtime_badge
+    from agentnexus.repl._resume_picker import _runtime_badge
 
     row = _BadgeRow(labels=labels)
     assert _runtime_badge(row) == "[chat]"
@@ -956,7 +956,7 @@ class _FakeConversationsNamespace:
 
 
 class _FakeAPClient:
-    """Stub :class:`omnigent_client.OmnigentClient` exposing
+    """Stub :class:`omnigent_client.AgentNexusClient` exposing
     ``.sessions`` (for list) and ``.conversations`` (for list_items)."""
 
     def __init__(self, rows: list[_BadgeRow]) -> None:
@@ -975,7 +975,7 @@ async def test_cross_agent_picker_lists_without_agent_id_filter() -> None:
     """
     import io
 
-    from omnigent.repl._resume_picker import pick_conversation_cross_agent_from_sdk
+    from agentnexus.repl._resume_picker import pick_conversation_cross_agent_from_sdk
 
     client = _FakeAPClient(rows=[])  # empty list → picker prints "no prior"
     out = io.StringIO()
@@ -1001,13 +1001,13 @@ async def test_cross_agent_picker_selection_returns_id_with_runtime_badge_render
     """
     import io
 
-    from omnigent.repl._resume_picker import pick_conversation_cross_agent_from_sdk
+    from agentnexus.repl._resume_picker import pick_conversation_cross_agent_from_sdk
 
     rows = [
         _BadgeRow(
             id="dbb8b733fdfaca2c150b42317d3829f6",
             title="claude session",
-            labels={"omnigent.wrapper": "claude-code-native-ui"},
+            labels={"agentnexus.wrapper": "claude-code-native-ui"},
         ),
         _BadgeRow(id="f8fb0016d56510e7e6b3ee8618d78415", title="chat session", labels={}),
     ]
@@ -1035,20 +1035,20 @@ async def test_wrapper_label_picker_filters_and_lists_without_agent_filter(
     empty) and filter to only rows carrying the wrapper label."""
     import io
 
-    from omnigent.repl._resume_picker import pick_conversation_by_wrapper_label_from_sdk
+    from agentnexus.repl._resume_picker import pick_conversation_by_wrapper_label_from_sdk
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     rows = [
         _BadgeRow(
             id="ad9fa6806e0d3c94166f9b4dafcc1069",
             title="claude one",
-            labels={"omnigent.wrapper": "claude-code-native-ui"},
+            labels={"agentnexus.wrapper": "claude-code-native-ui"},
         ),
         _BadgeRow(id="11dc2163ab84c5afa09348998a2b6690", title="chat one", labels={}),
         _BadgeRow(
             id="260b9c4331a54a53fc1d1c5720cb4bc2",
             title="claude two",
-            labels={"omnigent.wrapper": "claude-code-native-ui"},
+            labels={"agentnexus.wrapper": "claude-code-native-ui"},
         ),
     ]
     client = _FakeAPClient(rows=rows)
@@ -1091,10 +1091,10 @@ def test_render_workspace_cell_no_state_returns_none(
     metadata segment for legacy sessions / sessions created on
     another machine / non-wrapper sessions.
     """
-    from omnigent.repl._resume_picker import _render_workspace_cell
+    from agentnexus.repl._resume_picker import _render_workspace_cell
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
-    row = _BadgeRow(id="fdae2ccf4f08f386de6f9dabb02ddf22", labels={"omnigent.wrapper": "x"})
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    row = _BadgeRow(id="fdae2ccf4f08f386de6f9dabb02ddf22", labels={"agentnexus.wrapper": "x"})
     cell = _render_workspace_cell(row, current_cwd=tmp_path.resolve())
     assert cell is None
 
@@ -1111,14 +1111,14 @@ def test_render_workspace_cell_matching_cwd_no_flag(
     *where* the session was started; only the action-required
     hint is suppressed.
     """
-    from omnigent.claude_native_state import write_launch_state
-    from omnigent.repl._resume_picker import _render_workspace_cell
+    from agentnexus.claude_native_state import write_launch_state
+    from agentnexus.repl._resume_picker import _render_workspace_cell
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.chdir(tmp_path)
     write_launch_state("d27bd0e48c10689c10e6ae23e869877a", str(tmp_path.resolve()))
     row = _BadgeRow(
-        id="d27bd0e48c10689c10e6ae23e869877a", labels={"omnigent.wrapper": "claude-code-native-ui"}
+        id="d27bd0e48c10689c10e6ae23e869877a", labels={"agentnexus.wrapper": "claude-code-native-ui"}
     )
 
     cell = _render_workspace_cell(row, current_cwd=tmp_path.resolve())
@@ -1143,17 +1143,17 @@ def test_render_workspace_cell_mismatched_cwd_shows_cd_flag(
     this row is picked — without it the user has no way to
     anticipate the prompt.
     """
-    from omnigent.claude_native_state import write_launch_state
-    from omnigent.repl._resume_picker import _render_workspace_cell
+    from agentnexus.claude_native_state import write_launch_state
+    from agentnexus.repl._resume_picker import _render_workspace_cell
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     recorded = tmp_path / "recorded"
     recorded.mkdir()
     current = tmp_path / "current"
     current.mkdir()
     write_launch_state("3d86a9c5a27d38d42e1ff818058816e3", str(recorded.resolve()))
     row = _BadgeRow(
-        id="3d86a9c5a27d38d42e1ff818058816e3", labels={"omnigent.wrapper": "claude-code-native-ui"}
+        id="3d86a9c5a27d38d42e1ff818058816e3", labels={"agentnexus.wrapper": "claude-code-native-ui"}
     )
 
     cell = _render_workspace_cell(row, current_cwd=current.resolve())
@@ -1183,10 +1183,10 @@ def test_workspace_metadata_appears_in_wrapper_picker_list(
     ``show_workspace=True`` somewhere between the wrapper picker
     entry point and item rendering is caught.
     """
-    from omnigent.claude_native_state import write_launch_state
-    from omnigent.repl._resume_picker import pick_conversation
+    from agentnexus.claude_native_state import write_launch_state
+    from agentnexus.repl._resume_picker import pick_conversation
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     workspace = tmp_path / "ws-marker"
     workspace.mkdir()
     monkeypatch.chdir(workspace)
@@ -1194,7 +1194,7 @@ def test_workspace_metadata_appears_in_wrapper_picker_list(
     row = _BadgeRow(
         id="3ed07f9b6e6fd72020467ffd0f5dfd80",
         title="with ws",
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     out = io.StringIO()
@@ -1231,18 +1231,18 @@ def test_render_workspace_cell_codex_native_uses_codex_state(
     :param tmp_path: Temporary state root and workspace.
     :returns: None.
     """
-    from omnigent.codex_native_state import write_launch_state
-    from omnigent.repl._resume_picker import _render_workspace_cell
+    from agentnexus.codex_native_state import write_launch_state
+    from agentnexus.repl._resume_picker import _render_workspace_cell
 
-    monkeypatch.setenv("OMNIGENT_CODEX_NATIVE_STATE_DIR", str(tmp_path / "codex-state"))
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "claude-state"))
+    monkeypatch.setenv("AGENTNEXUS_CODEX_NATIVE_STATE_DIR", str(tmp_path / "codex-state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "claude-state"))
     workspace = tmp_path / "codex-workspace"
     workspace.mkdir()
     write_launch_state("07e373dac8325f8b8821267a54336f42", str(workspace.resolve()))
     row = _BadgeRow(
         id="07e373dac8325f8b8821267a54336f42",
         title="codex ws",
-        labels={"omnigent.wrapper": "codex-native-ui"},
+        labels={"agentnexus.wrapper": "codex-native-ui"},
     )
 
     cell = _render_workspace_cell(row, current_cwd=tmp_path.resolve())
@@ -1264,13 +1264,13 @@ def test_workspace_metadata_omits_unrecorded_workspace_segment(
     showing workspace metadata for rows where the wrapper actually
     recorded a cwd.
     """
-    from omnigent.repl._resume_picker import pick_conversation
+    from agentnexus.repl._resume_picker import pick_conversation
 
-    monkeypatch.setenv("OMNIGENT_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", str(tmp_path / "state"))
     row = _BadgeRow(
         id="eadade68b1f6e5f2f5e0c57a00d8d378",
         title="without ws",
-        labels={"omnigent.wrapper": "claude-code-native-ui"},
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     out = io.StringIO()

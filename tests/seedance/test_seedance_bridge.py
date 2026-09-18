@@ -9,7 +9,7 @@ import httpx
 import pytest
 import respx
 
-from omnigent.seedance.bridge import (
+from agentnexus.seedance.bridge import (
     SEEDANCE_BASE_URL_LABEL,
     SEEDANCE_PROJECT_LABEL,
     SEEDANCE_SESSION_LABEL,
@@ -22,7 +22,7 @@ from omnigent.seedance.bridge import (
     resolve_or_create_topic_project_and_session,
     read_seedance_generation,
 )
-from omnigent.seedance.client import SeedanceClient
+from agentnexus.seedance.client import SeedanceClient
 
 _BASE = "http://127.0.0.1:8893"
 _SERVER = "http://localhost:6767"

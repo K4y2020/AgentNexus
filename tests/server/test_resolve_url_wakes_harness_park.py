@@ -13,7 +13,7 @@ import asyncio
 
 import pytest
 
-from omnigent.server.routes import sessions as S
+from agentnexus.server.routes import sessions as S
 
 
 @pytest.mark.asyncio

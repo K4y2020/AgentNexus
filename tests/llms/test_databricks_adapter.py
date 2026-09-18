@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from omnigent.llms.adapters.databricks import DatabricksAdapter
+from agentnexus.llms.adapters.databricks import DatabricksAdapter
 
 
 def test_stream_options_stripped_from_streaming_payload() -> None:
@@ -43,12 +43,12 @@ def test_missing_base_url_raises_when_no_auto_resolve(monkeypatch: Any) -> None:
     """
     When ``connection_params`` has no ``base_url`` and auto-resolution from
     ``~/.databrickscfg`` also fails, ``chat_completions`` raises
-    ``OmnigentError``.
+    ``AgentNexusError``.
     """
     import asyncio
 
-    from omnigent.errors import OmnigentError
-    from omnigent.llms.adapters import databricks as adapter_mod
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.llms.adapters import databricks as adapter_mod
 
     def _raise(profile: Any) -> None:
         raise OSError("Could not resolve Databricks workspace credentials.")
@@ -69,8 +69,8 @@ def test_missing_base_url_raises_when_no_auto_resolve(monkeypatch: Any) -> None:
 
     try:
         asyncio.run(call())
-        raise AssertionError("Expected OmnigentError was not raised")
-    except OmnigentError as exc:
+        raise AssertionError("Expected AgentNexusError was not raised")
+    except AgentNexusError as exc:
         assert "Could not resolve" in str(exc)
 
 
@@ -85,8 +85,8 @@ def test_auto_resolve_used_when_no_connection_params(monkeypatch: Any) -> None:
     """
     import asyncio
 
-    from omnigent.llms.adapters import databricks as adapter_mod
-    from omnigent.runtime.credentials.databricks import WorkspaceCreds
+    from agentnexus.llms.adapters import databricks as adapter_mod
+    from agentnexus.runtime.credentials.databricks import WorkspaceCreds
 
     monkeypatch.setattr(
         adapter_mod,
@@ -110,7 +110,7 @@ def test_auto_resolve_used_when_no_connection_params(monkeypatch: Any) -> None:
         captured.append({"connection_params": connection_params})
         return {}
 
-    from omnigent.llms.adapters.openai import OpenAICompatibleAdapter
+    from agentnexus.llms.adapters.openai import OpenAICompatibleAdapter
 
     monkeypatch.setattr(OpenAICompatibleAdapter, "chat_completions", _fake_parent)
 

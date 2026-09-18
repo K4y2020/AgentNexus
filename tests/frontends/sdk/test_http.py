@@ -2,7 +2,7 @@
 
 A machine with an HTTP proxy configured — via ``HTTP_PROXY``/``ALL_PROXY``,
 or on Windows via the system registry, which ``getproxies()`` also reads —
-cannot reach its own local Omnigent server through that proxy: the proxy
+cannot reach its own local AgentNexus server through that proxy: the proxy
 resolves ``127.0.0.1`` against itself. httpx trusts the environment by
 default, so a client built without ``trust_env=False`` fails with
 ``httpx.ConnectError: All connection attempts failed`` even though the
@@ -12,8 +12,8 @@ server is listening and healthy.
 from __future__ import annotations
 
 import pytest
-from omnigent_client import OmnigentClient
-from omnigent_client._http import is_loopback_url
+from agentnexus_client import AgentNexusClient
+from agentnexus_client._http import is_loopback_url
 
 
 @pytest.mark.parametrize(
@@ -80,6 +80,6 @@ def test_client_bypasses_env_proxies_only_for_loopback(
     server dies on a proxied connection, which surfaces as a crash rather
     than anything the user can act on.
     """
-    client = OmnigentClient(base_url=server_url)
+    client = AgentNexusClient(base_url=server_url)
 
     assert client._http.trust_env is expected_trust_env

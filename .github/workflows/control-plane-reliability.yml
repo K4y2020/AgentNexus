@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 env:
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   ANTHROPIC_API_KEY: ""
   OPENAI_API_KEY: ""
   CODEX: ""

@@ -57,7 +57,7 @@ class ThreadKey:
 class UserConfig:
     """A Slack user's chosen agent, host, and workspace.
 
-    The Omnigent server is operator-fixed (``OMNIGENT_SERVER_URL``), so it
+    The AgentNexus server is operator-fixed (``AGENTNEXUS_SERVER_URL``), so it
     is not part of a user's config.
     """
 
@@ -93,7 +93,7 @@ class ChannelBinding:
 
 @dataclass(frozen=True, slots=True)
 class SessionRecord:
-    """A Slack thread's Omnigent session and where it runs."""
+    """A Slack thread's AgentNexus session and where it runs."""
 
     session_id: str
     owner_user_id: str | None

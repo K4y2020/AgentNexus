@@ -5,8 +5,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from omnigent import native_policy_hook
-from omnigent.native_policy_hook import (
+from agentnexus import native_policy_hook
+from agentnexus.native_policy_hook import (
     _is_login_redirect_or_unauthorized,
     evaluation_response_to_hook_output,
     fail_closed_hook_output,
@@ -67,10 +67,10 @@ def test_post_tool_use_maps_to_phase_tool_result() -> None:
 @pytest.mark.parametrize("hook_event", ["PreToolUse", "PostToolUse"])
 def test_omnigent_mcp_tools_are_skipped(hook_event: str) -> None:
     """
-    Omnigent MCP tools return None and are never sent to /policies/evaluate.
+    AgentNexus MCP tools return None and are never sent to /policies/evaluate.
 
-    Omnigent MCP tool calls are already policy-checked by the relay path
-    (ProxyMcpManager → Omnigent /mcp endpoint → _evaluate_tool_call_policy).
+    AgentNexus MCP tool calls are already policy-checked by the relay path
+    (ProxyMcpManager → AgentNexus /mcp endpoint → _evaluate_tool_call_policy).
     If this guard regressed, every MCP tool call would be evaluated
     twice — once via the relay, once via this hook.
     """
@@ -91,7 +91,7 @@ def test_connector_native_mcp_tools_are_evaluated(hook_event: str, expected_type
     Connector-native MCP tools must not be skipped by the native pre-call hook.
 
     Tools such as ``mcp__github__*`` are injected by the connector layer and
-    do not round-trip through Omnigent's MCP proxy, so this hook is their
+    do not round-trip through AgentNexus's MCP proxy, so this hook is their
     TOOL_CALL/TOOL_RESULT policy enforcement site.
     """
     result = hook_payload_to_evaluation_request(
@@ -607,11 +607,11 @@ def test_policy_hook_request_headers_merges_baked_auth(
     """The reader merges the executor-baked auth + routing headers.
 
     The import-free hook subprocess can't resolve credentials in-process, so
-    the executor bakes them into ``_OMNIGENT_AUTH_HEADERS``; the reader must
+    the executor bakes them into ``_AGENTNEXUS_AUTH_HEADERS``; the reader must
     fold them onto ``Content-Type`` for the policy POST.
     """
     monkeypatch.setenv(
-        "_OMNIGENT_AUTH_HEADERS",
+        "_AGENTNEXUS_AUTH_HEADERS",
         '{"Authorization": "Bearer tok", "X-Databricks-Org-Id": "org123"}',
     )
     assert native_policy_hook.policy_hook_request_headers() == {
@@ -632,9 +632,9 @@ def test_policy_hook_request_headers_tolerates_missing_or_bad_env(
     none).
     """
     if raw:
-        monkeypatch.setenv("_OMNIGENT_AUTH_HEADERS", raw)
+        monkeypatch.setenv("_AGENTNEXUS_AUTH_HEADERS", raw)
     else:
-        monkeypatch.delenv("_OMNIGENT_AUTH_HEADERS", raising=False)
+        monkeypatch.delenv("_AGENTNEXUS_AUTH_HEADERS", raising=False)
     assert native_policy_hook.policy_hook_request_headers() == {"Content-Type": "application/json"}
 
 
@@ -647,8 +647,8 @@ def test_policy_hook_wrapper_script_bakes_auth_and_routing(
     workspace routing for free — the gap that left the cursor/hermes hooks
     posting unauthenticated and unrouted.
     """
-    import omnigent.cli_auth as cli_auth
-    import omnigent.runner._entry as entry
+    import agentnexus.cli_auth as cli_auth
+    import agentnexus.runner._entry as entry
 
     monkeypatch.setattr(
         entry, "_make_auth_token_factory", lambda *, server_url=None: lambda: "tok"
@@ -660,11 +660,11 @@ def test_policy_hook_wrapper_script_bakes_auth_and_routing(
     )
 
     assert script.startswith("#!/bin/sh\n")
-    assert "_OMNIGENT_SERVER_URL=https://acme.databricks.com/api/2.0/omnigent" in script
-    assert "_OMNIGENT_SESSION_ID=conv_x" in script
+    assert "_AGENTNEXUS_SERVER_URL=https://acme.databricks.com/api/2.0/omnigent" in script
+    assert "_AGENTNEXUS_SESSION_ID=conv_x" in script
     # The baked headers carry BOTH the bearer and the routing header.
     line = next(
-        ln for ln in script.splitlines() if ln.startswith("export _OMNIGENT_AUTH_HEADERS=")
+        ln for ln in script.splitlines() if ln.startswith("export _AGENTNEXUS_AUTH_HEADERS=")
     )
     assert "Bearer tok" in line
     assert "X-Databricks-Org-Id" in line and "org123" in line
@@ -678,8 +678,8 @@ def test_policy_hook_wrapper_script_omits_auth_when_unauthenticated(
     The wrapper still exports the (empty) header dict, so the reader yields
     just ``Content-Type`` — non-workspace callers are unaffected.
     """
-    import omnigent.cli_auth as cli_auth
-    import omnigent.runner._entry as entry
+    import agentnexus.cli_auth as cli_auth
+    import agentnexus.runner._entry as entry
 
     monkeypatch.setattr(entry, "_make_auth_token_factory", lambda *, server_url=None: None)
     monkeypatch.setattr(cli_auth, "load_databricks_org_id", lambda _url: None)
@@ -688,7 +688,7 @@ def test_policy_hook_wrapper_script_omits_auth_when_unauthenticated(
         "http://127.0.0.1:6767", "conv_local", "/path/hook.py"
     )
     line = next(
-        ln for ln in script.splitlines() if ln.startswith("export _OMNIGENT_AUTH_HEADERS=")
+        ln for ln in script.splitlines() if ln.startswith("export _AGENTNEXUS_AUTH_HEADERS=")
     )
     assert "Bearer" not in line
     assert "X-Databricks-Org-Id" not in line
@@ -705,7 +705,7 @@ def test_policy_hook_reauth_remints_and_preserves_routing_header(
     workspace-routing header that travels alongside it.
     """
     monkeypatch.setattr(
-        "omnigent.runner._entry._make_auth_token_factory",
+        "agentnexus.runner._entry._make_auth_token_factory",
         lambda _server_url: lambda: "fresh-token",
     )
     reauth = native_policy_hook.policy_hook_reauth(
@@ -720,7 +720,7 @@ def test_policy_hook_reauth_returns_none_without_factory(
 ) -> None:
     """No refresh mechanism (local/unauth) → ``None`` so the caller fails closed."""
     monkeypatch.setattr(
-        "omnigent.runner._entry._make_auth_token_factory",
+        "agentnexus.runner._entry._make_auth_token_factory",
         lambda _server_url: None,
     )
     reauth = native_policy_hook.policy_hook_reauth(

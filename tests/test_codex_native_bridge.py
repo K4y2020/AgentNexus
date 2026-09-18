@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import codex_native_bridge
-from omnigent.codex_native_bridge import (
+from agentnexus import codex_native_bridge
+from agentnexus.codex_native_bridge import (
     CodexNativeBridgeState,
     cancel_pending_mcp_startup,
     clear_active_turn_id_if_matches,
@@ -46,9 +46,9 @@ def test_codex_mcp_config_overrides_isolate_the_bridge_interpreter(tmp_path: Pat
     """
     overrides = codex_mcp_config_overrides(tmp_path)
 
-    prefix = "mcp_servers.omnigent.args="
+    prefix = "mcp_servers.agentnexus.args="
     raw = next(o[len(prefix) :] for o in overrides if o.startswith(prefix))
-    assert json.loads(raw)[:4] == ["-I", "-m", "omnigent.claude_native_bridge", "serve-mcp"]
+    assert json.loads(raw)[:4] == ["-I", "-m", "agentnexus.claude_native_bridge", "serve-mcp"]
 
 
 def _seed_active_turn(bridge_dir: Path, active_turn_id: str | None) -> None:
@@ -97,7 +97,7 @@ def bridge_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     :param monkeypatch: pytest monkeypatch fixture.
     :returns: Prepared bridge directory.
     """
-    monkeypatch.setattr("omnigent.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
+    monkeypatch.setattr("agentnexus.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
     return prepare_bridge_dir("bridge_test")
 
 
@@ -159,7 +159,7 @@ def test_read_codex_config_model_none_when_unparsable(bridge_dir: Path) -> None:
 def test_write_codex_config_model_replaces_top_level_key(bridge_dir: Path) -> None:
     """The existing top-level ``model`` line is replaced, sections untouched.
 
-    An Omnigent-initiated switch (routing / web picker) must land on the same
+    An AgentNexus-initiated switch (routing / web picker) must land on the same
     key an in-TUI ``/model`` writes, or the forwarder's next config re-read
     mirrors the stale launch model back and reverts the switch.
     """
@@ -194,10 +194,10 @@ def test_write_codex_config_model_creates_missing_file(bridge_dir: Path) -> None
 
 def test_policy_hook_config_round_trips(bridge_dir: Path) -> None:
     """
-    Written Omnigent coordinates read back verbatim for the policy hook.
+    Written AgentNexus coordinates read back verbatim for the policy hook.
 
     The codex hook subprocess depends on this exact payload to reach the
-    Omnigent server. A failure (dropped/renamed field) would leave the hook
+    AgentNexus server. A failure (dropped/renamed field) would leave the hook
     unable to POST, silently disabling enforcement.
     """
     write_policy_hook_config(
@@ -214,7 +214,7 @@ def test_policy_hook_config_round_trips(bridge_dir: Path) -> None:
 
 def test_policy_hook_config_absent_returns_none(bridge_dir: Path) -> None:
     """
-    Reading before any write returns None (no Omnigent server configured).
+    Reading before any write returns None (no AgentNexus server configured).
 
     The hook treats None as "nothing to enforce" and no-ops. A failure
     (e.g. raising, or returning a partial dict) would crash the hook or
@@ -418,7 +418,7 @@ def test_settle_pending_mcp_startup_drops_only_starting(bridge_dir: Path) -> Non
     """
     Settling drops unresolved ``starting`` entries and keeps terminal ones.
 
-    Codex never delivers per-server outcomes to Omnigent's observer
+    Codex never delivers per-server outcomes to AgentNexus's observer
     connection, so at settle the unresolved entries are removed rather
     than guessed; a locally-cancelled server must survive so the web band
     can keep saying it was cancelled. A second settle is a no-op.

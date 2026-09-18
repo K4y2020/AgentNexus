@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runner.app import ResolvedSpec, _codex_native_model_from_spec
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner.app import ResolvedSpec, _codex_native_model_from_spec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 
 def _spec(model: str | None, config_model: str | None = None) -> AgentSpec:

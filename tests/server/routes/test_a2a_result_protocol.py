@@ -7,12 +7,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.coordination.a2a_results import record_declared_results, recover_declared_result
-from omnigent.coordination.channels import binding_for_session, labels_for_binding
-from omnigent.coordination.store import CoordinationStore
-from omnigent.server.routes.coordination import router
-from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.coordination.a2a_results import record_declared_results, recover_declared_result
+from agentnexus.coordination.channels import binding_for_session, labels_for_binding
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.server.routes.coordination import router
+from agentnexus.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 @pytest.fixture

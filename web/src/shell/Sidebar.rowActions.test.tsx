@@ -413,7 +413,7 @@ describe("quick pin/unpin hover button", () => {
       "Unpin conversation",
     );
 
-    // Persisted server-side (the `omnigent.pinned` label) so the pin follows the
+    // Persisted server-side (the `agentnexus.pinned` label) so the pin follows the
     // user across devices — same contract as the kebab's Pin item.
     expect(mocks.pinnedStore.ids).toContain("conv_1");
 

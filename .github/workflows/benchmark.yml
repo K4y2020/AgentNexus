@@ -1,12 +1,12 @@
 name: Benchmark
 
 # Nightly run of the HTTP user-journey performance benchmark
-# (dev/benchmarks/omnigent). Seeds a sizeable corpus, boots a real server
+# (dev/benchmarks/agentnexus). Seeds a sizeable corpus, boots a real server
 # against it, drives the journeys, and uploads the JSON report as an artifact.
 # Runs a backend matrix — SQLite (in-process) and Postgres (a service
 # container, matching prod's Lakebase/Postgres round-trip + pooling profile).
 # A workspace Databricks notebook pulls these artifacts via the GitHub API into
-# a Delta table for the trend dashboard (see dev/benchmarks/omnigent/README.md)
+# a Delta table for the trend dashboard (see dev/benchmarks/agentnexus/README.md)
 # — so this workflow only produces artifacts; it never touches Databricks.
 #
 # Scheduled -> runs on the trusted default branch with the repo GITHUB_TOKEN;
@@ -48,7 +48,7 @@ permissions:
 env:
   # No web SPA build during `uv sync` (setup.py _build_web_ui): this job never
   # serves the bundle, and the build otherwise times out on public npm.
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
   ITERATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.iterations || '100' }}
@@ -69,7 +69,7 @@ concurrency:
 jobs:
   benchmark:
     name: Run benchmark (${{ matrix.backend }})
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -147,7 +147,7 @@ jobs:
       - name: Resolve DB target
         id: db
         run: |
-          HEAD="$(uv run --no-sync dev/benchmarks/omnigent/seed.py --print-head)"
+          HEAD="$(uv run --no-sync dev/benchmarks/agentnexus/seed.py --print-head)"
           if [[ "${{ matrix.backend }}" == "postgres" ]]; then
             echo "uri=postgresql+psycopg://postgres:bench@localhost:5432/benchdb" >> "$GITHUB_OUTPUT"
             echo "cache_path=" >> "$GITHUB_OUTPUT"
@@ -158,7 +158,7 @@ jobs:
             echo "uri=sqlite:///$PWD/bench.db" >> "$GITHUB_OUTPUT"
             echo "cache_path=bench.db" >> "$GITHUB_OUTPUT"
           fi
-          echo "cache_key=benchdb-${{ matrix.backend }}-$HEAD-${SESSIONS}x${ITEMS}-${{ hashFiles('dev/benchmarks/omnigent/seed.py') }}" >> "$GITHUB_OUTPUT"
+          echo "cache_key=benchdb-${{ matrix.backend }}-$HEAD-${SESSIONS}x${ITEMS}-${{ hashFiles('dev/benchmarks/agentnexus/seed.py') }}" >> "$GITHUB_OUTPUT"
 
       # Reuse a previously-seeded SQLite corpus when schema + seed + config are
       # unchanged. No-op for the server-backed legs (empty path).
@@ -176,17 +176,17 @@ jobs:
         # harmless.
         if: matrix.backend != 'sqlite' || steps.seedcache.outputs.cache-hit != 'true'
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/seed.py \
+          uv run --no-sync dev/benchmarks/agentnexus/seed.py \
             --database-uri "${{ steps.db.outputs.uri }}" \
             --sessions "$SESSIONS" --items-per-session "$ITEMS"
 
-      # pexpect drives omnigent polly via PTY for the cli_startup journey.
+      # pexpect drives agentnexus polly via PTY for the cli_startup journey.
       - name: Install CLI startup dependencies
         run: uv pip install pexpect
 
       - name: Run benchmark
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/run.py \
+          uv run --no-sync dev/benchmarks/agentnexus/run.py \
             --database-uri "${{ steps.db.outputs.uri }}" \
             --iterations "$ITERATIONS" \
             --runs "$RUNS" \
@@ -199,7 +199,7 @@ jobs:
         if: always()
         run: |
           if [[ -f "benchmark-results-${{ matrix.backend }}.json" ]]; then
-            uv run --no-sync dev/benchmarks/omnigent/report_markdown.py \
+            uv run --no-sync dev/benchmarks/agentnexus/report_markdown.py \
               --title "Benchmark results" \
               "benchmark-results-${{ matrix.backend }}.json" >> "$GITHUB_STEP_SUMMARY"
           fi

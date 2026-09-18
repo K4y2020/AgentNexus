@@ -22,25 +22,25 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.builtins.google import (
+from agentnexus.policies.builtins.google import (
     CREATED_DRAFTS_STATE_KEY,
     CREATED_FILES_STATE_KEY,
     gcalendar_policy,
     gdrive_policy,
     gmail_policy,
 )
-from omnigent.policies.function import FunctionPolicy, resolve_function_policy
-from omnigent.policies.registry import get_registry, load_registry, validate_factory_params
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.policies.function import FunctionPolicy, resolve_function_policy
+from agentnexus.policies.registry import get_registry, load_registry, validate_factory_params
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 from tests.policies.builtins.helpers import tool_call_event as tc
 from tests.policies.builtins.helpers import tool_result_event as tr
 
-_DRIVE_HANDLER = "omnigent.policies.builtins.google.gdrive_policy"
-_GMAIL_HANDLER = "omnigent.policies.builtins.google.gmail_policy"
-_CAL_HANDLER = "omnigent.policies.builtins.google.gcalendar_policy"
+_DRIVE_HANDLER = "agentnexus.policies.builtins.google.gdrive_policy"
+_GMAIL_HANDLER = "agentnexus.policies.builtins.google.gmail_policy"
+_CAL_HANDLER = "agentnexus.policies.builtins.google.gcalendar_policy"
 _DOC_ID = "1AbCdefGHIjklMNOpqrSTUvwxyz0123456789"
 _DOC_URL = f"https://docs.google.com/document/d/{_DOC_ID}/edit?tab=t.0"
 

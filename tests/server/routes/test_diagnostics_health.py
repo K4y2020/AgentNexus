@@ -5,12 +5,12 @@ from __future__ import annotations
 import httpx
 from fastapi import FastAPI
 
-from omnigent.server.routes._sessions.common import (
+from agentnexus.server.routes._sessions.common import (
     _LAST_TASK_ERROR_CODE_LABEL_KEY,
     _LAST_TASK_ERROR_LAYER_LABEL_KEY,
     _LAST_TASK_ERROR_MESSAGE_LABEL_KEY,
 )
-from omnigent.stores import ConversationStore
+from agentnexus.stores import ConversationStore
 
 
 async def test_get_diagnostics_health_default_shape(client: httpx.AsyncClient) -> None:

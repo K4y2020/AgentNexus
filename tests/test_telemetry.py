@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.telemetry.surface import classify_surface
+from agentnexus.telemetry.surface import classify_surface
 
 # ── classify_surface ────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ def test_classify_surface_regular_browser() -> None:
 @pytest.fixture(autouse=True)
 def _reset_is_disabled_cache():
     """Reset the is_disabled() cache before each test so env patches take effect."""
-    import omnigent.telemetry.client as _mod
+    import agentnexus.telemetry.client as _mod
 
     _mod._IS_DISABLED_CACHE[0] = None
     yield
@@ -74,51 +74,51 @@ def _reset_is_disabled_cache():
 
 
 def test_is_disabled_omnigent_analytics_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``OMNIGENT_ANALYTICS=0`` disables telemetry."""
-    monkeypatch.setenv("OMNIGENT_ANALYTICS", "0")
+    """``AGENTNEXUS_ANALYTICS=0`` disables telemetry."""
+    monkeypatch.setenv("AGENTNEXUS_ANALYTICS", "0")
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
 
 def test_is_disabled_do_not_track(monkeypatch: pytest.MonkeyPatch) -> None:
     """``DO_NOT_TRACK=1`` disables telemetry."""
-    monkeypatch.delenv("OMNIGENT_ANALYTICS", raising=False)
-    monkeypatch.delenv("OMNIGENT_DISABLE_TELEMETRY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ANALYTICS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DISABLE_TELEMETRY", raising=False)
     monkeypatch.setenv("DO_NOT_TRACK", "1")
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
 
 def test_is_disabled_ci_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """``CI=true`` disables telemetry."""
-    monkeypatch.delenv("OMNIGENT_ANALYTICS", raising=False)
-    monkeypatch.delenv("OMNIGENT_DISABLE_TELEMETRY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ANALYTICS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DISABLE_TELEMETRY", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     monkeypatch.setenv("CI", "true")
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
 
 def test_is_disabled_github_actions(monkeypatch: pytest.MonkeyPatch) -> None:
     """``GITHUB_ACTIONS=true`` disables telemetry."""
-    monkeypatch.delenv("OMNIGENT_ANALYTICS", raising=False)
-    monkeypatch.delenv("OMNIGENT_DISABLE_TELEMETRY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ANALYTICS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_DISABLE_TELEMETRY", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
@@ -126,8 +126,8 @@ def test_is_disabled_github_actions(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_is_disabled_none_set(monkeypatch: pytest.MonkeyPatch) -> None:
     """When none of the opt-out vars are set, telemetry is enabled."""
     _ci_vars = [
-        "OMNIGENT_ANALYTICS",
-        "OMNIGENT_DISABLE_TELEMETRY",
+        "AGENTNEXUS_ANALYTICS",
+        "AGENTNEXUS_DISABLE_TELEMETRY",
         "DO_NOT_TRACK",
         "CI",
         "GITHUB_ACTIONS",
@@ -144,7 +144,7 @@ def test_is_disabled_none_set(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
     for var in _ci_vars:
         monkeypatch.delenv(var, raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is False
 
@@ -154,24 +154,24 @@ def test_is_disabled_none_set(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_is_disabled_disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
     """``DISABLE_TELEMETRY=true`` disables telemetry."""
-    monkeypatch.delenv("OMNIGENT_ANALYTICS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ANALYTICS", raising=False)
     monkeypatch.setenv("DISABLE_TELEMETRY", "true")
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
 
 def test_is_disabled_omnigent_disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``OMNIGENT_DISABLE_TELEMETRY=1`` disables telemetry."""
-    monkeypatch.delenv("OMNIGENT_ANALYTICS", raising=False)
-    monkeypatch.setenv("OMNIGENT_DISABLE_TELEMETRY", "1")
+    """``AGENTNEXUS_DISABLE_TELEMETRY=1`` disables telemetry."""
+    monkeypatch.delenv("AGENTNEXUS_ANALYTICS", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_TELEMETRY", "1")
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
@@ -180,9 +180,9 @@ def test_is_disabled_omnigent_disable_telemetry(monkeypatch: pytest.MonkeyPatch)
 
 
 _ALL_OPT_OUT_VARS = [
-    "OMNIGENT_ANALYTICS",
+    "AGENTNEXUS_ANALYTICS",
     "DISABLE_TELEMETRY",
-    "OMNIGENT_DISABLE_TELEMETRY",
+    "AGENTNEXUS_DISABLE_TELEMETRY",
     "DO_NOT_TRACK",
     "CI",
     "GITHUB_ACTIONS",
@@ -203,10 +203,10 @@ def test_is_disabled_config_yaml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     """``telemetry: false`` in config.yaml disables telemetry."""
     config_file = tmp_path / "config.yaml"
     config_file.write_text("telemetry: false\n", encoding="utf-8")
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     for var in _ALL_OPT_OUT_VARS:
         monkeypatch.delenv(var, raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is True
 
@@ -217,10 +217,10 @@ def test_is_disabled_config_yaml_telemetry_true(
     """``telemetry: true`` in config.yaml does NOT disable telemetry."""
     config_file = tmp_path / "config.yaml"
     config_file.write_text("telemetry: true\n", encoding="utf-8")
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     for var in _ALL_OPT_OUT_VARS:
         monkeypatch.delenv(var, raising=False)
-    from omnigent.telemetry.client import is_disabled
+    from agentnexus.telemetry.client import is_disabled
 
     assert is_disabled() is False
 
@@ -230,12 +230,12 @@ def test_is_disabled_config_yaml_telemetry_true(
 
 def test_init_client_server_config_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     """``init_client(config={'telemetry': False})`` skips client creation."""
-    import omnigent.telemetry.client as _mod
+    import agentnexus.telemetry.client as _mod
 
     for var in [
-        "OMNIGENT_ANALYTICS",
+        "AGENTNEXUS_ANALYTICS",
         "DISABLE_TELEMETRY",
-        "OMNIGENT_DISABLE_TELEMETRY",
+        "AGENTNEXUS_DISABLE_TELEMETRY",
         "DO_NOT_TRACK",
         "CI",
         "GITHUB_ACTIONS",
@@ -279,10 +279,10 @@ def test_fetch_remote_config_respects_rollout_percentage_boundaries(
     included: bool,
 ) -> None:
     """Rollout percentages include exactly their half-open share of samples."""
-    import omnigent.telemetry.client as _mod
+    import agentnexus.telemetry.client as _mod
 
     config = {
-        "omnigent_version": _mod.VERSION,
+        "agentnexus_version": _mod.VERSION,
         "ingestion_url": "https://telemetry.example.test",
         "rollout_percentage": rollout,
     }
@@ -300,10 +300,10 @@ def test_fetch_remote_config_respects_rollout_percentage_boundaries(
 
 def test_fetch_remote_config_accepts_default_version() -> None:
     """A config with omnigent_version='default' is accepted for any client version."""
-    import omnigent.telemetry.client as _mod
+    import agentnexus.telemetry.client as _mod
 
     config = {
-        "omnigent_version": "default",
+        "agentnexus_version": "default",
         "ingestion_url": "https://telemetry.example.test",
         "rollout_percentage": 100,
     }
@@ -320,7 +320,7 @@ def test_fetch_remote_config_accepts_default_version() -> None:
 
 def test_get_installation_id_creates_uuid(tmp_path: Path) -> None:
     """First call generates a valid UUID and writes it to disk."""
-    import omnigent.telemetry.installation_id as _mod
+    import agentnexus.telemetry.installation_id as _mod
 
     telemetry_file = tmp_path / "telemetry.json"
 
@@ -329,7 +329,7 @@ def test_get_installation_id_creates_uuid(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "omnigent.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
         ),
     ):
         result = _mod.get_installation_id()
@@ -343,7 +343,7 @@ def test_get_installation_id_creates_uuid(tmp_path: Path) -> None:
 
 def test_get_installation_id_reads_existing(tmp_path: Path) -> None:
     """If the file already exists, the stored ID is returned."""
-    import omnigent.telemetry.installation_id as _mod
+    import agentnexus.telemetry.installation_id as _mod
 
     existing_id = str(uuid.uuid4())
     telemetry_file = tmp_path / "telemetry.json"
@@ -357,7 +357,7 @@ def test_get_installation_id_reads_existing(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "omnigent.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
         ),
     ):
         result = _mod.get_installation_id()
@@ -367,7 +367,7 @@ def test_get_installation_id_reads_existing(tmp_path: Path) -> None:
 
 def test_get_installation_id_cache(tmp_path: Path) -> None:
     """Second call returns the same value from the in-memory cache."""
-    import omnigent.telemetry.installation_id as _mod
+    import agentnexus.telemetry.installation_id as _mod
 
     telemetry_file = tmp_path / "telemetry.json"
 
@@ -376,7 +376,7 @@ def test_get_installation_id_cache(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "omnigent.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
         ),
     ):
         first = _mod.get_installation_id()
@@ -388,7 +388,7 @@ def test_get_installation_id_cache(tmp_path: Path) -> None:
 
 def test_get_installation_id_corrupted_file(tmp_path: Path) -> None:
     """Corrupted JSON on disk returns ``None`` gracefully."""
-    import omnigent.telemetry.installation_id as _mod
+    import agentnexus.telemetry.installation_id as _mod
 
     telemetry_file = tmp_path / "telemetry.json"
     telemetry_file.write_text("not valid json{{{{", encoding="utf-8")
@@ -398,11 +398,11 @@ def test_get_installation_id_corrupted_file(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "omnigent.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
         ),
         # Make _write_to_disk fail so we get None back rather than a fresh ID.
         patch(
-            "omnigent.telemetry.installation_id._write_to_disk", side_effect=OSError("disk full")
+            "agentnexus.telemetry.installation_id._write_to_disk", side_effect=OSError("disk full")
         ),
     ):
         result = _mod.get_installation_id()
@@ -419,8 +419,8 @@ def test_host_hello_frame_roundtrip_with_installation_id() -> None:
     """``HostHelloFrame`` with ``installation_id`` survives encode/decode."""
     from unittest.mock import patch
 
-    from omnigent.host.frames import HostHelloFrame, decode_host_frame, encode_host_frame
-    from omnigent.runtime import telemetry as _telemetry_mod
+    from agentnexus.host.frames import HostHelloFrame, decode_host_frame, encode_host_frame
+    from agentnexus.runtime import telemetry as _telemetry_mod
 
     frame = HostHelloFrame(
         version="0.1.0",
@@ -442,8 +442,8 @@ def test_host_hello_frame_roundtrip_none_installation_id() -> None:
     """``HostHelloFrame`` with ``installation_id=None`` survives encode/decode."""
     from unittest.mock import patch
 
-    from omnigent.host.frames import HostHelloFrame, decode_host_frame, encode_host_frame
-    from omnigent.runtime import telemetry as _telemetry_mod
+    from agentnexus.host.frames import HostHelloFrame, decode_host_frame, encode_host_frame
+    from agentnexus.runtime import telemetry as _telemetry_mod
 
     frame = HostHelloFrame(
         version="0.1.0",
@@ -463,7 +463,7 @@ def test_host_hello_frame_roundtrip_none_installation_id() -> None:
 
 def test_host_registry_get_host_installation_id_unregistered() -> None:
     """``get_host_installation_id`` returns ``None`` when host is not registered."""
-    from omnigent.server.host_registry import HostRegistry
+    from agentnexus.server.host_registry import HostRegistry
 
     registry = HostRegistry()
     assert registry.get_host_installation_id("host_nonexistent") is None
@@ -473,8 +473,8 @@ def test_host_registry_get_host_installation_id_registered() -> None:
     """``get_host_installation_id`` returns the ID from the hello frame."""
     from unittest.mock import AsyncMock
 
-    from omnigent.host.frames import HostHelloFrame
-    from omnigent.server.host_registry import HostRegistry
+    from agentnexus.host.frames import HostHelloFrame
+    from agentnexus.server.host_registry import HostRegistry
 
     registry = HostRegistry()
     hello = HostHelloFrame(
@@ -502,12 +502,12 @@ def test_build_record_policy_registered_event_admin_scope() -> None:
     into ``params``.  Admin policies have ``session_id=None`` which becomes
     an empty string in the wire format.
     """
-    import omnigent.telemetry.client as _mod
-    from omnigent.telemetry.events import PolicyRegisteredEvent
+    import agentnexus.telemetry.client as _mod
+    from agentnexus.telemetry.events import PolicyRegisteredEvent
 
     event = PolicyRegisteredEvent(
         installation_id="inst-abc",
-        handler="omnigent.policies.builtins.safety.ask_on_os_tools",
+        handler="agentnexus.policies.builtins.safety.ask_on_os_tools",
         policy_type="python",
         scope="admin",
         session_id=None,
@@ -523,7 +523,7 @@ def test_build_record_policy_registered_event_admin_scope() -> None:
     assert data["session_id"] == ""
     # Event-specific fields live in params, not at top level.
     params = json.loads(data["params"]) if data["params"] else {}
-    assert params["handler"] == "omnigent.policies.builtins.safety.ask_on_os_tools"
+    assert params["handler"] == "agentnexus.policies.builtins.safety.ask_on_os_tools"
     assert params["policy_type"] == "python"
     assert params["scope"] == "admin"
     # Promoted fields must not leak into params.
@@ -538,8 +538,8 @@ def test_build_record_policy_registered_event_session_scope() -> None:
     ``session_id`` is a real string for session-scoped policies and must appear
     as the top-level ``session_id`` field, not inside ``params``.
     """
-    import omnigent.telemetry.client as _mod
-    from omnigent.telemetry.events import PolicyRegisteredEvent
+    import agentnexus.telemetry.client as _mod
+    from agentnexus.telemetry.events import PolicyRegisteredEvent
 
     event = PolicyRegisteredEvent(
         installation_id="inst-xyz",
@@ -564,8 +564,8 @@ def test_build_record_policy_registered_event_session_scope() -> None:
 
 def test_build_record_promotes_host_installation_id() -> None:
     """``_build_record`` lifts ``host_installation_id`` to top-level data."""
-    import omnigent.telemetry.client as _mod
-    from omnigent.telemetry.events import SessionCreatedEvent
+    import agentnexus.telemetry.client as _mod
+    from agentnexus.telemetry.events import SessionCreatedEvent
 
     event = SessionCreatedEvent(
         installation_id="server-inst-id",
@@ -587,7 +587,7 @@ def test_build_record_promotes_host_installation_id() -> None:
 
 def test_session_created_event_agent_name_polly() -> None:
     """``agent_name`` is set for polly sessions."""
-    from omnigent.telemetry.events import SessionCreatedEvent
+    from agentnexus.telemetry.events import SessionCreatedEvent
 
     event = SessionCreatedEvent(
         installation_id=None,
@@ -606,7 +606,7 @@ def test_session_created_event_agent_name_polly() -> None:
 
 def test_session_created_event_agent_name_none_for_custom() -> None:
     """``agent_name`` defaults to ``None`` for custom (non-built-in) agents."""
-    from omnigent.telemetry.events import SessionCreatedEvent
+    from agentnexus.telemetry.events import SessionCreatedEvent
 
     event = SessionCreatedEvent(
         installation_id=None,
@@ -627,7 +627,7 @@ def test_session_created_event_agent_name_none_for_custom() -> None:
 
 def test_resolve_harness_none_when_conv_is_none() -> None:
     """``None`` conversation → ``None``."""
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     assert _resolve_harness(None) is None
 
@@ -636,7 +636,7 @@ def test_resolve_harness_uses_harness_override() -> None:
     """``conv.harness_override`` is returned immediately, no store lookup."""
     from unittest.mock import MagicMock
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = "claude-sdk"
@@ -647,13 +647,13 @@ def test_resolve_harness_none_when_agent_store_uninitialized() -> None:
     """``_agent_store is None`` (runtime not started) → ``None``."""
     from unittest.mock import MagicMock, patch
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = None
     conv.agent_id = "ag_abc"
 
-    with patch("omnigent.runtime._globals._agent_store", None):
+    with patch("agentnexus.runtime._globals._agent_store", None):
         assert _resolve_harness(conv) is None
 
 
@@ -661,7 +661,7 @@ def test_resolve_harness_none_when_agent_not_in_store() -> None:
     """Agent id present but not found in the store → ``None``."""
     from unittest.mock import MagicMock, patch
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = None
@@ -670,7 +670,7 @@ def test_resolve_harness_none_when_agent_not_in_store() -> None:
     mock_store = MagicMock()
     mock_store.get.return_value = None
 
-    with patch("omnigent.runtime._globals._agent_store", mock_store):
+    with patch("agentnexus.runtime._globals._agent_store", mock_store):
         assert _resolve_harness(conv) is None
 
 
@@ -678,7 +678,7 @@ def test_resolve_harness_sdk_via_config_key() -> None:
     """Executor with ``config["harness"] = "claude-sdk"`` → ``"claude-sdk"``."""
     from unittest.mock import MagicMock, patch
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = None
@@ -687,7 +687,7 @@ def test_resolve_harness_sdk_via_config_key() -> None:
 
     executor = MagicMock()
     executor.config = {"harness": "claude-sdk"}
-    executor.type = "omnigent"
+    executor.type = "agentnexus"
 
     spec = MagicMock()
     spec.executor = executor
@@ -705,8 +705,8 @@ def test_resolve_harness_sdk_via_config_key() -> None:
     mock_cache.load.return_value = loaded
 
     with (
-        patch("omnigent.runtime._globals._agent_store", mock_store),
-        patch("omnigent.runtime.get_agent_cache", return_value=mock_cache),
+        patch("agentnexus.runtime._globals._agent_store", mock_store),
+        patch("agentnexus.runtime.get_agent_cache", return_value=mock_cache),
     ):
         assert _resolve_harness(conv) == "claude-sdk"
 
@@ -715,7 +715,7 @@ def test_resolve_harness_sdk_via_executor_type() -> None:
     """Executor with no ``config["harness"]`` falls back to ``executor.type``."""
     from unittest.mock import MagicMock, patch
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = None
@@ -742,8 +742,8 @@ def test_resolve_harness_sdk_via_executor_type() -> None:
     mock_cache.load.return_value = loaded
 
     with (
-        patch("omnigent.runtime._globals._agent_store", mock_store),
-        patch("omnigent.runtime.get_agent_cache", return_value=mock_cache),
+        patch("agentnexus.runtime._globals._agent_store", mock_store),
+        patch("agentnexus.runtime.get_agent_cache", return_value=mock_cache),
     ):
         assert _resolve_harness(conv) == "claude-sdk"
 
@@ -752,7 +752,7 @@ def test_resolve_harness_returns_none_on_exception() -> None:
     """Any exception inside the resolver degrades to ``None`` (never raises)."""
     from unittest.mock import MagicMock, patch
 
-    from omnigent.server.routes.sessions import _resolve_harness
+    from agentnexus.server.routes.sessions import _resolve_harness
 
     conv = MagicMock()
     conv.harness_override = None
@@ -761,5 +761,5 @@ def test_resolve_harness_returns_none_on_exception() -> None:
     mock_store = MagicMock()
     mock_store.get.side_effect = OSError("disk read error")
 
-    with patch("omnigent.runtime._globals._agent_store", mock_store):
+    with patch("agentnexus.runtime._globals._agent_store", mock_store):
         assert _resolve_harness(conv) is None

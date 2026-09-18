@@ -6,10 +6,10 @@ For codex-native, ``config.toml``'s ``model`` key is the cost-policy source
 of truth (it is what an in-TUI ``/model`` writes). At subscription and at
 each ``turn/started`` the forwarder reads it (``_refresh_model_from_config``,
 which delegates to the shared ``read_codex_config_model`` in the bridge
-module) onto ``_CodexForwarderState.model`` and mirrors it to the Omnigent server
+module) onto ``_CodexForwarderState.model`` and mirrors it to the AgentNexus server
 as an ``external_model_change`` event (→ persisted ``conv.model_override``)
 so the cost-budget policy resolves the selected model. The startup/spawn
-model IS mirrored (so Omnigent learns the session's model even when unchanged);
+model IS mirrored (so AgentNexus learns the session's model even when unchanged);
 only an already-mirrored value is not re-posted.
 """
 
@@ -22,14 +22,14 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from omnigent import codex_native_forwarder as fwd
-from omnigent.codex_native_bridge import (
+from agentnexus import codex_native_forwarder as fwd
+from agentnexus.codex_native_bridge import (
     CodexNativeBridgeState,
     codex_home_for_bridge_dir,
     read_bridge_state,
     write_bridge_state,
 )
-from omnigent.codex_native_forwarder import _persist_codex_compaction_item
+from agentnexus.codex_native_forwarder import _persist_codex_compaction_item
 
 
 class _RecordingClient:
@@ -75,7 +75,7 @@ def _state(model: str | None, posted_model: str | None) -> fwd._CodexForwarderSt
 async def test_sync_model_change_posts_on_change() -> None:
     """A model differing from the baseline posts external_model_change.
 
-    The in-TUI ``/model`` switch (gpt-5.5 → gpt-5.4) must mirror to Omnigent as
+    The in-TUI ``/model`` switch (gpt-5.5 → gpt-5.4) must mirror to AgentNexus as
     an ``external_model_change`` and advance the baseline so it isn't
     re-posted. A missing post here is exactly the bug a user hit: the
     terminal model changed but the cost policy kept seeing gpt-5.5.
@@ -100,7 +100,7 @@ async def test_sync_model_change_posts_on_change() -> None:
 async def test_sync_model_change_no_post_when_unchanged() -> None:
     """Model equal to the baseline (seeded spawn default) does not post.
 
-    Prevents the spawn/startup model from being echoed back to Omnigent as a
+    Prevents the spawn/startup model from being echoed back to AgentNexus as a
     spurious "change" (which would also fire on every settings update).
     """
     client = _RecordingClient()
@@ -172,7 +172,7 @@ def test_refresh_prefers_pushed_settings_model_over_stale_config(tmp_path: Path)
     # Subscription-time read adopts the pinned launch model (baseline).
     fwd._refresh_model_from_config(tmp_path, state)
     assert state.model == "databricks-gpt-5-5"
-    # Omnigent pushes a routed model thread-level; the live notification wins.
+    # AgentNexus pushes a routed model thread-level; the live notification wins.
     state.note_thread_settings_updated({"threadSettings": {"model": "databricks-gpt-5-6-luna"}})
 
     # turn/started re-read: config.toml is UNCHANGED — the pushed model holds.
@@ -209,7 +209,7 @@ def test_refresh_launch_race_ends_on_routed_model(tmp_path: Path) -> None:
     ``turn/started`` re-read must adopt the routed model — with or without
     the mirror write having succeeded.
     """
-    from omnigent.codex_native_bridge import write_codex_config_model
+    from agentnexus.codex_native_bridge import write_codex_config_model
 
     _write_codex_config(tmp_path, 'model = "databricks-gpt-5-5"\n')
     state = fwd._CodexForwarderState()
@@ -229,7 +229,7 @@ def test_refresh_launch_race_ends_on_routed_model(tmp_path: Path) -> None:
 def test_note_resume_response_records_model_without_seeding_baseline() -> None:
     """The startup/resume model is recorded but the baseline stays unset.
 
-    Omnigent must learn the session's ACTUAL model — including the spawn default —
+    AgentNexus must learn the session's ACTUAL model — including the spawn default —
     because the cost gate resolves ``conv.model_override or spec.llm.model``
     and for codex the spawn model is frequently NOT ``spec.llm.model``. So
     ``note_resume_response`` records ``model`` but leaves ``posted_model``
@@ -251,7 +251,7 @@ async def test_sync_after_resume_posts_spawn_model() -> None:
     """End-to-end: an unchanged spawn model is mirrored to AP.
 
     This is the regression for the wrongly-blocked cheap session: codex
-    spawned on gpt-5.4-mini, the model never "changed", yet Omnigent must still
+    spawned on gpt-5.4-mini, the model never "changed", yet AgentNexus must still
     receive it as ``model_override`` so the cost gate sees a cheap model
     instead of falling back to the spec model and DENYing.
     """
@@ -277,7 +277,7 @@ def test_thread_settings_updated_records_effort_and_collaboration_mode() -> None
 
     App-server sends the public ``ThreadSettings`` shape with ``effort`` and
     ``collaborationMode``. If this parser regresses, the later sync helpers have
-    no state to mirror, so Omnigent would keep stale ``reasoning_effort`` and
+    no state to mirror, so AgentNexus would keep stale ``reasoning_effort`` and
     mode metadata even though Codex changed them.
     """
     state = fwd._CodexForwarderState()
@@ -307,7 +307,7 @@ def test_thread_settings_updated_records_effort_and_collaboration_mode() -> None
 @pytest.mark.asyncio
 async def test_sync_reasoning_effort_change_posts_and_dedupes() -> None:
     """
-    Codex effort changes mirror to Omnigent exactly once per observed value.
+    Codex effort changes mirror to AgentNexus exactly once per observed value.
 
     The first sync must POST ``external_reasoning_effort_change`` so the server
     persists ``conversation.reasoning_effort``. The second sync with the same
@@ -346,11 +346,11 @@ async def test_sync_reasoning_effort_change_posts_and_dedupes() -> None:
 @pytest.mark.asyncio
 async def test_sync_reasoning_effort_change_posts_clear() -> None:
     """
-    Codex clearing effort mirrors JSON null to Omnigent.
+    Codex clearing effort mirrors JSON null to AgentNexus.
 
     ``None`` is a meaningful observed value (model/default effort), so the
     forwarder must still post it after a prior explicit effort. If this returned
-    early on falsey ``None``, Omnigent would keep a stale explicit effort.
+    early on falsey ``None``, AgentNexus would keep a stale explicit effort.
     """
     client = _RecordingClient()
     state = fwd._CodexForwarderState(
@@ -381,7 +381,7 @@ async def test_sync_reasoning_effort_change_posts_clear() -> None:
 @pytest.mark.asyncio
 async def test_sync_codex_collaboration_mode_change_posts_and_dedupes() -> None:
     """
-    Codex collaboration mode changes mirror to Omnigent labels once.
+    Codex collaboration mode changes mirror to AgentNexus labels once.
 
     The ``mode`` value is the durable "Plan vs Default" signal we can get from
     app-server. Missing this POST would leave the session snapshot without the
@@ -513,7 +513,7 @@ def test_user_message_has_file_content(content: object, expected: bool) -> None:
 @pytest.mark.asyncio
 async def test_post_user_message_image_only_posts_empty_content() -> None:
     """
-    An image-only ``userMessage`` is posted with EMPTY Omnigent content.
+    An image-only ``userMessage`` is posted with EMPTY AgentNexus content.
 
     Regression guard for the image-only bleed/ordering bug: the forwarder
     must post the user item (so the server drains the pending-input FIFO
@@ -1321,7 +1321,7 @@ def test_terminal_turn_status_edge_empty_turn_idle_and_warns(
     _seed_active_turn(tmp_path, "turn_123")
     params = {"turn": {"id": "turn_123", "status": "completed", "items": []}}
 
-    with caplog.at_level("WARNING", logger="omnigent.codex_native_forwarder"):
+    with caplog.at_level("WARNING", logger="agentnexus.codex_native_forwarder"):
         edge = fwd._terminal_turn_status_edge(tmp_path, "turn/completed", params)
 
     assert edge is not None
@@ -2110,7 +2110,7 @@ async def test_post_session_event_records_connectivity_failure_for_watchdog(
     ``_log_post_transport_failure``) so the harness idle-turn watchdog can name
     the connectivity cause instead of a generic "wedged LLM" reason.
     """
-    from omnigent import _native_forwarder_health as health
+    from agentnexus import _native_forwarder_health as health
 
     class _AlwaysConnectError:
         """Stub client whose every POST fails to connect."""
@@ -2190,7 +2190,7 @@ async def test_mcp_startup_event_records_and_posts(tmp_path: Path) -> None:
         expected_thread_id="thread_1",
     )
 
-    from omnigent.codex_native_bridge import read_mcp_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup
 
     assert read_mcp_startup(tmp_path) == {"safe": {"status": "starting", "error": None}}
     assert client.posts == [
@@ -2224,7 +2224,7 @@ async def test_mcp_startup_event_carries_failure_error(tmp_path: Path) -> None:
         expected_thread_id="thread_1",
     )
 
-    from omnigent.codex_native_bridge import read_mcp_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup
 
     assert read_mcp_startup(tmp_path) == {
         "safe": {"status": "failed", "error": "handshake failed"}
@@ -2252,7 +2252,7 @@ async def test_mcp_startup_event_for_other_thread_is_ignored(tmp_path: Path) -> 
         expected_thread_id="thread_1",
     )
 
-    from omnigent.codex_native_bridge import read_mcp_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup
 
     assert read_mcp_startup(tmp_path) == {}
     assert client.posts == []
@@ -2278,7 +2278,7 @@ async def test_mcp_startup_event_with_unknown_status_is_ignored(tmp_path: Path) 
         expected_thread_id="thread_1",
     )
 
-    from omnigent.codex_native_bridge import read_mcp_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup
 
     assert read_mcp_startup(tmp_path) == {}
     assert client.posts == []
@@ -2307,14 +2307,14 @@ async def test_seed_mcp_startup_round_posts_config_servers(tmp_path: Path) -> No
     excluded — codex does not boot them, and a permanently-"starting"
     band entry would never resolve.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup
 
     client = _RecordingClient()
     _write_session_config(
         tmp_path,
         '[mcp_servers.safe]\ncommand = "x"\n'
         '[mcp_servers.off]\ncommand = "y"\nenabled = false\n'
-        '[mcp_servers.omnigent]\ncommand = "z"\n',
+        '[mcp_servers.agentnexus]\ncommand = "z"\n',
     )
 
     timer = await fwd._seed_mcp_startup_round(
@@ -2326,7 +2326,7 @@ async def test_seed_mcp_startup_round_posts_config_servers(tmp_path: Path) -> No
     try:
         assert read_mcp_startup(tmp_path) == {
             "safe": {"status": "starting", "error": None},
-            "omnigent": {"status": "starting", "error": None},
+            "agentnexus": {"status": "starting", "error": None},
         }
         assert client.posts == [
             (
@@ -2336,7 +2336,7 @@ async def test_seed_mcp_startup_round_posts_config_servers(tmp_path: Path) -> No
                     "data": {
                         "servers": {
                             "safe": {"status": "starting", "error": None},
-                            "omnigent": {"status": "starting", "error": None},
+                            "agentnexus": {"status": "starting", "error": None},
                         }
                     },
                 },
@@ -2358,7 +2358,7 @@ async def test_seed_mcp_startup_round_skips_when_state_exists(tmp_path: Path) ->
     booting long ago. Only ``clear_bridge_state`` (each app-server
     launch) resets the map.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     _write_session_config(tmp_path, '[mcp_servers.safe]\ncommand = "x"\n')
@@ -2389,7 +2389,7 @@ async def test_seed_rearms_settle_timer_when_round_still_pending(
     timer must actually resolve the round: once it fires, the pending
     entries are dropped and the settled map is posted.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -2438,7 +2438,7 @@ async def test_thread_idle_settles_synthesized_round(tmp_path: Path) -> None:
     delivered to the thread owner) while locally-recorded ``cancelled``
     states survive, and the settled map is posted so the band clears.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -2480,7 +2480,7 @@ async def test_thread_active_status_does_not_settle_round(tmp_path: Path) -> Non
     happens mid-startup, before the round ends — so settling there would
     clear the band exactly when it matters most.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -2514,7 +2514,7 @@ async def test_model_output_item_settles_synthesized_round(tmp_path: Path) -> No
     servers" band under a visibly working agent until the turn ends or
     the config-derived window elapses.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -2556,7 +2556,7 @@ async def test_model_output_settles_the_round_only_once(tmp_path: Path) -> None:
     pins by re-populating the map behind the flag: a second item must
     leave it untouched.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     state = fwd._CodexForwarderState()
@@ -2606,7 +2606,7 @@ async def test_user_message_item_does_not_settle_round(tmp_path: Path) -> None:
     turn is merely ACCEPTED — which happens mid-startup — so settling on
     it would clear the band during the genuine pre-turn wait.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -2639,7 +2639,7 @@ async def test_other_thread_item_does_not_settle_round(tmp_path: Path) -> None:
     MCP startup is bridge-level state surfaced on the parent session;
     another thread's activity proves nothing about this round.
     """
-    from omnigent.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
+    from agentnexus.codex_native_bridge import read_mcp_startup, update_mcp_server_startup
 
     client = _RecordingClient()
     update_mcp_server_startup(tmp_path, "safe", "starting")
@@ -3015,7 +3015,7 @@ def test_read_developer_instructions_collapsed_wrapper_matches_tri_state_value(
     a confirmed ABSENT read, not just never-overwrite-on-falsy; the runner
     must refuse/503 on UNREADABLE rather than guess). The subject here is the
     wrapper's own remaining collapsing behavior in isolation."""
-    from omnigent.codex_native_bridge import read_codex_config_developer_instructions_from_home
+    from agentnexus.codex_native_bridge import read_codex_config_developer_instructions_from_home
 
     assert read_codex_config_developer_instructions_from_home(tmp_path) is None
     (tmp_path / "config.toml").write_text('developer_instructions = "Present value."\n')
@@ -3025,7 +3025,7 @@ def test_read_developer_instructions_collapsed_wrapper_matches_tri_state_value(
 def test_read_developer_instructions_state_unreadable_bad_encoding(tmp_path: Path) -> None:
     """Non-UTF-8 bytes read UNREADABLE, not ABSENT — the failure this whole
     tri-state exists to distinguish from genuine absence."""
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3049,7 +3049,7 @@ def test_read_developer_instructions_state_absent_missing_file(tmp_path: Path) -
     Reading it as UNREADABLE refused every plan-mode toggle on a bridge whose
     config had not been written yet.
     """
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3070,7 +3070,7 @@ def test_read_developer_instructions_state_whitespace_only_is_unreadable(
     hazard ``AgentSpec.instructions`` has to handle. The PRESENT check must
     use ``.strip()``, not truthiness.
     """
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3087,7 +3087,7 @@ def test_read_developer_instructions_state_empty_string_is_unreadable(
 ) -> None:
     """An empty-string ``developer_instructions`` also reads UNREADABLE —
     the writer never writes this shape either, so it's malformed too."""
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3113,7 +3113,7 @@ def test_read_developer_instructions_state_malformed_shape_is_unreadable(
     it as ABSENT would let a plan-mode settings send serialize
     developer_instructions: null over a value that might still be real.
     """
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3127,7 +3127,7 @@ def test_read_developer_instructions_state_malformed_shape_is_unreadable(
 
 def test_read_developer_instructions_state_absent(tmp_path: Path) -> None:
     """A config with no top-level key reads ABSENT, distinct from unreadable."""
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
     )
@@ -3141,7 +3141,7 @@ def test_read_developer_instructions_state_absent(tmp_path: Path) -> None:
 
 def test_read_developer_instructions_state_present(tmp_path: Path) -> None:
     """A config with the key set reads PRESENT with the value."""
-    from omnigent.codex_native_bridge import (
+    from agentnexus.codex_native_bridge import (
         DeveloperInstructionsRead,
         DeveloperInstructionsReadState,
         read_codex_config_developer_instructions_state_from_home,
@@ -3208,7 +3208,7 @@ def test_refresh_developer_instructions_from_config_clears_on_genuine_absence(
 
     Genuine absence (the top-level key is genuinely gone — a real, distinct
     tri-state result, not a collapsed truthy check) is real, actionable
-    information — e.g. the user's Omnigent-appended directive was removed —
+    information — e.g. the user's AgentNexus-appended directive was removed —
     and must be reflected, not preserved as stale. This is the corrected
     expectation: a naive "no-op unless truthy" implementation cannot tell
     genuine absence apart from a transient read failure and would keep

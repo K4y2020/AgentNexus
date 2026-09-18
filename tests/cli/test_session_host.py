@@ -5,18 +5,18 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from omnigent.chat import (
+from agentnexus.chat import (
     _DatabricksTokenAuth,
     get_session_host,
     set_session_host,
 )
-from omnigent.cli_auth import OMNIGENT_SLICE_KEY_HEADER
+from agentnexus.cli_auth import AGENTNEXUS_SLICE_KEY_HEADER
 
 
 @pytest.fixture(autouse=True)
 def _clear_map() -> None:
     """Reset the module-global session→host map between tests."""
-    from omnigent import chat
+    from agentnexus import chat
 
     chat._session_hosts.clear()
     yield
@@ -39,7 +39,7 @@ def _slice_key(auth: _DatabricksTokenAuth, url: str) -> str | None:
     flow = auth.auth_flow(httpx.Request("GET", url))
     request = next(flow)
     flow.close()
-    return request.headers.get(OMNIGENT_SLICE_KEY_HEADER)
+    return request.headers.get(AGENTNEXUS_SLICE_KEY_HEADER)
 
 
 def test_auth_keys_by_session_host_on_workspace_mount() -> None:

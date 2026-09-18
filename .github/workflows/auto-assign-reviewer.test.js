@@ -60,7 +60,7 @@ async function run({
           closingIssuesReferences: {
             nodes: linkedIssues.map((li) => ({
               number: li.number,
-              repository: { nameWithOwner: li.repo || "omnigent-ai/omnigent" },
+              repository: { nameWithOwner: li.repo || "agentnexus-ai/agentnexus" },
               assignees: { nodes: (li.assignees || []).map((login) => ({ login })) },
             })),
           },
@@ -83,13 +83,13 @@ async function run({
     },
   };
   const context = {
-    repo: { owner: "omnigent-ai", repo: "omnigent" },
+    repo: { owner: "agentnexus-ai", repo: "agentnexus" },
     payload: { action, pull_request: {
       number: PR_NUMBER, draft: false,
       user: { login: author },
       // precise fork detection compares head vs base full_name
-      head: { repo: { full_name: fork ? "external-contributor/omnigent" : "omnigent-ai/omnigent" } },
-      base: { repo: { full_name: "omnigent-ai/omnigent" } },
+      head: { repo: { full_name: fork ? "external-contributor/agentnexus" : "agentnexus-ai/agentnexus" } },
+      base: { repo: { full_name: "agentnexus-ai/agentnexus" } },
       requested_reviewers: current.map((l) => ({ login: l })),
       assignees: currentAssignees.map((l) => ({ login: l })),
     } },
@@ -113,7 +113,7 @@ function assert(name, cond, detail) {
   // 1. inner PR: owners SabhyaC26,TomeHirata,dhruv0811,dbczumar. Loads make the
   //    single lowest deterministic: dhruv0811(0) wins.
   let r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
   });
   assert("inner picks the lowest-load owner", JSON.stringify(r.added) === JSON.stringify(["dhruv0811"]), JSON.stringify(r));
@@ -129,13 +129,13 @@ function assert(name, cond, detail) {
   assert("unowned -> lowest from full pool", JSON.stringify(r.added) === JSON.stringify(["dbczumar"]), JSON.stringify(r));
 
   // 3. db area (fanzeyi, SabhyaC26) -> the lower-load one selected.
-  r = await run({ files: ["omnigent/db/x.py"], load: { SabhyaC26: 1 } });
+  r = await run({ files: ["agentnexus/db/x.py"], load: { SabhyaC26: 1 } });
   assert("db -> lowest-load owner", JSON.stringify(r.added) === JSON.stringify(["fanzeyi"]), JSON.stringify(r));
 
   // 4. reconcile: all 4 inner owners already requested; keep the lowest-load,
   //    remove the other 3.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: ["SabhyaC26", "TomeHirata", "dhruv0811", "dbczumar"],
     currentAssignees: ["SabhyaC26", "TomeHirata", "dhruv0811", "dbczumar"],
@@ -150,7 +150,7 @@ function assert(name, cond, detail) {
   // 5. mixed current: a managed reviewer not in `desired` is removed, while an
   //    external (unmanaged) reviewer in the same call is preserved.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { dhruv0811: 0, dbczumar: 1, SabhyaC26: 5, TomeHirata: 4 },
     current: ["SabhyaC26", "some-external-human"],
     currentAssignees: ["SabhyaC26", "some-external-human"],
@@ -168,7 +168,7 @@ function assert(name, cond, detail) {
 
   // 6. single-owner area (sandbox -> @SabhyaC26): the lone owner is selected.
   r = await run({
-    files: ["omnigent/sandbox/x.py"],
+    files: ["agentnexus/sandbox/x.py"],
     load: { SabhyaC26: 0, hzub: 0, dhruv0811: 9, dbczumar: 9, TomeHirata: 9, PattaraS: 9,
             "serena-ruan": 9, "daniellok-db": 9, fanzeyi: 9, "ckcuslife-source": 9, bbqiu: 9, Edwinhe03: 9 },
   });
@@ -178,7 +178,7 @@ function assert(name, cond, detail) {
   // 7. multi-area PR (inner + tools): candidate pool is the UNION; the lowest-load
   //    across both areas wins -- here a tools-only owner (PattaraS).
   r = await run({
-    files: ["omnigent/inner/a.py", "omnigent/tools/b.py"],
+    files: ["agentnexus/inner/a.py", "agentnexus/tools/b.py"],
     load: { SabhyaC26: 9, TomeHirata: 9, dbczumar: 9, PattaraS: 0, dhruv0811: 1 },
   });
   assert("multi-area unions both areas' owners",
@@ -186,17 +186,17 @@ function assert(name, cond, detail) {
     JSON.stringify(r));
 
   // 8. scope guard: non-fork PR -> nothing assigned.
-  r = await run({ files: ["omnigent/inner/foo.py"], fork: false });
+  r = await run({ files: ["agentnexus/inner/foo.py"], fork: false });
   assert("non-fork PR is skipped", r.added.length === 0 && r.removed.length === 0, JSON.stringify(r));
 
   // 9. scope guard: fork PR authored by a maintainer -> nothing assigned.
-  r = await run({ files: ["omnigent/inner/foo.py"], author: "dhruv0811" });
+  r = await run({ files: ["agentnexus/inner/foo.py"], author: "dhruv0811" });
   assert("maintainer-authored fork PR is skipped", r.added.length === 0 && r.removed.length === 0, JSON.stringify(r));
 
   // 10. linked issue ALREADY assigned to a maintainer -> adopted as reviewer,
   //     overriding the area pick (dhruv0811 would otherwise win on load here).
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [{ number: 42, assignees: ["TomeHirata"] }],
   });
@@ -210,7 +210,7 @@ function assert(name, cond, detail) {
   // 11. linked issue with NO assignee -> normal area pick, then pushed down onto
   //     the issue so it inherits the PR's reviewer.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [{ number: 77, assignees: [] }],
   });
@@ -222,7 +222,7 @@ function assert(name, cond, detail) {
   // 12. linked issue assigned to a NON-maintainer -> not adopted (area pick
   //     stands) and not re-assigned (it already has an assignee).
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [{ number: 88, assignees: ["someexternaldev"] }],
   });
@@ -234,7 +234,7 @@ function assert(name, cond, detail) {
   // 13. two linked issues -- one assigned to a maintainer, one unassigned: the
   //     maintainer is adopted AND mirrored onto the unassigned sibling.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [
       { number: 10, assignees: ["TomeHirata"] },
@@ -249,7 +249,7 @@ function assert(name, cond, detail) {
 
   // 14. cross-repo linked issue is ignored (different nameWithOwner).
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [{ number: 99, assignees: ["TomeHirata"], repo: "other-org/other-repo" }],
   });
@@ -264,7 +264,7 @@ function assert(name, cond, detail) {
   //     removable), so the normal area pick stands. The issue already has an
   //     assignee, so no push-down.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: [{ number: 55, assignees: ["hzub"] }],
   });
@@ -277,7 +277,7 @@ function assert(name, cond, detail) {
   //     get the reviewer; the overflow is logged, not silently dropped.
   const manyIssues = [201, 202, 203, 204, 205, 206, 207].map((n) => ({ number: n, assignees: [] }));
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     linkedIssues: manyIssues,
   });
@@ -289,7 +289,7 @@ function assert(name, cond, detail) {
   // 17. Load beats LLM rank: dhruv0811 has the lowest load (0) and wins even
   //     though the rank prefers dbczumar (rank 0 but load 1).
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     rank: ["dbczumar", "TomeHirata", "SabhyaC26", "dhruv0811"],
   });
@@ -301,7 +301,7 @@ function assert(name, cond, detail) {
   //     ignored; the ranking only reorders actual candidates. Load is primary, so
   //     dhruv0811 (load 0) wins over dbczumar (load 1) -- never PattaraS.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1, PattaraS: 0 },
     rank: ["PattaraS", "dbczumar", "TomeHirata", "SabhyaC26", "dhruv0811"],
   });
@@ -313,7 +313,7 @@ function assert(name, cond, detail) {
   //     SabhyaC26 (load 5); dhruv0811 is unranked but has load 0, so dhruv0811
   //     wins. Confirms the load-primary / rank-secondary ordering.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     rank: ["SabhyaC26"],
   });
@@ -324,7 +324,7 @@ function assert(name, cond, detail) {
   //     (TomeHirata) is adopted as reviewer even when the rank prefers someone
   //     else -- the issue owner reviews the fix.
   r = await run({
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     rank: ["dbczumar", "dhruv0811"],
     linkedIssues: [{ number: 42, assignees: ["TomeHirata"] }],
@@ -338,7 +338,7 @@ function assert(name, cond, detail) {
   //     promoted -- swapping BOTH the reviewer and the assignee.
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: ["dbczumar"], currentAssignees: ["dbczumar"],
     linkedIssues: [{ number: 42, assignees: ["TomeHirata"] }],
@@ -356,7 +356,7 @@ function assert(name, cond, detail) {
   //     a chosen pick.
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: ["dbczumar"], currentAssignees: ["dbczumar"],
     linkedIssues: [],
@@ -369,7 +369,7 @@ function assert(name, cond, detail) {
   //     no-op (nothing added or removed).
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: ["TomeHirata"], currentAssignees: ["TomeHirata"],
     linkedIssues: [{ number: 42, assignees: ["TomeHirata"] }],
@@ -384,7 +384,7 @@ function assert(name, cond, detail) {
   //     pick so the PR is never left with no reviewer at all.
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: [], currentAssignees: [],
     linkedIssues: [],
@@ -398,7 +398,7 @@ function assert(name, cond, detail) {
   //     fall through and add one -- while leaving the external reviewer in place.
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: ["some-external-human"], currentAssignees: ["some-external-human"],
     linkedIssues: [],
@@ -414,7 +414,7 @@ function assert(name, cond, detail) {
   //     must be a no-op -- not a re-request/reshuffle of the reviewer.
   r = await run({
     action: "edited",
-    files: ["omnigent/inner/foo.py"],
+    files: ["agentnexus/inner/foo.py"],
     load: { SabhyaC26: 5, TomeHirata: 4, dhruv0811: 0, dbczumar: 1 },
     current: [], currentAssignees: ["dbczumar"],
     linkedIssues: [],

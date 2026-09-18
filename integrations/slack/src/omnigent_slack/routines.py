@@ -6,9 +6,9 @@ import logging
 import time
 from typing import Any
 
-from omnigent_slack.auth_manager import pack_user_key
-from omnigent_slack.omnigent import OmnigentClientPool
-from omnigent_slack.store import SQLiteStore
+from agentnexus_slack.auth_manager import pack_user_key
+from agentnexus_slack.agentnexus import AgentNexusClientPool
+from agentnexus_slack.store import SQLiteStore
 
 # Run states the scheduler treats as finished work. ``running``/``scheduled``
 # are still pending and have nothing to report.
@@ -35,7 +35,7 @@ class RoutineCompletionPoller:
         self,
         *,
         store: SQLiteStore,
-        pool: OmnigentClientPool,
+        pool: AgentNexusClientPool,
         server_url: str,
         slack_client: Any,
         interval_seconds: float = 60.0,

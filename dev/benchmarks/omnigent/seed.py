@@ -41,14 +41,14 @@ import random
 import sys
 from pathlib import Path
 
-# Allow ``uv run <path>`` (no package context) to import omnigent + siblings.
+# Allow ``uv run <path>`` (no package context) to import agentnexus + siblings.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from sqlalchemy import text
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine.url import make_url
 
-from omnigent.db.db_models import (
+from agentnexus.db.db_models import (
     LABEL_VALUE_MAX_LEN,
     SqlAgent,
     SqlConversation,
@@ -60,13 +60,13 @@ from omnigent.db.db_models import (
     SqlUser,
     current_workspace_id,
 )
-from omnigent.db.enum_codecs import (
+from agentnexus.db.enum_codecs import (
     encode_agent_kind,
     encode_conversation_kind,
     encode_item_status,
     encode_item_type,
 )
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _FTS_TABLE,
     _get_head_db_revision,
     generate_agent_id,
@@ -76,11 +76,11 @@ from omnigent.db.utils import (
     now_epoch,
     strip_nul_bytes,
 )
-from omnigent.entities import MessageData, NewConversationItem
-from omnigent.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
-from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+from agentnexus.entities import MessageData, NewConversationItem
+from agentnexus.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
 # Label key stamped on the first seeded session recording the corpus config, so
 # a later run can detect an existing (and matching) seed and skip re-seeding.
@@ -602,7 +602,7 @@ def _seed_via_core(
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="omnigent-benchmark-seed",
+        prog="agentnexus-benchmark-seed",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

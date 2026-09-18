@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from omnigent.server.scheduled.rrule import (
+from agentnexus.server.scheduled.rrule import (
     MIN_INTERVAL_SECONDS,
     RRuleValidationError,
     get_next_fire_time,

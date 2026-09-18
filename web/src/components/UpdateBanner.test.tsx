@@ -24,7 +24,7 @@ function installBridge(status: UpdateStatus, config: UpdateConfig = DEFAULT_CONF
       return unsubscribe;
     }),
   };
-  (window as unknown as Record<string, unknown>).omnigentDesktop = {
+  (window as unknown as Record<string, unknown>).agentnexusDesktop = {
     kind: "electron",
     setBadgeCount: vi.fn(),
     notify: vi.fn(),
@@ -38,12 +38,12 @@ function installBridge(status: UpdateStatus, config: UpdateConfig = DEFAULT_CONF
 }
 
 beforeEach(() => {
-  delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+  delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
 });
 
 afterEach(() => {
   cleanup();
-  delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+  delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
 });
 
 describe("UpdateBanner", () => {

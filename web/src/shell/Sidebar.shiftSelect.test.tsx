@@ -225,7 +225,7 @@ describe("Sidebar shift-click selection", () => {
     mockConversations(sessions);
 
     // Expand the Alpha project so its sessions are visible
-    localStorage.setItem("omnigent:expanded-project-sections", JSON.stringify(["Alpha"]));
+    localStorage.setItem("agentnexus:expanded-project-sections", JSON.stringify(["Alpha"]));
 
     renderSidebar();
 
@@ -260,7 +260,7 @@ describe("Sidebar shift-click selection", () => {
     mockConversations(sessions);
     // Selection mode preserves the current expansion; seed Alpha expanded so
     // its sessions are visible (the kebab no longer auto-expands folders).
-    localStorage.setItem("omnigent:expanded-project-sections", JSON.stringify(["Alpha"]));
+    localStorage.setItem("agentnexus:expanded-project-sections", JSON.stringify(["Alpha"]));
     renderSidebar();
 
     // Enter selection mode via the Projects header kebab → project scope.
@@ -301,7 +301,7 @@ describe("Sidebar shift-click selection", () => {
       conv("p2", { labels: { omni_project: "Alpha" } }),
       conv("p3", { labels: { omni_project: "Alpha" } }),
     ];
-    localStorage.setItem("omnigent:expanded-project-sections", JSON.stringify(["Alpha"]));
+    localStorage.setItem("agentnexus:expanded-project-sections", JSON.stringify(["Alpha"]));
     renderSidebar();
 
     fireEvent.pointerDown(screen.getByRole("button", { name: "Project list actions" }), {

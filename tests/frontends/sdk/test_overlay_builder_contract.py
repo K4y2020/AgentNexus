@@ -39,7 +39,7 @@ import asyncio
 import io
 import re
 
-from omnigent_ui_sdk import Overlay, OverlayTarget, TerminalHost
+from agentnexus_ui_sdk import Overlay, OverlayTarget, TerminalHost
 from rich.console import Console, Group
 from rich.text import Text
 

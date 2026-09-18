@@ -20,7 +20,7 @@ from playwright.sync_api import Page, expect
 
 # Mirrors PINNED_CONVERSATION_IDS_STORAGE_KEY in web/src/shell/sidebarNav.ts —
 # pins are client-side state, so the test seeds them where the app reads them.
-_PINNED_KEY = "omnigent:pinned-conversation-ids"
+_PINNED_KEY = "agentnexus:pinned-conversation-ids"
 
 # Width of the sidebar itself — it's what the collapse chord animates (→0),
 # and it's robust to the inner search control's markup. The old search input

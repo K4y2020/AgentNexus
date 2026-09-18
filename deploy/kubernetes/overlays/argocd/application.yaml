@@ -1,5 +1,5 @@
 ---
-# Sample ArgoCD Application CR for deploying Omnigent with the kubernetes
+# Sample ArgoCD Application CR for deploying AgentNexus with the kubernetes
 # sandbox provider. Fork the repo, edit config/secrets in your fork, then
 # set repoURL and targetRevision below. Apply to the argocd namespace.
 #
@@ -8,16 +8,16 @@
 # TWO SECRETS ARE NOT IN GIT and must be created out of band (or via
 # sealed-secrets / external-secrets):
 #
-#   1. omnigent-secrets  — DATABASE_URL + cookie secret (see base/secret.yaml
+#   1. agentnexus-secrets  — DATABASE_URL + cookie secret (see base/secret.yaml
 #      for the keys; replace the placeholder values in your fork, or manage
 #      the Secret externally and remove secret.yaml from the overlay render
 #      with a $patch: delete — see openshift/kustomization.yaml for the
 #      pattern).
-#   2. omnigent-creds    — harness LLM API keys for runner Pods (see the
+#   2. agentnexus-creds    — harness LLM API keys for runner Pods (see the
 #      sandbox-runners README).
 #
 # DELETION WARNING: the resources-finalizer below means
-# `kubectl delete application omnigent` deletes every tracked resource,
+# `kubectl delete application agentnexus` deletes every tracked resource,
 # including both Namespace objects and the artifact PVC. The overlay's
 # Prune=false annotations prevent accidental pruning during sync, but the
 # finalizer bypasses them on Application deletion. Remove the finalizer
@@ -26,19 +26,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: omnigent
+  name: agentnexus
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://github.com/omnigent-ai/omnigent.git
+    repoURL: https://github.com/agentnexus-ai/agentnexus.git
     targetRevision: HEAD
     path: deploy/kubernetes/overlays/argocd
   destination:
-    # Resources set their own namespaces explicitly (omnigent and
-    # omnigent-sandboxes), so destination.namespace is not injected.
+    # Resources set their own namespaces explicitly (agentnexus and
+    # agentnexus-sandboxes), so destination.namespace is not injected.
     server: https://kubernetes.default.svc
   ignoreDifferences:
     # The checked-in secret.yaml ships placeholder values. Operators replace
@@ -50,16 +50,16 @@ spec:
     # stringData into base64 /data on the live object before diffing.
     - group: ""
       kind: Secret
-      name: omnigent-secrets
-      namespace: omnigent
+      name: agentnexus-secrets
+      namespace: agentnexus
       jsonPointers:
         - /data
     # The API server mutates spec.resources.requests.storage on PVC creation
     # (rounding, defaulting). selfHeal would report a perpetual diff.
     - group: ""
       kind: PersistentVolumeClaim
-      name: omnigent-artifacts
-      namespace: omnigent
+      name: agentnexus-artifacts
+      namespace: agentnexus
       jsonPointers:
         - /spec/resources/requests/storage
   syncPolicy:

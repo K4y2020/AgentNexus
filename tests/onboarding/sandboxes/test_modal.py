@@ -10,8 +10,8 @@ from pathlib import Path
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes.base import SandboxCapabilityError
-from omnigent.onboarding.sandboxes.modal import (
+from agentnexus.onboarding.sandboxes.base import SandboxCapabilityError
+from agentnexus.onboarding.sandboxes.modal import (
     DEFAULT_HOST_IMAGE,
     HOST_IMAGE_ENV_VAR,
     MAX_SANDBOX_LIFETIME_S,
@@ -356,7 +356,7 @@ def test_prepare_raises_with_install_hint_when_sdk_missing(
     monkeypatch.setitem(sys.modules, "modal", None)
     with pytest.raises(click.ClickException) as exc:
         ModalSandboxLauncher().prepare()
-    assert "omnigent[modal]" in str(exc.value)
+    assert "agentnexus[modal]" in str(exc.value)
     assert "modal token new" in str(exc.value)
 
 
@@ -428,12 +428,12 @@ def test_provision_creates_max_lifetime_sandbox_under_shared_app(
     assert create.image.tag == DEFAULT_HOST_IMAGE
     assert create.image.secret is None
     assert sandbox_id == "sb-new-1"
-    assert state.sandboxes[sandbox_id].tags == {"omnigent-name": "my-host"}
+    assert state.sandboxes[sandbox_id].tags == {"agentnexus-name": "my-host"}
 
 
 def test_provision_honors_image_override_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    OMNIGENT_MODAL_HOST_IMAGE must replace the default image ref —
+    AGENTNEXUS_MODAL_HOST_IMAGE must replace the default image ref —
     it's the escape hatch for org-internal copies of the host image.
     """
     state = _install_fake_modal(monkeypatch)
@@ -448,7 +448,7 @@ def test_provision_passes_registry_secret_for_private_pulls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    OMNIGENT_MODAL_REGISTRY_SECRET must thread the named Modal secret
+    AGENTNEXUS_MODAL_REGISTRY_SECRET must thread the named Modal secret
     into the image pull — without it, a private host image fails with
     an unauthorized pull at sandbox start.
     """
@@ -614,7 +614,7 @@ def test_exec_foreground_records_pid_and_streams_output(
     # The cleanup exec on normal exit pops this next process.
     sandbox.exec_queue.append(_FakeProcess())
 
-    returncode = ModalSandboxLauncher().exec_foreground("sb-1", "omnigent host --server u")
+    returncode = ModalSandboxLauncher().exec_foreground("sb-1", "agentnexus host --server u")
 
     assert returncode == 0
     call = sandbox.exec_calls[0]
@@ -646,7 +646,7 @@ def test_exec_foreground_kills_remote_on_interrupt(monkeypatch: pytest.MonkeyPat
     sandbox.exec_queue.append(_FakeProcess(wait_raises=KeyboardInterrupt()))
 
     with pytest.raises(KeyboardInterrupt):
-        ModalSandboxLauncher().exec_foreground("sb-1", "omnigent host --server u")
+        ModalSandboxLauncher().exec_foreground("sb-1", "agentnexus host --server u")
 
     # Second exec is the kill, addressed via the recorded pidfile. The pid is
     # validated as numeric before being signalled, and the dir is cleaned up.
@@ -704,10 +704,10 @@ def test_provision_injects_configured_sandbox_secrets(
     """
     state = _install_fake_modal(monkeypatch)
     monkeypatch.delenv(SANDBOX_SECRETS_ENV_VAR, raising=False)
-    ModalSandboxLauncher(secrets=["omnigent-llm", "gateway-extras"]).provision("my-host")
+    ModalSandboxLauncher(secrets=["agentnexus-llm", "gateway-extras"]).provision("my-host")
 
     assert state.create_calls[0].secrets == [
-        _FakeSecret(name="omnigent-llm"),
+        _FakeSecret(name="agentnexus-llm"),
         _FakeSecret(name="gateway-extras"),
     ]
 
@@ -716,16 +716,16 @@ def test_provision_resolves_sandbox_secrets_env_var(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Without constructor names, OMNIGENT_MODAL_SANDBOX_SECRETS
+    Without constructor names, AGENTNEXUS_MODAL_SANDBOX_SECRETS
     (comma-separated, whitespace tolerated) supplies the workload
     secrets — the CLI flow's path to the same feature.
     """
     state = _install_fake_modal(monkeypatch)
-    monkeypatch.setenv(SANDBOX_SECRETS_ENV_VAR, "omnigent-llm, extra-creds")
+    monkeypatch.setenv(SANDBOX_SECRETS_ENV_VAR, "agentnexus-llm, extra-creds")
     ModalSandboxLauncher().provision("my-host")
 
     assert state.create_calls[0].secrets == [
-        _FakeSecret(name="omnigent-llm"),
+        _FakeSecret(name="agentnexus-llm"),
         _FakeSecret(name="extra-creds"),
     ]
 

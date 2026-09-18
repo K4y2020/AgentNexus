@@ -6,7 +6,7 @@ the harness surfaces tool calls to the server for dispatch; the turn
 completing after the result is delivered proves the round-trip closes.
 
 This is the "can it use a tool at all" signal. The finer "Connects to
-Omnigent MCP" column (MCP transport vs a non-MCP tool bridge) is a
+AgentNexus MCP" column (MCP transport vs a non-MCP tool bridge) is a
 separate phase-2 dimension; every P0 SDK harness calls tools, only the
 transport differs.
 """

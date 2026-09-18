@@ -6,17 +6,17 @@ server and snapshots structural observations (exit code, stderr
 cleanliness, assistant text length).
 
 **What breaks if this fails:**
-- Omnigent' ``PiExecutor`` regresses (the ``pi --mode rpc``
+- AgentNexus' ``PiExecutor`` regresses (the ``pi --mode rpc``
   subprocess lifecycle, the JSONL event protocol, the TCP
   ``_ToolServer`` that proxies tool calls back to Python, or
   the generated JavaScript extension that registers
-  Omnigent tools with ``pi.registerTool()``).
+  AgentNexus tools with ``pi.registerTool()``).
 - The ``pi`` CLI binary disappears from PATH or its
   ``--mode rpc`` subcommand changes its startup contract.
 - ``omnigent.cli._run_agent`` for the ``-p`` one-shot path
   stops printing assistant text to stdout on turn complete.
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 per-harness suite.
 
 **Serial execution note:** These tests are designed for serial
@@ -48,8 +48,8 @@ from typing import Any
 import pytest
 
 from tests.e2e._harness_probes import cli_unavailable_reason
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 _HARNESS = "pi"
 _PROMPT = "say hi in 5 words"
@@ -114,7 +114,7 @@ def test_per_harness_pi_one_shot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.server import dictation
+from agentnexus.server import dictation
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +111,7 @@ def test_register_engine_is_selectable(monkeypatch: pytest.MonkeyPatch) -> None:
     """A registered engine is selected by name with no core edits.
 
     Mirrors what adding Whisper looks like: one register_engine call, then
-    OMNIGENT_DICTATION_ENGINE picks it up.
+    AGENTNEXUS_DICTATION_ENGINE picks it up.
     """
     monkeypatch.setattr(dictation, "_engine", None)
     monkeypatch.setitem(

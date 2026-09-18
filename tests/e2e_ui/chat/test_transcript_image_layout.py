@@ -70,8 +70,8 @@ def _seed_image_turn(base_url: str, session_id: str) -> None:
     :param base_url: Spawned server's base URL.
     :param session_id: Session to attach the image to.
     """
-    from omnigent.entities import MessageData, NewConversationItem
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import MessageData, NewConversationItem
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 

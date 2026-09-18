@@ -9,15 +9,15 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import opencode_http_transport as transport_mod
-from omnigent.inner.executor import ExecutorError, TurnComplete
-from omnigent.inner.opencode_native_executor import OpenCodeNativeExecutor
-from omnigent.opencode_native_bridge import (
+from agentnexus import opencode_http_transport as transport_mod
+from agentnexus.inner.executor import ExecutorError, TurnComplete
+from agentnexus.inner.opencode_native_executor import OpenCodeNativeExecutor
+from agentnexus.opencode_native_bridge import (
     OPENCODE_NATIVE_REQUEST_SESSION_ID_ENV_VAR,
     OpenCodeNativeBridgeState,
     write_bridge_state,
 )
-from omnigent.opencode_native_client import OpenCodeClient
+from agentnexus.opencode_native_client import OpenCodeClient
 
 _PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="  # noqa: E501
 _PNG_DATA_URI = f"data:image/png;base64,{_PNG_B64}"
@@ -316,7 +316,7 @@ def test_harness_create_app_builds_fastapi() -> None:
     """The ``opencode-native`` harness module builds a FastAPI app (lazy executor)."""
     from fastapi import FastAPI
 
-    from omnigent.inner.opencode_native_harness import create_app
+    from agentnexus.inner.opencode_native_harness import create_app
 
     assert isinstance(create_app(), FastAPI)
 
@@ -325,8 +325,8 @@ def test_harness_executor_factory_builds_from_env(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The harness executor factory constructs an executor from the spawn env."""
-    from omnigent.inner.opencode_native_harness import _build_opencode_native_executor
-    from omnigent.opencode_native_bridge import OPENCODE_NATIVE_BRIDGE_DIR_ENV_VAR
+    from agentnexus.inner.opencode_native_harness import _build_opencode_native_executor
+    from agentnexus.opencode_native_bridge import OPENCODE_NATIVE_BRIDGE_DIR_ENV_VAR
 
     monkeypatch.setenv(OPENCODE_NATIVE_BRIDGE_DIR_ENV_VAR, str(tmp_path))
     assert isinstance(_build_opencode_native_executor(), OpenCodeNativeExecutor)

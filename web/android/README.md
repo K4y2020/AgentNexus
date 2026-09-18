@@ -1,6 +1,6 @@
-# Omnigent Android
+# AgentNexus Android
 
-Thin Kotlin/`WebView` shell for Omnigent. Like the Electron app and the iOS
+Thin Kotlin/`WebView` shell for AgentNexus. Like the Electron app and the iOS
 shell (`web/ios`), this target loads the server-served web UI instead of
 shipping a duplicate copy of the SPA. It is a native _shell_, not a rewrite.
 
@@ -19,12 +19,12 @@ keep the platform default (HTTPS only), mirroring the iOS
 
 The same `web/` bundle runs in a browser tab, the Electron shell, the iOS
 WKWebView shell, and this Android WebView. Detection is feature-based at
-runtime via `window.omnigentNative` — see `web/src/lib/nativeBridge.ts`. This
+runtime via `window.agentnexusNative` — see `web/src/lib/nativeBridge.ts`. This
 shell injects that object with `kind: "android"`; the web layer needs no
 per-feature branching beyond the `kind` discriminator (`isAndroidShell()`).
 
 The web→native transport is a `WebViewCompat.addWebMessageListener` channel
-(`OmnigentBridgeListener`) **origin-allowlisted to the pinned server** and
+(`AgentNexusBridgeListener`) **origin-allowlisted to the pinned server** and
 gated on `isMainFrame`, rather than `addJavascriptInterface`. This is the
 structural equivalent of the iOS bridge's frame-origin + `isMainFrame` check:
 the transport object is never delivered to a sandboxed / cross-origin
@@ -35,10 +35,10 @@ agent-HTML iframe, so an injected artifact can't reach the native surface.
 Provides native setup chrome (server entry + recent servers via
 `ConnectActivity`), `WebView` loading, foreground local notifications with tap
 routing back into the SPA, a best-effort app badge, edge-to-edge inset plumbing
-(measured insets injected as `--omnigent-android-safe-area-*`, consumed by the
+(measured insets injected as `--agentnexus-android-safe-area-*`, consumed by the
 web inset system), correct system-back / predictive-back handling, file
 downloads — including `blob:` / `data:` exports via a fetch→base64→MediaStore
-bridge, which closes omnigent-ai/omnigent#969 (the iOS shell drops these) —
+bridge, which closes agentnexus-ai/agentnexus#969 (the iOS shell drops these) —
 file **uploads** (`<input type=file>` via `WebChromeClient.onShowFileChooser`),
 and **microphone** capture for voice input (`onPermissionRequest`, granted to
 the pinned origin only, with a runtime `RECORD_AUDIO` request).
@@ -58,16 +58,16 @@ when the bridge methods are absent, so the Android shell omits them for now:
 ## Databricks workspaces
 
 A Databricks workspace serves its own landing page at the root and mounts the
-Omnigent SPA at `/omnigent`, so the shell rewrites a **bare** workspace root to
+AgentNexus SPA at `/agentnexus`, so the shell rewrites a **bare** workspace root to
 that mount (`Origins.databricksWorkspaceUiUrl`):
 
 - `https://dbc-a5d4177a-49dc.cloud.databricks.com` →
-  `https://dbc-a5d4177a-49dc.cloud.databricks.com/omnigent`
+  `https://dbc-a5d4177a-49dc.cloud.databricks.com/agentnexus`
 - `?o=<org>` and any fragment are preserved; a URL that already carries a path
-  (a deep link, or `/omnigent` itself) is left alone.
+  (a deep link, or `/agentnexus` itself) is left alone.
 
 The rewrite happens when the pinned server URL is read
-(`ServerStore.currentServerUrl`), and in all three `OmnigentWebViewClient`
+(`ServerStore.currentServerUrl`), and in all three `AgentNexusWebViewClient`
 callbacks that can observe the WebView reaching the root, because no single one
 sees every case:
 
@@ -79,7 +79,7 @@ sees every case:
   back/forward), which loads nothing and so fires neither of the above.
 
 Bounces are budgeted at one per app-page load (`MAX_ROOT_BOUNCES`): if a
-workspace answers `/omnigent` with a redirect back to the root, the user stays
+workspace answers `/agentnexus` with a redirect back to the root, the user stays
 on the root instead of looping, and a successful app page load re-arms the
 budget. They're also posted to the main looper — a `loadUrl` issued while
 WebView is committing a navigation can be dropped.
@@ -87,7 +87,7 @@ WebView is committing a navigation can be dropped.
 Host matching is by domain (`*.databricks.com`, `*.azuredatabricks.net`) — no
 probe request. `*.databricksapps.com` is excluded: Apps serve their own app at
 the root and have no workspace mount. All three native shells redirect a bare
-workspace root to `/omnigent`.
+workspace root to `/agentnexus`.
 
 ## Managed configuration (org-preset servers)
 
@@ -103,7 +103,7 @@ to enrolled devices:
 | `serverUrls` | string | Server URLs, comma- or newline-separated, most preferred first. |
 
 ```json
-{ "serverUrls": "https://omnigent.corp.example.com" }
+{ "serverUrls": "https://agentnexus.corp.example.com" }
 ```
 
 Behaviour (`ManagedConfig` + `ServerStore`):
@@ -128,7 +128,7 @@ adb install -r TestDPC_<ver>.apk      # github.com/googlesamples/android-testdpc
 adb shell dpm set-device-owner com.afwsamples.testdpc/.DeviceAdminReceiver
 ```
 
-Then Test DPC → _Managed configurations_ → pick Omnigent → **Load manifest
+Then Test DPC → _Managed configurations_ → pick AgentNexus → **Load manifest
 restrictions** (this renders our schema, confirming the manifest wiring) → set
 `serverUrls` → **Save**. Verify the policy actually landed with:
 
@@ -165,17 +165,17 @@ without them the release build is left unsigned so debug builds still work.
 Credentials come from either a gitignored `keystore.properties` (copy
 `keystore.properties.example`) or, for CI, these environment variables:
 
-- `OMNIGENT_KEYSTORE_FILE` — path to the upload keystore
-- `OMNIGENT_KEYSTORE_PASSWORD`
-- `OMNIGENT_KEY_ALIAS`
-- `OMNIGENT_KEY_PASSWORD`
+- `AGENTNEXUS_KEYSTORE_FILE` — path to the upload keystore
+- `AGENTNEXUS_KEYSTORE_PASSWORD`
+- `AGENTNEXUS_KEY_ALIAS`
+- `AGENTNEXUS_KEY_PASSWORD`
 
 Create the upload keystore once and back it up (Play App Signing then manages
 the app signing key):
 
 ```sh
-keytool -genkeypair -v -keystore omnigent-upload.jks \
-  -keyalg RSA -keysize 2048 -validity 10000 -alias omnigent-upload
+keytool -genkeypair -v -keystore agentnexus-upload.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias agentnexus-upload
 ```
 
 Build the Play-ready App Bundle (Play requires an `.aab`, not an APK):
@@ -222,5 +222,5 @@ builds are unaffected. Change the target track via `track.set(...)` in
 
 > Status: builds clean — `gradlew :app:assembleDebug :app:lintDebug` produces a
 > debug APK with 0 lint errors (JDK 17, Gradle 9.3 wrapper, `compileSdk 36`).
-> Implementation for omnigent-ai/omnigent#1604; not yet exercised on a device
+> Implementation for agentnexus-ai/agentnexus#1604; not yet exercised on a device
 > (no runtime/instrumented testing here), so treat device behavior as unverified.

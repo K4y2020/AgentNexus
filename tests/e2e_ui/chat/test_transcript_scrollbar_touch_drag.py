@@ -104,8 +104,8 @@ def _seed_turns(session_id: str) -> None:
 
     :param session_id: Session to append to, e.g. ``"conv_abc123"``.
     """
-    from omnigent.entities import MessageData, NewConversationItem
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import MessageData, NewConversationItem
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -236,7 +236,7 @@ def test_scrollbar_thumb_drags_by_touch(
     # The autouse _record_video fixture only instruments the async Playwright
     # API; this sync-created context passes the record dir through directly so
     # a recorded run films the touch journey.
-    record_dir = os.environ.get("OMNIGENT_E2E_RECORD_DIR")
+    record_dir = os.environ.get("AGENTNEXUS_E2E_RECORD_DIR")
     if record_dir:
         context_args["record_video_dir"] = record_dir
     touch_context = browser.new_context(**context_args)

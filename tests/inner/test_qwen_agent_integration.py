@@ -23,9 +23,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from omnigent.inner.executor import TextChunk, TurnComplete
-from omnigent.inner.qwen_executor import QwenExecutor
-from omnigent.spec._omnigent_compat import load_omnigent_yaml
+from agentnexus.inner.executor import TextChunk, TurnComplete
+from agentnexus.inner.qwen_executor import QwenExecutor
+from agentnexus.spec._omnigent_compat import load_omnigent_yaml
 
 _AGENT_YAML = (
     Path(__file__).resolve().parents[1] / "resources" / "examples" / "qwen_perm_test.yaml"

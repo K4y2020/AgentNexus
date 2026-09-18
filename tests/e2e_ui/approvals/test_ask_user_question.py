@@ -236,7 +236,7 @@ def test_answered_question_survives_a_reload(
     Seeds the settled turn straight into the store rather than replaying a
     gated turn — a refresh reads history, so history is the whole input.
     """
-    from omnigent.entities import (
+    from agentnexus.entities import (
         FunctionCallData,
         FunctionCallOutputData,
         MessageData,

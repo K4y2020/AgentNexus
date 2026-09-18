@@ -2,7 +2,7 @@
 # publishes (oss-publish-images.yml now builds on tags + nightly only): a broken
 # Dockerfile / lockfile / frontend build would otherwise not surface until the
 # nightly rebuild or a release. Builds the server image single-arch (linux/amd64)
-# with the GHA layer cache and runs a `omnigent --help` CLI smoke. It never pushes.
+# with the GHA layer cache and runs a `agentnexus --help` CLI smoke. It never pushes.
 #
 # Scope: the server target exercises the shared builder stage (Python deps +
 # web SPA build) that all five published variants inherit, so it catches the
@@ -25,7 +25,7 @@ on:
     paths:
       - 'deploy/docker/Dockerfile'
       - 'deploy/docker/entrypoint.py'
-      - 'omnigent/**'
+      - 'agentnexus/**'
       - 'web/**'
       - 'sdks/**'
       - 'pyproject.toml'
@@ -73,10 +73,10 @@ jobs:
           file: deploy/docker/Dockerfile
           push: false
           load: true
-          tags: omnigent-server:pr-${{ github.event.pull_request.number || github.sha }}
+          tags: agentnexus-server:pr-${{ github.event.pull_request.number || github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
 
       - name: CLI smoke
-        run: docker run --rm omnigent-server:pr-${{ github.event.pull_request.number || github.sha }} omnigent --help
+        run: docker run --rm agentnexus-server:pr-${{ github.event.pull_request.number || github.sha }} agentnexus --help

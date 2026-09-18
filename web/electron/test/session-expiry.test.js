@@ -78,7 +78,7 @@ function fakeSession() {
 
 describe("registerSessionExpiryReload", () => {
   const LOGIN_REDIRECT = {
-    url: "https://ws.databricks.com/ajax-api/2.0/omnigents/v1/sessions",
+    url: "https://ws.databricks.com/ajax-api/2.0/agentnexuss/v1/sessions",
     statusCode: 303,
     redirectURL: "https://ws.databricks.com/login.html?next_url=%2Fajax-api",
   };

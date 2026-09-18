@@ -16,8 +16,8 @@ import psutil
 import pytest
 from click.testing import CliRunner
 
-from omnigent.cli import _add_daemon_host_status, _ensure_host_daemon, _host_daemon_alive, cli
-from omnigent.host.local_server import LocalServerStartup
+from agentnexus.cli import _add_daemon_host_status, _ensure_host_daemon, _host_daemon_alive, cli
+from agentnexus.host.local_server import LocalServerStartup
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class _HostRun:
     """
     One captured call to the (patched) foreground daemon loop.
 
-    :param server_url: Omnigent server URL the daemon was told to connect
+    :param server_url: AgentNexus server URL the daemon was told to connect
         to, e.g. ``"https://from-arg.example.com"``.
     """
 
@@ -44,12 +44,12 @@ class _HostRun:
 
 
 def test_host_pid_path_honors_data_dir_at_import(tmp_path: Path) -> None:
-    env = {**os.environ, "OMNIGENT_DATA_DIR": str(tmp_path / "data")}
+    env = {**os.environ, "AGENTNEXUS_DATA_DIR": str(tmp_path / "data")}
     result = subprocess.run(
         [
             sys.executable,
             "-c",
-            "from omnigent.cli import _HOST_PID_PATH; print(_HOST_PID_PATH)",
+            "from agentnexus.cli import _HOST_PID_PATH; print(_HOST_PID_PATH)",
         ],
         env=env,
         check=True,
@@ -81,15 +81,15 @@ def test_host_no_server_starts_local_backend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Verify that ``host`` with no --server starts a local Omnigent server.
+    Verify that ``host`` with no --server starts a local AgentNexus server.
 
     Under the daemon model, ``omnigent host`` (no URL, no config) is
-    valid: it starts (or reuses) a persistent local Omnigent server and connects
+    valid: it starts (or reuses) a persistent local AgentNexus server and connects
     the foreground daemon to it — it no longer errors. We mock the local
     server spawn and the (blocking) daemon loop so the command returns.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     captured_url: list[str] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
@@ -99,10 +99,10 @@ def test_host_no_server_starts_local_backend(
         # spawned=False: this test only checks URL resolution; reused keeps
         # the Ctrl-C stop-server prompt out of the picture (it has its own tests).
         patch(
-            "omnigent.cli.ensure_local_omnigent_server",
+            "agentnexus.cli.ensure_local_omnigent_server",
             lambda: LocalServerStartup(url="http://127.0.0.1:8123", spawned=False),
         ),
-        patch("omnigent.host.connect.run_host_process", _fake_run),
+        patch("agentnexus.host.connect.run_host_process", _fake_run),
     ):
         runner = CliRunner()
         result = runner.invoke(cli, ["host"])
@@ -121,18 +121,18 @@ def test_host_reads_server_from_global_config(
     when --server is not passed on the CLI.
 
     If it doesn't, users must always pass --server even when
-    ``~/.omnigent/config.yaml`` has a ``server:`` key.
+    ``~/.agentnexus/config.yaml`` has a ``server:`` key.
     """
     (tmp_path / "config.yaml").write_text("server: https://from-config.example.com\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
 
     captured_url: list[str] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
         captured_url.append(server_url)
 
-    with patch("omnigent.host.connect.run_host_process", _fake_run):
+    with patch("agentnexus.host.connect.run_host_process", _fake_run):
         runner = CliRunner()
         result = runner.invoke(cli, ["host"])
 
@@ -154,14 +154,14 @@ def test_host_accepts_server_as_positional(
     handling regresses, Click treats the URL as an unknown subcommand
     and the command exits non-zero — so this test fails loud.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
         runs.append(_HostRun(server_url=server_url))
 
-    with patch("omnigent.host.connect.run_host_process", _fake_run):
+    with patch("agentnexus.host.connect.run_host_process", _fake_run):
         runner = CliRunner()
         result = runner.invoke(cli, ["host", "https://from-arg.example.com"])
 
@@ -187,14 +187,14 @@ def test_host_accepts_option_after_positional_server(
     trailing option as an extra positional — makes the command exit
     non-zero with "Unexpected extra argument(s)".
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
         runs.append(_HostRun(server_url=server_url))
 
-    with patch("omnigent.host.connect.run_host_process", _fake_run):
+    with patch("agentnexus.host.connect.run_host_process", _fake_run):
         runner = CliRunner()
         result = runner.invoke(cli, ["host", "https://from-arg.example.com", "--non-interactive"])
 
@@ -213,11 +213,11 @@ def test_host_accepts_empty_positional_as_local_marker(
 
     The empty string is the only non-URL positional token allowed by the
     shorthand. It must bind as an explicit empty ``server`` value so it
-    overrides configured remote defaults and starts the local Omnigent server.
+    overrides configured remote defaults and starts the local AgentNexus server.
     """
     (tmp_path / "config.yaml").write_text("server: https://from-config.example.com\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
@@ -227,10 +227,10 @@ def test_host_accepts_empty_positional_as_local_marker(
         # spawned=False: this test only checks the empty-string local-mode URL
         # resolution; reused keeps the Ctrl-C stop-server prompt out of scope.
         patch(
-            "omnigent.cli.ensure_local_omnigent_server",
+            "agentnexus.cli.ensure_local_omnigent_server",
             lambda: LocalServerStartup(url="http://127.0.0.1:8123", spawned=False),
         ),
-        patch("omnigent.host.connect.run_host_process", _fake_run),
+        patch("agentnexus.host.connect.run_host_process", _fake_run),
     ):
         runner = CliRunner()
         result = runner.invoke(cli, ["host", ""])
@@ -253,8 +253,8 @@ def test_host_status_subcommand_still_dispatches(
     invoked with ``server_url="status"``; this test asserts the daemon
     loop is never called and the status path is taken instead.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
     selected_calls: list[dict[str, object]] = []
 
@@ -266,8 +266,8 @@ def test_host_status_subcommand_still_dispatches(
         return []
 
     with (
-        patch("omnigent.host.connect.run_host_process", _fake_run),
-        patch("omnigent.cli._selected_daemon_records", _fake_selected),
+        patch("agentnexus.host.connect.run_host_process", _fake_run),
+        patch("agentnexus.cli._selected_daemon_records", _fake_selected),
     ):
         runner = CliRunner()
         result = runner.invoke(cli, ["host", "status"])
@@ -292,10 +292,10 @@ def test_host_enable_subcommand_installs_user_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify ``host enable`` resolves the target and installs its service."""
-    from omnigent.host.service import HostService
+    from agentnexus.host.service import HostService
 
     captured: list[tuple[str | None, dict[str, str]]] = []
-    service_path = tmp_path / "omnigent-host.service"
+    service_path = tmp_path / "agentnexus-host.service"
 
     def _enable(
         server_url: str | None,
@@ -305,18 +305,18 @@ def test_host_enable_subcommand_installs_user_service(
         captured.append((server_url, environment))
         return HostService(kind="systemd_user", path=service_path, label=service_path.name)
 
-    monkeypatch.setattr("omnigent.cli._find_daemon_record", lambda target: None)
+    monkeypatch.setattr("agentnexus.cli._find_daemon_record", lambda target: None)
     monkeypatch.setattr(
-        "omnigent.cli._build_host_daemon_env",
+        "agentnexus.cli._build_host_daemon_env",
         lambda *, server_url: {"HOME": str(tmp_path)},
     )
-    monkeypatch.setattr("omnigent.host.service.enable_user_host_service", _enable)
+    monkeypatch.setattr("agentnexus.host.service.enable_user_host_service", _enable)
 
     result = CliRunner().invoke(cli, ["host", "enable", "--server", ""])
 
     assert result.exit_code == 0, result.output
     assert captured == [(None, {"HOME": str(tmp_path)})]
-    assert "Enabled the Omnigent host user service for local" in result.output
+    assert "Enabled the AgentNexus host user service for local" in result.output
 
 
 def test_host_disable_subcommand_removes_user_service(
@@ -324,23 +324,23 @@ def test_host_disable_subcommand_removes_user_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify ``host disable`` dispatches to the service remover."""
-    from omnigent.host.service import HostService
+    from agentnexus.host.service import HostService
 
-    service_path = tmp_path / "omnigent-host.service"
+    service_path = tmp_path / "agentnexus-host.service"
     removed: list[bool] = []
 
     def _disable() -> HostService:
         removed.append(True)
         return HostService(kind="systemd_user", path=service_path, label=service_path.name)
 
-    monkeypatch.setattr("omnigent.host.service.disable_user_host_service", _disable)
-    monkeypatch.setattr("omnigent.cli._list_daemon_records", list)
+    monkeypatch.setattr("agentnexus.host.service.disable_user_host_service", _disable)
+    monkeypatch.setattr("agentnexus.cli._list_daemon_records", list)
 
     result = CliRunner().invoke(cli, ["host", "disable"])
 
     assert result.exit_code == 0, result.output
     assert removed == [True]
-    assert "Disabled the Omnigent host user service" in result.output
+    assert "Disabled the AgentNexus host user service" in result.output
 
 
 def test_host_rejects_unknown_plain_token_as_subcommand(
@@ -355,14 +355,14 @@ def test_host_rejects_unknown_plain_token_as_subcommand(
     subcommand, so Click must report it as an unknown command instead of
     starting the foreground daemon with ``server_url="sessions"``.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
         runs.append(_HostRun(server_url=server_url))
 
-    with patch("omnigent.host.connect.run_host_process", _fake_run):
+    with patch("agentnexus.host.connect.run_host_process", _fake_run):
         runner = CliRunner()
         result = runner.invoke(cli, ["host", "sessions"])
 
@@ -382,14 +382,14 @@ def test_host_rejects_positional_and_server_option_together(
     a usage error rather than silently picking one. If the guard
     regresses, one value would silently win and this test fails.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     runs: list[_HostRun] = []
 
     def _fake_run(server_url: str, **kwargs: object) -> None:
         runs.append(_HostRun(server_url=server_url))
 
-    with patch("omnigent.host.connect.run_host_process", _fake_run):
+    with patch("agentnexus.host.connect.run_host_process", _fake_run):
         runner = CliRunner()
         result = runner.invoke(
             cli,
@@ -413,7 +413,7 @@ def test_host_daemon_alive_returns_false_when_no_pid_file(
     If it returns True, the auto-launch would skip spawning a
     daemon even on a fresh machine.
     """
-    with patch("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid"):
+    with patch("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid"):
         assert _host_daemon_alive() is False
 
 
@@ -430,7 +430,7 @@ def test_host_daemon_alive_returns_false_for_dead_pid(
     pid_path = tmp_path / "host.pid"
     # PID 99999999 almost certainly doesn't exist.
     pid_path.write_text("99999999\nhttp://localhost:8000\n")
-    with patch("omnigent.cli._HOST_PID_PATH", pid_path):
+    with patch("agentnexus.cli._HOST_PID_PATH", pid_path):
         assert _host_daemon_alive() is False
 
 
@@ -468,8 +468,8 @@ def test_ensure_host_daemon_writes_pid_file(
         return proc
 
     with (
-        patch("omnigent.cli._HOST_PID_PATH", pid_path),
-        patch("omnigent.cli.subprocess.Popen", side_effect=_fake_popen),
+        patch("agentnexus.cli._HOST_PID_PATH", pid_path),
+        patch("agentnexus.cli.subprocess.Popen", side_effect=_fake_popen),
     ):
         _ensure_host_daemon("http://localhost:8000")
 
@@ -519,10 +519,10 @@ def test_ensure_host_daemon_keeps_old_for_different_server(
         return _SpawnedDaemon(pid=spawned_pids.pop(0))
 
     with (
-        patch("omnigent.cli._HOST_PID_PATH", pid_path),
-        patch("omnigent.cli._pid_alive", lambda pid: pid in {4242, 4243}),
-        patch("omnigent.cli.os.kill", lambda pid, sig: killed.append(pid)),
-        patch("omnigent.cli.subprocess.Popen", side_effect=_fake_popen),
+        patch("agentnexus.cli._HOST_PID_PATH", pid_path),
+        patch("agentnexus.cli._pid_alive", lambda pid: pid in {4242, 4243}),
+        patch("agentnexus.cli.os.kill", lambda pid, sig: killed.append(pid)),
+        patch("agentnexus.cli.subprocess.Popen", side_effect=_fake_popen),
     ):
         _ensure_host_daemon("http://old-server:8000")
         _ensure_host_daemon("http://new-server:9000")
@@ -573,8 +573,8 @@ def test_ensure_host_daemon_skips_if_alive(
         return original_popen(args, **kwargs)
 
     with (
-        patch("omnigent.cli._HOST_PID_PATH", pid_path),
-        patch("omnigent.cli.subprocess.Popen", side_effect=_counting_popen),
+        patch("agentnexus.cli._HOST_PID_PATH", pid_path),
+        patch("agentnexus.cli.subprocess.Popen", side_effect=_counting_popen),
     ):
         _ensure_host_daemon("http://localhost:8000")
 
@@ -595,7 +595,7 @@ def test_host_stop_treats_zombie_daemon_as_dead(
     with ``--force``) fail forever with "did not exit" and blocks every
     subsequent ``host`` start with "already running".
     """
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
 
     zombie_pid = os.fork()
     if zombie_pid == 0:
@@ -666,7 +666,7 @@ def test_host_stop_drops_stale_foreign_daemon_record(
     raises ``PermissionError``. Stop must treat the record as stale — warn
     and delete it — instead of crashing on the EPERM, even with ``--force``.
     """
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
 
     daemons_dir = tmp_path / "daemons"
     daemons_dir.mkdir()
@@ -694,8 +694,8 @@ def test_host_stop_drops_stale_foreign_daemon_record(
         """Simulate signalling a pid owned by another user (EPERM)."""
         raise PermissionError(1, "Operation not permitted")
 
-    monkeypatch.setattr("omnigent.cli._pid_alive", lambda pid: True)
-    monkeypatch.setattr("omnigent.cli.os.kill", _eperm_kill)
+    monkeypatch.setattr("agentnexus.cli._pid_alive", lambda pid: True)
+    monkeypatch.setattr("agentnexus.cli.os.kill", _eperm_kill)
 
     runner = CliRunner()
     result = runner.invoke(cli, ["host", "stop", "--all", "--daemon-only", "--force"])
@@ -734,7 +734,7 @@ def test_add_daemon_host_status_skips_http_for_dead_process() -> None:
         "host_status": None,
         "error": None,
     }
-    with patch("omnigent.cli._host_http_json", _fake_http):
+    with patch("agentnexus.cli._host_http_json", _fake_http):
         _add_daemon_host_status(payload)
 
     assert payload["host_status"] == "offline"
@@ -752,7 +752,7 @@ def test_host_http_json_handles_remote_headers_oserror() -> None:
     converted to a graceful _HostHttpResult(status_code=0) like any other
     transport failure.
     """
-    from omnigent.cli import _host_http_headers_cache, _host_http_json
+    from agentnexus.cli import _host_http_headers_cache, _host_http_json
 
     # Clear cache so the resolution path is exercised.
     url = "https://oserror-test.example.com"
@@ -761,7 +761,7 @@ def test_host_http_json_handles_remote_headers_oserror() -> None:
     def _raise_oserror(*_args: object, **_kwargs: object) -> object:
         raise OSError("credential file not found")
 
-    with patch("omnigent.chat._remote_headers", _raise_oserror):
+    with patch("agentnexus.chat._remote_headers", _raise_oserror):
         result = _host_http_json(base_url=url, method="GET", path="/v1/test")
 
     assert result.status_code == 0
@@ -787,17 +787,17 @@ def _patch_background_host_spawn(
     :param pid: Fake pid the stub spawn reports, e.g. ``4242``.
     :returns: The recorded spawn argv list and the fake daemon log path.
     """
-    from omnigent.cli import _SpawnedDaemonProcess
+    from agentnexus.cli import _SpawnedDaemonProcess
 
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
     # No fixed grace: the stubbed pid is trivially "alive", so waiting for it
     # only slows the test down.
-    monkeypatch.setattr("omnigent.cli._BACKGROUND_HOST_GRACE_S", 0.0)
-    monkeypatch.setattr("omnigent.cli._pid_alive", lambda checked: checked == pid)
-    monkeypatch.setattr("omnigent.cli._daemon_host_online", lambda record, **kwargs: True)
+    monkeypatch.setattr("agentnexus.cli._BACKGROUND_HOST_GRACE_S", 0.0)
+    monkeypatch.setattr("agentnexus.cli._pid_alive", lambda checked: checked == pid)
+    monkeypatch.setattr("agentnexus.cli._daemon_host_online", lambda record, **kwargs: True)
     # Local mode waits for the server the daemon owns; no real server here.
-    monkeypatch.setattr("omnigent.cli._discover_local_server_url", lambda: "http://127.0.0.1:6767")
+    monkeypatch.setattr("agentnexus.cli._discover_local_server_url", lambda: "http://127.0.0.1:6767")
     log_path = tmp_path / "host-test.log"
     log_path.write_text("")
     spawned_args: list[list[str]] = []
@@ -813,7 +813,7 @@ def _patch_background_host_spawn(
         spawned_args.append(args)
         return _SpawnedDaemonProcess(pid=pid, log_path=str(log_path))
 
-    monkeypatch.setattr("omnigent.cli._spawn_host_daemon_process", _fake_spawn)
+    monkeypatch.setattr("agentnexus.cli._spawn_host_daemon_process", _fake_spawn)
     return spawned_args, log_path
 
 
@@ -836,7 +836,7 @@ def test_host_background_spawns_detached_daemon(
     assert log_path.name in result.output
     # `--server` was omitted, so the stop hint omits it too — a bare `host
     # stop` resolves its target exactly like the bare `host` that started it.
-    assert "omnigent host stop" in result.output
+    assert "agentnexus host stop" in result.output
     assert "--server" not in result.output
     # Bare `--background` is local mode: the daemon owns the local server, so
     # its URL is reported too (the Web UI is otherwise unreachable).
@@ -851,14 +851,14 @@ def test_host_background_fails_when_daemon_never_registers(
     """A live PID without a registered channel must not be reported as started."""
     _spawned, log_path = _patch_background_host_spawn(monkeypatch, tmp_path)
     log_path.write_text("Host registration failed: database unavailable\n")
-    monkeypatch.setattr("omnigent.cli._daemon_host_online", lambda record, **kwargs: False)
-    monkeypatch.setattr("omnigent.cli._BACKGROUND_HOST_REGISTRATION_GRACE_S", 0.0)
+    monkeypatch.setattr("agentnexus.cli._daemon_host_online", lambda record, **kwargs: False)
+    monkeypatch.setattr("agentnexus.cli._BACKGROUND_HOST_REGISTRATION_GRACE_S", 0.0)
     monkeypatch.setattr(
-        "omnigent.cli._ensure_databricks_server_auth", lambda *args, **kwargs: None
+        "agentnexus.cli._ensure_databricks_server_auth", lambda *args, **kwargs: None
     )
     terminated: list[int] = []
     monkeypatch.setattr(
-        "omnigent.cli._terminate_daemon",
+        "agentnexus.cli._terminate_daemon",
         lambda record, *, force: terminated.append(record.pid),
     )
 
@@ -893,10 +893,10 @@ def test_host_background_does_not_block(
 
     with (
         patch(
-            "omnigent.host.connect.run_host_process",
+            "agentnexus.host.connect.run_host_process",
             lambda server_url, **kwargs: foreground_runs.append(server_url),
         ),
-        patch("omnigent.cli.ensure_local_omnigent_server", _fail_local_server),
+        patch("agentnexus.cli.ensure_local_omnigent_server", _fail_local_server),
     ):
         result = CliRunner().invoke(cli, ["host", "--background"])
 
@@ -914,7 +914,7 @@ def test_host_background_reuses_running_daemon(
     Two daemons for one target would register the same machine twice; the
     command reports the existing pid and returns.
     """
-    from omnigent.cli import (
+    from agentnexus.cli import (
         _LOCAL_DAEMON_MARKER,
         _HostDaemonRecord,
         _write_daemon_record,
@@ -922,7 +922,7 @@ def test_host_background_reuses_running_daemon(
     )
 
     spawned_args, _ = _patch_background_host_spawn(monkeypatch, tmp_path)
-    monkeypatch.setattr("omnigent.cli._pid_alive", lambda checked: checked in {4242, 5150})
+    monkeypatch.setattr("agentnexus.cli._pid_alive", lambda checked: checked in {4242, 5150})
     _write_daemon_record(
         _HostDaemonRecord(
             pid=5150,
@@ -945,7 +945,7 @@ def test_host_background_reuses_running_daemon(
     assert "already running (pid 5150" in result.output
     assert "server: http://127.0.0.1:6767" in result.output
     # Local mode was requested explicitly, so the stop hint says so too.
-    assert 'omnigent host stop --server ""' in result.output
+    assert 'agentnexus host stop --server ""' in result.output
     assert spawned_args == [], "a healthy daemon must not be respawned"
 
 
@@ -972,7 +972,7 @@ def test_host_background_signs_in_before_spawning(
         assert spawned_args == [], "sign-in must precede the daemon spawn"
         auth_calls.append((server, non_interactive))
 
-    monkeypatch.setattr("omnigent.cli._ensure_databricks_server_auth", _fake_auth)
+    monkeypatch.setattr("agentnexus.cli._ensure_databricks_server_auth", _fake_auth)
 
     result = CliRunner().invoke(
         cli, ["host", "--background", "--server", "https://example.databricksapps.com"]
@@ -985,7 +985,7 @@ def test_host_background_signs_in_before_spawning(
     # and named in the stop hint because a bare stop would resolve the
     # configured target instead.
     assert "server: https://example.databricksapps.com" in result.output
-    assert "omnigent host stop --server https://example.databricksapps.com" in result.output
+    assert "agentnexus host stop --server https://example.databricksapps.com" in result.output
 
 
 # ── omnigent start ────────────────────────────────────────────────
@@ -1006,7 +1006,7 @@ def test_start_spawns_background_host_and_suggests_stop(
     foreground_runs: list[str] = []
 
     with patch(
-        "omnigent.host.connect.run_host_process",
+        "agentnexus.host.connect.run_host_process",
         lambda server_url, **kwargs: foreground_runs.append(server_url),
     ):
         result = CliRunner().invoke(cli, ["start"])
@@ -1015,7 +1015,7 @@ def test_start_spawns_background_host_and_suggests_stop(
     assert foreground_runs == []
     assert "pid 4242" in result.output
     assert "server: http://127.0.0.1:6767" in result.output
-    assert "omnigent stop" in result.output
+    assert "agentnexus stop" in result.output
     assert "host stop" not in result.output
     assert spawned_args and "--local" in spawned_args[0]
 
@@ -1041,7 +1041,7 @@ def test_start_hosts_on_explicit_server(
         """
         auth_calls.append((server, non_interactive))
 
-    monkeypatch.setattr("omnigent.cli._ensure_databricks_server_auth", _fake_auth)
+    monkeypatch.setattr("agentnexus.cli._ensure_databricks_server_auth", _fake_auth)
 
     result = CliRunner().invoke(
         cli, ["start", "--server", "https://example.databricksapps.com", "--non-interactive"]
@@ -1054,7 +1054,7 @@ def test_start_hosts_on_explicit_server(
         [
             sys.executable,
             "-m",
-            "omnigent.host._daemon_entry",
+            "agentnexus.host._daemon_entry",
             "--server",
             "https://example.databricksapps.com",
         ]
@@ -1083,19 +1083,19 @@ def test_host_web_ui_open_gates(
     """Open the host web UI only when interactive and enabled."""
     if config_content is not None:
         (tmp_path / "config.yaml").write_text(config_content)
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
-    monkeypatch.setattr("omnigent.cli._stdin_is_tty", lambda: is_tty)
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setattr("agentnexus.cli._stdin_is_tty", lambda: is_tty)
     opened: list[str] = []
 
     with (
         patch(
-            "omnigent.cli.ensure_local_omnigent_server",
+            "agentnexus.cli.ensure_local_omnigent_server",
             lambda: LocalServerStartup(url="http://127.0.0.1:8123", spawned=False),
         ),
-        patch("omnigent.host.connect.run_host_process", lambda server_url, **kwargs: None),
+        patch("agentnexus.host.connect.run_host_process", lambda server_url, **kwargs: None),
         patch(
-            "omnigent.conversation_browser.open_conversation_url",
+            "agentnexus.conversation_browser.open_conversation_url",
             lambda url: opened.append(url) or True,
         ),
     ):
@@ -1110,16 +1110,16 @@ def test_host_opens_remote_web_ui_when_interactive(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Open the browser-facing URL for a remote workspace host."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setattr("omnigent.cli._HOST_PID_PATH", tmp_path / "host.pid")
-    monkeypatch.setattr("omnigent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setattr("agentnexus.cli._HOST_PID_PATH", tmp_path / "host.pid")
+    monkeypatch.setattr("agentnexus.cli._stdin_is_tty", lambda: True)
     opened: list[str] = []
 
     with (
-        patch("omnigent.cli._ensure_databricks_server_auth"),
-        patch("omnigent.host.connect.run_host_process", lambda server_url, **kwargs: None),
+        patch("agentnexus.cli._ensure_databricks_server_auth"),
+        patch("agentnexus.host.connect.run_host_process", lambda server_url, **kwargs: None),
         patch(
-            "omnigent.conversation_browser.open_conversation_url",
+            "agentnexus.conversation_browser.open_conversation_url",
             lambda url: opened.append(url) or True,
         ),
     ):
@@ -1138,11 +1138,11 @@ def test_start_opens_web_ui_when_interactive(
 ) -> None:
     """Open the web UI after the background host registers."""
     _patch_background_host_spawn(monkeypatch, tmp_path)
-    monkeypatch.setattr("omnigent.cli._stdin_is_tty", lambda: True)
+    monkeypatch.setattr("agentnexus.cli._stdin_is_tty", lambda: True)
     opened: list[str] = []
 
     with patch(
-        "omnigent.conversation_browser.open_conversation_url",
+        "agentnexus.conversation_browser.open_conversation_url",
         lambda url: opened.append(url) or True,
     ):
         result = CliRunner().invoke(cli, ["start"])

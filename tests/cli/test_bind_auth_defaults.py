@@ -4,9 +4,9 @@ Covers the four corners of the matrix:
 
 - loopback + env-unset → single-user marker (no login);
 - non-loopback + env-unset → accounts mode (login required) + warning;
-- explicit ``OMNIGENT_AUTH_PROVIDER`` → no implicit change;
-- explicit ``OMNIGENT_AUTH_ENABLED=0`` → no implicit re-enable;
-- non-loopback + explicit ``OMNIGENT_LOCAL_SINGLE_USER=1`` → header mode
+- explicit ``AGENTNEXUS_AUTH_PROVIDER`` → no implicit change;
+- explicit ``AGENTNEXUS_AUTH_ENABLED=0`` → no implicit re-enable;
+- non-loopback + explicit ``AGENTNEXUS_LOCAL_SINGLE_USER=1`` → header mode
   kept (no accounts auto-enable) + security warning.
 """
 
@@ -16,15 +16,15 @@ import os
 
 import pytest
 
-from omnigent.cli import _apply_bind_auth_defaults
+from agentnexus.cli import _apply_bind_auth_defaults
 
 # The env vars the helper reads / writes. Cleared per-test so no
 # cross-test leakage.
 _AUTH_ENVS = (
-    "OMNIGENT_AUTH_PROVIDER",
-    "OMNIGENT_AUTH_ENABLED",
-    "OMNIGENT_LOCAL_SINGLE_USER",
-    "OMNIGENT_OIDC_ISSUER",
+    "AGENTNEXUS_AUTH_PROVIDER",
+    "AGENTNEXUS_AUTH_ENABLED",
+    "AGENTNEXUS_LOCAL_SINGLE_USER",
+    "AGENTNEXUS_OIDC_ISSUER",
 )
 
 
@@ -52,9 +52,9 @@ def test_loopback_enables_single_user(host: str, capsys: pytest.CaptureFixture[s
     ``"local"`` header-mode fallback.
     """
     _apply_bind_auth_defaults(host)
-    assert os.environ.get("OMNIGENT_LOCAL_SINGLE_USER") == "1"
+    assert os.environ.get("AGENTNEXUS_LOCAL_SINGLE_USER") == "1"
     # Accounts mode must NOT be auto-enabled on loopback.
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") is None
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") is None
     # No warning on the loopback path.
     assert _stderr(capsys) == ""
 
@@ -62,13 +62,13 @@ def test_loopback_enables_single_user(host: str, capsys: pytest.CaptureFixture[s
 def test_loopback_respects_explicit_single_user_off(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """An explicit OMNIGENT_LOCAL_SINGLE_USER=0 wins on loopback.
+    """An explicit AGENTNEXUS_LOCAL_SINGLE_USER=0 wins on loopback.
 
     setdefault must not clobber an operator's explicit "off".
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "0")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "0")
     _apply_bind_auth_defaults("127.0.0.1")
-    assert os.environ.get("OMNIGENT_LOCAL_SINGLE_USER") == "0"
+    assert os.environ.get("AGENTNEXUS_LOCAL_SINGLE_USER") == "0"
     assert _stderr(capsys) == ""
 
 
@@ -86,9 +86,9 @@ def test_non_loopback_enables_accounts(host: str, capsys: pytest.CaptureFixture[
     """
     _apply_bind_auth_defaults(host)
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "1"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "1"
     # The single-user marker must NOT be set on a non-loopback bind.
-    assert os.environ.get("OMNIGENT_LOCAL_SINGLE_USER") is None
+    assert os.environ.get("AGENTNEXUS_LOCAL_SINGLE_USER") is None
 
     # The warning names the host and mentions accounts mode + admin setup.
     _msg = _stderr(capsys)
@@ -100,15 +100,15 @@ def test_non_loopback_enables_accounts(host: str, capsys: pytest.CaptureFixture[
 def test_non_loopback_respects_explicit_auth_provider(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """An explicit OMNIGENT_AUTH_PROVIDER prevents the auto-enable.
+    """An explicit AGENTNEXUS_AUTH_PROVIDER prevents the auto-enable.
 
     An operator who declared ``header`` (behind an identity-injecting
     proxy) or ``oidc`` chose their auth deliberately — don't override it.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") is None
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") is None
     # No auto-enable warning — the operator was explicit.
     assert _stderr(capsys) == ""
 
@@ -116,44 +116,44 @@ def test_non_loopback_respects_explicit_auth_provider(
 def test_non_loopback_respects_explicit_auth_enabled_zero(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """An explicit OMNIGENT_AUTH_ENABLED=0 disables auth — no re-enable.
+    """An explicit AGENTNEXUS_AUTH_ENABLED=0 disables auth — no re-enable.
 
     The operator explicitly turned auth off; we must not flip it back on.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
     _apply_bind_auth_defaults("0.0.0.0")
 
     # Stays "0", not overwritten by setdefault.
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "0"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "0"
     assert _stderr(capsys) == ""
 
 
 def test_non_loopback_with_existing_auth_enabled_no_double_warning(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """OMNIGENT_AUTH_ENABLED=1 already set → no warning (it's not auto-enabled).
+    """AGENTNEXUS_AUTH_ENABLED=1 already set → no warning (it's not auto-enabled).
 
     The operator already opted in; the "we enabled accounts for you"
     warning would be noise.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "1"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "1"
     assert _stderr(capsys) == ""
 
 
 def test_non_loopback_empty_auth_provider_string_is_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An empty OMNIGENT_AUTH_PROVIDER ('') is treated as unset.
+    """An empty AGENTNEXUS_AUTH_PROVIDER ('') is treated as unset.
 
     Compose-style deploys pass ``${VAR:-}`` which expands to an empty
     string — empty and missing both mean "not explicitly pinned", so the
     non-loopback auto-enable should still fire.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "1"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "1"
 
 
 # ── non-loopback + explicit single-user marker ──────────────────────
@@ -164,21 +164,21 @@ def test_non_loopback_empty_auth_provider_string_is_unset(monkeypatch: pytest.Mo
 def test_non_loopback_respects_explicit_single_user(
     host: str, marker: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A truthy OMNIGENT_LOCAL_SINGLE_USER wins on a non-loopback bind.
+    """A truthy AGENTNEXUS_LOCAL_SINGLE_USER wins on a non-loopback bind.
 
     Auto-enabling accounts here would switch identity resolution to the
     cookie path, where neither the ``"local"`` fallback nor the identity
     header is reachable — every request 401s and the host tunnel 403s.
     The operator declared a single-operator server, so header mode stays.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", marker)
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", marker)
     _apply_bind_auth_defaults(host)
 
     # Accounts mode must NOT be auto-enabled over the explicit marker.
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") is None
-    assert os.environ.get("OMNIGENT_LOCAL_SINGLE_USER") == marker
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") is None
+    assert os.environ.get("AGENTNEXUS_LOCAL_SINGLE_USER") == marker
 
-    from omnigent.server.auth import resolve_auth_source
+    from agentnexus.server.auth import resolve_auth_source
 
     assert resolve_auth_source() == "header"
 
@@ -187,21 +187,21 @@ def test_non_loopback_respects_explicit_single_user(
     _msg = _stderr(capsys)
     assert host in _msg
     assert "unauthenticated" in _msg.lower()
-    assert "OMNIGENT_LOCAL_SINGLE_USER" in _msg
+    assert "AGENTNEXUS_LOCAL_SINGLE_USER" in _msg
 
 
 def test_non_loopback_single_user_zero_still_enables_accounts(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """OMNIGENT_LOCAL_SINGLE_USER=0 is an opt-out — accounts still auto-enable.
+    """AGENTNEXUS_LOCAL_SINGLE_USER=0 is an opt-out — accounts still auto-enable.
 
     Only a *truthy* marker declares a single-user server; an explicit
     "off" must not suppress the network-exposed login default.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "0")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "0")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "1"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "1"
     assert "accounts" in _stderr(capsys).lower()
 
 
@@ -214,11 +214,11 @@ def test_non_loopback_single_user_with_auth_enabled_one_keeps_accounts(
     unauthenticated-exposure warning must not fire for a server that
     does require login.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    assert os.environ.get("OMNIGENT_AUTH_ENABLED") == "1"
+    assert os.environ.get("AGENTNEXUS_AUTH_ENABLED") == "1"
     assert _stderr(capsys) == ""
 
 
@@ -228,15 +228,15 @@ def test_non_loopback_single_user_with_explicit_login_provider_is_silent(
 ) -> None:
     """An explicit login provider beside the marker suppresses the warning.
 
-    ``OMNIGENT_AUTH_PROVIDER`` wins outright in ``resolve_auth_source``, so
+    ``AGENTNEXUS_AUTH_PROVIDER`` wins outright in ``resolve_auth_source``, so
     identity goes through the cookie path and login *is* required. Claiming
     unauthenticated exposure here would be false.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", provider)
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", provider)
     _apply_bind_auth_defaults("0.0.0.0")
 
-    from omnigent.server.auth import resolve_auth_source
+    from agentnexus.server.auth import resolve_auth_source
 
     assert resolve_auth_source() == provider
     assert _stderr(capsys) == ""
@@ -251,8 +251,8 @@ def test_non_loopback_single_user_with_explicit_header_provider_warns(
     pinning it deliberately is real exposure — the warning must not be
     silenced just because the provider was named explicitly.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
     _apply_bind_auth_defaults("0.0.0.0")
 
     assert "unauthenticated" in _stderr(capsys).lower()
@@ -267,11 +267,11 @@ def test_non_loopback_single_user_with_auth_enabled_zero_warns(
     ``header`` and the unauthenticated ``"local"`` fallback is live. The
     exposure is real and must be announced.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
     _apply_bind_auth_defaults("0.0.0.0")
 
-    from omnigent.server.auth import resolve_auth_source
+    from agentnexus.server.auth import resolve_auth_source
 
     assert resolve_auth_source() == "header"
     assert "unauthenticated" in _stderr(capsys).lower()
@@ -285,7 +285,7 @@ def test_loopback_single_user_emits_no_warning(
     On loopback the single-user marker is the normal, safe default — it
     must stay silent.
     """
-    monkeypatch.setenv("OMNIGENT_LOCAL_SINGLE_USER", "1")
+    monkeypatch.setenv("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
     _apply_bind_auth_defaults("127.0.0.1")
 
     assert _stderr(capsys) == ""
@@ -303,11 +303,11 @@ def test_non_loopback_with_oidc_resolves_to_oidc(monkeypatch: pytest.MonkeyPatch
     are minted. This test documents that the helper's single env-var
     flip is enough: OIDC config is respected downstream.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://idp.example.com")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://idp.example.com")
 
     _apply_bind_auth_defaults("0.0.0.0")
 
-    from omnigent.server.auth import resolve_auth_source
+    from agentnexus.server.auth import resolve_auth_source
 
     assert resolve_auth_source() == "oidc"

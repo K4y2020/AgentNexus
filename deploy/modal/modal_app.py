@@ -1,4 +1,4 @@
-"""Modal deploy glue for the Omnigent server.
+"""Modal deploy glue for the AgentNexus server.
 
 Runs the standard server image (``ghcr.io/omnigent-ai/omnigent-server``)
 as a single always-on Modal web server, proxying HTTP / SSE / WebSocket
@@ -22,19 +22,19 @@ SERVER_PORT = 8000
 # 300 s leaves comfortable headroom before Modal declares startup failed.
 STARTUP_TIMEOUT_S = 300
 
-app = modal.App("omnigent")
+app = modal.App("agentnexus")
 
 # Persists uploaded agent bundles / artifacts across container restarts
 # and redeploys — unlike Heroku / Cloudflare Containers, the artifact
 # store is durable here.
-artifacts = modal.Volume.from_name("omnigent-artifacts", create_if_missing=True)
+artifacts = modal.Volume.from_name("agentnexus-artifacts", create_if_missing=True)
 
 
 @app.function(
     image=modal.Image.from_registry(SERVER_IMAGE),
-    # DATABASE_URL, OMNIGENT_ACCOUNTS_COOKIE_SECRET, and
-    # OMNIGENT_ACCOUNTS_BASE_URL — created in the README's step 1.
-    secrets=[modal.Secret.from_name("omnigent-deploy")],
+    # DATABASE_URL, AGENTNEXUS_ACCOUNTS_COOKIE_SECRET, and
+    # AGENTNEXUS_ACCOUNTS_BASE_URL — created in the README's step 1.
+    secrets=[modal.Secret.from_name("agentnexus-deploy")],
     volumes={"/data/artifacts": artifacts},
     # One always-on container: the runner registry lives in server
     # memory, so traffic must not be spread across containers

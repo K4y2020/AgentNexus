@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import cli_diagnostics
+from agentnexus import cli_diagnostics
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ def _capture_logger_snapshots() -> dict[str, _LoggerSnapshot]:
     :returns: Snapshot keyed by logger name.
     """
     snapshots: dict[str, _LoggerSnapshot] = {}
-    for name in ("", "omnigent", "omnigent_ui_sdk", "databricks.sdk"):
+    for name in ("", "agentnexus", "agentnexus_ui_sdk", "databricks.sdk"):
         logger = logging.getLogger(name)
         snapshots[name] = _LoggerSnapshot(
             handlers=list(logger.handlers),
@@ -160,7 +160,7 @@ def test_setup_cli_logging_uses_data_dir_cli_destination(
     """CLI diagnostics live under ``<data-dir>/logs/cli``."""
     del isolated_cli_diagnostics
     data_dir = tmp_path / "data"
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(data_dir))
 
     ctx = cli_diagnostics.setup_cli_logging(["run", "agent.yaml"])
 
@@ -172,12 +172,12 @@ def test_setup_cli_logging_honors_debug_level(
     isolated_cli_diagnostics: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``OMNIGENT_LOG_LEVEL=DEBUG`` makes debug records reach cli logs."""
+    """``AGENTNEXUS_LOG_LEVEL=DEBUG`` makes debug records reach cli logs."""
     del isolated_cli_diagnostics
-    monkeypatch.setenv("OMNIGENT_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("AGENTNEXUS_LOG_LEVEL", "DEBUG")
     ctx = cli_diagnostics.setup_cli_logging(["run", "agent.yaml"])
 
-    logging.getLogger("omnigent.test").debug("debug-visible")
+    logging.getLogger("agentnexus.test").debug("debug-visible")
 
     assert "debug-visible" in ctx.path.read_text(encoding="utf-8")
 
@@ -255,7 +255,7 @@ def test_log_cli_error_hint_uses_original_stderr_when_redirected(
 def test_stale_host_hint_recommends_generic_stop_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Tunnel rejection recovery should stop stale Omnigent processes."""
+    """Tunnel rejection recovery should stop stale AgentNexus processes."""
     terminal_stderr = io.StringIO()
     monkeypatch.setattr(sys, "stderr", terminal_stderr)
 
@@ -265,8 +265,8 @@ def test_stale_host_hint_recommends_generic_stop_command(
     assert "runner tunnel rejection (HTTP 401)" in hint
     assert "stale host processes" in hint
     assert "`omnigent stop`" in hint
-    assert "existing Omnigent host instances" in hint
-    assert "omnigent setup" not in hint
+    assert "existing AgentNexus host instances" in hint
+    assert "agentnexus setup" not in hint
 
 
 def test_stale_host_hint_names_configured_wrapper(
@@ -275,7 +275,7 @@ def test_stale_host_hint_names_configured_wrapper(
     """Under a wrapper deployment the hint suggests the wrapper, not naked `omnigent`."""
     terminal_stderr = io.StringIO()
     monkeypatch.setattr(sys, "stderr", terminal_stderr)
-    monkeypatch.setenv("OMNIGENT_WRAPPER_COMMAND", "isaac omni")
+    monkeypatch.setenv("AGENTNEXUS_WRAPPER_COMMAND", "isaac omni")
 
     cli_diagnostics.print_stale_host_hint()
 
@@ -424,14 +424,14 @@ def test_main_logs_click_exceptions(
     :returns: ``None``.
     """
     del isolated_cli_diagnostics
-    from omnigent import cli as cli_module
+    from agentnexus import cli as cli_module
 
     # An unsupported --harness is a deterministic ClickException trigger that
     # raises before any daemon/network work. (A bare `omnigent run` no longer
     # errors — it drops into first-run `configure harnesses` — so it can't be
     # the trigger here.)
-    monkeypatch.setattr(sys, "argv", ["omnigent", "run", "--harness", "not-a-real-harness"])
-    # Isolate from any real ~/.omnigent/config.yaml on the developer's machine.
+    monkeypatch.setattr(sys, "argv", ["agentnexus", "run", "--harness", "not-a-real-harness"])
+    # Isolate from any real ~/.agentnexus/config.yaml on the developer's machine.
     monkeypatch.setattr(cli_module, "_load_global_config", dict)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -468,9 +468,9 @@ async def test_slash_command_exceptions_reach_cli_log(
     :returns: ``None``.
     """
     del isolated_cli_diagnostics
-    from omnigent_ui_sdk import RichBlockFormatter
+    from agentnexus_ui_sdk import RichBlockFormatter
 
-    from omnigent.repl._repl import handle_slash_command
+    from agentnexus.repl._repl import handle_slash_command
     from tests.repl.helpers import CapturingHost
 
     class _SessionWithoutModelSetter:

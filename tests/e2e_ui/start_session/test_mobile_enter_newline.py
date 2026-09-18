@@ -222,7 +222,7 @@ async def _drive_mobile_enter_newline(base_url: str, session_id: str) -> None:
             # button can become enabled.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )

@@ -21,9 +21,9 @@ import httpx
 import pytest
 from cachetools import TTLCache
 
-import omnigent.model_catalog as model_catalog
-from omnigent.codex_model_vocabulary import codex_spawn_model
-from omnigent.model_catalog import (
+import agentnexus.model_catalog as model_catalog
+from agentnexus.codex_model_vocabulary import codex_spawn_model
+from agentnexus.model_catalog import (
     ModelEntry,
     ModelListing,
     catalog_for_spec,
@@ -34,8 +34,8 @@ from omnigent.model_catalog import (
     resolve_model_provider,
     spec_harness,
 )
-from omnigent.model_fallbacks import _SMART_ROUTING_FALLBACKS, CODEX_DEFAULT_MODEL
-from omnigent.model_metadata import (
+from agentnexus.model_fallbacks import _SMART_ROUTING_FALLBACKS, CODEX_DEFAULT_MODEL
+from agentnexus.model_metadata import (
     ModelCapability,
     ModelCostTier,
     ModelIntent,
@@ -44,10 +44,10 @@ from omnigent.model_metadata import (
     ModelReasoningMode,
     ModelWireAPI,
 )
-from omnigent.model_resolver import ModelResolutionError, ModelResolutionSource
-from omnigent.onboarding.providers import ModelInfo
-from omnigent.runtime.credentials.databricks import WorkspaceCreds
-from omnigent.spec.types import AgentSpec, ApiKeyAuth, DatabricksAuth, ExecutorSpec
+from agentnexus.model_resolver import ModelResolutionError, ModelResolutionSource
+from agentnexus.onboarding.providers import ModelInfo
+from agentnexus.runtime.credentials.databricks import WorkspaceCreds
+from agentnexus.spec.types import AgentSpec, ApiKeyAuth, DatabricksAuth, ExecutorSpec
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +71,7 @@ def _no_ambient_detection(monkeypatch: pytest.MonkeyPatch) -> None:
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    monkeypatch.setattr("omnigent.onboarding.detected.detect_providers", list)
+    monkeypatch.setattr("agentnexus.onboarding.detected.detect_providers", list)
 
 
 def _isolate_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, yaml_text: str) -> None:
@@ -81,8 +81,8 @@ def _isolate_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, yaml_text: 
     :param tmp_path: Per-test temp dir to hold ``config.yaml``.
     :param yaml_text: The config file contents, e.g. a ``providers:`` block.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
     (tmp_path / "config.yaml").write_text(yaml_text)
 
@@ -98,7 +98,7 @@ def _worker_spec(harness: str, **executor_kwargs: object) -> AgentSpec:
     return AgentSpec(
         spec_version=1,
         name="worker",
-        executor=ExecutorSpec(type="omnigent", config={"harness": harness}, **executor_kwargs),  # type: ignore[arg-type]
+        executor=ExecutorSpec(type="agentnexus", config={"harness": harness}, **executor_kwargs),  # type: ignore[arg-type]
     )
 
 
@@ -320,7 +320,7 @@ def test_resolve_provider_legacy_profile(monkeypatch: pytest.MonkeyPatch, tmp_pa
         spec_version=1,
         name="worker",
         executor=ExecutorSpec(
-            type="omnigent", config={"harness": "codex-native", "profile": "legacy-prof"}
+            type="agentnexus", config={"harness": "codex-native", "profile": "legacy-prof"}
         ),
     )
     provider = resolve_model_provider(spec, "codex-native")
@@ -345,7 +345,7 @@ def test_resolve_provider_databricks_model_prefix_uses_env_profile(
         spec_version=1,
         name="worker",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "pi"},
             model="databricks-claude-opus-4-8",
         ),
@@ -364,7 +364,7 @@ def test_resolve_provider_databricks_model_prefix_uses_env_profile(
         pytest.param(_worker_spec("unknown-harness"), "unknown-harness", id="unknown-harness"),
         # A structural stub without spec attributes must degrade, not raise.
         pytest.param(
-            SimpleNamespace(executor=SimpleNamespace(type="omnigent", config={})),
+            SimpleNamespace(executor=SimpleNamespace(type="agentnexus", config={})),
             "claude-native",
             id="structural-stub",
         ),
@@ -1004,7 +1004,7 @@ def test_cursor_listing_uses_live_cli_base_models(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Per-test temp dir.
     """
-    from omnigent import cursor_native
+    from agentnexus import cursor_native
 
     _isolate_config(monkeypatch, tmp_path, "")
     monkeypatch.setattr(
@@ -1030,7 +1030,7 @@ def test_cursor_listing_failure_is_empty_and_retryable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A transient Cursor CLI failure does not cache an empty catalog."""
-    from omnigent import cursor_native
+    from agentnexus import cursor_native
 
     _isolate_config(monkeypatch, tmp_path, "")
     calls = 0
@@ -1064,7 +1064,7 @@ def test_cursor_listing_failure_degrades_to_usable_static_row(
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Per-test temp dir.
     """
-    from omnigent import cursor_native
+    from agentnexus import cursor_native
 
     _isolate_config(monkeypatch, tmp_path, "")
 
@@ -1270,7 +1270,7 @@ def test_failed_auth_command_note_never_leaks_the_command(
     parent = AgentSpec(
         spec_version=1,
         name="orchestrator",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "pi"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "pi"}),
         sub_agents=[_worker_spec("pi")],
     )
     catalog = catalog_for_spec(parent, transport=httpx.MockTransport(_handler))
@@ -1316,13 +1316,13 @@ def test_catalog_isolates_per_worker_failures(
     parent = AgentSpec(
         spec_version=1,
         name="orchestrator",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-sdk"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-sdk"}),
         sub_agents=[
             _worker_spec("claude-native"),
             AgentSpec(
                 spec_version=1,
                 name="codex",
-                executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+                executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
             ),
         ],
     )
@@ -1363,7 +1363,7 @@ def test_catalog_payload_is_json_serializable_and_omits_unknown_context(
     parent = AgentSpec(
         spec_version=1,
         name="orchestrator",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "pi"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "pi"}),
         sub_agents=[_worker_spec("pi")],
     )
 
@@ -1448,7 +1448,7 @@ def test_bundled_catalog_entries_normalize_capabilities_context_and_cost(
             output_price=6.0,
         ),
     ]
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
 
     entries = catalog_model_entries("provider")
 
@@ -1483,7 +1483,7 @@ def test_resolve_catalog_model_uses_intent_and_configured_precedence(
             output_price=30.0,
         ),
     ]
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
 
     powerful = resolve_catalog_model("provider", intent=ModelIntent.POWERFUL)
     configured = resolve_catalog_model(
@@ -1508,7 +1508,7 @@ def test_resolve_catalog_default_preserves_provider_policy(
         ModelInfo(name="gpt-general", provider="gateway", mode="chat"),
         ModelInfo(name="claude-general", provider="gateway", mode="chat"),
     ]
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda provider: models)
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda provider: models)
 
     resolution = resolve_catalog_model("gateway", family="openai")
 
@@ -1521,7 +1521,7 @@ def test_resolve_catalog_default_preserves_provider_tier_policy(
 ) -> None:
     """Default resolution retains broadly accessible provider tiers."""
     monkeypatch.setattr(
-        "omnigent.onboarding.providers.get_chat_models",
+        "agentnexus.onboarding.providers.get_chat_models",
         lambda _provider: [
             ModelInfo(name="claude-opus-new", provider="anthropic", mode="chat"),
             ModelInfo(name="claude-sonnet-stable", provider="anthropic", mode="chat"),
@@ -1553,7 +1553,7 @@ def test_resolve_databricks_default_requires_gateway_routable_id(
         ModelInfo(name="databricks-claude-general", provider="databricks", mode="chat"),
         ModelInfo(name="databricks-gpt-general", provider="databricks", mode="chat"),
     ]
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
 
     resolution = resolve_catalog_model("databricks", family=family)
 
@@ -1565,7 +1565,7 @@ def test_resolve_databricks_default_requires_gateway_routable_id(
 def test_resolve_catalog_model_fails_when_discovery_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("omnigent.onboarding.providers.get_chat_models", lambda provider: [])
+    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda provider: [])
 
     with pytest.raises(
         ModelResolutionError,
@@ -1678,7 +1678,7 @@ def test_model_services_listing_is_scoped_and_paginated() -> None:
     reported a handful of unrelated user schemas with a ``next_page_token`` this
     call never followed. Scope to ``schemas/system.ai`` and page through.
     """
-    from omnigent import model_catalog
+    from agentnexus import model_catalog
 
     requests_seen: list[httpx.Request] = []
 
@@ -1735,7 +1735,7 @@ def test_model_services_listing_stops_on_repeated_page_token(
     bundled catalog's retired ``databricks-`` ids, so failing loud would
     reintroduce the 501 this scoping fix removes; a partial list still launches.
     """
-    from omnigent import model_catalog
+    from agentnexus import model_catalog
 
     def _handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1752,7 +1752,7 @@ def test_model_services_listing_stops_on_repeated_page_token(
             request=request,
         )
 
-    with caplog.at_level("WARNING", logger="omnigent.model_catalog"):
+    with caplog.at_level("WARNING", logger="agentnexus.model_catalog"):
         entries = model_catalog.fetch_databricks_model_service_entries(
             "https://workspace.example.com",
             "token",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.onboarding import harness_readiness as hr
+from agentnexus.onboarding import harness_readiness as hr
 
 
 @pytest.mark.parametrize("harness", ["pi", "pi-native", "native-pi"])

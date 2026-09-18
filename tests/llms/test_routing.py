@@ -2,8 +2,8 @@
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.llms.routing import RoutedModel, infer_harness_from_model, parse_model_string
+from agentnexus.errors import AgentNexusError
+from agentnexus.llms.routing import RoutedModel, infer_harness_from_model, parse_model_string
 
 
 @pytest.mark.parametrize(
@@ -94,7 +94,7 @@ def test_parse_without_prefix_defaults_to_openai(bare_model: str) -> None:
 
 
 def test_unknown_provider_raises() -> None:
-    with pytest.raises(OmnigentError, match="Unknown provider 'foobar'"):
+    with pytest.raises(AgentNexusError, match="Unknown provider 'foobar'"):
         parse_model_string("foobar/some-model")
 
 

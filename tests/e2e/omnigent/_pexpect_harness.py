@@ -1,6 +1,6 @@
-"""Reusable pexpect helpers for driving the Omnigent REPL.
+"""Reusable pexpect helpers for driving the AgentNexus REPL.
 
-The Omnigent REPL is a prompt-toolkit app that renders a full
+The AgentNexus REPL is a prompt-toolkit app that renders a full
 terminal layout (status bar + input area + streaming output +
 Ctrl+G debug overview). Driving it from tests requires:
 
@@ -18,7 +18,7 @@ Ctrl+G debug overview). Driving it from tests requires:
 The helpers here encapsulate that ceremony so individual tests
 stay focused on the behavior they exercise.
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 shared infrastructure.
 """
 
@@ -34,7 +34,7 @@ from pathlib import Path
 from tempfile import mkdtemp
 
 import pexpect
-from omnigent_ui_sdk import UserConfig, save_user_config
+from agentnexus_ui_sdk import UserConfig, save_user_config
 
 # Default PTY geometry. Large enough that the REPL's layout fits
 # without wrapping assistant text onto many rows (which would
@@ -104,7 +104,7 @@ def ensure_repl_test_theme_env(env: Mapping[str, str]) -> dict[str, str]:
     ``tui.theme`` entry. That is correct for users but breaks pexpect tests that
     expect the normal REPL prompt to be the first interactive surface.
 
-    The helper writes to ``OMNIGENT_CONFIG_HOME`` when provided, matching the
+    The helper writes to ``AGENTNEXUS_CONFIG_HOME`` when provided, matching the
     application resolver, and otherwise uses the isolated ``HOME``. Existing
     config such as mock auth settings is preserved. When the caller inherits
     the developer's real ``HOME``, the helper creates a temporary home and
@@ -118,7 +118,7 @@ def ensure_repl_test_theme_env(env: Mapping[str, str]) -> dict[str, str]:
     real_home = Path.home()
     requested_home = Path(prepared.get("HOME", str(real_home))).expanduser()
     if requested_home == real_home:
-        home = Path(mkdtemp(prefix="omnigent-e2e-home-"))
+        home = Path(mkdtemp(prefix="agentnexus-e2e-home-"))
         atexit.register(shutil.rmtree, home, ignore_errors=True)
         _link_if_exists(real_home / ".databrickscfg", home / ".databrickscfg")
         _link_if_exists(real_home / ".databricks", home / ".databricks")
@@ -128,9 +128,9 @@ def ensure_repl_test_theme_env(env: Mapping[str, str]) -> dict[str, str]:
         home = requested_home
         home.mkdir(parents=True, exist_ok=True)
 
-    config_home = prepared.get("OMNIGENT_CONFIG_HOME")
+    config_home = prepared.get("AGENTNEXUS_CONFIG_HOME")
     config_path = (
-        Path(config_home).expanduser() if config_home else home / ".omnigent"
+        Path(config_home).expanduser() if config_home else home / ".agentnexus"
     ) / "config.yaml"
     save_user_config(UserConfig(theme="light"), config_path)
     return prepared
@@ -186,7 +186,7 @@ def spawn_omnigent_run(
         by the ``omnigent_credentials_env`` fixture so PAT
         and base URL propagate.
     :param cwd: Working directory for the subprocess. Must be
-        the Omnigent repo root so YAML ``callable:`` entries
+        the AgentNexus repo root so YAML ``callable:`` entries
         like ``tests.resources.examples._shared.tool_functions.get_current_time``
         resolve on sys.path.
     :param timeout: Default expect-timeout in seconds. Tests
@@ -226,11 +226,11 @@ def spawn_omnigent_run(
         # public shape users run locally. The branch under test does
         # not expose the legacy ``--no-log`` / ``--no-session`` flags
         # on that shape, so do not append them here.
-        command = str(omnigent_python.parent / "omnigent")
+        command = str(omnigent_python.parent / "agentnexus")
     else:
         args = [
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",
@@ -249,7 +249,7 @@ def spawn_omnigent_run(
         args.extend(["-p", initial_prompt])
     # NOTE: the omnigent CLI no longer accepts ``--profile``; Databricks
     # routing for spawned CLIs comes from the ``auth:`` block written into
-    # the isolated ``OMNIGENT_CONFIG_HOME`` by ``omnigent_credentials_env``.
+    # the isolated ``AGENTNEXUS_CONFIG_HOME`` by ``omnigent_credentials_env``.
     spawn_env = ensure_repl_test_theme_env(env)
     return pexpect.spawn(
         command,

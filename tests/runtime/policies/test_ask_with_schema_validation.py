@@ -19,16 +19,16 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies import _await_elicitation
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies import _await_elicitation
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     LabelDef,
     Phase,
     PhaseSelector,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_policy

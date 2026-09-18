@@ -19,7 +19,7 @@ concurrency:
 jobs:
   hygiene:
     if: >-
-      github.repository == 'omnigent-ai/omnigent'
+      github.repository == 'agentnexus-ai/agentnexus'
       && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10

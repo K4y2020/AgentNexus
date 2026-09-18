@@ -47,7 +47,7 @@ def _build_repl_env(mock_llm_server_url: str, tmp_home: Path) -> dict[str, str]:
     Points ``OPENAI_BASE_URL`` at the mock LLM server so the spawned
     ``omnigent run`` subprocess uses mock responses.
     """
-    from tests.e2e.omnigent._pexpect_harness import ensure_repl_test_theme_env
+    from tests.e2e.agentnexus._pexpect_harness import ensure_repl_test_theme_env
 
     sdk_paths = [
         str(_REPO_ROOT / "sdks" / "python-client"),
@@ -58,7 +58,7 @@ def _build_repl_env(mock_llm_server_url: str, tmp_home: Path) -> dict[str, str]:
         os.pathsep.join([*sdk_paths, existing_pp]) if existing_pp else os.pathsep.join(sdk_paths)
     )
 
-    config_home = tmp_home / ".omnigent"
+    config_home = tmp_home / ".agentnexus"
     config_home.mkdir(parents=True, exist_ok=True)
     (config_home / "config.yaml").write_text(
         "auto_open_conversation: false\ntui:\n  theme: dark\n",
@@ -70,10 +70,10 @@ def _build_repl_env(mock_llm_server_url: str, tmp_home: Path) -> dict[str, str]:
         "OPENAI_API_KEY": "mock-key",
         "OPENAI_BASE_URL": f"{mock_llm_server_url}/v1",
         "HOME": str(tmp_home),
-        "OMNIGENT_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
         "DATABRICKS_CONFIG_FILE": str(real_databrickscfg),
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
         "PYTHONPATH": merged_pp,
         "TERM": "xterm-256color",
         "LINES": "40",
@@ -96,7 +96,7 @@ def _spawn_sessions_repl(
         sys.executable,
         [
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--no-session",
@@ -120,7 +120,7 @@ def _spawn_repl_with_args(
     """Spawn ``omnigent run`` with caller-supplied CLI args."""
     args = [
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--no-session",

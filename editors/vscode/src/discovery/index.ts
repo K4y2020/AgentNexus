@@ -1,5 +1,5 @@
 /**
- * Local-server discovery (A3): read ~/.omnigent/local_server.pid, parse it,
+ * Local-server discovery (A3): read ~/.agentnexus/local_server.pid, parse it,
  * confirm liveness, and (optionally) probe /health. The pure logic lives in
  * pidfile.ts / health.ts; this module wires the filesystem + network IO behind
  * an injectable interface so it can be exercised without touching the real
@@ -16,7 +16,7 @@ export * from "./pidfile";
 export * from "./health";
 export { isPidAlive } from "./liveness";
 
-export const PIDFILE_PATH = join(homedir(), ".omnigent", "local_server.pid");
+export const PIDFILE_PATH = join(homedir(), ".agentnexus", "local_server.pid");
 
 /** Injectable IO surface so discovery is testable without real fs/net/os. */
 export interface DiscoveryIO {

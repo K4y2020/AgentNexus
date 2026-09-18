@@ -85,14 +85,14 @@ def _clean_env(profile: str) -> dict[str, str]:
     env["DATABRICKS_CONFIG_PROFILE"] = profile
     # The omnigent CLI no longer accepts ``--profile``; write the
     # supported replacement — an ``auth:`` block in an isolated
-    # ``OMNIGENT_CONFIG_HOME`` — so the spawned CLI routes the
+    # ``AGENTNEXUS_CONFIG_HOME`` — so the spawned CLI routes the
     # claude-sdk harness through this Databricks profile.
-    config_home = Path(tempfile.mkdtemp(prefix="omnigent-alias-config-"))
+    config_home = Path(tempfile.mkdtemp(prefix="agentnexus-alias-config-"))
     (config_home / "config.yaml").write_text(
         f"auth:\n  type: databricks\n  profile: {profile}\n",
         encoding="utf-8",
     )
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
     repo = str(Path(__file__).resolve().parents[3])
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = os.pathsep.join(p for p in (repo, existing) if p)
@@ -105,7 +105,7 @@ def test_run_with_claude_alias_produces_output(
     """``omnigent run --harness claude-sdk`` exits 0 with assistant text.
 
     Proves the "claude" alias is canonicalized through the full
-    CLI → Omnigent server → harness spawn → LLM call → output path.
+    CLI → AgentNexus server → harness spawn → LLM call → output path.
 
     :param request: Pytest request for --profile flag access.
     """
@@ -121,7 +121,7 @@ def test_run_with_claude_alias_produces_output(
         [
             str(python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--harness",

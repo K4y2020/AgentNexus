@@ -56,7 +56,7 @@ export function ConversationBreadcrumb({
   isChildSession: boolean;
   /** The bound agent — names the sub-agent segment. */
   boundAgent: Agent | undefined;
-  /** The session's `omnigent.wrapper` label — names a native sub-agent's vendor. */
+  /** The session's `agentnexus.wrapper` label — names a native sub-agent's vendor. */
   wrapperLabel: string | null;
   /** Session-management menu rendered immediately after the title. */
   actions?: ReactNode;

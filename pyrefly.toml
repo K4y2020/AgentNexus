@@ -1,6 +1,6 @@
 project-includes = [
-    "omnigent/**/*.py",
-    "omnigent/**/*.pyi",
+    "agentnexus/**/*.py",
+    "agentnexus/**/*.pyi",
     "sdks/python-client/**/*.py",
 ]
 
@@ -44,7 +44,7 @@ ignore-missing-imports = [
     "modal.*",
     "numpy",
     "numpy.*",
-    "omnigent.onboarding.internal_beta",
+    "agentnexus.onboarding.internal_beta",
     "openshell",
     "openshell.*",
 ]

@@ -24,11 +24,11 @@ from typing import Any
 
 import pytest
 
-from omnigent.db.db_models import current_workspace_id
-from omnigent.entities import ScheduledTask
-from omnigent.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
-from omnigent.server.scheduled import fire as fire_mod
-from omnigent.server.scheduled.fire import FireDeps, build_on_fire, build_run_now
+from agentnexus.db.db_models import current_workspace_id
+from agentnexus.entities import ScheduledTask
+from agentnexus.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
+from agentnexus.server.scheduled import fire as fire_mod
+from agentnexus.server.scheduled.fire import FireDeps, build_on_fire, build_run_now
 
 # ── Fakes ──────────────────────────────────────────────────────────────────
 
@@ -571,7 +571,7 @@ async def test_native_wrapper_task_stamps_terminal_first_labels() -> None:
     so the web UI shows the Chat/Terminal switcher; the fire path must stamp the
     same labels or the session renders Chat-only with no way to its terminal.
     """
-    from omnigent.native_coding_agents import PI_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import PI_NATIVE_AGENT_NAME
 
     conv_store = FakeConversationStore()
     store = FakeScheduledTaskStore(rows={"task_1": _task()})
@@ -592,8 +592,8 @@ async def test_native_wrapper_task_stamps_terminal_first_labels() -> None:
     await _drain()
 
     assert conv_store.label_writes["conv_1"] == {
-        "omnigent.ui": "terminal",
-        "omnigent.wrapper": PI_NATIVE_AGENT_NAME,
+        "agentnexus.ui": "terminal",
+        "agentnexus.wrapper": PI_NATIVE_AGENT_NAME,
     }
 
 
@@ -620,7 +620,7 @@ async def test_non_native_host_bound_task_stamps_repl_terminal_label() -> None:
     await on_fire(0, "task_1")
     await _drain()
 
-    assert conv_store.label_writes["conv_1"] == {"omnigent.ui": "terminal"}
+    assert conv_store.label_writes["conv_1"] == {"agentnexus.ui": "terminal"}
 
 
 @pytest.mark.asyncio
@@ -656,7 +656,7 @@ async def test_native_wrapper_labels_resolve_without_agent_cache() -> None:
     cache dependency — a deployment with no fire-deps cache must not silently
     drop the switcher for a Pi/OpenCode/etc. automation.
     """
-    from omnigent.native_coding_agents import PI_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import PI_NATIVE_AGENT_NAME
 
     conv_store = FakeConversationStore()
     store = FakeScheduledTaskStore(rows={"task_1": _task()})
@@ -675,8 +675,8 @@ async def test_native_wrapper_labels_resolve_without_agent_cache() -> None:
     await _drain()
 
     assert conv_store.label_writes["conv_1"] == {
-        "omnigent.ui": "terminal",
-        "omnigent.wrapper": PI_NATIVE_AGENT_NAME,
+        "agentnexus.ui": "terminal",
+        "agentnexus.wrapper": PI_NATIVE_AGENT_NAME,
     }
 
 
@@ -749,8 +749,8 @@ async def test_explicit_owner_is_granted() -> None:
 async def test_connected_host_dispatch_uses_resolved_local_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import omnigent.server.routes._host_launch as host_launch
-    import omnigent.server.routes.sessions as sessions_routes
+    import agentnexus.server.routes._host_launch as host_launch
+    import agentnexus.server.routes.sessions as sessions_routes
 
     captured: dict[str, Any] = {}
 
@@ -1221,7 +1221,7 @@ async def test_resolve_default_workspace_returns_canonical_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The default workspace is the host's stat'd canonical home path, not '~'."""
-    import omnigent.server.routes._workspace_validation as wsv
+    import agentnexus.server.routes._workspace_validation as wsv
 
     captured: dict[str, Any] = {}
 
@@ -1250,7 +1250,7 @@ async def test_resolve_default_workspace_raises_when_home_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A stat that returns no canonical path is an honest launch failure."""
-    import omnigent.server.routes._workspace_validation as wsv
+    import agentnexus.server.routes._workspace_validation as wsv
 
     async def _fake_stat(*, host_registry: Any, host_conn: Any, path: str) -> dict[str, Any]:
         return {"status": "ok", "exists": False, "type": None, "canonical_path": None}
@@ -1453,7 +1453,7 @@ async def test_max_cost_usd_attaches_cost_budget_policy() -> None:
     assert len(policy_store.created) == 1
     pol = policy_store.created[0]
     assert pol["session_id"] == "conv_1"
-    assert pol["handler"] == "omnigent.policies.builtins.cost.cost_budget"
+    assert pol["handler"] == "agentnexus.policies.builtins.cost.cost_budget"
     assert pol["factory_params"] == {"max_cost_usd": 5.0}
     assert pol["enabled"] is True
     assert store.runs[0]["status"] == "running"

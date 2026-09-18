@@ -24,21 +24,21 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.host.frames import HostHelloFrame
-from omnigent.runtime import session_stream
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server import presence
-from omnigent.server.app import create_app
-from omnigent.server.auth import LEVEL_EDIT, LEVEL_MANAGE, LEVEL_OWNER, LEVEL_READ
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.host.frames import HostHelloFrame
+from agentnexus.runtime import session_stream
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server import presence
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import LEVEL_EDIT, LEVEL_MANAGE, LEVEL_OWNER, LEVEL_READ
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.host_store import HostStore
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.host_store import HostStore
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 from tests.server.conftest import ControllableMockClient
@@ -71,7 +71,7 @@ def auth_app(
     :param db_uri: Test database URI.
     :param tmp_path: Pytest temporary directory fixture.
     """
-    from omnigent.server.auth import UnifiedAuthProvider
+    from agentnexus.server.auth import UnifiedAuthProvider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -88,7 +88,7 @@ def auth_app(
         # Explicit strict header mode (the deployed multi-user
         # posture): requests without X-Forwarded-Email are rejected
         # with 401. Constructed directly rather than via
-        # create_auth_provider() so ambient OMNIGENT_* env vars in
+        # create_auth_provider() so ambient AGENTNEXUS_* env vars in
         # the test runner can't flip the mode.
         auth_provider=UnifiedAuthProvider(source="header", local_single_user=False),
     )
@@ -106,8 +106,8 @@ async def auth_client(
     ``conftest.py``: starts the harness process manager, yields the
     client, then tears down DBOS on exit.
     """
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -131,7 +131,7 @@ def local_auth_app(
 
     Same wiring as :func:`auth_app` but with
     ``local_single_user=True`` (the posture of a server spawned with
-    ``OMNIGENT_LOCAL_SINGLE_USER=1``): requests without
+    ``AGENTNEXUS_LOCAL_SINGLE_USER=1``): requests without
     ``X-Forwarded-Email`` resolve to the reserved ``"local"``
     identity instead of being rejected.
 
@@ -139,7 +139,7 @@ def local_auth_app(
     :param db_uri: Test database URI.
     :param tmp_path: Pytest temporary directory fixture.
     """
-    from omnigent.server.auth import UnifiedAuthProvider
+    from agentnexus.server.auth import UnifiedAuthProvider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -167,8 +167,8 @@ async def local_auth_client(
 
     Same lifecycle pattern as :func:`auth_client`.
     """
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -192,7 +192,7 @@ def host_perm_app(
     Same shape as :func:`auth_app` but passes ``host_store`` so the
     host-launch authorization path in ``POST /v1/sessions`` is live.
     """
-    from omnigent.server.auth import create_auth_provider
+    from agentnexus.server.auth import create_auth_provider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -218,8 +218,8 @@ async def host_perm_client(
     tmp_path: Path,
 ) -> AsyncIterator[httpx.AsyncClient]:
     """HTTP client for the host-enabled auth app (mirrors ``auth_client``)."""
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()

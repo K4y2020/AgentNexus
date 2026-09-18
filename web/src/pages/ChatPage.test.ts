@@ -94,8 +94,8 @@ describe("Composer structural read-only reasons", () => {
   it("uses the closed-session reason when the live snapshot is closed", () => {
     expect(
       readOnlyReasonForSessionLabels(
-        { labels: { "omnigent.closed": "true" } },
-        { labels: { "omnigent.wrapper": "claude-code-native-ui-subagent" } },
+        { labels: { "agentnexus.closed": "true" } },
+        { labels: { "agentnexus.wrapper": "claude-code-native-ui-subagent" } },
       ),
     ).toBe("This sub-agent session is closed");
   });
@@ -103,7 +103,7 @@ describe("Composer structural read-only reasons", () => {
   it("falls back to the sidebar wrapper label for native read-only children", () => {
     expect(
       readOnlyReasonForSessionLabels(null, {
-        labels: { "omnigent.wrapper": "claude-code-native-ui-subagent" },
+        labels: { "agentnexus.wrapper": "claude-code-native-ui-subagent" },
       }),
     ).toBe("Claude Code sub-agents are read-only");
   });
@@ -1706,7 +1706,7 @@ describe("routing eligibility gates", () => {
     agentName: "coder",
     parentSessionId: null,
     harness: "claude-native",
-    labels: { "omnigent.wrapper": "claude-code" },
+    labels: { "agentnexus.wrapper": "claude-code" },
     // Routed: a native session's spawn-routing apparatus is installed at
     // launch, so only a Smart Routing one carries the switch.
     costControlModeOverride: "on",
@@ -1766,12 +1766,12 @@ describe("routing eligibility gates", () => {
     const codex = {
       ...nativeSession,
       harness: "codex-native",
-      labels: { "omnigent.wrapper": "codex-cli" },
+      labels: { "agentnexus.wrapper": "codex-cli" },
     } as unknown as Session;
     expect(isSubagentRoutingEligible(info(true), codex)).toBe(true);
     const autoCodex = {
       ...codex,
-      labels: { ...codex.labels, "omnigent.routing.auto_harness": "1" },
+      labels: { ...codex.labels, "agentnexus.routing.auto_harness": "1" },
     } as unknown as Session;
     expect(isSubagentRoutingEligible(info(true), autoCodex)).toBe(true);
     // Plain codex is the one class that never reads the switch.

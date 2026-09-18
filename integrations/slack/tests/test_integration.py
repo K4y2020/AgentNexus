@@ -1,7 +1,7 @@
-"""Vertical integration tests: omnigent-slack ↔ Omnigent HTTP server.
+"""Vertical integration tests: omnigent-slack ↔ AgentNexus HTTP server.
 
-These drive the REAL ``OmnigentClient`` (real ``httpx``) against a fake Omnigent
-server (:class:`FakeOmnigentServer`, a ``respx`` router that owns the API
+These drive the REAL ``AgentNexusClient`` (real ``httpx``) against a fake AgentNexus
+server (:class:`FakeAgentNexusServer`, a ``respx`` router that owns the API
 contract), and assert BOTH sides of the seam:
 
   1. the bot issued spec-correct HTTP requests (method, path, bearer, body); and
@@ -21,14 +21,14 @@ from pathlib import Path
 
 import respx
 from cryptography.fernet import Fernet
-from fakes import FakeOmnigentServer, RecordingSlackClient, sse_delta, sse_status
-from omnigent_slack.auth_manager import AuthManager
-from omnigent_slack.models import UserConfig
-from omnigent_slack.omnigent import OmnigentClientPool
-from omnigent_slack.service import SlackOmnigentService
-from omnigent_slack.setup import SetupFlow
-from omnigent_slack.store import SQLiteStore
-from omnigent_slack.tokens import EncryptedTokenStore
+from fakes import FakeAgentNexusServer, RecordingSlackClient, sse_delta, sse_status
+from agentnexus_slack.auth_manager import AuthManager
+from agentnexus_slack.models import UserConfig
+from agentnexus_slack.agentnexus import AgentNexusClientPool
+from agentnexus_slack.service import SlackAgentNexusService
+from agentnexus_slack.setup import SetupFlow
+from agentnexus_slack.store import SQLiteStore
+from agentnexus_slack.tokens import EncryptedTokenStore
 
 _SERVER = "http://omnigent.test"
 
@@ -68,7 +68,7 @@ async def _configure_user(
 _WAIT_TIMEOUT_S = 10.0
 
 
-async def _wait_for_turns(service: SlackOmnigentService, timeout: float = _WAIT_TIMEOUT_S) -> None:
+async def _wait_for_turns(service: SlackAgentNexusService, timeout: float = _WAIT_TIMEOUT_S) -> None:
     """Wait until the service's spawned turn tasks have finished.
 
     A turn runs as a background task; ``shutdown`` would CANCEL it, so tests that
@@ -85,7 +85,7 @@ async def _wait_for_turns(service: SlackOmnigentService, timeout: float = _WAIT_
 
 async def _wait_for_stream_stop(
     client: RecordingSlackClient,
-    service: SlackOmnigentService,
+    service: SlackAgentNexusService,
     timeout: float = _WAIT_TIMEOUT_S,
 ) -> None:
     """Wait for the turn to finish, then assert it delivered a stream.
@@ -105,13 +105,13 @@ async def test_omnigent_command_auth_wall_shows_login_link(tmp_path: Path) -> No
     """``/omnigent`` on an auth-enabled server: the bot probes the server, hits the
     auth wall on the agent listing, starts the device grant, and shows the
     verification link in the setup modal — no DM."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.auth_required = True
     server.install(respx.mock)
 
     store = await _store(tmp_path)
     token_store = await _token_store(tmp_path)
-    pool = OmnigentClientPool()
+    pool = AgentNexusClientPool()
     auth = AuthManager(token_store)
     pool.set_auth_resolver(auth.resolve_auth)
     setup = SetupFlow(store=store, pool=pool, server_url=_SERVER, auth_manager=auth)
@@ -147,7 +147,7 @@ async def test_omnigent_command_auth_wall_shows_login_link(tmp_path: Path) -> No
 async def test_omnigent_command_happy_path_shows_picker(tmp_path: Path) -> None:
     """``/omnigent`` with a valid token: validate() succeeds and the modal advances
     to the agent/host/workspace picker built from the server's data."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.agents = [{"id": "ag_1", "name": "debby"}]
     server.hosts = [{"host_id": "h1", "name": "Host One", "status": "online"}]
     server.install(respx.mock)
@@ -155,7 +155,7 @@ async def test_omnigent_command_happy_path_shows_picker(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     token_store = await _token_store(tmp_path)
     await token_store.put("T1", "U1", _SERVER, access_token="tok-abc", refresh_token="ref-abc")
-    pool = OmnigentClientPool()
+    pool = AgentNexusClientPool()
     auth = AuthManager(token_store)
     pool.set_auth_resolver(auth.resolve_auth)
     setup = SetupFlow(store=store, pool=pool, server_url=_SERVER, auth_manager=auth)
@@ -174,7 +174,7 @@ async def test_omnigent_command_happy_path_shows_picker(tmp_path: Path) -> None:
     # Slack side: the modal advanced to the select screen (not a login/failure one).
     assert client.updated_views, "expected the modal to advance"
     view = client.updated_views[-1]["view"]
-    assert view.get("callback_id") == "omnigent_setup_select"
+    assert view.get("callback_id") == "agentnexus_setup_select"
     # No login link and no DM — the token was accepted.
     assert server.user_code not in client.last_view_text()
     assert client.posts == []
@@ -187,13 +187,13 @@ async def test_omnigent_command_happy_path_shows_picker(tmp_path: Path) -> None:
 async def test_app_mention_runs_full_turn_and_streams_answer(tmp_path: Path) -> None:
     """An @-mention on a new thread drives the whole turn HTTP contract in order
     and streams the answer back into Slack."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.install(respx.mock)
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -228,7 +228,7 @@ async def test_auth_wall_mid_turn_prompts_relogin(tmp_path: Path) -> None:
     """When the session already exists and the server returns an auth wall on the
     stream, the bot reacts by prompting the user to re-login rather than posting a
     generic failure."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.auth_required = True  # /health ok, but the stream 401s
     server.install(respx.mock)
 
@@ -236,15 +236,15 @@ async def test_auth_wall_mid_turn_prompts_relogin(tmp_path: Path) -> None:
     await _configure_user(store, "T1", "U1")
     # Pre-map the thread to an existing session so the turn skips create/launch
     # and goes straight to streaming — where the auth wall is hit.
-    from omnigent_slack.models import ThreadKey
+    from agentnexus_slack.models import ThreadKey
 
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(
         key, "conv_1", "Slack: t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
-    pool = OmnigentClientPool()
+    pool = AgentNexusClientPool()
     setup = _RecordingSetup()
-    service = SlackOmnigentService(store=store, pool=pool, setup=setup, server_url=_SERVER)
+    service = SlackAgentNexusService(store=store, pool=pool, setup=setup, server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -275,20 +275,20 @@ async def test_runner_unavailable_triggers_launch_and_retry(tmp_path: Path) -> N
     """A pre-existing session whose bound runner is gone: the first submit returns
     503 runner_unavailable, so the client launches a fresh runner and retries the
     turn — the answer still streams."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.first_submit_runner_unavailable = True
     server.install(respx.mock)
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    from omnigent_slack.models import ThreadKey
+    from agentnexus_slack.models import ThreadKey
 
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -317,14 +317,14 @@ async def test_runner_unavailable_triggers_launch_and_retry(tmp_path: Path) -> N
 async def test_host_unavailable_on_launch_shows_guidance(tmp_path: Path) -> None:
     """A new session is created, but launching its runner 409s (host offline): the
     bot surfaces the host-unavailable guidance rather than a generic failure."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.launch_status = 409
     server.install(respx.mock)
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -358,20 +358,20 @@ async def test_host_unavailable_on_launch_shows_guidance(tmp_path: Path) -> None
 async def test_harness_not_configured_surfaces_curated_message(tmp_path: Path) -> None:
     """A 412 harness_not_configured carries curated, actionable guidance the bot is
     allowed to surface verbatim (unlike a raw server body)."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.harness_not_configured_message = "Run `omnigent setup` on host h1 to install claude."
     server.install(respx.mock)
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    from omnigent_slack.models import ThreadKey
+    from agentnexus_slack.models import ThreadKey
 
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -390,7 +390,7 @@ async def test_harness_not_configured_surfaces_curated_message(tmp_path: Path) -
     surfaced = " ".join(p.get("text", "") for p in client.posts)
     if client.streams:
         surfaced += client.stream.stop_text or ""
-    assert "omnigent setup" in surfaced.lower()
+    assert "agentnexus setup" in surfaced.lower()
 
 
 # ── Scenario 8: mid-stream drop → reconnect + delta de-dup ─────────────────────
@@ -400,7 +400,7 @@ async def test_harness_not_configured_surfaces_curated_message(tmp_path: Path) -
 async def test_mid_stream_drop_reconnects_without_double_render(tmp_path: Path) -> None:
     """The proxy severs the stream mid-answer; the client reconnects WITHOUT
     re-submitting and de-dups the server's cumulative replay so text isn't doubled."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     server.stream_legs = [
         # First leg: a running edge + partial answer, then a mid-tail drop.
         (sse_status("running", "r1") + sse_delta("Running tests", "m1") + "<DROP>"),
@@ -415,14 +415,14 @@ async def test_mid_stream_drop_reconnects_without_double_render(tmp_path: Path) 
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    from omnigent_slack.models import ThreadKey
+    from agentnexus_slack.models import ThreadKey
 
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:
@@ -452,7 +452,7 @@ async def test_mid_stream_drop_reconnects_without_double_render(tmp_path: Path) 
 async def test_no_delta_turn_recovers_committed_answer(tmp_path: Path) -> None:
     """A turn that streams no answer text (only status edges) must fall back to the
     server's newest assistant message rather than posting the empty-turn notice."""
-    server = FakeOmnigentServer(_SERVER)
+    server = FakeAgentNexusServer(_SERVER)
     # A stream that produces a delta but no text, ending on idle — the reply has
     # nothing, so the fallback fetches the committed item.
     server.sse_body = sse_status("running", "r1") + sse_status("idle", "r1")
@@ -468,14 +468,14 @@ async def test_no_delta_turn_recovers_committed_answer(tmp_path: Path) -> None:
 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
-    from omnigent_slack.models import ThreadKey
+    from agentnexus_slack.models import ThreadKey
 
     key = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
     await store.upsert_session(
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
-    pool = OmnigentClientPool()
-    service = SlackOmnigentService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    pool = AgentNexusClientPool()
+    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
     client = RecordingSlackClient()
 
     try:

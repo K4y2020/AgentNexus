@@ -15,12 +15,12 @@ import asyncio
 
 import pytest
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostRunnerStatusFrame,
     HostRunnerStatusResultFrame,
     decode_host_frame,
 )
-from omnigent.server.routes.sessions import _query_host_runner_status
+from agentnexus.server.routes.sessions import _query_host_runner_status
 
 pytestmark = pytest.mark.asyncio
 
@@ -135,7 +135,7 @@ async def test_query_times_out_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
     still get the benefit of the connect grace, so the query returning
     ``None`` preserves the prior blind-wait behavior.
     """
-    monkeypatch.setattr("omnigent.server.routes.sessions._HOST_RUNNER_STATUS_TIMEOUT_S", 0.05)
+    monkeypatch.setattr("agentnexus.server.routes.sessions._HOST_RUNNER_STATUS_TIMEOUT_S", 0.05)
     conn = _FakeHostConn()
     registry = _SilentRegistry()
 

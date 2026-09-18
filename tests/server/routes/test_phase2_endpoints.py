@@ -9,10 +9,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.coordination.store import CoordinationStore
-from omnigent.server.routes.coordination import router as coord_router
-from omnigent.server.routes.teammates import create_teammates_router
-from omnigent.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.server.routes.coordination import router as coord_router
+from agentnexus.server.routes.teammates import create_teammates_router
+from agentnexus.stores.bot_store.sqlalchemy_store import SqlAlchemyBotStore
 
 
 @pytest.fixture

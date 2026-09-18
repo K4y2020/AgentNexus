@@ -114,14 +114,14 @@ def local_polly_server(tmp_path: Path) -> Iterator[str]:
 
     env = {
         **os.environ,
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
     }
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -169,7 +169,7 @@ def _run_polly_turn(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(polly_dir),
             "--server",

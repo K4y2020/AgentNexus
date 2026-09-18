@@ -69,7 +69,7 @@ def _spawn_setup(tmp_path: Path) -> pexpect.spawn:
     }
     child = pexpect.spawn(
         sys.executable,
-        ["-m", "omnigent", "setup"],
+        ["-m", "agentnexus", "setup"],
         env=env,
         encoding=None,
         dimensions=(40, 120),
@@ -164,7 +164,7 @@ def test_setup_menu_arrows_move_selection_in_application_cursor_mode(
             "application-cursor-keys/DECCKM mode, e.g. fish 4.x under "
             "Ghostty, sends for the Down arrow) did not move the "
             "`omni setup` menu selection; select() in "
-            "omnigent/onboarding/interactive.py parses only the CSI form "
+            "agentnexus/onboarding/interactive.py parses only the CSI form "
             "(ESC [ B) and silently drops SS3 arrows"
         )
 

@@ -10,7 +10,7 @@ Date: 2026-09-07. Result: **partial pass; production handoff failed**.
 - Requested model: `gemini-3.8-flash-high`. Recorded `model_fact` resolves
   `gemini-3.8-flash`, with `upstream_unknown_reason=gateway_model_unavailable`.
   This identifies the recorded route, not independently verified upstream model identity.
-- Actual workspace: `C:/Users/Kay/.omnigent/bots/50cbe1836fb7541da95e4f859b447ae5/topics/581d04e5a5cd91ec17abd0223af0e855`.
+- Actual workspace: `C:/Users/Kay/.agentnexus/bots/50cbe1836fb7541da95e4f859b447ae5/topics/581d04e5a5cd91ec17abd0223af0e855`.
 - Reused a copy of the existing 0-30s media index. Three inspected frames were at
   4.500s, 15.0833125s and 26.9166875s. No full-film, audio or motion review.
 - No A2A, subagents, Seedance mutation, image/video generation or publishing.
@@ -59,8 +59,8 @@ searched for cached scripts and inspected their implementation extensively.
 
 Fixes made in the repository:
 
-- `omnigent/tools/builtins/read_skill_file.py`: explicit UTF-8 decoding.
-- `omnigent/tools/builtins/load_skill.py`: portable POSIX resource paths.
+- `agentnexus/tools/builtins/read_skill_file.py`: explicit UTF-8 decoding.
+- `agentnexus/tools/builtins/load_skill.py`: portable POSIX resource paths.
 - Added a regression simulating a GBK default locale for Chinese/Unicode text.
 
 Verification: **23 tests passed**, Ruff passed. A fresh process with `-X utf8=0`

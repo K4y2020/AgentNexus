@@ -24,16 +24,16 @@ from pathlib import Path
 import httpx
 import pexpect
 import pytest
-from omnigent_client import OmnigentClient, SessionsChat
+from agentnexus_client import AgentNexusClient, SessionsChat
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     PROMPT_READY,
     STATE_SLEEPING,
     clean_exit,
     ensure_repl_test_theme_env,
     submit_prompt,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _MODEL = "mock-session-lifecycle"
 _HARNESS = "openai-agents"
@@ -94,7 +94,7 @@ def _stop_host_daemon(home: Path) -> None:
 
     :param home: HOME directory used by a REPL subprocess.
     """
-    pid_path = home / ".omnigent" / "host.pid"
+    pid_path = home / ".agentnexus" / "host.pid"
     if not pid_path.exists():
         return
     try:
@@ -118,7 +118,7 @@ def _stop_host_daemon(home: Path) -> None:
 @dataclass(frozen=True)
 class _ServerHandle:
     """
-    Live standalone Omnigent server used by ``--server`` e2e tests.
+    Live standalone AgentNexus server used by ``--server`` e2e tests.
 
     :param base_url: Local server URL, e.g. ``"http://127.0.0.1:8123"``.
     :param proc: Server subprocess.
@@ -179,17 +179,17 @@ def _repl_env(
     """
     env = dict(base_env)
     # This process uses its per-test HOME for daemon state and logs.
-    env.pop("OMNIGENT_DATA_DIR", None)
+    env.pop("AGENTNEXUS_DATA_DIR", None)
     env["HOME"] = str(home)
     env["TERM"] = "xterm-256color"
     env["LINES"] = "40"
     env["COLUMNS"] = "120"
     env["PROMPT_TOOLKIT_NO_CPR"] = "1"
-    env["OMNIGENT_SESSIONS_ADAPTER_DEBUG"] = "1"
+    env["AGENTNEXUS_SESSIONS_ADAPTER_DEBUG"] = "1"
     # Localhost test servers do not need auth, but setting the
     # remote-token env forces the CLI's --server runner path to use
     # token-bound runner ids, matching the Databricks Apps shape.
-    env["OMNIGENT_REMOTE_AUTH_TOKEN"] = _LOCAL_REMOTE_AUTH_TOKEN
+    env["AGENTNEXUS_REMOTE_AUTH_TOKEN"] = _LOCAL_REMOTE_AUTH_TOKEN
     # Ensure mock LLM base URL is set.
     env["OPENAI_BASE_URL"] = f"{mock_llm_server_url}/v1"
     env["OPENAI_API_KEY"] = "mock-key"
@@ -209,18 +209,18 @@ def _spawn_run(
     """
     Spawn ``omnigent run`` under a real PTY.
 
-    :param omnigent_python: Python interpreter with Omnigent installed.
+    :param omnigent_python: Python interpreter with AgentNexus installed.
     :param repo_root: Checkout root used as subprocess cwd.
     :param yaml_path: Agent YAML path.
     :param env: Subprocess environment.
-    :param server_url: Optional Omnigent server URL for ``--server`` mode.
+    :param server_url: Optional AgentNexus server URL for ``--server`` mode.
     :param session_id: Optional session id for resume.
     :param no_session: When true, pass ``--no-session``.
     :returns: A live pexpect child.
     """
     args = [
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -261,7 +261,7 @@ def _session_runner_id(base_url: str, session_id: str) -> str:
     """
     Fetch the runner id currently bound to a session.
 
-    :param base_url: Omnigent server URL.
+    :param base_url: AgentNexus server URL.
     :param session_id: Session id.
     :returns: Bound runner id.
     :raises AssertionError: If the session is missing or unbound.
@@ -284,7 +284,7 @@ def _wait_session_runner_online(
     """
     Poll until a session has an online runner, optionally a new one.
 
-    :param base_url: Omnigent server URL.
+    :param base_url: AgentNexus server URL.
     :param session_id: Session id.
     :param previous_runner_id: Optional stale runner id that must be
         replaced before returning.
@@ -321,7 +321,7 @@ def _newest_session_id(base_url: str, agent_name: str) -> str:
     re-appear on a turn — so scraping them from the PTY races. The
     server's session list is the robust source of truth instead.
 
-    :param base_url: Omnigent server URL.
+    :param base_url: AgentNexus server URL.
     :param agent_name: Agent display name to resolve.
     :returns: The newest session id, e.g. ``"conv_..."``.
     :raises AssertionError: When no session exists for the agent.
@@ -365,7 +365,7 @@ def _drive_turn(
     :param child: Live REPL process.
     :param marker: Literal assistant marker expected in the PTY.
     :param mock_llm_server_url: Mock server URL for configuring queues.
-    :param base_url: Omnigent server URL for the ``--server`` flow;
+    :param base_url: AgentNexus server URL for the ``--server`` flow;
         ``None`` for the local flow.
     :param agent_name: Agent display name used to resolve the session
         in the ``--server`` flow (required when ``base_url`` is set).
@@ -446,7 +446,7 @@ def _runner_pid_from_daemon_log(home: Path, runner_id: str) -> int:
     :returns: The runner subprocess pid.
     :raises AssertionError: When the pid is not found in the daemon log.
     """
-    log_root = home / ".omnigent" / "logs"
+    log_root = home / ".agentnexus" / "logs"
     logs = sorted((log_root / "host").glob("host-*.log"))
     logs += sorted((log_root / "host-daemon").glob("daemon-*.log"))
     if not logs:
@@ -492,7 +492,7 @@ def _wait_http_ready(base_url: str, proc: subprocess.Popen[bytes], log_path: Pat
 
 def _server_entrypoint() -> str:
     """
-    Return a Python entrypoint for a remote-style Omnigent server.
+    Return a Python entrypoint for a remote-style AgentNexus server.
 
     :returns: Python source passed to ``python -c``.
     """
@@ -502,19 +502,19 @@ from pathlib import Path
 
 import uvicorn
 
-from omnigent.cli import _create_artifact_store
-from omnigent.runtime import init as init_runtime
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.runtime.caps import RuntimeCaps
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.host_store import HostStore
-db_uri = os.environ["OMNIGENT_E2E_DB_URI"]
-artifact_location = Path(os.environ["OMNIGENT_E2E_ARTIFACT_LOCATION"])
-port = int(os.environ["OMNIGENT_E2E_PORT"])
+from agentnexus.cli import _create_artifact_store
+from agentnexus.runtime import init as init_runtime
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.runtime.caps import RuntimeCaps
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.host_store import HostStore
+db_uri = os.environ["AGENTNEXUS_E2E_DB_URI"]
+artifact_location = Path(os.environ["AGENTNEXUS_E2E_ARTIFACT_LOCATION"])
+port = int(os.environ["AGENTNEXUS_E2E_PORT"])
 
 agent_store = SqlAlchemyAgentStore(db_uri)
 file_store = SqlAlchemyFileStore(db_uri)
@@ -556,9 +556,9 @@ def _running_server(
     tmp_path: Path,
 ) -> Iterator[_ServerHandle]:
     """
-    Run a remote-style Omnigent server for ``--server`` tests.
+    Run a remote-style AgentNexus server for ``--server`` tests.
 
-    :param omnigent_python: Python interpreter with Omnigent installed.
+    :param omnigent_python: Python interpreter with AgentNexus installed.
     :param repo_root: Checkout root used as subprocess cwd.
     :param env: Subprocess environment.
     :param tmp_path: Per-test temp directory.
@@ -572,9 +572,9 @@ def _running_server(
     log_path = tmp_path / "server.log"
     server_env = {
         **env,
-        "OMNIGENT_E2E_DB_URI": f"sqlite:///{db_path}",
-        "OMNIGENT_E2E_ARTIFACT_LOCATION": str(artifacts),
-        "OMNIGENT_E2E_PORT": str(port),
+        "AGENTNEXUS_E2E_DB_URI": f"sqlite:///{db_path}",
+        "AGENTNEXUS_E2E_ARTIFACT_LOCATION": str(artifacts),
+        "AGENTNEXUS_E2E_PORT": str(port),
     }
     with log_path.open("wb") as log_fh:
         proc = subprocess.Popen(
@@ -619,7 +619,7 @@ def _registered_runner(
     """
     Register one runner against a remote-style test server.
 
-    :param base_url: Omnigent server URL.
+    :param base_url: AgentNexus server URL.
     :param repo_root: Workspace root exposed to runner-local tools.
     :param yaml_path: Spec path to prewarm on the runner.
     :param tmp_path: Per-test temporary directory.
@@ -627,7 +627,7 @@ def _registered_runner(
         runner subprocess, e.g. mock LLM credentials.
     :yields: Registered runner id.
     """
-    from omnigent.cli import _start_cli_runner_process, _stop_cli_runner_process
+    from agentnexus.cli import _start_cli_runner_process, _stop_cli_runner_process
 
     runner = _start_cli_runner_process(
         server_url=base_url,
@@ -888,7 +888,7 @@ async def test_repl_reasoning_effort_threads_through(
         key=_MODEL,
     )
     with _running_server(omnigent_python, omnigent_repo_root, env, tmp_path) as server:
-        from omnigent.cli import _bundle
+        from agentnexus.cli import _bundle
 
         bundle = _bundle(yaml_path)
         with _registered_runner(
@@ -898,7 +898,7 @@ async def test_repl_reasoning_effort_threads_through(
             tmp_path,
             extra_env={k: env[k] for k in ("OPENAI_BASE_URL", "OPENAI_API_KEY") if k in env},
         ) as runner_id:
-            async with OmnigentClient(base_url=server.base_url) as client:
+            async with AgentNexusClient(base_url=server.base_url) as client:
                 created = await client.sessions.create(bundle, reasoning_effort="high")
                 assert created.reasoning_effort == "high"
                 bound = await client.sessions.bind_runner(

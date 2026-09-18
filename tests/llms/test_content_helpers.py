@@ -4,7 +4,7 @@ import base64
 
 import pytest
 
-from omnigent.llms.adapters._content import (
+from agentnexus.llms.adapters._content import (
     parse_data_uri,
     redact_binary_payloads,
     redact_inline_data_uris,

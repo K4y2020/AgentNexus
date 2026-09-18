@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from omnigent_client._blocks import (
+from agentnexus_client._blocks import (
     BlockContext,
     ReasoningBlock,
     ResponseEndBlock,
@@ -11,7 +11,7 @@ from omnigent_client._blocks import (
     TextChunk,
     TextDone,
 )
-from omnigent_client._transforms import (
+from agentnexus_client._transforms import (
     merge_text_across_iterations,
     only_agent,
     pipe,

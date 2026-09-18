@@ -43,7 +43,7 @@ import "./pdfViewer.css";
 // `workerSrc` string — whether from `?url` or `new URL(...).toString()` — is
 // treated as a generic asset and INLINED as a `data:` URL in the embed lib
 // build; the browser can't load a module worker from a data: URL, which is why
-// managed omnigent failed to render PDFs.
+// managed agentnexus failed to render PDFs.
 //
 // Eager at module scope, but this module is lazy-loaded (only when a PDF opens,
 // via CodeViewer) so the worker is created once and reused for the app

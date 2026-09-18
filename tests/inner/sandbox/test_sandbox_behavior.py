@@ -33,8 +33,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.os_env import create_os_environment
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.os_env import create_os_environment
 from tests.inner.sandbox.conftest import run_async
 
 # ---------------------------------------------------------------------------

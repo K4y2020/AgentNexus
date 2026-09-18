@@ -6,15 +6,15 @@ from typing import cast
 
 import pytest
 
-from omnigent.entities import ConversationItem, FunctionCallOutputData
-from omnigent.runtime.prompt import (
+from agentnexus.entities import ConversationItem, FunctionCallOutputData
+from agentnexus.runtime.prompt import (
     append_framework_instructions,
     build_instructions,
     build_instructions_nullable,
     history_to_input_items,
     raw_author_instructions,
 )
-from omnigent.spec import AgentSpec
+from agentnexus.spec import AgentSpec
 
 _SAMPLE_FRAMEWORK_INSTRUCTION = "Framework instruction for testing build_instructions_nullable."
 

@@ -1185,7 +1185,7 @@ export interface PinnedConversationsResult {
   /**
    * False when the server ignored the `pinned` query param — i.e. a
    * pre-upgrade server that predates server-side pins. Such a server returns
-   * an ordinary (unfiltered) session page whose rows carry no `omnigent.pinned`
+   * an ordinary (unfiltered) session page whose rows carry no `agentnexus.pinned`
    * label. The sidebar reads this to keep the one-time localStorage→server pin
    * migration inert until the server can actually store pins, so a
    * UI-before-server upgrade can't wipe local pins.
@@ -1194,7 +1194,7 @@ export interface PinnedConversationsResult {
 }
 
 /**
- * Fetch every pinned session (the `omnigent.pinned` label) via
+ * Fetch every pinned session (the `agentnexus.pinned` label) via
  * `GET /v1/sessions?pinned=true`, independent of the sidebar's paginated
  * window. Pins now live on the server (a session label) so they follow the
  * user across devices; this query is the source of truth for which sessions
@@ -1204,7 +1204,7 @@ export interface PinnedConversationsResult {
  * A pre-upgrade server doesn't know the `pinned` param and silently ignores
  * it (FastAPI drops unknown query params), returning an ordinary session page.
  * We defend against that by keeping only rows that actually carry the
- * `omnigent.pinned` label and reporting `filterHonored: false` whenever the
+ * `agentnexus.pinned` label and reporting `filterHonored: false` whenever the
  * server handed back rows that aren't pinned — the signal the sidebar uses to
  * skip the destructive localStorage migration against an old server.
  */
@@ -1293,7 +1293,7 @@ function findCachedConversationRow(queryClient: QueryClient, id: string): Conver
 }
 
 /**
- * Pin / unpin a session via `PATCH /v1/sessions/{id}` (the `omnigent.pinned`
+ * Pin / unpin a session via `PATCH /v1/sessions/{id}` (the `agentnexus.pinned`
  * label). Overlays only the `labels` field onto cached rows and patches the
  * pinned-list query directly (adding the row on pin, removing it on unpin)
  * rather than invalidating it. `GET /v1/sessions?pinned=true` is served from a
@@ -1313,8 +1313,8 @@ function findCachedConversationRow(queryClient: QueryClient, id: string): Conver
  *
  * Old-server fallback: when the server can't store pins (`filterHonored` is
  * false — a pre-upgrade server that ignores `?pinned=true`), a PATCH would
- * persist a bare `omnigent.pinned` key that the upgraded server discards on
- * read (it only surfaces the caller's per-user `omnigent.pinned.<user>` key),
+ * persist a bare `agentnexus.pinned` key that the upgraded server discards on
+ * read (it only surfaces the caller's per-user `agentnexus.pinned.<user>` key),
  * so the pin would silently vanish on the server upgrade. Instead we write the
  * pin to localStorage — the same store the pre-upgrade UI used — so it survives
  * and later migrates through `useMigrateLocalPinsToServer` like any other

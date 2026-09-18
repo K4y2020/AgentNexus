@@ -1,7 +1,7 @@
 # `native-qwen` — Design Proposal
 
 A terminal-native Qwen Code harness (`harness: qwen-native`, alias `native-qwen`)
-that embeds the **live interactive `qwen` TUI** in the Omnigent web UI, instead of
+that embeds the **live interactive `qwen` TUI** in the AgentNexus web UI, instead of
 driving `qwen --acp` as a piped request/response subprocess (the existing `qwen`
 harness — see [QWEN_FOLLOWUPS.md](./QWEN_FOLLOWUPS.md)).
 
@@ -18,7 +18,7 @@ Verified against `qwen` v0.18.1 (`RemoteInputWatcher` + dual-output in `cli.js`)
 - **Outbound** — `--json-file <path>` / `--json-fd <n>`: structured JSON events
   stream out **while the TUI still renders normally** in the terminal.
 
-This lets Omnigent inject turns atomically *and* recover two things the other
+This lets AgentNexus inject turns atomically *and* recover two things the other
 native harnesses surrender to the vendor: **per-tool permission gating** and
 **token/usage tracking**.
 
@@ -51,11 +51,11 @@ accepts `submit` + `confirmation_response`, so Stop sends `Escape` to the pane.
 
 ```mermaid
 flowchart TD
-    subgraph CLI["omnigent qwen (CLI wrapper)"]
+    subgraph CLI["agentnexus qwen (CLI wrapper)"]
       W[qwen_native.py<br/>daemon bind · terminal-ready poll · tmux attach]
     end
 
-    subgraph Runner["Omnigent Runner"]
+    subgraph Runner["AgentNexus Runner"]
       AC["_auto_create_qwen_terminal<br/>(runner/app.py)"]
       BR["qwen_native_bridge.py<br/>writes tmux.json + IN/OUT paths"]
       FW["qwen_native_forwarder.py<br/>tails --json-file"]
@@ -177,7 +177,7 @@ sequenceDiagram
             ▲ launched by
             │
    ┌──────────────────────────────────────────────────────────────────┐
-   │   omnigent qwen  (CLI wrapper, qwen_native.py)                     │
+   │   agentnexus qwen  (CLI wrapper, qwen_native.py)                     │
    │   daemon bind · terminal-ready poll · attach local TTY            │
    └──────────────────────────────────────────────────────────────────┘
 ```
@@ -186,7 +186,7 @@ Two channels, two purposes:
 
 - **Display** — qwen runs in a runner-owned **tmux pane** the web UI embeds, so the
   user watches the real TUI live.
-- **Control** — instead of racy `tmux send-keys`, Omnigent writes JSONL to the **IN
+- **Control** — instead of racy `tmux send-keys`, AgentNexus writes JSONL to the **IN
   file** and reads structured events from the **OUT file**.
 
 ## Does the user's message still show in the terminal?
@@ -223,7 +223,7 @@ So we lose the keystroke *simulation*, but not the on-screen *display*.
 |---|---|---|
 | Message injection | `tmux send-keys` + settle/paste-commit polling (racy) | append one JSONL line (atomic) |
 | Transcript / output | scrape the tmux pane | structured `--json-file` events |
-| **Tool permission gating** | **surrendered to vendor** | **Omnigent gates** via `can_use_tool` → policy → `confirmation_response` |
+| **Tool permission gating** | **surrendered to vendor** | **AgentNexus gates** via `can_use_tool` → policy → `confirmation_response` |
 | Token / usage | none | usage events from the stream |
 | Model / auth / gateway | env-only (`~/.qwen/settings.json` can win) | CLI flags (`-m`, `--openai-*`) — precedence fight moot |
 
@@ -239,7 +239,7 @@ So we lose the keystroke *simulation*, but not the on-screen *display*.
   diffing scraped pane text, so transcript fidelity, tool calls, and usage are
   reliable rather than best-effort regex over ANSI.
 - **Permission gating works** — the headline win. `can_use_tool` control requests
-  let Omnigent run its TOOL_CALL policy + human elicitation and answer with
+  let AgentNexus run its TOOL_CALL policy + human elicitation and answer with
   `confirmation_response`, reusing the ACP harness's `_decide_permission`. The
   other native harnesses surrender this to the vendor.
 - **Token / usage tracking** comes back for free from the event stream.
@@ -273,30 +273,30 @@ trade-offs; one is inherent to the embedded-terminal UX.
 
 | Con | Status | How we address it |
 |---|---|---|
-| Two extra files to manage | **Solved** | Reuse the existing bridge-dir pattern (`/tmp/omnigent-<uid>/qwen-native/<hash>`, `0700`) and the runner's session-close hook (goose-native already has stop/cleanup sites). Make **OUT a FIFO** (qwen's `--json-file` accepts a FIFO / `/dev/fd/N`) so it streams and never grows on disk; IN stays a small append-only file rotated/cleared on close. |
+| Two extra files to manage | **Solved** | Reuse the existing bridge-dir pattern (`/tmp/agentnexus-<uid>/qwen-native/<hash>`, `0700`) and the runner's session-close hook (goose-native already has stop/cleanup sites). Make **OUT a FIFO** (qwen's `--json-file` accepts a FIFO / `/dev/fd/N`) so it streams and never grows on disk; IN stays a small append-only file rotated/cleared on close. |
 | Interrupt not in the protocol | **Acceptable** | `Escape` via the tmux pane is reliable and we keep tmux for display anyway, so this costs nothing extra. Optional follow-up: upstream an `interrupt` command to qwen's `RemoteInputWatcher` so Stop becomes fully file-based too. |
 | Coupled to qwen's dual-output schema | **Solved (defense in depth)** | (1) **Graceful degradation** — detect `qwen --version`/flag support at launch; if `--input-file`/`--json-file` are absent on an older qwen, fall back to the goose-style `tmux send-keys` bridge. We support both; file-based is just the default when available. (2) Defensive parser that ignores unknown event types (like the existing forwarders). (3) A CI **smoke test** that launches the real binary and asserts the protocol shape, so a version bump that breaks it fails loudly. |
 | Diverges from other native harnesses | **Solved (design)** | Define a small shared native-bridge contract (`inject` / `interrupt` / `kill`) that both the file-based (qwen) and send-keys (goose/cursor) bridges implement, so reviewers see one shape with two backends. The win (gating + usage) is documented so the divergence reads as intentional. |
-| Still needs tmux for display | **Inherent** | Any *embedded live terminal* needs a real terminal — unavoidable for the native-TUI goal. Upside: because we already parse the full JSON event stream, a future **pure-web rendering mode** (Omnigent renders qwen with no tmux) becomes possible as a separate option — but that is explicitly out of scope here. |
+| Still needs tmux for display | **Inherent** | Any *embedded live terminal* needs a real terminal — unavoidable for the native-TUI goal. Upside: because we already parse the full JSON event stream, a future **pure-web rendering mode** (AgentNexus renders qwen with no tmux) becomes possible as a separate option — but that is explicitly out of scope here. |
 
 ## Files to add (mirrors goose-native; bridge is file-based, not send-keys)
 
 | New file | Role |
 |---|---|
-| `omnigent/inner/qwen_native_executor.py` | `submit` via input-file; `supports_streaming=False`, `supports_live_message_queue=True` |
-| `omnigent/inner/qwen_native_harness.py` | `create_app()` factory |
-| `omnigent/qwen_native_bridge.py` | input-file append (`submit` / `confirmation_response`), tmux.json, `inject_interrupt` (Escape), `kill_session`, `build_qwen_native_spawn_env` |
-| `omnigent/qwen_native_forwarder.py` | tail `--json-file`, mirror transcript, drive the permission gate |
-| `omnigent/qwen_native.py` | `omnigent qwen` wrapper (clone `goose_native.py`) |
+| `agentnexus/inner/qwen_native_executor.py` | `submit` via input-file; `supports_streaming=False`, `supports_live_message_queue=True` |
+| `agentnexus/inner/qwen_native_harness.py` | `create_app()` factory |
+| `agentnexus/qwen_native_bridge.py` | input-file append (`submit` / `confirmation_response`), tmux.json, `inject_interrupt` (Escape), `kill_session`, `build_qwen_native_spawn_env` |
+| `agentnexus/qwen_native_forwarder.py` | tail `--json-file`, mirror transcript, drive the permission gate |
+| `agentnexus/qwen_native.py` | `agentnexus qwen` wrapper (clone `goose_native.py`) |
 
 ## Registration touch-points (one-liners, beside the goose entries)
 
-- `omnigent/runtime/harnesses/__init__.py` → `"qwen-native": "omnigent.inner.qwen_native_harness"`
-- `omnigent/harness_aliases.py` → add `qwen-native` + `native-qwen` to `NATIVE_HARNESSES`
-- `omnigent/native_coding_agents.py` + `omnigent/_wrapper_labels.py` → `QWEN_NATIVE_*`
-- `omnigent/onboarding/harness_install.py` → `_HARNESS_NAME_TO_KEY` → existing `QWEN_KEY`
-- `omnigent/runner/app.py` → `_auto_create_qwen_terminal` + the ~7 goose-native dispatch sites
-- `omnigent/cli.py` → `omnigent qwen` command
+- `agentnexus/runtime/harnesses/__init__.py` → `"qwen-native": "agentnexus.inner.qwen_native_harness"`
+- `agentnexus/harness_aliases.py` → add `qwen-native` + `native-qwen` to `NATIVE_HARNESSES`
+- `agentnexus/native_coding_agents.py` + `agentnexus/_wrapper_labels.py` → `QWEN_NATIVE_*`
+- `agentnexus/onboarding/harness_install.py` → `_HARNESS_NAME_TO_KEY` → existing `QWEN_KEY`
+- `agentnexus/runner/app.py` → `_auto_create_qwen_terminal` + the ~7 goose-native dispatch sites
+- `agentnexus/cli.py` → `agentnexus qwen` command
 
 > Naming: keep `qwen` = ACP (piped); add `qwen-native` / `native-qwen` for the TUI,
 > mirroring how `goose` and `goose-native` coexist. The default can be flipped later.
@@ -389,10 +389,10 @@ conversation instead of a blank prompt. It follows the **same
 and fork-capable:
 
 - **Persisted id (the convention).** The qwen session id is recorded on the
-  Omnigent session via `external_session_id` (`_persist_qwen_external_session_id`
+  AgentNexus session via `external_session_id` (`_persist_qwen_external_session_id`
   → `PATCH /v1/sessions/{id}`), read back from the snapshot on the next launch
   (`launch_config.external_session_id`), and stamped as
-  `omnigent.fork.source_external_session_id` so a fork carries history — exactly
+  `agentnexus.fork.source_external_session_id` so a fork carries history — exactly
   like the other resuming native harnesses.
 - **Minting the id.** qwen is cleaner than claude/codex here: it lets us *assign*
   the id via `--session-id`, so instead of capturing a vendor-generated id off the

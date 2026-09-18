@@ -8,8 +8,8 @@ from typing import Any
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes import get_launcher
-from omnigent.onboarding.sandboxes.registry import (
+from agentnexus.onboarding.sandboxes import get_launcher
+from agentnexus.onboarding.sandboxes.registry import (
     COMMUNITY_MODULE_PREFIX,
     SandboxProviderContribution,
     SandboxProviderMetadata,
@@ -56,13 +56,13 @@ def _set_entry_points(
 ) -> None:
     """Patch the registry's internal entrypoint discovery."""
     monkeypatch.setattr(
-        "omnigent.onboarding.sandboxes.registry._entry_points",
+        "agentnexus.onboarding.sandboxes.registry._entry_points",
         lambda: eps,
     )
 
 
 def test_plugin_state_loads_builtins() -> None:
-    """The cached plugin state includes core Omnigent built-in providers."""
+    """The cached plugin state includes core AgentNexus built-in providers."""
     reset_plugin_state_for_tests()
     state = plugin_state()
     assert isinstance(state, SandboxProviderPluginState)
@@ -103,7 +103,7 @@ def test_get_provider_metadata_known_provider() -> None:
     meta = get_provider_metadata("modal")
     assert meta is not None
     assert meta.name == "modal"
-    assert "omnigent.onboarding.sandboxes.modal:ModalSandboxLauncher" in meta.launcher_class
+    assert "agentnexus.onboarding.sandboxes.modal:ModalSandboxLauncher" in meta.launcher_class
 
 
 def test_get_provider_metadata_unknown_returns_none() -> None:
@@ -135,7 +135,7 @@ def test_instantiate_unknown_raises() -> None:
 
 def _acme_contribution() -> SandboxProviderContribution:
     return SandboxProviderContribution(
-        name="omnigent-acme",
+        name="agentnexus-acme",
         providers={
             "acme": SandboxProviderMetadata(
                 name="acme",
@@ -203,7 +203,7 @@ def test_validation_rejects_community_module_outside_namespace(
     """Community providers must live under the community namespace."""
     reset_plugin_state_for_tests()
     contribution = SandboxProviderContribution(
-        name="omnigent-external",
+        name="agentnexus-external",
         providers={
             "external": SandboxProviderMetadata(
                 name="external",
@@ -312,7 +312,7 @@ def test_instantiate_rejects_non_launcher_class(
         pass
 
     monkeypatch.setattr(
-        "omnigent.onboarding.sandboxes.registry._load_object",
+        "agentnexus.onboarding.sandboxes.registry._load_object",
         lambda _: _NotALauncher,
     )
 

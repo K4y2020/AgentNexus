@@ -10,20 +10,20 @@ describe("renderTextWithInlineCode", () => {
     render(
       <div>
         {renderTextWithInlineCode(
-          "Run `omnigent login https://x` and retry, or run `omnigent setup`.",
+          "Run `agentnexus login https://x` and retry, or run `agentnexus setup`.",
         )}
       </div>,
     );
 
     // Both commands render as <code>.
-    expect(screen.getByText("omnigent login https://x").tagName).toBe("CODE");
-    expect(screen.getByText("omnigent setup").tagName).toBe("CODE");
+    expect(screen.getByText("agentnexus login https://x").tagName).toBe("CODE");
+    expect(screen.getByText("agentnexus setup").tagName).toBe("CODE");
     // Plain text between them is preserved.
     expect(screen.getByText(/and retry, or run/)).toBeInTheDocument();
 
     // Copy button copies just its command.
     fireEvent.click(screen.getAllByRole("button", { name: "Copy command" })[1]!);
-    expect(writeText).toHaveBeenCalledWith("omnigent setup");
+    expect(writeText).toHaveBeenCalledWith("agentnexus setup");
 
     vi.unstubAllGlobals();
   });

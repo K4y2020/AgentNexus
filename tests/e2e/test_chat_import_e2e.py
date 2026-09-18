@@ -277,8 +277,8 @@ def test_cli_imports_claude_chat_into_live_server(live_server: str, tmp_path: Pa
     env.update(
         {
             "HOME": str(tmp_path),
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
 
@@ -286,7 +286,7 @@ def test_cli_imports_claude_chat_into_live_server(live_server: str, tmp_path: Pa
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "import",
             "--harness",
             "claude",
@@ -349,8 +349,8 @@ def test_cli_imports_recent_claude_chats_as_batch(live_server: str, tmp_path: Pa
     env.update(
         {
             "HOME": str(tmp_path),
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
 
@@ -358,7 +358,7 @@ def test_cli_imports_recent_claude_chats_as_batch(live_server: str, tmp_path: Pa
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "import",
             "--harness",
             "claude",
@@ -439,8 +439,8 @@ def test_cli_imports_recent_codex_chats_as_batch(live_server: str, tmp_path: Pat
         {
             "HOME": str(tmp_path),
             "CODEX_HOME": str(tmp_path / ".codex"),
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
 
@@ -448,7 +448,7 @@ def test_cli_imports_recent_codex_chats_as_batch(live_server: str, tmp_path: Pat
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "import",
             "--harness",
             "codex",
@@ -493,14 +493,14 @@ def test_cli_force_replaces_imported_chat(
         {
             "HOME": str(tmp_path),
             "CODEX_HOME": str(tmp_path / ".codex"),
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
     command = [
         sys.executable,
         "-m",
-        "omnigent",
+        "agentnexus",
         "import",
         "--harness",
         harness,
@@ -561,8 +561,8 @@ def test_cli_imports_jsonl_harness_chat_end_to_end(
             "QWEN_HOME": str(tmp_path / ".qwen"),
             "PI_CODING_AGENT_DIR": str(tmp_path / ".pi" / "agent"),
             "KIMI_CODE_HOME": str(tmp_path / ".kimi-code"),
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
 
@@ -570,7 +570,7 @@ def test_cli_imports_jsonl_harness_chat_end_to_end(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "import",
             "--harness",
             harness,
@@ -628,8 +628,8 @@ def test_cli_imports_opencode_export_end_to_end(
         {
             "HOME": str(tmp_path),
             "PATH": f"{bin_dir}{os.pathsep}{env.get('PATH', '')}",
-            "OMNIGENT_CONFIG_HOME": str(tmp_path / "config"),
-            "OMNIGENT_DATA_DIR": str(tmp_path / "omnigent-data"),
+            "AGENTNEXUS_CONFIG_HOME": str(tmp_path / "config"),
+            "AGENTNEXUS_DATA_DIR": str(tmp_path / "agentnexus-data"),
         }
     )
 
@@ -637,7 +637,7 @@ def test_cli_imports_opencode_export_end_to_end(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "import",
             "--harness",
             "opencode",

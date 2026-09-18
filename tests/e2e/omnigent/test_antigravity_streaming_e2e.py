@@ -1,7 +1,7 @@
 """Per-harness live characterization — antigravity (Gemini) SDK streaming fidelity.
 
 Drives the ``antigravity`` harness end-to-end through the production
-``/v1/sessions`` flow — register an inline Omnigent agent
+``/v1/sessions`` flow — register an inline AgentNexus agent
 (``executor.harness: antigravity``) → create + runner-bind a session →
 ``POST /v1/sessions/{id}/events`` → poll the session to idle — then asserts over
 the *persisted transcript items* (``GET /v1/sessions/{id}/items``), NOT stdout
@@ -67,7 +67,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.onboarding.antigravity_auth import antigravity_api_key_configured
+from agentnexus.onboarding.antigravity_auth import antigravity_api_key_configured
 from tests.e2e.conftest import (
     create_runner_bound_session,
     poll_session_until_terminal,
@@ -116,7 +116,7 @@ def _antigravity_skip_reason() -> str | None:
     if importlib.util.find_spec("google.antigravity") is None:
         return (
             "antigravity prerequisite missing: the 'google-antigravity' package "
-            "is not importable. Install it with: pip install 'omnigent[antigravity]'."
+            "is not importable. Install it with: pip install 'agentnexus[antigravity]'."
         )
     key_present = antigravity_api_key_configured() or bool(
         os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTIGRAVITY_API_KEY")
@@ -145,7 +145,7 @@ if _SKIP_REASON is not None:
 
 
 def _write_antigravity_agent_yaml(tmp_path: Path, *, prompt: str) -> Path:
-    """Write a minimal single-file ``harness: antigravity`` Omnigent bundle.
+    """Write a minimal single-file ``harness: antigravity`` AgentNexus bundle.
 
     Deliberately carries NO ``executor.auth`` and NO Databricks ``profile``: the
     harness resolves its Gemini key Gemini-natively (configured ``antigravity:``

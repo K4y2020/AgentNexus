@@ -4,8 +4,8 @@ from collections.abc import Iterator
 
 import pytest
 
-import omnigent.harness_plugins as hp
-from omnigent import native_dispatch
+import agentnexus.harness_plugins as hp
+from agentnexus import native_dispatch
 
 
 @pytest.fixture(autouse=True)
@@ -17,9 +17,9 @@ def _reset_state() -> Iterator[None]:
 
 def test_resolve_colon_and_dot_paths() -> None:
     # module:attr form
-    assert native_dispatch.resolve("omnigent.harness_plugins:load_object") is hp.load_object
+    assert native_dispatch.resolve("agentnexus.harness_plugins:load_object") is hp.load_object
     # module.attr form
-    assert native_dispatch.resolve("omnigent.harness_plugins.load_object") is hp.load_object
+    assert native_dispatch.resolve("agentnexus.harness_plugins.load_object") is hp.load_object
 
 
 def test_resolve_reflects_monkeypatched_symbol(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,8 +30,8 @@ def test_resolve_reflects_monkeypatched_symbol(monkeypatch: pytest.MonkeyPatch) 
     and CLI hubs rely on, so resolution is deliberately uncached.
     """
     sentinel = object()
-    monkeypatch.setattr("omnigent.harness_plugins.native_agents", sentinel)
-    assert native_dispatch.resolve("omnigent.harness_plugins:native_agents") is sentinel
+    monkeypatch.setattr("agentnexus.harness_plugins.native_agents", sentinel)
+    assert native_dispatch.resolve("agentnexus.harness_plugins:native_agents") is sentinel
 
 
 def test_resolve_hook_returns_none_for_unset_optional_hook() -> None:
@@ -53,7 +53,7 @@ def test_resolve_hook_resolves_populated_hook() -> None:
 def test_resolve_hook_rejects_non_callable_target(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = hp.native_provider_for_key("pi")
     assert provider is not None
-    monkeypatch.setattr("omnigent.pi_native.run_pi_native", object())
+    monkeypatch.setattr("agentnexus.pi_native.run_pi_native", object())
 
     with pytest.raises(TypeError, match="is not callable"):
         native_dispatch.resolve_hook(provider, "run_native")

@@ -1,5 +1,5 @@
 """
-Tunnel three-layer integration test: Omnigent → WS tunnel → runner → harness.
+Tunnel three-layer integration test: AgentNexus → WS tunnel → runner → harness.
 
 Production-shaped variant of ``test_sessions_three_layer.py``. The
 prior test wired the AP's ``_runner_client`` directly to the runner
@@ -19,7 +19,7 @@ encode/decode regressions, tunnel registry leak/registration races,
 reaches for ``app.state.tunnel_registry`` / ``get_runner_router()``.
 
 Layers:
-    Omnigent server ──HTTP──> RunnerRouter ──WSTunnelTransport──>
+    AgentNexus server ──HTTP──> RunnerRouter ──WSTunnelTransport──>
         TunnelRegistry ──tunnel WS route──> ApplicationCommunicator ──>
         forwarder task ──> create_runner_app ──> FakeProcessManager ──>
         EchoHarness ASGI app
@@ -48,37 +48,37 @@ import pytest_asyncio
 import yaml
 from asgiref.testing import ApplicationCommunicator
 from fastapi import FastAPI
-from omnigent_client._events import ResponseCompleted, ResponseFailed
-from omnigent_client._files import FilesNamespace
-from omnigent_client._sessions import SessionsNamespace
+from agentnexus_client._events import ResponseCompleted, ResponseFailed
+from agentnexus_client._files import FilesNamespace
+from agentnexus_client._sessions import SessionsNamespace
 
-from omnigent.repl._repl import _SessionsChatReplAdapter
-from omnigent.runner.app import create_runner_app
-from omnigent.runner.transports.ws_tunnel.frames import (
+from agentnexus.repl._repl import _SessionsChatReplAdapter
+from agentnexus.runner.app import create_runner_app
+from agentnexus.runner.transports.ws_tunnel.frames import (
     HelloFrame,
     RequestFrame,
     decode_frame,
     encode_frame,
 )
-from omnigent.runner.transports.ws_tunnel.serve import dispatch_via_asgi
-from omnigent.runner.transports.ws_tunnel.transport import WSTunnelTransport
-from omnigent.runtime import (
+from agentnexus.runner.transports.ws_tunnel.serve import dispatch_via_asgi
+from agentnexus.runner.transports.ws_tunnel.transport import WSTunnelTransport
+from agentnexus.runtime import (
     init as init_runtime,
 )
-from omnigent.runtime import (
+from agentnexus.runtime import (
     set_harness_process_manager,
     set_runner_id,
     set_runner_router,
 )
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.runtime.harnesses import _HARNESS_MODULES
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 from tests.runner.helpers import NullServerClient
 from tests.runtime.harnesses._test_scaffold_harnesses import _EchoHarness
 
@@ -170,7 +170,7 @@ class FakeProcessManager:
 def _build_harness_agent_bundle() -> bytes:
     """Build an agent bundle that routes through the harness path.
 
-    Uses ``executor.type='omnigent'`` with
+    Uses ``executor.type='agentnexus'`` with
     ``executor.harness=<TEST_HARNESS>`` so ``_create_executor`` in
     ``runtime/workflow.py`` routes to ``the harness HTTP client`` and
     thus through the runner → harness HTTP chain.
@@ -181,7 +181,7 @@ def _build_harness_agent_bundle() -> bytes:
         "spec_version": 1,
         "name": "echo-tunnel-test",
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": _TEST_HARNESS_NAME},
             "model": "test-model",
         },
@@ -328,7 +328,7 @@ async def _forward_requests_to_runner(
                 await task
 
 
-# ── Fixture: Omnigent app + tunnel WS + runner app + EchoHarness ────
+# ── Fixture: AgentNexus app + tunnel WS + runner app + EchoHarness ────
 
 
 @dataclass
@@ -340,10 +340,10 @@ class _TunnelStack:
 
 @pytest_asyncio.fixture()
 async def tunnel_three_layer_stack(tmp_path: Path) -> AsyncIterator[_TunnelStack]:
-    """Wire Omnigent server + WS-tunneled runner + EchoHarness in-process.
+    """Wire AgentNexus server + WS-tunneled runner + EchoHarness in-process.
 
     Lifecycle: build stores, init runtime, override the test harness
-    module entry, build Omnigent app + runner app, open the WS tunnel via
+    module entry, build AgentNexus app + runner app, open the WS tunnel via
     ``ApplicationCommunicator``, send hello, start the forwarder
     task, register the runner in the AP-side ``set_runner_router``
     so resource paths can resolve it, then yield an
@@ -394,7 +394,7 @@ async def tunnel_three_layer_stack(tmp_path: Path) -> AsyncIterator[_TunnelStack
         server_client=NullServerClient(),  # type: ignore[arg-type]
     )
 
-    # Build the Omnigent server. ``create_app`` constructs the
+    # Build the AgentNexus server. ``create_app`` constructs the
     # ``TunnelRegistry`` + ``RunnerRouter`` synchronously (before
     # lifespan) and threads ``runner_router`` into every router as a
     # closure, so the WS route + the sessions route share the same
@@ -494,13 +494,13 @@ def _fake_client(ap_client: httpx.AsyncClient) -> object:
     the real namespace classes keeps request/response parsing on the
     production client path while avoiding an actual network client.
 
-    :param ap_client: ASGI-backed client pointed at the Omnigent app.
+    :param ap_client: ASGI-backed client pointed at the AgentNexus app.
     :returns: Duck-typed client with the namespaces the adapter uses.
     """
     base = str(ap_client.base_url).rstrip("/")
 
     class _FakeClient:
-        """Duck-typed Omnigent client backed by the tunnel-stack httpx client."""
+        """Duck-typed AgentNexus client backed by the tunnel-stack httpx client."""
 
         def __init__(self) -> None:
             self.sessions = SessionsNamespace(ap_client, base)
@@ -517,9 +517,9 @@ def _new_repl_adapter(
     runner_id: str = _RUNNER_ID,
     runner_recover: Any | None = None,
 ) -> _SessionsChatReplAdapter:
-    """Create a sessions REPL adapter over the tunneled Omnigent stack.
+    """Create a sessions REPL adapter over the tunneled AgentNexus stack.
 
-    :param ap_client: ASGI-backed client pointed at the Omnigent app.
+    :param ap_client: ASGI-backed client pointed at the AgentNexus app.
     :param agent_name: Human-readable agent display name.
     :param session_id: Optional existing session to resume.
     :param runner_id: Runner id the adapter should bind before send.
@@ -837,14 +837,14 @@ async def test_on_runner_connect_restarts_relay_via_router(
     routed client, and (c) leaves a sibling session bound to a
     different runner alone (per-conv ``runner_id`` filter).
     """
-    from omnigent.runner.routing import RoutedRunner
-    from omnigent.server.routes import sessions as sessions_routes
-    from omnigent.server.routes.sessions import _runner_relay_tasks
+    from agentnexus.runner.routing import RoutedRunner
+    from agentnexus.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes.sessions import _runner_relay_tasks
 
     # Zero the reconnect grace: this test needs the deregistered relay to
     # die promptly so the reconnect hook's restart path is what revives it.
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     ap_client = tunnel_three_layer_stack.ap_client
@@ -875,7 +875,7 @@ async def test_on_runner_connect_restarts_relay_via_router(
     # ``runner_id`` filter has something to skip. Written via the
     # store directly because PATCH-bind would spawn a relay against
     # a runner that has no WS pump, hanging teardown.
-    from omnigent.runtime import get_conversation_store
+    from agentnexus.runtime import get_conversation_store
 
     other_runner_id = "runner-other-irrelevant"
     other_create_resp = await ap_client.post(
@@ -1067,8 +1067,8 @@ async def _reconnect_fires_connect_hook(
 
     :yields: The list of session ids the recovery helper ran for.
     """
-    from omnigent.runner.routing import RoutedRunner
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.runner.routing import RoutedRunner
+    from agentnexus.server.routes import sessions as sessions_routes
 
     router = ap_app.state.runner_router
     real_resolver = router.client_for_session_resources
@@ -1180,9 +1180,9 @@ async def _bind_failed_session(
     ``last_task_error`` labels a real disconnect / task failure leaves
     behind, so the reconnect hook sees an authentic pre-recovery state.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.schemas import ErrorDetail
 
     create_resp = await ap_client.post(
         "/v1/sessions",
@@ -1221,7 +1221,7 @@ def _isolated_session_status_cache() -> Iterator[None]:
     suite runs. Start each guarded test from an empty cache and restore
     the pre-test contents afterward so nothing leaks in either direction.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     saved = dict(sessions_module._session_status_cache)
     sessions_module._session_status_cache.clear()
@@ -1248,8 +1248,8 @@ async def test_on_runner_connect_clears_disconnect_failure_on_idle_reconnect(
     the session leaves ``failed`` and the disconnect labels are cleared —
     WITHOUT sending any message.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes import sessions as sessions_module
 
     ap_client = tunnel_three_layer_stack.ap_client
     ap_app = tunnel_three_layer_stack.ap_app
@@ -1300,8 +1300,8 @@ async def test_on_runner_connect_preserves_genuine_failure_on_reconnect(
     its ``failed`` state and error labels across the reconnect. Drives the
     real ``_on_runner_connect`` and asserts the failure survives.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes import sessions as sessions_module
 
     ap_client = tunnel_three_layer_stack.ap_client
     ap_app = tunnel_three_layer_stack.ap_app
@@ -1337,8 +1337,8 @@ def _stub_connect_hook_for_pumpless_ws(ap_app: FastAPI, monkeypatch: pytest.Monk
     session init through the tunnel and spawns an SSE relay. Stub the router
     resolver with a client that answers 200 and the relay spawn with a no-op.
     """
-    from omnigent.runner.routing import RoutedRunner
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runner.routing import RoutedRunner
+    from agentnexus.server.routes import sessions as sessions_module
 
     class _StubResponse:
         status_code = 200
@@ -1380,14 +1380,14 @@ async def test_runner_disconnect_grace_defers_failed_marking(
     still gone, and (c) a reconnect inside the grace suppresses the
     marking entirely.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes import sessions as sessions_module
 
     ap_client = tunnel_three_layer_stack.ap_client
     ap_app = tunnel_three_layer_stack.ap_app
 
     grace = 0.4
-    monkeypatch.setattr("omnigent.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", grace)
+    monkeypatch.setattr("agentnexus.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", grace)
     _stub_connect_hook_for_pumpless_ws(ap_app, monkeypatch)
 
     create_resp = await ap_client.post(
@@ -1471,15 +1471,15 @@ async def test_server_initiated_close_never_fails_the_turn(
     that close as the server's own shutdown and skip the offline-marking —
     no ``failed`` status, no ``runner_disconnected`` labels.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server import shutdown_state
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server import shutdown_state
+    from agentnexus.server.routes import sessions as sessions_module
 
     ap_client = tunnel_three_layer_stack.ap_client
     ap_app = tunnel_three_layer_stack.ap_app
 
     grace = 0.4
-    monkeypatch.setattr("omnigent.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", grace)
+    monkeypatch.setattr("agentnexus.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", grace)
     _stub_connect_hook_for_pumpless_ws(ap_app, monkeypatch)
 
     create_resp = await ap_client.post(
@@ -1541,8 +1541,8 @@ async def test_on_runner_disconnect_spares_idle_sessions_and_labels_interrupted_
     dedicated runner and asserts the idle session is untouched while the
     running one carries ``runner_disconnected``.
     """
-    from omnigent.runtime import get_conversation_store
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import get_conversation_store
+    from agentnexus.server.routes import sessions as sessions_module
 
     ap_client = tunnel_three_layer_stack.ap_client
     ap_app = tunnel_three_layer_stack.ap_app
@@ -1550,7 +1550,7 @@ async def test_on_runner_disconnect_spares_idle_sessions_and_labels_interrupted_
 
     # Shrink the reconnect grace so the deferred reconciliation lands
     # within the test's wait window.
-    monkeypatch.setattr("omnigent.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", 0.05)
+    monkeypatch.setattr("agentnexus.server.routes.sessions.RUNNER_DISCONNECT_GRACE_S", 0.05)
 
     communicator = await _connect_runner_tunnel(ap_app, runner_id)
     await _send_hello_and_wait(

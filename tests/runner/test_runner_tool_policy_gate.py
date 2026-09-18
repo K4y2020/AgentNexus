@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from omnigent.runner.policy import RunnerToolPolicyGate
-from omnigent.spec.types import (
+from agentnexus.runner.policy import RunnerToolPolicyGate
+from agentnexus.spec.types import (
     AgentSpec,
     FunctionPolicySpec,
     FunctionRef,
@@ -21,16 +21,16 @@ from omnigent.spec.types import (
     PhaseSelector,
 )
 
-_BROKEN_PATH = "omnigent.nonexistent_module.broken_policy"
+_BROKEN_PATH = "agentnexus.nonexistent_module.broken_policy"
 _FIXED_ALLOW = FunctionRef(
-    path="omnigent.policies.function.make_fixed_action_callable",
+    path="agentnexus.policies.function.make_fixed_action_callable",
     arguments={"action": "allow"},
 )
 _FIXED_DENY = FunctionRef(
-    path="omnigent.policies.function.make_fixed_action_callable",
+    path="agentnexus.policies.function.make_fixed_action_callable",
     arguments={"action": "deny", "reason": "blocked by valid policy"},
 )
-_RAISING_PATH = "omnigent.policies.function.make_fixed_action_callable"
+_RAISING_PATH = "agentnexus.policies.function.make_fixed_action_callable"
 
 
 def _agent_with_policies(*policies: FunctionPolicySpec) -> AgentSpec:
@@ -219,7 +219,7 @@ async def test_resolve_diagnostic_omits_exception_message_secrets() -> None:
     def _boom(_ps: FunctionPolicySpec) -> None:
         raise _SecretError(secret)
 
-    import omnigent.runner.policy as policy_mod
+    import agentnexus.runner.policy as policy_mod
 
     original = policy_mod.resolve_function_policy
     policy_mod.resolve_function_policy = _boom  # type: ignore[assignment]
@@ -242,7 +242,7 @@ async def test_resolve_log_omits_exception_message_secrets(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Resolution logs retain safe context without exception text or traceback."""
-    import omnigent.runner.policy as policy_mod
+    import agentnexus.runner.policy as policy_mod
 
     secret = "api_key=SUPER_SECRET_LOG_TOKEN_XYZ"
 

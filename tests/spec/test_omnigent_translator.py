@@ -1,4 +1,4 @@
-"""Unit tests for ``omnigent.spec.omnigent.agent_spec_to_agent_def``.
+"""Unit tests for ``omnigent.spec.agentnexus.agent_spec_to_agent_def``.
 
 Phase 1 ships the forward direction only. These tests hand-craft
 :class:`AgentSpec` objects and assert the resulting
@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.inner.datamodel import AgentDef, OSEnvSpec
-from omnigent.inner.datamodel import ExecutorSpec as OmniExecutorSpec
-from omnigent.inner.tools import AgentTool, FunctionTool
-from omnigent.spec import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.inner.datamodel import AgentDef, OSEnvSpec
+from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec
+from agentnexus.inner.tools import AgentTool, FunctionTool
+from agentnexus.spec import (
     AgentSpec,
     ExecutorSpec,
     FunctionPolicySpec,
@@ -34,16 +34,16 @@ from omnigent.spec import (
     ToolRuntime,
     ToolsConfig,
 )
-from omnigent.spec.omnigent import (
+from agentnexus.spec.agentnexus import (
     agent_def_to_agent_spec,
     agent_spec_to_agent_def,
 )
 
-# SandboxConfig is not re-exported from omnigent.spec's public
+# SandboxConfig is not re-exported from agentnexus.spec's public
 # __init__ because it is only addressable under the ``tools.sandbox``
 # sub-block; the translator test needs it directly to construct a
 # sandboxed ToolsConfig.
-from omnigent.spec.types import SandboxConfig
+from agentnexus.spec.types import SandboxConfig
 
 
 # A sample callable used as the target of dotted-path tool resolution.
@@ -74,7 +74,7 @@ def basic_spec() -> AgentSpec:
     Minimal ``AgentSpec`` targeting the omnigent executor.
 
     :returns: A spec with name, instructions, one ``llm.model``, and
-        ``executor.type == "omnigent"`` carrying harness+profile.
+        ``executor.type == "agentnexus"`` carrying harness+profile.
     """
     return AgentSpec(
         spec_version=1,
@@ -82,7 +82,7 @@ def basic_spec() -> AgentSpec:
         instructions="You are a helpful assistant.",
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             model="databricks-claude-sonnet-4-6",
             config={
                 "harness": "claude-sdk",
@@ -199,7 +199,7 @@ def test_policies_dropped_from_forward_translation(
 
     **What breaks if this fails**: two regressions to guard
     against:
-    1. The translator starts rejecting again (``OmnigentError``
+    1. The translator starts rejecting again (``AgentNexusError``
        with ``"policies"``) — the omnigent executor would then
        be unusable for any spec carrying a ``guardrails:`` block,
        which the whole policy-lift pipeline just enabled.
@@ -239,7 +239,7 @@ def test_sandbox_block_rejected_with_clear_message(
     basic_spec.tools = ToolsConfig(
         sandbox=SandboxConfig(container_image="python:3.12-slim"),
     )
-    with pytest.raises(OmnigentError, match=r"sandbox"):
+    with pytest.raises(AgentNexusError, match=r"sandbox"):
         agent_spec_to_agent_def(basic_spec)
 
 
@@ -281,7 +281,7 @@ def test_tool_with_filesystem_path_rejected(
             language="python",
         ),
     ]
-    with pytest.raises(OmnigentError, match=r"dotted"):
+    with pytest.raises(AgentNexusError, match=r"dotted"):
         agent_spec_to_agent_def(basic_spec)
 
 
@@ -303,7 +303,7 @@ def test_tool_with_unimportable_module_rejected(
             language="python",
         ),
     ]
-    with pytest.raises(OmnigentError, match=r"no_such_module_xyzzy"):
+    with pytest.raises(AgentNexusError, match=r"no_such_module_xyzzy"):
         agent_spec_to_agent_def(basic_spec)
 
 
@@ -315,7 +315,7 @@ def test_tool_pointing_at_non_callable_rejected(
     rejected with a clear error.
 
     Step (c) made plain callables the only supported tool
-    shape on the Omnigent side; runner-protocol instances no longer
+    shape on the AgentNexus side; runner-protocol instances no longer
     have a fallback. The translator fails loud rather than
     wrapping a non-callable in a tool the harness can't invoke.
 
@@ -335,7 +335,7 @@ def test_tool_pointing_at_non_callable_rejected(
     # / runner-protocol retirement note) so the YAML author
     # knows what's expected.
     with pytest.raises(
-        OmnigentError,
+        AgentNexusError,
         match=r"non-callable",
     ):
         agent_spec_to_agent_def(basic_spec)
@@ -343,17 +343,17 @@ def test_tool_pointing_at_non_callable_rejected(
 
 def test_missing_llm_rejected(basic_spec: AgentSpec) -> None:
     """
-    A spec with ``executor.type='omnigent'`` but no ``llm``
+    A spec with ``executor.type='agentnexus'`` but no ``llm``
     block is rejected — the omnigent harness needs a model
     name. We fail loud at translation time, not deep inside the
     harness constructor.
     """
     basic_spec.executor.model = None
-    with pytest.raises(OmnigentError, match=r"executor\.model"):
+    with pytest.raises(AgentNexusError, match=r"executor\.model"):
         agent_spec_to_agent_def(basic_spec)
 
 
-# ── Harness inference for native Omnigent v1 specs ────────────────────────────────
+# ── Harness inference for native AgentNexus v1 specs ────────────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -372,7 +372,7 @@ def test_native_omnigent_spec_infers_harness_from_model(
     expected_harness: str,
 ) -> None:
     """
-    Native Omnigent v1 specs use ``executor.type="omnigent"`` with no harness in
+    Native AgentNexus v1 specs use ``executor.type="agentnexus"`` with no harness in
     ``executor.config``.  :func:`agent_spec_to_agent_def` must infer
     the harness from the model prefix so Claude models don't fall back
     to ``DatabricksExecutor``.
@@ -385,7 +385,7 @@ def test_native_omnigent_spec_infers_harness_from_model(
         name="test-agent",
         instructions="You are helpful.",
         llm=LLMConfig(model=model),
-        executor=ExecutorSpec(type="omnigent", model=model, config={}),
+        executor=ExecutorSpec(type="agentnexus", model=model, config={}),
     )
     agent_def = agent_spec_to_agent_def(spec)
     assert agent_def.executor is not None
@@ -399,7 +399,7 @@ def test_native_omnigent_spec_infers_harness_from_model(
 
 def test_sub_agent_infers_harness_and_forwards_os_env() -> None:
     """
-    When a parent spec's sub-agent uses a native Omnigent v1 executor (no
+    When a parent spec's sub-agent uses a native AgentNexus v1 executor (no
     harness in ``executor.config``), :func:`agent_spec_to_agent_def`
     must infer the harness from the sub-agent's model prefix AND forward
     ``os_env`` to the returned :class:`AgentTool`.
@@ -416,7 +416,7 @@ def test_sub_agent_infers_harness_and_forwards_os_env() -> None:
         name="backend_engineer",
         instructions="You write code.",
         llm=LLMConfig(model="databricks-claude-sonnet-4"),
-        executor=ExecutorSpec(type="omnigent", model="databricks-claude-sonnet-4", config={}),
+        executor=ExecutorSpec(type="agentnexus", model="databricks-claude-sonnet-4", config={}),
         os_env=sub_os_env,
     )
     parent_spec = AgentSpec(
@@ -424,7 +424,7 @@ def test_sub_agent_infers_harness_and_forwards_os_env() -> None:
         name="root",
         instructions="You delegate.",
         llm=LLMConfig(model="databricks-gpt-5-4"),
-        executor=ExecutorSpec(type="omnigent", model="databricks-gpt-5-4", config={}),
+        executor=ExecutorSpec(type="agentnexus", model="databricks-gpt-5-4", config={}),
         tools=ToolsConfig(agents=["backend_engineer"]),
         sub_agents=[sub_spec],
     )
@@ -529,7 +529,7 @@ def test_server_runtime_tool_with_no_path_rejected(
             runtime=ToolRuntime.SERVER,
         ),
     ]
-    with pytest.raises(OmnigentError, match=r"server-runtime tool has no"):
+    with pytest.raises(AgentNexusError, match=r"server-runtime tool has no"):
         agent_spec_to_agent_def(basic_spec)
 
 

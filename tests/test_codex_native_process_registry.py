@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import codex_native_process_registry as registry
+from agentnexus import codex_native_process_registry as registry
 
 fcntl = pytest.importorskip("fcntl")
 
@@ -33,7 +33,7 @@ def test_registry_add_remove_round_trip(tmp_path: Path) -> None:
     registry.register_codex_native_process(
         pid=123,
         pgid=456,
-        tmux_session_name="omnigent-codex-123",
+        tmux_session_name="agentnexus-codex-123",
         session_tag="tag-123",
         owner_lock_path=tmp_path / "owner.lock",
         registry_path=path,
@@ -43,7 +43,7 @@ def test_registry_add_remove_round_trip(tmp_path: Path) -> None:
         {
             "pid": 123,
             "pgid": 456,
-            "tmux_session_name": "omnigent-codex-123",
+            "tmux_session_name": "agentnexus-codex-123",
             "session_tag": "tag-123",
             "owner_lock_path": str(tmp_path / "owner.lock"),
         }
@@ -190,7 +190,7 @@ def test_tmux_session_reaped_only_when_recorded_name_exists(tmp_path: Path, monk
     registry.register_codex_native_process(
         pid=123,
         pgid=456,
-        tmux_session_name="omnigent-codex-live",
+        tmux_session_name="agentnexus-codex-live",
         session_tag="tag-live",
         owner_lock_path=None,
         registry_path=path,
@@ -198,7 +198,7 @@ def test_tmux_session_reaped_only_when_recorded_name_exists(tmp_path: Path, monk
     registry.register_codex_native_process(
         pid=124,
         pgid=457,
-        tmux_session_name="omnigent-codex-missing",
+        tmux_session_name="agentnexus-codex-missing",
         session_tag="tag-missing",
         owner_lock_path=None,
         registry_path=path,
@@ -210,7 +210,7 @@ def test_tmux_session_reaped_only_when_recorded_name_exists(tmp_path: Path, monk
         "_process_cmdline",
         lambda pid: (
             "codex "
-            f"omnigent_crash_teardown_tag=tag-{'live' if pid == 123 else 'missing'} "
+            f"agentnexus_crash_teardown_tag=tag-{'live' if pid == 123 else 'missing'} "
             "app-server"
         ),
     )
@@ -218,13 +218,13 @@ def test_tmux_session_reaped_only_when_recorded_name_exists(tmp_path: Path, monk
     monkeypatch.setattr(
         registry,
         "_tmux_session_exists",
-        lambda name: name == "omnigent-codex-live",
+        lambda name: name == "agentnexus-codex-live",
     )
     monkeypatch.setattr(registry, "_kill_tmux_session", lambda name: killed_tmux.append(name))
 
     registry.reconcile_codex_native_process_registry(registry_path=path)
 
-    assert killed_tmux == ["omnigent-codex-live"]
+    assert killed_tmux == ["agentnexus-codex-live"]
     assert _registry_payload(path) == []
 
 

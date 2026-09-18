@@ -113,7 +113,7 @@ async def _drive_version_too_low(base_url: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID!r}: ["/work/repo"] }})
                 );"""
             )

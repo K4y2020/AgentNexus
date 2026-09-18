@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.omnigent._example_helpers import validate_agent_def_structure
+from tests.e2e.agentnexus._example_helpers import validate_agent_def_structure
 
 
 def test_agent_with_uc_tools_structure(

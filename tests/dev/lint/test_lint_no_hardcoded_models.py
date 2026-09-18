@@ -86,7 +86,7 @@ def test_scan_allows_complete_central_fallback_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    fallback_module = Path("omnigent/model_fallbacks.py")
+    fallback_module = Path("agentnexus/model_fallbacks.py")
     fallback_module.parent.mkdir()
     fallback_module.write_text(
         '_MODELS = ("gpt-5.5", "gpt-5.4")\n'
@@ -110,7 +110,7 @@ def test_scan_flags_incomplete_central_fallback_record(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    fallback_module = Path("omnigent/model_fallbacks.py")
+    fallback_module = Path("agentnexus/model_fallbacks.py")
     fallback_module.parent.mkdir()
     fallback_module.write_text(
         '_MODELS = ("gpt-5.5",)\n'
@@ -126,7 +126,7 @@ def test_scan_flags_fallback_model_tuple_used_outside_owned_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    fallback_module = Path("omnigent/model_fallbacks.py")
+    fallback_module = Path("agentnexus/model_fallbacks.py")
     fallback_module.parent.mkdir()
     fallback_module.write_text(
         '_MODELS = ("gpt-5.5",)\n'

@@ -1,8 +1,8 @@
 name: UI Preview
 
-# Per-PR live preview of the Omnigent web UI, deployed to Databricks Apps.
+# Per-PR live preview of the AgentNexus web UI, deployed to Databricks Apps.
 # The preview is ephemeral (SQLite + local artifacts) and ships no LLM/runner --
-# Omnigent runs agent turns on a runner the reviewer connects from their own
+# AgentNexus runs agent turns on a runner the reviewer connects from their own
 # machine. See .github/ui-preview/README.md.
 #
 # Fork PRs are supported: the `ui-preview` label is the trust boundary. Applying
@@ -141,11 +141,11 @@ jobs:
         # Build the wheels WITHOUT the SPA so they stay small (Databricks Apps
         # caps each source wheel at 10MB). The SPA ships separately as
         # build.tar.gz and is extracted at runtime by app.py. SKIP_WEB_UI skips
-        # build.sh's own npm build; OMNIGENT_SKIP_WEB_UI makes setup.py skip the
+        # build.sh's own npm build; AGENTNEXUS_SKIP_WEB_UI makes setup.py skip the
         # in-wheel UI build.
         env:
           SKIP_WEB_UI: "1"
-          OMNIGENT_SKIP_WEB_UI: "true"
+          AGENTNEXUS_SKIP_WEB_UI: "true"
         run: bash deploy/databricks/build.sh
 
       - name: Build UI
@@ -157,7 +157,7 @@ jobs:
 
       - name: Package UI assets
         run: |
-          tar czf /tmp/build.tar.gz -C omnigent/server/static web-ui
+          tar czf /tmp/build.tar.gz -C agentnexus/server/static web-ui
           UI_SIZE=$(stat -c %s /tmp/build.tar.gz)
           echo "UI assets size: $(numfmt --to=iec "$UI_SIZE")"
 
@@ -181,7 +181,7 @@ jobs:
           done
           # Databricks Apps must install via uv (pyproject.toml + uv.lock), NOT a
           # plain requirements.txt: the pip path uses the platform's Python 3.11,
-          # but omnigent requires >=3.12 -- uv provisions 3.12. The three wheels
+          # but agentnexus requires >=3.12 -- uv provisions 3.12. The three wheels
           # are wired as local path sources so they resolve from disk, not PyPI.
           # Mirrors deploy/databricks/deploy.py (build_uv_pyproject + run_uv_lock).
           python - <<'PY'
@@ -192,19 +192,19 @@ jobs:
               assert len(hits) == 1, (prefix, hits)
               return hits[0]
           sources = {
-              "omnigent": whl("omnigent-"),
-              "omnigent-client": whl("omnigent_client-"),
-              "omnigent-ui-sdk": whl("omnigent_ui_sdk-"),
+              "agentnexus": whl("agentnexus-"),
+              "agentnexus-client": whl("agentnexus_client-"),
+              "agentnexus-ui-sdk": whl("agentnexus_ui_sdk-"),
           }
           lines = [
               "[project]",
-              'name = "omnigent-ui-preview"',
+              'name = "agentnexus-ui-preview"',
               'version = "0.0.0"',
               'requires-python = ">=3.12,<3.13"',
               "dependencies = [",
-              '  "omnigent",',
-              '  "omnigent-client",',
-              '  "omnigent-ui-sdk",',
+              '  "agentnexus",',
+              '  "agentnexus-client",',
+              '  "agentnexus-ui-sdk",',
               "]",
               "",
               "[tool.uv.sources]",
@@ -268,7 +268,7 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'omnigent-ui-preview-dev' || format('omnigent-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: ${{ github.event_name == 'push' && 'agentnexus-ui-preview-dev' || format('agentnexus-ui-preview-pr-{0}', github.event.pull_request.number) }}
           APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
@@ -304,14 +304,14 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'omnigent-ui-preview-dev' || format('omnigent-ui-preview-pr-{0}', github.event.pull_request.number) }}
-          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'omnigent-ui-preview-dev' || format('omnigent-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: ${{ github.event_name == 'push' && 'agentnexus-ui-preview-dev' || format('agentnexus-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'agentnexus-ui-preview-dev' || format('agentnexus-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
           # Wipe the workspace source dir first. import-dir --overwrite only
           # replaces files it uploads; it does NOT prune orphans. A requirements.txt
           # left by an earlier deploy would otherwise survive and take precedence
           # over uv (pyproject.toml + uv.lock), forcing the pip/Python-3.11 install
-          # path that fails omnigent's requires-python >=3.12.
+          # path that fails agentnexus's requires-python >=3.12.
           databricks workspace delete "$WORKSPACE_PATH" --recursive 2>/dev/null || true
           databricks workspace mkdirs "$WORKSPACE_PATH" 2>/dev/null || true
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
@@ -323,7 +323,7 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'omnigent-ui-preview-dev' || format('omnigent-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: ${{ github.event_name == 'push' && 'agentnexus-ui-preview-dev' || format('agentnexus-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
           # `apps deploy` restarts the app process and re-extracts source, but
           # reuses the existing Python env, so a freshly built wheel is not
@@ -389,7 +389,7 @@ jobs:
           The preview serves the UI only. To drive a real session, connect your own host from your machine or sandbox:
 
           \`\`\`sh
-          omnigent host --server ${APP_URL}
+          agentnexus host --server ${APP_URL}
           \`\`\`
 
           > [!NOTE]
@@ -431,7 +431,7 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: omnigent-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_NAME: agentnexus-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
             SOURCE_PATH=$(databricks apps get "$APP_NAME" -o json \

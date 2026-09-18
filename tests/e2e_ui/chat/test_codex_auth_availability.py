@@ -239,7 +239,7 @@ async def _drive_codex_needs_auth(base_url: str) -> None:
             # never has to touch the host-less file browser).
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -274,7 +274,7 @@ async def _drive_codex_needs_auth(base_url: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -319,7 +319,7 @@ async def _drive_codex_badge(base_url: str) -> None:
             )
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )
@@ -335,7 +335,7 @@ async def _drive_codex_badge(base_url: str) -> None:
             await _open_entry_config(page, "ag_polly_e2e")
             badge = page.get_by_test_id("new-chat-landing-harness-warning-codex").first
             await expect(badge).to_be_visible(timeout=30_000)
-            # This test doesn't enable harness_install in OMNIGENT_FEATURES, so the
+            # This test doesn't enable harness_install in AGENTNEXUS_FEATURES, so the
             # picker runs on the feature-OFF default — where the badge keeps the
             # original per-reason text ("needs auth"). (With the feature ON the
             # badge collapses to a single "needs setup" and the reason moves into

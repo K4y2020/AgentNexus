@@ -33,7 +33,7 @@ Verified red→green by toggling the gate.
 
 Environment requirements (why this is opt-in, not pure-CI):
 
-* **Opt-in only**: set ``OMNIGENT_E2E_CLAUDE_NATIVE=1`` to run. claude-native
+* **Opt-in only**: set ``AGENTNEXUS_E2E_CLAUDE_NATIVE=1`` to run. claude-native
   needs an *interactive* Claude login (OAuth/Enterprise) anchored to the
   real ``$HOME`` — it cannot be relocated into CI (verified: a copied
   ``~/.claude.json`` reports "Not logged in"). The ``claude`` binary IS
@@ -46,7 +46,7 @@ Environment requirements (why this is opt-in, not pure-CI):
 * The workspace folder must be trusted in ``~/.claude.json`` or Claude
   shows its folder-trust dialog, which blocks (and confounds) the gate.
   The test trusts a temp workspace and restores the original config on
-  teardown. It does NOT touch ``~/.omnigent/config.yaml``: the test
+  teardown. It does NOT touch ``~/.agentnexus/config.yaml``: the test
   server is a fresh random-port instance, so the daemon's real host
   identity registers there with no collision.
 
@@ -54,7 +54,7 @@ claude-native authenticates through the Claude CLI's own session, so
 ``--llm-api-key`` only satisfies the server fixture. Derive it from the
 oss profile::
 
-    OMNIGENT_E2E_CLAUDE_NATIVE=1 \
+    AGENTNEXUS_E2E_CLAUDE_NATIVE=1 \
     .venv/bin/python -m pytest tests/e2e/test_host_claude_native_e2e.py \
         --profile oss \
         --llm-api-key "$(databricks auth token -p oss \
@@ -79,7 +79,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
+from agentnexus.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests.e2e.helpers import POLL_INTERVAL_S
 
@@ -91,10 +91,10 @@ from tests.e2e.helpers import POLL_INTERVAL_S
 # presence is therefore NOT a sufficient gate — require an explicit
 # opt-in env var that only a developer with a logged-in Claude sets.
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CLAUDE_NATIVE") != "1" or shutil.which("claude") is None,
+    os.environ.get("AGENTNEXUS_E2E_CLAUDE_NATIVE") != "1" or shutil.which("claude") is None,
     reason=(
         "claude-native e2e needs an interactive Claude login; set "
-        "OMNIGENT_E2E_CLAUDE_NATIVE=1 (and have `claude` installed + logged in) to run"
+        "AGENTNEXUS_E2E_CLAUDE_NATIVE=1 (and have `claude` installed + logged in) to run"
     ),
 )
 
@@ -199,7 +199,7 @@ def _spawn_host_daemon(
     with open(daemon_log, "w") as log_fh:
         return subprocess.Popen(
             # Compat-aware: pinned OLD host venv in runner compat mode (Config 2).
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", live_server],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", live_server],
             env=apply_runner_env(env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -410,7 +410,7 @@ def _plant_poisoned_omnigent_package(workspace: Path) -> None:
 
     Claude Code runs its hook subprocesses (and the relay MCP server)
     with the cwd set to the session's workspace. Absent ``python -I``,
-    Python prepends that cwd to ``sys.path[0]``, so ``import omnigent``
+    Python prepends that cwd to ``sys.path[0]``, so ``import agentnexus``
     in the hook resolves to whatever ``omnigent/`` lives in the
     workspace -- not the installed package. This plants a copy whose
     ``__init__`` raises on import, faithfully modeling the real failure
@@ -427,7 +427,7 @@ def _plant_poisoned_omnigent_package(workspace: Path) -> None:
         package is written as ``workspace/omnigent/__init__.py``.
     :returns: None.
     """
-    pkg_dir = workspace / "omnigent"
+    pkg_dir = workspace / "agentnexus"
     pkg_dir.mkdir()
     (pkg_dir / "__init__.py").write_text(
         "raise RuntimeError(\n"

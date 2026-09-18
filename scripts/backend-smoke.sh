@@ -9,7 +9,7 @@
 #
 # Everything (toolchain, project venv, config, data, database, artifacts, logs,
 # caches) lives under one disposable runtime directory that is removed on exit,
-# so the run never touches your real ~/.omnigent, ~/.config / ~/Library, or
+# so the run never touches your real ~/.agentnexus, ~/.config / ~/Library, or
 # package caches.
 #
 # Usage:
@@ -24,7 +24,7 @@ set -euo pipefail
 PORT="${PORT:-18080}"
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
-runtime_root="$(mktemp -d "${TMPDIR:-/tmp}/omnigent_backend_XXXXXX")"
+runtime_root="$(mktemp -d "${TMPDIR:-/tmp}/agentnexus_backend_XXXXXX")"
 toolchain_venv="$runtime_root/toolchain_venv"
 project_venv="$runtime_root/project_venv"
 runtime_home="$runtime_root/home"
@@ -34,7 +34,7 @@ runtime_data="$runtime_root/data"
 runtime_cache="$runtime_root/cache"
 runtime_logs="$runtime_root/logs"
 runtime_artifacts="$runtime_root/artifacts"
-runtime_db="$runtime_data/omnigent/chat.db"
+runtime_db="$runtime_data/agentnexus/chat.db"
 server_pid=""
 
 cleanup() {
@@ -52,13 +52,13 @@ mkdir -p \
   "$runtime_cache/pip" "$runtime_cache/uv" \
   "$runtime_logs" "$runtime_artifacts" \
   "$(dirname "$runtime_db")" \
-  "$runtime_config/omnigent" "$runtime_data/omnigent"
+  "$runtime_config/agentnexus" "$runtime_data/agentnexus"
 
 # Isolated environment shared by every step. HOME is the primary isolation
 # lever (it covers ~/.config on Linux and ~/Library on macOS); the explicit
-# UV_/PIP_/OMNIGENT_ overrides pin the toolchain and app state regardless of
+# UV_/PIP_/AGENTNEXUS_ overrides pin the toolchain and app state regardless of
 # OS. XDG_* are set so an XDG var already exported in the caller's shell can't
-# redirect state back to the real home. OMNIGENT_SKIP_WEB_UI leaves the server
+# redirect state back to the real home. AGENTNEXUS_SKIP_WEB_UI leaves the server
 # in API-only mode (no web UI build); UV_PROJECT_ENVIRONMENT points uv at the
 # throwaway project venv; UV_PYTHON_DOWNLOAD=never keeps uv from fetching
 # interpreters.
@@ -72,10 +72,10 @@ env_vars=(
   "UV_CACHE_DIR=$runtime_cache/uv"
   "UV_PROJECT_ENVIRONMENT=$project_venv"
   "UV_PYTHON_DOWNLOAD=never"
-  "OMNIGENT_CONFIG_HOME=$runtime_config/omnigent"
-  "OMNIGENT_DATA_DIR=$runtime_data/omnigent"
-  "OMNIGENT_DATABASE_URI=sqlite:///$runtime_db"
-  "OMNIGENT_SKIP_WEB_UI=true"
+  "AGENTNEXUS_CONFIG_HOME=$runtime_config/agentnexus"
+  "AGENTNEXUS_DATA_DIR=$runtime_data/agentnexus"
+  "AGENTNEXUS_DATABASE_URI=sqlite:///$runtime_db"
+  "AGENTNEXUS_SKIP_WEB_UI=true"
 )
 
 echo "Runtime dir: $runtime_root"
@@ -91,12 +91,12 @@ echo "Syncing project dependencies (uv sync --frozen)..."
 
 echo "Starting backend server on 127.0.0.1:$PORT (API-only)..."
 nohup env "${env_vars[@]}" \
-  "$project_venv/bin/omnigent" server \
+  "$project_venv/bin/agentnexus" server \
     --host 127.0.0.1 \
     --port "$PORT" \
     --database-uri "sqlite:///$runtime_db" \
     --artifact-location "$runtime_artifacts" \
-  < /dev/null > "$runtime_logs/omnigent_server.log" 2>&1 &
+  < /dev/null > "$runtime_logs/agentnexus_server.log" 2>&1 &
 server_pid="$!"
 
 echo "Waiting for /health..."
@@ -109,7 +109,7 @@ for _ in {1..60}; do
 done
 if [ -z "$ready" ]; then
   echo "ERROR: server did not become healthy in time; last log lines:" >&2
-  tail -n 40 "$runtime_logs/omnigent_server.log" >&2 || true
+  tail -n 40 "$runtime_logs/agentnexus_server.log" >&2 || true
   exit 1
 fi
 

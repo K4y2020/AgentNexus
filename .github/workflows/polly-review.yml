@@ -1,6 +1,6 @@
 name: Polly AI Review
 
-# Spins up a local Omnigent server + runner inside the CI runner, starts a
+# Spins up a local AgentNexus server + runner inside the CI runner, starts a
 # Polly session with the PR diff, waits for the cross-vendor review to
 # complete, and posts the findings as a PR comment. Uses the same LLM
 # gateway secrets as the e2e suite (LLM_API_KEY + GATEWAY_BASE_URL).
@@ -37,7 +37,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
 
@@ -146,7 +146,7 @@ jobs:
           echo "duplicate=true" >> "$GITHUB_OUTPUT"
           {
             echo "<!-- polly-skipped-sha: ${head_sha} -->"
-            echo "## <img src=\"https://raw.githubusercontent.com/omnigent-ai/omnigent/main/docs/images/omnigent-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review skipped"
+            echo "## <img src=\"https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review skipped"
             echo ""
             echo "\`${head_sha:0:7}\` already has a [review](${prior}), so there is nothing new to look at."
             echo ""
@@ -233,7 +233,7 @@ jobs:
           # Install outside the checked-out tree: a repo-root package.json would
           # otherwise capture this bare `npm install` and hoist it there, leaving
           # this dir's node_modules empty.
-          CC_CLI_DIR="${RUNNER_TEMP}/omnigent-cc-cli"
+          CC_CLI_DIR="${RUNNER_TEMP}/agentnexus-cc-cli"
           mkdir -p "$CC_CLI_DIR" && cd "$CC_CLI_DIR"
           npm install --ignore-scripts --no-audit --no-fund @anthropic-ai/claude-code@2.1.212
           node node_modules/@anthropic-ai/claude-code/install.cjs
@@ -246,7 +246,7 @@ jobs:
         run: |
           # Install outside the checked-out tree so a repo-root package.json
           # can't capture this bare `npm install` and hoist it away from here.
-          CODEX_CLI_DIR="${RUNNER_TEMP}/omnigent-codex-cli"
+          CODEX_CLI_DIR="${RUNNER_TEMP}/agentnexus-codex-cli"
           mkdir -p "$CODEX_CLI_DIR" && cd "$CODEX_CLI_DIR"
           npm install --ignore-scripts --no-audit --no-fund @openai/codex@0.139.0
           echo "$CODEX_CLI_DIR/node_modules/.bin" >> "$GITHUB_PATH"
@@ -275,16 +275,16 @@ jobs:
           "
           echo "DATABRICKS_BEARER=${LLM_API_KEY}" >> "$GITHUB_ENV"
 
-      - name: Write Omnigent provider config
+      - name: Write AgentNexus provider config
         if: steps.trigger.outputs.skip != 'true' && steps.creds.outputs.available == 'true'
         env:
           GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
-          OMNIGENT_ANTHROPIC_MODEL: ${{ vars.OMNIGENT_CI_ANTHROPIC_MODEL }}
-          OMNIGENT_OPENAI_MODEL: ${{ vars.OMNIGENT_CI_OPENAI_MODEL }}
+          AGENTNEXUS_ANTHROPIC_MODEL: ${{ vars.AGENTNEXUS_CI_ANTHROPIC_MODEL }}
+          AGENTNEXUS_OPENAI_MODEL: ${{ vars.AGENTNEXUS_CI_OPENAI_MODEL }}
         run: |
-          : "${OMNIGENT_ANTHROPIC_MODEL:?Set OMNIGENT_CI_ANTHROPIC_MODEL}"
-          : "${OMNIGENT_OPENAI_MODEL:?Set OMNIGENT_CI_OPENAI_MODEL}"
-          mkdir -p "$HOME/.omnigent"
+          : "${AGENTNEXUS_ANTHROPIC_MODEL:?Set AGENTNEXUS_CI_ANTHROPIC_MODEL}"
+          : "${AGENTNEXUS_OPENAI_MODEL:?Set AGENTNEXUS_CI_OPENAI_MODEL}"
+          mkdir -p "$HOME/.agentnexus"
           # Use python to write the config safely — avoids interpolating
           # secrets/URLs into a heredoc where special chars could break YAML.
           # Uses json (stdlib) instead of yaml to avoid needing PyYAML on
@@ -301,18 +301,18 @@ jobs:
                       'anthropic': {
                           'base_url': gw + '/anthropic',
                           'api_key_ref': 'env:LLM_API_KEY',
-                          'models': {'default': os.environ['OMNIGENT_ANTHROPIC_MODEL']},
+                          'models': {'default': os.environ['AGENTNEXUS_ANTHROPIC_MODEL']},
                       },
                       'openai': {
                           'base_url': host + '/ai-gateway/codex/v1',
                           'api_key_ref': 'env:LLM_API_KEY',
                           'wire_api': 'responses',
-                          'models': {'default': os.environ['OMNIGENT_OPENAI_MODEL']},
+                          'models': {'default': os.environ['AGENTNEXUS_OPENAI_MODEL']},
                       },
                   }
               }
           }
-          pathlib.Path.home().joinpath('.omnigent', 'config.yaml').write_text(
+          pathlib.Path.home().joinpath('.agentnexus', 'config.yaml').write_text(
               json.dumps(cfg, indent=2)
           )
           "
@@ -488,11 +488,11 @@ jobs:
 
       - name: Mint App token
         id: app-token
-        if: steps.trigger.outputs.skip != 'true' && steps.creds.outputs.available == 'true' && vars.OMNIGENT_BOT_APP_ID != ''
+        if: steps.trigger.outputs.skip != 'true' && steps.creds.outputs.available == 'true' && vars.AGENTNEXUS_BOT_APP_ID != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.OMNIGENT_BOT_APP_ID }}
-          private-key: ${{ secrets.OMNIGENT_BOT_APP_KEY }}
+          client-id: ${{ vars.AGENTNEXUS_BOT_APP_ID }}
+          private-key: ${{ secrets.AGENTNEXUS_BOT_APP_KEY }}
 
       - name: Run Polly review
         if: steps.trigger.outputs.skip != 'true' && steps.creds.outputs.available == 'true'
@@ -507,7 +507,7 @@ jobs:
           # Run Polly headlessly with -p; it starts a local server, sends
           # one turn, prints the assistant response, and exits.
           # --no-session: ephemeral run, no persistent session state.
-          uv run omnigent run examples/polly/ \
+          uv run agentnexus run examples/polly/ \
             -p "$prompt" \
             --no-session \
             2>polly-stderr.log \
@@ -572,7 +572,7 @@ jobs:
           {
             echo "<!-- polly-review-bot -->"
             echo "<!-- polly-reviewed-sha: ${HEAD_SHA} -->"
-            echo "## <img src=\"https://raw.githubusercontent.com/omnigent-ai/omnigent/main/docs/images/omnigent-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review"
+            echo "## <img src=\"https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review"
             echo ""
             echo "$REVIEW_TEXT"
             echo ""

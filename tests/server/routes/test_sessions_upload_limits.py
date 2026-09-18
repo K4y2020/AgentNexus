@@ -9,18 +9,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from omnigent.errors import OmnigentError
-from omnigent.runtime.content_resolver import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.runtime.content_resolver import (
     MAX_IMAGE_UPLOAD_BYTES,
     MAX_TEXT_UPLOAD_BYTES,
 )
-from omnigent.server.routes.sessions import create_sessions_router
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.routes.sessions import create_sessions_router
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 
 
 @pytest.fixture
@@ -41,8 +41,8 @@ def upload_client(db_uri: str, tmp_path) -> Iterator[tuple[TestClient, str]]:
 
     app = FastAPI()
 
-    @app.exception_handler(OmnigentError)
-    async def _handle_omnigent_error(request: Request, exc: OmnigentError) -> JSONResponse:
+    @app.exception_handler(AgentNexusError)
+    async def _handle_omnigent_error(request: Request, exc: AgentNexusError) -> JSONResponse:
         del request
         return JSONResponse(
             status_code=exc.http_status,
@@ -139,7 +139,7 @@ class _FakeUpload:
 
 async def test_read_upload_capped_allows_exactly_at_limit() -> None:
     """A payload exactly at the limit is accepted (the ``>`` boundary)."""
-    from omnigent.server.routes.sessions import _read_upload_capped
+    from agentnexus.server.routes.sessions import _read_upload_capped
 
     data = b"x" * 100
     assert await _read_upload_capped(_FakeUpload(data), 100) == data
@@ -150,7 +150,7 @@ async def test_read_upload_capped_rejects_one_over_limit() -> None:
     import pytest as _pytest
     from fastapi import HTTPException
 
-    from omnigent.server.routes.sessions import _read_upload_capped
+    from agentnexus.server.routes.sessions import _read_upload_capped
 
     with _pytest.raises(HTTPException) as exc_info:
         await _read_upload_capped(_FakeUpload(b"x" * 101), 100)

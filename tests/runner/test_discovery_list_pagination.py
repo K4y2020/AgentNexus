@@ -9,8 +9,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.runner import tool_dispatch
-from omnigent.runner.tool_dispatch import execute_tool
+from agentnexus.runner import tool_dispatch
+from agentnexus.runner.tool_dispatch import execute_tool
 
 _ROW_COUNT = 12
 
@@ -272,7 +272,7 @@ async def test_exhausted_source_is_not_refetched_while_other_source_continues(
 @pytest.mark.asyncio
 async def test_sys_agent_list_preserves_small_default_then_pages(tmp_path: Path) -> None:
     """Only a result above the output budget changes the parameterless response."""
-    configs_dir = tmp_path / ".omnigent" / "agent-configs"
+    configs_dir = tmp_path / ".agentnexus" / "agent-configs"
     configs_dir.mkdir(parents=True)
     for index in range(_ROW_COUNT):
         (configs_dir / f"local-{index:02d}.yaml").write_text(
@@ -488,7 +488,7 @@ async def test_sys_session_list_continues_server_catalog_with_cursor() -> None:
 @pytest.mark.asyncio
 async def test_sys_agent_list_reports_oversized_local_config_row(tmp_path: Path) -> None:
     """A single local row cannot escape the discovery output budget."""
-    configs_dir = tmp_path / ".omnigent" / "agent-configs"
+    configs_dir = tmp_path / ".agentnexus" / "agent-configs"
     configs_dir.mkdir(parents=True)
     (configs_dir / "oversized.yaml").write_text(
         f"name: oversized\ndescription: {'x' * 110_000}\n",
@@ -550,7 +550,7 @@ async def test_sys_agent_list_pages_local_configs_beyond_server_fetch_limit(
     tmp_path: Path,
 ) -> None:
     """The server fetch size does not cap local-config pagination."""
-    configs_dir = tmp_path / ".omnigent" / "agent-configs"
+    configs_dir = tmp_path / ".agentnexus" / "agent-configs"
     configs_dir.mkdir(parents=True)
     for index in range(1_001):
         (configs_dir / f"local-{index:04d}.yaml").write_text(
@@ -578,7 +578,7 @@ async def test_sys_agent_list_pages_local_configs_beyond_server_fetch_limit(
 @pytest.mark.asyncio
 async def test_local_config_continuation_uses_last_returned_path(tmp_path: Path) -> None:
     """Edits before the resume path do not skip or repeat later configs."""
-    configs_dir = tmp_path / ".omnigent" / "agent-configs"
+    configs_dir = tmp_path / ".agentnexus" / "agent-configs"
     configs_dir.mkdir(parents=True)
     for index in range(6):
         (configs_dir / f"cfg-{index}.yaml").write_text(

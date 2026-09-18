@@ -26,16 +26,16 @@ vi.mock("@/components/PermissionsModal", () => ({ PermissionsModal: () => null }
 //
 // Models the only two behaviours that matter for this scenario:
 //   old → ignores the `pinned` param, returns the full (unfiltered) page, and
-//         no row carries the `omnigent.pinned` label (pre-feature server).
+//         no row carries the `agentnexus.pinned` label (pre-feature server).
 //   new → honors `?pinned=true`, returns only the caller's pinned rows with the
-//         label collapsed to the bare `omnigent.pinned` key, and PATCH stores /
+//         label collapsed to the bare `agentnexus.pinned` key, and PATCH stores /
 //         clears the per-user pin.
 const server = {
   mode: "old" as "old" | "new",
-  // Per-user pins the NEW server stores + surfaces (omnigent.pinned.<user>).
+  // Per-user pins the NEW server stores + surfaces (agentnexus.pinned.<user>).
   perUserPins: new Set<string>(),
   // Bare-key pins an OLD server stores from a PATCH. Faithful to the bug: the
-  // new server drops any bare `omnigent.pinned` key on read (only its per-user
+  // new server drops any bare `agentnexus.pinned` key on read (only its per-user
   // key is surfaced), so a bare-key pin written pre-upgrade is LOST on upgrade.
   barePins: new Set<string>(),
   // every session that exists (what an old server returns unfiltered).
@@ -75,7 +75,7 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
   // GET /v1/sessions?...&pinned=true — the pinned list.
   if (server.mode === "old") {
     // Old server drops the unknown `pinned` param and returns everything,
-    // WITHOUT any pin label (a bare-key pin isn't surfaced as omnigent.pinned
+    // WITHOUT any pin label (a bare-key pin isn't surfaced as agentnexus.pinned
     // on the pre-feature read path).
     return Promise.resolve(jsonResponse({ data: server.allSessions.map((id) => row(id, false)) }));
   }

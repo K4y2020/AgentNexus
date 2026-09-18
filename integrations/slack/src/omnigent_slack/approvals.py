@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
 
-from omnigent_slack.omnigent import ElicitationRequest
-from omnigent_slack.text import truncate_for_slack, truncate_option
+from agentnexus_slack.agentnexus import ElicitationRequest
+from agentnexus_slack.text import truncate_for_slack, truncate_option
 
 _logger = logging.getLogger(__name__)
 
@@ -38,18 +38,18 @@ class ElicitationOutcome(str, Enum):
 # Block Kit action ids. Binary approve/deny each carry the resolve target in
 # their ``value``; the form Submit does too, while the per-question radio/
 # checkbox inputs are read from the submit payload's ``state.values``.
-ACTION_APPROVE = "omnigent_approve_tool"
-ACTION_DENY = "omnigent_deny_tool"
-ACTION_FORM_SUBMIT = "omnigent_form_submit"
-ACTION_FORM_CANCEL = "omnigent_form_cancel"
+ACTION_APPROVE = "agentnexus_approve_tool"
+ACTION_DENY = "agentnexus_deny_tool"
+ACTION_FORM_SUBMIT = "agentnexus_form_submit"
+ACTION_FORM_CANCEL = "agentnexus_form_cancel"
 # The radio/checkbox inputs share this action id; they need a (no-op) handler
 # registered so Slack doesn't flag an unhandled interaction, but their values
 # are read from ``state.values`` at submit time, not on each change.
-ACTION_FORM_ANSWER = "omnigent_form_answer"
+ACTION_FORM_ANSWER = "agentnexus_form_answer"
 
 # Per-question input blocks are keyed ``omnigent_q::<question_key>`` so the
 # submit handler can map each answer back to its question without extra state.
-_QUESTION_BLOCK_PREFIX = "omnigent_q::"
+_QUESTION_BLOCK_PREFIX = "agentnexus_q::"
 
 # How long the turn worker waits for a click before giving up (and declining, so
 # the server-side park releases). Bounded so an unanswered request can't hold the
@@ -317,7 +317,7 @@ def resolved_card_blocks(
     elif outcome is ElicitationOutcome.DELIVERY_FAILED:
         # The click never reached the server, so it's still parked on this request
         # — the turn can't continue. Re-sending starts a fresh attempt.
-        text += "\n_I couldn't deliver your answer to Omnigent. Send your message again to retry._"
+        text += "\n_I couldn't deliver your answer to AgentNexus. Send your message again to retry._"
     elif outcome is ElicitationOutcome.ABANDONED:
         # The turn ended before this was answered; declined server-side to free
         # the session. Re-sending starts a fresh attempt.

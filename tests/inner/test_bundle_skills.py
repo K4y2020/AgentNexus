@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner.bundle_skills import (
+from agentnexus.inner.bundle_skills import (
     claude_native_skill_args,
     ensure_bundle_plugin_manifest,
 )

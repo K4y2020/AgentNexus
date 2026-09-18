@@ -1,5 +1,5 @@
 """
-End-to-end: every example YAML the Omnigent adapter is
+End-to-end: every example YAML the AgentNexus adapter is
 *expected* to accept can actually boot and execute under
 ``omnigent run -p <prompt>``.
 
@@ -20,7 +20,7 @@ rejects on purpose. The two together enumerate every example.
 
 - The adapter stops translating a previously-working concept
   (os_env, inline AgentTool, cancellable_function, etc.).
-- The Omnigent mode CLI shim loses a dispatch for a harness.
+- The AgentNexus mode CLI shim loses a dispatch for a harness.
 - A new dependency lands in the example YAML (e.g. the example
   starts requiring a binary the CI box doesn't have) — then the
   skip rule needs widening.
@@ -39,7 +39,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _ONESHOT_TIMEOUT_SEC = 240
 
@@ -103,7 +103,7 @@ _CASES = [
         # The fork's cwd is the repo root, so ``ls`` sees the
         # real repo anchors. Any one match is enough — the mock
         # returns the first marker.
-        ("pyproject.toml", "README.md", "omnigent", "examples"),
+        ("pyproject.toml", "README.md", "agentnexus", "examples"),
         # Harness-side failure markers the supervisor can't
         # hide. If any of these show up in stdout we have a real
         # regression even if the LLM's reply text happens to
@@ -149,7 +149,7 @@ def test_run_omnigent_example_yaml(
         binary installed.
     :param success_markers: Any-one-of substrings that MUST
         appear in stdout for the test to pass. Proves the LLM
-        reply traversed the full Omnigent mode stack. The mock
+        reply traversed the full AgentNexus mode stack. The mock
         LLM is configured to return the first marker.
     :param forbidden_markers: Substrings that MUST NOT appear
         in combined stdout+stderr. Catches harness-side failure
@@ -176,16 +176,16 @@ def test_run_omnigent_example_yaml(
     args = [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         # ``--no-session`` so each test starts on a fresh
         # ephemeral DBOS db. Without it, every run shares
-        # ``~/.omnigent/chat.db`` and DBOS may attempt to
+        # ``~/.agentnexus/chat.db`` and DBOS may attempt to
         # recover stuck workflows from previous runs before the
         # FastAPI lifespan finishes initializing the
         # HarnessProcessManager — manifests as
-        # ``HarnessProcessManager not initialized — Omnigent lifespan
+        # ``HarnessProcessManager not initialized — AgentNexus lifespan
         # startup must call set_harness_process_manager() before
         # any workflow dispatches to a non-default harness``.
         "--no-session",

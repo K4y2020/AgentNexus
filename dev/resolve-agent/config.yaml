@@ -22,19 +22,19 @@
 # repro ran in throwaway CI and its worktree is gone). From that pointer it
 # recovers the verdict/facets/journey and re-materializes the repro test.
 #
-# Usage (run from the root of your omnigent-ai/omnigent checkout, so the agent's
+# Usage (run from the root of your agentnexus-ai/agentnexus checkout, so the agent's
 # working directory is this repo):
 #
 #   # From a local repro session (the session dev/repro.py just produced):
-#   omnigent run dev/resolve-agent \
+#   agentnexus run dev/resolve-agent \
 #     -p '{"session":"http://localhost:6767/c/dc59e331-..."}'
 #
 #   # From a CI run that executed repro-agent:
-#   omnigent run dev/resolve-agent \
-#     -p '{"ci_link":"https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184"}'
+#   agentnexus run dev/resolve-agent \
+#     -p '{"ci_link":"https://github.com/agentnexus-ai/agentnexus-internal/actions/runs/30974269184"}'
 #
 # The brain runs on the Claude Agent SDK, so configure a Claude provider first
-# (`omnigent setup` — an Anthropic key, a Claude subscription, an
+# (`agentnexus setup` — an Anthropic key, a Claude subscription, an
 # OpenAI-compatible gateway, or a Databricks workspace). It reads the repro
 # session via sys_session_*, uses the shell for `git` / `gh` / running tests, and
 # writes the fix and its tests into this checkout.
@@ -61,7 +61,7 @@ description: >-
 # default model is used. The large context window holds the repro session
 # transcript, the code it reads to root-cause, the fix, and the tests together.
 executor:
-  type: omnigent
+  type: agentnexus
   context_window: 1000000
   config:
     harness: claude-sdk
@@ -96,8 +96,8 @@ spawn: true
 # `/review` re-trigger, `gh issue view` to read the assignee), and to run tests
 # and write the fix + its tests into this checkout; it reads the repro session
 # via sys_session_*. `cwd: .` runs in the caller's
-# working directory — run `omnigent run dev/resolve-agent` from the root of your
-# omnigent checkout so the agent lands in this repo. `sandbox: none` runs
+# working directory — run `agentnexus run dev/resolve-agent` from the root of your
+# agentnexus checkout so the agent lands in this repo. `sandbox: none` runs
 # unsandboxed with unrestricted network so it can reach the repro session, run
 # tests, and reach GitHub.
 os_env:
@@ -122,7 +122,7 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
     # Bound the fan-out: this agent spawns at most one reviewer child, so a
@@ -132,7 +132,7 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.spawn_bounds
+        path: agentnexus.inner.nessie.policies.spawn_bounds
         arguments:
           max_dispatches_per_turn: 2
           dispatch_tools: [sys_session_send, sys_session_create]
@@ -146,6 +146,6 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.headless_subagent_purpose_guard
+        path: agentnexus.inner.nessie.policies.headless_subagent_purpose_guard
         arguments:
           allowed_purposes: [review]

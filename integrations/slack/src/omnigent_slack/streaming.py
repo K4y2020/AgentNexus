@@ -15,8 +15,8 @@ from typing import Any, Protocol
 
 from slack_sdk.errors import SlackApiError
 
-from omnigent_slack.models import ThreadKey
-from omnigent_slack.text import GENERIC_FAILURE_TEXT, truncate_for_slack
+from agentnexus_slack.models import ThreadKey
+from agentnexus_slack.text import GENERIC_FAILURE_TEXT, truncate_for_slack
 
 
 class SlackStreamProtocol(Protocol):
@@ -346,7 +346,7 @@ class _AnswerReply:
             await self._reply.stop(
                 GENERIC_FAILURE_TEXT
                 if errored
-                else "Omnigent completed without returning response text."
+                else "AgentNexus completed without returning response text."
             )
         await self._clear_ack()
         return delivered_answer

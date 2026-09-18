@@ -20,13 +20,13 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.runtime import workflow as wf
-from omnigent.runtime.workflow import (
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.runtime import workflow as wf
+from agentnexus.runtime.workflow import (
     _build_antigravity_spawn_env,
     configure_agent_harness_with_provider,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -39,14 +39,14 @@ from omnigent.spec.types import (
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Isolate config + secrets to a tmp dir and clear ambient Gemini env.
 
-    Empty OMNIGENT_CONFIG_HOME + file secret backend + cleared
+    Empty AGENTNEXUS_CONFIG_HOME + file secret backend + cleared
     ``GEMINI_API_KEY`` / ``ANTIGRAVITY_API_KEY`` so the no-auth fallback tests
     start clean (a test that wants one sets it).
 
     :returns: The tmp config-home dir, so a test can write a ``config.yaml``.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_API_KEY", raising=False)
     return tmp_path
@@ -55,7 +55,7 @@ def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> P
 def _write_antigravity_config(tmp_path: Path, ref: str) -> None:
     """Write an ``antigravity:`` block referencing *ref* into the isolated config.
 
-    :param tmp_path: The isolated ``OMNIGENT_CONFIG_HOME`` (see the autouse
+    :param tmp_path: The isolated ``AGENTNEXUS_CONFIG_HOME`` (see the autouse
         fixture).
     :param ref: The secret reference to record, e.g. ``"env:GEMINI_KEY_SRC"``.
     """
@@ -81,7 +81,7 @@ def _make_spec(
         spec_version=1,
         name="test-antigravity",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -197,7 +197,7 @@ def test_provider_routing_for_antigravity_fails_loud() -> None:
     # A stand-in entry: the antigravity guard raises before the entry is ever
     # inspected, so its concrete type is irrelevant (hence the arg-type ignore).
     entry = SimpleNamespace(kind="key", name="some-openai-provider")
-    with pytest.raises(OmnigentError) as exc_info:
+    with pytest.raises(AgentNexusError) as exc_info:
         configure_agent_harness_with_provider(env, entry, harness_type="antigravity")  # type: ignore[arg-type]
     assert exc_info.value.code == ErrorCode.INVALID_INPUT
     # The guard fires first, so nothing is written to env before the raise.

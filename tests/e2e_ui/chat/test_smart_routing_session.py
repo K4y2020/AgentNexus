@@ -45,9 +45,9 @@ def _seed_routed_first_turn(session_id: str, *, prompt: str, reply: str) -> None
     :param prompt: User message text.
     :param reply: Assistant message text.
     """
-    from omnigent.entities import NewConversationItem
-    from omnigent.entities.conversation import parse_item_data
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import NewConversationItem
+    from agentnexus.entities.conversation import parse_item_data
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
     from tests.e2e_ui.conftest import _server_state
@@ -132,9 +132,9 @@ def test_spawn_chip_says_the_short_harness_name(
         session.
     :returns: None.
     """
-    from omnigent.entities import NewConversationItem
-    from omnigent.entities.conversation import parse_item_data
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import NewConversationItem
+    from agentnexus.entities.conversation import parse_item_data
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
     from tests.e2e_ui.conftest import _server_state

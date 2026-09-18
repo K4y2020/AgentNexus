@@ -21,15 +21,15 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies import build_policy_engine
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.parser import parse
-from omnigent.spec.types import (
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies import build_policy_engine
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import (
     Phase,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -248,13 +248,13 @@ guardrails:
           prompt: "Deny if mentions Canada."
 """,
     )
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     check_spec = engine.spec_for("check")
     assert check_spec is not None
     assert isinstance(check_spec, FunctionPolicySpec)
     assert check_spec.function is not None
-    assert check_spec.function.path == "omnigent.policies.builtins.prompt.prompt_policy"
+    assert check_spec.function.path == "agentnexus.policies.builtins.prompt.prompt_policy"
     assert check_spec.function.arguments is not None
     assert check_spec.function.arguments["prompt"] == "Deny if mentions Canada."
 
@@ -268,7 +268,7 @@ async def test_yaml_on_key_stays_string(
     conversation_store: SqlAlchemyConversationStore,
 ) -> None:
     """YAML 1.1 parses `on:` as boolean True by default.
-    Omnigent' custom loader keeps it as a string. If
+    AgentNexus' custom loader keeps it as a string. If
     this regresses, every policy's `on:` key disappears
     and all policies silently stop firing.
 
@@ -347,10 +347,10 @@ guardrails:
     names = [p.spec.name for p in engine.policies]
     assert names == ["label_taint", "function_rate", "prompt_check", "__ask_on_add_policy"]
 
-    from omnigent.spec.types import FunctionPolicySpec
+    from agentnexus.spec.types import FunctionPolicySpec
 
     # prompt_check is a FunctionPolicySpec backed by the builtin.
     prompt_spec = engine.spec_for("prompt_check")
     assert isinstance(prompt_spec, FunctionPolicySpec)
     assert prompt_spec.function is not None
-    assert prompt_spec.function.path == "omnigent.policies.builtins.prompt.prompt_policy"
+    assert prompt_spec.function.path == "agentnexus.policies.builtins.prompt.prompt_policy"

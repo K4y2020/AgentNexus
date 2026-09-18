@@ -1,10 +1,10 @@
-"""Shared helper: spawn a dedicated *OIDC-mode* Omnigent server pointed at a
+"""Shared helper: spawn a dedicated *OIDC-mode* AgentNexus server pointed at a
 fake in-process IdP, so the SPA's login-redirect journey can be filmed.
 
 The shared ``live_server`` runs single-user with auth off, and the accounts
 helper (``_accounts_server.py``) drives a password form — neither exercises the
 OIDC redirect an SSO deployment uses. This spins up ``omnigent server`` in
-stock OIDC mode (``OMNIGENT_AUTH_PROVIDER=oidc``) with the issuer pointed at a
+stock OIDC mode (``AGENTNEXUS_AUTH_PROVIDER=oidc``) with the issuer pointed at a
 :func:`tests.e2e_ui.auth._fake_idp.fake_idp` instance, so navigating the SPA
 bounces through ``/auth/login`` → the fake IdP sign-in page → ``/auth/callback``
 → an authenticated session — all headless, all filmable.
@@ -83,14 +83,14 @@ def spawn_oidc_server(mock_llm_server_url: str, server_tmp) -> Iterator[OIDCServ
         server_env = {
             **os.environ,
             "PYTHONPATH": pythonpath,
-            "OMNIGENT_AUTH_PROVIDER": "oidc",
-            "OMNIGENT_AUTH_ENABLED": "1",
-            "OMNIGENT_LOCAL_SINGLE_USER": "",
-            "OMNIGENT_OIDC_ISSUER": idp.issuer,
-            "OMNIGENT_OIDC_CLIENT_ID": idp.client_id,
-            "OMNIGENT_OIDC_CLIENT_SECRET": idp.client_secret,
-            "OMNIGENT_OIDC_REDIRECT_URI": redirect_uri,
-            "OMNIGENT_OIDC_COOKIE_SECRET": secrets.token_hex(32),
+            "AGENTNEXUS_AUTH_PROVIDER": "oidc",
+            "AGENTNEXUS_AUTH_ENABLED": "1",
+            "AGENTNEXUS_LOCAL_SINGLE_USER": "",
+            "AGENTNEXUS_OIDC_ISSUER": idp.issuer,
+            "AGENTNEXUS_OIDC_CLIENT_ID": idp.client_id,
+            "AGENTNEXUS_OIDC_CLIENT_SECRET": idp.client_secret,
+            "AGENTNEXUS_OIDC_REDIRECT_URI": redirect_uri,
+            "AGENTNEXUS_OIDC_COOKIE_SECRET": secrets.token_hex(32),
             "OPENAI_BASE_URL": f"{mock_llm_server_url}/v1",
             "OPENAI_API_KEY": "mock-key",
             "ANTHROPIC_API_KEY": "",
@@ -101,7 +101,7 @@ def spawn_oidc_server(mock_llm_server_url: str, server_tmp) -> Iterator[OIDCServ
             [
                 sys.executable,
                 "-c",
-                "from omnigent.cli import main; main()",
+                "from agentnexus.cli import main; main()",
                 "server",
                 "--host",
                 "127.0.0.1",

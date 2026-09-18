@@ -2,7 +2,7 @@
  *  Electron WebContentsView via a claim-first protocol: on a
  *  `browser.action_request` SSE event every renderer races to CLAIM the action
  *  (atomic CAS on the server), and only the `{claimed:true, claim_token}` winner
- *  dispatches to `window.omnigentDesktop.browser*` and POSTs the result back
+ *  dispatches to `window.agentnexusDesktop.browser*` and POSTs the result back
  *  with its token — so multiple windows can't double-execute.
  *  Gated on `supportsBrowser()`: without a WebContentsView the hook registers
  *  nothing and actions time out cleanly (no headless fallback). An older
@@ -14,7 +14,7 @@ import type { BrowserActionRequestEvent } from "@/lib/events";
 import { supportsBrowser } from "@/lib/nativeBridge";
 import { authenticatedFetch } from "@/lib/identity";
 
-/** Subset of `window.omnigentDesktop` the relay calls (typed locally, not via
+/** Subset of `window.agentnexusDesktop` the relay calls (typed locally, not via
  *  nativeBridge). All optional — an older shell may predate the feature, so the
  *  relay feature-detects before calling. */
 interface BrowserDesktopBridge {
@@ -35,8 +35,8 @@ interface BrowserDesktopBridge {
 
 function getBrowserDesktop(): BrowserDesktopBridge | null {
   if (!supportsBrowser()) return null;
-  const w = window as unknown as { omnigentDesktop?: BrowserDesktopBridge };
-  return w.omnigentDesktop ?? null;
+  const w = window as unknown as { agentnexusDesktop?: BrowserDesktopBridge };
+  return w.agentnexusDesktop ?? null;
 }
 
 /** The shape the relay POSTs back to the server as the action `result`. Normalized

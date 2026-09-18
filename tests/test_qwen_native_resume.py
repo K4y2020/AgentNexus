@@ -1,6 +1,6 @@
 """Tests for qwen-native fork/resume recording synthesis.
 
-Covers converting Omnigent items into qwen chat-recording records and writing
+Covers converting AgentNexus items into qwen chat-recording records and writing
 the recording + discovery sidecars (``runtime.json`` / ``meta.json``) that qwen
 needs to resolve ``--resume``. An optional, opt-in end-to-end test confirms a
 real ``qwen --resume`` loads the synthesized recording.
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import qwen_native_bridge as qnb
+from agentnexus import qwen_native_bridge as qnb
 
 
 def _user_item(text: str, *, response_id: str | None = None) -> dict:
@@ -226,13 +226,13 @@ def test_write_recording_sidecar_failure_leaves_no_gate_jsonl(tmp_path: Path, mo
 
 
 @pytest.mark.skipif(
-    shutil.which("qwen") is None or os.environ.get("OMNIGENT_QWEN_E2E") != "1",
-    reason="needs the qwen CLI + configured auth; opt in with OMNIGENT_QWEN_E2E=1",
+    shutil.which("qwen") is None or os.environ.get("AGENTNEXUS_QWEN_E2E") != "1",
+    reason="needs the qwen CLI + configured auth; opt in with AGENTNEXUS_QWEN_E2E=1",
 )
 def test_synthesized_recording_loads_on_resume(tmp_path: Path) -> None:
     """A real ``qwen --resume`` loads the synthesized recording and recalls the fact.
 
-    Network + auth dependent — skipped unless OMNIGENT_QWEN_E2E=1 and qwen is on
+    Network + auth dependent — skipped unless AGENTNEXUS_QWEN_E2E=1 and qwen is on
     PATH. This is the regression guard for the on-disk format (records + the
     runtime/meta sidecars) that the resume gate depends on. Uses the real
     ``~/.qwen`` for auth; the tmp workspace gives a unique project slug so the

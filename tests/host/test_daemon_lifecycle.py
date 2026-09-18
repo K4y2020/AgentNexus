@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.host import connect
-from omnigent.host.connect import HostProcess
-from omnigent.host.daemon_lifecycle import (
+from agentnexus.host import connect
+from agentnexus.host.connect import HostProcess
+from agentnexus.host.daemon_lifecycle import (
     DaemonLifecycleLock,
     daemon_record_path,
     normalize_daemon_target,
     record_flock_is_held,
 )
-from omnigent.host.identity import HostIdentity
+from agentnexus.host.identity import HostIdentity
 
 
 def _write_record(path: Path, pid: int) -> None:
@@ -118,7 +118,7 @@ def test_record_flock_is_held_states(tmp_path: Path) -> None:
 
 
 def _record(target: str, pid: int) -> object:
-    from omnigent import cli
+    from agentnexus import cli
 
     return cli._HostDaemonRecord(
         pid=pid,
@@ -133,7 +133,7 @@ def _record(target: str, pid: int) -> object:
 def test_daemon_owner_is_live_flock_then_pid(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from omnigent import cli
+    from agentnexus import cli
 
     monkeypatch.setattr(cli, "_HOST_PID_PATH", tmp_path / "host.pid")
     target = "local"
@@ -159,7 +159,7 @@ def test_daemon_owner_is_live_flock_then_pid(
 def test_live_daemon_conflict_uses_flock_then_pid(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from omnigent import cli
+    from agentnexus import cli
 
     monkeypatch.setattr(cli, "_HOST_PID_PATH", tmp_path / "host.pid")
     target = "local"

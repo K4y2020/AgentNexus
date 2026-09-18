@@ -23,11 +23,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
-from omnigent.inner.terminal import TerminalCreateResult, TerminalInstance
-from omnigent.terminals import TerminalRegistry
-from omnigent.terminals import registry as registry_mod
-from omnigent.terminals.registry import TerminalListEntry, conversation_link_for_id
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec, TerminalEnvSpec
+from agentnexus.inner.terminal import TerminalCreateResult, TerminalInstance
+from agentnexus.terminals import TerminalRegistry
+from agentnexus.terminals import registry as registry_mod
+from agentnexus.terminals.registry import TerminalListEntry, conversation_link_for_id
 
 # ── Pure bookkeeping (no tmux) ────────────────────────────────
 
@@ -67,11 +67,11 @@ def test_list_for_conversation_returns_empty_for_unknown_id() -> None:
 
 def test_conversation_link_for_id_uses_relative_path_by_default() -> None:
     """
-    Conversation links stay relative when no Omnigent origin is known.
+    Conversation links stay relative when no AgentNexus origin is known.
 
     This is the embedded/test-runner fallback: there is no stable
     hostname to show in the tmux status bar, but the path still points
-    at the conversation route when rendered by the Omnigent web UI.
+    at the conversation route when rendered by the AgentNexus web UI.
     """
     assert conversation_link_for_id("conv with/slash") == "/c/conv%20with%2Fslash"
 
@@ -111,10 +111,10 @@ def test_conversation_link_for_id_maps_workspace_hosted_server_to_ui_mount(
     :param tmp_path: Pytest tmp dir for the stubbed auth-token file.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.cli_auth import store_databricks_auth
+    from agentnexus.cli_auth import store_databricks_auth
 
     monkeypatch.setattr(
-        "omnigent.cli_auth._token_file_path",
+        "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
     server = "https://example.databricks.com/api/2.0/omnigent"
@@ -308,7 +308,7 @@ def test_transfer_moves_terminal_without_closing_tmux(tmp_path: Path) -> None:
     Terminal transfer changes ownership without touching the instance.
 
     This is the load-bearing invariant for native Claude ``/clear``:
-    moving ``claude/main`` from the old Omnigent conversation to the fresh
+    moving ``claude/main`` from the old AgentNexus conversation to the fresh
     one must not call ``close()``, because closing kills the tmux pane
     that still contains the live Claude process.
     """
@@ -540,7 +540,7 @@ async def test_cleanup_conversation_closes_all_owners_terminals(
     conversations' terminals are untouched.
 
     What breaks if this fails: workflow exit doesn't release tmux
-    sessions; orphans accumulate across the Omnigent process lifetime.
+    sessions; orphans accumulate across the AgentNexus process lifetime.
     """
     await reg_with_tmux.launch("conv_a", "bash", "s1", bash_spec)
     await reg_with_tmux.launch("conv_a", "bash", "s2", bash_spec)
@@ -805,7 +805,7 @@ async def test_close_with_timeout_still_returns_true(tmp_path: Path) -> None:
 
     # The close should not hang — it uses asyncio.wait_for with _CLOSE_TIMEOUT_S.
     # We patch _CLOSE_TIMEOUT_S to a tiny value so the test finishes quickly.
-    import omnigent.terminals.registry as reg_mod
+    import agentnexus.terminals.registry as reg_mod
 
     original = reg_mod._CLOSE_TIMEOUT_S
     reg_mod._CLOSE_TIMEOUT_S = 0.01

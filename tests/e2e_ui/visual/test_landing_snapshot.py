@@ -94,7 +94,7 @@ def test_empty_landing_matches_baseline(
     # auto-fills to a fixed value ("repo") without hitting the file browser. Set
     # before the SPA boots so the composer reads it on mount.
     page.add_init_script(
-        f'window.localStorage.setItem("omnigent:recent-workspaces",'
+        f'window.localStorage.setItem("agentnexus:recent-workspaces",'
         f' JSON.stringify({{"{_HOST_ID}": ["/work/repo"]}}));'
     )
 

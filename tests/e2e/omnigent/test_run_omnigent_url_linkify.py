@@ -31,7 +31,7 @@ What can break this without breaking the lower layers:
   - The PTY layer (prompt-toolkit's stdout proxy) eats the
     OSC 8 bytes before they reach the wire — possible if
     someone adds an ANSI sanitizer for "safety."
-  - The Omnigent mode SSE bridge translates tool-result events into
+  - The AgentNexus mode SSE bridge translates tool-result events into
     a renderable shape that bypasses Rich Panel entirely.
 
 Failure mode: assertion fails on missing ``\\x1b]8;;`` bytes
@@ -47,12 +47,12 @@ import shutil
 import uuid
 from pathlib import Path
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
     submit_prompt,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 # A deliberately distinctive URL the agent will echo — picked
 # so the OSC 8 byte sequence containing it can be unambiguously
@@ -172,7 +172,7 @@ def test_run_omnigent_url_linkify_emits_osc_8_in_pty(
     yaml_path = tmp_path / "linkify_e2e_test.yaml"
     yaml_path.write_text(_YAML_BODY)
 
-    # Short top-level tmpdir so the Omnigent server's per-run
+    # Short top-level tmpdir so the AgentNexus server's per-run
     # subdirs (incl. tmux socket paths if the agent ever
     # touched one) stay under macOS's 104-char Unix-socket
     # limit. Same shape as test_run_omnigent_terminal_idle.py.
@@ -211,7 +211,7 @@ def test_run_omnigent_url_linkify_emits_osc_8_in_pty(
 
         _assert_url_was_linkified(captured.getvalue())
     except BaseException:
-        # On failure, leave the tmpdir intact so the Omnigent server
+        # On failure, leave the tmpdir intact so the AgentNexus server
         # log is inspectable.
         print(f"\n[linkify-e2e debug] tmpdir preserved at {test_tmpdir}")
         raise

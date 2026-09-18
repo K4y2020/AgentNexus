@@ -1,11 +1,11 @@
-"""Timeout configuration tests for :class:`OmnigentClient`."""
+"""Timeout configuration tests for :class:`AgentNexusClient`."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
-from omnigent_client._client import OmnigentClient
-from omnigent_client._timeouts import _SSE_TIMEOUT
+from agentnexus_client._client import AgentNexusClient
+from agentnexus_client._timeouts import _SSE_TIMEOUT
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_client_timeout_applies_to_regular_requests_and_preserves_sse_time
             return httpx.Response(200, json={"ok": True})
         return httpx.Response(200, content=b"data: [DONE]\n\n")
 
-    client = OmnigentClient("http://example.invalid", timeout=0.1)
+    client = AgentNexusClient("http://example.invalid", timeout=0.1)
     original_transport = client._http._transport
     mock_transport = httpx.MockTransport(handler)
     client._http._transport = mock_transport
@@ -46,7 +46,7 @@ async def test_client_timeout_applies_to_regular_requests_and_preserves_sse_time
 
 @pytest.mark.asyncio
 async def test_client_timeout_defaults_to_thirty_seconds() -> None:
-    client = OmnigentClient("http://example.invalid")
+    client = AgentNexusClient("http://example.invalid")
     try:
         assert client._http.timeout == httpx.Timeout(30.0)
     finally:

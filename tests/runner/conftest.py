@@ -14,11 +14,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent import claude_native, codex_native_app_server
-from omnigent.process_logging import PROCESS_LOG_FILE_ENV_VAR
-from omnigent.runner import create_runner_app
-from omnigent.runner.mcp_manager import McpSchemasResult
-from omnigent.spec.types import AgentSpec, ExecutorSpec, MCPServerConfig
+from agentnexus import claude_native, codex_native_app_server
+from agentnexus.process_logging import PROCESS_LOG_FILE_ENV_VAR
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.mcp_manager import McpSchemasResult
+from agentnexus.spec.types import AgentSpec, ExecutorSpec, MCPServerConfig
 from tests.runner.helpers import NullServerClient
 
 # The real store-backed catalog resolver, captured before the autouse fixture
@@ -41,19 +41,19 @@ def _isolated_model_catalog_store(
     The native launch paths consult the shared model-catalog store and, on
     a miss, probe the REAL harness CLIs — which a unit test must never do
     (a real ``claude`` boot takes ~6 s and writes the developer's real
-    ``~/.omnigent`` store). Redirect the store's directory seam per test
+    ``~/.agentnexus`` store). Redirect the store's directory seam per test
     and stub both launch-catalog resolvers to "no catalog" (the
     pre-catalog behavior); a test exercising catalogs re-patches them
     explicitly.
     """
     store_dir = tmp_path_factory.mktemp("model_catalog_store")
-    monkeypatch.setattr("omnigent.model_catalog_store._data_dir", lambda: store_dir)
+    monkeypatch.setattr("agentnexus.model_catalog_store._data_dir", lambda: store_dir)
 
     async def _no_catalog(*_args: Any, **_kwargs: Any) -> None:
         return None
 
-    monkeypatch.setattr("omnigent.claude_native.claude_launch_catalog", _no_catalog)
-    monkeypatch.setattr("omnigent.codex_native_app_server.codex_launch_catalog", _no_catalog)
+    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", _no_catalog)
+    monkeypatch.setattr("agentnexus.codex_native_app_server.codex_launch_catalog", _no_catalog)
 
 
 @pytest.fixture(autouse=True)
@@ -314,7 +314,7 @@ class _ReadTimeoutTransport(httpx.AsyncBaseTransport):
 
         :param request: Outbound request from ``httpx.AsyncClient``.
         :returns: Never returns; raises ``httpx.ReadTimeout``.
-        :raises httpx.ReadTimeout: Always raised to simulate Omnigent slowness.
+        :raises httpx.ReadTimeout: Always raised to simulate AgentNexus slowness.
         """
         self.requests.append(request)
         raise httpx.ReadTimeout("session lookup timed out", request=request)
@@ -625,7 +625,7 @@ def _build_native_app(
     spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
     harness_client = _NativeBlockingHarnessClient(gate)
     pm = _FakeProcessManager(harness_client)
@@ -721,7 +721,7 @@ def _build_interrupt_app(
     spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "runner-test-default"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "runner-test-default"}),
     )
     sse_frames = [
         _sse({"type": "response.created", "response": {"id": "resp_int"}}),
@@ -783,7 +783,7 @@ def _no_wake_backoff(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     async def _record(seconds: float) -> None:
         recorded.append(seconds)
 
-    monkeypatch.setattr("omnigent.runner.app._wake_retry_sleep", _record)
+    monkeypatch.setattr("agentnexus.runner.app._wake_retry_sleep", _record)
     return recorded
 
 
@@ -793,7 +793,7 @@ def pinned_runner_log(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     Pin the log path the runner names in its client-safe error messages.
 
     ``process_log_reference`` reports whatever ``configure_process_logging``
-    published for this process, falling back to ``OMNIGENT_PROCESS_LOG_FILE``.
+    published for this process, falling back to ``AGENTNEXUS_PROCESS_LOG_FILE``.
     Any test in the session that runs the real ``configure_process_logging``
     (``test_runner_entry``'s ``main()`` cases do) leaves its own allocated path
     behind, so pin both sources here instead of depending on test order.
@@ -803,6 +803,6 @@ def pinned_runner_log(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     :returns: The path the runner's error messages must name.
     """
     log_path = tmp_path / "runner-pinned.log"
-    monkeypatch.setattr("omnigent.process_logging._current_process_log_path", log_path)
+    monkeypatch.setattr("agentnexus.process_logging._current_process_log_path", log_path)
     monkeypatch.setenv(PROCESS_LOG_FILE_ENV_VAR, str(log_path))
     return log_path

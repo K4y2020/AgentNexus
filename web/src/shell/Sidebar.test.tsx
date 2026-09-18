@@ -465,7 +465,7 @@ describe("Sidebar session list", () => {
     // "Shared sessions" isn't in the menu on a loopback-only server, so honoring
     // a value stored against a multi-user one would scope the list to a slice
     // the viewer has no option to leave.
-    localStorage.setItem("omnigent:session-filter", "shared");
+    localStorage.setItem("agentnexus:session-filter", "shared");
     isServerLocalMock.mockReturnValue(true);
     mockConversations([conv("conv_mine", "Claude Code")]);
     renderSidebar();
@@ -1858,7 +1858,7 @@ describe("Sidebar default section collapse", () => {
   it("honors a persisted collapse of the Sessions list across remount", () => {
     // "Chats" is the persisted collapse key (kept stable across the label
     // rename); the header it collapses now reads "Sessions".
-    localStorage.setItem("omnigent:collapsed-sidebar-sections", JSON.stringify(["Chats"]));
+    localStorage.setItem("agentnexus:collapsed-sidebar-sections", JSON.stringify(["Chats"]));
     mockConversations([conv("conv_recent", "Claude Code")]);
     renderSidebar();
 
@@ -1874,7 +1874,7 @@ describe("Sidebar default section collapse", () => {
 // the just-pinned chat can't silently hide inside the collapsed group.
 describe("Sidebar auto-expand Pinned on pin", () => {
   it("expands a collapsed Pinned section when a session is newly pinned", () => {
-    localStorage.setItem("omnigent:collapsed-sidebar-sections", JSON.stringify(["Pinned"]));
+    localStorage.setItem("agentnexus:collapsed-sidebar-sections", JSON.stringify(["Pinned"]));
     // Start with one already-pinned session (so the Pinned section renders) and
     // one unpinned session to pin.
     seedPins(["conv_pinned"]);
@@ -1909,7 +1909,7 @@ describe("Sidebar auto-expand Pinned on pin", () => {
     // The Pinned section auto-expands so the freshly-pinned session is visible,
     // and the expansion is persisted (dropped from the collapsed list).
     expect(screen.getByRole("button", { name: /Pinned/ })).toHaveAttribute("aria-expanded", "true");
-    expect(JSON.parse(localStorage.getItem("omnigent:collapsed-sidebar-sections")!)).not.toContain(
+    expect(JSON.parse(localStorage.getItem("agentnexus:collapsed-sidebar-sections")!)).not.toContain(
       "Pinned",
     );
   });

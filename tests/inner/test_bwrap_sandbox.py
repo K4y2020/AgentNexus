@@ -36,8 +36,8 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.inner import bwrap_sandbox
-from omnigent.inner.bwrap_sandbox import (
+from agentnexus.inner import bwrap_sandbox
+from agentnexus.inner.bwrap_sandbox import (
     _ALLOWED_SOCKET_FAMILIES,
     _CLONE_NEW_FLAG_BITS,
     _DEFAULT_CWD_ALLOW_HIDDEN,
@@ -48,8 +48,8 @@ from omnigent.inner.bwrap_sandbox import (
     _detect_host_sandbox_backend,
     _should_bind_host_proc,
 )
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.sandbox import SandboxPolicy, with_denied_unix_sockets
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.sandbox import SandboxPolicy, with_denied_unix_sockets
 
 BWRAP_AVAILABLE = shutil.which("bwrap") is not None
 
@@ -163,7 +163,7 @@ def _run_helper_probe(
     engage — :meth:`activate` is what installs the seccomp BPF.
 
     The repository root is added to the policy's ``read_roots`` so
-    the probe can ``import omnigent.*`` inside the sandbox even
+    the probe can ``import agentnexus.*`` inside the sandbox even
     when ``cwd`` is a throwaway tempdir.
 
     :param cwd: Effective working directory; bind-mounted into the
@@ -339,7 +339,7 @@ def test_resolve_raises_on_non_linux() -> None:
         type="caller_process",
         sandbox=OSEnvSandboxSpec(type="linux_bwrap"),
     )
-    with patch("omnigent.inner.bwrap_sandbox.sys.platform", "darwin"):
+    with patch("agentnexus.inner.bwrap_sandbox.sys.platform", "darwin"):
         with pytest.raises(OSError, match="only available on Linux"):
             backend.resolve(spec, Path.cwd())
 
@@ -356,7 +356,7 @@ def test_resolve_raises_when_bwrap_missing() -> None:
         type="caller_process",
         sandbox=OSEnvSandboxSpec(type="linux_bwrap"),
     )
-    with patch("omnigent.inner.bwrap_sandbox.shutil.which", return_value=None):
+    with patch("agentnexus.inner.bwrap_sandbox.shutil.which", return_value=None):
         with pytest.raises(OSError, match="bwrap"):
             backend.resolve(spec, Path.cwd())
 
@@ -382,7 +382,7 @@ def test_wrap_launcher_argv_starts_with_bwrap_and_ends_with_command(
     backend = _make_backend()
     policy = _make_policy(tmp_path)
     argv = backend.wrap_launcher_argv(
-        [sys.executable, "-m", "omnigent.inner.os_env", "helper", "X"],
+        [sys.executable, "-m", "agentnexus.inner.os_env", "helper", "X"],
         policy,
         tmp_path,
     )
@@ -393,7 +393,7 @@ def test_wrap_launcher_argv_starts_with_bwrap_and_ends_with_command(
     assert argv[dash_idx + 1 :] == [
         sys.executable,
         "-m",
-        "omnigent.inner.os_env",
+        "agentnexus.inner.os_env",
         "helper",
         "X",
     ]
@@ -878,7 +878,7 @@ def test_wrap_launcher_argv_reexposes_interpreter_under_masked_dotdir(
     interpreter's ``bin`` dir AFTER the mask so it wins, and (3) NOT
     re-bind ``.local`` itself (which would defeat the mask).
     """
-    interp_bin = tmp_path / ".local" / "share" / "uv" / "tools" / "omnigent" / "bin"
+    interp_bin = tmp_path / ".local" / "share" / "uv" / "tools" / "agentnexus" / "bin"
     interp_bin.mkdir(parents=True)
     interp = interp_bin / "python"
     interp.write_text("#!/bin/sh\n")
@@ -951,7 +951,7 @@ def test_detect_host_backend_env_declaration_is_normalised(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
-    ``OMNIGENT_HOST_SANDBOX_BACKEND`` is the explicit, authoritative
+    ``AGENTNEXUS_HOST_SANDBOX_BACKEND`` is the explicit, authoritative
     signal; it is trimmed and lower-cased so callers don't have to match
     an exact casing, and ``lakebox`` is on the proc-bind allow-list.
     """
@@ -1280,7 +1280,7 @@ def test_framework_write_root_dotfiles_not_masked(tmp_path: Path) -> None:
     ``test_egress_e2e`` failures). A genuine user write root is still
     scanned.
     """
-    from omnigent.inner.sandbox import with_additional_write_roots
+    from agentnexus.inner.sandbox import with_additional_write_roots
 
     cwd = tmp_path / "work"
     cwd.mkdir()
@@ -1324,8 +1324,8 @@ def test_dotfile_masking_skips_target_that_vanished_after_scan(
     where coverage.py's transient ``.coverage.*`` files raced the scan).
     A persistent dotfile alongside it is still masked.
     """
-    from omnigent.inner import bwrap_sandbox
-    from omnigent.inner._cwd_scan import MaskedEntry
+    from agentnexus.inner import bwrap_sandbox
+    from agentnexus.inner._cwd_scan import MaskedEntry
 
     cwd = tmp_path.resolve(strict=False)
     (tmp_path / ".env").write_text("SECRET=42")
@@ -1523,7 +1523,7 @@ def test_seccomp_blocks_dangerous_socket_families_inside_helper(tmp_path: Path) 
     """
     probe = """
 import base64, json, socket, sys
-from omnigent.inner.sandbox import SandboxPolicy, activate_sandbox
+from agentnexus.inner.sandbox import SandboxPolicy, activate_sandbox
 
 policy = SandboxPolicy.from_jsonable(
     json.loads(base64.urlsafe_b64decode(sys.argv[1]).decode("utf-8"))
@@ -1576,7 +1576,7 @@ def test_seccomp_blocks_unshare_and_setns_inside_helper(tmp_path: Path) -> None:
     """
     probe = """
 import base64, ctypes, errno, json, sys
-from omnigent.inner.sandbox import SandboxPolicy, activate_sandbox
+from agentnexus.inner.sandbox import SandboxPolicy, activate_sandbox
 policy = SandboxPolicy.from_jsonable(
     json.loads(base64.urlsafe_b64decode(sys.argv[1]).decode("utf-8"))
 )
@@ -1629,7 +1629,7 @@ def test_seccomp_blocks_clone_with_namespace_flags_inside_helper(
     """
     probe = """
 import base64, ctypes, errno, json, signal, sys
-from omnigent.inner.sandbox import SandboxPolicy, activate_sandbox
+from agentnexus.inner.sandbox import SandboxPolicy, activate_sandbox
 policy = SandboxPolicy.from_jsonable(
     json.loads(base64.urlsafe_b64decode(sys.argv[1]).decode("utf-8"))
 )
@@ -1669,7 +1669,7 @@ def test_interpreter_under_masked_dotdir_still_spawns(tmp_path: Path) -> None:
     still hides an unrelated secret alongside it.
     """
     real_python = os.path.realpath(sys.executable)
-    interp_bin = tmp_path / ".local" / "share" / "uv" / "tools" / "omnigent" / "bin"
+    interp_bin = tmp_path / ".local" / "share" / "uv" / "tools" / "agentnexus" / "bin"
     interp_bin.mkdir(parents=True)
     interp = interp_bin / "python"
     interp.symlink_to(real_python)
@@ -1748,7 +1748,7 @@ def test_seccomp_extra_rules_block_clone3_outright() -> None:
     """
     import errno
 
-    from omnigent.inner._seccomp import scmp_act_errno
+    from agentnexus.inner._seccomp import scmp_act_errno
 
     rules = _bwrap_extra_seccomp_rules()
     clone3 = [r for r in rules if r.syscall == "clone3"]
@@ -1769,7 +1769,7 @@ def test_seccomp_extra_rules_socket_allowlist() -> None:
     using range-based deny rules: individual denies for the gaps plus
     a ``SCMP_CMP_GE`` rule that catches all families >= 11 (future-proof).
     """
-    from omnigent.inner._seccomp import SCMP_CMP_EQ, SCMP_CMP_GE
+    from agentnexus.inner._seccomp import SCMP_CMP_EQ, SCMP_CMP_GE
 
     rules = _bwrap_extra_seccomp_rules()
     socket_rules = [r for r in rules if r.syscall == "socket"]
@@ -1881,7 +1881,7 @@ def test_run_launcher_spawn_wrap_private_tmpdir_boots_under_bwrap(tmp_path: Path
     """
     import tempfile
 
-    from omnigent.inner.sandbox import _project_root, create_exec_launcher
+    from agentnexus.inner.sandbox import _project_root, create_exec_launcher
 
     cwd = tmp_path
     target = cwd / "tmp_probe.py"

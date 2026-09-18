@@ -6,7 +6,7 @@ therefore bridges the operator's real ``~/.codex`` login/config into each
 per-session CODEX_HOME, and every workflow stage runs a real LLM turn with
 real delivery receipts.
 
-This test is deliberately opt-in: set ``OMNIGENT_REAL_PROVIDER_E2E=1`` and
+This test is deliberately opt-in: set ``AGENTNEXUS_REAL_PROVIDER_E2E=1`` and
 pass ``--llm-api-key`` so the e2e fixture boots in real-LLM mode. The key
 value is not a secret requirement; Codex reads its own config.
 """
@@ -27,7 +27,7 @@ from tests.e2e.conftest import (
     register_inline_agent,
 )
 
-_REAL_PROVIDER_OPT_IN = "OMNIGENT_REAL_PROVIDER_E2E"
+_REAL_PROVIDER_OPT_IN = "AGENTNEXUS_REAL_PROVIDER_E2E"
 _REAL_PROVIDER_TIMEOUT_S = 900.0
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.inner.egress.rules import (
+from agentnexus.inner.egress.rules import (
     check_host,
     check_request,
     parse_rule,

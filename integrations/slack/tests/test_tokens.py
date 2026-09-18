@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from cryptography.fernet import Fernet
-from omnigent_slack.tokens import EncryptedTokenStore, TokenStore
+from agentnexus_slack.tokens import EncryptedTokenStore, TokenStore
 
 
 async def _store(tmp_path: Path) -> TokenStore:
@@ -77,7 +77,7 @@ async def test_wrong_key_yields_none(tmp_path: Path) -> None:
 
 async def test_in_memory_store_round_trip_and_scoping() -> None:
     """The no-key fallback stores tokens in memory with the same interface."""
-    from omnigent_slack.tokens import InMemoryTokenStore
+    from agentnexus_slack.tokens import InMemoryTokenStore
 
     store = InMemoryTokenStore()
     await store.initialize()

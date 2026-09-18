@@ -17,14 +17,14 @@ describe("managed server preferences", () => {
       platform: "darwin",
       getUserDefault: (...args) => {
         calls.push(args);
-        return ["omnigent.example.com", "https://workspace.example.com/ml/omnigents?o=123"];
+        return ["agentnexus.example.com", "https://workspace.example.com/ml/agentnexuss?o=123"];
       },
     });
 
     assert.deepEqual(calls, [[SERVER_URLS_KEY, "array"]]);
     assert.deepEqual(urls, [
-      "https://omnigent.example.com/",
-      "https://workspace.example.com/ml/omnigents?o=123",
+      "https://agentnexus.example.com/",
+      "https://workspace.example.com/ml/agentnexuss?o=123",
     ]);
   });
 
@@ -34,7 +34,7 @@ describe("managed server preferences", () => {
       platform: "win32",
       getUserDefault: () => {
         reads += 1;
-        return ["https://omnigent.example.com"];
+        return ["https://agentnexus.example.com"];
       },
     });
 
@@ -45,16 +45,16 @@ describe("managed server preferences", () => {
   it("deduplicates by origin while keeping the first configured URL", () => {
     assert.deepEqual(
       parseManagedServerUrls([
-        "https://workspace.example.com/ml/omnigents",
+        "https://workspace.example.com/ml/agentnexuss",
         "https://workspace.example.com/another-mount",
         "https://other.example.com",
       ]),
-      ["https://workspace.example.com/ml/omnigents", "https://other.example.com/"],
+      ["https://workspace.example.com/ml/agentnexuss", "https://other.example.com/"],
     );
   });
 
   it("rejects an invalid configuration as a whole", () => {
-    assert.deepEqual(parseManagedServerUrls("https://omnigent.example.com"), []);
+    assert.deepEqual(parseManagedServerUrls("https://agentnexus.example.com"), []);
     assert.deepEqual(
       parseManagedServerUrls(["https://valid.example.com", "http://insecure.example.com"]),
       [],
@@ -86,7 +86,7 @@ describe("managed server preferences", () => {
           "hand-edited-invalid-value",
           null,
         ],
-        ["https://workspace.example.com/ml/omnigents"],
+        ["https://workspace.example.com/ml/agentnexuss"],
       ),
       ["https://personal.example.com/", "hand-edited-invalid-value"],
     );

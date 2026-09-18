@@ -21,16 +21,16 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostCreateWorktreeFrame,
     HostHelloFrame,
     HostRemoveWorktreeFrame,
     HostStatFrame,
     decode_host_frame,
 )
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.server.host_registry import HostConnection
-from omnigent.stores.host_store import HostStore
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.server.host_registry import HostConnection
+from agentnexus.stores.host_store import HostStore
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
@@ -380,14 +380,14 @@ async def test_create_failure_never_removes_existing_worktree(
     """A create_conversation failure must NOT destroy the user's worktree.
 
     Regression: the ``existing_worktree`` bind path sets ``git_branch``
-    for a *pre-existing* worktree without Omnigent creating one. The
+    for a *pre-existing* worktree without AgentNexus creating one. The
     create-rollback (``git worktree remove --force`` + ``git branch -D``)
-    is gated on Omnigent having created a worktree, NOT on ``git_branch``
+    is gated on AgentNexus having created a worktree, NOT on ``git_branch``
     being set — otherwise a persistence failure would force-remove the
     user's own worktree and delete their branch. Assert no remove frame
     is sent when ``create_conversation`` raises on this path.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -430,15 +430,15 @@ async def test_create_failure_rolls_back_omnigent_created_worktree(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A create_conversation failure DOES clean up an Omnigent-made worktree.
+    """A create_conversation failure DOES clean up an AgentNexus-made worktree.
 
-    The counterpart to the data-loss guard: when Omnigent creates the
+    The counterpart to the data-loss guard: when AgentNexus creates the
     worktree (the ``git`` path) and persistence then fails, the orphan
     worktree it just made must be force-removed. Proves the narrowed
-    rollback guard (gated on Omnigent having created a worktree) still
+    rollback guard (gated on AgentNexus having created a worktree) still
     fires for the case it is meant to clean up.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -453,7 +453,7 @@ async def test_create_failure_rolls_back_omnigent_created_worktree(
     with pytest.raises(RuntimeError, match="simulated create_conversation failure"):
         await _create_git_session(client, agent["id"], {"branch_name": "feature/orphan"})
 
-    # Omnigent created the worktree, so the rollback force-removed it: one
+    # AgentNexus created the worktree, so the rollback force-removed it: one
     # remove frame for the worktree it just made, deleting the branch too.
     assert len(cap.create) == 1, cap.create
     assert len(cap.remove) == 1, f"expected a create-rollback remove frame, got {cap.remove}"

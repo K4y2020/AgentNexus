@@ -10,14 +10,14 @@
 # cheap, and can't hang. The workflow drops its output into the GitHub Release
 # DRAFT body; a human reviews and edits before publishing.
 #
-# Run headlessly:  omnigent run .github/agents/release-notes-drafter -p "<pr list>" --no-session
+# Run headlessly:  agentnexus run .github/agents/release-notes-drafter -p "<pr list>" --no-session
 #
 # Security posture (mirrors doc-classifier / doc-drafter, a STRONGER trust position
 # than polly-review):
 #   - Runs only on ALREADY-MERGED, released history (a maintainer reviewed + merged
 #     every PR it sees), and only at release-cut on the trusted default branch.
 #   - The only secret in this process's env is LLM_API_KEY (same as Polly/doc-sync).
-#     The omnigent write-token that opens the CHANGELOG PR / edits the release is
+#     The agentnexus write-token that opens the CHANGELOG PR / edits the release is
 #     minted by the workflow AFTER this agent finishes, so it never coexists with
 #     model input.
 #   - Its input is author-written text (PR titles + `## Changelog` lines) — a prose
@@ -35,16 +35,16 @@ description: >-
   Synthesizes concise, curated GitHub Release notes from the list of PRs merged
   since the previous release. Collapses related PRs into ~4-5 themed bullets under
   three headings (Major new features; Breaking changes; Bug fixes — user-facing
-  only), in Omnigent's release-notes voice, and emits them between RELEASE_NOTES
+  only), in AgentNexus's release-notes voice, and emits them between RELEASE_NOTES
   markers. No tools, no sub-agents — a pure synthesis turn.
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
 prompt: |
-  You are the Omnigent release-notes drafter. A new version is being cut. You are
+  You are the AgentNexus release-notes drafter. A new version is being cut. You are
   given the list of pull requests merged since the previous release — each with its
   number, title, and (when the author filled it in) the one-line user-facing
   changelog entry from the PR template. You are also given a deterministic
@@ -94,7 +94,7 @@ prompt: |
     When in doubt whether a fix is user-facing, leave it out.
   - Append the contributing PR refs in parentheses at the end of each bullet:
     `(#123, #456)`. Only cite PRs you were actually given.
-  - Keep Omnigent's voice: crisp, concrete, lightly technical. A tasteful leading
+  - Keep AgentNexus's voice: crisp, concrete, lightly technical. A tasteful leading
     emoji per feature bullet is fine (matching how we write releases); never invent
     facts, versions, or flag names not present in the input.
   - Preserve the `Full Changelog:` line from the mechanical draft verbatim.

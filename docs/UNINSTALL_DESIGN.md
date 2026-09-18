@@ -1,4 +1,4 @@
-# Omnigent Uninstaller Design
+# AgentNexus Uninstaller Design
 
 Status: Implemented in PR #2550
 Owner: Pat Sukprasert (@PattaraS)
@@ -8,7 +8,7 @@ Implementation note: PR #2550 ships the OSS CLI/script implementation as one
 combined PR rather than the staged PR breakdown below. Checkboxes marked here
 reflect the current implementation and focused test coverage in that PR.
 
-This document specifies how Omnigent should be uninstalled. It is written to be
+This document specifies how AgentNexus should be uninstalled. It is written to be
 handed to an implementer without further design decisions. Track delivery with
 the checklists in each section.
 
@@ -18,19 +18,19 @@ Ship four coupled pieces around one shared removal codepath:
 
 1. `scripts/uninstall_oss.sh` - pure POSIX `sh`, the actual removal logic. Works
    even when the wheel is wedged or PATH is broken; usable via curl-pipe.
-2. `omnigent uninstall` - the discoverable CLI entry. It performs graceful
+2. `agentnexus uninstall` - the discoverable CLI entry. It performs graceful
    process shutdown and state/JSON handling in Python, then execs
    `uninstall_oss.sh` for the final self-removal steps. One implementation, two
    entry points.
 3. Install-side ledger writer - records what the installer did to
-   `~/.omnigent/install_ledger.json`.
+   `~/.agentnexus/install_ledger.json`.
 4. Back-fill routine - reconstructs a ledger as observed evidence (never
    invented memory) for the pre-ledger install base.
 
 Out of scope: any cross-domain "reaper" spanning the wheel, the signed `.app`,
 and mobile sandboxes. App-store surfaces (iOS/Android/Electron) use OS-native
-uninstall and only point the user back at `omnigent uninstall --purge` for
-`~/.omnigent`. Shared runtimes (uv/Node/tmux/bwrap) are report-only in this
+uninstall and only point the user back at `agentnexus uninstall --purge` for
+`~/.agentnexus`. Shared runtimes (uv/Node/tmux/bwrap) are report-only in this
 version - never removed, even with `--yes`.
 
 Design principles that recur below:
@@ -43,7 +43,7 @@ Design principles that recur below:
 
 ## 2. install_ledger.json schema
 
-- Path: `~/.omnigent/install_ledger.json`
+- Path: `~/.agentnexus/install_ledger.json`
 - Mode: `0600` (local paths; treat as sensitive)
 - Write: atomic - write `install_ledger.json.tmp` in the same dir, `fsync`,
   `rename()` over target.
@@ -56,7 +56,7 @@ Design principles that recur below:
 | `schema_version` | int | `1`. |
 | `ledger_source` | enum | `installer` \| `backfill`. A backfill ledger never overwrites an installer one. |
 | `generator` | object | `{name, version, strategy, os, wrote_at}`; `strategy` = `install` \| `fast-backfill` \| `deep-backfill`; `os` = `macos` \| `linux`. |
-| `installation_id` | string \| null | Copied from `~/.omnigent/installation_id`; the anchor proving an install exists. |
+| `installation_id` | string \| null | Copied from `~/.agentnexus/installation_id`; the anchor proving an install exists. |
 | `created_at` / `updated_at` / `last_validated_at` | string | RFC3339 UTC. |
 | `entries` | object | The reversible-action records (below). |
 
@@ -69,33 +69,33 @@ Design principles that recur below:
 ### entries sub-objects
 
 `profiles` (array) - shell profiles that received the delimited PATH block:
-`path`, `marker_begin` (`# >>> Omnigent installer >>>`), `marker_end`
-(`# <<< Omnigent installer <<<`), `line_range` [int,int] (1-indexed inclusive,
+`path`, `marker_begin` (`# >>> AgentNexus installer >>>`), `marker_end`
+(`# <<< AgentNexus installer <<<`), `line_range` [int,int] (1-indexed inclusive,
 advisory - removal re-locates by marker), `block_sha256` (of block text incl.
 markers, for tamper detection), `content_matches_current` (bool), `source`,
 `confidence`.
 
-`injected_external_config` (array) - entries Omnigent wrote into third-party
-files: `path`, `marker` (logical key, e.g. `mcp_servers.omnigent`), `format`
+`injected_external_config` (array) - entries AgentNexus wrote into third-party
+files: `path`, `marker` (logical key, e.g. `mcp_servers.agentnexus`), `format`
 (`json` \| `toml` \| `delimited_block`), `allowlist` (array of exact key paths /
 block markers we may remove - removal touches ONLY these), `block_sha256`
 (\| null), `source`, `confidence`.
 
 `deps` (object keyed by `uv`/`node`/`npm`/`tmux`/`bwrap`): `present` (bool),
-`path` (\| null), `version` (\| null), `installed_by` (`omnigent` - only ever set
+`path` (\| null), `version` (\| null), `installed_by` (`agentnexus` - only ever set
 by a real installer that did the install; \| `preexisting` \| `unknown` -
 backfill may only write `unknown`), `confidence` (`none` whenever
 `installed_by=="unknown"`), optional `notes` (weak human hint, never actioned).
 
 `wheel` (object): `installed` (bool), `uv_tool_dir` (\| null), `bin_dir`
 (\| null, e.g. `~/.local/bin`), `console_scripts` (array, e.g.
-`["omnigent","omni"]`), `source`, `confidence`.
+`["agentnexus","omni"]`), `source`, `confidence`.
 
 `launch_agents` (array): `kind` (`launchd` \| `systemd_user`), `path`, `label`,
 `source`, `confidence`.
 
 `state_paths` (object, informational, only removed under `--purge`):
-`omnigent_home` (`~/.omnigent`), `workspace` (`~/omnigent`), `desktop_data`
+`agentnexus_home` (`~/.agentnexus`), `workspace` (`~/agentnexus`), `desktop_data`
 (array of observed Electron dirs).
 
 ### Annotated example
@@ -108,28 +108,28 @@ backfill may only write `unknown`), `confidence` (`none` whenever
   "created_at": "2026-07-14T18:03:22Z",
   "updated_at": "2026-07-14T18:03:22Z",
   "last_validated_at": "2026-07-14T18:03:22Z",
-  "generator": { "name": "omnigent", "version": "1.42.0", "strategy": "install", "os": "macos", "wrote_at": "2026-07-14T18:03:22Z" },
+  "generator": { "name": "agentnexus", "version": "1.42.0", "strategy": "install", "os": "macos", "wrote_at": "2026-07-14T18:03:22Z" },
   "entries": {
     "profiles": [
-      { "path": "~/.zshrc", "marker_begin": "# >>> Omnigent installer >>>", "marker_end": "# <<< Omnigent installer <<<",
+      { "path": "~/.zshrc", "marker_begin": "# >>> AgentNexus installer >>>", "marker_end": "# <<< AgentNexus installer <<<",
         "line_range": [212, 215], "block_sha256": "9f2c...e1", "content_matches_current": true,
         "source": "recorded", "confidence": "certain" }
     ],
     "injected_external_config": [
-      { "path": "~/.config/harness/hermes.json", "marker": "mcp_servers.omnigent", "format": "json",
-        "allowlist": ["mcp_servers.omnigent"], "block_sha256": null, "source": "recorded", "confidence": "certain" }
+      { "path": "~/.config/harness/hermes.json", "marker": "mcp_servers.agentnexus", "format": "json",
+        "allowlist": ["mcp_servers.agentnexus"], "block_sha256": null, "source": "recorded", "confidence": "certain" }
     ],
     "deps": {
-      "uv":   { "present": true, "path": "~/.local/bin/uv", "version": "0.5.11", "installed_by": "omnigent",    "confidence": "high" },
+      "uv":   { "present": true, "path": "~/.local/bin/uv", "version": "0.5.11", "installed_by": "agentnexus",    "confidence": "high" },
       "node": { "present": true, "path": "/usr/bin/node",   "version": "22.3.0", "installed_by": "preexisting", "confidence": "high" }
     },
-    "wheel": { "installed": true, "uv_tool_dir": "~/.local/share/uv/tools/omnigent", "bin_dir": "~/.local/bin",
-               "console_scripts": ["omnigent","omni"], "source": "recorded", "confidence": "certain" },
+    "wheel": { "installed": true, "uv_tool_dir": "~/.local/share/uv/tools/agentnexus", "bin_dir": "~/.local/bin",
+               "console_scripts": ["agentnexus","omni"], "source": "recorded", "confidence": "certain" },
     "launch_agents": [
-      { "kind": "launchd", "path": "~/Library/LaunchAgents/dev.omnigent.daemon.plist", "label": "dev.omnigent.daemon",
+      { "kind": "launchd", "path": "~/Library/LaunchAgents/dev.agentnexus.daemon.plist", "label": "dev.agentnexus.daemon",
         "source": "recorded", "confidence": "certain" }
     ],
-    "state_paths": { "omnigent_home": "~/.omnigent", "workspace": "~/omnigent", "desktop_data": [] }
+    "state_paths": { "agentnexus_home": "~/.agentnexus", "workspace": "~/agentnexus", "desktop_data": [] }
   }
 }
 ```
@@ -139,14 +139,14 @@ Checklist:
 - [x] Schema documented and versioned (`schema_version = 1`)
 - [x] Atomic writer (tmp + fsync + rename) with `0600` mode
 - [x] Serializer / dataclass with round-trip unit tests
-- [x] `omnigent _internal write-ledger --from-env` hidden subcommand
+- [x] `agentnexus _internal write-ledger --from-env` hidden subcommand
 
 ## 3. Install-side ledger writer
 
 Hook point: in `scripts/install_oss.sh`, after all side effects succeed and
 before `print_next_steps`. Since the installer is the source of truth, prefer
 having it call the hidden serializer subcommand
-`omnigent _internal write-ledger --from-env` (reuses the schema serializer, gets
+`agentnexus _internal write-ledger --from-env` (reuses the schema serializer, gets
 atomic-write + `0600` for free) rather than hand-building JSON in `sh`. Provide a
 `write_install_ledger` shell wrapper.
 
@@ -154,7 +154,7 @@ Records (all `source: recorded`): each profile actually edited (path, markers,
 current `line_range`, `block_sha256`); each external-config injection (path,
 marker, format, allowlist); the wheel install (`uv tool dir`, bin dir, console
 scripts); deps the installer itself installed this run get
-`installed_by: omnigent` + version, deps found already present get
+`installed_by: agentnexus` + version, deps found already present get
 `preexisting`; any LaunchAgent/systemd unit registered; `installation_id`;
 `state_paths`. Do not shell out to package managers for versions - cheap
 `--version` only.
@@ -166,7 +166,7 @@ Upgrade / repair sync:
 2. If `installer`, merge: refresh `block_sha256`/`line_range` for re-touched
    profiles, refresh wheel/dep versions, add newly-injected external config,
    bump `generator.version` + `updated_at`.
-3. Never downgrade `installed_by` (`uv: omnigent` stays even if uv is now found
+3. Never downgrade `installed_by` (`uv: agentnexus` stays even if uv is now found
    pre-present).
 4. Atomic write.
 
@@ -185,9 +185,9 @@ Reconstruction = observe current state, record with per-field confidence, never
 invent provenance.
 
 Anchor guard (refuse to fabricate): before writing anything, require at least
-one genuine install signal: `~/.omnigent/installation_id` exists, OR the wheel
-is installed (`uv tool list` shows `omnigent`), OR a known profile contains the
-exact marker pair. If none, write nothing and report "no Omnigent install
+one genuine install signal: `~/.agentnexus/installation_id` exists, OR the wheel
+is installed (`uv tool list` shows `agentnexus`), OR a known profile contains the
+exact marker pair. If none, write nothing and report "no AgentNexus install
 detected."
 
 Fast vs deep:
@@ -195,11 +195,11 @@ Fast vs deep:
 - Fast (startup, target <100ms, no package-manager subprocesses): stat the
   ledger; if valid, return. Else cheap checks only - stat `installation_id`,
   read + in-process scan of candidate profiles for markers (no shelling out to
-  `grep`), stat known `~/.omnigent` subdirs, existence checks for Electron
+  `grep`), stat known `~/.agentnexus` subdirs, existence checks for Electron
   dirs. Mark wheel/deps `confidence: low` or omit; `generator.strategy =
   fast-backfill`. Never spawn `uv`/`command -v` on the hot path.
 - Deep (uninstall / doctor, no budget): fast steps plus `uv tool list`/
-  `uv tool dir`, `command -v omnigent omni uv node tmux bwrap`, version
+  `uv tool dir`, `command -v agentnexus omni uv node tmux bwrap`, version
   resolution, allowlisted external-config marker scans, LaunchAgent/systemd
   enumeration. `generator.strategy = deep-backfill`.
 
@@ -210,7 +210,7 @@ Per-field confidence assignment:
 | PATH block present (marker match) | observed | certain |
 | PATH block present, content != current | observed | certain (flag `content_matches_current:false`) |
 | Wheel / bin dir / console scripts | observed | high |
-| `~/.omnigent`, `installation_id` | observed | high |
+| `~/.agentnexus`, `installation_id` | observed | high |
 | LaunchAgent by known label | observed | high |
 | Injected external config (marker block) | observed | certain |
 | Injected external config (header fingerprint, no marker) | inferred | medium |
@@ -224,7 +224,7 @@ changes behavior.
 Never-overwrite-real + double-ledger:
 
 - If existing ledger is `installer`, backfill does nothing, ever.
-- Backfill writes to `~/.omnigent/install_ledger.backfill.json`, not directly
+- Backfill writes to `~/.agentnexus/install_ledger.backfill.json`, not directly
   over `install_ledger.json`.
 - Uninstaller ledger resolution: use `install_ledger.json` if `installer`; else
   use `install_ledger.backfill.json` if present; else run deep backfill on the
@@ -237,7 +237,7 @@ stops processes. It only reads and writes the (backfill) ledger.
 
 Triggers: eager fast-backfill on first CLI run when missing; lazy deep-backfill
 at uninstall when missing; explicit
-`omnigent doctor --migrate-ledger [--deep]` which prints a JSON diff and writes
+`agentnexus doctor --migrate-ledger [--deep]` which prints a JSON diff and writes
 only with `--apply`.
 
 Checklist:
@@ -248,19 +248,19 @@ Checklist:
 - [x] Anchor guard (refuse to fabricate without an install signal)
 - [x] Per-field confidence assignment per table
 - [x] Never-overwrite-real + `install_ledger.backfill.json` double-ledger handling
-- [x] `omnigent doctor --migrate-ledger [--deep] [--apply]`
+- [x] `agentnexus doctor --migrate-ledger [--deep] [--apply]`
 - [x] Read-only-except-the-ledger guarantee (tested)
 
-## 5. omnigent uninstall CLI
+## 5. agentnexus uninstall CLI
 
-`omnigent uninstall [targets...] [flags...]` (execs `scripts/uninstall_oss.sh`
+`agentnexus uninstall [targets...] [flags...]` (execs `scripts/uninstall_oss.sh`
 with the same args). Fallback: `scripts/uninstall_oss.sh [targets...]
 [flags...]`.
 
 Targets (default `cli` if none given):
 
 - `cli` - remove the uv tool entry + PATH/profile block(s).
-- `state` - remove user data under `~/.omnigent` and `~/omnigent` (backup by
+- `state` - remove user data under `~/.agentnexus` and `~/agentnexus` (backup by
   default).
 - `desktop-data` - remove Electron caches/support/logs (NOT the app bundle).
 - `all` - alias for `cli state desktop-data`.
@@ -282,9 +282,9 @@ Flags:
 - `--modify-external-config` - primary gate to touch third-party config files.
 - `--no-backup` - with `state`/`--purge`, skip archive creation.
 - `--assume-inferred` - secondary gate to act on `inferred` entries.
-- `--purge-workspace` - the only way to clear `~/omnigent` (your working files)
-  non-interactively. Without it, `--purge --yes` still removes `~/.omnigent`
-  (credentials/history) but leaves `~/omnigent` untouched and prints a notice.
+- `--purge-workspace` - the only way to clear `~/agentnexus` (your working files)
+  non-interactively. Without it, `--purge --yes` still removes `~/.agentnexus`
+  (credentials/history) but leaves `~/agentnexus` untouched and prints a notice.
   This keeps a stray `--yes` in automation from wiping user work.
 
 Gate decision table. Two orthogonal gates. Intrinsic-risk (primary): own
@@ -296,18 +296,18 @@ friction, never grant it.
 
 | Artifact | No destructive flags | `--yes` | Required gate |
 |---|---|---|---|
-| Wheel (`uv tool uninstall omnigent`) | dry-run preview | auto-remove | none |
+| Wheel (`uv tool uninstall agentnexus`) | dry-run preview | auto-remove | none |
 | Delimited PATH block (marker match) | dry-run preview | auto-remove | none; refuse if `block_sha256` mismatch (tampered) unless `--force` |
 | Injected external config, marker/observed | reported, skipped | reported, skipped | `--modify-external-config` |
 | Injected external config, inferred (no marker) | reported, skipped | reported, skipped | `--modify-external-config` AND `--assume-inferred` |
-| `~/.omnigent` state root | reported, skipped | removed only with `--purge` | `--purge` |
-| `~/omnigent` workspace | reported, skipped | kept unless `--purge-workspace` | `--purge` AND (`--purge-workspace` or interactive confirm) |
+| `~/.agentnexus` state root | reported, skipped | removed only with `--purge` | `--purge` |
+| `~/agentnexus` workspace | reported, skipped | kept unless `--purge-workspace` | `--purge` AND (`--purge-workspace` or interactive confirm) |
 | Desktop data | via `desktop-data`/`all` | same | none beyond target |
 | Shared deps (uv/node/tmux/bwrap) | report-only | report-only | none - never removed this version |
 
 Checklist:
 
-- [x] Python `omnigent uninstall` subcommand that execs the shell script
+- [x] Python `agentnexus uninstall` subcommand that execs the shell script
 - [x] Targets: `cli`, `state`, `desktop-data`, `all`
 - [x] Flags: `--purge`, `--purge-workspace`, `--dry-run`, `--yes`, `--json`,
       `--force`, `--modify-external-config`, `--no-backup`, `--assume-inferred`
@@ -317,13 +317,13 @@ Checklist:
 
 ## 6. Order of operations
 
-`omnigent uninstall` performs graceful shutdown + state/JSON in Python, then
+`agentnexus uninstall` performs graceful shutdown + state/JSON in Python, then
 execs the shell script for removal. Sequence:
 
 1. Resolve ledger (section 4 resolution order).
-2. Stop processes first. Read pidfiles under `~/.omnigent/run/` (+ `daemons/`,
+2. Stop processes first. Read pidfiles under `~/.agentnexus/run/` (+ `daemons/`,
    `runners/`, `local_server/`): SIGTERM -> wait 5s -> under `--force` SIGKILL.
-   Kill only `omnigent:*` tmux sessions. Unload ledger-recorded LaunchAgents/
+   Kill only `agentnexus:*` tmux sessions. Unload ledger-recorded LaunchAgents/
    systemd units. If a process won't stop, abort destructive steps (report and
    exit nonzero) unless `--force`.
 3. `--dry-run`? Print exact paths + sizes + line ranges, then exit 0.
@@ -334,28 +334,28 @@ execs the shell script for removal. Sequence:
 5. Strip injected external config (gated per table; marker-scoped /
    allowlist-scoped only).
 6. Optional state / desktop-data (only with `--purge` / target). For `--purge`:
-   archive to a backup tarball OUTSIDE the target under `~/.omnigent-backups/`
+   archive to a backup tarball OUTSIDE the target under `~/.agentnexus-backups/`
    (or `$XDG_STATE_HOME`). Prefer `<ts>.tar.zst` when `zstd` is present; fall
    back to `<ts>.tar.gz` (gzip is POSIX-baseline) otherwise. Never silently skip
    the backup because a compressor is missing - a purge that can't write its
    backup must fail closed (exit 1) unless `--no-backup` was given. Print the
-   restore command, then delete. Never back up into `~/.omnigent`. Clearing
-   `~/omnigent` non-interactively requires `--purge-workspace` (see section 5);
+   restore command, then delete. Never back up into `~/.agentnexus`. Clearing
+   `~/agentnexus` non-interactively requires `--purge-workspace` (see section 5);
    otherwise it prompts for a separate confirm. Note that purging
    `installation_id` makes a reinstall look like a new device (telemetry).
-7. `uv tool uninstall omnigent` - LAST (so earlier Python-driven steps still
+7. `uv tool uninstall agentnexus` - LAST (so earlier Python-driven steps still
    have the wheel available).
 
 Checklist:
 
 - [x] Process-shutdown protocol (pidfiles, SIGTERM->5s->`--force` SIGKILL,
-      `omnigent:*` tmux, ledger LaunchAgents, abort-if-won't-stop)
+      `agentnexus:*` tmux, ledger LaunchAgents, abort-if-won't-stop)
 - [x] Profile block removal across all shells incl. fish; profile backed up
       first; tamper-refusal
 - [x] `--purge` archives OUTSIDE the target (`.tar.zst`, gzip fallback; fail
       closed if it can't write the backup), prints restore command, then
-      deletes; `~/omnigent` gated behind `--purge-workspace` (or confirm)
-- [x] `uv tool uninstall omnigent` runs last
+      deletes; `~/agentnexus` gated behind `--purge-workspace` (or confirm)
+- [x] `uv tool uninstall agentnexus` runs last
 
 ## 7. Idempotency and exit codes
 
@@ -381,13 +381,13 @@ Exit codes:
   "ledger_source": "installer",
   "actions": [
     { "artifact": "profile_block", "path": "~/.zshrc", "planned": "remove",
-      "status": "done", "gate": null, "detail": "block removed, backup at ~/.zshrc.omnigent.bak" },
-    { "artifact": "external_config", "path": "~/.config/harness/hermes.json", "marker": "mcp_servers.omnigent",
+      "status": "done", "gate": null, "detail": "block removed, backup at ~/.zshrc.agentnexus.bak" },
+    { "artifact": "external_config", "path": "~/.config/harness/hermes.json", "marker": "mcp_servers.agentnexus",
       "planned": "remove", "status": "skipped", "gate": "--modify-external-config", "detail": "gate not provided" },
     { "artifact": "shared_dep", "name": "uv", "planned": "report", "status": "reported",
       "gate": null, "detail": "installed_by=unknown; not removed" }
   ],
-  "backups": ["~/.omnigent-backups/2026-07-14T18-40-02Z.tar.zst"],
+  "backups": ["~/.agentnexus-backups/2026-07-14T18-40-02Z.tar.zst"],
   "summary": { "done": 1, "skipped": 1, "failed": 0, "reported": 1 },
   "exit_code": 0
 }
@@ -404,22 +404,22 @@ Checklist:
 
 | # | Scenario | Expect |
 |---|---|---|
-| 1 | fish profiles (`config.fish` + `conf.d/omnigent.fish`) | block removed from both; other lines intact |
+| 1 | fish profiles (`config.fish` + `conf.d/agentnexus.fish`) | block removed from both; other lines intact |
 | 2 | Tampered / corrupted marker block (sha mismatch) | refuse without `--force`; exit 3 |
 | 3 | No ledger, valid install signal | deep-backfill runs, uninstall proceeds |
 | 4 | No ledger, no install signal | anchor guard: nothing written; "no install detected" |
 | 5 | Backfilled ledger present | inferred entries need `--assume-inferred`; deps report-only |
 | 6 | Live daemon running | stopped (SIGTERM->5s->`--force`); won't-stop aborts destructive steps |
 | 7 | `--dry-run` | prints exact paths/sizes/ranges; zero mutations; exit 0 |
-| 8 | `--purge` with backup | archive written OUTSIDE `~/.omnigent`; restore command printed; then delete |
-| 9 | `--purge --no-backup` | delete without archive; `~/omnigent` kept unless `--purge-workspace` |
+| 8 | `--purge` with backup | archive written OUTSIDE `~/.agentnexus`; restore command printed; then delete |
+| 9 | `--purge --no-backup` | delete without archive; `~/agentnexus` kept unless `--purge-workspace` |
 | 10 | Shared dep present (`installed_by:unknown`) | report-only, never removed, even with `--yes` |
 | 11 | Double ledger (real + backfill both present) | keep real; backfill copy left as `.backfill.json` for inspection |
 | 12 | Re-run after full uninstall (idempotency) | all already-absent; exit 0 |
 | 13 | Injected external config, marker vs inferred | marker gated by `--modify-external-config`; inferred also needs `--assume-inferred` |
 | 14 | uv tool uninstall runs last | earlier Python steps had the wheel available |
 | 15 | `--purge` on a box without `zstd` | backup written as `.tar.gz`; not skipped |
-| 16 | `--purge --yes` without `--purge-workspace` | `~/.omnigent` removed; `~/omnigent` kept + notice |
+| 16 | `--purge --yes` without `--purge-workspace` | `~/.agentnexus` removed; `~/agentnexus` kept + notice |
 
 Checklist:
 
@@ -430,7 +430,7 @@ Checklist:
 ## 9. Delivery plan (PR breakdown)
 
 - [x] PR 1 - Ledger schema + serializer. Schema, atomic-write + `0600` writer,
-      `omnigent _internal write-ledger` hidden subcommand, round-trip unit
+      `agentnexus _internal write-ledger` hidden subcommand, round-trip unit
       tests. No behavior change.
 - [x] PR 2 - Install-side writer. Hook `write_install_ledger` into
       `scripts/install_oss.sh` + upgrade/repair merge logic.
@@ -440,7 +440,7 @@ Checklist:
 - [x] PR 4 - `uninstall_oss.sh` core. Process shutdown, profile block removal
       (all shells), `uv tool uninstall`, idempotency + exit codes,
       `--dry-run`/`--json`.
-- [x] PR 5 - `omnigent uninstall` subcommand + gates. Python front, targets/
+- [x] PR 5 - `agentnexus uninstall` subcommand + gates. Python front, targets/
       flags, two-gate decision table, `--purge` backup-outside-target,
       external-config stripping.
 - [x] PR 6 - Docs + discovery. Installer next-steps + `--help` mention
@@ -450,11 +450,11 @@ Checklist:
 
 ## Appendix A: ELI5
 
-Omnigent is a houseguest.
+AgentNexus is a houseguest.
 
 - Installing = the guest moves in: hangs a coat by the door (the PATH line in
-  your shell profile), keeps a box of their stuff in a closet (`~/.omnigent` -
-  settings, logins, chat history) and a desk they work at (`~/omnigent`).
+  your shell profile), keeps a box of their stuff in a closet (`~/.agentnexus` -
+  settings, logins, chat history) and a desk they work at (`~/agentnexus`).
   Sometimes they borrow shared tools from your garage that may already have been
   there (uv, Node, tmux). Occasionally they leave a sticky note inside a
   roommate's notebook (config injected into other tools).
@@ -490,7 +490,7 @@ Omnigent is a houseguest.
 
 ```
                           +-----------------------------+
-                          |   omnigent uninstall [...]   |
+                          |   agentnexus uninstall [...]   |
                           |  targets: cli | state |      |
                           |  desktop-data | all          |
                           |  flags: --purge --dry-run    |
@@ -547,7 +547,7 @@ Omnigent is a houseguest.
         |         -> auto under --yes                         |
         |   - third-party file edit (injected config)        |
         |         -> needs --modify-external-config          |
-        |   - data destruction (~/.omnigent, ~/omnigent)     |
+        |   - data destruction (~/.agentnexus, ~/agentnexus)     |
         |         -> needs --purge (defaults to No)          |
         |   - shared deps (uv/Node/tmux, installed_by        |
         |         =unknown) -> REPORT ONLY, never remove     |
@@ -568,10 +568,10 @@ Omnigent is a houseguest.
            | 4. Strip injected external config (marker- |
            |    scoped, ledger-recorded)                 |
            | 5. --purge? archive to backup tarball       |
-           |    OUTSIDE target (~/.omnigent-backups/),  |
-           |    then delete state; keep ~/omnigent       |
+           |    OUTSIDE target (~/.agentnexus-backups/),  |
+           |    then delete state; keep ~/agentnexus       |
            |    unless --purge-workspace or confirm      |
-           | 6. uv tool uninstall omnigent  (LAST)       |
+           | 6. uv tool uninstall agentnexus  (LAST)       |
            +--------------------+----------------------+
                                 |
                                 v
@@ -584,7 +584,7 @@ Omnigent is a houseguest.
              +--------------------------------------+
 
    Other package surfaces:
-   OS/package-manager uninstall owns package files. The Omnigent
+   OS/package-manager uninstall owns package files. The AgentNexus
    uninstaller handles local profile/state cleanup and uses
    uv tool uninstall for uv-installed wheels; it does not remove
    shared dependencies or act as a cross-domain reaper.

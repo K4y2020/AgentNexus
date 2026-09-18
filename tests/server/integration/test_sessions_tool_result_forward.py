@@ -22,17 +22,17 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.auth import LEVEL_EDIT, UnifiedAuthProvider
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import LEVEL_EDIT, UnifiedAuthProvider
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 
@@ -102,7 +102,7 @@ async def test_function_call_output_forwarded_as_tool_result(
     the parked tool and the turn would hang — this asserts the shape the
     scaffold's ToolResultEvent requires.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     calls: list[dict[str, Any]] = []
 
@@ -141,7 +141,7 @@ async def test_function_call_output_no_runner_returns_503(
     db_uri: str,
 ) -> None:
     """No bound runner → 503 (the result can't be delivered)."""
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub_none(*_: Any, **__: Any) -> None:
         return None
@@ -168,7 +168,7 @@ async def test_function_call_output_runner_error_returns_503(
     parked turn hangs to timeout; the route instead surfaces the failure
     so the caller can retry.
     """
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     class _FailingRunnerClient:
         async def post(self, *_: Any, **__: Any) -> Any:

@@ -4,8 +4,8 @@ Callables for the ``combined-policies`` fixture.
 
 from __future__ import annotations
 
-from omnigent.policies.types import EvaluationContext, PolicyResult
-from omnigent.spec.types import PolicyAction
+from agentnexus.policies.types import EvaluationContext, PolicyResult
+from agentnexus.spec.types import PolicyAction
 
 
 def observe_all(ctx: EvaluationContext) -> PolicyResult:

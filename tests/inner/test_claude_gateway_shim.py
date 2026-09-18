@@ -17,7 +17,7 @@ import httpx
 import pytest
 import uvicorn
 
-from omnigent.inner.claude_gateway_shim import (
+from agentnexus.inner.claude_gateway_shim import (
     ClaudeGatewayShim,
     restore_thinking_display,
     strip_claude_sdk_internal_system_blocks,
@@ -411,11 +411,11 @@ async def test_gateway_executor_routes_new_client_through_shim(monkeypatch) -> N
     ``_get_or_create_client`` (the seam where ``options.env`` is
     consumed); spawning the real CLI is infeasible in unit tests.
     """
-    from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
-    from omnigent.inner.databricks_executor import DatabricksCredentials
+    from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
+    from agentnexus.inner.databricks_executor import DatabricksCredentials
 
     monkeypatch.setattr(
-        "omnigent.inner.databricks_executor._read_databrickscfg",
+        "agentnexus.inner.databricks_executor._read_databrickscfg",
         lambda profile=None: DatabricksCredentials(
             host="https://example.databricks.com", token="dapi_test_token"
         ),
@@ -473,7 +473,7 @@ async def test_generic_gateway_executor_enables_sdk_block_stripping() -> None:
     """Only generic gateways enable the Claude SDK compatibility rewrite."""
     from types import SimpleNamespace
 
-    from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+    from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
 
     executor = ClaudeSDKExecutor(
         gateway=True,

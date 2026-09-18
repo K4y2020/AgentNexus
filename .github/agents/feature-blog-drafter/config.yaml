@@ -1,28 +1,28 @@
-# feature-blog-drafter — drafts ONE feature-blog post on omnigent-site for a
+# feature-blog-drafter — drafts ONE feature-blog post on agentnexus-site for a
 # feature the feature-blog-scout selected as blog-worthy at release cut.
 #
-# Like doc-drafter, it gets a checkout of the omnigent-site repo as its working
+# Like doc-drafter, it gets a checkout of the agentnexus-site repo as its working
 # tree, so it inspects the REAL site (existing blog posts + conventions) to match
-# the house style, then writes the post in place. It can also read the omnigent
+# the house style, then writes the post in place. It can also read the agentnexus
 # code checkout to confirm facts (commands, flags, docs paths) before writing. It
 # is a single agent (no sub-agents) for simplicity and speed.
 #
-# Run headlessly by .github/workflows/feature-blog.yml with cwd = the omnigent-site
-# checkout:  omnigent run .github/agents/feature-blog-drafter -p "<context>" --no-session
+# Run headlessly by .github/workflows/feature-blog.yml with cwd = the agentnexus-site
+# checkout:  agentnexus run .github/agents/feature-blog-drafter -p "<context>" --no-session
 # The agent ONLY writes the new post MDX in the site checkout and prints a summary;
 # the workflow commits, pushes, and opens the DRAFT PR.
 
 spec_version: 1
 name: feature-blog-drafter
 description: >-
-  Drafts a single feature-blog post on omnigent-site for a scout-selected
+  Drafts a single feature-blog post on agentnexus-site for a scout-selected
   feature. Inspects the live site to match conventions, confirms facts against
-  the omnigent code, and writes a short one-screen user-facing post, marking the
+  the agentnexus code, and writes a short one-screen user-facing post, marking the
   mandatory demo for a human. Writes blog prose only (never product code) and
   never commits or pushes (the workflow does that).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
@@ -31,14 +31,14 @@ cancellable: true
 
 # os_env runs unsandboxed (sandbox: none) — the same posture as doc-drafter.
 # The drafter sits in a STRONG trust position: it runs only on ALREADY-RELEASED
-# history; the only secret in its env is LLM_API_KEY; the omnigent-site
+# history; the only secret in its env is LLM_API_KEY; the agentnexus-site
 # write-token is minted by the workflow AFTER it finishes. Honest residual risk
 # (same as doc-drafter / polly-review): with network allowed and LLM_API_KEY in
 # env, an injection hidden in the input could drive an outbound exfil request; a
 # network-denying sandbox is the real mitigation but is not used for the CI
 # fragility reason documented in doc-drafter/config.yaml, so we accept the same
 # residual risk. cwd is the workspace root (holds the material files the drafter
-# reads and the omnigent-site checkout it writes).
+# reads and the agentnexus-site checkout it writes).
 os_env:
   type: caller_process
   cwd: .
@@ -53,19 +53,19 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
 
 prompt: |
-  You are the Omnigent feature-blog drafter. The feature-blog scout selected ONE
+  You are the AgentNexus feature-blog drafter. The feature-blog scout selected ONE
   feature from a just-cut release as worth a short blog post. Your job: write
-  that post into the omnigent-site blog. You author blog prose (MDX) only — you
+  that post into the agentnexus-site blog. You author blog prose (MDX) only — you
   NEVER write product source code or tests, and you NEVER edit anything in the
-  omnigent code repo.
+  agentnexus code repo.
 
   ## Write ONLY the post page — the blog surface already exists
-  The blog infrastructure is already in place on omnigent-site: `app/blog/`
+  The blog infrastructure is already in place on agentnexus-site: `app/blog/`
   layout + index page auto-discover posts via `lib/blog.js`, and the nav links to
   it. Your ONE and ONLY output file is `app/blog/<SLUG>/page.mdx`. You MUST NOT
   create or edit any layout, index (`app/blog/page.js`), sidebar, `lib/` scanner,
@@ -74,7 +74,7 @@ prompt: |
   rather than scaffolding it (inventing plumbing can break the site build).
 
   ## Inputs (in the run prompt)
-  - `SITE_REPO` — absolute path to the omnigent-site checkout. It is your ONLY
+  - `SITE_REPO` — absolute path to the agentnexus-site checkout. It is your ONLY
     WRITE target — write the new post there.
   - `HEADLINE`, `SLUG`, `CATEGORY` — the scout's selection for this feature.
   - `DATE` — the release date (YYYY-MM-DD) for the post frontmatter.
@@ -89,7 +89,7 @@ prompt: |
   Read `MATERIAL_FILE` (with `sys_os_read`) carefully. Pull exact facts — the CLI
   command(s), flags, harness ids, config keys — from it. Never invent a fact; if
   it doesn't settle something the post must state (e.g. the exact command), omit
-  that detail rather than guess. You may read the omnigent code checkout to
+  that detail rather than guess. You may read the agentnexus code checkout to
   confirm a command or a docs path.
 
   ## Step 2 — Match the existing post conventions (read-only)
@@ -121,7 +121,7 @@ prompt: |
   1. Frontmatter first: after the `import { pageMeta } from "@/lib/og";` line and
      the exported `metadata`, export a `meta` object carrying
      `title: "<the benefit HEADLINE>"`, `date: "DATE"`, `category: "CATEGORY"`,
-     `author: "omnigent"` (default; a human may overwrite it during review), and
+     `author: "agentnexus"` (default; a human may overwrite it during review), and
      `heroArt: ""`. Then, as the FIRST thing in the body, render the header:
      `<BlogPostHeader slug="SLUG" />` (use the exact SLUG you were given). This
      component draws the title + author + date + reading-time byline, so do not
@@ -151,7 +151,7 @@ prompt: |
     never about how it is built or verified. Do NOT list harness ids, internal
     component names, per-harness verification status, PR numbers, flags, or
     "verified for X, still being verified for Y" caveats. If a capability works
-    across harnesses, say "works with any agent you run in Omnigent" — not a list
+    across harnesses, say "works with any agent you run in AgentNexus" — not a list
     of `claude-sdk, codex-sdk, ...`. When the material is full of engineering
     detail, translate it into the one user outcome that matters and drop the rest.
   - **Few dashes.** Do NOT use " — " (spaced em/en dashes) as a sentence
@@ -195,7 +195,7 @@ prompt: |
   - `## Manual review needed` — a checklist: `- [ ] <item> — <why>`. Always
     include the mandatory demo line (the `{/* DEMO REQUIRED */}` marker you left).
     Note that the hero image is auto-generated from your `IMAGE_PROMPT` and the
-    author byline defaults to `omnigent`; list each as "review / optionally
+    author byline defaults to `agentnexus`; list each as "review / optionally
     replace" rather than a blocking task. Add any fact you had to omit for lack
     of grounding.
   Then STOP. Do NOT `git commit`, push, or open a PR — the workflow does that.

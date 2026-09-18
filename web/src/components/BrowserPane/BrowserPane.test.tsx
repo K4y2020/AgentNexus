@@ -10,7 +10,7 @@ vi.mock("@/lib/nativeBridge", () => ({
 }));
 
 /**
- * Minimal `window.omnigentDesktop` stub. The empty-state tests only need the
+ * Minimal `window.agentnexusDesktop` stub. The empty-state tests only need the
  * subscription methods to exist (they return no-op unsubscribes) and
  * `browserHasView` to resolve "no view", so `viewActive` stays false and the
  * pane renders its cold-start (no-page-open) state — exactly the state the
@@ -36,7 +36,7 @@ function installBridge(overrides: Record<string, unknown> = {}) {
     browserDisableDesignMode: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,
   };
-  (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = bridge;
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = bridge;
   return bridge;
 }
 
@@ -54,7 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = undefined;
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = undefined;
 });
 
 describe("BrowserPane cold-start (no view yet)", () => {

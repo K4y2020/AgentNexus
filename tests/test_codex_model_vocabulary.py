@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.claude_model_vocabulary import _CATALOG_PREFIXES as _CLAUDE_PREFIXES
-from omnigent.codex_model_vocabulary import (
+from agentnexus.claude_model_vocabulary import _CATALOG_PREFIXES as _CLAUDE_PREFIXES
+from agentnexus.codex_model_vocabulary import (
     _CATALOG_PREFIXES,
     EXTENDED_CATALOG_MODELS,
     EXTENDED_MODEL_DEFAULT_EFFORT,
@@ -13,7 +13,7 @@ from omnigent.codex_model_vocabulary import (
     codex_spawn_model,
     comparable_model_id,
 )
-from omnigent.reasoning_effort import clamp_effort_for_model
+from agentnexus.reasoning_effort import clamp_effort_for_model
 
 # A live ``model/list`` response from a databricks-gateway codex session:
 # codex spells versions with dots, and the extended-catalog row keeps its
@@ -149,6 +149,6 @@ def test_catalog_prefixes_match_the_claude_vocabulary() -> None:
 
 def test_catalog_prefixes_match_the_routing_defaults() -> None:
     """This module duplicates the prefix list to stay stdlib-only; keep it equal."""
-    from omnigent.server.smart_routing import MODEL_ID_PREFIXES
+    from agentnexus.server.smart_routing import MODEL_ID_PREFIXES
 
     assert _CATALOG_PREFIXES == MODEL_ID_PREFIXES

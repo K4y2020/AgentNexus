@@ -20,7 +20,7 @@ The prompt is typed, never POSTed — see CUJ 3's module docstring for why.
 
 A 5x repeat variant burns in the block-and-replay handshake, whose failure mode
 is a timing race. It multiplies an already slow suite, so it is gated behind
-``OMNIGENT_E2E_RELIABILITY=1`` on top of the suite's own opt-in.
+``AGENTNEXUS_E2E_RELIABILITY=1`` on top of the suite's own opt-in.
 """
 
 from __future__ import annotations
@@ -33,9 +33,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.codex_model_vocabulary import codex_spawn_model
-from omnigent.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
-from omnigent.runner.turn_routing import MARKER_FILE
+from agentnexus.codex_model_vocabulary import codex_spawn_model
+from agentnexus.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
+from agentnexus.runner.turn_routing import MARKER_FILE
 from tests.e2e.routing._helpers import (
     capture_pane,
     codex_bridge_dir,

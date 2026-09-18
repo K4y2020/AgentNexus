@@ -3,15 +3,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resyncBrowserSuppression, SuppressBrowserView } from "./useSuppressBrowserView";
 
-/** Install a `window.omnigentDesktop` with a spied browserSetSuppressed. */
+/** Install a `window.agentnexusDesktop` with a spied browserSetSuppressed. */
 function installBridge() {
   const browserSetSuppressed = vi.fn().mockResolvedValue({ ok: true });
-  (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = { browserSetSuppressed };
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = { browserSetSuppressed };
   return browserSetSuppressed;
 }
 
 afterEach(() => {
-  delete (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop;
+  delete (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop;
   vi.restoreAllMocks();
 });
 
@@ -38,7 +38,7 @@ describe("SuppressBrowserView", () => {
   });
 
   it("is a no-op outside a browser-capable shell (no bridge)", () => {
-    // No window.omnigentDesktop installed — must not throw.
+    // No window.agentnexusDesktop installed — must not throw.
     expect(() => render(<SuppressBrowserView />).unmount()).not.toThrow();
   });
 });

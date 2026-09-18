@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from omnigent.repl._event_tape import (
+from agentnexus.repl._event_tape import (
     EventTape,
     PipelineCounters,
     Stage,
@@ -538,7 +538,7 @@ def test_open_event_log_creates_file(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``open_event_log`` creates the debug directory and returns a valid path."""
-    # Redirect HOME so we don't pollute the real ~/.omnigent/debug/.
+    # Redirect HOME so we don't pollute the real ~/.agentnexus/debug/.
     monkeypatch.setattr(pathlib.Path, "home", lambda: tmp_path)
 
     path = open_event_log("sess_abc123")

@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 from tests.e2e._harness_probes import cli_unavailable_reason
 from tests.harness_bench.profile import BenchProfile
 from tests.harness_bench.runtime_env import bench_creds_skip_reason, resolve_bench_env
@@ -313,7 +313,7 @@ class SdkInprocDriver:
         )
 
     async def run_mcp_tool_turn(self) -> TurnResult:
-        return TurnResult(error="Omnigent MCP relay is not observable on sdk-inproc")
+        return TurnResult(error="AgentNexus MCP relay is not observable on sdk-inproc")
 
     async def run_fork_turn(self, marker: str) -> ForkResult:
         return ForkResult(error="session fork is not observable on sdk-inproc")

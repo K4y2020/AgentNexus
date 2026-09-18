@@ -3,7 +3,7 @@
 Real server + runner + LLM (or mock LLM). Unlike fork (which branches into a
 NEW session), switch rebinds the SAME session to a different agent and continues
 there. The core guarantee is that the new agent picks up the prior conversation:
-an SDK target replays the Omnigent transcript as context, so a code word planted
+an SDK target replays the AgentNexus transcript as context, so a code word planted
 before the switch must be recalled after it — on the same session id.
 
 In mock mode the source and target are both inline ``openai-agents`` agents
@@ -77,7 +77,7 @@ def test_switch_agent_in_place_carries_history(
 
     Plants a marker on a source session, switches the session IN PLACE to
     the ``sdk-chat-builtin`` agent, then asks the new agent to recall it. The
-    new agent can only answer from the replayed Omnigent transcript — a
+    new agent can only answer from the replayed AgentNexus transcript — a
     regression (history not carried, or the runner kept serving the old
     agent) breaks the recall. Also asserts the session id is unchanged and the
     bound agent actually changed, proving this is an in-place switch and not a

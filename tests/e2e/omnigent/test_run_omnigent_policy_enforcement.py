@@ -1,8 +1,8 @@
 """
 End-to-end proof that policies declared in an omnigent YAML
-are enforced by the omnigent workflow under Omnigent mode.
+are enforced by the omnigent workflow under AgentNexus mode.
 
-The adapter in :mod:`omnigent.spec.omnigent` lifts the
+The adapter in :mod:`omnigent.spec.agentnexus` lifts the
 YAML's ``policies:`` block into
 :attr:`AgentSpec.guardrails.policies`; the omnigent runtime
 builds a :class:`PolicyEngine` over those specs and enforces at
@@ -14,12 +14,12 @@ call and asserts the policy actually fires.
 sweep**: the stock ``examples/*.yaml`` policy fixtures rely on
 the legacy omnigent ``(content, phase)`` callable signature
 (``examples.tool_functions.block_long_sleep`` et al.), which
-Omnigent' :class:`FunctionPolicy` dispatcher can't invoke
+AgentNexus' :class:`FunctionPolicy` dispatcher can't invoke
 (it passes ``(ctx, context)`` where ``ctx`` is an
 :class:`EvaluationContext` dataclass, not a dict). This test
 uses the omnigent-shaped
 ``omnigent._e2e_policy_callables.block_on_sentinel``
-callable — an arity-1 callable matching Omnigent'
+callable — an arity-1 callable matching AgentNexus'
 convention — so the test proves the translator + engine
 integration works and isn't muddied by a separate callable-
 portability gap. That gap is tracked in ``TODO_omnigent_coverage.md``.
@@ -44,7 +44,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _TIMEOUT_SEC = 180
 
@@ -110,7 +110,7 @@ def policy_enforcement_yaml_factory(tmp_path: Path) -> Callable[[str, str], Path
                 "block_sentinel_input": {
                     "type": "function",
                     "on": ["request"],
-                    "handler": ("omnigent._e2e_policy_callables.block_on_sentinel"),
+                    "handler": ("agentnexus._e2e_policy_callables.block_on_sentinel"),
                 },
             },
         }
@@ -158,7 +158,7 @@ def test_policy_denies_input_containing_sentinel(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--no-session",
@@ -228,7 +228,7 @@ def tool_ban_yaml_factory(tmp_path: Path) -> Callable[[str, str], Path]:
 
     And two runtime paths the INPUT test doesn't cover:
 
-    - ``OmnigentExecutor._make_tool_executor_bridge``
+    - ``AgentNexusExecutor._make_tool_executor_bridge``
       invoking ``context.enforce_tool_call_policy(...)`` before
       dispatching user FunctionTool calls — bridge + hook
       integration.
@@ -268,7 +268,7 @@ def tool_ban_yaml_factory(tmp_path: Path) -> Callable[[str, str], Path]:
                     "type": "function",
                     "on": ["tool_call:calculate"],
                     "function": {
-                        "path": "omnigent.policies.function.make_fixed_action_callable",
+                        "path": "agentnexus.policies.function.make_fixed_action_callable",
                         "arguments": {
                             "action": "deny",
                             "reason": _TOOL_BAN_REASON_SENTINEL,
@@ -305,7 +305,7 @@ def test_policy_denies_tool_call_by_name(
     1. The translator expanded ``on: [tool_call] + match_tools:
        [calculate]`` into a PhaseSelector that narrows by tool
        name.
-    2. ``OmnigentExecutor._make_tool_executor_bridge``
+    2. ``AgentNexusExecutor._make_tool_executor_bridge``
        invoked ``context.enforce_tool_call_policy`` before
        dispatching the user's FunctionTool callable.
     3. On DENY, the bridge returned the sentinel to the inner
@@ -320,7 +320,7 @@ def test_policy_denies_tool_call_by_name(
 
     - The ``match_tools`` → PhaseSelector expansion regressed
       (policy fires as wildcard or never fires).
-    - The OmnigentExecutor bridge stopped calling
+    - The AgentNexusExecutor bridge stopped calling
       ``enforce_tool_call_policy`` before tool dispatch.
     - The workflow's ``_build_executor_context`` stopped wiring
       ``policy_engine`` into the context's enforcement hook.
@@ -369,7 +369,7 @@ def test_policy_denies_tool_call_by_name(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--no-session",

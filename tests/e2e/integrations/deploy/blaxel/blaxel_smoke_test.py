@@ -20,14 +20,14 @@ def _production_workspace_name(workspace: str) -> bool:
 def _require_safe_workspace() -> str:
     from blaxel.core.authentication import get_credentials
 
-    if os.environ.get("OMNIGENT_BLAXEL_LIVE_TEST") != "1":
-        raise RuntimeError("set OMNIGENT_BLAXEL_LIVE_TEST=1 to allow the bounded live test")
+    if os.environ.get("AGENTNEXUS_BLAXEL_LIVE_TEST") != "1":
+        raise RuntimeError("set AGENTNEXUS_BLAXEL_LIVE_TEST=1 to allow the bounded live test")
     credentials = get_credentials()
     workspace = str(getattr(credentials, "workspace", "") or "").strip()
-    confirmed = os.environ.get("OMNIGENT_BLAXEL_TEST_WORKSPACE", "").strip()
+    confirmed = os.environ.get("AGENTNEXUS_BLAXEL_TEST_WORKSPACE", "").strip()
     if not workspace or not confirmed or workspace != confirmed:
         raise RuntimeError(
-            "OMNIGENT_BLAXEL_TEST_WORKSPACE must exactly match the active BL_WORKSPACE"
+            "AGENTNEXUS_BLAXEL_TEST_WORKSPACE must exactly match the active BL_WORKSPACE"
         )
     if _production_workspace_name(workspace):
         raise RuntimeError("select a clearly non-production BL_WORKSPACE before this test")
@@ -51,10 +51,10 @@ def _assert_deleted(sandbox_id: str) -> None:
 
 
 def main() -> None:
-    from omnigent.onboarding.sandboxes.blaxel import BlaxelSandboxLauncher
+    from agentnexus.onboarding.sandboxes.blaxel import BlaxelSandboxLauncher
 
     workspace = _require_safe_workspace()
-    name = f"omnigent-e2e-{int(time.time())}-{secrets.token_hex(3)}"
+    name = f"agentnexus-e2e-{int(time.time())}-{secrets.token_hex(3)}"
     launcher = BlaxelSandboxLauncher(ttl="1h")
     sandbox_id: str | None = None
     try:
@@ -66,8 +66,8 @@ def main() -> None:
         sandbox_id = launcher.provision(name)
         success = launcher.run(sandbox_id, "printf omnigent-blaxel-ok")
         assert success.returncode == 0
-        assert "omnigent-blaxel-ok" in success.stdout
-        assert launcher.run(sandbox_id, "omnigent --version").returncode == 0
+        assert "agentnexus-blaxel-ok" in success.stdout
+        assert launcher.run(sandbox_id, "agentnexus --version").returncode == 0
 
         failure = launcher.run(
             sandbox_id,
@@ -77,7 +77,7 @@ def main() -> None:
         assert failure.returncode == 17
         assert "expected-error" in failure.stderr
 
-        payload = b"omnigent-blaxel-binary\x00proof"
+        payload = b"agentnexus-blaxel-binary\x00proof"
         with tempfile.NamedTemporaryFile() as source:
             source.write(payload)
             source.flush()

@@ -52,9 +52,9 @@ describe("claudePermissionMode", () => {
   describe("isClaudeNativeSession", () => {
     it("matches the claude-native wrapper only", () => {
       expect(
-        isClaudeNativeSession({ labels: { "omnigent.wrapper": "claude-code-native-ui" } }),
+        isClaudeNativeSession({ labels: { "agentnexus.wrapper": "claude-code-native-ui" } }),
       ).toBe(true);
-      expect(isClaudeNativeSession({ labels: { "omnigent.wrapper": "codex-native-ui" } })).toBe(
+      expect(isClaudeNativeSession({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(
         false,
       );
     });
@@ -73,7 +73,7 @@ describe("claudePermissionMode", () => {
     it("prefers the label the server stamps after a live switch", () => {
       expect(
         claudePermissionModeFromSession({
-          labels: { "omnigent.claude_native.permission_mode": "auto" },
+          labels: { "agentnexus.claude_native.permission_mode": "auto" },
           terminalLaunchArgs: ["--permission-mode", "plan"],
         }),
       ).toBe("auto");

@@ -330,7 +330,7 @@ function installCollapsedToolbar(): void {
  * visibleHeight === layoutHeight to model a closed keyboard (inset 0).
  */
 function setIOSViewport(layoutHeight: number, visibleHeight: number): void {
-  (window as unknown as Record<string, unknown>).omnigentNative = { kind: "ios" };
+  (window as unknown as Record<string, unknown>).agentnexusNative = { kind: "ios" };
   vi.stubGlobal("innerHeight", layoutHeight);
   vi.stubGlobal("visualViewport", {
     offsetTop: 0,
@@ -341,7 +341,7 @@ function setIOSViewport(layoutHeight: number, visibleHeight: number): void {
 }
 
 function clearIOSViewport(): void {
-  delete (window as unknown as Record<string, unknown>).omnigentNative;
+  delete (window as unknown as Record<string, unknown>).agentnexusNative;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

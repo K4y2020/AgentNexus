@@ -16,7 +16,7 @@ P1 四项已全部修复，工作树未提交（基线仍为 `15c523dd`）。修
 | -- | -------- | -------- |
 | P1-1 | 新增陈旧 lease 回收：区分**可证明未送达**（重投）与**不可证明**（置 `unknown`，永不静默重放） | `store.reclaim_stale_outbox_leases` / `resolve_stale_lease`；`dispatcher` 启动时 sweep + 周期回收；错误分类常量在 `types.py` |
 | P1-2 | `delivery_state="unknown"` 由死代码变为真实写入点，兜底分支可触发 | `store._escalate_unknown` |
-| P1-3 | 新增 `omnigent/coordination/probe.py`：三态探测协议 + runner 探测器；对账候选集纳入 `queued` | `probe.ProbeVerdict`；`store.list_effect_unknown_candidates`；`reconciliation.reason_for_unknown` |
+| P1-3 | 新增 `agentnexus/coordination/probe.py`：三态探测协议 + runner 探测器；对账候选集纳入 `queued` | `probe.ProbeVerdict`；`store.list_effect_unknown_candidates`；`reconciliation.reason_for_unknown` |
 | P1-4 | `GET /runs` 无过滤时逐条鉴权并过滤，单用户模式不受影响 | `routes/coordination._authorized_runs` |
 
 **取证过程中的两处订正（与初版报告不同，以本表为准）：**
@@ -225,7 +225,7 @@ coordination 三文件 **90 passed**（88 + 2），`ruff check` 全绿。
 
 这是本次审查发现的最严重缺陷。它同时击穿了文档 §9.4、§10.4 和 §21.3 三处设计要求。
 
-**触发路径：** Dispatcher 认领 outbox 行时写入 `leased`（`omnigent/coordination/store.py:829`），此后若在 `record_delivery_attempt` 或 `requeue_outbox` 完成前崩溃，该行以 `leased` 落盘。
+**触发路径：** Dispatcher 认领 outbox 行时写入 `leased`（`agentnexus/coordination/store.py:829`），此后若在 `record_delivery_attempt` 或 `requeue_outbox` 完成前崩溃，该行以 `leased` 落盘。
 
 **重启后四道防线逐一失效：**
 
@@ -258,7 +258,7 @@ coordination 三文件 **90 passed**（88 + 2），`ruff check` 全绿。
 
 ### P1-3　`effect_unknown` 对账无真实状态探测，仅超时打标
 
-`omnigent/coordination/reconciliation.py` 全文只 import 了 `logging`、`time`、`dataclasses`、`typing`（`:14-25`），**不含 `subprocess`、git 库或任何进程查询**。它不查 Git HEAD/dirty、不查目标进程存活、不核对 Vendor transcript。
+`agentnexus/coordination/reconciliation.py` 全文只 import 了 `logging`、`time`、`dataclasses`、`typing`（`:14-25`），**不含 `subprocess`、git 库或任何进程查询**。它不查 Git HEAD/dirty、不查目标进程存活、不核对 Vendor transcript。
 
 文档 §10.4 的要求是「已发出但未拿到结果的 Shell、Git、Merge、外部 API 标记为 `effect_unknown`，**先探测真实状态**，禁止盲目自动重放」。当前实现只满足「打标」，不满足「探测」。
 
@@ -267,7 +267,7 @@ coordination 三文件 **90 passed**（88 + 2），`ruff check` 全绿。
 ### P1-4　`GET /v1/coordination/runs` 漏 ACL，可跨用户枚举
 
 ```python
-# omnigent/server/routes/coordination.py:835-836
+# agentnexus/server/routes/coordination.py:835-836
 if root_session_id:
     await _require_coordination_tree(request, root_session_id)
 ```
@@ -301,7 +301,7 @@ if root_session_id:
 
 **协调域（§15、§10）**
 
-- `omnigent/coordination/` 共 9 个模块：`store.py` 1169 行、`workflow_engine.py` 1479 行、`workflow_auto_advance.py` 181、`dispatcher.py` 280、`behavior.py` 303、`policy_gate.py` 157、`limits.py` 104、`reconciliation.py` 143、`workflow_scheduler.py` 65。
+- `agentnexus/coordination/` 共 9 个模块：`store.py` 1169 行、`workflow_engine.py` 1479 行、`workflow_auto_advance.py` 181、`dispatcher.py` 280、`behavior.py` 303、`policy_gate.py` 157、`limits.py` 104、`reconciliation.py` 143、`workflow_scheduler.py` 65。
 - 路由齐全：`/runs`（801/817/829/845）、pause/resume/cancel（1116/1129/1142）、`/workflows/plan-implement-review`（933）、`/tasks/{id}/advance`（1017）/report（1045）、`/tasks/{id}/retry`（1155）/reassign（1174）、`/messages`（550/630/720/753）、`/artifacts` 四件套（1405/1440/1459/1475）、`/events`（1389）、`/workspaces/lease`（1206）、merge-previews（1245/1331）。
 - 通用模板 DAG 的分叉/汇合真实可用：`_dispatch_ready_tasks`（`workflow_engine.py:708-754`）以 `all(dep in successful for dep in task.dependencies)` 判定出队；无依赖节点在启动时直接置 `assigned` 并立即派发（`:296`、`:307`）；失败节点置 `needs_attention` 后下游不出队（`:637-651`）。
 - `reassign_task` 三分支与文档完全一致：已确认 → 抛错要求先 cancel/retry（`:1104-1107`）；queued → 重定向收件人（`:1119-1140`）；active+unconsumed → 记 rejected 回执并重发（`:1141-1175`）。
@@ -332,7 +332,7 @@ if root_session_id:
 - 升级备份属实：`update_backup.js:20-28`（chat.db/-shm/-wal、config.yaml、auth_tokens.json）、`:56-65`（settings.json）、`:82-91`（daemons）；保留 5 份（`:18`、`:102-123`）；失败即不安装（`desktop_updater.js:278-295`）；`restoreFromBackup` 存在（`:186-213`）。
 - 卸载询问属实：`build/installer.nsh:8-21` 以 `${ifNot} ${Silent}` 包裹，静默/更新路径永不清理。
 - `upgrade_guard.js` 四项行为全部属实：记录（`:91-116`）、新版本清标记（`:156-159`）、旧版本恢复（`:160-165`）、恢复失败保留标记（`:165-171`）；且在 `main.js:3164` 早于 server 启动调用。
-- 品牌迁移属实：`ai.agentnexus.desktop`（`package.json:42`）、productName（`:3/:43`）；兼容项 `omnigent` scheme、`window.omnigentDesktop` IPC、`~/.omnigent` 均保留。
+- 品牌迁移属实：`ai.agentnexus.desktop`（`package.json:42`）、productName（`:3/:43`）；兼容项 `agentnexus` scheme、`window.agentnexusDesktop` IPC、`~/.agentnexus` 均保留。
 
 **验收样本与可靠性基线（Gate D、P6）**
 

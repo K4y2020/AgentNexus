@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from omnigent.seedance.client import (
+from agentnexus.seedance.client import (
     DEFAULT_SEEDANCE_BASE_URL,
     SeedanceAuthError,
     SeedanceClient,
@@ -50,7 +50,7 @@ async def test_snapshot_keeps_v3_media_summary():
 @pytest.mark.asyncio
 @respx.mock
 async def test_image_download_rejects_redirect_and_size_limit():
-    from omnigent.seedance.client import SeedanceError
+    from agentnexus.seedance.client import SeedanceError
 
     ref = "local://" + "a" * 64
     route = respx.get(f"{_BASE}/v3/storage/" + "a" * 64).respond(302, headers={"Location": "https://example.com/private"})

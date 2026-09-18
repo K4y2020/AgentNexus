@@ -5,12 +5,12 @@ What goes wrong
 
 When test code writes::
 
-    with patch("omnigent.tools.mcp.asyncio.sleep", new_callable=AsyncMock):
+    with patch("agentnexus.tools.mcp.asyncio.sleep", new_callable=AsyncMock):
         ...
 
 ``unittest.mock``'s dotted-path resolver walks:
 
-1. ``import omnigent.tools.mcp``
+1. ``import agentnexus.tools.mcp``
 2. ``getattr(omnigent.tools.mcp, "asyncio")`` -> returns the
    ``asyncio`` module singleton (because production code did
    ``import asyncio`` at module top).

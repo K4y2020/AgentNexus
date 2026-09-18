@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import event, text
 
-from omnigent.db.db_models import SqlUser
-from omnigent.db.query_context import current_query_name, query_name_scope
-from omnigent.db.utils import (
+from agentnexus.db.db_models import SqlUser
+from agentnexus.db.query_context import current_query_name, query_name_scope
+from agentnexus.db.utils import (
     _ITEM_TYPES,
     clear_engine_cache,
     delete_fts_by_conversation,
@@ -158,7 +158,7 @@ class TestManagedSessionMaker:
         engine = get_or_create_engine(db_uri)
         managed = make_named_managed_session_maker(
             engine,
-            query_name_prefix="omnigent.test_store",
+            query_name_prefix="agentnexus.test_store",
         )
         observed_names: list[str | None] = []
 
@@ -180,22 +180,22 @@ class TestManagedSessionMaker:
         finally:
             event.remove(engine, "before_cursor_execute", capture_name)
 
-        assert observed_names == ["omnigent.test_store.insert_user"]
+        assert observed_names == ["agentnexus.test_store.insert_user"]
         assert current_query_name() is None
 
     def test_nested_query_name_overrides_and_restores_session_name(self, db_uri: str) -> None:
         engine = get_or_create_engine(db_uri)
         managed = make_named_managed_session_maker(
             engine,
-            query_name_prefix="omnigent.test_store",
+            query_name_prefix="agentnexus.test_store",
         )
 
         with managed("outer_operation") as session:
-            assert current_query_name() == "omnigent.test_store.outer_operation"
-            with query_name_scope("omnigent.test_store.inner_query"):
+            assert current_query_name() == "agentnexus.test_store.outer_operation"
+            with query_name_scope("agentnexus.test_store.inner_query"):
                 session.execute(text("SELECT 1"))
-                assert current_query_name() == "omnigent.test_store.inner_query"
-            assert current_query_name() == "omnigent.test_store.outer_operation"
+                assert current_query_name() == "agentnexus.test_store.inner_query"
+            assert current_query_name() == "agentnexus.test_store.outer_operation"
 
         assert current_query_name() is None
 
@@ -206,7 +206,7 @@ class TestManagedSessionMaker:
 
         managed = make_named_managed_session_maker(
             engine,
-            query_name_prefix="omnigent.test_store",
+            query_name_prefix="agentnexus.test_store",
         )
         with pytest.raises(ValueError, match="query_name must not be empty"):
             with managed(" "):

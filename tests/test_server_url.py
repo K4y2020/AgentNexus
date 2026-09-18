@@ -1,6 +1,6 @@
 """Tests for the :class:`omnigent.server_url.ServerUrl` value type.
 
-The one representation of an Omnigent server URL: requests target
+The one representation of an AgentNexus server URL: requests target
 ``api_base``, user-facing messages show ``display``. These tests pin the
 mapping between the two and the ``?o=`` (SPOG workspace selector)
 threading, so a regression can't leak the internal API mount back into
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.server_url import (
+from agentnexus.server_url import (
     ServerUrl,
     display_server_url,
     is_workspace_hosted_url,
@@ -77,10 +77,10 @@ def test_from_api_base_prefers_url_selector_over_store(tmp_path, monkeypatch) ->
     record must not override it, and the wire base must stay query-free
     (callers append paths like ``/v1/me``).
     """
-    from omnigent.cli_auth import store_databricks_auth
+    from agentnexus.cli_auth import store_databricks_auth
 
     monkeypatch.setattr(
-        "omnigent.cli_auth._token_file_path",
+        "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
     store_databricks_auth(_WORKSPACE_API, "https://ws.databricks.com", org_id="999")
@@ -93,10 +93,10 @@ def test_from_api_base_prefers_url_selector_over_store(tmp_path, monkeypatch) ->
 
 def test_from_api_base_falls_back_to_login_record(tmp_path, monkeypatch) -> None:
     """Without a URL selector, the ``omnigent login`` record supplies it."""
-    from omnigent.cli_auth import store_databricks_auth
+    from agentnexus.cli_auth import store_databricks_auth
 
     monkeypatch.setattr(
-        "omnigent.cli_auth._token_file_path",
+        "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
     store_databricks_auth(_WORKSPACE_API, "https://ws.databricks.com", org_id="999")
@@ -115,7 +115,7 @@ def test_display_round_trips_through_login_resolution(monkeypatch) -> None:
     server: the resolver expands the UI mount back to the API base and
     recaptures the selector.
     """
-    import omnigent.cli as cli_mod
+    import agentnexus.cli as cli_mod
 
     def fake_get(url: str, **kwargs: object):
         import httpx

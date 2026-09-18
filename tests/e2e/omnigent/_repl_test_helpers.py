@@ -1,4 +1,4 @@
-"""Shared helpers for the Omnigent REPL pexpect tests.
+"""Shared helpers for the AgentNexus REPL pexpect tests.
 
 These helpers are used by multiple ``test_repl_*.py`` files in
 this directory. They are intentionally kept separate from
@@ -40,7 +40,7 @@ def drain_for(child: pexpect.spawn, total_timeout: float) -> str:
     clock cost is bounded by whichever is shorter.
 
     :param child: Live ``pexpect.spawn`` child returned by
-        :func:`tests.e2e.omnigent._pexpect_harness.spawn_omnigent_run`.
+        :func:`tests.e2e.agentnexus._pexpect_harness.spawn_omnigent_run`.
     :param total_timeout: Overall seconds to spend draining,
         e.g. ``5.0``. A typical value for "let the post-key
         render frames settle" is 2–6 seconds.

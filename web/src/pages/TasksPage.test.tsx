@@ -300,7 +300,7 @@ describe("New task button", () => {
     // No dropdown and no deferred create option: the manual dialog is the only
     // create path on this page.
     fireEvent.pointerDown(screen.getByTestId("new-task-button"), { button: 0 });
-    expect(screen.queryByTestId("new-task-omnigent")).toBeNull();
+    expect(screen.queryByTestId("new-task-agentnexus")).toBeNull();
     expect(screen.queryByTestId("new-task-manual")).toBeNull();
   });
 });

@@ -22,17 +22,17 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.auth import LEVEL_OWNER, LEVEL_READ
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import LEVEL_OWNER, LEVEL_READ
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 from tests.server.conftest import ControllableMockClient
@@ -66,7 +66,7 @@ def auth_app(
     :param db_uri: Test database URI.
     :param tmp_path: Pytest temporary directory fixture.
     """
-    from omnigent.server.auth import UnifiedAuthProvider
+    from agentnexus.server.auth import UnifiedAuthProvider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -95,8 +95,8 @@ async def auth_client(
     Same lifecycle pattern as the shared ``client`` fixture from
     ``conftest.py``.
     """
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -257,7 +257,7 @@ async def test_bind_own_runner_succeeds(
     """
     # Stub out the runner-notification helper so the PATCH handler
     # doesn't try to POST into the fake tunnel (which would hang).
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub_get_runner_client(
         session_id: str,
@@ -315,7 +315,7 @@ async def test_parent_session_runner_inheritance_blocked_cross_user(
     (defense-in-depth).
     """
     # Stub out runner notification to avoid hanging on the fake tunnel.
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub_get_runner_client(
         session_id: str,
@@ -386,7 +386,7 @@ async def test_fork_is_unbound_and_only_forker_can_bind_runner(
     # Stub the runner-notification helper so PATCH doesn't POST into the
     # fake tunnel (which would hang) — same pattern as
     # ``test_bind_own_runner_succeeds``.
-    from omnigent.server.routes import sessions as sessions_mod
+    from agentnexus.server.routes import sessions as sessions_mod
 
     async def _stub_get_runner_client(
         session_id: str,

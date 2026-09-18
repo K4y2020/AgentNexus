@@ -18,14 +18,14 @@ browser page. The desktop shell is different on two counts:
    `web/electron` package, run with `node --test` (the same runner as the rest
    of `web/electron/test/`), not pytest.
 
-The harness still spawns the **same** mock-LLM + `omnigent server` pair the
+The harness still spawns the **same** mock-LLM + `agentnexus server` pair the
 Python suite spawns (`desktopHarness.js` mirrors the env + argv of
 `tests/e2e_ui/conftest.py`), so the shell talks to the same deterministic fake
 backend — no real provider creds.
 
 ## Files
 
-- `desktopHarness.js` — spawns the mock LLM + `omnigent server`, and launches
+- `desktopHarness.js` — spawns the mock LLM + `agentnexus server`, and launches
   the real desktop shell under `_electron.launch({ recordVideo })` in an
   isolated `userData` dir. `launchDesktop({ serverUrl })` pre-seeds a saved
   server so the app boots straight into the shell (skip connect); omit it to
@@ -56,17 +56,17 @@ are absent (e.g. a `--filter web`-only checkout), so those runs stay green.
 cd web/electron
 # after building the SPA (see above):
 node --test e2e/desktop_connect.e2e.js
-# headless CI (needs a virtual display; set OMNIGENT_PW_NO_SANDBOX so Electron's
+# headless CI (needs a virtual display; set AGENTNEXUS_PW_NO_SANDBOX so Electron's
 # Chromium starts under xvfb / as root / in a container — same flag the Python
 # e2e_ui suite uses):
-OMNIGENT_PW_NO_SANDBOX=1 xvfb-run -a node --test e2e/desktop_connect.e2e.js
+AGENTNEXUS_PW_NO_SANDBOX=1 xvfb-run -a node --test e2e/desktop_connect.e2e.js
 ```
 
-`spawnServer` runs `omnigent server` via `python3` by default; point it at the
-right interpreter with `OMNIGENT_PYTHON` when your `omnigent` lives in a venv:
+`spawnServer` runs `agentnexus server` via `python3` by default; point it at the
+right interpreter with `AGENTNEXUS_PYTHON` when your `agentnexus` lives in a venv:
 
 ```bash
-OMNIGENT_PYTHON=/path/to/.venv/bin/python node --test e2e/desktop_connect.e2e.js
+AGENTNEXUS_PYTHON=/path/to/.venv/bin/python node --test e2e/desktop_connect.e2e.js
 ```
 
 The recorded video lands in `e2e/recordings/<slug>/`. Playwright writes one raw

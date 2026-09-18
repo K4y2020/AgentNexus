@@ -16,12 +16,12 @@ import socket
 
 import pytest
 
-from omnigent.host.runner_zygote import ZygoteManager
-from omnigent.runner._zygote import (
+from agentnexus.host.runner_zygote import ZygoteManager
+from agentnexus.runner._zygote import (
     _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR,
     ZYGOTE_HARNESS_FD_ENV_VAR,
 )
-from omnigent.runtime.harnesses._harness_zygote_client import (
+from agentnexus.runtime.harnesses._harness_zygote_client import (
     HarnessZygoteClient,
     ZygoteHarnessProc,
     ZygoteHarnessUnavailable,
@@ -71,7 +71,7 @@ def _harness_env(exit_code: int, log_path) -> dict[str, str]:
     return {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: str(exit_code),
-        "OMNIGENT_PROCESS_LOG_FILE": str(log_path),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(log_path),
     }
 
 
@@ -147,14 +147,14 @@ async def test_wait_surfaces_failure_when_zygote_dies_and_harness_gone(
     :param zygote: The started zygote fixture.
     :param tmp_path: Temp dir for the harness log.
     """
-    from omnigent.runtime.harnesses._harness_zygote_client import _ZYGOTE_LOST_EXIT_CODE
+    from agentnexus.runtime.harnesses._harness_zygote_client import _ZYGOTE_LOST_EXIT_CODE
 
     client = _client_on(zygote)
     # A harness that stays alive so we control when it dies.
     env = {
         "PATH": os.environ.get("PATH", ""),
-        "OMNIGENT_RUNNER_ZYGOTE_TEST_CHILD_SLEEP": "30",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "h.log"),
+        "AGENTNEXUS_RUNNER_ZYGOTE_TEST_CHILD_SLEEP": "30",
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "h.log"),
     }
     proc = await client.fork_harness(["--harness", "x"], env)
 

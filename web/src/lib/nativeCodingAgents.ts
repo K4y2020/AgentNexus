@@ -1,7 +1,7 @@
 import type { AvailableAgent } from "@/hooks/useAvailableAgents";
 
-export const WRAPPER_LABEL_KEY = "omnigent.wrapper";
-export const UI_MODE_LABEL_KEY = "omnigent.ui";
+export const WRAPPER_LABEL_KEY = "agentnexus.wrapper";
+export const UI_MODE_LABEL_KEY = "agentnexus.ui";
 export const UI_MODE_TERMINAL_VALUE = "terminal";
 
 export type NativeCodingAgentIconKind =
@@ -25,7 +25,7 @@ export interface NativeCodingAgentSpec {
   harness: string;
   wrapperLabel: string;
   /**
-   * `omnigent.wrapper` value stamped on the children this vendor spawns
+   * `agentnexus.wrapper` value stamped on the children this vendor spawns
    * inside its own CLI (Claude's Task tool, Codex collab threads). Mirrors
    * `NativeCodingAgent.subagent_wrapper_label` on the server. Absent for
    * vendors that don't register sub-agent children.
@@ -201,7 +201,7 @@ const BY_SUBAGENT_WRAPPER = new Map<string, NativeCodingAgentSpec>(
 );
 
 // Reversed harness spellings that fold to a canonical native `harness`.
-// Mirrors omnigent.harness_aliases.NATIVE_HARNESSES on the server, which
+// Mirrors agentnexus.harness_aliases.NATIVE_HARNESSES on the server, which
 // accepts both the canonical and reversed native spellings (claude/codex
 // only use the canonical form, so they need no reversed entry here).
 const HARNESS_ALIASES: Record<string, string> = {
@@ -228,9 +228,9 @@ const VENDORLESS_NATIVE_POLICY_NAME = "native_permission";
 
 // `<vendor>_native_` → spec, derived from the registry so a new vendor row is
 // covered without editing a second list. Mirrors the ids the server bridges
-// stamp: `omnigent/server/routes/sessions/routes_hooks.py` (Claude, Cursor,
+// stamp: `agentnexus/server/routes/sessions/routes_hooks.py` (Claude, Cursor,
 // generic), `routes/_codex_elicitation.py`, `routes/_antigravity_elicitation.py`,
-// and the per-vendor `omnigent/<vendor>_native_permissions.py` hooks.
+// and the per-vendor `agentnexus/<vendor>_native_permissions.py` hooks.
 // `<vendor>_native_` is reserved for those bridges: a user-authored policy in
 // that shape reads as provenance and loses its own name in the UI.
 const NATIVE_POLICY_PREFIXES: readonly (readonly [string, NativeCodingAgentSpec])[] =
@@ -312,7 +312,7 @@ export function nativeCodingAgentForWrapper(
 
 /**
  * Resolve the vendor that spawned a native sub-agent child from its
- * `omnigent.wrapper` label (e.g. `"claude-code-native-ui-subagent"` →
+ * `agentnexus.wrapper` label (e.g. `"claude-code-native-ui-subagent"` →
  * the Claude Code spec). These children reuse the parent's agent row and
  * carry the VENDOR-side agent type as their `sub_agent_name` (Claude's
  * `subagent_type`, e.g. `"general-purpose"`), so the wrapper label is the
@@ -367,7 +367,7 @@ export function isNativeWrapper(wrapper: string | null | undefined): boolean {
 }
 
 /**
- * Whether a session runs a native terminal harness — by its `omnigent.wrapper`
+ * Whether a session runs a native terminal harness — by its `agentnexus.wrapper`
  * label OR its resolved harness. Mirrors the server's
  * `_native_coding_agent_for_session`: a session is native-terminal if either
  * signal matches (a built-in wrapper agent sets the label; a custom agent bound

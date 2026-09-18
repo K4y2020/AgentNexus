@@ -21,14 +21,14 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.runner.transports.ws_tunnel.registry import TunnelRegistry
-from omnigent.server.host_registry import HostRegistry, RunnerExitReports
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.server.routes.runner_tunnel import create_runner_tunnel_router
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runner.transports.ws_tunnel.registry import TunnelRegistry
+from agentnexus.server.host_registry import HostRegistry, RunnerExitReports
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.server.routes.runner_tunnel import create_runner_tunnel_router
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 pytestmark = pytest.mark.asyncio
 
@@ -228,7 +228,7 @@ async def test_list_hosts_stale_host_reported_offline(
     from sqlalchemy import update
     from sqlalchemy.orm import Session
 
-    from omnigent.db.db_models import SqlHost
+    from agentnexus.db.db_models import SqlHost
 
     stale_time = int(time.time()) - 600
     with Session(host_store._engine) as session:

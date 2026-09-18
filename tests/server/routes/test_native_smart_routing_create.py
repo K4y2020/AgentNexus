@@ -27,19 +27,19 @@ import httpx
 import pytest
 import sqlalchemy as sa
 
-from omnigent.db.db_models import SqlConversation
-from omnigent.db.utils import generate_agent_id
-from omnigent.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY, ROUTING_DECISION_LABEL_KEY
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._sessions.common import (
+from agentnexus.db.db_models import SqlConversation
+from agentnexus.db.utils import generate_agent_id
+from agentnexus.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY, ROUTING_DECISION_LABEL_KEY
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._sessions.common import (
     get_server_host_registry,
     set_server_host_registry,
 )
-from omnigent.server.routes._sessions.orchestration import (
+from agentnexus.server.routes._sessions.orchestration import (
     _installed_native_harnesses,
     _pre_session_model_catalog,
 )
-from omnigent.server.smart_routing import (
+from agentnexus.server.smart_routing import (
     AUTO_NATIVE_ROUTING_HARNESSES,
     RoutePick,
     RoutingResult,
@@ -47,9 +47,9 @@ from omnigent.server.smart_routing import (
     infer_models,
     route_session_harness,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.host_store import Host
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.host_store import Host
 from tests.server.helpers import FakeCaps, FakeRoutingClient, create_test_agent
 
 # Uuid-shaped so the registry's canonical keying accepts it.
@@ -80,7 +80,7 @@ def _restore_runtime_globals() -> Iterator[None]:
 
     :yields: None.
     """
-    from omnigent.runtime import _globals
+    from agentnexus.runtime import _globals
 
     saved = {name: getattr(_globals, name) for name in _RUNTIME_GLOBALS}
     yield
@@ -133,7 +133,7 @@ def _caps_with(routing_client: FakeRoutingClient | None, *, oss: bool) -> FakeCa
     The gateway checks only decide WHICH router answers, so a deployment with no
     built-in judge is the only one an ungatewayed harness can take away.
     """
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     return FakeCaps(
         routing_client=routing_client,
@@ -166,7 +166,7 @@ async def _create_smart_routing_session(
         "cost_control_mode_override": "on",
         "smart_routing_message": ROUTING_MESSAGE,
     }
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=oss)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=oss)):
         return await client.post("/v1/sessions", json=body)
 
 
@@ -197,7 +197,7 @@ async def _create_fixed_harness_session(
         "smart_routing_message": ROUTING_MESSAGE,
         **extra,
     }
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=oss)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=oss)):
         return await client.post("/v1/sessions", json=body)
 
 
@@ -442,8 +442,8 @@ async def test_routed_wrapper_gets_terminal_first_labels(
     conv = SqlAlchemyConversationStore(db_uri).get_conversation(created.json()["id"])
     assert conv is not None
     # The routed wrapper's own presentation labels, not the placeholder's.
-    assert conv.labels.get("omnigent.ui") == "terminal"
-    assert conv.labels.get("omnigent.wrapper") == "codex-native-ui"
+    assert conv.labels.get("agentnexus.ui") == "terminal"
+    assert conv.labels.get("agentnexus.wrapper") == "codex-native-ui"
 
 
 async def test_create_falls_back_to_a_native_cli_when_routing_is_unavailable(
@@ -476,7 +476,7 @@ async def test_smart_routing_session_keeps_cross_harness_subagents(
     spawn_router = FakeRoutingClient(
         RoutingResult(model=GPT_MODEL, rationale="narrow change", harness="codex")
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=spawn_router)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=spawn_router)):
         resp = await client.post(
             f"/v1/sessions/{session_id}/hooks/route-subagent",
             json=SPAWN_PAYLOAD,
@@ -512,7 +512,7 @@ async def _route_turn(
     :param prompt: The submitted prompt text.
     :returns: The raw hook response.
     """
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
         return await client.post(
             f"/v1/sessions/{session_id}/hooks/route-turn",
             json={"harness": harness, "prompt": prompt},
@@ -612,7 +612,7 @@ async def test_bundle_agent_auto_path_is_unchanged(
 ) -> None:
     agent = await create_test_agent(client, name="smart-routing-bundle-agent")
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         created = await client.post(
             "/v1/sessions",
             json={
@@ -638,7 +638,7 @@ async def test_bundle_agent_auto_path_is_unchanged(
 # ── Spec-level opt-in: executor.config.smart_routing_harness ───────
 
 OPT_IN_EXECUTOR = {
-    "type": "omnigent",
+    "type": "agentnexus",
     "config": {"harness": "claude-sdk", "smart_routing_harness": "auto"},
 }
 
@@ -659,7 +659,7 @@ async def _create_opt_in_session(
     :returns: The create response.
     """
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         return await client.post(
             "/v1/sessions",
             json={
@@ -762,7 +762,7 @@ async def test_a_non_auto_opt_in_value_is_rejected(client: httpx.AsyncClient) ->
         client,
         name="spec-opt-in-bad-value",
         executor={
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk", "smart_routing_harness": "codex"},
         },
     )
@@ -914,7 +914,7 @@ async def test_create_stamps_subagent_routing_for_routed_sessions(
     codex_bundle = await create_test_agent(
         client,
         name=f"stamp-codex-{case}",
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     agent_ids = {
         _WRAPPER: wrappers["claude-native"],
@@ -933,7 +933,7 @@ async def test_create_stamps_subagent_routing_for_routed_sessions(
         payload["parent_session_id"] = parent.json()["id"]
 
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         created = await client.post("/v1/sessions", json=payload)
     assert created.status_code == 201, created.text
 
@@ -975,7 +975,7 @@ async def test_native_candidates_impose_no_family_constraint() -> None:
     # auto session passes no allowed_family, so both native families reach the
     # router even though the family filter is applied to the same tuple.
     routing_client = FakeRoutingClient(RoutingResult(model=GPT_MODEL, rationale="narrow change"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         harness, model, _verdict, error = await route_session_harness(
             ROUTING_MESSAGE,
             harness_candidates=AUTO_NATIVE_ROUTING_HARNESSES,
@@ -992,7 +992,7 @@ async def test_native_candidates_still_honor_an_explicit_family() -> None:
     routing_client = FakeRoutingClient(
         RoutingResult(model=CLAUDE_MODEL, rationale="deep reasoning")
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         harness, _model, _verdict, error = await route_session_harness(
             ROUTING_MESSAGE,
             harness_candidates=AUTO_NATIVE_ROUTING_HARNESSES,
@@ -1005,7 +1005,7 @@ async def test_native_candidates_still_honor_an_explicit_family() -> None:
 
 async def test_no_installed_native_candidates_reports_the_standard_error() -> None:
     routing_client = FakeRoutingClient(RoutingResult(model=GPT_MODEL, rationale="narrow change"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         harness, model, verdict, error = await route_session_harness(
             ROUTING_MESSAGE,
             harness_candidates=(),
@@ -1109,7 +1109,7 @@ def test_ungatewayed_native_harnesses_reads_the_reported_gateway_map(
     expected: list[str],
     gateway_host_registry: HostRegistry,
 ) -> None:
-    from omnigent.server.routes._sessions.orchestration import _ungatewayed_native_harnesses
+    from agentnexus.server.routes._sessions.orchestration import _ungatewayed_native_harnesses
 
     gateway_host_registry.record_gateway_inference(_GATEWAY_HOST_ID, gateway)
     assert _ungatewayed_native_harnesses(_host(None), AUTO_NATIVE_ROUTING_HARNESSES) == list(
@@ -1120,7 +1120,7 @@ def test_ungatewayed_native_harnesses_reads_the_reported_gateway_map(
 def test_ungatewayed_native_harnesses_without_a_host(
     gateway_host_registry: HostRegistry,
 ) -> None:
-    from omnigent.server.routes._sessions.orchestration import _ungatewayed_native_harnesses
+    from agentnexus.server.routes._sessions.orchestration import _ungatewayed_native_harnesses
 
     assert _ungatewayed_native_harnesses(None, AUTO_NATIVE_ROUTING_HARNESSES) == []
 
@@ -1151,11 +1151,11 @@ async def test_auto_routing_is_refused_when_no_router_can_serve_an_off_gateway_a
     named: str,
 ) -> None:
     """Only fatal with no built-in judge: nothing is left to answer with."""
-    from omnigent.server.routes._sessions.orchestration import _resolve_native_smart_routing
+    from agentnexus.server.routes._sessions.orchestration import _resolve_native_smart_routing
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
         agent_name, model, verdict, error = await _resolve_native_smart_routing(
             cast("Any", body),
             cast("Any", _routing_request(_host_reporting(gateway))),
@@ -1189,14 +1189,14 @@ _OFF_GATEWAY_CATALOG = {
 async def test_auto_routing_falls_back_to_the_built_in_judge_off_the_gateway(
     gateway: dict[str, bool],
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     routing_client = FakeRoutingClient(
         RoutingResult(model="gpt-5-5", rationale="narrow change", harness="codex-native")
     )
     with (
-        patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=True)),
+        patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=True)),
         patch.object(
             orchestration,
             "_pre_session_model_catalog",
@@ -1223,11 +1223,11 @@ async def test_auto_routing_declines_off_the_gateway_when_the_host_answers_nothi
     The static table is every ``databricks-*`` endpoint, so offering it here
     would land the session on a model the ungatewayed pane cannot reach.
     """
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=True)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=True)):
         agent_name, model, verdict, error = await orchestration._resolve_native_smart_routing(
             cast("Any", body),
             cast("Any", _routing_request(_host_reporting({"codex-native": False}))),
@@ -1242,13 +1242,13 @@ async def test_auto_routing_declines_off_the_gateway_when_the_host_answers_nothi
 
 
 async def test_auto_routing_still_runs_when_the_host_reports_no_gateway_map() -> None:
-    from omnigent.server.routes._sessions.orchestration import _resolve_native_smart_routing
+    from agentnexus.server.routes._sessions.orchestration import _resolve_native_smart_routing
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     routing_client = FakeRoutingClient(RoutingResult(model=GPT_MODEL, rationale="narrow change"))
     # An external router is what puts both panes on the menu; unknown gateway
     # backing must not take it away.
-    with patch("omnigent.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
+    with patch("agentnexus.runtime._globals._caps", new=_caps_with(routing_client, oss=False)):
         agent_name, model, _verdict, error = await _resolve_native_smart_routing(
             cast("Any", body),
             cast("Any", _routing_request(_host_reporting(None))),
@@ -1267,11 +1267,11 @@ async def test_a_judge_only_deployment_keeps_the_default_pane_and_routes_its_mod
     model — a normal Smart Routing session minus the harness half — rather
     than declining into a session with no terminal.
     """
-    from omnigent.server.routes._sessions.orchestration import _resolve_native_smart_routing
+    from agentnexus.server.routes._sessions.orchestration import _resolve_native_smart_routing
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     judge = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=judge)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=judge)):
         agent_name, model, verdict, error = await _resolve_native_smart_routing(
             cast("Any", body),
             cast("Any", _routing_request(_host_reporting(None))),
@@ -1290,11 +1290,11 @@ async def test_a_judge_only_deployment_keeps_the_default_pane_and_routes_its_mod
 
 async def test_a_judge_only_create_pins_nothing_when_the_pick_is_out_of_family() -> None:
     """One pane on offer means any pick resolves onto it — so check the family."""
-    from omnigent.server.routes._sessions.orchestration import _resolve_native_smart_routing
+    from agentnexus.server.routes._sessions.orchestration import _resolve_native_smart_routing
 
     body = SimpleNamespace(host_id="host_1", smart_routing_message=ROUTING_MESSAGE)
     judge = FakeRoutingClient(RoutingResult(model=GPT_MODEL, rationale="narrow change"))
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=judge)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=judge)):
         agent_name, model, verdict, error = await _resolve_native_smart_routing(
             cast("Any", body),
             cast("Any", _routing_request(_host_reporting(None))),
@@ -1312,7 +1312,7 @@ async def test_top_level_smart_routing_create_is_rejected_when_no_router_can_ser
     client: httpx.AsyncClient,
     db_uri: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
@@ -1329,7 +1329,7 @@ async def test_top_level_smart_routing_create_succeeds_off_the_gateway_with_the_
     client: httpx.AsyncClient,
     db_uri: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     routing_client = FakeRoutingClient(
@@ -1360,7 +1360,7 @@ async def test_fixed_harness_routing_create_is_rejected_when_no_router_can_serve
     db_uri: str,
     harness: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
@@ -1382,7 +1382,7 @@ async def test_fixed_harness_routing_create_succeeds_off_the_gateway_with_the_ju
     db_uri: str,
     harness: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     pick = _OFF_GATEWAY_CATALOG[harness][0]
@@ -1419,8 +1419,8 @@ async def test_a_pane_create_routes_with_the_judge_when_the_router_is_not_enable
     routing API enabled, so ``routes:select`` 404s. The session must still get
     a normal Smart Routing decision, from the judge.
     """
-    from omnigent.server.routes._sessions import orchestration
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routes._sessions import orchestration
+    from agentnexus.server.routing_backend import RoutingBackends
 
     wrappers = await _native_wrappers(client, db_uri)
     pick = _OFF_GATEWAY_CATALOG[harness][0]
@@ -1438,7 +1438,7 @@ async def test_a_pane_create_routes_with_the_judge_when_the_router_is_not_enable
         "smart_routing_message": ROUTING_MESSAGE,
     }
     with (
-        patch("omnigent.runtime._globals._caps", new=caps),
+        patch("agentnexus.runtime._globals._caps", new=caps),
         patch.object(orchestration, "_routing_host_for_create", return_value=_host_reporting({})),
         patch.object(
             orchestration,
@@ -1474,7 +1474,7 @@ async def test_fixed_harness_create_is_allowed_when_its_own_family_is_backed(
     gateway: dict[str, bool],
     extra: dict[str, Any],  # type: ignore[explicit-any]
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     routing_client = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="sized task"))
@@ -1492,7 +1492,7 @@ async def test_child_create_is_not_gated_by_the_parents_gateway_state(
     client: httpx.AsyncClient,
     db_uri: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     wrappers = await _native_wrappers(client, db_uri)
     parent = await client.post("/v1/sessions", json={"agent_id": wrappers["codex-native"]})
@@ -1519,7 +1519,7 @@ async def test_sdk_harness_create_is_not_gated_by_native_gateway_state(
     client: httpx.AsyncClient,
     db_uri: str,
 ) -> None:
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes._sessions import orchestration
 
     # An SDK harness runs its inference through the server, not a host CLI, so a
     # host whose native CLIs are off the gateway says nothing about it.
@@ -1600,7 +1600,7 @@ async def test_pre_session_catalog_is_offered_instead_of_the_static_table(
     routing_client = FakeRoutingClient(
         RoutingResult(model=verdict_model, rationale="deep reasoning")
     )
-    with patch("omnigent.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
+    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=routing_client)):
         harness, model, verdict, error = await route_session_harness(
             ROUTING_MESSAGE,
             harness_candidates=harness_candidates,
@@ -1687,7 +1687,7 @@ async def test_pre_session_catalog_reads_the_hosts_model_options(
     answers: dict[str, dict[str, Any]],  # type: ignore[explicit-any]
     expected: dict[str, list[str]],
 ) -> None:
-    from omnigent.host.frames import decode_host_frame
+    from agentnexus.host.frames import decode_host_frame
 
     conn = SimpleNamespace(host_id="host_1", pending_model_options={})
 
@@ -1721,11 +1721,11 @@ def _native_conv(  # type: ignore[explicit-any]
     routing: bool = False,
     archived: bool = False,
 ) -> Any:
-    from omnigent.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
+    from agentnexus.harness_plugins import CLAUDE_NATIVE_CODING_AGENT
 
     return SimpleNamespace(
         id=session_id,
-        labels={"omnigent.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label},
+        labels={"agentnexus.wrapper": CLAUDE_NATIVE_CODING_AGENT.wrapper_label},
         cost_control_mode_override="on" if routing else None,
         harness_override=None,
         archived=archived,
@@ -1734,7 +1734,7 @@ def _native_conv(  # type: ignore[explicit-any]
 
 async def test_turn_catalog_and_verdict_follow_the_panes_vocabulary() -> None:
     """The picker rows bound both what a turn may pick and what it may claim."""
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.orchestration import (
         _model_options_cache,
         _native_turn_catalog,
         _routed_turn_model_spelling,
@@ -1791,7 +1791,7 @@ async def test_turn_catalog_and_verdict_follow_the_panes_vocabulary() -> None:
 
 async def test_turn_catalog_refetches_a_stale_pre_launch_catalog() -> None:
     """A pre-launch host catalog never bounds a turn once a runner is bound."""
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.orchestration import (
         _model_options_cache,
         _model_options_stale,
         _native_turn_catalog,
@@ -1847,13 +1847,13 @@ async def test_launch_prefetch_takes_the_stale_refresh_off_the_turn_path() -> No
     Started at launch instead, it has landed by the time the prompt arrives and
     the turn reads the cache — no wait, no second fetch.
     """
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.orchestration import (
         _model_options_cache,
         _model_options_inflight,
         _model_options_stale,
         _native_turn_catalog,
     )
-    from omnigent.server.routes.sessions import prefetch_session_routing_catalogs
+    from agentnexus.server.routes.sessions import prefetch_session_routing_catalogs
 
     session_id = "conv_prefetch_launch"
     conv = _native_conv(session_id, routing=True)
@@ -1920,9 +1920,9 @@ async def test_plain_session_gets_no_catalog_prefetch_on_runner_connect() -> Non
     per plain pane — work only Smart Routing ever reads — starving the session
     re-init running alongside it.
     """
-    from omnigent.server.routes._sessions.common import _catalog_prefetch_tasks
-    from omnigent.server.routes._sessions.orchestration import _model_options_inflight
-    from omnigent.server.routes.sessions import prefetch_session_routing_catalogs
+    from agentnexus.server.routes._sessions.common import _catalog_prefetch_tasks
+    from agentnexus.server.routes._sessions.orchestration import _model_options_inflight
+    from agentnexus.server.routes.sessions import prefetch_session_routing_catalogs
 
     session_id = "conv_prefetch_plain"
     requested: list[str] = []
@@ -1941,9 +1941,9 @@ async def test_plain_session_gets_no_catalog_prefetch_on_runner_connect() -> Non
 
 async def test_archived_routed_session_gets_no_catalog_prefetch() -> None:
     """An archived session is not going to route a turn, so it warms nothing."""
-    from omnigent.server.routes._sessions.common import _catalog_prefetch_tasks
-    from omnigent.server.routes._sessions.orchestration import _model_options_inflight
-    from omnigent.server.routes.sessions import prefetch_session_routing_catalogs
+    from agentnexus.server.routes._sessions.common import _catalog_prefetch_tasks
+    from agentnexus.server.routes._sessions.orchestration import _model_options_inflight
+    from agentnexus.server.routes.sessions import prefetch_session_routing_catalogs
 
     session_id = "conv_prefetch_archived"
     conv = _native_conv(session_id, routing=True, archived=True)
@@ -1963,12 +1963,12 @@ async def test_archived_routed_session_gets_no_catalog_prefetch() -> None:
 
 async def test_routed_live_session_still_warms_both_catalogs() -> None:
     """The gate keeps the case it was built for: a routed pane warms both."""
-    from omnigent.server.routes._sessions.common import _catalog_prefetch_tasks
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.common import _catalog_prefetch_tasks
+    from agentnexus.server.routes._sessions.orchestration import (
         _model_options_cache,
         _model_options_inflight,
     )
-    from omnigent.server.routes.sessions import prefetch_session_routing_catalogs
+    from agentnexus.server.routes.sessions import prefetch_session_routing_catalogs
 
     session_id = "conv_prefetch_routed"
     conv = _native_conv(session_id, routing=True)
@@ -2004,16 +2004,16 @@ async def test_failing_prefetch_retrieves_its_own_exception(
     Nothing awaits these tasks, so an escaping error surfaces only as asyncio's
     unretrieved-exception warning at GC time — noise that hides real failures.
     """
-    from omnigent.server.routes._sessions.common import _catalog_prefetch_tasks
-    from omnigent.server.routes._sessions.orchestration import _model_options_inflight
-    from omnigent.server.routes.sessions import prefetch_session_routing_catalogs
+    from agentnexus.server.routes._sessions.common import _catalog_prefetch_tasks
+    from agentnexus.server.routes._sessions.orchestration import _model_options_inflight
+    from agentnexus.server.routes.sessions import prefetch_session_routing_catalogs
 
     session_id = "conv_prefetch_raises"
     conv = _native_conv(session_id, routing=True)
     requested: list[str] = []
     runner_client = _prefetch_client(requested, fail=True)
     try:
-        with caplog.at_level(logging.DEBUG, logger="omnigent.server.routes.sessions"):
+        with caplog.at_level(logging.DEBUG, logger="agentnexus.server.routes.sessions"):
             before = set(_catalog_prefetch_tasks)
             prefetch_session_routing_catalogs(session_id, conv, runner_client)
             started = set(_catalog_prefetch_tasks) - before
@@ -2030,7 +2030,7 @@ async def test_failing_prefetch_retrieves_its_own_exception(
 
 async def test_turn_catalog_keeps_a_stale_catalog_when_the_refetch_fails() -> None:
     """A stale vocabulary still bounds the turn when the runner cannot answer."""
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.orchestration import (
         _model_options_cache,
         _model_options_stale,
         _native_turn_catalog,
@@ -2070,7 +2070,7 @@ async def test_turn_catalog_gives_up_on_a_refetch_that_never_finishes() -> None:
     """
     import asyncio
 
-    from omnigent.server.routes._sessions.orchestration import (
+    from agentnexus.server.routes._sessions.orchestration import (
         _ROUTING_CATALOG_WAIT_S,
         _model_options_cache,
         _model_options_inflight,
@@ -2136,7 +2136,7 @@ async def test_routing_authorizes_host_ownership_before_touching_the_host() -> N
     """A foreign ``host_id`` is rejected before any host read or frame push."""
     from fastapi import HTTPException
 
-    from omnigent.server.routes._sessions.orchestration import _resolve_native_smart_routing
+    from agentnexus.server.routes._sessions.orchestration import _resolve_native_smart_routing
 
     sent: list[str] = []
     conn = SimpleNamespace(host_id="host_1", pending_model_options={})

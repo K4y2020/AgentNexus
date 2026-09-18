@@ -320,7 +320,7 @@ function ForkRunConfig({
     if (
       isCodex &&
       sameAgentAsSource &&
-      sourceSession?.labels?.["omnigent.codex_native.bypass_sandbox"] === "1"
+      sourceSession?.labels?.["agentnexus.codex_native.bypass_sandbox"] === "1"
     ) {
       return CODEX_NATIVE_BYPASS_APPROVAL_VALUE;
     }

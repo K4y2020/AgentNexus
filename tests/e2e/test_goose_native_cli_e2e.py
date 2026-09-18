@@ -6,7 +6,7 @@ TUI in a runner-owned tmux pane, and each web-UI turn is injected into that pane
 (bracketed paste + Enter) by
 :class:`omnigent.inner.goose_native_executor.GooseNativeExecutor`. The TUI's own
 SQLite session store is tailed by :mod:`omnigent.goose_native_forwarder`, which
-mirrors Goose's replies back onto the Omnigent conversation as assistant items.
+mirrors Goose's replies back onto the AgentNexus conversation as assistant items.
 
 These tests drive the full stack the way a user does — spawn ``omnigent goose``,
 then talk to the session **through the server** (``POST /v1/sessions/{id}/events``,
@@ -14,7 +14,7 @@ the web-UI path) — and assert on the persisted assistant items.
 
 Environment requirements (why this is opt-in, not pure-CI)
 ----------------------------------------------------------
-* **Opt-in only**: set ``OMNIGENT_E2E_GOOSE_NATIVE=1`` to run. Like the other
+* **Opt-in only**: set ``AGENTNEXUS_E2E_GOOSE_NATIVE=1`` to run. Like the other
   native-TUI e2e tests, goose-native needs a configured Goose provider (via
   ``goose configure`` or ``GOOSE_PROVIDER``/``GOOSE_MODEL`` + a provider key in
   the environment) and a ``tmux`` binary; the ``goose`` binary may be present on
@@ -24,7 +24,7 @@ Environment requirements (why this is opt-in, not pure-CI)
 * ``GOOSE_MODE=auto`` is recommended in the test environment so the cwd test's
   file-read tool call is not blocked on an in-terminal approval prompt.
 
-    OMNIGENT_E2E_GOOSE_NATIVE=1 GOOSE_MODE=auto \
+    AGENTNEXUS_E2E_GOOSE_NATIVE=1 GOOSE_MODE=auto \
     GOOSE_PROVIDER=openrouter GOOSE_MODEL=openai/gpt-4o-mini \
     OPENROUTER_API_KEY=... \
     .venv/bin/python -m pytest tests/e2e/test_goose_native_cli_e2e.py \
@@ -54,12 +54,12 @@ from tests.e2e._native_resume_helpers import (
 # ``resume_test_server`` is provided by tests/e2e/conftest.py.
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_GOOSE_NATIVE") != "1"
+    os.environ.get("AGENTNEXUS_E2E_GOOSE_NATIVE") != "1"
     or shutil.which("goose") is None
     or shutil.which("tmux") is None,
     reason=(
         "goose-native CLI e2e needs a configured Goose provider and a `tmux` "
-        "binary; set OMNIGENT_E2E_GOOSE_NATIVE=1 (and have `goose` installed + "
+        "binary; set AGENTNEXUS_E2E_GOOSE_NATIVE=1 (and have `goose` installed + "
         "configured and `tmux` on PATH) to run"
     ),
 )

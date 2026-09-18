@@ -36,8 +36,8 @@ def _bare_env(home: Path, omnigent_repo_root: Path) -> dict[str, str]:
         "HOME": str(home),
         "PATH": os.environ.get("PATH", ""),
         "PYTHONPATH": pythonpath,
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
     }
 
 
@@ -51,7 +51,7 @@ def _run_omnigent(
 ) -> subprocess.CompletedProcess[str]:
     """Spawn ``python -m omnigent <args>`` with the given env."""
     return subprocess.run(
-        [str(omnigent_python), "-m", "omnigent", *args],
+        [str(omnigent_python), "-m", "agentnexus", *args],
         env=env,
         cwd=str(omnigent_repo_root),
         input=stdin,
@@ -93,7 +93,7 @@ def test_global_config_write_then_list_roundtrips(
         f"config set --global write failed: stdout={write.stdout!r} stderr={write.stderr!r}"
     )
 
-    config_path = home / ".omnigent" / "config.yaml"
+    config_path = home / ".agentnexus" / "config.yaml"
     assert config_path.is_file(), f"Expected config at {config_path} after write; not found."
 
     listed = _run_omnigent(
@@ -171,7 +171,7 @@ def test_global_config_unknown_key_rejected_at_subprocess_boundary(
         f"Expected the unknown key name in the error message; "
         f"got stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    config_path = home / ".omnigent" / "config.yaml"
+    config_path = home / ".agentnexus" / "config.yaml"
     assert not config_path.exists() or "bogus_key" not in config_path.read_text(), (
         f"Invalid key was persisted to {config_path}; write should "
         f"have been rejected before touching the file."

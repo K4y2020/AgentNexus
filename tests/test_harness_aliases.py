@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.harness_aliases import (
+from agentnexus.harness_aliases import (
     canonicalize_harness,
     is_native_harness,
     native_terminal_name,
 )
-from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
+from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESSES
 
 
 @pytest.mark.parametrize(
@@ -19,7 +19,7 @@ from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
         ("native-pi", "pi-native"),
         ("native-kiro", "kiro-native"),
         # Docs / runtime-dispatch spelling of the openai-agents harness;
-        # specs and OMNIGENT_HARNESSES use "openai-agents".
+        # specs and AGENTNEXUS_HARNESSES use "openai-agents".
         ("openai-agents-sdk", "openai-agents"),
         # Canonical names pass through unchanged.
         ("openai-agents", "openai-agents"),
@@ -65,7 +65,7 @@ def test_canonicalize_harness(alias: str | None, canonical: str | None) -> None:
         ("native-antigravity", True),
         ("agy-native", True),
         ("native-agy", True),
-        # SDK harnesses are NOT native — they replay the Omnigent
+        # SDK harnesses are NOT native — they replay the AgentNexus
         # transcript and don't own an on-disk runtime transcript. A
         # regression that classified these as native would wrongly route a
         # fork into the native-rebuild path.
@@ -97,8 +97,8 @@ def test_is_native_harness(harness: str | None, expected: bool) -> None:
 
 def test_kiro_native_is_valid_omnigent_harness_but_plain_kiro_is_not() -> None:
     """Kiro's native identity is canonical; plain ``kiro`` is not a generic harness."""
-    assert "kiro-native" in OMNIGENT_HARNESSES
-    assert "kiro" not in OMNIGENT_HARNESSES
+    assert "kiro-native" in AGENTNEXUS_HARNESSES
+    assert "kiro" not in AGENTNEXUS_HARNESSES
 
 
 @pytest.mark.parametrize(

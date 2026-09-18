@@ -97,7 +97,7 @@ export interface OmnigentHostConfig {
    * Maps an web API path (always starting with `/v1`, `/health`, or
    * `/api/...`) to a `Response`. The host implementation is responsible for
    * prefixing the real API base and attaching auth (e.g. the monolith's
-   * `workspaceFetch` against `/ajax-api/2.0/omnigent`). When omitted, the
+   * `workspaceFetch` against `/ajax-api/2.0/agentnexus`). When omitted, the
    * native `fetch` is used with the path unchanged.
    */
   fetcher?: (path: string, init?: RequestInit) => Promise<Response>;
@@ -134,9 +134,9 @@ export interface OmnigentHostConfig {
   transformShareLink?: (relativePath: string) => string;
   /**
    * Path suffix appended to the origin in CLI `--server` instructions shown
-   * in the UI (e.g. `"/api/2.0/omnigent"`). When the host proxies the
+   * in the UI (e.g. `"/api/2.0/agentnexus"`). When the host proxies the
    * Omnigent API behind a path prefix, CLI users need the full URL
-   * (`https://host/api/2.0/omnigent`) — this suffix supplies the
+   * (`https://host/api/2.0/agentnexus`) — this suffix supplies the
    * non-origin part.
    */
   cliServerUrlSuffix?: string;
@@ -236,7 +236,7 @@ export function getOmnigentThemeSettingsUrl(): OmnigentHostConfig["themeSettings
 /**
  * The DOM node the embed is mounted into. Used as the portal container for
  * Radix overlays so portaled content (dialogs, popovers, tooltips, menus)
- * lands inside the scoped `.omnigent-app` subtree and inherits its styles.
+ * lands inside the scoped `.agentnexus-app` subtree and inherits its styles.
  * Returns null in standalone mode, where Radix falls back to `document.body`.
  */
 export function setEmbedRoot(el: HTMLElement | null): void {
@@ -248,11 +248,11 @@ export function getEmbedRoot(): HTMLElement | null {
 }
 
 /**
- * The embed's scope element (`.omnigent-app`) — the outer wrapper the scoped
+ * The embed's scope element (`.agentnexus-app`) — the outer wrapper the scoped
  * stylesheet collapses `:root` / `html` / `body` onto. Per-device preference DOM
  * mutations (UI font size, `--custom-*` theme variables, the `data-theme`
  * palette attribute) must land here (or a descendant) rather than on
- * `document.documentElement`: the scoped `.omnigent-app` tokens shadow anything
+ * `document.documentElement`: the scoped `.agentnexus-app` tokens shadow anything
  * set on the real document root. Null standalone (falls back to the document
  * root), where the scoped stylesheet isn't in play.
  */

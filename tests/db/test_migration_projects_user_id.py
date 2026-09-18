@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _build_alembic_config,
     clear_engine_cache,
     get_or_create_engine,
@@ -165,7 +165,7 @@ def test_config_round_trips_through_the_compressed_column(db_engine: Engine) -> 
     Writes through the ORM type (which compresses) and reads back through it,
     so the column's codec is exercised end to end rather than assumed.
     """
-    from omnigent.db.db_models import SqlProject
+    from agentnexus.db.db_models import SqlProject
 
     # Long enough to exceed the codec's compress threshold, so the stored bytes
     # are a real zstd frame rather than the raw passthrough.
@@ -214,7 +214,7 @@ def test_downgrade_restores_plaintext_config(tmp_path: Path) -> None:
     engine = get_or_create_engine(uri)
     payload = '{"harness": "codex", "pad": "' + ("y" * 512) + '"}'
 
-    from omnigent.db.db_models import SqlProject
+    from agentnexus.db.db_models import SqlProject
 
     with engine.begin() as conn:
         conn.execute(

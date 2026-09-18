@@ -14,9 +14,9 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from omnigent.runner import create_runner_app, pending_approvals
-from omnigent.runner._entry import _run_inactivity_monitor
-from omnigent.runner.app import (
+from agentnexus.runner import create_runner_app, pending_approvals
+from agentnexus.runner._entry import _run_inactivity_monitor
+from agentnexus.runner.app import (
     _has_live_async_tasks,
     _session_timers,
     register_timer,
@@ -302,7 +302,7 @@ async def test_drain_session_streams_enqueues_done_sentinel() -> None:
     the server relay returns cleanly — the mechanism that turns an idle-reaped
     runner's abrupt drop into a quiet end-of-stream (no scary error banner).
     """
-    from omnigent.runner.app import _session_event_queues_ref
+    from agentnexus.runner.app import _session_event_queues_ref
 
     app = _scaffold_app()
     q_a: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()

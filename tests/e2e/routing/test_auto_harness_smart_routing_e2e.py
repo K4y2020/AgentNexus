@@ -29,7 +29,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
+from agentnexus.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
 from tests.e2e.routing._helpers import (
     arm_in,
     claude_bridge_dir,

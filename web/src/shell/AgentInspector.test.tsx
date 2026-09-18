@@ -50,8 +50,8 @@ function mockSession() {
       modelOverride: "gpt-5",
       llmModel: "gpt-5",
       labels: {
-        "omnigent.role": "planner",
-        "omnigent.upstream_model": "gpt-5",
+        "agentnexus.role": "planner",
+        "agentnexus.upstream_model": "gpt-5",
       },
       harness: "codex",
       gitBranch: "main",
@@ -180,7 +180,7 @@ describe("AgentInspector behavior facts", () => {
         );
       expect(patchCall).toBeDefined();
       expect(JSON.parse(String(patchCall![1]!.body))).toEqual({
-        labels: { "omnigent.behavior_mode": "strict" },
+        labels: { "agentnexus.behavior_mode": "strict" },
       });
     });
   });

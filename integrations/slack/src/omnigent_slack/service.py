@@ -6,26 +6,26 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from omnigent_slack.approvals import (
+from agentnexus_slack.approvals import (
     ClickTarget,
     ElicitationCoordinator,
     Verdict,
 )
-from omnigent_slack.auth_manager import pack_user_key
-from omnigent_slack.elicitation import ElicitationController, ElicitationTurnState
-from omnigent_slack.models import SlackTurn, ThreadKey, event_is_dm
-from omnigent_slack.notifications import (
+from agentnexus_slack.auth_manager import pack_user_key
+from agentnexus_slack.elicitation import ElicitationController, ElicitationTurnState
+from agentnexus_slack.models import SlackTurn, ThreadKey, event_is_dm
+from agentnexus_slack.notifications import (
     SlackNotifier,
     format_output_file,
     format_policy_denied,
     format_todos,
 )
-from omnigent_slack.omnigent import (
+from agentnexus_slack.agentnexus import (
     AuthRequiredError,
     HarnessNotConfiguredError,
     HostUnavailableError,
-    OmnigentClient,
-    OmnigentClientPool,
+    AgentNexusClient,
+    AgentNexusClientPool,
     ServerUnreachableError,
     StreamInterruptedError,
     extract_assistant_text,
@@ -37,13 +37,13 @@ from omnigent_slack.omnigent import (
     extract_policy_denied,
     extract_todos,
 )
-from omnigent_slack.setup import SetupFlow, host_unavailable_text
-from omnigent_slack.store import SQLiteStore
-from omnigent_slack.streaming import (
+from agentnexus_slack.setup import SetupFlow, host_unavailable_text
+from agentnexus_slack.store import SQLiteStore
+from agentnexus_slack.streaming import (
     SlackClientProtocol,
     _AnswerReply,
 )
-from omnigent_slack.text import GENERIC_FAILURE_TEXT, strip_bot_mention
+from agentnexus_slack.text import GENERIC_FAILURE_TEXT, strip_bot_mention
 
 # Immediate acknowledgement shown while the session spins up and while the agent
 # works before the first streamed tokens arrive. Deleted only once real content
@@ -63,14 +63,14 @@ _ACK_TEXT = "_Working on it…_"
 _IDLE_FLUSH_SECONDS = 2.0
 
 _SERVER_UNREACHABLE_TEXT = (
-    ":warning: I couldn't reach your Omnigent server. If it moved or is "
+    ":warning: I couldn't reach your AgentNexus server. If it moved or is "
     "down, run /omnigent to reconfigure."
 )
 
 # An unauthenticated turn (a grant that can no longer be refreshed, or a bot
 # restart that dropped in-memory tokens) is NOT delivered through this plain-text
 # path. The user was already set up, so they get a DM with a re-login setup
-# button instead (see ``SlackOmnigentService._notify_auth_expired``), which is
+# button instead (see ``SlackAgentNexusService._notify_auth_expired``), which is
 # reliably delivered and actionable — unlike a thread ephemeral Slack may never
 # render.
 
@@ -142,12 +142,12 @@ def _classify_turn_error(exc: BaseException, server_url: str) -> str | None:
     return None
 
 
-class SlackOmnigentService:
+class SlackAgentNexusService:
     def __init__(
         self,
         *,
         store: SQLiteStore,
-        pool: OmnigentClientPool,
+        pool: AgentNexusClientPool,
         setup: SetupFlow,
         server_url: str,
         bot_user_id: str | None = None,
@@ -156,7 +156,7 @@ class SlackOmnigentService:
         self._store = store
         self._pool = pool
         self._setup = setup
-        # The one operator-configured Omnigent server. Always the routing
+        # The one operator-configured AgentNexus server. Always the routing
         # target — any server_url persisted on an older config/session row is
         # ignored, so a config change points every thread at the new server.
         self._server_url = server_url
@@ -283,11 +283,11 @@ class SlackOmnigentService:
         # claim so a redelivery / re-send isn't silently deduped away.
         try:
             if not event_is_dm(event):
-                # In channels Omnigent only joins a thread when @-mentioned (which
+                # In channels AgentNexus only joins a thread when @-mentioned (which
                 # arrives as an app_mention event). Plain messages — even a reply in
                 # a thread that already has a session, and even one that mentions the
                 # bot (app_mention handles that copy) — are human discussion and must
-                # not be added to the Omnigent session.
+                # not be added to the AgentNexus session.
                 self._logger.info(
                     "Ignoring channel message channel=%s ts=%s",
                     event.get("channel"),
@@ -653,7 +653,7 @@ class SlackOmnigentService:
         except Exception:
             self._logger.warning("Failed to deliver re-login prompt thread=%s", turn.key.display())
 
-    async def _ensure_session(self, turn: SlackTurn, omnigent: OmnigentClient) -> str | None:
+    async def _ensure_session(self, turn: SlackTurn, omnigent: AgentNexusClient) -> str | None:
         """Return the session id for this turn, creating one if needed.
 
         Returns ``None`` when there's no session and creation is disabled (a
@@ -663,7 +663,7 @@ class SlackOmnigentService:
         record = await self._store.get_session(turn.key)
         if record is not None:
             self._logger.info(
-                "Using existing Omnigent session thread=%s session_id=%s",
+                "Using existing AgentNexus session thread=%s session_id=%s",
                 turn.key.display(),
                 record.session_id,
             )
@@ -698,17 +698,17 @@ class SlackOmnigentService:
                 _classify_turn_error(exc, self._server_url) or GENERIC_FAILURE_TEXT
             ) from exc
         except Exception as exc:
-            # Any other startup failure (e.g. a 500 surfaced as OmnigentError)
+            # Any other startup failure (e.g. a 500 surfaced as AgentNexusError)
             # must still report rather than strand the thread on "Working on it…".
             # The detail is logged here; the user gets a GENERIC message — the raw
             # error can carry a stack trace / internal path and the thread is
             # visible to the whole channel (DESIGN.md: server bodies are not echoed).
             self._logger.exception(
-                "Failed to start Omnigent session thread=%s", turn.key.display()
+                "Failed to start AgentNexus session thread=%s", turn.key.display()
             )
             raise _TurnAborted(
-                ":warning: Something went wrong starting your Omnigent session. Please try "
-                "again; if it keeps happening, contact your Omnigent operator."
+                ":warning: Something went wrong starting your AgentNexus session. Please try "
+                "again; if it keeps happening, contact your AgentNexus operator."
             ) from exc
 
         await self._store.upsert_session(
@@ -720,7 +720,7 @@ class SlackOmnigentService:
             workspace=turn.workspace,
         )
         self._logger.info(
-            "Mapped Slack thread to new Omnigent session thread=%s session_id=%s runner_id=%s",
+            "Mapped Slack thread to new AgentNexus session thread=%s session_id=%s runner_id=%s",
             turn.key.display(),
             session_id,
             runner_id,
@@ -748,7 +748,7 @@ class SlackOmnigentService:
     async def _stream_turn(
         self,
         turn: SlackTurn,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         session_id: str,
         reply: _AnswerReply,
     ) -> bool:
@@ -824,7 +824,7 @@ class SlackOmnigentService:
         except Exception:
             # Log the detail here (never surfaced — it can carry a stack trace /
             # internal path); the user gets the generic failure via ``errored``.
-            self._logger.exception("Omnigent turn failed for %s", turn.key.display())
+            self._logger.exception("AgentNexus turn failed for %s", turn.key.display())
             state.errored = True
         finally:
             # Settle any card still open (turn ended before its resolution push,
@@ -839,7 +839,7 @@ class SlackOmnigentService:
         self,
         event: dict[str, Any],
         turn: SlackTurn,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         session_id: str,
         reply: _AnswerReply,
         state: _StreamState,
@@ -918,7 +918,7 @@ class SlackOmnigentService:
             # embed a stack trace / internal path, so log it and show the generic
             # failure — do NOT echo it to the channel.
             self._logger.warning(
-                "Omnigent in-band turn error thread=%s: %s", turn.key.display(), event_error
+                "AgentNexus in-band turn error thread=%s: %s", turn.key.display(), event_error
             )
             state.errored = True
 
@@ -1012,7 +1012,7 @@ def _event_id(body: dict[str, Any], event: dict[str, Any]) -> str | None:
 async def _session_title(
     client: SlackClientProtocol, key: ThreadKey, event: dict[str, Any]
 ) -> str:
-    """Build the Omnigent session title: ``Slack: <thread permalink>``.
+    """Build the AgentNexus session title: ``Slack: <thread permalink>``.
 
     A real Slack thread permalink (via ``chat.getPermalink``) is a clickable URL
     that the web UI linkifies, so the session list points back at the originating

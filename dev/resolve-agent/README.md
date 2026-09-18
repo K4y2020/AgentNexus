@@ -17,12 +17,12 @@ test), then does one of two things:
 
 ## Prerequisites
 
-- A configured Claude provider (`omnigent setup` — an Anthropic API key, a
+- A configured Claude provider (`agentnexus setup` — an Anthropic API key, a
   Claude subscription, an OpenAI-compatible gateway, or a Databricks workspace).
   The agent's brain runs on the Claude Agent SDK.
 - `gh` authenticated (`gh auth login`) — the agent finds/reviews an existing fix
   PR, opens its own PR, and (for the CI path) reads the run's artifacts with it.
-- Run it **from the root of your `omnigent-ai/omnigent` checkout** so the agent's
+- Run it **from the root of your `agentnexus-ai/agentnexus` checkout** so the agent's
   working directory is this repo.
 
 ## Input: a pointer to a completed repro run
@@ -48,12 +48,12 @@ recovered even when several repro worktrees exist.
 
 ```bash
 # From a local repro session (the one dev/repro.py just produced):
-omnigent run dev/resolve-agent \
+agentnexus run dev/resolve-agent \
   -p '{"session":"http://localhost:6767/c/dc59e331-..."}'
 
 # From a CI run that executed repro-agent:
-omnigent run dev/resolve-agent \
-  -p '{"ci_link":"https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184"}'
+agentnexus run dev/resolve-agent \
+  -p '{"ci_link":"https://github.com/agentnexus-ai/agentnexus-internal/actions/runs/30974269184"}'
 ```
 
 ### Driver script (isolated worktree)
@@ -68,7 +68,7 @@ test) from the session, so there's no fragile "which repro worktree?" guess.
 ```bash
 python dev/resolve.py http://localhost:6767/c/dc59e331-...   # local session link
 python dev/resolve.py dc59e331-...                           # bare session id
-python dev/resolve.py --ci-link https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184
+python dev/resolve.py --ci-link https://github.com/agentnexus-ai/agentnexus-internal/actions/runs/30974269184
 python dev/resolve.py <session> --yes                        # skip the pre-launch confirm
 python dev/resolve.py <session> --skip-push                  # author mode: commit locally, no push/PR
 ```
@@ -126,7 +126,7 @@ the review gate after the fact.
      clean for the current commit, never up front, since the label triggers a
      `pull_request_target` deploy of the PR's code. Then waits for the
      preview URL and posts a comment with how to connect a runner to it
-     (`omnigent run --server <url>`) to validate the fix directly. (The workflow
+     (`agentnexus run --server <url>`) to validate the fix directly. (The workflow
      deploys for any labelled non-draft PR, forks included — the label is the
      trust boundary, and only a maintainer-privileged identity can apply it; the
      agent degrades gracefully when no preview appears.)

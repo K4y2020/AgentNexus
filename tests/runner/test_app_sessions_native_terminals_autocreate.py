@@ -14,41 +14,41 @@ import click
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     claude_native_bridge,
     cursor_native_bridge,
     kiro_native_bridge,
 )
-from omnigent.antigravity_native_bridge import (
+from agentnexus.antigravity_native_bridge import (
     ANTIGRAVITY_NATIVE_BRIDGE_ID_LABEL_KEY,
     AntigravityNativeBridgeState,
 )
-from omnigent.antigravity_native_bridge import (
+from agentnexus.antigravity_native_bridge import (
     prepare_bridge_dir as prepare_antigravity_bridge_dir,
 )
-from omnigent.antigravity_native_bridge import (
+from agentnexus.antigravity_native_bridge import (
     write_bridge_state as write_antigravity_bridge_state,
 )
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     BRIDGE_ID_LABEL_KEY,
     bridge_dir_for_bridge_id,
     prepare_bridge_dir,
     read_permission_hook_config,
 )
-from omnigent.codex_native_bridge import (
+from agentnexus.codex_native_bridge import (
     CODEX_NATIVE_BRIDGE_ID_LABEL_KEY,
     CodexNativeBridgeState,
 )
-from omnigent.codex_native_bridge import (
+from agentnexus.codex_native_bridge import (
     prepare_bridge_dir as prepare_codex_bridge_dir,
 )
-from omnigent.codex_native_bridge import (
+from agentnexus.codex_native_bridge import (
     write_bridge_state as write_codex_bridge_state,
 )
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.runner import create_runner_app
-from omnigent.runner.app import (
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.app import (
     ResolvedSpec,
     _agent_os_env_from_spec,
     _auto_create_claude_terminal,
@@ -63,15 +63,15 @@ from omnigent.runner.app import (
     _publish_terminal_pending,
     _terminal_lookup_miss_log_state,
 )
-from omnigent.runner.resource_registry import (
+from agentnexus.runner.resource_registry import (
     CLAUDE_NATIVE_TERMINAL_ROLE,
     KIRO_NATIVE_TERMINAL_ROLE,
     PI_NATIVE_TERMINAL_ROLE,
     SessionResourceRegistry,
 )
-from omnigent.runner.session_init_protocol import RunnerSessionInitEnvelope
-from omnigent.spec.types import AgentSpec, ExecutorSpec
-from omnigent.terminals import TerminalRegistry
+from agentnexus.runner.session_init_protocol import RunnerSessionInitEnvelope
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -89,7 +89,7 @@ def test_read_relay_policy_config_returns_coords_from_tool_relay_json(
     tmp_path: Path,
 ) -> None:
     """read_relay_policy_config extracts relay URL, token, and session_id."""
-    from omnigent.native_policy_hook import read_relay_policy_config
+    from agentnexus.native_policy_hook import read_relay_policy_config
 
     bridge_dir = tmp_path / "bridge"
     bridge_dir.mkdir()
@@ -103,7 +103,7 @@ def test_read_relay_policy_config_returns_coords_from_tool_relay_json(
 
 def test_read_relay_policy_config_returns_none_when_missing(tmp_path: Path) -> None:
     """read_relay_policy_config returns None when tool_relay.json absent."""
-    from omnigent.native_policy_hook import read_relay_policy_config
+    from agentnexus.native_policy_hook import read_relay_policy_config
 
     assert read_relay_policy_config(tmp_path) is None
 
@@ -112,7 +112,7 @@ def test_read_relay_policy_config_returns_none_when_session_id_absent(
     tmp_path: Path,
 ) -> None:
     """read_relay_policy_config returns None when session_id absent (relay not policy-capable)."""
-    from omnigent.native_policy_hook import read_relay_policy_config
+    from agentnexus.native_policy_hook import read_relay_policy_config
 
     bridge_dir = tmp_path / "bridge"
     bridge_dir.mkdir()
@@ -141,9 +141,9 @@ async def test_auto_create_pi_terminal_launches_required_terminal(
     :param tmp_path: Pytest-provided temporary directory.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    import omnigent.pi_native as pi_native
-    import omnigent.pi_native_bridge as pi_native_bridge
-    import omnigent.pi_native_credentials as pi_native_credentials
+    import agentnexus.pi_native as pi_native
+    import agentnexus.pi_native_bridge as pi_native_bridge
+    import agentnexus.pi_native_credentials as pi_native_credentials
 
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-bridge")
@@ -166,7 +166,7 @@ async def test_auto_create_pi_terminal_launches_required_terminal(
             external_session_id=None,
         )
 
-    monkeypatch.setattr("omnigent.runner.app._pi_native_launch_config", _fake_launch_config)
+    monkeypatch.setattr("agentnexus.runner.app._pi_native_launch_config", _fake_launch_config)
 
     captured: dict[str, Any] = {}
 
@@ -233,16 +233,16 @@ async def test_auto_create_pi_terminal_surfaces_credential_warning(
     no reason. The warning is delivered as an ``error`` item (which the web UI
     renders as a distinct banner) via ``external_conversation_item``.
     """
-    import omnigent.pi_native as pi_native
-    import omnigent.pi_native_bridge as pi_native_bridge
-    import omnigent.pi_native_credentials as pi_native_credentials
+    import agentnexus.pi_native as pi_native
+    import agentnexus.pi_native_bridge as pi_native_bridge
+    import agentnexus.pi_native_credentials as pi_native_credentials
 
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-bridge")
     monkeypatch.setattr(pi_native, "resolve_pi_executable", lambda: "pi")
 
     provider = pi_native_credentials.PiProviderConfig(
-        provider_id="omnigent",
+        provider_id="agentnexus",
         base_url="https://wkspc.example.com/ai-gateway/anthropic",
         api="anthropic-messages",
         model="databricks-claude-sonnet-4-6",
@@ -271,7 +271,7 @@ async def test_auto_create_pi_terminal_surfaces_credential_warning(
             external_session_id=None,
         )
 
-    monkeypatch.setattr("omnigent.runner.app._pi_native_launch_config", _fake_launch_config)
+    monkeypatch.setattr("agentnexus.runner.app._pi_native_launch_config", _fake_launch_config)
 
     class _FakeResourceRegistry:
         terminal_registry = None
@@ -320,7 +320,7 @@ async def test_auto_create_kiro_terminal_launches_required_terminal_with_isolate
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Kiro-native auto-create launches the TUI and session forwarder."""
-    import omnigent.kiro_native as kiro_native
+    import agentnexus.kiro_native as kiro_native
 
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
@@ -347,11 +347,11 @@ async def test_auto_create_kiro_terminal_launches_required_terminal_with_isolate
         relay_calls.append({"session_id": session_id, **kwargs})
 
     monkeypatch.setattr(
-        "omnigent.kiro_native_session_forwarder.supervise_kiro_session_forwarder",
+        "agentnexus.kiro_native_session_forwarder.supervise_kiro_session_forwarder",
         _fake_supervise_kiro_session_forwarder,
     )
     monkeypatch.setattr(
-        "omnigent.kiro_native_permissions.supervise_kiro_permission_mirror",
+        "agentnexus.kiro_native_permissions.supervise_kiro_permission_mirror",
         _fake_supervise_kiro_permission_mirror,
     )
 
@@ -362,7 +362,7 @@ async def test_auto_create_kiro_terminal_launches_required_terminal_with_isolate
             external_session_id="kiro-session-123",
         )
 
-    monkeypatch.setattr("omnigent.runner.app._kiro_native_launch_config", _fake_launch_config)
+    monkeypatch.setattr("agentnexus.runner.app._kiro_native_launch_config", _fake_launch_config)
 
     captured: dict[str, Any] = {}
 
@@ -444,7 +444,7 @@ async def test_auto_create_kiro_terminal_launches_required_terminal_with_isolate
     assert permission_mirror_calls
     assert permission_mirror_calls[0]["base_url"] == "http://127.0.0.1:6767"
     assert permission_mirror_calls[0]["session_id"] == "823dbd1aab969b5a813fac59bb977a77"
-    # The Omnigent MCP tool relay is seeded for this session's bridge dir.
+    # The AgentNexus MCP tool relay is seeded for this session's bridge dir.
     assert relay_calls == [
         {
             "session_id": "823dbd1aab969b5a813fac59bb977a77",
@@ -454,11 +454,11 @@ async def test_auto_create_kiro_terminal_launches_required_terminal_with_isolate
             "await_notify": False,
         }
     ]
-    # And the Omnigent MCP server is declared in the workspace-scoped kiro config.
+    # And the AgentNexus MCP server is declared in the workspace-scoped kiro config.
     workspace_mcp = tmp_path / ".kiro" / "settings" / "mcp.json"
     assert workspace_mcp.exists()
     mcp_servers = json.loads(workspace_mcp.read_text())["mcpServers"]
-    assert "serve-mcp" in mcp_servers["omnigent"]["args"]
+    assert "serve-mcp" in mcp_servers["agentnexus"]["args"]
 
 
 @pytest.mark.asyncio
@@ -466,14 +466,14 @@ async def test_auto_create_kiro_terminal_skips_mcp_wiring_without_relay(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Without a comment-relay callback, the Omnigent MCP is NOT wired.
+    """Without a comment-relay callback, the AgentNexus MCP is NOT wired.
 
     The workspace mcp.json write + relay seed are gated on ``server_client`` AND
     ``ensure_comment_relay`` together, so serve-mcp never launches with no relay
     to route calls back to. With ``ensure_comment_relay`` absent the gate must
     short-circuit: no workspace ``mcp.json`` is written.
     """
-    import omnigent.kiro_native as kiro_native
+    import agentnexus.kiro_native as kiro_native
 
     monkeypatch.setenv("PATH", "/usr/bin")
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
@@ -489,11 +489,11 @@ async def test_auto_create_kiro_terminal_skips_mcp_wiring_without_relay(
         return None
 
     monkeypatch.setattr(
-        "omnigent.kiro_native_session_forwarder.supervise_kiro_session_forwarder",
+        "agentnexus.kiro_native_session_forwarder.supervise_kiro_session_forwarder",
         _noop_supervise,
     )
     monkeypatch.setattr(
-        "omnigent.kiro_native_permissions.supervise_kiro_permission_mirror",
+        "agentnexus.kiro_native_permissions.supervise_kiro_permission_mirror",
         _noop_supervise,
     )
     mcp_writes: list[Any] = []
@@ -510,7 +510,7 @@ async def test_auto_create_kiro_terminal_skips_mcp_wiring_without_relay(
             external_session_id=None,
         )
 
-    monkeypatch.setattr("omnigent.runner.app._kiro_native_launch_config", _fake_launch_config)
+    monkeypatch.setattr("agentnexus.runner.app._kiro_native_launch_config", _fake_launch_config)
 
     class _FakeResourceRegistry:
         terminal_registry = None
@@ -562,10 +562,10 @@ async def test_auto_create_pi_terminal_inherits_agent_sandbox(
     :param tmp_path: Pytest-provided temporary directory.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    import omnigent.pi_native as pi_native
-    import omnigent.pi_native_bridge as pi_native_bridge
-    import omnigent.pi_native_credentials as pi_native_credentials
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    import agentnexus.pi_native as pi_native
+    import agentnexus.pi_native_bridge as pi_native_bridge
+    import agentnexus.pi_native_credentials as pi_native_credentials
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-bridge")
@@ -584,7 +584,7 @@ async def test_auto_create_pi_terminal_inherits_agent_sandbox(
             external_session_id=None,
         )
 
-    monkeypatch.setattr("omnigent.runner.app._pi_native_launch_config", _fake_launch_config)
+    monkeypatch.setattr("agentnexus.runner.app._pi_native_launch_config", _fake_launch_config)
 
     captured: dict[str, Any] = {}
 
@@ -626,7 +626,7 @@ async def test_auto_create_pi_terminal_inherits_agent_sandbox(
         spec_version=1,
         name="pi_code",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "pi-native", "model": "pi-default"},
         ),
         os_env=agent_os_env,
@@ -660,7 +660,7 @@ async def test_auto_create_claude_terminal_passes_session_effort(
     """
     Host-spawned terminal launch reads session effort and passes ``--effort``.
 
-    When the Omnigent server returns a session with a persisted
+    When the AgentNexus server returns a session with a persisted
     ``reasoning_effort``, the auto-create path must include
     ``--effort <value>`` in the Claude CLI args so the terminal
     starts at the user's chosen effort level.
@@ -676,7 +676,7 @@ async def test_auto_create_claude_terminal_passes_session_effort(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -708,7 +708,7 @@ async def test_auto_create_claude_terminal_passes_session_effort(
                 metadata={"terminal_name": "claude", "session_key": "main", "running": True},
             )
 
-    # Fake Omnigent server client that returns a session with reasoning_effort.
+    # Fake AgentNexus server client that returns a session with reasoning_effort.
     def _handle_request(_request: httpx.Request) -> httpx.Response:
         if use_envelope:
             raise AssertionError("envelope terminal startup made a legacy HTTP callback")
@@ -781,7 +781,7 @@ async def test_claude_launch_metadata_envelope_never_calls_server() -> None:
                 "model_override": "claude-opus-4-7",
                 "terminal_launch_args": ["--verbose"],
                 "external_session_id": "claude-session-id",
-                "labels": {"omnigent.fork.carry_history": "1"},
+                "labels": {"agentnexus.fork.carry_history": "1"},
             },
         }
     )
@@ -809,13 +809,13 @@ def test_agent_os_env_from_spec_unwraps_resolved_and_handles_none() -> None:
     return ``None`` when there is no spec — so the launch falls back to the
     platform default only when there is genuinely no agent policy to honour.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     os_env = OSEnvSpec(type="caller_process", cwd=".", sandbox=OSEnvSandboxSpec(type="none"))
     bare = AgentSpec(
         spec_version=1,
         name="agent",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
         os_env=os_env,
     )
 
@@ -829,7 +829,7 @@ def test_agent_os_env_from_spec_unwraps_resolved_and_handles_none() -> None:
     no_os_env = AgentSpec(
         spec_version=1,
         name="agent",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
     assert _agent_os_env_from_spec(no_os_env) is None
 
@@ -858,7 +858,7 @@ async def test_auto_create_claude_terminal_passes_raw_instructions(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -900,7 +900,7 @@ async def test_auto_create_claude_terminal_passes_raw_instructions(
         spec_version=1,
         name="claude-agent",
         instructions="Be a concise, careful coding assistant.",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     await _auto_create_claude_terminal(
@@ -942,7 +942,7 @@ async def test_auto_create_claude_terminal_inherits_agent_sandbox(
     :param tmp_path: Pytest-provided temporary directory.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
@@ -952,7 +952,7 @@ async def test_auto_create_claude_terminal_inherits_agent_sandbox(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -1003,7 +1003,7 @@ async def test_auto_create_claude_terminal_inherits_agent_sandbox(
         spec_version=1,
         name="claude_code",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "claude-native", "model": "claude-default"},
         ),
         os_env=agent_os_env,
@@ -1050,7 +1050,7 @@ async def test_auto_create_claude_terminal_injects_ucode_gateway_config(
     :param tmp_path: Pytest-provided temporary directory.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.claude_native import ClaudeNativeUcodeConfig
+    from agentnexus.claude_native import ClaudeNativeUcodeConfig
 
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
@@ -1064,13 +1064,13 @@ async def test_auto_create_claude_terminal_injects_ucode_gateway_config(
     (config_home / "config.yaml").write_text(
         "auth:\n  type: databricks\n  profile: test-profile\n"
     )
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(config_home))
 
     async def _no_op_forwarder(**kwargs: Any) -> None:
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -1083,7 +1083,7 @@ async def test_auto_create_claude_terminal_injects_ucode_gateway_config(
     # The runner imports ``_ucode_config_for_profile`` from
     # ``omnigent.claude_native`` per call, so patch it at the source.
     monkeypatch.setattr(
-        "omnigent.claude_native._ucode_config_for_profile",
+        "agentnexus.claude_native._ucode_config_for_profile",
         lambda profile, *, refresh_models=True: ucode,
     )
 
@@ -1168,7 +1168,7 @@ async def test_auto_create_claude_terminal_does_not_cache_transient_resolver_fai
     lifetime. A resolver exception leaves the cache UNSET,
     so a later successful resolution still gets recorded.
     """
-    from omnigent.claude_native import ClaudeNativeUcodeConfig
+    from agentnexus.claude_native import ClaudeNativeUcodeConfig
 
     class _FakeResourceRegistry:
         """Records the launched terminal spec; returns a stub view."""
@@ -1269,23 +1269,23 @@ async def _run_auto_create_cursor_terminal(
         latter captured from the elicitation supervisor the forwarder task
         gathers (empty if that task never got to start it).
     """
-    from omnigent.runner import _entry as _runner_entry
+    from agentnexus.runner import _entry as _runner_entry
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
     monkeypatch.setattr(cursor_native_bridge, "_BRIDGE_ROOT", tmp_path / "cursor-bridge")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
-    monkeypatch.setattr("omnigent.cursor_native.resolve_cursor_executable", lambda: "cursor-agent")
+    monkeypatch.setattr("agentnexus.cursor_native.resolve_cursor_executable", lambda: "cursor-agent")
 
     async def _no_op_forwarder(**kwargs: Any) -> None:
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.cursor_native_forwarder.supervise_cursor_forwarder",
+        "agentnexus.cursor_native_forwarder.supervise_cursor_forwarder",
         _no_op_forwarder,
     )
     monkeypatch.setattr(
-        "omnigent.cursor_native_usage.supervise_cursor_usage_forwarder",
+        "agentnexus.cursor_native_usage.supervise_cursor_usage_forwarder",
         _no_op_forwarder,
     )
     # The forwarder is stubbed, so the auth it would carry is never used — keep
@@ -1300,7 +1300,7 @@ async def _run_auto_create_cursor_terminal(
         started.set()
 
     monkeypatch.setattr(
-        "omnigent.cursor_native_permissions.supervise_cursor_transcript_elicitations",
+        "agentnexus.cursor_native_permissions.supervise_cursor_transcript_elicitations",
         _capture_elicitation_supervisor,
     )
 
@@ -1492,7 +1492,7 @@ async def test_auto_create_claude_terminal_forwarder_skips_replayed_transcript_o
 
     On cold resume the runner synthesizes Claude's local transcript from
     AP's committed history and launches ``claude --resume``, so the
-    transcript file already holds every item Omnigent has at offset 0. The
+    transcript file already holds every item AgentNexus has at offset 0. The
     forwarder must therefore start at the transcript end
     (``start_at_end=True``); starting at offset 0 would re-post the whole
     history as new ``external_conversation_item`` records — which carry no
@@ -1514,7 +1514,7 @@ async def test_auto_create_claude_terminal_forwarder_skips_replayed_transcript_o
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     # Pin the launch config to Claude's native auth so the test does not
     # depend on the runner process's ambient Databricks profile.
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
@@ -1526,11 +1526,11 @@ async def test_auto_create_claude_terminal_forwarder_skips_replayed_transcript_o
         forwarder_kwargs.update(kwargs)
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _capture_forwarder,
     )
 
-    # Transcript synthesis from Omnigent history has its own coverage; stub it to
+    # Transcript synthesis from AgentNexus history has its own coverage; stub it to
     # return a path so the resume branch sets ``resume_external_session_id``
     # without a real item fetch. A non-None return mirrors the production
     # contract: it means ``--resume`` will be passed, which is precisely the
@@ -1550,7 +1550,7 @@ async def test_auto_create_claude_terminal_forwarder_skips_replayed_transcript_o
         return tmp_path / f"{external_session_id}.jsonl"
 
     monkeypatch.setattr(
-        "omnigent.claude_native._ensure_local_claude_resume_transcript",
+        "agentnexus.claude_native._ensure_local_claude_resume_transcript",
         _fake_synth,
     )
 
@@ -1670,7 +1670,7 @@ async def test_auto_create_claude_terminal_cold_resume_fallback_uses_pre_wipe_br
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
     # Write the previous claude_session_id into the bridge state.json *before*
@@ -1697,7 +1697,7 @@ async def test_auto_create_claude_terminal_cold_resume_fallback_uses_pre_wipe_br
         return tmp_path / f"{external_session_id}.jsonl"
 
     monkeypatch.setattr(
-        "omnigent.claude_native._ensure_local_claude_resume_transcript",
+        "agentnexus.claude_native._ensure_local_claude_resume_transcript",
         _fake_synth,
     )
 
@@ -1707,7 +1707,7 @@ async def test_auto_create_claude_terminal_cold_resume_fallback_uses_pre_wipe_br
         forwarder_kwargs.update(kwargs)
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _capture_forwarder,
     )
 
@@ -1811,7 +1811,7 @@ async def test_auto_create_claude_terminal_emits_resource_created_event(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -1864,7 +1864,7 @@ async def test_auto_create_claude_terminal_emits_resource_created_event(
     assert len(created) == 1, (
         f"auto-create must publish exactly one session.resource.created; got {published}"
     )
-    # Routed under the session id so the Omnigent relay forwards it to that
+    # Routed under the session id so the AgentNexus relay forwards it to that
     # session's web stream.
     assert created[0].session_id == "c74c7a36c4736e2153ed6046d16bcf76"
     resource = created[0].event["resource"]
@@ -1876,7 +1876,7 @@ async def test_auto_create_claude_terminal_emits_resource_created_event(
 
 def test_publish_terminal_pending_emits_pending_then_clear() -> None:
     """
-    ``_publish_terminal_pending`` emits the wire shape the Omnigent relay
+    ``_publish_terminal_pending`` emits the wire shape the AgentNexus relay
     consumes for the Terminal-pill spinner.
 
     The session-creation handler calls this with ``True`` before
@@ -1898,7 +1898,7 @@ def test_publish_terminal_pending_emits_pending_then_clear() -> None:
         {"type": "session.terminal_pending", "pending": True},
         {"type": "session.terminal_pending", "pending": False},
     ]
-    # Routed under the session id so the Omnigent relay forwards it to that
+    # Routed under the session id so the AgentNexus relay forwards it to that
     # session's web stream.
     assert all(p.session_id == "7cef62c6518d5591cc7991974e33ec4c" for p in published)
 
@@ -1913,7 +1913,7 @@ def test_publish_native_terminal_start_error_emits_failed_status_only(
     The runner must stay alive when terminal auto-create fails, but the
     affected session should only receive ``session.status: failed`` from
     this startup path. A bare ``response.error`` is turn-scoped; if the
-    runner publishes one here, Omnigent can persist an orphan transcript error
+    runner publishes one here, AgentNexus can persist an orphan transcript error
     and then publish/persist a second error when the user message
     fast-fails against the same terminal.
 
@@ -1992,7 +1992,7 @@ def test_terminal_lookup_miss_log_explains_stopped_registered_terminal(
 
     _terminal_lookup_miss_log_state.clear()
     try:
-        with caplog.at_level(logging.INFO, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.INFO, logger="agentnexus.runner.app"):
             _log_terminal_lookup_miss(
                 resource_registry,
                 "49b1b4ef0f1c9ba81d232a6f31dfeb24",
@@ -2024,7 +2024,7 @@ async def test_auto_create_claude_terminal_resets_stale_bridge_id_label(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Auto-create corrects a stale ``bridge_id`` label on the Omnigent session.
+    Auto-create corrects a stale ``bridge_id`` label on the AgentNexus session.
 
     If a prior rotation left ``BRIDGE_ID_LABEL_KEY`` set to an older
     bridge id (e.g. ``"m0-bridge_from_prior_rotation"``),
@@ -2043,7 +2043,7 @@ async def test_auto_create_claude_terminal_resets_stale_bridge_id_label(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -2081,7 +2081,7 @@ async def test_auto_create_claude_terminal_resets_stale_bridge_id_label(
                 },
             )
 
-    # Capture all HTTP requests made to the fake Omnigent server.
+    # Capture all HTTP requests made to the fake AgentNexus server.
     recorded_requests: list[httpx.Request] = []
 
     def _handle(req: httpx.Request) -> httpx.Response:
@@ -2155,7 +2155,7 @@ async def test_auto_create_claude_terminal_honours_cleared_bridge_label(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -2450,13 +2450,13 @@ async def test_create_session_auto_create_guard_skips_rotation_targets(
         created.append(session_id)
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_claude_terminal", _recording_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_claude_terminal", _recording_auto_create
     )
 
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2653,7 +2653,7 @@ async def test_create_session_antigravity_auto_create_guard_skips_rotation_targe
     """
     The antigravity-native auto-create guard skips ``/clear`` rotation targets.
 
-    A ``/clear`` rotation binds the runner to a fresh Omnigent session, then
+    A ``/clear`` rotation binds the runner to a fresh AgentNexus session, then
     transfers the existing agy terminal onto it — agy is one long-lived process
     hosting many cascades, so the rotation re-homes the SAME process. The bind
     reaches the runner's ``POST /v1/sessions`` before the transfer runs, so the
@@ -2672,7 +2672,7 @@ async def test_create_session_antigravity_auto_create_guard_skips_rotation_targe
     target again).
     """
     monkeypatch.setattr(
-        "omnigent.antigravity_native_bridge._BRIDGE_ROOT",
+        "agentnexus.antigravity_native_bridge._BRIDGE_ROOT",
         tmp_path / "antigravity-native",
     )
 
@@ -2725,14 +2725,14 @@ async def test_create_session_antigravity_auto_create_guard_skips_rotation_targe
         created.append(session_id)
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_antigravity_terminal",
+        "agentnexus.runner.native.orchestration._auto_create_antigravity_terminal",
         _recording_auto_create,
     )
 
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "antigravity-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "antigravity-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2910,7 +2910,7 @@ async def test_create_session_codex_auto_create_guard_skips_rotation_targets(
     The codex-native auto-create guard skips ``/new`` rotation targets.
 
     A native Codex ``/new`` starts a fresh thread in the SAME terminal, and
-    the forwarder rotates Omnigent ownership onto a fresh session before
+    the forwarder rotates AgentNexus ownership onto a fresh session before
     transferring that terminal onto it. The bind reaches the runner's
     ``POST /v1/sessions`` before the transfer runs, so the new session
     momentarily has no terminal. Auto-creating a second ``codex:main`` here
@@ -2925,7 +2925,7 @@ async def test_create_session_codex_auto_create_guard_skips_rotation_targets(
     antigravity-native guard tests above.
     """
     monkeypatch.setattr(
-        "omnigent.codex_native_bridge._BRIDGE_ROOT",
+        "agentnexus.codex_native_bridge._BRIDGE_ROOT",
         tmp_path / "codex-native",
     )
 
@@ -2976,14 +2976,14 @@ async def test_create_session_codex_auto_create_guard_skips_rotation_targets(
         created.append(session_id)
 
     monkeypatch.setattr(
-        "omnigent.runner.native.orchestration._auto_create_codex_terminal",
+        "agentnexus.runner.native.orchestration._auto_create_codex_terminal",
         _recording_auto_create,
     )
 
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -3041,7 +3041,7 @@ async def test_auto_create_claude_terminal_registers_permission_hook(
     The runner's ``_auto_create_claude_terminal`` is the launch path
     used when a claude-native session is created with no CLI client
     present (web-UI sessions, the ``omnigent host`` host API). It
-    must pass the Omnigent server URL into ``augment_claude_args`` so
+    must pass the AgentNexus server URL into ``augment_claude_args`` so
     ``build_hook_settings`` registers the ``PermissionRequest`` command
     hook and writes permission_hook.json. Without it, approval prompts
     silently never reach the web UI even though every other hook is
@@ -3064,7 +3064,7 @@ async def test_auto_create_claude_terminal_registers_permission_hook(
         raise AssertionError("terminal launch must reuse the runner auth factory")
 
     monkeypatch.setattr(
-        "omnigent.runner._entry._make_auth_token_factory",
+        "agentnexus.runner._entry._make_auth_token_factory",
         _unexpected_auth_resolution,
     )
 
@@ -3078,7 +3078,7 @@ async def test_auto_create_claude_terminal_registers_permission_hook(
         forwarder_kwargs.update(kwargs)
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -3136,7 +3136,7 @@ async def test_auto_create_claude_terminal_registers_permission_hook(
     assert "claude_native_hook permission-request" in permission_hook["command"]
 
     # The hook reads the server URL back out of this file at hook time,
-    # so it must be written with the runner's Omnigent server URL.
+    # so it must be written with the runner's AgentNexus server URL.
     config = read_permission_hook_config(
         bridge_dir_for_bridge_id("4e92b5a0c0ee6db3f874f9c4a3f855a5")
     )
@@ -3149,7 +3149,7 @@ async def test_auto_create_claude_terminal_registers_permission_hook(
     # session keeps forwarding after the ~1h OAuth token expires.
     # ``_auto_create_claude_terminal`` schedules the forwarder as a task;
     # yield once so the stub records its kwargs before asserting.
-    from omnigent.runner._entry import _RunnerDatabricksAuth
+    from agentnexus.runner._entry import _RunnerDatabricksAuth
 
     await asyncio.sleep(0)
     assert isinstance(forwarder_kwargs.get("auth"), _RunnerDatabricksAuth)
@@ -3183,7 +3183,7 @@ async def _run_auto_create_claude_terminal_for_routing_class(
         cost-control field, which is the shape a sub-agent child of a routed
         parent is created with.
     """
-    from omnigent.claude_native import ClaudeNativeUcodeConfig
+    from agentnexus.claude_native import ClaudeNativeUcodeConfig
 
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
@@ -3193,13 +3193,13 @@ async def _run_auto_create_claude_terminal_for_routing_class(
     (config_home / "config.yaml").write_text(
         "auth:\n  type: databricks\n  profile: test-profile\n"
     )
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(config_home))
 
     async def _no_op_forwarder(**kwargs: Any) -> None:
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
 
@@ -3217,7 +3217,7 @@ async def _run_auto_create_claude_terminal_for_routing_class(
         model="databricks-claude-opus-4-7",
     )
     monkeypatch.setattr(
-        "omnigent.claude_native._ucode_config_for_profile",
+        "agentnexus.claude_native._ucode_config_for_profile",
         lambda profile, *, refresh_models=True: ucode,
     )
 
@@ -3250,7 +3250,7 @@ async def _run_auto_create_claude_terminal_for_routing_class(
     if routed:
         snapshot["cost_control_mode_override"] = "on"
     if auto_harness:
-        from omnigent.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
+        from agentnexus.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
 
         snapshot["labels"][AUTO_HARNESS_LABEL_KEY] = "1"
         snapshot["harness_override"] = "auto"
@@ -3266,7 +3266,7 @@ async def _run_auto_create_claude_terminal_for_routing_class(
             server_client=fake_client,
         )
     finally:
-        from omnigent.runner import subagent_routing, turn_routing
+        from agentnexus.runner import subagent_routing, turn_routing
 
         subagent_routing.shutdown_session_router(session_id)
         turn_routing.shutdown_session_turn_router(session_id)
@@ -3357,7 +3357,7 @@ async def test_an_auto_harness_launch_without_a_cost_control_stamp_is_still_rout
 
 def test_routed_spawn_launch_args_need_a_router() -> None:
     """The note and pre-approvals never ship without the router that serves them."""
-    from omnigent.runner.native.orchestration import _routed_spawn_launch_args
+    from agentnexus.runner.native.orchestration import _routed_spawn_launch_args
 
     note, tools = _routed_spawn_launch_args(True)
     assert note and tools
@@ -3381,7 +3381,7 @@ async def test_auto_create_claude_terminal_launch_gate_folds_a_canonical_overrid
     rather than refuse the resume; a gateway, which routes only its own
     spellings, keeps refusing it.
     """
-    from omnigent.claude_native import ClaudeNativeUcodeConfig
+    from agentnexus.claude_native import ClaudeNativeUcodeConfig
 
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
@@ -3391,7 +3391,7 @@ async def test_auto_create_claude_terminal_launch_gate_folds_a_canonical_overrid
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
     prefix = "" if endpoint == "subscription" else "system.ai."
@@ -3409,7 +3409,7 @@ async def test_auto_create_claude_terminal_launch_gate_folds_a_canonical_overrid
         del config
         return catalog
 
-    monkeypatch.setattr("omnigent.claude_native.claude_launch_catalog", _catalog)
+    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", _catalog)
 
     captured: dict[str, Any] = {}
 
@@ -3503,8 +3503,8 @@ async def test_auto_create_claude_terminal_default_pin_requires_a_fresh_catalog(
     import os
     import time
 
-    from omnigent import model_catalog_store
-    from omnigent.claude_native import claude_catalog_fingerprint
+    from agentnexus import model_catalog_store
+    from agentnexus.claude_native import claude_catalog_fingerprint
     from tests.runner.conftest import REAL_CLAUDE_LAUNCH_CATALOG
 
     monkeypatch.setattr(claude_native_bridge, "_TRUSTED_PARENT", tmp_path)
@@ -3515,19 +3515,19 @@ async def test_auto_create_claude_terminal_default_pin_requires_a_fresh_catalog(
         del kwargs
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _no_op_forwarder,
     )
     # The real store-backed resolver, against the conftest-isolated store
     # dir; the background re-probe is stubbed so no real CLI ever runs.
-    monkeypatch.setattr("omnigent.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG)
+    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG)
     refreshed = [{"id": "sonnet", "model": "claude-sonnet-5", "isDefault": True}]
 
     async def _fake_probe_catalog(config: object) -> list[dict[str, object]]:
         del config
         return refreshed
 
-    monkeypatch.setattr("omnigent.claude_native.claude_model_catalog", _fake_probe_catalog)
+    monkeypatch.setattr("agentnexus.claude_native.claude_model_catalog", _fake_probe_catalog)
     fingerprint = claude_catalog_fingerprint(None)
     model_catalog_store.write_catalog(
         "claude-native",

@@ -11,14 +11,14 @@ from typing import Any
 
 import httpx
 
-import omnigent.opencode_native_forwarder as fwd_mod
-from omnigent.opencode_native_client import OpenCodeEvent
+import agentnexus.opencode_native_forwarder as fwd_mod
+from agentnexus.opencode_native_client import OpenCodeEvent
 
 _SESSION = "ses_reconnect"
 
 
 class _RecordingServerClient:
-    """httpx-shaped stub recording Omnigent event POSTs."""
+    """httpx-shaped stub recording AgentNexus event POSTs."""
 
     def __init__(self) -> None:
         self.posts: list[tuple[str, dict[str, Any]]] = []
@@ -421,7 +421,7 @@ async def test_handle_event_no_longer_calls_update_last_event_id() -> None:
     """
     import inspect
 
-    import omnigent.opencode_native_forwarder as _fwd_module
+    import agentnexus.opencode_native_forwarder as _fwd_module
 
     source = inspect.getsource(_fwd_module)
     assert "update_last_event_id" not in source, (

@@ -19,20 +19,20 @@ from asgiref.testing import ApplicationCommunicator
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostCreateDirFrame,
     HostCreateDirResultFrame,
     HostHelloFrame,
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes.host_tunnel import create_host_tunnel_router
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 # Same liveness-race flake guard as test_hosts_filesystem.py: the mock
 # WS host can be starved + deregistered under parallel CI load. Tests

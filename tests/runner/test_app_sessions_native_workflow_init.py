@@ -15,22 +15,22 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import native_dispatch
-from omnigent.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.runner import create_runner_app
-from omnigent.runner import tool_dispatch as _tool_dispatch
-from omnigent.runner.app import (
+from agentnexus import native_dispatch
+from agentnexus.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.runner import create_runner_app
+from agentnexus.runner import tool_dispatch as _tool_dispatch
+from agentnexus.runner.app import (
     _RUNNER_DISPATCHED_FIELD,
     ResolvedSpec,
     _resolved_workdir_for_spec,
     _session_labels_for_runner_spawn,
 )
-from omnigent.runner.native import NativeLaunchContext, _resolve_native_spawn_env
-from omnigent.runner.resource_registry import (
+from agentnexus.runner.native import NativeLaunchContext, _resolve_native_spawn_env
+from agentnexus.runner.resource_registry import (
     SessionResourceRegistry,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec, LocalToolInfo
+from agentnexus.spec.types import AgentSpec, ExecutorSpec, LocalToolInfo
 from tests.runner.conftest import (
     _build_app_with_mcp_tool,
     _build_interrupt_app,
@@ -53,7 +53,7 @@ async def test_session_labels_for_runner_spawn_timeout_is_quiet(
     Timed-out optional label resolution returns the spawn fallback quietly.
 
     Native harness spawn can recover by using the session id when labels
-    cannot be fetched. A slow Omnigent session lookup therefore must not emit a
+    cannot be fetched. A slow AgentNexus session lookup therefore must not emit a
     warning with traceback; that was noisy and misleading for a best-effort
     lookup.
 
@@ -62,7 +62,7 @@ async def test_session_labels_for_runner_spawn_timeout_is_quiet(
     """
     transport = _ReadTimeoutTransport()
     async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
-        with caplog.at_level(logging.DEBUG, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.DEBUG, logger="agentnexus.runner.app"):
             labels = await _session_labels_for_runner_spawn(
                 server_client=client,
                 session_id="1dbe53c9796da07f3960b9226435a5c8",
@@ -113,7 +113,7 @@ async def test_session_labels_for_runner_spawn_empty_200_body_recovers(
 
     transport = httpx.MockTransport(_handler)
     async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
-        with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
             labels = await _session_labels_for_runner_spawn(
                 server_client=client,
                 session_id="2d4033c255b393808b12437cbdc9c47f",
@@ -144,7 +144,7 @@ async def test_resolve_native_spawn_env_bare_builder_takes_session_id_only() -> 
         return {"PI_BRIDGE": conversation_id}
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("omnigent.pi_native_bridge.build_pi_native_spawn_env", _fake_build)
+        mp.setattr("agentnexus.pi_native_bridge.build_pi_native_spawn_env", _fake_build)
         async with httpx.AsyncClient(base_url="http://ap") as client:
             env = await _resolve_native_spawn_env(
                 "pi-native",
@@ -174,7 +174,7 @@ async def test_resolve_native_spawn_env_label_builder_reads_bridge_id() -> None:
 
     transport = httpx.MockTransport(_labels_handler)
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("omnigent.codex_native_bridge.build_codex_native_spawn_env", _fake_build)
+        mp.setattr("agentnexus.codex_native_bridge.build_codex_native_spawn_env", _fake_build)
         async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
             env = await _resolve_native_spawn_env(
                 "codex-native",
@@ -202,9 +202,9 @@ async def test_resolve_native_spawn_env_claude_uses_bridge_id_helper() -> None:
         return "claude_bridge_1"
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("omnigent.claude_native_bridge.build_claude_native_spawn_env", _fake_build)
+        mp.setattr("agentnexus.claude_native_bridge.build_claude_native_spawn_env", _fake_build)
         mp.setattr(
-            "omnigent.runner.native.orchestration._claude_native_bridge_id_with_optional_labels",
+            "agentnexus.runner.native.orchestration._claude_native_bridge_id_with_optional_labels",
             _fake_bridge_id,
         )
         async with httpx.AsyncClient(base_url="http://ap") as client:
@@ -235,8 +235,8 @@ async def test_resolve_native_spawn_env_hermes_writes_policy_hook_before_build()
         return {"HERMES_BRIDGE": session_id}
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("omnigent.hermes_native_bridge.write_policy_hook_config", _fake_write)
-        mp.setattr("omnigent.hermes_native_bridge.build_hermes_native_spawn_env", _fake_build)
+        mp.setattr("agentnexus.hermes_native_bridge.write_policy_hook_config", _fake_write)
+        mp.setattr("agentnexus.hermes_native_bridge.build_hermes_native_spawn_env", _fake_build)
         async with httpx.AsyncClient(base_url="http://ap") as client:
             env = await _resolve_native_spawn_env(
                 "hermes-native",
@@ -336,7 +336,7 @@ async def test_launch_adapters_forward_expected_kwarg_subset(
     expected_kwargs: set[str],
 ) -> None:
     """Each ``_launch_<x>`` adapter forwards exactly its builder's kwarg subset."""
-    from omnigent.runner.native import orchestration as orch
+    from agentnexus.runner.native import orchestration as orch
 
     captured: dict[str, Any] = {}
 
@@ -362,7 +362,7 @@ async def test_launch_native_terminal_creates_when_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When no terminal exists, the shell resolves the adapter and creates one."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     called: dict[str, Any] = {}
 
@@ -370,7 +370,7 @@ async def test_launch_native_terminal_creates_when_absent(
         called["session_id"] = ctx.session_id
         return object()
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _fake_launch_pi)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _fake_launch_pi)
     locks: dict[str, Any] = {}
     result = await _launch_native_terminal(
         "pi-native",
@@ -388,12 +388,12 @@ async def test_launch_native_terminal_skips_when_terminal_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An existing terminal short-circuits to True without calling the adapter."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     async def _must_not_call(ctx: NativeLaunchContext) -> object:
         raise AssertionError("adapter must not run when a terminal already exists")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _must_not_call)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _must_not_call)
     result = await _launch_native_terminal(
         "pi-native",
         _launch_ctx(resource_registry=_FakeResourceRegistry(_FakeTerminalRegistry(existing=True))),
@@ -408,7 +408,7 @@ async def test_launch_native_terminal_force_recreate_tears_down_existing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """force_recreate cleans up the existing terminal, then creates a fresh one."""
-    from omnigent.runner.native import PreLaunchResult, _launch_native_terminal
+    from agentnexus.runner.native import PreLaunchResult, _launch_native_terminal
 
     created: list[str] = []
 
@@ -416,7 +416,7 @@ async def test_launch_native_terminal_force_recreate_tears_down_existing(
         created.append(ctx.session_id)
         return object()
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _fake_launch_pi)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _fake_launch_pi)
     registry = _FakeTerminalRegistry(existing=True)
 
     async def _pre_launch(_has_terminal: bool) -> PreLaunchResult:
@@ -444,12 +444,12 @@ async def test_launch_native_terminal_force_recreate_and_skip_tears_down_without
     torn down, but because a sibling session's terminal is rotating in (skip),
     creation is left to the transfer instead of racing it with a fresh launch.
     """
-    from omnigent.runner.native import PreLaunchResult, _launch_native_terminal
+    from agentnexus.runner.native import PreLaunchResult, _launch_native_terminal
 
     async def _must_not_call(ctx: NativeLaunchContext) -> object:
         raise AssertionError("adapter must not run when the transfer will deliver")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _must_not_call)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _must_not_call)
     registry = _FakeTerminalRegistry(existing=True)
 
     async def _pre_launch(_has_terminal: bool) -> PreLaunchResult:
@@ -472,12 +472,12 @@ async def test_launch_native_terminal_skip_and_needs_terminal_return_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """skip=True or needs_terminal=False returns False without creating."""
-    from omnigent.runner.native import PreLaunchResult, _launch_native_terminal
+    from agentnexus.runner.native import PreLaunchResult, _launch_native_terminal
 
     async def _must_not_call(ctx: NativeLaunchContext) -> object:
         raise AssertionError("adapter must not run when skipped")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _must_not_call)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _must_not_call)
 
     for decision in (PreLaunchResult(skip=True), PreLaunchResult(needs_terminal=False)):
 
@@ -497,12 +497,12 @@ async def test_launch_native_terminal_publishes_start_error_on_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A builder failure returns False and publishes a terminal-start error."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     async def _boom(ctx: NativeLaunchContext) -> object:
         raise RuntimeError("launch blew up")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _boom)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _boom)
     events: list[tuple[str, dict[str, Any]]] = []
     result = await _launch_native_terminal(
         "pi-native",
@@ -520,7 +520,7 @@ async def test_launch_native_terminal_resolves_spec_lazily_only_on_create(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """resolve_agent_spec runs only when creating, and feeds the adapter's ctx."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     seen_spec: dict[str, Any] = {}
     resolver_calls = {"n": 0}
@@ -533,7 +533,7 @@ async def test_launch_native_terminal_resolves_spec_lazily_only_on_create(
         resolver_calls["n"] += 1
         return "resolved-spec"
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _fake_launch_pi)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _fake_launch_pi)
 
     # Creating: resolver runs once, result lands on the adapter's ctx.
     await _launch_native_terminal(
@@ -555,7 +555,7 @@ async def test_launch_native_terminal_resolves_spec_lazily_only_on_create(
 @pytest.mark.asyncio
 async def test_launch_native_terminal_non_native_returns_none() -> None:
     """A non-native harness yields None so the caller handles it another way."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     result = await _launch_native_terminal("claude-sdk", _launch_ctx(), ensure_locks={})
     assert result is None
@@ -566,7 +566,7 @@ async def test_launch_native_terminal_build_context_enriches_only_on_create(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """build_context runs inside the create block and feeds the adapter's ctx."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     seen: dict[str, Any] = {}
     build_calls = {"n": 0}
@@ -579,7 +579,7 @@ async def test_launch_native_terminal_build_context_enriches_only_on_create(
         build_calls["n"] += 1
         return dataclasses.replace(ctx, bundle_dir=Path("/tmp/enriched"))
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _fake_launch_pi)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _fake_launch_pi)
 
     await _launch_native_terminal(
         "pi-native", _launch_ctx(), ensure_locks={}, build_context=_build
@@ -602,12 +602,12 @@ async def test_launch_native_terminal_reraise_propagates_without_error_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """reraise=True re-raises the builder failure instead of publishing an event."""
-    from omnigent.runner.native import _launch_native_terminal
+    from agentnexus.runner.native import _launch_native_terminal
 
     async def _boom(ctx: NativeLaunchContext) -> object:
         raise RuntimeError("cold-boot blew up")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_pi", _boom)
+    monkeypatch.setattr("agentnexus.runner.native._launch_pi", _boom)
     events: list[tuple[str, dict[str, Any]]] = []
 
     with pytest.raises(RuntimeError, match="cold-boot blew up"):
@@ -667,7 +667,7 @@ async def test_ensure_native_terminal_returns_existing_without_creating(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An existing terminal is returned as-is; the adapter never runs."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     created = False
 
@@ -676,7 +676,7 @@ async def test_ensure_native_terminal_returns_existing_without_creating(
         created = True
         return object()
 
-    monkeypatch.setattr("omnigent.runner.native._launch_goose", _fake_launch)
+    monkeypatch.setattr("agentnexus.runner.native._launch_goose", _fake_launch)
     registry = _FakeEnsureRegistry(existing=_terminal_view("existing"))
     resp = await _ensure_native_terminal("goose", _ensure_ctx(registry), ensure_locks={})
 
@@ -690,12 +690,12 @@ async def test_ensure_native_terminal_creates_when_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """With no existing terminal, the shell resolves the adapter and creates one."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     async def _fake_launch(ctx: NativeLaunchContext) -> SessionResourceView:
         return _terminal_view("auto-created")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_goose", _fake_launch)
+    monkeypatch.setattr("agentnexus.runner.native._launch_goose", _fake_launch)
     registry = _FakeEnsureRegistry(existing=None)
     locks: dict[str, Any] = {}
     resp = await _ensure_native_terminal("goose", _ensure_ctx(registry), ensure_locks=locks)
@@ -710,12 +710,12 @@ async def test_ensure_native_terminal_builder_error_returns_500(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A builder failure becomes a structured 500 JSON, not a live-published error."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     async def _boom(ctx: NativeLaunchContext) -> object:
         raise ImportError("Native goose requires the 'goose' CLI on PATH.")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_goose", _boom)
+    monkeypatch.setattr("agentnexus.runner.native._launch_goose", _boom)
     resp = await _ensure_native_terminal(
         "goose", _ensure_ctx(_FakeEnsureRegistry(existing=None)), ensure_locks={}
     )
@@ -731,7 +731,7 @@ async def test_ensure_native_terminal_builder_error_returns_500(
 @pytest.mark.asyncio
 async def test_ensure_native_terminal_non_native_returns_none() -> None:
     """A non-native terminal name returns None so the caller uses the generic path."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     resp = await _ensure_native_terminal(
         "bash", _ensure_ctx(_FakeEnsureRegistry()), ensure_locks={}
@@ -744,7 +744,7 @@ async def test_ensure_native_terminal_owned_existing_uses_finalize(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An owned existing terminal is returned through ``finalize`` (codex notice wrap)."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     existing = _terminal_view("owned-existing", terminal_id="terminal_codex_main")
     registry = _FakeEnsureRegistry(existing=existing)
@@ -773,12 +773,12 @@ async def test_ensure_native_terminal_non_owned_closes_and_recreates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A non-owned existing terminal is closed, then the native one is created."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     async def _fake_launch(ctx: NativeLaunchContext) -> SessionResourceView:
         return _terminal_view("recreated", terminal_id="terminal_codex_main")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_codex", _fake_launch)
+    monkeypatch.setattr("agentnexus.runner.native._launch_codex", _fake_launch)
     existing = _terminal_view("foreign", terminal_id="terminal_codex_main")
     registry = _FakeEnsureRegistry(existing=existing, close_ok=True)
 
@@ -798,7 +798,7 @@ async def test_ensure_native_terminal_non_owned_closes_and_recreates(
 @pytest.mark.asyncio
 async def test_ensure_native_terminal_non_owned_close_fails_returns_409() -> None:
     """When a non-owned terminal cannot be closed, the shell returns a 409 conflict."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     existing = _terminal_view("foreign", terminal_id="terminal_antigravity_main")
     registry = _FakeEnsureRegistry(existing=existing, close_ok=False)
@@ -822,7 +822,7 @@ async def test_ensure_native_terminal_build_context_runs_only_on_create(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``build_context`` runs on create but is skipped when a terminal already exists."""
-    from omnigent.runner.native import _ensure_native_terminal
+    from agentnexus.runner.native import _ensure_native_terminal
 
     calls: list[str] = []
 
@@ -833,7 +833,7 @@ async def test_ensure_native_terminal_build_context_runs_only_on_create(
         calls.append("build")
         return dataclasses.replace(ctx, agent_name="resolved")
 
-    monkeypatch.setattr("omnigent.runner.native._launch_goose", _fake_launch)
+    monkeypatch.setattr("agentnexus.runner.native._launch_goose", _fake_launch)
 
     # Create path: build_context runs.
     await _ensure_native_terminal(
@@ -1091,7 +1091,7 @@ async def test_sessions_native_history_file_id_fetch_failure_is_nonfatal(
     )
 
     async with _runner_client(app) as client:
-        with caplog.at_level(logging.WARNING, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.WARNING, logger="agentnexus.runner.app"):
             resp = await client.post(
                 "/v1/sessions/conv_hist_fail/events",
                 json={
@@ -1120,7 +1120,7 @@ async def test_runner_session_tool_schemas_use_resolved_bundle_workdir(tmp_path:
     tool_dir = bundle_dir / "tools" / "python"
     tool_dir.mkdir(parents=True)
     (tool_dir / "bundle_tool.py").write_text(
-        "from omnigent_client.tools import tool\n\n"
+        "from agentnexus_client.tools import tool\n\n"
         "@tool\n"
         "def bundle_tool(text: str) -> str:\n"
         "    return text\n"
@@ -1253,7 +1253,7 @@ async def test_sessions_native_dispatches_native_tool_with_bundle_workdir(
     tool_dir = bundle_dir / "tools" / "python"
     tool_dir.mkdir(parents=True)
     (tool_dir / "bundle_tool.py").write_text(
-        "from omnigent_client.tools import tool\n\n"
+        "from agentnexus_client.tools import tool\n\n"
         "@tool\n"
         "def bundle_tool(text: str) -> str:\n"
         "    return text\n"
@@ -1712,7 +1712,7 @@ async def test_sessions_native_clears_in_flight_on_lazy_spec_error() -> None:
         return AgentSpec(
             spec_version=1,
             name="t",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "runner-test-default"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "runner-test-default"}),
         )
 
     app = create_runner_app(
@@ -1966,7 +1966,7 @@ async def test_sessions_native_path_injects_mcp_schemas() -> None:
 async def test_action_required_marker_round_trips_to_relayed_frame() -> None:
     """The runner stamps ``omnigent_runner_dispatched`` on action_required frames.
 
-    The Omnigent executor's ``_runner_dispatches`` predicate reads this marker
+    The AgentNexus executor's ``_runner_dispatches`` predicate reads this marker
     to skip server-side dispatch. Without the stamp it'd race the
     runner's dispatch and return "unknown server-side tool."
     """
@@ -1994,7 +1994,7 @@ async def test_action_required_marker_round_trips_to_relayed_frame() -> None:
         f"action_required event must be stamped with the dispatch marker; "
         f"stream text was {stream_text!r}"
     )
-    # Runner dispatched the MCP tool through the Omnigent server proxy (AP mode).
+    # Runner dispatched the MCP tool through the AgentNexus server proxy (AP mode).
     assert server_client.call_tool_invocations == [("jira_search_issues", {})], (
         f"runner must dispatch the MCP tool via ProxyMcpManager (AP server); "
         f"got {server_client.call_tool_invocations}"
@@ -2137,7 +2137,7 @@ async def test_create_session_envelope_is_single_flight_and_skips_metadata_callb
 async def test_create_session_preserves_existing_event_queue() -> None:
     """Session init must not orphan a stream subscriber's event queue.
 
-    The Omnigent relay's ``GET /stream`` lazily creates the per-session event
+    The AgentNexus relay's ``GET /stream`` lazily creates the per-session event
     queue when it connects before ``POST /v1/sessions`` runs (the relay
     can race ahead of init). Init used to *unconditionally replace* that
     queue, orphaning the relay on the now-dead object: ``_publish_event``
@@ -2148,7 +2148,7 @@ async def test_create_session_preserves_existing_event_queue() -> None:
     "working". Init must PRESERVE an existing queue — assert the
     pre-attached queue object survives init unchanged.
     """
-    from omnigent.runner.app import _session_event_queues_ref
+    from agentnexus.runner.app import _session_event_queues_ref
 
     app, _pm, _hc = _build_lifecycle_app()
     # Simulate the relay's GET /stream having already attached (lazily
@@ -2378,7 +2378,7 @@ async def test_session_stream_receives_events() -> None:
 @pytest.mark.asyncio
 async def test_session_stream_emits_heartbeat_on_idle() -> None:
     """The session stream emits an immediate and idle ``session.heartbeat``."""
-    import omnigent.runner.app as _runner_app_module
+    import agentnexus.runner.app as _runner_app_module
 
     original = _runner_app_module._SESSION_STREAM_HEARTBEAT_S
     _runner_app_module._SESSION_STREAM_HEARTBEAT_S = 0.05
@@ -2413,7 +2413,7 @@ async def test_session_stream_emits_heartbeat_on_idle() -> None:
         heartbeats = [e for e in collected if e.get("type") == "session.heartbeat"]
         assert len(heartbeats) >= 1, f"Expected at least 1 session.heartbeat, got {collected}"
         assert collected[0] == {"type": "session.heartbeat"}, (
-            "The first stream frame must be the ready heartbeat. Omnigent waits "
+            "The first stream frame must be the ready heartbeat. AgentNexus waits "
             "for this before forwarding fast no-replay user input."
         )
     finally:
@@ -2484,7 +2484,7 @@ async def test_native_session_create_seeds_harness_compaction_anchor(
     ``response.compaction.completed`` persists instead of silently bailing
     on the missing anchor.
     """
-    import omnigent.runner.app as runner_app_mod
+    import agentnexus.runner.app as runner_app_mod
 
     async def _noop_terminal(*args: Any, **kwargs: Any) -> None:
         del args, kwargs
@@ -2493,14 +2493,14 @@ async def test_native_session_create_seeds_harness_compaction_anchor(
     # No bridge dir exists in this test; keep the lazy comment-relay start
     # from parking on the cold-bridge tools/list_changed wait.
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.post_tools_changed",
+        "agentnexus.claude_native_bridge.post_tools_changed",
         lambda *args, **kwargs: None,
     )
 
     spec = AgentSpec(
         spec_version=1,
         name="claude",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:

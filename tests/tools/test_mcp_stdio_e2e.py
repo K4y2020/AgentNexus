@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
-from omnigent.runner.mcp_manager import RunnerMcpManager
-from omnigent.spec.types import AgentSpec, MCPServerConfig
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
+from agentnexus.runner.mcp_manager import RunnerMcpManager
+from agentnexus.spec.types import AgentSpec, MCPServerConfig
 
 _ECHO_SERVER = str(Path(__file__).parent / "fixtures" / "echo_stdio_mcp_server.py")
 _ENV_PROBE_SERVER = str(Path(__file__).parent / "fixtures" / "env_probe_stdio_mcp_server.py")
@@ -101,7 +101,7 @@ async def test_stdio_mcp_shutdown_does_not_log_cancel_scope_error(
     "Attempted to exit cancel scope in a different task than it was
     entered in" during shutdown.
     """
-    caplog.set_level(logging.ERROR, logger="omnigent.runner.mcp_manager")
+    caplog.set_level(logging.ERROR, logger="agentnexus.runner.mcp_manager")
     manager = RunnerMcpManager()
     result = await manager.schemas_for(echo_mcp_spec)
     # Sanity: connect actually succeeded, so there is something to close.

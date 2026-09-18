@@ -22,9 +22,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from omnigent_ui_sdk import RichBlockFormatter
+from agentnexus_ui_sdk import RichBlockFormatter
 
-from omnigent.repl._repl import (
+from agentnexus.repl._repl import (
     COMMANDS,
     _items_for_context_token_count,
     _update_context_ring_estimate,
@@ -104,7 +104,7 @@ def _patch_count_tokens(
         e.g. ``35_000``.
     """
     monkeypatch.setattr(
-        "omnigent.runtime.compaction.count_tokens",
+        "agentnexus.runtime.compaction.count_tokens",
         lambda messages, model: message_tokens,
     )
 
@@ -233,7 +233,7 @@ async def test_context_free_space_count_matches_its_percentage(
     output = host.text
     # Compute the expected partition the way the renderer does (the buffer
     # fraction is 1 - trigger, i.e. ~0.2 with float wobble).
-    from omnigent.repl._repl import _CONTEXT_COMPACTION_TRIGGER
+    from agentnexus.repl._repl import _CONTEXT_COMPACTION_TRIGGER
 
     window, msgs = 100_000, 10_000
     buf = int(window * (1.0 - _CONTEXT_COMPACTION_TRIGGER))
@@ -470,7 +470,7 @@ async def test_context_uses_host_tokens_used_when_set(
             "/context must use the cached value instead of recomputing."
         )
 
-    monkeypatch.setattr("omnigent.runtime.compaction.count_tokens", _should_not_count)
+    monkeypatch.setattr("agentnexus.runtime.compaction.count_tokens", _should_not_count)
 
     # Patch _fetch_context_items to raise — no HTTP call should happen
     async def _should_not_fetch(*_args, **_kwargs):
@@ -479,7 +479,7 @@ async def test_context_uses_host_tokens_used_when_set(
             "/context must use the cached value instead of fetching items."
         )
 
-    monkeypatch.setattr("omnigent.repl._repl._fetch_context_items", _should_not_fetch)
+    monkeypatch.setattr("agentnexus.repl._repl._fetch_context_items", _should_not_fetch)
 
     host = CapturingHost()
     # Simulate the idle-event fallback having set tokens_used after a completed turn.
@@ -522,7 +522,7 @@ def test_context_ring_state_initialized_to_false() -> None:
     """
     import inspect
 
-    from omnigent.repl import _repl
+    from agentnexus.repl import _repl
 
     src = inspect.getsource(_repl.run_repl)
     # The initialiser line must set the flag to False (not True).
@@ -683,7 +683,7 @@ async def test_idle_ring_estimate_model_fallback(
     # count_tokens is imported with a local `from … import` inside the
     # helper, so patching the source module attribute takes effect.
     monkeypatch.setattr(
-        "omnigent.runtime.compaction.count_tokens",
+        "agentnexus.runtime.compaction.count_tokens",
         _recording_count_tokens,
     )
 

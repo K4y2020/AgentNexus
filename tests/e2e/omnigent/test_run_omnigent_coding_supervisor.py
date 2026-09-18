@@ -3,7 +3,7 @@
 
 Exercises the full pipeline that was failing in user-reported bugs:
 
-1. Omnigent YAML with ``async: true``, ``cancellable: true``, and
+1. AgentNexus YAML with ``async: true``, ``cancellable: true``, and
    inline ``AgentTool`` declarations (``claude_worker``,
    ``codex_worker``) — previously the adapter fail-loud-rejected
    these as "AgentTool: expected FunctionTool after fail-loud
@@ -13,7 +13,7 @@ Exercises the full pipeline that was failing in user-reported bugs:
 3. The bidirectional translator: YAML → AgentDef →
    :func:`agent_def_to_agent_spec` → AgentSpec → (registered with
    omnigent server) → :func:`agent_spec_to_agent_def` (inside
-   :class:`OmnigentExecutor.from_spec`) → AgentDef → omnigent
+   :class:`AgentNexusExecutor.from_spec`) → AgentDef → omnigent
    executor_factory → actual harness.
 
 Two test scenarios:
@@ -29,7 +29,7 @@ Two test scenarios:
 **What breaks if this fails:**
 - Someone reintroduces a fail-loud for ``AgentTool`` in the
   translator — coding-supervisor-shaped YAMLs with inline
-  sub-agent-as-tool declarations stop loading under Omnigent mode.
+  sub-agent-as-tool declarations stop loading under AgentNexus mode.
 - ``_run_agent_via_omnigent`` regresses to the "requires a prompt"
   hard-error path — interactive ``omnigent run <yaml>``
   starts exiting non-zero instead of opening the REPL.
@@ -39,9 +39,9 @@ Two test scenarios:
   in step (c); cancellable behavior now flows through
   ``sys_call_async`` + ``sys_cancel_task`` for plain callables.
 - The
-  :func:`omnigent.spec.omnigent._sub_spec_to_agent_tool`
+  :func:`omnigent.spec.agentnexus._sub_spec_to_agent_tool`
   reverse translation stops emitting ``AgentTool`` entries —
-  :class:`OmnigentExecutor.from_spec` reconstructs an
+  :class:`AgentNexusExecutor.from_spec` reconstructs an
   ``AgentDef`` without the sub-agent tools, and the supervisor
   LLM has no way to delegate to ``claude_worker`` /
   ``codex_worker``.
@@ -56,11 +56,11 @@ import pexpect
 import pytest
 
 from tests.e2e._run_with_group_timeout import run_with_group_timeout
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 # coding_supervisor's declared openai-agents harness + mock model.
 # We don't pass ``--model`` here; the YAML's model wins.
@@ -79,19 +79,19 @@ _HARNESS = "openai-agents"
 _MIN_STDOUT_CHARS = 10
 
 # Subprocess timeouts. Measured on a warm macOS box,
-# Omnigent mode boot (FastAPI + uvicorn + DBOS + alembic) completes
+# AgentNexus mode boot (FastAPI + uvicorn + DBOS + alembic) completes
 # in ~5s; one full turn (boot + LLM roundtrip) runs in ~10-15s.
 # Budgets below are ~3-4x the observed ceiling so genuine
 # regressions show up as timeouts instead of false-positive
 # flakes on loaded boxes. Increase only if you have a specific
 # reproducible slowdown to investigate.
 _ONESHOT_TIMEOUT_SEC = 60
-# Cold-boot of ``coding_supervisor.yaml`` under Omnigent mode —
-# spawns the in-process Omnigent server and registers supervisor +
-# two sub-agents. Without Omnigent mode boot is <10s; with Omnigent mode
+# Cold-boot of ``coding_supervisor.yaml`` under AgentNexus mode —
+# spawns the in-process AgentNexus server and registers supervisor +
+# two sub-agents. Without AgentNexus mode boot is <10s; with AgentNexus mode
 # the in-process FastAPI + uvicorn + DBOS + alembic stack adds
 # ~30-60s on a cold DBOS db. 120s keeps the test from flaking
-# on cold starts. (Genuine regressions in Omnigent mode boot would
+# on cold starts. (Genuine regressions in AgentNexus mode boot would
 # manifest as either an EOF or the legacy hard-error string,
 # both of which short-circuit before the timeout fires.)
 _REPL_BOOT_TIMEOUT = 120.0
@@ -122,7 +122,7 @@ _CODEX_REGRESSION_TODO_BODY = (
 _CODEX_NONEXISTENT_ERROR = "/nonexistent"
 
 # Expected root entries for the file listing test.
-_EXPECTED_ROOT_ENTRIES = ("openapi.json", "omnigent", "pyproject.toml")
+_EXPECTED_ROOT_ENTRIES = ("openapi.json", "agentnexus", "pyproject.toml")
 
 
 def test_run_omnigent_coding_supervisor_oneshot(
@@ -142,7 +142,7 @@ def test_run_omnigent_coding_supervisor_oneshot(
 
     :param omnigent_python: Interpreter with both omnigent and
         omnigent installed (from the shared conftest).
-    :param omnigent_repo_root: Omnigent repo root. Used as cwd
+    :param omnigent_repo_root: AgentNexus repo root. Used as cwd
         so relative YAML paths resolve.
     :param mock_credentials_env: Mock-LLM env vars pointing at the
         mock server.
@@ -163,7 +163,7 @@ def test_run_omnigent_coding_supervisor_oneshot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             # Ephemeral DBOS state — see comment in
@@ -217,7 +217,7 @@ def test_run_omnigent_coding_supervisor_exposes_subagent_tools(
     Ask the LLM to list its tools. The response must include both
     the inline ``AgentTool`` sub-agents (``claude_worker``,
     ``codex_worker``) AND at least one omnigent task-lifecycle
-    builtin (``check_task``) — proves :class:`OmnigentExecutor`
+    builtin (``check_task``) — proves :class:`AgentNexusExecutor`
     advertises both surfaces to the inner omnigent harness.
 
     The mock LLM is configured to return a response listing
@@ -237,7 +237,7 @@ def test_run_omnigent_coding_supervisor_exposes_subagent_tools(
 
     :param omnigent_python: Interpreter with omnigent +
         omnigent installed.
-    :param omnigent_repo_root: Omnigent repo root.
+    :param omnigent_repo_root: AgentNexus repo root.
     :param mock_credentials_env: Mock-LLM env vars pointing at the
         mock server.
     :param mock_llm_server_url: Mock server URL for configuring
@@ -255,7 +255,7 @@ def test_run_omnigent_coding_supervisor_exposes_subagent_tools(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             # Ephemeral DBOS state — see comment in
@@ -307,14 +307,14 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
 ) -> None:
     """
     Infrastructure smoke test: ``omnigent run`` on
-    coding_supervisor.yaml boots the Omnigent stack, the mock
+    coding_supervisor.yaml boots the AgentNexus stack, the mock
     supervisor LLM responds with a file listing, and that listing
     flows through stdout without error.
 
     This is **not** a regression test — the mock LLM returns the
     expected root entries directly; the real codex binary (if
     present) is not asked to list files. What this test validates
-    is that the Omnigent boot path, sub-agent tool registration,
+    is that the AgentNexus boot path, sub-agent tool registration,
     and subprocess I/O pipeline all work together so that a mock
     response containing filenames appears in stdout.
 
@@ -328,7 +328,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
 
     :param omnigent_python: Shared session fixture pointing at
         the repo's ``.venv`` Python.
-    :param omnigent_repo_root: Omnigent repo root — used as
+    :param omnigent_repo_root: AgentNexus repo root — used as
         cwd so ``examples/coding_supervisor.yaml`` resolves.
     :param mock_credentials_env: Mock-LLM env vars pointing at the
         mock server.
@@ -376,7 +376,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             # Ephemeral DBOS state — see comment in
@@ -400,7 +400,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
     assert "Codex App Server error" not in combined, (
         f"Codex App Server error surfaced — profile propagation "
         f"regressed. Check _propagate_profile_to_environment in "
-        f"omnigent/cli.py. "
+        f"agentnexus/cli.py. "
         f"stderr tail:\n{result.stderr[-2000:]}"
     )
     assert "403 Invalid access token" not in combined, (
@@ -516,21 +516,21 @@ def test_run_omnigent_coding_supervisor_codex_shell_not_disabled(
     mock_llm_server_url: str,
 ) -> None:
     """
-    Infrastructure smoke test: under Omnigent mode, the codex
+    Infrastructure smoke test: under AgentNexus mode, the codex
     sub-agent boots and the output pipeline delivers its response
     without emitting the ``/nonexistent`` workspace-hydration error.
 
     This is **not** a regression test — the mock LLM returns the
     sentinel content directly; the real codex binary (if present)
     is never asked to read the fixture file. What this test
-    validates is that the infrastructure plumbing (Omnigent mode
+    validates is that the infrastructure plumbing (AgentNexus mode
     boot, ``codex_executor`` tool injection, subprocess I/O
     capture) does not crash and that the mock supervisor response
     surfaces in stdout.
 
     Background: ``codex_executor`` historically disabled
-    ``shell_tool`` whenever any tools were passed. Under Omnigent
-    mode, :class:`OmnigentExecutor` always injects omnigent
+    ``shell_tool`` whenever any tools were passed. Under AgentNexus
+    mode, :class:`AgentNexusExecutor` always injects omnigent
     builtins (``check_task``, ``sys_session_send``, etc.) into the
     tools list — even for codex sub-agents whose YAML declares no
     tools of their own. This test exercises that path to confirm the
@@ -539,7 +539,7 @@ def test_run_omnigent_coding_supervisor_codex_shell_not_disabled(
 
     :param omnigent_python: Interpreter with omnigent +
         omnigent installed.
-    :param omnigent_repo_root: Omnigent repo root — also the
+    :param omnigent_repo_root: AgentNexus repo root — also the
         cwd the supervisor YAML's ``os_env: {cwd: .}`` resolves
         to.
     :param mock_credentials_env: Mock-LLM env vars pointing at the
@@ -575,7 +575,7 @@ def test_run_omnigent_coding_supervisor_codex_shell_not_disabled(
             [
                 str(omnigent_python),
                 "-m",
-                "omnigent",
+                "agentnexus",
                 "run",
                 str(yaml_path),
                 "-p",
@@ -600,7 +600,7 @@ def test_run_omnigent_coding_supervisor_codex_shell_not_disabled(
         f"codex sub-agent emitted the {_CODEX_NONEXISTENT_ERROR!r} "
         f"workspace-hydration error — shell_tool was disabled and "
         f"codex had nothing to read the file with. Regression in "
-        f"omnigent/codex_executor.py.\n"
+        f"agentnexus/codex_executor.py.\n"
         f"stdout tail:\n{result.stdout[-2500:]}\n"
         f"stderr tail:\n{result.stderr[-1500:]}"
     )

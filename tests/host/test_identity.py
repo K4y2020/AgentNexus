@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.host.identity import (
+from agentnexus.host.identity import (
     load_host_identity_if_present,
     load_or_create_host_identity,
 )
@@ -159,8 +159,8 @@ def test_env_override_returns_identity_without_touching_config(
     must not read or write config.yaml (managed sandboxes are
     disposable; the server owns their identity).
     """
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "329c39d03aad39ccf2f8597d596676bd")
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "managed-env")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "329c39d03aad39ccf2f8597d596676bd")
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "managed-env")
     config_path = tmp_path / "config.yaml"
 
     identity = load_or_create_host_identity(config_path)
@@ -176,8 +176,8 @@ def test_env_override_requires_both_vars(tmp_path: Path, monkeypatch: pytest.Mon
     Setting only one identity env var is a launcher bug — fail loud
     instead of mixing a server-chosen id with a generated name.
     """
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "329c39d03aad39ccf2f8597d596676bd")
-    monkeypatch.delenv("OMNIGENT_HOST_NAME", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "329c39d03aad39ccf2f8597d596676bd")
+    monkeypatch.delenv("AGENTNEXUS_HOST_NAME", raising=False)
 
     with pytest.raises(ValueError, match="must be set together"):
         load_or_create_host_identity(tmp_path / "config.yaml")
@@ -187,19 +187,19 @@ def test_env_non_uuid_host_id_raises_actionable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    A non-UUID OMNIGENT_HOST_ID must fail loud and locally with an
+    A non-UUID AGENTNEXUS_HOST_ID must fail loud and locally with an
     actionable message — not sail through to be refused remotely by the
     tunnel as an opaque 403. Regression for the customer-reported case
     where host_id was a human-readable name.
     """
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "superagent-databricks-host")
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "supercell")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "superagent-databricks-host")
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "supercell")
 
     with pytest.raises(ValueError) as excinfo:
         load_or_create_host_identity(tmp_path / "config.yaml")
 
     msg = str(excinfo.value)
-    assert "OMNIGENT_HOST_ID" in msg, "error must name the env var to fix"
+    assert "AGENTNEXUS_HOST_ID" in msg, "error must name the env var to fix"
     assert "UUID" in msg, "error must state host ids are UUIDs"
     assert "superagent-databricks-host" in msg, "error must echo the bad value"
 
@@ -207,11 +207,11 @@ def test_env_non_uuid_host_id_raises_actionable(
 def test_env_dashed_uuid_host_id_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A canonical dashed uuid is accepted (it resolves to the same host bytes
     the server stores, whether or not the client canonicalises the string)."""
-    from omnigent.db.db_models import uuid_to_bytes
+    from agentnexus.db.db_models import uuid_to_bytes
 
     dashed = "329c39d0-3aad-39cc-f2f8-597d596676bd"
-    monkeypatch.setenv("OMNIGENT_HOST_ID", dashed)
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "managed-env")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", dashed)
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "managed-env")
 
     identity = load_or_create_host_identity(tmp_path / "config.yaml")
 
@@ -222,8 +222,8 @@ def test_env_legacy_prefixed_host_id_accepted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A legacy ``host_<hex>`` id is accepted and normalised to bare hex."""
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "host_329c39d03aad39ccf2f8597d596676bd")
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "managed-env")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "host_329c39d03aad39ccf2f8597d596676bd")
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "managed-env")
 
     identity = load_or_create_host_identity(tmp_path / "config.yaml")
 
@@ -274,8 +274,8 @@ def test_if_present_env_non_uuid_host_id_returns_none(monkeypatch: pytest.Monkey
     builder funnels through, so a bad id must degrade to "no slice key" rather
     than crash unrelated commands — the fail-fast lives on the connect path
     (load_or_create_host_identity)."""
-    monkeypatch.setenv("OMNIGENT_HOST_ID", "superagent-databricks-host")
-    monkeypatch.setenv("OMNIGENT_HOST_NAME", "supercell")
+    monkeypatch.setenv("AGENTNEXUS_HOST_ID", "superagent-databricks-host")
+    monkeypatch.setenv("AGENTNEXUS_HOST_NAME", "supercell")
 
     assert load_host_identity_if_present(Path("/nonexistent/config.yaml")) is None
 

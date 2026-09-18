@@ -49,9 +49,9 @@ class Driver(Protocol):
         the call is dispatched and answered (``tool_calls`` populated)."""
 
     async def run_mcp_tool_turn(self) -> TurnResult:
-        """Provoke an Omnigent MCP relay tool call.
+        """Provoke an AgentNexus MCP relay tool call.
 
-        Native transports use this to distinguish the Omnigent MCP bridge from
+        Native transports use this to distinguish the AgentNexus MCP bridge from
         the vendor's own shell/tool surface. Unsupported transports return an
         unmeasured result so the probe SKIPs.
         """

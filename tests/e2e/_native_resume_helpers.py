@@ -56,7 +56,7 @@ from pathlib import Path
 
 import httpx
 
-from omnigent.entities.session_resources import terminal_resource_id
+from agentnexus.entities.session_resources import terminal_resource_id
 from tests.e2e.helpers import POLL_INTERVAL_S
 
 # Worktree root: tests/e2e/<this file> -> parents[2]. Threaded onto the CLI
@@ -64,7 +64,7 @@ from tests.e2e.helpers import POLL_INTERVAL_S
 # (with the fix), not the editable install in the shared .venv.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Generous PTY width so the CLI's "Omnigent: <url>/c/<conv_id>" and
+# Generous PTY width so the CLI's "AgentNexus: <url>/c/<conv_id>" and
 # "Resume with: … --resume <conv_id>" lines (which carry the full id) are not
 # wrapped/truncated by the terminal.
 _PTY_ROWS = 60
@@ -83,9 +83,9 @@ _STALE_ENV_VARS = (
     "CLAUDE_CODE_EXECPATH",
     "TMUX",
     "RUNNER_SERVER_URL",
-    "OMNIGENT_RUNNER_WORKSPACE",
-    "OMNIGENT_RUNNER_ID",
-    "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN",
+    "AGENTNEXUS_RUNNER_WORKSPACE",
+    "AGENTNEXUS_RUNNER_ID",
+    "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN",
 )
 
 
@@ -103,7 +103,7 @@ def omnigent_console_script() -> Path:
     :raises RuntimeError: If the console script is not found beside
         ``sys.executable``.
     """
-    candidate = Path(sys.executable).parent / "omnigent"
+    candidate = Path(sys.executable).parent / "agentnexus"
     if not candidate.is_file():
         raise RuntimeError(
             f"`omnigent` console script not found at {candidate}; the test venv "
@@ -126,7 +126,7 @@ def cli_env(*, profile: str | None = None) -> dict[str, str]:
     a relocated one (a temp ``HOME`` yields "Not logged in").
 
     :param profile: Databricks profile for the LLM gateway. When set, an
-        isolated ``OMNIGENT_CONFIG_HOME`` is created containing an
+        isolated ``AGENTNEXUS_CONFIG_HOME`` is created containing an
         ``auth: {type: databricks, profile: …}`` block — the supported
         replacement for the removed ``--profile`` CLI flag — and
         ``DATABRICKS_CONFIG_PROFILE`` is exported for ambient
@@ -137,19 +137,19 @@ def cli_env(*, profile: str | None = None) -> dict[str, str]:
     for stale in _STALE_ENV_VARS:
         env.pop(stale, None)
     if profile is not None:
-        config_home = Path(tempfile.mkdtemp(prefix="omnigent-native-config-"))
+        config_home = Path(tempfile.mkdtemp(prefix="agentnexus-native-config-"))
         (config_home / "config.yaml").write_text(
             f"auth:\n  type: databricks\n  profile: {profile}\n",
             encoding="utf-8",
         )
-        env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+        env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
         env["DATABRICKS_CONFIG_PROFILE"] = profile
     env["PYTHONPATH"] = f"{_REPO_ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}"
     env["TERM"] = "xterm-256color"
     env["LINES"] = str(_PTY_ROWS)
     env["COLUMNS"] = str(_PTY_COLS)
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
     return env
 
 
@@ -310,7 +310,7 @@ def wait_for_conversation_id(handle: PtyHandle, *, timeout: float) -> str:
     """
     Poll a backgrounded session's output until it prints its conversation id.
 
-    Both CLIs print ``Omnigent: <url>/c/conv_<hex>`` shortly after creating
+    Both CLIs print ``AgentNexus: <url>/c/conv_<hex>`` shortly after creating
     the session. The wide PTY geometry keeps the id from wrapping.
 
     :param handle: The backgrounded session from :func:`spawn_cli_background`.
@@ -648,7 +648,7 @@ def assert_native_cli_resume_restores_history(
     :param force_cold_resume: When ``True``, delete the harness's local
         transcript for the captured native session id between the fresh and
         resume legs, so the resume cannot reuse the harness's own on-disk
-        transcript and must instead go through Omnigent' cold-resume
+        transcript and must instead go through AgentNexus' cold-resume
         *synthesis* (rebuild the transcript from server-side items). This is
         the cross-context scenario a real user hits when resuming a
         conversation created elsewhere / in another cwd / on another machine —
@@ -663,7 +663,7 @@ def assert_native_cli_resume_restores_history(
     # captured by symlinking ``~/.claude`` into a temp HOME — a relocated HOME
     # yields "Not logged in"). The cost is that a *concurrent* ``omnigent``
     # process on the same machine can thrash the shared host daemon
-    # (``~/.omnigent/host.pid``); run this opt-in test on an otherwise-idle
+    # (``~/.agentnexus/host.pid``); run this opt-in test on an otherwise-idle
     # machine.
     env = cli_env(profile=profile)
     # Distinctive passphrase (uppercase + digits, unique per run) so a match in

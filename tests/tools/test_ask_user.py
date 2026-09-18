@@ -1,11 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from omnigent.runner.tool_dispatch import build_native_relay_tool_schemas
-from omnigent.runtime.prompt import build_instructions, build_instructions_nullable
-from omnigent.spec import AgentSpec
-from omnigent.tools.builtins.ask_user import AskUserRequest, SysAskUserTool
-from omnigent.tools.manager import ToolManager
+from agentnexus.runner.tool_dispatch import build_native_relay_tool_schemas
+from agentnexus.runtime.prompt import build_instructions, build_instructions_nullable
+from agentnexus.spec import AgentSpec
+from agentnexus.tools.builtins.ask_user import AskUserRequest, SysAskUserTool
+from agentnexus.tools.manager import ToolManager
 
 
 def test_question_available_to_main_and_native_agents():

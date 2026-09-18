@@ -218,7 +218,7 @@ export function SwitchHostDialog({
 
         {noTargets ? (
           <p className="text-xs text-muted-foreground" data-testid="switch-host-no-targets">
-            No other hosts are online. Connect one with <code>omnigent host</code> and try again.
+            No other hosts are online. Connect one with <code>agentnexus host</code> and try again.
           </p>
         ) : (
           <>

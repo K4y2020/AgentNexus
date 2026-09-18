@@ -21,10 +21,10 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from omnigent.server.routes import sessions as _sessions_facade
-from omnigent.server.routes._sessions import common as _sessions_common
-from omnigent.server.routes._sessions import orchestration as _sessions_orchestration
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.routes import sessions as _sessions_facade
+from agentnexus.server.routes._sessions import common as _sessions_common
+from agentnexus.server.routes._sessions import orchestration as _sessions_orchestration
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.server.helpers import create_test_session
@@ -304,7 +304,7 @@ async def test_failed_archive_leaves_session_running(
         with patch.object(_sessions_orchestration, "_stop_session_via_runner", mock_stop):
             resp = await client.patch(
                 f"/v1/sessions/{session_id}",
-                json={"archived": True, "labels": {"omnigent.pinned.someone": "1"}},
+                json={"archived": True, "labels": {"agentnexus.pinned.someone": "1"}},
             )
             await _drain_detached_stops()
         assert resp.status_code >= 400

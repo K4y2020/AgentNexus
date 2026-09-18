@@ -2,7 +2,7 @@
 
 A ``/rename`` in a claude-native session's Claude Code pane appends a
 ``custom-title`` record to the transcript; the forwarder mirrors it onto
-the Omnigent session by posting an ``external_session_title`` event to
+the AgentNexus session by posting an ``external_session_title`` event to
 ``POST /v1/sessions/{id}/events``. The server persists ``title`` and
 publishes a ``session.title`` SSE event on the session's own stream. The
 open tab, subscribed to that stream, parses it (``sse.ts``), and the

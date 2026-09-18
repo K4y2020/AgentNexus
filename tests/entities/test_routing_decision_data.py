@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from omnigent.entities.conversation import RoutingDecisionData, parse_item_data
+from agentnexus.entities.conversation import RoutingDecisionData, parse_item_data
 
 _LEGACY_ROW = {
     "model": "databricks-claude-opus-4-8",

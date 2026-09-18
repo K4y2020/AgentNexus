@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent._native_resume_hint import (
+from agentnexus._native_resume_hint import (
     echo_native_cold_resume_hint,
     format_native_resume_command,
 )
@@ -14,8 +14,8 @@ def test_format_native_resume_command_includes_remote_context() -> None:
     """
     Remote native-wrapper hints include enough context to copy/paste.
 
-    The command must carry the wrapper name, Omnigent server, and
-    Omnigent conversation id. If any of those fields are dropped, a
+    The command must carry the wrapper name, AgentNexus server, and
+    AgentNexus conversation id. If any of those fields are dropped, a
     user who launched against a non-default remote workspace cannot
     reliably resume the same conversation from the printed hint.
     There is no ``--profile`` part: the CLI flag was removed, so a
@@ -28,7 +28,7 @@ def test_format_native_resume_command_includes_remote_context() -> None:
         session_id="conv_abc",
     )
 
-    assert command == ("omnigent claude --server https://example.databricks.com --resume conv_abc")
+    assert command == ("agentnexus claude --server https://example.databricks.com --resume conv_abc")
 
 
 def test_cold_resume_hint_not_restored_is_honest_on_stderr(

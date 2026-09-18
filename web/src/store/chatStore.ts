@@ -295,7 +295,7 @@ export interface ConversationState {
   blockedOn: string | null;
   /**
    * Whether the active session is a native-terminal wrapper
-   * (claude-native / codex-native), derived from the `omnigent.wrapper`
+   * (claude-native / codex-native), derived from the `agentnexus.wrapper`
    * label on bind. Web messages on these sessions are NOT persisted at
    * POST time — they round-trip through the vendor TUI and reconcile via
    * the transcript forwarder's `session.input.consumed` event, which can
@@ -373,13 +373,13 @@ export interface ConversationState {
   subagentRoutingOverride: "on" | "off" | null;
   /**
    * Per-session Codex collaboration-mode flag. Hydrated from
-   * ``omnigent.codex_native.collaboration_mode`` on bind and updated by the
+   * ``agentnexus.codex_native.collaboration_mode`` on bind and updated by the
    * web toggle or native Codex TUI events. False for non-Codex sessions.
    */
   codexPlanMode: boolean;
   /**
    * Permission mode of a running claude-native session, e.g. ``"auto"``.
-   * Hydrated from ``omnigent.claude_native.permission_mode`` on bind
+   * Hydrated from ``agentnexus.claude_native.permission_mode`` on bind
    * (falling back to the launch flag) and updated by the composer's mode
    * picker. Empty string when unknown — a non-Claude session, or a mode set
    * via ``permissions.defaultMode`` that never reaches the launch args. The
@@ -493,7 +493,7 @@ export interface ConversationState {
    */
   gitBranch: string | null;
   /**
-   * Current Claude Code todo list for `omnigent claude` sessions.
+   * Current Claude Code todo list for `agentnexus claude` sessions.
    * Populated from the session snapshot on bind and updated by
    * `session.todos` SSE events. Empty array for non-claude-native
    * sessions or before the first poll tick from the forwarder.
@@ -1107,8 +1107,8 @@ const MAX_TRANSIENT_404_RETRIES = 10;
 
 // Sticky picker prefs — persisted so a new chat inherits the user's
 // last pick across reloads and across sessions.
-const PICKER_PREF_EFFORT_KEY = "omnigent.picker.effort";
-const PICKER_PREF_MODEL_KEY = "omnigent.picker.model";
+const PICKER_PREF_EFFORT_KEY = "agentnexus.picker.effort";
+const PICKER_PREF_MODEL_KEY = "agentnexus.picker.model";
 
 function loadPickerPref(key: string): string | null {
   try {
@@ -2720,7 +2720,7 @@ type NativeModelFamily = "claude" | "codex";
  * :returns: ``"claude"`` / ``"codex"`` for native wrappers, else ``null``.
  */
 function nativeModelFamilyForSession(session: Pick<Session, "labels">): NativeModelFamily | null {
-  switch (session.labels?.["omnigent.wrapper"]) {
+  switch (session.labels?.["agentnexus.wrapper"]) {
     case "claude-code-native-ui":
       return "claude";
     case "codex-native-ui":
@@ -3069,7 +3069,7 @@ async function bindStream(
   // FIRST (one fast metadata GET that populates the map via sessionFromWire) so
   // the stream keys correctly. Best-effort: a failed resolve falls through to the
   // unkeyed open (no worse than pre-fix). Re-apply after every resync, see
-  // agentbricks/mas/.claude/skills/sync-omnigents/SKILL.md.
+  // agentbricks/mas/.claude/skills/sync-agentnexuss/SKILL.md.
   if (getOmnigentHostConfig().fetcher && getSessionHost(id) === null) {
     try {
       await getSessionSlim(id);
@@ -6119,7 +6119,7 @@ function finalizeActive(
   });
 }
 
-// Mirrors the server's ErrorCode.RUNNER_UNAVAILABLE (omnigent/errors.py) —
+// Mirrors the server's ErrorCode.RUNNER_UNAVAILABLE (agentnexus/errors.py) —
 // the 503 returned by POST /events when a host-bound runner never connects
 // within the connect-grace + relaunch window.
 const RUNNER_UNAVAILABLE_CODE = "runner_unavailable";

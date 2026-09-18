@@ -37,7 +37,7 @@ function jsonResponse(body: unknown, ok = true): Response {
   } as unknown as Response;
 }
 
-/** Install a `window.omnigentDesktop` bridge; returns the mock so tests assert
+/** Install a `window.agentnexusDesktop` bridge; returns the mock so tests assert
  *  on the exact calls / scripted JS. */
 function installBridge(overrides: Record<string, unknown> = {}) {
   const bridge = {
@@ -48,7 +48,7 @@ function installBridge(overrides: Record<string, unknown> = {}) {
     browserExecute: vi.fn().mockResolvedValue({ ok: true, result: "ok" }),
     ...overrides,
   };
-  (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = bridge;
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = bridge;
   return bridge;
 }
 
@@ -100,7 +100,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
-  (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = undefined;
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = undefined;
 });
 
 describe("useBrowserAgentRelay — claim-first protocol", () => {
@@ -361,9 +361,9 @@ describe("useBrowserAgentRelay — result POST resilience", () => {
   });
 
   it("does nothing when the shell exposes no bridge at handler time", async () => {
-    // isElectronShell() is mocked true (hook registers), but omnigentDesktop is
+    // isElectronShell() is mocked true (hook registers), but agentnexusDesktop is
     // absent — getBrowserDesktop() returns null, so the handler bails before claim.
-    (window as unknown as { omnigentDesktop?: unknown }).omnigentDesktop = undefined;
+    (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = undefined;
 
     renderHook(() => useBrowserAgentRelay(CONV));
     emitBrowserActionRequest(actionEvent("screenshot"), CONV);

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from omnigent_slack.config import ConfigError, Settings, load_settings
+from agentnexus_slack.config import ConfigError, Settings, load_settings
 from pydantic import ValidationError
 
 
@@ -14,9 +14,9 @@ def _load() -> Settings:
 
 
 _REQUIRED = {
-    "OMNIGENT_SLACK_BOT_TOKEN": "xoxb-x",
-    "OMNIGENT_SLACK_APP_TOKEN": "xapp-x",
-    "OMNIGENT_SERVER_URL": "https://omnigent.example.com",
+    "AGENTNEXUS_SLACK_BOT_TOKEN": "xoxb-x",
+    "AGENTNEXUS_SLACK_APP_TOKEN": "xapp-x",
+    "AGENTNEXUS_SERVER_URL": "https://omnigent.example.com",
 }
 
 
@@ -25,15 +25,15 @@ def _set_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
     # clean baseline plus the test's overrides.
     for key in (
         *_REQUIRED,
-        "OMNIGENT_DEVICE_CLIENT_SECRET",
-        "OMNIGENT_DATA_DIR",
-        "OMNIGENT_SLACK_DATABASE_PATH",
-        "OMNIGENT_SLACK_SERVER_AUTH",
-        "OMNIGENT_SLACK_DATABRICKS_STATE_SECRET",
-        "OMNIGENT_SLACK_DATABRICKS_CLIENT_ID",
-        "OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET",
-        "OMNIGENT_SLACK_DATABRICKS_SCOPES",
-        "OMNIGENT_SLACK_DATABRICKS_APP_URL",
+        "AGENTNEXUS_DEVICE_CLIENT_SECRET",
+        "AGENTNEXUS_DATA_DIR",
+        "AGENTNEXUS_SLACK_DATABASE_PATH",
+        "AGENTNEXUS_SLACK_SERVER_AUTH",
+        "AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET",
+        "AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID",
+        "AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET",
+        "AGENTNEXUS_SLACK_DATABRICKS_SCOPES",
+        "AGENTNEXUS_SLACK_DATABRICKS_APP_URL",
         "DATABRICKS_HOST",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -46,12 +46,12 @@ def _set_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
 
 
 def test_server_url_strips_trailing_slash(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_env(monkeypatch, OMNIGENT_SERVER_URL="https://s.test/")
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="https://s.test/")
     assert _load().server_url == "https://s.test"
 
 
 def test_server_url_rejects_bad_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_env(monkeypatch, OMNIGENT_SERVER_URL="omnigent.test")
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="agentnexus.test")
     with pytest.raises(ValidationError):
         _load()
 
@@ -59,20 +59,20 @@ def test_server_url_rejects_bad_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_server_url_rejects_plaintext_http_non_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     # The delegated bearer is sent to server_url on every request; plaintext would
     # leak it. Reject non-loopback http:// (mirrors the workspace-host rule).
-    _set_env(monkeypatch, OMNIGENT_SERVER_URL="http://omnigent.example.com")
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="http://omnigent.example.com")
     with pytest.raises(ValidationError):
         _load()
 
 
 def test_server_url_allows_http_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     # Loopback is exempt for local dev.
-    _set_env(monkeypatch, OMNIGENT_SERVER_URL="http://127.0.0.1:8000")
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="http://127.0.0.1:8000")
     assert _load().server_url == "http://127.0.0.1:8000"
 
 
 def test_server_url_required(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_env(monkeypatch)
-    monkeypatch.delenv("OMNIGENT_SERVER_URL", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_SERVER_URL", raising=False)
     with pytest.raises(ValidationError):
         _load()
 
@@ -111,14 +111,14 @@ def test_load_settings_missing_vars_raises_friendly_configerror(
 def test_load_settings_reports_only_the_missing_var(monkeypatch: pytest.MonkeyPatch) -> None:
     """When only one required var is missing, only that one is listed."""
     _set_env(monkeypatch)
-    monkeypatch.delenv("OMNIGENT_SERVER_URL", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_SERVER_URL", raising=False)
 
     with pytest.raises(ConfigError) as excinfo:
         load_settings()
 
     msg = str(excinfo.value)
-    assert "OMNIGENT_SERVER_URL" in msg
-    assert "OMNIGENT_SLACK_BOT_TOKEN" not in msg  # the ones that ARE set aren't flagged
+    assert "AGENTNEXUS_SERVER_URL" in msg
+    assert "AGENTNEXUS_SLACK_BOT_TOKEN" not in msg  # the ones that ARE set aren't flagged
 
 
 def test_load_settings_invalid_value_raises_friendly_configerror(
@@ -126,14 +126,14 @@ def test_load_settings_invalid_value_raises_friendly_configerror(
 ) -> None:
     """A value that fails a validator (bad URL scheme) → a ConfigError under an
     'Invalid configuration' heading, not a missing-var message."""
-    _set_env(monkeypatch, OMNIGENT_SERVER_URL="ftp://nope")
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="ftp://nope")
 
     with pytest.raises(ConfigError) as excinfo:
         load_settings()
 
     msg = str(excinfo.value)
     assert "Invalid configuration" in msg
-    assert "OMNIGENT_SERVER_URL" in msg
+    assert "AGENTNEXUS_SERVER_URL" in msg
     assert "http://" in msg  # surfaces the validator's guidance
 
 
@@ -141,32 +141,32 @@ def test_load_settings_succeeds_with_full_env(monkeypatch: pytest.MonkeyPatch) -
     """The happy path returns a Settings instance (no error)."""
     _set_env(monkeypatch)
     settings = load_settings()
-    assert settings.server_url == _REQUIRED["OMNIGENT_SERVER_URL"]
+    assert settings.server_url == _REQUIRED["AGENTNEXUS_SERVER_URL"]
 
 
 def test_device_client_secret_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_env(monkeypatch, OMNIGENT_DEVICE_CLIENT_SECRET="sekret")
+    _set_env(monkeypatch, AGENTNEXUS_DEVICE_CLIENT_SECRET="sekret")
     assert _load().device_client_secret == "sekret"
 
 
 def test_database_path_defaults_under_data_dir(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # With OMNIGENT_DATA_DIR set, the store defaults under it (not the cwd).
-    _set_env(monkeypatch, OMNIGENT_DATA_DIR=str(tmp_path))
-    assert _load().database_path == tmp_path / "omnigent_slack.sqlite3"
+    # With AGENTNEXUS_DATA_DIR set, the store defaults under it (not the cwd).
+    _set_env(monkeypatch, AGENTNEXUS_DATA_DIR=str(tmp_path))
+    assert _load().database_path == tmp_path / "agentnexus_slack.sqlite3"
 
 
 def test_database_path_defaults_under_home_when_no_data_dir(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Without OMNIGENT_DATA_DIR, it falls back to ~/.omnigent — never the cwd.
+    # Without AGENTNEXUS_DATA_DIR, it falls back to ~/.agentnexus — never the cwd.
     _set_env(monkeypatch)
-    assert _load().database_path == Path.home() / ".omnigent" / "omnigent_slack.sqlite3"
+    assert _load().database_path == Path.home() / ".agentnexus" / "agentnexus_slack.sqlite3"
 
 
 def test_database_path_env_override_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    _set_env(monkeypatch, OMNIGENT_SLACK_DATABASE_PATH="/custom/bot.sqlite3")
+    _set_env(monkeypatch, AGENTNEXUS_SLACK_DATABASE_PATH="/custom/bot.sqlite3")
     assert _load().database_path == Path("/custom/bot.sqlite3")
 
 
@@ -176,22 +176,22 @@ def test_server_auth_mode_defaults_auto(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 _DATABRICKS_KNOBS = {
-    "OMNIGENT_SLACK_SERVER_AUTH": "databricks",
-    "OMNIGENT_SLACK_DATABRICKS_CLIENT_ID": "client-id",
-    "OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET": "client-secret",
-    "OMNIGENT_SLACK_DATABRICKS_STATE_SECRET": "state-secret-0123456789abcdef0123456789",
+    "AGENTNEXUS_SLACK_SERVER_AUTH": "databricks",
+    "AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID": "client-id",
+    "AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET": "client-secret",
+    "AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET": "state-secret-0123456789abcdef0123456789",
 }
 
 
 def test_databricks_mode_requires_oauth_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _set_env(monkeypatch, OMNIGENT_SLACK_SERVER_AUTH="databricks")
+    _set_env(monkeypatch, AGENTNEXUS_SLACK_SERVER_AUTH="databricks")
     with pytest.raises(ValidationError):
         _load()
 
 
-@pytest.mark.parametrize("omit", sorted(set(_DATABRICKS_KNOBS) - {"OMNIGENT_SLACK_SERVER_AUTH"}))
+@pytest.mark.parametrize("omit", sorted(set(_DATABRICKS_KNOBS) - {"AGENTNEXUS_SLACK_SERVER_AUTH"}))
 def test_databricks_mode_requires_each_oauth_knob(
     monkeypatch: pytest.MonkeyPatch, omit: str
 ) -> None:
@@ -215,7 +215,7 @@ def test_databricks_mode_valid_with_required_knobs(monkeypatch: pytest.MonkeyPat
 
 def test_databricks_mode_rejects_short_state_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     # A weak state secret is brute-forceable → forgeable `state`. Require entropy.
-    knobs = {**_DATABRICKS_KNOBS, "OMNIGENT_SLACK_DATABRICKS_STATE_SECRET": "too-short"}
+    knobs = {**_DATABRICKS_KNOBS, "AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET": "too-short"}
     _set_env(monkeypatch, **knobs)
     with pytest.raises(ValidationError):
         _load()
@@ -236,7 +236,7 @@ def test_databricks_workspace_host_rejects_plaintext_http(monkeypatch: pytest.Mo
 
 def test_databricks_scopes_force_openid_and_offline(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_env(
-        monkeypatch, **_DATABRICKS_KNOBS, OMNIGENT_SLACK_DATABRICKS_SCOPES="supervisor-agents"
+        monkeypatch, **_DATABRICKS_KNOBS, AGENTNEXUS_SLACK_DATABRICKS_SCOPES="supervisor-agents"
     )
     scopes = _load().databricks_oauth_scopes_normalized.split()
     assert "supervisor-agents" in scopes
@@ -248,7 +248,7 @@ def test_databricks_redirect_uri_reuses_callback(monkeypatch: pytest.MonkeyPatch
     _set_env(
         monkeypatch,
         **_DATABRICKS_KNOBS,
-        OMNIGENT_SLACK_DATABRICKS_APP_URL="https://bot.example.com",
+        AGENTNEXUS_SLACK_DATABRICKS_APP_URL="https://bot.example.com",
     )
     assert _load().databricks_redirect_uri == "https://bot.example.com/auth/callback"
 
@@ -260,7 +260,7 @@ def test_databricks_rejects_plaintext_app_url(monkeypatch: pytest.MonkeyPatch) -
     _set_env(
         monkeypatch,
         **_DATABRICKS_KNOBS,
-        OMNIGENT_SLACK_DATABRICKS_APP_URL="http://bot.example.com",
+        AGENTNEXUS_SLACK_DATABRICKS_APP_URL="http://bot.example.com",
     )
     with pytest.raises(ValidationError):
         _load()
@@ -270,7 +270,7 @@ def test_databricks_allows_loopback_app_url(monkeypatch: pytest.MonkeyPatch) -> 
     _set_env(
         monkeypatch,
         **_DATABRICKS_KNOBS,
-        OMNIGENT_SLACK_DATABRICKS_APP_URL="http://localhost:8000",
+        AGENTNEXUS_SLACK_DATABRICKS_APP_URL="http://localhost:8000",
     )
     assert _load().databricks_redirect_uri == "http://localhost:8000/auth/callback"
 
@@ -290,7 +290,7 @@ def test_app_url_trailing_slash_trimmed(monkeypatch: pytest.MonkeyPatch) -> None
     _set_env(
         monkeypatch,
         **_DATABRICKS_KNOBS,
-        OMNIGENT_SLACK_DATABRICKS_APP_URL="https://bot.example.com/",
+        AGENTNEXUS_SLACK_DATABRICKS_APP_URL="https://bot.example.com/",
     )
     assert _load().webauth_base_url == "https://bot.example.com"
 

@@ -14,7 +14,7 @@ from typing import Any, cast
 import httpx
 import pytest
 
-import omnigent.claude_native_forwarder as forwarder
+import agentnexus.claude_native_forwarder as forwarder
 
 
 class _FailFirstAuth(httpx.Auth):

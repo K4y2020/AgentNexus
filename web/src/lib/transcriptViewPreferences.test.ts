@@ -6,7 +6,7 @@ import {
   writeTranscriptViewDefault,
 } from "./transcriptViewPreferences";
 
-const STORAGE_KEY = "omnigent:default-transcript-view";
+const STORAGE_KEY = "agentnexus:default-transcript-view";
 
 afterEach(() => {
   localStorage.clear();

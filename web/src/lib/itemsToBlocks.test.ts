@@ -491,7 +491,7 @@ describe("itemsToBlocks — native tools and compaction", () => {
         response_id: "resp_1",
         type: "web_search_call",
         status: "completed",
-        action: { type: "search", query: "omnigent framework" },
+        action: { type: "search", query: "agentnexus framework" },
       },
       assistantMessage("resp_1", "Found relevant info."),
     ];
@@ -499,7 +499,7 @@ describe("itemsToBlocks — native tools and compaction", () => {
     const native = blocks.find((b): b is NativeToolBlock => b.type === "native_tool");
     expect(native).toBeDefined();
     expect(native!.toolType).toBe("web_search_call");
-    expect(native!.label).toBe("web search: omnigent framework");
+    expect(native!.label).toBe("web search: agentnexus framework");
     expect(native!.ctx.itemId).toBe("nt_1");
   });
 

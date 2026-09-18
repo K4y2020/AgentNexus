@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runner.app import ResolvedSpec, _native_startup_raw_instructions_from_spec
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner.app import ResolvedSpec, _native_startup_raw_instructions_from_spec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 
 def _spec(instructions: str | None) -> AgentSpec:

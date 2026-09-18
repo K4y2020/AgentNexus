@@ -15,14 +15,14 @@ from typing import Any
 
 import pytest
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostCreateWorktreeFrame,
     HostHelloFrame,
     HostRemoveWorktreeFrame,
     decode_host_frame,
 )
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._host_worktree import (
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._host_worktree import (
     WorktreeHostUnavailableError,
     WorktreeProxyError,
     create_worktree_on_host,
@@ -275,7 +275,7 @@ async def test_create_worktree_timeout_raises_unavailable(
     Uses a host with no auto-replier so the pending future never
     resolves; a tiny patched timeout keeps the test fast.
     """
-    import omnigent.server.routes._host_worktree as hw_mod
+    import agentnexus.server.routes._host_worktree as hw_mod
 
     monkeypatch.setattr(hw_mod, "_WORKTREE_TIMEOUT_S", 0.05)
     registry = HostRegistry()

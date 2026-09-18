@@ -28,11 +28,11 @@ from fastapi import FastAPI, Request
 from playwright.sync_api import Browser, Playwright, expect
 from starlette.responses import HTMLResponse
 
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig
-from omnigent.server.routes import auth as auth_routes
-from omnigent.server.routes.auth import create_auth_router
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig
+from agentnexus.server.routes import auth as auth_routes
+from agentnexus.server.routes.auth import create_auth_router
 from tests.e2e_ui.conftest import _find_free_port
 
 _COOKIE_SECRET = b"i" * 32

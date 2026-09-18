@@ -1,9 +1,9 @@
 """Persistent user configuration for terminal UI frontends.
 
 The UI SDK keeps this intentionally small: TUI preferences are persisted
-under the ``tui:`` table of the shared Omnigent YAML config file
-(``$OMNIGENT_CONFIG_HOME/config.yaml`` when configured, otherwise
-``$HOME/.omnigent/config.yaml``). Today that means the persisted light/dark
+under the ``tui:`` table of the shared AgentNexus YAML config file
+(``$AGENTNEXUS_CONFIG_HOME/config.yaml`` when configured, otherwise
+``$HOME/.agentnexus/config.yaml``). Today that means the persisted light/dark
 theme selection.
 
 The same file is also written by the ``omnigent`` CLI (top-level keys
@@ -26,9 +26,9 @@ import yaml
 from ._theme import TerminalThemeName, get_theme
 
 _CONFIG_FILENAME = "config.yaml"
-_STATE_DIRNAME = ".omnigent"
-_DATA_DIR_ENV_VAR = "OMNIGENT_DATA_DIR"
-_CONFIG_HOME_ENV_VAR = "OMNIGENT_CONFIG_HOME"
+_STATE_DIRNAME = ".agentnexus"
+_DATA_DIR_ENV_VAR = "AGENTNEXUS_DATA_DIR"
+_CONFIG_HOME_ENV_VAR = "AGENTNEXUS_CONFIG_HOME"
 _TUI_KEY = "tui"
 
 
@@ -51,14 +51,14 @@ DEFAULT_USER_CONFIG = UserConfig()
 
 
 def state_dir() -> pathlib.Path:
-    """Return the shared Omnigent per-user state directory.
+    """Return the shared AgentNexus per-user state directory.
 
-    Honors ``OMNIGENT_DATA_DIR`` so worktrees and dev pods can isolate runtime
+    Honors ``AGENTNEXUS_DATA_DIR`` so worktrees and dev pods can isolate runtime
     state without replacing ``HOME``. Callers that only compute a path cause
     no filesystem side effects; writers create the directory when saving.
 
-    :returns: ``$OMNIGENT_DATA_DIR`` when set, else
-        ``Path.home() / ".omnigent"``.
+    :returns: ``$AGENTNEXUS_DATA_DIR`` when set, else
+        ``Path.home() / ".agentnexus"``.
     """
 
     value = os.environ.get(_DATA_DIR_ENV_VAR)
@@ -68,12 +68,12 @@ def state_dir() -> pathlib.Path:
 def user_config_path(root: str | pathlib.Path | None = None) -> pathlib.Path:
     """Return the path to the YAML user config file.
 
-    ``OMNIGENT_CONFIG_HOME`` isolates configuration independently from runtime
+    ``AGENTNEXUS_CONFIG_HOME`` isolates configuration independently from runtime
     state. An explicit *root* takes precedence over the environment.
 
     :param root: Optional explicit config directory.
-    :returns: ``$OMNIGENT_CONFIG_HOME/config.yaml`` when set, else
-        ``Path.home() / ".omnigent" / "config.yaml"``.
+    :returns: ``$AGENTNEXUS_CONFIG_HOME/config.yaml`` when set, else
+        ``Path.home() / ".agentnexus" / "config.yaml"``.
     """
 
     if root is not None:
@@ -281,7 +281,7 @@ def _dump_user_config(data: Mapping[str, Any]) -> str:
     :returns: YAML text ready to write.
     """
 
-    header = "# Omnigent user configuration\n"
+    header = "# AgentNexus user configuration\n"
     if not data:
         return header
     body = yaml.safe_dump(dict(data), default_flow_style=False, sort_keys=True)

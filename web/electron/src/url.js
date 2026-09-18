@@ -2,7 +2,7 @@
 //
 // Loaded by both the Electron main process (`require("./url")` in
 // `src/main.js`) and the bundled setup page (`<script src="../src/url.js">` in
-// `setup/index.html`, where it publishes `window.omnigentUrl`). One copy keeps
+// `setup/index.html`, where it publishes `window.agentnexusUrl`). One copy keeps
 // the two from drifting — the setup page's plain-http warning and the main
 // process's navigation must agree on what a bare URL means.
 //
@@ -13,7 +13,7 @@
   if (typeof module === "object" && module.exports) {
     module.exports = api;
   } else {
-    root.omnigentUrl = api;
+    root.agentnexusUrl = api;
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
@@ -83,7 +83,7 @@
 
   /**
    * Normalize persisted recent-server targets for the setup-page picker. The
-   * stored target may include an internal mount such as `/omnigent`; the picker
+   * stored target may include an internal mount such as `/agentnexus`; the picker
    * shows and reconnects through the user-facing root URL instead. Invalid and
    * duplicate entries are omitted.
    *
@@ -160,7 +160,7 @@
   }
 
   /** Path where the Omnigent SPA is mounted in a Databricks workspace. */
-  const WORKSPACE_UI_PATH = "/omnigent";
+  const WORKSPACE_UI_PATH = "/agentnexus";
 
   /**
    * Domains that serve Databricks workspaces. Databricks Apps are deliberately
@@ -201,9 +201,9 @@
   }
 
   const WORKSPACE_API_PATHS = new Set([
-    "/api/2.0/omnigent",
+    "/api/2.0/agentnexus",
     // Databricks keeps this plural route for older clients.
-    "/api/2.0/omnigents",
+    "/api/2.0/agentnexuss",
   ]);
 
   /**
@@ -243,11 +243,11 @@
    * Expand a bare Databricks workspace URL to its Omnigent web-UI mount.
    *
    * Mirrors the omni CLI's behavioral detection
-   * (``omnigent/cli.py:_workspace_api_server_url``): rather than match
+   * (``agentnexus/cli.py:_workspace_api_server_url``): rather than match
    * hostnames, probe the URL and adopt the mount only when the host answers
    * like a Databricks workspace — a response carrying the ``server: databricks``
    * header. URLs that already carry a path, or aren't https, are returned
-   * untouched WITHOUT a probe, so a user who pastes the full ``…/omnigent``
+   * untouched WITHOUT a probe, so a user who pastes the full ``…/agentnexus``
    * URL (or connects to any non-workspace server) is never second-guessed.
    *
    * The CLI appends the API mount because it's an API client; the desktop shell
@@ -299,7 +299,7 @@
    * Path of the server's version manifest (RFC 8615 well-known URI). Served
    * unauthed so the shell can read it before the SPA loads / any login.
    */
-  const WELL_KNOWN_MANIFEST_PATH = "/.well-known/omnigent.json";
+  const WELL_KNOWN_MANIFEST_PATH = "/.well-known/agentnexus.json";
 
   /**
    * The manifest a pre-manifest server implies: every server older than the

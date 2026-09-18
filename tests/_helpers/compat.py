@@ -5,12 +5,12 @@ See ``docs/SERVER_VERSION_COMPAT_CI.md``. Two independent redirect knobs and
 their version skips:
 
 1. **Server redirect (Config 1)** — pin the ``omnigent.cli server`` subprocess
-   to an older build (``OMNIGENT_COMPAT_SERVER_PYTHON``) while the client,
+   to an older build (``AGENTNEXUS_COMPAT_SERVER_PYTHON``) while the client,
    runner, host, and tests stay on main. Skip newer-than-server features with
    ``@pytest.mark.min_server_version(...)``.
 2. **Runner/host redirect (Config 2)** — pin the ``omnigent.runner._entry`` and
    ``omnigent.host._daemon_entry`` subprocesses to an older build
-   (``OMNIGENT_COMPAT_RUNNER_PYTHON``) while the server, client, and tests stay
+   (``AGENTNEXUS_COMPAT_RUNNER_PYTHON``) while the server, client, and tests stay
    on main. Runner and host are colocated (one install, one version), so a
    single knob governs both. Skip newer-than-runner features with
    ``@pytest.mark.min_runner_version(...)``.
@@ -36,16 +36,16 @@ _compat_cwds: dict[str, str] = {}
 
 # Interpreter for the SERVER subprocess. Set to a venv python holding the
 # pinned older build; unset in normal runs (use the test process's python).
-COMPAT_SERVER_PYTHON_ENV = "OMNIGENT_COMPAT_SERVER_PYTHON"
+COMPAT_SERVER_PYTHON_ENV = "AGENTNEXUS_COMPAT_SERVER_PYTHON"
 # Version string the workflow pinned (e.g. "0.1.1"). Backstop / cross-check
 # for the server skip logic — never used to launch anything.
-COMPAT_SERVER_VERSION_ENV = "OMNIGENT_COMPAT_SERVER_VERSION"
+COMPAT_SERVER_VERSION_ENV = "AGENTNEXUS_COMPAT_SERVER_VERSION"
 # Interpreter for the RUNNER and HOST subprocesses (colocated → one knob).
-COMPAT_RUNNER_PYTHON_ENV = "OMNIGENT_COMPAT_RUNNER_PYTHON"
+COMPAT_RUNNER_PYTHON_ENV = "AGENTNEXUS_COMPAT_RUNNER_PYTHON"
 # Version string the workflow pinned for the runner/host. The runner and host
 # expose no ``/api/version`` endpoint, so this env var is the *only* source for
 # the ``min_runner_version`` skip (no live cross-check).
-COMPAT_RUNNER_VERSION_ENV = "OMNIGENT_COMPAT_RUNNER_VERSION"
+COMPAT_RUNNER_VERSION_ENV = "AGENTNEXUS_COMPAT_RUNNER_VERSION"
 
 
 # ── Redirect core (shared by server + runner/host) ─────────────────────
@@ -56,7 +56,7 @@ def _compat_python(env_var: str) -> str | None:
     The pinned-build interpreter named by *env_var*, or ``None``.
 
     :param env_var: The redirect env var, e.g.
-        ``"OMNIGENT_COMPAT_SERVER_PYTHON"``.
+        ``"AGENTNEXUS_COMPAT_SERVER_PYTHON"``.
     :returns: The venv python path (e.g. ``"/tmp/old-env/bin/python"``) when
         that component's compat mode is active, else ``None``.
     """
@@ -92,7 +92,7 @@ def _compat_cwd(env_var: str, label: str) -> str | None:
     if _compat_python(env_var) is None:
         return None
     if label not in _compat_cwds:
-        _compat_cwds[label] = tempfile.mkdtemp(prefix=f"omnigent-compat-{label}-cwd-")
+        _compat_cwds[label] = tempfile.mkdtemp(prefix=f"agentnexus-compat-{label}-cwd-")
     return _compat_cwds[label]
 
 
@@ -103,7 +103,7 @@ def compat_server_python() -> str | None:
     """
     Interpreter the server subprocess should run under, or ``None``.
 
-    :returns: The value of ``OMNIGENT_COMPAT_SERVER_PYTHON`` (a venv python
+    :returns: The value of ``AGENTNEXUS_COMPAT_SERVER_PYTHON`` (a venv python
         path, e.g. ``"/tmp/server-env/bin/python"``) when compat mode is
         active, else ``None``.
     """
@@ -183,7 +183,7 @@ def compat_runner_python() -> str | None:
     """
     Interpreter the runner and host subprocesses should run under, or ``None``.
 
-    :returns: The value of ``OMNIGENT_COMPAT_RUNNER_PYTHON`` (a venv python
+    :returns: The value of ``AGENTNEXUS_COMPAT_RUNNER_PYTHON`` (a venv python
         path) when runner/host compat mode is active, else ``None``.
     """
     return _compat_python(COMPAT_RUNNER_PYTHON_ENV)
@@ -299,7 +299,7 @@ def pinned_runner_version() -> str | None:
 
     The runner and host have no ``/api/version`` endpoint to query, so unlike
     :func:`resolve_server_version` there is no live source to reconcile — the
-    workflow-set ``OMNIGENT_COMPAT_RUNNER_VERSION`` is authoritative. ``None``
+    workflow-set ``AGENTNEXUS_COMPAT_RUNNER_VERSION`` is authoritative. ``None``
     (normal runs) means "newest / unbounded", so no ``min_runner_version`` test
     is skipped.
 
@@ -324,7 +324,7 @@ def reconcile_server_version(
 
     :param reported: Version from ``GET /api/version``, or ``None`` if it
         couldn't be read.
-    :param override: ``OMNIGENT_COMPAT_SERVER_VERSION`` value, or ``None``.
+    :param override: ``AGENTNEXUS_COMPAT_SERVER_VERSION`` value, or ``None``.
     :param source: Base URL (for the error message), e.g.
         ``"http://localhost:6767"``.
     :returns: The reconciled server version string, e.g. ``"0.1.1"``.
@@ -367,7 +367,7 @@ def resolve_server_version(base_url: str) -> str:
     Resolve the running server's version (source of truth: ``GET /api/version``).
 
     Thin I/O wrapper over :func:`reconcile_server_version`. The env backstop
-    ``OMNIGENT_COMPAT_SERVER_VERSION`` covers an unreadable endpoint and
+    ``AGENTNEXUS_COMPAT_SERVER_VERSION`` covers an unreadable endpoint and
     cross-checks the report (mismatch → raise; the tripwire for the
     PYTHONPATH-shadow regression).
 

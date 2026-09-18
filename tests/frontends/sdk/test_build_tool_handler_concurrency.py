@@ -28,8 +28,8 @@ import asyncio
 import time
 
 import pytest
-from omnigent_client._tool_handler import ToolCallInfo
-from omnigent_client.tools import build_tool_handler, tool
+from agentnexus_client._tool_handler import ToolCallInfo
+from agentnexus_client.tools import build_tool_handler, tool
 
 _SLEEP_S = 0.5
 _FAN_OUT = 4

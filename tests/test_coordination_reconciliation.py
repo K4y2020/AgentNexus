@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.coordination.dispatcher import CoordinationDispatcher
-from omnigent.coordination.reconciliation import EVENT_TYPE, reconcile_effect_unknown
-from omnigent.coordination.store import CoordinationStore
-from omnigent.coordination.types import AgentMessage, DeliveryAttempt
+from agentnexus.coordination.dispatcher import CoordinationDispatcher
+from agentnexus.coordination.reconciliation import EVENT_TYPE, reconcile_effect_unknown
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.coordination.types import AgentMessage, DeliveryAttempt
 
 
 @pytest.fixture

@@ -120,14 +120,14 @@ def local_polly_server(tmp_path: Path) -> Iterator[str]:
 
     env = {
         **os.environ,
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
     }
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -225,7 +225,7 @@ def test_cursor_native_worker_not_reported_source_none(
 
     # The runner resolves cursor-agent from its own environment, and the
     # CLI->runner env strip only forwards allowlisted vars (PATH is one;
-    # OMNIGENT_CURSOR_PATH is not). Prepend the stub's dir to PATH so the
+    # AGENTNEXUS_CURSOR_PATH is not). Prepend the stub's dir to PATH so the
     # runner sees an "installed" cursor-agent whose listing probe fails,
     # regardless of whether the host has a real cursor-agent.
     env["PATH"] = f"{stub.parent}{os.pathsep}{env.get('PATH', '')}"
@@ -238,7 +238,7 @@ def test_cursor_native_worker_not_reported_source_none(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(polly_dir),
             "--server",

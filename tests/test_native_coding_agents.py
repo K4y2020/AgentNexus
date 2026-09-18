@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent._wrapper_labels import (
+from agentnexus._wrapper_labels import (
     KIRO_NATIVE_WRAPPER_VALUE,
     PI_NATIVE_WRAPPER_VALUE,
     UI_MODE_LABEL_KEY,
     UI_MODE_TERMINAL_VALUE,
     WRAPPER_LABEL_KEY,
 )
-from omnigent.harness_plugins import KIRO_NATIVE_CODING_AGENT, PI_NATIVE_CODING_AGENT
-from omnigent.native_coding_agents import (
+from agentnexus.harness_plugins import KIRO_NATIVE_CODING_AGENT, PI_NATIVE_CODING_AGENT
+from agentnexus.native_coding_agents import (
     native_coding_agent_for_harness,
     native_coding_agent_for_wrapper_label,
     native_shell_terminal_spec,
@@ -102,7 +102,7 @@ def test_public_agent_name_hides_native_ui_wrapper_names() -> None:
 def test_public_agent_name_passes_through_regular_names() -> None:
     """Non-wrapper names (and ``None``) are returned unchanged.
 
-    Regular Omnigent agents have user-meaningful names that are safe to expose,
+    Regular AgentNexus agents have user-meaningful names that are safe to expose,
     so only the native-UI wrappers are rewritten.
     """
     assert public_agent_name("researcher") == "researcher"

@@ -3,7 +3,7 @@
     "skill": "novel-outline",
     "command": [
       "node",
-      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-outline\\scripts\\novel-outline.mjs",
+      "C:\\Users\\Kay\\.agentnexus\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-outline\\scripts\\novel-outline.mjs",
       "validate",
       "outline.json"
     ],
@@ -15,7 +15,7 @@
     "skill": "novel-characters",
     "command": [
       "node",
-      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-characters\\scripts\\novel-characters.mjs",
+      "C:\\Users\\Kay\\.agentnexus\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-characters\\scripts\\novel-characters.mjs",
       "validate",
       "cast.json"
     ],
@@ -27,7 +27,7 @@
     "skill": "novel-art",
     "command": [
       "node",
-      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-art\\scripts\\novel-art.mjs",
+      "C:\\Users\\Kay\\.agentnexus\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-art\\scripts\\novel-art.mjs",
       "validate",
       "art.json",
       "--cast",
@@ -41,7 +41,7 @@
     "skill": "novel-script",
     "command": [
       "node",
-      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-script\\scripts\\novel-script.mjs",
+      "C:\\Users\\Kay\\.agentnexus\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-script\\scripts\\novel-script.mjs",
       "validate",
       "script.json",
       "--outline",
@@ -57,7 +57,7 @@
     "skill": "novel-storyboard",
     "command": [
       "node",
-      "C:\\Users\\Kay\\.omnigent\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-storyboard\\scripts\\novel-storyboard.mjs",
+      "C:\\Users\\Kay\\.agentnexus\\artifacts\\.cache\\7236cdb3ad73464b947752d732dcd566\\skills\\novel-storyboard\\scripts\\novel-storyboard.mjs",
       "validate",
       "storyboard.json",
       "--script",

@@ -15,7 +15,7 @@
 
 - `novel-art` / `novel-characters` 确实包含 `image.negativePrompt` 字段及图片预设，例如空景禁人。它们服务于资产图片，不意味着剧情中不能有人。
 - `novel-script/references/schema.md` 的剧本结构是场次、动作与对白；`novel-storyboard/scripts/novel-storyboard.mjs` 的 `expandScript` 读取角色、道具、flow 和估时，不读取 image.negativePrompt。
-- `omnigent/seedance/storyboard_import.py` 把已有 script/document 交给 V3 importer，不把生成负面约束逆写为剧本人物限制。
+- `agentnexus/seedance/storyboard_import.py` 把已有 script/document 交给 V3 importer，不把生成负面约束逆写为剧本人物限制。
 - V3 provider 层存在 negativePrompt/negative_prompt 的传递，属于生成端。此次检查未发现它自动回灌上述剧本路径。
 
 以上是已检查路径的结论，不是对所有 harness、历史会话或任意模型行为的全局保证。模型读取完整资产文件时仍可能误解字段，需要正确分层的实测，不能靠搜索无命中证明绝无污染。

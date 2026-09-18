@@ -19,12 +19,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.server.accounts_store import SqlAlchemyAccountStore
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig, mint_session_cookie
-from omnigent.server.routes.auth import create_auth_router
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig, mint_session_cookie
+from agentnexus.server.routes.auth import create_auth_router
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 _TEST_SECRET = bytes.fromhex("aa" * 32)
 

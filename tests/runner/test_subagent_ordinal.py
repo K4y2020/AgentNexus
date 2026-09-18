@@ -10,7 +10,7 @@ comment in ``db_models.py`` for the trade-off rationale.
 
 from __future__ import annotations
 
-from omnigent.runner import app as runner_app
+from agentnexus.runner import app as runner_app
 
 
 def _reset_ordinal_counters() -> None:

@@ -37,7 +37,7 @@ The stub CLIs are faithful to what each executor actually drives:
 
 The stub CLI paths reach the harness through a **dedicated runner**: the
 ``stub_harness_runner`` fixture spawns its own runner subprocess whose
-environment carries ``OMNIGENT_HERMES_PATH`` / ``OMNIGENT_QWEN_PATH`` (and
+environment carries ``AGENTNEXUS_HERMES_PATH`` / ``AGENTNEXUS_QWEN_PATH`` (and
 the ``HERMES_``/``QWEN_``-prefixed state-dir vars that survive the
 executors' deny-by-default spawn-env filter), then binds the test session
 to it. Nothing is written to ``os.environ`` and nothing depends on when the
@@ -214,14 +214,14 @@ def stub_harness_runner(
     pytest process had at session start, so injecting the stubs there would
     be order-dependent under sharded CI. Instead this spawns a second runner
     (the unauthenticated local server accepts any runner whose id is derived
-    from its binding token) with ``OMNIGENT_HERMES_PATH`` /
-    ``OMNIGENT_QWEN_PATH`` and the stub state-dir vars in its subprocess env
+    from its binding token) with ``AGENTNEXUS_HERMES_PATH`` /
+    ``AGENTNEXUS_QWEN_PATH`` and the stub state-dir vars in its subprocess env
     — ``os.environ`` is never mutated and no boot-order assumption is made.
 
     Yields ``(runner_id, state_dir)``: the runner to bind sessions to, and
     the dir the stubs write their pid/cancel markers into.
     """
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     state_dir = tmp_path_factory.mktemp("harness_stub_state")
     bin_dir = tmp_path_factory.mktemp("harness_stub_bin")
@@ -241,22 +241,22 @@ def stub_harness_runner(
     env = {
         **os.environ,
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": live_server,
-        # The harness wraps resolve the vendor CLI from OMNIGENT_<H>_PATH;
+        # The harness wraps resolve the vendor CLI from AGENTNEXUS_<H>_PATH;
         # the STUB_STATE_DIR vars ride the executors' filtered spawn env
         # because they carry the harness's own allowed prefix
         # (HERMES_ / QWEN_).
-        "OMNIGENT_HERMES_PATH": str(hermes_stub),
-        "OMNIGENT_QWEN_PATH": str(qwen_stub),
+        "AGENTNEXUS_HERMES_PATH": str(hermes_stub),
+        "AGENTNEXUS_QWEN_PATH": str(qwen_stub),
         "HERMES_STUB_STATE_DIR": str(state_dir),
         "QWEN_STUB_STATE_DIR": str(state_dir),
     }
     log_handle = open(log_path, "w")  # noqa: SIM115 — fd dup'd into child; closed below
     proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env=env,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
@@ -392,7 +392,7 @@ def test_stop_button_interrupts_running_turn(
         assert _wait_for(pid_file.exists, _TURN_START_TIMEOUT_S), (
             f"stub {harness} CLI never started a turn within "
             f"{_TURN_START_TIMEOUT_S:.0f}s — check the harness wrap booted "
-            f"(OMNIGENT_{harness.upper()}_PATH resolution / runner logs)"
+            f"(AGENTNEXUS_{harness.upper()}_PATH resolution / runner logs)"
         )
         stub_pid = int(pid_file.read_text().strip())
         assert _pid_alive(stub_pid), "stub CLI exited before Stop was clicked"

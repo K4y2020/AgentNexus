@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.opencode_native_provider import (
+from agentnexus.opencode_native_provider import (
     OpenCodeGatewayResolution,
     _gateway_endpoint_for_model,
     _strip_jsonc_comments,
@@ -27,7 +27,7 @@ from omnigent.opencode_native_provider import (
 @pytest.fixture(autouse=True)
 def _stub_catalog_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "omnigent.model_catalog.resolve_catalog_model",
+        "agentnexus.model_catalog.resolve_catalog_model",
         lambda provider_name, *, family, **kwargs: types.SimpleNamespace(
             model_id=f"catalog-{provider_name}-{family}-default"
         ),
@@ -36,20 +36,20 @@ def _stub_catalog_default(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_build_omnigent_mcp_server_points_serve_mcp_at_bridge_dir() -> None:
     block = build_opencode_omnigent_mcp_server(Path("/tmp/bridge-xyz"))
-    assert set(block) == {"omnigent"}
-    entry = block["omnigent"]
+    assert set(block) == {"agentnexus"}
+    entry = block["agentnexus"]
     assert entry["type"] == "local"
     assert entry["enabled"] is True
     cmd = entry["command"]
     # Launches the SHARED serve-mcp relay, pointed at THIS bridge dir.
     assert cmd[-3:] == ["serve-mcp", "--bridge-dir", "/tmp/bridge-xyz"]
-    assert "omnigent.claude_native_bridge" in cmd
+    assert "agentnexus.claude_native_bridge" in cmd
     assert entry.get("environment", {}).get("PYTHONUNBUFFERED") == "1"
 
 
 def test_build_omnigent_mcp_server_honors_python_executable() -> None:
     block = build_opencode_omnigent_mcp_server(Path("/tmp/b"), python_executable="/custom/python")
-    assert block["omnigent"]["command"][0] == "/custom/python"
+    assert block["agentnexus"]["command"][0] == "/custom/python"
 
 
 @pytest.mark.parametrize(
@@ -64,8 +64,8 @@ def test_build_omnigent_mcp_server_rejects_non_string_values(
     server: dict[str, object],
 ) -> None:
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.build_mcp_config",
-        lambda bridge_dir, *, python_executable=None: {"mcpServers": {"omnigent": server}},
+        "agentnexus.claude_native_bridge.build_mcp_config",
+        lambda bridge_dir, *, python_executable=None: {"mcpServers": {"agentnexus": server}},
     )
 
     with pytest.raises(ValueError, match="Claude MCP server"):
@@ -194,7 +194,7 @@ def test_resolve_gateway_none_when_no_token(monkeypatch: pytest.MonkeyPatch) -> 
 def test_build_mcp_block_stdio_and_http() -> None:
     from types import SimpleNamespace as N
 
-    from omnigent.opencode_native_provider import build_opencode_mcp_block
+    from agentnexus.opencode_native_provider import build_opencode_mcp_block
 
     servers = [
         N(
@@ -239,7 +239,7 @@ def test_build_mcp_block_stdio_and_http() -> None:
 def test_build_mcp_block_http_databricks_injects_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace as N
 
-    import omnigent.opencode_native_provider as prov
+    import agentnexus.opencode_native_provider as prov
 
     monkeypatch.setattr(prov, "_databricks_bearer_token", lambda _p: "tok123")
     servers = [

@@ -10,8 +10,8 @@ from pathlib import Path
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE
-from omnigent.onboarding.sandboxes.cwsandbox import (
+from agentnexus.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE
+from agentnexus.onboarding.sandboxes.cwsandbox import (
     HOST_IMAGE_ENV_VAR,
     SANDBOX_ENV_PASSTHROUGH_ENV_VAR,
     CWSandboxLauncher,
@@ -167,7 +167,7 @@ def test_provision_requests_host_image_and_egress(sdk: _State) -> None:
     assert sdk.run_command == ("sleep", "infinity")
     assert sdk.run_kwargs["container_image"] == DEFAULT_HOST_IMAGE
     assert sdk.run_kwargs["network"].egress_mode == "internet"
-    assert sdk.run_kwargs["tags"] == ["omnigent", "managed-x"]
+    assert sdk.run_kwargs["tags"] == ["agentnexus", "managed-x"]
 
 
 def test_provision_image_resolution_order(sdk: _State, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -231,7 +231,7 @@ def test_exec_foreground_records_pid_and_streams_output(sdk: _State) -> None:
         _FakeProcess(_FakeResult()),  # cleanup exec on normal exit
     ]
 
-    returncode = CWSandboxLauncher().exec_foreground("sb-1", "omnigent host --server u")
+    returncode = CWSandboxLauncher().exec_foreground("sb-1", "agentnexus host --server u")
 
     assert returncode == 0
     remote = sdk.exec_commands[0][-1]
@@ -252,7 +252,7 @@ def test_exec_foreground_kills_remote_on_interrupt(sdk: _State) -> None:
     sdk.exec_processes = [_FakeProcess(_FakeResult(), wait_raises=KeyboardInterrupt())]
 
     with pytest.raises(KeyboardInterrupt):
-        CWSandboxLauncher().exec_foreground("sb-1", "omnigent host --server u")
+        CWSandboxLauncher().exec_foreground("sb-1", "agentnexus host --server u")
 
     # Second exec is the kill, addressed via the recorded pidfile. The pid is
     # validated as numeric before being signalled, and the dir is cleaned up.

@@ -1,6 +1,6 @@
 name: Windows (native)
 
-# Smoke + unit check that omnigent imports, the CLI loads, and the
+# Smoke + unit check that agentnexus imports, the CLI loads, and the
 # cross-platform process/sandbox primitives work on native Windows. This is a
 # NON-BLOCKING signal while native Windows support stabilizes: it is not wired
 # into merge-ready.yml, and the broader unit sweep runs with continue-on-error
@@ -21,7 +21,7 @@ permissions:
 
 env:
   # No web SPA build during `uv sync`; this job never serves the bundle.
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
 
@@ -56,8 +56,8 @@ jobs:
 
       - name: Import + CLI smoke
         run: |
-          uv run python -c "import omnigent; print('import omnigent OK')"
-          uv run omnigent --help
+          uv run python -c "import agentnexus; print('import agentnexus OK')"
+          uv run agentnexus --help
 
       - name: Windows-support unit tests (hard)
         run: >-

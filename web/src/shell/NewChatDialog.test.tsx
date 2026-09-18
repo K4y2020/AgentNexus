@@ -215,13 +215,13 @@ const useDirectorySessionsMock = vi.mocked(useDirectorySessions);
 const useRunnerHealthMock = vi.mocked(useRunnerHealthRegistration);
 const setPendingInitialPromptMock = vi.mocked(setPendingInitialPrompt);
 
-const RECENT_KEY = "omnigent:recent-workspaces";
+const RECENT_KEY = "agentnexus:recent-workspaces";
 // Per-harness remembered option knobs (see lib/modePreferences).
-const HARNESS_OPTIONS_KEY = "omnigent:last-mode-by-harness";
+const HARNESS_OPTIONS_KEY = "agentnexus:last-mode-by-harness";
 // Last harness pick per agent (see lib/harnessPreferences).
-const LAST_HARNESS_KEY = "omnigent:last-harness-by-agent";
+const LAST_HARNESS_KEY = "agentnexus:last-harness-by-agent";
 // Last agent pick (see lib/agentPreferences).
-const LAST_AGENT_KEY = "omnigent:last-agent-id";
+const LAST_AGENT_KEY = "agentnexus:last-agent-id";
 
 /**
  * Build a minimal Conversation for the directory-conflict helpers/warning.
@@ -962,7 +962,7 @@ describe("Run on this machine (desktop host enrollment)", () => {
       ok: false,
       authError: true,
       error:
-        "Sign-in required — run `omnigent login https://app.example.com` in a terminal, then try again.",
+        "Sign-in required — run `agentnexus login https://app.example.com` in a terminal, then try again.",
     });
     renderLanding();
     await clickRunOnThisMachine();
@@ -1006,7 +1006,7 @@ describe("NewChatLandingScreen", () => {
   });
 
   it("does not replace a missing remembered host with the first cached host", async () => {
-    localStorage.setItem("omnigent:last-host-choice", "host_2");
+    localStorage.setItem("agentnexus:last-host-choice", "host_2");
     // The shared query cache can render an older host list first while a
     // background refresh is already fetching the continuously-live VM.
     mockHosts([host("online", 1)], { isFetching: true });
@@ -1026,7 +1026,7 @@ describe("NewChatLandingScreen", () => {
   });
 
   it("does not silently replace an unavailable remembered host", async () => {
-    localStorage.setItem("omnigent:last-host-choice", "host_2");
+    localStorage.setItem("agentnexus:last-host-choice", "host_2");
     mockHosts([host("online", 1)], { isFetching: false });
     renderLanding();
 
@@ -1036,7 +1036,7 @@ describe("NewChatLandingScreen", () => {
   });
 
   it("does not replace an unavailable remembered host with the managed sandbox", async () => {
-    localStorage.setItem("omnigent:last-host-choice", "host_2");
+    localStorage.setItem("agentnexus:last-host-choice", "host_2");
     mockHosts([host("online", 1)], { isFetching: false });
     renderLanding({ managed_sandboxes_enabled: true });
 
@@ -1469,7 +1469,7 @@ describe("NewChatLandingScreen", () => {
   }
 
   it("promotes a previously-launched harness into the primary list", () => {
-    localStorage.setItem("omnigent:recent-harnesses", JSON.stringify(["pi-native"]));
+    localStorage.setItem("agentnexus:recent-harnesses", JSON.stringify(["pi-native"]));
     mockClaudeAndPi();
     renderLanding();
     fireEvent.pointerDown(screen.getByTestId("new-chat-landing-agent-select"), { button: 0 });
@@ -1493,7 +1493,7 @@ describe("NewChatLandingScreen", () => {
   it("matches a stored reversed harness alias against its canonical spec", () => {
     // Older entries (and the server's reversed spelling) store "native-pi";
     // it must still promote the canonical pi-native row.
-    localStorage.setItem("omnigent:recent-harnesses", JSON.stringify(["native-pi"]));
+    localStorage.setItem("agentnexus:recent-harnesses", JSON.stringify(["native-pi"]));
     mockClaudeAndPi();
     renderLanding();
     fireEvent.pointerDown(screen.getByTestId("new-chat-landing-agent-select"), { button: 0 });
@@ -1503,7 +1503,7 @@ describe("NewChatLandingScreen", () => {
   it("ignores a malformed recent-harnesses entry", () => {
     // A corrupted value must not crash the picker — it falls back to the
     // support-level split.
-    localStorage.setItem("omnigent:recent-harnesses", "{not json");
+    localStorage.setItem("agentnexus:recent-harnesses", "{not json");
     mockClaudeAndPi();
     renderLanding();
     fireEvent.pointerDown(screen.getByTestId("new-chat-landing-agent-select"), { button: 0 });
@@ -1514,7 +1514,7 @@ describe("NewChatLandingScreen", () => {
   it("keeps the hide-unconfigured preference ahead of a recent harness", () => {
     // Recency promotes within what can launch here; it must not resurrect a
     // harness the host can't run, which is the whole point of the preference.
-    localStorage.setItem("omnigent:recent-harnesses", JSON.stringify(["pi-native"]));
+    localStorage.setItem("agentnexus:recent-harnesses", JSON.stringify(["pi-native"]));
     writeHideUnconfiguredHarnesses(true);
     mockClaudeAndPi();
     mockHosts([
@@ -1759,9 +1759,9 @@ describe("NewChatLandingScreen", () => {
     const body = JSON.parse((init as RequestInit).body as string) as Record<string, unknown>;
     const labels = body.labels as Record<string, string>;
     // The label is what the runner reads to launch with the bypass flag.
-    expect(labels["omnigent.codex_native.bypass_sandbox"]).toBe("1");
+    expect(labels["agentnexus.codex_native.bypass_sandbox"]).toBe("1");
     // The native wrapper labels still ride alongside it.
-    expect(labels["omnigent.wrapper"]).toBe("codex-native-ui");
+    expect(labels["agentnexus.wrapper"]).toBe("codex-native-ui");
   });
 
   it("shows a conflict banner in the file browser for an occupied directory", async () => {
@@ -3164,16 +3164,16 @@ describe("NewChatLandingScreen @-file-mention", () => {
   function file(path: string): HostFilesystemEntry {
     return { name: path.split("/").pop() ?? "", path, type: "file", bytes: 10, modified_at: 0 };
   }
-  // Path-aware listing: the workspace root holds an "omnigent" folder + a
-  // README; drilling into "omnigent" reveals a nested folder + a file. Keyed by
+  // Path-aware listing: the workspace root holds an "agentnexus" folder + a
+  // README; drilling into "agentnexus" reveals a nested folder + a file. Keyed by
   // the absolute path so drill-down and relative-path mapping are exercised for
   // real (a fixed stub couldn't distinguish the two levels).
   function mockFsByPath() {
     useHostFilesystemMock.mockImplementation(((_hostId: string | null, path: string | null) => {
       let entries: HostFilesystemEntry[] = [];
-      if (path === ROOT) entries = [dir(`${ROOT}/omnigent`), file(`${ROOT}/README.md`)];
-      else if (path === `${ROOT}/omnigent`)
-        entries = [dir(`${ROOT}/omnigent/inner`), file(`${ROOT}/omnigent/cli.py`)];
+      if (path === ROOT) entries = [dir(`${ROOT}/agentnexus`), file(`${ROOT}/README.md`)];
+      else if (path === `${ROOT}/agentnexus`)
+        entries = [dir(`${ROOT}/agentnexus/inner`), file(`${ROOT}/agentnexus/cli.py`)];
       return {
         data: { entries, truncated: false },
         isLoading: false,
@@ -3204,7 +3204,7 @@ describe("NewChatLandingScreen @-file-mention", () => {
     );
     fireEvent.change(input(), { target: { value: "@", selectionStart: 1 } });
     // Host absolute paths are shown as workspace-relative rows (folders first).
-    expect(screen.getByTitle("Open omnigent")).toBeInTheDocument();
+    expect(screen.getByTitle("Open agentnexus")).toBeInTheDocument();
     expect(screen.getByTitle("Attach README.md")).toBeInTheDocument();
   });
 
@@ -3243,7 +3243,7 @@ describe("NewChatLandingScreen @-file-mention", () => {
     ]);
     renderLanding();
     fireEvent.change(input(), { target: { value: "@", selectionStart: 1 } });
-    expect(screen.queryByTitle("Open omnigent")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Open agentnexus")).not.toBeInTheDocument();
   });
 
   it("drills into a folder and delivers the chosen file as a workspace-relative marker", async () => {
@@ -3259,10 +3259,10 @@ describe("NewChatLandingScreen @-file-mention", () => {
     fireEvent.change(input(), { target: { value: "@", selectionStart: 1 } });
     // Nested files are hidden until the folder is opened (drill-down).
     expect(screen.queryByTitle("Attach cli.py")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Open omnigent"));
+    fireEvent.click(screen.getByTitle("Open agentnexus"));
     fireEvent.click(screen.getByTitle("Attach cli.py"));
     // The chip shows the workspace-relative path, not the host-absolute one.
-    expect(screen.getByText("@omnigent/cli.py")).toBeInTheDocument();
+    expect(screen.getByText("@agentnexus/cli.py")).toBeInTheDocument();
 
     fireEvent.change(input(), { target: { value: "explain this", selectionStart: 12 } });
     fireEvent.click(screen.getByTestId("new-chat-landing-submit"));
@@ -3272,7 +3272,7 @@ describe("NewChatLandingScreen @-file-mention", () => {
     // the "/Users/corey/repo/…" absolute path the host filesystem returned.
     await waitFor(() => expect(setPendingInitialPromptMock).toHaveBeenCalled());
     const [, payload] = setPendingInitialPromptMock.mock.calls[0]!;
-    expect((payload as { text: string }).text).toBe("[Attached: omnigent/cli.py]\n\nexplain this");
+    expect((payload as { text: string }).text).toBe("[Attached: agentnexus/cli.py]\n\nexplain this");
   });
 
   it("suppresses stale parent rows while a drilled directory is still loading", async () => {
@@ -3283,7 +3283,7 @@ describe("NewChatLandingScreen @-file-mention", () => {
     // they lived inside the drilled child, and a click/Enter would attach the
     // wrong entry. The menu must collapse to "Loading…" until the child's own
     // listing arrives.
-    const rootEntries = [dir(`${ROOT}/omnigent`), file(`${ROOT}/README.md`)];
+    const rootEntries = [dir(`${ROOT}/agentnexus`), file(`${ROOT}/README.md`)];
     useHostFilesystemMock.mockImplementation(((_hostId: string | null, path: string | null) => {
       // Root resolves normally; the drilled path is still serving the parent's
       // rows as placeholder data (the mid-fetch window we're regression-testing).
@@ -3303,14 +3303,14 @@ describe("NewChatLandingScreen @-file-mention", () => {
 
     fireEvent.change(input(), { target: { value: "@", selectionStart: 1 } });
     // Root listing renders its rows.
-    expect(screen.getByTitle("Open omnigent")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Open omnigent"));
+    expect(screen.getByTitle("Open agentnexus")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Open agentnexus"));
 
     // Drilled-but-loading: the loading row shows and the parent's stale rows are
     // gone (without the isPlaceholderData guard they'd appear as the child's).
     expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByTitle("Attach README.md")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Open omnigent")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Open agentnexus")).not.toBeInTheDocument();
   });
 
   it("attaches a whole folder with a trailing-slash marker", async () => {
@@ -3325,15 +3325,15 @@ describe("NewChatLandingScreen @-file-mention", () => {
 
     fireEvent.change(input(), { target: { value: "@", selectionStart: 1 } });
     // The folder row's "+" button attaches the directory as a unit.
-    fireEvent.click(screen.getByLabelText("Attach whole folder omnigent"));
-    expect(screen.getByText("@omnigent/")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Attach whole folder agentnexus"));
+    expect(screen.getByText("@agentnexus/")).toBeInTheDocument();
 
     fireEvent.change(input(), { target: { value: "review it", selectionStart: 9 } });
     fireEvent.click(screen.getByTestId("new-chat-landing-submit"));
 
     await waitFor(() => expect(setPendingInitialPromptMock).toHaveBeenCalled());
     const [, payload] = setPendingInitialPromptMock.mock.calls[0]!;
-    expect((payload as { text: string }).text).toBe("[Attached: omnigent/]\n\nreview it");
+    expect((payload as { text: string }).text).toBe("[Attached: agentnexus/]\n\nreview it");
   });
 
   it("removes a tagged chip when its ✕ is clicked", () => {

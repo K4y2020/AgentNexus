@@ -109,7 +109,7 @@ A profile's `transport` is a harness-family marker. The resolved driver is:
 | **Streaming** | More than one output-text delta is emitted; a repeated single delta is `PARTIAL`. | P0 |
 | **Reasoning** | A high-effort turn forwards reasoning deltas or persists a reasoning item; no observation is `SKIPPED` because the model may still emit none. | P1 |
 | **Tool calling** | A tool call is surfaced and the turn closes after its result. | P0 |
-| **Omnigent MCP** | A native harness calls the read-only `sys_session_list` relay tool through its generated `omnigent` MCP server. | P1 |
+| **AgentNexus MCP** | A native harness calls the read-only `sys_session_list` relay tool through its generated `agentnexus` MCP server. | P1 |
 | **Policy DENY** | A tool-call policy blocks the call. | P0 |
 | **Policy ALLOW** | A tool call proceeds while an explicit allow policy is attached. | P1 |
 | **Policy ASK** | An ask policy raises an approval elicitation. | P1 |
@@ -129,7 +129,7 @@ transport; it does not claim the harness lacks the capability.
 | Basic turn, Streaming, Reasoning, Model override, Interrupt | End-to-end through server + runner | End-to-end through server + runner + vendor CLI | Wrap boundary only |
 | Fork replay | Clone + copied-history replay through server + runner | Clone + copied-history replay through server + runner + vendor CLI | Not observable |
 | Tool calling | Server-dispatched builtin | Vendor tool mirrored as a session item | Request-level wrap tool |
-| Omnigent MCP | Not applicable | Generated `omnigent` MCP relay when supported by the vendor | Not applicable |
+| AgentNexus MCP | Not applicable | Generated `agentnexus` MCP relay when supported by the vendor | Not applicable |
 | Policy DENY | Fixed policy in the agent spec | Session CEL policy + native policy hook | Not observable |
 | Policy ALLOW / ASK | Fixed policy; ASK observes and resolves an elicitation | Temporary session CEL policy; ASK observes and resolves an elicitation | Not observable |
 | Cost tracking | Session snapshot | Session snapshot when the vendor forwards usage | Completed-response usage when forwarded |
@@ -157,7 +157,7 @@ web application consumes, not browser rendering; UI presentation belongs in
 | `bench.py` | Orchestration, concurrency, prerequisite handling, and shared-server wiring |
 | `report.py` | Terminal, Markdown, and JSON renderers |
 
-Reusable production helpers live in `omnigent.config` and the existing runtime
+Reusable production helpers live in `agentnexus.config` and the existing runtime
 utility modules rather than being duplicated in the bench.
 
 ## Extending the bench

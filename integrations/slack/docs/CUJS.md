@@ -1,20 +1,20 @@
-# Critical User Journeys — Omnigent Slack bot
+# Critical User Journeys — AgentNexus Slack bot
 
-The user-facing journeys the bot supports, with the canonical Omnigent terms and
+The user-facing journeys the bot supports, with the canonical AgentNexus terms and
 pointers to the code that implements each. This is the behaviour contract; the
 architecture and auth internals live in the [README](../README.md) and
 [`DATABRICKS_APP_WEBAUTH_DESIGN.md`](DATABRICKS_APP_WEBAUTH_DESIGN.md).
 
 ## Terminology
 
-Terms used the way the Omnigent codebase uses them:
+Terms used the way the AgentNexus codebase uses them:
 
-- **Enrollment** — linking a Slack user to their own **Omnigent identity** on the
+- **Enrollment** — linking a Slack user to their own **AgentNexus identity** on the
   operator-fixed server, yielding a **delegated token** (an access + refresh
   bearer) the bot stores encrypted and presents on that user's behalf. Not
-  "login/account creation" — the Omnigent account already exists; enrollment
+  "login/account creation" — the AgentNexus account already exists; enrollment
   authorizes the bot to act as it.
-- **Session** — one Omnigent conversation. The bot maps **one Slack thread → one
+- **Session** — one AgentNexus conversation. The bot maps **one Slack thread → one
   session** (`ThreadKey`, keyed on `(team_id, channel_id, thread_ts)`), in both
   channels and DMs. A session has an **`owner_user_id`** — the Slack user who
   started the thread.
@@ -34,10 +34,10 @@ Terms used the way the Omnigent codebase uses them:
 
 ## 1. Setup (enrollment)
 
-Link a Slack user to their Omnigent identity on the server, so the bot can run
+Link a Slack user to their AgentNexus identity on the server, so the bot can run
 turns as them. Implemented in `setup.py` (modal flow) + `auth_manager.py` /
 `oauth.py` / `webauth.py` (the auth flows). The exact flow depends on the
-server's auth mode (`OMNIGENT_SLACK_SERVER_AUTH`): `auto` drives the server's
+server's auth mode (`AGENTNEXUS_SLACK_SERVER_AUTH`): `auto` drives the server's
 device-grant / OIDC-ticket login; `databricks` drives a custom U2M OAuth app
 (authorization code + PKCE) — see the design doc.
 
@@ -46,11 +46,11 @@ device-grant / OIDC-ticket login; `databricks` drives a custom U2M OAuth app
   (`SetupFlow.prompt_unconfigured`). Enrollment happens **inside the modal**: the
   bot posts a sign-in link, polls for the delegated token to land, then advances
   to the agent / host / workspace picker — no re-running the command.
-- **`/omnigent` retriggers setup.** Reopens the setup modal any time to
+- **`/agentnexus` retriggers setup.** Reopens the setup modal any time to
   (re-)enroll or change the chosen agent / host / workspace
   (`_handle_config_command`). The server is operator-fixed, so there is no URL to
   change.
-- **`/omnigent logout` unlinks the Slack user.** Revokes the grant on the server
+- **`/agentnexus logout` unlinks the Slack user.** Revokes the grant on the server
   (best-effort) and clears all stored state for that user — delegated token,
   agent/host/workspace config, and thread→session mappings
   (`_handle_logout` → `AuthManager.logout_all` + `store.clear_user_data`).
@@ -72,12 +72,12 @@ event.
 In a channel the bot only joins a thread when explicitly mentioned (needs
 `app_mentions:read`).
 
-- **`@omnigent` starts a session owned by the mentioner.** A channel
+- **`@agentnexus` starts a session owned by the mentioner.** A channel
   `app_mention` starts (or continues) the thread's session, with
   `owner_user_id` = the mentioning user (`handle_app_mention` → `_route_turn`).
 - **Only `@`-mention replies reach the server.** Plain channel messages — even
   replies in a thread that already has a session — are human discussion and are
-  **not** forwarded to Omnigent; only `app_mention` events drive a channel turn
+  **not** forwarded to AgentNexus; only `app_mention` events drive a channel turn
   (`handle_message` drops non-DM messages).
 
 ## 4. Error handling
@@ -115,6 +115,6 @@ never echoed into a channel (it may carry stack traces / internal paths — see
   `test_message_while_parked_in_process_points_to_pending_request`.)
 
 Related failure surfaces the bot also handles: server unreachable (prompts
-`/omnigent`), no online host (`HostUnavailableError` → how to bring one online),
+`/agentnexus`), no online host (`HostUnavailableError` → how to bring one online),
 and harness-not-configured on the host (`HarnessNotConfiguredError`, 412 —
 surfaces the server's actionable message).

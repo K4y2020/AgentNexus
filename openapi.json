@@ -168,7 +168,7 @@
         "properties": {
           "builtin": {
             "default": false,
-            "description": "Whether this is a server-*seeded* built-in agent (deterministic, name-derived id) as opposed to an operator/user-registered template (random id, e.g. via `omnigent server --agent`) or a session-scoped upload. The Web UI's new-session picker uses this to decide whether a same-named `omnigent run` upload may shadow the catalog entry: seeded built-ins are protected, while a user-registered template is superseded by a newer same-named upload. Always `False` for session-scoped agents.",
+            "description": "Whether this is a server-*seeded* built-in agent (deterministic, name-derived id) as opposed to an operator/user-registered template (random id, e.g. via `agentnexus server --agent`) or a session-scoped upload. The Web UI's new-session picker uses this to decide whether a same-named `agentnexus run` upload may shadow the catalog entry: seeded built-ins are protected, while a user-registered template is superseded by a newer same-named upload. Always `False` for session-scoped agents.",
             "title": "Builtin",
             "type": "boolean"
           },
@@ -198,7 +198,7 @@
                 "type": "null"
               }
             ],
-            "description": "The agent's harness/kind, e.g. `\"codex\"`, `\"codex-native\"`, or `\"claude-native\"` for `executor.type: omnigent` agents, otherwise the executor type (`\"claude_sdk\"`, `\"agents_sdk\"`). `None` when the bundle cannot be loaded. Lets the Web UI Add Agent picker recognise an agent's kind (Codex vs Claude) without hardcoding by name slug.",
+            "description": "The agent's harness/kind, e.g. `\"codex\"`, `\"codex-native\"`, or `\"claude-native\"` for `executor.type: agentnexus` agents, otherwise the executor type (`\"claude_sdk\"`, `\"agents_sdk\"`). `None` when the bundle cannot be loaded. Lets the Web UI Add Agent picker recognise an agent's kind (Codex vs Claude) without hardcoding by name slug.",
             "title": "Harness"
           },
           "id": {
@@ -521,7 +521,7 @@
         "type": "object"
       },
       "BrowserActionRequestEvent": {
-        "description": "Request that the desktop renderer perform one browser action.\n\nEmitted by the server `POST /v1/sessions/{id}/browser/action_request`\nroute when a runner-side `browser_*` tool dispatch needs the\nOmnigent desktop app's embedded browser to act. The event fans out\non the session stream to every subscribed renderer; each renderer\nfirst POSTs `/browser/action_claim/{action_id}` and only the\nwinning claimant executes the action and POSTs the result back to\n`/browser/action_result/{action_id}`. The claim lease prevents\ndouble execution when more than one renderer is subscribed.",
+        "description": "Request that the desktop renderer perform one browser action.\n\nEmitted by the server `POST /v1/sessions/{id}/browser/action_request`\nroute when a runner-side `browser_*` tool dispatch needs the\nAgentNexus desktop app's embedded browser to act. The event fans out\non the session stream to every subscribed renderer; each renderer\nfirst POSTs `/browser/action_claim/{action_id}` and only the\nwinning claimant executes the action and POSTs the result back to\n`/browser/action_result/{action_id}`. The claim lease prevents\ndouble execution when more than one renderer is subscribed.",
         "properties": {
           "action": {
             "description": "The browser action to perform \u2014 the `browser_` tool name with the prefix stripped, e.g. `\"navigate\"`, `\"snapshot\"`, `\"click\"`, `\"type\"`, `\"screenshot\"`.",
@@ -768,7 +768,7 @@
           },
           "pending_elicitations_count": {
             "default": 0,
-            "description": "Number of approval / input prompts the child is currently blocked on, read from the server's `omnigent.runtime.pending_elicitations` index. `> 0` means the sub-agent is parked awaiting user input \u2014 the Agents rail renders an \"awaiting input\" badge so a fanned-out sub-agent that needs attention is visible without opening its chat. Mirrors `SessionListItem.pending_elicitations_count`.",
+            "description": "Number of approval / input prompts the child is currently blocked on, read from the server's `agentnexus.runtime.pending_elicitations` index. `> 0` means the sub-agent is parked awaiting user input \u2014 the Agents rail renders an \"awaiting input\" badge so a fanned-out sub-agent that needs attention is visible without opening its chat. Mirrors `SessionListItem.pending_elicitations_count`.",
             "title": "Pending Elicitations Count",
             "type": "integer"
           },
@@ -793,7 +793,7 @@
                 "type": "null"
               }
             ],
-            "description": "Identifier of the routing decision that produced `routed_model`, mirroring `RoutingDecisionData.decision_id`. Read from the child's `omnigent.routing.decision_id` label, stamped when routing pins the model. `None` when the child was not routed.",
+            "description": "Identifier of the routing decision that produced `routed_model`, mirroring `RoutingDecisionData.decision_id`. Read from the child's `agentnexus.routing.decision_id` label, stamped when routing pins the model. `None` when the child was not routed.",
             "title": "Routing Decision Id"
           },
           "session_name": {
@@ -828,7 +828,7 @@
                 "type": "null"
               }
             ],
-            "description": "Sub-agent title, `\"{agent_type}:{session_name}\"` as written by `omnigent.tools.builtins.spawn._spawn_one`, e.g. `\"researcher:auth\"`. `None` only for legacy / malformed rows; the spawn path always sets it.",
+            "description": "Sub-agent title, `\"{agent_type}:{session_name}\"` as written by `agentnexus.tools.builtins.spawn._spawn_one`, e.g. `\"researcher:auth\"`. `None` only for legacy / malformed rows; the spawn path always sets it.",
             "title": "Title"
           },
           "tool": {
@@ -840,7 +840,7 @@
                 "type": "null"
               }
             ],
-            "description": "UI-facing sub-agent label. For Omnigent-spawned children this is derived from the prefix of `title` before the first `\":\"`, e.g. `\"researcher\"`. For Codex-native children this is the Codex-assigned `agent_nickname` when available, then `agent_role`, then `\"Codex\"`. Falls back to the raw title for legacy / malformed rows; `None` only when `title` itself is `None` or empty.",
+            "description": "UI-facing sub-agent label. For AgentNexus-spawned children this is derived from the prefix of `title` before the first `\":\"`, e.g. `\"researcher\"`. For Codex-native children this is the Codex-assigned `agent_nickname` when available, then `agent_role`, then `\"Codex\"`. Falls back to the raw title for legacy / malformed rows; `None` only when `title` itself is `None` or empty.",
             "title": "Tool"
           },
           "updated_at": {
@@ -874,7 +874,7 @@
         "type": "object"
       },
       "ClientTaskCancelEvent": {
-        "description": "Server-side request that the client cancel a tunneled tool call.\n\nEmitted by `omnigent/runtime/workflow.py` when a parent\ncancellation needs to propagate to a long-running async client\ntool. Wire shape matches `workflow.py:4258-4266`.",
+        "description": "Server-side request that the client cancel a tunneled tool call.\n\nEmitted by `agentnexus/runtime/workflow.py` when a parent\ncancellation needs to propagate to a long-running async client\ntool. Wire shape matches `workflow.py:4258-4266`.",
         "properties": {
           "call_id": {
             "anyOf": [
@@ -921,7 +921,7 @@
         "type": "object"
       },
       "CodexGoalObject": {
-        "description": "Current Codex goal state for a Codex-native session.\n\nMirrors Codex app-server's `ThreadGoal` shape using Omnigent's\nsnake-case API convention. `created_at` and `updated_at` are optional\nbecause older app-server documentation examples omit them even though the\ncurrent protocol includes them.",
+        "description": "Current Codex goal state for a Codex-native session.\n\nMirrors Codex app-server's `ThreadGoal` shape using AgentNexus's\nsnake-case API convention. `created_at` and `updated_at` are optional\nbecause older app-server documentation examples omit them even though the\ncurrent protocol includes them.",
         "properties": {
           "created_at": {
             "anyOf": [
@@ -1168,7 +1168,7 @@
         "type": "object"
       },
       "CompactionFailedEvent": {
-        "description": "Conversation history compaction failed.\n\nEmitted by `omnigent/server/routes/sessions.py` when\n`compact_conversation_now()` raises. Clients that rendered a\n\"Compacting\u2026\" spinner on `CompactionInProgressEvent`\nshould dismiss it without leaving a permanent marker, since the\nconversation history was not modified.",
+        "description": "Conversation history compaction failed.\n\nEmitted by `agentnexus/server/routes/sessions.py` when\n`compact_conversation_now()` raises. Clients that rendered a\n\"Compacting\u2026\" spinner on `CompactionInProgressEvent`\nshould dismiss it without leaving a permanent marker, since the\nconversation history was not modified.",
         "properties": {
           "sequence_number": {
             "anyOf": [
@@ -1196,7 +1196,7 @@
         "type": "object"
       },
       "CompactionInProgressEvent": {
-        "description": "Conversation history is being compacted.\n\nEmitted by `omnigent/runtime/compaction.py` while a\ncompaction step runs so clients can render a \"summarizing\nhistory\u2026\" indicator. Wire shape matches `compaction.py:765`.",
+        "description": "Conversation history is being compacted.\n\nEmitted by `agentnexus/runtime/compaction.py` while a\ncompaction step runs so clients can render a \"summarizing\nhistory\u2026\" indicator. Wire shape matches `compaction.py:765`.",
         "properties": {
           "sequence_number": {
             "anyOf": [
@@ -1224,7 +1224,7 @@
         "type": "object"
       },
       "CompletedEvent": {
-        "description": "Terminal event for a successfully completed turn.\n\nCarries the final\n`omnigent.server.schemas.ResponseObject`.",
+        "description": "Terminal event for a successfully completed turn.\n\nCarries the final\n`agentnexus.server.schemas.ResponseObject`.",
         "properties": {
           "response": {
             "$ref": "#/components/schemas/ResponseObject",
@@ -1877,7 +1877,7 @@
         "type": "object"
       },
       "CreatedEvent": {
-        "description": "Initial event emitted at the start of every streaming response.\n\nCarries the freshly-allocated\n`omnigent.server.schemas.ResponseObject` (status will\nbe `\"queued\"` or `\"in_progress\"` depending on whether the\ntask started immediately).",
+        "description": "Initial event emitted at the start of every streaming response.\n\nCarries the freshly-allocated\n`agentnexus.server.schemas.ResponseObject` (status will\nbe `\"queued\"` or `\"in_progress\"` depending on whether the\ntask started immediately).",
         "properties": {
           "response": {
             "$ref": "#/components/schemas/ResponseObject",
@@ -1929,7 +1929,7 @@
         "type": "object"
       },
       "ElicitationRequestEvent": {
-        "description": "Synchronous request for a decision from upstream.\n\nEmitted by Omnigent (or, under the new contract, by a harness)\nwhen the LLM / a tool / a policy needs a verdict before\nproceeding. The consumer replies via\n`POST /v1/sessions/{session_id}/events` with\n`type == \"approval\"` and\n`omnigent.server.schemas.ElicitationResult` fields in\n`data`. This preserves MCP request/reply correlation by id\nwithout threading elicitations through PATCH.\n\nWire shape matches the existing emit at\n`omnigent/runtime/policies/approval.py:175`.",
+        "description": "Synchronous request for a decision from upstream.\n\nEmitted by AgentNexus (or, under the new contract, by a harness)\nwhen the LLM / a tool / a policy needs a verdict before\nproceeding. The consumer replies via\n`POST /v1/sessions/{session_id}/events` with\n`type == \"approval\"` and\n`agentnexus.server.schemas.ElicitationResult` fields in\n`data`. This preserves MCP request/reply correlation by id\nwithout threading elicitations through PATCH.\n\nWire shape matches the existing emit at\n`agentnexus/runtime/policies/approval.py:175`.",
         "properties": {
           "elicitation_id": {
             "description": "Unique correlation id for this request \u2014 appears in the consumer's approval event payload, e.g. `\"elicit_abc123\"`.",
@@ -1939,7 +1939,7 @@
           "method": {
             "const": "elicitation/create",
             "default": "elicitation/create",
-            "description": "MCP method literal \u2014 always `\"elicitation/create\"` (the value of `_MCP_ELICITATION_METHOD` in `omnigent/runtime/policies/approval.py`).",
+            "description": "MCP method literal \u2014 always `\"elicitation/create\"` (the value of `_MCP_ELICITATION_METHOD` in `agentnexus/runtime/policies/approval.py`).",
             "title": "Method",
             "type": "string"
           },
@@ -1976,7 +1976,7 @@
       },
       "ElicitationRequestParams": {
         "additionalProperties": true,
-        "description": "Inner `params` block of a `ElicitationRequestEvent`.\n\nThe standard fields (`mode`, `message`, `requestedSchema`,\n`url`) mirror MCP's `ElicitRequestFormParams` /\n`ElicitRequestUrlParams` byte-for-byte (Principle 8 \u2014 adopt\nMCP's wire shape verbatim where it overlaps). The\nAP-specific extensions (`phase`, `policy_name`,\n`content_preview`, `target_session_id`) carry policy-engine\ncontext and mirrored-child routing for the consumer's renderer;\nMCP's `extra=\"allow\"` config permits them under the same params\nblock. Wire shape matches\n`omnigent/runtime/policies/approval.py:175`.",
+        "description": "Inner `params` block of a `ElicitationRequestEvent`.\n\nThe standard fields (`mode`, `message`, `requestedSchema`,\n`url`) mirror MCP's `ElicitRequestFormParams` /\n`ElicitRequestUrlParams` byte-for-byte (Principle 8 \u2014 adopt\nMCP's wire shape verbatim where it overlaps). The\nAP-specific extensions (`phase`, `policy_name`,\n`content_preview`, `target_session_id`) carry policy-engine\ncontext and mirrored-child routing for the consumer's renderer;\nMCP's `extra=\"allow\"` config permits them under the same params\nblock. Wire shape matches\n`agentnexus/runtime/policies/approval.py:175`.",
         "properties": {
           "content_preview": {
             "anyOf": [
@@ -2016,7 +2016,7 @@
               }
             ],
             "default": null,
-            "description": "Omnigent policy-engine phase the elicitation belongs to, e.g. `\"pre_tool_use\"`.",
+            "description": "AgentNexus policy-engine phase the elicitation belongs to, e.g. `\"pre_tool_use\"`.",
             "title": "Phase"
           },
           "policy_name": {
@@ -2029,7 +2029,7 @@
               }
             ],
             "default": null,
-            "description": "Omnigent policy that triggered the elicitation, e.g. `\"approve_shell_commands\"`.",
+            "description": "AgentNexus policy that triggered the elicitation, e.g. `\"approve_shell_commands\"`.",
             "title": "Policy Name"
           },
           "requestedSchema": {
@@ -2080,7 +2080,7 @@
         "type": "object"
       },
       "ElicitationResolvedEvent": {
-        "description": "Signal that a previously-published elicitation is no longer\noutstanding, even though no UI `approval` verdict was\ndelivered through `POST /v1/sessions/{id}/events`.\n\nEmitted by the runner when its own `_pending_approvals`\nFuture is popped without a verdict (the runner's wait timed\nout, the turn was cancelled, the harness exited) so the AP\nserver's `omnigent.runtime.pending_elicitations`\nindex can decrement the sidebar badge in lockstep with the\nunderlying awaiter's lifecycle. Without this signal, the AP\nserver has no way to learn that the prompt is dead and the\nbadge stays stuck.\n\nIdempotent on the consumer side: the Omnigent server's index\ndecrement is a no-op when the id isn't tracked, so the\nrunner can fire-and-forget on every Future cleanup.",
+        "description": "Signal that a previously-published elicitation is no longer\noutstanding, even though no UI `approval` verdict was\ndelivered through `POST /v1/sessions/{id}/events`.\n\nEmitted by the runner when its own `_pending_approvals`\nFuture is popped without a verdict (the runner's wait timed\nout, the turn was cancelled, the harness exited) so the AP\nserver's `agentnexus.runtime.pending_elicitations`\nindex can decrement the sidebar badge in lockstep with the\nunderlying awaiter's lifecycle. Without this signal, the AP\nserver has no way to learn that the prompt is dead and the\nbadge stays stuck.\n\nIdempotent on the consumer side: the AgentNexus server's index\ndecrement is a no-op when the id isn't tracked, so the\nrunner can fire-and-forget on every Future cleanup.",
         "properties": {
           "action": {
             "anyOf": [
@@ -2458,7 +2458,7 @@
               }
             ],
             "default": null,
-            "description": "Optional short headline naming what went wrong, e.g. `\"Claude Code can't run as root\"`. Present when the runner recognized the failure (see `omnigent.runner.launch_failure`); lets the UI show a clear card title instead of the raw `code`.",
+            "description": "Optional short headline naming what went wrong, e.g. `\"Claude Code can't run as root\"`. Present when the runner recognized the failure (see `agentnexus.runner.launch_failure`); lets the UI show a clear card title instead of the raw `code`.",
             "title": "Title"
           }
         },
@@ -2470,7 +2470,7 @@
         "type": "object"
       },
       "ErrorEvent": {
-        "description": "Non-recoverable error reported during the turn.\n\nEmitted from multiple sites in\n`omnigent/runtime/workflow.py` \u2014 terminal LLM failures\n(`_emit_llm_error_event`), execution timeouts\n(`_handle_execution_timeout`), and the agent-loop catch-all\n(`except Exception`). Wire shape matches those emits.",
+        "description": "Non-recoverable error reported during the turn.\n\nEmitted from multiple sites in\n`agentnexus/runtime/workflow.py` \u2014 terminal LLM failures\n(`_emit_llm_error_event`), execution timeouts\n(`_handle_execution_timeout`), and the agent-loop catch-all\n(`except Exception`). Wire shape matches those emits.",
         "properties": {
           "error": {
             "$ref": "#/components/schemas/RetryErrorDetail",
@@ -2540,7 +2540,7 @@
         "type": "object"
       },
       "FailedEvent": {
-        "description": "Terminal event for a turn that ended with an error.\n\nCarries a `omnigent.server.schemas.FailedResponseObject`\nwhose `error` field describes the failure. Response metadata may\nbe absent when the failure occurs before response allocation.",
+        "description": "Terminal event for a turn that ended with an error.\n\nCarries a `agentnexus.server.schemas.FailedResponseObject`\nwhose `error` field describes the failure. Response metadata may\nbe absent when the failure occurs before response allocation.",
         "properties": {
           "response": {
             "anyOf": [
@@ -3126,7 +3126,7 @@
         "type": "object"
       },
       "HeartbeatEvent": {
-        "description": "Keepalive event emitted on a fixed cadence during streaming.\n\nLets consumers detect stalled producers via missed-interval\ntiming. Cadence is set by `_HEARTBEAT_INTERVAL_S` in\n`omnigent/runtime/workflow.py` (15 seconds at the time of\nwriting). Wire shape matches the existing emit at\n`omnigent/runtime/workflow.py:4636-4639`.\n\nPer `designs/SERVER_HARNESS_CONTRACT.md` \u00a7Heartbeats, the\nevent MAY carry timing metadata so consumers can do richer\ndead-detection than \"did anything arrive\":\n\n- `server_time` is the producer's wall-clock at emission,\n  letting consumers detect clock drift between producer and\n  consumer.\n- `last_event_seq` is the `sequence_number` of the most\n  recent NON-heartbeat event (or `None` when this is the\n  first heartbeat before any user-visible event), letting\n  consumers detect dropped events on reconnect.\n\nBoth fields are optional on the wire (`None` round-trips as\nomitted) so older AP\u2192harness pairs that pre-date the field\naddition still parse cleanly.",
+        "description": "Keepalive event emitted on a fixed cadence during streaming.\n\nLets consumers detect stalled producers via missed-interval\ntiming. Cadence is set by `_HEARTBEAT_INTERVAL_S` in\n`agentnexus/runtime/workflow.py` (15 seconds at the time of\nwriting). Wire shape matches the existing emit at\n`agentnexus/runtime/workflow.py:4636-4639`.\n\nPer `designs/SERVER_HARNESS_CONTRACT.md` \u00a7Heartbeats, the\nevent MAY carry timing metadata so consumers can do richer\ndead-detection than \"did anything arrive\":\n\n- `server_time` is the producer's wall-clock at emission,\n  letting consumers detect clock drift between producer and\n  consumer.\n- `last_event_seq` is the `sequence_number` of the most\n  recent NON-heartbeat event (or `None` when this is the\n  first heartbeat before any user-visible event), letting\n  consumers detect dropped events on reconnect.\n\nBoth fields are optional on the wire (`None` round-trips as\nomitted) so older AP\u2192harness pairs that pre-date the field\naddition still parse cleanly.",
         "properties": {
           "last_event_seq": {
             "anyOf": [
@@ -3180,7 +3180,7 @@
         "type": "object"
       },
       "ImportItemInput": {
-        "description": "One normalized existing Omnigent item received from the CLI.",
+        "description": "One normalized existing AgentNexus item received from the CLI.",
         "properties": {
           "data": {
             "additionalProperties": true,
@@ -3968,7 +3968,7 @@
         "type": "object"
       },
       "OutputFileDoneEvent": {
-        "description": "A streamed file output completed materializing.\n\nEmitted by `_emit_file_annotation_events` in\n`omnigent/runtime/workflow.py` once per file annotation in\nthe assistant's output. `filename` and `content_type` are\nonly populated when the originating annotation carried them.",
+        "description": "A streamed file output completed materializing.\n\nEmitted by `_emit_file_annotation_events` in\n`agentnexus/runtime/workflow.py` once per file annotation in\nthe assistant's output. `filename` and `content_type` are\nonly populated when the originating annotation carried them.",
         "properties": {
           "content_type": {
             "anyOf": [
@@ -4032,7 +4032,7 @@
         "properties": {
           "item": {
             "additionalProperties": true,
-            "description": "The completed item dict. Heterogeneous and item-type-specific; see `omnigent/entities/conversation.py` for the per-type `*Data` shapes that drive serialization. Example for a function_call item: `{\"id\": \"fc_abc123\", \"type\": \"function_call\", \"status\": \"action_required\", \"name\": \"search.web\", \"arguments\": \"{\\\"q\\\": \\\"foo\\\"}\", \"call_id\": \"call_xyz\"}`.",
+            "description": "The completed item dict. Heterogeneous and item-type-specific; see `agentnexus/entities/conversation.py` for the per-type `*Data` shapes that drive serialization. Example for a function_call item: `{\"id\": \"fc_abc123\", \"type\": \"function_call\", \"status\": \"action_required\", \"name\": \"search.web\", \"arguments\": \"{\\\"q\\\": \\\"foo\\\"}\", \"call_id\": \"call_xyz\"}`.",
             "title": "Item",
             "type": "object"
           },
@@ -4063,7 +4063,7 @@
         "type": "object"
       },
       "OutputTextDeltaEvent": {
-        "description": "Incremental assistant-text token emitted during streaming.\n\nWire shape matches the existing raw-dict emit at\n`omnigent/runtime/workflow.py:1352-1356`.",
+        "description": "Incremental assistant-text token emitted during streaming.\n\nWire shape matches the existing raw-dict emit at\n`agentnexus/runtime/workflow.py:1352-1356`.",
         "properties": {
           "delta": {
             "description": "The text fragment for this chunk, e.g. `\"Hello\"`.",
@@ -4212,7 +4212,7 @@
         "type": "object"
       },
       "PolicyDeniedEvent": {
-        "description": "Signal that a policy DENY was enforced on a native harness turn.\n\nA native harness (Claude Code, Codex, ...) routes each tool call and\nprompt through Omnigent's policy engine via the vendor command-hook\n(`POST /v1/sessions/{id}/policies/evaluate`). The DENY verdict is\nreturned synchronously to that hook, so unlike the SDK/wrap path there is\nno stream-visible signal that a native action was blocked \u2014 only the\n*effect* (the blocked tool never runs). This event surfaces the decision\nitself on the session stream so observers (the web UI, the capability\nbench) can see a native DENY as a positive signal rather than infer it\nfrom an absence.\n\nFire-and-forget and observational: it does not gate the turn (the hook\nresponse already did that) and carries no correlation id.",
+        "description": "Signal that a policy DENY was enforced on a native harness turn.\n\nA native harness (Claude Code, Codex, ...) routes each tool call and\nprompt through AgentNexus's policy engine via the vendor command-hook\n(`POST /v1/sessions/{id}/policies/evaluate`). The DENY verdict is\nreturned synchronously to that hook, so unlike the SDK/wrap path there is\nno stream-visible signal that a native action was blocked \u2014 only the\n*effect* (the blocked tool never runs). This event surfaces the decision\nitself on the session stream so observers (the web UI, the capability\nbench) can see a native DENY as a positive signal rather than infer it\nfrom an absence.\n\nFire-and-forget and observational: it does not gate the turn (the hook\nresponse already did that) and carries no correlation id.",
         "properties": {
           "conversation_id": {
             "description": "Session/conversation id the DENY applies to, e.g. `\"conv_abc123\"`.",
@@ -4438,7 +4438,7 @@
         "type": "object"
       },
       "ReasoningStartedEvent": {
-        "description": "Marker emitted once when a reasoning block begins.\n\nFired even when the reasoning content itself is encrypted /\nredacted (so no delta events follow), letting clients render\na \"thinking\u2026\" indicator regardless of provider verification\nstatus. Wire shape matches `omnigent/runtime/workflow.py:1350`.",
+        "description": "Marker emitted once when a reasoning block begins.\n\nFired even when the reasoning content itself is encrypted /\nredacted (so no delta events follow), letting clients render\na \"thinking\u2026\" indicator regardless of provider verification\nstatus. Wire shape matches `agentnexus/runtime/workflow.py:1350`.",
         "properties": {
           "sequence_number": {
             "anyOf": [
@@ -4466,7 +4466,7 @@
         "type": "object"
       },
       "ReasoningSummaryTextDeltaEvent": {
-        "description": "Incremental reasoning-summary token.\n\nEmitted when `reasoning.summary` is configured on the\nrequest. Wire shape matches\n`omnigent/runtime/workflow.py:1370-1373`.",
+        "description": "Incremental reasoning-summary token.\n\nEmitted when `reasoning.summary` is configured on the\nrequest. Wire shape matches\n`agentnexus/runtime/workflow.py:1370-1373`.",
         "properties": {
           "delta": {
             "description": "The summary text fragment, e.g. `\"Will use the search tool to gather context.\"`.",
@@ -4500,7 +4500,7 @@
         "type": "object"
       },
       "ReasoningTextDeltaEvent": {
-        "description": "Incremental reasoning-text token (full chain-of-thought).\n\nOnly emitted by providers that surface reasoning content\n(e.g. OpenAI o-series with appropriate verification). Wire\nshape matches `omnigent/runtime/workflow.py:1358-1364`.",
+        "description": "Incremental reasoning-text token (full chain-of-thought).\n\nOnly emitted by providers that surface reasoning content\n(e.g. OpenAI o-series with appropriate verification). Wire\nshape matches `agentnexus/runtime/workflow.py:1358-1364`.",
         "properties": {
           "delta": {
             "description": "The reasoning text fragment, e.g. `\"Considering the user's intent...\"`.",
@@ -4977,7 +4977,7 @@
         "type": "object"
       },
       "RetryEvent": {
-        "description": "A retryable failure was caught and a retry is scheduled.\n\nEmitted by `omnigent/runtime/llm_retry.py` (LLM calls)\nand `omnigent/runtime/tool_retry.py` (tool calls) before\nsleeping for the backoff delay. Wire shape matches\n`llm_retry.py:329-340` and `tool_retry.py:168-180`.",
+        "description": "A retryable failure was caught and a retry is scheduled.\n\nEmitted by `agentnexus/runtime/llm_retry.py` (LLM calls)\nand `agentnexus/runtime/tool_retry.py` (tool calls) before\nsleeping for the backoff delay. Wire shape matches\n`llm_retry.py:329-340` and `tool_retry.py:168-180`.",
         "properties": {
           "attempt": {
             "description": "1-based count of the upcoming attempt (i.e. attempt that will run AFTER this delay), e.g. `2` for the first retry.",
@@ -5141,7 +5141,7 @@
           },
           "scope": {
             "default": "turn",
-            "description": "What the decision governs \u2014 `\"session\"` (auto-harness session routing), `\"turn\"` (per-turn routing), `\"child_session\"` (an Omnigent-spawned sub-agent) or `\"native_subagent\"` (a Task / `spawn_agent` spawn routed inside the harness). Defaults to `\"turn\"` so rows persisted before this field deserialize.",
+            "description": "What the decision governs \u2014 `\"session\"` (auto-harness session routing), `\"turn\"` (per-turn routing), `\"child_session\"` (an AgentNexus-spawned sub-agent) or `\"native_subagent\"` (a Task / `spawn_agent` spawn routed inside the harness). Defaults to `\"turn\"` so rows persisted before this field deserialize.",
             "enum": [
               "session",
               "turn",
@@ -5860,7 +5860,7 @@
             "type": "string"
           },
           "mode": {
-            "description": "The active collaboration mode string, e.g. `\"plan\"` or `\"default\"`. Category: **transient** (SSE-only). The server also writes `omnigent.codex_native.collaboration_mode` on the conversation labels, so reconnect clients restore the same state from the session snapshot.",
+            "description": "The active collaboration mode string, e.g. `\"plan\"` or `\"default\"`. Category: **transient** (SSE-only). The server also writes `agentnexus.codex_native.collaboration_mode` on the conversation labels, so reconnect clients restore the same state from the session snapshot.",
             "title": "Mode",
             "type": "string"
           },
@@ -5892,7 +5892,7 @@
         "type": "object"
       },
       "SessionCreatedEvent": {
-        "description": "A child (sub-agent) session was spawned from this session.\n\nEmitted by `omnigent/tools/builtins/spawn.py:_spawn_one`\nonto the **parent** session's conversation stream after the\nchild conversation row is created and the child task has been\nstarted. Per the session-rearchitecture spec \u00a73 (\"Event types\nand direction\") and \u00a77 (\"Flow: client interacts with\nsub-agent\"), this lets clients watching the parent session's\nSSE subscribe directly to the child's stream without polling\nhistory for the tunneled `function_call` item.\n\nThe wire shape is FLAT (not enveloped):\n`{\"type\": \"session.created\", \"conversation_id\": <parent>, \"child_session_id\": <child>, \"agent_id\": <agent or None>, \"parent_session_id\": <parent>, \"sequence_number\": null}`.\n\nThe existing tunneled `function_call` ConversationItem\n(carried inside `OutputItemDoneEvent`) is retained\nfor compatibility \u2014 clients that don't yet implement the\n\"subscribe to child stream\" pattern can keep rendering sub-\nagent calls from the parent's persistent history.",
+        "description": "A child (sub-agent) session was spawned from this session.\n\nEmitted by `agentnexus/tools/builtins/spawn.py:_spawn_one`\nonto the **parent** session's conversation stream after the\nchild conversation row is created and the child task has been\nstarted. Per the session-rearchitecture spec \u00a73 (\"Event types\nand direction\") and \u00a77 (\"Flow: client interacts with\nsub-agent\"), this lets clients watching the parent session's\nSSE subscribe directly to the child's stream without polling\nhistory for the tunneled `function_call` item.\n\nThe wire shape is FLAT (not enveloped):\n`{\"type\": \"session.created\", \"conversation_id\": <parent>, \"child_session_id\": <child>, \"agent_id\": <agent or None>, \"parent_session_id\": <parent>, \"sequence_number\": null}`.\n\nThe existing tunneled `function_call` ConversationItem\n(carried inside `OutputItemDoneEvent`) is retained\nfor compatibility \u2014 clients that don't yet implement the\n\"subscribe to child stream\" pattern can keep rendering sub-\nagent calls from the parent's persistent history.",
         "properties": {
           "agent_id": {
             "anyOf": [
@@ -5975,7 +5975,7 @@
           },
           "codex_bypass_sandbox": {
             "default": false,
-            "description": "Opt-in for the DANGEROUS codex-native full-bypass (`--dangerously-bypass-approvals-and-sandbox`) on the fork. The source's bypass label is ALWAYS dropped on a fork (a bypass-armed source can never silently re-arm its clone), so this is the only way a fork enables it \u2014 an explicit, banner-gated opt-in from the dialog, mirroring the new-session approval selector. `True` stamps `omnigent.codex_native.bypass_sandbox` on the fork; `False` / omitted leaves the fork in Codex's normal approval/sandbox stance. Only meaningful for a codex-native target; ignored otherwise.",
+            "description": "Opt-in for the DANGEROUS codex-native full-bypass (`--dangerously-bypass-approvals-and-sandbox`) on the fork. The source's bypass label is ALWAYS dropped on a fork (a bypass-armed source can never silently re-arm its clone), so this is the only way a fork enables it \u2014 an explicit, banner-gated opt-in from the dialog, mirroring the new-session approval selector. `True` stamps `agentnexus.codex_native.bypass_sandbox` on the fork; `False` / omitted leaves the fork in Codex's normal approval/sandbox stance. Only meaningful for a codex-native target; ignored otherwise.",
             "title": "Codex Bypass Sandbox",
             "type": "boolean"
           },
@@ -6167,7 +6167,7 @@
               }
             ],
             "default": null,
-            "description": "When this consumed message drains a `omnigent.runtime.pending_inputs` entry (a native- terminal web message round-tripping back from the transcript), the drained entry's id, e.g. `\"pending_a1b2c3\"`. Lets a client drop the matching optimistic bubble by id instead of by position. `None` for non-native messages and for messages that matched no pending entry (e.g. typed directly in the TUI).",
+            "description": "When this consumed message drains a `agentnexus.runtime.pending_inputs` entry (a native- terminal web message round-tripping back from the transcript), the drained entry's id, e.g. `\"pending_a1b2c3\"`. Lets a client drop the matching optimistic bubble by id instead of by position. `None` for non-native messages and for messages that matched no pending entry (e.g. typed directly in the TUI).",
             "title": "Cleared Pending Id"
           },
           "created_by": {
@@ -6195,7 +6195,7 @@
             "type": "string"
           },
           "type": {
-            "description": "The item type discriminator \u2014 `\"message\"` for user messages, `\"function_call_output\"` for tool results, etc. Mirrors `omnigent.server.schemas.SessionEventInput`'s `type` field.",
+            "description": "The item type discriminator \u2014 `\"message\"` for user messages, `\"function_call_output\"` for tool results, etc. Mirrors `agentnexus.server.schemas.SessionEventInput`'s `type` field.",
             "title": "Type",
             "type": "string"
           }
@@ -6209,7 +6209,7 @@
         "type": "object"
       },
       "SessionInterruptedEvent": {
-        "description": "User-triggered cancel reached the loop.\n\nEmitted by `_publish_interrupted` in\n`omnigent/server/routes/sessions.py` when a client posts\na `{\"type\": \"interrupt\"}` to `POST /v1/sessions/{id}/events`. Co-emitted with\n`IncompleteEvent` (with the underlying response carrying\n`incomplete_details.reason == \"user_interrupt\"`) so off-the-\nshelf Responses parsers still close cleanly. Wire shape uses\nthe NESTED envelope verbatim from the existing emit site.",
+        "description": "User-triggered cancel reached the loop.\n\nEmitted by `_publish_interrupted` in\n`agentnexus/server/routes/sessions.py` when a client posts\na `{\"type\": \"interrupt\"}` to `POST /v1/sessions/{id}/events`. Co-emitted with\n`IncompleteEvent` (with the underlying response carrying\n`incomplete_details.reason == \"user_interrupt\"`) so off-the-\nshelf Responses parsers still close cleanly. Wire shape uses\nthe NESTED envelope verbatim from the existing emit site.",
         "properties": {
           "data": {
             "$ref": "#/components/schemas/SessionInterruptedPayload",
@@ -6242,7 +6242,7 @@
         "type": "object"
       },
       "SessionInterruptedPayload": {
-        "description": "Inner payload of a `SessionInterruptedEvent`.\n\nBuilt by `_publish_interrupted` in\n`omnigent/server/routes/sessions.py`.",
+        "description": "Inner payload of a `SessionInterruptedEvent`.\n\nBuilt by `_publish_interrupted` in\n`agentnexus/server/routes/sessions.py`.",
         "properties": {
           "requested_at": {
             "description": "Unix epoch seconds when the interrupt request reached the server, e.g. `1704067200`.",
@@ -6408,7 +6408,7 @@
                 "type": "null"
               }
             ],
-            "description": "Runtime-native session id this conversation wraps, e.g. a Claude Code session uuid for `omnigent claude` sessions. `None` for regular AP-only conversations. Lets the sidebar / picker render a runtime badge without a follow-up GET.",
+            "description": "Runtime-native session id this conversation wraps, e.g. a Claude Code session uuid for `agentnexus claude` sessions. `None` for regular AP-only conversations. Lets the sidebar / picker render a runtime badge without a follow-up GET.",
             "title": "External Session Id"
           },
           "git_branch": {
@@ -6485,7 +6485,7 @@
           },
           "pending_elicitations_count": {
             "default": 0,
-            "description": "Number of approval prompts currently waiting on this session. Powers the sidebar's \"needs attention\" badge so a user with several sessions running can tell which ones are blocked on them without opening each chat. Sourced from the Omnigent server's in-memory `omnigent.runtime.pending_elicitations` index, which mirrors every `response.elicitation_request` event passing through `session_stream` and decrements when a verdict is dispatched. `0` when the session has no outstanding elicitations.",
+            "description": "Number of approval prompts currently waiting on this session. Powers the sidebar's \"needs attention\" badge so a user with several sessions running can tell which ones are blocked on them without opening each chat. Sourced from the AgentNexus server's in-memory `agentnexus.runtime.pending_elicitations` index, which mirrors every `response.elicitation_request` event passing through `session_stream` and decrements when a verdict is dispatched. `0` when the session has no outstanding elicitations.",
             "title": "Pending Elicitations Count",
             "type": "integer"
           },
@@ -6760,7 +6760,7 @@
         "type": "object"
       },
       "SessionPermissionModeEvent": {
-        "description": "Active permission-mode update from a claude-native session.\n\nEmitted after the web UI switches the mode, and after the Claude forwarder\nobserves a different mode in the pane footer \u2014 a shift+tab pressed inside\nthe TUI, which Omnigent has no other way to see. Lets the composer's mode\npicker track the pane without a reload.",
+        "description": "Active permission-mode update from a claude-native session.\n\nEmitted after the web UI switches the mode, and after the Claude forwarder\nobserves a different mode in the pane footer \u2014 a shift+tab pressed inside\nthe TUI, which AgentNexus has no other way to see. Lets the composer's mode\npicker track the pane without a reload.",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`.",
@@ -6768,7 +6768,7 @@
             "type": "string"
           },
           "permission_mode": {
-            "description": "The active mode, e.g. `\"auto\"` or `\"plan\"`. Category: **transient** (SSE-only). The server also writes `omnigent.claude_native.permission_mode` on the conversation labels, so reconnecting clients restore the same state from the session snapshot.",
+            "description": "The active mode, e.g. `\"auto\"` or `\"plan\"`. Category: **transient** (SSE-only). The server also writes `agentnexus.claude_native.permission_mode` on the conversation labels, so reconnecting clients restore the same state from the session snapshot.",
             "title": "Permission Mode",
             "type": "string"
           },
@@ -6800,7 +6800,7 @@
         "type": "object"
       },
       "SessionPresenceEvent": {
-        "description": "The session's viewer list changed \u2014 full state, not a delta.\n\nEmitted on `GET /v1/sessions/{id}/stream` whenever a user\njoins, leaves (after the server-side grace window absorbs\nreconnect churn), or flips their idle aggregate, and once to\neach newly-connected stream as a snapshot-on-connect. Every\nevent carries the COMPLETE viewer list so clients replace their\nstate wholesale \u2014 missed events self-heal on the next event or\nreconnect. Viewers are scoped to the session *tree* (the root\nconversation and every sub-agent conversation under it), so a\nuser on a sub-agent page and a user on the root page appear in\neach other's lists. See `omnigent/server/presence.py` and\n`designs/UI/PRESENCE.md`.",
+        "description": "The session's viewer list changed \u2014 full state, not a delta.\n\nEmitted on `GET /v1/sessions/{id}/stream` whenever a user\njoins, leaves (after the server-side grace window absorbs\nreconnect churn), or flips their idle aggregate, and once to\neach newly-connected stream as a snapshot-on-connect. Every\nevent carries the COMPLETE viewer list so clients replace their\nstate wholesale \u2014 missed events self-heal on the next event or\nreconnect. Viewers are scoped to the session *tree* (the root\nconversation and every sub-agent conversation under it), so a\nuser on a sub-agent page and a user on the root page appear in\neach other's lists. See `agentnexus/server/presence.py` and\n`designs/UI/PRESENCE.md`.",
         "properties": {
           "conversation_id": {
             "description": "The conversation whose stream delivered this event \u2014 the root or a sub-agent conversation, e.g. `\"conv_abc123\"`. Matches the streamed conversation (not necessarily the tree's root) so clients can guard events by the conversation they are viewing.",
@@ -7234,7 +7234,7 @@
                 "type": "null"
               }
             ],
-            "description": "Runtime-native session id this conversation wraps, e.g. a Claude Code session uuid for `omnigent claude` sessions. `None` for regular AP-only conversations. Populated by the wrapper bridge.",
+            "description": "Runtime-native session id this conversation wraps, e.g. a Claude Code session uuid for `agentnexus claude` sessions. `None` for regular AP-only conversations. Populated by the wrapper bridge.",
             "title": "External Session Id"
           },
           "git_branch": {
@@ -7403,7 +7403,7 @@
             "title": "Parent Session Id"
           },
           "pending_elicitations": {
-            "description": "Outstanding approval prompts on this session at the moment the snapshot was built \u2014 the original `response.elicitation_request` event dicts. Lets the UI render the ApprovalCard on cold load, since the live SSE stream has no replay and a prompt emitted before the user opened the chat would otherwise vanish. Empty list when no prompts are outstanding. Sourced from the Omnigent server's in-memory `omnigent.runtime.pending_elicitations` index.",
+            "description": "Outstanding approval prompts on this session at the moment the snapshot was built \u2014 the original `response.elicitation_request` event dicts. Lets the UI render the ApprovalCard on cold load, since the live SSE stream has no replay and a prompt emitted before the user opened the chat would otherwise vanish. Empty list when no prompts are outstanding. Sourced from the AgentNexus server's in-memory `agentnexus.runtime.pending_elicitations` index.",
             "items": {
               "additionalProperties": true,
               "type": "object"
@@ -7412,7 +7412,7 @@
             "type": "array"
           },
           "pending_inputs": {
-            "description": "Un-consumed web-composer user messages on native-terminal (claude-native / codex-native) sessions at snapshot time, each `{\"pending_id\", \"content\"}`. Native sessions don't persist a web message at POST time (the transcript forwarder is the single writer), so a client that posted then navigated away / rebound would lose its optimistic bubble; replaying these re-hydrates it. Empty list otherwise. Sourced from the in-memory `omnigent.runtime.pending_inputs` index.",
+            "description": "Un-consumed web-composer user messages on native-terminal (claude-native / codex-native) sessions at snapshot time, each `{\"pending_id\", \"content\"}`. Native sessions don't persist a web message at POST time (the transcript forwarder is the single writer), so a client that posted then navigated away / rebound would lose its optimistic bubble; replaying these re-hydrates it. Empty list otherwise. Sourced from the in-memory `agentnexus.runtime.pending_inputs` index.",
             "items": {
               "additionalProperties": true,
               "type": "object"
@@ -7513,7 +7513,7 @@
                 "type": "null"
               }
             ],
-            "description": "Managed-sandbox launch progress while the session's background sandbox launch is in flight or has failed \u2014 see `SandboxStatus`. `None` for sessions without a managed launch and once the launch succeeds. Sourced from the Omnigent server's in-memory `_session_sandbox_status_cache` at snapshot build time, so a client opening the session mid-launch sees the current stage."
+            "description": "Managed-sandbox launch progress while the session's background sandbox launch is in flight or has failed \u2014 see `SandboxStatus`. `None` for sessions without a managed launch and once the launch succeeds. Sourced from the AgentNexus server's in-memory `_session_sandbox_status_cache` at snapshot build time, so a client opening the session mid-launch sees the current stage."
           },
           "skills": {
             "description": "Skills the bound agent has access to \u2014 the merged result of the agent spec's bundled `skills` and the host-scope skills discovered along the agent workdir / `~/.claude/skills/` (subject to the spec's `skills_filter`). Mirrors what the TUI passes to the runner at startup. Empty list when the agent spec cannot be loaded, or when bundled + host discovery yields nothing.",
@@ -7575,7 +7575,7 @@
           },
           "terminal_pending": {
             "default": false,
-            "description": "`True` while the runner is auto-creating a terminal-first session's terminal (claude-native / codex-native), so the Web UI shows a spinner on the Terminal pill instead of a silent greyed-out button. Cleared to `False` once the terminal lands or auto-create fails; from then on the client relies purely on whether a terminal resource exists. Sourced from the Omnigent server's in-memory `_session_terminal_pending_cache` at snapshot build time, so a client connecting mid-spin-up still sees the spinner.",
+            "description": "`True` while the runner is auto-creating a terminal-first session's terminal (claude-native / codex-native), so the Web UI shows a spinner on the Terminal pill instead of a silent greyed-out button. Cleared to `False` once the terminal lands or auto-create fails; from then on the client relies purely on whether a terminal resource exists. Sourced from the AgentNexus server's in-memory `_session_terminal_pending_cache` at snapshot build time, so a client connecting mid-spin-up still sees the spinner.",
             "title": "Terminal Pending",
             "type": "boolean"
           },
@@ -7592,7 +7592,7 @@
             "title": "Title"
           },
           "todos": {
-            "description": "Current Claude Code todo list items for `omnigent claude` sessions, as raw dicts from Claude's todo JSON file. Each dict has `content`, `status`, and `activeForm` keys. Empty list for non-claude-native sessions or when no todos have been reported yet. Sourced from the Omnigent server's in-memory `_session_todos_cache`.",
+            "description": "Current Claude Code todo list items for `agentnexus claude` sessions, as raw dicts from Claude's todo JSON file. Each dict has `content`, `status`, and `activeForm` keys. Empty list for non-claude-native sessions or when no todos have been reported yet. Sourced from the AgentNexus server's in-memory `_session_todos_cache`.",
             "items": {
               "additionalProperties": true,
               "type": "object"
@@ -7662,7 +7662,7 @@
         "type": "object"
       },
       "SessionSandboxStatusEvent": {
-        "description": "Managed-sandbox launch progress for a `host_type=\"managed\"` session.\n\nA managed create returns before its sandbox exists; the Omnigent\nserver emits this event as the background launch pipeline advances\nso the Web UI can show live provisioning progress on the session\npage instead of a silent dead chat: sandbox provision \u2192 repository\nclone \u2192 host startup \u2192 runner connect \u2192 ready, or a terminal\nfailure with the reason.",
+        "description": "Managed-sandbox launch progress for a `host_type=\"managed\"` session.\n\nA managed create returns before its sandbox exists; the AgentNexus\nserver emits this event as the background launch pipeline advances\nso the Web UI can show live provisioning progress on the session\npage instead of a silent dead chat: sandbox provision \u2192 repository\nclone \u2192 host startup \u2192 runner connect \u2192 ready, or a terminal\nfailure with the reason.",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`.",
@@ -7723,7 +7723,7 @@
         "type": "object"
       },
       "SessionSkillsEvent": {
-        "description": "Signal that a session's runner-owned skills have resolved.\n\nSkills are discovered against the bound runner's filesystem and\nfetched off the session-snapshot hot path: the snapshot kicks a\nsingle background fetch (`_load_runner_skills` in\n`omnigent/server/routes/sessions.py`) and serves `[]` until\nit lands. This event fires the moment that background fetch\npopulates the per-session skills cache, so a connected web client\ncan re-read the snapshot and fill its slash-command menu instead\nof waiting for the next bind.\n\nCarries no payload beyond the conversation id \u2014 it is a \"skills\nare ready, re-read the snapshot\" nudge, mirroring the\ninvalidate-then-refetch shape used by\n`SessionChangedFilesInvalidatedEvent`. The snapshot's\n`skills` field (now cache-backed) stays the source of truth.",
+        "description": "Signal that a session's runner-owned skills have resolved.\n\nSkills are discovered against the bound runner's filesystem and\nfetched off the session-snapshot hot path: the snapshot kicks a\nsingle background fetch (`_load_runner_skills` in\n`agentnexus/server/routes/sessions.py`) and serves `[]` until\nit lands. This event fires the moment that background fetch\npopulates the per-session skills cache, so a connected web client\ncan re-read the snapshot and fill its slash-command menu instead\nof waiting for the next bind.\n\nCarries no payload beyond the conversation id \u2014 it is a \"skills\nare ready, re-read the snapshot\" nudge, mirroring the\ninvalidate-then-refetch shape used by\n`SessionChangedFilesInvalidatedEvent`. The snapshot's\n`skills` field (now cache-backed) stays the source of truth.",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`. Category: **transient** (SSE-only). On reconnect, clients seed the menu from the session snapshot's `skills` field, which is populated by the runner-skills cache at snapshot build time.",
@@ -7757,7 +7757,7 @@
         "type": "object"
       },
       "SessionStatusEvent": {
-        "description": "Session lifecycle status transition.\n\nEmitted by the runtime / session route handler at every\ntransition between `launching` / `running` / `waiting` /\n`idle` / `failed`. Wire shape is\nFLAT (not enveloped): `{\"type\": \"session.status\", \"conversation_id\": \"...\", \"status\": \"...\", \"sequence_number\": null}`.\n\nThe `waiting` value is emitted by the runtime's parent agent\nloop when it parks on the `async_work_complete` drain\n(`_drain_async_completions(block_for_one=True)` in\n`omnigent/runtime/workflow.py`) \u2014 i.e. while the parent\nturn is suspended waiting for background tools or sub-agents\nto complete. Per the session-rearchitecture spec \u00a73\n(\"Event types and direction\"), `waiting` is the\nsession-status companion of the spec's `turn.waiting`\ntransient \u2014 clients should render the session as actively\nblocked-on-async-work, distinct from `running`. When the\ndrain wakes (a child completed), the runtime emits a follow-up\n`running` to resume.",
+        "description": "Session lifecycle status transition.\n\nEmitted by the runtime / session route handler at every\ntransition between `launching` / `running` / `waiting` /\n`idle` / `failed`. Wire shape is\nFLAT (not enveloped): `{\"type\": \"session.status\", \"conversation_id\": \"...\", \"status\": \"...\", \"sequence_number\": null}`.\n\nThe `waiting` value is emitted by the runtime's parent agent\nloop when it parks on the `async_work_complete` drain\n(`_drain_async_completions(block_for_one=True)` in\n`agentnexus/runtime/workflow.py`) \u2014 i.e. while the parent\nturn is suspended waiting for background tools or sub-agents\nto complete. Per the session-rearchitecture spec \u00a73\n(\"Event types and direction\"), `waiting` is the\nsession-status companion of the spec's `turn.waiting`\ntransient \u2014 clients should render the session as actively\nblocked-on-async-work, distinct from `running`. When the\ndrain wakes (a child completed), the runtime emits a follow-up\n`running` to resume.",
         "properties": {
           "background_task_count": {
             "anyOf": [
@@ -7871,7 +7871,7 @@
         "type": "object"
       },
       "SessionSupersededEvent": {
-        "description": "This conversation was superseded by another and clients should\nfollow to it.\n\nEmitted by `_publish_session_superseded` in\n`omnigent/server/routes/sessions.py` when the claude-native\nforwarder rotates a session away on a Claude `/clear` (the old\nconversation keeps its history but the live terminal moves to a\nfresh conversation \u2014 see `_post_clear_supersession` in\n`omnigent/claude_native_forwarder.py`). A client actively viewing\nthe superseded conversation auto-redirects to `target_conversation_id`.\n\nCategory: **transient** (SSE-only), live-only by design. There is no\nSSE replay: a client that connects after the rotation does not get\nthis event. The durable counterpart is the persisted notice message\nappended to the old conversation (a `message` item linking to the\nnew conversation), which a reloading client renders instead of being\nforce-redirected.\n\nThe wire shape is FLAT (not enveloped):\n`{\"type\": \"session.superseded\", \"conversation_id\": <old>, \"target_conversation_id\": <new>, \"reason\": \"clear\"}`.",
+        "description": "This conversation was superseded by another and clients should\nfollow to it.\n\nEmitted by `_publish_session_superseded` in\n`agentnexus/server/routes/sessions.py` when the claude-native\nforwarder rotates a session away on a Claude `/clear` (the old\nconversation keeps its history but the live terminal moves to a\nfresh conversation \u2014 see `_post_clear_supersession` in\n`agentnexus/claude_native_forwarder.py`). A client actively viewing\nthe superseded conversation auto-redirects to `target_conversation_id`.\n\nCategory: **transient** (SSE-only), live-only by design. There is no\nSSE replay: a client that connects after the rotation does not get\nthis event. The durable counterpart is the persisted notice message\nappended to the old conversation (a `message` item linking to the\nnew conversation), which a reloading client renders instead of being\nforce-redirected.\n\nThe wire shape is FLAT (not enveloped):\n`{\"type\": \"session.superseded\", \"conversation_id\": <old>, \"target_conversation_id\": <new>, \"reason\": \"clear\"}`.",
         "properties": {
           "conversation_id": {
             "description": "The superseded (old) conversation id this event rides the stream of, e.g. `\"conv_old\"`.",
@@ -7974,7 +7974,7 @@
         "type": "object"
       },
       "SessionTerminalPendingEvent": {
-        "description": "Terminal spin-up status for a terminal-first session.\n\nTwo sources emit this event:\n\n1. The Omnigent server at `POST /v1/sessions` for host-launched\n   terminal-first sessions \u2014 the earliest possible point, before\n   the runner even starts, so the spinner appears immediately on\n   session create rather than after the runner boots.\n2. The Omnigent relay when the runner's `session.terminal_pending` frame\n   arrives \u2014 covers non-host-launched sessions (e.g. server-dispatched\n   sub-agents) and carries the authoritative `pending=False` clear\n   emitted by the runner's `finally` block.\n\nTogether they allow web to show a spinner on the Terminal pill\nwhile the backend boots the terminal instead of a silent greyed-out\nbutton, and to distinguish \"still starting up\" from \"no terminal\"\n(killed or never created).",
+        "description": "Terminal spin-up status for a terminal-first session.\n\nTwo sources emit this event:\n\n1. The AgentNexus server at `POST /v1/sessions` for host-launched\n   terminal-first sessions \u2014 the earliest possible point, before\n   the runner even starts, so the spinner appears immediately on\n   session create rather than after the runner boots.\n2. The AgentNexus relay when the runner's `session.terminal_pending` frame\n   arrives \u2014 covers non-host-launched sessions (e.g. server-dispatched\n   sub-agents) and carries the authoritative `pending=False` clear\n   emitted by the runner's `finally` block.\n\nTogether they allow web to show a spinner on the Terminal pill\nwhile the backend boots the terminal instead of a silent greyed-out\nbutton, and to distinguish \"still starting up\" from \"no terminal\"\n(killed or never created).",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`.",
@@ -8014,7 +8014,7 @@
         "type": "object"
       },
       "SessionTitleEvent": {
-        "description": "Session-title update from a terminal-backed integration.\n\nEmitted after an `external_session_title` POST from the\n`omnigent claude` transcript forwarder when the operator renames\nthe session inside the Claude Code pane (`/rename`). Lets the web\nsession list show the new name without a reload.",
+        "description": "Session-title update from a terminal-backed integration.\n\nEmitted after an `external_session_title` POST from the\n`agentnexus claude` transcript forwarder when the operator renames\nthe session inside the Claude Code pane (`/rename`). Lets the web\nsession list show the new name without a reload.",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`.",
@@ -8054,7 +8054,7 @@
         "type": "object"
       },
       "SessionTodosEvent": {
-        "description": "Todo-list update from a Claude Code terminal-backed session.\n\nEmitted after an `external_session_todos` POST from the\n`omnigent claude` transcript forwarder, which captures todo\nupdates via `PostToolUse`/`TodoWrite` hook events from Claude\nCode and forwards them to the Omnigent server. Lets web render a\nlive todo panel in the right column without polling.",
+        "description": "Todo-list update from a Claude Code terminal-backed session.\n\nEmitted after an `external_session_todos` POST from the\n`agentnexus claude` transcript forwarder, which captures todo\nupdates via `PostToolUse`/`TodoWrite` hook events from Claude\nCode and forwards them to the AgentNexus server. Lets web render a\nlive todo panel in the right column without polling.",
         "properties": {
           "conversation_id": {
             "description": "Session identifier, e.g. `\"conv_abc123\"`.",
@@ -8098,7 +8098,7 @@
         "type": "object"
       },
       "SessionUsage": {
-        "description": "One session's rolled-up LLM spend for the `GET /v1/usage` report.\n\n`cost_usd` is the subtree total \u2014 the session plus every sub-agent it\nspawned \u2014 read from `session_usage` via\n`omnigent.runtime.policies.builder.load_session_usage`. It is the\nauthoritative session figure (the same value the web session sidebar\nshows as \"Session cost\" and the daily rollup records).\n\n`models` is the per-model cost breakdown, mirroring the web session\nsidebar's per-model list. Deliberately **not guaranteed to sum to\n`cost_usd`**: native harnesses report a single cumulative session\ntotal and the server attributes it to the currently-active model, so on\na session that switched models mid-run each model's bucket is a snapshot\nof the running total rather than that model's own spend. The header\n`cost_usd` stays authoritative; the per-model values are shown\nfaithfully as recorded (same convention as the web UI).",
+        "description": "One session's rolled-up LLM spend for the `GET /v1/usage` report.\n\n`cost_usd` is the subtree total \u2014 the session plus every sub-agent it\nspawned \u2014 read from `session_usage` via\n`agentnexus.runtime.policies.builder.load_session_usage`. It is the\nauthoritative session figure (the same value the web session sidebar\nshows as \"Session cost\" and the daily rollup records).\n\n`models` is the per-model cost breakdown, mirroring the web session\nsidebar's per-model list. Deliberately **not guaranteed to sum to\n`cost_usd`**: native harnesses report a single cumulative session\ntotal and the server attributes it to the currently-active model, so on\na session that switched models mid-run each model's bucket is a snapshot\nof the running total rather than that model's own spend. The header\n`cost_usd` stays authoritative; the per-model values are shown\nfaithfully as recorded (same convention as the web UI).",
         "properties": {
           "agent_name": {
             "anyOf": [
@@ -8198,7 +8198,7 @@
         "type": "object"
       },
       "SessionUsageEvent": {
-        "description": "Token-usage update from a terminal-backed integration.\n\nEmitted after an `external_session_usage` POST from an\nout-of-AP runtime (e.g. the `omnigent claude` transcript\nforwarder). Either field may be absent; clients should leave\ncached values untouched for missing fields.",
+        "description": "Token-usage update from a terminal-backed integration.\n\nEmitted after an `external_session_usage` POST from an\nout-of-AP runtime (e.g. the `agentnexus claude` transcript\nforwarder). Either field may be absent; clients should leave\ncached values untouched for missing fields.",
         "properties": {
           "context_tokens": {
             "anyOf": [
@@ -9047,7 +9047,7 @@
       },
       "UpdateCodexGoalStatusRequest": {
         "additionalProperties": false,
-        "description": "Request body for `PATCH /v1/sessions/{id}/codex_goal/status`.\n\nCodex app-server represents pause/resume as `thread/goal/set` status\nupdates. Omnigent exposes the two user-driven transitions explicitly:\n`\"paused\"` pauses an active goal, and `\"active\"` resumes a paused,\nblocked, or usage-limited goal.",
+        "description": "Request body for `PATCH /v1/sessions/{id}/codex_goal/status`.\n\nCodex app-server represents pause/resume as `thread/goal/set` status\nupdates. AgentNexus exposes the two user-driven transitions explicitly:\n`\"paused\"` pauses an active goal, and `\"active\"` resumes a paused,\nblocked, or usage-limited goal.",
         "properties": {
           "status": {
             "description": "Target Codex goal status, either `\"paused\"` or `\"active\"`.",
@@ -9410,7 +9410,7 @@
                 "type": "null"
               }
             ],
-            "description": "Runtime-native session id captured by a wrapper bridge (e.g. Claude Code's session uuid for `omnigent claude` sessions). Idempotent on same-value writes; the server rejects attempts to overwrite an already-set different value with `invalid_input` to surface programmer errors. `None` leaves unchanged.",
+            "description": "Runtime-native session id captured by a wrapper bridge (e.g. Claude Code's session uuid for `agentnexus claude` sessions). Idempotent on same-value writes; the server rejects attempts to overwrite an already-set different value with `invalid_input` to surface programmer errors. `None` leaves unchanged.",
             "title": "External Session Id"
           },
           "labels": {
@@ -9833,23 +9833,23 @@
     }
   },
   "info": {
-    "description": "Omnigent is an open-source meta-harness for building and running AI agents. This is the REST API exposed by the Omnigent server: use it to create and drive **sessions**, manage **agents**, **hosts**, and **runners**, attach **contextual policies**, post **comments**, and work with session **resources** \u2014 files, terminals, and sandboxed environments.\n\n## Base URL\n\nOmnigent is self-hosted. The server binds `http://127.0.0.1:6767` by default (`omnigent server`); point the base URL at your own deployment.\n\n## Authentication\n\nThere is no API-key or bearer-token scheme. Identity is supplied by the deployment's configured auth provider (`OMNIGENT_AUTH_PROVIDER`):\n\n- **Trusted proxy header** (default) \u2014 an upstream proxy injects an identity header (`X-Forwarded-Email`, configurable). Single-user local runtimes fall back to a reserved `local` user.\n- **Session cookie** \u2014 a signed session cookie minted after an interactive OIDC or accounts login. It is named `ap_session` over HTTP (the advertised local default) and `__Host-ap_session` under HTTPS, where the `__Host-` prefix guards against subdomain cookie-tossing.\n\nAuth is configured server-side; clients send the cookie or proxy header according to your deployment.\n\n## Streaming\n\n`GET /v1/sessions/{session_id}/stream` streams Server-Sent Events (`text/event-stream`). Each event conforms to the `ServerStreamEvent` schema documented below.\n",
+    "description": "AgentNexus is an open-source meta-harness for building and running AI agents. This is the REST API exposed by the AgentNexus server: use it to create and drive **sessions**, manage **agents**, **hosts**, and **runners**, attach **contextual policies**, post **comments**, and work with session **resources** \u2014 files, terminals, and sandboxed environments.\n\n## Base URL\n\nAgentNexus is self-hosted. The server binds `http://127.0.0.1:6767` by default (`agentnexus server`); point the base URL at your own deployment.\n\n## Authentication\n\nThere is no API-key or bearer-token scheme. Identity is supplied by the deployment's configured auth provider (`OMNIGENT_AUTH_PROVIDER`):\n\n- **Trusted proxy header** (default) \u2014 an upstream proxy injects an identity header (`X-Forwarded-Email`, configurable). Single-user local runtimes fall back to a reserved `local` user.\n- **Session cookie** \u2014 a signed session cookie minted after an interactive OIDC or accounts login. It is named `ap_session` over HTTP (the advertised local default) and `__Host-ap_session` under HTTPS, where the `__Host-` prefix guards against subdomain cookie-tossing.\n\nAuth is configured server-side; clients send the cookie or proxy header according to your deployment.\n\n## Streaming\n\n`GET /v1/sessions/{session_id}/stream` streams Server-Sent Events (`text/event-stream`). Each event conforms to the `ServerStreamEvent` schema documented below.\n",
     "title": "AgentNexus Server",
     "version": "0.1.0"
   },
   "openapi": "3.2.0",
   "paths": {
-    "/.well-known/omnigent.json": {
+    "/.well-known/agentnexus.json": {
       "get": {
-        "description": "Version manifest for NON-BROWSER clients \u2014 chiefly the desktop shell.\n\nThe desktop shell ships and updates on its own cadence, so any\ninstalled build can meet any server version. The shell is the side\nthat must adapt (the user may not update it for months), and to adapt\nit first has to know what it is talking to. This endpoint is that\nanswer, fetched BEFORE the SPA loads \u2014 unlike `/v1/info`, which the\nSPA reads after boot and which is therefore useless to the shell when\ndeciding how to open a window in the first place.\n\nContract, in the order a client should apply it:\n\n1. `manifest_version` (int) versions this ENVELOPE. Clients gate on\n   `>=`, never `==`, so a newer server keeps working with an older\n   shell. See `WELL_KNOWN_MANIFEST_VERSION` for when it bumps \u2014\n   adding a field never does.\n2. `server_version` (str) is the installed omnigent package version,\n   the same value as `/api/version` and `/v1/info.server_version`.\n   Informational: for display and bug reports, NOT for gating. Gate on\n   the fields below, which state capability directly rather than making\n   every client hardcode \"which release added X\".\n3. `min_desktop_version` (str | null) is the oldest desktop build this\n   server still supports. Null means no floor \u2014 the overwhelmingly\n   common case, and what every shipped shell must treat as \"fine\".\n   A server sets it only to signal a genuinely breaking change.\n4. Everything else is additive detail an older client may ignore\n   wholesale. `ui` describes where server-driven chrome lives, so a\n   shell can place its own window furniture without guessing from the\n   version number: `server_picker` is `\"sidebar\"` on builds that\n   dock the picker at the sidebar's bottom (it was `\"titlebar\"`,\n   centered in the macOS title-bar strip, before this).\n\nUnknown fields MUST be ignored, and a missing manifest (404 \u2014 every\nserver older than this route) MUST be treated as the pre-manifest\nbaseline, not an error: the shell falls back to its current behavior.\nThat is what makes an old shell + new server and a new shell + old\nserver both work.\n\nAuthentication: intentionally UNAUTHED, like `/v1/info`. A client\nmust be able to read this before it holds a session cookie \u2014 the whole\npoint is to consult it before loading the app. It exposes only the\nversion already public via `/api/version` plus coarse UI-shape\nstrings, so there is nothing here to leak.\n\nServed under `/.well-known/` (RFC 8615) so it sits at a fixed,\nguessable path that never collides with an SPA client route.\n\n**Returns:** The manifest described above.",
-        "operationId": "well_known_manifest__well_known_omnigent_json_get",
+        "description": "Version manifest for NON-BROWSER clients \u2014 chiefly the desktop shell.\n\nThe desktop shell ships and updates on its own cadence, so any\ninstalled build can meet any server version. The shell is the side\nthat must adapt (the user may not update it for months), and to adapt\nit first has to know what it is talking to. This endpoint is that\nanswer, fetched BEFORE the SPA loads \u2014 unlike `/v1/info`, which the\nSPA reads after boot and which is therefore useless to the shell when\ndeciding how to open a window in the first place.\n\nContract, in the order a client should apply it:\n\n1. `manifest_version` (int) versions this ENVELOPE. Clients gate on\n   `>=`, never `==`, so a newer server keeps working with an older\n   shell. See `WELL_KNOWN_MANIFEST_VERSION` for when it bumps \u2014\n   adding a field never does.\n2. `server_version` (str) is the installed agentnexus package version,\n   the same value as `/api/version` and `/v1/info.server_version`.\n   Informational: for display and bug reports, NOT for gating. Gate on\n   the fields below, which state capability directly rather than making\n   every client hardcode \"which release added X\".\n3. `min_desktop_version` (str | null) is the oldest desktop build this\n   server still supports. Null means no floor \u2014 the overwhelmingly\n   common case, and what every shipped shell must treat as \"fine\".\n   A server sets it only to signal a genuinely breaking change.\n4. Everything else is additive detail an older client may ignore\n   wholesale. `ui` describes where server-driven chrome lives, so a\n   shell can place its own window furniture without guessing from the\n   version number: `server_picker` is `\"sidebar\"` on builds that\n   dock the picker at the sidebar's bottom (it was `\"titlebar\"`,\n   centered in the macOS title-bar strip, before this).\n\nUnknown fields MUST be ignored, and a missing manifest (404 \u2014 every\nserver older than this route) MUST be treated as the pre-manifest\nbaseline, not an error: the shell falls back to its current behavior.\nThat is what makes an old shell + new server and a new shell + old\nserver both work.\n\nAuthentication: intentionally UNAUTHED, like `/v1/info`. A client\nmust be able to read this before it holds a session cookie \u2014 the whole\npoint is to consult it before loading the app. It exposes only the\nversion already public via `/api/version` plus coarse UI-shape\nstrings, so there is nothing here to leak.\n\nServed under `/.well-known/` (RFC 8615) so it sits at a fixed,\nguessable path that never collides with an SPA client route.\n\n**Returns:** The manifest described above.",
+        "operationId": "well_known_manifest__well_known_agentnexus_json_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Well Known Manifest  Well Known Omnigent Json Get",
+                  "title": "Response Well Known Manifest  Well Known AgentNexus Json Get",
                   "type": "object"
                 }
               }
@@ -9862,7 +9862,7 @@
     },
     "/api/version": {
       "get": {
-        "description": "Return the installed omnigent package version.\n\nUsed by the web UI to include version info in bug reports.\n\n**Returns:** `{\"version\": \"<semver string>\"}`, e.g. `{\"version\": \"0.1.0\"}`.",
+        "description": "Return the installed agentnexus package version.\n\nUsed by the web UI to include version info in bug reports.\n\n**Returns:** `{\"version\": \"<semver string>\"}`, e.g. `{\"version\": \"0.1.0\"}`.",
         "operationId": "version_api_version_get",
         "responses": {
           "200": {
@@ -9888,7 +9888,7 @@
     },
     "/health": {
       "get": {
-        "description": "Liveness check with optional session-scoped runner status.\n\nWithout session params, returns `{\"status\": \"ok\"}` (bare\nliveness). With `session_id`, adds a single `session`\nobject. With `session_ids` (comma-separated), adds a\n`sessions` dict keyed by id \u2014 used by the sidebar to\nbatch-check all visible sessions in one request. The batch\npath runs a single SQL `IN` query, not N per-id round-trips.\n\nEach per-session object carries both `runner_online` (strict\nrunner reachability) and `host_online` (host tunnel live, or\n`None` when the session has no host binding) \u2014 see\n`~omnigent.server.routes.sessions.SessionLiveness`.\n\n**Returns:** `{\"status\": \"ok\"}` with optional `session` and/or `sessions` fields. Each session object has shape `{\"runner_online\": bool, \"host_online\": bool | None, \"host_version\": str | None}` (the single `session` object also includes its `id`). `host_version` is the bound host's reported version, or `None` when there's no host binding / the version isn't resolvable on this replica.",
+        "description": "Liveness check with optional session-scoped runner status.\n\nWithout session params, returns `{\"status\": \"ok\"}` (bare\nliveness). With `session_id`, adds a single `session`\nobject. With `session_ids` (comma-separated), adds a\n`sessions` dict keyed by id \u2014 used by the sidebar to\nbatch-check all visible sessions in one request. The batch\npath runs a single SQL `IN` query, not N per-id round-trips.\n\nEach per-session object carries both `runner_online` (strict\nrunner reachability) and `host_online` (host tunnel live, or\n`None` when the session has no host binding) \u2014 see\n`~agentnexus.server.routes.sessions.SessionLiveness`.\n\n**Returns:** `{\"status\": \"ok\"}` with optional `session` and/or `sessions` fields. Each session object has shape `{\"runner_online\": bool, \"host_online\": bool | None, \"host_version\": str | None}` (the single `session` object also includes its `id`). `host_version` is the bound host's reported version, or `None` when there's no host binding / the version isn't resolvable on this replica.",
         "operationId": "health_health_get",
         "parameters": [
           {
@@ -11750,7 +11750,7 @@
         ]
       },
       "post": {
-        "description": "Create or update a gateway entry in ~/.omnigent/config.yaml.",
+        "description": "Create or update a gateway entry in ~/.agentnexus/config.yaml.",
         "operationId": "create_or_update_gateway_v1_gateways_post",
         "requestBody": {
           "content": {
@@ -12325,7 +12325,7 @@
     },
     "/v1/hosts/{host_id}/harnesses/{harness}/credential": {
       "post": {
-        "description": "Write a harness provider credential onto a connected host.\n\nBacks the Web UI setup dialog's \"Add a credential\" action so a user can\nconfigure a Claude / Codex / Pi credential on a connected host without a\nterminal. Owner-scoped, allowlisted, and gated behind\n`harness_install` release feature exactly like the install route\n(404 when disabled). The host daemon does the write with the same\nnon-interactive core the `omnigent setup` wizard uses.\n\nSecurity: the server is an authz'd pass-through \u2014 it validates\nownership + the allowlist and forwards the secret over the (TLS) tunnel;\nit never persists the secret or logs it. The secret rides in the request\nbody (not the URL), and the frame field is redaction-named so it never\nlands on a telemetry span.\n\n**Parameters**\n\n- `body` \u2014 The credential payload (kind + secret / gateway / adopt).\n\n**Returns:** `{\"object\": \"harness_credential\", \"harness\": ..., \"configured_harnesses\": {...}, \"gateway_inference\": {...} | None}` \u2014 refreshed readiness so the UI can flip the badge without a reconnect, plus the refreshed gateway-inference map (`None` when the host didn't report one).\n\n**Raises**\n\n- `HTTPException` \u2014 404 when disabled or host unknown, 400 when the harness isn't UI-configurable or the body is invalid, 403 when not the owner, 409 when offline, 502 on host-side failure, 504 on timeout.",
+        "description": "Write a harness provider credential onto a connected host.\n\nBacks the Web UI setup dialog's \"Add a credential\" action so a user can\nconfigure a Claude / Codex / Pi credential on a connected host without a\nterminal. Owner-scoped, allowlisted, and gated behind\n`harness_install` release feature exactly like the install route\n(404 when disabled). The host daemon does the write with the same\nnon-interactive core the `agentnexus setup` wizard uses.\n\nSecurity: the server is an authz'd pass-through \u2014 it validates\nownership + the allowlist and forwards the secret over the (TLS) tunnel;\nit never persists the secret or logs it. The secret rides in the request\nbody (not the URL), and the frame field is redaction-named so it never\nlands on a telemetry span.\n\n**Parameters**\n\n- `body` \u2014 The credential payload (kind + secret / gateway / adopt).\n\n**Returns:** `{\"object\": \"harness_credential\", \"harness\": ..., \"configured_harnesses\": {...}, \"gateway_inference\": {...} | None}` \u2014 refreshed readiness so the UI can flip the badge without a reconnect, plus the refreshed gateway-inference map (`None` when the host didn't report one).\n\n**Raises**\n\n- `HTTPException` \u2014 404 when disabled or host unknown, 400 when the harness isn't UI-configurable or the body is invalid, 403 when not the owner, 409 when offline, 502 on host-side failure, 504 on timeout.",
         "operationId": "store_host_harness_credential_v1_hosts__host_id__harnesses__harness__credential_post",
         "parameters": [
           {
@@ -12697,7 +12697,7 @@
     },
     "/v1/info": {
       "get": {
-        "description": "Runtime capabilities probe for the SPA + CLI.\n\nReturned at app boot by the frontend (and by `omnigent login` when it needs to choose between flows). Drives\nconditional route registration and chrome on the SPA side\n\u2014 when `accounts_enabled` is false, the SPA never\nregisters `/login`, `/register`, `/members` and\nnever renders the AccountMenu, so the bundle behaves\nidentically to a pre-PR-2008 build for header / OIDC\ndeploys (in particular, the internal hosted product that\nsyncs from this repo).\n\nAuthentication: this endpoint is intentionally UNAUTHED\nso the SPA can probe it before holding a session cookie.\nIt exposes no sensitive state \u2014 only the active auth\nsource, the login URL, whether first-run admin setup is\nstill pending (`needs_setup`), coarse capability\nbooleans (`databricks_features`,\n`managed_sandboxes_enabled`, `dictation_available`,\n`single_user`), the short sandbox provider name\n(`sandbox_provider`) the web UI labels the new-session\nsandbox option with, and the installed\n`server_version` (already public via `/api/version`).",
+        "description": "Runtime capabilities probe for the SPA + CLI.\n\nReturned at app boot by the frontend (and by `agentnexus login` when it needs to choose between flows). Drives\nconditional route registration and chrome on the SPA side\n\u2014 when `accounts_enabled` is false, the SPA never\nregisters `/login`, `/register`, `/members` and\nnever renders the AccountMenu, so the bundle behaves\nidentically to a pre-PR-2008 build for header / OIDC\ndeploys (in particular, the internal hosted product that\nsyncs from this repo).\n\nAuthentication: this endpoint is intentionally UNAUTHED\nso the SPA can probe it before holding a session cookie.\nIt exposes no sensitive state \u2014 only the active auth\nsource, the login URL, whether first-run admin setup is\nstill pending (`needs_setup`), coarse capability\nbooleans (`databricks_features`,\n`managed_sandboxes_enabled`, `dictation_available`,\n`single_user`), the short sandbox provider name\n(`sandbox_provider`) the web UI labels the new-session\nsandbox option with, and the installed\n`server_version` (already public via `/api/version`).",
         "operationId": "info_v1_info_get",
         "responses": {
           "200": {
@@ -12739,7 +12739,7 @@
     },
     "/v1/policies": {
       "get": {
-        "description": "List all default policies.\n\nRequires authentication in multi-user mode.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated in multi-user mode.",
+        "description": "List all default policies.\n\nRequires authentication in multi-user mode.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated in multi-user mode.",
         "operationId": "list_policies_v1_policies_get",
         "responses": {
           "200": {
@@ -12761,7 +12761,7 @@
         ]
       },
       "post": {
-        "description": "Create a new default policy.\n\nRequires admin privileges in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Policy payload including name, type, and handler.\n\n**Returns:** The created policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks admin privileges, or 409 if a policy with the same name already exists.",
+        "description": "Create a new default policy.\n\nRequires admin privileges in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Policy payload including name, type, and handler.\n\n**Returns:** The created policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks admin privileges, or 409 if a policy with the same name already exists.",
         "operationId": "create_policy_v1_policies_post",
         "requestBody": {
           "content": {
@@ -12805,7 +12805,7 @@
     },
     "/v1/policies/{policy_id}": {
       "delete": {
-        "description": "Delete a default policy.\n\nIdempotent \u2014 deleting a missing policy returns 204.\nRequires admin privileges.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks admin privileges.",
+        "description": "Delete a default policy.\n\nIdempotent \u2014 deleting a missing policy returns 204.\nRequires admin privileges.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks admin privileges.",
         "operationId": "delete_policy_v1_policies__policy_id__delete",
         "parameters": [
           {
@@ -12849,7 +12849,7 @@
         ]
       },
       "get": {
-        "description": "Get a single default policy.\n\nRequires authentication in multi-user mode.\n\n**Returns:** The policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated, or 404 if the policy is not found.",
+        "description": "Get a single default policy.\n\nRequires authentication in multi-user mode.\n\n**Returns:** The policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated, or 404 if the policy is not found.",
         "operationId": "get_policy_v1_policies__policy_id__get",
         "parameters": [
           {
@@ -12893,7 +12893,7 @@
         ]
       },
       "patch": {
-        "description": "Update a default policy's mutable fields.\n\n`type` is immutable \u2014 the caller must delete and\nre-create to change it. Requires admin privileges.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks admin privileges, or 404 if the policy is not found.",
+        "description": "Update a default policy's mutable fields.\n\n`type` is immutable \u2014 the caller must delete and\nre-create to change it. Requires admin privileges.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks admin privileges, or 404 if the policy is not found.",
         "operationId": "update_policy_v1_policies__policy_id__patch",
         "parameters": [
           {
@@ -12973,7 +12973,7 @@
     },
     "/v1/projects": {
       "get": {
-        "description": "List the caller's projects.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated in multi-user mode.",
+        "description": "List the caller's projects.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated in multi-user mode.",
         "operationId": "list_projects_v1_projects_get",
         "responses": {
           "200": {
@@ -12995,7 +12995,7 @@
         ]
       },
       "post": {
-        "description": "Create a new, empty project owned by the caller.\n\n**Parameters**\n\n- `body` \u2014 Project payload (name).\n\n**Returns:** The created project as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated in multi-user mode, 409 if the caller already has a project with this name.",
+        "description": "Create a new, empty project owned by the caller.\n\n**Parameters**\n\n- `body` \u2014 Project payload (name).\n\n**Returns:** The created project as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated in multi-user mode, 409 if the caller already has a project with this name.",
         "operationId": "create_project_v1_projects_post",
         "requestBody": {
           "content": {
@@ -13039,7 +13039,7 @@
     },
     "/v1/projects/{project_id}": {
       "delete": {
-        "description": "Delete one of the caller's projects.\n\nMember sessions are not deleted; they are left for the caller to\nunfile (clearing their `project_id`).\n\n**Returns:** `{\"id\": ..., \"object\": \"project.deleted\", \"deleted\": True}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated, 404 if not found / not owned by the caller.",
+        "description": "Delete one of the caller's projects.\n\nMember sessions are not deleted; they are left for the caller to\nunfile (clearing their `project_id`).\n\n**Returns:** `{\"id\": ..., \"object\": \"project.deleted\", \"deleted\": True}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated, 404 if not found / not owned by the caller.",
         "operationId": "delete_project_v1_projects__project_id__delete",
         "parameters": [
           {
@@ -13083,7 +13083,7 @@
         ]
       },
       "get": {
-        "description": "Return one of the caller's projects.\n\n**Returns:** The project as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated, 404 if not found / not owned by the caller.",
+        "description": "Return one of the caller's projects.\n\n**Returns:** The project as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated, 404 if not found / not owned by the caller.",
         "operationId": "get_project_v1_projects__project_id__get",
         "parameters": [
           {
@@ -13127,7 +13127,7 @@
         ]
       },
       "patch": {
-        "description": "Update one of the caller's projects (e.g. rename).\n\n**Parameters**\n\n- `body` \u2014 Fields to change; `None` fields are left unchanged.\n\n**Returns:** The updated project as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 if unauthenticated, 404 if not found / not owned, 409 if the new name collides with another of the caller's projects.",
+        "description": "Update one of the caller's projects (e.g. rename).\n\n**Parameters**\n\n- `body` \u2014 Fields to change; `None` fields are left unchanged.\n\n**Returns:** The updated project as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 if unauthenticated, 404 if not found / not owned, 409 if the new name collides with another of the caller's projects.",
         "operationId": "update_project_v1_projects__project_id__patch",
         "parameters": [
           {
@@ -13268,7 +13268,7 @@
     },
     "/v1/runners/{runner_id}/token": {
       "post": {
-        "description": "Mint a short-lived owner bearer for a delegated runner.\n\nA host-launched or managed-sandbox runner does not inherit the host\nuser's credential; it presents its server-minted tunnel binding token\n(`X-Omnigent-Runner-Tunnel-Token`) and the server returns a\nshort-lived owner JWT the runner then uses on its HTTP callbacks\n(which gate on `require_user`). This is the HTTP analog of the\nrunner tunnel's binding-token handshake: the same SHA-256 gate\n(`token_bound_runner_id(token) == runner_id`) and the same\nowner resolution (`resolve_managed_runner_owner`), minting a\nbearer instead of registering a tunnel.\n\nThe binding-token match is required unconditionally \u2014 the\nallow-list shortcut honored on some other runner-token checks is\ndeliberately NOT accepted here, because this endpoint issues a\nfull owner credential and delegated runners are token-bound.\n\n**Returns:** `{\"token\": <jwt>, \"expires_at\": <epoch seconds>}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401 when the binding token is absent, doesn't match `runner_id`, or resolves to no managed-launch owner; 400 when the active auth mode can't mint server-side (header/proxy, or no auth provider).",
+        "description": "Mint a short-lived owner bearer for a delegated runner.\n\nA host-launched or managed-sandbox runner does not inherit the host\nuser's credential; it presents its server-minted tunnel binding token\n(`X-AgentNexus-Runner-Tunnel-Token`) and the server returns a\nshort-lived owner JWT the runner then uses on its HTTP callbacks\n(which gate on `require_user`). This is the HTTP analog of the\nrunner tunnel's binding-token handshake: the same SHA-256 gate\n(`token_bound_runner_id(token) == runner_id`) and the same\nowner resolution (`resolve_managed_runner_owner`), minting a\nbearer instead of registering a tunnel.\n\nThe binding-token match is required unconditionally \u2014 the\nallow-list shortcut honored on some other runner-token checks is\ndeliberately NOT accepted here, because this endpoint issues a\nfull owner credential and delegated runners are token-bound.\n\n**Returns:** `{\"token\": <jwt>, \"expires_at\": <epoch seconds>}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401 when the binding token is absent, doesn't match `runner_id`, or resolves to no managed-launch owner; 400 when the active auth mode can't mint server-side (header/proxy, or no auth provider).",
         "operationId": "mint_runner_owner_token_v1_runners__runner_id__token_post",
         "parameters": [
           {
@@ -13819,7 +13819,7 @@
             }
           },
           {
-            "description": "When `True`, return only sessions the user has pinned (the `omnigent.pinned` label). Lets the sidebar enumerate pinned sessions that fall outside the loaded pagination window. `False` (default) disables it.",
+            "description": "When `True`, return only sessions the user has pinned (the `agentnexus.pinned` label). Lets the sidebar enumerate pinned sessions that fall outside the loaded pagination window. `False` (default) disables it.",
             "in": "query",
             "name": "pinned",
             "required": false,
@@ -13858,7 +13858,7 @@
         ]
       },
       "post": {
-        "description": "Create a session.\n\n`application/json` preserves the existing contract: bind to\nan already-registered agent by `agent_id` and return the full\nsession snapshot. `multipart/form-data` is the Alpha\nrunner-state create path: the request carries a JSON\n`metadata` part and a `bundle` file part, then the server\nstores the bundle and creates the conversation row plus\nsession-scoped agent row in one database transaction.\n\n**Returns:** `SessionResponse` for JSON create, or `CreatedSessionResponse` for bundled create.\n\n**Raises**\n\n- `OmnigentError` \u2014 If metadata, bundle, or agent lookup validation fails, artifact storage is unavailable, or database creation fails.",
+        "description": "Create a session.\n\n`application/json` preserves the existing contract: bind to\nan already-registered agent by `agent_id` and return the full\nsession snapshot. `multipart/form-data` is the Alpha\nrunner-state create path: the request carries a JSON\n`metadata` part and a `bundle` file part, then the server\nstores the bundle and creates the conversation row plus\nsession-scoped agent row in one database transaction.\n\n**Returns:** `SessionResponse` for JSON create, or `CreatedSessionResponse` for bundled create.\n\n**Raises**\n\n- `AgentNexusError` \u2014 If metadata, bundle, or agent lookup validation fails, artifact storage is unavailable, or database creation fails.",
         "operationId": "create_session_v1_sessions_post",
         "responses": {
           "201": {
@@ -13904,7 +13904,7 @@
     },
     "/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all associated resources.\n\nRequires owner-level access. Tears down tasks, runner-side\nresources (environments, terminals), session files, and the\nconversation row.\n\n**Returns:** A `ConversationDeleted` confirmation.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session or no access, 403 if insufficient permissions.",
+        "description": "Delete a session and all associated resources.\n\nRequires owner-level access. Tears down tasks, runner-side\nresources (environments, terminals), session files, and the\nconversation row.\n\n**Returns:** A `ConversationDeleted` confirmation.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session or no access, 403 if insufficient permissions.",
         "operationId": "delete_session_v1_sessions__session_id__delete",
         "parameters": [
           {
@@ -13957,7 +13957,7 @@
         ]
       },
       "get": {
-        "description": "Return a session snapshot: identity, status, and committed\nitems.\n\n**Returns:** The matching `SessionResponse`.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session exists.",
+        "description": "Return a session snapshot: identity, status, and committed\nitems.\n\n**Returns:** The matching `SessionResponse`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session exists.",
         "operationId": "get_session_v1_sessions__session_id__get",
         "parameters": [
           {
@@ -14032,7 +14032,7 @@
         ]
       },
       "patch": {
-        "description": "Update a session's mutable fields. When `runner_id` is\nprovided, this is the mutable affinity primitive for the Alpha\nrunner-state pivot: create-bind, resume-bind, and recover-bind\nall send the currently registered runner id, and the server\natomically replaces `conversations.runner_id` with that\nvalue using last-write-wins semantics. Title, labels, and\nreasoning-effort updates remain supported for existing\nsessions clients.\n\n**Parameters**\n\n- `body` \u2014 The validated `UpdateSessionRequest`.\n\n**Returns:** The updated `SessionResponse` snapshot, with `items` always empty \u2014 PATCH callers use only scalar fields, and transcripts are served by `GET /sessions/{id}/items`.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 if the runner is not registered; 404 if no session exists.",
+        "description": "Update a session's mutable fields. When `runner_id` is\nprovided, this is the mutable affinity primitive for the Alpha\nrunner-state pivot: create-bind, resume-bind, and recover-bind\nall send the currently registered runner id, and the server\natomically replaces `conversations.runner_id` with that\nvalue using last-write-wins semantics. Title, labels, and\nreasoning-effort updates remain supported for existing\nsessions clients.\n\n**Parameters**\n\n- `body` \u2014 The validated `UpdateSessionRequest`.\n\n**Returns:** The updated `SessionResponse` snapshot, with `items` always empty \u2014 PATCH callers use only scalar fields, and transcripts are served by `GET /sessions/{id}/items`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 if the runner is not registered; 404 if no session exists.",
         "operationId": "update_session_v1_sessions__session_id__patch",
         "parameters": [
           {
@@ -14086,7 +14086,7 @@
     },
     "/v1/sessions/{session_id}/agent": {
       "get": {
-        "description": "Return the `AgentObject` for the session's bound agent.\n\nReplaces the standalone `GET /api/agents/{id}` endpoint by\nresolving the agent through the session's `agent_id` foreign\nkey. The caller only needs to know the session id.\n\n**Returns:** The bound agent's `AgentObject`.\n\n**Raises**\n\n- `OmnigentError` \u2014 If the session or agent is not found.",
+        "description": "Return the `AgentObject` for the session's bound agent.\n\nReplaces the standalone `GET /api/agents/{id}` endpoint by\nresolving the agent through the session's `agent_id` foreign\nkey. The caller only needs to know the session id.\n\n**Returns:** The bound agent's `AgentObject`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 If the session or agent is not found.",
         "operationId": "get_session_agent_v1_sessions__session_id__agent_get",
         "parameters": [
           {
@@ -14128,7 +14128,7 @@
         ]
       },
       "put": {
-        "description": "Replace the session's agent bundle with a new upload.\n\nValidates the new bundle, checks that the spec name matches\nthe existing agent, stores the bundle under a\ncontent-addressed key, updates the agent row, and warm-swaps\nthe cache. Idempotent when the bundle content is unchanged.\n\n**Parameters**\n\n- `bundle` \u2014 Uploaded `.tar.gz` agent bundle file.\n\n**Returns:** The updated `AgentObject`.\n\n**Raises**\n\n- `OmnigentError` \u2014 If the session or agent is not found, the bundle is invalid, or the spec name doesn't match.",
+        "description": "Replace the session's agent bundle with a new upload.\n\nValidates the new bundle, checks that the spec name matches\nthe existing agent, stores the bundle under a\ncontent-addressed key, updates the agent row, and warm-swaps\nthe cache. Idempotent when the bundle content is unchanged.\n\n**Parameters**\n\n- `bundle` \u2014 Uploaded `.tar.gz` agent bundle file.\n\n**Returns:** The updated `AgentObject`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 If the session or agent is not found, the bundle is invalid, or the spec name doesn't match.",
         "operationId": "update_session_agent_v1_sessions__session_id__agent_put",
         "parameters": [
           {
@@ -14182,7 +14182,7 @@
     },
     "/v1/sessions/{session_id}/agent/contents": {
       "get": {
-        "description": "Download the raw `.tar.gz` agent bundle for the session's\nbound agent.\n\nReplaces `GET /api/agents/{id}/contents`. Runners call this\non cache miss to fetch the spec + bundled files.\n\n**Returns:** Raw bundle bytes as `application/gzip`.\n\n**Raises**\n\n- `OmnigentError` \u2014 If the session, agent, or bundle is not found.",
+        "description": "Download the raw `.tar.gz` agent bundle for the session's\nbound agent.\n\nReplaces `GET /api/agents/{id}/contents`. Runners call this\non cache miss to fetch the spec + bundled files.\n\n**Returns:** Raw bundle bytes as `application/gzip`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 If the session, agent, or bundle is not found.",
         "operationId": "get_session_agent_contents_v1_sessions__session_id__agent_contents_get",
         "parameters": [
           {
@@ -14479,7 +14479,7 @@
     },
     "/v1/sessions/{session_id}/child_sessions": {
       "get": {
-        "description": "List sub-agent (child) sessions under a parent session.\n\nReturns a page of `ChildSessionSummary` objects\nderived from child conversations (`kind=\"sub_agent\"`,\n`parent_conversation_id=session_id`) plus each child's\nlatest task. Powers the web / REPL debug surfaces' \"child\nsessions\" panel without parsing parent\n`function_call_output` JSON handles. Pagination contract\nmatches `list_session_items` so existing client code\ncan reuse the same cursor logic.\n\n**Returns:** A `PaginatedList` of `ChildSessionSummary` objects.\n\n**Raises**\n\n- `OmnigentError` \u2014 403 if the caller lacks READ on `session_id`; 404 if no session exists there.",
+        "description": "List sub-agent (child) sessions under a parent session.\n\nReturns a page of `ChildSessionSummary` objects\nderived from child conversations (`kind=\"sub_agent\"`,\n`parent_conversation_id=session_id`) plus each child's\nlatest task. Powers the web / REPL debug surfaces' \"child\nsessions\" panel without parsing parent\n`function_call_output` JSON handles. Pagination contract\nmatches `list_session_items` so existing client code\ncan reuse the same cursor logic.\n\n**Returns:** A `PaginatedList` of `ChildSessionSummary` objects.\n\n**Raises**\n\n- `AgentNexusError` \u2014 403 if the caller lacks READ on `session_id`; 404 if no session exists there.",
         "operationId": "list_child_sessions_v1_sessions__session_id__child_sessions_get",
         "parameters": [
           {
@@ -14616,7 +14616,7 @@
     },
     "/v1/sessions/{session_id}/codex_goal": {
       "delete": {
-        "description": "Clear the current Codex app-server goal.\n\n**Returns:** Whether Codex removed an existing goal.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can clear the goal.",
+        "description": "Clear the current Codex app-server goal.\n\n**Returns:** Whether Codex removed an existing goal.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can clear the goal.",
         "operationId": "clear_codex_goal_v1_sessions__session_id__codex_goal_delete",
         "parameters": [
           {
@@ -14658,7 +14658,7 @@
         ]
       },
       "get": {
-        "description": "Read the current Codex app-server goal for a Codex-native session.\n\n**Returns:** Current Codex goal state, or `goal=None` when no goal is set.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can read the goal.",
+        "description": "Read the current Codex app-server goal for a Codex-native session.\n\n**Returns:** Current Codex goal state, or `goal=None` when no goal is set.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can read the goal.",
         "operationId": "get_codex_goal_v1_sessions__session_id__codex_goal_get",
         "parameters": [
           {
@@ -14700,7 +14700,7 @@
         ]
       },
       "put": {
-        "description": "Set or replace the current Codex app-server goal.\n\n**Parameters**\n\n- `body` \u2014 Goal objective, optional token budget, and optional user-selected status.\n\n**Returns:** Current Codex goal state after the update.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 for non-Codex sessions or blank objectives, 404 for missing sessions, or 503 when no live Codex runner can update the goal.",
+        "description": "Set or replace the current Codex app-server goal.\n\n**Parameters**\n\n- `body` \u2014 Goal objective, optional token budget, and optional user-selected status.\n\n**Returns:** Current Codex goal state after the update.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 for non-Codex sessions or blank objectives, 404 for missing sessions, or 503 when no live Codex runner can update the goal.",
         "operationId": "set_codex_goal_v1_sessions__session_id__codex_goal_put",
         "parameters": [
           {
@@ -14754,7 +14754,7 @@
     },
     "/v1/sessions/{session_id}/codex_goal/status": {
       "patch": {
-        "description": "Pause or resume the current Codex app-server goal.\n\nCodex exposes this through `thread/goal/set` with only a status\nfield. The Omnigent API keeps that distinct from objective/budget\nedits so callers can implement Pause/Resume controls without\nresending the goal text.\n\n**Parameters**\n\n- `body` \u2014 Target status. `\"paused\"` pauses the goal and `\"active\"` resumes it.\n\n**Returns:** Current Codex goal state after the status update.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can update the goal.",
+        "description": "Pause or resume the current Codex app-server goal.\n\nCodex exposes this through `thread/goal/set` with only a status\nfield. The AgentNexus API keeps that distinct from objective/budget\nedits so callers can implement Pause/Resume controls without\nresending the goal text.\n\n**Parameters**\n\n- `body` \u2014 Target status. `\"paused\"` pauses the goal and `\"active\"` resumes it.\n\n**Returns:** Current Codex goal state after the status update.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 for non-Codex sessions, 404 for missing sessions, or 503 when no live Codex runner can update the goal.",
         "operationId": "update_codex_goal_status_v1_sessions__session_id__codex_goal_status_patch",
         "parameters": [
           {
@@ -14808,7 +14808,7 @@
     },
     "/v1/sessions/{session_id}/comments": {
       "get": {
-        "description": "List comments for a session, optionally filtered by file.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** List of serialized comment dicts.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403/404 if the user lacks read permission.",
+        "description": "List comments for a session, optionally filtered by file.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** List of serialized comment dicts.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403/404 if the user lacks read permission.",
         "operationId": "list_comments_v1_sessions__session_id__comments_get",
         "parameters": [
           {
@@ -14872,7 +14872,7 @@
         ]
       },
       "post": {
-        "description": "Create a new review comment.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Comment payload including path, body text, and the two range fields (start_index, end_index).\n\n**Returns:** The created comment as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403/404 if the user lacks edit permission.",
+        "description": "Create a new review comment.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Comment payload including path, body text, and the two range fields (start_index, end_index).\n\n**Returns:** The created comment as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403/404 if the user lacks edit permission.",
         "operationId": "add_comment_v1_sessions__session_id__comments_post",
         "parameters": [
           {
@@ -14928,7 +14928,7 @@
     },
     "/v1/sessions/{session_id}/comments/send": {
       "post": {
-        "description": "Mark comments as addressed and format them into an agent message.\n\nFetches each requested comment, marks it `addressed`,\nand formats the full set into a grouped, sorted message string\nsuitable for pasting into the chat composer.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode because\nit transitions comment status from `draft` to `addressed`.\n\n**Parameters**\n\n- `body` \u2014 List of comment IDs to send, with an optional custom instruction prefix.\n\n**Returns:** `{\"formatted_message\": str, \"sent_comment_ids\": list[str]}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403/404 if the user lacks edit permission, or 404 if any requested comment is not found or does not belong to this session.",
+        "description": "Mark comments as addressed and format them into an agent message.\n\nFetches each requested comment, marks it `addressed`,\nand formats the full set into a grouped, sorted message string\nsuitable for pasting into the chat composer.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode because\nit transitions comment status from `draft` to `addressed`.\n\n**Parameters**\n\n- `body` \u2014 List of comment IDs to send, with an optional custom instruction prefix.\n\n**Returns:** `{\"formatted_message\": str, \"sent_comment_ids\": list[str]}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403/404 if the user lacks edit permission, or 404 if any requested comment is not found or does not belong to this session.",
         "operationId": "send_to_agent_v1_sessions__session_id__comments_send_post",
         "parameters": [
           {
@@ -14984,7 +14984,7 @@
     },
     "/v1/sessions/{session_id}/comments/{comment_id}": {
       "delete": {
-        "description": "Delete a comment.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode, and\nadditionally that the caller is the comment's author \u2014 one\ncollaborator may not delete another user's comment.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403/404 if the user lacks edit permission, 403 if the caller is not the comment's author, or 404 if the comment is not found or does not belong to this session.",
+        "description": "Delete a comment.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode, and\nadditionally that the caller is the comment's author \u2014 one\ncollaborator may not delete another user's comment.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403/404 if the user lacks edit permission, 403 if the caller is not the comment's author, or 404 if the comment is not found or does not belong to this session.",
         "operationId": "delete_comment_v1_sessions__session_id__comments__comment_id__delete",
         "parameters": [
           {
@@ -15038,7 +15038,7 @@
         ]
       },
       "patch": {
-        "description": "Update a comment's status and/or body text.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\nEditing the `body` additionally requires the caller to be the\ncomment's author: rewriting another user's comment is forbidden,\nwhile changing only the `status` (e.g. marking it `\"addressed\"`)\nstays open to any editor as a shared review-workflow action.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated serialized comment.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403/404 if the user lacks edit permission, 403 if a body edit is attempted on another user's comment, or 404 if the comment is not found.",
+        "description": "Update a comment's status and/or body text.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\nEditing the `body` additionally requires the caller to be the\ncomment's author: rewriting another user's comment is forbidden,\nwhile changing only the `status` (e.g. marking it `\"addressed\"`)\nstays open to any editor as a shared review-workflow action.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated serialized comment.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403/404 if the user lacks edit permission, 403 if a body edit is attempted on another user's comment, or 404 if the comment is not found.",
         "operationId": "update_comment_v1_sessions__session_id__comments__comment_id__patch",
         "parameters": [
           {
@@ -15104,7 +15104,7 @@
     },
     "/v1/sessions/{session_id}/items": {
       "get": {
-        "description": "List items in a session with cursor-based pagination.\n\nDelegates to the conversation items store \u2014 session_id is\nthe conversation_id. Same pagination contract as\n`GET /v1/conversations/{id}/items`.\n\n**Returns:** A `PaginatedList` of conversation items.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session exists.",
+        "description": "List items in a session with cursor-based pagination.\n\nDelegates to the conversation items store \u2014 session_id is\nthe conversation_id. Same pagination contract as\n`GET /v1/conversations/{id}/items`.\n\n**Returns:** A `PaginatedList` of conversation items.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session exists.",
         "operationId": "list_session_items_v1_sessions__session_id__items_get",
         "parameters": [
           {
@@ -15207,7 +15207,7 @@
     },
     "/v1/sessions/{session_id}/labels": {
       "get": {
-        "description": "Return only the labels for a session.\n\nNative runner bridge setup needs labels during harness spawn,\nbut the full session snapshot also loads history, skills,\nrunner status, and agent metadata. This endpoint keeps that\nspawn-time dependency to one authorized conversation read.\n\n**Returns:** The session id and labels.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session exists.",
+        "description": "Return only the labels for a session.\n\nNative runner bridge setup needs labels during harness spawn,\nbut the full session snapshot also loads history, skills,\nrunner status, and agent metadata. This endpoint keeps that\nspawn-time dependency to one authorized conversation read.\n\n**Returns:** The session id and labels.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session exists.",
         "operationId": "get_session_labels_v1_sessions__session_id__labels_get",
         "parameters": [
           {
@@ -15293,7 +15293,7 @@
     },
     "/v1/sessions/{session_id}/permissions": {
       "get": {
-        "description": "List permission grants on a session with cursor pagination.\n\nRequires manage-level access.\n\n**Returns:** `{\"permissions\": [...], \"next_cursor\": str|null}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session or no access.",
+        "description": "List permission grants on a session with cursor pagination.\n\nRequires manage-level access.\n\n**Returns:** `{\"permissions\": [...], \"next_cursor\": str|null}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session or no access.",
         "operationId": "list_permissions_v1_sessions__session_id__permissions_get",
         "parameters": [
           {
@@ -15364,7 +15364,7 @@
         ]
       },
       "put": {
-        "description": "Grant or update a permission on a session.\n\nRequires manage-level access. Upserts the grant \u2014 can\nupgrade or downgrade an existing level. Auto-creates the\ngrantee user if they don't exist yet.\n\n**Parameters**\n\n- `body` \u2014 The grant request with `user_id` and `level`.\n\n**Returns:** The resulting `PermissionObject`.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session or no access, 401 if unauthenticated.",
+        "description": "Grant or update a permission on a session.\n\nRequires manage-level access. Upserts the grant \u2014 can\nupgrade or downgrade an existing level. Auto-creates the\ngrantee user if they don't exist yet.\n\n**Parameters**\n\n- `body` \u2014 The grant request with `user_id` and `level`.\n\n**Returns:** The resulting `PermissionObject`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session or no access, 401 if unauthenticated.",
         "operationId": "grant_permission_v1_sessions__session_id__permissions_put",
         "parameters": [
           {
@@ -15418,7 +15418,7 @@
     },
     "/v1/sessions/{session_id}/permissions/{target_user_id}": {
       "delete": {
-        "description": "Revoke a permission on a session \u2014 someone else's, or your own.\n\nTwo shapes, one endpoint:\n\n* *Revoke* \u2014 removing **another** user's grant is a management\n  action and needs manage access.\n* *Leave* \u2014 removing **your own** grant (\"unshare myself\", so a\n  shared session stops cluttering your sidebar) needs only read\n  access, since giving up access requires no privilege.\n\nEither way the owner grant is protected: it is what keeps the\nsession reachable, so revoking it would orphan the session. That\nguard covers the self case too \u2014 an owner cannot leave, and\narchives or deletes instead. A manage-level *grantee* is still a\nguest and may leave. Leaving records no lasting refusal, so the\nowner re-granting brings the session back.\n\nIdempotent: 204 whether or not a grant existed.\n\n**Returns:** 204 No Content.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session or no access, 403 when the target holds the owner grant, 400 when leaving a sub-agent session, 401 if unauthenticated.",
+        "description": "Revoke a permission on a session \u2014 someone else's, or your own.\n\nTwo shapes, one endpoint:\n\n* *Revoke* \u2014 removing **another** user's grant is a management\n  action and needs manage access.\n* *Leave* \u2014 removing **your own** grant (\"unshare myself\", so a\n  shared session stops cluttering your sidebar) needs only read\n  access, since giving up access requires no privilege.\n\nEither way the owner grant is protected: it is what keeps the\nsession reachable, so revoking it would orphan the session. That\nguard covers the self case too \u2014 an owner cannot leave, and\narchives or deletes instead. A manage-level *grantee* is still a\nguest and may leave. Leaving records no lasting refusal, so the\nowner re-granting brings the session back.\n\nIdempotent: 204 whether or not a grant existed.\n\n**Returns:** 204 No Content.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session or no access, 403 when the target holds the owner grant, 400 when leaving a sub-agent session, 401 if unauthenticated.",
         "operationId": "revoke_permission_v1_sessions__session_id__permissions__target_user_id__delete",
         "parameters": [
           {
@@ -15465,7 +15465,7 @@
     },
     "/v1/sessions/{session_id}/policies": {
       "get": {
-        "description": "List all policies for a session.\n\nReturns both store-persisted (`source=\"session\"`) and\nspec-declared (`source=\"spec\"`) policies. Spec policies\nhave `id=None` and cannot be patched or deleted.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks read permission, 404 if the session is not found.",
+        "description": "List all policies for a session.\n\nReturns both store-persisted (`source=\"session\"`) and\nspec-declared (`source=\"spec\"`) policies. Spec policies\nhave `id=None` and cannot be patched or deleted.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** `{\"object\": \"list\", \"data\": [...]}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks read permission, 404 if the session is not found.",
         "operationId": "list_policies_v1_sessions__session_id__policies_get",
         "parameters": [
           {
@@ -15509,7 +15509,7 @@
         ]
       },
       "post": {
-        "description": "Create a new session policy.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Policy payload including name, type, and handler.\n\n**Returns:** The created policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks edit permission, 404 if the session is not found, or 409 if a policy with the same name already exists.",
+        "description": "Create a new session policy.\n\nRequires `LEVEL_EDIT` on the session in multi-user mode.\n\n**Parameters**\n\n- `body` \u2014 Policy payload including name, type, and handler.\n\n**Returns:** The created policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks edit permission, 404 if the session is not found, or 409 if a policy with the same name already exists.",
         "operationId": "create_policy_v1_sessions__session_id__policies_post",
         "parameters": [
           {
@@ -15565,11 +15565,11 @@
     },
     "/v1/sessions/{session_id}/policies/evaluate": {
       "post": {
-        "description": "Generic policy evaluation endpoint (proto-compatible).\n\nAccepts an `EvaluationRequest` JSON body whose `event`\nfield carries the phase (`PHASE_TOOL_CALL`,\n`PHASE_TOOL_RESULT`, `PHASE_LLM_REQUEST`,\n`PHASE_LLM_RESPONSE`), the event data, and optional\ncontext. Returns an `EvaluationResponse` with the policy\nverdict (`result`), an optional `reason`, and optional\n`data` for content-rewriting policies.\n\nUsed by Claude Code's `PreToolUse` and `PostToolUse`\ncommand hooks (via `omnigent.claude_native_hook`) to\nevaluate admin policies on native tool calls. Also usable\nby any client that speaks the proto-compatible JSON schema.\n\n**Returns:** `EvaluationResponse` JSON with `result`, `reason`, and optional `data`.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if the session doesn't exist, 400 if the body is malformed.",
+        "description": "Generic policy evaluation endpoint (proto-compatible).\n\nAccepts an `EvaluationRequest` JSON body whose `event`\nfield carries the phase (`PHASE_TOOL_CALL`,\n`PHASE_TOOL_RESULT`, `PHASE_LLM_REQUEST`,\n`PHASE_LLM_RESPONSE`), the event data, and optional\ncontext. Returns an `EvaluationResponse` with the policy\nverdict (`result`), an optional `reason`, and optional\n`data` for content-rewriting policies.\n\nUsed by Claude Code's `PreToolUse` and `PostToolUse`\ncommand hooks (via `agentnexus.claude_native_hook`) to\nevaluate admin policies on native tool calls. Also usable\nby any client that speaks the proto-compatible JSON schema.\n\n**Returns:** `EvaluationResponse` JSON with `result`, `reason`, and optional `data`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if the session doesn't exist, 400 if the body is malformed.",
         "operationId": "evaluate_policy_v1_sessions__session_id__policies_evaluate_post",
         "parameters": [
           {
-            "description": "Omnigent conversation id from the URL path.",
+            "description": "AgentNexus conversation id from the URL path.",
             "in": "path",
             "name": "session_id",
             "required": true,
@@ -15607,7 +15607,7 @@
     },
     "/v1/sessions/{session_id}/policies/{policy_id}": {
       "delete": {
-        "description": "Delete a session policy.\n\nIdempotent \u2014 deleting a missing policy returns 204.\nRequires `LEVEL_EDIT`.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks edit permission.",
+        "description": "Delete a session policy.\n\nIdempotent \u2014 deleting a missing policy returns 204.\nRequires `LEVEL_EDIT`.\n\n**Returns:** `{\"deleted\": true}`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks edit permission.",
         "operationId": "delete_policy_v1_sessions__session_id__policies__policy_id__delete",
         "parameters": [
           {
@@ -15661,7 +15661,7 @@
         ]
       },
       "get": {
-        "description": "Get a single session policy.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** The policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks read permission, or 404 if the policy is not found.",
+        "description": "Get a single session policy.\n\nRequires `LEVEL_READ` on the session in multi-user mode.\n\n**Returns:** The policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks read permission, or 404 if the policy is not found.",
         "operationId": "get_policy_v1_sessions__session_id__policies__policy_id__get",
         "parameters": [
           {
@@ -15715,7 +15715,7 @@
         ]
       },
       "patch": {
-        "description": "Update a session policy's mutable fields.\n\n`type` is immutable \u2014 the caller must delete and\nre-create to change it. Requires `LEVEL_EDIT`.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated policy as a serialized dict.\n\n**Raises**\n\n- `OmnigentError` \u2014 401/403 if the user lacks edit permission, 404 if the policy is not found, or 409 if renaming would collide with another policy in this session.",
+        "description": "Update a session policy's mutable fields.\n\n`type` is immutable \u2014 the caller must delete and\nre-create to change it. Requires `LEVEL_EDIT`.\n\n**Parameters**\n\n- `body` \u2014 Fields to update; `None` fields are left unchanged.\n\n**Returns:** The updated policy as a serialized dict.\n\n**Raises**\n\n- `AgentNexusError` \u2014 401/403 if the user lacks edit permission, 404 if the policy is not found, or 409 if renaming would collide with another policy in this session.",
         "operationId": "update_policy_v1_sessions__session_id__policies__policy_id__patch",
         "parameters": [
           {
@@ -15781,7 +15781,7 @@
     },
     "/v1/sessions/{session_id}/read-state": {
       "put": {
-        "description": "Set the calling user's read-state for one session.\n\nRequires `LEVEL_READ` on the session in multi-user mode \u2014 you can\nonly track read-state for sessions you can see. Stores the values\nverbatim (the client enforces the baseline's monotonicity and the\nunread semantics); the server does not interpret them against\nsession status. Returns `204` \u2014 the client already has the\noptimistic state and re-reads the authoritative value on the next\n`GET /v1/sessions` poll.\n\n**Parameters**\n\n- `body` \u2014 The validated `ReadStatePutRequest`.\n\n**Returns:** An empty `204 No Content` response.\n\n**Raises**\n\n- `OmnigentError` \u2014 403 if the caller lacks read access.",
+        "description": "Set the calling user's read-state for one session.\n\nRequires `LEVEL_READ` on the session in multi-user mode \u2014 you can\nonly track read-state for sessions you can see. Stores the values\nverbatim (the client enforces the baseline's monotonicity and the\nunread semantics); the server does not interpret them against\nsession status. Returns `204` \u2014 the client already has the\noptimistic state and re-reads the authoritative value on the next\n`GET /v1/sessions` poll.\n\n**Parameters**\n\n- `body` \u2014 The validated `ReadStatePutRequest`.\n\n**Returns:** An empty `204 No Content` response.\n\n**Raises**\n\n- `AgentNexusError` \u2014 403 if the caller lacks read access.",
         "operationId": "put_read_state_v1_sessions__session_id__read_state_put",
         "parameters": [
           {
@@ -17150,7 +17150,7 @@
         ]
       },
       "post": {
-        "description": "Launch or return an existing terminal resource.\n\nPreserves `sys_terminal_launch` idempotency: an\nalready-running `(terminal, session_key)` returns the\nexisting resource.\n\nUser-initiated creates are gated on the agent's terminal\naccess: the requested `terminal` must be one of the names\ndeclared in the agent spec's `terminals:` block. Native\nharness bootstrap requests (marked `ensure_native_terminal`\nor `bridge_inject_dir` \u2014 the `omnigent claude` / `codex`\nwrappers launching the session's own CLI terminal) are exempt:\nthey launch undeclared names via the runner's\nsynthesize-from-body path and predate the gate. The markers\nare client-controlled, so the exemption is narrowed to the\nexact shape those wrappers send \u2014 a registered native terminal\nname with `session_key` `\"main\"` \u2014 anything else carrying a\nmarker still goes through the declared-name gate (it would\notherwise be an arbitrary-terminal bypass).\n\n**Returns:** The terminal resource object.\n\n**Raises**\n\n- `OmnigentError` \u2014 400 when the requested terminal is not declared by the agent spec (or the agent has no `terminals:` block at all).",
+        "description": "Launch or return an existing terminal resource.\n\nPreserves `sys_terminal_launch` idempotency: an\nalready-running `(terminal, session_key)` returns the\nexisting resource.\n\nUser-initiated creates are gated on the agent's terminal\naccess: the requested `terminal` must be one of the names\ndeclared in the agent spec's `terminals:` block. Native\nharness bootstrap requests (marked `ensure_native_terminal`\nor `bridge_inject_dir` \u2014 the `agentnexus claude` / `codex`\nwrappers launching the session's own CLI terminal) are exempt:\nthey launch undeclared names via the runner's\nsynthesize-from-body path and predate the gate. The markers\nare client-controlled, so the exemption is narrowed to the\nexact shape those wrappers send \u2014 a registered native terminal\nname with `session_key` `\"main\"` \u2014 anything else carrying a\nmarker still goes through the declared-name gate (it would\notherwise be an arbitrary-terminal bypass).\n\n**Returns:** The terminal resource object.\n\n**Raises**\n\n- `AgentNexusError` \u2014 400 when the requested terminal is not declared by the agent spec (or the agent has no `terminals:` block at all).",
         "operationId": "create_session_terminal_v1_sessions__session_id__resources_terminals_post",
         "parameters": [
           {
@@ -17346,7 +17346,7 @@
     },
     "/v1/sessions/{session_id}/stream": {
       "get": {
-        "description": "Subscribe to the session's live SSE event stream.\n\nDoes NOT replay history; clients reconcile via the snapshot\nendpoint. The generator emits `[DONE]` on normal completion\nand uses `finally` only for presence cleanup \u2014 see\n`_stream_live_events`.\n\nHolding this stream open registers the caller as a session\n*viewer* (presence): co-viewers' streams receive\n`session.presence` events on join/leave/idle edges, and\nthis stream's snapshot-on-connect includes the current\nviewer list. Presence is scoped to the session tree's root\nconversation, so viewers of different agents/sub-agents in\none session see each other. See\n`omnigent/server/presence.py`.\n\n**Returns:** An SSE `StreamingResponse`.\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if no session exists.",
+        "description": "Subscribe to the session's live SSE event stream.\n\nDoes NOT replay history; clients reconcile via the snapshot\nendpoint. The generator emits `[DONE]` on normal completion\nand uses `finally` only for presence cleanup \u2014 see\n`_stream_live_events`.\n\nHolding this stream open registers the caller as a session\n*viewer* (presence): co-viewers' streams receive\n`session.presence` events on join/leave/idle edges, and\nthis stream's snapshot-on-connect includes the current\nviewer list. Presence is scoped to the session tree's root\nconversation, so viewers of different agents/sub-agents in\none session see each other. See\n`agentnexus/server/presence.py`.\n\n**Returns:** An SSE `StreamingResponse`.\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if no session exists.",
         "operationId": "stream_session_v1_sessions__session_id__stream_get",
         "parameters": [
           {
@@ -17404,7 +17404,7 @@
     },
     "/v1/sessions/{session_id}/switch-agent": {
       "post": {
-        "description": "Switch an existing session in place to a different agent/harness.\n\nUnlike fork, this keeps the SAME session \u2014 transcript, comments,\nfiles, host, and workspace are untouched; only the agent/harness\nchanges. The current session-scoped agent is replaced by a clone\nof the target built-in, model settings carry over only within the\nsame provider family (a model id is provider-bound), the native\nruntime session id is cleared, and the harness-presentation labels\nare recomputed for the target. The next turn cold-starts the new\nharness (rebuilding the native transcript from this session's own\nitems for a same-family native target). Only built-in agents are\nbindable, and only while the session is idle.\n\n**Parameters**\n\n- `body` \u2014 The validated `SessionSwitchAgentRequest`.\n\n**Returns:** A `SessionResponse` describing the session after the switch (status `\"idle\"`).\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if the session or target agent does not exist or the target is not a bindable built-in; 403 if the caller lacks edit access; 400 if the session is a sub-agent, has no agent binding, or the target bundle can't be loaded; 409 if a turn is currently running.",
+        "description": "Switch an existing session in place to a different agent/harness.\n\nUnlike fork, this keeps the SAME session \u2014 transcript, comments,\nfiles, host, and workspace are untouched; only the agent/harness\nchanges. The current session-scoped agent is replaced by a clone\nof the target built-in, model settings carry over only within the\nsame provider family (a model id is provider-bound), the native\nruntime session id is cleared, and the harness-presentation labels\nare recomputed for the target. The next turn cold-starts the new\nharness (rebuilding the native transcript from this session's own\nitems for a same-family native target). Only built-in agents are\nbindable, and only while the session is idle.\n\n**Parameters**\n\n- `body` \u2014 The validated `SessionSwitchAgentRequest`.\n\n**Returns:** A `SessionResponse` describing the session after the switch (status `\"idle\"`).\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if the session or target agent does not exist or the target is not a bindable built-in; 403 if the caller lacks edit access; 400 if the session is a sub-agent, has no agent binding, or the target bundle can't be loaded; 409 if a turn is currently running.",
         "operationId": "switch_session_agent_v1_sessions__session_id__switch_agent_post",
         "parameters": [
           {
@@ -17458,7 +17458,7 @@
     },
     "/v1/sessions/{source_id}/fork": {
       "post": {
-        "description": "Fork an existing session into a new session.\n\nDeep-copies the source session's conversation items and\nclones the agent into a new session. When `body.agent_id`\nis set, the fork binds that built-in agent instead of the\nsource's \u2014 switching harness (e.g. Claude-SDK \u2192 Claude Code,\nor Claude \u2192 Codex). The source's model settings carry over\nonly within the same provider family; a same-family native\ntarget also carries conversation history (the runner rebuilds\nits transcript). The REPL/CLI binds the fork to its runner via\n`PATCH /v1/sessions/{id}` after creation.\n\nWhen `body.up_to_response_id` is set, only history up to and\nincluding that response is copied into the fork (a \"fork from\nthis response\"); a native target then rebuilds its transcript\nfrom the truncated items instead of resuming the source's full\nnative transcript.\n\nThe dialog's run-config picks (`body.model_override`,\n`body.reasoning_effort`, `body.terminal_launch_args` \u2014 the\npermission-/approval-mode selector) override what the fork would\notherwise inherit. Each is opt-in: a field omitted from the request\nkeeps the inherited value (model/effort within the same provider\nfamily; launch args on a same-agent fork), while a field present\nwins \u2014 a clear alias (`\"default\"`) resets to the bound agent's\ndefault, and an explicit launch-args list also drops the source's\ncopied permission-mode / codex-bypass labels so they can't shadow\nthe freshly chosen mode.\n\nA sub-agent source is allowed, which is how a sub-agent is\npromoted to a session of its own: the fork is always a fresh\ntop-level conversation (no parent, its own spawn-tree root, its\nown owner grant), so it appears in the sidebar and outlives the\nparent. The source keeps running under its parent untouched,\nand the fork does not adopt the source's own children.\n\n**Parameters**\n\n- `body` \u2014 The validated `SessionForkRequest`.\n\n**Returns:** A `SessionResponse` describing the newly created fork (status `\"idle\"`).\n\n**Raises**\n\n- `OmnigentError` \u2014 404 if *source_id* does not exist or `body.agent_id` is not a bindable built-in agent; 403 if the caller lacks read access; 400 if the source has no agent binding, or `body.up_to_response_id` names no response in the source session.",
+        "description": "Fork an existing session into a new session.\n\nDeep-copies the source session's conversation items and\nclones the agent into a new session. When `body.agent_id`\nis set, the fork binds that built-in agent instead of the\nsource's \u2014 switching harness (e.g. Claude-SDK \u2192 Claude Code,\nor Claude \u2192 Codex). The source's model settings carry over\nonly within the same provider family; a same-family native\ntarget also carries conversation history (the runner rebuilds\nits transcript). The REPL/CLI binds the fork to its runner via\n`PATCH /v1/sessions/{id}` after creation.\n\nWhen `body.up_to_response_id` is set, only history up to and\nincluding that response is copied into the fork (a \"fork from\nthis response\"); a native target then rebuilds its transcript\nfrom the truncated items instead of resuming the source's full\nnative transcript.\n\nThe dialog's run-config picks (`body.model_override`,\n`body.reasoning_effort`, `body.terminal_launch_args` \u2014 the\npermission-/approval-mode selector) override what the fork would\notherwise inherit. Each is opt-in: a field omitted from the request\nkeeps the inherited value (model/effort within the same provider\nfamily; launch args on a same-agent fork), while a field present\nwins \u2014 a clear alias (`\"default\"`) resets to the bound agent's\ndefault, and an explicit launch-args list also drops the source's\ncopied permission-mode / codex-bypass labels so they can't shadow\nthe freshly chosen mode.\n\nA sub-agent source is allowed, which is how a sub-agent is\npromoted to a session of its own: the fork is always a fresh\ntop-level conversation (no parent, its own spawn-tree root, its\nown owner grant), so it appears in the sidebar and outlives the\nparent. The source keeps running under its parent untouched,\nand the fork does not adopt the source's own children.\n\n**Parameters**\n\n- `body` \u2014 The validated `SessionForkRequest`.\n\n**Returns:** A `SessionResponse` describing the newly created fork (status `\"idle\"`).\n\n**Raises**\n\n- `AgentNexusError` \u2014 404 if *source_id* does not exist or `body.agent_id` is not a bindable built-in agent; 403 if the caller lacks read access; 400 if the source has no agent binding, or `body.up_to_response_id` names no response in the source session.",
         "operationId": "fork_session_v1_sessions__source_id__fork_post",
         "parameters": [
           {
@@ -17834,7 +17834,7 @@
   },
   "servers": [
     {
-      "description": "Self-hosted Omnigent server (default local port).",
+      "description": "Self-hosted AgentNexus server (default local port).",
       "url": "http://127.0.0.1:6767"
     }
   ],

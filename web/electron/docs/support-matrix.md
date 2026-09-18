@@ -4,7 +4,7 @@
 
 | Channel | Status |
 | --- | --- |
-| Source checkout (`uv run python -m omnigent.server`) + web UI | Supported for developers |
+| Source checkout (`uv run python -m agentnexus.server`) + web UI | Supported for developers |
 | Windows portable zip | Internal/signed beta; portable user data kept per-user |
 | Windows NSIS installer | Signed internal beta path |
 | macOS DMG/zip | Buildable; notarization requires Apple credentials |

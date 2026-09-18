@@ -16,12 +16,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _NATIVE_RELAY_BUILTIN_TOOLS,
     _SKILL_TOOLS,
     build_native_relay_tool_schemas,
 )
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec
 
 
 def test_skill_tools_are_in_the_native_relay_union() -> None:
@@ -72,7 +72,7 @@ def test_relayed_load_skill_discovers_a_host_scope_skill(tmp_path: Path) -> None
     ``load_skill`` run from a native session's workspace actually finds a skill
     dropped in ``.claude/skills``, which is what makes relaying it worth doing.
     """
-    from omnigent.runner.tool_dispatch import _execute_skill_tool
+    from agentnexus.runner.tool_dispatch import _execute_skill_tool
 
     skill_dir = tmp_path / ".claude" / "skills" / "host-only"
     skill_dir.mkdir(parents=True)

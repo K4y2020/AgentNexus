@@ -15,9 +15,9 @@ import click
 import httpx
 import pytest
 
-from omnigent.cli_auth import OMNIGENT_SLICE_KEY_HEADER
-from omnigent.host import daemon_launch
-from omnigent.host.daemon_launch import (
+from agentnexus.cli_auth import AGENTNEXUS_SLICE_KEY_HEADER
+from agentnexus.host import daemon_launch
+from agentnexus.host.daemon_launch import (
     open_daemon_client,
     runner_is_online,
     wait_for_host_online,
@@ -31,14 +31,14 @@ def _no_ambient_host(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ``databricks_request_headers`` (reached via ``open_daemon_client`` with no
     explicit host) falls back to the CLI's own host_id, so on a machine that IS
-    a host (a persisted ``~/.omnigent/config.yaml`` ``host:`` section) the
+    a host (a persisted ``~/.agentnexus/config.yaml`` ``host:`` section) the
     "no slice key" assertions would pick up that ambient identity.
     """
     monkeypatch.setattr(
-        "omnigent.host.identity.load_host_identity_if_present",
+        "agentnexus.host.identity.load_host_identity_if_present",
         lambda *a, **k: None,
     )
-    monkeypatch.delenv("OMNIGENT_RUNNER_SLICE_KEY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_RUNNER_SLICE_KEY", raising=False)
 
 
 class _FlakyThenOnline:
@@ -381,20 +381,20 @@ async def test_open_daemon_client_pins_slice_key_on_workspace_mount() -> None:
         {"Authorization": "Bearer t"},
         "host_abc123",
     ) as client:
-        assert client.headers.get(OMNIGENT_SLICE_KEY_HEADER) == "host_abc123"
+        assert client.headers.get(AGENTNEXUS_SLICE_KEY_HEADER) == "host_abc123"
         assert client.headers.get("Authorization") == "Bearer t"
 
 
 async def test_open_daemon_client_no_slice_key_off_workspace() -> None:
     """An unsharded server has no sharding layer, so no key is baked."""
     async with open_daemon_client("http://test", {}, "host_abc123") as client:
-        assert OMNIGENT_SLICE_KEY_HEADER not in client.headers
+        assert AGENTNEXUS_SLICE_KEY_HEADER not in client.headers
 
 
 async def test_open_daemon_client_no_slice_key_without_host() -> None:
     """A hostless (local) session leaves routing to the default fallback."""
     async with open_daemon_client("https://ws.example.com/api/2.0/omnigent", {}, None) as client:
-        assert OMNIGENT_SLICE_KEY_HEADER not in client.headers
+        assert AGENTNEXUS_SLICE_KEY_HEADER not in client.headers
 
 
 def test_daemon_poll_intervals_open_tight_then_hold_at_the_cadence() -> None:

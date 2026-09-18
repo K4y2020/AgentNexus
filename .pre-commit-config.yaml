@@ -3,7 +3,7 @@
 #
 # A built web-UI bundle may be committed at this path (vendored, minified
 # JS/CSS) — never lint or "fix" it.
-exclude: ^omnigent/server/static/web-ui/
+exclude: ^agentnexus/server/static/web-ui/
 repos:
   - repo: local
     hooks:
@@ -24,7 +24,7 @@ repos:
         language: system
         entry: .venv/bin/pyrefly check
         pass_filenames: false
-        files: ^(omnigent/.*\.pyi?|sdks/python-client/.*\.py|pyproject\.toml|pyrefly\.toml|uv\.lock)$
+        files: ^(agentnexus/.*\.pyi?|sdks/python-client/.*\.py|pyproject\.toml|pyrefly\.toml|uv\.lock)$
 
       # Project-specific test-quality lint rules (dev/lint/). Run on test
       # files only — the patterns never occur in production code.
@@ -58,7 +58,7 @@ repos:
         # Exclude generated assets: web-ui build output, Xcode asset catalogs,
         # and Apple Icon Composer `.icon` bundles (machine-formatted; prettier
         # fights the tooling).
-        exclude: ^(omnigent/server/static/web-ui/assets/|web/.*\.xcassets/|web/.*\.icon/)
+        exclude: ^(agentnexus/server/static/web-ui/assets/|web/.*\.xcassets/|web/.*\.icon/)
 
       - id: web-theme-palette-generation
         name: web theme palette CSS generation
@@ -126,14 +126,14 @@ repos:
         files: ^web/ios/.*\.swift$
         exclude: ^web/ios/(build|vendor)/
 
-      # Keep omnigent/version.py's VERSION constant equal to the canonical
+      # Keep agentnexus/version.py's VERSION constant equal to the canonical
       # [project].version in pyproject.toml (the runtime imports the constant;
       # the build reads pyproject). Fixer: rewrites the constant and re-stages.
       - id: sync-version-py
-        name: sync omnigent/version.py to pyproject version
+        name: sync agentnexus/version.py to pyproject version
         language: system
         entry: .venv/bin/python scripts/sync_version_py.py
-        files: ^(pyproject\.toml|omnigent/version\.py)$
+        files: ^(pyproject\.toml|agentnexus/version\.py)$
         pass_filenames: false
 
       # Local `uv` runs rewrite uv.lock's registry to whatever index is
@@ -154,7 +154,7 @@ repos:
         name: routing protobuf bindings are up to date
         language: system
         entry: .venv/bin/python scripts/gen_routing_pb2.py --check
-        files: ^omnigent/api/routing/v1/routing(\.proto|_pb2\.pyi?)$
+        files: ^agentnexus/api/routing/v1/routing(\.proto|_pb2\.pyi?)$
         pass_filenames: false
 
   # ── File hygiene ────────────────────────────────────────────────

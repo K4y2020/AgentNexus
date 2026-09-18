@@ -2,7 +2,7 @@
 
 The driver launches the harness with the profile's model in
 ``{env_prefix}MODEL`` (a non-default id the caller chose). This probe
-first checks that model passes Omnigent's override validation and family
+first checks that model passes AgentNexus's override validation and family
 gate — the same checks the server applies before spawn — then confirms a
 live turn on that model completes, proving the id threaded through to a
 real gateway route rather than being dropped.
@@ -17,7 +17,7 @@ gateway to reject unknown ids promptly.
 
 from __future__ import annotations
 
-from omnigent.model_override import model_family_mismatch, validate_model_override
+from agentnexus.model_override import model_family_mismatch, validate_model_override
 from tests.harness_bench.driver import infra_failure_reason
 from tests.harness_bench.probes.base import CapabilityProbe
 from tests.harness_bench.profile import BenchProfile

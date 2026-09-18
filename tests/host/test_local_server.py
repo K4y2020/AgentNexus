@@ -1,4 +1,4 @@
-"""Tests for the persistent background local Omnigent server helpers.
+"""Tests for the persistent background local AgentNexus server helpers.
 
 Covers ``omnigent.host.local_server``: reuse-vs-respawn detection
 (:func:`local_server_url_if_healthy`) and the spawn wiring
@@ -15,7 +15,7 @@ import click
 import httpx
 import pytest
 
-from omnigent.host import local_server
+from agentnexus.host import local_server
 
 
 def test_local_server_url_if_healthy_returns_url_when_alive_and_healthy(
@@ -211,10 +211,10 @@ def test_server_config_signature_changes_with_features(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Changing the startup feature set forces a managed-server respawn."""
-    monkeypatch.delenv("OMNIGENT_FEATURES", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_FEATURES", raising=False)
     sig_off = local_server.server_config_signature()
 
-    monkeypatch.setenv("OMNIGENT_FEATURES", "usage_page")
+    monkeypatch.setenv("AGENTNEXUS_FEATURES", "usage_page")
     sig_on = local_server.server_config_signature()
 
     assert sig_off != sig_on
@@ -229,7 +229,7 @@ def test_server_config_signature_changes_with_session_title_instructions(
     config_home.mkdir()
     config_path = config_home / "config.yaml"
     config_path.write_text("{}\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(config_home))
     sig_default = local_server.server_config_signature()
 
     config_path.write_text("session_title_instructions: Prefix titles with the current date.\n")
@@ -243,7 +243,7 @@ def test_remote_daemon_signature_ignores_local_server_features(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Remote host daemons do not parse config for a server they do not own."""
-    monkeypatch.setenv("OMNIGENT_FEATURES", "not-a-feature")
+    monkeypatch.setenv("AGENTNEXUS_FEATURES", "not-a-feature")
 
     assert local_server.server_config_signature(include_features=False)
 
@@ -260,7 +260,7 @@ def test_server_config_signature_changes_with_version(
     """
     import importlib.metadata
 
-    from omnigent.server import auth as auth_mod
+    from agentnexus.server import auth as auth_mod
 
     # Pin auth so only the version varies between the two signatures.
     monkeypatch.setattr(auth_mod, "resolve_auth_source", lambda: "noauth")
@@ -300,7 +300,7 @@ def test_ensure_local_omnigent_server_spawns_when_none_healthy(
         local_server, "_LOCAL_SERVER_LOG_REF_PATH", tmp_path / "local_server.logpath"
     )
     # Point the persistent data dir at tmp so the test does not write to the
-    # developer's real ~/.omnigent.
+    # developer's real ~/.agentnexus.
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
     # The spawned server inherits the parent env unmodified — there is no
     # profile flag anymore, so an ambient DATABRICKS_CONFIG_PROFILE must
@@ -480,25 +480,25 @@ def test_stop_local_omnigent_server_escalates_to_sigkill(
 def test_local_data_dir_honors_data_dir_not_config_home(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """``_local_data_dir`` isolates the runtime DB via ``OMNIGENT_DATA_DIR`` only.
+    """``_local_data_dir`` isolates the runtime DB via ``AGENTNEXUS_DATA_DIR`` only.
 
-    Two worktrees sharing ``~/.omnigent/chat.db`` with divergent Alembic
+    Two worktrees sharing ``~/.agentnexus/chat.db`` with divergent Alembic
     heads can't migrate the shared DB, so the daemon-backed server fails to
-    boot. ``OMNIGENT_DATA_DIR`` is the purpose-built data-isolation knob.
-    ``OMNIGENT_CONFIG_HOME`` MUST NOT move the DB — it isolates config only;
+    boot. ``AGENTNEXUS_DATA_DIR`` is the purpose-built data-isolation knob.
+    ``AGENTNEXUS_CONFIG_HOME`` MUST NOT move the DB — it isolates config only;
     overloading it broke HOME-based data isolation (the resumption e2e tests
     set ``HOME`` to control the DB while inheriting a shared CONFIG_HOME).
     """
-    monkeypatch.delenv("OMNIGENT_DATA_DIR", raising=False)
-    monkeypatch.delenv("OMNIGENT_CONFIG_HOME", raising=False)
-    # Default: ~/.omnigent.
-    assert local_server._local_data_dir() == Path.home() / ".omnigent"
+    monkeypatch.delenv("AGENTNEXUS_DATA_DIR", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_CONFIG_HOME", raising=False)
+    # Default: ~/.agentnexus.
+    assert local_server._local_data_dir() == Path.home() / ".agentnexus"
     # CONFIG_HOME does NOT move the data dir — a failure here means config
     # isolation is leaking back into data-dir selection.
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path / "cfg"))
-    assert local_server._local_data_dir() == Path.home() / ".omnigent"
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert local_server._local_data_dir() == Path.home() / ".agentnexus"
     # DATA_DIR is the data-isolation knob.
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "data"))
     assert local_server._local_data_dir() == tmp_path / "data"
 
 
@@ -668,7 +668,7 @@ def test_ensure_local_omnigent_server_spawn_records_and_returns_log_path(
     monkeypatch.setattr(local_server, "_LOCAL_SERVER_SIG_PATH", sig_file)
     monkeypatch.setattr(local_server, "_LOCAL_SERVER_LOG_REF_PATH", log_ref)
     # Point the persistent data dir at tmp so logs/server lands under tmp.
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / ".agentnexus"))
 
     class _Proc:
         pid = 9001
@@ -692,7 +692,7 @@ def test_ensure_local_omnigent_server_spawn_records_and_returns_log_path(
     assert result.spawned is True
     assert result.log_path is not None
     # The captured log lives under the per-user server log dir as a .log file.
-    assert result.log_path.parent == tmp_path / ".omnigent" / "logs" / "server"
+    assert result.log_path.parent == tmp_path / ".agentnexus" / "logs" / "server"
     assert result.log_path.suffix == ".log"
     assert result.log_path.name.startswith("server-")
     # Recorded in the sidecar so a later status/reuse names the same file.
@@ -725,7 +725,7 @@ def test_ensure_local_omnigent_server_reuse_reads_log_path_sidecar(
     sig_file = tmp_path / "local_server.sig"
     sig_file.write_text(local_server.server_config_signature() + "\n")
     log_ref = tmp_path / "local_server.logpath"
-    recorded = tmp_path / ".omnigent" / "logs" / "server" / "server-cd34.log"
+    recorded = tmp_path / ".agentnexus" / "logs" / "server" / "server-cd34.log"
     log_ref.write_text(str(recorded) + "\n")
     monkeypatch.setattr(local_server, "_LOCAL_SERVER_SIG_PATH", sig_file)
     monkeypatch.setattr(local_server, "_LOCAL_SERVER_LOG_REF_PATH", log_ref)
@@ -816,7 +816,7 @@ def _fake_subprocess(stdout: str | None = None, raises: BaseException | None = N
 def test_stop_untracked_local_server_kills_orphan_on_default_port(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A live Omnigent server on :8000 with no pidfile entry is found and stopped.
+    """A live AgentNexus server on :8000 with no pidfile entry is found and stopped.
 
     This is the reported bug: the pidfile was lost while the server lived, so
     ``stop_local_omnigent_server`` (pidfile-scoped) couldn't see it. The sweep must
@@ -847,7 +847,7 @@ def test_stop_untracked_local_server_noop_when_nothing_listening(
     """No ``/health`` responder → nothing killed, and lsof is never consulted.
 
     Guards against the off-switch killing whatever happens to hold the port:
-    if there's no Omnigent server answering, we must not even look up a PID.
+    if there's no AgentNexus server answering, we must not even look up a PID.
     """
     import httpx
 
@@ -859,7 +859,7 @@ def test_stop_untracked_local_server_noop_when_nothing_listening(
     monkeypatch.setattr(
         local_server,
         "subprocess",
-        _fake_subprocess(raises=AssertionError("lsof consulted despite no Omnigent server")),
+        _fake_subprocess(raises=AssertionError("lsof consulted despite no AgentNexus server")),
     )
     monkeypatch.setattr(local_server, "_terminate_pid", _raise_if_called)
 
@@ -884,7 +884,7 @@ def test_stop_untracked_local_server_noop_on_non_omnigent_listener(
 def test_stop_untracked_local_server_noop_when_lsof_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A live Omnigent server but no resolvable PID (lsof missing) → degrade, no kill.
+    """A live AgentNexus server but no resolvable PID (lsof missing) → degrade, no kill.
 
     Without a PID we can't terminate, so the sweep returns ``None`` rather
     than crashing — the off-switch then leaves a manual hint to the user.

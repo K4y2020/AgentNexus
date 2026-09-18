@@ -1,7 +1,7 @@
 """Tests for SqlAlchemyConversationStore in split-DB mode.
 
 Exercises the same operations as test_conversation_store.py but with the
-Omnigent DB and AP DB backed by two separate SQLite files, verifying that
+AgentNexus DB and AP DB backed by two separate SQLite files, verifying that
 rows land in the right database.
 """
 
@@ -14,14 +14,14 @@ from typing import Any
 
 import pytest
 
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
 
 @pytest.fixture()
 def omnigent_db(tmp_path: Path) -> Path:
-    return tmp_path / "omnigent.db"
+    return tmp_path / "agentnexus.db"
 
 
 @pytest.fixture()
@@ -71,12 +71,12 @@ def test_tables_live_in_correct_db(
     for t in ("conversations", "conversation_items", "conversation_labels"):
         assert t in conv_tables, f"{t} missing from 9b7e62bfe9e16274877fe2868bffae5e"
 
-    # Omnigent tables in omnigent_db
-    for t in ("omnigent_conversation_metadata", "agents", "hosts", "policies", "comments"):
-        assert t in omnigent_tables, f"{t} missing from omnigent_db"
+    # AgentNexus tables in omnigent_db
+    for t in ("agentnexus_conversation_metadata", "agents", "hosts", "policies", "comments"):
+        assert t in omnigent_tables, f"{t} missing from agentnexus_db"
 
     # AP tables must NOT appear in omnigent_db (no schema migration runs there)
-    assert "omnigent_conversation_metadata" not in conv_tables
+    assert "agentnexus_conversation_metadata" not in conv_tables
 
 
 # ── create_conversation ────────────────────────────────
@@ -96,10 +96,10 @@ def test_create_conversation_rows_land_in_correct_db(
     assert _count(conv_db, "conversations") == 1
     assert _col(conv_db, "conversations", "title") == ["hello"]
 
-    # Omnigent DB: operational fields
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 1
-    assert _col(omnigent_db, "omnigent_conversation_metadata", "runner_id") == ["runner_abc"]
-    assert _col(omnigent_db, "omnigent_conversation_metadata", "workspace") == ["/tmp/proj"]
+    # AgentNexus DB: operational fields
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 1
+    assert _col(omnigent_db, "agentnexus_conversation_metadata", "runner_id") == ["runner_abc"]
+    assert _col(omnigent_db, "agentnexus_conversation_metadata", "workspace") == ["/tmp/proj"]
 
 
 def test_create_sub_agent_conversation(
@@ -116,7 +116,7 @@ def test_create_sub_agent_conversation(
     assert child.kind == "sub_agent"
     assert child.parent_conversation_id == parent.id
     # kind lives in metadata
-    kind_code = _col(omnigent_db, "omnigent_conversation_metadata", "kind", f"id=X'{child.id}'")
+    kind_code = _col(omnigent_db, "agentnexus_conversation_metadata", "kind", f"id=X'{child.id}'")
     assert kind_code == [2]
     # title and parent link live in AP
     parent_id_col = _col(conv_db, "conversations", "parent_conversation_id", f"id=X'{child.id}'")
@@ -173,7 +173,7 @@ def test_kind_derived_from_parent_nullness_not_metadata(
     metadata row (the old source of the ``kind`` column) is missing.
 
     Simulates a create that crashed after the AP conversation row landed but
-    before the Omnigent metadata row: deleting the metadata row must not flip a
+    before the AgentNexus metadata row: deleting the metadata row must not flip a
     child's kind back to ``"default"``.
     """
     parent = store.create_conversation(title="parent")
@@ -197,15 +197,15 @@ def test_child_listing_does_not_prefetch_workspace_wide(
     monkeypatch: pytest.MonkeyPatch,
     store: SqlAlchemyConversationStore,
 ) -> None:
-    """The parent-scoped child listing must not open an Omnigent-pool session to
+    """The parent-scoped child listing must not open an AgentNexus-pool session to
     prefetch a workspace-wide id set — the post-split slowdown this fixes.
 
     Fails the test if ``list_conversations(parent_conversation_id=...)`` touches
-    ``self._session`` (the Omnigent pool) for a kind/archived prefetch. It may
+    ``self._session`` (the AgentNexus pool) for a kind/archived prefetch. It may
     still use ``self._conv_session`` (the AP pool) freely, and it reads metadata
     for the returned page via a separate, bounded ``self._session`` call — which
     is why we only assert the *prefetch* path is gone by counting sessions: a
-    parent-scoped page fetch opens the Omnigent pool at most once (page-metadata
+    parent-scoped page fetch opens the AgentNexus pool at most once (page-metadata
     merge), never twice (prefetch + merge).
     """
     parent = store.create_conversation(title="parent")
@@ -214,20 +214,20 @@ def test_child_listing_does_not_prefetch_workspace_wide(
             kind="sub_agent", title=f"coder:c{i}", parent_conversation_id=parent.id
         )
 
-    calls = {"omnigent_sessions": 0}
+    calls = {"agentnexus_sessions": 0}
     real_session = store._session
 
     def counting_session(*args: object, **kwargs: object) -> object:
-        calls["omnigent_sessions"] += 1
+        calls["agentnexus_sessions"] += 1
         return real_session(*args, **kwargs)
 
     monkeypatch.setattr(store, "_session", counting_session)
     page = store.list_conversations(kind="sub_agent", parent_conversation_id=parent.id)
 
     assert len(page.data) == 3
-    # One Omnigent-pool session for the page-metadata merge; the workspace-wide
+    # One AgentNexus-pool session for the page-metadata merge; the workspace-wide
     # prefetch (a second, unbounded one) must be gone.
-    assert calls["omnigent_sessions"] <= 1
+    assert calls["agentnexus_sessions"] <= 1
 
 
 # ── labels ─────────────────────────────────────────────
@@ -259,7 +259,7 @@ def test_set_runner_id_lands_in_omnigent_db(
     conv = store.create_conversation(title="runner")
     store.set_runner_id(conv.id, "runner_xyz")
     runner_ids = _col(
-        omnigent_db, "omnigent_conversation_metadata", "runner_id", f"id=X'{conv.id}'"
+        omnigent_db, "agentnexus_conversation_metadata", "runner_id", f"id=X'{conv.id}'"
     )
     assert runner_ids == ["runner_xyz"]
 
@@ -290,7 +290,7 @@ def test_apply_session_usage_delta_drops_negative_and_non_finite_increments() ->
     ``by_model`` — are dropped rather than applied; well-formed non-negative
     increments still merge.
     """
-    from omnigent.stores.conversation_store import apply_session_usage_delta
+    from agentnexus.stores.conversation_store import apply_session_usage_delta
 
     current: dict[str, Any] = {
         "input_tokens": 100,
@@ -330,13 +330,13 @@ def test_set_external_session_id(store: SqlAlchemyConversationStore) -> None:
 def test_set_conversation_project_lands_in_omnigent_db(
     omnigent_db: Path, store: SqlAlchemyConversationStore
 ) -> None:
-    """``project_id`` is written to the metadata row in the Omnigent DB."""
+    """``project_id`` is written to the metadata row in the AgentNexus DB."""
     project_id = "b" * 32
     conv = store.create_conversation(title="filed")
     filed = store.set_conversation_project(conv.id, project_id)
     assert filed is True
 
-    stored = _col(omnigent_db, "omnigent_conversation_metadata", "project_id", f"id=X'{conv.id}'")
+    stored = _col(omnigent_db, "agentnexus_conversation_metadata", "project_id", f"id=X'{conv.id}'")
     assert stored == [project_id]
     # Reads back through the entity (which merges both DBs).
     assert store.get_conversation(conv.id).project_id == project_id
@@ -347,13 +347,13 @@ def test_list_conversations_project_name_filter_crosses_dbs(
     omnigent_db: Path,
 ) -> None:
     """The dual-read ``project`` (by name) filter resolves the first-class
-    member ids from the Omnigent DB (``projects`` JOIN ``conversation_metadata``,
+    member ids from the AgentNexus DB (``projects`` JOIN ``conversation_metadata``,
     both colocated there) and ORs them with the ``omni_project`` label on the AP
     DB — the cross-DB path a single-DB test can't exercise.
     """
-    from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
-    # projects lives on the Omnigent DB, so create it against that URI.
+    # projects lives on the AgentNexus DB, so create it against that URI.
     project_store = SqlAlchemyProjectStore(f"sqlite:///{omnigent_db}")
     project = project_store.create("c" * 32, "Work", None)
 
@@ -380,8 +380,8 @@ def test_list_conversations_project_name_filter_crosses_dbs(
 def test_append_and_list_items_land_in_conv_db(
     conv_db: Path, store: SqlAlchemyConversationStore
 ) -> None:
-    from omnigent.entities import NewConversationItem
-    from omnigent.entities.conversation import MessageData
+    from agentnexus.entities import NewConversationItem
+    from agentnexus.entities.conversation import MessageData
 
     conv = store.create_conversation(title="items")
     items = store.append(
@@ -407,8 +407,8 @@ def test_append_and_list_items_land_in_conv_db(
 def test_delete_conversation_cleans_both_dbs(
     omnigent_db: Path, conv_db: Path, store: SqlAlchemyConversationStore
 ) -> None:
-    from omnigent.entities import NewConversationItem
-    from omnigent.entities.conversation import MessageData
+    from agentnexus.entities import NewConversationItem
+    from agentnexus.entities.conversation import MessageData
 
     conv = store.create_conversation(title="to-delete", runner_id="r1")
     store.set_labels(conv.id, {"k": "v"})
@@ -423,14 +423,14 @@ def test_delete_conversation_cleans_both_dbs(
         ],
     )
     assert _count(conv_db, "conversations") == 1
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 1
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 1
 
     deleted = asyncio.run(store.delete_conversation(conv.id))
     assert deleted is True
     assert _count(conv_db, "conversations") == 0
     assert _count(conv_db, "conversation_items") == 0
     assert _count(conv_db, "conversation_labels") == 0
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 0
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 0
 
 
 def test_delete_conversation_subtree_cleans_both_dbs(
@@ -439,11 +439,11 @@ def test_delete_conversation_subtree_cleans_both_dbs(
     parent = store.create_conversation(title="parent")
     store.create_conversation(kind="sub_agent", title="child", parent_conversation_id=parent.id)
     assert _count(conv_db, "conversations") == 2
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 2
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 2
 
     asyncio.run(store.delete_conversation(parent.id))
     assert _count(conv_db, "conversations") == 0
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 0
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 0
 
 
 # ── get_runner_ids / get_session_connectivity ──────────
@@ -472,8 +472,8 @@ def test_list_conversations_by_runner_id(store: SqlAlchemyConversationStore) -> 
 def test_fork_conversation_copies_to_both_dbs(
     omnigent_db: Path, conv_db: Path, store: SqlAlchemyConversationStore
 ) -> None:
-    from omnigent.entities import NewConversationItem
-    from omnigent.entities.conversation import MessageData
+    from agentnexus.entities import NewConversationItem
+    from agentnexus.entities.conversation import MessageData
 
     source = store.create_conversation(title="source", workspace="/src")
     store.append(
@@ -494,7 +494,7 @@ def test_fork_conversation_copies_to_both_dbs(
     assert fork.title == "fork"
 
     assert _count(conv_db, "conversations") == 2
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 2
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 2
     assert _count(conv_db, "conversation_items") == 2  # original + copy
 
 
@@ -509,10 +509,10 @@ def test_agent_store_resolves_session_id_across_dbs(
     """
     ``agent.session_id`` requires a reverse lookup on
     ``conversations.agent_id``, which lives in the AP DB. An AgentStore
-    wired only to the Omnigent DB would query the wrong database and
+    wired only to the AgentNexus DB would query the wrong database and
     silently return ``session_id=None`` for every session-scoped agent.
     """
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
 
     created = store.create_session_with_agent(
         agent_id="112c4ebea353b873df12de9d02f539ab",
@@ -521,7 +521,7 @@ def test_agent_store_resolves_session_id_across_dbs(
         agent_description=None,
         title="split session",
     )
-    # Agent row lands in the Omnigent DB; the binding on the AP DB's
+    # Agent row lands in the AgentNexus DB; the binding on the AP DB's
     # conversations.agent_id column.
     assert _count(omnigent_db, "agents") == 1
     assert _col(conv_db, "conversations", "agent_id") == ["112c4ebea353b873df12de9d02f539ab"]
@@ -569,7 +569,7 @@ def test_update_conversation_archives_without_metadata_row(
             (bytes.fromhex(parent.id), bytes.fromhex(child.id)),
         )
         conn.commit()
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 0
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 0
 
     updated = store.update_conversation(parent.id, archived=True)
     assert updated is not None
@@ -587,7 +587,7 @@ def test_update_conversation_archives_without_metadata_row(
         [parent.id, child.id]
     )
     # The archive path does not resurrect metadata rows (archived is AP-side now).
-    assert _count(omnigent_db, "omnigent_conversation_metadata") == 0
+    assert _count(omnigent_db, "agentnexus_conversation_metadata") == 0
 
 
 # ── Session-scoped agent cleanup on conversation delete ───────────────
@@ -619,7 +619,7 @@ def test_delete_conversation_keeps_template_agent(
     store: SqlAlchemyConversationStore,
 ) -> None:
     """Template agents are shared; deleting a bound session must not delete them."""
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
 
     agent_store = SqlAlchemyAgentStore(
         f"sqlite:///{omnigent_db}",

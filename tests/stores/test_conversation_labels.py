@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.entities import (
+from agentnexus.entities import (
     MessageData,
     NewConversationItem,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -114,14 +114,14 @@ def test_set_labels_clamps_overlong_value_to_column_width(
     the Python-side clamp in ``_upsert_labels`` — not the DB — does the
     trimming, which is exactly what protects the Postgres production path.
     """
-    from omnigent.db.db_models import LABEL_VALUE_MAX_LEN
+    from agentnexus.db.db_models import LABEL_VALUE_MAX_LEN
 
     conv = conversation_store.create_conversation()
     overlong = "z" * (LABEL_VALUE_MAX_LEN + 50)
-    conversation_store.set_labels(conv.id, {"omnigent.last_task_error_message": overlong})
+    conversation_store.set_labels(conv.id, {"agentnexus.last_task_error_message": overlong})
     got = conversation_store.get_conversation(conv.id)
     assert got is not None
-    stored = got.labels["omnigent.last_task_error_message"]
+    stored = got.labels["agentnexus.last_task_error_message"]
     assert len(stored) == LABEL_VALUE_MAX_LEN
     # Head preserved (the clamp keeps the front, not a tail or empty string).
     assert stored == overlong[:LABEL_VALUE_MAX_LEN]
@@ -195,7 +195,7 @@ def test_labels_survive_item_compaction_proxy(
     a cascade pointed the wrong way, or someone routed
     ``delete_items`` through the label table by mistake.
     """
-    from omnigent.db.db_models import SqlConversationItem
+    from agentnexus.db.db_models import SqlConversationItem
 
     conv = conversation_store.create_conversation()
     conversation_store.set_labels(conv.id, {"integrity": "1", "confidentiality": "0"})
@@ -259,7 +259,7 @@ async def test_delete_conversation_cascades_to_labels(
     # no label snapshot).
     from sqlalchemy import func, select
 
-    from omnigent.db.db_models import SqlConversationLabel
+    from agentnexus.db.db_models import SqlConversationLabel
 
     with conversation_store._session("test_setup") as session:
         count = session.execute(
@@ -372,7 +372,7 @@ def test_set_labels_honors_caller_timestamp(
     """
     from sqlalchemy import select
 
-    from omnigent.db.db_models import SqlConversationLabel
+    from agentnexus.db.db_models import SqlConversationLabel
 
     conv = conversation_store.create_conversation()
     caller_stamp = 1_700_000_042  # arbitrary historical epoch
@@ -406,7 +406,7 @@ def test_upsert_refreshes_timestamp_on_overwrite(
     """
     from sqlalchemy import select
 
-    from omnigent.db.db_models import SqlConversationLabel
+    from agentnexus.db.db_models import SqlConversationLabel
 
     conv = conversation_store.create_conversation()
     # Two deliberate timestamps far enough apart that any

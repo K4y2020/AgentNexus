@@ -21,8 +21,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.builtins.safety import enforce_sandbox
-from omnigent.policies.schema import PolicyEvent
+from agentnexus.policies.builtins.safety import enforce_sandbox
+from agentnexus.policies.schema import PolicyEvent
 from tests.policies.builtins.helpers import tool_call_event as tc
 
 

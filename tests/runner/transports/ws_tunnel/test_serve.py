@@ -19,12 +19,12 @@ from websockets.exceptions import (
 )
 from websockets.http11 import Response
 
-from omnigent.runner.identity import (
-    OMNIGENT_INTERNAL_WS_ORIGIN,
+from agentnexus.runner.identity import (
+    AGENTNEXUS_INTERNAL_WS_ORIGIN,
     RUNNER_TUNNEL_TOKEN_HEADER,
 )
-from omnigent.runner.transports.ws_tunnel import serve as serve_module
-from omnigent.runner.transports.ws_tunnel.frames import (
+from agentnexus.runner.transports.ws_tunnel import serve as serve_module
+from agentnexus.runner.transports.ws_tunnel.frames import (
     PingFrame,
     RequestCancelFrame,
     RequestFrame,
@@ -33,7 +33,7 @@ from omnigent.runner.transports.ws_tunnel.frames import (
     WSOpenFrame,
     encode_frame,
 )
-from omnigent.runner.transports.ws_tunnel.serve import (
+from agentnexus.runner.transports.ws_tunnel.serve import (
     _handle_tunnel_frame,
     _serve_tunnel_once,
     _websocket_auth_redirect_url,
@@ -289,7 +289,7 @@ async def test_serve_tunnel_fails_loud_on_http_auth_rejection(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.runner.transports.ws_tunnel.serve import (
+    from agentnexus.runner.transports.ws_tunnel.serve import (
         _HTTP_AUTH_REJECTION_FATAL_ATTEMPTS,
     )
 
@@ -481,7 +481,7 @@ async def test_serve_tunnel_fails_loud_on_auth_redirect(
     # what the server is asking for.
     assert login_url in message
     # User-actionable next step.
-    assert "omnigent setup" in message
+    assert "agentnexus setup" in message
 
 
 @pytest.mark.asyncio
@@ -724,7 +724,7 @@ async def test_serve_tunnel_once_sends_bearer_header(
     monkeypatch.setattr(websockets, "connect", _fake_connect)
     # No recorded ?o= selector, so no workspace-routing header rides the
     # handshake (keeps the asserted header set exact).
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda _server_url: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda _server_url: None)
 
     connected: list[int] = []
     await _serve_tunnel_once(
@@ -752,7 +752,7 @@ async def test_serve_tunnel_once_sends_bearer_header(
     # addition to the bearer and tunnel-binding token.
     assert kwargs == {
         "additional_headers": {
-            "Origin": OMNIGENT_INTERNAL_WS_ORIGIN,
+            "Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN,
             "Authorization": "Bearer tok-auth",
             RUNNER_TUNNEL_TOKEN_HEADER: "bind-token",
         },
@@ -803,7 +803,7 @@ async def test_serve_tunnel_once_sends_org_header(
 
     monkeypatch.setattr(websockets, "connect", _fake_connect)
     monkeypatch.setattr(
-        "omnigent.cli_auth.load_databricks_org_id", lambda _server_url: "2850744067564480"
+        "agentnexus.cli_auth.load_databricks_org_id", lambda _server_url: "2850744067564480"
     )
 
     await _serve_tunnel_once(
@@ -933,7 +933,7 @@ async def test_serve_tunnel_once_graceful_shutdown_returns_and_closes(
         return _Ctx()
 
     monkeypatch.setattr(websockets, "connect", _fake_connect)
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda _server_url: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda _server_url: None)
 
     # Pre-arm the shutdown so the very first recv() race resolves to shutdown
     # (recv blocks forever). Deterministic — no real-time sleep to lose to load.
@@ -1396,7 +1396,7 @@ async def test_serve_tunnel_401_without_factory_is_fatal(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.runner.transports.ws_tunnel.serve import (
+    from agentnexus.runner.transports.ws_tunnel.serve import (
         _HTTP_AUTH_REJECTION_FATAL_ATTEMPTS,
     )
 
@@ -1548,7 +1548,7 @@ async def test_serve_tunnel_403_persistent_is_fatal_with_factory(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.runner.transports.ws_tunnel.serve import (
+    from agentnexus.runner.transports.ws_tunnel.serve import (
         _HTTP_AUTH_REJECTION_FATAL_ATTEMPTS,
     )
 
@@ -1620,7 +1620,7 @@ async def test_serve_tunnel_403_without_factory_is_fatal(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent.runner.transports.ws_tunnel.serve import (
+    from agentnexus.runner.transports.ws_tunnel.serve import (
         _HTTP_AUTH_REJECTION_FATAL_ATTEMPTS,
     )
 
@@ -1811,7 +1811,7 @@ async def _capture_connect_kwargs(
 
     captured: dict[str, Any] = {}
     monkeypatch.setattr(websockets, "connect", _StubConnect(captured))
-    monkeypatch.setattr("omnigent.cli_auth.databricks_request_headers", lambda *_a, **_k: {})
+    monkeypatch.setattr("agentnexus.cli_auth.databricks_request_headers", lambda *_a, **_k: {})
     await _serve_tunnel_once(
         None,  # type: ignore[arg-type]  # app unused: the stub ws closes immediately
         tunnel_url=tunnel_url,
@@ -2098,7 +2098,7 @@ async def test_serve_tunnel_once_suspend_resume_aborts_tunnel(
         await asyncio.Event().wait()
 
     monkeypatch.setattr(websockets, "connect", lambda *_a, **_kw: _Ctx())
-    monkeypatch.setattr("omnigent.cli_auth.load_databricks_org_id", lambda _url: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_databricks_org_id", lambda _url: None)
     monkeypatch.setattr(serve_module, "watch_for_resume", _fake_watch)
 
     noted: list[bool] = []

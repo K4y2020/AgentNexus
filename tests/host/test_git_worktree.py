@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.host.git_worktree import (
+from agentnexus.host.git_worktree import (
     CreatedWorktree,
     WorktreeError,
     create_worktree,

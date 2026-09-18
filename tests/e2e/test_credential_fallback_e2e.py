@@ -88,7 +88,7 @@ def local_server(tmp_path: Path, mock_llm_server_url: str) -> Iterator[str]:
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -104,8 +104,8 @@ def local_server(tmp_path: Path, mock_llm_server_url: str) -> Iterator[str]:
         cwd=str(_REPO),
         env={
             **os.environ,
-            "OMNIGENT_SKIP_ONBOARD": "1",
-            "OMNIGENT_NO_UPDATE_CHECK": "1",
+            "AGENTNEXUS_SKIP_ONBOARD": "1",
+            "AGENTNEXUS_NO_UPDATE_CHECK": "1",
         },
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -135,13 +135,13 @@ def _fallback_run_env(mock_llm_server_url: str, config_home: Path) -> dict[str, 
     head only through the first-available fallback.
 
     :param mock_llm_server_url: Mock LLM base URL.
-    :param config_home: Isolated ``OMNIGENT_CONFIG_HOME`` (also used as HOME so
+    :param config_home: Isolated ``AGENTNEXUS_CONFIG_HOME`` (also used as HOME so
         ambient CLI-login detection finds nothing).
     :returns: The subprocess env.
     """
     env = dict(os.environ)
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
     env["HOME"] = str(config_home)
     for stale in _CREDENTIAL_VARS:
         env.pop(stale, None)
@@ -161,7 +161,7 @@ def _fallback_run_env(mock_llm_server_url: str, config_home: Path) -> dict[str, 
         ),
         encoding="utf-8",
     )
-    env["OMNIGENT_CONFIG_HOME"] = str(config_home)
+    env["AGENTNEXUS_CONFIG_HOME"] = str(config_home)
     return env
 
 
@@ -208,14 +208,14 @@ def test_runner_fallback_credentials_head_with_nondefault_provider(
         [{"text": "pong from the fallback-credentialed head"}],
         match=token,
     )
-    config_home = Path(tempfile.mkdtemp(prefix="omnigent-fallback-cfg-"))
+    config_home = Path(tempfile.mkdtemp(prefix="agentnexus-fallback-cfg-"))
     agent_dir = _probe_agent_dir(tmp_path)
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(agent_dir),
             "--server",
@@ -231,7 +231,7 @@ def test_runner_fallback_credentials_head_with_nondefault_provider(
     )
 
     assert result.returncode == 0, (
-        f"omnigent run failed (exit {result.returncode}) — the head was not "
+        f"agentnexus run failed (exit {result.returncode}) — the head was not "
         f"credentialed via the fallback.\nSTDOUT:\n{result.stdout[-3000:]}\n"
         f"STDERR:\n{result.stderr[-3000:]}"
     )

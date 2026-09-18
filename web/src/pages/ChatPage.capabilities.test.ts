@@ -13,7 +13,7 @@ describe("effortLevelsForConv", () => {
   it("returns the extended ladder (xhigh, max) for claude-code-native-ui", () => {
     // WHY: claude-native exposes the full reasoning ladder; dropping xhigh/max
     // here would silently cap those sessions at "high".
-    expect(effortLevelsForConv({ labels: { "omnigent.wrapper": NATIVE } })).toEqual([
+    expect(effortLevelsForConv({ labels: { "agentnexus.wrapper": NATIVE } })).toEqual([
       "low",
       "medium",
       "high",
@@ -25,7 +25,7 @@ describe("effortLevelsForConv", () => {
   it("returns the base three levels for a non-native wrapper", () => {
     // WHY: other wrappers only support low/medium/high; offering xhigh/max
     // would send an effort the harness can't honor.
-    expect(effortLevelsForConv({ labels: { "omnigent.wrapper": "codex-native" } })).toEqual([
+    expect(effortLevelsForConv({ labels: { "agentnexus.wrapper": "codex-native" } })).toEqual([
       "low",
       "medium",
       "high",
@@ -46,27 +46,27 @@ describe("shouldShowModelPicker", () => {
     // WHY: the model picker writes a model override the runner injects as
     // --model at launch; claude, codex, and cursor native wrappers all honor
     // it, so the gate is keyed on those exact labels.
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": NATIVE } })).toBe(true);
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "codex-native-ui" } })).toBe(true);
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "cursor-native-ui" } })).toBe(
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": NATIVE } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "cursor-native-ui" } })).toBe(
       true,
     );
     // opencode mirrors its live TUI model into model_override (like cursor), so
     // the model indicator surfaces it and reflects in-TUI switches.
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "opencode-native-ui" } })).toBe(
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "opencode-native-ui" } })).toBe(
       true,
     );
     // kiro applies the picked model as --model at launch (no in-session mirror).
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "kiro-native-ui" } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "kiro-native-ui" } })).toBe(true);
     // pi injects a live model switch into the running Pi process (via the bridge
     // inbox → setModel) and mirrors in-TUI /model picks back to model_override.
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "pi-native-ui" } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "pi-native-ui" } })).toBe(true);
   });
 
   it("hides the picker for other wrappers and missing labels (fail closed)", () => {
     // WHY: a loosened gate would pop a non-functional picker on codex-native
     // (model pinned at launch) and on pre-hydration rows.
-    expect(shouldShowModelPicker({ labels: { "omnigent.wrapper": "codex-native" } })).toBe(false);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "codex-native" } })).toBe(false);
     expect(shouldShowModelPicker({ labels: {} })).toBe(false);
     expect(shouldShowModelPicker(null)).toBe(false);
     expect(shouldShowModelPicker(undefined)).toBe(false);
@@ -77,12 +77,12 @@ describe("shouldShowEffortPicker", () => {
   it("shows effort controls only for claude-native sessions", () => {
     // WHY: delegates to supportsEffortControl — only claude-native exposes a
     // Web UI effort dial.
-    expect(shouldShowEffortPicker({ labels: { "omnigent.wrapper": NATIVE } })).toBe(true);
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": NATIVE } })).toBe(true);
   });
 
   it("hides effort controls for other wrappers and missing labels", () => {
     // WHY: fail-closed — no label / non-native wrapper means no dial.
-    expect(shouldShowEffortPicker({ labels: { "omnigent.wrapper": "codex-native" } })).toBe(false);
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "codex-native" } })).toBe(false);
     expect(shouldShowEffortPicker(null)).toBe(false);
     expect(shouldShowEffortPicker(undefined)).toBe(false);
   });
@@ -91,7 +91,7 @@ describe("shouldShowEffortPicker", () => {
     // WHY: cursor effort lives on the /model picker's per-model "Tab to modify"
     // axis and a model switch resets it to that model's default, so a Web UI
     // dial would silently diverge from the TUI — dropped pending that fix.
-    expect(shouldShowEffortPicker({ labels: { "omnigent.wrapper": "cursor-native-ui" } })).toBe(
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "cursor-native-ui" } })).toBe(
       false,
     );
   });
@@ -99,7 +99,7 @@ describe("shouldShowEffortPicker", () => {
   it("hides effort controls for opencode-native (model indicator only)", () => {
     // WHY: opencode surfaces its live model read-only (switching stays in the
     // opencode TUI); there is no Web UI effort dial for it.
-    expect(shouldShowEffortPicker({ labels: { "omnigent.wrapper": "opencode-native-ui" } })).toBe(
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "opencode-native-ui" } })).toBe(
       false,
     );
   });
@@ -107,7 +107,7 @@ describe("shouldShowEffortPicker", () => {
   it("hides effort controls for kiro-native (model selection only)", () => {
     // WHY: kiro exposes only launch-time --model selection; its --effort knob is
     // not surfaced in the Web UI (deferred), so no effort dial.
-    expect(shouldShowEffortPicker({ labels: { "omnigent.wrapper": "kiro-native-ui" } })).toBe(
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "kiro-native-ui" } })).toBe(
       false,
     );
   });

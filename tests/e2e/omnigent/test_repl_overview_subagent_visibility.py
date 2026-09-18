@@ -30,15 +30,15 @@ import pexpect
 import pytest
 
 from tests.e2e._harness_probes import HARNESS_HARNESS_MODELS, HARNESS_IDS
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
     strip_ansi,
     submit_prompt,
     wait_for_ready,
 )
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 # Supervisor model — mock LLM serves deterministic responses.
 _SUPERVISOR_MODEL = "mock-overview-subagent-supervisor"

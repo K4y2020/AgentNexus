@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-import omnigent.onboarding.harness_auth as ha
-from omnigent.onboarding.provider_config import (
+import agentnexus.onboarding.harness_auth as ha
+from agentnexus.onboarding.provider_config import (
     default_provider_for_harness,
     load_config,
 )
@@ -25,12 +25,12 @@ from omnigent.onboarding.provider_config import (
 def _isolate_config_and_secrets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Point config home + the secret store at a tmp dir, force the file backend.
 
-    Keeps every write off the developer's real ``~/.omnigent`` and OS keychain,
+    Keeps every write off the developer's real ``~/.agentnexus`` and OS keychain,
     and makes the file backend deterministic so a written secret is inspectable
     (to prove it never leaks into ``config.yaml``).
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
 
 
 def _config_text(tmp_path: Path) -> str:
@@ -228,7 +228,7 @@ def test_detect_adoptable_credentials_only_env_key_families(
             self.source = source
 
     monkeypatch.setattr(
-        "omnigent.onboarding.ambient.detect_providers",
+        "agentnexus.onboarding.ambient.detect_providers",
         lambda: [
             _P("anthropic", "key", "$ANTHROPIC_API_KEY"),  # kept
             _P("openai", "key", "claude CLI login"),  # dropped (not an env var)
@@ -243,7 +243,7 @@ def test_detect_adoptable_credentials_only_env_key_families(
 def test_detect_adoptable_credentials_never_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     """A detection failure yields an empty list, not an exception."""
     monkeypatch.setattr(
-        "omnigent.onboarding.ambient.detect_providers",
+        "agentnexus.onboarding.ambient.detect_providers",
         lambda: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     assert ha.detect_adoptable_credentials() == []

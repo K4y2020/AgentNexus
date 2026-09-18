@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 
-from omnigent._platform import default_shell_argv
-from omnigent.claude_api_key_helper import (
+from agentnexus._platform import default_shell_argv
+from agentnexus.claude_api_key_helper import (
     CLAUDE_API_KEY_HELPER_TOKEN_ENV,
     claude_api_key_helper_command,
 )

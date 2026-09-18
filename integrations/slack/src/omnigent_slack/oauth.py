@@ -1,6 +1,6 @@
-"""Client side of the Omnigent browserless-login flows.
+"""Client side of the AgentNexus browserless-login flows.
 
-A Slack user authorizes this bot to act as their own Omnigent identity
+A Slack user authorizes this bot to act as their own AgentNexus identity
 without any credential passing through Slack. The bot relays a login
 link into the setup modal and polls in the background until the user
 finishes in their browser. Two server auth modes are supported, detected
@@ -39,8 +39,8 @@ _DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 # Header carrying the optional device-grant client secret. Sent on the
 # client-facing endpoints (authorize / token / revoke) so a server with
-# OMNIGENT_DEVICE_CLIENT_SECRET set only accepts this authorized client.
-_CLIENT_SECRET_HEADER = "X-Omnigent-Client-Secret"
+# AGENTNEXUS_DEVICE_CLIENT_SECRET set only accepts this authorized client.
+_CLIENT_SECRET_HEADER = "X-AgentNexus-Client-Secret"
 
 
 def _secret_headers(client_secret: str | None) -> dict[str, str]:
@@ -49,7 +49,7 @@ def _secret_headers(client_secret: str | None) -> dict[str, str]:
 
 
 class AuthMode(enum.Enum):
-    """The Omnigent server's auth posture, as probed from ``/v1/me``."""
+    """The AgentNexus server's auth posture, as probed from ``/v1/me``."""
 
     ACCOUNTS = "accounts"
     OIDC = "oidc"
@@ -76,7 +76,7 @@ class DeviceGrantUnavailableError(OAuthError):
     """The server has no device-grant endpoints mounted.
 
     Raised when ``/oauth/device/authorize`` responds as if the route does not
-    exist (the server has ``OMNIGENT_DEVICE_GRANT_ENABLED`` off, so the request
+    exist (the server has ``AGENTNEXUS_DEVICE_GRANT_ENABLED`` off, so the request
     falls through to the SPA catch-all → 404/405). Distinct from a transient
     failure: retrying won't help — an operator must enable the device grant.
     """
@@ -151,7 +151,7 @@ async def probe_auth_mode(server_url: str, http_timeout: float = 10.0) -> AuthMo
     accounts, ``401`` with ``login_url == "/auth/login"`` (or anything
     else) → oidc. A transport failure raises :class:`OAuthError`.
 
-    :param server_url: Base URL of the Omnigent server.
+    :param server_url: Base URL of the AgentNexus server.
     :returns: The detected :class:`AuthMode`.
     """
     async with httpx.AsyncClient(
@@ -228,7 +228,7 @@ async def _start_device_login(
     try:
         resp = await client.post("/oauth/device/authorize", json={"client_id": client_id})
         # 404/405 here means the /oauth/* router isn't mounted (the server has
-        # OMNIGENT_DEVICE_GRANT_ENABLED off), so the request fell through to the
+        # AGENTNEXUS_DEVICE_GRANT_ENABLED off), so the request fell through to the
         # SPA catch-all. That's not transient — surface it as its own error.
         if resp.status_code in (404, 405):
             await client.aclose()
@@ -357,7 +357,7 @@ async def _poll_cli_ticket(
 
 
 class DeviceFlowClient:
-    """Talks to a single Omnigent server's ``/oauth/*`` endpoints.
+    """Talks to a single AgentNexus server's ``/oauth/*`` endpoints.
 
     Used for token refresh and revocation of device-grant tokens (the
     login start/poll now lives in :func:`start_login`). Sends the optional

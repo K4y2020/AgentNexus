@@ -1,1 +1,1 @@
-"""Locust load tests for the Omnigent server."""
+"""Locust load tests for the AgentNexus server."""

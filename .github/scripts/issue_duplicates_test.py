@@ -32,7 +32,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         }
 
         self.assertEqual(
-            extract_issue_references(issue, "omnigent-ai/omnigent"),
+            extract_issue_references(issue, "agentnexus-ai/omnigent"),
             [3101, 2386, 3085],
         )
 
@@ -52,7 +52,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                 {"number": 21, "title": "newer", "state": "open"},
                 {"number": 17, "title": "Host cwd", "state": "closed"},
             ],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         self.assertEqual([candidate["number"] for candidate in candidates], [17, 18])
@@ -584,12 +584,12 @@ class IssueDuplicatesTest(unittest.TestCase):
                 },
                 {
                     "number": 2920,
-                    "title": "Omnigent server fails to start on native Windows",
+                    "title": "AgentNexus server fails to start on native Windows",
                     "body": "os.getuid() is missing on Windows, so the server exits.",
                     "state": "open",
                 },
             ],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         self.assertEqual(candidates[0]["number"], 2304)
@@ -613,7 +613,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                     "state": "open",
                 },
             ],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         self.assertEqual(candidates[0]["number"], 1464)
@@ -627,7 +627,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         candidates = rank_candidates(
             issue,
             [{"number": 17, "title": "Unrelated phrasing entirely", "state": "closed"}],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         self.assertEqual([candidate["number"] for candidate in candidates], [17])
@@ -642,7 +642,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         candidates = rank_candidates(
             issue,
             [{"number": 2888, "title": "Unrelated local issue", "state": "open"}],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         self.assertEqual(candidates, [])
@@ -650,7 +650,7 @@ class IssueDuplicatesTest(unittest.TestCase):
     def test_crash_traceback_boilerplate_is_excluded_from_scoring(self):
         traceback = (
             "### Description\n"
-            "This crash was auto-reported by Omnigent's crash handler.\n"
+            "This crash was auto-reported by AgentNexus's crash handler.\n"
             "**Exception:** `PermissionError: Operation not permitted`\n"
             "**Traceback:**\n"
             "```\n"
@@ -678,7 +678,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                 "state": "open",
                 "body": (
                     "### Description\n"
-                    "This crash was auto-reported by Omnigent's crash handler.\n"
+                    "This crash was auto-reported by AgentNexus's crash handler.\n"
                     f"**Exception:** `{exception}`\n"
                     "**Command:** `/Users/x/.local/bin/omnigent`\n"
                     "**Traceback:**\n"
@@ -696,11 +696,11 @@ class IssueDuplicatesTest(unittest.TestCase):
             crash(3750, "PermissionError: [Errno 1] Operation not permitted"),
             [
                 crash(3284, "DuplicateOptionError: option 'host' already exists"),
-                crash(3231, "OmnigentError: 403 Invalid access token"),
+                crash(3231, "AgentNexusError: 403 Invalid access token"),
                 crash(2993, "ModuleNotFoundError: No module named 'termios'"),
                 crash(3261, "AttributeError: module 'os' has no attribute 'WNOHANG'"),
             ],
-            repository="omnigent-ai/omnigent",
+            repository="agentnexus-ai/omnigent",
         )
 
         for candidate in candidates:
@@ -709,7 +709,7 @@ class IssueDuplicatesTest(unittest.TestCase):
     def test_identical_crash_reports_still_score_as_duplicates(self):
         """Stripping the template must not erase a genuine repeat crash."""
         termios = (
-            "This crash was auto-reported by Omnigent's crash handler.\n"
+            "This crash was auto-reported by AgentNexus's crash handler.\n"
             "**Exception:** `ModuleNotFoundError: No module named 'termios'`\n"
             "**Command:** `omnigent setup`\n"
         )

@@ -1,7 +1,7 @@
 """
 Python policies for the `policies-demo` fixture agent.
 
-Ports relevant callables from omnigent
+Ports relevant callables from agentnexus
 `examples/tool_functions.py` into a location importable by the
 omnigent parser (dotted path `tests._fixtures.agents.*`).
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
 
 # Long-sleep threshold. Sleep calls over this many seconds are
 # blocked. Chosen small enough that trivial test args (like 8 s)
@@ -26,7 +26,7 @@ _ALLOW: PolicyResponse = {"result": "ALLOW"}
 
 def block_long_sleep(event: PolicyEvent) -> PolicyResponse:
     """
-    Ported from omnigent ``block_long_sleep``.
+    Ported from agentnexus ``block_long_sleep``.
 
     Blocks when the requested sleep duration exceeds
     :data:`_MAX_SLEEP_SECONDS`. Returns ALLOW for non-``tool_call``
@@ -69,7 +69,7 @@ def _extract_args(content: object) -> dict[str, object]:
 
     The workflow builds TOOL_CALL events with data shaped as
     ``{"name": name, "arguments": <args>}``. Args may be either
-    already-parsed dicts or JSON-encoded strings (Omnigent'
+    already-parsed dicts or JSON-encoded strings (AgentNexus'
     ToolManager passes strings before JSON-decode for some
     paths).
 

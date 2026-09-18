@@ -1,14 +1,14 @@
 {
-  "name": "omnigent-vscode",
-  "displayName": "Omnigent",
-  "description": "Open your running local Omnigent server inside VS Code, in an editor-beside iframe.",
+  "name": "agentnexus-vscode",
+  "displayName": "AgentNexus",
+  "description": "Open your running local AgentNexus server inside VS Code, in an editor-beside iframe.",
   "version": "0.1.0",
   "publisher": "databricks",
   "license": "Apache-2.0",
-  "icon": "media/omnigent-icon.png",
+  "icon": "media/agentnexus-icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/omnigent-ai/omnigent.git",
+    "url": "https://github.com/agentnexus-ai/agentnexus.git",
     "directory": "editors/vscode"
   },
   "engines": {
@@ -18,56 +18,56 @@
   "activationEvents": [],
   "contributes": {
     "configuration": {
-      "title": "Omnigent",
+      "title": "AgentNexus",
       "properties": {
-        "omnigent.serverUrl": {
+        "agentnexus.serverUrl": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Manual Omnigent server URL override for a **localhost** server (e.g. `http://127.0.0.1:6767`). Leave empty to auto-discover a locally running Omnigent server. Non-localhost URLs are not supported in this build."
+          "markdownDescription": "Manual AgentNexus server URL override for a **localhost** server (e.g. `http://127.0.0.1:6767`). Leave empty to auto-discover a locally running AgentNexus server. Non-localhost URLs are not supported in this build."
         }
       }
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "omnigent-container",
-          "title": "Omnigent",
-          "icon": "media/omnigent-icon.svg"
+          "id": "agentnexus-container",
+          "title": "AgentNexus",
+          "icon": "media/agentnexus-icon.svg"
         }
       ]
     },
     "views": {
-      "omnigent-container": [
+      "agentnexus-container": [
         {
           "type": "tree",
-          "id": "omnigent.home",
-          "name": "Omnigent"
+          "id": "agentnexus.home",
+          "name": "AgentNexus"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "omnigent.home",
-        "contents": "Open the running Omnigent server UI in an editor tab.\n[Open Omnigent](command:omnigent.open)\nStart a local server with `omnigent server`, or set `omnigent.serverUrl` to a localhost URL."
+        "view": "agentnexus.home",
+        "contents": "Open the running AgentNexus server UI in an editor tab.\n[Open AgentNexus](command:agentnexus.open)\nStart a local server with `agentnexus server`, or set `agentnexus.serverUrl` to a localhost URL."
       }
     ],
     "commands": [
       {
-        "command": "omnigent.open",
-        "title": "Omnigent: Open",
-        "icon": "media/omnigent-icon.svg"
+        "command": "agentnexus.open",
+        "title": "AgentNexus: Open",
+        "icon": "media/agentnexus-icon.svg"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "omnigent.open",
+          "command": "agentnexus.open",
           "group": "navigation@99"
         }
       ],
       "commandPalette": [
         {
-          "command": "omnigent.open"
+          "command": "agentnexus.open"
         }
       ]
     }

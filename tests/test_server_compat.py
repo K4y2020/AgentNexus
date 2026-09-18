@@ -103,7 +103,7 @@ def test_server_redirect_active_with_env(monkeypatch: pytest.MonkeyPatch) -> Non
     cwd = compat.compat_server_cwd()
     assert cwd is not None
     assert os.path.isdir(cwd)
-    assert not os.path.exists(os.path.join(cwd, "omnigent"))
+    assert not os.path.exists(os.path.join(cwd, "agentnexus"))
 
 
 # ── Runner / host redirect (Config 2) ──────────────────────────────────
@@ -159,7 +159,7 @@ def test_runner_redirect_active_with_env(monkeypatch: pytest.MonkeyPatch) -> Non
     cwd = compat.compat_runner_cwd()
     assert cwd is not None
     assert os.path.isdir(cwd)
-    assert not os.path.exists(os.path.join(cwd, "omnigent"))
+    assert not os.path.exists(os.path.join(cwd, "agentnexus"))
 
 
 def test_server_and_runner_cwds_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:

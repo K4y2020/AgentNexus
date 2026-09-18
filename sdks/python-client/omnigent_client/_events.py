@@ -136,7 +136,7 @@ class ToolResult:
 
     ``arguments`` is optional because the OpenAI-compatible
     ``function_call_output`` item only requires ``call_id`` and ``output``.
-    Omnigent producers may include it as a convenience copy of the
+    AgentNexus producers may include it as a convenience copy of the
     originating ``function_call.arguments`` so result-only renderers can use
     call metadata (for example, rendering ``sys_os_edit`` as a diff).
     """

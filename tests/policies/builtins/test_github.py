@@ -26,21 +26,21 @@ from typing import Any
 
 import pytest
 
-from omnigent.policies.builtins._shell import SHELL_TOOLS
-from omnigent.policies.builtins.github import _DEFAULT_SHELL_TOOLS as _github_default_shell_tools
-from omnigent.policies.builtins.github import github_policy
-from omnigent.policies.builtins.orchestration import _SHELL_TOOLS as _orchestration_shell_tools
-from omnigent.policies.builtins.working_dir import (
+from agentnexus.policies.builtins._shell import SHELL_TOOLS
+from agentnexus.policies.builtins.github import _DEFAULT_SHELL_TOOLS as _github_default_shell_tools
+from agentnexus.policies.builtins.github import github_policy
+from agentnexus.policies.builtins.orchestration import _SHELL_TOOLS as _orchestration_shell_tools
+from agentnexus.policies.builtins.working_dir import (
     _DEFAULT_SHELL_TOOLS as _working_dir_default_shell_tools,
 )
-from omnigent.policies.function import FunctionPolicy, resolve_function_policy
-from omnigent.policies.registry import get_registry, load_registry, validate_factory_params
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
-from omnigent.policies.types import EvaluationContext
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
+from agentnexus.policies.function import FunctionPolicy, resolve_function_policy
+from agentnexus.policies.registry import get_registry, load_registry, validate_factory_params
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
 from tests.policies.builtins.helpers import tool_call_event as tc
 
-_HANDLER = "omnigent.policies.builtins.github.github_policy"
+_HANDLER = "agentnexus.policies.builtins.github.github_policy"
 _REPO = "octo/hello"
 _REPO_URL = "https://github.com/octo/hello/pull/1"
 

@@ -12,15 +12,15 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent import (
+from agentnexus import (
     claude_native_bridge,
 )
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.runner import create_runner_app
-from omnigent.runner.resource_registry import (
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.resource_registry import (
     SessionResourceRegistry,
 )
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import (
     _BlockingHarnessClient,
     _build_lifecycle_app,
@@ -1168,7 +1168,7 @@ def _build_recovery_app(
     }
     if harness_name is not None:
         spec_kwargs["executor"] = ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": harness_name},
         )
     spec = AgentSpec(**spec_kwargs)
@@ -1285,9 +1285,9 @@ async def test_session_creation_does_not_replay_trailing_user_for_codex_native(
     Codex-native startup must not replay a trailing user item as recovery.
 
     Native transcripts are mirrored from Codex. If a Codex turn errors before
-    producing an assistant item, Omnigent history can end with the user prompt even
+    producing an assistant item, AgentNexus history can end with the user prompt even
     though Codex already consumed it. Generic crash recovery would treat that
-    as an unanswered Omnigent turn and resend the same prompt when ``omnigent
+    as an unanswered AgentNexus turn and resend the same prompt when ``omnigent
     codex`` reattaches.
 
     :param monkeypatch: Pytest monkeypatch fixture used to bypass real
@@ -1295,7 +1295,7 @@ async def test_session_creation_does_not_replay_trailing_user_for_codex_native(
     """
     import asyncio as _aio
 
-    from omnigent.runner import app as runner_app_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "c5bceafbef391eeff567c144d1d33f3f"
     runner_app_mod._session_histories_ref.pop(session_id, None)
@@ -1353,7 +1353,7 @@ async def test_catch_up_scan_skips_codex_native_history_entries(
     """
     import asyncio as _aio
 
-    from omnigent.runner import app as runner_app_mod
+    from agentnexus.runner import app as runner_app_mod
 
     session_id = "97990a9c3b849bb4710a9fb1e9fdc6c8"
     saved_histories = dict(runner_app_mod._session_histories_ref)
@@ -1369,7 +1369,7 @@ async def test_catch_up_scan_skips_codex_native_history_entries(
         spec_version=1,
         name="catchup-codex-native",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native"},
         ),
     )
@@ -1424,7 +1424,7 @@ async def test_catch_up_scan_skips_codex_native_history_entries(
         runner_app_mod._session_histories_ref.update(saved_histories)
 
     assert server_client.get_calls == [], (
-        "Catch-up scan must skip Codex-native sessions before fetching Omnigent "
+        "Catch-up scan must skip Codex-native sessions before fetching AgentNexus "
         "items. A GET here means reconnect recovery can observe mirrored "
         "native transcript items and replay them."
     )
@@ -2140,7 +2140,7 @@ def _build_fwd_blocking_app(
     spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "runner-test-default"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "runner-test-default"}),
     )
     sse_frames = [
         _sse({"type": "response.created", "response": {"id": "resp_fwd"}}),
@@ -2176,7 +2176,7 @@ async def test_interrupt_forwards_to_harness_before_cancelling() -> None:
     """
     import asyncio as _aio
 
-    from omnigent.runner.app import _session_histories_ref
+    from agentnexus.runner.app import _session_histories_ref
 
     gate = _aio.Event()  # stream blocks forever
     fwd_gate = _aio.Event()  # interrupt forward blocks until released

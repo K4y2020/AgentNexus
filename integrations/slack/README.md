@@ -1,10 +1,10 @@
-# Omnigent Slack Bot
+# AgentNexus Slack Bot
 
-Slack Socket Mode bot that maps one Slack thread to one Omnigent session. The
-bot talks to **one** Omnigent server, set by the operator via
-`OMNIGENT_SERVER_URL` — Slack users never enter a URL, so the bot only ever
+Slack Socket Mode bot that maps one Slack thread to one AgentNexus session. The
+bot talks to **one** AgentNexus server, set by the operator via
+`AGENTNEXUS_SERVER_URL` — Slack users never enter a URL, so the bot only ever
 issues requests to that fixed host. Each user still authenticates as their own
-Omnigent identity against it.
+AgentNexus identity against it.
 
 > This README is the operator/user guide (setup, scopes, running, auth). For the
 > user-facing behaviour contract (setup, DM, channels, error handling), see
@@ -17,13 +17,13 @@ Omnigent identity against it.
   Mode delivers the interactive button/modal payloads — no request URL needed).
 2. Add the OAuth scopes and event subscriptions listed under **Required scopes**
    below.
-3. Add a slash command `/omnigent` (Features → Slash Commands). In Socket Mode
+3. Add a slash command `/agentnexus` (Features → Slash Commands). In Socket Mode
   the request URL is ignored, so any placeholder works.
 4. Install the app into the workspace.
-5. Set the two Slack tokens (`OMNIGENT_SLACK_BOT_TOKEN`,
-   `OMNIGENT_SLACK_APP_TOKEN`) and your Omnigent server URL
-   (`OMNIGENT_SERVER_URL`) as **environment variables**. If your server sets
-   `OMNIGENT_DEVICE_CLIENT_SECRET`, set the same value here so the bot is
+5. Set the two Slack tokens (`AGENTNEXUS_SLACK_BOT_TOKEN`,
+   `AGENTNEXUS_SLACK_APP_TOKEN`) and your AgentNexus server URL
+   (`AGENTNEXUS_SERVER_URL`) as **environment variables**. If your server sets
+   `AGENTNEXUS_DEVICE_CLIENT_SECRET`, set the same value here so the bot is
    accepted as an authorized device-grant client. See **Configuration** below
    for how the bot reads config.
 6. Run the bot — see **Running the bot** below.
@@ -32,7 +32,7 @@ Omnigent identity against it.
 
 The bot uses two tokens, each carrying different scopes.
 
-### Bot token scopes (`OMNIGENT_SLACK_BOT_TOKEN`, `xoxb-…`)
+### Bot token scopes (`AGENTNEXUS_SLACK_BOT_TOKEN`, `xoxb-…`)
 
 Add these under **OAuth & Permissions → Scopes → Bot Token Scopes**. All are
 required for the bot's core behaviour:
@@ -43,7 +43,7 @@ required for the bot's core behaviour:
 | `chat:write` | Post, delete, and stream replies (`chat.postMessage`, `chat.delete`, `chat.startStream`), including ephemeral setup nudges (`chat.postEphemeral`). |
 | `im:write` | Open a DM with the user (`conversations.open`) to send the setup button and logout confirmation. |
 | `im:history` | Read direct messages. DMs are a first-class entry point and do **not** fire `app_mention`, so without this the bot can't respond in DMs. |
-| `commands` | Register and receive the `/omnigent` slash command. |
+| `commands` | Register and receive the `/agentnexus` slash command. |
 | `team:read` | Read the workspace name (`team.info`) to label the delegated-login request. |
 | `users:read`, `users:read.email` | Read the user's email (`users.info`) — **required only for Databricks web-auth mode**, where it's signed into the enrollment link and matched against the OAuth-authenticated email to bind the token to the right person. Omit for `accounts`/`oidc` mode. |
 
@@ -59,7 +59,7 @@ the plain-`message` event; add only the ones matching where you'll use the bot:
 If you only use the bot via DMs and channel `@mention`s, `im:history` alone is
 enough and the three channel-history scopes can be omitted.
 
-### App-level token scope (`OMNIGENT_SLACK_APP_TOKEN`, `xapp-…`)
+### App-level token scope (`AGENTNEXUS_SLACK_APP_TOKEN`, `xapp-…`)
 
 | Scope | Why it's needed |
 | --- | --- |
@@ -95,8 +95,8 @@ while it's already up is a no-op that reports the existing process.
 
 ### Configuration
 
-All configuration (the two Slack tokens, `OMNIGENT_SERVER_URL`, and the
-optional `OMNIGENT_DEVICE_CLIENT_SECRET` / `OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY`)
+All configuration (the two Slack tokens, `AGENTNEXUS_SERVER_URL`, and the
+optional `AGENTNEXUS_DEVICE_CLIENT_SECRET` / `AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY`)
 comes from **real environment variables** — the bot does **not** read a `.env`
 file itself. For local dev, either export the vars, or launch under a tool that
 injects a `.env` — e.g. `uv run --env-file .env omni integration slack`, or
@@ -104,12 +104,12 @@ injects a `.env` — e.g. `uv run --env-file .env omni integration slack`, or
 Docker / Databricks deploy sets them directly. `.env.example` documents the
 full set of variables to copy from.
 
-The bot lives in the separate `omnigent-slack` package, which must be installed
+The bot lives in the separate `agentnexus-slack` package, which must be installed
 **in the same environment as** `omni` for the `omni integration slack` commands
-to find it. Install it as the `slack` extra of omnigent:
+to find it. Install it as the `slack` extra of agentnexus:
 
 ```bash
-uv tool install "omnigent[slack]"     # or, from a source checkout: uv sync --extra slack
+uv tool install "agentnexus[slack]"     # or, from a source checkout: uv sync --extra slack
 ```
 
 Set `LOG_LEVEL=DEBUG` in the environment when diagnosing why Slack events are not producing replies.
@@ -117,13 +117,13 @@ Set `LOG_LEVEL=DEBUG` in the environment when diagnosing why Slack events are no
 ## Per-user setup flow
 
 The first time a user interacts with the bot (a channel `@mention` or a DM)
-without having configured, the bot DMs them a **Set up Omnigent** button and,
+without having configured, the bot DMs them a **Set up AgentNexus** button and,
 for channel mentions, drops an ephemeral pointer in the thread.
 
 The button opens a modal that connects to the operator-configured server (no
 URL to enter):
 
-1. The bot validates connectivity to `OMNIGENT_SERVER_URL`. If the server has
+1. The bot validates connectivity to `AGENTNEXUS_SERVER_URL`. If the server has
   authentication enabled, the modal shows a login link; once the user approves
    it in their browser the **same modal advances automatically** (see
    **Authentication** below). If the server has no online host, setup shows how
@@ -140,12 +140,12 @@ bot (or DMing it) starts a session on the configured server.
 
 ## Authentication
 
-For Omnigent servers with authentication enabled, each Slack user logs in with
-their own Omnigent identity — no Omnigent credential ever passes through Slack.
-Login happens inside the single `/omnigent` configuration modal, not a separate
+For AgentNexus servers with authentication enabled, each Slack user logs in with
+their own AgentNexus identity — no AgentNexus credential ever passes through Slack.
+Login happens inside the single `/agentnexus` configuration modal, not a separate
 command.
 
-The bot **auto-detects the server's auth mode** (an unauthenticated `GET /v1/me`, exactly as the `omnigent login` CLI does) and picks the matching flow:
+The bot **auto-detects the server's auth mode** (an unauthenticated `GET /v1/me`, exactly as the `agentnexus login` CLI does) and picks the matching flow:
 
 - `accounts` **mode** → **OAuth 2.0 Device Authorization Grant** (RFC 8628).
 The modal shows a one-click login link (code prefilled) and the short code to
@@ -155,11 +155,11 @@ even if the user is already signed in — so a link the user didn't personally
 start can't be approved by reflex.) The server issues a short-lived,
 session-scoped delegated
 token plus a rotating refresh token, so the bot silently refreshes and the
-token can't reach admin endpoints. **The Omnigent server must have the device
-grant enabled** (`OMNIGENT_DEVICE_GRANT_ENABLED=1` — it is default-off);
+token can't reach admin endpoints. **The AgentNexus server must have the device
+grant enabled** (`AGENTNEXUS_DEVICE_GRANT_ENABLED=1` — it is default-off);
 otherwise the `/oauth/*` routes are absent and accounts-mode login can't
-complete. If the server sets `OMNIGENT_DEVICE_CLIENT_SECRET`, set the same
-value as the bot's `OMNIGENT_DEVICE_CLIENT_SECRET` so only this authorized
+complete. If the server sets `AGENTNEXUS_DEVICE_CLIENT_SECRET`, set the same
+value as the bot's `AGENTNEXUS_DEVICE_CLIENT_SECRET` so only this authorized
 socket server can drive the device flow.
 - `oidc` **mode** → the server's **cli-login ticket flow** (`/auth/cli-login` +
 `/auth/cli-poll`). The modal shows a login link; the user signs in at *your
@@ -170,7 +170,7 @@ session lasts its normal TTL (default 8h), after which the user logs in again.
 header (e.g. `X-Forwarded-Email`), so the server mints no token and exposes no
 per-user login the auto-detect flow can drive. Two options:
   - **Databricks Apps** (the common case): set
-    `OMNIGENT_SLACK_SERVER_AUTH=databricks` and the bot enrolls each user
+    `AGENTNEXUS_SLACK_SERVER_AUTH=databricks` and the bot enrolls each user
     through a web page it serves as its own Databricks App — see
     [Databricks Apps web-auth](#databricks-apps-web-auth) below.
   - Otherwise run the server in `accounts`/`oidc` mode, or place the bot behind
@@ -186,25 +186,25 @@ Either way the flow is the same from Slack's side:
 4. The **same modal advances automatically** to the agent / host / workspace
   picker as the now-authenticated identity — no DM, no re-running the command.
 
-The bot reads no auth-mode config itself; the Omnigent server's own
-`OMNIGENT_OIDC_*` / `OMNIGENT_AUTH_*` env vars decide its mode (see the server's
+The bot reads no auth-mode config itself; the AgentNexus server's own
+`AGENTNEXUS_OIDC_*` / `AGENTNEXUS_AUTH_*` env vars decide its mode (see the server's
 `[deploy/README.md](../../deploy/README.md#auth)`).
 
-Set `OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY` (see `.env.example`) to persist tokens
+Set `AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY` (see `.env.example`) to persist tokens
 encrypted at rest; without it tokens are kept in memory only and lost on restart
 (users simply re-authenticate) — the integration works either way.
 
-`/omnigent logout` fully resets you: it revokes your delegated token and clears
+`/agentnexus logout` fully resets you: it revokes your delegated token and clears
 all your saved settings (agent, host, workspace, and thread→session mappings).
-Run `/omnigent` afterwards to set up again.
+Run `/agentnexus` afterwards to set up again.
 
 ### Resident teammates
 
-Run **`/omnigent bind`** inside a Slack channel to staff that channel with one
+Run **`/agentnexus bind`** inside a Slack channel to staff that channel with one
 agent: the same agent / host / workspace picker opens, but the result is stored
 as a channel binding rather than your personal config. Every new mention thread
 in that channel then routes to the bound agent, regardless of who runs the
-command or what personal config they have. **`/omnigent unbind`** removes the
+command or what personal config they have. **`/agentnexus unbind`** removes the
 binding and falls back to per-user routing.
 
 When a scheduled task (routine) for a bound agent finishes, the bot posts a
@@ -217,14 +217,14 @@ threat model.
 
 ### Databricks Apps web-auth
 
-When the Omnigent server is deployed as a **Databricks App**, it runs in header
+When the AgentNexus server is deployed as a **Databricks App**, it runs in header
 mode: the Databricks Apps proxy authenticates every request and injects the
 user's identity. A Socket-Mode event carries no such proxy-authenticated
 request, so the device/OIDC flows above can't be driven. Instead the bot runs a
 **custom U2M OAuth app** (authorization code + PKCE, `offline_access`) via an
 enrollment page it serves as its own Databricks App:
 
-1. On `/omnigent`, the bot looks up the user's email (`users.info`), generates a
+1. On `/agentnexus`, the bot looks up the user's email (`users.info`), generates a
    PKCE verifier + single-use nonce, and posts a *Sign in with Databricks* link
    — the workspace `/oidc/v1/authorize` URL whose signed `state` carries that
    email and nonce.
@@ -239,7 +239,7 @@ enrollment page it serves as its own Databricks App:
    link bound to user A, signed in by victim V, can't store V's token under A.
    Mismatch → refused (HTTP 403).
 5. **Confirm before storing:** the GET stores nothing — it shows a consent page
-   naming the exact identities being linked ("your Omnigent `<server>` account
+   naming the exact identities being linked ("your AgentNexus `<server>` account
    `<idp-email>` with Slack user `<slack-email>`") and a **Confirm** button. The
    pair is persisted only when the user submits the confirming POST, then the
    setup modal advances automatically. The token is bounded by the OAuth app's
@@ -249,26 +249,26 @@ enrollment page it serves as its own Databricks App:
    user — **no server-side change needed**. On expiry the bot refreshes silently
    via the refresh token; the user signs in once, not hourly.
 
-Enabled with `OMNIGENT_SLACK_SERVER_AUTH=databricks` plus the custom OAuth app's
-`OMNIGENT_SLACK_DATABRICKS_CLIENT_ID` / `OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET`
-and a `OMNIGENT_SLACK_DATABRICKS_STATE_SECRET` (see `.env.example`). To deploy
+Enabled with `AGENTNEXUS_SLACK_SERVER_AUTH=databricks` plus the custom OAuth app's
+`AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID` / `AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET`
+and a `AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET` (see `.env.example`). To deploy
 the bot as its own Databricks App, see
 [`deploy/databricks/README.md`](deploy/databricks/README.md); for the full
 design and threat model, [`docs/DATABRICKS_APP_WEBAUTH_DESIGN.md`](docs/DATABRICKS_APP_WEBAUTH_DESIGN.md).
 
-Run `/omnigent` (or `/omnigent config`) any time to reopen this modal and change
+Run `/agentnexus` (or `/agentnexus config`) any time to reopen this modal and change
 your agent, host, or workspace. The server is fixed by the operator, so there's
 no URL to change.
 
 Each new session **launches a fresh runner** on the chosen host rooted at the
 configured workspace — the server keeps no standing runners.
 
-If the bot can't reach your server, it replies telling you to run `/omnigent` to
+If the bot can't reach your server, it replies telling you to run `/agentnexus` to
 reconfigure. If no host is online (or your preferred host is offline), it replies
 with the command to start one, then reconfigure:
 
 ```text
-Run this on the machine you want to use, then run /omnigent:
+Run this on the machine you want to use, then run /agentnexus:
 `omni host --server <your-server-url>`
 ```
 
@@ -283,7 +283,7 @@ Mention the bot with a message to start a session:
 ```
 
 Replies stream in live and render Markdown. Replies in that Slack thread continue
-the same Omnigent session. A channel thread belongs to whoever started it; a
+the same AgentNexus session. A channel thread belongs to whoever started it; a
 follow-up from a different user gets a private ("Only visible to you") note
 pointing them to start their own thread.
 
@@ -303,9 +303,9 @@ concurrency, ordering) live in the module docstrings and inline comments.
 
 ## Development
 
-This integration is a **separate package** (`omnigent-slack`) with heavy deps
-(slack_bolt, aiohttp) kept out of the core `omnigent` install. It resolves as an
-editable path dep of the root `omnigent` package via the `slack` extra (see
+This integration is a **separate package** (`agentnexus-slack`) with heavy deps
+(slack_bolt, aiohttp) kept out of the core `agentnexus` install. It resolves as an
+editable path dep of the root `agentnexus` package via the `slack` extra (see
 `[tool.uv.sources]` in the root `pyproject.toml`), and shares the root's dev
 tooling (Ruff, Pyrefly, pytest) and config rather than carrying its own. Work on it
 from the repo-root env:

@@ -19,7 +19,7 @@ from alembic import command
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _build_alembic_config,
     clear_engine_cache,
     get_or_create_engine,

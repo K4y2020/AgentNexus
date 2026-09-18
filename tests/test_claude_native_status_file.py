@@ -12,7 +12,7 @@ import json
 import time
 from pathlib import Path
 
-from omnigent.claude_native_status_file import (
+from agentnexus.claude_native_status_file import (
     IDLE,
     RUNNING,
     SessionStatusPoller,

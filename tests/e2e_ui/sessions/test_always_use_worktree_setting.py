@@ -2,7 +2,7 @@
 
 The toggle (``AlwaysUseWorktreeControl`` on ``pages/SettingsPage.tsx``) is a
 Switch under Settings → Git. Turning it on writes
-``localStorage["omnigent:always-use-worktree"] = "true"``; turning it off
+``localStorage["agentnexus:always-use-worktree"] = "true"``; turning it off
 removes the key (absence = off). The composer reads this when it settles a git
 workspace and, when on, seeds a fresh worktree branch — see the composer-side
 behavior in ``start_session/test_project_config_prefill.py``.
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-STORAGE_KEY = "omnigent:always-use-worktree"
+STORAGE_KEY = "agentnexus:always-use-worktree"
 
 
 def _stored(page: Page) -> str | None:

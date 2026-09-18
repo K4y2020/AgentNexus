@@ -16,7 +16,7 @@ import pytest
 
 from tests.harness_bench.driver import TurnResult
 from tests.harness_bench.native_tui_driver import NativeTuiDriver, native_vendor
-from tests.harness_bench.probes.omnigent_mcp import OmnigentMcpProbe
+from tests.harness_bench.probes.agentnexus_mcp import AgentNexusMcpProbe
 from tests.harness_bench.probes.policy_allow import PolicyAllowProbe
 from tests.harness_bench.probes.policy_ask import PolicyAskProbe
 from tests.harness_bench.probes.policy_deny import PolicyDenyProbe
@@ -200,7 +200,7 @@ def test_tool_turn_deny_attaches_policy_and_observes_denied_event() -> None:
     assert result.tool_call_denied
     assert len(client.attached_policies) == 1
     attached = client.attached_policies[0]
-    assert attached["handler"] == "omnigent.policies.builtins.cel.cel_policy"
+    assert attached["handler"] == "agentnexus.policies.builtins.cel.cel_policy"
     expr = attached["factory_params"]["expression"]
     assert 'event.type == "tool_call"' in expr
     assert '"result": "DENY"' in expr
@@ -404,7 +404,7 @@ def test_mcp_tool_turn_skips_non_mcp_native_relay() -> None:
 
     result = driver._drive_mcp_tool_turn()
 
-    assert result.error and "no Omnigent MCP bridge" in result.error
+    assert result.error and "no AgentNexus MCP bridge" in result.error
     assert client.posted_events == []
 
 
@@ -480,13 +480,13 @@ async def test_probes_read_native_tool_result_as_supported() -> None:
     assert allow_result.verdict is Verdict.SUPPORTED
     ask_result = await PolicyAskProbe().run(_Driver(), profile)
     assert ask_result.verdict is Verdict.SUPPORTED
-    mcp_result = await OmnigentMcpProbe().run(_Driver(), profile)
+    mcp_result = await AgentNexusMcpProbe().run(_Driver(), profile)
     assert mcp_result.verdict is Verdict.SUPPORTED
 
 
 def test_format_matches_server_wire_name() -> None:
     """The driver keys on the exact wire name the server publishes."""
-    from omnigent.server.routes.sessions import _format_sse
+    from agentnexus.server.routes.sessions import _format_sse
     from tests.harness_bench.native_tui_driver import _POLICY_DENIED_EVENT
 
     sse = _format_sse(_POLICY_DENIED_EVENT, {"type": _POLICY_DENIED_EVENT})

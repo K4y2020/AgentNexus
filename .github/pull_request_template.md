@@ -84,7 +84,7 @@ DELETE THIS WHOLE SECTION if the change isn't noteworthy (CI, refactors,
 test-only changes, dependency bumps with no user impact) — it will simply be
 left out of the changelog. A Breaking change must always keep this section.
 
-Example:  `omnigent run --watch` reruns an agent when files change
+Example:  `agentnexus run --watch` reruns an agent when files change
 -->
 
 <Add a line to describe the change, else delete this section>

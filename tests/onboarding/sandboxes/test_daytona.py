@@ -10,11 +10,11 @@ from pathlib import Path
 import click
 import pytest
 
-from omnigent.onboarding.sandboxes.base import (
+from agentnexus.onboarding.sandboxes.base import (
     DEFAULT_HOST_IMAGE,
     SandboxCapabilityError,
 )
-from omnigent.onboarding.sandboxes.daytona import (
+from agentnexus.onboarding.sandboxes.daytona import (
     HOST_IMAGE_ENV_VAR,
     SANDBOX_ENV_PASSTHROUGH_ENV_VAR,
     DaytonaSandboxLauncher,
@@ -438,7 +438,7 @@ def test_provision_defaults_official_image_and_disables_autostop(
     # would stop the session host mid-conversation.
     assert create.params.auto_stop_interval == 0
     assert create.params.env_vars is None
-    assert create.params.labels == {"omnigent-name": "managed-abc"}
+    assert create.params.labels == {"agentnexus-name": "managed-abc"}
     assert create.params.resources == _FakeResources(cpu=2, memory=4)
     # Cold creates pull + snapshot the image (minutes); the SDK's 60s
     # default only covers the warm path.
@@ -489,7 +489,7 @@ def test_provision_env_passthrough_env_var_fallback(
 ) -> None:
     """
     Without constructor names, the comma-separated
-    ``OMNIGENT_DAYTONA_SANDBOX_ENV`` names apply (whitespace around
+    ``AGENTNEXUS_DAYTONA_SANDBOX_ENV`` names apply (whitespace around
     commas tolerated).
     """
     monkeypatch.setenv(SANDBOX_ENV_PASSTHROUGH_ENV_VAR, "OPENAI_API_KEY , GIT_TOKEN")
@@ -653,7 +653,7 @@ def test_terminate_retries_state_change_conflicts(
     (launch-failure cleanup vs session delete), so terminate must ride
     out the conflict window rather than surface it.
     """
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.daytona._TERMINATE_CONFLICT_BACKOFF_S", 0.0)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.daytona._TERMINATE_CONFLICT_BACKOFF_S", 0.0)
     launcher = DaytonaSandboxLauncher()
     sandbox_id = launcher.provision("a")
     # First two attempts conflict; the third (final allowed attempt)
@@ -673,7 +673,7 @@ def test_terminate_conflict_exhaustion_raises(
     teardown callers are best-effort and log it; swallowing forever
     could hide a wedged sandbox that never gets reaped.
     """
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.daytona._TERMINATE_CONFLICT_BACKOFF_S", 0.0)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.daytona._TERMINATE_CONFLICT_BACKOFF_S", 0.0)
     launcher = DaytonaSandboxLauncher()
     sandbox_id = launcher.provision("a")
     fake_daytona.delete_raises = [_FakeConflictError("stuck")] * 3
@@ -822,7 +822,7 @@ def test_exec_foreground_runs_command_over_pty(
         _FakePtyResult(exit_code=7), output_chunks=[b"host registered\r\n"]
     )
 
-    returncode = launcher.exec_foreground(sandbox_id, "omnigent host --server u")
+    returncode = launcher.exec_foreground(sandbox_id, "agentnexus host --server u")
 
     assert returncode == 7
     # One fresh session per call — a fixed id would collide with the
@@ -855,7 +855,7 @@ def test_exec_foreground_kills_remote_on_interrupt(fake_daytona: _FakeDaytonaSta
     )
 
     with pytest.raises(KeyboardInterrupt):
-        launcher.exec_foreground(sandbox_id, "omnigent host --server u")
+        launcher.exec_foreground(sandbox_id, "agentnexus host --server u")
 
     # The remote process was killed AND the websocket released — a
     # missing kill leaves the host running headless; a missing
@@ -879,7 +879,7 @@ def test_exec_foreground_missing_exit_code_fails_loud(
     )
 
     with pytest.raises(click.ClickException, match="connection reset"):
-        launcher.exec_foreground(sandbox_id, "omnigent host --server u")
+        launcher.exec_foreground(sandbox_id, "agentnexus host --server u")
 
 
 def test_exec_foreground_wraps_pty_create_errors(fake_daytona: _FakeDaytonaState) -> None:

@@ -50,19 +50,19 @@ from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock
 
-from omnigent_client._blocks import ReasoningChunk as ReasoningChunkBlock
-from omnigent_client._events import (
+from agentnexus_client._blocks import ReasoningChunk as ReasoningChunkBlock
+from agentnexus_client._events import (
     MessageDone,
     ResponseCompleted,
     ResponseCreated,
 )
-from omnigent_client._sse import _parse_event
-from omnigent_client._stream import BlockStream
-from omnigent_client._types import Response
+from agentnexus_client._sse import _parse_event
+from agentnexus_client._stream import BlockStream
+from agentnexus_client._types import Response
 
-from omnigent.inner.codex_executor import _CodexAppServerSession
-from omnigent.inner.executor import Executor, TurnComplete
-from omnigent.runtime.harnesses._executor_adapter import ExecutorAdapter
+from agentnexus.inner.codex_executor import _CodexAppServerSession
+from agentnexus.inner.executor import Executor, TurnComplete
+from agentnexus.runtime.harnesses._executor_adapter import ExecutorAdapter
 
 # The exact reasoning text from the bug report's screenshot.
 _PARA_1 = (

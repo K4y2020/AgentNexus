@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import _execute_send_to_teammate_tool
+from agentnexus.runner.tool_dispatch import _execute_send_to_teammate_tool
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ async def test_send_to_teammate_binds_wakes_and_queues_once() -> None:
                         {
                             "id": "polly_a2a",
                             "purpose": "a2a",
-                            "labels": {"omnigent.teammate.channel": "a2a"},
+                            "labels": {"agentnexus.teammate.channel": "a2a"},
                         }
                     ]
                 },
@@ -142,18 +142,18 @@ async def test_send_to_teammate_selects_the_current_topic_channel() -> None:
                             "id": "polly_topic_a2a",
                             "purpose": "a2a",
                             "labels": {
-                                "omnigent.teammate.channel": "a2a",
-                                "omnigent.teammate.channel_scope": "topic:topic_a",
-                                "omnigent.teammate.channel_kind": "topic",
+                                "agentnexus.teammate.channel": "a2a",
+                                "agentnexus.teammate.channel_scope": "topic:topic_a",
+                                "agentnexus.teammate.channel_kind": "topic",
                             },
                         },
                         {
                             "id": "polly_topic_b2a",
                             "purpose": "a2a",
                             "labels": {
-                                "omnigent.teammate.channel": "a2a",
-                                "omnigent.teammate.channel_scope": "topic:topic_b",
-                                "omnigent.teammate.channel_kind": "topic",
+                                "agentnexus.teammate.channel": "a2a",
+                                "agentnexus.teammate.channel_scope": "topic:topic_b",
+                                "agentnexus.teammate.channel_kind": "topic",
                             },
                         },
                     ]
@@ -177,7 +177,7 @@ async def test_send_to_teammate_selects_the_current_topic_channel() -> None:
                     "runner_id": "runner_1",
                     "runner_online": True,
                     "labels": {
-                        "omnigent.teammate.channel_scope": "topic:topic_a",
+                        "agentnexus.teammate.channel_scope": "topic:topic_a",
                     },
                 },
             )
@@ -249,7 +249,7 @@ async def test_send_to_teammate_copies_latest_user_attachments() -> None:
                     "data": [
                         {
                             "id": "polly_a2a",
-                            "labels": {"omnigent.teammate.channel": "a2a"},
+                            "labels": {"agentnexus.teammate.channel": "a2a"},
                         }
                     ]
                 },
@@ -343,7 +343,7 @@ async def test_send_to_teammate_copies_latest_user_attachments() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["succeeded", "failed", None])
 async def test_wait_uses_only_correlated_durable_result(outcome, monkeypatch) -> None:
-    from omnigent.runner import tool_dispatch
+    from agentnexus.runner import tool_dispatch
 
     clock = [0.0]
     paths = []
@@ -463,7 +463,7 @@ async def test_reply_requires_request_id_instead_of_guessing_latest_topic() -> N
 async def test_drain_inbox_anti_busy_wait_guard() -> None:
     import asyncio
 
-    from omnigent.runner.tool_dispatch import _drain_inbox
+    from agentnexus.runner.tool_dispatch import _drain_inbox
 
     empty_queue: asyncio.Queue = asyncio.Queue()
     conv = "test_conv_spin_guard"

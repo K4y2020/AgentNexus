@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import hermes_native_bridge as b
+from agentnexus import hermes_native_bridge as b
 
 
 def test_bridge_dir_is_per_session_and_under_root() -> None:
@@ -286,14 +286,14 @@ def test_write_policy_hook_config_creates_expected_files(tmp_path) -> None:
 
     # Wrapper shell script exists and is owner-only (it bakes a one-shot auth
     # token, so the secret is never world-readable).
-    wrapper = hermes_home / "omnigent-policy-hook.sh"
+    wrapper = hermes_home / "agentnexus-policy-hook.sh"
     assert wrapper.is_file()
     assert wrapper.stat().st_mode & 0o777 == 0o700
     wrapper_text = wrapper.read_text()
     # Values are shlex-quoted (shell-safe URLs/ids need no quotes).
-    assert "_OMNIGENT_SERVER_URL=http://localhost:6767" in wrapper_text
-    assert "_OMNIGENT_SESSION_ID=session-123" in wrapper_text
-    assert "_OMNIGENT_AUTH_HEADERS=" in wrapper_text
+    assert "_AGENTNEXUS_SERVER_URL=http://localhost:6767" in wrapper_text
+    assert "_AGENTNEXUS_SESSION_ID=session-123" in wrapper_text
+    assert "_AGENTNEXUS_AUTH_HEADERS=" in wrapper_text
     assert sys.executable in wrapper_text
     assert "hermes_policy_hook.py" in wrapper_text
 
@@ -311,7 +311,7 @@ def test_write_policy_hook_config_creates_expected_files(tmp_path) -> None:
     assert allowlist["approvals"][0]["command"] == str(wrapper)
 
     # MCP server registered.
-    mcp = config["mcp_servers"]["omnigent"]
+    mcp = config["mcp_servers"]["agentnexus"]
     assert mcp["command"] == sys.executable
     assert "serve-mcp" in mcp["args"]
     assert "--bridge-dir" in mcp["args"]
@@ -484,20 +484,20 @@ def test_mint_hermes_session_id_returns_uuid() -> None:
 
 def test_inject_relay_into_policy_hook_rewrites_wrapper(tmp_path: Path) -> None:
     """inject_relay_into_policy_hook rewrites omnigent-policy-hook.sh with relay env vars."""
-    from omnigent.hermes_native_bridge import inject_relay_into_policy_hook
+    from agentnexus.hermes_native_bridge import inject_relay_into_policy_hook
 
     hermes_home = tmp_path / "hermes_home"
     hermes_home.mkdir(mode=0o700)
-    wrapper = hermes_home / "omnigent-policy-hook.sh"
-    wrapper.write_text("#!/bin/sh\nexport _OMNIGENT_AUTH_HEADERS=old\nexec python hook.py\n")
+    wrapper = hermes_home / "agentnexus-policy-hook.sh"
+    wrapper.write_text("#!/bin/sh\nexport _AGENTNEXUS_AUTH_HEADERS=old\nexec python hook.py\n")
     wrapper.chmod(0o700)
 
     bridge_dir = tmp_path
     # put hermes_home under bridge_dir/_HERMES_HOME_SUBDIR
-    import omnigent.hermes_native_bridge as _b
+    import agentnexus.hermes_native_bridge as _b
 
     (bridge_dir / _b._HERMES_HOME_SUBDIR).mkdir(parents=True, exist_ok=True)
-    real_wrapper = bridge_dir / _b._HERMES_HOME_SUBDIR / "omnigent-policy-hook.sh"
+    real_wrapper = bridge_dir / _b._HERMES_HOME_SUBDIR / "agentnexus-policy-hook.sh"
     real_wrapper.write_text("#!/bin/sh\n")
     real_wrapper.chmod(0o700)
 
@@ -511,18 +511,18 @@ def test_inject_relay_into_policy_hook_rewrites_wrapper(tmp_path: Path) -> None:
 
     assert updated is True
     text = real_wrapper.read_text()
-    assert "_OMNIGENT_RELAY_URL" in text
+    assert "_AGENTNEXUS_RELAY_URL" in text
     assert "http://127.0.0.1:9999" in text
-    assert "_OMNIGENT_RELAY_TOKEN" in text
+    assert "_AGENTNEXUS_RELAY_TOKEN" in text
     assert "relay-tok" in text
     # Original server vars still present for fallback path.
-    assert "_OMNIGENT_SERVER_URL" in text
+    assert "_AGENTNEXUS_SERVER_URL" in text
 
 
 def test_inject_relay_into_policy_hook_returns_false_when_wrapper_absent(
     tmp_path: Path,
 ) -> None:
     """inject_relay_into_policy_hook returns False when wrapper script is missing."""
-    from omnigent.hermes_native_bridge import inject_relay_into_policy_hook
+    from agentnexus.hermes_native_bridge import inject_relay_into_policy_hook
 
     assert inject_relay_into_policy_hook(tmp_path, "http://x", "tok", "http://ap", "sid") is False

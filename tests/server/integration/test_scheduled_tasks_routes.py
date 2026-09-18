@@ -15,17 +15,17 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.db.utils import builtin_agent_id
-from omnigent.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.routes import scheduled_tasks as scheduled_tasks_routes
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
-from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+from agentnexus.db.utils import builtin_agent_id
+from agentnexus.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.routes import scheduled_tasks as scheduled_tasks_routes
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
     SqlAlchemyScheduledTaskStore,
 )
 from tests.server.conftest import ControllableMockClient
@@ -38,9 +38,9 @@ def _stub_host_workspace_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _validate_workspace(**kwargs: object) -> str:
         workspace = kwargs["workspace"]
         if not isinstance(workspace, str) or not workspace.startswith("/"):
-            from omnigent.errors import ErrorCode, OmnigentError
+            from agentnexus.errors import ErrorCode, AgentNexusError
 
-            raise OmnigentError(
+            raise AgentNexusError(
                 "workspace must be an absolute path starting with /",
                 code=ErrorCode.INVALID_INPUT,
             )
@@ -55,8 +55,8 @@ def _stub_host_workspace_validation(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture()
 def auth_app(runtime_init: None, db_uri: str, tmp_path: Path) -> FastAPI:
-    from omnigent.server.auth import UnifiedAuthProvider
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.server.auth import UnifiedAuthProvider
+    from agentnexus.stores.host_store import HostStore
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -91,8 +91,8 @@ async def auth_client(
     mock_llm: ControllableMockClient,
     tmp_path: Path,
 ) -> AsyncIterator[httpx.AsyncClient]:
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -431,7 +431,7 @@ async def test_update_switches_the_bound_agent(
     An existing automation must be switchable in place — the alternative is
     recreating it, which loses the task id and its run history.
     """
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     created = (
@@ -464,7 +464,7 @@ async def test_update_agent_switch_clears_the_old_harnesss_settings(
     so carrying them onto a codex task would break the fire with an unknown
     ``--permission-mode`` / a model its CLI has never heard of.
     """
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     created = (
@@ -506,7 +506,7 @@ async def test_update_agent_switch_revalidates_workspace_against_the_new_agent(
     boundary check runs against — asserting a 200 alone would pass even if the
     route kept checking the old agent.
     """
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     created = (
@@ -541,7 +541,7 @@ async def test_update_agent_switch_keeps_settings_resent_in_the_same_patch(
     auth_client: httpx.AsyncClient, db_uri: str
 ) -> None:
     """Settings sent alongside a switch are kept and gated on the NEW agent."""
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     created = (
@@ -568,7 +568,7 @@ async def test_update_agent_switch_gates_permission_mode_on_the_new_agent(
     auth_client: httpx.AsyncClient, db_uri: str
 ) -> None:
     """A Claude-only mode sent with a switch to codex is rejected, not persisted."""
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     created = (
@@ -631,7 +631,7 @@ async def test_create_rejects_permission_mode_for_non_claude_agent(
     itself is a valid Claude mode — the rejection is purely about the agent's
     harness.
     """
-    from omnigent.native_coding_agents import CODEX_NATIVE_AGENT_NAME
+    from agentnexus.native_coding_agents import CODEX_NATIVE_AGENT_NAME
 
     _make_user(db_uri)
     resp = await auth_client.post(
@@ -825,7 +825,7 @@ def _seed_run(db_uri: str, task_id: str, run_id: str, **overrides: object) -> No
     Tests run at the default workspace (no tenant middleware), matching the
     route's read scope.
     """
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -988,7 +988,7 @@ async def test_list_runs_force_fails_stale_running_run(
     import time
     import uuid
 
-    from omnigent.server.scheduled.run_reconciler import STALE_RUN_MAX_AGE_SECONDS
+    from agentnexus.server.scheduled.run_reconciler import STALE_RUN_MAX_AGE_SECONDS
 
     _make_user(db_uri)
     created = (
@@ -1064,7 +1064,7 @@ async def test_list_tasks_force_fails_stale_running_run(
     import time
     import uuid
 
-    from omnigent.server.scheduled.run_reconciler import STALE_RUN_MAX_AGE_SECONDS
+    from agentnexus.server.scheduled.run_reconciler import STALE_RUN_MAX_AGE_SECONDS
 
     _make_user(db_uri)
     created = (
@@ -1151,7 +1151,7 @@ def _seed_running_run_for_conv(db_uri: str, conversation_id: str) -> tuple[str, 
     """
     import uuid
 
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -1189,7 +1189,7 @@ def _wait_for_run_status(
     """
     import time
 
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -1222,10 +1222,10 @@ async def test_publish_status_idle_edge_transitions_scheduled_run_to_succeeded(
     """
     import uuid
 
-    from omnigent.server import session_live_state
-    from omnigent.server.routes.sessions import _publish_status, _session_status_cache
-    from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.server import session_live_state
+    from agentnexus.server.routes.sessions import _publish_status, _session_status_cache
+    from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -1259,11 +1259,11 @@ async def test_publish_status_failed_edge_transitions_scheduled_run_to_failed(
     """
     import uuid
 
-    from omnigent.server import session_live_state
-    from omnigent.server.routes.sessions import _publish_status, _session_status_cache
-    from omnigent.server.schemas import ErrorDetail
-    from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.server import session_live_state
+    from agentnexus.server.routes.sessions import _publish_status, _session_status_cache
+    from agentnexus.server.schemas import ErrorDetail
+    from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -1375,7 +1375,7 @@ async def test_run_now_triggers_and_records_a_run(
     import time
     import uuid
 
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 

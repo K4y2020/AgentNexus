@@ -11,7 +11,7 @@ const script = require(path.resolve(".github/workflows/review-sla.js"));
 // Frozen area fixture: stable owners the orchestration assertions can pin to.
 const FIXTURE = {
   areas: [
-    { key: "inner", label: "comp:harnesses", paths: ["omnigent/inner/"], owners: ["ownerA", "ownerB", "ownerC"] },
+    { key: "inner", label: "comp:harnesses", paths: ["agentnexus/inner/"], owners: ["ownerA", "ownerB", "ownerC"] },
     { key: "web", label: "comp:web-ui", paths: ["web/"], owners: ["webX", "webY"] },
   ],
 };
@@ -59,7 +59,7 @@ function mkGithub(canned, sink, opts = {}) {
 async function runOrch(canned, opts) {
   const sink = { comments: [], requested: [], assigned: [], labels: [], warnings: [] };
   const core = { info: () => {}, warning: (m) => sink.warnings.push(m) };
-  const context = { repo: { owner: "omnigent-ai", repo: "omnigent" } };
+  const context = { repo: { owner: "agentnexus-ai", repo: "agentnexus" } };
   await script({ github: mkGithub(canned, sink, opts), context, core });
   return sink;
 }
@@ -117,19 +117,19 @@ async function runOrch(canned, opts) {
 
   // ---- parseAreas ----
   const { rules, pool, labelOwners } = script.parseAreas(JSON.stringify(FIXTURE));
-  assert("parseAreas: rules preserve prefixes", rules.some((r) => r.prefix === "omnigent/inner/") && rules.some((r) => r.prefix === "web/"), JSON.stringify(rules));
+  assert("parseAreas: rules preserve prefixes", rules.some((r) => r.prefix === "agentnexus/inner/") && rules.some((r) => r.prefix === "web/"), JSON.stringify(rules));
   assert("parseAreas: pool unions all owners", ["ownera", "ownerb", "ownerc", "webx", "weby"].every((o) => pool.has(o)), JSON.stringify([...pool.keys()]));
   assert("parseAreas: labelOwners maps comp:* -> owners", [...(labelOwners.get("comp:web-ui") || [])].sort().join(",") === "webX,webY", JSON.stringify([...(labelOwners.get("comp:web-ui") || [])]));
 
   // ---- pickSecondReviewer ----
   const srMembers = script.pickSecondReviewer({
-    files: ["omnigent/inner/foo.py"], rules, pool, load: new Map(),
+    files: ["agentnexus/inner/foo.py"], rules, pool, load: new Map(),
     exclude: new Set(["ownera"]),
   });
   assert("second reviewer is an inner owner, excluding those on the PR",
     ["ownerb", "ownerc"].includes((srMembers || "").toLowerCase()), String(srMembers));
   const srLoad = script.pickSecondReviewer({
-    files: ["omnigent/inner/foo.py"], rules, pool,
+    files: ["agentnexus/inner/foo.py"], rules, pool,
     load: new Map([["ownera", 5], ["ownerb", 5], ["ownerc", 0]]),
     exclude: new Set(),
   });
@@ -157,7 +157,7 @@ async function runOrch(canned, opts) {
   };
   let s = await runOrch({
     openPRs: [stalePR], openIssues: [], timeline: [], comments: [], reviews: [], reviewComments: [],
-    files: [{ filename: "omnigent/inner/foo.py" }],
+    files: [{ filename: "agentnexus/inner/foo.py" }],
   });
   assert("stale PR: one reminder comment posted", s.comments.length === 1 && s.comments[0].issue_number === 7, JSON.stringify(s.comments));
   assert("stale PR: comment re-pings the assigned reviewer", /@dhruv0811/.test(s.comments[0].body), s.comments[0] && s.comments[0].body);
@@ -174,7 +174,7 @@ async function runOrch(canned, opts) {
   // to attach, yet the item is still labelled so it won't be re-nudged tomorrow.
   s = await runOrch({
     openPRs: [stalePR], openIssues: [], timeline: [], comments: [], reviews: [], reviewComments: [],
-    files: [{ filename: "omnigent/inner/foo.py" }],
+    files: [{ filename: "agentnexus/inner/foo.py" }],
   }, { failRequestReviewers: true });
   assert("partial failure: reminder comment still posted", s.comments.length === 1, JSON.stringify(s.comments));
   assert("partial failure: comment does NOT over-claim a second reviewer", !/second reviewer/.test(s.comments[0].body), s.comments[0] && s.comments[0].body);
@@ -185,8 +185,8 @@ async function runOrch(canned, opts) {
   // ---- orchestration: marker fallback -- prior nudge exists but the label didn't --
   s = await runOrch({
     openPRs: [stalePR], openIssues: [], timeline: [], reviews: [], reviewComments: [],
-    files: [{ filename: "omnigent/inner/foo.py" }],
-    comments: [{ user: { login: "omnigent-ci" }, body: script.MARKER + "\nearlier nudge", created_at: daysAgoIso(2) }],
+    files: [{ filename: "agentnexus/inner/foo.py" }],
+    comments: [{ user: { login: "agentnexus-ci" }, body: script.MARKER + "\nearlier nudge", created_at: daysAgoIso(2) }],
   });
   assert("marker fallback: an already-nudged PR (marker present, no label) is skipped",
     s.comments.length === 0 && s.labels.length === 0, JSON.stringify(s));
@@ -228,7 +228,7 @@ async function runOrch(canned, opts) {
   const manyStale = Array.from({ length: MAX + 5 }, (_, i) => ({ ...stalePR, number: 3000 + i }));
   s = await runOrch({
     openPRs: manyStale, openIssues: [], timeline: [], comments: [], reviews: [], reviewComments: [],
-    files: [{ filename: "omnigent/inner/foo.py" }],
+    files: [{ filename: "agentnexus/inner/foo.py" }],
   });
   assert("cap: escalations stop at MAX_ESCALATIONS_PER_RUN", s.comments.length === MAX, `${s.comments.length} vs ${MAX}`);
   assert("cap: labels capped to match", s.labels.length === MAX, String(s.labels.length));

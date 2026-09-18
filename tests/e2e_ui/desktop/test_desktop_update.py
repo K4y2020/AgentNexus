@@ -12,7 +12,7 @@ What remains in the server-rendered SPA is the Settings -> Updates section
 (``web/src/pages/SettingsPage.tsx``), which still reads/writes update
 preferences (mode, auto-install) and triggers a check over the bridge. The e2e_ui
 harness runs the SPA in a plain Chromium browser, not Electron, so we inject a
-scriptable ``window.omnigentDesktop`` stub -- including a full ``updates`` bridge
+scriptable ``window.agentnexusDesktop`` stub -- including a full ``updates`` bridge
 -- via ``add_init_script`` *before any app script runs* to exercise that surface.
 The stub records every bridge call and captures the live ``onStatus`` subscriber
 so the test can stream update-lifecycle statuses from Python
@@ -75,7 +75,7 @@ _UPDATE_SHELL_INIT_SCRIPT = """
       return () => { state.onOverlayHeight = null; };
     },
   };
-  window.omnigentDesktop = {
+  window.agentnexusDesktop = {
     kind: "electron",
     setBadgeCount: function () {},
     notify: function () { return Promise.resolve(false); },

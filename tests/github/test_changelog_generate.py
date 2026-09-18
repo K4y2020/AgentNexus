@@ -277,7 +277,7 @@ def test_insert_dev_tag_idempotent() -> None:
 
 # --- render_draft_notes ------------------------------------------------------
 
-_REPO = "omnigent-ai/omnigent"
+_REPO = "agentnexus-ai/omnigent"
 
 
 def test_draft_notes_groups_into_sections_by_type() -> None:

@@ -1,7 +1,7 @@
 """Android WebView shell: web-layer feature detection and the safe-area fold.
 
 The native Android shell (``web/android``) loads the SPA and injects
-``window.omnigentNative = {kind: "android", ...}``. The web layer feature-detects
+``window.agentnexusNative = {kind: "android", ...}``. The web layer feature-detects
 it (``isAndroidShell()`` in ``web/src/lib/nativeBridge.ts``) and, when true, the
 ``AppShell`` tags its root with ``data-android-native="true"``
 (``web/src/shell/AppShell.tsx``). That attribute gates the Android-specific
@@ -12,10 +12,10 @@ it into the shared ``--omnigent-safe-top/bottom`` with ``max()``.
 
 The e2e_ui harness runs the SPA in a plain Chromium browser, not the Android
 WebView, so ``isAndroidShell()`` is false by default. To exercise the shell path
-end-to-end we inject a minimal ``window.omnigentNative`` stub via
+end-to-end we inject a minimal ``window.agentnexusNative`` stub via
 ``add_init_script`` *before any app script runs* — the same feature-detection
 stubbing the desktop shell tests use (``sessions/test_pinned_session_hotkeys.py``
-injects ``window.omnigentDesktop``).
+injects ``window.agentnexusDesktop``).
 
 These cover the chain the ``nativeBridge`` unit tests can't reach end to end:
 the injected bridge -> ``isAndroidShell()`` -> the ``AppShell``
@@ -41,7 +41,7 @@ _MOBILE_VIEWPORT: ViewportSize = {"width": 390, "height": 844}
 # unrelated native calls (badge / notify / inset subscription) from throwing
 # under the stub.
 _ANDROID_SHELL_INIT_SCRIPT = """
-window.omnigentNative = {
+window.agentnexusNative = {
   kind: "android",
   setBadgeCount: function () {},
   notify: function () { return Promise.resolve(false); },
@@ -111,7 +111,7 @@ def test_no_android_tag_or_fold_in_plain_browser(
 ) -> None:
     """A plain browser tab (no bridge) gets neither the tag nor the fold.
 
-    Without the ``window.omnigentNative`` stub, ``isAndroidShell()`` is false, so
+    Without the ``window.agentnexusNative`` stub, ``isAndroidShell()`` is false, so
     the app-shell must NOT carry ``data-android-native`` and the
     ``--omnigent-android-safe-area-*`` fold must contribute nothing — the gate
     that keeps the Android chrome off the plain web app. This is the half of the
@@ -141,7 +141,7 @@ def test_no_android_tag_or_fold_in_plain_browser(
 # ``navigatePath``.
 _ANDROID_ACTIVATION_INIT_SCRIPT = """
 window.__omnigentActivations = [];
-window.omnigentNative = {
+window.agentnexusNative = {
   kind: "android",
   setBadgeCount: function () {},
   notify: function () { return Promise.resolve(false); },

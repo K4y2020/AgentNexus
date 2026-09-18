@@ -8,7 +8,7 @@ import pytest
 from alembic import command
 from sqlalchemy import Engine, inspect, text
 
-from omnigent.db.utils import _build_alembic_config
+from agentnexus.db.utils import _build_alembic_config
 
 
 @pytest.fixture()
@@ -30,12 +30,12 @@ def test_migration_creates_bots_bindings_and_session_columns(db_engine: Engine) 
     inspector = inspect(db_engine)
     assert {"bots", "bot_computer_bindings"}.issubset(inspector.get_table_names())
     columns = {
-        column["name"] for column in inspector.get_columns("omnigent_conversation_metadata")
+        column["name"] for column in inspector.get_columns("agentnexus_conversation_metadata")
     }
     assert {"bot_id", "purpose", "singleton_slot"}.issubset(columns)
     unique_names = {
         constraint["name"]
-        for constraint in inspector.get_unique_constraints("omnigent_conversation_metadata")
+        for constraint in inspector.get_unique_constraints("agentnexus_conversation_metadata")
     }
     assert "uq_conversation_metadata_bot_singleton" in unique_names
 
@@ -54,7 +54,7 @@ def test_migration_downgrade_and_reupgrade(tmp_path: Path) -> None:
         assert "bots" not in inspector.get_table_names()
         columns = {
             column["name"]
-            for column in inspector.get_columns("omnigent_conversation_metadata")
+            for column in inspector.get_columns("agentnexus_conversation_metadata")
         }
         assert "bot_id" not in columns
     finally:

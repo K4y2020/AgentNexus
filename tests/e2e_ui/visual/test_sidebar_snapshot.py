@@ -113,7 +113,7 @@ def _row(
 # Canonical pin label the client reads (the server collapses each viewer's
 # per-user `omnigent.pinned.<user>` key back to this bare key on the wire). Its
 # value is the epoch-ms pin time; any non-empty value means pinned.
-_PINNED_LABEL_KEY = "omnigent.pinned"
+_PINNED_LABEL_KEY = "agentnexus.pinned"
 _PINNED_AT_MS = str(_NOW_S * 1000)
 
 # The flat list carries every non-project row: the pinned one (also returned by
@@ -255,9 +255,9 @@ def test_populated_sidebar_matches_baseline(
     # longer a localStorage pref — the Pinned section is driven by the
     # `?pinned=true` route stubbed above.
     page.add_init_script(
-        f'window.localStorage.setItem("omnigent:recent-workspaces",'
+        f'window.localStorage.setItem("agentnexus:recent-workspaces",'
         f' JSON.stringify({{"{_HOST_ID}": ["/work/repo"]}}));'
-        f'window.localStorage.setItem("omnigent:expanded-project-sections",'
+        f'window.localStorage.setItem("agentnexus:expanded-project-sections",'
         f" {json.dumps(json.dumps([_PROJECT_OPEN]))});"
     )
 

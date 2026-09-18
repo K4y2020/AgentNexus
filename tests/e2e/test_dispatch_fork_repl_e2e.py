@@ -6,7 +6,7 @@ Why this test exists: it covers the interactive CLI path that
 server integration tests miss — the CLI's spec-bundling pipeline
 (turning ``--harness <harness>`` into an ``executor.harness:
 <harness>`` YAML, packaging it, posting to ``/api/agents``) and
-the REPL's SSE rendering (event consumption from the Omnigent server
+the REPL's SSE rendering (event consumption from the AgentNexus server
 back into the terminal). CLAUDE.md mandates a real REPL run
 before declaring an executor change done; this test pins it for
 every wrapped harness.
@@ -135,12 +135,12 @@ def repl_env(mock_llm_server_url: str, tmp_path: Path) -> dict[str, str]:
     process's LLM calls are answered by the mock without real credentials.
 
     :param mock_llm_server_url: Mock LLM server base URL.
-    :param tmp_path: Isolated temp directory for OMNIGENT_CONFIG_HOME.
+    :param tmp_path: Isolated temp directory for AGENTNEXUS_CONFIG_HOME.
     :returns: Env mapping for ``pexpect.spawn``.
     """
-    from tests.e2e.omnigent._pexpect_harness import ensure_repl_test_theme_env
+    from tests.e2e.agentnexus._pexpect_harness import ensure_repl_test_theme_env
 
-    config_home = tmp_path / "omnigent-config"
+    config_home = tmp_path / "agentnexus-config"
     config_home.mkdir()
     (config_home / "config.yaml").write_text(
         "auth:\n  type: none\n",
@@ -148,7 +148,7 @@ def repl_env(mock_llm_server_url: str, tmp_path: Path) -> dict[str, str]:
     )
     env = {
         **os.environ,
-        "OMNIGENT_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
         # PYTHONPATH so the worktree wins over any sibling
         # editable install of omnigent.
         "PYTHONPATH": (f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}"),
@@ -189,10 +189,10 @@ def test_repl_run_routes_harness_through_new_harness_contract(
 
     1. The CLI's ``run_chat`` packs ``--harness <harness>`` +
        ``--model`` into the temporary spec.
-    2. It spawns a local Omnigent server subprocess.
+    2. It spawns a local AgentNexus server subprocess.
     3. It uploads the spec via ``/api/agents``.
-    4. The Omnigent server's ``_create_executor`` sees an
-       ``executor.type == "omnigent"`` +
+    4. The AgentNexus server's ``_create_executor`` sees an
+       ``executor.type == "agentnexus"`` +
        ``config.harness == <harness>`` spec (after the
        omnigent-YAML translator runs) and dispatches to
        the harness HTTP client via the step-5f branch.
@@ -224,7 +224,7 @@ def test_repl_run_routes_harness_through_new_harness_contract(
         sys.executable,
         [
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "run",
             "tests/resources/examples/hello_world.yaml",
             "--harness",

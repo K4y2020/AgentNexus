@@ -381,7 +381,7 @@ class BlockStream:
                 # call_id; this block keeps the first occurrence
                 # (the inline render) and drops the second so the
                 # REPL doesn't render ``⏵ tool_name`` twice. See
-                # designs/RUN_OMNIGENT_REPL_PARITY.md.
+                # designs/RUN_AGENTNEXUS_REPL_PARITY.md.
                 #
                 # Non-MCP paths emit exactly one ToolCall per
                 # call_id, so the second-arrival branch never
@@ -390,7 +390,7 @@ class BlockStream:
                     # Already rendered the ⏵ line for this call_id
                     # (e.g. via the inline observed event from the
                     # harness's content_block_stop, or via the
-                    # ``ToolCallInProgress`` event the Omnigent server
+                    # ``ToolCallInProgress`` event the AgentNexus server
                     # emits at action_required arrival). Re-register
                     # in pending_tools so the eventual ``ToolResult``
                     # can pair by call_id — the prior pending entry

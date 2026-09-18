@@ -7,7 +7,7 @@ server pushes ``response.elicitation_resolved``. Pure-push, mirroring the web
 UI: the turn loop keeps reading the stream, so the continuation and the resolved
 event arrive as normal events — no polling.
 
-Extracted from ``SlackOmnigentService`` so that class is left with event
+Extracted from ``SlackAgentNexusService`` so that class is left with event
 routing + turn lifecycle. The card-building blocks, the coordinator, and the
 outcome enum live in ``approvals``; this module is the orchestration on top.
 """
@@ -21,7 +21,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from omnigent_slack.approvals import (
+from agentnexus_slack.approvals import (
     RESOLVED_EXTERNALLY,
     ClickTarget,
     ElicitationCoordinator,
@@ -31,11 +31,11 @@ from omnigent_slack.approvals import (
     resolve_form_answers,
     resolved_card_blocks,
 )
-from omnigent_slack.models import SlackTurn, ThreadKey
-from omnigent_slack.omnigent import ElicitationRequest, OmnigentClient
+from agentnexus_slack.models import SlackTurn, ThreadKey
+from agentnexus_slack.agentnexus import ElicitationRequest, AgentNexusClient
 
 if TYPE_CHECKING:
-    from omnigent_slack.streaming import SlackClientProtocol
+    from agentnexus_slack.streaming import SlackClientProtocol
 
 # Posts a plain thread reply (used for the unsupported-elicitation web link).
 PostReply = Callable[["SlackClientProtocol", ThreadKey, str], Awaitable[None]]
@@ -153,7 +153,7 @@ class ElicitationController:
 
     async def start(
         self,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         turn: SlackTurn,
         request: ElicitationRequest,
         state: ElicitationTurnState,
@@ -189,7 +189,7 @@ class ElicitationController:
                 client,
                 key,
                 (
-                    ":link: Omnigent needs input I can't collect here "
+                    ":link: AgentNexus needs input I can't collect here "
                     f"({request.message}). Open the session to respond:\n"
                     f"{self._approve_link(request.session_id, request.elicitation_id)}"
                 ),
@@ -216,7 +216,7 @@ class ElicitationController:
             posted = await client.chat_postMessage(
                 channel=key.channel_id,
                 thread_ts=key.reply_ts,
-                text="Omnigent needs your input to continue.",
+                text="AgentNexus needs your input to continue.",
                 blocks=elicitation_card_blocks(request, turn.owner_user_id),
             )
         except Exception:
@@ -239,7 +239,7 @@ class ElicitationController:
 
     async def _abandon_unpostable(
         self,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         request: ElicitationRequest,
         key: ThreadKey,
         *,
@@ -270,7 +270,7 @@ class ElicitationController:
 
     async def _resolve_verdict(
         self,
-        omnigent: OmnigentClient,
+        omnigent: AgentNexusClient,
         request: ElicitationRequest,
         pending: PendingElicitation,
     ) -> None:
@@ -355,7 +355,7 @@ class ElicitationController:
         await self._finalize_card(turn, pending, outcome)
 
     async def finish_pending(
-        self, omnigent: OmnigentClient, turn: SlackTurn, state: ElicitationTurnState
+        self, omnigent: AgentNexusClient, turn: SlackTurn, state: ElicitationTurnState
     ) -> None:
         """At turn end, settle any elicitation still in flight.
 
@@ -412,7 +412,7 @@ class ElicitationController:
             await self._finalize_card(turn, pending, outcome)
 
     async def _decline_abandoned(
-        self, omnigent: OmnigentClient, pending: PendingElicitation
+        self, omnigent: AgentNexusClient, pending: PendingElicitation
     ) -> None:
         """Decline an unanswered elicitation at turn end so the server park frees.
 
@@ -476,7 +476,7 @@ class ElicitationController:
             )
 
     def _approve_link(self, session_id: str, elicitation_id: str) -> str:
-        # Deep link to the elicitation's approve page in the Omnigent web UI, so
+        # Deep link to the elicitation's approve page in the AgentNexus web UI, so
         # a user can resolve a request the bot can't render in Slack.
         base = self._server_url.rstrip("/")
         return f"{base}/approve/{session_id}/{elicitation_id}"

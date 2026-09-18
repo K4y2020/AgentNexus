@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.onboarding import antigravity_auth, extra_install
-from omnigent.onboarding import secrets as secret_store
-from omnigent.onboarding.antigravity_auth import (
+from agentnexus.onboarding import antigravity_auth, extra_install
+from agentnexus.onboarding import secrets as secret_store
+from agentnexus.onboarding.antigravity_auth import (
     ANTIGRAVITY_SECRET_NAME,
     antigravity_api_key_configured,
     antigravity_api_key_ref,
@@ -33,8 +33,8 @@ def _isolate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
     :returns: The tmp config-home dir, so a test can write a ``config.yaml``.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_API_KEY", raising=False)
     return tmp_path
@@ -87,7 +87,7 @@ def test_inline_api_key_field_accepted(_isolate: Path, monkeypatch: pytest.Monke
 def test_dangling_keychain_ref_is_soft_none(_isolate: Path) -> None:
     """A reference to a never-stored keychain entry resolves softly to ``None``.
 
-    Failure (an ``OmnigentError`` escaping) would crash an antigravity run / the
+    Failure (an ``AgentNexusError`` escaping) would crash an antigravity run / the
     setup readout on a deleted secret instead of falling back to the SDK's
     ambient / Vertex credentials.
     """
@@ -159,7 +159,7 @@ def test_antigravity_install_command_prefers_uv(monkeypatch: pytest.MonkeyPatch)
         "install",
         "--python",
         "/opt/venv/bin/python",
-        "omnigent[antigravity]",
+        "agentnexus[antigravity]",
     ]
     assert not any("index" in part or "://" in part for part in cmd)
 
@@ -174,7 +174,7 @@ def test_antigravity_install_command_falls_back_to_pip(monkeypatch: pytest.Monke
         "-m",
         "pip",
         "install",
-        "omnigent[antigravity]",
+        "agentnexus[antigravity]",
     ]
     assert not any("index" in part or "://" in part for part in cmd)
 
@@ -189,8 +189,8 @@ def test_antigravity_install_command_uv_tool(monkeypatch: pytest.MonkeyPatch) ->
         "tool",
         "install",
         "--with",
-        "omnigent[antigravity]",
-        "omnigent",
+        "agentnexus[antigravity]",
+        "agentnexus",
         "--force",
     ]
 
@@ -220,7 +220,7 @@ def test_install_antigravity_sdk_runs_command_then_rechecks(
 
     assert install_antigravity_sdk() is True
     assert calls == [
-        [extra_install.sys.executable, "-m", "pip", "install", "omnigent[antigravity]"]
+        [extra_install.sys.executable, "-m", "pip", "install", "agentnexus[antigravity]"]
     ]
 
 

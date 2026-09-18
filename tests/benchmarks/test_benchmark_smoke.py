@@ -17,11 +17,11 @@ from typing import cast
 import httpx
 import pytest
 
-from dev.benchmarks.omnigent import run as bench_run
-from dev.benchmarks.omnigent.environment import BenchEnvironment, _sse_session_status
-from dev.benchmarks.omnigent.journeys import ALL_JOURNEYS, Journey, run_latency, run_throughput
-from dev.benchmarks.omnigent.measure import RunResult, aggregate, check_thresholds
-from dev.benchmarks.omnigent.schema import SCHEMA_VERSION, build_report
+from dev.benchmarks.agentnexus import run as bench_run
+from dev.benchmarks.agentnexus.environment import BenchEnvironment, _sse_session_status
+from dev.benchmarks.agentnexus.journeys import ALL_JOURNEYS, Journey, run_latency, run_throughput
+from dev.benchmarks.agentnexus.measure import RunResult, aggregate, check_thresholds
+from dev.benchmarks.agentnexus.schema import SCHEMA_VERSION, build_report
 
 _SMOKE_JOURNEYS = [
     "list_sessions",
@@ -593,12 +593,12 @@ async def test_benchmark_smoke_a2a_delivery_journey() -> None:
 
 def test_seed_creates_listable_corpus(tmp_path: Path) -> None:
     """Seed a tiny corpus and confirm it is listable as "local" with history."""
-    from dev.benchmarks.omnigent import seed as seed_mod
-    from omnigent.server.auth import RESERVED_USER_LOCAL
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from dev.benchmarks.agentnexus import seed as seed_mod
+    from agentnexus.server.auth import RESERVED_USER_LOCAL
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
     db_uri = f"sqlite:///{tmp_path / 'seed.db'}"
 
@@ -663,7 +663,7 @@ def test_report_markdown_renders_journey_matrix() -> None:
     The renderer feeds $GITHUB_STEP_SUMMARY; a broken cell silently degrades
     the CI matrix, so assert the exact row content, not just "contains name".
     """
-    from dev.benchmarks.omnigent.report_markdown import build_markdown
+    from dev.benchmarks.agentnexus.report_markdown import build_markdown
 
     report = _markdown_report(
         {
@@ -692,7 +692,7 @@ def test_report_markdown_marks_skipped_and_failed_journeys() -> None:
     but no metric keys — both must render as explicit markers, never as fast
     zeros.
     """
-    from dev.benchmarks.omnigent.report_markdown import build_markdown
+    from dev.benchmarks.agentnexus.report_markdown import build_markdown
 
     report = _markdown_report(
         {
@@ -726,7 +726,7 @@ def test_report_markdown_cross_report_matrix() -> None:
     makes them comparable at a glance, including journeys missing from one
     backend (rendered as —).
     """
-    from dev.benchmarks.omnigent.report_markdown import build_markdown
+    from dev.benchmarks.agentnexus.report_markdown import build_markdown
 
     sqlite = _markdown_report(
         {

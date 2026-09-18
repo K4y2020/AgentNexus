@@ -41,19 +41,19 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.runtime import get_caps, session_stream
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.runtime.caps import RuntimeCaps
-from omnigent.server.app import create_app
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runtime import get_caps, session_stream
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.runtime.caps import RuntimeCaps
+from agentnexus.server.app import create_app
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 from tests.server.conftest import ControllableMockClient
@@ -101,7 +101,7 @@ def auth_app(runtime_init: None, db_uri: str, tmp_path: Path) -> FastAPI:
     :param db_uri: Test database URI.
     :param tmp_path: Pytest temporary directory fixture.
     """
-    from omnigent.server.auth import UnifiedAuthProvider
+    from agentnexus.server.auth import UnifiedAuthProvider
 
     artifact_store = LocalArtifactStore(str(tmp_path / "artifacts"))
     return create_app(
@@ -135,8 +135,8 @@ async def auth_client(
     :param mock_llm: Controllable mock LLM (released on teardown).
     :param tmp_path: Pytest temporary directory fixture.
     """
-    from omnigent.runtime import set_harness_process_manager
-    from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
+    from agentnexus.runtime import set_harness_process_manager
+    from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
 
     pm = HarnessProcessManager(tmp_parent=tmp_path / "harness_pm")
     await pm.start()
@@ -251,7 +251,7 @@ def _patch_default_policies(monkeypatch: pytest.MonkeyPatch, fn_path: str) -> No
         ],
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions.get_caps",
+        "agentnexus.server.routes.sessions.get_caps",
         lambda: patched_caps,
     )
 
@@ -534,9 +534,9 @@ async def test_parent_answers_child_question_in_original_parked_turn(
     client: httpx.AsyncClient,
     db_uri: str,
 ) -> None:
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import _execute_subagent_tool
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import _execute_subagent_tool
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-question-continuation")
     parent_id = await _create_session(client, agent["id"])
@@ -612,11 +612,11 @@ async def test_unified_question_card_round_trip(
     mode: str,
     action: str,
 ) -> None:
-    from omnigent.coordination.store import CoordinationStore
-    from omnigent.coordination.types import AgentMessage
-    from omnigent.runner.tool_dispatch import execute_tool
-    from omnigent.runtime import pending_elicitations
-    from omnigent.server.routes import coordination
+    from agentnexus.coordination.store import CoordinationStore
+    from agentnexus.coordination.types import AgentMessage
+    from agentnexus.runner.tool_dispatch import execute_tool
+    from agentnexus.runtime import pending_elicitations
+    from agentnexus.server.routes import coordination
 
     agent = await create_test_agent(client, "unified-question")
     origin = await _create_session(client, agent["id"])
@@ -687,10 +687,10 @@ async def test_unified_question_rejects_unrelated_a2a_request(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from omnigent.coordination.store import CoordinationStore
-    from omnigent.coordination.types import AgentMessage
-    from omnigent.runtime import pending_elicitations
-    from omnigent.server.routes import coordination
+    from agentnexus.coordination.store import CoordinationStore
+    from agentnexus.coordination.types import AgentMessage
+    from agentnexus.runtime import pending_elicitations
+    from agentnexus.server.routes import coordination
 
     agent = await create_test_agent(client, "unrelated-question")
     session_id = await _create_session(client, agent["id"])
@@ -731,7 +731,7 @@ async def test_child_codex_elicitation_bubbles_to_parent_stream(
     :param client: The test HTTP client.
     :param db_uri: Test database URI.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-codex-bubble")
     parent_id = await _create_session(client, agent["id"])
@@ -824,7 +824,7 @@ async def test_child_policy_elicitation_bubbles_to_parent_stream(
     :param db_uri: Test database URI.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     _patch_default_policies(monkeypatch, f"{__name__}._ask_for_bash")
     agent = await create_test_agent(client, "test-child-policy-bubble")
@@ -908,7 +908,7 @@ async def test_decline_verdict_rides_resolved_events_to_parent(
     event. A bare "resolved" left parent agents narrating an approval
     that did not happen.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     _patch_default_policies(monkeypatch, f"{__name__}._ask_for_bash")
     agent = await create_test_agent(client, "test-child-decline-verdict")
@@ -1012,7 +1012,7 @@ async def test_child_mcp_elicitation_bubbles_to_parent_stream(
     :param client: The test HTTP client.
     :param db_uri: Test database URI.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-mcp-bubble")
     parent_id = await _create_session(client, agent["id"])
@@ -1110,7 +1110,7 @@ async def test_child_claude_ask_user_question_bubbles_to_parent_stream(
     :param client: The test HTTP client.
     :param db_uri: Test database URI.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-ask-user-question")
     parent_id = await _create_session(client, agent["id"])
@@ -1191,7 +1191,7 @@ async def test_child_claude_permission_bubbles_to_parent_and_declines(
     :param client: The test HTTP client.
     :param db_uri: Test database URI.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-claude-decline")
     parent_id = await _create_session(client, agent["id"])
@@ -1319,7 +1319,7 @@ async def test_child_mcp_input_required_bubbles_to_parent_stream(
     :param db_uri: Test database URI.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-child-mrtr-bubble")
     parent_id = await _create_session(client, agent["id"])
@@ -1338,7 +1338,7 @@ async def test_child_mcp_input_required_bubbles_to_parent_stream(
         return runner_stub
 
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._get_runner_client",
+        "agentnexus.server.routes.sessions._get_runner_client",
         _fake_get_runner_client,
     )
 
@@ -1426,7 +1426,7 @@ async def test_two_children_elicitations_isolated_on_parent_stream(
     :param client: The test HTTP client.
     :param db_uri: Test database URI.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-two-children-fanout")
     parent_id = await _create_session(client, agent["id"])
@@ -1525,7 +1525,7 @@ async def test_resolve_url_cancel_round_trip(client: httpx.AsyncClient) -> None:
     ``accept`` and ``decline``. It represents dismissing the prompt
     without an explicit choice, so the gated tool must not run.
     """
-    from omnigent.runtime import pending_elicitations
+    from agentnexus.runtime import pending_elicitations
 
     agent = await create_test_agent(client, "test-resolve-url-cancel")
     session_id = await _create_session(client, agent["id"])
@@ -1733,9 +1733,9 @@ def test_mrtr_response_url_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     ``mode: "url"`` and the approval page path.
     """
 
-    monkeypatch.setattr("omnigent.server.routes.sessions._ELICITATION_MODE", "url")
+    monkeypatch.setattr("agentnexus.server.routes.sessions._ELICITATION_MODE", "url")
 
-    from omnigent.server.routes.sessions import _mcp_input_required_response
+    from agentnexus.server.routes.sessions import _mcp_input_required_response
 
     resp = _mcp_input_required_response(
         rpc_id=1,
@@ -1757,9 +1757,9 @@ def test_mrtr_response_form_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     in form mode with no ``url`` field.
     """
 
-    monkeypatch.setattr("omnigent.server.routes.sessions._ELICITATION_MODE", "form")
+    monkeypatch.setattr("agentnexus.server.routes.sessions._ELICITATION_MODE", "form")
 
-    from omnigent.server.routes.sessions import _mcp_input_required_response
+    from agentnexus.server.routes.sessions import _mcp_input_required_response
 
     resp = _mcp_input_required_response(
         rpc_id=1,
@@ -1780,9 +1780,9 @@ def test_mrtr_response_no_session_id_stays_form(monkeypatch: pytest.MonkeyPatch)
     of the elicitation mode config.
     """
 
-    monkeypatch.setattr("omnigent.server.routes.sessions._ELICITATION_MODE", "url")
+    monkeypatch.setattr("agentnexus.server.routes.sessions._ELICITATION_MODE", "url")
 
-    from omnigent.server.routes.sessions import _mcp_input_required_response
+    from agentnexus.server.routes.sessions import _mcp_input_required_response
 
     resp = _mcp_input_required_response(
         rpc_id=1,

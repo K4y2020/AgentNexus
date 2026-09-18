@@ -12,11 +12,11 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from omnigent.coordination.dispatcher import CoordinationDispatcher
-from omnigent.coordination.policy_gate import CoordinationPolicyGate
-from omnigent.coordination.reconciliation import reconcile_effect_unknown
-from omnigent.coordination.store import CoordinationStore
-from omnigent.coordination.types import (
+from agentnexus.coordination.dispatcher import CoordinationDispatcher
+from agentnexus.coordination.policy_gate import CoordinationPolicyGate
+from agentnexus.coordination.reconciliation import reconcile_effect_unknown
+from agentnexus.coordination.store import CoordinationStore
+from agentnexus.coordination.types import (
     DEFAULT_MAX_HOPS,
     DEFAULT_MAX_PAYLOAD_BYTES,
     AgentMessage,
@@ -25,22 +25,22 @@ from omnigent.coordination.types import (
     CoordinationTask,
     DeliveryAttempt,
 )
-from omnigent.coordination.workflow_engine import (
+from agentnexus.coordination.workflow_engine import (
     CoordinationWorkflowEngine,
     WorkflowDagTaskSpec,
 )
-from omnigent.coordination.workflow_scheduler import CoordinationWorkflowScheduler
-from omnigent.db.db_models import InvalidUuidError
-from omnigent.debug_logging import current_user_id_scope
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.policies.types import PolicyResult
-from omnigent.server.routes.coordination import (
+from agentnexus.coordination.workflow_scheduler import CoordinationWorkflowScheduler
+from agentnexus.db.db_models import InvalidUuidError
+from agentnexus.debug_logging import current_user_id_scope
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.policies.types import PolicyResult
+from agentnexus.server.routes.coordination import (
     _authorized_runs,
     _require_coordination_acl,
     router,
 )
-from omnigent.spec.types import PolicyAction
-from omnigent.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
+from agentnexus.spec.types import PolicyAction
+from agentnexus.workspaces.lease import WorkspaceCoordinator, WorkspaceLeaseManager
 
 
 @dataclass
@@ -116,7 +116,7 @@ async def test_coordination_acl_requires_manage_for_mutating_requests() -> None:
             "conv_root",
             "conv_child",
         )
-        with pytest.raises(OmnigentError) as exc:
+        with pytest.raises(AgentNexusError) as exc:
             await _require_coordination_acl(
                 _acl_request(app, "POST"),
                 "conv_root",
@@ -184,7 +184,7 @@ def test_coordination_api_run_list_hides_unreadable_roots(
 
     app = make_api_app(memory_store, default_conversations)
     app.state.permission_store = FakePermissionStore({("alice", "conv_root_api"): 3})
-    monkeypatch.setenv("OMNIGENT_USER_ID", "alice")
+    monkeypatch.setenv("AGENTNEXUS_USER_ID", "alice")
 
     res = TestClient(app).get("/v1/coordination/runs")
 
@@ -466,7 +466,7 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
 
     router = FakeRunnerRouter(status_code=200)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
     dispatcher = CoordinationDispatcher(memory_store)
@@ -519,7 +519,7 @@ async def test_dispatcher_rides_recipient_agent_and_relay_into_delivery(
 
     router = FakeRunnerRouter(status_code=200)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
     relay_calls: list[tuple[str, str | None, FakeRunnerClient]] = []
@@ -533,7 +533,7 @@ async def test_dispatcher_rides_recipient_agent_and_relay_into_delivery(
         relay_calls.append((session_id, runner_id, client))
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready",
+        "agentnexus.server.routes._sessions.orchestration._ensure_runner_relay_ready",
         fake_relay,
     )
     conv_store = FakeConversationStore(
@@ -574,7 +574,7 @@ async def test_dispatcher_failure_stays_unconfirmed_and_requeues(
             return FakeRoutedRunner("runner_abc", FakeRunnerClient(status_code=503))
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: RejectingRouter(),
     )
     dispatcher = CoordinationDispatcher(memory_store)
@@ -613,7 +613,7 @@ async def test_dispatcher_invalid_recipient_fails_permanently(
             raise InvalidUuidError("expected a 32-char hex uuid")
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: InvalidRouter(),
     )
     dispatcher = CoordinationDispatcher(memory_store)
@@ -662,7 +662,7 @@ def test_workspace_lease_manager_persists_restart(
 
 
 def test_workspace_merge_operation_store_crud(memory_store: CoordinationStore) -> None:
-    from omnigent.coordination.types import WorkspaceMergeOperation
+    from agentnexus.coordination.types import WorkspaceMergeOperation
 
     op = WorkspaceMergeOperation(
         root_session_id="conv_root_merge",
@@ -2123,7 +2123,7 @@ async def test_coordination_report_loop_delivers_each_stage_to_target_runner(
 
     router = FakeRunnerRouter(status_code=200)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: router,
     )
     dispatcher = CoordinationDispatcher(memory_store)

@@ -5,11 +5,11 @@ description: >-
   merits, and (during a debate) critiques the other partner's answer.
 
 # Plain responder on the Claude Agent SDK. No model is pinned, so it runs on
-# whatever Claude provider you configured (`omnigent setup`). It has filesystem
+# whatever Claude provider you configured (`agentnexus setup`). It has filesystem
 # access (see the ``os_env`` block below) so it can read reference files while
 # reasoning.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
@@ -34,7 +34,7 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
 

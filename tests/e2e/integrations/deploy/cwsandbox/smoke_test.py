@@ -79,7 +79,7 @@ class Client:
             "resources": {"cpu": "1", "memory": "1Gi"},
             "maxLifetimeSeconds": MAX_LIFETIME_S,
             "network": {"egressMode": "internet"},  # egress defaults to none
-            "tags": ["omnigent-smoke", name],
+            "tags": ["agentnexus-smoke", name],
         }
         return self._request("POST", "/v1beta2/sandboxes", "provision", body)["sandboxId"]
 

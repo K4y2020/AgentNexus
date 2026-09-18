@@ -24,8 +24,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omnigent.server.routing_backend import RoutingBackends, routing_sources, select_router
-from omnigent.server.smart_routing import (
+from agentnexus.server.routing_backend import RoutingBackends, routing_sources, select_router
+from agentnexus.server.smart_routing import (
     ExternalRoutingClient,
     RoutingResult,
     RoutingSettings,
@@ -92,7 +92,7 @@ def _deployment(
         routing_backends=RoutingBackends(external=external, local=local),
         routing_settings=RoutingSettings(),
     )
-    with patch("omnigent.runtime._globals._caps", new=caps):
+    with patch("agentnexus.runtime._globals._caps", new=caps):
         yield caps
 
 
@@ -225,27 +225,27 @@ async def test_the_oss_config_routes_with_its_judge(router: MockRouter) -> None:
     default for a workspace that HAS the API — and the judge covers the one
     that does not.
     """
-    from omnigent.cli import _build_routing_backends
+    from agentnexus.cli import _build_routing_backends
 
     router.disabled = True
     host = router.base_url[: -len("/ai-gateway/routing/v1")]
     cfg = {"providers": {"ws": {"kind": "databricks", "profile": "ws", "default": True}}}
     with (
         patch(
-            "omnigent.runtime.credentials.databricks.resolve_databricks_workspace",
+            "agentnexus.runtime.credentials.databricks.resolve_databricks_workspace",
             return_value=MagicMock(host=host),
         ),
         patch(
-            "omnigent.runtime.policies.builder._resolve_server_llm_connection",
+            "agentnexus.runtime.policies.builder._resolve_server_llm_connection",
             return_value=None,
         ),
         patch(
-            "omnigent.runtime.policies.builder._build_policy_llm_client",
+            "agentnexus.runtime.policies.builder._build_policy_llm_client",
             return_value=MagicMock(),
         ),
         patch.object(ExternalRoutingClient, "_resolve_credentials", return_value=(None, {})),
     ):
-        from omnigent.spec import parse_server_llm
+        from agentnexus.spec import parse_server_llm
 
         backends = _build_routing_backends(
             cfg, parse_server_llm({"model": OPUS}), RoutingSettings()

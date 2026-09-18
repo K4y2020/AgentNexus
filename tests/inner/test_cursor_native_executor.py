@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.cursor_native_bridge import (
+from agentnexus.cursor_native_bridge import (
     BRIDGE_DIR_ENV_VAR,
     FORK_HISTORY_CLOSE_TAG,
     FORK_HISTORY_OPEN_TAG,
@@ -35,13 +35,13 @@ from omnigent.cursor_native_bridge import (
     write_mcp_config,
     write_tmux_target,
 )
-from omnigent.inner import cursor_native_executor as cne
-from omnigent.inner.cursor_native_executor import (
+from agentnexus.inner import cursor_native_executor as cne
+from agentnexus.inner.cursor_native_executor import (
     CursorNativeExecutor,
     _content_to_text,
     _latest_user_text,
 )
-from omnigent.inner.executor import ExecutorError
+from agentnexus.inner.executor import ExecutorError
 
 
 class TestContentExtraction:
@@ -247,12 +247,12 @@ class TestBridge:
 
     def test_build_mcp_config_registers_omnigent_relay(self, tmp_path: Path) -> None:
         config = build_mcp_config(tmp_path, python_executable="python-test")
-        server = config["mcpServers"]["omnigent"]
+        server = config["mcpServers"]["agentnexus"]
         assert server["command"] == "python-test"
         assert server["args"] == [
             "-I",
             "-m",
-            "omnigent.claude_native_bridge",
+            "agentnexus.claude_native_bridge",
             "serve-mcp",
             "--bridge-dir",
             str(tmp_path),
@@ -266,14 +266,14 @@ class TestBridge:
         workspace = tmp_path / "workspace"
         bridge_dir = tmp_path / "bridge"
         monkeypatch.setattr(
-            "omnigent.cursor_native_bridge.approve_mcp_server_for_workspace",
+            "agentnexus.cursor_native_bridge.approve_mcp_server_for_workspace",
             lambda _workspace: pytest.fail("approval must happen after tool relay starts"),
         )
         path = write_mcp_config(workspace, bridge_dir, python_executable="python-test")
 
         assert path == workspace / ".cursor" / "mcp.json"
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert payload["mcpServers"]["omnigent"]["command"] == "python-test"
+        assert payload["mcpServers"]["agentnexus"]["command"] == "python-test"
         assert json.loads((bridge_dir / "bridge.json").read_text(encoding="utf-8"))["token"]
 
     def test_write_mcp_config_preserves_user_servers(self, tmp_path: Path) -> None:
@@ -294,7 +294,7 @@ class TestBridge:
 
         payload = json.loads(path.read_text(encoding="utf-8"))
         assert payload["mcpServers"]["atlassian"] == {"command": "atlassian-mcp"}
-        assert payload["mcpServers"]["omnigent"]["command"] == "python-test"
+        assert payload["mcpServers"]["agentnexus"]["command"] == "python-test"
         assert payload["someOtherKey"] == {"keep": True}
 
     @pytest.mark.parametrize("body", ["[]", "null", '"text"', '{"mcpServers": null}', "not json"])
@@ -307,7 +307,7 @@ class TestBridge:
         path = write_mcp_config(workspace, tmp_path / "bridge", python_executable="python-test")
 
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert payload["mcpServers"]["omnigent"]["command"] == "python-test"
+        assert payload["mcpServers"]["agentnexus"]["command"] == "python-test"
 
     def test_write_mcp_bridge_config_is_idempotent(self, tmp_path: Path) -> None:
         write_mcp_bridge_config(tmp_path)
@@ -326,7 +326,7 @@ class TestBridge:
             tmp_path / ".cursor" / "projects" / "Users-corey.zumar" / "mcp-disabled.json"
         )
         disabled_path.parent.mkdir(parents=True)
-        disabled_path.write_text('["omnigent", "other"]\n', encoding="utf-8")
+        disabled_path.write_text('["agentnexus", "other"]\n', encoding="utf-8")
 
         enable_mcp_for_workspace(Path("/Users/corey.zumar"))
 
@@ -356,7 +356,7 @@ class TestBridge:
         calls: list[dict[str, object]] = []
 
         monkeypatch.setattr(
-            "omnigent.cursor_native.resolve_cursor_executable",
+            "agentnexus.cursor_native.resolve_cursor_executable",
             lambda: "/bin/cursor-agent-test",
         )
 
@@ -370,7 +370,7 @@ class TestBridge:
 
         assert calls == [
             {
-                "args": (["/bin/cursor-agent-test", "mcp", "enable", "omnigent"],),
+                "args": (["/bin/cursor-agent-test", "mcp", "enable", "agentnexus"],),
                 "kwargs": {
                     "cwd": tmp_path,
                     "stdin": subprocess.DEVNULL,
@@ -385,26 +385,26 @@ class TestBridge:
 
 class TestRegistration:
     def test_harness_is_registered(self) -> None:
-        from omnigent.runtime.harnesses import _HARNESS_MODULES
+        from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
-        assert _HARNESS_MODULES["cursor-native"] == "omnigent.inner.cursor_native_harness"
+        assert _HARNESS_MODULES["cursor-native"] == "agentnexus.inner.cursor_native_harness"
 
     def test_harness_is_allowlisted(self) -> None:
-        from omnigent.spec._omnigent_compat import OMNIGENT_HARNESSES
+        from agentnexus.spec._omnigent_compat import AGENTNEXUS_HARNESSES
 
-        assert "cursor-native" in OMNIGENT_HARNESSES
+        assert "cursor-native" in AGENTNEXUS_HARNESSES
 
     def test_cursor_native_is_terminal_native(self) -> None:
         # cursor-native launches the cursor-agent TUI in an omnigent terminal
         # (like claude/codex/pi-native), so the runner must treat it as a native
         # terminal harness.
-        from omnigent.harness_aliases import is_native_harness
+        from agentnexus.harness_aliases import is_native_harness
 
         assert is_native_harness("cursor-native") is True
         assert is_native_harness("native-cursor") is True
 
     def test_native_coding_agent_record(self) -> None:
-        from omnigent.native_coding_agents import native_coding_agent_for_harness
+        from agentnexus.native_coding_agents import native_coding_agent_for_harness
 
         agent = native_coding_agent_for_harness("cursor-native")
         assert agent is not None

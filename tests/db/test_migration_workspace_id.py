@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.engine import Engine
 
-from omnigent.db.db_models import DEFAULT_WORKSPACE_ID
-from omnigent.db.utils import (
+from agentnexus.db.db_models import DEFAULT_WORKSPACE_ID
+from agentnexus.db.utils import (
     _build_alembic_config,
     clear_engine_cache,
     get_or_create_engine,
@@ -111,7 +111,7 @@ def test_existing_rows_and_omitted_inserts_default_to_zero(db_engine: Engine) ->
 
 def test_agent_round_trip_via_store(db_engine: Engine) -> None:
     """A store insert/read cycle still works once workspace_id is in the PK."""
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
 
     store = SqlAlchemyAgentStore(str(db_engine.url))
     created = store.create(

@@ -1,30 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: omnigent
+  name: agentnexus
   labels:
-    app: omnigent
+    app: agentnexus
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: omnigent
+      app: agentnexus
   template:
     metadata:
       labels:
-        app: omnigent
+        app: agentnexus
     spec:
       containers:
-        - name: omnigent
-          image: ghcr.io/omnigent-ai/omnigent-server:latest
+        - name: agentnexus
+          image: ghcr.io/agentnexus-ai/agentnexus-server:latest
           ports:
             - containerPort: 8000
               name: http
           envFrom:
             - configMapRef:
-                name: omnigent-config
+                name: agentnexus-config
             - secretRef:
-                name: omnigent-secrets
+                name: agentnexus-secrets
           volumeMounts:
             - name: artifacts
               mountPath: /data/artifacts
@@ -52,4 +52,4 @@ spec:
       volumes:
         - name: artifacts
           persistentVolumeClaim:
-            claimName: omnigent-artifacts
+            claimName: agentnexus-artifacts

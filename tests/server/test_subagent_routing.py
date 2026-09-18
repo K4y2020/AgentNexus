@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities.conversation import RoutingDecisionData
-from omnigent.inner.hook_scripts.subagent_router import read_router_endpoint
-from omnigent.runner.subagent_routing import (
+from agentnexus.entities.conversation import RoutingDecisionData
+from agentnexus.inner.hook_scripts.subagent_router import read_router_endpoint
+from agentnexus.runner.subagent_routing import (
     ADVERTISEMENT_FILE,
     AUTO_HARNESS_LABEL_KEY,
     PLAIN_SESSION,
@@ -48,7 +48,7 @@ from omnigent.runner.subagent_routing import (
     subagent_routing_enabled,
     write_advertisement,
 )
-from omnigent.server.smart_routing import RoutingResult, RoutingSettings
+from agentnexus.server.smart_routing import RoutingResult, RoutingSettings
 from tests.server.helpers import FakeCaps, FakeRoutingClient
 
 CLAUDE_MODEL = "databricks-claude-opus-4-8"
@@ -1229,8 +1229,8 @@ def test_ensure_session_router_is_idempotent_and_advertises_everywhere(
         # Same rendezvous advertised in both directories.
         assert read_router_endpoint(first_dir) == read_router_endpoint(second_dir)
         env = session_router_env("conv_lifecycle")
-        assert env["OMNIGENT_SUBAGENT_ROUTER_SESSION_ID"] == "conv_lifecycle"
-        assert env["OMNIGENT_CODEX_SUBAGENT_ROUTER_DIR"] == str(first_dir)
+        assert env["AGENTNEXUS_SUBAGENT_ROUTER_SESSION_ID"] == "conv_lifecycle"
+        assert env["AGENTNEXUS_CODEX_SUBAGENT_ROUTER_DIR"] == str(first_dir)
         shutdown_session_router("conv_lifecycle")
         assert session_router_env("conv_lifecycle") == {}
 
@@ -1247,7 +1247,7 @@ def test_router_startup_log_omits_the_rendezvous(
             raise RuntimeError("server down")
 
     async def _run() -> None:
-        with caplog.at_level(logging.INFO, logger="omnigent.runner.subagent_routing"):
+        with caplog.at_level(logging.INFO, logger="agentnexus.runner.subagent_routing"):
             router = ensure_session_router(
                 "conv_log_redaction",
                 bridge_dir=tmp_path,
@@ -1283,7 +1283,7 @@ def test_ensure_session_router_quietly_swallows_a_bind_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from omnigent.runner import subagent_routing as module
+    from agentnexus.runner import subagent_routing as module
 
     def _boom(session_id: str, **kwargs: Any) -> None:
         raise OSError("address in use")
@@ -1315,7 +1315,7 @@ def test_relayed_decisions_start_empty() -> None:
 
 
 async def test_an_off_gateway_spawn_is_routed_by_the_built_in_judge() -> None:
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     external = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="external"))
     local = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="local"))
@@ -1332,7 +1332,7 @@ async def test_an_off_gateway_spawn_is_routed_by_the_built_in_judge() -> None:
 
 
 async def test_a_gateway_backed_spawn_is_routed_by_the_external_router() -> None:
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     external = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="external"))
     local = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="local"))
@@ -1349,7 +1349,7 @@ async def test_a_gateway_backed_spawn_is_routed_by_the_external_router() -> None
 
 async def test_a_spawn_falls_back_to_the_judge_when_the_router_fails() -> None:
     """A workspace with no routing API must not cost every spawn its decision."""
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     external = FakeRoutingClient(
         None, last_error="router returned HTTP 404: routes:select is not enabled"
@@ -1369,7 +1369,7 @@ async def test_a_spawn_falls_back_to_the_judge_when_the_router_fails() -> None:
 
 async def test_a_spawn_keeps_the_routers_reason_when_nothing_can_answer() -> None:
     """Fail-open is unchanged: the spawn runs, the chip carries the reason."""
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     external = FakeRoutingClient(None, last_error="router returned HTTP 404: not enabled")
     local = FakeRoutingClient(None, last_error="the judge had no opinion")
@@ -1387,7 +1387,7 @@ async def test_a_spawn_keeps_the_routers_reason_when_nothing_can_answer() -> Non
 
 
 async def test_an_external_only_deployment_cannot_route_an_off_gateway_spawn() -> None:
-    from omnigent.server.routing_backend import RoutingBackends
+    from agentnexus.server.routing_backend import RoutingBackends
 
     external = FakeRoutingClient(RoutingResult(model=CLAUDE_MODEL, rationale="external"))
     caps = FakeCaps(routing_client=external, routing_backends=RoutingBackends(external=external))

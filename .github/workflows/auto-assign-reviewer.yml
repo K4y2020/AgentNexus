@@ -48,7 +48,7 @@ jobs:
     # author-is-maintainer half of the guard needs the MAINTAINER file, so it
     # lives in the script.
     if: >-
-      github.repository == 'omnigent-ai/omnigent'
+      github.repository == 'agentnexus-ai/agentnexus'
       && !github.event.pull_request.draft
       && !endsWith(github.actor, '[bot]')
       && github.event.pull_request.head.repo.full_name != github.repository
@@ -90,14 +90,14 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
-          ROUTER_MODEL: ${{ vars.OMNIGENT_CI_FAST_ANTHROPIC_MODEL }}
+          ROUTER_MODEL: ${{ vars.AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL }}
         run: |
           if [ -z "${LLM_API_KEY:-}" ] || [ -z "${GATEWAY_BASE_URL:-}" ]; then
             echo "::notice::No LLM credentials; reviewer ranking skipped (load-balanced fallback)."
             exit 0
           fi
           if [ -z "${ROUTER_MODEL:-}" ]; then
-            echo "::warning::Repository variable OMNIGENT_CI_FAST_ANTHROPIC_MODEL is empty; reviewer ranking skipped (load-balanced fallback)."
+            echo "::warning::Repository variable AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL is empty; reviewer ranking skipped (load-balanced fallback)."
             exit 0
           fi
           # Skip maintainer-authored PRs: the assign step (auto-assign-reviewer.js)

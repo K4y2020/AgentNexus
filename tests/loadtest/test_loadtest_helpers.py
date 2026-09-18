@@ -1,4 +1,4 @@
-"""Unit tests for the Omnigent load test's pure helpers.
+"""Unit tests for the AgentNexus load test's pure helpers.
 
 Deterministic, no stack boot / no network — the fast regression net for the
 ``dev/loadtest/`` tooling. A full boot-a-stack e2e (server + mock LLM + real
@@ -148,7 +148,7 @@ def test_write_run_config_records_inputs(tmp_path: Path) -> None:
 
     run._write_run_config(tmp_path, _args(users=5), ["locust", "-u", "5"], exit_code=0)
     cfg = json.loads((tmp_path / "run_config.json").read_text())
-    assert cfg["scenario"] == "omnigent_load_test"
+    assert cfg["scenario"] == "agentnexus_load_test"
     assert cfg["users_hosts"] == 5
     assert cfg["exit_code"] == 0
     assert cfg["model"] == "mock (zero-latency)"

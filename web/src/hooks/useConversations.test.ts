@@ -705,7 +705,7 @@ describe("useStopAndDeleteConversation cache eviction", () => {
     // when it was spliced out), so the toast is the only signal the user
     // gets that the delete didn't land.
     const toasts: string[] = [];
-    window.addEventListener("omnigent:toast", (e) => {
+    window.addEventListener("agentnexus:toast", (e) => {
       toasts.push(String((e as CustomEvent<{ content: unknown }>).detail.content));
     });
 
@@ -1168,7 +1168,7 @@ describe("useTogglePinnedConversation cache patching", () => {
 describe("useTogglePinnedConversation old-server fallback", () => {
   // When the server can't store pins (`filterHonored` is false — a pre-upgrade
   // server that ignores `?pinned=true`), a PATCH would persist a bare
-  // `omnigent.pinned` key the upgraded server discards on read. So the toggle
+  // `agentnexus.pinned` key the upgraded server discards on read. So the toggle
   // must write localStorage instead, so the pin survives to migrate later.
   function seedOldServer(existingPinnedListItems: Conversation[] = []) {
     const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
@@ -1277,7 +1277,7 @@ describe("fetchPinnedConversations filter-honored detection", () => {
   // A pre-upgrade server ignores the unknown `?pinned=true` param and returns
   // an ordinary session page. Detecting that (filterHonored=false) is what
   // stops the sidebar's one-time migration from wiping local pins against an
-  // old server. The new server returns only rows carrying `omnigent.pinned`.
+  // old server. The new server returns only rows carrying `agentnexus.pinned`.
   function pinnedRow(id: string): unknown {
     return {
       id,

@@ -129,7 +129,7 @@ _ALT_COVERED: frozenset[str] = frozenset(
         "claude-coder",
         "coding-supervisor",
         "compaction-test",
-        # Test-only fixtures added with OMNIGENT_TERMINAL_BRIDGE (commits
+        # Test-only fixtures added with AGENTNEXUS_TERMINAL_BRIDGE (commits
         # 3d9dd0a / 1f9a3a8). Loaded by:
         # - sys-terminal-test → tests/e2e/test_sys_terminal_e2e.py
         #   via the sys_terminal_test_agent fixture in
@@ -224,7 +224,7 @@ def test_every_agent_has_a_dedicated_test_file() -> None:
         or a test file points at a removed agent.
     """
     repo_root = Path(__file__).resolve().parents[3]
-    e2e_dir = repo_root / "tests" / "e2e" / "omnigent"
+    e2e_dir = repo_root / "tests" / "e2e" / "agentnexus"
 
     # Agent roots. These MUST stay in lock-step with the resolution
     # order in ``_example_helpers.example_yaml_path`` (see the module

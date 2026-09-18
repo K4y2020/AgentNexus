@@ -7,11 +7,11 @@ import pytest
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from omnigent.cine_review import CHUNK_BYTES, read_review
-from omnigent.host.connect import HostProcess
-from omnigent.server.auth import LEVEL_OWNER
-from omnigent.server.routes.cine_review import register_cine_review_routes
-from omnigent.workspace_fs import WorkspaceReader
+from agentnexus.cine_review import CHUNK_BYTES, read_review
+from agentnexus.host.connect import HostProcess
+from agentnexus.server.auth import LEVEL_OWNER
+from agentnexus.server.routes.cine_review import register_cine_review_routes
+from agentnexus.workspace_fs import WorkspaceReader
 
 
 def write(path, value):

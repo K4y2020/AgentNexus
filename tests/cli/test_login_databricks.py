@@ -22,7 +22,7 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-import omnigent.cli as cli_mod
+import agentnexus.cli as cli_mod
 
 cli_group = cli_mod.cli
 
@@ -86,19 +86,19 @@ def token_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     Logging in stores an auth record (auth_tokens.json, same seam as
     test_cli_auth) and, on success, persists the just-logged-in server as
-    the user-level default (config.yaml, via OMNIGENT_CONFIG_HOME). Both
+    the user-level default (config.yaml, via AGENTNEXUS_CONFIG_HOME). Both
     are redirected here so tests never touch the developer's real
-    ``~/.omnigent``.
+    ``~/.agentnexus``.
 
     :param tmp_path: Pytest temp directory.
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: The temp directory path.
     """
     monkeypatch.setattr(
-        "omnigent.cli_auth._token_file_path",
+        "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     return tmp_path
 
 
@@ -143,7 +143,7 @@ def _patch_login_env(
         cli_mod, "_databricks_default_workspace_id", lambda workspace_host: default_workspace_id
     )
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: sdk_installed,
     )
     tokens = list(cached_tokens if cached_tokens is not None else ["tok-cached"])
@@ -186,7 +186,7 @@ def test_login_apps_redirect_stores_pointer_record(
     The record (not a bearer) is what later commands resolve to fresh
     workspace tokens — this is the core of the no-profile Apps CUJ.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -216,7 +216,7 @@ def test_login_workspace_hosted_401_uses_url_host(
     the workspace IS the server host, and the record must key on the full
     server URL (path included).
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -249,7 +249,7 @@ def test_login_account_host_inherits_cli_selected_workspace(
     it back and routes the account token to it (``params o=…``), succeeding
     unattended — and records the inherited id for later commands.
     """
-    from omnigent.cli_auth import load_databricks_org_id, load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_org_id, load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -283,7 +283,7 @@ def test_login_workspace_hosted_uses_cli_workspace_id_without_metadata(
     monkeypatch: pytest.MonkeyPatch, token_dir: Path
 ) -> None:
     """Workspace-hosted login can route with only the CLI profile workspace id."""
-    from omnigent.cli_auth import load_databricks_org_id, load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_org_id, load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -365,7 +365,7 @@ def test_login_workspace_hosted_with_selector_binds_and_succeeds(
     binds the grant to the workspace) and the verify probe (``params o=<id>``,
     which routes to it), and is recorded for later commands.
     """
-    from omnigent.cli_auth import load_databricks_org_id, load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_org_id, load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -405,7 +405,7 @@ def test_login_apps_fails_loud_without_databricks_extra(
     fallback to the OIDC flow would produce a baffling ticket-endpoint
     error instead.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(responses=[_response(302, headers={"location": _APPS_REDIRECT})])
     _patch_login_env(monkeypatch, fake_httpx=fake, sdk_installed=False)
@@ -414,7 +414,7 @@ def test_login_apps_fails_loud_without_databricks_extra(
 
     assert result.exit_code != 0
     # The error must carry the canonical install hint, not a generic failure.
-    assert "omnigent[databricks]" in result.output
+    assert "agentnexus[databricks]" in result.output
     assert load_databricks_workspace_host(_APPS_URL) is None
 
 
@@ -429,7 +429,7 @@ def test_login_runs_databricks_auth_login_when_no_cached_grant(
     isn't consulted anywhere. After login the token resolves and the
     record is stored.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -462,7 +462,7 @@ def test_login_fails_loud_when_app_rejects_workspace_token(
     can't reach the app; storing the record anyway would make every later
     command fail with the same opaque 403.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -511,7 +511,7 @@ def test_login_stale_cached_grant_triggers_fresh_login_and_retry(
     server 302s/403s. Failing outright would strand the user; the fresh
     login replaces the bad cache entry and the retry succeeds.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -639,7 +639,7 @@ def test_login_threads_org_id_through_workspace_login_and_verify(
     workspace (else it defaults to the account → HTTP 503). The selector is
     also persisted so later commands replay it.
     """
-    from omnigent.cli_auth import load_databricks_org_id, load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_org_id, load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[
@@ -735,7 +735,7 @@ def test_login_accounts_mode_sets_default_server(
     """
     fake = _FakeHttpx(responses=[_response(401, body={"login_url": "/login"})])
     _patch_login_env(monkeypatch, fake_httpx=fake)
-    monkeypatch.setattr("omnigent.cli._accounts_login", lambda server: None)
+    monkeypatch.setattr("agentnexus.cli._accounts_login", lambda server: None)
 
     result = CliRunner().invoke(cli_group, ["login", "http://omni.internal:6767"])
 
@@ -855,7 +855,7 @@ def test_azure_vanity_url_falls_back_to_probed_canonical_host(
             f"{vanity_root}/v1/me": _response(303, headers={"location": "/login"}),
             f"{canonical_root}/v1/me": _response(404, headers={"server": "databricks"}),
             f"{canonical_root}/api/2.0/omnigent/v1/me": _response(
-                401, headers={"www-authenticate": 'DatabricksRealm realm="omnigent"'}
+                401, headers={"www-authenticate": 'DatabricksRealm realm="agentnexus"'}
             ),
         },
     )
@@ -1022,7 +1022,7 @@ def test_workspace_url_expands_when_mount_hidden_from_anonymous_probe(
     )
     monkeypatch.setattr(httpx, "get", fake.get)
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: True,
     )
     minted_for: list[str] = []
@@ -1072,7 +1072,7 @@ def test_workspace_url_hints_when_mount_dark_and_no_cached_grant(
     )
     monkeypatch.setattr(httpx, "get", fake.get)
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: True,
     )
     monkeypatch.setattr(cli_mod, "_databricks_workspace_token", lambda workspace_host: None)
@@ -1112,7 +1112,7 @@ def test_workspace_url_hints_when_authed_probe_also_misses(
     )
     monkeypatch.setattr(httpx, "get", fake.get)
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: True,
     )
     monkeypatch.setattr(cli_mod, "_databricks_workspace_token", lambda workspace_host: "tok-ws")
@@ -1148,7 +1148,7 @@ def test_workspace_url_skips_authed_probe_without_databricks_extra(
     )
     monkeypatch.setattr(httpx, "get", fake.get)
     monkeypatch.setattr(
-        "omnigent.onboarding.databricks_config.databricks_sdk_installed",
+        "agentnexus.onboarding.databricks_config.databricks_sdk_installed",
         lambda: False,
     )
 
@@ -1329,7 +1329,7 @@ def test_login_defaults_scheme_to_https(monkeypatch: pytest.MonkeyPatch, token_d
     to https so the probe reaches the workspace API proxy and the stored
     record keys on the https URL.
     """
-    from omnigent.cli_auth import load_databricks_workspace_host
+    from agentnexus.cli_auth import load_databricks_workspace_host
 
     fake = _FakeHttpx(
         responses=[

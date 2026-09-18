@@ -4,7 +4,7 @@ The landing composer (``NewChatLandingScreen`` in
 ``web/src/shell/NewChatDialog.tsx``) lists every harness and badges the ones
 that aren't set up on the selected host. The Settings → Appearance toggle
 ``HideUnconfiguredHarnessesControl`` (``pages/SettingsPage.tsx``) writes
-``localStorage["omnigent:hide-unconfigured-harnesses"]``; when on, the picker's
+``localStorage["agentnexus:hide-unconfigured-harnesses"]``; when on, the picker's
 **Harnesses** group drops rows the selected host reports as unconfigured
 (``harnessUnconfiguredOnHost`` against the host's ``configured_harnesses`` map).
 
@@ -38,7 +38,7 @@ from playwright.async_api import Route, async_playwright, expect
 _HOST_ID = "host_e2e"
 _HOST_NAME = "e2e-host"
 
-_TOGGLE_KEY = "omnigent:hide-unconfigured-harnesses"
+_TOGGLE_KEY = "agentnexus:hide-unconfigured-harnesses"
 
 # Two native harness agents: Claude Code is configured on the stubbed host,
 # Goose is not. Both are native coding agents, so both render under the
@@ -180,7 +180,7 @@ async def _drive(base_url: str) -> None:
             # never has to touch the host-less file browser).
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
                 );"""
             )

@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from omnigent.runner import app
-from omnigent.runner import tool_dispatch as dispatch
+from agentnexus.runner import app
+from agentnexus.runner import tool_dispatch as dispatch
 
 
 @pytest.mark.asyncio

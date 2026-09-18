@@ -9,7 +9,7 @@
 // user toggles the rail in a session, that session's own
 // `SessionWorkspaceState.open` wins on restore.
 
-const STORAGE_KEY = "omnigent:default-workspace-panel";
+const STORAGE_KEY = "agentnexus:default-workspace-panel";
 
 export const workspacePanelDefaults = ["open", "collapsed"] as const;
 export type WorkspacePanelDefault = (typeof workspacePanelDefaults)[number];

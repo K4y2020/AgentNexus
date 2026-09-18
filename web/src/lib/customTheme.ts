@@ -9,7 +9,7 @@ import {
 } from "./themePalette";
 import { getStyleRoot, getThemeRoots } from "./host";
 
-const STORAGE_KEY = "omnigent:custom-theme";
+const STORAGE_KEY = "agentnexus:custom-theme";
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 export interface CustomTheme {

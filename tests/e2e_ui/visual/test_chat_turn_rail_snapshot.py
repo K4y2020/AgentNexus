@@ -125,7 +125,7 @@ _SESSION_BODY = {
     "status": "idle",
     "created_at": 1704067200,
     "updated_at": 1704067200,
-    "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+    "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
     "harness": "claude",
     "llm_model": "system.ai.claude-sonnet-5",
     "model_options": _MODEL_OPTIONS,

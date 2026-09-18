@@ -17,7 +17,7 @@ from pathlib import Path
 import psutil
 import pytest
 
-from omnigent.testing.process_reaper import (
+from agentnexus.testing.process_reaper import (
     find_leaked_omnigent_processes,
     reap_leaked_omnigent_processes,
 )
@@ -35,7 +35,7 @@ _STUBBORN_CHILD = (
 @pytest.fixture
 def data_dir(tmp_path: Path) -> Path:
     """A fake session data dir used as the attribution key."""
-    d = tmp_path / "omnigent-pytest-abc123"
+    d = tmp_path / "agentnexus-pytest-abc123"
     d.mkdir()
     return d
 
@@ -65,7 +65,7 @@ def _kill_quietly(proc: subprocess.Popen) -> None:
 
 def test_matches_by_cmdline_reference(data_dir: Path) -> None:
     """A process whose argv references the data dir is attributed."""
-    child = _spawn(_SLEEP_CHILD, "omnigent-server", f"sqlite:///{data_dir}/chat.db")
+    child = _spawn(_SLEEP_CHILD, "agentnexus-server", f"sqlite:///{data_dir}/chat.db")
     try:
         found = find_leaked_omnigent_processes(data_dir)
         assert child.pid in {p.pid for p in found}
@@ -74,11 +74,11 @@ def test_matches_by_cmdline_reference(data_dir: Path) -> None:
 
 
 def test_matches_by_environment(data_dir: Path) -> None:
-    """A process whose OMNIGENT_DATA_DIR env equals the data dir is attributed."""
+    """A process whose AGENTNEXUS_DATA_DIR env equals the data dir is attributed."""
     child = _spawn(
         _SLEEP_CHILD,
-        "omnigent-daemon-marker",
-        env={"OMNIGENT_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
+        "agentnexus-daemon-marker",
+        env={"AGENTNEXUS_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
     )
     try:
         found = find_leaked_omnigent_processes(data_dir)
@@ -88,10 +88,10 @@ def test_matches_by_environment(data_dir: Path) -> None:
 
 
 def test_ignores_processes_without_omnigent_in_cmdline(data_dir: Path) -> None:
-    """Matching the data dir alone is not enough — 'omnigent' must appear in argv.
+    """Matching the data dir alone is not enough — 'agentnexus' must appear in argv.
 
     Uses ``/bin/sleep`` rather than ``sys.executable``: a repo-venv
-    interpreter path can itself contain "omnigent", which would defeat
+    interpreter path can itself contain "agentnexus", which would defeat
     the point of this negative case.
     """
     if os.name == "nt":
@@ -101,7 +101,7 @@ def test_ignores_processes_without_omnigent_in_cmdline(data_dir: Path) -> None:
         command = ["sleep", "120"]
     child = subprocess.Popen(
         command,
-        env={"OMNIGENT_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
+        env={"AGENTNEXUS_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -124,8 +124,8 @@ def test_ignores_pytest_processes(data_dir: Path) -> None:
         _SLEEP_CHILD,
         "-m",
         "pytest",
-        "omnigent-suite",
-        env={"OMNIGENT_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
+        "agentnexus-suite",
+        env={"AGENTNEXUS_DATA_DIR": str(data_dir), "PATH": "/usr/bin:/bin"},
     )
     try:
         found = find_leaked_omnigent_processes(data_dir)
@@ -141,7 +141,7 @@ def test_pytest_guard_is_token_based_not_substring(data_dir: Path) -> None:
     server's ``--database-uri`` embeds that name — a substring guard
     would exempt exactly the orphans this module exists to reap.
     """
-    child = _spawn(_SLEEP_CHILD, "omnigent-server", f"sqlite:///{data_dir}/chat.db")
+    child = _spawn(_SLEEP_CHILD, "agentnexus-server", f"sqlite:///{data_dir}/chat.db")
     try:
         assert "pytest" in str(data_dir)  # the fixture mimics the real prefix
         found = find_leaked_omnigent_processes(data_dir)
@@ -159,7 +159,7 @@ def test_ignores_sibling_dir_with_matching_prefix(data_dir: Path) -> None:
     attribute — and kill — the sibling session's process.
     """
     sibling = Path(f"{data_dir}bcd")  # e.g. .../omnigent-pytest-abc123bcd
-    child = _spawn(_SLEEP_CHILD, "omnigent-server", f"sqlite:///{sibling}/chat.db")
+    child = _spawn(_SLEEP_CHILD, "agentnexus-server", f"sqlite:///{sibling}/chat.db")
     try:
         found = find_leaked_omnigent_processes(data_dir)
         assert child.pid not in {p.pid for p in found}
@@ -175,10 +175,10 @@ def test_blank_data_dir_matches_nothing() -> None:
 
 def test_reap_terminates_leaked_process(data_dir: Path) -> None:
     """reap TERMs an attributed process and reports its command line."""
-    child = _spawn(_SLEEP_CHILD, "omnigent-daemon-marker", f"{data_dir}/chat.db")
+    child = _spawn(_SLEEP_CHILD, "agentnexus-daemon-marker", f"{data_dir}/chat.db")
     try:
         reaped, survivors = reap_leaked_omnigent_processes(data_dir, timeout=10)
-        assert any("omnigent-daemon-marker" in cmd for cmd in reaped)
+        assert any("agentnexus-daemon-marker" in cmd for cmd in reaped)
         assert survivors == []
         child.wait(timeout=10)
         assert not psutil.pid_exists(child.pid) or child.poll() is not None
@@ -188,12 +188,12 @@ def test_reap_terminates_leaked_process(data_dir: Path) -> None:
 
 def test_reap_escalates_to_kill(data_dir: Path) -> None:
     """A TERM-ignoring orphan is KILLed after the grace period."""
-    child = _spawn(_STUBBORN_CHILD, "omnigent-daemon-marker", f"{data_dir}/chat.db")
+    child = _spawn(_STUBBORN_CHILD, "agentnexus-daemon-marker", f"{data_dir}/chat.db")
     try:
         # Give the child a beat to install its SIGTERM handler.
         time.sleep(1.0)
         reaped, survivors = reap_leaked_omnigent_processes(data_dir, timeout=2)
-        assert any("omnigent-daemon-marker" in cmd for cmd in reaped)
+        assert any("agentnexus-daemon-marker" in cmd for cmd in reaped)
         assert survivors == []
         child.wait(timeout=10)
         assert child.poll() is not None

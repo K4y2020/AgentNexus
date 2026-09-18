@@ -19,15 +19,15 @@ from dataclasses import dataclass
 
 import pytest
 
-from omnigent.entities.conversation import MessageData, NewConversationItem
-from omnigent.runtime import pending_elicitations
-from omnigent.session_lifecycle import CLOSED_LABEL_KEY, CLOSED_LABEL_VALUE
-from omnigent.spec.types import AgentSpec, ExecutorSpec
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.entities.conversation import MessageData, NewConversationItem
+from agentnexus.runtime import pending_elicitations
+from agentnexus.session_lifecycle import CLOSED_LABEL_KEY, CLOSED_LABEL_VALUE
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.spawn import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.spawn import (
     _CLOSED_TITLE_INFIX,
     _HISTORY_DEFAULT_TAIL,
     _HISTORY_MAX_TAIL,
@@ -134,10 +134,10 @@ def session_fixture(
         ],
     )
 
-    # The tools' invoke() does ``from omnigent.runtime import
+    # The tools' invoke() does ``from agentnexus.runtime import
     # get_conversation_store`` per call (lazy bind), so patching the
     # runtime module's attribute is sufficient.
-    monkeypatch.setattr("omnigent.runtime.get_conversation_store", lambda: conv_store)
+    monkeypatch.setattr("agentnexus.runtime.get_conversation_store", lambda: conv_store)
 
     # conversation_id is the canonical parent session id; _resolve_parent_conversation_id
     # reads ctx.conversation_id directly (tasks table removed).
@@ -247,7 +247,7 @@ def test_send_schema_gates_harness_field_behind_allowlist_opt_in() -> None:
         name="codex",
         description="Codex coding sub-agent.",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={
                 "harness": "codex-native",
                 "allowed_harnesses": ["codex-native", "opencode-native"],

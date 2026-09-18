@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.onboarding.codex_auth_readiness import (
+from agentnexus.onboarding.codex_auth_readiness import (
     codex_config_effective_auth,
     effective_codex_model_provider,
     load_codex_config,

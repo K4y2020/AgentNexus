@@ -38,13 +38,13 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.runtime.harnesses import _HARNESS_MODULES
-from omnigent.runtime.harnesses import _scaffold as scaffold_module
-from omnigent.runtime.harnesses._scaffold import HarnessApp, TurnContext
-from omnigent.runtime.harnesses.process_manager import HarnessProcessManager
-from omnigent.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES
-from omnigent.server.schemas import CreateResponseRequest
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.runtime.harnesses import _scaffold as scaffold_module
+from agentnexus.runtime.harnesses._scaffold import HarnessApp, TurnContext
+from agentnexus.runtime.harnesses.process_manager import HarnessProcessManager
+from agentnexus.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES
+from agentnexus.server.schemas import CreateResponseRequest
 
 _TEST_HARNESS_NAME = "scaffold_fixture"
 _TEST_HARNESS_MODULE = "tests.runtime.harnesses._test_scaffold_harnesses"
@@ -134,7 +134,7 @@ async def test_stale_continuation_without_model_is_rejected() -> None:
         previous_response_id="resp_stale",
     )
 
-    with pytest.raises(OmnigentError, match="model is required"):
+    with pytest.raises(AgentNexusError, match="model is required"):
         await HarnessApp()._start_or_inject_turn(request)
 
 
@@ -987,7 +987,7 @@ async def test_session_events_404s_on_conversation_id_mismatch(
     to the wrong conversation indicates the caller routed to the
     wrong subprocess — fail loud rather than silently start a
     turn under a mismatched id (which would produce a turn that
-    Omnigent could never correlate).
+    AgentNexus could never correlate).
     """
     conv_id = "conv_session_mismatch"
     client = await manager.get_client(conv_id, _TEST_HARNESS_NAME)
@@ -1002,7 +1002,7 @@ async def test_session_events_404s_on_conversation_id_mismatch(
     )
     assert resp.status_code == 404
     body = resp.json()
-    # Error envelope shape matches OmnigentError's serialization
+    # Error envelope shape matches AgentNexusError's serialization
     # (see _handle_omnigent_error). Without this, AP-side error
     # handling would have to special-case session 404s.
     assert "error" in body
@@ -1291,7 +1291,7 @@ async def test_session_interrupt_event_404s_when_no_turn_in_flight(
 
     The harness has no concept of an idle interrupt — if no turn
     is in flight, there is nothing to cancel. Fail loud rather
-    than silently no-op so a stray interrupt from Omnigent after a turn
+    than silently no-op so a stray interrupt from AgentNexus after a turn
     already ended surfaces as an obvious operator error.
     """
     conv_id = "conv_session_interrupt_idle"
@@ -1787,8 +1787,8 @@ async def test_idle_watchdog_attaches_recent_forwarder_post_failure(
     Fails on the unfixed watchdog (reason omits the forwarder cause); passes
     once the watchdog reads ``_native_forwarder_health``.
     """
-    from omnigent import _native_forwarder_health as health
-    from omnigent.runtime.harnesses import _scaffold
+    from agentnexus import _native_forwarder_health as health
+    from agentnexus.runtime.harnesses import _scaffold
 
     class _WedgedApp(HarnessApp):
         async def run_turn(self, request: Any, ctx: TurnContext) -> None:

@@ -8,7 +8,7 @@ from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from slack_bolt.async_app import AsyncApp
 from slack_sdk.web.async_client import AsyncWebClient
 
-from omnigent_slack.approvals import (
+from agentnexus_slack.approvals import (
     ACTION_APPROVE,
     ACTION_DENY,
     ACTION_FORM_ANSWER,
@@ -16,16 +16,16 @@ from omnigent_slack.approvals import (
     ACTION_FORM_SUBMIT,
     route_elicitation_click,
 )
-from omnigent_slack.auth_manager import AuthManager, pack_user_key
-from omnigent_slack.config import ConfigError, load_settings
-from omnigent_slack.databricks_oauth import DatabricksOAuthClient
-from omnigent_slack.omnigent import OmnigentClientPool
-from omnigent_slack.routines import RoutineCompletionPoller
-from omnigent_slack.service import SlackOmnigentService
-from omnigent_slack.setup import SetupFlow
-from omnigent_slack.store import SQLiteStore
-from omnigent_slack.tokens import EncryptedTokenStore, InMemoryTokenStore, TokenStore
-from omnigent_slack.webauth import WebAuthServer
+from agentnexus_slack.auth_manager import AuthManager, pack_user_key
+from agentnexus_slack.config import ConfigError, load_settings
+from agentnexus_slack.databricks_oauth import DatabricksOAuthClient
+from agentnexus_slack.agentnexus import AgentNexusClientPool
+from agentnexus_slack.routines import RoutineCompletionPoller
+from agentnexus_slack.service import SlackAgentNexusService
+from agentnexus_slack.setup import SetupFlow
+from agentnexus_slack.store import SQLiteStore
+from agentnexus_slack.tokens import EncryptedTokenStore, InMemoryTokenStore, TokenStore
+from agentnexus_slack.webauth import WebAuthServer
 
 
 async def run() -> None:
@@ -41,7 +41,7 @@ async def run() -> None:
     try:
         settings = load_settings()
     except ConfigError as exc:
-        print(f"omnigent-slack: {exc}", file=sys.stderr)
+        print(f"agentnexus-slack: {exc}", file=sys.stderr)
         raise SystemExit(2) from None
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
     # force=True so this wins even when an entry point (e.g. the Databricks App
@@ -60,7 +60,7 @@ async def run() -> None:
         logging.getLogger(name).setLevel(level)
     logger = logging.getLogger(__name__)
     logger.info(
-        "Starting Omnigent Slack bot server=%s database=%s",
+        "Starting AgentNexus Slack bot server=%s database=%s",
         settings.server_url,
         settings.database_path,
     )
@@ -78,19 +78,19 @@ async def run() -> None:
         token_store = EncryptedTokenStore(settings.database_path, settings.token_encryption_key)
     else:
         logger.warning(
-            "OMNIGENT_SLACK_TOKEN_ENCRYPTION_KEY not set — delegated tokens will "
+            "AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY not set — delegated tokens will "
             "be kept in memory only and lost on restart (users re-authenticate). "
             "Set the key to persist them encrypted at rest."
         )
         token_store = InMemoryTokenStore()
     await token_store.initialize()
 
-    # The bot talks to one operator-configured Omnigent server
+    # The bot talks to one operator-configured AgentNexus server
     # (settings.server_url) — never a user-supplied URL. The pool holds one
     # client per (server, packed-user) carrying that user's delegated bearer
     # token. Created first so the auth manager can invalidate a cached client
     # the moment a token is stored/removed (login/logout).
-    pool = OmnigentClientPool()
+    pool = AgentNexusClientPool()
 
     async def _on_token_changed(team_id: str, user_id: str, server_url: str) -> None:
         await pool.invalidate(server_url, pack_user_key(team_id, user_id))
@@ -101,7 +101,7 @@ async def run() -> None:
     # enrollment page it serves as a Databricks App: a Slack user signs in and
     # the bot stores the resulting durable, refreshable token as their bearer.
     # The OAuth client is shared as the AuthManager's rotator so refresh/revoke
-    # hit the workspace, not the Omnigent server. The web server shares the token
+    # hit the workspace, not the AgentNexus server. The web server shares the token
     # store, so a token it writes is immediately usable by the bot.
     webauth: WebAuthServer | None = None
     enrollment_url = None
@@ -134,7 +134,7 @@ async def run() -> None:
         auth_manager=auth_manager,
         enrollment_url=enrollment_url,
     )
-    service = SlackOmnigentService(
+    service = SlackAgentNexusService(
         store=store,
         pool=pool,
         setup=setup,
@@ -169,7 +169,7 @@ async def run() -> None:
         logger.exception("Could not connect to Slack Socket Mode")
         raise
     finally:
-        logger.info("Shutting down Omnigent Slack bot")
+        logger.info("Shutting down AgentNexus Slack bot")
         await routine_poller.stop()
         await service.shutdown()
         # Cancel any in-flight login/enrollment poll tasks (and their httpx
@@ -198,7 +198,7 @@ def _register_error_handler(app: AsyncApp, logger: logging.Logger) -> None:
         )
 
 
-def register_handlers(app: AsyncApp, service: SlackOmnigentService) -> None:
+def register_handlers(app: AsyncApp, service: SlackAgentNexusService) -> None:
     @app.event("app_mention")
     async def handle_app_mention(
         body: dict[str, Any],

@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.onboarding.ambient import DetectedProvider
-from omnigent.onboarding.detected import (
+from agentnexus.onboarding.ambient import DetectedProvider
+from agentnexus.onboarding.detected import (
     effective_config_with_detected,
     providers_to_adopt,
     synthesize_detected_entries,
 )
-from omnigent.onboarding.provider_config import (
+from agentnexus.onboarding.provider_config import (
     ANTHROPIC_FAMILY,
     GEMINI_FAMILY,
     OPENAI_FAMILY,
@@ -74,11 +74,11 @@ def test_synthesize_env_key_preserves_omnigent_prefixed_source() -> None:
         name="anthropic",
         kind="key",
         family=ANTHROPIC_FAMILY,
-        source="$OMNIGENT_ANTHROPIC_API_KEY",
+        source="$AGENTNEXUS_ANTHROPIC_API_KEY",
     )
     entries = synthesize_detected_entries([det])
 
-    assert entries["anthropic"]["anthropic"]["api_key_ref"] == ("env:OMNIGENT_ANTHROPIC_API_KEY")
+    assert entries["anthropic"]["anthropic"]["api_key_ref"] == ("env:AGENTNEXUS_ANTHROPIC_API_KEY")
 
 
 def test_synthesize_env_key_openrouter_uses_vendor_endpoint_and_chat_wire() -> None:
@@ -494,7 +494,7 @@ def test_malformed_dismissed_detections_treated_as_empty() -> None:
     accidentally dismiss everything; the next dismissal write self-heals
     the key into a proper list.
     """
-    from omnigent.onboarding.detected import dismissed_detection_names
+    from agentnexus.onboarding.detected import dismissed_detection_names
 
     assert dismissed_detection_names({"dismissed_detections": "oops"}) == frozenset()
     # Non-string members are ignored; string members still count.

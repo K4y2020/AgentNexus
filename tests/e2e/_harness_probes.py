@@ -73,7 +73,7 @@ class HarnessProbe:
 # 4c: codex, 4d: pi; 4e is pending).
 #
 # Probe models resolve at import time with a stable per-harness key,
-# so the OMNIGENT_TEST_MODEL_* env vars can rebalance a harness's
+# so the AGENTNEXUS_TEST_MODEL_* env vars can rebalance a harness's
 # rows without code edits; pools stay within the API style each
 # harness supports.
 HARNESS_PROBES: list[HarnessProbe] = [
@@ -115,7 +115,7 @@ HARNESS_PROBES: list[HarnessProbe] = [
         # natural fit per CLAUDE.md (``databricks-gpt-5-4-mini``
         # is the OpenAI-style Databricks model). Registry key is
         # ``openai-agents`` (not ``-sdk``) to match the
-        # Omnigent YAML ``executor.harness`` spelling.
+        # AgentNexus YAML ``executor.harness`` spelling.
         model=resolve_model("databricks-gpt-5-4-mini", key="probe:openai-agents"),
         env_prefix="HARNESS_OPENAI_AGENTS_",
         marker="OPENAI_AGENTS_E2E_OK",

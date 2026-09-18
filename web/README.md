@@ -1,18 +1,18 @@
 # web
 
-The web UI for `omnigent server --agent <agent>`. SPA built with Vite + React + TypeScript +
-Tailwind v4 + shadcn/ui. Talks to the current Omnigent API surface
+The web UI for `agentnexus server --agent <agent>`. SPA built with Vite + React + TypeScript +
+Tailwind v4 + shadcn/ui. Talks to the current AgentNexus API surface
 (`/v1/agents`, `/v1/sessions`, session-scoped
 `/v1/sessions/{id}/resources/files`).
 
 ## Develop
 
-In one terminal, start the omnigent server (default port `6767`). Use
+In one terminal, start the agentnexus server (default port `6767`). Use
 `--agent` to pre-register one or more agents at startup (accepts a YAML file or
 an agent-image directory; can be repeated):
 
 ```bash
-.venv/bin/omnigent server --agent examples/hello_world.yaml
+.venv/bin/agentnexus server --agent examples/hello_world.yaml
 ```
 
 In another terminal, start the Vite dev server (port `5173`):
@@ -24,21 +24,21 @@ pnpm run dev
 ```
 
 The Vite dev server proxies `/v1` and `/api` to `http://localhost:6767`. Set
-`OMNIGENT_URL` to override the proxy target:
+`AGENTNEXUS_URL` to override the proxy target:
 
 ```bash
-OMNIGENT_URL=http://localhost:9000 pnpm run dev
+AGENTNEXUS_URL=http://localhost:9000 pnpm run dev
 ```
 
-To develop against a Databricks workspace-hosted server, point `OMNIGENT_URL`
-at the bare workspace origin — the dev proxy fills in the `/api/2.0/omnigent`
+To develop against a Databricks workspace-hosted server, point `AGENTNEXUS_URL`
+at the bare workspace origin — the dev proxy fills in the `/api/2.0/agentnexus`
 mount and authenticates with your `databricks auth login` token automatically:
 
 ```bash
-OMNIGENT_URL=https://my-workspace.databricks.com pnpm run dev
+AGENTNEXUS_URL=https://my-workspace.databricks.com pnpm run dev
 ```
 
-Additional `omnigent server` options:
+Additional `agentnexus server` options:
 
 | Flag                  | Default                | Description                          |
 | --------------------- | ---------------------- | ------------------------------------ |
@@ -50,19 +50,19 @@ Additional `omnigent server` options:
 | `--execution-timeout` | `7200`                 | Max wall-clock seconds per execution |
 | `--agent`             | (none)                 | Pre-register an agent (repeatable)   |
 
-## Build + serve from the Omnigent server
+## Build + serve from the AgentNexus server
 
 ```bash
 cd web
 pnpm run build
 ```
 
-Vite writes the bundle to `../omnigent/server/static/web-ui/` (configured in
+Vite writes the bundle to `../agentnexus/server/static/web-ui/` (configured in
 `vite.config.ts`). When that directory exists and contains `index.html`, the
-FastAPI app in `omnigent/server/app.py` mounts it at `/`. After a build:
+FastAPI app in `agentnexus/server/app.py` mounts it at `/`. After a build:
 
 ```bash
-.venv/bin/omnigent server --agent examples/hello_world.yaml
+.venv/bin/agentnexus server --agent examples/hello_world.yaml
 # open http://localhost:6767/
 ```
 
@@ -91,15 +91,15 @@ pnpm run test:watch    # vitest in watch mode
 
 The TypeScript reducer at `src/lib/blockStream.ts` is a hand-mirror of
 the Python reducer at
-`sdks/python-client/omnigent_client/_stream.py`. Same for:
+`sdks/python-client/agentnexus_client/_stream.py`. Same for:
 
 | TS file                       | Mirrors                                       |
 | ----------------------------- | --------------------------------------------- |
-| `src/lib/blocks.ts`           | `omnigent_client/_blocks.py`                  |
-| `src/lib/events.ts`           | `omnigent_client/_events.py`                  |
-| `src/lib/types.ts`            | minimal subset of `omnigent_client/_types.py` |
-| `src/lib/sse.ts`              | `omnigent_client/_sse.py`                     |
-| `src/lib/blockStream.ts`      | `omnigent_client/_stream.py`                  |
+| `src/lib/blocks.ts`           | `agentnexus_client/_blocks.py`                  |
+| `src/lib/events.ts`           | `agentnexus_client/_events.py`                  |
+| `src/lib/types.ts`            | minimal subset of `agentnexus_client/_types.py` |
+| `src/lib/sse.ts`              | `agentnexus_client/_sse.py`                     |
+| `src/lib/blockStream.ts`      | `agentnexus_client/_stream.py`                  |
 | `src/lib/blockStream.test.ts` | `tests/frontends/sdk/test_stream.py`          |
 
 There is **no cross-language CI gate** today. When `_stream.py`

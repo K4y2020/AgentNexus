@@ -23,8 +23,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import omnigent.claude_native_forwarder as forwarder
-from omnigent.claude_native_bridge import (
+import agentnexus.claude_native_forwarder as forwarder
+from agentnexus.claude_native_bridge import (
     BRIDGE_ID_LABEL_KEY,
     ClaudeMessageDelta,
     ClaudeTranscriptItem,
@@ -33,7 +33,7 @@ from omnigent.claude_native_bridge import (
     record_hook_event,
     write_active_session_id,
 )
-from omnigent.claude_native_forwarder import (
+from agentnexus.claude_native_forwarder import (
     CompactionForwardState,
     _claim_standalone_completion,
     _consume_pending_compaction,
@@ -46,7 +46,7 @@ from omnigent.claude_native_forwarder import (
     _reset_compaction_skip_stats,
     forward_claude_transcript_to_session,
 )
-from omnigent.reasoning_effort import CLAUDE_EFFORTS, EFFORT_CLEAR_VALUES
+from agentnexus.reasoning_effort import CLAUDE_EFFORTS, EFFORT_CLEAR_VALUES
 
 
 @pytest.fixture(autouse=True)
@@ -58,8 +58,8 @@ def _allow_tmp_path_as_bridge_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     :param tmp_path: Per-test temp directory.
     :returns: None.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path)
 
 
 class _RecordingHTTPServer(ThreadingHTTPServer):
@@ -85,7 +85,7 @@ def _handler_factory(
     """
 
     class _Handler(BaseHTTPRequestHandler):
-        """Request handler for the test Omnigent endpoint."""
+        """Request handler for the test AgentNexus endpoint."""
 
         def log_message(self, format: str, *args: Any) -> None:
             """
@@ -168,7 +168,7 @@ async def _get_recorded_request(
     """
     Await one recorded request from the test server, filtered by method.
 
-    The forwarder mirrors Claude's native session id to Omnigent via a
+    The forwarder mirrors Claude's native session id to AgentNexus via a
     one-shot ``PATCH /v1/sessions/{id}`` (see
     :func:`_maybe_mirror_external_session_id`). Most tests in this
     file assert on POSTs to ``/events``; defaulting the filter to
@@ -272,7 +272,7 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Claude ``/clear`` creates a fresh Omnigent session and consumes the hook.
+    Claude ``/clear`` creates a fresh AgentNexus session and consumes the hook.
 
     This exercises the rotation transaction directly: create the new
     session, bind the same runner, transfer the terminal, rewrite the
@@ -280,7 +280,7 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
     hook cursor past the clear record so the next poll does not fork
     again from the same hook line.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -298,10 +298,10 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
 
     def handler(request: httpx.Request) -> httpx.Response:
         """
-        Mock the Omnigent session-rotation endpoints.
+        Mock the AgentNexus session-rotation endpoints.
 
         :param request: Incoming request.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         body = json.loads(request.content.decode("utf-8")) if request.content else None
         calls.append((request.method, request.url.path, body))
@@ -313,7 +313,7 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
                     "agent_id": "ag_claude",
                     "runner_id": "runner_one",
                     "labels": {
-                        "omnigent.ui": "terminal",
+                        "agentnexus.ui": "terminal",
                         BRIDGE_ID_LABEL_KEY: "bridge_shared",
                     },
                 },
@@ -322,7 +322,7 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
             assert body == {
                 "agent_id": "ag_claude",
                 "labels": {
-                    "omnigent.ui": "terminal",
+                    "agentnexus.ui": "terminal",
                     BRIDGE_ID_LABEL_KEY: "bridge_shared",
                 },
             }
@@ -383,7 +383,7 @@ async def test_clear_hook_rotates_active_session_without_reprocessing(
             {
                 "agent_id": "ag_claude",
                 "labels": {
-                    "omnigent.ui": "terminal",
+                    "agentnexus.ui": "terminal",
                     BRIDGE_ID_LABEL_KEY: "bridge_shared",
                 },
             },
@@ -416,7 +416,7 @@ async def test_clear_hook_rotation_survives_old_runner_clear_failure(
     is cleanup only; the executor active-session guard prevents stale
     old-session writes from reaching tmux.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -433,10 +433,10 @@ async def test_clear_hook_rotation_survives_old_runner_clear_failure(
 
     def handler(request: httpx.Request) -> httpx.Response:
         """
-        Mock Omnigent rotation endpoints with a failing old-session cleanup.
+        Mock AgentNexus rotation endpoints with a failing old-session cleanup.
 
         :param request: Incoming request.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         nonlocal create_count
         body = json.loads(request.content.decode("utf-8")) if request.content else None
@@ -515,7 +515,7 @@ async def test_clear_hook_transfer_failure_does_not_loop(
     rotation must still consume the clear hook so the forwarder's next poll does
     not re-rotate and create another replacement session every tick.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -709,7 +709,7 @@ async def test_clear_hook_consumes_hook_rotated_session_without_duplicate_fork(
     It annotates the hook record so the background forwarder only
     advances its durable cursor and resets transcript state.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -721,7 +721,7 @@ async def test_clear_hook_consumes_hook_rotated_session_without_duplicate_fork(
         {
             "hook_event_name": "SessionStart",
             "source": "clear",
-            "omnigent_clear_rotated_to": "conv_new",
+            "agentnexus_clear_rotated_to": "conv_new",
         },
     )
 
@@ -732,7 +732,7 @@ async def test_clear_hook_consumes_hook_rotated_session_without_duplicate_fork(
         :param request: Incoming request.
         :returns: Never returns.
         """
-        raise AssertionError(f"unexpected Omnigent request: {request.method} {request.url}")
+        raise AssertionError(f"unexpected AgentNexus request: {request.method} {request.url}")
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
@@ -771,14 +771,14 @@ async def test_fork_hook_creates_omnigent_fork_and_consumes_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Claude ``/fork`` creates an Omnigent fork and consumes the hook.
+    Claude ``/fork`` creates an AgentNexus fork and consumes the hook.
 
     This exercises the branch/fork transaction directly: fork the AP
     session, bind the same runner, transfer the terminal, rewrite the
     active bridge session, clear the old runner binding, and advance
     the hook cursor so the same hook line is not processed again.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -798,7 +798,7 @@ async def test_fork_hook_creates_omnigent_fork_and_consumes_hook(
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr("omnigent.claude_native_bridge.time.time", lambda: 1779922393.245)
+    monkeypatch.setattr("agentnexus.claude_native_bridge.time.time", lambda: 1779922393.245)
     record_hook_event(
         bridge_dir,
         {
@@ -806,18 +806,18 @@ async def test_fork_hook_creates_omnigent_fork_and_consumes_hook(
             "source": "resume",
             "session_id": "claude_fork",
             "transcript_path": str(transcript_path),
-            "omnigent_previous_claude_session_id": "claude_old",
-            "omnigent_claude_session_was_seen": False,
+            "agentnexus_previous_claude_session_id": "claude_old",
+            "agentnexus_claude_session_was_seen": False,
         },
     )
     calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         """
-        Mock the Omnigent fork-rotation endpoints.
+        Mock the AgentNexus fork-rotation endpoints.
 
         :param request: Incoming request.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         body = json.loads(request.content.decode("utf-8")) if request.content else None
         calls.append((request.method, request.url.path, body))
@@ -829,7 +829,7 @@ async def test_fork_hook_creates_omnigent_fork_and_consumes_hook(
                     "agent_id": "ag_claude",
                     "runner_id": "runner_one",
                     "labels": {
-                        "omnigent.ui": "terminal",
+                        "agentnexus.ui": "terminal",
                         BRIDGE_ID_LABEL_KEY: "bridge_shared",
                     },
                 },
@@ -912,7 +912,7 @@ async def test_fork_hook_consumes_hook_rotated_session_without_duplicate_fork(
     cursor and seeds transcript state past Claude's copied fork
     history.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -938,8 +938,8 @@ async def test_fork_hook_consumes_hook_rotated_session_without_duplicate_fork(
             "hook_event_name": "SessionStart",
             "source": "resume",
             "transcript_path": str(transcript_path),
-            "omnigent_fork_detected": True,
-            "omnigent_fork_rotated_to": "conv_fork",
+            "agentnexus_fork_detected": True,
+            "agentnexus_fork_rotated_to": "conv_fork",
         },
     )
 
@@ -950,7 +950,7 @@ async def test_fork_hook_consumes_hook_rotated_session_without_duplicate_fork(
         :param request: Incoming request.
         :returns: Never returns.
         """
-        raise AssertionError(f"unexpected Omnigent request: {request.method} {request.url}")
+        raise AssertionError(f"unexpected AgentNexus request: {request.method} {request.url}")
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
@@ -994,14 +994,14 @@ async def test_resume_seen_claude_fork_does_not_create_second_omnigent_fork(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Resuming an already-seen Claude branch does not create another Omnigent fork.
+    Resuming an already-seen Claude branch does not create another AgentNexus fork.
 
     Claude branch transcripts retain ``forkedFrom`` metadata forever.
     This test fails if the forwarder treats that historical marker
     alone as a fresh `/fork` command after the hook recorded that the
     incoming Claude session had already been seen.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "root")
     bridge_dir = prepare_bridge_dir(
         "conv_old",
         bridge_id="bridge_shared",
@@ -1027,19 +1027,19 @@ async def test_resume_seen_claude_fork_does_not_create_second_omnigent_fork(
             "source": "resume",
             "session_id": "claude_fork",
             "transcript_path": str(transcript_path),
-            "omnigent_previous_claude_session_id": "claude_old",
-            "omnigent_claude_session_was_seen": True,
+            "agentnexus_previous_claude_session_id": "claude_old",
+            "agentnexus_claude_session_was_seen": True,
         },
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
         """
-        Fail if the forwarder tries to create another Omnigent fork.
+        Fail if the forwarder tries to create another AgentNexus fork.
 
         :param request: Incoming request.
         :returns: Never returns.
         """
-        raise AssertionError(f"unexpected Omnigent request: {request.method} {request.url}")
+        raise AssertionError(f"unexpected AgentNexus request: {request.method} {request.url}")
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport, base_url="http://ap") as client:
@@ -1062,11 +1062,11 @@ async def test_resume_seen_claude_fork_does_not_create_second_omnigent_fork(
 @pytest.mark.asyncio
 async def test_forwarder_posts_visible_transcript_items(tmp_path: Path) -> None:
     """
-    The background forwarder reads Claude JSONL and posts Omnigent items.
+    The background forwarder reads Claude JSONL and posts AgentNexus items.
 
     This catches the real-Claude failure where a terminal-originated
     prompt/tool/output sequence was written to Claude's transcript
-    but no process tailed that transcript into the Omnigent session
+    but no process tailed that transcript into the AgentNexus session
     stream.
     """
     bridge_dir = tmp_path / "bridge"
@@ -1344,7 +1344,7 @@ async def test_forwarder_posts_web_injected_terminal_transcript_items(tmp_path: 
     Web-injected messages still surface only after Claude records them.
 
     The ``claude-native`` executor no longer owns transcript streaming
-    for Omnigent turns. This fails if a leftover pause/cursor path suppresses
+    for AgentNexus turns. This fails if a leftover pause/cursor path suppresses
     terminal-originated output after a web message was typed into Claude.
     """
     bridge_dir = tmp_path / "bridge"
@@ -1643,12 +1643,12 @@ async def test_forwarder_posts_compaction_in_progress_on_precompact_hook(
     Claude Code's ``PreCompact`` hook surfaces as ``in_progress``.
 
     Claude compacts its own context in the terminal (manual ``/compact``
-    or automatic overflow); the Omnigent server never runs the compaction for
+    or automatic overflow); the AgentNexus server never runs the compaction for
     a claude-native session. Without forwarding ``PreCompact``, the web
     UI gets no signal while Claude compacts — the gap the user reported
     (the summary flushes in with no "Compacting…" spinner). The
     forwarder maps it to ``external_compaction_status: in_progress`` so
-    Omnigent can publish the spinner SSE.
+    AgentNexus can publish the spinner SSE.
     """
     bridge_dir = tmp_path / "bridge"
     transcript_path = tmp_path / "session.jsonl"
@@ -2100,7 +2100,7 @@ async def test_forwarder_start_at_end_uses_byte_offset_for_new_lines(
         raise AssertionError("start_at_end should seed and poll with byte offsets")
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.read_transcript_items_since_with_position",
+        "agentnexus.claude_native_forwarder.read_transcript_items_since_with_position",
         _fail_line_cursor_reader,
     )
 
@@ -2252,7 +2252,7 @@ async def test_forwarder_waits_for_missing_fresh_transcript_without_warning(
             "transcript_path": str(transcript_path),
         },
     )
-    caplog.set_level(logging.WARNING, logger="omnigent.claude_native_forwarder")
+    caplog.set_level(logging.WARNING, logger="agentnexus.claude_native_forwarder")
 
     server, thread, base_url = _start_recording_server()
     task = asyncio.create_task(
@@ -2323,7 +2323,7 @@ async def test_measured_prefix_seed_keeps_a_prompt_injected_during_boot(
     path — and the executor's ``inject_user_message`` waits on the same boot,
     so the paste routinely lands first. Seeding from a live end-offset then
     puts the user's prompt BEHIND the cursor: visible in the TUI pane, absent
-    from the Omnigent DB, silently, for the session's lifetime.
+    from the AgentNexus DB, silently, for the session's lifetime.
 
     Passing the prefix length measured before launch makes the skip exactly the
     prefix, so the boot-window records survive however late the seed runs.
@@ -2908,7 +2908,7 @@ async def test_forwarder_survives_unhandled_loop_exceptions(
         "_forward_available_items",
         _fail_once_forward_available_items,
     )
-    caplog.set_level(logging.ERROR, logger="omnigent.claude_native_forwarder")
+    caplog.set_level(logging.ERROR, logger="agentnexus.claude_native_forwarder")
 
     server, thread, base_url = _start_recording_server()
     task = asyncio.create_task(
@@ -2948,7 +2948,7 @@ async def test_forwarder_drops_poison_item_after_bounded_permanent_retries(
     """
     Permanent item rejections eventually advance the transcript cursor.
 
-    A malformed transcript item that Omnigent rejects with a permanent 4xx
+    A malformed transcript item that AgentNexus rejects with a permanent 4xx
     should not be reposted forever at the poll interval. After the
     retry budget is exhausted, the forwarder emits a failed status,
     marks the source id handled, persists the new byte cursor, and
@@ -2985,7 +2985,7 @@ async def test_forwarder_drops_poison_item_after_bounded_permanent_retries(
         Reject conversation items but accept failure status posts.
 
         :param request: Outbound HTTP request from the forwarder.
-        :returns: HTTP response for the mock Omnigent endpoint.
+        :returns: HTTP response for the mock AgentNexus endpoint.
         """
         payload = json.loads(request.content.decode("utf-8"))
         assert isinstance(payload, dict)
@@ -3279,7 +3279,7 @@ async def test_forwarder_mirrors_external_session_id_after_hook_event(
     tmp_path: Path,
 ) -> None:
     """
-    Forwarder PATCHes the Omnigent conversation with Claude's session id.
+    Forwarder PATCHes the AgentNexus conversation with Claude's session id.
 
     After the bridge records a hook event carrying ``session_id``
     (every hook from Claude does), the forwarder's first loop pass
@@ -3844,7 +3844,7 @@ async def test_forwarder_retries_model_post_after_transient_failure(tmp_path: Pa
     incremental window carries no fresh ``message.model`` (e.g. a plain
     user turn) reconciles the observed alias against the last POSTed one
     and re-attempts the drop. Guards the self-healing contract of the
-    model mirror against a single transient Omnigent error.
+    model mirror against a single transient AgentNexus error.
     """
     bridge_dir = tmp_path / "bridge"
     transcript_path = tmp_path / "session.jsonl"
@@ -4164,7 +4164,7 @@ def test_validated_transcript_state_resets_legacy_byte_cursor_without_fingerprin
         + "\n",
         encoding="utf-8",
     )
-    caplog.set_level(logging.WARNING, logger="omnigent.claude_native_forwarder")
+    caplog.set_level(logging.WARNING, logger="agentnexus.claude_native_forwarder")
 
     validated = forwarder._validated_transcript_state(
         forwarder.TranscriptForwardState(
@@ -4220,7 +4220,7 @@ def test_validated_transcript_state_adopts_fingerprint_at_offset_zero_without_re
         + "\n",
         encoding="utf-8",
     )
-    caplog.set_level(logging.WARNING, logger="omnigent.claude_native_forwarder")
+    caplog.set_level(logging.WARNING, logger="agentnexus.claude_native_forwarder")
 
     pre_existing_seen = ("already-sent-id-1", "already-sent-id-2")
     state = forwarder.TranscriptForwardState(
@@ -4305,7 +4305,7 @@ def test_validated_transcript_state_preserves_seen_source_ids_on_stale_reset(
     )
     transcript_path.write_text(replacement_content, encoding="utf-8")
 
-    caplog.set_level(logging.WARNING, logger="omnigent.claude_native_forwarder")
+    caplog.set_level(logging.WARNING, logger="agentnexus.claude_native_forwarder")
 
     pre_existing_seen = ("item-a", "item-b", "item-c")
     state = forwarder.TranscriptForwardState(
@@ -4485,7 +4485,7 @@ async def test_supervise_forwarder_backoff_grows_on_repeated_crashes(
     """
     Consecutive crashes use exponentially growing backoff, capped at the max.
 
-    Prevents a fast-failing forwarder from POST-storming the Omnigent server
+    Prevents a fast-failing forwarder from POST-storming the AgentNexus server
     or burning CPU on tight-loop restarts.
     """
     # 6 crashes is enough to walk past the cap: 1, 2, 4, 8, 16, 30
@@ -4869,7 +4869,7 @@ def _start_recording_server_with_responses(
     a customizable response body.
 
     Variant of :func:`_start_recording_server` for tests that need
-    the Omnigent server's response (rather than just a generic 202 ``{}``)
+    the AgentNexus server's response (rather than just a generic 202 ``{}``)
     — used by the sub-agent watcher tests because
     ``external_subagent_start`` returns ``{"child_session_id": "..."}``
     that the forwarder reads back.
@@ -5080,7 +5080,7 @@ async def test_subagent_watcher_forwards_transcript_items_to_child_session(
     """
     After registering a sub-agent, the forwarder tails its
     ``.jsonl`` and POSTs ``external_conversation_item`` events to
-    the Omnigent child session id (not the parent's).
+    the AgentNexus child session id (not the parent's).
     """
     bridge_dir = tmp_path / "bridge"
     transcript_path = tmp_path / "session.jsonl"
@@ -5181,7 +5181,7 @@ async def test_subagent_watcher_retry_skips_previously_posted_items(
     when a later item fails, so the next poll re-reads the same JSONL
     window. This test pins the durable ``seen_source_ids`` guard: item
     A succeeds, item B fails once, and the retry must post only B.
-    Without that guard Omnigent live subscribers can see item A synced back
+    Without that guard AgentNexus live subscribers can see item A synced back
     twice; the server no longer receives a ``source_id`` key that can
     dedupe the post on AP's side.
     """
@@ -5229,7 +5229,7 @@ async def test_subagent_watcher_retry_skips_previously_posted_items(
         Fail the assistant item once and accept everything else.
 
         :param request: Request issued by the forwarder.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         body = json.loads(request.content.decode("utf-8"))
         if body.get("type") != "external_conversation_item":
@@ -5457,7 +5457,7 @@ async def test_subagent_watcher_preserves_parked_sentinel_across_restart(
 
 
 # ---------------------------------------------------------------------------
-# In-pane /effort → Omnigent session reasoning_effort mirroring
+# In-pane /effort → AgentNexus session reasoning_effort mirroring
 # ---------------------------------------------------------------------------
 
 
@@ -5633,7 +5633,7 @@ def otel_exporter(monkeypatch: pytest.MonkeyPatch) -> Iterator[InMemorySpanExpor
     Restores the previous provider on teardown so OTel's set-once
     semantics do not leak into later tests in the same process.
     """
-    monkeypatch.setenv("OMNIGENT_TELEMETRY_ENABLED", "true")
+    monkeypatch.setenv("AGENTNEXUS_TELEMETRY_ENABLED", "true")
     previous = otel_trace._TRACER_PROVIDER  # type: ignore[attr-defined]
     previous_done = otel_trace._TRACER_PROVIDER_SET_ONCE._done  # type: ignore[attr-defined]
     in_mem = InMemorySpanExporter()
@@ -5922,7 +5922,7 @@ async def test_forward_available_deltas_posts_each_and_advances_offset(tmp_path:
     Each appended chunk is POSTed as an ``external_output_text_delta``.
 
     Proves the forwarder turns deltas-file lines into the exact event
-    shape the Omnigent route expects (delta + message_id + index + final) and
+    shape the AgentNexus route expects (delta + message_id + index + final) and
     advances+persists the byte offset so the next poll resumes after
     them. Fails if a field is dropped (UI can't scope/order the buffer)
     or the offset doesn't persist (chunks re-POST on restart).
@@ -6009,7 +6009,7 @@ async def test_forward_available_deltas_drops_on_http_error(tmp_path: Path) -> N
 
     Deltas are an ephemeral preview; the authoritative final message
     arrives via ``external_conversation_item`` regardless, so a transient
-    Omnigent blip must not raise or wedge the tail. Fails if the error
+    AgentNexus blip must not raise or wedge the tail. Fails if the error
     propagates (would crash the forwarder loop) or the offset stalls
     (would re-POST the failed chunk forever).
     """
@@ -6166,7 +6166,7 @@ async def test_scheduled_wake_forwards_marker_under_a_new_turn_id(tmp_path: Path
         Accept every forwarder POST, recording its payload.
 
         :param request: Outbound HTTP request from the forwarder.
-        :returns: HTTP 202 for the mock Omnigent endpoint.
+        :returns: HTTP 202 for the mock AgentNexus endpoint.
         """
         payload = json.loads(request.content.decode("utf-8"))
         assert isinstance(payload, dict)
@@ -6769,7 +6769,7 @@ async def test_persist_native_compaction_item_posts_compaction_event(tmp_path: P
 
     with (
         patch(
-            "omnigent.claude_native_forwarder.read_claude_session_id",
+            "agentnexus.claude_native_forwarder.read_claude_session_id",
             return_value="claude-uuid-1",
         ),
         patch(
@@ -6825,7 +6825,7 @@ async def test_persist_native_compaction_item_empty_items_uses_fallback(tmp_path
 
     with (
         patch(
-            "omnigent.claude_native_forwarder.read_claude_session_id",
+            "agentnexus.claude_native_forwarder.read_claude_session_id",
             return_value=None,
         ),
     ):
@@ -6886,7 +6886,7 @@ async def test_compaction_completed_triggers_persist(tmp_path: Path) -> None:
 
     persist_mock = AsyncMock(side_effect=_persist_side_effect)
     with patch(
-        "omnigent.claude_native_forwarder._persist_native_compaction_item",
+        "agentnexus.claude_native_forwarder._persist_native_compaction_item",
         persist_mock,
     ):
         task = asyncio.create_task(
@@ -6960,7 +6960,7 @@ async def test_compaction_in_progress_does_not_persist(tmp_path: Path) -> None:
     server, thread, base_url = _start_recording_server()
     persist_mock = AsyncMock()
     with patch(
-        "omnigent.claude_native_forwarder._persist_native_compaction_item",
+        "agentnexus.claude_native_forwarder._persist_native_compaction_item",
         persist_mock,
     ):
         task = asyncio.create_task(
@@ -7040,7 +7040,7 @@ async def test_missing_compact_session_start_still_persists_from_transcript(
     )
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_missing_hook",
@@ -7074,7 +7074,7 @@ async def test_normal_hook_after_transcript_does_not_double_persist(tmp_path: Pa
     await _note_precompact(bridge_dir, claude_session_id="claude-1", transcript_path=None)
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         # Transcript path persists first.
         await _handle_compact_summary_item(
             AsyncMock(),
@@ -7113,7 +7113,7 @@ async def test_failed_boundary_post_is_retried_not_consumed(tmp_path: Path) -> N
         side_effect=httpx.HTTPStatusError("bad", request=request, response=response)
     )
 
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", failing):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", failing):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_retry",
@@ -7145,7 +7145,7 @@ async def test_restart_reattach_does_not_repersist_completed_boundary(tmp_path: 
     # Durable state as it would exist after a completed compaction: seq 1
     # persisted, but a stale pending token for the same seq lingers (e.g.
     # crash between POST success and mark). The persisted set must win.
-    from omnigent.claude_native_forwarder import _PendingCompaction, _write_compaction_state
+    from agentnexus.claude_native_forwarder import _PendingCompaction, _write_compaction_state
 
     _write_compaction_state(
         bridge_dir,
@@ -7157,7 +7157,7 @@ async def test_restart_reattach_does_not_repersist_completed_boundary(tmp_path: 
     )
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_restart",
@@ -7182,7 +7182,7 @@ async def test_repeated_compactions_persist_distinct_boundaries(tmp_path: Path) 
     bridge_dir.mkdir()
     persist = _persist_mock()
 
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         # First compaction.
         await _note_precompact(bridge_dir, claude_session_id="claude-1", transcript_path=None)
         await _handle_compact_summary_item(
@@ -7222,7 +7222,7 @@ async def test_historical_summary_without_pending_is_skipped(tmp_path: Path) -> 
     bridge_dir.mkdir()  # no _note_precompact — no pending token
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_historical",
@@ -7253,8 +7253,8 @@ async def test_ambiguous_boundary_post_marks_persisted(tmp_path: Path) -> None:
     ambiguous = AsyncMock(side_effect=httpx.ReadError("connection dropped mid-response"))
 
     with (
-        patch("omnigent.claude_native_forwarder._persist_native_compaction_item", ambiguous),
-        patch("omnigent.claude_native_forwarder.post_may_have_been_delivered", return_value=True),
+        patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", ambiguous),
+        patch("agentnexus.claude_native_forwarder.post_may_have_been_delivered", return_value=True),
     ):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
@@ -7306,7 +7306,7 @@ async def test_precompact_and_summary_same_poll_persists_boundary(tmp_path: Path
 
     # The summary in the same poll now finds the token and persists once.
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_same_poll",
@@ -7390,7 +7390,7 @@ async def test_standalone_completion_hook_persists_without_pending(tmp_path: Pat
     assert state.pending.seq == 1
 
     # After the caller persists and marks it done, the boundary is recorded.
-    from omnigent.claude_native_forwarder import _mark_compaction_persisted
+    from agentnexus.claude_native_forwarder import _mark_compaction_persisted
 
     await _mark_compaction_persisted(bridge_dir, seq)
     final = _read_compaction_state(bridge_dir)
@@ -7415,7 +7415,7 @@ async def test_completion_hook_after_transcript_persist_is_absorbed(tmp_path: Pa
     await _note_precompact(bridge_dir, claude_session_id="claude-1", transcript_path=None)
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         # Transcript path persists the boundary; arms expect_completion_ack.
         await _handle_compact_summary_item(
             AsyncMock(),
@@ -7456,7 +7456,7 @@ async def test_precompact_miss_is_counted_and_warned(tmp_path: Path) -> None:
     bridge_dir.mkdir()  # no PreCompact, no persisted boundary
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         handled = await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_miss",
@@ -7471,13 +7471,13 @@ async def test_precompact_miss_is_counted_and_warned(tmp_path: Path) -> None:
     assert forwarder._compaction_skip_stats.expected_skip == 0
 
     # A skip AFTER a boundary was persisted is an expected replay, not a miss.
-    from omnigent.claude_native_forwarder import _write_compaction_state
+    from agentnexus.claude_native_forwarder import _write_compaction_state
 
     _write_compaction_state(
         bridge_dir,
         CompactionForwardState(pending=None, last_seq=1, persisted_seqs=(1,)),
     )
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         await _handle_compact_summary_item(
             AsyncMock(),
             session_id="conv_miss",
@@ -7513,7 +7513,7 @@ async def test_stale_completion_ack_does_not_swallow_a_later_boundary(
     await _note_precompact(bridge_dir, claude_session_id="claude-1", transcript_path=None)
 
     persist = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", persist):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", persist):
         # Compaction A persists via the transcript path → arms the ack for A's seq.
         await _handle_compact_summary_item(
             AsyncMock(),
@@ -7559,7 +7559,7 @@ async def test_completion_ack_armed_for_unpersisted_seq_biases_to_persist(
     duplicate — so the path biases to persisting a fresh boundary rather than
     silently absorbing the hook.
     """
-    from omnigent.claude_native_forwarder import _write_compaction_state
+    from agentnexus.claude_native_forwarder import _write_compaction_state
 
     bridge_dir = tmp_path / "bridge"
     bridge_dir.mkdir()
@@ -7620,7 +7620,7 @@ async def test_standalone_hook_persist_failure_holds_cursor_for_retry(
         # The best-effort spinner status post is orthogonal to the durable
         # persist under test; stub it so the client mock stays quiet.
         with patch(
-            "omnigent.claude_native_forwarder._post_external_compaction_status",
+            "agentnexus.claude_native_forwarder._post_external_compaction_status",
             AsyncMock(return_value=None),
         ):
             return await forwarder._forward_available_status_events(
@@ -7637,7 +7637,7 @@ async def test_standalone_hook_persist_failure_holds_cursor_for_retry(
 
     # Poll 1: persist fails → cursor is held BEFORE the compaction hook record,
     # a pending token is minted, and no boundary is marked persisted.
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", failing):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", failing):
         after_fail = await _run_once(start_state)
     assert failing.await_count == 1
     assert after_fail.event_cursor == start_state.event_cursor  # cursor held
@@ -7649,7 +7649,7 @@ async def test_standalone_hook_persist_failure_holds_cursor_for_retry(
     # Poll 2 (retry): the same hook record is re-seen; the persist succeeds and
     # re-consumes the SAME seq (idempotent), marking exactly one boundary.
     ok = _persist_mock()
-    with patch("omnigent.claude_native_forwarder._persist_native_compaction_item", ok):
+    with patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", ok):
         after_ok = await _run_once(after_fail)
     assert ok.await_count == 1
     persisted = _read_compaction_state(bridge_dir)
@@ -7771,7 +7771,7 @@ async def test_subagent_item_drop_writes_dead_letter(tmp_path: Path) -> None:
         """Accept the start POST; permanently reject the child item POST.
 
         :param request: Request issued by the forwarder.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         body = json.loads(request.content.decode("utf-8"))
         if body.get("type") == "external_subagent_start":
@@ -7832,7 +7832,7 @@ async def test_subagent_start_drop_writes_dead_letter(tmp_path: Path) -> None:
         """Permanently reject the sub-agent start POST.
 
         :param request: Request issued by the forwarder.
-        :returns: Canned Omnigent response.
+        :returns: Canned AgentNexus response.
         """
         return httpx.Response(400, json={"error": "nope"})
 
@@ -8183,7 +8183,7 @@ async def test_short_turn_poll_posts_items_without_a_status_edge(tmp_path: Path)
         Record every forwarder POST body.
 
         :param request: Outbound HTTP request from the forwarder.
-        :returns: HTTP 202 for the mock Omnigent endpoint.
+        :returns: HTTP 202 for the mock AgentNexus endpoint.
         """
         posted.append(json.loads(request.content.decode("utf-8")))
         return httpx.Response(202, json={})
@@ -8423,7 +8423,7 @@ async def test_forward_loop_deadline_unsticks_a_stalled_iteration(
 
     monkeypatch.setattr(forwarder, "_ensure_hook_state", _stalls_on_first_call)
 
-    with caplog.at_level(logging.WARNING, logger="omnigent.claude_native_forwarder"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.claude_native_forwarder"):
         task = asyncio.create_task(
             forward_claude_transcript_to_session(
                 base_url="http://127.0.0.1:9",

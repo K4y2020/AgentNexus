@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 import yaml as _yaml
 
-from omnigent.runtime.workflow import _build_claude_sdk_spawn_env
-from omnigent.spec.types import (
+from agentnexus.runtime.workflow import _build_claude_sdk_spawn_env
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -30,16 +30,16 @@ from omnigent.spec.types import (
 @pytest.fixture(autouse=True)
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Point OMNIGENT_CONFIG_HOME at an empty temp dir for every test in
+    Point AGENTNEXUS_CONFIG_HOME at an empty temp dir for every test in
     this file so tests that don't explicitly set up a global config are
-    not affected by the developer's real ``~/.omnigent/config.yaml``.
+    not affected by the developer's real ``~/.agentnexus/config.yaml``.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Temporary directory for the isolated config.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._resolve_catalog_default_model",
+        "agentnexus.runtime.workflow._resolve_catalog_default_model",
         lambda provider_name, family, *, context: f"catalog-{provider_name}-{family}-default",
     )
 
@@ -70,7 +70,7 @@ def _make_spec(
         spec_version=1,
         name="test-claude-sdk",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -166,7 +166,7 @@ def test_global_config_databricks_auth_applied_when_spec_has_no_auth(
     """
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(_yaml.dump({"auth": {"type": "databricks", "profile": "global-profile"}}))
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
 
     spec = _make_spec(auth=None, profile=None)
     env = _build_claude_sdk_spawn_env(spec, workdir=None)
@@ -188,7 +188,7 @@ def test_global_config_not_applied_when_spec_has_legacy_profile(
     """
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(_yaml.dump({"auth": {"type": "api_key", "api_key": "sk-global"}}))
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
 
     spec = _make_spec(auth=None, profile="oss-from-spec")
     env = _build_claude_sdk_spawn_env(spec, workdir=None)
@@ -211,7 +211,7 @@ def _ucode_state_without_model(monkeypatch: pytest.MonkeyPatch, *, model: str | 
     :param model: Per-agent ucode model, e.g. ``None`` to simulate a
         workspace that caches no model, or ``"databricks-claude-sonnet-4-6"``.
     """
-    from omnigent.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
+    from agentnexus.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
 
     state = UcodeWorkspaceState(
         workspace_url="https://example.databricks.com",
@@ -225,11 +225,11 @@ def _ucode_state_without_model(monkeypatch: pytest.MonkeyPatch, *, model: str | 
         },
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.get_workspace_url_for_profile",
+        "agentnexus.runtime.workflow.get_workspace_url_for_profile",
         lambda profile: "https://example.databricks.com",
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.read_ucode_state",
+        "agentnexus.runtime.workflow.read_ucode_state",
         lambda workspace_url: state,
     )
 

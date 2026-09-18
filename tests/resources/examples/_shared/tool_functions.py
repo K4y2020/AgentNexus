@@ -1,4 +1,4 @@
-"""Example tool functions for Omnigent agents.
+"""Example tool functions for AgentNexus agents.
 
 These are plain Python functions that can be referenced from YAML agent
 definitions via the ``callable`` field on a FunctionTool.
@@ -7,7 +7,7 @@ definitions via the ``callable`` field on a FunctionTool.
 import time
 from datetime import datetime, timedelta, timezone
 
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
 
 
 def web_search(query: str) -> dict:
@@ -199,7 +199,7 @@ def block_division(event: PolicyEvent) -> PolicyResponse:
     field in the YAML.
 
     Used by ``agent_with_policies.yaml`` to verify that ``type: function``
-    handler tools go through Omnigent policy enforcement the same way MCP tools do.
+    handler tools go through AgentNexus policy enforcement the same way MCP tools do.
 
     :param event: V0 event dict with ``type``, ``target``, ``data``,
         ``context`` keys.

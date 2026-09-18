@@ -18,8 +18,8 @@ from mcp.shared.exceptions import McpError
 from mcp.types import CONNECTION_CLOSED, CallToolResult, ErrorData, ImageContent, TextContent
 from mcp.types import Tool as McpToolDef
 
-from omnigent.spec.types import MCPServerConfig, RetryPolicy
-from omnigent.tools.mcp import (
+from agentnexus.spec.types import MCPServerConfig, RetryPolicy
+from agentnexus.tools.mcp import (
     _CIRCUIT_BREAKER_COOLDOWN_SECONDS,
     _CIRCUIT_BREAKER_THRESHOLD,
     _MCP_RECONNECT_DEFAULTS,
@@ -121,11 +121,11 @@ def _mock_mcp_transport(
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
 
     with patch(
-        "omnigent.tools.mcp.streamablehttp_client",
+        "agentnexus.tools.mcp.streamablehttp_client",
         return_value=mock_ctx,
     ):
         with patch(
-            "omnigent.tools.mcp.ClientSession",
+            "agentnexus.tools.mcp.ClientSession",
             return_value=mock_session,
         ):
             yield mock_session
@@ -374,7 +374,7 @@ async def test_connect_skips_expired_cache() -> None:
 
     fresh_tool = _make_mcp_tool_def("fresh_tool")
     with _mock_mcp_transport([fresh_tool]) as mock_session:
-        with patch("omnigent.tools.mcp._discovery_cache", expired_cache):
+        with patch("agentnexus.tools.mcp._discovery_cache", expired_cache):
             conn = McpServerConnection(config=config)
             tools = await conn.connect()
 
@@ -930,7 +930,7 @@ async def test_call_tool_reconnects_on_connection_error() -> None:
         # (in production this opens a new transport).
         # Patch the _sleep indirection so retry backoff is instant.
         with patch.object(conn, "_reconnect", new_callable=AsyncMock) as mock_reconnect:
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 result = await conn.call_tool("test_tool", {"query": "hi"})
 
         assert result == "recovered"
@@ -993,7 +993,7 @@ async def test_call_tool_exhausts_all_retries_then_raises() -> None:
         ]
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 with pytest.raises(EOFError, match="attempt 3"):
                     await conn.call_tool("test_tool", {"query": "hi"})
 
@@ -1028,7 +1028,7 @@ async def test_call_tool_uses_config_retry_policy() -> None:
         ]
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 with pytest.raises(EOFError, match="attempt 2"):
                     await conn.call_tool("test_tool", {"query": "hi"})
 
@@ -1069,7 +1069,7 @@ async def test_call_tool_sleeps_between_retries() -> None:
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
             with patch(
-                "omnigent.tools.mcp._sleep",
+                "agentnexus.tools.mcp._sleep",
                 new_callable=AsyncMock,
             ) as mock_sleep:
                 result = await conn.call_tool("test_tool", {"query": "hi"})
@@ -1111,7 +1111,7 @@ async def test_call_tool_default_retry_has_three_attempts() -> None:
         ]
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 with pytest.raises(EOFError, match="attempt 3"):
                     await conn.call_tool("test_tool", {"query": "hi"})
 
@@ -1165,11 +1165,11 @@ async def test_connect_passes_timeout_to_client_session() -> None:
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
 
     with patch(
-        "omnigent.tools.mcp.ClientSession",
+        "agentnexus.tools.mcp.ClientSession",
         side_effect=_capturing_session,
     ):
         with patch(
-            "omnigent.tools.mcp.streamablehttp_client",
+            "agentnexus.tools.mcp.streamablehttp_client",
             return_value=mock_ctx,
         ):
             conn = McpServerConnection(config=config)
@@ -1228,11 +1228,11 @@ async def test_connect_passes_none_timeout_to_client_session() -> None:
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
 
     with patch(
-        "omnigent.tools.mcp.ClientSession",
+        "agentnexus.tools.mcp.ClientSession",
         side_effect=_capturing_session,
     ):
         with patch(
-            "omnigent.tools.mcp.streamablehttp_client",
+            "agentnexus.tools.mcp.streamablehttp_client",
             return_value=mock_ctx,
         ):
             conn = McpServerConnection(config=config)
@@ -1391,11 +1391,11 @@ def _mock_http_transport(
         return mock_session
 
     with patch(
-        "omnigent.tools.mcp.streamablehttp_client",
+        "agentnexus.tools.mcp.streamablehttp_client",
         side_effect=_capturing_streamable_client,
     ):
         with patch(
-            "omnigent.tools.mcp.ClientSession",
+            "agentnexus.tools.mcp.ClientSession",
             side_effect=_capturing_session,
         ):
             yield captured
@@ -1519,15 +1519,15 @@ async def test_http_falls_back_to_sse_when_streamable_fails() -> None:
     mock_session.__aexit__ = AsyncMock(return_value=False)
 
     with patch(
-        "omnigent.tools.mcp.streamablehttp_client",
+        "agentnexus.tools.mcp.streamablehttp_client",
         side_effect=RuntimeError("server returned text/html, not application/json"),
     ) as mock_streamable:
         with patch(
-            "omnigent.tools.mcp.sse_client",
+            "agentnexus.tools.mcp.sse_client",
             side_effect=_capturing_sse,
         ):
             with patch(
-                "omnigent.tools.mcp.ClientSession",
+                "agentnexus.tools.mcp.ClientSession",
                 return_value=mock_session,
             ):
                 conn = McpServerConnection(config=config)
@@ -1639,7 +1639,7 @@ async def test_http_reconnect_on_connection_error() -> None:
         ]
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock) as mock_reconnect:
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 result = await conn.call_tool("http_tool", {"query": "retry"})
 
     assert result == "recovered via HTTP"
@@ -1825,7 +1825,7 @@ def test_circuit_breaker_trip_log_includes_server_name(
     :param caplog: Pytest fixture that captures log records.
     """
     breaker = _CircuitBreaker(failure_threshold=2, cooldown_seconds=10.0)
-    with caplog.at_level(logging.WARNING, logger="omnigent.tools.mcp"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.tools.mcp"):
         breaker.record_failure("my-flaky-server")
         breaker.record_failure("my-flaky-server")
 
@@ -1865,7 +1865,7 @@ async def test_call_tool_trips_breaker_after_repeated_failures() -> None:
         mock_session.call_tool = AsyncMock(side_effect=EOFError("dead"))
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 # First call: exhausts retries, records failure.
                 with pytest.raises(EOFError):
                     await conn.call_tool("my_tool", {"x": 1})
@@ -1916,7 +1916,7 @@ async def test_call_tool_resets_breaker_on_success() -> None:
         )
 
         with patch.object(conn, "_reconnect", new_callable=AsyncMock):
-            with patch("omnigent.tools.mcp._sleep", new_callable=AsyncMock):
+            with patch("agentnexus.tools.mcp._sleep", new_callable=AsyncMock):
                 # First invocation: all 3 retries fail → failure (count=1).
                 with pytest.raises(EOFError):
                     await conn.call_tool("my_tool", {})
@@ -2030,9 +2030,9 @@ def test_open_stdio_transport_spawns_unwrapped() -> None:
 
     conn = McpServerConnection(config=config)
 
-    with patch("omnigent.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
+    with patch("agentnexus.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
         with patch(
-            "omnigent.tools.mcp.ClientSession",
+            "agentnexus.tools.mcp.ClientSession",
             return_value=_mock_session(),
         ):
             asyncio.run(conn.connect())
@@ -2072,9 +2072,9 @@ def test_open_stdio_transport_overlays_env_on_parent() -> None:
 
     conn = McpServerConnection(config=config)
 
-    with patch("omnigent.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
+    with patch("agentnexus.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
         with patch(
-            "omnigent.tools.mcp.ClientSession",
+            "agentnexus.tools.mcp.ClientSession",
             return_value=_mock_session(),
         ):
             asyncio.run(conn.connect())
@@ -2114,9 +2114,9 @@ def test_open_stdio_transport_empty_env_inherits_fully() -> None:
 
     conn = McpServerConnection(config=config)
 
-    with patch("omnigent.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
+    with patch("agentnexus.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
         with patch(
-            "omnigent.tools.mcp.ClientSession",
+            "agentnexus.tools.mcp.ClientSession",
             return_value=_mock_session(),
         ):
             asyncio.run(conn.connect())
@@ -2279,7 +2279,7 @@ async def test_invoke_tool_raises_elicitation_on_input_required() -> None:
     # input_requests carries the full elicitation payloads.
     assert "eid_abc" in exc.input_requests, (
         "input_requests must include the elicitation id from the server; "
-        "if missing, the Omnigent server can't surface the elicitation to the user"
+        "if missing, the AgentNexus server can't surface the elicitation to the user"
     )
     # request_state must be echoed back verbatim on retry.
     assert exc.request_state == "state_xyz", (
@@ -2412,7 +2412,7 @@ async def test_call_tool_with_elicitation_raises_on_second_mrtr() -> None:
     # Second round's elicitation data must surface.
     assert "eid_2" in exc.input_requests, (
         "Multi-round MRTR must surface the second elicitation's requests; "
-        "if missing, the Omnigent server can't show the next approval form"
+        "if missing, the AgentNexus server can't show the next approval form"
     )
     assert exc.request_state == "state_round2", (
         "Multi-round MRTR must carry the new requestState for the next retry"
@@ -2431,7 +2431,7 @@ def test_is_sse_endpoint_detects_sse_paths() -> None:
     client hangs in teardown against such a server, so the transport
     router must detect these and use the SSE client directly.
     """
-    from omnigent.tools.mcp import _is_sse_endpoint
+    from agentnexus.tools.mcp import _is_sse_endpoint
 
     assert _is_sse_endpoint("http://h:1/mcp/sse")
     assert _is_sse_endpoint("http://h:1/mcp/sse/")  # trailing slash

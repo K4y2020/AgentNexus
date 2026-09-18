@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from omnigent.repl._repl import _FieldInputState, _SessionsChatReplAdapter
+from agentnexus.repl._repl import _FieldInputState, _SessionsChatReplAdapter
 
 
 def test_not_pending_initially() -> None:

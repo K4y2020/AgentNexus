@@ -8,8 +8,8 @@ import pytest
 import respx
 from PIL import Image
 
-from omnigent.seedance.image_export import export_job_image
-from omnigent.seedance.production_gate import ProductionRejected
+from agentnexus.seedance.image_export import export_job_image
+from agentnexus.seedance.production_gate import ProductionRejected
 
 
 @pytest.mark.asyncio

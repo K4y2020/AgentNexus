@@ -7,7 +7,7 @@
 // the harness they used last. A stale value (harness removed server-side)
 // is sent as `harness_override` and rejected by the server at create time.
 
-const STORAGE_KEY = "omnigent:last-harness-by-agent";
+const STORAGE_KEY = "agentnexus:last-harness-by-agent";
 
 type HarnessMap = Record<string, string>;
 

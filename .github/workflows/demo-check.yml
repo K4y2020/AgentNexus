@@ -47,7 +47,7 @@ permissions: {}
 
 jobs:
   demo-check:
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     permissions:
       # Job-level permissions REPLACE the workflow-level block (they don't

@@ -229,7 +229,7 @@ export function formatToolTitle(
 
 /**
  * Action categories for the collapsed tool-run summary line. Names cover
- * the omnigent sys_* tools plus the native harness CLIs (Claude Code's
+ * the agentnexus sys_* tools plus the native harness CLIs (Claude Code's
  * Bash/Read/Edit..., Codex's shell/apply_patch). Shell calls whose
  * command is a bare `ls` re-categorize as directory listings, matching
  * the Claude Code TUI's step summaries.
@@ -289,7 +289,7 @@ function runPhrase(category: RunCategory, n: number): string {
 }
 
 function stripOmnigentPrefix(name: string): string {
-  return name.startsWith("mcp__omnigent__") ? name.slice("mcp__omnigent__".length) : name;
+  return name.startsWith("mcp__agentnexus__") ? name.slice("mcp__agentnexus__".length) : name;
 }
 
 // Login-shell wrapper Codex puts around every command, e.g.

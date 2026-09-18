@@ -3,19 +3,19 @@
 Runs ``omnigent run hello_world.yaml --harness qwen --model
 <model> -p "..."`` as a real subprocess and snapshots structural
 observations (exit code, stderr cleanliness, assistant text
-length). Captured against current Omnigent; re-run unchanged
+length). Captured against current AgentNexus; re-run unchanged
 in later phases to prove the integration preserves behavior for
 the qwen harness.
 
 **What breaks if this fails:**
-- Omnigent' ``QwenExecutor`` regresses (the ``qwen --acp``
+- AgentNexus' ``QwenExecutor`` regresses (the ``qwen --acp``
   subprocess lifecycle, the ACP JSON-RPC 2.0 event protocol).
 - The ``qwen`` CLI binary disappears from PATH or changes its
   ``--acp`` startup contract.
 - ``omnigent.cli._run_agent`` for the ``-p`` one-shot path
   stops printing assistant text to stdout on turn complete.
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 per-harness suite.
 """
 
@@ -29,7 +29,7 @@ import pytest
 
 from tests._model_pools import resolve_model
 from tests.e2e._harness_probes import cli_unavailable_reason
-from tests.e2e.omnigent._snapshot import compare_snapshot
+from tests.e2e.agentnexus._snapshot import compare_snapshot
 
 # Model + harness are hardcoded because the test name advertises
 # "qwen harness".
@@ -80,7 +80,7 @@ def test_per_harness_qwen_one_shot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

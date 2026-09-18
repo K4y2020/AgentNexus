@@ -162,7 +162,7 @@ def test_mobile_kebab_lists_file_surfaces_and_omits_absent_ones(
     Changes (the two files surfaces — folder tree and changed-files list)
     and Agents (unconditional — the panel lists at least the main
     agent, badge "1"), and must NOT list Shells or Tasks. The session's
-    only terminal is the auto-created embedded Omnigent REPL, which is
+    only terminal is the auto-created embedded AgentNexus REPL, which is
     plumbing for the Chat/Terminal pill, not inventory — listing it
     read as a phantom "main" terminal on agents that don't run a TUI,
     so ``inventoryTerminals`` excludes it from the kebab/rail.

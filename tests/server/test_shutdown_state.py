@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from omnigent.server import shutdown_state
+from agentnexus.server import shutdown_state
 
 
 @pytest.fixture(autouse=True)

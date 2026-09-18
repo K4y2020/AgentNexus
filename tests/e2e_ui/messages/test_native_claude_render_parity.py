@@ -11,7 +11,7 @@ native forwarder has historically regressed on.
 
 The LLM calls are served by the in-process mock LLM server rather than a real
 Anthropic endpoint. Before each test run a mock ``anthropic`` provider config is
-written to ``~/.omnigent/config.yaml`` (see ``native_claude_mock_session`` in
+written to ``~/.agentnexus/config.yaml`` (see ``native_claude_mock_session`` in
 ``conftest.py``), redirecting the runner's ``ANTHROPIC_BASE_URL`` to the mock
 server. Each tested turn installs its expected token as the fallback response,
 so Claude's private background requests cannot drain later turns from a queue.
@@ -272,7 +272,7 @@ def _pane_text(base_url: str, session_id: str) -> str:
     :returns: The pane's visible text, or ``""`` before the terminal has
         been advertised (or if the capture fails).
     """
-    from omnigent.claude_native_bridge import BRIDGE_ID_LABEL_KEY, bridge_dir_for_bridge_id
+    from agentnexus.claude_native_bridge import BRIDGE_ID_LABEL_KEY, bridge_dir_for_bridge_id
 
     session = httpx.get(f"{base_url}/v1/sessions/{session_id}", timeout=10.0).json()
     labels = session.get("labels") or {}

@@ -19,14 +19,14 @@ from typing import Any
 import pytest
 import yaml
 
-from omnigent.errors import OmnigentError
-from omnigent.spec.parser import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.spec.parser import (
     _ConfigYamlLoader,
     _parse_condition,
     _parse_guardrails,
     parse,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     DEFAULT_ASK_TIMEOUT,
     FunctionPolicySpec,
 )
@@ -64,7 +64,7 @@ def test_parse_guardrails_empty_dict_returns_empty_spec() -> None:
 
 def test_parse_guardrails_rejects_non_mapping() -> None:
     """`guardrails: [...]` or other non-dict → clear error."""
-    with pytest.raises(OmnigentError, match=r"guardrails: must be a mapping"):
+    with pytest.raises(AgentNexusError, match=r"guardrails: must be a mapping"):
         _parse_guardrails([1, 2, 3])  # type: ignore[arg-type]
 
 
@@ -83,19 +83,19 @@ def test_parse_guardrails_ask_timeout_zero_rejected() -> None:
     on the result, the §13 rejection was removed — that would
     let broken configs reach runtime.
     """
-    with pytest.raises(OmnigentError, match=r"ask_timeout must be > 0"):
+    with pytest.raises(AgentNexusError, match=r"ask_timeout must be > 0"):
         _parse_guardrails({"ask_timeout": 0})
 
 
 def test_parse_guardrails_ask_timeout_negative_rejected() -> None:
     """Negative ask_timeout → same §13 rejection."""
-    with pytest.raises(OmnigentError, match=r"ask_timeout must be > 0"):
+    with pytest.raises(AgentNexusError, match=r"ask_timeout must be > 0"):
         _parse_guardrails({"ask_timeout": -5})
 
 
 def test_parse_guardrails_ask_timeout_non_integer_rejected() -> None:
     """Non-integer ask_timeout → loud error (no silent coercion)."""
-    with pytest.raises(OmnigentError, match=r"ask_timeout must be an integer"):
+    with pytest.raises(AgentNexusError, match=r"ask_timeout must be an integer"):
         _parse_guardrails({"ask_timeout": "soon"})
 
 
@@ -150,13 +150,13 @@ def test_parse_labels_empty_dict_rejected() -> None:
     An empty dict declaring neither `initial` nor `values`
     is almost always an unfinished edit.
     """
-    with pytest.raises(OmnigentError, match=r"empty dict"):
+    with pytest.raises(AgentNexusError, match=r"empty dict"):
         _parse_guardrails(_yaml("labels: {integrity: {}}"))
 
 
 def test_parse_labels_initial_not_in_values_rejected() -> None:
     """`initial: "5"` with `values: ["1", "2"]` → fail at load."""
-    with pytest.raises(OmnigentError, match=r"initial.*not in declared .values."):
+    with pytest.raises(AgentNexusError, match=r"initial.*not in declared .values."):
         _parse_guardrails(
             _yaml("""
 labels:
@@ -169,7 +169,7 @@ labels:
 
 def test_parse_labels_values_non_list_rejected() -> None:
     """`values: 1` → clear error (must be a list)."""
-    with pytest.raises(OmnigentError, match=r"values. must be a list"):
+    with pytest.raises(AgentNexusError, match=r"values. must be a list"):
         _parse_guardrails(
             _yaml("""
 labels:
@@ -252,7 +252,7 @@ policies:
 
 def test_parse_function_policy_missing_function_rejected() -> None:
     """Function policy without `function:` field → loud error."""
-    with pytest.raises(OmnigentError, match=r"function. policies require"):
+    with pytest.raises(AgentNexusError, match=r"function. policies require"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -265,7 +265,7 @@ policies:
 
 def test_parse_function_policy_dict_missing_path_rejected() -> None:
     """`function: {arguments: {...}}` (no path) → loud error."""
-    with pytest.raises(OmnigentError, match=r"function.path. must be a"):
+    with pytest.raises(AgentNexusError, match=r"function.path. must be a"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -280,7 +280,7 @@ policies:
 
 def test_parse_function_policy_arguments_non_dict_rejected() -> None:
     """`function.arguments: [1, 2]` → loud error."""
-    with pytest.raises(OmnigentError, match=r"function.arguments. must be a mapping"):
+    with pytest.raises(AgentNexusError, match=r"function.arguments. must be a mapping"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -331,7 +331,7 @@ policies:
 
 def test_parse_policy_unknown_type_rejected() -> None:
     """`type: weird` → clear error listing the accepted value."""
-    with pytest.raises(OmnigentError, match=r"must be 'function'"):
+    with pytest.raises(AgentNexusError, match=r"must be 'function'"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -346,7 +346,7 @@ def test_parse_policy_missing_type_rejected() -> None:
     """Every policy must declare `type:` — the dispatcher
     uses it to pick the concrete `PolicySpec` subclass. A
     missing type is an unfinished edit, not a default."""
-    with pytest.raises(OmnigentError, match=r"missing required field .type"):
+    with pytest.raises(AgentNexusError, match=r"missing required field .type"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -386,7 +386,7 @@ def test_parse_per_policy_ask_timeout_zero_rejected() -> None:
     spec-level: the zero-is-ambiguous rule applies at both
     layers. If only the spec-level check existed, authors
     could smuggle a broken `0` through a per-policy override."""
-    with pytest.raises(OmnigentError, match=r"ask_timeout. must be > 0"):
+    with pytest.raises(AgentNexusError, match=r"ask_timeout. must be > 0"):
         _parse_guardrails(
             _yaml("""
 policies:
@@ -521,7 +521,7 @@ def test_parse_condition_empty_dict_returns_none() -> None:
     evaluation takes the same always-match short-circuit.
     Regression pin for the spec-load path: an author writing
     ``condition: {}`` in YAML must not be rejected — earlier
-    revisions raised :class:`OmnigentError` here, breaking
+    revisions raised :class:`AgentNexusError` here, breaking
     specs like ``examples/secure_research_agent.yaml``.
     """
     assert _parse_condition({}, policy_name="p") is None
@@ -551,5 +551,5 @@ def test_parse_condition_non_mapping_rejected() -> None:
     """`condition: [foo, bar]` → loud rejection. Only a dict
     makes sense for a label-gate (key = label name, value =
     expected value or whitelist)."""
-    with pytest.raises(OmnigentError, match=r"must be a mapping"):
+    with pytest.raises(AgentNexusError, match=r"must be a mapping"):
         _parse_condition(["integrity", "0"], policy_name="p")  # type: ignore[arg-type]

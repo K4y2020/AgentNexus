@@ -71,7 +71,7 @@ def test_spark_source_filters_repository_and_pull_requests() -> None:
         "title": "Android login fails",
         "created_at": "2026-08-01T00:00:00Z",
         "state": "open",
-        "repo": "omnigent-ai/omnigent",
+        "repo": "agentnexus-ai/omnigent",
         "raw_json": json.dumps({"html_url": "https://github.com/issues/42"}),
     }
 
@@ -122,7 +122,7 @@ def test_spark_source_filters_repository_and_pull_requests() -> None:
             assert table == "main.team.issues"
             return Frame()
 
-    source = SparkIssueSource(Spark(), "main.team.issues", "omnigent-ai/omnigent")
+    source = SparkIssueSource(Spark(), "main.team.issues", "agentnexus-ai/omnigent")
     issues = source.load_open_issues()
 
     assert [issue.number for issue in issues] == [42]

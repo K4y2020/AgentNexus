@@ -10,9 +10,9 @@ from typing import Any
 import click
 import pytest
 
-import omnigent.onboarding.sandboxes.islo as islo_mod
-from omnigent.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE, render_host_config_write_command
-from omnigent.onboarding.sandboxes.islo import (
+import agentnexus.onboarding.sandboxes.islo as islo_mod
+from agentnexus.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE, render_host_config_write_command
+from agentnexus.onboarding.sandboxes.islo import (
     API_KEY_ENV_VAR,
     HOST_IMAGE_ENV_VAR,
     SANDBOX_ENV_PASSTHROUGH_ENV_VAR,
@@ -410,7 +410,7 @@ def test_prepare_reports_missing_optional_sdk(monkeypatch: pytest.MonkeyPatch) -
         lambda: (_ for _ in ()).throw(click.ClickException("install omnigent[islo]")),
     )
 
-    with pytest.raises(click.ClickException, match=r"omnigent\[islo\]"):
+    with pytest.raises(click.ClickException, match=r"agentnexus\[islo\]"):
         IsloSandboxLauncher().prepare()
 
 
@@ -421,7 +421,7 @@ def test_provision_builds_islo_create_payload(monkeypatch: pytest.MonkeyPatch) -
     """
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("GIT_TOKEN", "ghp-test")
-    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "omnigent-fixed")
+    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "agentnexus-fixed")
     fake = _FakeIsloAPI()
     launcher = IsloSandboxLauncher(
         image="docker.io/me/omnigent-host:latest",
@@ -438,10 +438,10 @@ def test_provision_builds_islo_create_payload(monkeypatch: pytest.MonkeyPatch) -
 
     sandbox_id = launcher.provision("Managed Host")
 
-    assert sandbox_id == "omnigent-fixed"
+    assert sandbox_id == "agentnexus-fixed"
     assert fake.create_payloads == [
         {
-            "name": "omnigent-fixed",
+            "name": "agentnexus-fixed",
             "image": "docker.io/me/omnigent-host:latest",
             "vcpus": 4,
             "memory_mb": 8192,
@@ -464,7 +464,7 @@ def test_provision_uses_image_and_env_var_fallbacks(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv(HOST_IMAGE_ENV_VAR, "docker.io/env/host:1")
     monkeypatch.setenv(SANDBOX_ENV_PASSTHROUGH_ENV_VAR, "OPENAI_API_KEY")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "omnigent-env")
+    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "agentnexus-env")
     fake = _FakeIsloAPI()
     launcher = IsloSandboxLauncher()
     monkeypatch.setattr(launcher, "_islo", lambda: fake)
@@ -491,7 +491,7 @@ def test_provision_uses_image_and_env_var_fallbacks(monkeypatch: pytest.MonkeyPa
 
 def test_provision_can_disable_idle_pause_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
     """``None`` leaves lifecycle policy to the operator."""
-    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "omnigent-manual")
+    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "agentnexus-manual")
     fake = _FakeIsloAPI()
     launcher = IsloSandboxLauncher(idle_pause_after_s=None)
     monkeypatch.setattr(launcher, "_islo", lambda: fake)
@@ -526,7 +526,7 @@ def test_provision_clears_seeded_helper_when_user_injects_claude_cred(
     which share ``provision``).
     """
     monkeypatch.setenv(cred_var, "secret-value")
-    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "omnigent-byo")
+    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "agentnexus-byo")
     fake = _FakeIsloAPI()
     launcher = IsloSandboxLauncher(env=[cred_var])
     monkeypatch.setattr(launcher, "_islo", lambda: fake)
@@ -535,7 +535,7 @@ def test_provision_clears_seeded_helper_when_user_injects_claude_cred(
 
     strip_calls = [call for call in fake.exec_calls if "apiKeyHelper" in call.command[-1]]
     assert len(strip_calls) == 1
-    assert strip_calls[0].sandbox_id == "omnigent-byo"
+    assert strip_calls[0].sandbox_id == "agentnexus-byo"
     assert strip_calls[0].command[:2] == ["bash", "-lc"]
 
 
@@ -544,7 +544,7 @@ def test_provision_keeps_seeded_helper_without_user_claude_cred(
 ) -> None:
     """Gateway users (Option A) inject no Claude credential, so the seeded helper stays."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "omnigent-gw")
+    monkeypatch.setattr(islo_mod, "_new_sandbox_name", lambda label: "agentnexus-gw")
     fake = _FakeIsloAPI()
     launcher = IsloSandboxLauncher(env=["OPENAI_API_KEY"])
     monkeypatch.setattr(launcher, "_islo", lambda: fake)
@@ -645,7 +645,7 @@ def test_start_host_stops_preserved_daemon_before_launch(monkeypatch: pytest.Mon
     commands = [call.command[-1] for call in fake.exec_calls]
     assert render_host_config_write_command(host_config) in commands
     cleanup_index = next(i for i, cmd in enumerate(commands) if "preserved omnigent host" in cmd)
-    launch_index = next(i for i, cmd in enumerate(commands) if "OMNIGENT_HOST_TOKEN" in cmd)
+    launch_index = next(i for i, cmd in enumerate(commands) if "AGENTNEXUS_HOST_TOKEN" in cmd)
     assert cleanup_index < launch_index
     assert "tok-new" in commands[launch_index]
 

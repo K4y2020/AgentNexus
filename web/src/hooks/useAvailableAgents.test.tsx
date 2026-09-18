@@ -576,7 +576,7 @@ describe("useAvailableAgents", () => {
 
   it("lets a newer upload supersede a same-named user-registered template (builtin: false)", async () => {
     // The regression this guards: a user registers agent A as a template
-    // (e.g. `omnigent server --agent`, builtin: false), then `omnigent run`s
+    // (e.g. `agentnexus server --agent`, builtin: false), then `agentnexus run`s
     // a NEWER agent A whose session-scoped row has a distinct agent_id. The
     // picker must bind the newest (the upload), not the stale template.
     routeFetch({
@@ -602,7 +602,7 @@ describe("useAvailableAgents", () => {
           // A session that bound the template directly — dropped by id (the
           // template already represents it as a candidate).
           { id: "conv_a", agent_id: "ag_template", agent_name: "agent-a", created_at: 250 },
-          // The newer `omnigent run` upload: distinct agent_id, same name,
+          // The newer `agentnexus run` upload: distinct agent_id, same name,
           // created AFTER the template — must win.
           { id: "conv_b", agent_id: "ag_upload_v2", agent_name: "agent-a", created_at: 300 },
         ],

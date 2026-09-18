@@ -10,8 +10,8 @@ import httpx
 import respx
 from click.testing import CliRunner
 
-from omnigent.cli import cli
-from omnigent.version import VERSION
+from agentnexus.cli import cli
+from agentnexus.version import VERSION
 
 _BASE = "http://localhost:6767"
 
@@ -27,7 +27,7 @@ _INFO = {
 
 def _patch_server(base_url: str | None) -> Any:
     """Patch server resolution so the CLI targets *base_url* without spawning one."""
-    return patch("omnigent.cli._resolve_attach_server", return_value=base_url)
+    return patch("agentnexus.cli._resolve_attach_server", return_value=base_url)
 
 
 @respx.mock

@@ -1,6 +1,6 @@
 // Regression tests for the UI-before-server pin-migration data loss.
 //
-// Pins moved from localStorage to a server-side `omnigent.pinned` label. The
+// Pins moved from localStorage to a server-side `agentnexus.pinned` label. The
 // one-time migration must NOT run against a pre-upgrade server that ignores
 // the `?pinned=true` filter — doing so PATCHes pins the old server can't
 // per-user-scope AND clears the legacy key, so after the server upgrade every
@@ -23,7 +23,7 @@ const { pinnedRef, filterHonoredRef, setPinnedSpy } = vi.hoisted(() => ({
   // Resolves with a minimal confirmed row so a successful migration write
   // clears the legacy id.
   setPinnedSpy: vi.fn((id: string) =>
-    Promise.resolve({ id, object: "conversation", labels: { "omnigent.pinned": "1" } }),
+    Promise.resolve({ id, object: "conversation", labels: { "agentnexus.pinned": "1" } }),
   ),
 }));
 

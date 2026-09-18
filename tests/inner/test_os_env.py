@@ -14,8 +14,8 @@ from pathlib import Path
 import psutil
 import pytest
 
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.os_env import (
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.os_env import (
     _child_shell_env,
     _project_root,
     _read_impl,
@@ -23,10 +23,10 @@ from omnigent.inner.os_env import (
     build_helper_env,
     create_os_environment,
 )
-from omnigent.inner.sandbox import SandboxPolicy
-from omnigent.runner.identity import (
-    OMNIGENT_SESSION_ENV_VALUE,
-    OMNIGENT_SESSION_ENV_VAR,
+from agentnexus.inner.sandbox import SandboxPolicy
+from agentnexus.runner.identity import (
+    AGENTNEXUS_SESSION_ENV_VALUE,
+    AGENTNEXUS_SESSION_ENV_VAR,
     RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR,
 )
 
@@ -112,19 +112,19 @@ def test_build_helper_env_active_passes_omnigent_session_marker() -> None:
 
     The marker (set once on the runner process) must reach an agent's
     sandboxed shell so code running there can detect it is inside an
-    Omnigent session, the way ``CLAUDE_CODE`` / ``CODEX`` are visible in
+    AgentNexus session, the way ``CLAUDE_CODE`` / ``CODEX`` are visible in
     their own agents' shells.
 
     :returns: None.
     """
     parent = {
         "PATH": "/usr/bin",
-        OMNIGENT_SESSION_ENV_VAR: OMNIGENT_SESSION_ENV_VALUE,
+        AGENTNEXUS_SESSION_ENV_VAR: AGENTNEXUS_SESSION_ENV_VALUE,
     }
 
     env = build_helper_env(parent, _active_policy())
 
-    assert env[OMNIGENT_SESSION_ENV_VAR] == OMNIGENT_SESSION_ENV_VALUE
+    assert env[AGENTNEXUS_SESSION_ENV_VAR] == AGENTNEXUS_SESSION_ENV_VALUE
 
 
 def test_build_helper_env_appends_tool_paths(
@@ -142,7 +142,7 @@ def test_build_helper_env_appends_tool_paths(
     """
     parent = {"PATH": os.pathsep.join(["/usr/bin", "/opt/tools"])}
     monkeypatch.setattr(
-        "omnigent.inner.os_env._windows_tool_paths",
+        "agentnexus.inner.os_env._windows_tool_paths",
         lambda: ["C:\\tools\\uv", "C:\\tools\\ffmpeg", "/opt/tools"],
     )
     env = build_helper_env(parent, _inactive_policy())
@@ -394,7 +394,7 @@ def test_read_impl_nul_byte_file_classified_binary(tmp_path: Path) -> None:
 def test_child_shell_env_strips_project_root_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """omnigent's project root is removed; a project entry is preserved.
+    """agentnexus's project root is removed; a project entry is preserved.
 
     The helper prepends its project root to ``PYTHONPATH`` so it can import
     omnigent at startup. Commands the agent runs must not inherit that entry,

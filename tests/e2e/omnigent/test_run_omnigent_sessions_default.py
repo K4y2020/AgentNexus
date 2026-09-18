@@ -17,7 +17,7 @@ import pexpect
 import pytest
 
 from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
-from tests.e2e.omnigent._pexpect_harness import ensure_repl_test_theme_env, submit_prompt
+from tests.e2e.agentnexus._pexpect_harness import ensure_repl_test_theme_env, submit_prompt
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _MODEL = "mock-sessions-default-model"
@@ -47,7 +47,7 @@ def _spawn_repl(
         sys.executable,
         [
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

@@ -8,14 +8,14 @@
 # Memory is keyed by the agent id, so all of Remy's runs share one memory bank.
 #
 # Setup:
-#   pip install 'omnigent[hindsight]'
+#   pip install 'agentnexus[hindsight]'
 #   export HINDSIGHT_API_KEY=hsk_...        # https://ui.hindsight.vectorize.io
 #
 # Usage:
-#   omnigent run examples/remy
+#   agentnexus run examples/remy
 #
 # Remy runs on the Claude Agent SDK harness, so configure a Claude provider
-# first (e.g. `omnigent setup`, or export ANTHROPIC_API_KEY).
+# first (e.g. `agentnexus setup`, or export ANTHROPIC_API_KEY).
 
 spec_version: 1
 name: remy
@@ -25,7 +25,7 @@ description: >-
   memory — powered by Hindsight.
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 

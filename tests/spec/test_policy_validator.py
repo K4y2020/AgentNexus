@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.parser import parse
-from omnigent.spec.validator import validate
+from agentnexus.spec.parser import parse
+from agentnexus.spec.validator import validate
 
 
 @pytest.fixture()

@@ -22,12 +22,12 @@ import inspect
 from typing import Any
 
 import pytest
-from omnigent_client._sessions import SessionsNamespace
-from omnigent_ui_sdk.terminal._host import TerminalHost
+from agentnexus_client._sessions import SessionsNamespace
+from agentnexus_ui_sdk.terminal._host import TerminalHost
 
-from omnigent.repl import _repl
-from omnigent.repl._repl import _apply_child_session_event, _refresh_subagent_tree
-from omnigent.server.schemas import (
+from agentnexus.repl import _repl
+from agentnexus.repl._repl import _apply_child_session_event, _refresh_subagent_tree
+from agentnexus.server.schemas import (
     SessionChildSessionUpdatedEvent,
     SessionCreatedEvent,
 )

@@ -13,34 +13,34 @@ from pathlib import Path
 
 import pytest
 
-import omnigent.claude_native_state as claude_state
-import omnigent.codex_native_state as codex_state
-import omnigent.opencode_native_state as opencode_state
+import agentnexus.claude_native_state as claude_state
+import agentnexus.codex_native_state as codex_state
+import agentnexus.opencode_native_state as opencode_state
 
 _HEX = "12dcd7df501e40e9a506a5b0058cbafc"
 
 _MODULES = [
-    pytest.param(claude_state, "OMNIGENT_CLAUDE_NATIVE_STATE_DIR", id="claude"),
-    pytest.param(codex_state, "OMNIGENT_CODEX_NATIVE_STATE_DIR", id="codex"),
-    pytest.param(opencode_state, "OMNIGENT_OPENCODE_NATIVE_STATE_DIR", id="opencode"),
+    pytest.param(claude_state, "AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR", id="claude"),
+    pytest.param(codex_state, "AGENTNEXUS_CODEX_NATIVE_STATE_DIR", id="codex"),
+    pytest.param(opencode_state, "AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR", id="opencode"),
 ]
 
 _STATE_ROOTS = [
     pytest.param(
         claude_state._claude_native_state_root,
-        "OMNIGENT_CLAUDE_NATIVE_STATE_DIR",
+        "AGENTNEXUS_CLAUDE_NATIVE_STATE_DIR",
         "claude-native",
         id="claude",
     ),
     pytest.param(
         codex_state._codex_native_state_root,
-        "OMNIGENT_CODEX_NATIVE_STATE_DIR",
+        "AGENTNEXUS_CODEX_NATIVE_STATE_DIR",
         "codex-native",
         id="codex",
     ),
     pytest.param(
         opencode_state._opencode_native_state_root,
-        "OMNIGENT_OPENCODE_NATIVE_STATE_DIR",
+        "AGENTNEXUS_OPENCODE_NATIVE_STATE_DIR",
         "opencode-native",
         id="opencode",
     ),
@@ -56,7 +56,7 @@ def test_state_root_honors_data_dir(
     resolver, env_var: str, subdir: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "data"))
 
     assert resolver() == tmp_path / "data" / subdir
 
@@ -65,7 +65,7 @@ def test_state_root_honors_data_dir(
 def test_specific_state_root_override_wins(
     resolver, env_var: str, _subdir: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv(env_var, str(tmp_path / "specific"))
 
     assert resolver() == tmp_path / "specific"

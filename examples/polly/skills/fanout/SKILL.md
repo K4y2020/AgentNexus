@@ -21,7 +21,7 @@ dependency).
    work only inside `.worktrees/<task_id>`. The worker drives the task to green
    and opens its OWN PR for the branch. Every commit the worker authors must
    end with a blank line followed by the exact co-sign trailer as its final
-   line — `Co-authored-by: omnigent <noreply@omnigent.ai>`.
+   line — `Co-authored-by: agentnexus <noreply@agentnexus.ai>`.
    For a long-running `claude_code` or `codex` implementation with an explicit
    completion condition, the `input` may instead be one standalone
    `/goal <condition>` command containing that same task, worktree, acceptance

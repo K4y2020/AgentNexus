@@ -7,8 +7,8 @@ import ssl
 import certifi
 import pytest
 
-import omnigent.tls as tls_module
-from omnigent.tls import client_ssl_context, resolve_ca_file
+import agentnexus.tls as tls_module
+from agentnexus.tls import client_ssl_context, resolve_ca_file
 
 
 def _verify_paths(cafile: str | None, openssl_cafile: str | None) -> ssl.DefaultVerifyPaths:

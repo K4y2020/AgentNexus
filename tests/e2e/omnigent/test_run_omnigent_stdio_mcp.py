@@ -2,7 +2,7 @@
 
 Proves the full path landed by the stdio-MCP work:
 
-    YAML  →  omnigent Omnigent translator
+    YAML  →  omnigent AgentNexus translator
           (emits ``MCPServerConfig(transport=\"stdio\", ...)``)
           →  ``ToolManager.start()`` (spawns the MCP subprocess
           via ``mcp.client.stdio.stdio_client`` under the shared
@@ -10,7 +10,7 @@ Proves the full path landed by the stdio-MCP work:
           →  openai-agents harness sees the MCP tool
           →  LLM (OpenAI ``gpt-4o-mini``) calls the tool
           →  ``echo: <probe>`` string round-trips back through
-          stdio, through the harness, through the Omnigent mode reply
+          stdio, through the harness, through the AgentNexus mode reply
           render, into this test's stdout.
 
 No mocks in the whole chain. The MCP server is
@@ -20,7 +20,7 @@ real ``gpt-4o-mini`` endpoint reached via ``$OPENAI_API_KEY``.
 
 **What breaks if this fails:**
 
-- The Omnigent translator silently drops the
+- The AgentNexus translator silently drops the
   :class:`~omnigent.inner.tools.MCPTool`: the spec loads, but
   the omnigent runtime never registers the tool, the LLM
   never calls it, and the ``echo: <probe>`` fingerprint is
@@ -72,12 +72,12 @@ _PROBE = "ap-stdio-mcp-probe-7431"
 # should either pass that back verbatim or paraphrase around it.
 # Either way, ``echo: <probe>`` proves the tool body ran inside
 # the MCP subprocess and its output flowed back through the
-# full Omnigent mode stack.
+# full AgentNexus mode stack.
 _SUCCESS_MARKER = f"echo: {_PROBE}"
 
 # 3 minutes leaves headroom for cold-start imports, subprocess
 # spawn, MCP handshake, one LLM round-trip, and shutdown. The
-# existing Omnigent mode example-agent tests use 240s; shorter here
+# existing AgentNexus mode example-agent tests use 240s; shorter here
 # because the MCP is trivial and there are no skill-loading or
 # sub-agent phases.
 _TIMEOUT_SEC = 180
@@ -131,7 +131,7 @@ def _write_stdio_mcp_yaml(tmp_path: Path, repo_root: Path) -> Path:
     python). A test-generated YAML sidesteps both.
 
     :param tmp_path: Per-test temporary directory.
-    :param repo_root: Omnigent repo root — used to resolve the
+    :param repo_root: AgentNexus repo root — used to resolve the
         absolute path to the echo MCP fixture.
     :returns: Path to the generated YAML.
     """
@@ -213,7 +213,7 @@ def test_omnigent_stdio_mcp_tool_roundtrip(tmp_path: Path) -> None:
     # ``OPENAI_BASE_URL`` earlier in their shell would see the
     # test mysteriously route to a Databricks gateway.
     env.pop("OPENAI_BASE_URL", None)
-    # Ditto for Databricks env vars the Omnigent mode shim might
+    # Ditto for Databricks env vars the AgentNexus mode shim might
     # otherwise pick up and use to route credentials.
     for stale in (
         "DATABRICKS_CONFIG_PROFILE",
@@ -225,7 +225,7 @@ def test_omnigent_stdio_mcp_tool_roundtrip(tmp_path: Path) -> None:
         env.pop(stale, None)
 
     # Explicit tool-name hint in the prompt so the LLM doesn't
-    # mistake the ask for one of Omnigent' auto-registered
+    # mistake the ask for one of AgentNexus' auto-registered
     # builtins (``check_task``, ``sys_cancel_task``, ...). gpt-4o-mini
     # was observed routing to ``check_task`` when the prompt said
     # only "echo X" — it heard "task-id X" instead of "text X".
@@ -233,7 +233,7 @@ def test_omnigent_stdio_mcp_tool_roundtrip(tmp_path: Path) -> None:
     args = [
         str(python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -256,8 +256,8 @@ def test_omnigent_stdio_mcp_tool_roundtrip(tmp_path: Path) -> None:
 
     # Harness-side failure modes that would otherwise paper over
     # as a successful exit but with an empty/error reply. The
-    # Omnigent path has historically swallowed a few of these
-    # (see designs/OMNIGENT_INTEGRATION.md gap log), so assert
+    # AgentNexus path has historically swallowed a few of these
+    # (see designs/AGENTNEXUS_INTEGRATION.md gap log), so assert
     # up front.
     forbidden = (
         # 401 from OpenAI means the key in /tmp/mykey was

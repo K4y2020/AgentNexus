@@ -20,15 +20,15 @@ from pathlib import Path
 
 import httpx
 
-from omnigent.harness_capabilities import AuthModel, IntegrationMode
-from omnigent.harness_plugins import harness_capabilities
-from omnigent.host.daemon_launch import (
+from agentnexus.harness_capabilities import AuthModel, IntegrationMode
+from agentnexus.harness_plugins import harness_capabilities
+from agentnexus.host.daemon_launch import (
     launch_or_reuse_daemon_runner,
     wait_for_host_online,
     wait_for_runner_online,
 )
-from omnigent.native_terminal import bind_session_runner
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.native_terminal import bind_session_runner
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests._helpers.compat import apply_runner_env, compat_runner_cwd, runner_executable
 from tests._helpers.live_server import find_free_port
 from tests.e2e._harness_probes import cli_unavailable_reason
@@ -86,7 +86,7 @@ _INTERRUPTED_EVENT = "session.interrupted"
 _POLICY_DENIED_EVENT = "response.policy_denied"
 _ELICITATION_EVENT = "response.elicitation_request"
 
-_CEL_POLICY_HANDLER = "omnigent.policies.builtins.cel.cel_policy"
+_CEL_POLICY_HANDLER = "agentnexus.policies.builtins.cel.cel_policy"
 _NATIVE_POLICY_REASON = "bench-native-tool-policy"
 _TOOL_TURN_TIMEOUT_S = 60.0
 # policy_denied may arrive after output_item.done.
@@ -109,7 +109,7 @@ class NativeVendor:
     :param terminal_name: The native terminal to ensure, by convention the
         vendor CLI name (``"<harness>" minus "-native"``, e.g. ``"codex"``).
     :param own_auth: ``True`` when the vendor logs in itself (auth is not
-        ``OMNIGENT_CREDENTIAL``), so the bench cannot provision it — runnable
+        ``AGENTNEXUS_CREDENTIAL``), so the bench cannot provision it — runnable
         only on a host where the vendor CLI is already logged in.
     :param lazy_chat: ``True`` when the vendor's ``external_session_id`` (its
         chat/thread id) is created by the FIRST message rather than at TUI
@@ -140,7 +140,7 @@ class NativeVendor:
 # These vendors create external_session_id only after the first message.
 _LAZY_CHAT_HARNESSES: frozenset[str] = frozenset({"cursor-native"})
 
-_NATIVE_OMNIGENT_MCP_HARNESSES = frozenset(
+_NATIVE_AGENTNEXUS_MCP_HARNESSES = frozenset(
     {
         "antigravity-native",
         "claude-native",
@@ -184,7 +184,7 @@ def native_vendor(harness: str) -> NativeVendor | None:
         harness=harness,
         agent_name=f"{harness}-ui",
         terminal_name=harness.removesuffix("-native"),
-        own_auth=caps.auth is not AuthModel.OMNIGENT_CREDENTIAL,
+        own_auth=caps.auth is not AuthModel.AGENTNEXUS_CREDENTIAL,
         lazy_chat=harness in _LAZY_CHAT_HARNESSES,
         tool_name=tool_name,
         tool_prompt=tool_prompt,
@@ -303,18 +303,18 @@ class NativeTuiDriver:
         )
         base_env = {
             **self._resolved_env.base_env,
-            "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token,
         }
-        # Omnigent-credential natives resolve their provider from global config.
+        # AgentNexus-credential natives resolve their provider from global config.
         if not self._vendor.own_auth:
-            base_env["OMNIGENT_CONFIG_HOME"] = str(self._write_provider_config())
+            base_env["AGENTNEXUS_CONFIG_HOME"] = str(self._write_provider_config())
         self._proc = spawn_omnigent_server(self._tmp, port, base_env, binding_token)
         self._wait_health()
         self._daemon = self._spawn_host_daemon(base_env)
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=300.0,
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         )
         host_id = self._wait_host_online()
         agent_id = self._agent_id(self._vendor.agent_name)
@@ -331,7 +331,7 @@ class NativeTuiDriver:
 
     def _write_provider_config(self) -> Path:
         """Write config routing the native vendor through the resolved profile."""
-        config_home = self._tmp / "omnigent-config"
+        config_home = self._tmp / "agentnexus-config"
         config_home.mkdir(exist_ok=True)
         profile = self._resolved_env.db_profile if self._resolved_env is not None else None
         body = f"auth:\n  type: databricks\n  profile: {profile}\n" if profile else "auth: {}\n"
@@ -385,7 +385,7 @@ class NativeTuiDriver:
             async with httpx.AsyncClient(
                 base_url=self._base_url,
                 timeout=httpx.Timeout(30.0, read=120.0),
-                headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+                headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
             ) as ac:
                 await wait_for_host_online(ac, host_id, timeout_s=_HOST_ONLINE_TIMEOUT_S)
                 runner_id = await launch_or_reuse_daemon_runner(
@@ -401,7 +401,7 @@ class NativeTuiDriver:
         # Keep the real HOME so the vendor login remains available.
         log = (self._tmp / "host-daemon.log").open("wb")
         return subprocess.Popen(
-            [runner_executable(), "-m", "omnigent.host._daemon_entry", "--server", self._base_url],
+            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", self._base_url],
             env=apply_runner_env(base_env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -620,7 +620,7 @@ class NativeTuiDriver:
 
         # Avoid satisfying the second probe from reused-session history.
         token = "deny" if deny else "allow"
-        prompt = self._vendor.tool_prompt.replace("omnigent-bench-ok", f"omnigent-bench-{token}")
+        prompt = self._vendor.tool_prompt.replace("agentnexus-bench-ok", f"agentnexus-bench-{token}")
 
         reader = threading.Thread(target=_read)
         try:
@@ -643,12 +643,12 @@ class NativeTuiDriver:
         return result
 
     def _drive_mcp_tool_turn(self, *, timeout: float = _TOOL_TURN_TIMEOUT_S) -> TurnResult:
-        """Call the read-only Omnigent MCP relay tool for this native harness."""
+        """Call the read-only AgentNexus MCP relay tool for this native harness."""
         assert self._vendor is not None
         result = TurnResult()
-        if self._vendor.harness not in _NATIVE_OMNIGENT_MCP_HARNESSES:
+        if self._vendor.harness not in _NATIVE_AGENTNEXUS_MCP_HARNESSES:
             result.error = (
-                f"{self._vendor.harness!r} has no Omnigent MCP bridge; "
+                f"{self._vendor.harness!r} has no AgentNexus MCP bridge; "
                 "its relayed tools use another native mechanism"
             )
             return result
@@ -767,7 +767,7 @@ class NativeTuiDriver:
             reader.start()
             ready.wait(timeout=10.0)
             prompt = self._vendor.tool_prompt.replace(
-                "omnigent-bench-ok", f"omnigent-bench-{action}"
+                "agentnexus-bench-ok", f"agentnexus-bench-{action}"
             )
             self._post_message(prompt)
             deadline = time.monotonic() + _TOOL_TURN_TIMEOUT_S

@@ -5,7 +5,7 @@
 Production model selection uses explicit operator configuration, provider or
 CLI discovery, and normalized catalog metadata. The count-based hardcode
 baseline is gone. The only source-controlled model aliases are the unavoidable
-Claude and Codex records in `omnigent/model_fallbacks.py`; each carries an owner,
+Claude and Codex records in `agentnexus/model_fallbacks.py`; each carries an owner,
 provenance, and the discovery gap that prevents a live listing.
 
 ## Prevention
@@ -16,7 +16,7 @@ provenance, and the discovery gap that prevents a live listing.
   the full tracked lint surface so any non-owned hardcode fails.
 - Unavoidable static aliases pass only when Python AST analysis proves they are
   confined to complete `StaticModelFallback` records in
-  `omnigent/model_fallbacks.py`, including non-empty owner, provenance, and
+  `agentnexus/model_fallbacks.py`, including non-empty owner, provenance, and
   discovery-gap metadata.
 - There is no count-based escape hatch. New production aliases must either come
   from configuration/discovery or satisfy the central owned-fallback contract.
@@ -67,8 +67,8 @@ pre-commit execution assumes the repository `.venv` has been prepared with
 
 ## Resolver Contract
 
-The first migration building block lives in `omnigent/model_metadata.py` and
-`omnigent/model_resolver.py`:
+The first migration building block lives in `agentnexus/model_metadata.py` and
+`agentnexus/model_resolver.py`:
 
 - Callers request a stable `ModelIntent` instead of a concrete model id.
 - `ModelMetadata` records known capabilities, context window, provider-relative
@@ -163,19 +163,19 @@ The Kiro Web picker now runs `kiro-cli chat --list-models --format json` on the
 bound runner and forwards the CLI's model ids, default, descriptions, context
 windows, and credit rates. The server caches the runner response through the
 same asynchronous picker path as Codex, so provider changes no longer require an
-Omnigent source update and snapshots do not block on the CLI process.
+AgentNexus source update and snapshots do not block on the CLI process.
 
 ## CI Model Configuration
 
 Credentialed automation reads model roles from repository variables instead of
 pinning provider releases in workflow source:
 
-- `OMNIGENT_CI_ANTHROPIC_MODEL`
-- `OMNIGENT_CI_FAST_ANTHROPIC_MODEL`
-- `OMNIGENT_CI_OPENAI_MODEL`
-- `OMNIGENT_CI_E2E_JUDGE_MODEL`
-- `OMNIGENT_CI_E2E_MODEL_POOL_GPT`
-- `OMNIGENT_CI_IMAGE_MODEL`
+- `AGENTNEXUS_CI_ANTHROPIC_MODEL`
+- `AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL`
+- `AGENTNEXUS_CI_OPENAI_MODEL`
+- `AGENTNEXUS_CI_E2E_JUDGE_MODEL`
+- `AGENTNEXUS_CI_E2E_MODEL_POOL_GPT`
+- `AGENTNEXUS_CI_IMAGE_MODEL`
 
 Operators can update those values as provider catalogs change without a code
 release. Workflows deliberately do not carry source-controlled model defaults;
@@ -185,7 +185,7 @@ missing required variables fail or take their existing fail-open path.
 
 Minimal agent YAMLs that declare neither a harness nor a model now resolve the
 Databricks OpenAI-family default from the provider catalog during bundle
-materialization. `--model` and `OMNIGENT_MODEL` remain higher-precedence explicit
+materialization. `--model` and `AGENTNEXUS_MODEL` remain higher-precedence explicit
 choices. If discovery is unavailable, the CLI asks for one of those explicit
 values instead of silently baking a release-specific model into the bundle.
 
@@ -211,7 +211,7 @@ processes from exposing partial JSON.
 
 Cache files record their own schema version, the upstream catalog schema,
 source URL, and fetch time. Corrupt, incompatible, wrong-source, or over-age
-entries are ignored. `OMNIGENT_DISABLE_CATALOG_LOOKUP=1` bypasses in-memory,
+entries are ignored. `AGENTNEXUS_DISABLE_CATALOG_LOOKUP=1` bypasses in-memory,
 disk, and network lookup so tests cannot inherit developer-machine state.
 
 ## Configuration Help Text
@@ -224,12 +224,12 @@ release ids belong in tests or provider-owned documentation.
 ## Static Fallback Ownership
 
 The remaining Claude and Codex aliases live only in
-`omnigent/model_fallbacks.py`. Each fallback records its adapter owner, catalog
+`agentnexus/model_fallbacks.py`. Each fallback records its adapter owner, catalog
 provenance, and the discovery gap that prevents a live listing. `sys_list_models`
 surfaces those fields whenever it returns an unverified static catalog.
 
 ## Kimi Example Default
 
 The Kimi launcher example declares only the harness. With no explicit
-`--model` or session override, Omnigent omits `HARNESS_KIMI_MODEL` and lets the
+`--model` or session override, AgentNexus omits `HARNESS_KIMI_MODEL` and lets the
 Kimi CLI use the default from its own provider configuration.

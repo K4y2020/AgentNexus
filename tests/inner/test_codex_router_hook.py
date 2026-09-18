@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner.hook_scripts import codex_router_hook as hook
-from omnigent.inner.hook_scripts import subagent_router
+from agentnexus.inner.hook_scripts import codex_router_hook as hook
+from agentnexus.inner.hook_scripts import subagent_router
 from tests.inner.conftest import advertise_relay_tools, advertise_router
 
 # Delivered plaintext in hook payloads (measured live); the name survives
@@ -348,8 +348,8 @@ def test_redirect_denies_with_bare_session_create_instruction(
     assert "sys_session_create" in reason
     assert "sys_agent_list" in reason
     assert "mcp__omnigent__" not in reason
-    assert "omnigentsys_session_create" not in reason
-    assert "omnigent" in reason
+    assert "agentnexussys_session_create" not in reason
+    assert "agentnexus" in reason
     assert "sys_session_send" not in reason
     assert "claude-opus-4-8" in reason
     assert "claude-native" in reason

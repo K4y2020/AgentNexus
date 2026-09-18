@@ -15,21 +15,21 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.requests import HTTPConnection
 
-from omnigent.errors import OmnigentError
-from omnigent.runner import create_runner_app
-from omnigent.runner.identity import RUNNER_TUNNEL_TOKEN_HEADER, token_bound_runner_id
-from omnigent.runner.transports.ws_tunnel.frames import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.identity import RUNNER_TUNNEL_TOKEN_HEADER, token_bound_runner_id
+from agentnexus.runner.transports.ws_tunnel.frames import (
     HelloFrame,
     PingFrame,
     RequestFrame,
     decode_frame,
     encode_frame,
 )
-from omnigent.runner.transports.ws_tunnel.registry import TunnelRegistry
-from omnigent.runner.transports.ws_tunnel.serve import dispatch_via_asgi
-from omnigent.runner.transports.ws_tunnel.transport import WSTunnelTransport
-from omnigent.server.auth import RESERVED_USER_LOCAL, AuthProvider
-from omnigent.server.routes.runner_tunnel import create_runner_tunnel_router
+from agentnexus.runner.transports.ws_tunnel.registry import TunnelRegistry
+from agentnexus.runner.transports.ws_tunnel.serve import dispatch_via_asgi
+from agentnexus.runner.transports.ws_tunnel.transport import WSTunnelTransport
+from agentnexus.server.auth import RESERVED_USER_LOCAL, AuthProvider
+from agentnexus.server.routes.runner_tunnel import create_runner_tunnel_router
 from tests.runner.helpers import NullServerClient
 
 pytestmark = pytest.mark.asyncio
@@ -1027,10 +1027,10 @@ def _mint_route_app(
     auth_provider: AuthProvider | None,
     resolve_managed_runner_owner: Callable[[str], str | None] | None,
 ) -> FastAPI:
-    """Tunnel-route app with the ``OmnigentError`` -> HTTP handler installed.
+    """Tunnel-route app with the ``AgentNexusError`` -> HTTP handler installed.
 
     The bare :func:`_tunnel_route_app` omits ``create_app``'s exception
-    handler, so the mint endpoint's ``OmnigentError`` would surface as a
+    handler, so the mint endpoint's ``AgentNexusError`` would surface as a
     raw 500. Install the same mapping here so the tests assert the real
     401 / 400 statuses the endpoint intends.
 
@@ -1043,8 +1043,8 @@ def _mint_route_app(
         resolve_managed_runner_owner=resolve_managed_runner_owner,
     ).app
 
-    @app.exception_handler(OmnigentError)
-    async def _handle(request: Request, exc: OmnigentError) -> JSONResponse:
+    @app.exception_handler(AgentNexusError)
+    async def _handle(request: Request, exc: AgentNexusError) -> JSONResponse:
         """Map the application error to its HTTP status (mirrors create_app)."""
         return JSONResponse(
             status_code=exc.http_status,
@@ -1064,7 +1064,7 @@ async def _post_mint_token(
 
     :param app: The tunnel-route app under test.
     :param runner_id: Path runner id.
-    :param token: Binding token for the ``X-Omnigent-Runner-Tunnel-Token``
+    :param token: Binding token for the ``X-AgentNexus-Runner-Tunnel-Token``
         header, or ``None`` to omit it.
     :returns: The HTTP response.
     """
@@ -1202,8 +1202,8 @@ async def test_ping_loop_restamps_runner_liveness(
 
     :returns: None.
     """
-    import omnigent.server.routes.runner_tunnel as tunnel_mod
-    from omnigent.server import session_live_state
+    import agentnexus.server.routes.runner_tunnel as tunnel_mod
+    from agentnexus.server import session_live_state
 
     monkeypatch.setattr(tunnel_mod, "PING_INTERVAL_S", 0.02)
     # Never trip the ping-timeout path during the test.

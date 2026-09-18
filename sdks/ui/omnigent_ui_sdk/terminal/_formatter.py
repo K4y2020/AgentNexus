@@ -12,7 +12,7 @@ import shlex
 import shutil
 from dataclasses import dataclass
 
-from omnigent_client import (
+from agentnexus_client import (
     AnyBlock,
     CompactionBlock,
     ErrorBlock,
@@ -741,7 +741,7 @@ class RichBlockFormatter:
             hint_line += " · " + " · ".join(rest)
         return Panel(
             Text.from_markup(
-                f"[{self.accent}]Omnigent[/{self.accent}]"
+                f"[{self.accent}]AgentNexus[/{self.accent}]"
                 f"  [{self.muted}]·[/{self.muted}]  [bold]{model}[/bold]\n"
                 f"[{self.muted}]{hint_line}[/{self.muted}]"
             ),
@@ -815,7 +815,7 @@ class RichBlockFormatter:
 
         :param resume_hint: When set, a copy-pasteable shell command
             rendered in dim style below the "Goodbye." line, e.g.
-            ``"omnigent run agent.yaml --resume conv_abc123"``.
+            ``"agentnexus run agent.yaml --resume conv_abc123"``.
             ``None`` (default) omits the hint.
         """
         if resume_hint is None:

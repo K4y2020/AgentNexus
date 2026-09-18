@@ -6,15 +6,15 @@ from collections.abc import Sequence
 
 import pytest
 
-from omnigent.model_catalog import ModelEntry
-from omnigent.model_metadata import (
+from agentnexus.model_catalog import ModelEntry
+from agentnexus.model_metadata import (
     ModelCapability,
     ModelCostTier,
     ModelIntent,
     ModelMetadata,
     ModelWireAPI,
 )
-from omnigent.model_resolver import (
+from agentnexus.model_resolver import (
     ModelCandidate,
     ModelPreferencePolicy,
     ModelResolutionError,

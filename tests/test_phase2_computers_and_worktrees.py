@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.computers.local_host import LocalHostComputerProvider
-from omnigent.entities import Bot
-from omnigent.stores.bot_store.sqlalchemy_store import LeaseConflictError, SqlAlchemyBotStore
+from agentnexus.computers.local_host import LocalHostComputerProvider
+from agentnexus.entities import Bot
+from agentnexus.stores.bot_store.sqlalchemy_store import LeaseConflictError, SqlAlchemyBotStore
 
 
 def init_test_git_repo(repo_dir: Path) -> None:

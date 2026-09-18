@@ -27,7 +27,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from omnigent.client_tools.coding import (
+from agentnexus.client_tools.coding import (
     _TOOL_FNS,
     LSP,
     TOOLS,

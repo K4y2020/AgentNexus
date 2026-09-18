@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from omnigent.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
 from tests.harness_bench.bench import BenchMatrix, run_bench, run_harness
 from tests.harness_bench.driver import SdkInprocDriver
 from tests.harness_bench.manifest import OFFICIAL_PROFILES
@@ -61,7 +61,7 @@ def test_declared_covers_every_p0_dimension(profile: BenchProfile) -> None:
 
 
 def test_streaming_capability_declares_binary_verdict() -> None:
-    from omnigent.harness_plugins import harness_capabilities
+    from agentnexus.harness_plugins import harness_capabilities
     from tests.harness_bench.manifest import _declared_from_capabilities
 
     caps = harness_capabilities()
@@ -78,7 +78,7 @@ def test_streaming_capability_declares_binary_verdict() -> None:
 
 
 def test_remaining_capabilities_map_to_declared_verdicts(monkeypatch: pytest.MonkeyPatch) -> None:
-    from omnigent.harness_capabilities import (
+    from agentnexus.harness_capabilities import (
         AuthModel,
         EffortFamily,
         Elicitation,
@@ -143,7 +143,7 @@ def test_resolve_registered_harness_by_name() -> None:
     ACP_SUBPROCESS harness, so it lands on the SDK-wrap driver family
     (transport "sdk-inproc"), not native-tui.
     """
-    from omnigent.harness_plugins import harness_modules
+    from agentnexus.harness_plugins import harness_modules
 
     if "acp" not in harness_modules():
         pytest.skip("acp harness not registered in this build")
@@ -169,10 +169,10 @@ def test_resolve_entry_point_plugin_and_alias() -> None:
     skip-gates on its install-spec binary. Gated on the plugin being installed
     so a build without it still passes.
     """
-    from omnigent.harness_plugins import harness_aliases
+    from agentnexus.harness_plugins import harness_aliases
 
     if harness_aliases().get("rovo") != "rovo-cli":
-        pytest.skip("omnigent-rovo plugin not installed")
+        pytest.skip("agentnexus-rovo plugin not installed")
     by_alias = resolve_profile("rovo")
     by_name = resolve_profile("rovo-cli")
     assert by_alias.harness == "rovo-cli" == by_name.harness
@@ -192,7 +192,7 @@ def test_registry_profile_happy_path_no_plugin(monkeypatch: pytest.MonkeyPatch) 
     from types import SimpleNamespace
 
     import tests.harness_bench.manifest as man
-    from omnigent.harness_capabilities import AuthModel, IntegrationMode
+    from agentnexus.harness_capabilities import AuthModel, IntegrationMode
 
     class _Spec:
         binary = "fakebin"
@@ -228,7 +228,7 @@ def test_registry_refuses_native_server_mode(monkeypatch: pytest.MonkeyPatch) ->
     from types import SimpleNamespace
 
     import tests.harness_bench.manifest as man
-    from omnigent.harness_capabilities import AuthModel, IntegrationMode
+    from agentnexus.harness_capabilities import AuthModel, IntegrationMode
 
     caps = SimpleNamespace(
         integration_mode=IntegrationMode.NATIVE_SERVER,
@@ -425,7 +425,7 @@ async def test_run_harness_emits_structured_events_and_linesink_adapts() -> None
     assert any(isinstance(e, ProbeStarted) for e in sink.events)
     finished = [e for e in sink.events if isinstance(e, ProbeFinished)]
     assert {e.probe for e in finished} >= {"basic_turn", "streaming"}
-    mcp = next(e for e in finished if e.probe == "omnigent_mcp")
+    mcp = next(e for e in finished if e.probe == "agentnexus_mcp")
     assert mcp.verdict is Verdict.NOT_APPLICABLE
 
     lines: list[str] = []
@@ -1051,7 +1051,7 @@ def test_live_is_still_refused_when_a_selected_harness_needs_the_gateway(
 ) -> None:
     """The waiver is per-run, not blanket.
 
-    claude-native takes an Omnigent-supplied credential, so a selection that
+    claude-native takes an AgentNexus-supplied credential, so a selection that
     names it — alone, or mixed with own_auth natives — still has to resolve the
     gateway. Same for the SDK family, and for an own_auth native forced onto
     full-server, where turns route through the server again.
@@ -1089,7 +1089,7 @@ def test_native_profile_gates_on_the_binary_omnigent_launches() -> None:
     when the installed binary is `agy`), sending users to reinstall a tool
     they already have.
     """
-    from omnigent.onboarding.harness_install import required_cli_for_harness
+    from agentnexus.onboarding.harness_install import required_cli_for_harness
     from tests.harness_bench.manifest import _native_tui_harnesses
 
     for harness in _native_tui_harnesses():

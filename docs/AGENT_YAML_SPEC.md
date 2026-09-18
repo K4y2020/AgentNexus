@@ -1,9 +1,9 @@
 # Agent YAML spec
 
-Omnigent can run an agent from a single YAML file:
+AgentNexus can run an agent from a single YAML file:
 
 ```bash
-omnigent run path/to/agent.yaml
+agentnexus run path/to/agent.yaml
 ```
 
 Use this file to choose the harness/model, write the agent-owned system
@@ -30,7 +30,7 @@ executor:
 resolved from the YAML file's directory.
 
 These fields define the portable, agent-authored portion of the system prompt.
-Omnigent may append framework-owned lifecycle or metadata instructions at
+AgentNexus may append framework-owned lifecycle or metadata instructions at
 runtime after agent and per-request instructions; those additions are not part
 of the agent YAML.
 
@@ -81,9 +81,9 @@ gateway / `auth.type: databricks` does not apply. Authenticate it with
 id (e.g. `auto`, `gpt-5`) rather than a `databricks-*` id.
 
 The `kiro-native` harness is the native Kiro CLI terminal path used by
-`omnigent kiro`. It requires `kiro-cli` on `PATH` and Kiro's own login/auth; it
+`agentnexus kiro`. It requires `kiro-cli` on `PATH` and Kiro's own login/auth; it
 does not use Databricks, OpenAI, or Anthropic provider credentials. Plain
-`harness: kiro` is not a generic Omnigent harness id. Kiro's TUI remains the
+`harness: kiro` is not a generic AgentNexus harness id. Kiro's TUI remains the
 authoritative approval surface; supported one-time tool approvals can also be
 mirrored into Chat cards, while persistent trust choices remain explicit Kiro
 TUI/flag actions. See `kiro-native-elicitation.md`.
@@ -92,7 +92,7 @@ TUI/flag actions. See `kiro-native-elicitation.md`.
 
 `harness: antigravity` runs the agent through Google's
 [Antigravity SDK](https://pypi.org/project/google-antigravity/)
-(`pip install "omnigent[antigravity]"`). It defaults to **Gemini 3.5 Flash**
+(`pip install "agentnexus[antigravity]"`). It defaults to **Gemini 3.5 Flash**
 and can also drive Claude / GPT-OSS. Authenticate with an Antigravity /
 Gemini API key, or Vertex AI (`project` / `location`) — the SDK is
 Gemini-native and has no OpenAI-compatible gateway / Databricks path.
@@ -110,13 +110,13 @@ executor:
 
 `harness: copilot` runs the agent through the
 [GitHub Copilot SDK](https://pypi.org/project/github-copilot-sdk/)
-(`pip install "omnigent[copilot]"`). The SDK bundles the Copilot CLI it drives
+(`pip install "agentnexus[copilot]"`). The SDK bundles the Copilot CLI it drives
 as a backing server, so no separate CLI install is needed. Like cursor and
 antigravity it talks only to GitHub's Copilot backend — there is no Databricks
 gateway / `auth.type: databricks` path. Authenticate with a **GitHub token** that
 carries Copilot access: a fine-grained PAT with the "Copilot Requests"
 permission, or an OAuth token from the GitHub CLI (`gh auth token`) / Copilot
-CLI. Resolution: spec `auth.api_key` → a token registered via `omnigent setup`
+CLI. Resolution: spec `auth.api_key` → a token registered via `agentnexus setup`
 (the `copilot:` config block) → ambient `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` /
 `GITHUB_TOKEN`. Choose a Copilot model id (e.g. `claude-haiku-4.5`, `gpt-5-mini`,
 or omit for auto-select) rather than a `databricks-*` id. Classic `ghp_` PATs are
@@ -132,7 +132,7 @@ executor:
 ```
 
 To route through OpenRouter / a gateway, declare a key/gateway provider in
-`~/.omnigent/config.yaml` and reference it (`auth: {type: provider, name: …}`),
+`~/.agentnexus/config.yaml` and reference it (`auth: {type: provider, name: …}`),
 or set `auth.base_url` to the OpenAI-compatible endpoint alongside the key.
 For Databricks, use `auth: {type: databricks, profile: …}`.
 
@@ -150,16 +150,16 @@ executor:
   model: kimi-k2-turbo
 ```
 
-By default Kimi authenticates against Moonshot AI's backend — Omnigent
+By default Kimi authenticates against Moonshot AI's backend — AgentNexus
 declares no `executor.auth` block. To route through a gateway, either set
 `HARNESS_KIMI_GATEWAY_BASE_URL` + `HARNESS_KIMI_GATEWAY_API_KEY` in the
-shell, declare a key/gateway provider in `~/.omnigent/config.yaml`, or use
-`executor.auth: {type: databricks, profile: …}` and let Omnigent resolve
+shell, declare a key/gateway provider in `~/.agentnexus/config.yaml`, or use
+`executor.auth: {type: databricks, profile: …}` and let AgentNexus resolve
 the workspace.
 
 CLI flags such as `--harness` and `--model` can override or supply missing
 executor values for a run. Databricks credentials come from the spec's
-`executor.auth` block or your `omnigent setup` provider config — there is
+`executor.auth` block or your `agentnexus setup` provider config — there is
 no profile flag.
 
 ## Qwen Code
@@ -180,11 +180,11 @@ missing executor values.
 ## Custom ACP agents
 
 `harness: acp:<slug>` runs any configured Agent Client Protocol server command.
-Register commands in `~/.omnigent/config.yaml` under `acp.agents`; the slug is
+Register commands in `~/.agentnexus/config.yaml` under `acp.agents`; the slug is
 derived from the agent name.
 
 OpenClaw's Gateway ACP bridge is one such server. It rejects per-session
-`mcpServers`, so disable Omnigent's MCP relay for that entry and let OpenClaw
+`mcpServers`, so disable AgentNexus's MCP relay for that entry and let OpenClaw
 use its own tools, routing, memory, and channels:
 
 ```yaml
@@ -192,7 +192,7 @@ acp:
   agents:
     - name: OpenClaw
       command: openclaw acp --url <gateway-url> --token-file <token-file>
-      omnigent_mcp: false
+      agentnexus_mcp: false
 ```
 
 Then run it with `omni run --harness acp:openclaw` or select `OpenClaw` in the
@@ -227,7 +227,7 @@ os_env:
 Prefer the narrowest filesystem and network access that supports the task. Do
 not pass secrets through the environment unless the tool genuinely needs them.
 
-You usually don't need to choose a `sandbox.type` — omit it and Omnigent picks
+You usually don't need to choose a `sandbox.type` — omit it and AgentNexus picks
 the platform default (`linux_bwrap` on Linux, `darwin_seatbelt` on macOS, or
 `windows_jobobject` on Windows), so the same YAML works across platforms. Use
 `type: auto` to explicitly request the platform-default sandbox backend:
@@ -244,7 +244,7 @@ os_env:
 both explicitly disable the sandbox. For the full set of sandbox options, how
 to share one policy across `sys_os_*` and terminals, and how to set up network
 egress rules, see the `sandbox:` examples below and the sandbox source under
-`omnigent/inner/`.
+`agentnexus/inner/`.
 
 ### Secretless credential proxy
 
@@ -337,7 +337,7 @@ Use `container_image` for new specs; `docker_image` remains accepted as a
 deprecated alias for backwards compatibility. Set `container_runtime: podman` to
 run the image with Podman instead of Docker.
 
-The runtime can also be set globally via the `OMNIGENT_CONTAINER_RUNTIME`
+The runtime can also be set globally via the `AGENTNEXUS_CONTAINER_RUNTIME`
 environment variable (accepted values: `docker`, `podman`). The per-agent
 `container_runtime` YAML key takes precedence over the environment variable.
 
@@ -345,7 +345,7 @@ environment variable (accepted values: `docker`, `podman`). The per-agent
 tools:
   sandbox:
     container_image: python:3.12-slim
-    container_runtime: podman  # optional; defaults to docker (or OMNIGENT_CONTAINER_RUNTIME)
+    container_runtime: podman  # optional; defaults to docker (or AGENTNEXUS_CONTAINER_RUNTIME)
 ```
 
 ### Sub-agent tool
@@ -483,5 +483,5 @@ tools:
 - Run the YAML before publishing it:
 
   ```bash
-  omnigent run path/to/agent.yaml -p "Say hello"
+  agentnexus run path/to/agent.yaml -p "Say hello"
   ```

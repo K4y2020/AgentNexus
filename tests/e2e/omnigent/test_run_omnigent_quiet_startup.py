@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     clean_exit,
     spawn_omnigent_run,
     strip_ansi,
     wait_for_ready,
 )
-from tests.e2e.omnigent._repl_test_helpers import drain_for
+from tests.e2e.agentnexus._repl_test_helpers import drain_for
 
 _YAML_REL = "tests/resources/examples/coding_supervisor.yaml"
 _MODEL = "mock-quiet-startup-model"

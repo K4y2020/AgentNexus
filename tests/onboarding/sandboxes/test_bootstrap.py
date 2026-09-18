@@ -15,14 +15,14 @@ import click
 import httpx
 import pytest
 
-from omnigent.onboarding.sandboxes import bootstrap as bootstrap_mod
-from omnigent.onboarding.sandboxes.base import (
+from agentnexus.onboarding.sandboxes import bootstrap as bootstrap_mod
+from agentnexus.onboarding.sandboxes.base import (
     RemoteCommandResult,
     RemoteProcess,
     SandboxCapabilityError,
     SandboxLauncher,
 )
-from omnigent.onboarding.sandboxes.bootstrap import (
+from agentnexus.onboarding.sandboxes.bootstrap import (
     DEFAULT_SANDBOX_NAME,
     DerivedWorkspace,
     _extract_oauth_url,
@@ -337,7 +337,7 @@ def test_login_runs_in_sandbox_and_forwards_callback_port(
     # itself), NOT a raw `databricks auth login` with profile flags.
     assert launcher.stream_calls == [
         _StreamCall(
-            command="omnigent login https://app.example.com",
+            command="agentnexus login https://app.example.com",
             pty=True,
         )
     ]
@@ -754,13 +754,13 @@ def test_connect_runs_bare_host_command() -> None:
         "sb-1",
         server_url="https://app.example.com",
     )
-    assert launcher.foreground_commands == ["omnigent host --server https://app.example.com"]
+    assert launcher.foreground_commands == ["agentnexus host --server https://app.example.com"]
 
 
 def test_connect_sets_host_name_before_connecting() -> None:
     """
     When ``host_name`` is set, connect must (a) edit the sandbox's
-    ``~/.omnigent/config.yaml`` to use that name, and (b) THEN run
+    ``~/.agentnexus/config.yaml`` to use that name, and (b) THEN run
     ``omnigent host``. Order matters — the host reads config.yaml at
     startup.
     """

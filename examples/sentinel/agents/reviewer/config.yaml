@@ -8,10 +8,10 @@ description: >-
 # Fact-checker on the Codex harness — deliberately a DIFFERENT vendor than
 # Sentinel's claude-sdk brain, so it catches claims the author's own model would
 # wave through. No model is pinned, so it runs on whatever OpenAI provider you
-# configured (`omnigent setup`). Booting this agent needs an OpenAI provider; if
+# configured (`agentnexus setup`). Booting this agent needs an OpenAI provider; if
 # none is configured, Sentinel finalizes without the cross-check.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: codex
 
@@ -34,14 +34,14 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
     read_only_os:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.read_only_os
+        path: agentnexus.inner.nessie.policies.read_only_os
 
 prompt: |
   You are Sentinel's reviewer: an independent security fact-checker on a

@@ -6,7 +6,7 @@
 // server URL and, if present, load it directly so the user lands in the same
 // UI they'd see in a browser — now with OS-native notifications and a
 // dock/taskbar badge (wired up on the web side via `src/lib/nativeBridge.ts`,
-// which detects the Electron preload on `window.omnigentDesktop`).
+// which detects the Electron preload on `window.agentnexusDesktop`).
 //
 // The "load the server's own SPA" model means there is ZERO UI duplication
 // here: change the web app and the desktop app changes with it on next launch.
@@ -63,7 +63,7 @@ const {
   macApplicationMenu,
   settingsMenuItem,
 } = require("./settingsNavigation");
-const omnigentCli = require("./omnigent_cli");
+const agentnexusCli = require("./agentnexus_cli");
 const serverManager = require("./server_manager");
 const { createPreUpgradeBackup } = require("./update_backup");
 const {
@@ -73,7 +73,7 @@ const {
 const { createCrashReporter } = require("./crash_reporter");
 
 /** OS deep-link prefixes: branded scheme first, legacy second. */
-const DEEP_LINK_PREFIXES = ["agentnexus://", "omnigent://"];
+const DEEP_LINK_PREFIXES = ["agentnexus://", "agentnexus://"];
 
 function isDeepLinkArg(value) {
   return typeof value === "string" && DEEP_LINK_PREFIXES.some((prefix) => value.startsWith(prefix));
@@ -118,7 +118,7 @@ const ICON_PNG = path.join(__dirname, "..", "icons", "icon.png");
 
 /**
  * Development builds always expose debugging. Packaged macOS builds require
- * `defaults write ai.omnigent.desktop DeveloperMode -bool true` before launch.
+ * `defaults write ai.agentnexus.desktop DeveloperMode -bool true` before launch.
  */
 function developerModeEnabled() {
   return isDeveloperModeEnabled({
@@ -537,7 +537,7 @@ function updateBadge() {
   let total = 0;
   for (const count of perOrigin.values()) total += count;
   const ok = app.setBadgeCount(total);
-  console.log(`[omnigent] setBadgeCount(${total}) -> ${ok}`);
+  console.log(`[agentnexus] setBadgeCount(${total}) -> ${ok}`);
 }
 
 /**
@@ -636,7 +636,7 @@ function pinWindow(win, origin) {
 /**
  * Record (or clear) the full server URL a window is connected to. The pinned
  * `origin` drops any path, but the host/server CLI commands need the exact URL
- * the user connected with (e.g. a Databricks ``…/omnigent`` mount), so the
+ * the user connected with (e.g. a Databricks ``…/agentnexus`` mount), so the
  * window keeps both.
  *
  * @param {BrowserWindow} win
@@ -699,7 +699,7 @@ function broadcastHostStatus() {
   for (const [win, state] of windows) {
     if (win.isDestroyed() || !state.origin || !state.serverUrl) continue;
     try {
-      win.webContents.send("omnigent:host-status-changed");
+      win.webContents.send("agentnexus:host-status-changed");
     } catch {
       // Window torn down between the check and the send; ignore.
     }
@@ -775,9 +775,9 @@ const updater = createDesktopUpdater({
     return createPreUpgradeBackup({
       userDataDir: app.getPath("userData"),
       runtimeDirs: [
-        { name: "data", dir: omnigentCli.localDataDir() },
-        { name: "config", dir: omnigentCli.localConfigDir() },
-        { name: "state", dir: omnigentCli.stateDir() },
+        { name: "data", dir: agentnexusCli.localDataDir() },
+        { name: "config", dir: agentnexusCli.localConfigDir() },
+        { name: "state", dir: agentnexusCli.stateDir() },
       ],
       version: currentDesktopVersion,
     });
@@ -797,7 +797,7 @@ const updater = createDesktopUpdater({
 });
 
 // Shell-owned update toast: renders the reused web UpdateBanner in a transparent
-// corner window so it shows even against servers running old omnigent web.
+// corner window so it shows even against servers running old agentnexus web.
 const updateOverlay = createUpdateOverlay({
   BrowserWindow,
   ipcMain,
@@ -858,8 +858,8 @@ function saveSettings(settings) {
 }
 
 /**
- * Resolve the `omnigent` CLI binary path from the user's configured override
- * (``settings.omnigent_path``) plus the standard locations, or null when none
+ * Resolve the `agentnexus` CLI binary path from the user's configured override
+ * (``settings.agentnexus_path``) plus the standard locations, or null when none
  * is usable. Re-resolved on each call so a freshly-configured path takes
  * effect without a restart.
  *
@@ -874,16 +874,16 @@ function saveSettings(settings) {
 let cachedCli = null;
 
 function resolvedCliPath() {
-  const configured = loadSettings().omnigent_path ?? null;
+  const configured = loadSettings().agentnexus_path ?? null;
   if (
     cachedCli &&
     cachedCli.configuredPath === configured &&
     cachedCli.path &&
-    omnigentCli.isExecutableFile(cachedCli.path)
+    agentnexusCli.isExecutableFile(cachedCli.path)
   ) {
     return cachedCli.path;
   }
-  const resolved = omnigentCli.resolveCliPath(configured);
+  const resolved = agentnexusCli.resolveCliPath(configured);
   cachedCli = { configuredPath: configured, path: resolved ? resolved.path : null };
   return cachedCli.path;
 }
@@ -900,15 +900,15 @@ function resolvedCliPath() {
  */
 async function applyCliPath(configuredPath) {
   const trimmed = String(configuredPath ?? "").trim();
-  const status = await omnigentCli.getCliStatus(trimmed || null);
+  const status = await agentnexusCli.getCliStatus(trimmed || null);
   const accepted = status.installed && status.source === "configured";
   if (accepted) {
     const settings = loadSettings();
-    settings.omnigent_path = trimmed;
+    settings.agentnexus_path = trimmed;
     saveSettings(settings);
   } else if (trimmed === "") {
     const settings = loadSettings();
-    delete settings.omnigent_path;
+    delete settings.agentnexus_path;
     saveSettings(settings);
   }
   return { ...status, accepted };
@@ -922,9 +922,9 @@ async function applyCliPath(configuredPath) {
  */
 async function clearCliPath() {
   const settings = loadSettings();
-  delete settings.omnigent_path;
+  delete settings.agentnexus_path;
   saveSettings(settings);
-  return omnigentCli.getCliStatus(null);
+  return agentnexusCli.getCliStatus(null);
 }
 
 /** Maximum number of entries kept in the persisted recent-servers list. */
@@ -1107,10 +1107,10 @@ function hardenOauthPopup(child) {
 
 /**
  * Join a basename-less SPA path (e.g. ``/c/conv_abc``) onto a server URL that
- * may carry a workspace mount (e.g. ``https://host/omnigent/``). The path is
+ * may carry a workspace mount (e.g. ``https://host/agentnexus/``). The path is
  * an ABSOLUTE in-app route, but it lives UNDER the server's mount —
  * ``new URL("/c/x", serverUrl)`` would resolve against the ORIGIN and drop
- * ``/omnigent`` — so we string-concatenate: strip the server URL's trailing
+ * ``/agentnexus`` — so we string-concatenate: strip the server URL's trailing
  * slash, append the path. The SPA's react-router basename then matches
  * ``${mount}/c/:id``. Shared by createWindow (cold open) and loadServerUrl
  * (re-pointing an existing window) so the mount-aware join is in one place.
@@ -1274,7 +1274,7 @@ function createWindow(targetUrl, opts = {}) {
   // CLI config stores the API mount; Electron boots the browser-facing SPA.
   const saved = normalizeSavedServerUrl(loadSettings().server_url);
   // serverUrl: the window's server IDENTITY for host/server CLI commands
-  // (``omnigent host --server``, ``omnigent login``, ``serverAuthed``) — the
+  // (``agentnexus host --server``, ``agentnexus login``, ``serverAuthed``) — the
   // origin or origin+mount, WITHOUT the conversation path. Prefer an explicit
   // override (deep link); else the explicit target (New Window cloning a
   // sibling — preserves prior behavior); else the saved default for normal
@@ -1323,7 +1323,7 @@ function createWindow(targetUrl, opts = {}) {
     registerServerAwayWatch(win.webContents, {
       getPinnedOrigin: () => pinnedOrigin(win),
       delayMs: awayBannerDelayMs,
-      debugLog: (message) => console.warn(`[omnigent] ${message}`),
+      debugLog: (message) => console.warn(`[agentnexus] ${message}`),
       onAway: (returnUrl) => returnBanner.show(win, returnUrl ?? windows.get(win)?.serverUrl),
       onReturn: () => returnBanner.hide(win),
     }),
@@ -1444,9 +1444,9 @@ function createWindow(targetUrl, opts = {}) {
 async function openDefaultWindow() {
   const settings = loadSettings();
   const saved = normalizeSavedServerUrl(settings.server_url);
-  if (saved && !omnigentCli.isLoopbackServer(saved)) return createWindow();
+  if (saved && !agentnexusCli.isLoopbackServer(saved)) return createWindow();
 
-  if (saved && omnigentCli.isLoopbackServer(saved)) {
+  if (saved && agentnexusCli.isLoopbackServer(saved)) {
     try {
       const resp = await fetch(`${saved}/health`, { signal: AbortSignal.timeout(1500) });
       if (resp.ok) return createWindow(undefined, { serverUrl: saved });
@@ -1464,9 +1464,9 @@ async function openDefaultWindow() {
       saveSettings(settings);
       return createWindow(undefined, { serverUrl: result.url });
     }
-    console.warn(`[omnigent] automatic local server start failed: ${result?.error ?? "unknown"}`);
+    console.warn(`[agentnexus] automatic local server start failed: ${result?.error ?? "unknown"}`);
   } catch (error) {
-    console.warn(`[omnigent] automatic local server start failed: ${error?.message ?? error}`);
+    console.warn(`[agentnexus] automatic local server start failed: ${error?.message ?? error}`);
   }
   return createWindow();
 }
@@ -1583,7 +1583,7 @@ function openFindBar(target) {
   const existing = findBars.get(target);
   if (existing && !existing.isDestroyed()) {
     existing.focus();
-    existing.webContents.send("omnigent:find-activate");
+    existing.webContents.send("agentnexus:find-activate");
     return;
   }
   const bar = new BrowserWindow({
@@ -1609,7 +1609,7 @@ function openFindBar(target) {
   const reposition = () => positionFindBar(target, bar);
   const onFound = (_event, result) => {
     if (bar.isDestroyed()) return;
-    bar.webContents.send("omnigent:find-result", {
+    bar.webContents.send("agentnexus:find-result", {
       active: result.activeMatchOrdinal,
       matches: result.matches,
     });
@@ -1855,7 +1855,7 @@ function signalForeground() {
       if (win && !win.isFocused()) win.flashFrame(true);
     }
   } catch (err) {
-    console.warn("[omnigent] signalForeground failed:", err);
+    console.warn("[agentnexus] signalForeground failed:", err);
   }
 }
 
@@ -1946,11 +1946,11 @@ function playSystemSound(name) {
   try {
     // Detached + unref'd so a slow play never holds up app quit.
     const child = execFile("afplay", [file], (err) => {
-      if (err) console.warn("[omnigent] afplay failed:", err.message);
+      if (err) console.warn("[agentnexus] afplay failed:", err.message);
     });
     child.unref();
   } catch (err) {
-    console.warn("[omnigent] failed to spawn afplay:", err);
+    console.warn("[agentnexus] failed to spawn afplay:", err);
   }
 }
 
@@ -2125,10 +2125,10 @@ function buildMenu() {
         const target = crashReporter.getDiagnosticsDir();
         if (typeof shell.openPath === "function") {
           shell.openPath(target).catch(() => {
-            console.warn("[omnigent] could not open diagnostics folder:", target);
+            console.warn("[agentnexus] could not open diagnostics folder:", target);
           });
         } else {
-          console.warn("[omnigent] shell.openPath unavailable; diagnostics at:", target);
+          console.warn("[agentnexus] shell.openPath unavailable; diagnostics at:", target);
         }
       },
     },
@@ -2244,7 +2244,7 @@ function buildMenu() {
 }
 
 // ---------------------------------------------------------------------------
-// IPC: the preload bridge (window.omnigentDesktop) forwards these from the
+// IPC: the preload bridge (window.agentnexusDesktop) forwards these from the
 // renderer. Kept to the two OS integrations the web app needs.
 //
 // Trust model: navigation is unrestricted (auth-fronted servers redirect
@@ -2307,7 +2307,7 @@ function isPinnedOriginSender(event) {
 // registry; child views stay sandboxed (nodeIntegration:false, contextIsolation
 // + sandbox true) and detach — not destroy — on hide.
 //
-// `omnigent:browser-execute` runs JS via executeJavaScript; exposed to preload
+// `agentnexus:browser-execute` runs JS via executeJavaScript; exposed to preload
 // for the relay's fixed templates only, never a generic agent `evaluate`.
 // See preload.js + README.
 // ---------------------------------------------------------------------------
@@ -2361,7 +2361,7 @@ function registerIpc() {
   // Setup page → persist URL and navigate the SENDING window to it. We target
   // the window that owns the setup page (via its webContents) rather than a
   // global, so connecting from one window doesn't hijack another.
-  ipcMain.handle("omnigent:set-server-url", async (event, url) => {
+  ipcMain.handle("agentnexus:set-server-url", async (event, url) => {
     if (!isSetupPageSender(event)) {
       // A server page must never be able to re-point which server is saved.
       throw new Error("set-server-url is only available to the setup page");
@@ -2418,7 +2418,7 @@ function registerIpc() {
   });
 
   // Setup page → pre-fill the input with any saved URL.
-  ipcMain.handle("omnigent:get-server-url", (event) => {
+  ipcMain.handle("agentnexus:get-server-url", (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("get-server-url is only available to the setup page");
     }
@@ -2427,7 +2427,7 @@ function registerIpc() {
 
   // Setup page → recently-connected servers, most recent first, for the
   // quick-pick list under the URL form.
-  ipcMain.handle("omnigent:get-recent-servers", (event) => {
+  ipcMain.handle("agentnexus:get-recent-servers", (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("get-recent-servers is only available to the setup page");
     }
@@ -2438,14 +2438,14 @@ function registerIpc() {
   // Setup page → organization-provided server choices from macOS Managed
   // Preferences. Re-read on every request so policy removal is never copied
   // into or masked by settings.json.
-  ipcMain.handle("omnigent:get-managed-servers", (event) => {
+  ipcMain.handle("agentnexus:get-managed-servers", (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("get-managed-servers is only available to the setup page");
     }
     return managedServerUrls();
   });
 
-  ipcMain.handle("omnigent:copy-setup-text", (event, text) => {
+  ipcMain.handle("agentnexus:copy-setup-text", (event, text) => {
     if (!isSetupPageSender(event)) {
       throw new Error("copy-setup-text is only available to the setup page");
     }
@@ -2458,9 +2458,9 @@ function registerIpc() {
   // SPA server picker → the sender window's pinned origin plus the persisted
   // recent-servers list, so the picker can render "current server" and the
   // switch targets. Foreign pages get null (nothing to fingerprint).
-  ipcMain.handle("omnigent:get-server-picker", (event) => {
+  ipcMain.handle("agentnexus:get-server-picker", (event) => {
     if (!isPinnedOriginSender(event)) {
-      console.warn("[omnigent] get-server-picker from untrusted sender dropped");
+      console.warn("[agentnexus] get-server-picker from untrusted sender dropped");
       return null;
     }
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -2483,7 +2483,7 @@ function registerIpc() {
   // server. Only URLs in the persisted recent list or the current managed list
   // are accepted: pinning is a privilege grant (notifications, badge, protocol
   // grants), so a server page must never choose an arbitrary origin.
-  ipcMain.handle("omnigent:switch-server", (event, url) => {
+  ipcMain.handle("agentnexus:switch-server", (event, url) => {
     if (!isPinnedOriginSender(event)) {
       throw new Error("switch-server is only available to a connected server page");
     }
@@ -2529,9 +2529,9 @@ function registerIpc() {
   // SENDING window to the bundled setup page. Unlike Change Server… this
   // keeps the saved default server (connecting from setup overwrites it
   // only when the user actually submits a URL).
-  ipcMain.on("omnigent:open-server-setup", (event) => {
+  ipcMain.on("agentnexus:open-server-setup", (event) => {
     if (!isPinnedOriginSender(event)) {
-      console.warn("[omnigent] open-server-setup from untrusted sender dropped");
+      console.warn("[agentnexus] open-server-setup from untrusted sender dropped");
       return;
     }
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -2545,9 +2545,9 @@ function registerIpc() {
   // Find bar → run/continue a search in its parent window. Empty text
   // clears the highlight and zeroes the counter (findInPage rejects empty
   // queries, so it never reaches it).
-  ipcMain.on("omnigent:find-query", (event, params) => {
+  ipcMain.on("agentnexus:find-query", (event, params) => {
     if (!isFindBarSender(event)) {
-      console.warn("[omnigent] find-query from untrusted sender dropped");
+      console.warn("[agentnexus] find-query from untrusted sender dropped");
       return;
     }
     const target = findBarTarget(event);
@@ -2555,7 +2555,7 @@ function registerIpc() {
     const text = String(params?.text ?? "");
     if (text === "") {
       target.webContents.stopFindInPage("clearSelection");
-      event.sender.send("omnigent:find-result", { active: 0, matches: 0 });
+      event.sender.send("agentnexus:find-result", { active: 0, matches: 0 });
       return;
     }
     target.webContents.findInPage(text, {
@@ -2566,9 +2566,9 @@ function registerIpc() {
 
   // Find bar → dismiss itself (Esc / ✕). Cleanup (stop search, refocus the
   // parent) lives in the bar's "closed" handler in openFindBar.
-  ipcMain.on("omnigent:find-close", (event) => {
+  ipcMain.on("agentnexus:find-close", (event) => {
     if (!isFindBarSender(event)) {
-      console.warn("[omnigent] find-close from untrusted sender dropped");
+      console.warn("[agentnexus] find-close from untrusted sender dropped");
       return;
     }
     const bar = BrowserWindow.fromWebContents(event.sender);
@@ -2578,9 +2578,9 @@ function registerIpc() {
   // Dock/taskbar badge. Each window's SPA reports ITS unread count; the
   // app-wide badge shown is the sum across windows (see updateBadge), so two
   // windows on different servers don't clobber each other's counts.
-  ipcMain.on("omnigent:set-badge-count", (event, count) => {
+  ipcMain.on("agentnexus:set-badge-count", (event, count) => {
     if (!isPinnedOriginSender(event)) {
-      console.warn("[omnigent] set-badge-count from untrusted sender dropped");
+      console.warn("[agentnexus] set-badge-count from untrusted sender dropped");
       return;
     }
     // isPinnedOriginSender guarantees the sender window is tracked.
@@ -2600,11 +2600,11 @@ function registerIpc() {
   // window is focused we add an OS-level attention cue the frontmost app CAN
   // show: bounce the macOS dock icon / flash the taskbar frame. That makes a
   // non-open session's turn-end noticeable even with the app in front.
-  ipcMain.handle("omnigent:notify", (event, params) => {
+  ipcMain.handle("agentnexus:notify", (event, params) => {
     if (!isPinnedOriginSender(event)) {
       // The contract is "resolves false when not shown" — a foreign page
       // gets a quiet false, not an exception it could fingerprint.
-      console.warn("[omnigent] notify from untrusted sender dropped");
+      console.warn("[agentnexus] notify from untrusted sender dropped");
       return false;
     }
     if (!Notification.isSupported()) return false;
@@ -2646,7 +2646,7 @@ function registerIpc() {
       // throw instead of crashing the main process from this async callback.
       if (navigatePath && !event.sender.isDestroyed()) {
         try {
-          event.sender.send("omnigent:notification-activated", navigatePath);
+          event.sender.send("agentnexus:notification-activated", navigatePath);
         } catch {
           // Sender went away after the notification was posted; nothing to do.
         }
@@ -2675,29 +2675,29 @@ function registerIpc() {
   // caller is the server's page, not that the user asked.
   // -------------------------------------------------------------------------
 
-  // Setup page → is the `omnigent` CLI installed and runnable? Includes the
+  // Setup page → is the `agentnexus` CLI installed and runnable? Includes the
   // resolved path, version, and the install one-liner to show when missing.
-  ipcMain.handle("omnigent:get-cli-status", async (event) => {
+  ipcMain.handle("agentnexus:get-cli-status", async (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("get-cli-status is only available to the setup page");
     }
-    return omnigentCli.getCliStatus(loadSettings().omnigent_path);
+    return agentnexusCli.getCliStatus(loadSettings().agentnexus_path);
   });
 
-  // Setup page → set an explicit path to the `omnigent` binary. Persisted only
-  // when that exact path validates as a runnable omnigent (so a typo doesn't
+  // Setup page → set an explicit path to the `agentnexus` binary. Persisted only
+  // when that exact path validates as a runnable agentnexus (so a typo doesn't
   // silently mask a working PATH lookup). Returns the resulting CLI status plus
   // whether the configured path was accepted.
-  ipcMain.handle("omnigent:set-cli-path", async (event, configuredPath) => {
+  ipcMain.handle("agentnexus:set-cli-path", async (event, configuredPath) => {
     if (!isSetupPageSender(event)) {
       throw new Error("set-cli-path is only available to the setup page");
     }
     return applyCliPath(configuredPath);
   });
 
-  // Setup page → native file picker for the omnigent binary. Returns the chosen
+  // Setup page → native file picker for the agentnexus binary. Returns the chosen
   // path (the renderer feeds it back through set-cli-path) or null on cancel.
-  ipcMain.handle("omnigent:browse-cli-path", async (event) => {
+  ipcMain.handle("agentnexus:browse-cli-path", async (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("browse-cli-path is only available to the setup page");
     }
@@ -2712,37 +2712,37 @@ function registerIpc() {
 
   // Setup page → start (or reuse) the local server. Returns its URL so the
   // setup page can hand off to the normal setServerUrl navigation flow.
-  ipcMain.handle("omnigent:start-local-server", async (event) => {
+  ipcMain.handle("agentnexus:start-local-server", async (event) => {
     if (!isSetupPageSender(event)) {
       throw new Error("start-local-server is only available to the setup page");
     }
     const cliPath = resolvedCliPath();
     if (!cliPath) {
-      return { ok: false, error: "The omnigent CLI was not found. Install it or set its path." };
+      return { ok: false, error: "The agentnexus CLI was not found. Install it or set its path." };
     }
     return serverManager.startLocalServer(cliPath);
   });
 
   // SPA → this machine's identity: is the CLI installed, and its host id. Both
-  // come from local config (no `omnigent host status` subprocess), so this is
+  // come from local config (no `agentnexus host status` subprocess), so this is
   // instant — it lets the new-session picker tag/connect "this machine" without
   // waiting on the slow runner-status check.
-  ipcMain.handle("omnigent:host-get-identity", (event) => {
+  ipcMain.handle("agentnexus:host-get-identity", (event) => {
     if (!isPinnedOriginSender(event)) {
-      console.warn("[omnigent] host-get-identity from untrusted sender dropped");
+      console.warn("[agentnexus] host-get-identity from untrusted sender dropped");
       return null;
     }
-    return { cliInstalled: Boolean(resolvedCliPath()), hostId: omnigentCli.localHostId() };
+    return { cliInstalled: Boolean(resolvedCliPath()), hostId: agentnexusCli.localHostId() };
   });
 
   // SPA (in-app Settings → Local CLI) → is the CLI installed and runnable,
   // plus the resolved path / version / source. Read-only; pinned-origin gated.
-  ipcMain.handle("omnigent:cli-get-status", async (event) => {
+  ipcMain.handle("agentnexus:cli-get-status", async (event) => {
     if (!isPinnedOriginSender(event)) {
-      console.warn("[omnigent] cli-get-status from untrusted sender dropped");
+      console.warn("[agentnexus] cli-get-status from untrusted sender dropped");
       return null;
     }
-    return omnigentCli.getCliStatus(loadSettings().omnigent_path);
+    return agentnexusCli.getCliStatus(loadSettings().agentnexus_path);
   });
 
   // SPA → reset to auto-detected (clear the override). Chooses no path itself,
@@ -2751,7 +2751,7 @@ function registerIpc() {
   // point the CLI at an arbitrary binary that host-control would later spawn
   // (and validation runs `<path> --version`). Choosing a path stays on the
   // bundled file:// setup page.
-  ipcMain.handle("omnigent:cli-reset-path", async (event) => {
+  ipcMain.handle("agentnexus:cli-reset-path", async (event) => {
     if (!isPinnedOriginSender(event)) {
       throw new Error("cli-reset-path is only available to a connected server page");
     }
@@ -2769,7 +2769,7 @@ function registerIpc() {
   // OS). Value-validated; the worst a page can do is toggle appearance. Still
   // gated to a pinned server page like every other privileged channel, so a
   // foreign page can't drive the shell's native appearance.
-  ipcMain.on("omnigent:set-color-scheme", (event, scheme) => {
+  ipcMain.on("agentnexus:set-color-scheme", (event, scheme) => {
     if (!isPinnedOriginSender(event)) return;
     if (scheme === "light" || scheme === "dark" || scheme === "system") {
       nativeTheme.themeSource = scheme;
@@ -2778,7 +2778,7 @@ function registerIpc() {
 
   // SPA → start / stop / restart this machine's host daemon for the window's
   // own server (the host selection menu's "connect this machine" action).
-  ipcMain.handle("omnigent:host-control", async (event, action) => {
+  ipcMain.handle("agentnexus:host-control", async (event, action) => {
     if (!isPinnedOriginSender(event)) {
       throw new Error("host-control is only available to a connected server page");
     }
@@ -2786,7 +2786,7 @@ function registerIpc() {
     if (!serverUrl) return { ok: false, error: "this window is not connected to a server" };
     const cliPath = resolvedCliPath();
     if (!cliPath) {
-      return { ok: false, error: "The omnigent CLI was not found. Install it or set its path." };
+      return { ok: false, error: "The agentnexus CLI was not found. Install it or set its path." };
     }
     let result;
     if (action === "start" || action === "restart") {
@@ -2822,7 +2822,7 @@ function registerIpc() {
   // lifecycle changes here.
   serverManager.onChange(broadcastHostStatus);
 
-  // Embedded browser pane — the `omnigent:browser-*` surface lives in
+  // Embedded browser pane — the `agentnexus:browser-*` surface lives in
   // browserIpc.js; the trust gate + per-window registry lookup are injected.
   registerBrowserIpc({
     ipcMain,
@@ -2832,9 +2832,9 @@ function registerIpc() {
 }
 
 // ---------------------------------------------------------------------------
-// Deep links (`omnigent://<hostname>/c/<session_id>`)
+// Deep links (`agentnexus://<hostname>/c/<session_id>`)
 //
-// An OS-clicked `omnigent://` URL opens the named session on the named server.
+// An OS-clicked `agentnexus://` URL opens the named session on the named server.
 // The decision logic (parse + window selection) is PURE in src/deepLink.js and
 // unit-tested there; this section owns ingestion, the queue, and the
 // orchestrator. See README "Deep links".
@@ -2932,9 +2932,9 @@ function focusAndRestore(win) {
  */
 function sendOpenPath(win, routePath) {
   if (!win || win.isDestroyed()) return;
-  console.log(`[omnigent] send open-path ${routePath}`);
+  console.log(`[agentnexus] send open-path ${routePath}`);
   try {
-    win.webContents.send("omnigent:open-path", routePath);
+    win.webContents.send("agentnexus:open-path", routePath);
   } catch {
     // Window torn down between the check and the send; ignore.
   }
@@ -2994,10 +2994,10 @@ let deepLinkInFlight = false;
  */
 function enqueueDeepLink(raw) {
   if (!parseOmnigentDeepLink(raw)) {
-    console.log(`[omnigent] deep-link: ignored unrecognized URL ${String(raw)}`);
+    console.log(`[agentnexus] deep-link: ignored unrecognized URL ${String(raw)}`);
     return;
   }
-  console.log(`[omnigent] deep-link: queued ${raw} (ready=${app.isReady()})`);
+  console.log(`[agentnexus] deep-link: queued ${raw} (ready=${app.isReady()})`);
   pendingDeepLinks.push(raw);
   drainPendingDeepLinks();
 }
@@ -3015,7 +3015,7 @@ function drainPendingDeepLinks() {
   if (next === undefined) return;
   deepLinkInFlight = true;
   void handleDeepLink(next)
-    .catch((err) => console.warn("[omnigent] deep-link handling failed:", err))
+    .catch((err) => console.warn("[agentnexus] deep-link handling failed:", err))
     .finally(() => {
       deepLinkInFlight = false;
       if (pendingDeepLinks.length > 0) {
@@ -3028,7 +3028,7 @@ function drainPendingDeepLinks() {
 }
 
 /**
- * Open an `omnigent://` deep link on the right window. The window-selection
+ * Open an `agentnexus://` deep link on the right window. The window-selection
  * decision (reuse an existing window on that server in-place vs. reload it vs.
  * open a new one vs. ask consent for an unknown server) is made by the PURE
  * chooseDeepLinkStrategy(); this orchestrator snapshots the live windows and
@@ -3040,10 +3040,10 @@ function drainPendingDeepLinks() {
  * (expandDatabricksWorkspaceUrl) runs ONLY after the user consents to an
  * UNKNOWN server — so clicking (or the OS dispatching) a link to an
  * attacker-chosen host makes no HTTP request until the user has agreed. The
- * probe is safe post-consent because it can only append a path (`/omnigent`)
+ * probe is safe post-consent because it can only append a path (`/agentnexus`)
  * under the SAME origin — it never changes the origin the user approved.
  *
- * @param {string} raw The raw `omnigent://...` URL.
+ * @param {string} raw The raw `agentnexus://...` URL.
  * @returns {Promise<void>}
  */
 async function handleDeepLink(raw) {
@@ -3055,7 +3055,7 @@ async function handleDeepLink(raw) {
   // same origin, so approving the origin is approving the server.
   const targetOrigin = parsed.origin;
   // A KNOWN server: reuse its recorded URL (already mount-bearing, e.g.
-  // `https://host/omnigent`) so we SKIP the probe entirely. null for an
+  // `https://host/agentnexus`) so we SKIP the probe entirely. null for an
   // unknown server — the mount is discovered AFTER consent (see consent-unknown).
   const known = findKnownServerUrl(targetOrigin);
 
@@ -3073,7 +3073,7 @@ async function handleDeepLink(raw) {
     focusedIndex: focusedIndex < 0 ? null : focusedIndex,
   });
   console.log(
-    `[omnigent] deep-link: strategy=${decision.strategy} ` +
+    `[agentnexus] deep-link: strategy=${decision.strategy} ` +
       `target=${targetOrigin} known=${known ? "yes" : "no"} ` +
       `windows=${winList.length}`,
   );
@@ -3142,18 +3142,18 @@ if (!gotLock) {
   app.quit();
 } else {
   // Cold-start argv scan. Windows/Linux: the OS launches the app with the
-  // omnigent:// URL as a command-line arg. macOS packaged builds get URLs via
+  // agentnexus:// URL as a command-line arg. macOS packaged builds get URLs via
   // `open-url` (Apple Events), never argv — but in DEV the generic Electron.app
   // bundle that `setAsDefaultProtocolClient` registers can't be reliably
   // targeted by `open` (it launches a fresh Electron window instead of the
   // running `electron .` instance), so we scan argv on ALL platforms to let
-  // `npm start -- 'omnigent://...'` exercise the real code path on macOS too.
-  // Safe: a packaged macOS launch has no omnigent:// in argv, so no double-handling.
+  // `npm start -- 'agentnexus://...'` exercise the real code path on macOS too.
+  // Safe: a packaged macOS launch has no agentnexus:// in argv, so no double-handling.
   for (const arg of process.argv) {
     if (isDeepLinkArg(arg)) enqueueDeepLink(arg);
   }
 
-  // macOS: `open-url` fires for omnigent:// links, including BEFORE
+  // macOS: `open-url` fires for agentnexus:// links, including BEFORE
   // app.whenReady (cold start). preventDefault stops the OS from also handing
   // the URL to the default browser; enqueueDeepLink queues it and
   // drainPendingDeepLinks no-ops until ready, so the pre-ready race can't
@@ -3165,9 +3165,9 @@ if (!gotLock) {
 
   app.on("second-instance", (_event, argv) => {
     // Deep-link warm start: the OS launched a second instance with the
-    // omnigent:// URL on its command line; the single-instance lock funnels
+    // agentnexus:// URL on its command line; the single-instance lock funnels
     // it here. On Windows/Linux that's the OS dispatch; on macOS it's how a
-    // second `npm start -- 'omnigent://...'` reaches the running DEV instance
+    // second `npm start -- 'agentnexus://...'` reaches the running DEV instance
     // (since `open` can't target the dev binary — see the cold-start argv
     // scan above). A plain second launch (no URL) just focuses an existing window.
     let handledUrl = false;
@@ -3199,7 +3199,7 @@ if (!gotLock) {
     });
     if (upgradeRecovery.action !== "none") {
       console.log(
-        `[omnigent] upgrade recovery: ${upgradeRecovery.action}${
+        `[agentnexus] upgrade recovery: ${upgradeRecovery.action}${
           upgradeRecovery.error ? ` (${upgradeRecovery.error})` : ""
         }`,
       );
@@ -3227,16 +3227,16 @@ if (!gotLock) {
     // instant (primes the in-memory cache in resolvedCliPath); also lets the
     // setup page / Local CLI settings pre-fill the resolved path immediately.
     resolvedCliPath();
-    // Register the omnigent:// scheme so OS clicks route to this app. The
+    // Register the agentnexus:// scheme so OS clicks route to this app. The
     // build manifest (package.json `build.protocols`) is the reliable
     // per-install registration that survives reinstalls; this lets dev
     // (`electron .`) clicks route to the running dev instance too. No-op
     // (returns false) when another app is already the default handler.
-    // Register the branded scheme first, then keep the legacy `omnigent`
+    // Register the branded scheme first, then keep the legacy `agentnexus`
     // registration for installs that predate the rename. No-op when another
     // app already owns the scheme.
     app.setAsDefaultProtocolClient("agentnexus");
-    app.setAsDefaultProtocolClient("omnigent");
+    app.setAsDefaultProtocolClient("agentnexus");
     // If a deep link arrived before ready (macOS open-url, or Windows/Linux
     // argv), open it instead of the default launch window; the drain's
     // fallback opens a default window if a consent is cancelled. Otherwise
@@ -3276,15 +3276,15 @@ if (!gotLock) {
   // re-issued app.quit() in .finally — and re-issuing app.quit() after
   // before-quit's preventDefault() is a known intermittently-unreliable
   // Electron behavior (electron/electron#4994, #33643, #39094). If that re-issue
-  // is a no-op, or shutdown hangs (a stuck `omnigent server stop`), the app
+  // is a no-op, or shutdown hangs (a stuck `agentnexus server stop`), the app
   // would otherwise stay up with its window still open — looking exactly like
   // "refuses to quit". So if graceful cleanup + the re-issued quit haven't
   // terminated the process within quitCleanupTimeoutMs, force-exit. Host
-  // children are SIGKILL'd at 4s and a normal `omnigent server stop` is sub-
+  // children are SIGKILL'd at 4s and a normal `agentnexus server stop` is sub-
   // second, so a normal quit completes well under the cap; the cap only trips
   // when something is genuinely stuck, and force-exiting then is strictly
   // better than a hung app. A cut-off server stop only leaves a daemon with a
-  // pidfile that the next launch reuses or `omnigent server stop` reclaims.
+  // pidfile that the next launch reuses or `agentnexus server stop` reclaims.
   let quitCleanupDone = false;
   let quitCleanupStarted = false;
   let quitForceExitTimer = null;
@@ -3316,7 +3316,7 @@ if (!gotLock) {
     // resolvedCliPath() is evaluated inside the async IIFE so a throw (a future
     // change to settings/CLI resolution) becomes a rejection caught below,
     // never stranding the quit. shutdown() always settles: host children are
-    // SIGKILL'd within 4s and `omnigent server stop` has its own exec timeout.
+    // SIGKILL'd within 4s and `agentnexus server stop` has its own exec timeout.
     (async () => {
       const cliPath = resolvedCliPath();
       await serverManager.shutdown(cliPath);

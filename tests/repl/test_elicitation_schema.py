@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.tools._elicitation_schema import (
+from agentnexus.tools._elicitation_schema import (
     build_accept_content_from_schema as _build_elicitation_content_from_schema,
 )
 

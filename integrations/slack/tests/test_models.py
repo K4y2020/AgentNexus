@@ -1,4 +1,4 @@
-from omnigent_slack.models import ThreadKey
+from agentnexus_slack.models import ThreadKey
 
 
 def test_channel_thread_keys_on_root_ts_and_threads_replies() -> None:

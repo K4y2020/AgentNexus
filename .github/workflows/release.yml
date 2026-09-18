@@ -5,7 +5,7 @@
 #   push branch + tag. Later dispatches (0.6.0rc2, 0.6.0, 0.6.1) reuse the
 #   existing release/v0.6.0 head and ignore `ref`.
 #
-# The branch + tag are pushed with the omnigent-ci App token, NOT GITHUB_TOKEN:
+# The branch + tag are pushed with the agentnexus-ci App token, NOT GITHUB_TOKEN:
 # GITHUB_TOKEN-pushed tags trigger no workflows by GitHub policy, and the whole
 # release chain (github-release.yml -> draft-release-notes.yml, and
 # oss-publish-images.yml) hangs off the tag push.
@@ -63,7 +63,7 @@ jobs:
   # write access, so gate on the dispatcher's actual repo role instead of a
   # hand-kept list. `github.actor` on a dispatch is the dispatcher.
   authorize:
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -261,7 +261,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      OMNIGENT_SKIP_WEB_UI: "true"
+      AGENTNEXUS_SKIP_WEB_UI: "true"
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
@@ -309,14 +309,14 @@ jobs:
         run: |
           git checkout "${{ steps.prev.outputs.tag }}"
           uv sync
-          uv run --no-sync dev/benchmarks/omnigent/seed.py \
+          uv run --no-sync dev/benchmarks/agentnexus/seed.py \
             --database-uri "sqlite:///bench.db" \
             --sessions 5000 --items-per-session 200
 
       - name: Seed at current schema (no previous release)
         if: steps.prev.outputs.found != 'true'
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/seed.py \
+          uv run --no-sync dev/benchmarks/agentnexus/seed.py \
             --database-uri "sqlite:///bench.db" \
             --sessions 5000 --items-per-session 200
 
@@ -335,7 +335,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      OMNIGENT_SKIP_WEB_UI: "true"
+      AGENTNEXUS_SKIP_WEB_UI: "true"
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
@@ -366,7 +366,7 @@ jobs:
 
       - name: Run baseline benchmark
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/run.py \
+          uv run --no-sync dev/benchmarks/agentnexus/run.py \
             --database-uri "sqlite:///bench.db" \
             --iterations 100 --runs 3 --output baseline.json
           echo "Baseline benchmark complete." | tee -a "$GITHUB_STEP_SUMMARY"
@@ -386,7 +386,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      OMNIGENT_SKIP_WEB_UI: "true"
+      AGENTNEXUS_SKIP_WEB_UI: "true"
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
@@ -427,7 +427,7 @@ jobs:
 
       - name: Run candidate benchmark
         run: |
-          uv run --no-sync dev/benchmarks/omnigent/run.py \
+          uv run --no-sync dev/benchmarks/agentnexus/run.py \
             --database-uri "sqlite:///bench.db" \
             --iterations 100 --runs 3 --output candidate.json
           echo "Candidate benchmark complete." | tee -a "$GITHUB_STEP_SUMMARY"
@@ -452,7 +452,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      OMNIGENT_SKIP_WEB_UI: "true"
+      AGENTNEXUS_SKIP_WEB_UI: "true"
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
@@ -486,7 +486,7 @@ jobs:
         id: compare
         run: |
           set +e
-          uv run --no-sync dev/benchmarks/omnigent/compare.py \
+          uv run --no-sync dev/benchmarks/agentnexus/compare.py \
             --baseline baseline.json \
             --candidate candidate.json \
             --threshold 1.0 \
@@ -561,14 +561,14 @@ jobs:
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
-      - name: Mint App token (omnigent)
+      - name: Mint App token (agentnexus)
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.OMNIGENT_BOT_APP_ID }}
-          private-key: ${{ secrets.OMNIGENT_BOT_APP_KEY }}
+          app-id: ${{ vars.AGENTNEXUS_BOT_APP_ID }}
+          private-key: ${{ secrets.AGENTNEXUS_BOT_APP_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: omnigent
+          repositories: agentnexus
 
       - name: Checkout base
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -616,8 +616,8 @@ jobs:
           BRANCH: ${{ needs.plan.outputs.branch }}
         run: |
           set -euo pipefail
-          git config user.name "omnigent-ci[bot]"
-          git config user.email "294685417+omnigent-ci[bot]@users.noreply.github.com"
+          git config user.name "agentnexus-ci[bot]"
+          git config user.email "294685417+agentnexus-ci[bot]@users.noreply.github.com"
 
           # Stage everything the stamp touched: update_versions.py owns the
           # file set, and a hand-kept path list here goes stale whenever a
@@ -650,9 +650,9 @@ jobs:
             echo "1. Dispatch the secure-release repo on this tag. Substitute the repo"
             echo "   name from the maintainer release runbook, then run:"
             echo '   ```'
-            echo "   gh workflow run omnigent.yml --repo <secure-release-repo> \\"
+            echo "   gh workflow run agentnexus.yml --repo <secure-release-repo> \\"
             echo "     -f ref=${TAG} -f destination=pypi -f dry-run=true    # gates rehearsal"
-            echo "   gh workflow run omnigent.yml --repo <secure-release-repo> \\"
+            echo "   gh workflow run agentnexus.yml --repo <secure-release-repo> \\"
             echo "     -f ref=${TAG} -f destination=pypi -f dry-run=false   # real publish"
             echo '   ```'
             if [ "$PRERELEASE" = "true" ]; then

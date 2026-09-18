@@ -17,8 +17,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.entities.conversation import MessageData, NewConversationItem
-from omnigent.server import session_live_state
+from agentnexus.entities.conversation import MessageData, NewConversationItem
+from agentnexus.server import session_live_state
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def _bind_fake_runner(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(app.state.conversation_store, "create_conversation", create_bound)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration._ensure_runner_relay_ready",
+        "agentnexus.server.routes._sessions.orchestration._ensure_runner_relay_ready",
         relay_ready,
     )
 
@@ -117,7 +117,7 @@ def test_server_lifespan_dispatch_receipt_and_workflow_advance(
 
     fake_router = _RunnerRouter()
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: fake_router,
     )
 
@@ -215,7 +215,7 @@ def test_server_lifespan_runner_rejection_stays_unconfirmed(
 
     fake_router = _RunnerRouter(status_code=503)
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: fake_router,
     )
 
@@ -274,7 +274,7 @@ def test_server_lifespan_template_dag_dispatches_on_dependencies(
 
     fake_router = _RunnerRouter()
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: fake_router,
     )
     try:
@@ -425,7 +425,7 @@ def test_server_lifespan_template_dag_failure_blocks_dependents(
     )
     fake_router = _RunnerRouter()
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.common.get_server_runner_router",
+        "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: fake_router,
     )
     try:
@@ -586,7 +586,7 @@ def test_server_behavior_endpoint_reports_requested_session_mode(app: FastAPI) -
         kind="sub_agent",
         title="behavior:session",
     )
-    conversation_store.set_labels(child.id, {"omnigent.behavior_mode": "lean"})
+    conversation_store.set_labels(child.id, {"agentnexus.behavior_mode": "lean"})
 
     with TestClient(app) as client:
         resp = client.get(

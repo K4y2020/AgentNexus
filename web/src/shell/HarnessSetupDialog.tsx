@@ -10,7 +10,7 @@
  *     key / configure a gateway) for the Claude / Codex / Pi families the UI can
  *     authenticate,
  *   - a click-to-copy command for a step the UI can't do yet.
- * When no step is UI-actionable the dialog collapses to a single "run omnigent
+ * When no step is UI-actionable the dialog collapses to a single "run agentnexus
  * setup" signpost. There is no progress counter — the per-row dots already show
  * each step's state.
  */

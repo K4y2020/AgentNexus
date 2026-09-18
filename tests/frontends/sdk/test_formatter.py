@@ -6,7 +6,7 @@ import io
 import json
 
 import pytest
-from omnigent_client._blocks import (
+from agentnexus_client._blocks import (
     BlockContext,
     CompactionBlock,
     ErrorBlock,
@@ -21,7 +21,7 @@ from omnigent_client._blocks import (
     ToolExecution,
     ToolGroup,
 )
-from omnigent_ui_sdk.terminal._formatter import (
+from agentnexus_ui_sdk.terminal._formatter import (
     RichBlockFormatter,
     StreamingText,
     StreamLive,
@@ -390,7 +390,7 @@ def test_duplicate_tool_call_renders_call_line_once() -> None:
     on the first occurrence; the second should be suppressed.
 
     Reproduces the bug observed in the debug log at
-    ``~/.omnigent/debug/events-fresh-1778791015.jsonl``: every tool
+    ``~/.agentnexus/debug/events-fresh-1778791015.jsonl``: every tool
     call's ``⏵ tool_name(args)`` line appeared twice in the TUI.
     """
     fmt = RichBlockFormatter()

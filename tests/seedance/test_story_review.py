@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from omnigent.seedance.report_review import verify_report
+from agentnexus.seedance.report_review import verify_report
 
 
 def write(path, value):

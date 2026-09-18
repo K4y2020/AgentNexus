@@ -21,14 +21,14 @@ import json
 import httpx
 import pytest
 
-import omnigent.tools.builtins as builtins_mod
-from omnigent.runner.tool_dispatch import (
+import agentnexus.tools.builtins as builtins_mod
+from agentnexus.runner.tool_dispatch import (
     _BROWSER_TOOLS,
     _NATIVE_RELAY_BUILTIN_TOOLS,
     _execute_browser_tool,
     build_native_relay_tool_schemas,
 )
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ async def test_browser_tool_read_timeout_returns_clean_json() -> None:
     )
     parsed = json.loads(out)
     assert "timed out" in parsed["error"]
-    assert "Omnigent desktop app" in parsed["error"]
+    assert "AgentNexus desktop app" in parsed["error"]
 
 
 @pytest.mark.asyncio
@@ -221,7 +221,7 @@ def test_toolmanager_always_registers_browser_tools() -> None:
     the invariant the earlier per-spec registration missed (agents fell
     back to WebFetch because no shipped spec declared browser_*).
     """
-    from omnigent.tools.manager import ToolManager
+    from agentnexus.tools.manager import ToolManager
 
     mgr = ToolManager(AgentSpec(spec_version=1))  # empty tools.builtins
     for name in sorted(_EXPECTED_BROWSER_NAMES):

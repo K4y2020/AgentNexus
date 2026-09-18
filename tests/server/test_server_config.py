@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from omnigent.server import server_config as server_config_module
-from omnigent.server.server_config import (
+from agentnexus.server import server_config as server_config_module
+from agentnexus.server.server_config import (
     BRANDING_ASSET_MAX_BYTES,
     BRANDING_ASSET_MAX_DECODED_PIXELS,
     BRANDING_ASSET_MAX_DIMENSION,
@@ -117,18 +117,18 @@ _PNG = _VALID_RASTERS["logo.png"][0]
 
 def _pin_data_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Point <data_dir> at tmp_path and clear the explicit-path override."""
-    monkeypatch.delenv("OMNIGENT_CONFIG", raising=False)
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
+    monkeypatch.delenv("AGENTNEXUS_CONFIG", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
 
 
 # ── path resolution ───────────────────────────────────────────────
 
 
 def test_resolve_config_path_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """``OMNIGENT_CONFIG`` wins over the data-dir default."""
+    """``AGENTNEXUS_CONFIG`` wins over the data-dir default."""
     p = tmp_path / "custom.yaml"
     p.write_text("{}")
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(p))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(p))
     assert resolve_config_path() == p
 
 
@@ -228,7 +228,7 @@ def test_session_title_instructions_ignores_unset_or_invalid_values(value: objec
 def _write_branding_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, logo: str) -> Path:
     config = tmp_path / "config.yaml"
     config.write_text(f"branding:\n  logo:\n    main: {logo}\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
     assets = tmp_path / BRANDING_ASSETS_DIRNAME
     assets.mkdir()
     return assets
@@ -268,7 +268,7 @@ def test_branding_snapshot_validates_shared_logo_file_once(
     config.write_text(
         "branding:\n  logo:\n    main: logo.png\n    loading: ./logo.png\n    favicon: logo.png\n"
     )
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
     assets = tmp_path / BRANDING_ASSETS_DIRNAME
     assets.mkdir()
     logo = assets / "logo.png"
@@ -621,7 +621,7 @@ def test_branding_logo_rejects_symlinked_assets_directory(
 ) -> None:
     config = tmp_path / "config.yaml"
     config.write_text("branding:\n  logo: logo.png\n")
-    monkeypatch.setenv("OMNIGENT_CONFIG", str(config))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG", str(config))
     external = tmp_path / "external"
     external.mkdir()
     (external / "logo.png").write_bytes(_PNG)

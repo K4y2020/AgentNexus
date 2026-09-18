@@ -16,9 +16,9 @@ from __future__ import annotations
 import importlib
 import pkgutil
 
-import omnigent.tools.builtins as _builtins_pkg
-from omnigent.tools.base import Tool
-from omnigent.tools.builtins import (
+import agentnexus.tools.builtins as _builtins_pkg
+from agentnexus.tools.base import Tool
+from agentnexus.tools.builtins import (
     BUILTIN_NAMES,
     INSTANTIABLE_BUILTINS,
     get_builtin_tool,
@@ -188,7 +188,7 @@ def test_async_builtins_override_dispatch_async_or_are_runner_dispatched() -> No
 
     The base ``Tool.dispatch_async`` raises ``NotImplementedError``,
     so any tool that flips ``is_async`` true without an override
-    would crash the in-process Omnigent loop. After the DBOS removal,
+    would crash the in-process AgentNexus loop. After the DBOS removal,
     a class of async-namespace tools (``sys_call_async``,
     ``sys_read_inbox``, ``sys_cancel_async``) are dispatched by
     the runner via ``omnigent/runner/tool_dispatch.py`` —
@@ -198,7 +198,7 @@ def test_async_builtins_override_dispatch_async_or_are_runner_dispatched() -> No
     ``dispatch_async`` or is listed in the runner's
     ``_ALL_LOCAL_TOOLS`` set.
     """
-    from omnigent.runner.tool_dispatch import should_dispatch_locally
+    from agentnexus.runner.tool_dispatch import should_dispatch_locally
 
     base_dispatch_async = Tool.dispatch_async
 

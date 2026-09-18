@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.onboarding import gemini_auth as ga
-from omnigent.onboarding import harness_install
+from agentnexus.onboarding import gemini_auth as ga
+from agentnexus.onboarding import harness_install
 
 
 def _write(path: Path, payload: object) -> Path:

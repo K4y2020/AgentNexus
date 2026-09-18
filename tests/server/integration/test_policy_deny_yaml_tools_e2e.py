@@ -32,7 +32,7 @@ from tests.server.helpers import create_test_agent
 pytestmark = pytest.mark.asyncio
 
 
-_MAKE_FIXED = "omnigent.policies.function.make_fixed_action_callable"
+_MAKE_FIXED = "agentnexus.policies.function.make_fixed_action_callable"
 
 
 # ── Helpers ─────────────────────────────────────────────────

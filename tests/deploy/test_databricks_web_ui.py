@@ -5,7 +5,7 @@ Workspace import API rejects any single file over 10 MB. The built SPA is ~25 MB
 of assets, which takes the main wheel over that cap and fails the deploy before
 anything is uploaded. So ``build.sh`` moves the SPA out of the wheel's package
 data and the deploy ships it as one archive in ``src/web-ui.tar.gz``, which
-``src/app.py`` extracts and points the server at via ``OMNIGENT_WEB_UI_DIST``.
+``src/app.py`` extracts and points the server at via ``AGENTNEXUS_WEB_UI_DIST``.
 
 These tests pin each link in that chain, including the env var itself — the
 server reads it at import time, so it is checked in a subprocess.
@@ -72,15 +72,15 @@ def _load_archive_extractor():
 
 
 def test_server_honours_web_ui_dist_env(tmp_path: Path) -> None:
-    """The whole scheme hinges on OMNIGENT_WEB_UI_DIST being respected."""
+    """The whole scheme hinges on AGENTNEXUS_WEB_UI_DIST being respected."""
     spa = _make_spa(tmp_path)
-    code = "import omnigent.server.app as m; print(m._WEB_UI_DIST)"
+    code = "import agentnexus.server.app as m; print(m._WEB_UI_DIST)"
     out = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
         cwd=_ROOT,
-        env={"PATH": "/usr/bin:/bin", "OMNIGENT_WEB_UI_DIST": str(spa)},
+        env={"PATH": "/usr/bin:/bin", "AGENTNEXUS_WEB_UI_DIST": str(spa)},
         check=True,
     )
     assert out.stdout.strip() == str(spa)
@@ -90,7 +90,7 @@ def test_app_py_extracts_web_ui_before_importing_server() -> None:
     """The extracted path is read at import time, so setup must come first."""
     source = _APP_PY.read_text()
     prepare_at = source.rindex("_prepare_web_ui()")
-    import_at = source.index("from omnigent.server.app import create_app")
+    import_at = source.index("from agentnexus.server.app import create_app")
     assert prepare_at < import_at, "web UI setup is too late to take effect"
     assert 'archive = here / "web-ui.tar.gz"' in source
     assert "from web_ui_archive import extract_web_ui_archive" in source
@@ -186,8 +186,8 @@ def test_build_sh_opts_the_backend_out_of_rebuilding_the_spa() -> None:
     the archive, so the externalization has to happen before any wheel build.
     """
     source = _BUILD_SH.read_text()
-    assert "export OMNIGENT_SKIP_WEB_UI=true" in source
-    assert source.index("export OMNIGENT_SKIP_WEB_UI=true") < source.index(
+    assert "export AGENTNEXUS_SKIP_WEB_UI=true" in source
+    assert source.index("export AGENTNEXUS_SKIP_WEB_UI=true") < source.index(
         "uv build --wheel --out-dir dist/ sdks/python-client/"
     )
 
@@ -221,7 +221,7 @@ def test_build_sh_archives_the_spa_and_opts_out_when_run_for_real(tmp_path: Path
     _write_executable(
         fake_bin / "uv",
         "#!/usr/bin/env bash\n"
-        'printf "uv|%s|%s\\n" "${OMNIGENT_SKIP_WEB_UI-<unset>}" "$*" >> "$COMMAND_LOG"\n'
+        'printf "uv|%s|%s\\n" "${AGENTNEXUS_SKIP_WEB_UI-<unset>}" "$*" >> "$COMMAND_LOG"\n'
         "mkdir -p dist\n"
         "touch dist/fake.whl\n",
     )
@@ -234,7 +234,7 @@ def test_build_sh_archives_the_spa_and_opts_out_when_run_for_real(tmp_path: Path
             "EXTERNALIZE_WEB_UI": "1",
         }
     )
-    env.pop("OMNIGENT_SKIP_WEB_UI", None)
+    env.pop("AGENTNEXUS_SKIP_WEB_UI", None)
     env.pop("SKIP_WEB_UI", None)
 
     subprocess.run(["bash", str(script)], cwd=repo, env=env, check=True)
@@ -245,7 +245,7 @@ def test_build_sh_archives_the_spa_and_opts_out_when_run_for_real(tmp_path: Path
     with tarfile.open(archive, "r:gz") as tar:
         names = {name.lstrip("./") for name in tar.getnames()}
         assert {"assets/index-abc.js", "index.html"} <= names
-    assert not (repo / "omnigent" / "server" / "static" / "web-ui").exists()
+    assert not (repo / "agentnexus" / "server" / "static" / "web-ui").exists()
 
     # And every wheel build saw the opt-out, so setup.py cannot rebuild it back in.
     uv_calls = [line for line in command_log.read_text().splitlines() if line.startswith("uv|")]
@@ -286,20 +286,20 @@ def test_build_sh_leaves_the_spa_in_the_wheel_without_externalize(tmp_path: Path
     _write_executable(
         fake_bin / "uv",
         "#!/usr/bin/env bash\n"
-        'printf "uv|%s\\n" "${OMNIGENT_SKIP_WEB_UI-<unset>}" >> "$COMMAND_LOG"\n'
+        'printf "uv|%s\\n" "${AGENTNEXUS_SKIP_WEB_UI-<unset>}" >> "$COMMAND_LOG"\n'
         "mkdir -p dist\n"
         "touch dist/fake.whl\n",
     )
 
     env = os.environ.copy()
     env.update({"COMMAND_LOG": str(command_log), "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}"})
-    env.pop("OMNIGENT_SKIP_WEB_UI", None)
+    env.pop("AGENTNEXUS_SKIP_WEB_UI", None)
     env.pop("SKIP_WEB_UI", None)
     env.pop("EXTERNALIZE_WEB_UI", None)
 
     subprocess.run(["bash", str(script)], cwd=repo, env=env, check=True)
 
-    assert (repo / "omnigent" / "server" / "static" / "web-ui" / "index.html").is_file()
+    assert (repo / "agentnexus" / "server" / "static" / "web-ui" / "index.html").is_file()
     uv_calls = [line for line in command_log.read_text().splitlines() if line.startswith("uv|")]
     assert uv_calls == ["uv|<unset>"] * 3, uv_calls
 
@@ -312,7 +312,7 @@ def _write_executable(path: Path, content: str) -> None:
 def test_setup_py_honours_the_web_ui_opt_out() -> None:
     """The opt-out build.sh relies on must keep working."""
     source = (_ROOT / "setup.py").read_text()
-    assert 'os.environ.get("OMNIGENT_SKIP_WEB_UI") == "true"' in source
+    assert 'os.environ.get("AGENTNEXUS_SKIP_WEB_UI") == "true"' in source
 
 
 def test_build_wheels_requests_the_spa_archive_outside_the_wheel(
@@ -323,7 +323,7 @@ def test_build_wheels_requests_the_spa_archive_outside_the_wheel(
     def fake_run(cmd: list[str], **kwargs: object) -> None:
         captured.update(kwargs["env"])  # type: ignore[arg-type]
         (tmp_path / "dist").mkdir(exist_ok=True)
-        (tmp_path / "dist" / "omnigent-1.0-py3-none-any.whl").write_bytes(b"w")
+        (tmp_path / "dist" / "agentnexus-1.0-py3-none-any.whl").write_bytes(b"w")
 
     monkeypatch.setattr(deploy_mod, "_repo_root", lambda: tmp_path)
     monkeypatch.setattr(deploy_mod.subprocess, "run", fake_run)
@@ -354,7 +354,7 @@ def test_build_wheels_mode_ignores_the_ambient_environment(
     def fake_run(cmd: list[str], **kwargs: object) -> None:
         captured.update(kwargs["env"])  # type: ignore[arg-type]
         (tmp_path / "dist").mkdir(exist_ok=True)
-        (tmp_path / "dist" / "omnigent-1.0-py3-none-any.whl").write_bytes(b"w")
+        (tmp_path / "dist" / "agentnexus-1.0-py3-none-any.whl").write_bytes(b"w")
 
     monkeypatch.setattr(deploy_mod, "_repo_root", lambda: tmp_path)
     monkeypatch.setattr(deploy_mod.subprocess, "run", fake_run)

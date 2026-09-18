@@ -7,7 +7,7 @@ import httpx
 _BODY_PREVIEW_CHARS = 200
 
 
-class OmnigentError(Exception):
+class AgentNexusError(Exception):
     """Base exception for all omnigent client errors."""
 
     def __init__(self, message: str, status_code: int | None = None, code: str | None = None):
@@ -16,35 +16,35 @@ class OmnigentError(Exception):
         self.code = code
 
 
-class AgentNotFoundError(OmnigentError):
+class AgentNotFoundError(AgentNexusError):
     """Agent name or ID not found (HTTP 404)."""
 
 
-class ResponseNotFoundError(OmnigentError):
+class ResponseNotFoundError(AgentNexusError):
     """Response ID not found (HTTP 404)."""
 
 
-class FileNotFoundError(OmnigentError):
+class FileNotFoundError(AgentNexusError):
     """File ID not found (HTTP 404)."""
 
 
-class ConversationNotFoundError(OmnigentError):
+class ConversationNotFoundError(AgentNexusError):
     """Conversation ID not found (HTTP 404)."""
 
 
-class InvalidInputError(OmnigentError):
+class InvalidInputError(AgentNexusError):
     """Bad request — invalid input, missing fields, etc. (HTTP 400)."""
 
 
-class ConflictError(OmnigentError):
+class ConflictError(AgentNexusError):
     """Resource conflict — duplicate name, stale state, etc. (HTTP 409)."""
 
 
-class BundleInvalidError(OmnigentError):
+class BundleInvalidError(AgentNexusError):
     """Agent bundle is invalid — corrupt tarball, bad config, etc. (HTTP 400)."""
 
 
-class ServerError(OmnigentError):
+class ServerError(AgentNexusError):
     """Internal server error (HTTP 5xx)."""
 
 
@@ -79,8 +79,8 @@ def raise_for_status(status_code: int, body: dict[str, object] | str) -> None:
         message = str(body)
 
     # Use the server's error code for precise classification.
-    _CODE_MAP: dict[str, type[OmnigentError]] = {
-        "not_found": OmnigentError,
+    _CODE_MAP: dict[str, type[AgentNexusError]] = {
+        "not_found": AgentNexusError,
         "invalid_input": InvalidInputError,
         "conflict": ConflictError,
         "server_error": ServerError,
@@ -90,8 +90,8 @@ def raise_for_status(status_code: int, body: dict[str, object] | str) -> None:
         # 404 is always "not found" — the specific type (agent, response,
         # file, conversation) is determined by the endpoint the caller
         # hit, not the error message. Callers can catch the base
-        # OmnigentError or the specific subclass at the call site.
-        raise OmnigentError(message, status_code, code)
+        # AgentNexusError or the specific subclass at the call site.
+        raise AgentNexusError(message, status_code, code)
 
     if status_code == 409:
         raise ConflictError(message, status_code, code)
@@ -102,7 +102,7 @@ def raise_for_status(status_code: int, body: dict[str, object] | str) -> None:
     if status_code >= 500:
         raise ServerError(message, status_code, code)
 
-    raise OmnigentError(message, status_code, code)
+    raise AgentNexusError(message, status_code, code)
 
 
 def response_body(resp: httpx.Response) -> dict[str, object] | str:
@@ -133,7 +133,7 @@ def require_json_object(resp: httpx.Response, endpoint: str) -> dict[str, object
 
     Used after :func:`raise_for_status` when an endpoint's success
     contract is a JSON object. A non-JSON response at this point is a
-    protocol/base-URL/auth problem, so raise :class:`OmnigentError`
+    protocol/base-URL/auth problem, so raise :class:`AgentNexusError`
     with status, content type, and a short body preview instead of
     leaking ``JSONDecodeError``.
 
@@ -141,7 +141,7 @@ def require_json_object(resp: httpx.Response, endpoint: str) -> dict[str, object
     :param endpoint: Human-readable endpoint label, e.g.
         ``"GET /v1/conversations"``.
     :returns: Parsed JSON object body.
-    :raises OmnigentError: If the body is not a JSON object.
+    :raises AgentNexusError: If the body is not a JSON object.
     """
     try:
         data = resp.json()
@@ -153,13 +153,13 @@ def require_json_object(resp: httpx.Response, endpoint: str) -> dict[str, object
             else "no content-type header"
         )
         preview = _response_text_preview(resp.text)
-        raise OmnigentError(
+        raise AgentNexusError(
             f"{endpoint} returned non-JSON response "
             f"(status={resp.status_code}, {content_type_detail}): {preview}",
             resp.status_code,
         ) from exc
     if not isinstance(data, dict):
-        raise OmnigentError(
+        raise AgentNexusError(
             f"{endpoint} returned JSON {type(data).__name__}, expected object",
             resp.status_code,
         )

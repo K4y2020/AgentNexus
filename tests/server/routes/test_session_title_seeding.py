@@ -9,13 +9,13 @@ the sidebar falls back to the generic "Claude Code" label.
 
 from __future__ import annotations
 
-from omnigent.entities.conversation import (
+from agentnexus.entities.conversation import (
     MessageData,
     NewConversationItem,
     SlashCommandData,
     synthesize_conversation_title,
 )
-from omnigent.server.routes.sessions import _title_content_from_item
+from agentnexus.server.routes.sessions import _title_content_from_item
 
 
 def _slash_command_item(name: str, arguments: str, *, kind: str = "skill") -> NewConversationItem:

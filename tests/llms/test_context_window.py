@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.llms import context_window
-from omnigent.llms.context_window import (
+from agentnexus.llms import context_window
+from agentnexus.llms.context_window import (
     ModelPricing,
     _catalog_context_window,
     _encoded_context_window,
@@ -22,7 +22,7 @@ from omnigent.llms.context_window import (
     get_model_context_window,
     resolve_effective_context_window,
 )
-from omnigent.onboarding.providers import ModelInfo
+from agentnexus.onboarding.providers import ModelInfo
 
 
 def test_resolve_effective_context_window_prefers_declared_window(

@@ -33,7 +33,7 @@ def _spec_with_worker(
     :param worker_model: Optional ``executor.model`` pin on the worker spec.
     :returns: A structural parent-spec stub for ``execute_tool``.
     """
-    executor = SimpleNamespace(type="omnigent", config={"harness": harness})
+    executor = SimpleNamespace(type="agentnexus", config={"harness": harness})
     if worker_model is not None:
         executor.model = worker_model
     return SimpleNamespace(sub_agents=[SimpleNamespace(name="worker", executor=executor)])
@@ -58,8 +58,8 @@ async def _dispatch_without_model(
     :param explicit_model: Optional ``args.model`` for the dispatch.
     :returns: The captured ``POST /v1/sessions`` bodies.
     """
-    from omnigent.runner import app as runner_app
-    from omnigent.runner.tool_dispatch import execute_tool
+    from agentnexus.runner import app as runner_app
+    from agentnexus.runner.tool_dispatch import execute_tool
 
     create_bodies: list[dict[str, Any]] = []
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")

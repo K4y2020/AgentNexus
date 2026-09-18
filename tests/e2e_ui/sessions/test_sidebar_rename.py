@@ -20,7 +20,7 @@ import uuid
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from omnigent.entities import USER_SESSION_TITLE_MAX_CHARS
+from agentnexus.entities import USER_SESSION_TITLE_MAX_CHARS
 
 
 def _row(page: Page, session_id: str) -> Locator:

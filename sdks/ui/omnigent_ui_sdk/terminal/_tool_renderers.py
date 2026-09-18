@@ -21,7 +21,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from omnigent_client import NativeToolBlock, ToolExecution
+from agentnexus_client import NativeToolBlock, ToolExecution
 from pydantic import BaseModel, Field, ValidationError
 from rich import box
 from rich.console import Group, RenderableType

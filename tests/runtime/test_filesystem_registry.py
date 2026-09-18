@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.filesystem_registry import (
+from agentnexus.runtime.filesystem_registry import (
     AgentEditFilesystemRegistry,
     GitFilesystemRegistry,
     GitStatusUnavailable,
@@ -540,7 +540,7 @@ def test_git_list_changed_files_raises_on_timeout(tmp_path: Path, monkeypatch) -
     def _raise_timeout(*_args, **_kwargs):
         raise subprocess.TimeoutExpired(cmd="git status", timeout=5)
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _raise_timeout)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _raise_timeout)
 
     reg = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     with pytest.raises(GitStatusUnavailable, match="timed out"):
@@ -564,7 +564,7 @@ def test_git_list_changed_files_raises_on_nonzero_exit(tmp_path: Path, monkeypat
             stderr=b"fatal: detected dubious ownership in repository",
         )
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _nonzero)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _nonzero)
 
     reg = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     with pytest.raises(GitStatusUnavailable, match="exited 128"):
@@ -584,7 +584,7 @@ def test_git_get_changed_file_raises_on_timeout(tmp_path: Path, monkeypatch) -> 
     def _raise_timeout(*_args, **_kwargs):
         raise subprocess.TimeoutExpired(cmd="git status", timeout=5)
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _raise_timeout)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _raise_timeout)
 
     reg = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     with pytest.raises(GitStatusUnavailable, match="timed out"):
@@ -604,7 +604,7 @@ def test_git_get_changed_file_raises_on_nonzero_exit(tmp_path: Path, monkeypatch
             stderr=b"fatal: detected dubious ownership in repository",
         )
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _nonzero)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _nonzero)
 
     reg = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     with pytest.raises(GitStatusUnavailable, match="exited 128"):
@@ -682,14 +682,14 @@ def test_git_timeout_seconds_default_and_env_override(monkeypatch) -> None:
     → default, a valid positive value → that value, and invalid/non-positive
     values fall back to the default rather than raising or disabling the cap.
     """
-    monkeypatch.delenv("OMNIGENT_GIT_STATUS_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_GIT_STATUS_TIMEOUT_SECONDS", raising=False)
     assert _git_timeout_seconds() == pytest.approx(30.0)
 
-    monkeypatch.setenv("OMNIGENT_GIT_STATUS_TIMEOUT_SECONDS", "90")
+    monkeypatch.setenv("AGENTNEXUS_GIT_STATUS_TIMEOUT_SECONDS", "90")
     assert _git_timeout_seconds() == pytest.approx(90.0)
 
     for bad in ("not-a-number", "0", "-5", ""):
-        monkeypatch.setenv("OMNIGENT_GIT_STATUS_TIMEOUT_SECONDS", bad)
+        monkeypatch.setenv("AGENTNEXUS_GIT_STATUS_TIMEOUT_SECONDS", bad)
         assert _git_timeout_seconds() == pytest.approx(30.0), (
             f"Expected fallback to default for invalid value {bad!r}."
         )
@@ -703,7 +703,7 @@ def test_git_list_changed_files_honors_env_timeout(tmp_path: Path, monkeypatch) 
     """
     env = _git_env()
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, env=env)
-    monkeypatch.setenv("OMNIGENT_GIT_STATUS_TIMEOUT_SECONDS", "42")
+    monkeypatch.setenv("AGENTNEXUS_GIT_STATUS_TIMEOUT_SECONDS", "42")
 
     seen: dict[str, float | None] = {}
 
@@ -711,7 +711,7 @@ def test_git_list_changed_files_honors_env_timeout(tmp_path: Path, monkeypatch) 
         seen["timeout"] = kwargs.get("timeout")
         return subprocess.CompletedProcess(args="git", returncode=0, stdout=b"", stderr=b"")
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _capture)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _capture)
 
     reg = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     reg.list_changed_files("any-conv", limit=100)
@@ -815,7 +815,7 @@ def test_untracked_cache_failure_does_not_break_init(tmp_path: Path, monkeypatch
     def _raise_oserror(*_args, **_kwargs):
         raise OSError("git not found")
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _raise_oserror)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _raise_oserror)
 
     registry = GitFilesystemRegistry(watch_path=tmp_path, git_root=tmp_path)
     registry._enable_untracked_cache()
@@ -828,7 +828,7 @@ def test_untracked_cache_config_written_once_per_root(tmp_path: Path, monkeypatc
     the one-shot guard every request would re-spawn ``git config``. Building
     several registries on the same root must issue the config write only once.
     """
-    from omnigent.runtime import filesystem_registry as fsr
+    from agentnexus.runtime import filesystem_registry as fsr
 
     env = _git_env()
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, env=env)
@@ -907,7 +907,7 @@ def test_untracked_cache_already_enabled_skips_probe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A runner waiting on another process re-checks config and exits."""
-    from omnigent.runtime import filesystem_registry as fsr
+    from agentnexus.runtime import filesystem_registry as fsr
 
     monkeypatch.setattr(fsr, "_untracked_cache_enabled", set())
     calls: list[tuple[str, ...]] = []
@@ -926,7 +926,7 @@ def test_untracked_cache_already_enabled_skips_probe(
 
 def test_git_common_dir_resolves_linked_worktree(tmp_path: Path) -> None:
     """Worktrees coordinate through a lock in their shared Git directory."""
-    from omnigent.runtime.filesystem_registry import _git_common_dir
+    from agentnexus.runtime.filesystem_registry import _git_common_dir
 
     common_dir = tmp_path / "repo" / ".git"
     worktree_git_dir = common_dir / "worktrees" / "feature"
@@ -945,7 +945,7 @@ def test_untracked_cache_logs_probe_and_config_timings(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Startup diagnostics time the probe and config subprocesses separately."""
-    from omnigent.runtime import filesystem_registry as fsr
+    from agentnexus.runtime import filesystem_registry as fsr
 
     monkeypatch.setattr(fsr, "_untracked_cache_enabled", set())
     readings = iter((10.0, 10.001, 10.001, 10.007, 10.007, 10.009))
@@ -979,7 +979,7 @@ def test_untracked_cache_not_enabled_when_probe_fails(tmp_path: Path, monkeypatc
     cache there risks a newly-untracked file missing from the panel, so the
     registry must leave ``core.untrackedCache`` unset.
     """
-    from omnigent.runtime import filesystem_registry as fsr
+    from agentnexus.runtime import filesystem_registry as fsr
 
     env = _git_env()
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, env=env)
@@ -1381,7 +1381,7 @@ def test_git_line_counts_numstat_failure_degrades_but_status_intact(
             raise subprocess.TimeoutExpired(cmd="git diff --numstat", timeout=5)
         return real_run(argv, *args, **kwargs)
 
-    monkeypatch.setattr("omnigent.runtime.filesystem_registry.subprocess.run", _fail_numstat)
+    monkeypatch.setattr("agentnexus.runtime.filesystem_registry.subprocess.run", _fail_numstat)
 
     [rec] = reg.list_changed_files("any-conv", limit=100)
     assert rec["status"] == "modified"

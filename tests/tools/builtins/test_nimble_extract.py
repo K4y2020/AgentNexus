@@ -18,9 +18,9 @@ import httpx
 import pytest
 import respx
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins import get_builtin_tool
-from omnigent.tools.builtins.nimble_extract import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins import get_builtin_tool
+from agentnexus.tools.builtins.nimble_extract import (
     NimbleExtractTool,
     _format_extract,
     _resolve_timeout,
@@ -92,7 +92,7 @@ def test_get_builtin_tool_returns_nimble_extract() -> None:
 
 def test_retired_nimble_agent_name_is_not_registered() -> None:
     """The predecessor name is retired — no alias resolves, nothing reserves it."""
-    from omnigent.tools.builtins import BUILTIN_NAMES
+    from agentnexus.tools.builtins import BUILTIN_NAMES
 
     assert get_builtin_tool("nimble_agent") is None
     assert "nimble_agent" not in BUILTIN_NAMES
@@ -184,8 +184,8 @@ def test_sends_bearer_client_source_template_and_params(tool_ctx: ToolContext) -
     assert route.call_count == 1
     request = route.calls.last.request
     assert request.headers["Authorization"] == "Bearer test-key"
-    assert request.headers["X-Client-Source"] == "omnigent", (
-        f"Expected X-Client-Source 'omnigent', got {request.headers.get('X-Client-Source')!r}"
+    assert request.headers["X-Client-Source"] == "agentnexus", (
+        f"Expected X-Client-Source 'agentnexus', got {request.headers.get('X-Client-Source')!r}"
     )
     assert request.headers["Content-Type"] == "application/json"
     body = json.loads(request.content)
@@ -206,8 +206,8 @@ def test_config_template_selects_the_template(tool_ctx: ToolContext) -> None:
 
 @respx.mock
 def test_base_url_env_override(tool_ctx: ToolContext, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``OMNIGENT_NIMBLE_EXTRACT_BASE_URL`` reroutes the request (test/e2e seam)."""
-    monkeypatch.setenv("OMNIGENT_NIMBLE_EXTRACT_BASE_URL", "http://127.0.0.1:9998/")
+    """``AGENTNEXUS_NIMBLE_EXTRACT_BASE_URL`` reroutes the request (test/e2e seam)."""
+    monkeypatch.setenv("AGENTNEXUS_NIMBLE_EXTRACT_BASE_URL", "http://127.0.0.1:9998/")
     route = respx.post("http://127.0.0.1:9998/v2/extract/templates/run").mock(
         return_value=httpx.Response(
             200, json=_payload({"status": "success", "entities": _entities()})

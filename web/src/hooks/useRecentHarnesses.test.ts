@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useRecentHarnesses } from "./useRecentHarnesses";
 
-const KEY = "omnigent:recent-harnesses";
+const KEY = "agentnexus:recent-harnesses";
 
 function stored(): unknown {
   const raw = localStorage.getItem(KEY);

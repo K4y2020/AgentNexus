@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities.conversation import Conversation
-from omnigent.server.routes._sessions import orchestration
+from agentnexus.entities.conversation import Conversation
+from agentnexus.server.routes._sessions import orchestration
 
 
 def _conv(**kwargs: Any) -> Conversation:

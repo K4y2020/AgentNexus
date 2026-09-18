@@ -12,7 +12,7 @@ async function run({
   state = "closed",
   merged = false,
   closer = "github-actions[bot]",
-  headRepo = { owner: { login: "ext" }, name: "omnigent" },
+  headRepo = { owner: { login: "ext" }, name: "agentnexus" },
   branchExists = true,
   body = "/reopen",
 }) {
@@ -42,7 +42,7 @@ async function run({
     },
   };
   const context = {
-    repo: { owner: "omnigent-ai", repo: "omnigent" },
+    repo: { owner: "agentnexus-ai", repo: "agentnexus" },
     payload: {
       issue: { number: 7, pull_request: {} },
       comment: { user: { login: commenter }, body },
@@ -70,7 +70,7 @@ async function run({
 
   // Closed by a GitHub App bot (not github-actions): still an automated close,
   // so it reopens -- suffix match, not an allowlist.
-  r = await run({ closer: "omnigent-ci[bot]" });
+  r = await run({ closer: "agentnexus-ci[bot]" });
   assert.deepStrictEqual(r.reopens, [{ pull_number: 7, state: "open" }]);
   assert.match(r.comments[0], /Reopened/);
 

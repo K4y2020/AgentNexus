@@ -1,6 +1,6 @@
 """``--no-otel`` must resolve to a genuinely uninstrumented deploy target.
 
-A workspace with no OTel collector and no UC OTel tables cannot deploy Omnigent
+A workspace with no OTel collector and no UC OTel tables cannot deploy AgentNexus
 to Databricks Apps cleanly: the app runs under ``opentelemetry-instrument`` with
 ``OTEL_TRACES_SAMPLER=always_on``, so every span export fails
 ``DEADLINE_EXCEEDED`` against ``localhost:4317``, and the platform export block
@@ -37,13 +37,13 @@ _BUNDLE_YML = _ROOT / "deploy" / "databricks" / "databricks.yml"
 
 _REQUIRED_ARGS = [
     "--app-name",
-    "omnigent",
+    "agentnexus",
     "--lakebase-branch",
     "projects/omnigent/branches/production",
     "--lakebase-database",
     "projects/omnigent/branches/production/databases/databricks-postgres",
     "--volume-name",
-    "main.omnigent.artifacts",
+    "main.agentnexus.artifacts",
 ]
 
 # The app spec `main` hardcoded before app_command / app_env /
@@ -53,7 +53,7 @@ _PROD_ENV_BEFORE = [
     {"name": "AP_LAKEBASE_ENDPOINT", "value_from": "postgres"},
     {"name": "AP_ARTIFACT_VOLUME_PATH", "value_from": "artifact_volume"},
     {"name": "OTEL_TRACES_SAMPLER", "value": "always_on"},
-    {"name": "OMNIGENT_FEATURES", "value": "${var.features}"},
+    {"name": "AGENTNEXUS_FEATURES", "value": "${var.features}"},
 ]
 _PROD_TELEMETRY_BEFORE = [
     {
@@ -121,8 +121,8 @@ def _resolved_app_spec(bundle: dict[str, Any], target: str) -> dict[str, Any]:
             return {key: substitute(value) for key, value in node.items()}
         return node
 
-    app = bundle["resources"]["apps"]["omnigent"]
-    target_app = ((target_block.get("resources") or {}).get("apps") or {}).get("omnigent") or {}
+    app = bundle["resources"]["apps"]["agentnexus"]
+    target_app = ((target_block.get("resources") or {}).get("apps") or {}).get("agentnexus") or {}
     return {
         "command": substitute(app["config"]["command"]),
         "env": substitute(app["config"]["env"]),
@@ -171,7 +171,7 @@ def test_no_otel_target_overrides_are_direct_values(bundle: dict[str, Any]) -> N
     assert {entry["name"] for entry in overrides["app_env"]} == {
         "AP_LAKEBASE_ENDPOINT",
         "AP_ARTIFACT_VOLUME_PATH",
-        "OMNIGENT_FEATURES",
+        "AGENTNEXUS_FEATURES",
     }
 
 

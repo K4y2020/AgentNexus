@@ -36,7 +36,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.runner.turn_routing import MARKER_FILE
+from agentnexus.runner.turn_routing import MARKER_FILE
 from tests.e2e.routing._helpers import (
     capture_pane,
     claude_bridge_dir,

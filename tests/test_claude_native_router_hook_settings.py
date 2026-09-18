@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.claude_native_bridge import build_hook_settings, prepare_bridge_dir
-from omnigent.inner.hook_scripts.subagent_router import AGENT_TOOL_MATCHER
+from agentnexus.claude_native_bridge import build_hook_settings, prepare_bridge_dir
+from agentnexus.inner.hook_scripts.subagent_router import AGENT_TOOL_MATCHER
 
 #: Claude Code's default command-hook timeout for ``UserPromptSubmit``, which is
 #: shorter than the default for other events. Not importable — it is the CLI's,
@@ -25,8 +25,8 @@ def _trust_tmp_bridge_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     :param tmp_path: Per-test temp directory.
     :returns: None.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path)
 
 
 def _bridge_dir(tmp_path: Path) -> Path:
@@ -54,12 +54,12 @@ def test_router_hook_registered_when_router_dir_set(tmp_path: Path) -> None:
     assert len(entries) == 1
     hook = entries[0]["hooks"][0]
     assert hook["type"] == "command"
-    assert "omnigent.inner.hook_scripts.claude_router_hook" in hook["command"]
+    assert "agentnexus.inner.hook_scripts.claude_router_hook" in hook["command"]
     assert f"--bridge-dir {bridge_dir}" in hook["command"]
     assert f"--router-dir {bridge_dir}" in hook["command"]
     # Derived from the hook script's own request budget, so it always exceeds
     # it and the script's fail-open branch runs before Claude kills the hook.
-    from omnigent.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S
+    from agentnexus.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S
 
     assert hook["timeout"] == int(HOOK_TIMEOUT_S)
 
@@ -108,7 +108,7 @@ def test_both_routing_hooks_coexist_with_the_policy_hooks(tmp_path: Path) -> Non
     # routing gate next (it may block the prompt), the request-phase policy gate
     # last — for a native session that gate is the sole request gate.
     assert len(prompt_submit) == 3
-    assert "omnigent.claude_native_hook" in prompt_submit[0]
+    assert "agentnexus.claude_native_hook" in prompt_submit[0]
     assert "route-turn" in prompt_submit[1]
     assert "evaluate-policy" in prompt_submit[2]
     # Neither routing hook leaks onto the other's event.
@@ -134,7 +134,7 @@ def test_the_route_turn_hook_is_registered_above_its_own_request_budget(
     own default, because the default is what a wedged hook would cost the
     user: routing is not allowed to hold a prompt for half a minute.
     """
-    from omnigent.runner.turn_routing import HARNESS_HOOK_TIMEOUT_S, HOOK_REQUEST_TIMEOUT_S
+    from agentnexus.runner.turn_routing import HARNESS_HOOK_TIMEOUT_S, HOOK_REQUEST_TIMEOUT_S
 
     settings = build_hook_settings(_bridge_dir(tmp_path), turn_routing=True)
     entries = [
@@ -154,7 +154,7 @@ def test_the_subagent_router_hook_is_registered_above_its_own_request_budget(
     tmp_path: Path,
 ) -> None:
     """Add #23, the other claude hook: same relation, its own two constants."""
-    from omnigent.inner.hook_scripts.subagent_router import REQUEST_TIMEOUT_S
+    from agentnexus.inner.hook_scripts.subagent_router import REQUEST_TIMEOUT_S
 
     bridge_dir = _bridge_dir(tmp_path)
     settings = build_hook_settings(bridge_dir, subagent_router_dir=bridge_dir)

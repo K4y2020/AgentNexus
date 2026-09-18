@@ -2,7 +2,7 @@ name: Draft feature blogs
 
 # At release CUT (a vX.Y.Z tag is pushed → the "GitHub Release" workflow creates
 # the draft), look over the release's features and DRAFT a feature-blog post on
-# omnigent-site for each one big enough to warrant it — usually none. Blog drafts
+# agentnexus-site for each one big enough to warrant it — usually none. Blog drafts
 # land alongside the release-notes draft (draft-release-notes.yml, same trigger)
 # so a maintainer reviews both together.
 #
@@ -12,7 +12,7 @@ name: Draft feature blogs
 #      capped at 3) from the same PR-range material draft-release-notes.yml
 #      harvests. Most releases → [].
 #   2. feature-blog-drafter — file access; writes one post per selected feature
-#      into an omnigent-site checkout. The workflow opens a DRAFT PR per post.
+#      into an agentnexus-site checkout. The workflow opens a DRAFT PR per post.
 #
 # Why `workflow_run` (not extending github-release.yml): that workflow runs NO
 # project code, only `gh release create`, so a malicious tagged commit can't
@@ -68,8 +68,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_REPO: omnigent-ai/omnigent
-  OMNIGENT_SKIP_WEB_UI: "true"
+  SOURCE_REPO: agentnexus-ai/agentnexus
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
 
@@ -77,7 +77,7 @@ jobs:
   draft:
     name: Scout features and draft blogs
     if: >-
-      github.repository == 'omnigent-ai/omnigent' &&
+      github.repository == 'agentnexus-ai/agentnexus' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
@@ -143,7 +143,7 @@ jobs:
             | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Trusted default branch, full history + tags for the range computation.
-      - name: Checkout omnigent (main)
+      - name: Checkout agentnexus (main)
         if: steps.guard.outputs.proceed == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -203,7 +203,7 @@ jobs:
           import os, pathlib
           tag = os.environ["TAG"]
           max_posts = int(os.environ.get("MAX_POSTS", "3"))
-          # `omnigent run -p` passes the whole prompt as one argv string, capped at
+          # `agentnexus run -p` passes the whole prompt as one argv string, capped at
           # ~128 KiB on Linux. Cap the PR list well under that.
           MAX = 100_000
           pr_list = pathlib.Path("/tmp/pr_list.txt").read_text(encoding="utf-8", errors="replace")
@@ -229,12 +229,12 @@ jobs:
       # Sets up uv + Claude CLI + the gateway provider config, runs the tools-less
       # scout on the prompt file, and secret-scans its stdout — the same runner
       # scaffold draft-release-notes.yml / publish-changelog.yml share. The env it
-      # sets up (PATH, ~/.omnigent, .venv) persists into the drafter loop below, so
+      # sets up (PATH, ~/.agentnexus, .venv) persists into the drafter loop below, so
       # only the scout needs to invoke the action.
       - name: Run feature-blog scout
         id: scout
         if: steps.guard.outputs.proceed == 'true' && steps.creds.outputs.available == 'true'
-        uses: ./.github/actions/run-omnigent-agent
+        uses: ./.github/actions/run-agentnexus-agent
         with:
           agent: feature-blog-scout
           prompt-file: /tmp/scout_prompt.txt
@@ -242,7 +242,7 @@ jobs:
           stderr-file: ${{ github.workspace }}/scout-stderr.log
           gateway-base-url: ${{ secrets.GATEWAY_BASE_URL }}
           llm-api-key: ${{ secrets.LLM_API_KEY }}
-          model: ${{ vars.OMNIGENT_CI_ANTHROPIC_MODEL }}
+          model: ${{ vars.AGENTNEXUS_CI_ANTHROPIC_MODEL }}
 
       - name: Parse candidates
         id: candidates
@@ -317,14 +317,14 @@ jobs:
           print(f"Parsed {len(cands)} candidate(s).")
           PYEOF
 
-      # --- 2) Draft one post per candidate into an omnigent-site checkout ---
+      # --- 2) Draft one post per candidate into an agentnexus-site checkout ---
       # Checked out WITHOUT a write token — the drafter runs first; the token is
       # minted only after all agents finish, then used to push.
-      - name: Checkout omnigent-site (draft target)
+      - name: Checkout agentnexus-site (draft target)
         if: steps.guard.outputs.proceed == 'true' && steps.creds.outputs.available == 'true' && steps.candidates.outputs.count != '0'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          repository: omnigent-ai/omnigent-site
+          repository: agentnexus-ai/agentnexus-site
           ref: main
           path: site
           persist-credentials: false
@@ -340,14 +340,14 @@ jobs:
           set -euo pipefail
           SITE="${GITHUB_WORKSPACE}/site"
           VERSION="${TAG#v}"
-          # Release date = the tag's commit date in the omnigent checkout (workspace
+          # Release date = the tag's commit date in the agentnexus checkout (workspace
           # root, full history + tags), NOT the site checkout's last-commit date.
           DATE="$(git -C "${GITHUB_WORKSPACE}" log -1 --format=%cs "$TAG" 2>/dev/null || git -C "${GITHUB_WORKSPACE}" log -1 --format=%cs)"
 
           # Build a per-feature material file (contributing PRs' entries + diffs),
           # commit each post to its own LOCAL branch (no push, no token needed).
-          git -C "$SITE" config user.name "omnigent-ci[bot]"
-          git -C "$SITE" config user.email "294685417+omnigent-ci[bot]@users.noreply.github.com"
+          git -C "$SITE" config user.name "agentnexus-ci[bot]"
+          git -C "$SITE" config user.email "294685417+agentnexus-ci[bot]@users.noreply.github.com"
 
           count=$(python3 -c "import json;print(len(json.load(open('/tmp/candidates.json'))))")
           : > /tmp/drafted_branches.txt
@@ -381,7 +381,7 @@ jobs:
           from collections import Counter
           mergers, authors = Counter(), Counter()
           def _usable(login):
-              return bool(login) and not login.endswith("[bot]") and login != "omnigent-ci"
+              return bool(login) and not login.endswith("[bot]") and login != "agentnexus-ci"
           # Detect a demo VIDEO already attached to a PR body so the reviewer can
           # reuse it instead of re-recording. GitHub renders uploaded videos as bare
           # asset links (user-attachments/assets or the older <owner>/<repo>/assets),
@@ -462,7 +462,7 @@ jobs:
             # the secret-scan below runs regardless of whether the drafter failed
             # (tee already wrote its stdout to the file either way).
             drafter_rc=0
-            uv run --project "${GITHUB_WORKSPACE}" omnigent run \
+            uv run --project "${GITHUB_WORKSPACE}" agentnexus run \
               "${GITHUB_WORKSPACE}/.github/agents/feature-blog-drafter" \
               -p "$prompt" --no-session \
               2>>drafter-stderr.log | tee "/tmp/drafter_out_${i}.txt" || drafter_rc=$?
@@ -512,7 +512,7 @@ jobs:
             fi
 
             if [ -n "$post" ]; then
-              printf '\n---\n\n**Enjoying Omnigent?** If this is useful to you, [give us a star on GitHub ⭐](https://github.com/omnigent-ai/omnigent). Come say hi on [Discord](https://discord.gg/omnigent), or [check the latest release](https://omnigent.ai/releases).\n' \
+              printf '\n---\n\n**Enjoying AgentNexus?** If this is useful to you, [give us a star on GitHub ⭐](https://github.com/agentnexus-ai/agentnexus). Come say hi on [Discord](https://discord.gg/agentnexus), or [check the latest release](https://agentnexus.ai/releases).\n' \
                 >> "${SITE}/${post}"
             fi
 
@@ -528,7 +528,7 @@ jobs:
               # env), so the unsandboxed drafter run above never sees it and it
               # can't reach the drafter's scanned stdout.
               GATEWAY_BASE_URL='${{ secrets.GATEWAY_BASE_URL }}' \
-              IMAGE_MODEL='${{ vars.OMNIGENT_CI_IMAGE_MODEL }}' \
+              IMAGE_MODEL='${{ vars.AGENTNEXUS_CI_IMAGE_MODEL }}' \
               IMAGE_PROMPT="$image_prompt" SLUG="$slug" SITE="$SITE" POST="$post" \
               python3 -u <<'PYEOF' || echo "::warning::hero image generation failed for ${slug}; leaving heroArt blank"
           import base64, json, os, pathlib, re, urllib.request
@@ -543,7 +543,7 @@ jobs:
               raise SystemExit(f"cannot parse gateway host from {gw!r}")
           model = os.environ.get("IMAGE_MODEL", "").strip()
           if not model:
-              raise SystemExit("repository variable OMNIGENT_CI_IMAGE_MODEL is empty")
+              raise SystemExit("repository variable AGENTNEXUS_CI_IMAGE_MODEL is empty")
           url = f"{m.group(1)}/serving-endpoints/{model}/invocations"
           style = (" Flat vector illustration, dark navy tech background with subtle "
                    "circuit lines, teal and pink accents, 16:9 wide, no text, no words, "
@@ -627,26 +627,26 @@ jobs:
           echo "Drafted ${n} post(s)." | tee -a "$GITHUB_STEP_SUMMARY"
 
       # --- 3) Mint the write-token — ONLY now, after the agents have run ---
-      - name: Mint App token (omnigent-site)
+      - name: Mint App token (agentnexus-site)
         id: app-token
-        if: steps.guard.outputs.proceed == 'true' && steps.guard.outputs.dry_run != 'true' && steps.draftposts.outcome == 'success' && steps.draftposts.outputs.drafted != '' && steps.draftposts.outputs.drafted != '0' && vars.OMNIGENT_BOT_APP_ID != ''
+        if: steps.guard.outputs.proceed == 'true' && steps.guard.outputs.dry_run != 'true' && steps.draftposts.outcome == 'success' && steps.draftposts.outputs.drafted != '' && steps.draftposts.outputs.drafted != '0' && vars.AGENTNEXUS_BOT_APP_ID != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.OMNIGENT_BOT_APP_ID }}
-          private-key: ${{ secrets.OMNIGENT_BOT_APP_KEY }}
+          app-id: ${{ vars.AGENTNEXUS_BOT_APP_ID }}
+          private-key: ${{ secrets.AGENTNEXUS_BOT_APP_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: omnigent-site
+          repositories: agentnexus-site
 
       # Make a misconfigured run (posts drafted but no App to push them) loud, so
       # it isn't mistaken for a clean "no candidates" outcome.
       - name: Warn if drafts can't be published
         if: steps.guard.outputs.proceed == 'true' && steps.guard.outputs.dry_run != 'true' && steps.draftposts.outcome == 'success' && steps.draftposts.outputs.drafted != '' && steps.draftposts.outputs.drafted != '0' && steps.app-token.outputs.token == ''
         run: |
-          echo "::warning::Drafted ${{ steps.draftposts.outputs.drafted }} post(s) but no omnigent-site App token (OMNIGENT_BOT_APP_ID unset?) — no PRs opened; drafts discarded." \
+          echo "::warning::Drafted ${{ steps.draftposts.outputs.drafted }} post(s) but no agentnexus-site App token (AGENTNEXUS_BOT_APP_ID unset?) — no PRs opened; drafts discarded." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
       # --- 4) Push each drafted branch and open a DRAFT PR ---
-      - name: Open draft PRs (omnigent-site)
+      - name: Open draft PRs (agentnexus-site)
         if: steps.guard.outputs.proceed == 'true' && steps.guard.outputs.dry_run != 'true' && steps.draftposts.outcome == 'success' && steps.draftposts.outputs.drafted != '' && steps.draftposts.outputs.drafted != '0' && steps.app-token.outputs.token != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -655,7 +655,7 @@ jobs:
         run: |
           set -euo pipefail
           SITE="${GITHUB_WORKSPACE}/site"
-          SITE_REPO="${GITHUB_REPOSITORY_OWNER}/omnigent-site"
+          SITE_REPO="${GITHUB_REPOSITORY_OWNER}/agentnexus-site"
           PUSH_URL="https://x-access-token:${SITE_TOKEN}@github.com/${SITE_REPO}.git"
 
           # Ensure the triage label exists (gh pr create --label fails if absent).
@@ -689,7 +689,7 @@ jobs:
 
             # Build the body once so the update path can refresh it too — the
             # @-mention is the durable ping (--add-reviewer commonly 422s because
-            # the source-repo maintainer isn't an omnigent-site collaborator), so
+            # the source-repo maintainer isn't an agentnexus-site collaborator), so
             # it must be written on BOTH the create and force-push-update paths.
             summary="$(sed -n '/<!-- BLOG_DRAFT_SUMMARY -->/,$p' "/tmp/drafter_out_${idx}.txt" | tail -n +2 || true)"
 
@@ -701,7 +701,7 @@ jobs:
             if [ -f "/tmp/demo_table_${idx}.md" ]; then
               demo_table="$(printf '\n\n### Source PRs — demo videos\nCheck a ✅ PR for a recording you can drop into the `DEMO REQUIRED` marker.\n\n%s\n' "$(cat "/tmp/demo_table_${idx}.md")")"
             fi
-            body="$(printf 'Drafts a feature-blog post for **%s**, selected by `feature-blog-scout` at the %s release cut.\n\n> **This is a DRAFT.** Before merging, a human must: record the mandatory demo (replace the `DEMO REQUIRED` marker) and do a final voice pass. The hero image and `author: omnigent` byline are auto-generated — review and optionally replace them.\n\n%s%s\n\nSource release: %s%s\n<sub>Generated by omnigent `.github/workflows/feature-blog.yml`. Review for accuracy before merging.</sub>' "$title" "$TAG" "$summary" "$demo_table" "$TAG" "$mention")"
+            body="$(printf 'Drafts a feature-blog post for **%s**, selected by `feature-blog-scout` at the %s release cut.\n\n> **This is a DRAFT.** Before merging, a human must: record the mandatory demo (replace the `DEMO REQUIRED` marker) and do a final voice pass. The hero image and `author: agentnexus` byline are auto-generated — review and optionally replace them.\n\n%s%s\n\nSource release: %s%s\n<sub>Generated by agentnexus `.github/workflows/feature-blog.yml`. Review for accuracy before merging.</sub>' "$title" "$TAG" "$summary" "$demo_table" "$TAG" "$mention")"
 
             existing="$(gh pr list --repo "$SITE_REPO" --head "$branch" --state open --json url --jq '.[].url' | head -n1)"
             if [ -n "$existing" ]; then

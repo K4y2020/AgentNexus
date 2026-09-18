@@ -29,11 +29,11 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from omnigent.entities.conversation import Conversation
-from omnigent.runtime import pending_elicitations, subagent_block_notifier
-from omnigent.server.routes import sessions as sessions_module
-from omnigent.server.schemas import SessionEventInput
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.entities.conversation import Conversation
+from agentnexus.runtime import pending_elicitations, subagent_block_notifier
+from agentnexus.server.routes import sessions as sessions_module
+from agentnexus.server.schemas import SessionEventInput
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 

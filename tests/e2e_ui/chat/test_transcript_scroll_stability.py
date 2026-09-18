@@ -96,8 +96,8 @@ def _seed_turns(session_id: str) -> None:
 
     :param session_id: Session to append to, e.g. ``"conv_abc123"``.
     """
-    from omnigent.entities import MessageData, NewConversationItem
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.entities import MessageData, NewConversationItem
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 

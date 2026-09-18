@@ -7,9 +7,9 @@ description: >-
   Never edits files.
 
 # Read-only explorer on the Claude Agent SDK. No model is pinned, so it runs on
-# whatever Claude provider you configured (`omnigent setup`).
+# whatever Claude provider you configured (`agentnexus setup`).
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
@@ -32,14 +32,14 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
     read_only_os:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.read_only_os
+        path: agentnexus.inner.nessie.policies.read_only_os
 
 prompt: |
   You are Sentinel's scanner: a read-only security explorer. You answer audit

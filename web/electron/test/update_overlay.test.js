@@ -122,10 +122,10 @@ describe("update overlay", () => {
     const overlay = controller.ensureOverlay(parent);
     assert.equal(windows[0], overlay);
 
-    onHandlers.get("omnigent:overlay-height")({ sender: overlay.webContents }, 180.4);
+    onHandlers.get("agentnexus:overlay-height")({ sender: overlay.webContents }, 180.4);
 
     assert.deepEqual(parent.webContents.sent.at(-1), {
-      channel: "omnigent:update-overlay-height",
+      channel: "agentnexus:update-overlay-height",
       payload: 180,
     });
     assert.deepEqual(overlay.bounds, {
@@ -136,13 +136,13 @@ describe("update overlay", () => {
     });
     assert.deepEqual(overlay.ignoreMouse.at(-1), { ignore: false, options: undefined });
     assert.equal(
-      await handleHandlers.get("omnigent:get-update-overlay-height")({
+      await handleHandlers.get("agentnexus:get-update-overlay-height")({
         sender: parent.webContents,
       }),
       180,
     );
     assert.equal(
-      await handleHandlers.get("omnigent:get-update-overlay-height")({
+      await handleHandlers.get("agentnexus:get-update-overlay-height")({
         sender: new FakeWebContents(),
       }),
       0,
@@ -150,7 +150,7 @@ describe("update overlay", () => {
 
     overlay.destroy();
     assert.deepEqual(parent.webContents.sent.at(-1), {
-      channel: "omnigent:update-overlay-height",
+      channel: "agentnexus:update-overlay-height",
       payload: 0,
     });
   });
@@ -160,10 +160,10 @@ describe("update overlay", () => {
     const parent = new FakeWindow();
     const overlay = controller.ensureOverlay(parent);
 
-    onHandlers.get("omnigent:overlay-height")({ sender: overlay.webContents }, 0);
+    onHandlers.get("agentnexus:overlay-height")({ sender: overlay.webContents }, 0);
 
     assert.deepEqual(parent.webContents.sent.at(-1), {
-      channel: "omnigent:update-overlay-height",
+      channel: "agentnexus:update-overlay-height",
       payload: 0,
     });
     assert.equal(overlay.bounds.height, 1);

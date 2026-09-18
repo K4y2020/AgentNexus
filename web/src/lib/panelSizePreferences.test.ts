@@ -5,7 +5,7 @@ import {
   writePanelSizePreference,
 } from "./panelSizePreferences";
 
-const STORAGE_KEY = "omnigent:panel-size-preferences";
+const STORAGE_KEY = "agentnexus:panel-size-preferences";
 
 afterEach(() => {
   localStorage.clear();

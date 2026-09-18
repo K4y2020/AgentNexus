@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from omnigent_ui_sdk.terminal._host import (
+from agentnexus_ui_sdk.terminal._host import (
     _PASTE_CHAR_THRESHOLD,
     _PASTE_LINE_THRESHOLD,
     TerminalHost,

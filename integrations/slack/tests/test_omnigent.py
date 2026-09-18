@@ -2,16 +2,16 @@ import asyncio
 from collections.abc import AsyncIterator
 
 import httpx
-import omnigent_slack.omnigent as omnigent_module
+import agentnexus_slack.agentnexus as omnigent_module
 import pytest
 import respx
-from omnigent_slack.omnigent import (
+from agentnexus_slack.agentnexus import (
     AuthRequiredError,
     HarnessNotConfiguredError,
     HostUnavailableError,
-    OmnigentClient,
-    OmnigentClientPool,
-    OmnigentError,
+    AgentNexusClient,
+    AgentNexusClientPool,
+    AgentNexusError,
     RunnerUnavailableError,
     ServerUnreachableError,
     StreamInterruptedError,
@@ -136,7 +136,7 @@ async def test_client_create_and_submit_request_shapes() -> None:
     submit = respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         session_id = await client.create_session("ag_1", "Slack C/1")
@@ -157,7 +157,7 @@ async def test_check_health_probes_health_endpoint() -> None:
     health = respx.get("http://omnigent.test/health").mock(
         return_value=httpx.Response(200, json={"status": "ok"})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         await client.check_health()
@@ -187,7 +187,7 @@ async def test_validate_returns_agents_and_online_hosts() -> None:
             },
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         validated = await client.validate()
@@ -204,7 +204,7 @@ async def test_validate_raises_auth_required_on_401() -> None:
         return_value=httpx.Response(200, json={"status": "ok"})
     )
     respx.get("http://omnigent.test/v1/agents").mock(return_value=httpx.Response(401))
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         raised = False
@@ -229,7 +229,7 @@ async def test_validate_raises_auth_required_on_proxy_redirect() -> None:
             302, headers={"location": "https://ws.example.com/oidc/oauth2/v2.0/authorize"}
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         raised = False
@@ -257,7 +257,7 @@ async def test_get_host_home_derives_home_from_filesystem_listing() -> None:
             },
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         home = await client.get_host_home("host_1")
@@ -272,7 +272,7 @@ async def test_get_host_home_returns_none_when_listing_empty() -> None:
     respx.get("http://omnigent.test/v1/hosts/host_1/filesystem").mock(
         return_value=httpx.Response(200, json={"object": "list", "data": []})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         home = await client.get_host_home("host_1")
@@ -283,7 +283,7 @@ async def test_get_host_home_returns_none_when_listing_empty() -> None:
 
 
 async def test_client_pool_reuses_client_per_server() -> None:
-    pool = OmnigentClientPool()
+    pool = AgentNexusClientPool()
     try:
         first = await pool.get("http://omnigent.test/")
         again = await pool.get("http://omnigent.test")
@@ -303,7 +303,7 @@ async def test_launch_runner_on_explicit_host() -> None:
     respx.get("http://omnigent.test/v1/runners/runner_launched/status").mock(
         return_value=httpx.Response(200, json={"runner_id": "runner_launched", "online": True})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         runner_id = await client.launch_runner(
@@ -337,7 +337,7 @@ async def test_launch_runner_picks_random_online_host_when_unspecified() -> None
     respx.get("http://omnigent.test/v1/runners/runner_launched/status").mock(
         return_value=httpx.Response(200, json={"runner_id": "runner_launched", "online": True})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         runner_id = await client.launch_runner("conv_1", workspace="/tmp/workspace")
@@ -349,13 +349,13 @@ async def test_launch_runner_picks_random_online_host_when_unspecified() -> None
 
 
 async def test_launch_runner_requires_workspace() -> None:
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         message = ""
         try:
             await client.launch_runner("conv_1", workspace="")
-        except OmnigentError as exc:
+        except AgentNexusError as exc:
             message = str(exc)
     finally:
         await client.aclose()
@@ -368,7 +368,7 @@ async def test_launch_runner_errors_when_no_online_host() -> None:
     respx.get("http://omnigent.test/v1/hosts").mock(
         return_value=httpx.Response(200, json={"hosts": [{"id": "h", "status": "offline"}]})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         raised: HostUnavailableError | None = None
@@ -380,7 +380,7 @@ async def test_launch_runner_errors_when_no_online_host() -> None:
         await client.aclose()
 
     assert raised is not None
-    assert "No online Omnigent hosts" in str(raised)
+    assert "No online AgentNexus hosts" in str(raised)
 
 
 @respx.mock
@@ -388,7 +388,7 @@ async def test_launch_runner_raises_host_unavailable_when_host_offline() -> None
     respx.post("http://omnigent.test/v1/hosts/host_1/runners").mock(
         return_value=httpx.Response(409, json={"error": {"code": "host_offline"}})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         raised = False
@@ -410,7 +410,7 @@ async def test_launch_runner_raises_host_unavailable_when_runner_never_online() 
     respx.get("http://omnigent.test/v1/runners/runner_x/status").mock(
         return_value=httpx.Response(200, json={"online": False})
     )
-    client = OmnigentClient("http://omnigent.test", runner_launch_timeout_seconds=0.01)
+    client = AgentNexusClient("http://omnigent.test", runner_launch_timeout_seconds=0.01)
 
     try:
         raised = False
@@ -426,7 +426,7 @@ async def test_launch_runner_raises_host_unavailable_when_runner_never_online() 
 
 async def test_request_wraps_transport_failure_as_server_unreachable() -> None:
     # Point at a port nothing is listening on so the connection is refused.
-    client = OmnigentClient("http://127.0.0.1:1")
+    client = AgentNexusClient("http://127.0.0.1:1")
 
     try:
         raised = False
@@ -459,7 +459,7 @@ async def test_run_turn_streams_across_multiple_responses_until_id_terminal() ->
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [
@@ -495,7 +495,7 @@ async def test_run_turn_ignores_bare_idle_flaps_until_id_terminal() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [
@@ -539,7 +539,7 @@ async def test_run_turn_ends_on_idless_idle_for_in_process_harness() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[str | None]:
         return [
@@ -562,7 +562,7 @@ async def test_run_turn_ends_on_idless_idle_for_in_process_harness() -> None:
 @respx.mock
 async def test_run_turn_ignores_idless_idle_flap_on_claude_native_cold_start() -> None:
     # Incident: a claude-native turn on a freshly-launched runner posted
-    # "Omnigent completed without returning response text" ~5s after submit, even
+    # "AgentNexus completed without returning response text" ~5s after submit, even
     # though the agent later produced a full answer. During cold start (runner
     # booted, message submitted, but the LLM hasn't returned its first token) the
     # PTY-activity watcher emits an id-less `running` then an id-less `idle` flap.
@@ -589,7 +589,7 @@ async def test_run_turn_ignores_idless_idle_flap_on_claude_native_cold_start() -
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[str | None]:
         return [
@@ -629,7 +629,7 @@ async def test_run_turn_ends_promptly_on_bare_idless_failed_with_no_output() -> 
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[dict[str, object]]:
         return [event async for event in client.run_turn("conv_1", "go", idle_grace_seconds=5.0)]
@@ -666,7 +666,7 @@ async def test_run_turn_ignores_stale_idle_when_resuming_idle_session() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[str | None]:
         return [
@@ -703,7 +703,7 @@ async def test_run_turn_ends_when_stream_goes_silent_without_idle_event() -> Non
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[str | None]:
         # A live connection heartbeats every ~15s; no event for idle_grace_seconds
@@ -739,7 +739,7 @@ async def test_run_turn_ends_on_id_terminal_ignoring_later_deltas() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [
@@ -775,7 +775,7 @@ async def test_run_turn_does_not_hang_after_elicitation_when_stream_silent() -> 
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     async def _drain() -> list[str]:
         return [
@@ -801,7 +801,7 @@ async def test_client_raises_runner_unavailable() -> None:
             json={"error": {"code": "runner_unavailable", "message": "No runner bound"}},
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         try:
@@ -832,7 +832,7 @@ async def test_launch_runner_412_propagates_harness_not_configured_message() -> 
             },
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         raised: HarnessNotConfiguredError | None = None
         try:
@@ -844,7 +844,7 @@ async def test_launch_runner_412_propagates_harness_not_configured_message() -> 
 
     assert raised is not None
     # The server's message is preserved verbatim (it's the actionable guidance).
-    assert "omnigent setup" in str(raised)
+    assert "agentnexus setup" in str(raised)
     assert "status 412" not in str(raised)  # not the generic fallback
 
 
@@ -859,7 +859,7 @@ async def test_stream_401_raises_auth_required_not_response_not_read() -> None:
             401, json={"error": {"code": "unauthorized", "message": "Authentication required"}}
         )
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         raised: Exception | None = None
         try:
@@ -924,7 +924,7 @@ async def test_resolve_elicitation_posts_accept() -> None:
     route = respx.post(
         "http://omnigent.test/v1/sessions/conv_1/elicitations/elicit_1/resolve"
     ).mock(return_value=httpx.Response(202, json={"queued": False}))
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         await client.resolve_elicitation("conv_1", "elicit_1", accepted=True)
     finally:
@@ -938,7 +938,7 @@ async def test_resolve_elicitation_decline_and_benign_statuses() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/elicitations/gone/resolve").mock(
         return_value=httpx.Response(404, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         await client.resolve_elicitation("conv_1", "gone", accepted=False)
     finally:
@@ -951,7 +951,7 @@ async def test_get_session_activity_maps_server_state() -> None:
     def snap(status: str, pending: list[dict[str, object]]) -> httpx.Response:
         return httpx.Response(200, json={"status": status, "pending_elicitations": pending})
 
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         route = respx.get("http://omnigent.test/v1/sessions/conv_1")
 
@@ -980,7 +980,7 @@ async def test_get_session_activity_unreadable_snapshot_is_not_busy() -> None:
     # A best-effort read failure must not report busy — the server safely buffers
     # a message that races a turn, so "go ahead" is the safe conservative default.
     respx.get("http://omnigent.test/v1/sessions/conv_1").mock(return_value=httpx.Response(500))
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
     try:
         a = await client.get_session_activity("conv_1")
     finally:
@@ -1120,7 +1120,7 @@ async def test_stream_session_events_classifies_mid_stream_drop() -> None:
         respx.get("http://omnigent.test/v1/sessions/conv_1/stream").mock(
             return_value=httpx.Response(200, stream=_drop_after_output())
         )
-        client = OmnigentClient("http://omnigent.test")
+        client = AgentNexusClient("http://omnigent.test")
         raised: Exception | None = None
         try:
             # The drop must propagate OUT of the ``async with`` so the context
@@ -1140,7 +1140,7 @@ async def test_stream_session_events_classifies_mid_stream_drop() -> None:
 
 async def test_stream_session_events_preconnect_failure_is_unreachable() -> None:
     # A transport failure BEFORE the stream connects stays ServerUnreachableError.
-    client = OmnigentClient("http://127.0.0.1:1")  # nothing listening
+    client = AgentNexusClient("http://127.0.0.1:1")  # nothing listening
     raised: Exception | None = None
     try:
         async with client.stream_session_events("conv_1") as events:
@@ -1187,7 +1187,7 @@ async def test_run_turn_reconnects_on_mid_stream_drop_without_resubmit() -> None
     submit = respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [
@@ -1225,7 +1225,7 @@ async def test_run_turn_stops_when_turn_ended_during_drop() -> None:
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [
@@ -1263,7 +1263,7 @@ async def test_run_turn_raises_stream_interrupted_when_reconnect_exhausted(
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     raised: Exception | None = None
     try:
@@ -1311,7 +1311,7 @@ async def test_run_turn_survives_many_drops_that_each_make_progress(
     respx.post("http://omnigent.test/v1/sessions/conv_1/events").mock(
         return_value=httpx.Response(200, json={})
     )
-    client = OmnigentClient("http://omnigent.test")
+    client = AgentNexusClient("http://omnigent.test")
 
     try:
         deltas = [

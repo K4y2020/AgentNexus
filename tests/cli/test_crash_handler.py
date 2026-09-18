@@ -7,8 +7,8 @@ pre-filled GitHub issue URL (template + title + version + OS +
 description).
 
 These run under the project's normal pytest invocation. The data dir is
-isolated via ``OMNIGENT_DATA_DIR`` so no reports are written to the
-developer's real ``~/.omnigent``.
+isolated via ``AGENTNEXUS_DATA_DIR`` so no reports are written to the
+developer's real ``~/.agentnexus``.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import crash_handler as ch
-from omnigent import crash_ui
-from omnigent.version import VERSION
+from agentnexus import crash_handler as ch
+from agentnexus import crash_ui
+from agentnexus.version import VERSION
 
 
 # --------------------------------------------------------------------------- #
@@ -31,8 +31,8 @@ from omnigent.version import VERSION
 # --------------------------------------------------------------------------- #
 @pytest.fixture
 def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    d = tmp_path / "omnigent-data"
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(d))
+    d = tmp_path / "agentnexus-data"
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(d))
     return d
 
 
@@ -60,21 +60,21 @@ def _make_exc(msg: str = "boom") -> ValueError:
 # Report building + redaction
 # --------------------------------------------------------------------------- #
 def test_build_report_contains_required_fields(data_dir: Path) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     exc = _make_exc("the frobnicator failed")
     report = ch._build_report(
         exc, "Traceback...\nValueError: the frobnicator failed\n", source="uncaught"
     )
     assert "# Crash Report — omnigent" in report
     assert "ValueError" in report
-    assert f"omnigent {VERSION}" in report or "omnigent unknown" in report  # version line
+    assert f"agentnexus {VERSION}" in report or "agentnexus unknown" in report  # version line
     assert "https://github.com/omnigent-ai/omnigent" in report
     assert "Source:** uncaught" in report
     assert "the frobnicator failed" in report
 
 
 def test_redact_strips_common_tokens(data_dir: Path) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     assert ch._redact("sk-abc123def456ghi789jkl") == "sk-a***"
     assert "sk-" not in ch._redact("sk-abc123def456ghi789jkl").replace("sk-a***", "")
     # Use the redaction regex directly to avoid putting a PAT-shaped
@@ -90,7 +90,7 @@ def test_command_line_redacts_tokens_in_argv(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        sys, "argv", ["omnigent", "run", "a.yaml", "--api-key", "sk-supersecret123456"]
+        sys, "argv", ["agentnexus", "run", "a.yaml", "--api-key", "sk-supersecret123456"]
     )
     cmd = ch._command_line()
     assert "sk-supersecret123456" not in cmd
@@ -101,7 +101,7 @@ def test_command_line_redacts_tokens_in_argv(
 # Save + rotation
 # --------------------------------------------------------------------------- #
 def test_save_report_writes_and_rotates(data_dir: Path) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent", keep_reports=2)
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent", keep_reports=2)
     paths = [ch._save_report(f"report {i}\n") for i in range(5)]
     # The newest report always survives its own rotation pass. Earlier paths
     # may legitimately be gone: rotation prunes between saves, which also frees
@@ -124,7 +124,7 @@ def test_save_report_keeps_every_same_second_report(data_dir: Path) -> None:
     report but the last was silently destroyed. Rotation is held wide here so
     only overwriting could lose a report.
     """
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent", keep_reports=10)
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent", keep_reports=10)
     paths = [ch._save_report(f"report {i}\n") for i in range(5)]
 
     assert len(set(paths)) == 5
@@ -134,7 +134,7 @@ def test_save_report_keeps_every_same_second_report(data_dir: Path) -> None:
 
 
 def test_save_report_collision_disambiguates(data_dir: Path) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     a = ch._save_report("x\n")
     b = ch._save_report("y\n")  # same second → pid-suffixed
     assert a != b
@@ -152,7 +152,7 @@ def test_render_non_tty_is_plain_no_box(data_dir: Path) -> None:
     exc = _make_exc("plain path crash")
     buf = io.StringIO()
     crash_ui.render_crash_screen(
-        app_name="omnigent",
+        app_name="agentnexus",
         report_path="/tmp/crash-x.md",
         exc=exc,
         tb=exc.__traceback__,
@@ -162,7 +162,7 @@ def test_render_non_tty_is_plain_no_box(data_dir: Path) -> None:
     assert "╭" not in out and "│" not in out  # no box
     assert "⚠" not in out  # no emoji
     assert "\x1b[" not in out  # no ANSI
-    assert "Omnigent ran into an issue." in out
+    assert "AgentNexus ran into an issue." in out
     assert "A crash report was saved to:" in out
     assert "/tmp/crash-x.md" in out
     assert "ValueError: plain path crash" in out
@@ -172,7 +172,7 @@ def test_render_tty_shows_header_and_copyable_path(data_dir: Path) -> None:
     exc = _make_exc("tty path crash")
     buf = FakeTTY()
     crash_ui.render_crash_screen(
-        app_name="omnigent",
+        app_name="agentnexus",
         report_path="/tmp/crash-y.md",
         exc=exc,
         tb=exc.__traceback__,
@@ -181,7 +181,7 @@ def test_render_tty_shows_header_and_copyable_path(data_dir: Path) -> None:
     out = buf.getvalue()
     plain = _strip_ansi(out)
     # Header present.
-    assert "Omnigent ran into an issue." in plain
+    assert "AgentNexus ran into an issue." in plain
     # No box borders — path must be cleanly selectable.
     assert "╭" not in plain and "│" not in plain and "╰" not in plain
     # The path is on its own line, indented, no wrapping.
@@ -237,7 +237,7 @@ def test_traceback_collapses_library_frames(data_dir: Path) -> None:
 def test_full_traceback_env_disables_collapsing(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("OMNIGENT_FULL_TRACEBACK", "1")
+    monkeypatch.setenv("AGENTNEXUS_FULL_TRACEBACK", "1")
     exc, tb = _traceback_with_library_frames()
     out = crash_ui.format_traceback(exc, tb, colored=False, unicode_ok=True)
     assert "frames hidden in" not in out
@@ -255,7 +255,7 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
 
     In a shipped wheel the SDKs (``omnigent_client``, ``omnigent_ui_sdk``)
     live under site-packages next to click/yaml. The default first-party
-    prefix ``("omnigent",)`` must keep their frames shown rather than
+    prefix ``("agentnexus",)`` must keep their frames shown rather than
     collapsed — otherwise a crash inside an SDK would be hidden from the
     user (and from the on-screen triage).
     """
@@ -263,12 +263,12 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
 
     sp = crash_ui._site_packages_dir()
     assert sp, "test requires a venv site-packages on sys.path"
-    fake = os.path.join(sp, "omnigent_client")
+    fake = os.path.join(sp, "agentnexus_client")
     os.makedirs(fake, exist_ok=True)
     probe = os.path.join(fake, "_probe.py")
     with open(probe, "w") as f:
         f.write('def boom(): raise RuntimeError("sdk probe")\n')
-    spec = importlib.util.spec_from_file_location("omnigent_client._probe", probe)
+    spec = importlib.util.spec_from_file_location("agentnexus_client._probe", probe)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     try:
@@ -284,7 +284,7 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
         out = crash_ui.format_traceback(exc, tb, colored=False, unicode_ok=True)
     finally:
         _os.chdir(old)
-    assert "omnigent_client/_probe.py" in out  # shown, not collapsed
+    assert "agentnexus_client/_probe.py" in out  # shown, not collapsed
     assert "frames hidden in omnigent_client" not in out
     assert "sdk probe" in out
 
@@ -295,7 +295,7 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
 def test_interactive_yes_copies_and_opens_browser(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     calls: dict = {}
 
     def fake_copy(text: str) -> bool:
@@ -321,7 +321,7 @@ def test_interactive_yes_copies_and_opens_browser(
 def test_interactive_no_saves_path_and_link(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     monkeypatch.setattr(ch, "_copy_to_clipboard", lambda text: True)
     monkeypatch.setattr(ch, "_open_browser", lambda url: True)
 
@@ -335,7 +335,7 @@ def test_interactive_no_saves_path_and_link(
 
 
 def test_interactive_default_enter_is_yes(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     calls: dict = {}
 
     def fake_copy(text: str) -> bool:
@@ -354,7 +354,7 @@ def test_interactive_default_enter_is_yes(data_dir: Path, monkeypatch: pytest.Mo
 def test_noninteractive_falls_back_to_link(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
     ch.handle_crash(
         _make_exc("ci-mode"),
@@ -370,7 +370,7 @@ def test_noninteractive_falls_back_to_link(
 # KeyboardInterrupt defers; issue URL encoding
 # --------------------------------------------------------------------------- #
 def test_issue_url_is_prefilled_title(data_dir: Path) -> None:
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     exc = _make_exc("oops: bad [brackets] & spaces")
     url, body_included = ch._issue_url(
         exc, ch._issue_body(exc, "Traceback...\nValueError: oops\n")
@@ -397,7 +397,7 @@ def test_excepthook_defers_keyboard_interrupt(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """KeyboardInterrupt must not render the crash screen — it defers."""
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     fired: list = []
     monkeypatch.setattr(ch, "handle_crash", lambda *a, **k: fired.append(1))
     try:
@@ -412,7 +412,7 @@ def test_excepthook_defers_keyboard_interrupt(
 # --------------------------------------------------------------------------- #
 def test_issue_url_drops_body_when_too_long(data_dir: Path) -> None:
     """A traceback so large it would blow the URL limit drops the body."""
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     huge_tb = "X" * 30000  # would produce a ~30KB URL
     url, body_included = ch._issue_url(
         _make_exc("big crash"), ch._issue_body(_make_exc("big crash"), huge_tb)
@@ -424,7 +424,7 @@ def test_issue_url_drops_body_when_too_long(data_dir: Path) -> None:
 
 def test_issue_url_drops_non_ascii_body_when_too_long(data_dir: Path) -> None:
     """Non-ASCII content expands 6x under URL-encoding — body must be dropped."""
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     huge_non_ascii = "é" * 30000
     url, body_included = ch._issue_url(
         _make_exc("crash"), ch._issue_body(_make_exc("crash"), huge_non_ascii)
@@ -435,7 +435,7 @@ def test_issue_url_drops_non_ascii_body_when_too_long(data_dir: Path) -> None:
 
 def test_issue_url_keeps_short_body_intact(data_dir: Path) -> None:
     """A normal-sized traceback is kept in the URL."""
-    ch.install_crash_handler("omnigent", "omnigent-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
     short_tb = 'Traceback (most recent call last):\n  File "app.py", line 10\nValueError: boom\n'
     url, body_included = ch._issue_url(
         _make_exc("boom"), ch._issue_body(_make_exc("boom"), short_tb)

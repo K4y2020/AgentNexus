@@ -163,7 +163,7 @@ def _ranking_widget(y: int) -> dict[str, object]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Prepare a local issue-ranking patch for an Omnigent dashboard export."
+        description="Prepare a local issue-ranking patch for an AgentNexus dashboard export."
     )
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)

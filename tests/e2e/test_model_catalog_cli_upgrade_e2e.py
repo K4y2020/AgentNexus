@@ -1,6 +1,6 @@
 """E2E: a harness CLI upgrade must refresh the shared model catalog.
 
-Omnigent caches each native harness's model catalog on disk, keyed by a
+AgentNexus caches each native harness's model catalog on disk, keyed by a
 launch-config fingerprint (``omnigent/model_catalog_store.py``). The key
 covers the launch config only — not the binary that answered the probe — so
 upgrading the CLI keeps the same key, and every consumer (the pre-launch
@@ -9,7 +9,7 @@ model names until the 1h staleness TTL passes.
 
 The journey, per harness, exactly as a user hits it:
 
-1. Omnigent runs with the harness CLI at build A; the host boots and its
+1. AgentNexus runs with the harness CLI at build A; the host boots and its
    boot probe fills the catalog — the picker shows build A's model names.
 2. The CLI auto-updates **in place** to build B (same path, new binary).
 3. The user reopens the app — the host restarts and serves the picker
@@ -163,7 +163,7 @@ def _free_port() -> int:
 class _CatalogRig:
     """A sandboxed ``omnigent server`` + restartable ``omnigent host``.
 
-    Isolated ``HOME`` / ``OMNIGENT_CONFIG_HOME`` / ``OMNIGENT_DATA_DIR`` and
+    Isolated ``HOME`` / ``AGENTNEXUS_CONFIG_HOME`` / ``AGENTNEXUS_DATA_DIR`` and
     a ``PATH`` whose only harness CLI is the fake under test, so the host's
     boot probe and the shared on-disk catalog see nothing but this rig.
     """
@@ -190,8 +190,8 @@ class _CatalogRig:
             {
                 "HOME": str(self.root / "home"),
                 "PATH": f"{self.bin_dir}:/usr/bin:/bin",
-                "OMNIGENT_CONFIG_HOME": str(self.root / "config-home"),
-                "OMNIGENT_DATA_DIR": str(self.root / "data"),
+                "AGENTNEXUS_CONFIG_HOME": str(self.root / "config-home"),
+                "AGENTNEXUS_DATA_DIR": str(self.root / "data"),
                 "PYTHONPATH": os.pathsep.join(
                     [
                         str(_REPO_ROOT),
@@ -215,7 +215,7 @@ class _CatalogRig:
             [
                 sys.executable,
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--host",
                 "127.0.0.1",
@@ -246,7 +246,7 @@ class _CatalogRig:
             [
                 sys.executable,
                 "-m",
-                "omnigent.host._daemon_entry",
+                "agentnexus.host._daemon_entry",
                 "--server",
                 self.base_url,
             ],
@@ -360,7 +360,7 @@ def _booted_rig(root: Path, bin_dir: Path, extra_env: dict[str, str]) -> Iterato
 
     :param root: Sandbox directory (home, config, data, logs, db).
     :param bin_dir: Directory holding the fake harness CLI.
-    :param extra_env: Extra env for the daemons, e.g. ``OMNIGENT_CODEX_PATH``.
+    :param extra_env: Extra env for the daemons, e.g. ``AGENTNEXUS_CODEX_PATH``.
     :yields: The booted rig.
     """
     rig = _CatalogRig(root, bin_dir, extra_env)
@@ -433,7 +433,7 @@ def test_codex_cli_upgrade_refreshes_model_catalog(tmp_path: Path) -> None:
     codex = bin_dir / "codex"
     _write_fake_codex(codex, marker="OLD")
 
-    with _booted_rig(tmp_path / "rig", bin_dir, {"OMNIGENT_CODEX_PATH": str(codex)}) as rig:
+    with _booted_rig(tmp_path / "rig", bin_dir, {"AGENTNEXUS_CODEX_PATH": str(codex)}) as rig:
         rig.start_host()
         before = rig.model_display_names("codex-native", timeout=_CATALOG_TIMEOUT_S)
 

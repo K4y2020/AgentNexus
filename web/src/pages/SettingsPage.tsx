@@ -791,17 +791,17 @@ function AppearanceSection() {
     if (typeof window !== "undefined") {
       try {
         for (const key of [
-          "omnigent:ui-font-size",
-          "omnigent:ui-font-family",
-          "omnigent:code-font-size",
-          "omnigent:code-font-family",
-          "omnigent:code-font-weight",
-          "omnigent:terminal-theme",
-          "omnigent:ui-theme-palette",
-          "omnigent:custom-theme",
-          "omnigent:default-transcript-view",
-          "omnigent:default-workspace-panel",
-          "omnigent:hide-unconfigured-harnesses",
+          "agentnexus:ui-font-size",
+          "agentnexus:ui-font-family",
+          "agentnexus:code-font-size",
+          "agentnexus:code-font-family",
+          "agentnexus:code-font-weight",
+          "agentnexus:terminal-theme",
+          "agentnexus:ui-theme-palette",
+          "agentnexus:custom-theme",
+          "agentnexus:default-transcript-view",
+          "agentnexus:default-workspace-panel",
+          "agentnexus:hide-unconfigured-harnesses",
         ]) {
           window.localStorage.removeItem(key);
         }

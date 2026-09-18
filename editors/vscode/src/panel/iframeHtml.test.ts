@@ -20,7 +20,7 @@ describe("buildIframeHtml", () => {
 
   it("renders an iframe pointed at the base URL", () => {
     const html = buildIframeHtml(baseOpts);
-    expect(html).toContain('id="omnigent-frame"');
+    expect(html).toContain('id="agentnexus-frame"');
     expect(html).toContain('src="http://127.0.0.1:6767"');
   });
 
@@ -38,7 +38,7 @@ describe("buildIframeHtml", () => {
     const html = buildIframeHtml(baseOpts);
     expect(html).not.toContain("<script");
     expect(html).not.toContain("acquireVsCodeApi");
-    expect(html).not.toContain("omnigent/navigate");
+    expect(html).not.toContain("agentnexus/navigate");
   });
 
   it("never injects a token into the iframe URL", () => {

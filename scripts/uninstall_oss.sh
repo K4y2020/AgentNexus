@@ -25,8 +25,8 @@ SKIPPED=0
 FAILED=0
 REPORTED=0
 EXIT_CODE=0
-ACTIONS_FILE="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-actions.XXXXXX")" || exit 1
-BACKUPS_FILE="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-backups.XXXXXX")" || exit 1
+ACTIONS_FILE="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-actions.XXXXXX")" || exit 1
+BACKUPS_FILE="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-backups.XXXXXX")" || exit 1
 
 cleanup() {
   rm -f "$ACTIONS_FILE" "$BACKUPS_FILE"
@@ -39,7 +39,7 @@ Usage: uninstall_oss.sh [cli|state|desktop-data|all ...] [flags]
 
 Flags:
   --purge                    Remove state data (backs up first)
-  --purge-workspace          With --purge, also remove ~/omnigent non-interactively
+  --purge-workspace          With --purge, also remove ~/agentnexus non-interactively
   --dry-run                  Print planned actions only
   --yes                      Non-interactive for auto-removable artifacts
   --json                     Emit a machine-readable summary
@@ -132,10 +132,10 @@ if [ "$DESTRUCTIVE_FLAG" != true ]; then
 fi
 
 state_home() {
-  if [ -n "${OMNIGENT_DATA_DIR:-}" ]; then
-    printf '%s\n' "$OMNIGENT_DATA_DIR"
+  if [ -n "${AGENTNEXUS_DATA_DIR:-}" ]; then
+    printf '%s\n' "$AGENTNEXUS_DATA_DIR"
   else
-    printf '%s/.omnigent\n' "$HOME"
+    printf '%s/.agentnexus\n' "$HOME"
   fi
 }
 
@@ -183,7 +183,7 @@ stop_pid() {
 
 stop_processes() {
   home_dir="$(state_home)"
-  pidfiles="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-pidfiles.XXXXXX")" || return 1
+  pidfiles="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-pidfiles.XXXXXX")" || return 1
   : >"$pidfiles"
   if [ -d "$home_dir" ]; then
     for root in "$home_dir/run" "$home_dir/daemons" "$home_dir/runners" "$home_dir/local_server"; do
@@ -200,11 +200,11 @@ stop_processes() {
     done <"$pidfiles"
   fi
   if command -v tmux >/dev/null 2>&1; then
-    sessions_file="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-tmux.XXXXXX")" || return 1
+    sessions_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-tmux.XXXXXX")" || return 1
     tmux list-sessions -F '#S' >"$sessions_file" 2>/dev/null || true
     while IFS= read -r session; do
       case "$session" in
-        omnigent:*)
+        agentnexus:*)
           if [ "$DRY_RUN" = true ]; then
             record_action tmux "$session" stop reported "" "would kill tmux session"
           elif tmux kill-session -t "$session" 2>/dev/null; then
@@ -224,7 +224,7 @@ stop_processes() {
 }
 
 unload_launch_agents() {
-  [ -n "${OMNIGENT_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$OMNIGENT_UNINSTALL_LEDGER_MANIFEST" ] || return 0
+  [ -n "${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST" ] || return 0
   while IFS="$TAB" read -r artifact kind unit_path label source confidence rest; do
     [ "$artifact" = launch_agent ] || continue
     if [ "$DRY_RUN" = true ]; then
@@ -261,7 +261,7 @@ unload_launch_agents() {
     else
       record_action launch_agent "$unit_path" remove skipped "" "unit file already absent"
     fi
-  done <"$OMNIGENT_UNINSTALL_LEDGER_MANIFEST"
+  done <"$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"
 }
 
 profile_candidates() {
@@ -278,11 +278,11 @@ profile_candidates() {
 }
 
 has_shell_install_signal() {
-  [ -n "${OMNIGENT_UNINSTALL_LEDGER_SOURCE:-}" ] && [ "$OMNIGENT_UNINSTALL_LEDGER_SOURCE" != unknown ] && return 0
+  [ -n "${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE:-}" ] && [ "$AGENTNEXUS_UNINSTALL_LEDGER_SOURCE" != unknown ] && return 0
   [ -f "$(state_home)/installation_id" ] && return 0
-  command -v omnigent >/dev/null 2>&1 && return 0
+  command -v agentnexus >/dev/null 2>&1 && return 0
   command -v omni >/dev/null 2>&1 && return 0
-  profiles_file="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-anchor-profiles.XXXXXX")" || return 1
+  profiles_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-anchor-profiles.XXXXXX")" || return 1
   profile_candidates >"$profiles_file"
   while IFS= read -r profile; do
     if profile_has_block "$profile"; then
@@ -342,7 +342,7 @@ remove_profile_block() {
     return 0
   fi
   if [ -n "$expected_sha" ]; then
-    block_file="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-block.XXXXXX")" || return 1
+    block_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-block.XXXXXX")" || return 1
     write_profile_block "$profile" "$block_file"
     actual_sha="$(sha256_file "$block_file" 2>/dev/null || true)"
     rm -f "$block_file"
@@ -356,8 +356,8 @@ remove_profile_block() {
       return 1
     fi
   fi
-  backup="$profile.omnigent.bak.$(date -u +%Y%m%dT%H%M%SZ)"
-  tmp="$(mktemp "$profile.omnigent.tmp.XXXXXX")" || return 1
+  backup="$profile.agentnexus.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+  tmp="$(mktemp "$profile.agentnexus.tmp.XXXXXX")" || return 1
   if ! cp "$profile" "$backup"; then
     record_action profile_block "$profile" remove failed "" "failed to write backup"
     return 1
@@ -376,14 +376,14 @@ remove_profile_block() {
 }
 
 cleanup_profiles() {
-  if [ -n "${OMNIGENT_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$OMNIGENT_UNINSTALL_LEDGER_MANIFEST" ]; then
+  if [ -n "${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST" ]; then
     while IFS="$TAB" read -r artifact profile expected_sha source confidence rest; do
       [ "$artifact" = profile_block ] || continue
       remove_profile_block "$profile" "$expected_sha"
       [ "$EXIT_CODE" = 3 ] && return 1
-    done <"$OMNIGENT_UNINSTALL_LEDGER_MANIFEST"
+    done <"$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"
   else
-    profiles_file="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-profiles.XXXXXX")" || return 1
+    profiles_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-profiles.XXXXXX")" || return 1
     profile_candidates >"$profiles_file"
     while IFS= read -r profile; do
       [ -n "$profile" ] || continue
@@ -411,8 +411,8 @@ remove_delimited_external_config() {
     record_action external_config "$path" remove reported "" "would remove marker block $marker"
     return 0
   fi
-  backup="$path.omnigent.bak.$(date -u +%Y%m%dT%H%M%SZ)"
-  tmp="$(mktemp "$path.omnigent.tmp.XXXXXX")" || return 1
+  backup="$path.agentnexus.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+  tmp="$(mktemp "$path.agentnexus.tmp.XXXXXX")" || return 1
   cp "$path" "$backup" || { record_action external_config "$path" remove failed "" "failed to write backup"; return 1; }
   if awk -v marker="$marker" '
     index($0, marker) && !skipping { skipping=1; found=1; next }
@@ -437,8 +437,8 @@ remove_keyed_external_config() {
     return 0
   fi
   if [ "$format" = toml ]; then
-    backup="$path.omnigent.bak.$(date -u +%Y%m%dT%H%M%SZ)"
-    tmp="$(mktemp "$path.omnigent.tmp.XXXXXX")" || return 1
+    backup="$path.agentnexus.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+    tmp="$(mktemp "$path.agentnexus.tmp.XXXXXX")" || return 1
     cp "$path" "$backup" || { record_action external_config "$path" remove failed "" "failed to write backup"; return 1; }
     if awk -v marker="$marker" '
       $0 == "[" marker "]" || $0 ~ "^\\[" marker "\\." { skipping=1; found=1; next }
@@ -458,7 +458,7 @@ remove_keyed_external_config() {
     record_action external_config "$path" remove skipped "" "python not found for structured config edit"
     return 0
   fi
-  backup="$path.omnigent.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+  backup="$path.agentnexus.bak.$(date -u +%Y%m%dT%H%M%SZ)"
   cp "$path" "$backup" || { record_action external_config "$path" remove failed "" "failed to write backup"; return 1; }
   if "$py" - "$path" "$marker" "$format" <<'PY'
 import json
@@ -490,7 +490,7 @@ PY
 }
 
 cleanup_external_configs() {
-  [ -n "${OMNIGENT_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$OMNIGENT_UNINSTALL_LEDGER_MANIFEST" ] || return 0
+  [ -n "${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST:-}" ] && [ -f "$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST" ] || return 0
   while IFS="$TAB" read -r artifact path marker format expected_sha source confidence rest; do
     [ "$artifact" = external_config ] || continue
     if [ "$MODIFY_EXTERNAL_CONFIG" != true ]; then
@@ -506,15 +506,15 @@ cleanup_external_configs() {
     else
       remove_keyed_external_config "$path" "$marker" "$format"
     fi
-  done <"$OMNIGENT_UNINSTALL_LEDGER_MANIFEST"
+  done <"$AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST"
 }
 
 archive_path_for() {
   target="$1"
   if [ -n "${XDG_STATE_HOME:-}" ]; then
-    backup_root="$XDG_STATE_HOME/omnigent-backups"
+    backup_root="$XDG_STATE_HOME/agentnexus-backups"
   else
-    backup_root="$HOME/.omnigent-backups"
+    backup_root="$HOME/.agentnexus-backups"
   fi
   mkdir -p "$backup_root" || return 1
   ts="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
@@ -599,7 +599,7 @@ desktop_paths() {
 
 purge_state() {
   remove_tree state "$(state_home)" ""
-  workspace="$HOME/omnigent"
+  workspace="$HOME/agentnexus"
   if [ -e "$workspace" ]; then
     if [ "$PURGE_WORKSPACE" = true ]; then
       remove_tree workspace "$workspace" ""
@@ -620,7 +620,7 @@ purge_state() {
 }
 
 purge_desktop_data() {
-  desktop_file="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-desktop.XXXXXX")" || return 1
+  desktop_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-desktop.XXXXXX")" || return 1
   desktop_paths >"$desktop_file"
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -640,30 +640,30 @@ report_shared_deps() {
 
 uninstall_wheel() {
   if [ "$DRY_RUN" = true ]; then
-    record_action wheel omnigent remove reported "" "would run uv tool uninstall omnigent"
+    record_action wheel agentnexus remove reported "" "would run uv tool uninstall agentnexus"
     return 0
   fi
   if ! command -v uv >/dev/null 2>&1; then
-    if ! command -v omnigent >/dev/null 2>&1 && ! command -v omni >/dev/null 2>&1; then
-      record_action wheel omnigent remove skipped "" "already absent"
+    if ! command -v agentnexus >/dev/null 2>&1 && ! command -v omni >/dev/null 2>&1; then
+      record_action wheel agentnexus remove skipped "" "already absent"
       return 0
     fi
-    record_action wheel omnigent remove failed "" "uv not found; remove the tool manually"
+    record_action wheel agentnexus remove failed "" "uv not found; remove the tool manually"
     return 1
   fi
-  uv_output="$(mktemp "${TMPDIR:-/tmp}/omnigent-uninstall-uv.XXXXXX")" || return 1
-  if uv tool uninstall omnigent >"$uv_output" 2>&1; then
+  uv_output="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-uv.XXXXXX")" || return 1
+  if uv tool uninstall agentnexus >"$uv_output" 2>&1; then
     rm -f "$uv_output"
-    record_action wheel omnigent remove done "" "uv tool uninstall omnigent"
+    record_action wheel agentnexus remove done "" "uv tool uninstall agentnexus"
   else
     output="$(cat "$uv_output" 2>/dev/null || true)"
     rm -f "$uv_output"
     case "$output" in
       *'not installed'* | *'No tool'* | *'not found'*)
-        record_action wheel omnigent remove skipped "" "already absent"
+        record_action wheel agentnexus remove skipped "" "already absent"
         ;;
       *)
-        record_action wheel omnigent remove failed "" "uv tool uninstall failed: $output"
+        record_action wheel agentnexus remove failed "" "uv tool uninstall failed: $output"
         ;;
     esac
   fi
@@ -673,7 +673,7 @@ emit_json() {
   printf '{\n'
   printf '  "schema_version": 1,\n'
   printf '  "dry_run": %s,\n' "$DRY_RUN"
-  printf '  "ledger_source": "%s",\n' "${OMNIGENT_UNINSTALL_LEDGER_SOURCE:-unknown}"
+  printf '  "ledger_source": "%s",\n' "${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE:-unknown}"
   printf '  "actions": [\n'
   first=true
   if [ -f "$ACTIONS_FILE" ]; then
@@ -698,7 +698,7 @@ emit_json() {
 }
 
 if ! has_shell_install_signal; then
-  record_action anchor omnigent detect failed "" "no Omnigent install detected"
+  record_action anchor agentnexus detect failed "" "no Omnigent install detected"
   EXIT_CODE=3
   [ "$JSON" = true ] && emit_json
   exit "$EXIT_CODE"

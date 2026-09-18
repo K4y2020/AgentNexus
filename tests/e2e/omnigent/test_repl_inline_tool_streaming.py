@@ -1,5 +1,5 @@
 """End-to-end coverage for inline tool-call + result streaming under
-the Omnigent REPL.
+the AgentNexus REPL.
 
 Migrated to use the mock LLM server. The mock server is configured
 to return a tool call response followed by a text completion, exercising
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     await_turn_complete,
     clean_exit,
     spawn_omnigent_run,
@@ -29,7 +29,7 @@ from tests.e2e.omnigent._pexpect_harness import (
     submit_prompt,
     wait_for_ready,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _MODEL = "mock-inline-tool-streaming"
 _HARNESS = "openai-agents"

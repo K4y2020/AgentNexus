@@ -2,7 +2,7 @@
 name = "omnidev"
 version = "0.1.0"
 edition = "2021"
-description = "Per-repo dev pod supervisor TUI for the Omnigent repo"
+description = "Per-repo dev pod supervisor TUI for the AgentNexus repo"
 publish = false
 
 [[bin]]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from omnigent_client._client import OmnigentClient
+from agentnexus_client._client import AgentNexusClient
 
 
 @pytest.mark.asyncio
@@ -24,7 +24,7 @@ async def test_client_query_threads_reasoning_to_temporary_session(
             captured["stream"] = stream
             return "ok"
 
-    client = OmnigentClient("http://example.invalid")
+    client = AgentNexusClient("http://example.invalid")
     fake_session = _FakeSession()
     monkeypatch.setattr(client, "session", lambda **kwargs: fake_session)
     try:

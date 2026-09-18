@@ -7,7 +7,7 @@
 // version (an old server without UpdateBanner must still be able to tell the
 // user the desktop app is out of date).
 //
-// The overlay is a TRUSTED surface: its `omnigent:overlay-*` IPC drives the
+// The overlay is a TRUSTED surface: its `agentnexus:overlay-*` IPC drives the
 // updater directly (no pinned-origin gate, no per-action consent dialog — the
 // server-page IPC keeps those). The window sizes itself to the card via the
 // height the overlay reports, and hides when the card renders nothing.
@@ -87,7 +87,7 @@ function createUpdateOverlay({
   }
 
   function notifyParentHeight(parent, height) {
-    sendToLiveWindow(parent, "omnigent:update-overlay-height", height);
+    sendToLiveWindow(parent, "agentnexus:update-overlay-height", height);
   }
 
   function position(parent, overlay, height) {
@@ -141,7 +141,7 @@ function createUpdateOverlay({
     overlay.webContents.on("did-finish-load", () => {
       sendToLiveWindow(
         overlay,
-        "omnigent:overlay-theme",
+        "agentnexus:overlay-theme",
         nativeTheme.shouldUseDarkColors ? "dark" : "light",
       );
     });
@@ -177,7 +177,7 @@ function createUpdateOverlay({
     // state collapses it). Instead keep the window shown but collapse it to an
     // invisible, click-through 1px sliver, which keeps layout — and the
     // ResizeObserver — alive so it expands again the moment there's content.
-    ipcMain.on("omnigent:overlay-height", (event, height) => {
+    ipcMain.on("agentnexus:overlay-height", (event, height) => {
       const overlay = overlayForSender(event);
       if (!overlay) return;
       const h = Math.max(0, Math.round(Number(height) || 0));
@@ -196,7 +196,7 @@ function createUpdateOverlay({
 
     // The parent SPA reads the current value on mount so an overlay that became
     // visible before its listener attached still reserves the correct space.
-    ipcMain.handle("omnigent:get-update-overlay-height", (event) => overlayHeightForSender(event));
+    ipcMain.handle("agentnexus:get-update-overlay-height", (event) => overlayHeightForSender(event));
 
     // Trusted updater controls for the overlay page only.
     const guard = (event) => {
@@ -204,29 +204,29 @@ function createUpdateOverlay({
         throw new Error("update overlay IPC is only available to the shell overlay page");
       }
     };
-    ipcMain.handle("omnigent:overlay-get-update-config", (event) => {
+    ipcMain.handle("agentnexus:overlay-get-update-config", (event) => {
       guard(event);
       return updater.getConfig();
     });
-    ipcMain.handle("omnigent:overlay-get-update-status", (event) => {
+    ipcMain.handle("agentnexus:overlay-get-update-status", (event) => {
       guard(event);
       return updater.getStatus();
     });
-    ipcMain.handle("omnigent:overlay-update-check", async (event) => {
+    ipcMain.handle("agentnexus:overlay-update-check", async (event) => {
       guard(event);
       await updater.checkForUpdates({ manual: true });
     });
-    ipcMain.handle("omnigent:overlay-update-download", async (event) => {
+    ipcMain.handle("agentnexus:overlay-update-download", async (event) => {
       guard(event);
       await updater.downloadUpdate();
     });
-    ipcMain.handle("omnigent:overlay-update-install", async (event) => {
+    ipcMain.handle("agentnexus:overlay-update-install", async (event) => {
       guard(event);
       if (!(await updater.installUpdateNow())) {
         throw new Error("No downloaded update is ready to install.");
       }
     });
-    ipcMain.handle("omnigent:overlay-set-update-config", (event, patch) => {
+    ipcMain.handle("agentnexus:overlay-set-update-config", (event, patch) => {
       guard(event);
       return updater.setConfig(patch);
     });
@@ -235,7 +235,7 @@ function createUpdateOverlay({
     nativeTheme.on("updated", () => {
       const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
       for (const overlay of overlays.values()) {
-        sendToLiveWindow(overlay, "omnigent:overlay-theme", theme);
+        sendToLiveWindow(overlay, "agentnexus:overlay-theme", theme);
       }
     });
   }

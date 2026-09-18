@@ -9,7 +9,7 @@ import { authenticatedFetch } from "@/lib/identity";
 
 /**
  * Brain harnesses offered as a per-session override on bundle agents
- * (executor.type: omnigent — polly, debby, and other YAML agents). Keys
+ * (executor.type: agentnexus — polly, debby, and other YAML agents). Keys
  * are canonical server harness ids, values are picker labels. Native
  * terminal wrappers (claude-native / codex-native) are deliberately
  * absent: an agent whose declared harness isn't in this map gets no
@@ -171,7 +171,7 @@ const NO_MODEL_ARGS: Record<string, string> = {};
  * codebuddy's ``--model``). A harness absent from this map runs its
  * account-default model — a client model pick is not wired for it. Server
  * derived on purpose: a new pinning-capable row is one field on
- * ``omnigent/acp_cli_harnesses.py``'s harness, no frontend change. Empty
+ * ``agentnexus/acp_cli_harnesses.py``'s harness, no frontend change. Empty
  * until the catalog loads.
  */
 export function useHarnessModelArgs(): Record<string, string> {
@@ -186,7 +186,7 @@ const NO_ACP_HARNESSES: ReadonlySet<string> = new Set<string>();
  * user-configured ``acp:<slug>`` agents alike.
  *
  * Server-derived on purpose: a new builtin ACP row is one data entry in
- * ``omnigent/acp_cli_harnesses.py``, and the picker recognizes it (grouping +
+ * ``agentnexus/acp_cli_harnesses.py``, and the picker recognizes it (grouping +
  * label) with no frontend change. Empty until the catalog loads, and on a
  * server too old to report capabilities — callers fall back to the id
  * heuristic in ``agentGrouping``.

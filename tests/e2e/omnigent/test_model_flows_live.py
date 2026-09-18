@@ -8,7 +8,7 @@ behavior, so this suite is red on unmodified main (and partially red on the PR
 branch) in exactly the ways `model-flows-report.md` cites, and goes green as
 the landing-order steps land. Run one row's red twin with::
 
-    OMNIGENT_E2E_MODEL_FLOWS=1 OMNIGENT_E2E_MODEL_FLOWS_REPO=~/omnigent \\
+    AGENTNEXUS_E2E_MODEL_FLOWS=1 AGENTNEXUS_E2E_MODEL_FLOWS_REPO=~/omnigent \\
         pytest tests/e2e/omnigent/test_model_flows_live.py -k row1 -x
 
 Rows are numbered after the design's §10.1 table.
@@ -27,9 +27,9 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.claude_native import claude_catalog_fingerprint
-from omnigent.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME, CODEX_NATIVE_AGENT_NAME
-from tests.e2e.omnigent._model_flows_rig import (
+from agentnexus.claude_native import claude_catalog_fingerprint
+from agentnexus.native_coding_agents import CLAUDE_NATIVE_AGENT_NAME, CODEX_NATIVE_AGENT_NAME
+from tests.e2e.agentnexus._model_flows_rig import (
     ModelFlowsRig,
     PaneWatcher,
     Ui,

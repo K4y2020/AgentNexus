@@ -8,7 +8,7 @@ import {
   writeWorkspacePanelDefault,
 } from "./workspacePanelPreferences";
 
-const STORAGE_KEY = "omnigent:default-workspace-panel";
+const STORAGE_KEY = "agentnexus:default-workspace-panel";
 
 afterEach(() => {
   localStorage.clear();

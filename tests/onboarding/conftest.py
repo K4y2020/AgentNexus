@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.onboarding import harness_install
+from agentnexus.onboarding import harness_install
 
 
 @pytest.fixture(autouse=True)

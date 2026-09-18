@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.server.routes.usage import (
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.server.routes.usage import (
     _build_usage_report,
     _day_offset,
     _session_cost,
     _session_models,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -83,7 +83,7 @@ def _add_session(
     # create_conversation stamps updated_at from now_epoch; pin it so the
     # session lands at a specific time. set_session_usage does not touch it.
     monkeypatch.setattr(
-        "omnigent.stores.conversation_store.sqlalchemy_store.now_epoch",
+        "agentnexus.stores.conversation_store.sqlalchemy_store.now_epoch",
         lambda: ts,
     )
     conv = store.create_conversation(title=title, agent_id=_AGENT_ID)
@@ -105,8 +105,8 @@ def test_build_usage_report_summary_from_daily_rollup(
     store.add_daily_cost(RESERVED_USER_LOCAL, "2026-05-01", 8.0)  # older, all-time only
 
     # 1_784_678_400 == 2026-07-22T00:00:00Z. usage._utc_today reads now_epoch
-    # from omnigent.db.utils, so patch it there.
-    monkeypatch.setattr("omnigent.db.utils.now_epoch", lambda: 1_784_678_400)
+    # from agentnexus.db.utils, so patch it there.
+    monkeypatch.setattr("agentnexus.db.utils.now_epoch", lambda: 1_784_678_400)
     report = _build_usage_report(store, None)
 
     assert report.cost_today == 1.0
@@ -131,13 +131,13 @@ def test_build_usage_report_includes_page_details_when_enabled(
         by_model={"model-a": {"total_cost_usd": 1.25}},
         title="page session",
     )
-    monkeypatch.setattr("omnigent.db.utils.now_epoch", lambda: 1_784_678_400)
+    monkeypatch.setattr("agentnexus.db.utils.now_epoch", lambda: 1_784_678_400)
     monkeypatch.setattr(
-        "omnigent.server.routes.usage._resolve_session_harness",
+        "agentnexus.server.routes.usage._resolve_session_harness",
         lambda _conv: "codex-native",
     )
     monkeypatch.setattr(
-        "omnigent.server.routes.usage._resolve_llm_model",
+        "agentnexus.server.routes.usage._resolve_llm_model",
         lambda _conv: "model-a",
     )
 
@@ -166,8 +166,8 @@ def test_build_usage_report_skips_page_resolution_while_disabled(
     def _unexpected(_conv: object) -> str:
         pytest.fail("page-only metadata was resolved while usage_page was off")
 
-    monkeypatch.setattr("omnigent.server.routes.usage._resolve_session_harness", _unexpected)
-    monkeypatch.setattr("omnigent.server.routes.usage._resolve_llm_model", _unexpected)
+    monkeypatch.setattr("agentnexus.server.routes.usage._resolve_session_harness", _unexpected)
+    monkeypatch.setattr("agentnexus.server.routes.usage._resolve_llm_model", _unexpected)
 
     report = _build_usage_report(store, None)
 
@@ -205,7 +205,7 @@ def test_build_usage_report_sessions_detail(
         title="older",
     )
 
-    monkeypatch.setattr("omnigent.db.utils.now_epoch", lambda: now)
+    monkeypatch.setattr("agentnexus.db.utils.now_epoch", lambda: now)
     report = _build_usage_report(store, None)
 
     # Newest activity first; authoritative session cost + faithful per-model map.
@@ -235,13 +235,13 @@ def test_build_usage_report_unpriced_session(
     store = SqlAlchemyConversationStore(db_uri)
     now = 1_700_000_000
     monkeypatch.setattr(
-        "omnigent.stores.conversation_store.sqlalchemy_store.now_epoch",
+        "agentnexus.stores.conversation_store.sqlalchemy_store.now_epoch",
         lambda: now,
     )
     # A session with no recorded usage: cost falls back to 0.0, no models.
     conv = store.create_conversation(title="bare", agent_id=_AGENT_ID)
 
-    monkeypatch.setattr("omnigent.db.utils.now_epoch", lambda: now)
+    monkeypatch.setattr("agentnexus.db.utils.now_epoch", lambda: now)
     report = _build_usage_report(store, None)
 
     bare = next(s for s in report.sessions if s.id == conv.id)

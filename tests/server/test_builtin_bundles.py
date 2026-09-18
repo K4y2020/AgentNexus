@@ -19,11 +19,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.errors import OmnigentError
-from omnigent.harness_plugins import native_provider_for_key
-from omnigent.native_coding_agents import NATIVE_CODING_AGENTS as _NATIVE_CODING_AGENTS
-from omnigent.server import app
-from omnigent.spec import load, materialize_bundle
+from agentnexus.errors import AgentNexusError
+from agentnexus.harness_plugins import native_provider_for_key
+from agentnexus.native_coding_agents import NATIVE_CODING_AGENTS as _NATIVE_CODING_AGENTS
+from agentnexus.server import app
+from agentnexus.spec import load, materialize_bundle
 
 # Native built-ins are seeded through one registry-driven builder,
 # ``_build_native_bundle(provider)`` (PR 1.7). We exercise EVERY native agent
@@ -198,7 +198,7 @@ def test_shipped_example_survives_unknown_harness_sub_agent(
                 "spec_version": 1,
                 "name": "future_worker",
                 "executor": {
-                    "type": "omnigent",
+                    "type": "agentnexus",
                     "config": {"harness": "harness-from-a-newer-server"},
                 },
             }
@@ -213,7 +213,7 @@ def test_shipped_example_survives_unknown_harness_sub_agent(
 
     # Strict: the whole spec still fails (this is what matei hit, preserved for
     # authoring/upload so real harness typos surface to the author).
-    with pytest.raises(OmnigentError, match="invalid agent spec"):
+    with pytest.raises(AgentNexusError, match="invalid agent spec"):
         load(bundle, expand_env=False)
 
     # Execution path: parent + real workers survive; only the unknown one drops.
@@ -259,8 +259,8 @@ def test_native_seed_ids_are_byte_stable() -> None:
     id is a hash of the agent name, so the set of names AND their ids must not
     drift when the 11 hand-written seed helpers collapse into one loop.
     """
-    from omnigent.db.utils import builtin_agent_id
-    from omnigent.native_coding_agents import NATIVE_CODING_AGENTS
+    from agentnexus.db.utils import builtin_agent_id
+    from agentnexus.native_coding_agents import NATIVE_CODING_AGENTS
 
     actual = {a.agent_name: builtin_agent_id(a.agent_name) for a in NATIVE_CODING_AGENTS}
     assert actual == _EXPECTED_BUILTIN_AGENT_IDS, (
@@ -275,8 +275,8 @@ def test_native_seed_loop_covers_every_native_agent() -> None:
     A native agent with no provider row would be silently dropped from the
     seeded set (the loop raises instead — this pins that contract).
     """
-    from omnigent.harness_plugins import native_provider_for_key
-    from omnigent.native_coding_agents import NATIVE_CODING_AGENTS
+    from agentnexus.harness_plugins import native_provider_for_key
+    from agentnexus.native_coding_agents import NATIVE_CODING_AGENTS
 
     missing = [a.key for a in NATIVE_CODING_AGENTS if native_provider_for_key(a.key) is None]
     assert missing == [], f"native agents without a provider row to seed from: {missing}"

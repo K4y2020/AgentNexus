@@ -25,7 +25,7 @@ export interface FileViewPreferences {
   wrapLines: boolean;
 }
 
-const STORAGE_KEY = "omnigent:file-view-preferences";
+const STORAGE_KEY = "agentnexus:file-view-preferences";
 
 export const DEFAULT_FILE_VIEW_PREFERENCES: FileViewPreferences = {
   diffActive: false,

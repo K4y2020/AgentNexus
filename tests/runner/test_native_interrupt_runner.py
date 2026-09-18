@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from fastapi.responses import Response
 
-from omnigent.runner.native.interrupt import NativeInterruptRunner
+from agentnexus.runner.native.interrupt import NativeInterruptRunner
 
 
 @dataclass
@@ -91,7 +91,7 @@ async def test_uniform_interrupt_injects_and_wakes_parent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A uniform interrupt calls the bridge inject fn and wakes the parent."""
-    import omnigent.goose_native_bridge as goose_bridge
+    import agentnexus.goose_native_bridge as goose_bridge
 
     calls: list[Any] = []
 
@@ -114,7 +114,7 @@ async def test_pi_interrupt_uses_enqueue_without_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """pi's uniform interrupt uses enqueue_interrupt with no timeout kwarg."""
-    import omnigent.pi_native_bridge as pi_bridge
+    import agentnexus.pi_native_bridge as pi_bridge
 
     calls: list[Any] = []
     monkeypatch.setattr(pi_bridge, "bridge_dir_for_session_id", lambda conv: f"dir/{conv}")
@@ -136,7 +136,7 @@ async def test_uniform_interrupt_bridge_error_returns_503(
     """A RuntimeError from the bridge inject maps to a 503 with the error code."""
     import json
 
-    import omnigent.qwen_native_bridge as qwen_bridge
+    import agentnexus.qwen_native_bridge as qwen_bridge
 
     def _boom(bridge_dir: Any, *, timeout_s: float) -> None:
         raise RuntimeError("tmux target is not advertised")
@@ -160,7 +160,7 @@ async def test_uniform_stop_kills_tears_down_and_goes_idle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A uniform stop kills the bridge, publishes idle, and wakes the parent."""
-    import omnigent.cursor_native_bridge as cursor_bridge
+    import agentnexus.cursor_native_bridge as cursor_bridge
 
     killed: list[Any] = []
     monkeypatch.setattr(cursor_bridge, "bridge_dir_for_session_id", lambda conv: f"dir/{conv}")
@@ -187,7 +187,7 @@ async def test_uniform_stop_kill_failure_returns_503_without_idle(
     """A failed kill returns 503 and does NOT publish idle (no lie to the UI)."""
     import json
 
-    import omnigent.hermes_native_bridge as hermes_bridge
+    import agentnexus.hermes_native_bridge as hermes_bridge
 
     def _boom(bridge_dir: Any, *, timeout_s: float) -> None:
         raise RuntimeError("tmux target is not advertised")
@@ -208,7 +208,7 @@ async def test_codex_and_pi_stop_route_to_interrupt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """codex/pi have no distinct stop — stop() routes to their interrupt handler."""
-    import omnigent.pi_native_bridge as pi_bridge
+    import agentnexus.pi_native_bridge as pi_bridge
 
     calls: list[str] = []
     monkeypatch.setattr(pi_bridge, "bridge_dir_for_session_id", lambda conv: conv)
@@ -237,8 +237,8 @@ async def test_claude_stop_is_idempotent_without_advertised_tmux(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An already-absent Claude pane still completes stop teardown."""
-    import omnigent.claude_native_bridge as claude_bridge
-    from omnigent.runner.native import interrupt as interrupt_mod
+    import agentnexus.claude_native_bridge as claude_bridge
+    from agentnexus.runner.native import interrupt as interrupt_mod
 
     async def _fake_bridge_id(*, server_client: Any, session_id: str) -> str:
         del server_client, session_id
@@ -264,8 +264,8 @@ async def test_claude_interrupt_resolves_bridge_id_and_injects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """claude interrupt resolves the bridge id, injects, and wakes the parent."""
-    import omnigent.claude_native_bridge as claude_bridge
-    from omnigent.runner.native import interrupt as interrupt_mod
+    import agentnexus.claude_native_bridge as claude_bridge
+    from agentnexus.runner.native import interrupt as interrupt_mod
 
     async def _fake_bridge_id(*, server_client: Any, session_id: str) -> str:
         return f"bid-{session_id}"

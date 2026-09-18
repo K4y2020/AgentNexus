@@ -18,7 +18,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
-from omnigent_slack.oauth import (
+from agentnexus_slack.oauth import (
     AuthorizationDeniedError,
     AuthorizationExpiredError,
     DeviceFlowClient,
@@ -26,8 +26,8 @@ from omnigent_slack.oauth import (
     PendingLogin,
     start_login,
 )
-from omnigent_slack.omnigent import ClientAuth, TokenRefreshTransientError
-from omnigent_slack.tokens import TokenStore
+from agentnexus_slack.agentnexus import ClientAuth, TokenRefreshTransientError
+from agentnexus_slack.tokens import TokenStore
 
 _logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class TokenRotator(Protocol):
     """Refreshes/revokes a delegated token against its issuing authority.
 
     In ``databricks`` mode this is the workspace's custom OAuth app (refresh
-    hits ``/oidc/v1/token``, not the Omnigent server), so the AuthManager takes
+    hits ``/oidc/v1/token``, not the AgentNexus server), so the AuthManager takes
     it as a dependency rather than always assuming the device-grant endpoints.
     """
 
@@ -66,12 +66,12 @@ def slack_client_id(team_name: str) -> str:
     A public string naming the requesting application, qualified by the
     Slack workspace name so an operator reading the server's consent page /
     audit log can tell which workspace's bot obtained the grant (e.g.
-    ``"Slack-Omnigent-Acme Corp"``). Not the user — the per-user
+    ``"Slack-AgentNexus-Acme Corp"``). Not the user — the per-user
     distinction lives in the token store key. Falls back to a bare
-    ``"Slack-Omnigent"`` when the workspace name is unavailable.
+    ``"Slack-AgentNexus"`` when the workspace name is unavailable.
     """
     team_name = team_name.strip()
-    return f"Slack-Omnigent-{team_name}" if team_name else "Slack-Omnigent"
+    return f"Slack-AgentNexus-{team_name}" if team_name else "Slack-AgentNexus"
 
 
 # Called after a (team, user, server) token is stored or removed, so the
@@ -108,7 +108,7 @@ class AuthManager:
         # call (authorize / token / revoke) when the server requires it.
         self._client_secret = client_secret
         # Optional external rotator (databricks mode): refresh/revoke go to the
-        # workspace OAuth app instead of the Omnigent server's /oauth/* endpoints.
+        # workspace OAuth app instead of the AgentNexus server's /oauth/* endpoints.
         self._rotator = rotator
         # Track in-flight login poll tasks so they aren't garbage collected.
         self._login_tasks: set[asyncio.Task[Any]] = set()

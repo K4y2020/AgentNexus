@@ -19,11 +19,11 @@ Local usage::
     # iterate against an already-running server (dev hosts/ports need opt-in)
     cd web && npm run dev &
     omnigent server --agent examples/hello_world.yaml &
-    OMNIGENT_E2E_ALLOW_DEV_BASE_URL=1 \
+    AGENTNEXUS_E2E_ALLOW_DEV_BASE_URL=1 \
       uv run --no-sync pytest tests/e2e_ui --ui-base-url http://127.0.0.1:5173
 
 ``omnigent server`` is documented at ``omnigent/cli.py:server``:
-it spins up uvicorn with the Omnigent app and spawns an out-of-process
+it spins up uvicorn with the AgentNexus app and spawns an out-of-process
 runner that reconnects over the WebSocket tunnel. The fixture passes
 ``--database-uri`` and ``--artifact-location`` pointing at the
 pytest tmp dir so the test never touches the user's default
@@ -65,9 +65,9 @@ from tests.codex_parity.sidecar_harness import (
 from tests.e2e_ui.url_safety import DEV_PORTS, unsafe_ui_base_url_reason
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ALLOW_DEV_BASE_URL_ENV = "OMNIGENT_E2E_ALLOW_DEV_BASE_URL"
+_ALLOW_DEV_BASE_URL_ENV = "AGENTNEXUS_E2E_ALLOW_DEV_BASE_URL"
 _CODEX_GOAL_MIN_VERSION = (0, 139, 0)
-_PUBLIC_LOOPBACK_HOST = "omnigent-e2e-public.test"
+_PUBLIC_LOOPBACK_HOST = "agentnexus-e2e-public.test"
 
 
 # A pooled connection the server closes as the replay goes out surfaces as one
@@ -141,13 +141,13 @@ def switch_markdown_view_mode(page: Page, file_viewer: Locator, mode: str) -> No
 # type (which other tests depend on).
 _server_state: dict[str, int | str] = {}
 _WEB_DIR = _REPO_ROOT / "web"
-_BUILD_OUTPUT = _REPO_ROOT / "omnigent" / "server" / "static" / "web-ui"
+_BUILD_OUTPUT = _REPO_ROOT / "agentnexus" / "server" / "static" / "web-ui"
 
 # ``omnigent server --agent`` runs the spec through the strict
 # validator at registration time (no shim defaults applied), so the
 # YAML must carry an explicit ``executor`` block — otherwise the
 # server rejects with ``executor.config.harness: required when
-# executor.type is 'omnigent'``. The model name (gpt-4o-mini) is a plain
+# executor.type is 'agentnexus'``. The model name (gpt-4o-mini) is a plain
 # (non-``databricks-``) name on purpose: the openai-agents harness then
 # resolves no provider auth and falls back to ``OPENAI_BASE_URL`` (the
 # in-process mock) rather than routing to the Databricks gateway, which
@@ -222,7 +222,7 @@ _HEALTH_POLL_INTERVAL_S = 0.5
 # (test_switch_agent_files_tab.py). The in-place switch dialog lists
 # BUILT-IN agents only (``session_id IS NULL`` — see
 # ``switch_session_agent``), and built-ins can only be seeded at server
-# startup via ``OMNIGENT_BUILTIN_AGENT_DIRS``, so ``live_server`` writes
+# startup via ``AGENTNEXUS_BUILTIN_AGENT_DIRS``, so ``live_server`` writes
 # these two specs to disk and threads them through that env var. Both run
 # the same openai-agents harness as ``hello_world`` (same provider family
 # → the picker's ``forkSwitchPreservesHistory`` gate offers them); the
@@ -339,7 +339,7 @@ def browser_type_launch_args(
     # container's small /dev/shm. Neither flag changes rasterized output, so a
     # baseline stays identical to a sandboxed run. Env-gated so the unpinned
     # e2e-ui runners (non-root) are unaffected.
-    if os.environ.get("OMNIGENT_PW_NO_SANDBOX"):
+    if os.environ.get("AGENTNEXUS_PW_NO_SANDBOX"):
         launch_args["args"] = [
             *launch_args.get("args", []),
             "--no-sandbox",
@@ -417,7 +417,7 @@ def _register_agent_yaml(
 ) -> str | None:
     """Register an agent via multipart ``POST /v1/sessions`` from a raw YAML body.
 
-    ``arcname`` defaults to ``config.yaml`` for native Omnigent specs. Pass a
+    ``arcname`` defaults to ``config.yaml`` for native AgentNexus specs. Pass a
     ``*.yaml`` filename for omnigent-flavored single-file specs; the
     compat loader only routes those through the omnigent translator when
     the extracted bundle has no root ``config.yaml``.
@@ -617,7 +617,7 @@ def seed_committed_items(session_id: str, items: list[Any]) -> None:
     :raises RuntimeError: If the server under test isn't one we spawned
         (``--ui-base-url``), so its database isn't reachable from here.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -649,7 +649,7 @@ def seed_committed_turn(
     :param response_id: Response id shared by both items — per-message
         actions pass it as the turn anchor (e.g. a fork's truncation point).
     """
-    from omnigent.entities import MessageData, NewConversationItem
+    from agentnexus.entities import MessageData, NewConversationItem
 
     seed_committed_items(
         session_id,
@@ -685,7 +685,7 @@ def set_session_task_summary(session_id: str, task_summary: str) -> None:
     :raises RuntimeError: If the server under test isn't one we spawned
         (``--ui-base-url``), so its database isn't reachable from here.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
 
@@ -822,7 +822,7 @@ def _spawn_runner_against_external_server(
     """
     import secrets
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     runner_tmp = tmp_path_factory.mktemp("e2e_ui_external_runner")
     log_path = runner_tmp / "runner.log"
@@ -832,14 +832,14 @@ def _spawn_runner_against_external_server(
     env = {
         **os.environ,
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
     }
     log_handle = open(log_path, "w")  # noqa: SIM115 — closed in finally
     proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env=env,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
@@ -966,22 +966,22 @@ def live_server(
         builtin_dirs.append(str(probe_path))
     import secrets as _secrets
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     binding_token = _secrets.token_urlsafe(32)
     runner_id = token_bound_runner_id(binding_token)
-    # PYTHONPATH forces the subprocess to import omnigent from
+    # PYTHONPATH forces the subprocess to import agentnexus from
     # the worktree, not whatever's pip-installed in .venv —
     # otherwise a branch with code changes would silently run
     # against stale code. Same trick the existing live_server
     # helper uses (tests/_helpers/live_server.py:160-167).
-    # OMNIGENT_RUNNER_TUNNEL_TOKEN lets the server accept
+    # AGENTNEXUS_RUNNER_TUNNEL_TOKEN lets the server accept
     # exactly the sibling runner's WebSocket tunnel.
     mock_url = mock_llm_server_url
     env: dict[str, str] = {
         **os.environ,
-        "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token,
-        "OMNIGENT_BUILTIN_AGENT_DIRS": os.pathsep.join(builtin_dirs),
+        "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token,
+        "AGENTNEXUS_BUILTIN_AGENT_DIRS": os.pathsep.join(builtin_dirs),
         # Point the openai-agents harness at the mock LLM server so no
         # real provider credentials are needed.
         "OPENAI_BASE_URL": f"{mock_url}/v1",
@@ -991,15 +991,15 @@ def live_server(
         # Deterministic dictation engine: /v1/info advertises dictation and
         # WS /v1/dictation/stream transcribes any audio into FAKE_SCRIPT,
         # so chat/test_dictation.py needs no sherpa models or real ASR.
-        "OMNIGENT_DICTATION_ENGINE": os.environ.get("OMNIGENT_DICTATION_ENGINE", "fake"),
+        "AGENTNEXUS_DICTATION_ENGINE": os.environ.get("AGENTNEXUS_DICTATION_ENGINE", "fake"),
         # In compat mode the server binary runs from the pinned old venv, but
         # the SPA was built from HEAD into _BUILD_OUTPUT. Point the old server
         # at that directory so it serves the HEAD bundle instead of whatever
         # stale (or absent) bundle ships in its own site-packages.
-        "OMNIGENT_WEB_UI_DIST": str(_BUILD_OUTPUT),
+        "AGENTNEXUS_WEB_UI_DIST": str(_BUILD_OUTPUT),
     }
     # In normal runs, prepend the worktree so the server imports from the
-    # checked-out source. In compat mode (OMNIGENT_COMPAT_SERVER_PYTHON set),
+    # checked-out source. In compat mode (AGENTNEXUS_COMPAT_SERVER_PYTHON set),
     # drop PYTHONPATH so the pinned old build in the compat venv resolves
     # instead of being shadowed by the worktree.
     apply_server_env(env, _REPO_ROOT)
@@ -1017,8 +1017,8 @@ def live_server(
             # ingress' ~5-min stream recycle a test server never hits).
             # Mirrors ``python -m omnigent`` (omnigent/__main__.py).
             "-c",
-            "import omnigent.server.presence as _p; _p._LEAVE_GRACE_S = 1.0; "
-            + "from omnigent.cli import main; main()",
+            "import agentnexus.server.presence as _p; _p._LEAVE_GRACE_S = 1.0; "
+            + "from agentnexus.cli import main; main()",
             "server",
             "--host",
             "127.0.0.1",
@@ -1048,9 +1048,9 @@ def live_server(
     runner_env = {
         **os.environ,
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
         # Route the openai-agents harness to the mock LLM server so no
         # real provider credentials are needed for agent turns. Without
@@ -1059,7 +1059,7 @@ def live_server(
         "OPENAI_API_KEY": "mock-key",
     }
     runner_proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env=runner_env,
         stdout=runner_log_handle,
         stderr=subprocess.STDOUT,
@@ -1184,7 +1184,7 @@ def seeded_session(
     and test reordering can place the runner-killing test anywhere.
 
     :param live_server: Spawned server fixture — its
-        ``OMNIGENT_RUNNER_ID`` and pre-registered agent are reused.
+        ``AGENTNEXUS_RUNNER_ID`` and pre-registered agent are reused.
     :param tmp_path_factory: Pytest temp path factory (for a respawn log).
     :returns: ``(base_url, session_id)``. Tests typically navigate to
         ``f"{base_url}/c/{session_id}"``.
@@ -1306,9 +1306,9 @@ def _ensure_runner_online(
     env = {
         **os.environ,
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
         # Mirror the live_server runner's mock-LLM routing so the
         # respawned runner's harness also hits the mock.
@@ -1317,7 +1317,7 @@ def _ensure_runner_online(
         ),
     }
     proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env=env,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
@@ -2181,7 +2181,7 @@ def _record_video(
     Most e2e_ui tests drive Playwright through ``async_playwright()`` directly
     (``browser.new_page()`` / ``browser.new_context()``), not the
     pytest-playwright ``page`` fixture, so ``pytest --video`` records nothing for
-    them. When ``OMNIGENT_E2E_RECORD_DIR`` is set, patch the async ``Browser``
+    them. When ``AGENTNEXUS_E2E_RECORD_DIR`` is set, patch the async ``Browser``
     methods to inject ``record_video_dir`` into every page/context they open, so
     the rendered journey lands as a ``.webm`` regardless of how the test opened
     the browser. A caller that already passes ``record_video_dir`` is left alone.
@@ -2189,7 +2189,7 @@ def _record_video(
     callers/harnesses pick it up from the directory. No-op when the env var is
     unset, so ordinary runs are unaffected.
     """
-    record_dir = os.environ.get("OMNIGENT_E2E_RECORD_DIR")
+    record_dir = os.environ.get("AGENTNEXUS_E2E_RECORD_DIR")
     if not record_dir:
         yield
         return
@@ -2401,13 +2401,13 @@ def _create_native_claude_session(
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         CLAUDE_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.claude_native import _materialize_claude_agent_spec
+    from agentnexus.claude_native import _materialize_claude_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_claude_agent_spec(Path(_tmp))
@@ -2569,13 +2569,13 @@ def _create_native_codex_session(
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         CODEX_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.codex_native import _materialize_codex_agent_spec
+    from agentnexus.codex_native import _materialize_codex_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_codex_agent_spec(Path(_tmp), model=model)
@@ -2597,9 +2597,9 @@ def _create_native_codex_session(
     # Runner-owned Codex terminals hard-require a workspace: unlike the
     # claude-native path (which falls back to Path.cwd()),
     # _codex_session_workspace raises if neither the session's stored
-    # ``workspace`` nor OMNIGENT_RUNNER_WORKSPACE is set. Pin it on THIS
+    # ``workspace`` nor AGENTNEXUS_RUNNER_WORKSPACE is set. Pin it on THIS
     # session only (via metadata.workspace) rather than exporting
-    # OMNIGENT_RUNNER_WORKSPACE on the shared runner — a runner-wide value
+    # AGENTNEXUS_RUNNER_WORKSPACE on the shared runner — a runner-wide value
     # changes file-surface advertisement for every other session on the runner
     # (it regressed the mobile file-drawer suite). The repo root is the same cwd
     # claude falls back to, and is a valid dir on the runner's filesystem.
@@ -2655,7 +2655,7 @@ def native_codex_session(
 def _temp_omnigent_mock_config(
     mock_llm_server_url: str, harness: str
 ) -> Generator[None, None, None]:
-    """Temporarily write a mock provider config to ~/.omnigent/config.yaml.
+    """Temporarily write a mock provider config to ~/.agentnexus/config.yaml.
 
     Native credential helpers may read provider configuration on every turn,
     so the mock config stays in place for the fixture's full lifetime.
@@ -2665,7 +2665,7 @@ def _temp_omnigent_mock_config(
         ``"http://127.0.0.1:51235"``.
     :param harness: ``"claude"`` or ``"codex"``.
     """
-    config_dir = Path.home() / ".omnigent"
+    config_dir = Path.home() / ".agentnexus"
     config_path = config_dir / "config.yaml"
     config_dir.mkdir(parents=True, exist_ok=True)
     original = config_path.read_text() if config_path.exists() else None
@@ -2715,10 +2715,10 @@ def native_claude_mock_session(
     """A runner-bound claude-native session whose LLM backend depends on env.
 
     When ``LLM_API_KEY`` is set in the environment (local dev / CI with real
-    credentials), the existing ``~/.omnigent/config.yaml`` is left untouched so
+    credentials), the existing ``~/.agentnexus/config.yaml`` is left untouched so
     the runner boots Claude Code against the real gateway. When ``LLM_API_KEY``
     is absent, a mock anthropic provider config is written to
-    ``~/.omnigent/config.yaml`` and restored on teardown.
+    ``~/.agentnexus/config.yaml`` and restored on teardown.
 
     :param live_server: Spawned server fixture; its runner is reused.
     :param mock_llm_server_url: Session-scoped mock LLM server base URL.
@@ -2829,7 +2829,7 @@ def mocked_native_codex_session(
 
     This intentionally does not reuse the session-scoped ``live_server``:
     native Codex reads provider config and bridge roots in subprocesses, so
-    the mock ``OMNIGENT_CONFIG_HOME`` / ``HOME`` / source ``CODEX_HOME`` must
+    the mock ``AGENTNEXUS_CONFIG_HOME`` / ``HOME`` / source ``CODEX_HOME`` must
     be present before the AP server and runner start. Keeping a dedicated
     server prevents those mock-only env vars from affecting unrelated UI tests
     in the same shard.
@@ -2903,7 +2903,7 @@ def mocked_native_codex_session(
 
     import secrets as _secrets
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     binding_token = _secrets.token_urlsafe(32)
     runner_id = token_bound_runner_id(binding_token)
@@ -2911,21 +2911,21 @@ def mocked_native_codex_session(
     shared_env = {
         **os.environ,
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_CONFIG_HOME": str(config_home),
-        "OMNIGENT_CODEX_NATIVE_STATE_DIR": str(state_dir),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_CODEX_NATIVE_STATE_DIR": str(state_dir),
         "CODEX_HOME": str(source_codex_home),
         "HOME": str(home_dir),
-        "OMNIGENT_CODEX_PATH": str(codex_shim),
+        "AGENTNEXUS_CODEX_PATH": str(codex_shim),
     }
     server_env = {
         **shared_env,
-        "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token,
     }
     runner_env = {
         **shared_env,
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
     }
 
@@ -2939,8 +2939,8 @@ def mocked_native_codex_session(
             [
                 sys.executable,
                 "-c",
-                "import omnigent.server.presence as _p; _p._LEAVE_GRACE_S = 1.0; "
-                + "from omnigent.cli import main; main()",
+                "import agentnexus.server.presence as _p; _p._LEAVE_GRACE_S = 1.0; "
+                + "from agentnexus.cli import main; main()",
                 "server",
                 "--host",
                 "127.0.0.1",
@@ -2958,7 +2958,7 @@ def mocked_native_codex_session(
             stderr=subprocess.STDOUT,
         )
         runner_proc = subprocess.Popen(
-            [sys.executable, "-m", "omnigent.runner._entry"],
+            [sys.executable, "-m", "agentnexus.runner._entry"],
             env=runner_env,
             stdout=runner_log_handle,
             stderr=subprocess.STDOUT,
@@ -3086,13 +3086,13 @@ def _create_native_cursor_session(
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         CURSOR_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.cursor_native import _materialize_cursor_agent_spec
+    from agentnexus.cursor_native import _materialize_cursor_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_cursor_agent_spec(Path(_tmp))
@@ -3157,13 +3157,13 @@ def _create_native_goose_session(base_url: str, runner_id: str) -> str:
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         GOOSE_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.goose_native import _materialize_goose_agent_spec
+    from agentnexus.goose_native import _materialize_goose_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_goose_agent_spec(Path(_tmp))
@@ -3246,13 +3246,13 @@ def _create_native_kiro_session(base_url: str, runner_id: str) -> str:
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         KIRO_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.kiro_native import _materialize_kiro_agent_spec
+    from agentnexus.kiro_native import _materialize_kiro_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_kiro_agent_spec(Path(_tmp), model=None)
@@ -3335,13 +3335,13 @@ def _create_native_hermes_session(base_url: str, runner_id: str) -> str:
     import json as _json
     import tempfile
 
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         HERMES_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.hermes_native import _materialize_hermes_agent_spec
+    from agentnexus.hermes_native import _materialize_hermes_agent_spec
 
     with tempfile.TemporaryDirectory() as _tmp:
         spec_path = _materialize_hermes_agent_spec(Path(_tmp))

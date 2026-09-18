@@ -10,7 +10,7 @@ reachable from where this script runs, e.g. via ``kubectl port-forward``).
 
 The script creates a managed session, waits for the runner Pod's host to
 register, then ``kubectl exec``'s into the Pod and asserts the injected
-config landed at ``/home/omnigent/.omnigent/config.yaml`` before the host
+config landed at ``/home/omnigent/.agentnexus/config.yaml`` before the host
 came up. It needs ``kubectl`` on PATH with access to the runner namespace.
 
     python tests/e2e/integrations/deploy/kubernetes/e2e_managed_host_config.py \
@@ -33,7 +33,7 @@ import httpx
 # main container and host-id env names, and the labels stamped on every runner Pod.
 POD_HOME = "/home/omnigent"
 HOST_CONTAINER = "host"
-HOST_ID_ENV_VAR = "OMNIGENT_HOST_ID"
+HOST_ID_ENV_VAR = "AGENTNEXUS_HOST_ID"
 POD_SELECTOR = "app.kubernetes.io/managed-by=omnigent,omnigent.ai/role=sandbox-host"
 DEFAULT_EXPECTED_CONFIG = (
     "litellm:",
@@ -138,7 +138,7 @@ def runner_pod_for_host(kubectl: str, namespace: str, host_id: str) -> str:
 def assert_injected_config(
     kubectl: str, namespace: str, pod: str, expected: list[str] | tuple[str, ...]
 ) -> str:
-    log(f"[4/5] reading {POD_HOME}/.omnigent/config.yaml from {pod}")
+    log(f"[4/5] reading {POD_HOME}/.agentnexus/config.yaml from {pod}")
     proc = subprocess.run(
         [
             *shlex.split(kubectl),
@@ -150,7 +150,7 @@ def assert_injected_config(
             HOST_CONTAINER,
             "--",
             "cat",
-            f"{POD_HOME}/.omnigent/config.yaml",
+            f"{POD_HOME}/.agentnexus/config.yaml",
         ],
         capture_output=True,
         text=True,
@@ -172,9 +172,9 @@ def assert_injected_config(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--server", required=True, help="Omnigent server base URL")
+    parser.add_argument("--server", required=True, help="AgentNexus server base URL")
     parser.add_argument("--agent-id", default=None, help="Agent to bind (default: first)")
-    parser.add_argument("--namespace", default="omnigent-sandboxes", help="Runner-Pod namespace")
+    parser.add_argument("--namespace", default="agentnexus-sandboxes", help="Runner-Pod namespace")
     parser.add_argument(
         "--expect",
         action="append",

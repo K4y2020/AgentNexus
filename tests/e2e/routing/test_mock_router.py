@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.server.smart_routing import ExternalRoutingClient
+from agentnexus.server.smart_routing import ExternalRoutingClient
 from tests.e2e.routing._mock_router import (
     CLAUDE_ARMS,
     CODEX_ARMS,

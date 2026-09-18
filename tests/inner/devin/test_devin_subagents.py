@@ -9,8 +9,8 @@ against what Devin actually emits, not a paraphrase.
 
 from __future__ import annotations
 
-from omnigent.inner.acp_subagents import SubAgentActivity, SubAgentEnd, SubAgentStart
-from omnigent.inner.devin import DEVIN_ACP_EXTENSION, DevinSubAgentSource
+from agentnexus.inner.acp_subagents import SubAgentActivity, SubAgentEnd, SubAgentStart
+from agentnexus.inner.devin import DEVIN_ACP_EXTENSION, DevinSubAgentSource
 
 # --- real captured frames (params.update objects) -----------------------------
 
@@ -193,8 +193,8 @@ def test_devin_dialect_reaches_the_executor_through_the_extension() -> None:
     Covers the dialect -> extension -> generic executor path in one assertion, so
     a rename on either side of the seam fails here rather than silently.
     """
-    from omnigent.inner.acp_executor import AcpAgentConfig, AcpExecutor
-    from omnigent.inner.executor import (
+    from agentnexus.inner.acp_executor import AcpAgentConfig, AcpExecutor
+    from agentnexus.inner.executor import (
         SubAgentCompleted,
         SubAgentStarted,
         SubAgentToolCall,

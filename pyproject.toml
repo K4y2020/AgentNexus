@@ -3,8 +3,8 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omnigent"
-# Keep in sync with omnigent/version.py's VERSION constant.
+name = "agentnexus"
+# Keep in sync with agentnexus/version.py's VERSION constant.
 version = "0.12.0.dev0"
 description = "AgentNexus: declarative agent authoring and runtime framework"
 readme = "README.md"
@@ -23,12 +23,12 @@ classifiers = [
 ]
 dependencies = [
     # SDK path-deps, version-locked: the three packages release together at
-    # one version, so a published `omnigent==X` must resolve the SDK wheels
-    # built alongside it (release-omnigent.yml verifies these pins match the
+    # one version, so a published `agentnexus==X` must resolve the SDK wheels
+    # built alongside it (release-agentnexus.yml verifies these pins match the
     # release tag). Local/editable installs still resolve via tool.uv.sources.
-    "omnigent-client==0.12.0.dev0",
-    "omnigent-ui-sdk==0.12.0.dev0",
-    # Merged from omnigent + omnigent.
+    "agentnexus-client==0.12.0.dev0",
+    "agentnexus-ui-sdk==0.12.0.dev0",
+    # Merged from agentnexus + agentnexus.
     "pyyaml>=6.0,<7",
     # OpenClaw stores its wrapped acpx registry as JSON5.
     "json5>=0.10,<1",
@@ -47,7 +47,7 @@ dependencies = [
     "httpx>=0.27,<1",
     "ftfy>=6.0",
     # Portable zombie-aware PID liveness checks for the host daemon
-    # lifecycle (omnigent/host/local_server.py).
+    # lifecycle (agentnexus/host/local_server.py).
     "psutil>=5.9,<8",
     # CEL (Common Expression Language) for inline policy evaluation.
     # Non-Turing-complete, side-effect-free, guaranteed to terminate.
@@ -57,20 +57,20 @@ dependencies = [
     # .github/scripts/homebrew/generate_formula.py.
     "cel-python>=0.5",
     # OS keychain for storing model-provider API keys (OSS model
-    # selection). Used by omnigent/onboarding/secrets.py; falls back to
+    # selection). Used by agentnexus/onboarding/secrets.py; falls back to
     # a 0600 file when no keyring backend is available (e.g. headless).
     "keyring>=24,<26",
     # Decode and validate public branding assets before serving them.
     "pillow>=12.2,<13",
     # Round-trip (comment/format-preserving) TOML editing of the user's
     # ~/.codex/config.toml when removing a Databricks provider
-    # (omnigent/onboarding/ucode_cleanup.py). stdlib tomllib is read-only.
+    # (agentnexus/onboarding/ucode_cleanup.py). stdlib tomllib is read-only.
     "tomlkit>=0.12,<1",
-    # omnigent deps (runtime, spec, server, persistent terminal, etc.).
+    # agentnexus deps (runtime, spec, server, persistent terminal, etc.).
     "alembic>=1.0,<2",
     "anyio>=4.0,<5",
     "cachetools>=5.0,<7",
-    # _HostGroup (omnigent/cli.py) rewrites a leading positional server URL
+    # _HostGroup (agentnexus/cli.py) rewrites a leading positional server URL
     # into `--server` before Click parses it, so it no longer depends on
     # Click's internal `protected_args` (made read-only in click 8.2, slated
     # for removal in click 9). Upper bound `<10` only guards against an
@@ -78,13 +78,13 @@ dependencies = [
     "click>=8.0,<10",
     "fastapi>=0.100,<1",
     # pexpect/pyte back the POSIX tmux/PTY terminal stack, which is disabled
-    # on Windows (no usable PTY); omnigent never imports them on the core
+    # on Windows (no usable PTY); agentnexus never imports them on the core
     # path, so skip them there to avoid shipping an unusable dependency.
     "pexpect>=4.9,<5; platform_system != 'Windows'",
     "pyte>=0.8,<1; platform_system != 'Windows'",
     "pydantic>=2.0,<3",
     "sqlalchemy>=2.0,<3",
-    # Client-side compression for opaque text columns (omnigent/db/compression.py),
+    # Client-side compression for opaque text columns (agentnexus/db/compression.py),
     # so per-conversation JSON/text is stored uniformly compressed across SQLite,
     # PostgreSQL, and MySQL rather than depending on each backend's storage engine.
     "zstandard>=0.22,<1",
@@ -100,17 +100,17 @@ dependencies = [
     "PyJWT[crypto]>=2.8,<3",
     "argon2-cffi>=23.1,<24",
     # PEP 440 version comparison for the update check / `omni upgrade`
-    # (omnigent/update_check.py, omnigent/cli.py): compares the installed
+    # (agentnexus/update_check.py, agentnexus/cli.py): compares the installed
     # version against the latest PyPI release. Previously only a
     # transitive dep; pinned here now that we import it directly.
     "packaging>=23,<26",
-    # CA root bundle for client TLS verification (omnigent/tls.py,
-    # omnigent/inner/egress/ca.py). Required as a real fallback on uv /
+    # CA root bundle for client TLS verification (agentnexus/tls.py,
+    # agentnexus/inner/egress/ca.py). Required as a real fallback on uv /
     # python-build-standalone interpreters whose OpenSSL has no default cert
     # path; previously only transitive, pinned here now that we import it.
     "certifi>=2023.7",
     # Protobuf schema for the AI-gateway routing API
-    # (omnigent/api/routing/v1/routing.proto).
+    # (agentnexus/api/routing/v1/routing.proto).
     # Previously only a transitive dep; declared directly now that we ship a proto.
     # Upper bound widened to <8 so the google-antigravity extra can pull in
     # protobuf 7.x without conflicting with this core floor.  Our own
@@ -119,16 +119,16 @@ dependencies = [
     # a plain install stays on 6.x and an antigravity install upgrades to 7.x.
     "protobuf>=6,<8",
     # RFC 5545 recurrence rules for the scheduled-task scheduler
-    # (omnigent/server/scheduled/rrule.py). Imported at module top and pulled
+    # (agentnexus/server/scheduled/rrule.py). Imported at module top and pulled
     # onto the core server boot path via app.py; previously only a transitive
     # dep, declared directly now that we import it.
     "python-dateutil>=2.8,<3",
     # IANA time-zone database for `zoneinfo`. Windows ships no system tz
     # database, so `ZoneInfo("UTC")` raises ZoneInfoNotFoundError there
     # unless this package is installed. Evaluated at module top in
-    # omnigent/server/scheduled/rrule.py and scheduler.py, both pulled onto
+    # agentnexus/server/scheduled/rrule.py and scheduler.py, both pulled onto
     # the core server boot path via app.py, so a Windows install crashes on
-    # `omnigent server start` without it. POSIX platforms use the system
+    # `agentnexus server start` without it. POSIX platforms use the system
     # database and don't need the wheel.
     "tzdata>=2024.1; platform_system == 'Windows'",
     "jinja2>=3.1,<4",
@@ -152,22 +152,22 @@ all = [
     "opentelemetry-instrumentation-httpx>=0,<1",
     "opentelemetry-instrumentation-sqlalchemy>=0,<1",
 ]
-# From omnigent.
+# From agentnexus.
 bedrock = ["boto3>=1.30,<2", "botocore>=1.30,<2"]
 # S3-compatible artifact store (AWS S3, Cloudflare R2, MinIO, …). Selected
-# with ``OMNIGENT_ARTIFACT_URI=s3://bucket/prefix``; the store imports boto3
+# with ``AGENTNEXUS_ARTIFACT_URI=s3://bucket/prefix``; the store imports boto3
 # lazily, so only users of this backend need the extra.
 s3 = ["boto3>=1.30,<2", "botocore>=1.30,<2"]
 vertex = ["google-auth>=2.0,<3"]
-# Modal sandbox launcher (`omnigent sandbox --provider modal`). The
+# Modal sandbox launcher (`agentnexus sandbox --provider modal`). The
 # launcher module ships in the base package and imports the SDK lazily,
 # so only users of the provider need this extra.
 modal = ["modal>=1.0,<2"]
-# Daytona sandbox launcher (`omnigent sandbox --provider daytona` and
+# Daytona sandbox launcher (`agentnexus sandbox --provider daytona` and
 # server-managed `sandbox.provider: daytona`).
 # Same lazy-import posture as the modal extra. Pre-1.0 SDK: pin minor.
 daytona = ["daytona>=0.180,<1"]
-# Blaxel sandbox launcher (`omnigent sandbox --provider blaxel` and
+# Blaxel sandbox launcher (`agentnexus sandbox --provider blaxel` and
 # server-managed `sandbox.provider: blaxel`).
 blaxel = ["blaxel>=0.4.1,<0.5"]
 # Boxlite sandbox launcher: server-managed `sandbox.provider: boxlite`, either
@@ -175,20 +175,20 @@ blaxel = ["blaxel>=0.4.1,<0.5"]
 # pool. Same lazy-import posture as the modal/daytona extras. Pre-1.0 SDK: pin
 # minor.
 boxlite = ["boxlite>=0.9.5,<1"]
-# CoreWeave Sandbox launcher (`omnigent sandbox --provider cwsandbox` and
+# CoreWeave Sandbox launcher (`agentnexus sandbox --provider cwsandbox` and
 # server-managed `sandbox.provider: cwsandbox`).
 # Same lazy-import posture as above. Pre-1.0 SDK: pin minor.
 cwsandbox = ["cwsandbox>=0.24,<1"]
-# E2B sandbox launcher (`omnigent sandbox --provider e2b` and
+# E2B sandbox launcher (`agentnexus sandbox --provider e2b` and
 # server-managed `sandbox.provider: e2b`).
 # Same lazy-import posture as above.
 e2b = ["e2b>=2.26,<3"]
-# Islo sandbox launcher (`omnigent sandbox --provider islo` and
+# Islo sandbox launcher (`agentnexus sandbox --provider islo` and
 # server-managed `sandbox.provider: islo`). The launcher module ships in
 # the base package and imports the SDK lazily, so only users of the
 # provider need this extra.
 islo = ["islo>=0.3.5,<0.4"]
-# NVIDIA OpenShell launcher (`omnigent sandbox --provider openshell`).
+# NVIDIA OpenShell launcher (`agentnexus sandbox --provider openshell`).
 # Self-hosted gRPC gateway; the SDK pulls grpcio + protobuf. Same
 # lazy-import posture as above. Pre-1.0 SDK: pin minor.
 openshell = ["openshell>=0.0.88,<1"]
@@ -242,7 +242,7 @@ dictation = [
 ]
 # Cursor SDK harness (`harness: cursor`). Optional like antigravity: the
 # harness imports the cursor-sdk lazily on first turn, so only `--harness
-# cursor` users need this extra (`omnigent[cursor]`). Was a baseline dependency;
+# cursor` users need this extra (`agentnexus[cursor]`). Was a baseline dependency;
 # now opt-in to keep the default install lean.
 cursor = ["cursor-sdk>=0.1.7"]
 # Hindsight long-term memory built-in tools (hindsight_retain / _recall /
@@ -254,20 +254,20 @@ hindsight = ["hindsight-client>=0.4.0"]
 # needs no client at runtime. Installing this extra is the opt-in signal that
 # surfaces both tools in the onboarding assistant's builtin list.
 nimble = ["nimble-python>=1.2.0,<2"]
-# Slack integration (`omni integration slack`). The @omnigent socket-mode bot
-# lives in the separate `omnigent-slack` package (heavy deps — slack_bolt /
+# Slack integration (`omni integration slack`). The @agentnexus socket-mode bot
+# lives in the separate `agentnexus-slack` package (heavy deps — slack_bolt /
 # aiohttp — kept out of the baseline install). The CLI launches it as a
-# subprocess (`python -m omnigent_slack`), so it must be importable in the same
-# environment; installing `omnigent[slack]` puts it there. Local/editable
+# subprocess (`python -m agentnexus_slack`), so it must be importable in the same
+# environment; installing `agentnexus[slack]` puts it there. Local/editable
 # installs resolve it from `integrations/slack` via [tool.uv.sources] below;
-# publishing `omnigent[slack]` to an index additionally requires publishing
-# `omnigent-slack` there (not yet wired into the release pipeline).
+# publishing `agentnexus[slack]` to an index additionally requires publishing
+# `agentnexus-slack` there (not yet wired into the release pipeline).
 # Version-locked (==) with the lockstep cycle — `scripts/update_versions.py`
 # keeps this pin in sync with the other sibling `==` pins
-# (`omnigent-client`, `omnigent-ui-sdk`) and the sub-package's own
+# (`agentnexus-client`, `agentnexus-ui-sdk`) and the sub-package's own
 # `[project].version` in `integrations/slack/pyproject.toml`.
 slack = [
-    "omnigent-slack==0.12.0.dev0",
+    "agentnexus-slack==0.12.0.dev0",
 ]
 databricks = [
     # Floor matches what core code was tested against when the SDK was a
@@ -276,7 +276,7 @@ databricks = [
     "opentelemetry-distro>=0,<1",
     "psycopg[binary]>=3.1,<4",
     "pymysql>=1.1,<2",
-    # Databricks-specific MCP servers. Not imported by core Omnigent
+    # Databricks-specific MCP servers. Not imported by core AgentNexus
     # code, so it is opt-in here rather than a default dependency. Floored
     # at 0.9.0 (the release the lock already resolves): with the old >=0.1.0
     # floor, a fresh install could satisfy the ai-bridge floor below by
@@ -297,14 +297,14 @@ loadtest = [
 ]
 
 # Repository-only workflows use PEP 735 dependency groups so development
-# tooling is not published as an installable Omnigent capability.
+# tooling is not published as an installable AgentNexus capability.
 [dependency-groups]
 lint = [
     "ruff>=0.6",
     "pyrefly==1.1.1",
     "pre-commit>=3.5",
     # protoc + the well-known-type protos, for regenerating the routing API
-    # bindings (omnigent/api/routing/v1/routing_pb2.*). Bundles its own compiler so no
+    # bindings (agentnexus/api/routing/v1/routing_pb2.*). Bundles its own compiler so no
     # system protoc is needed. Capped below 1.83 so the bundled libprotoc emits
     # protobuf 6.x gencode; routing_pb2 must stay at gencode 6.x because
     # cwsandbox/modal installs are pinned to a protobuf 6.x runtime and the
@@ -375,11 +375,11 @@ dev = [
 
 [project.scripts]
 # Unified entry point. `agentnexus` / `nexus` are primary CLI entry points,
-# with `omnigent` / `omni` maintained as backward-compatible aliases.
-agentnexus = "omnigent.cli:main"
-nexus = "omnigent.cli:main"
-omnigent = "omnigent.cli:main"
-omni = "omnigent.cli:main"
+# with `agentnexus` / `omni` maintained as backward-compatible aliases.
+agentnexus = "agentnexus.cli:main"
+nexus = "agentnexus.cli:main"
+agentnexus = "agentnexus.cli:main"
+omni = "agentnexus.cli:main"
 
 [tool.uv]
 # Keep plain `uv sync` aligned with the published base package. Repository
@@ -410,38 +410,38 @@ members = [".github/triage_v2"]
 
 # uv path-deps for the sibling SDK packages (renamed in Stage 3).
 [tool.uv.sources]
-omnigent-client = { path = "sdks/python-client", editable = true }
-omnigent-ui-sdk = { path = "sdks/ui", editable = true }
-# Local resolution for the `slack` extra. Only pulled in when `omnigent[slack]`
+agentnexus-client = { path = "sdks/python-client", editable = true }
+agentnexus-ui-sdk = { path = "sdks/ui", editable = true }
+# Local resolution for the `slack` extra. Only pulled in when `agentnexus[slack]`
 # is requested (the extra is opt-in), so a default install never builds it.
-omnigent-slack = { path = "integrations/slack", editable = true }
+agentnexus-slack = { path = "integrations/slack", editable = true }
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-# Discovers the `omnigent` package (including `omnigent.inner.*` and
-# all omnigent subpackages absorbed during unification).
-include = ["omnigent*"]
+# Discovers the `agentnexus` package (including `agentnexus.inner.*` and
+# all agentnexus subpackages absorbed during unification).
+include = ["agentnexus*"]
 # Vite output contains many extension-less directory segments. Namespace
 # discovery must not mistake them for Python packages; package-data below
 # still copies the built SPA into the wheel.
-exclude = ["omnigent.server.static", "omnigent.server.static.*"]
+exclude = ["agentnexus.server.static", "agentnexus.server.static.*"]
 
 [tool.setuptools.package-data]
-"omnigent.db" = ["alembic.ini"]
-"omnigent.db.migrations" = ["script.py.mako"]
-"omnigent.resources.examples" = ["*.yaml", "*.sh", "debby/**/*", "polly/**/*"]
-"omnigent.resources.pi_native" = ["*.js"]
-"omnigent.resources.scripts" = ["*.sh"]
+"agentnexus.db" = ["alembic.ini"]
+"agentnexus.db.migrations" = ["script.py.mako"]
+"agentnexus.resources.examples" = ["*.yaml", "*.sh", "debby/**/*", "polly/**/*"]
+"agentnexus.resources.pi_native" = ["*.js"]
+"agentnexus.resources.scripts" = ["*.sh"]
 # include UI assets in build, plus the static API-only landing page served
 # at "/" when no web UI bundle is present
-"omnigent.server" = ["static/web-ui/**/*", "static/api_only_landing.html"]
+"agentnexus.server" = ["static/web-ui/**/*", "static/api_only_landing.html"]
 
 [tool.pytest.ini_options]
 # auto mode: async tests without @pytest.mark.asyncio() are auto-
-# collected as asyncio. Inner (omnigent-legacy) tests rely on
+# collected as asyncio. Inner (agentnexus-legacy) tests rely on
 # this. SDK tests (tests/frontends/sdk/) use explicit markers;
 # both work under auto.
 asyncio_mode = "auto"
@@ -465,10 +465,10 @@ addopts = "--ignore=tests/e2e --ignore=tests/e2e_ui --ignore=tests/e2e_live --ig
 timeout = 300
 timeout_method = "thread"
 # SDK tests under ``tests/frontends/sdk/`` import the
-# ``omnigent_client`` and ``omnigent_ui_sdk`` packages that
+# ``agentnexus_client`` and ``agentnexus_ui_sdk`` packages that
 # live in ``sdks/python-client/`` and ``sdks/ui/`` respectively.
 # Without this pythonpath the imports fail at collection time
-# with ``ModuleNotFoundError: No module named 'omnigent_client'``
+# with ``ModuleNotFoundError: No module named 'agentnexus_client'``
 # unless the SDKs are installed editable into the venv. Listing
 # both relative paths here keeps the test suite self-contained.
 pythonpath = [".", "sdks/python-client", "sdks/ui"]
@@ -484,11 +484,11 @@ markers = [
     "nightly: runs only in the scheduled/dispatch pass of its suite; PR and push runs exclude it via -m 'not nightly'. Remove the marker to promote a burned-in test to the PR gate.",
     "compat_smoke: core server↔runner and UI↔server protocol boundary test. Must use mock LLM and exercise a cross-component interaction. Selected by the backwards-compat PR gate (-m compat_smoke) for a fast multi-test signal before the full overnight matrix.",
     "min_server_version(version): skip this test when the live server under test is older than `version` (PEP 440 release-tuple comparison, so a `.devN` of X satisfies X). Used by the server-version backwards-compat CI (docs/SERVER_VERSION_COMPAT_CI.md); inert in normal runs where the server is current.",
-    "min_runner_version(version): skip this test when the pinned runner/host under test is older than `version` (PEP 440 release-tuple comparison, so a `.devN` of X satisfies X). Used by the runner/host backwards-compat CI (Config 2); inert in normal runs (no OMNIGENT_COMPAT_RUNNER_VERSION set).",
+    "min_runner_version(version): skip this test when the pinned runner/host under test is older than `version` (PEP 440 release-tuple comparison, so a `.devN` of X satisfies X). Used by the runner/host backwards-compat CI (Config 2); inert in normal runs (no AGENTNEXUS_COMPAT_RUNNER_VERSION set).",
     "mock_only: tests/integration test that only works in mock-LLM mode (no --llm-api-key). Skipped by tests/integration/conftest.py when a real --llm-api-key is supplied (the real-LLM Integration jobs). Use for tests whose mock LLM is scripted with a fixed tool-call sequence — a real LLM cannot reproduce the scripted markers.",
     "visual: UI diff visual-regression snapshot (pytest-playwright-visual-snapshot). Runs only in the pinned-runner gate (.github/workflows/ui-snapshot.yml); the main e2e_ui suite excludes it via -m 'not visual' since it runs on the unpinned ubuntu-latest.",
-    "smart_routing: end-to-end Smart Routing CUJ (tests/e2e/routing). Opt-in via OMNIGENT_E2E_SMART_ROUTING=1: launches a real omnigent host plus real claude/codex TUIs against a gateway. The routing service itself is an in-test mock, so no AI-Gateway task_v1 deployment is needed.",
-    "live_model_flows: end-to-end model-flow CUJs (tests/e2e/omnigent/test_model_flows_live.py). Opt-in via OMNIGENT_E2E_MODEL_FLOWS=1: boots a real omnigent server + host from a checkout (OMNIGENT_E2E_MODEL_FLOWS_REPO overrides which one, enabling the red-on-main matrix) with real claude/codex logins, drives the real SPA in a browser, and asserts pane truth via tmux. Never runs in CI by accident; each landing PR runs it locally per docs/model-flows test plan.",
+    "smart_routing: end-to-end Smart Routing CUJ (tests/e2e/routing). Opt-in via AGENTNEXUS_E2E_SMART_ROUTING=1: launches a real agentnexus host plus real claude/codex TUIs against a gateway. The routing service itself is an in-test mock, so no AI-Gateway task_v1 deployment is needed.",
+    "live_model_flows: end-to-end model-flow CUJs (tests/e2e/agentnexus/test_model_flows_live.py). Opt-in via AGENTNEXUS_E2E_MODEL_FLOWS=1: boots a real agentnexus server + host from a checkout (AGENTNEXUS_E2E_MODEL_FLOWS_REPO overrides which one, enabling the red-on-main matrix) with real claude/codex logins, drives the real SPA in a browser, and asserts pane truth via tmux. Never runs in CI by accident; each landing PR runs it locally per docs/model-flows test plan.",
     "posix_only: test relies on POSIX-only behaviour (fork, PTY, tmux, Unix sockets, signals); auto-skipped on Windows by tests/conftest.py.",
     "windows_only: test relies on Windows-only behaviour (Job Objects, cmd.exe); auto-skipped on POSIX by tests/conftest.py.",
 ]
@@ -501,7 +501,7 @@ playwright_visual_snapshot_failures_path = "tests/e2e_ui/visual/snapshot_failure
 
 [tool.coverage.run]
 # Measure the shipped package only; tests live under tests/.
-source = ["omnigent"]
+source = ["agentnexus"]
 # Each CI shard sets COVERAGE_FILE=artifacts/.coverage.<group> and writes
 # one data file (pytest-cov already combines the xdist workers within a
 # shard). `relative_files` stores paths relative to the repo root so the
@@ -513,7 +513,7 @@ relative_files = true
 show_missing = true
 # Report-only for now: no `fail_under`, so coverage never fails a build.
 # The code-coverage workflow reports against a plain `git checkout` that
-# has no generated files (e.g. omnigent/_build_info.py, written during
+# has no generated files (e.g. agentnexus/_build_info.py, written during
 # `uv sync` in the CI shards). Without this, `coverage report`/`xml` exit
 # 1 on "No source for code" and fail the step under `set -e`; ignore those
 # unreadable-source files instead.
@@ -527,20 +527,20 @@ line-length = 99
 # migration that belongs in its own cleanup PR.
 target-version = "py310"
 # Vendored upstream code — not ours to restyle.
-#  - ``omnigent/inner/databricks_mcps/google``: Google MCP server source.
+#  - ``agentnexus/inner/databricks_mcps/google``: Google MCP server source.
 #  - ``assistant-ui/``: assistant-ui.com React/Python suite imported as a
 #    vendored snapshot; tracked upstream, no in-tree edits.
 extend-exclude = [
-    "omnigent/inner/databricks_mcps/google",
+    "agentnexus/inner/databricks_mcps/google",
     "assistant-ui",
     # Cine is a self-contained example skill with its own pipeline tests;
-    # keep the repository-wide production lint policy scoped to omnigent.
+    # keep the repository-wide production lint policy scoped to agentnexus.
     "examples/cine",
     # Deliberately broken notebook fixture; Ruff must not parse it as JSON.
     "web/src/shell/__fixtures__/03_broken.ipynb",
     # Protobuf-generated code (DO NOT EDIT); not ours to restyle.
-    "omnigent/api/**/*_pb2.py",
-    "omnigent/api/**/*_pb2.pyi",
+    "agentnexus/api/**/*_pb2.py",
+    "agentnexus/api/**/*_pb2.pyi",
 ]
 
 [tool.ruff.lint]
@@ -584,10 +584,10 @@ ignore = [
 # Classify first-party imports by NAME, not by file existence. Ruff's
 # default detection resolves each module against the filesystem, so an
 # import of an optional submodule absent from a given checkout (e.g.
-# omnigent.onboarding.internal_beta) would be reclassified as third-party
+# agentnexus.onboarding.internal_beta) would be reclassified as third-party
 # there, demanding a different import order per checkout. Pinning the
 # package name keeps one canonical order everywhere.
-known-first-party = ["omnigent"]
+known-first-party = ["agentnexus"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests legitimately accept parameters they don't use (pytest fixtures,
@@ -615,25 +615,25 @@ known-first-party = ["omnigent"]
     "ARG001", "ARG002", "ARG004", "ARG005", "BLE001",
     "RUF012", "B007", "B008", "SIM117",
 ]
-# Graduation backlog for code migrated from omnigent during the
-# unification. Pre-unification Omnigent' ruff config only selected
+# Graduation backlog for code migrated from agentnexus during the
+# unification. Pre-unification AgentNexus' ruff config only selected
 # ``E, F, I, UP`` — none of the ARG/BLE/B/SIM/... rules — so these
 # files have a backlog of unused-arg, blind-except, and bugbear issues
 # that were invisible before. Graduate each subpath out of this list
 # as it's cleaned up.
-"omnigent/llms/**/*.py" = [
+"agentnexus/llms/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
-"omnigent/onboarding/**/*.py" = [
+"agentnexus/onboarding/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
-"omnigent/runtime/**/*.py" = [
+"agentnexus/runtime/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
-"omnigent/terminals/**/*.py" = [
+"agentnexus/terminals/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
-"omnigent/tools/**/*.py" = [
+"agentnexus/tools/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
 # The native Antigravity (agy) transcript forwarder / supervisor is a
@@ -642,10 +642,10 @@ known-first-party = ["omnigent"]
 # top-level catch is a deliberate, documented boundary catch — BLE001 is
 # waived for these top-level antigravity_native modules (see the inline
 # comments at each catch site).
-"omnigent/antigravity_native*.py" = ["BLE001"]
+"agentnexus/antigravity_native*.py" = ["BLE001"]
 # Telemetry modules intentionally catch all exceptions at every boundary —
 # telemetry must never disrupt the application under any circumstances.
-"omnigent/telemetry/*.py" = ["BLE001", "SIM105"]
+"agentnexus/telemetry/*.py" = ["BLE001", "SIM105"]
 "sdks/**/*.py" = [
     "ARG001", "ARG002", "BLE001", "B008", "RUF012",
 ]
@@ -660,5 +660,5 @@ known-first-party = ["omnigent"]
 # The sessions route is a facade over an implementation package. Its explicit
 # imports intentionally re-export implementation names and load route modules
 # for registration, so F401 remains expected in this package.
-"omnigent/server/routes/sessions/__init__.py" = ["ARG001", "ARG002", "BLE001", "E501", "F401"]
-"omnigent/server/routes/sessions/*.py" = ["ARG001", "ARG002", "BLE001", "E501", "F401"]
+"agentnexus/server/routes/sessions/__init__.py" = ["ARG001", "ARG002", "BLE001", "E501", "F401"]
+"agentnexus/server/routes/sessions/*.py" = ["ARG001", "ARG002", "BLE001", "E501", "F401"]

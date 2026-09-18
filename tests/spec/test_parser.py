@@ -7,15 +7,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.errors import OmnigentError
-from omnigent.spec.parser import discover_host_skills, parse
-from omnigent.spec.types import ApiKeyAuth, DatabricksAuth, ProviderAuth, SharePolicy
+from agentnexus.errors import AgentNexusError
+from agentnexus.spec.parser import discover_host_skills, parse
+from agentnexus.spec.types import ApiKeyAuth, DatabricksAuth, ProviderAuth, SharePolicy
 
 
 @pytest.fixture(autouse=True)
 def _clean_container_runtime_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure OMNIGENT_CONTAINER_RUNTIME never leaks from the host environment."""
-    monkeypatch.delenv("OMNIGENT_CONTAINER_RUNTIME", raising=False)
+    """Ensure AGENTNEXUS_CONTAINER_RUNTIME never leaks from the host environment."""
+    monkeypatch.delenv("AGENTNEXUS_CONTAINER_RUNTIME", raising=False)
 
 
 @pytest.fixture()
@@ -51,13 +51,13 @@ def test_parse_missing_config_yaml(tmp_path: Path) -> None:
 
 def test_parse_non_mapping_config(tmp_path: Path) -> None:
     (tmp_path / "config.yaml").write_text("- just a list")
-    with pytest.raises(OmnigentError, match=r"must be a YAML mapping"):
+    with pytest.raises(AgentNexusError, match=r"must be a YAML mapping"):
         parse(tmp_path)
 
 
 def test_parse_missing_spec_version(tmp_path: Path) -> None:
     (tmp_path / "config.yaml").write_text(yaml.dump({"name": "no-version"}))
-    with pytest.raises(OmnigentError, match=r"missing required field: spec_version"):
+    with pytest.raises(AgentNexusError, match=r"missing required field: spec_version"):
         parse(tmp_path)
 
 
@@ -126,7 +126,7 @@ def test_parse_executor_reasoning_effort_supersedes_llm(tmp_path: Path) -> None:
         "spec_version": 1,
         "name": "eff-both",
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk"},
             "model": "openai/gpt-5.4",
             "reasoning_effort": "high",
@@ -143,7 +143,7 @@ def test_parse_executor_reasoning_effort_supersedes_llm(tmp_path: Path) -> None:
 def test_parse_llm_missing_model(tmp_path: Path) -> None:
     config = {"spec_version": 1, "llm": {"max_completion_tokens": 100}}
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"missing required field: model"):
+    with pytest.raises(AgentNexusError, match=r"missing required field: model"):
         parse(tmp_path)
 
 
@@ -244,7 +244,7 @@ def test_parse_llm_connection_unresolved_var_raises(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(tmp_path)
 
 
@@ -287,7 +287,7 @@ def test_parse_inline_mcp_tools_non_list_raises(tmp_path: Path) -> None:
         "tools": {"github": {"type": "mcp", "command": "npx", "tools": "search_issues"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"'tools' must be a list"):
+    with pytest.raises(AgentNexusError, match=r"'tools' must be a list"):
         parse(tmp_path)
 
 
@@ -389,7 +389,7 @@ def test_parse_builtin_tool_config_unresolved_var_raises(
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
 
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(tmp_path)
 
 
@@ -634,7 +634,7 @@ def test_parse_skill_missing_frontmatter(agent_dir: Path) -> None:
     skill_dir = agent_dir / "skills" / "bad"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("No frontmatter here.")
-    with pytest.raises(OmnigentError, match=r"missing YAML frontmatter"):
+    with pytest.raises(AgentNexusError, match=r"missing YAML frontmatter"):
         parse(agent_dir)
 
 
@@ -642,7 +642,7 @@ def test_parse_skill_missing_name(agent_dir: Path) -> None:
     skill_dir = agent_dir / "skills" / "no-name"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\ndescription: Missing name.\n---\nContent.")
-    with pytest.raises(OmnigentError, match=r"missing required field 'name'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'name'"):
         parse(agent_dir)
 
 
@@ -650,13 +650,13 @@ def test_parse_skill_missing_description(agent_dir: Path) -> None:
     skill_dir = agent_dir / "skills" / "no-desc"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("---\nname: no-desc\n---\nContent.")
-    with pytest.raises(OmnigentError, match=r"missing required field 'description'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'description'"):
         parse(agent_dir)
 
 
 def test_parse_skill_non_utf8_raises_omnigent_error(agent_dir: Path) -> None:
     """
-    A non-UTF-8 SKILL.md must funnel through OmnigentError (not escape as a
+    A non-UTF-8 SKILL.md must funnel through AgentNexusError (not escape as a
     bare UnicodeDecodeError) so the lenient scanner / menu providers can
     catch it and skip the file instead of crashing.
     """
@@ -664,7 +664,7 @@ def test_parse_skill_non_utf8_raises_omnigent_error(agent_dir: Path) -> None:
     skill_dir.mkdir(parents=True)
     # 0xff is invalid UTF-8 — read_text() raises UnicodeDecodeError.
     (skill_dir / "SKILL.md").write_bytes(b"---\nname: bad-bytes\ndescription: \xff\n---\nx")
-    with pytest.raises(OmnigentError, match=r"could not be read"):
+    with pytest.raises(AgentNexusError, match=r"could not be read"):
         parse(agent_dir)
 
 
@@ -694,7 +694,7 @@ def test_parse_skill_invalid_yaml_frontmatter_in_bundle_raises(
     (skill_dir / "SKILL.md").write_text(
         f"---\nname: bad-yaml\ndescription: x\n{_UPSTREAM_BAD_ARGUMENT_HINT}\n---\nContent."
     )
-    with pytest.raises(OmnigentError, match=r"invalid YAML frontmatter"):
+    with pytest.raises(AgentNexusError, match=r"invalid YAML frontmatter"):
         parse(agent_dir)
 
 
@@ -743,7 +743,7 @@ def test_discover_host_skills_skips_invalid_yaml_frontmatter(
     good_dir.mkdir()
     (good_dir / "SKILL.md").write_text("---\nname: good-skill\ndescription: y\n---\nContent.")
 
-    with caplog.at_level("WARNING", logger="omnigent.spec.parser"):
+    with caplog.at_level("WARNING", logger="agentnexus.spec.parser"):
         result = discover_host_skills(agent_root, "all")
 
     names = [s.name for s in result]
@@ -798,7 +798,7 @@ def test_discover_host_skills_skips_unreadable_skill_file(
     (good_dir / "SKILL.md").write_text("---\nname: good\ndescription: y\n---\nContent.")
 
     try:
-        with caplog.at_level("WARNING", logger="omnigent.spec.parser"):
+        with caplog.at_level("WARNING", logger="agentnexus.spec.parser"):
             result = discover_host_skills(agent_root, "all")
     finally:
         # Restore so pytest can clean tmp_path on teardown.
@@ -922,7 +922,7 @@ def test_parse_skills_filter_invalid_string_rejects(agent_dir: Path) -> None:
     (agent_dir / "config.yaml").write_text(
         yaml.dump({"spec_version": 1, "name": "x", "skills": "al"})
     )
-    with pytest.raises(OmnigentError, match=r"\"all\".*\"none\""):
+    with pytest.raises(AgentNexusError, match=r"\"all\".*\"none\""):
         parse(agent_dir)
 
 
@@ -934,7 +934,7 @@ def test_parse_skills_filter_non_string_list_item_rejects(agent_dir: Path) -> No
     (agent_dir / "config.yaml").write_text(
         yaml.dump({"spec_version": 1, "name": "x", "skills": ["foo", 42]})
     )
-    with pytest.raises(OmnigentError, match=r"list items must be strings"):
+    with pytest.raises(AgentNexusError, match=r"list items must be strings"):
         parse(agent_dir)
 
 
@@ -946,7 +946,7 @@ def test_parse_skills_filter_dict_rejects(agent_dir: Path) -> None:
     (agent_dir / "config.yaml").write_text(
         yaml.dump({"spec_version": 1, "name": "x", "skills": {"all": True}})
     )
-    with pytest.raises(OmnigentError, match=r"\"all\".*\"none\""):
+    with pytest.raises(AgentNexusError, match=r"\"all\".*\"none\""):
         parse(agent_dir)
 
 
@@ -998,7 +998,7 @@ def test_discover_host_skills_skips_missing_frontmatter(
     :param monkeypatch: Pytest monkeypatch for isolating ``Path.home()``.
     :param capsys: Pytest capture fixture for stderr assertions.
     """
-    from omnigent.spec.parser import discover_host_skills
+    from agentnexus.spec.parser import discover_host_skills
 
     # Use a separate home dir so the walk-up from agent_root
     # doesn't double-scan the same .claude/skills/ as Path.home().
@@ -1043,7 +1043,7 @@ def test_discover_host_skills_skips_yaml_syntax_error(
     :param monkeypatch: Pytest monkeypatch for isolating ``Path.home()``.
     :param capsys: Pytest capture fixture for stderr assertions.
     """
-    from omnigent.spec.parser import discover_host_skills
+    from agentnexus.spec.parser import discover_host_skills
 
     fake_home = tmp_path / "home"
     fake_home.mkdir()
@@ -1080,7 +1080,7 @@ def test_discover_host_skills_skips_multiple_bad_skills(
     :param monkeypatch: Pytest monkeypatch for isolating ``Path.home()``.
     :param capsys: Pytest capture fixture for stderr assertions.
     """
-    from omnigent.spec.parser import discover_host_skills
+    from agentnexus.spec.parser import discover_host_skills
 
     fake_home = tmp_path / "home"
     fake_home.mkdir()
@@ -1117,7 +1117,7 @@ def test_bundled_skills_still_fail_loud_on_bad_frontmatter(
     skill_dir = agent_dir / "skills" / "broken"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("No frontmatter here.")
-    with pytest.raises(OmnigentError, match=r"missing YAML frontmatter"):
+    with pytest.raises(AgentNexusError, match=r"missing YAML frontmatter"):
         parse(agent_dir)
 
 
@@ -1153,7 +1153,7 @@ def test_parse_mcp_env_unresolved_var_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Unresolved ``${VAR}`` in MCP env raises ``OmnigentError``
+    Unresolved ``${VAR}`` in MCP env raises ``AgentNexusError``
     at parse time instead of silently passing the literal to the
     server.
 
@@ -1170,7 +1170,7 @@ def test_parse_mcp_env_unresolved_var_raises(
         "headers": {"Authorization": "Bearer ${GITHUB_TOKEN}"},
     }
     (mcp_dir / "github.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(agent_dir)
 
 
@@ -1195,7 +1195,7 @@ def test_parse_mcp_headers_unresolved_var_raises(
         "headers": {"Authorization": "Bearer ${API_KEY}"},
     }
     (mcp_dir / "service.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(agent_dir)
 
 
@@ -1219,7 +1219,7 @@ def test_parse_mcp_env_dollar_without_braces_raises(
         "headers": {"Secret": "$MY_SECRET"},
     }
     (mcp_dir / "test.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(agent_dir)
 
 
@@ -1227,7 +1227,7 @@ def test_parse_mcp_missing_name(agent_dir: Path) -> None:
     mcp_dir = agent_dir / "tools" / "mcp"
     mcp_dir.mkdir(parents=True)
     (mcp_dir / "bad.yaml").write_text(yaml.dump({"transport": "http", "url": "http://x"}))
-    with pytest.raises(OmnigentError, match=r"missing required field 'name'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'name'"):
         parse(agent_dir)
 
 
@@ -1235,7 +1235,7 @@ def test_parse_mcp_missing_transport(agent_dir: Path) -> None:
     mcp_dir = agent_dir / "tools" / "mcp"
     mcp_dir.mkdir(parents=True)
     (mcp_dir / "bad.yaml").write_text(yaml.dump({"name": "bad"}))
-    with pytest.raises(OmnigentError, match=r"missing required field 'transport'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'transport'"):
         parse(agent_dir)
 
 
@@ -1385,8 +1385,8 @@ def test_parse_tools_sandbox_runtime_env_var(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """OMNIGENT_CONTAINER_RUNTIME env var is used when YAML omits container_runtime."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "podman")
+    """AGENTNEXUS_CONTAINER_RUNTIME env var is used when YAML omits container_runtime."""
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "podman")
     config = {
         "spec_version": 1,
         "name": "env-var-runtime",
@@ -1408,7 +1408,7 @@ def test_parse_tools_sandbox_yaml_beats_env_var(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Explicit YAML container_runtime takes precedence over the env var."""
-    monkeypatch.setenv("OMNIGENT_CONTAINER_RUNTIME", "podman")
+    monkeypatch.setenv("AGENTNEXUS_CONTAINER_RUNTIME", "podman")
     config = {
         "spec_version": 1,
         "name": "yaml-beats-env",
@@ -1554,7 +1554,7 @@ def test_parse_inline_mcp_url_expanded(tmp_path: Path, monkeypatch: pytest.Monke
 def test_parse_inline_mcp_rejects_non_dict_headers(tmp_path: Path) -> None:
     """
     Non-dict ``headers`` on an inline MCP entry raises
-    ``OmnigentError`` instead of silently falling back to ``{}``.
+    ``AgentNexusError`` instead of silently falling back to ``{}``.
 
     Without the validation, a typo like ``headers: "Bearer tok"``
     would be silently ignored and the MCP server would connect
@@ -1572,14 +1572,14 @@ def test_parse_inline_mcp_rejects_non_dict_headers(tmp_path: Path) -> None:
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"headers.*must be a mapping"):
+    with pytest.raises(AgentNexusError, match=r"headers.*must be a mapping"):
         parse(tmp_path)
 
 
 def test_parse_inline_mcp_rejects_non_dict_env(tmp_path: Path) -> None:
     """
     Non-dict ``env`` on an inline stdio MCP entry raises
-    ``OmnigentError`` instead of silently falling back to ``{}``.
+    ``AgentNexusError`` instead of silently falling back to ``{}``.
 
     Without the validation, ``env: "FOO=bar"`` would be silently
     dropped and the subprocess would launch without the intended
@@ -1597,7 +1597,7 @@ def test_parse_inline_mcp_rejects_non_dict_env(tmp_path: Path) -> None:
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"env.*must be a mapping"):
+    with pytest.raises(AgentNexusError, match=r"env.*must be a mapping"):
         parse(tmp_path)
 
 
@@ -1727,10 +1727,10 @@ def test_parse_os_env_caller_process(tmp_path: Path) -> None:
     """A native YAML ``os_env:`` mapping parses into a real
     :class:`OSEnvSpec` with the declared ``type`` and ``cwd``.
 
-    What breaks if this fails: native Omnigent YAMLs cannot opt into
+    What breaks if this fails: native AgentNexus YAMLs cannot opt into
     sys_os_* tools — the whole point of step 5l.
     """
-    from omnigent.inner.datamodel import OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSpec
 
     config = {
         "spec_version": 1,
@@ -1762,7 +1762,7 @@ def test_parse_os_env_with_sandbox(tmp_path: Path) -> None:
     runtime, leaving sys_os_* tools running with the agent's
     full process privileges.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     config = {
         "spec_version": 1,
@@ -1796,7 +1796,7 @@ def test_parse_os_env_with_sandbox(tmp_path: Path) -> None:
 
 def test_parse_os_env_sandbox_auto_uses_platform_default(tmp_path: Path) -> None:
     """``sandbox.type: auto`` explicitly selects the platform default."""
-    from omnigent.inner.sandbox import _default_sandbox_for_platform
+    from agentnexus.inner.sandbox import _default_sandbox_for_platform
 
     config = {
         "spec_version": 1,
@@ -1818,7 +1818,7 @@ def test_parse_os_env_sandbox_auto_uses_platform_default(tmp_path: Path) -> None
 
 def test_parse_os_env_sandbox_omitted_type_uses_platform_default(tmp_path: Path) -> None:
     """An omitted ``sandbox.type`` selects the platform default."""
-    from omnigent.inner.sandbox import _default_sandbox_for_platform
+    from agentnexus.inner.sandbox import _default_sandbox_for_platform
 
     config = {
         "spec_version": 1,
@@ -1858,7 +1858,7 @@ def test_parse_os_env_sandbox_null_type_disables_sandbox(tmp_path: Path) -> None
 
 
 def test_parse_os_env_non_mapping_raises(tmp_path: Path) -> None:
-    """A scalar/list under ``os_env:`` raises OmnigentError —
+    """A scalar/list under ``os_env:`` raises AgentNexusError —
     fail loud rather than silently dropping the malformed block.
     """
     config = {
@@ -1867,13 +1867,13 @@ def test_parse_os_env_non_mapping_raises(tmp_path: Path) -> None:
         "os_env": "caller_process",
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"os_env must be a YAML mapping"):
+    with pytest.raises(AgentNexusError, match=r"os_env must be a YAML mapping"):
         parse(tmp_path)
 
 
 def test_parse_os_env_sandbox_non_mapping_raises(tmp_path: Path) -> None:
     """A scalar/list under ``os_env.sandbox:`` raises
-    OmnigentError — same fail-loud contract as the parent.
+    AgentNexusError — same fail-loud contract as the parent.
     """
     config = {
         "spec_version": 1,
@@ -1881,7 +1881,7 @@ def test_parse_os_env_sandbox_non_mapping_raises(tmp_path: Path) -> None:
         "os_env": {"type": "caller_process", "sandbox": "linux_bwrap"},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"os_env.sandbox must be a YAML mapping"):
+    with pytest.raises(AgentNexusError, match=r"os_env.sandbox must be a YAML mapping"):
         parse(tmp_path)
 
 
@@ -1953,7 +1953,7 @@ def test_parse_os_env_sandbox_cwd_allow_hidden_validation(
 ) -> None:
     """
     Invalid ``cwd_allow_hidden`` values raise
-    :class:`OmnigentError` at parse time with a message that
+    :class:`AgentNexusError` at parse time with a message that
     points the author at the rule they violated.
 
     Validation is the only thing standing between a typo'd YAML
@@ -1969,7 +1969,7 @@ def test_parse_os_env_sandbox_cwd_allow_hidden_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match_regex):
+    with pytest.raises(AgentNexusError, match=match_regex):
         parse(tmp_path)
 
 
@@ -2049,7 +2049,7 @@ def test_parse_os_env_sandbox_cwd_hidden_scan_recursive_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"must be a boolean"):
+    with pytest.raises(AgentNexusError, match=r"must be a boolean"):
         parse(tmp_path)
 
 
@@ -2078,7 +2078,7 @@ def test_parse_os_env_sandbox_mask_paths_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match_regex):
+    with pytest.raises(AgentNexusError, match=match_regex):
         parse(tmp_path)
 
 
@@ -2136,7 +2136,7 @@ def test_parse_os_env_sandbox_cwd_hidden_scan_max_entries_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match_regex):
+    with pytest.raises(AgentNexusError, match=match_regex):
         parse(tmp_path)
 
 
@@ -2165,7 +2165,7 @@ def test_parse_os_env_sandbox_cwd_hidden_scan_overflow_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"must be one of"):
+    with pytest.raises(AgentNexusError, match=r"must be one of"):
         parse(tmp_path)
 
 
@@ -2277,7 +2277,7 @@ def test_mcp_url_unresolved_var_raises(
         "url": "https://${MISSING_HOST}/mcp",
     }
     (mcp_dir / "bad.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(agent_dir)
 
 
@@ -2307,7 +2307,7 @@ def test_mcp_env_expansion_mixed_set_and_unset_raises(
         },
     }
     (mcp_dir / "mixed.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"Unresolved environment variable"):
+    with pytest.raises(AgentNexusError, match=r"Unresolved environment variable"):
         parse(agent_dir)
 
 
@@ -2330,7 +2330,7 @@ def test_mcp_missing_url_raises(agent_dir: Path) -> None:
         # url intentionally omitted
     }
     (mcp_dir / "no_url.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"missing required field 'url'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'url'"):
         parse(agent_dir)
 
 
@@ -2510,7 +2510,7 @@ def test_parse_builtins_mixed_entries(tmp_path: Path) -> None:
 
 
 def test_parse_builtins_dict_missing_name(tmp_path: Path) -> None:
-    """Dict entry without 'name' raises OmnigentError."""
+    """Dict entry without 'name' raises AgentNexusError."""
     config = {
         "spec_version": 1,
         "tools": {
@@ -2520,7 +2520,7 @@ def test_parse_builtins_dict_missing_name(tmp_path: Path) -> None:
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"name"):
+    with pytest.raises(AgentNexusError, match=r"name"):
         parse(tmp_path)
 
 
@@ -2544,9 +2544,9 @@ def test_parse_executor_config(tmp_path: Path) -> None:
     # Failure means max_iterations is ignored by the parser.
     assert spec.executor.max_iterations == 500
 
-    # Default type should be "omnigent" when not specified.
+    # Default type should be "agentnexus" when not specified.
     # Failure means the parser doesn't apply the default type.
-    assert spec.executor.type == "omnigent"
+    assert spec.executor.type == "agentnexus"
 
 
 def test_parse_executor_defaults(tmp_path: Path) -> None:
@@ -2563,9 +2563,9 @@ def test_parse_executor_defaults(tmp_path: Path) -> None:
     # Failure means the parser uses a different default.
     assert spec.executor.max_iterations == 1000
 
-    # Default type is "omnigent" per ExecutorSpec.
+    # Default type is "agentnexus" per ExecutorSpec.
     # Failure means the parser uses a different default.
-    assert spec.executor.type == "omnigent"
+    assert spec.executor.type == "agentnexus"
 
 
 @pytest.mark.parametrize(
@@ -2631,7 +2631,7 @@ def test_parse_rejects_boolean_values_for_numeric_config_fields(
     config = {"spec_version": 1, **config}
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
 
-    with pytest.raises(OmnigentError, match=match):
+    with pytest.raises(AgentNexusError, match=match):
         parse(tmp_path)
 
 
@@ -2648,7 +2648,7 @@ def test_parse_rejects_boolean_terminal_scrollback(tmp_path: Path) -> None:
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
 
-    with pytest.raises(OmnigentError, match=r"terminals\.main\.scrollback must be an integer"):
+    with pytest.raises(AgentNexusError, match=r"terminals\.main\.scrollback must be an integer"):
         parse(tmp_path)
 
 
@@ -2663,7 +2663,7 @@ def test_parse_executor_config_field(tmp_path: Path) -> None:
     config = {
         "spec_version": 1,
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {
                 "harness": "claude-sdk",
                 "profile": "test-profile",
@@ -2675,7 +2675,7 @@ def test_parse_executor_config_field(tmp_path: Path) -> None:
 
     # Failure means the parser silently drops the config block,
     # breaking omnigent harness selection at executor construction.
-    assert spec.executor.type == "omnigent"
+    assert spec.executor.type == "agentnexus"
     assert spec.executor.config == {
         "harness": "claude-sdk",
         "profile": "test-profile",
@@ -2686,7 +2686,7 @@ def test_parse_executor_config_missing_defaults_to_empty(
     tmp_path: Path,
 ) -> None:
     """Absent ``executor.config`` block yields an empty dict, not None."""
-    config = {"spec_version": 1, "executor": {"type": "omnigent"}}
+    config = {"spec_version": 1, "executor": {"type": "agentnexus"}}
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
     spec = parse(tmp_path)
 
@@ -2741,7 +2741,7 @@ def test_parse_rejects_boolean_mcp_timeout(agent_dir: Path) -> None:
     }
     (mcp_dir / "slow.yaml").write_text(yaml.dump(mcp_config))
 
-    with pytest.raises(OmnigentError, match=r"MCP server 'slow-service'\.timeout"):
+    with pytest.raises(AgentNexusError, match=r"MCP server 'slow-service'\.timeout"):
         parse(agent_dir)
 
 
@@ -2842,7 +2842,7 @@ def test_parse_mcp_stdio_rejects_legacy_sandbox_field(agent_dir: Path) -> None:
         "sandbox": False,
     }
     (mcp_dir / "legacy.yaml").write_text(yaml.dump(mcp_config))
-    with pytest.raises(OmnigentError, match=r"sandbox.*was removed"):
+    with pytest.raises(AgentNexusError, match=r"sandbox.*was removed"):
         parse(agent_dir)
 
 
@@ -2859,7 +2859,7 @@ def test_parse_mcp_stdio_missing_command_raises(agent_dir: Path) -> None:
     mcp_dir = agent_dir / "tools" / "mcp"
     mcp_dir.mkdir(parents=True)
     (mcp_dir / "broken.yaml").write_text(yaml.dump({"name": "broken", "transport": "stdio"}))
-    with pytest.raises(OmnigentError, match=r"missing required field 'command'"):
+    with pytest.raises(AgentNexusError, match=r"missing required field 'command'"):
         parse(agent_dir)
 
 
@@ -2888,7 +2888,7 @@ def test_parse_mcp_stdio_rejects_http_fields(agent_dir: Path) -> None:
             }
         )
     )
-    with pytest.raises(OmnigentError, match=r"wrong-transport field"):
+    with pytest.raises(AgentNexusError, match=r"wrong-transport field"):
         parse(agent_dir)
 
 
@@ -2913,7 +2913,7 @@ def test_parse_mcp_http_rejects_stdio_fields(agent_dir: Path) -> None:
             }
         )
     )
-    with pytest.raises(OmnigentError, match=r"wrong-transport field"):
+    with pytest.raises(AgentNexusError, match=r"wrong-transport field"):
         parse(agent_dir)
 
 
@@ -2940,7 +2940,7 @@ def test_parse_mcp_unknown_transport_raises(agent_dir: Path) -> None:
             }
         )
     )
-    with pytest.raises(OmnigentError, match=r"must be 'http' or 'stdio'"):
+    with pytest.raises(AgentNexusError, match=r"must be 'http' or 'stdio'"):
         parse(agent_dir)
 
 
@@ -3076,7 +3076,7 @@ def test_parse_share_invalid_value_fails_loud(tmp_path: Path) -> None:
     """
     config = {"spec_version": 1, "name": "bad-share", "agent_session_sharing": "private"}
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match="agent_session_sharing"):
+    with pytest.raises(AgentNexusError, match="agent_session_sharing"):
         parse(tmp_path)
 
 
@@ -3191,7 +3191,7 @@ def test_parse_os_env_sandbox_env_passthrough_validation(
     tmp_path: Path, bad_value: object, match_regex: str
 ) -> None:
     """
-    Invalid ``env_passthrough`` values raise :class:`OmnigentError`
+    Invalid ``env_passthrough`` values raise :class:`AgentNexusError`
     at parse time with a message that names the field and the rule
     the entry violated.
 
@@ -3208,7 +3208,7 @@ def test_parse_os_env_sandbox_env_passthrough_validation(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match_regex):
+    with pytest.raises(AgentNexusError, match=match_regex):
         parse(tmp_path)
 
 
@@ -3281,7 +3281,7 @@ def test_parse_os_env_start_in_scratch_with_fork_rejected(tmp_path: Path) -> Non
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"mutually exclusive"):
+    with pytest.raises(AgentNexusError, match=r"mutually exclusive"):
         parse(tmp_path)
 
 
@@ -3306,7 +3306,7 @@ def test_parse_os_env_start_in_scratch_with_sandbox_none_rejected(
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"requires an active sandbox"):
+    with pytest.raises(AgentNexusError, match=r"requires an active sandbox"):
         parse(tmp_path)
 
 
@@ -3315,7 +3315,7 @@ def test_executor_profile_field_lifted_from_yaml(tmp_path: Path) -> None:
     Top-level ``executor.profile`` lifts into the concrete
     ``ExecutorSpec.profile`` field.
 
-    For ``executor.type == "omnigent"`` the parser additionally
+    For ``executor.type == "agentnexus"`` the parser additionally
     mirrors the value into ``executor.config["profile"]`` so the
     legacy reader (which still consults ``config["profile"]``)
     keeps working until the omnigent-compat sunset lands.
@@ -3326,7 +3326,7 @@ def test_executor_profile_field_lifted_from_yaml(tmp_path: Path) -> None:
         "spec_version": 1,
         "name": "agent",
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "profile": "dev",
             "config": {"harness": "claude-sdk"},
         },
@@ -3363,7 +3363,7 @@ def test_omnigent_and_default_executor_minimal_configs_still_parse(tmp_path: Pat
         "spec_version": 1,
         "name": "omni-agent",
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "config": {"harness": "claude-sdk"},
         },
         "llm": {"model": "databricks-claude-sonnet-4-6"},
@@ -3372,7 +3372,7 @@ def test_omnigent_and_default_executor_minimal_configs_still_parse(tmp_path: Pat
     omni_dir.mkdir()
     (omni_dir / "config.yaml").write_text(yaml.dump(omni_config))
     omni_spec = parse(omni_dir)
-    assert omni_spec.executor.type == "omnigent"
+    assert omni_spec.executor.type == "agentnexus"
     assert omni_spec.executor.config.get("harness") == "claude-sdk"
 
     llm_config = {
@@ -3387,7 +3387,7 @@ def test_omnigent_and_default_executor_minimal_configs_still_parse(tmp_path: Pat
     llm_dir.mkdir()
     (llm_dir / "config.yaml").write_text(yaml.dump(llm_config))
     llm_spec = parse(llm_dir)
-    assert llm_spec.executor.type == "omnigent"
+    assert llm_spec.executor.type == "agentnexus"
     assert llm_spec.executor.profile is None
 
 
@@ -3480,7 +3480,7 @@ def test_parse_executor_auth_provider_missing_name_raises(tmp_path: Path) -> Non
         "executor": {"auth": {"type": "provider"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"executor.auth.name is required"):
+    with pytest.raises(AgentNexusError, match=r"executor.auth.name is required"):
         parse(tmp_path)
 
 
@@ -3498,41 +3498,41 @@ def test_parse_executor_auth_absent(tmp_path: Path) -> None:
 
 
 def test_parse_executor_auth_unknown_type_raises(tmp_path: Path) -> None:
-    """An unknown ``auth.type`` value raises :class:`OmnigentError`."""
+    """An unknown ``auth.type`` value raises :class:`AgentNexusError`."""
     config = {
         "spec_version": 1,
         "executor": {"auth": {"type": "magic_token", "token": "abc"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"must be 'api_key', 'databricks', or 'provider'"):
+    with pytest.raises(AgentNexusError, match=r"must be 'api_key', 'databricks', or 'provider'"):
         parse(tmp_path)
 
 
 def test_parse_executor_auth_api_key_missing_key_raises(tmp_path: Path) -> None:
     """
     ``type: api_key`` without an ``api_key`` field raises
-    :class:`OmnigentError` rather than producing an empty key.
+    :class:`AgentNexusError` rather than producing an empty key.
     """
     config = {
         "spec_version": 1,
         "executor": {"auth": {"type": "api_key"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"api_key is required"):
+    with pytest.raises(AgentNexusError, match=r"api_key is required"):
         parse(tmp_path)
 
 
 def test_parse_executor_auth_databricks_missing_profile_raises(tmp_path: Path) -> None:
     """
     ``type: databricks`` without a ``profile`` field raises
-    :class:`OmnigentError` rather than silently using an empty profile.
+    :class:`AgentNexusError` rather than silently using an empty profile.
     """
     config = {
         "spec_version": 1,
         "executor": {"auth": {"type": "databricks"}},
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"profile is required"):
+    with pytest.raises(AgentNexusError, match=r"profile is required"):
         parse(tmp_path)
 
 
@@ -3691,7 +3691,7 @@ def test_parse_credential_proxy_rejects_duplicate_host(tmp_path: Path) -> None:
         ]
     )
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"binds host 'github.com' more than once"):
+    with pytest.raises(AgentNexusError, match=r"binds host 'github.com' more than once"):
         parse(tmp_path)
 
 
@@ -3789,7 +3789,7 @@ def test_parse_credential_proxy_databricks_cli_fail_loud(
     """Malformed ``databricks_cli`` entries fail loudly at parse time."""
     config = _credential_proxy_config([entry])
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match):
+    with pytest.raises(AgentNexusError, match=match):
         parse(tmp_path)
 
 
@@ -3815,7 +3815,7 @@ def test_parse_credential_proxy_databricks_cli_rejected_on_macos(tmp_path: Path)
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"databricks_cli' does not work\s+on macOS"):
+    with pytest.raises(AgentNexusError, match=r"databricks_cli' does not work\s+on macOS"):
         parse(tmp_path)
 
 
@@ -3899,7 +3899,7 @@ def test_parse_credential_proxy_fail_loud(
     """
     config = _credential_proxy_config(entries)
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=match):
+    with pytest.raises(AgentNexusError, match=match):
         parse(tmp_path)
 
 
@@ -3925,7 +3925,7 @@ def test_parse_credential_proxy_requires_egress_rules(tmp_path: Path) -> None:
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"requires os_env.sandbox.egress_rules"):
+    with pytest.raises(AgentNexusError, match=r"requires os_env.sandbox.egress_rules"):
         parse(tmp_path)
 
 
@@ -3958,7 +3958,7 @@ def test_parse_credential_proxy_requires_hard_backend(tmp_path: Path) -> None:
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"credential_proxy requires sandbox.type"):
+    with pytest.raises(AgentNexusError, match=r"credential_proxy requires sandbox.type"):
         parse(tmp_path)
 
 
@@ -3988,7 +3988,7 @@ def test_parse_credential_proxy_gh_basic_rejected_on_macos(tmp_path: Path) -> No
         },
     }
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
-    with pytest.raises(OmnigentError, match=r"gh_basic' does not work on macOS"):
+    with pytest.raises(AgentNexusError, match=r"gh_basic' does not work on macOS"):
         parse(tmp_path)
 
 
@@ -4037,7 +4037,7 @@ def test_config_loader_does_not_mutate_shared_safeloader_resolvers() -> None:
     ``yaml.safe_load`` caller in the process would lose bool parsing — e.g.
     ``safe_load("false")`` would return the string ``"false"``.
     """
-    import omnigent.spec.parser as parser
+    import agentnexus.spec.parser as parser
 
     # Importing the module must leave SafeLoader's bool resolver intact.
     assert yaml.safe_load("false") is False
@@ -4114,7 +4114,7 @@ def test_parse_executor_reasoning_effort(tmp_path: Path) -> None:
     config = {
         "spec_version": 1,
         "executor": {
-            "type": "omnigent",
+            "type": "agentnexus",
             "model": "claude-opus-5",
             "reasoning_effort": "high",
             "config": {"harness": "claude-native"},
@@ -4131,7 +4131,7 @@ def test_parse_executor_reasoning_effort(tmp_path: Path) -> None:
 
 def test_parse_executor_reasoning_effort_absent(tmp_path: Path) -> None:
     """A spec that declares no effort leaves the field ``None``."""
-    config = {"spec_version": 1, "executor": {"type": "omnigent"}}
+    config = {"spec_version": 1, "executor": {"type": "agentnexus"}}
     (tmp_path / "config.yaml").write_text(yaml.dump(config))
     spec = parse(tmp_path)
 

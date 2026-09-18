@@ -101,7 +101,7 @@ def non_git_workspace() -> Iterator[Path]:
 
     :returns: Path to the empty temp workspace.
     """
-    tmp = Path(tempfile.mkdtemp(prefix="omnigent_e2e_ng_"))
+    tmp = Path(tempfile.mkdtemp(prefix="agentnexus_e2e_ng_"))
     yield tmp
     import shutil
 
@@ -121,7 +121,7 @@ def non_git_runner_id() -> str:
 
     :returns: Runner id string, e.g. ``"runner_token_abc123..."``.
     """
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     if "runner_id" not in _non_git_runner_state:
         token = secrets.token_urlsafe(32)
@@ -163,8 +163,8 @@ def non_git_server(
         **os.environ,
         "OPENAI_API_KEY": llm_api_key,
         "PYTHONPATH": (f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}"),
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
     }
     if mock_llm_server_url is not None:
         env["OPENAI_BASE_URL"] = f"{mock_llm_server_url}/v1"
@@ -174,7 +174,7 @@ def non_git_server(
         [
             sys.executable,
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),
@@ -183,7 +183,7 @@ def non_git_server(
             "--artifact-location",
             str(artifact_dir),
         ],
-        env={**env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token},
+        env={**env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token},
         # CWD = non_git_workspace so that Path.cwd() inside server()
         # resolves to the non-git temp dir, causing the runner to use
         # AgentEditFilesystemRegistry instead of GitFilesystemRegistry.
@@ -197,18 +197,18 @@ def non_git_server(
     runner_log = tmp_path_factory.mktemp("e2e_ng_runner_logs") / "runner.log"
     runner_log_handle = open(runner_log, "w")  # noqa: SIM115
     runner_proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env={
             **env,
-            "OMNIGENT_RUNNER_ID": non_git_runner_id,
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-            "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+            "AGENTNEXUS_RUNNER_ID": non_git_runner_id,
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
             "RUNNER_SERVER_URL": base_url,
             # Without a workspace the runner builds no filesystem
             # registry (app.py), so record_change is a no-op and writes
             # never surface in GET .../changes. The real CLI always sets
             # this via _start_cli_runner_process.
-            "OMNIGENT_RUNNER_WORKSPACE": str(non_git_workspace),
+            "AGENTNEXUS_RUNNER_WORKSPACE": str(non_git_workspace),
         },
         cwd=str(non_git_workspace),
         stdout=runner_log_handle,

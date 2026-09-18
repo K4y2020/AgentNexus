@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._sessions.common import set_server_host_registry
-from omnigent.server.routing_backend import (
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._sessions.common import set_server_host_registry
+from agentnexus.server.routing_backend import (
     RoutingBackends,
     backends_from_caps,
     gateway_backs_all,
@@ -153,7 +153,7 @@ def test_backends_from_caps_prefers_the_explicit_pair() -> None:
 
 
 def test_backends_from_caps_derives_an_external_client_by_type() -> None:
-    from omnigent.server.smart_routing import ExternalRoutingClient
+    from agentnexus.server.smart_routing import ExternalRoutingClient
 
     client = ExternalRoutingClient(base_url="https://example.invalid", router_name="task_v1")
     caps: Any = SimpleNamespace(routing_backends=None, routing_client=client)

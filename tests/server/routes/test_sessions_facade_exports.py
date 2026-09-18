@@ -19,8 +19,8 @@ def test_harness_override_executor_type_reexported() -> None:
     explicit imports, the call is a ``NameError`` at session creation — assert
     it is reachable through both the facade and the calling module's namespace.
     """
-    from omnigent.server.routes import sessions as facade
-    from omnigent.server.routes._sessions import orchestration
+    from agentnexus.server.routes import sessions as facade
+    from agentnexus.server.routes._sessions import orchestration
 
     assert callable(facade._validated_harness_override_executor_type)
     assert callable(orchestration._validated_harness_override_executor_type)
@@ -39,6 +39,6 @@ def test_timeout_constants_reexported(name: str) -> None:
     Impl modules read these through the facade so a facade-level patch is
     honored; that only works if the facade actually re-exports them.
     """
-    from omnigent.server.routes import sessions as facade
+    from agentnexus.server.routes import sessions as facade
 
     assert isinstance(getattr(facade, name), float)

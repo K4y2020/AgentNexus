@@ -16,15 +16,15 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.errors import OmnigentError
-from omnigent.inner.credential_proxy import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.inner.credential_proxy import (
     SYNTHETIC_CREDENTIAL_PREFIX,
     CredentialProxyRuntime,
     DatabricksProfileTokenProvider,
     _prepare_databricks_runtime,
     prepare_credential_proxy_runtime,
 )
-from omnigent.inner.datamodel import (
+from agentnexus.inner.datamodel import (
     CredentialProxyEntry,
     CredentialProxySpec,
     CredentialSourceSpec,
@@ -292,7 +292,7 @@ def test_databricks_provider_resolves_host_and_refreshes() -> None:
 
 def test_databricks_provider_requires_host() -> None:
     """A profile without a ``host`` fails loud rather than binding nothing."""
-    with pytest.raises(OmnigentError, match="no 'host'"):
+    with pytest.raises(AgentNexusError, match="no 'host'"):
         DatabricksProfileTokenProvider("prof", config_factory=lambda _p: _FakeConfig("", []))
 
 
@@ -301,7 +301,7 @@ def test_databricks_provider_missing_sdk_fails_loud() -> None:
     try:
         import databricks.sdk.config  # noqa: F401
     except ImportError:
-        with pytest.raises(OmnigentError, match="requires the Databricks SDK"):
+        with pytest.raises(AgentNexusError, match="requires the Databricks SDK"):
             DatabricksProfileTokenProvider("prof")
     else:
         pytest.skip("databricks SDK is installed; missing-SDK path not exercisable")
@@ -373,5 +373,5 @@ def test_databricks_runtime_rejects_same_host_profiles() -> None:
             config_factory=lambda _p: _FakeConfig("https://same.cloud.databricks.com", ["t"]),
         )
 
-    with pytest.raises(OmnigentError, match="resolve to workspace host"):
+    with pytest.raises(AgentNexusError, match="resolve to workspace host"):
         _prepare_databricks_runtime(spec, CredentialProxyRuntime(), provider_factory=factory)

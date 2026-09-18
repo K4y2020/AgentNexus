@@ -91,7 +91,7 @@ def test_the_generated_helper_serves_the_cached_token_when_a_refresh_fails(
     once the refresh token has gone stale. Forcing it unconditionally turned
     that into a hard auth failure with a usable credential sitting right there.
     """
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     command = databricks_bearer_token_command("https://example.databricks.com", "agent")
 
@@ -124,7 +124,7 @@ def test_the_generated_helper_selects_by_profile_when_one_is_named() -> None:
     fails outright or resolves to whichever the CLI picks — which is how a pane
     and the server end up authenticating as different identities.
     """
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     named = databricks_bearer_token_command("https://example.databricks.com", "agent")
     assert '--profile "agent"' in named
@@ -140,7 +140,7 @@ def test_the_named_profile_wins_and_the_recorded_command_stays_unused(
     tmp_path: Path,
 ) -> None:
     """The pinned profile is the identity we want whenever it can mint a token."""
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     command = databricks_bearer_token_command(
         "https://example.databricks.com", "agent", fallback_command=_recorded_fallback(tmp_path)
@@ -163,7 +163,7 @@ def test_the_recorded_command_runs_when_the_named_profile_yields_nothing(
     The user may have authenticated under a different profile on the same host,
     and the command ucode recorded is the one known to have worked.
     """
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     command = databricks_bearer_token_command(
         "https://example.databricks.com", "DEFAULT", fallback_command=_recorded_fallback(tmp_path)
@@ -183,7 +183,7 @@ def test_an_injected_bearer_short_circuits_both_the_profile_and_the_fallback(
     tmp_path: Path,
 ) -> None:
     """The runner already resolved a token; nothing else should be consulted."""
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     command = databricks_bearer_token_command(
         "https://example.databricks.com", "agent", fallback_command=_recorded_fallback(tmp_path)
@@ -207,7 +207,7 @@ def test_without_a_recorded_command_an_unauthenticated_profile_stays_empty(
     tmp_path: Path,
 ) -> None:
     """No fallback to reach for: print nothing rather than crash."""
-    from omnigent.inner.databricks_executor import databricks_bearer_token_command
+    from agentnexus.inner.databricks_executor import databricks_bearer_token_command
 
     command = databricks_bearer_token_command("https://example.databricks.com", "agent")
 

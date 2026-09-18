@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import httpx
 import respx
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _ALL_LOCAL_TOOLS,
     _NATIVE_RELAY_BUILTIN_TOOLS,
     _execute_nimble_extract_tool,
@@ -98,7 +98,7 @@ def test_dispatch_calls_extract_run() -> None:
 
     assert route.call_count == 1
     request = route.calls.last.request
-    assert request.headers["X-Client-Source"] == "omnigent"
+    assert request.headers["X-Client-Source"] == "agentnexus"
     assert json.loads(request.content) == {
         "template": "acme_serp_snapshot",
         "params": {"query": "nimbleway"},

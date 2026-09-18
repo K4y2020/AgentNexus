@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import httpx
 from playwright.sync_api import Locator, Page, Request, expect
 
-_STORAGE_KEY = "omnigent:always-steer"
+_STORAGE_KEY = "agentnexus:always-steer"
 _COMPOSER_LABEL = "Message the agent"
 _INITIAL_DIRECT = "always-steer initial direct turn"
 _DIRECT_FOLLOWUP = "always-steer direct busy follow-up"

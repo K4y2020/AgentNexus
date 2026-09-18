@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 import pytest
 
-import omnigent.terminals.ws_common as ws_common
-from omnigent.terminals.ws_common import (
+import agentnexus.terminals.ws_common as ws_common
+from agentnexus.terminals.ws_common import (
     _check_pane_dead_definitive,
     _coalesce_limit_after_input,
     _current_coalesce_limit,
@@ -25,7 +25,7 @@ def test_importing_claude_native_does_not_import_fastapi() -> None:
         [
             sys.executable,
             "-c",
-            "import sys; import omnigent.claude_native; assert 'fastapi' not in sys.modules",
+            "import sys; import agentnexus.claude_native; assert 'fastapi' not in sys.modules",
         ],
         check=True,
     )

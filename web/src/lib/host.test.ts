@@ -14,9 +14,9 @@ describe("getCliServerUrl", () => {
   });
 
   it("appends the configured cliServerUrlSuffix", () => {
-    setOmnigentHostConfig({ cliServerUrlSuffix: "/api/2.0/omnigent" });
+    setOmnigentHostConfig({ cliServerUrlSuffix: "/api/2.0/agentnexus" });
     const url = getCliServerUrl();
-    expect(url).toBe(`${window.location.origin}/api/2.0/omnigent`);
+    expect(url).toBe(`${window.location.origin}/api/2.0/agentnexus`);
   });
 
   it("handles an empty string suffix the same as no suffix", () => {

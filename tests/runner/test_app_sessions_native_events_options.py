@@ -9,19 +9,19 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     claude_native_bridge,
     cursor_native_bridge,
     kiro_native_bridge,
     qwen_native_bridge,
 )
-from omnigent.claude_native_bridge import (
+from agentnexus.claude_native_bridge import (
     bridge_dir_for_bridge_id,
     bridge_dir_for_conversation_id,
 )
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ExecutorSpec
-from omnigent.terminals import TerminalRegistry
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.conftest import (
     _drain_session_event_queue,
     _FakeProcessManager,
@@ -48,16 +48,16 @@ async def test_events_effort_change_on_native_session_skips_inject_for_unsupport
     """
     Unsupported / null effort values 204 without typing into tmux.
 
-    Omnigent server is harness-agnostic — it always forwards the new
+    AgentNexus server is harness-agnostic — it always forwards the new
     persisted effort to ``/events``. The runner's native handler
     owns the level-validation, skipping injection when the value
     isn't in Claude's accepted set. Persistence already happened on
-    the Omnigent side; the next spawn picks up the value via ``--effort``.
+    the AgentNexus side; the next spawn picks up the value via ``--effort``.
 
     Pins that the validation lives in the runner (where the
-    harness-specific knowledge belongs), not in the Omnigent server.
+    harness-specific knowledge belongs), not in the AgentNexus server.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -79,7 +79,7 @@ async def test_events_effort_change_on_native_session_skips_inject_for_unsupport
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -129,11 +129,11 @@ async def test_events_effort_change_on_native_session_returns_503_when_bridge_no
     Sister to the happy-path test. Pins that the failure mode of the
     native effort dispatch (tmux pane gone / bridge dir not yet
     advertised) returns 503 with the same error code shape the
-    legacy route returns. Omnigent server's PATCH swallows this 503 and
+    legacy route returns. AgentNexus server's PATCH swallows this 503 and
     still returns 200 with the persisted value — the next spawn
     will apply the new effort via ``--effort``.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -152,7 +152,7 @@ async def test_events_effort_change_on_native_session_returns_503_when_bridge_no
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -204,12 +204,12 @@ async def test_events_effort_change_on_non_native_session_is_204_noop(
     In-process harnesses (default / claude-sdk / openai-agents / codex / pi)
     get the new effort on their next turn, from the ``reasoning`` block the
     runner threads onto the forwarded body — so the event needs no injection
-    and no immediate forward. The Omnigent server POSTs ``effort_change`` to
+    and no immediate forward. The AgentNexus server POSTs ``effort_change`` to
     ``/events`` for every PATCH (it's harness-agnostic), so the runner must
     accept the event and 204 — never reach the slash-command injector, never
     forward to the harness scaffold.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -232,7 +232,7 @@ async def test_events_effort_change_on_non_native_session_is_204_noop(
     default_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -280,11 +280,11 @@ async def test_events_permission_mode_change_on_native_session_switches_and_echo
 
     Claude Code's ``--permission-mode`` is launch-only, so the runner drives
     the TUI's shift+tab cycle via the bridge. The 200 body echoes the mode the
-    pane actually landed on — the Omnigent server persists that value, so a
+    pane actually landed on — the AgentNexus server persists that value, so a
     regression returning 204 (or dropping the body) would leave the web UI
     showing a mode the session isn't in.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     calls: list[str] = []
 
@@ -299,7 +299,7 @@ async def test_events_permission_mode_change_on_native_session_switches_and_echo
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -342,10 +342,10 @@ async def test_events_permission_mode_change_returns_503_when_mode_unreachable(
     A failed switch surfaces 503 so the label is never persisted.
 
     ``auto`` is only in the shift+tab cycle for accounts that have the mode.
-    The Omnigent server treats a non-2xx as "the pane did not move" and skips
+    The AgentNexus server treats a non-2xx as "the pane did not move" and skips
     persisting the label, so this must not report success.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_set_mode(bridge_dir: Any, *, mode: str, timeout_s: float) -> str:
         """Fail the way an unreachable mode does."""
@@ -357,7 +357,7 @@ async def test_events_permission_mode_change_returns_503_when_mode_unreachable(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -405,7 +405,7 @@ async def test_events_permission_mode_change_on_non_native_session_is_204_noop(
     No other harness has Claude's shift+tab cycle, so the dispatch must
     short-circuit before reaching the bridge.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_set_mode(bridge_dir: Any, *, mode: str, timeout_s: float) -> str:
         """Fail the test if a non-native session reaches the bridge."""
@@ -419,7 +419,7 @@ async def test_events_permission_mode_change_on_non_native_session_is_204_noop(
     default_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -464,18 +464,18 @@ async def test_events_compact_on_native_session_types_slash_command(
 
     Explicit compaction on a claude-native session must run inside
     Claude Code (it owns its own context window in the terminal); the
-    Omnigent server's own compaction would only summarise the transcript
+    AgentNexus server's own compaction would only summarise the transcript
     mirror. The runner's ``/events`` dispatch recognises the native
     harness and routes to ``_handle_claude_native_compact``, which
     types the slash command into the pane.
 
-    The 200 (not 204) is load-bearing: the Omnigent server reads it to know
+    The 200 (not 204) is load-bearing: the AgentNexus server reads it to know
     the control was handled in the terminal. A regression returning 204 here
     would make the server return a 400 "not available for this session type"
     error instead of the native compact succeeding.
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[Any] = []
 
@@ -495,7 +495,7 @@ async def test_events_compact_on_native_session_types_slash_command(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -583,7 +583,7 @@ async def test_events_compact_on_native_session_returns_503_when_bridge_not_read
     server treats a non-200/204 runner response as an error rather
     than silently running its own (wrong) compaction.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -602,7 +602,7 @@ async def test_events_compact_on_native_session_returns_503_when_bridge_not_read
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -654,10 +654,10 @@ async def test_events_compact_on_codex_native_injects_slash_command(
     compaction must run inside Codex — the same rationale as the
     claude-native path.  The pane coordinates come from the resource
     registry (not a ``tmux.json`` sidecar).  The 200 return is
-    load-bearing: the Omnigent server reads it to skip its own
+    load-bearing: the AgentNexus server reads it to skip its own
     AP-side compaction.
     """
-    from omnigent.runner.app import _session_event_queues_ref
+    from agentnexus.runner.app import _session_event_queues_ref
     from tests.runner.helpers import make_test_terminal_instance
 
     captured: list[tuple[str, list[str]]] = []
@@ -671,7 +671,7 @@ async def test_events_compact_on_codex_native_injects_slash_command(
     codex_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -753,7 +753,7 @@ async def test_events_compact_on_codex_native_returns_503_when_no_terminal() -> 
     codex_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -799,7 +799,7 @@ async def test_events_compact_on_codex_native_returns_503_on_tmux_failure(
     """
     Codex-native compact returns 503 when the tmux send-keys call fails.
 
-    The 503 tells the Omnigent server the control was NOT handled, so it
+    The 503 tells the AgentNexus server the control was NOT handled, so it
     can surface an error rather than silently running its own (wrong)
     compaction.
     """
@@ -815,7 +815,7 @@ async def test_events_compact_on_codex_native_returns_503_on_tmux_failure(
     codex_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "codex-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "codex-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -871,7 +871,7 @@ async def test_events_compact_on_cursor_native_pastes_summarize_and_raises_spinn
     cursor-agent manages its own context window in the TUI, so explicit
     compaction must run there (its built-in ``/summarize`` command) rather
     than as AP-side compaction — the same rationale as the claude-native
-    path. The 200 (not 204) is load-bearing: the Omnigent server reads it to
+    path. The 200 (not 204) is load-bearing: the AgentNexus server reads it to
     know the control was handled in the terminal.
 
     Two properties are pinned here:
@@ -891,8 +891,8 @@ async def test_events_compact_on_cursor_native_pastes_summarize_and_raises_spinn
        the cursor forwarder when it observes the summary blob (covered by
        ``tests/test_cursor_native_forwarder.py``).
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     monkeypatch.setattr(cursor_native_bridge, "_BRIDGE_ROOT", tmp_path / "cursor-bridge")
 
@@ -907,7 +907,7 @@ async def test_events_compact_on_cursor_native_pastes_summarize_and_raises_spinn
     cursor_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -942,7 +942,7 @@ async def test_events_compact_on_cursor_native_pastes_summarize_and_raises_spinn
 
     # 200 = cursor-native dispatch routed to the compact handler and the paste
     # succeeded. 204 would mean the dispatch fell through to the in-process
-    # no-op branch (the original gap) → Omnigent runs its own compaction and 400s.
+    # no-op branch (the original gap) → AgentNexus runs its own compaction and 400s.
     assert resp.status_code == 200, (
         f"Cursor-native compact must return 200 from /events; got {resp.status_code}: {resp.text}"
     )
@@ -1011,8 +1011,8 @@ async def test_events_compact_on_cursor_native_503_dismisses_spinner_on_inject_f
     both the tmux ``RuntimeError`` and the tempfile ``OSError`` surfaces; the
     latter is unique to cursor's bracketed-paste path.
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     monkeypatch.setattr(cursor_native_bridge, "_BRIDGE_ROOT", tmp_path / "cursor-bridge")
 
@@ -1026,7 +1026,7 @@ async def test_events_compact_on_cursor_native_503_dismisses_spinner_on_inject_f
     cursor_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1089,7 +1089,7 @@ async def test_events_compact_on_pi_native_enqueues_compact_payload(
     queues a ``compact`` payload to the Pi extension inbox and returns 200.
 
     Pi owns its context window inside the resident Pi TUI process, so explicit
-    compaction must run there (the Omnigent server's AP-side compaction would
+    compaction must run there (the AgentNexus server's AP-side compaction would
     only summarise the transcript mirror and desync the two, and 400s on the
     LLM-less pi-native pseudo-agent). The runner's ``compact`` dispatch routes
     to ``_handle_pi_native_compact``, which drops a ``compact`` payload into the
@@ -1100,14 +1100,14 @@ async def test_events_compact_on_pi_native_enqueues_compact_payload(
     cursor-native, so pi-native fell through to the 204 no-op.
 
     Pins:
-    1. 200 returned (not 204) so the Omnigent server skips its own AP-side
+    1. 200 returned (not 204) so the AgentNexus server skips its own AP-side
        compaction.
     2. A ``compact_*`` payload is written to the session's bridge inbox.
     3. /compact is a control signal and publishes no ``session.status`` events.
     """
-    import omnigent.pi_native_bridge as pi_native_bridge
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    import agentnexus.pi_native_bridge as pi_native_bridge
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     conv_id = "03f435963d78fe4ea313325f729eefc5"
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-bridge")
@@ -1115,7 +1115,7 @@ async def test_events_compact_on_pi_native_enqueues_compact_payload(
     pi_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "pi-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "pi-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1190,10 +1190,10 @@ async def test_events_compact_on_pi_native_returns_503_when_inbox_unwritable(
     Sister to the happy-path test. If the inbox enqueue raises OSError (e.g. a
     filesystem fault), the handler surfaces 503 with the
     ``pi_native_compact_failed`` code rather than silently swallowing the
-    request; the Omnigent server then treats it as not-handled.
+    request; the AgentNexus server then treats it as not-handled.
     """
-    import omnigent.pi_native_bridge as pi_native_bridge
-    from omnigent.spec.types import ExecutorSpec
+    import agentnexus.pi_native_bridge as pi_native_bridge
+    from agentnexus.spec.types import ExecutorSpec
 
     conv_id = "9c52b3dbe1d543718c1678a256017326"
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-bridge")
@@ -1207,7 +1207,7 @@ async def test_events_compact_on_pi_native_returns_503_when_inbox_unwritable(
     pi_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "pi-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "pi-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1261,8 +1261,8 @@ async def test_events_compact_on_qwen_native_submits_compress_and_raises_spinner
     ``in_progress``; the ``completed`` edge is the compaction mirror's job once
     the ``chat_compression`` record lands (covered in test_qwen_native_forwarder).
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[tuple[Any, str]] = []
 
@@ -1275,7 +1275,7 @@ async def test_events_compact_on_qwen_native_submits_compress_and_raises_spinner
     qwen_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "qwen-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "qwen-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1334,8 +1334,8 @@ async def test_events_compact_on_qwen_native_503_dismisses_spinner_on_submit_fai
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A submit failure surfaces as 503 AND dismisses the spinner (in_progress->failed)."""
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_submit(bridge_dir: Any, *, content: str) -> None:
         del bridge_dir, content
@@ -1346,7 +1346,7 @@ async def test_events_compact_on_qwen_native_503_dismisses_spinner_on_submit_fai
     qwen_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "qwen-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "qwen-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1482,17 +1482,17 @@ async def _drive_opencode_native_compact(
     :param summarize_error: When set, ``summarize`` raises it (503 path).
     :returns: ``(response, fake_client)`` for the compact POST.
     """
-    from omnigent import opencode_native_bridge
-    from omnigent.opencode_native_bridge import OpenCodeNativeBridgeState
-    from omnigent.opencode_native_client import OpenCodeSession
-    from omnigent.runner.app import _AUTO_OPENCODE_SERVERS, _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus import opencode_native_bridge
+    from agentnexus.opencode_native_bridge import OpenCodeNativeBridgeState
+    from agentnexus.opencode_native_client import OpenCodeSession
+    from agentnexus.runner.app import _AUTO_OPENCODE_SERVERS, _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
     from tests.runner.helpers import make_test_terminal_instance
 
     opencode_native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "opencode-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "opencode-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1558,8 +1558,8 @@ def test_resolve_opencode_compact_model_prefers_latest_assistant_message() -> No
     must iterate in reverse and ignore user-role messages, picking the live
     model even when a session ``model`` and a ``model_override`` also resolve.
     """
-    from omnigent.opencode_native_client import OpenCodeSession
-    from omnigent.runner.app import _resolve_opencode_compact_model
+    from agentnexus.opencode_native_client import OpenCodeSession
+    from agentnexus.runner.app import _resolve_opencode_compact_model
 
     session = OpenCodeSession.from_payload(
         {"id": "ses_x", "model": {"providerID": "stale", "id": "stale-model"}}
@@ -1593,8 +1593,8 @@ def test_resolve_opencode_compact_model_falls_back_to_session_model() -> None:
     ``modelID``). An assistant message missing ``modelID`` must be skipped so
     the session field is used.
     """
-    from omnigent.opencode_native_client import OpenCodeSession
-    from omnigent.runner.app import _resolve_opencode_compact_model
+    from agentnexus.opencode_native_client import OpenCodeSession
+    from agentnexus.runner.app import _resolve_opencode_compact_model
 
     session = OpenCodeSession.from_payload(
         {"id": "ses_x", "model": {"providerID": "anthropic", "id": "claude-opus-4"}}
@@ -1614,8 +1614,8 @@ def test_resolve_opencode_compact_model_falls_back_to_model_override() -> None:
     A model id may itself contain ``/`` (e.g. an OpenRouter slug), so only the
     FIRST separator delimits provider from model.
     """
-    from omnigent.opencode_native_client import OpenCodeSession
-    from omnigent.runner.app import _resolve_opencode_compact_model
+    from agentnexus.opencode_native_client import OpenCodeSession
+    from agentnexus.runner.app import _resolve_opencode_compact_model
 
     session = OpenCodeSession.from_payload({"id": "ses_x"})
 
@@ -1630,11 +1630,11 @@ def test_resolve_opencode_compact_model_returns_none_when_unresolvable() -> None
     """
     Nothing resolvable → ``(None, None)`` so the handler 204s to AP-side.
 
-    Covers the live Omnigent flow: the session is created without a model and
+    Covers the live AgentNexus flow: the session is created without a model and
     has no assistant turn yet, and no override is set.
     """
-    from omnigent.opencode_native_client import OpenCodeSession
-    from omnigent.runner.app import _resolve_opencode_compact_model
+    from agentnexus.opencode_native_client import OpenCodeSession
+    from agentnexus.runner.app import _resolve_opencode_compact_model
 
     session = OpenCodeSession.from_payload({"id": "ses_x"})
 
@@ -1652,8 +1652,8 @@ async def test_events_compact_on_opencode_native_summarizes_from_assistant_messa
     opencode-native compact resolves the live model and calls ``/summarize``.
 
     The model comes from the latest assistant message (``providerID`` +
-    ``modelID``) because Omnigent creates the session without a model. A 200
-    return is load-bearing: the Omnigent server reads it to skip its AP-side
+    ``modelID``) because AgentNexus creates the session without a model. A 200
+    return is load-bearing: the AgentNexus server reads it to skip its AP-side
     compaction (the native ``/summarize`` path was previously dead, always
     204ing because ``session.raw["model"]`` is empty).
     """
@@ -1777,10 +1777,10 @@ async def test_events_compact_on_opencode_native_503_when_summarize_raises(
     """
     A failing ``/summarize`` surfaces 503 with the opencode error code.
 
-    The Omnigent server must see the failure (rather than a silent fallback)
+    The AgentNexus server must see the failure (rather than a silent fallback)
     so it does not run a duplicate compaction.
     """
-    from omnigent.opencode_native_client import OpenCodeClientError
+    from agentnexus.opencode_native_client import OpenCodeClientError
 
     resp, client = await _drive_opencode_native_compact(
         monkeypatch,
@@ -1816,12 +1816,12 @@ async def test_events_compact_on_non_native_session_is_204_noop(
     """
     Non-native sessions accept compact and 204 without side effects.
 
-    The Omnigent server forwards ``compact`` to ``/events`` for every harness,
+    The AgentNexus server forwards ``compact`` to ``/events`` for every harness,
     so the runner must accept the event and 204 — never reach the
     slash-command injector. The server then returns a 400 to the client
     (SDK harnesses control their own context; AP-side compaction is not available).
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -1844,7 +1844,7 @@ async def test_events_compact_on_non_native_session_is_204_noop(
     default_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -1927,8 +1927,8 @@ async def test_events_native_dispatch_resolves_bridge_id_via_label_lookup(
     directly. If the handler regresses to the conv_id-only path,
     the assertion fails.
     """
-    from omnigent.runner import app as runner_app_module
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner import app as runner_app_module
+    from agentnexus.spec.types import ExecutorSpec
 
     captured_bridge_dir: list[Any] = []
 
@@ -1955,7 +1955,7 @@ async def test_events_native_dispatch_resolves_bridge_id_via_label_lookup(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2018,8 +2018,8 @@ async def test_events_model_change_on_native_session_types_slash_command(
     runner dispatch routes model_change to the native handler and
     assembles the right slash command.
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[Any] = []
 
@@ -2046,7 +2046,7 @@ async def test_events_model_change_on_native_session_types_slash_command(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2126,8 +2126,8 @@ async def _post_model_change_with_status_sequence(
 
     :returns: The ``/events`` HTTP response.
     """
-    from omnigent.runner import app as runner_app_module
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner import app as runner_app_module
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -2160,7 +2160,7 @@ async def _post_model_change_with_status_sequence(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2303,7 +2303,7 @@ async def test_events_model_change_applies_the_picked_alias_verbatim(
     leave resolution to Claude — anything else switches the pane to a
     model the user did not choose.
     """
-    from omnigent.claude_native import ClaudeNativeUcodeConfig
+    from agentnexus.claude_native import ClaudeNativeUcodeConfig
 
     captured: list[str] = []
 
@@ -2321,20 +2321,20 @@ async def test_events_model_change_applies_the_picked_alias_verbatim(
 
     monkeypatch.setattr(claude_native_bridge, "inject_slash_command", _fake_inject)
     monkeypatch.setattr(claude_native_bridge, "read_model_env", lambda _bridge_dir: dict(pins))
-    monkeypatch.setattr("omnigent.claude_native._CLAUDE_CODE_MANAGED_SETTINGS_PATHS", ())
+    monkeypatch.setattr("agentnexus.claude_native._CLAUDE_CODE_MANAGED_SETTINGS_PATHS", ())
     config = (
         ClaudeNativeUcodeConfig(env=dict(pins), model=pins.get("ANTHROPIC_DEFAULT_OPUS_MODEL"))
         if pins
         else None
     )
     monkeypatch.setattr(
-        "omnigent.claude_native.resolve_native_claude_config", lambda *, spec: config
+        "agentnexus.claude_native.resolve_native_claude_config", lambda *, spec: config
     )
 
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2381,7 +2381,7 @@ async def test_events_model_change_rejects_a_model_the_picker_cannot_spell(
     old model while the handler reports success, so the session's recorded
     model diverges from the one it is running.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[Any] = []
 
@@ -2401,7 +2401,7 @@ async def test_events_model_change_rejects_a_model_the_picker_cannot_spell(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2446,8 +2446,8 @@ async def test_events_model_change_on_kiro_session_types_slash_command(
     Pins that the runner dispatch routes model_change to the kiro handler.
     Mirrors ``test_events_model_change_on_native_session_types_slash_command``.
     """
-    from omnigent.runner.app import _session_event_queues_ref
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.runner.app import _session_event_queues_ref
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[Any] = []
 
@@ -2460,7 +2460,7 @@ async def test_events_model_change_on_kiro_session_types_slash_command(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "kiro-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "kiro-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2522,9 +2522,9 @@ async def test_events_model_change_on_native_session_skips_inject_for_empty_or_n
     Null / empty / whitespace-only model values 204 without typing.
 
     Pins that the empty-value validation lives in the runner native
-    handler, not in the Omnigent server.
+    handler, not in the AgentNexus server.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -2546,7 +2546,7 @@ async def test_events_model_change_on_native_session_skips_inject_for_empty_or_n
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2592,11 +2592,11 @@ async def test_events_model_change_on_native_session_returns_503_when_bridge_not
     Sister to the happy-path test. Pins that the failure mode of the
     native model dispatch (tmux pane gone / bridge dir not yet
     advertised) returns 503 with the same error code shape the
-    legacy ``/claude-native-model`` route used. Omnigent server's PATCH
+    legacy ``/claude-native-model`` route used. AgentNexus server's PATCH
     swallows this 503 and still returns 200 with the persisted
     value — the next spawn applies the new model via ``--model``.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -2615,7 +2615,7 @@ async def test_events_model_change_on_native_session_returns_503_when_bridge_not
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2663,12 +2663,12 @@ async def test_events_model_change_on_non_native_session_is_204_noop(
     Non-native sessions accept model_change and 204 without side effects.
 
     In-process harnesses re-read the persisted ``model_override`` on
-    each turn (or via the per-event override). Omnigent server is harness-
+    each turn (or via the per-event override). AgentNexus server is harness-
     agnostic and POSTs model_change for every PATCH, so the runner
     must accept the event with a 204 — never reach the slash-command
     injector.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -2691,7 +2691,7 @@ async def test_events_model_change_on_non_native_session_is_204_noop(
     default_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2739,7 +2739,7 @@ async def test_events_model_change_on_cursor_native_session_types_slash_command(
     (not the claude slash injector and not a 204 no-op) and pass the
     model id straight through.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     captured: list[tuple[Any, str, str | None, float]] = []
 
@@ -2758,7 +2758,7 @@ async def test_events_model_change_on_cursor_native_session_types_slash_command(
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2812,7 +2812,7 @@ async def test_events_model_change_on_cursor_native_session_skips_inject_for_emp
     clear only takes effect on the next spawn — mirrors the claude-native
     skip test.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(bridge_dir: Any, *, model: str, timeout_s: float) -> None:
         """Fail the test if the runner reaches inject for an empty value."""
@@ -2824,7 +2824,7 @@ async def test_events_model_change_on_cursor_native_session_skips_inject_for_emp
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2869,9 +2869,9 @@ async def test_events_model_change_on_cursor_native_session_returns_503_when_not
 
     Cursor analog of the claude-native 503 test: a missing tmux target
     (pane not attached yet) returns 503 with the cursor-specific error
-    code; Omnigent server swallows it and the next spawn applies ``--model``.
+    code; AgentNexus server swallows it and the next spawn applies ``--model``.
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     def _fake_inject(
         bridge_dir: Any,
@@ -2889,7 +2889,7 @@ async def test_events_model_change_on_cursor_native_session_returns_503_when_not
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:
@@ -2941,12 +2941,12 @@ async def test_events_effort_change_on_cursor_native_session_is_disabled_noop(
     effort value (cursor-native is excluded from the effort_change gate, and the
     effort injector no longer exists).
     """
-    from omnigent.spec.types import ExecutorSpec
+    from agentnexus.spec.types import ExecutorSpec
 
     native_spec = AgentSpec(
         spec_version=1,
         name="t",
-        executor=ExecutorSpec(type="omnigent", config={"harness": "cursor-native"}),
+        executor=ExecutorSpec(type="agentnexus", config={"harness": "cursor-native"}),
     )
 
     async def _resolver(agent_id: str, session_id: str | None = None) -> AgentSpec:

@@ -6,7 +6,7 @@ Each assertion is chosen so the corresponding production breakage turns it red.
 
 from __future__ import annotations
 
-from omnigent.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES, cap_tool_output
+from agentnexus.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES, cap_tool_output
 
 _TRUNCATION_MARKER = "[output truncated by omnigent:"
 

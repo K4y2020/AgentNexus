@@ -3,7 +3,7 @@
 Covers the pieces that make an individually-invited, off-domain email
 admissible:
 
-1. ``OIDCConfig`` parsing of ``OMNIGENT_OIDC_ALLOW_INVITES`` and the
+1. ``OIDCConfig`` parsing of ``AGENTNEXUS_OIDC_ALLOW_INVITES`` and the
    ``base_url`` derivation used to build invite links.
 2. ``SqlAlchemyAccountStore.redeem_oidc_invite`` / ``is_email_invited``
    against a real DB — the OIDC invite reuses the existing
@@ -30,13 +30,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from omnigent.server.accounts_store import SqlAlchemyAccountStore
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.oidc import OIDCConfig, mint_session_cookie
-from omnigent.server.oidc_access import OidcAdmissionPolicy
-from omnigent.server.routes.auth import create_auth_router
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.oidc import OIDCConfig, mint_session_cookie
+from agentnexus.server.oidc_access import OidcAdmissionPolicy
+from agentnexus.server.routes.auth import create_auth_router
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 _TEST_SECRET = bytes.fromhex("aa" * 32)
 
@@ -75,16 +75,16 @@ def _oidc_config(*, allow_invites: bool, allowed_domains: frozenset[str] | None)
 def test_allow_invites_env_parsing(
     monkeypatch: pytest.MonkeyPatch, value: str, expected: bool
 ) -> None:
-    """``OMNIGENT_OIDC_ALLOW_INVITES`` parses truthy values; default off.
+    """``AGENTNEXUS_OIDC_ALLOW_INVITES`` parses truthy values; default off.
 
     Built via the GitHub provider branch so no network discovery runs.
     """
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://github.com")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_ID", "cid")
-    monkeypatch.setenv("OMNIGENT_OIDC_CLIENT_SECRET", "secret")
-    monkeypatch.setenv("OMNIGENT_OIDC_REDIRECT_URI", "https://app.example.com/auth/callback")
-    monkeypatch.setenv("OMNIGENT_OIDC_COOKIE_SECRET", "aa" * 32)
-    monkeypatch.setenv("OMNIGENT_OIDC_ALLOW_INVITES", value)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://github.com")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_ID", "cid")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_REDIRECT_URI", "https://app.example.com/auth/callback")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_COOKIE_SECRET", "aa" * 32)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ALLOW_INVITES", value)
 
     config = OIDCConfig.from_env()
     assert config.allow_invites is expected

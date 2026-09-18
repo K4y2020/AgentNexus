@@ -21,8 +21,8 @@ from typing import Any, TextIO
 
 import pytest
 
-from omnigent import claude_native_bridge, native_cost_popup
-from omnigent.claude_native_bridge import (
+from agentnexus import claude_native_bridge, native_cost_popup
+from agentnexus.claude_native_bridge import (
     _BACKGROUND_TASK_FIELD_MAX_CHARS,
     _build_tools,
     _claude_prompt_rendered,
@@ -54,13 +54,13 @@ from omnigent.claude_native_bridge import (
     stop_hook_seen_since,
     write_tmux_target,
 )
-from omnigent.inner.datamodel import (
+from agentnexus.inner.datamodel import (
     CredentialProxyEntry,
     CredentialProxySpec,
     CredentialSourceSpec,
     OSEnvSandboxSpec,
 )
-from omnigent.reasoning_effort import CLAUDE_EFFORTS
+from agentnexus.reasoning_effort import CLAUDE_EFFORTS
 
 
 @pytest.fixture(autouse=True)
@@ -72,8 +72,8 @@ def _trust_tmp_bridge_parent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     :param tmp_path: Per-test temp directory.
     :returns: None.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path)
 
 
 def _composer_pane(draft: str = "") -> str:
@@ -113,7 +113,7 @@ def subprocess_bridge_root() -> Iterator[Path]:
     """
     production_root = (
         Path(tempfile.gettempdir())
-        / f"omnigent-{claude_native_bridge.stable_user_id()}"
+        / f"agentnexus-{claude_native_bridge.stable_user_id()}"
         / "claude-native"
     )
     production_root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -251,8 +251,8 @@ def test_prepare_bridge_dir_preserves_token_and_updates_runtime(
     old token.
     """
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     first = prepare_bridge_dir(
         "conv_abc",
@@ -276,10 +276,10 @@ def test_prepare_bridge_dir_preserves_permission_hook_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Re-preparing a bridge keeps the permission command hook's Omnigent URL.
+    Re-preparing a bridge keeps the permission command hook's AgentNexus URL.
 
     The claude-native ``PermissionRequest`` command hook reads
-    ``permission_hook.json`` at hook time to learn which Omnigent server to
+    ``permission_hook.json`` at hook time to learn which AgentNexus server to
     POST to (the URL is not baked into Claude's launch args). A
     rebind/reattach that re-runs ``prepare_bridge_dir`` must NOT wipe
     that file — if it does, the permission subprocess bails with "AP
@@ -287,8 +287,8 @@ def test_prepare_bridge_dir_preserves_permission_hook_config(
     web UI (a regression we guard against).
     """
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir("conv_abc", workspace=tmp_path)
     # ``augment_claude_args`` is the production path that writes
@@ -327,8 +327,8 @@ def test_prepare_bridge_dir_restricts_filesystem_permissions(
     """
     import stat
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
 
     bridge_dir = prepare_bridge_dir("conv_abc", workspace=tmp_path)
     bridge_json = bridge_dir / "bridge.json"
@@ -367,8 +367,8 @@ def test_prepare_bridge_dir_refuses_symlinked_ancestor(
     symlink = tmp_path / "claude-native"
     symlink.symlink_to(attacker_dir, target_is_directory=True)
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", symlink)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", symlink)
 
     with pytest.raises(RuntimeError, match="symlink"):
         prepare_bridge_dir("conv_abc", workspace=tmp_path)
@@ -421,7 +421,7 @@ def test_prepare_bridge_dir_persists_and_applies_resolved_sandbox(
         return
 
     monkeypatch.setattr(
-        "omnigent.inner.os_env.create_os_environment",
+        "agentnexus.inner.os_env.create_os_environment",
         _fake_create_os_environment,
     )
     _build_tools(config)
@@ -508,7 +508,7 @@ def test_prepare_bridge_dir_drops_credential_proxy_instead_of_corrupting_it(
         return
 
     monkeypatch.setattr(
-        "omnigent.inner.os_env.create_os_environment",
+        "agentnexus.inner.os_env.create_os_environment",
         _fake_create_os_environment,
     )
     _build_tools(config)
@@ -549,14 +549,14 @@ def test_trusted_parent_accepts_qwen_native_bridge_dir(
     root`` and the relay never starts (observed in a live runner log). This
     pins the qwen-native branch so the regression can't return.
     """
-    from omnigent import qwen_native_bridge
+    from agentnexus import qwen_native_bridge
 
     # Distinct claude root so the qwen target can't match the claude branch
     # first (the autouse fixture points the claude root at ``tmp_path``).
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     # qwen root mirrors production shape: <uid-scoped temp>/qwen-native.
-    qwen_root = tmp_path / "omnigent-test" / "qwen-native"
+    qwen_root = tmp_path / "agentnexus-test" / "qwen-native"
     monkeypatch.setattr(qwen_native_bridge, "_BRIDGE_ROOT", qwen_root)
 
     target = claude_native_bridge._absolute_syntactic_path(qwen_root / "abc123")
@@ -580,14 +580,14 @@ def test_trusted_parent_accepts_kiro_native_bridge_dir(
     and the relay (and serve-mcp's own ``server.json`` write) never start. This
     pins the kiro-native branch.
     """
-    from omnigent import kiro_native_bridge
+    from agentnexus import kiro_native_bridge
 
     # Distinct claude root so the kiro target can't match the claude branch
     # first (the autouse fixture points the claude root at ``tmp_path``).
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     # kiro root mirrors production shape: <uid-scoped temp>/kiro-native.
-    kiro_root = tmp_path / "omnigent-test" / "kiro-native"
+    kiro_root = tmp_path / "agentnexus-test" / "kiro-native"
     monkeypatch.setattr(kiro_native_bridge, "_BRIDGE_ROOT", kiro_root)
 
     target = claude_native_bridge._absolute_syntactic_path(kiro_root / "abc123")
@@ -602,13 +602,13 @@ def test_trusted_parent_rejects_path_outside_all_roots_and_names_qwen(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A path under no known root is refused, and the error names the qwen root."""
-    from omnigent import qwen_native_bridge
+    from agentnexus import qwen_native_bridge
 
     # Distinct claude root so ``outside`` below isn't swept under it (the autouse
     # fixture points the claude root at ``tmp_path``).
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    qwen_root = tmp_path / "omnigent-test" / "qwen-native"
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path / "claude-native")
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    qwen_root = tmp_path / "agentnexus-test" / "qwen-native"
     monkeypatch.setattr(qwen_native_bridge, "_BRIDGE_ROOT", qwen_root)
 
     outside = claude_native_bridge._absolute_syntactic_path(tmp_path / "somewhere-else" / "x")
@@ -742,7 +742,7 @@ def test_read_assistant_text_since_parses_claude_jsonl(tmp_path: Path) -> None:
     Transcript parsing returns only assistant text after the cursor.
 
     The parser must not echo channel/user records back into the
-    Omnigent assistant stream.
+    AgentNexus assistant stream.
     """
     transcript_path = tmp_path / "session.jsonl"
     transcript_path.write_text(
@@ -1471,7 +1471,7 @@ def test_read_transcript_line_cursor_migration_preserves_legacy_source_ids(
 
 def test_read_transcript_items_since_ignores_observed_status_records(tmp_path: Path) -> None:
     """
-    Non-conversation Claude JSONL records do not become Omnigent items.
+    Non-conversation Claude JSONL records do not become AgentNexus items.
 
     The local transcript audit found status/UI records such as
     ``queue-operation``, ``branch-update``, ``progress``,
@@ -2645,7 +2645,7 @@ def test_read_transcript_items_from_offset_surfaces_skill_as_slash_command(
 
 def test_augment_claude_args_injects_mcp_and_hooks(tmp_path: Path) -> None:
     """
-    Claude receives the Omnigent MCP server and hook settings in one launch.
+    Claude receives the AgentNexus MCP server and hook settings in one launch.
 
     This fails if the terminal starts Claude without the bridge pieces
     needed for tool dispatch / transcript discovery. Also asserts the
@@ -2659,7 +2659,7 @@ def test_augment_claude_args_injects_mcp_and_hooks(tmp_path: Path) -> None:
 
     assert args[:2] == ["--resume", "abc"]
     mcp_config = json.loads(args[args.index("--mcp-config") + 1])
-    server = mcp_config["mcpServers"]["omnigent"]
+    server = mcp_config["mcpServers"]["agentnexus"]
     assert server["command"] == "/venv/bin/python"
     assert server["args"][-2:] == ["--bridge-dir", str(tmp_path)]
     # Web-UI input does not flow through Claude Channels — that
@@ -2667,7 +2667,7 @@ def test_augment_claude_args_injects_mcp_and_hooks(tmp_path: Path) -> None:
     # pass the development-channels flag.
     assert "--dangerously-load-development-channels" not in args
     settings = _load_invocation_settings(args)
-    assert "omnigent.claude_native_hook" in settings["hooks"]["Stop"][0]["hooks"][0]["command"]
+    assert "agentnexus.claude_native_hook" in settings["hooks"]["Stop"][0]["hooks"][0]["command"]
     # ``PreCompact`` must be wired so the forwarder can surface
     # ``response.compaction.in_progress`` while Claude compacts in the
     # terminal. Missing it = no "Compacting…" spinner for claude-native.
@@ -2675,7 +2675,7 @@ def test_augment_claude_args_injects_mcp_and_hooks(tmp_path: Path) -> None:
         f"PreCompact hook must be registered; got hooks {sorted(settings['hooks'])!r}."
     )
     assert (
-        "omnigent.claude_native_hook" in settings["hooks"]["PreCompact"][0]["hooks"][0]["command"]
+        "agentnexus.claude_native_hook" in settings["hooks"]["PreCompact"][0]["hooks"][0]["command"]
     )
     # No built-in tools are disabled anymore: ``AskUserQuestion``
     # routes through its dedicated PreToolUse hook (answers injected
@@ -2723,7 +2723,7 @@ def test_augment_claude_args_mirrors_launch_overrides_into_settings(
     while rebuilding argv without ``--model`` / ``--effort`` /
     ``--permission-mode``. Mirroring the same effective values into the
     sidecar prevents a restarted wrapped CLI from falling back to the user's
-    global ``~/.claude/settings.json`` and diverging from the Omnigent
+    global ``~/.claude/settings.json`` and diverging from the AgentNexus
     session pill.
     """
     args = augment_claude_args(
@@ -2965,10 +2965,10 @@ def test_augment_claude_args_omits_permission_hook_without_omnigent_server(
 ) -> None:
     """
     No ``PermissionRequest`` hook is registered when the wrapper has
-    no Omnigent server URL to point Claude at.
+    no AgentNexus server URL to point Claude at.
 
     This guards the default path: a call site that forgets to plumb
-    the Omnigent server URL must NOT silently fall through to Claude's TUI
+    the AgentNexus server URL must NOT silently fall through to Claude's TUI
     prompt for every tool — but it also must not register an HTTP hook
     against an undefined URL. The expected behaviour is "no hook at
     all", which means Claude uses its built-in permission flow.
@@ -2988,7 +2988,7 @@ def test_augment_claude_args_registers_permission_command_hook(
     """
     Passing ``ap_server_url`` registers Claude's
     ``PermissionRequest`` hook as a command hook that resolves the
-    active Omnigent session at hook time.
+    active AgentNexus session at hook time.
 
     If this regresses, Claude Code's built-in TUI permission prompt
     appears every time the user is supposed to approve from the web
@@ -3015,7 +3015,7 @@ def test_augment_claude_args_registers_permission_command_hook(
     # terminal prompt is still open. A failure here (missing key or a
     # short value) means that premature auto-resolve has regressed.
     assert hook["timeout"] == 86400
-    assert "omnigent.claude_native_hook permission-request" in hook["command"]
+    assert "agentnexus.claude_native_hook permission-request" in hook["command"]
     assert "--bridge-dir" in hook["command"]
     assert "Bearer xyz" not in hook["command"]
     permission_config = json.loads((tmp_path / "permission_hook.json").read_text(encoding="utf-8"))
@@ -3070,7 +3070,7 @@ def test_augment_claude_args_omits_user_prompt_submit_policy_hook_without_server
     """
     Without ``ap_server_url`` the UserPromptSubmit policy hook is not wired.
 
-    Policy hooks only make sense when an Omnigent server is configured to
+    Policy hooks only make sense when an AgentNexus server is configured to
     evaluate against; the forwarder's status hook still registers, but no
     evaluate-policy command should appear (mirrors PreToolUse/PostToolUse,
     which are also gated behind ``ap_server_url``).
@@ -3122,16 +3122,16 @@ def test_mcp_server_initialize_omits_blocked_channel_capability(
     org policy, breaking the native wrapper.
     """
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._TRUSTED_PARENT",
+        "agentnexus.claude_native_bridge._TRUSTED_PARENT",
         Path(tempfile.gettempdir()),
     )
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
     bridge_dir = prepare_bridge_dir("conv_abc", workspace=tmp_path)
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent.claude_native_bridge",
+            "agentnexus.claude_native_bridge",
             "serve-mcp",
             "--bridge-dir",
             str(bridge_dir),
@@ -3241,7 +3241,7 @@ def test_inject_user_message_pastes_content_then_submits(
     regresses to send-keys argv delivery, drops the trailing Enter, or
     stops clearing the stale buffer.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3308,7 +3308,7 @@ def test_inject_user_message_pastes_content_then_submits(
         "/tmp/example/tmux.sock",
         "load-buffer",
         "-b",
-        "omnigent-paste",
+        "agentnexus-paste",
     ]
     # -p (bracketed-paste markers) dropped = newlines submit per-line in
     # the TUI; -d dropped = stale buffer copies accumulate server-side.
@@ -3320,7 +3320,7 @@ def test_inject_user_message_pastes_content_then_submits(
         "-p",
         "-d",
         "-b",
-        "omnigent-paste",
+        "agentnexus-paste",
         "-t",
         "claude:0.0",
     ]
@@ -3414,7 +3414,7 @@ def test_inject_user_message_raises_when_tmux_target_never_published(
     """
     The injection helper fails loud when the runner has not written tmux.json.
 
-    Failing silently would let the Omnigent turn complete with no user
+    Failing silently would let the AgentNexus turn complete with no user
     message ever reaching Claude — the executor needs the
     RuntimeError so it can surface an ExecutorError.
     """
@@ -3481,7 +3481,7 @@ def test_inject_user_message_waits_for_claude_prompt_before_typing(
     no send-keys is issued until ``capture-pane`` shows the prompt
     glyph, and that injection proceeds once it does.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3560,7 +3560,7 @@ def test_inject_user_message_raises_when_prompt_never_renders(
     the web UI stuck on "Working…". The RuntimeError surfaces as an
     ExecutorError instead. No keystrokes must be sent on this path.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3602,7 +3602,7 @@ def test_inject_user_message_ignores_prompt_glyph_in_scrollback(
     appears only in an early line, with later non-empty lines lacking
     it, so the gate must NOT treat the pane as ready.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3658,12 +3658,12 @@ def test_inject_user_message_resends_enter_when_first_submit_swallowed(
     fire-and-forget Enter would send exactly one and return "success"
     with the message undelivered.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
     # Shrink the polling cadence so the retry happens in milliseconds —
     # the production defaults (1s retry spacing) would make this test slow.
-    monkeypatch.setattr("omnigent.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
-    monkeypatch.setattr("omnigent.claude_native_bridge._SUBMIT_RETRY_INTERVAL_S", 0.02)
-    monkeypatch.setattr("omnigent.claude_native_bridge._PASTE_SETTLE_S", 0.0)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._SUBMIT_RETRY_INTERVAL_S", 0.02)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._PASTE_SETTLE_S", 0.0)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3718,15 +3718,15 @@ def test_inject_user_message_raises_when_draft_never_submits(
     Injection fails loud when the draft never leaves the input box.
 
     If every submit Enter is swallowed (e.g. the pane is wedged in a
-    dialog), returning success would complete the Omnigent turn with
+    dialog), returning success would complete the AgentNexus turn with
     the message still sitting unsent in Claude's input box. The
     RuntimeError surfaces as an ExecutorError instead.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
-    monkeypatch.setattr("omnigent.claude_native_bridge._SUBMIT_RETRY_INTERVAL_S", 0.02)
-    monkeypatch.setattr("omnigent.claude_native_bridge._SUBMIT_VERIFY_TIMEOUT_S", 0.2)
-    monkeypatch.setattr("omnigent.claude_native_bridge._PASTE_SETTLE_S", 0.0)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._SUBMIT_RETRY_INTERVAL_S", 0.02)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._SUBMIT_VERIFY_TIMEOUT_S", 0.2)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._PASTE_SETTLE_S", 0.0)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -3769,7 +3769,7 @@ def test_inject_interrupt_sends_escape_keystroke(
 
     Without the ``-l`` flag, tmux interprets ``Escape`` as the key
     name (the single ASCII byte 0x1b). If the flag leaks in or the
-    keyword changes, Claude won't see a cancel and the Omnigent stop
+    keyword changes, Claude won't see a cancel and the AgentNexus stop
     button silently degrades back to a no-op.
     """
     bridge_dir = tmp_path / "bridge"
@@ -3824,7 +3824,7 @@ def test_inject_interrupt_raises_when_tmux_target_never_published(
     inject_interrupt fails loud if tmux.json hasn't been written.
 
     The runner route catches RuntimeError and returns 503 so the
-    Omnigent server falls back to the DBOS cancel path. Swallowing this
+    AgentNexus server falls back to the DBOS cancel path. Swallowing this
     silently would make the stop button appear to work while
     actually doing nothing.
     """
@@ -4125,7 +4125,7 @@ def test_cycleable_permission_modes_match_the_server_patch_vocabulary() -> None:
     unreachable (rejected at the API after the UI offered it) or
     reachable but un-offerable. Pin them together.
     """
-    from omnigent.server.routes._sessions.common import _CLAUDE_NATIVE_PERMISSION_MODES
+    from agentnexus.server.routes._sessions.common import _CLAUDE_NATIVE_PERMISSION_MODES
 
     assert set(claude_native_bridge.CYCLEABLE_PERMISSION_MODES) == set(
         _CLAUDE_NATIVE_PERMISSION_MODES
@@ -4517,19 +4517,19 @@ async def test_channel_server_relays_active_omnigent_tools(
     Active turn tools are advertised to Claude and dispatched through AP.
 
     This fails if Claude Code can receive web-channel inputs but cannot
-    call the Omnigent tools made available to the server-side agent.
+    call the AgentNexus tools made available to the server-side agent.
     """
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._TRUSTED_PARENT",
+        "agentnexus.claude_native_bridge._TRUSTED_PARENT",
         Path(tempfile.gettempdir()),
     )
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
     bridge_dir = prepare_bridge_dir("conv_tools", workspace=tmp_path)
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent.claude_native_bridge",
+            "agentnexus.claude_native_bridge",
             "serve-mcp",
             "--bridge-dir",
             str(bridge_dir),
@@ -4569,7 +4569,7 @@ async def test_channel_server_relays_active_omnigent_tools(
             tools=[
                 {
                     "name": "sys_custom",
-                    "description": "Test-only active Omnigent tool.",
+                    "description": "Test-only active AgentNexus tool.",
                     "parameters": {
                         "type": "object",
                         "properties": {"value": {"type": "string"}},
@@ -4593,7 +4593,7 @@ async def test_channel_server_relays_active_omnigent_tools(
         assert custom_tools == [
             {
                 "name": "sys_custom",
-                "description": "Test-only active Omnigent tool.",
+                "description": "Test-only active AgentNexus tool.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {"value": {"type": "string"}},
@@ -4704,7 +4704,7 @@ def test_call_relay_tool_returns_mcp_error_on_read_timeout(
     # The result is a well-formed MCP error result, NOT a raised exception.
     assert result["isError"] is True
     error_text = json.loads(result["content"][0]["text"])["error"]
-    assert "failed to call Omnigent tool relay" in error_text
+    assert "failed to call AgentNexus tool relay" in error_text
 
 
 @pytest.mark.asyncio
@@ -4730,10 +4730,10 @@ async def test_serve_mcp_survives_handler_exception_and_keeps_serving(
     ``_serve_mcp`` and the ``tools/list`` read below times out.
     """
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._TRUSTED_PARENT",
+        "agentnexus.claude_native_bridge._TRUSTED_PARENT",
         Path(tempfile.gettempdir()),
     )
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
     bridge_dir = prepare_bridge_dir("conv_crash", workspace=tmp_path)
 
     # A relay server that returns HTTP 200 with invalid UTF-8 bytes. This
@@ -4795,7 +4795,7 @@ async def test_serve_mcp_survives_handler_exception_and_keeps_serving(
         [
             sys.executable,
             "-m",
-            "omnigent.claude_native_bridge",
+            "agentnexus.claude_native_bridge",
             "serve-mcp",
             "--bridge-dir",
             str(bridge_dir),
@@ -5104,10 +5104,10 @@ async def test_start_tool_relay_accepts_pi_native_bridge_root(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Relay startup accepts Pi-native's persistent bridge root."""
-    from omnigent import pi_native_bridge
+    from agentnexus import pi_native_bridge
 
-    pi_root = tmp_path / ".omnigent" / "pi-native"
-    monkeypatch.setattr("omnigent.pi_native_bridge._BRIDGE_ROOT", pi_root)
+    pi_root = tmp_path / ".agentnexus" / "pi-native"
+    monkeypatch.setattr("agentnexus.pi_native_bridge._BRIDGE_ROOT", pi_root)
     bridge_dir = pi_native_bridge.prepare_bridge_dir("conv_pi")
     relay_file = bridge_dir / claude_native_bridge._TOOL_RELAY_FILE
 
@@ -5123,7 +5123,7 @@ async def test_start_tool_relay_accepts_pi_native_bridge_root(
             tools=[
                 {
                     "name": "sys_session_list",
-                    "description": "List Omnigent sessions.",
+                    "description": "List AgentNexus sessions.",
                     "parameters": {"type": "object", "properties": {}},
                 }
             ],
@@ -5149,7 +5149,7 @@ async def test_start_tool_relay_accepts_codex_native_bridge_root(
     Relay startup accepts Codex-native's persistent bridge root.
 
     Codex-native reuses the Claude MCP relay but stores bridge files in
-    ``~/.omnigent/codex-native`` instead of Claude's ``/tmp`` bridge
+    ``~/.agentnexus/codex-native`` instead of Claude's ``/tmp`` bridge
     root. A regression here logs "Failed to start comment relay" and
     leaves Codex without comment/session tools.
 
@@ -5158,10 +5158,10 @@ async def test_start_tool_relay_accepts_codex_native_bridge_root(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent import codex_native_bridge
+    from agentnexus import codex_native_bridge
 
-    codex_root = tmp_path / ".omnigent" / "codex-native"
-    monkeypatch.setattr("omnigent.codex_native_bridge._BRIDGE_ROOT", codex_root)
+    codex_root = tmp_path / ".agentnexus" / "codex-native"
+    monkeypatch.setattr("agentnexus.codex_native_bridge._BRIDGE_ROOT", codex_root)
     bridge_dir = codex_native_bridge.prepare_bridge_dir("conv_codex")
     relay_file = bridge_dir / claude_native_bridge._TOOL_RELAY_FILE
 
@@ -5210,7 +5210,7 @@ async def test_start_tool_relay_accepts_antigravity_native_bridge_root(
     Relay startup accepts Antigravity-native's persistent bridge root (#1194).
 
     Antigravity-native reuses the Claude MCP relay but stores bridge files in
-    ``~/.omnigent/antigravity-native`` (the same ``$HOME/.omnigent/<harness>``
+    ``~/.agentnexus/antigravity-native`` (the same ``$HOME/.agentnexus/<harness>``
     shape codex uses). A regression in :func:`_trusted_parent_for_bridge_dir`
     would reject the bridge dir, the relay would fail to write
     ``tool_relay.json``, and the wrapped agy would get no ``sys_*`` tools.
@@ -5220,10 +5220,10 @@ async def test_start_tool_relay_accepts_antigravity_native_bridge_root(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent import antigravity_native_bridge
+    from agentnexus import antigravity_native_bridge
 
-    antigravity_root = tmp_path / ".omnigent" / "antigravity-native"
-    monkeypatch.setattr("omnigent.antigravity_native_bridge._BRIDGE_ROOT", antigravity_root)
+    antigravity_root = tmp_path / ".agentnexus" / "antigravity-native"
+    monkeypatch.setattr("agentnexus.antigravity_native_bridge._BRIDGE_ROOT", antigravity_root)
     bridge_dir = antigravity_native_bridge.prepare_bridge_dir("conv_agy")
     relay_file = bridge_dir / claude_native_bridge._TOOL_RELAY_FILE
 
@@ -5245,7 +5245,7 @@ async def test_start_tool_relay_accepts_antigravity_native_bridge_root(
             tools=[
                 {
                     "name": "sys_session_create",
-                    "description": "Spawn an Omnigent sub-agent session.",
+                    "description": "Spawn an AgentNexus sub-agent session.",
                     "parameters": {"type": "object", "properties": {}},
                 }
             ],
@@ -5273,7 +5273,7 @@ async def test_start_tool_relay_accepts_opencode_native_bridge_root(
     Relay startup accepts OpenCode-native's persistent bridge root.
 
     opencode-native reuses the Claude MCP relay but stores bridge files in
-    ``~/.omnigent/opencode-native`` (the same ``$HOME/.omnigent/<harness>``
+    ``~/.agentnexus/opencode-native`` (the same ``$HOME/.agentnexus/<harness>``
     shape codex/antigravity use). The missing allowlist entry made ``serve-mcp``
     crash on startup (``_ensure_secure_dir`` → "not under an allowed bridge
     root"), which opencode surfaced as ``MCP error -32000: Connection closed``
@@ -5283,10 +5283,10 @@ async def test_start_tool_relay_accepts_opencode_native_bridge_root(
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    from omnigent import opencode_native_bridge
+    from agentnexus import opencode_native_bridge
 
-    opencode_root = tmp_path / ".omnigent" / "opencode-native"
-    monkeypatch.setattr("omnigent.opencode_native_bridge._BRIDGE_ROOT", opencode_root)
+    opencode_root = tmp_path / ".agentnexus" / "opencode-native"
+    monkeypatch.setattr("agentnexus.opencode_native_bridge._BRIDGE_ROOT", opencode_root)
     bridge_dir = opencode_native_bridge.prepare_bridge_dir("conv_oc")
     relay_file = bridge_dir / claude_native_bridge._TOOL_RELAY_FILE
 
@@ -5302,7 +5302,7 @@ async def test_start_tool_relay_accepts_opencode_native_bridge_root(
             tools=[
                 {
                     "name": "sys_session_list",
-                    "description": "List Omnigent sessions.",
+                    "description": "List AgentNexus sessions.",
                     "parameters": {"type": "object", "properties": {}},
                 }
             ],
@@ -5338,9 +5338,9 @@ async def test_relay_close_keeps_advertisement_owned_by_newer_relay(
     # gettempdir(), not a literal /tmp: the fixture root lives under the
     # platform temp dir (/var/folders/… on macOS), which /tmp never contains.
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._TRUSTED_PARENT", Path(tempfile.gettempdir())
+        "agentnexus.claude_native_bridge._TRUSTED_PARENT", Path(tempfile.gettempdir())
     )
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", subprocess_bridge_root)
     bridge_dir = prepare_bridge_dir("conv_shared_bridge", workspace=tmp_path)
     relay_file = bridge_dir / claude_native_bridge._TOOL_RELAY_FILE
 
@@ -5741,7 +5741,7 @@ def test_read_transcript_items_ignores_ai_title_and_blank_custom_title(
     """
     Claude's own ``aiTitle`` and a blank ``customTitle`` are both ignored.
 
-    Omnigent runs its own background titler, so forwarding Claude's
+    AgentNexus runs its own background titler, so forwarding Claude's
     generated title would put two auto-titlers in a fight over one field;
     only an explicit ``/rename`` propagates.
     """
@@ -5915,7 +5915,7 @@ def test_prepare_bridge_dir_stores_launch_model(
 ) -> None:
     """``launch_model`` is persisted in bridge.json when provided."""
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir(
         "conv_abc",
@@ -5932,7 +5932,7 @@ def test_prepare_bridge_dir_omits_launch_model_when_none(
 ) -> None:
     """``launch_model`` key is absent from bridge.json when not provided."""
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir(
         "conv_abc",
@@ -5948,7 +5948,7 @@ def test_read_launch_model_returns_stored_value(
 ) -> None:
     """``read_launch_model`` round-trips the value stored by ``prepare_bridge_dir``."""
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir(
         "conv_abc",
@@ -5964,7 +5964,7 @@ def test_read_launch_model_returns_none_when_absent(
 ) -> None:
     """``read_launch_model`` returns ``None`` when no launch model was stored."""
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir(
         "conv_abc",
@@ -5985,10 +5985,10 @@ def test_model_env_round_trips_the_launch_vocabulary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The runner reads the alias pinning from here, not from its own env."""
-    from omnigent.claude_native_bridge import read_model_env
+    from agentnexus.claude_native_bridge import read_model_env
 
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir(
         "conv_abc",
@@ -6017,14 +6017,14 @@ def test_record_model_vocabulary_backfills_a_runner_prepared_bridge(
     so the pins and launch model land via a second write — and must read
     back exactly as the CLI path's prepare-time record does.
     """
-    from omnigent.claude_native_bridge import (
+    from agentnexus.claude_native_bridge import (
         read_launch_model,
         read_model_env,
         record_model_vocabulary,
     )
 
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir("conv_abc", workspace=tmp_path)
     assert read_model_env(bridge_dir) == {}
@@ -6053,10 +6053,10 @@ def test_model_env_is_empty_without_a_ucode_launch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from omnigent.claude_native_bridge import read_model_env
+    from agentnexus.claude_native_bridge import read_model_env
 
     root = tmp_path / "root"
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", root)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", root)
 
     bridge_dir = prepare_bridge_dir("conv_abc", workspace=tmp_path)
     assert read_model_env(bridge_dir) == {}
@@ -6502,7 +6502,7 @@ def test_display_cost_approval_popup_builds_detached_tmux_command(
     Proves the modal targets the right tmux socket + pane + attached
     client (``-c``), launches :mod:`omnigent.native_cost_popup`, and
     forwards the session/elicitation/message plus THIS bridge's
-    ``permission_hook.json`` (where the popup reads the Omnigent url/token). A
+    ``permission_hook.json`` (where the popup reads the AgentNexus url/token). A
     failure means native approval would render at the wrong pane/client,
     run the wrong program, or omit an input the resolve POST needs — i.e.
     it silently wouldn't work.
@@ -6548,7 +6548,7 @@ def test_display_cost_approval_popup_builds_detached_tmux_command(
     assert args[args.index("-t") + 1] == "claude:0.0"
     # Inner command runs the popup module with every resolve input.
     inner = shlex.split(args[-1])
-    assert "omnigent.native_cost_popup" in inner
+    assert "agentnexus.native_cost_popup" in inner
     assert "conv_abc123" in inner  # --session-id value
     assert "elicit_deadbeef" in inner  # --elicitation-id value
     assert "Cost $0.12 crossed the $0.10 checkpoint. Continue?" in inner  # --message
@@ -7020,10 +7020,10 @@ def test_compute_transcript_cumulative_cost_dedupes_by_request_id(
     double-bills (observed ~2x inflation, which leaked into the parent
     badge and the cost-budget gate). The cost must dedupe by ``requestId``.
     """
-    from omnigent.llms.context_window import ModelPricing
+    from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("omnigent.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "transcript.jsonl"
     _write_transcript_jsonl(
@@ -7052,10 +7052,10 @@ def test_compute_transcript_cumulative_cost_sums_priced_messages(
     a regression in per-message summation or token pricing fails loudly —
     not just "some positive number".
     """
-    from omnigent.llms.context_window import ModelPricing
+    from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("omnigent.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "transcript.jsonl"
     _write_transcript_jsonl(
@@ -7095,7 +7095,7 @@ def test_compute_transcript_cumulative_cost_refreshes_changed_custom_pricing(
 
     active_config = provider_config(1.0)
     monkeypatch.setattr(
-        "omnigent.onboarding.provider_config.load_config",
+        "agentnexus.onboarding.provider_config.load_config",
         lambda: active_config,
     )
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
@@ -7126,10 +7126,10 @@ def test_compute_transcript_cumulative_cost_excludes_parent_sidechains(
     own transcript would double-bill, so the parent path must drop them.
     The sub-agent path (``include_sidechains=True``) counts everything.
     """
-    from omnigent.llms.context_window import ModelPricing
+    from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=0.0)
-    monkeypatch.setattr("omnigent.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "parent.jsonl"
     _write_transcript_jsonl(
@@ -7159,7 +7159,7 @@ def test_compute_transcript_cumulative_cost_none_when_nothing_priceable(
     model with no available pricing — each must yield ``None`` so the
     forwarder treats it as "no estimate" rather than "$0 spent".
     """
-    from omnigent.llms.context_window import ModelPricing
+    from agentnexus.llms.context_window import ModelPricing
 
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     # Missing file.
@@ -7171,7 +7171,7 @@ def test_compute_transcript_cumulative_cost_none_when_nothing_priceable(
     )
     # File with no assistant usage.
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("omnigent.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
     no_usage = tmp_path / "no_usage.jsonl"
     _write_transcript_jsonl(no_usage, [{"message": {"role": "user", "content": "hi"}}])
     assert (
@@ -7180,7 +7180,7 @@ def test_compute_transcript_cumulative_cost_none_when_nothing_priceable(
     )
     # Pricing unavailable for the model.
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
-    monkeypatch.setattr("omnigent.llms.context_window.fetch_model_pricing", lambda model: None)
+    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: None)
     priced = tmp_path / "priced.jsonl"
     _write_transcript_jsonl(priced, [_assistant_entry(model="m", input_tokens=5, output_tokens=5)])
     assert (
@@ -7218,7 +7218,7 @@ def test_format_terminal_failure_tail_caps_length(monkeypatch: pytest.MonkeyPatc
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TERMINAL_FAILURE_TAIL_CHARS", 50)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TERMINAL_FAILURE_TAIL_CHARS", 50)
     pane = "\n".join(f"line {i}" for i in range(100))
     tail = claude_native_bridge._format_terminal_failure_tail(pane)
     body = tail.split("\n", 1)[1]
@@ -7248,7 +7248,7 @@ def test_wait_for_claude_prompt_ready_surfaces_terminal_output_on_timeout(
         "  at parse (unknown)\n"
     )
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._capture_pane",
+        "agentnexus.claude_native_bridge._capture_pane",
         lambda socket_path, tmux_target: crash_pane,
     )
     with pytest.raises(RuntimeError) as excinfo:
@@ -7279,7 +7279,7 @@ def test_wait_for_claude_prompt_ready_reports_empty_capture_count(
     :returns: None.
     """
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._capture_pane",
+        "agentnexus.claude_native_bridge._capture_pane",
         lambda socket_path, tmux_target: "",
     )
     with pytest.raises(RuntimeError) as excinfo:
@@ -7326,7 +7326,7 @@ def test_wait_for_claude_prompt_ready_tail_is_observed_not_recaptured(
         # rewritten gate must never fetch, since it does not re-capture.
         return observed if calls["n"] == 1 else late_ready
 
-    monkeypatch.setattr("omnigent.claude_native_bridge._capture_pane", fake_capture)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._capture_pane", fake_capture)
     with pytest.raises(RuntimeError) as excinfo:
         claude_native_bridge._wait_for_claude_prompt_ready(
             "/tmp/example/tmux.sock",
@@ -7539,7 +7539,7 @@ def test_hook_record_non_stop_event_has_no_background_task_detail() -> None:
 
 # ── /model switching + pane readiness ───────────────────────────────────
 
-#: Claude Code's interactive ``/model`` picker. Omnigent never drives it —
+#: Claude Code's interactive ``/model`` picker. AgentNexus never drives it —
 #: it types ``/model <id>`` — but a picker the person opened by hand covers
 #: the input box, so the readiness gate has to recognise it.
 _MODEL_PICKER_PANE = """\
@@ -8273,8 +8273,8 @@ def test_inject_user_message_restores_an_occupied_input_box_first(
     (its own documented dismissal), restoring the empty input box, then
     deliver the message normally.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
         bridge_dir,
@@ -8400,10 +8400,10 @@ def test_inject_user_message_retries_a_swallowed_occupied_input_escape(
     Retries fire only while the surface is verifiably on screen, so none
     can reach the restored composer (where Escape interrupts a turn).
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._CLAUDE_READY_POLL_INTERVAL_S", 0.01)
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge._OCCUPIED_INPUT_DISMISS_RETRY_INTERVAL_S", 0.0
+        "agentnexus.claude_native_bridge._OCCUPIED_INPUT_DISMISS_RETRY_INTERVAL_S", 0.0
     )
     bridge_dir = tmp_path / "bridge"
     write_tmux_target(
@@ -8609,11 +8609,11 @@ def test_statusline_shell_command_captures_and_chains(
     forwarder-side sync, and the chained command must receive the exact
     stdin Claude sent.
     """
-    from omnigent.claude_native_status import CONTEXT_RAW_FILE, sync_raw_status_context
+    from agentnexus.claude_native_status import CONTEXT_RAW_FILE, sync_raw_status_context
 
     chain_out = tmp_path / "chain_out.json"
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.read_user_status_line_command",
+        "agentnexus.claude_native_bridge.read_user_status_line_command",
         lambda: f"cat > {chain_out}",
     )
     args = augment_claude_args((), bridge_dir=tmp_path)
@@ -8681,9 +8681,9 @@ class _ScriptedPolicyClient:
 
 def _hook_relay(tmp_path, monkeypatch, client):
     """Boot a relay wired with *client* for the hook-evaluate tests."""
-    from omnigent import pi_native_bridge
+    from agentnexus import pi_native_bridge
 
-    monkeypatch.setattr("omnigent.pi_native_bridge._BRIDGE_ROOT", tmp_path / "pi-native")
+    monkeypatch.setattr("agentnexus.pi_native_bridge._BRIDGE_ROOT", tmp_path / "pi-native")
     bridge_dir = pi_native_bridge.prepare_bridge_dir("conv_hook_eval")
 
     async def _executor(name: str, arguments: dict[str, object]) -> dict[str, object]:
@@ -8743,7 +8743,7 @@ async def test_hook_evaluate_endpoint_allows(
         assert client.calls == 2, f"every event must evaluate upstream, saw {client.calls}"
         # The relay wrote the shell-sourceable env file the curl hooks use.
         env_text = (bridge_dir / claude_native_bridge._TOOL_RELAY_ENV_FILE).read_text("utf-8")
-        assert "OMNIGENT_RELAY_URL=" in env_text and "OMNIGENT_RELAY_TOKEN=" in env_text
+        assert "AGENTNEXUS_RELAY_URL=" in env_text and "AGENTNEXUS_RELAY_TOKEN=" in env_text
     finally:
         relay.close()
 

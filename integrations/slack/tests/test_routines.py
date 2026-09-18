@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Any
 
 from fakes import RecordingSlackClient
-from omnigent_slack.routines import RoutineCompletionPoller
-from omnigent_slack.store import SQLiteStore
+from agentnexus_slack.routines import RoutineCompletionPoller
+from agentnexus_slack.store import SQLiteStore
 
 
-class FakeOmnigent:
+class FakeAgentNexus:
     def __init__(self, tasks: list[dict[str, Any]]) -> None:
         self.tasks = tasks
         self.latest = ("item_1", "Routine result summary.")
@@ -22,11 +22,11 @@ class FakeOmnigent:
 
 
 class FakePool:
-    def __init__(self, client: FakeOmnigent) -> None:
+    def __init__(self, client: FakeAgentNexus) -> None:
         self.client = client
         self.requested: list[str] = []
 
-    async def get(self, server_url: str, user_id: str = "") -> FakeOmnigent:
+    async def get(self, server_url: str, user_id: str = "") -> FakeAgentNexus:
         self.requested.append(user_id)
         return self.client
 
@@ -61,7 +61,7 @@ def _task(
 async def test_poller_delivers_fresh_routine_to_bound_channel(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = RecordingSlackClient()
-    omnigent = FakeOmnigent([_task(run_at=time.time())])
+    omnigent = FakeAgentNexus([_task(run_at=time.time())])
     pool = FakePool(omnigent)
     poller = RoutineCompletionPoller(
         store=store,
@@ -86,7 +86,7 @@ async def test_poller_delivers_fresh_routine_to_bound_channel(tmp_path: Path) ->
 async def test_poller_dedupes_a_delivered_run(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = RecordingSlackClient()
-    omnigent = FakeOmnigent([_task(run_at=time.time())])
+    omnigent = FakeAgentNexus([_task(run_at=time.time())])
     pool = FakePool(omnigent)
     poller = RoutineCompletionPoller(
         store=store,
@@ -106,7 +106,7 @@ async def test_poller_dedupes_a_delivered_run(tmp_path: Path) -> None:
 async def test_poller_marks_preexisting_runs_without_spamming(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = RecordingSlackClient()
-    omnigent = FakeOmnigent([_task(run_at=time.time() - 3600)])
+    omnigent = FakeAgentNexus([_task(run_at=time.time() - 3600)])
     pool = FakePool(omnigent)
     poller = RoutineCompletionPoller(
         store=store,

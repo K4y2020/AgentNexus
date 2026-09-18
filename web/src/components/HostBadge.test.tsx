@@ -256,7 +256,7 @@ describe("HostBadge", () => {
 
   it("stays passive for a dormant resumable managed host", () => {
     // A resumable sandbox host reads offline while idle-stopped, but the next
-    // message wakes it — offering `omnigent host` there would be wrong.
+    // message wakes it — offering `agentnexus host` there would be wrong.
     useSessionMock.mockReturnValue({
       session: { hostId: "host_a1b2", hostResumable: true },
       isLoading: false,
@@ -267,7 +267,7 @@ describe("HostBadge", () => {
     render(<HostBadge sessionId="conv_1" onReconnect={onReconnect} />);
     const badge = screen.getByTestId("host-badge");
     expect(badge.textContent).toBe("mac-laptop, offline");
-    // `omnigent host` is the wrong instruction here, so the click must not
+    // `agentnexus host` is the wrong instruction here, so the click must not
     // reach reconnect — it opens the switch dialog like any non-reconnect host.
     fireEvent.click(badge);
     expect(onReconnect).not.toHaveBeenCalled();

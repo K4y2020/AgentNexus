@@ -22,7 +22,7 @@ const {
 
 describe("defaultSchemeFor", () => {
   it("defaults remote hosts to https", () => {
-    assert.equal(defaultSchemeFor("dbc-x.cloud.databricks.com/omnigent"), "https");
+    assert.equal(defaultSchemeFor("dbc-x.cloud.databricks.com/agentnexus"), "https");
     assert.equal(defaultSchemeFor("example.com"), "https");
   });
 
@@ -40,7 +40,7 @@ describe("defaultSchemeFor", () => {
 describe("normalizeUrl", () => {
   it("defaults a schemeless workspace URL to https and removes its path", () => {
     assert.equal(
-      normalizeUrl("dbc-a5d4177a-49dc.cloud.databricks.com/omnigent"),
+      normalizeUrl("dbc-a5d4177a-49dc.cloud.databricks.com/agentnexus"),
       "https://dbc-a5d4177a-49dc.cloud.databricks.com/",
     );
   });
@@ -67,7 +67,7 @@ describe("normalizeUrl", () => {
   it("preserves the Databricks organization while removing other URL state", () => {
     assert.equal(
       normalizeUrl(
-        "  https://isaac.databricks.com/omnigent/c/123?view=chat&o=1965859176160743#latest  ",
+        "  https://isaac.databricks.com/agentnexus/c/123?view=chat&o=1965859176160743#latest  ",
       ),
       "https://isaac.databricks.com/?o=1965859176160743",
     );
@@ -109,7 +109,7 @@ describe("normalizeRecentServers", () => {
   it("shows root URLs, preserves organizations, and deduplicates", () => {
     assert.deepEqual(
       normalizeRecentServers([
-        "https://isaac.databricks.com/omnigent?o=1965859176160743",
+        "https://isaac.databricks.com/agentnexus?o=1965859176160743",
         "https://isaac.databricks.com/c/123?ignored=yes&o=1965859176160743",
         "http://localhost:6767/conversation/123",
         "not a URL",
@@ -127,7 +127,7 @@ describe("normalizeRecentServers", () => {
 describe("serverDisplayLabel", () => {
   it("shows only the host and optional Databricks organization", () => {
     assert.equal(
-      serverDisplayLabel("https://isaac.databricks.com/omnigent?o=1965859176160743"),
+      serverDisplayLabel("https://isaac.databricks.com/agentnexus?o=1965859176160743"),
       "isaac.databricks.com/?o=1965859176160743",
     );
     assert.equal(serverDisplayLabel("http://localhost:6767/sessions"), "localhost:6767");
@@ -149,7 +149,7 @@ describe("serverDisplayLabel", () => {
 describe("isPlainHttpRemote", () => {
   it("does not warn for a bare remote host (now https)", () => {
     assert.equal(isPlainHttpRemote("example.databricks.com"), false);
-    assert.equal(isPlainHttpRemote("dbc-x.cloud.databricks.com/omnigent"), false);
+    assert.equal(isPlainHttpRemote("dbc-x.cloud.databricks.com/agentnexus"), false);
   });
 
   it("warns for an explicit http:// to a remote host", () => {
@@ -172,24 +172,24 @@ describe("isPlainHttpRemote", () => {
 describe("normalizeSavedServerUrl", () => {
   it("maps the current Databricks API mount to the UI mount", () => {
     assert.equal(
-      normalizeSavedServerUrl("https://ws.cloud.databricks.com/api/2.0/omnigent"),
-      "https://ws.cloud.databricks.com/omnigent",
+      normalizeSavedServerUrl("https://ws.cloud.databricks.com/api/2.0/agentnexus"),
+      "https://ws.cloud.databricks.com/agentnexus",
     );
   });
 
   it("maps the legacy plural API mount to the current UI mount", () => {
     assert.equal(
-      normalizeSavedServerUrl("https://ws.azuredatabricks.net/api/2.0/omnigents"),
-      "https://ws.azuredatabricks.net/omnigent",
+      normalizeSavedServerUrl("https://ws.azuredatabricks.net/api/2.0/agentnexuss"),
+      "https://ws.azuredatabricks.net/agentnexus",
     );
   });
 
   it("handles trailing slashes while preserving port, query, and fragment", () => {
     assert.equal(
       normalizeSavedServerUrl(
-        "https://ws.cloud.databricks.com:8443/api/2.0/omnigent/?o=123#conversation",
+        "https://ws.cloud.databricks.com:8443/api/2.0/agentnexus/?o=123#conversation",
       ),
-      "https://ws.cloud.databricks.com:8443/omnigent?o=123#conversation",
+      "https://ws.cloud.databricks.com:8443/agentnexus?o=123#conversation",
     );
   });
 
@@ -197,8 +197,8 @@ describe("normalizeSavedServerUrl", () => {
     for (const url of [
       "https://ws.cloud.databricks.com",
       "https://ws.cloud.databricks.com/",
-      "https://ws.cloud.databricks.com/omnigent?o=123#state",
-      "https://ws.cloud.databricks.com/ml/omnigents",
+      "https://ws.cloud.databricks.com/agentnexus?o=123#state",
+      "https://ws.cloud.databricks.com/ml/agentnexuss",
     ]) {
       assert.equal(normalizeSavedServerUrl(url), url);
     }
@@ -206,10 +206,10 @@ describe("normalizeSavedServerUrl", () => {
 
   it("does not rewrite matching paths on non-workspace hosts or nested paths", () => {
     for (const url of [
-      "https://example.com/api/2.0/omnigent",
-      "https://databricks.com.example.org/api/2.0/omnigent",
-      "https://ws.cloud.databricks.com/prefix/api/2.0/omnigent",
-      "ftp://ws.cloud.databricks.com/api/2.0/omnigent",
+      "https://example.com/api/2.0/agentnexus",
+      "https://databricks.com.example.org/api/2.0/agentnexus",
+      "https://ws.cloud.databricks.com/prefix/api/2.0/agentnexus",
+      "ftp://ws.cloud.databricks.com/api/2.0/agentnexus",
     ]) {
       assert.equal(normalizeSavedServerUrl(url), url);
     }
@@ -245,21 +245,21 @@ function fakeResponse(serverHeader) {
 }
 
 describe("databricksWorkspaceUiUrl", () => {
-  it("maps AWS and Azure workspace roots to /omnigent", () => {
+  it("maps AWS and Azure workspace roots to /agentnexus", () => {
     assert.equal(
       databricksWorkspaceUiUrl("https://ws.cloud.databricks.com/"),
-      "https://ws.cloud.databricks.com/omnigent",
+      "https://ws.cloud.databricks.com/agentnexus",
     );
     assert.equal(
       databricksWorkspaceUiUrl("http://ws.azuredatabricks.net"),
-      "http://ws.azuredatabricks.net/omnigent",
+      "http://ws.azuredatabricks.net/agentnexus",
     );
   });
 
   it("preserves port, query, and fragment", () => {
     assert.equal(
       databricksWorkspaceUiUrl("https://ws.cloud.databricks.com:8443/?o=123#page"),
-      "https://ws.cloud.databricks.com:8443/omnigent?o=123#page",
+      "https://ws.cloud.databricks.com:8443/agentnexus?o=123#page",
     );
   });
 
@@ -293,10 +293,10 @@ describe("expandDatabricksWorkspaceUrl", () => {
           "https://ws.cloud.databricks.com/some/copied/path?o=123#fragment",
         );
         assert.equal(normalized, "https://ws.cloud.databricks.com/?o=123");
-        assert.equal(WORKSPACE_UI_PATH, "/omnigent");
+        assert.equal(WORKSPACE_UI_PATH, "/agentnexus");
         assert.equal(
           await expandDatabricksWorkspaceUrl(normalized),
-          "https://ws.cloud.databricks.com/omnigent?o=123",
+          "https://ws.cloud.databricks.com/agentnexus?o=123",
         );
       },
     );
@@ -324,7 +324,7 @@ describe("expandDatabricksWorkspaceUrl", () => {
         return fakeResponse("databricks");
       },
       async () => {
-        const url = "https://ws.cloud.databricks.com/omnigent";
+        const url = "https://ws.cloud.databricks.com/agentnexus";
         assert.equal(await expandDatabricksWorkspaceUrl(url), url);
       },
     );
@@ -400,7 +400,7 @@ describe("fetchServerManifest", () => {
   it("reads a well-formed manifest", async () => {
     await withFetch(
       async (url) => {
-        assert.equal(url, "http://localhost:6767/.well-known/omnigent.json");
+        assert.equal(url, "http://localhost:6767/.well-known/agentnexus.json");
         return fakeJsonResponse({
           manifest_version: 1,
           server_version: "0.6.0",
@@ -542,15 +542,15 @@ describe("fetchServerManifest", () => {
   });
 
   it("requests the manifest at the origin root, ignoring any path", async () => {
-    // A workspace-mounted server (…/omnigent) still serves the manifest at
+    // A workspace-mounted server (…/agentnexus) still serves the manifest at
     // the ORIGIN root — well-known URIs are origin-scoped by RFC 8615.
     await withFetch(
       async (url) => {
-        assert.equal(url, "https://ws.example.com/.well-known/omnigent.json");
+        assert.equal(url, "https://ws.example.com/.well-known/agentnexus.json");
         return fakeJsonResponse({ manifest_version: 1 });
       },
       async () => {
-        const m = await fetchServerManifest("https://ws.example.com/omnigent");
+        const m = await fetchServerManifest("https://ws.example.com/agentnexus");
         assert.equal(m.manifestVersion, 1);
       },
     );

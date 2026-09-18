@@ -24,8 +24,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.errors import OmnigentError
-from omnigent.host.frames import (
+from agentnexus.errors import AgentNexusError
+from agentnexus.host.frames import (
     HostDetectCredentialsFrame,
     HostDetectCredentialsResultFrame,
     HostHelloFrame,
@@ -34,14 +34,14 @@ from omnigent.host.frames import (
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.server.feature_flags import FeatureFlags
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes.host_tunnel import create_host_tunnel_router
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.feature_flags import FeatureFlags
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -55,7 +55,7 @@ _HOST_NAME = "credential-test-laptop"
 @pytest.fixture(autouse=True)
 def _enable_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     """Enable the feature flag for every test except the flag-off case."""
-    monkeypatch.setenv("OMNIGENT_FEATURES", "harness_install")
+    monkeypatch.setenv("AGENTNEXUS_FEATURES", "harness_install")
 
 
 def _websocket_scope(path: str) -> dict[str, object]:
@@ -101,10 +101,10 @@ def cred_app(
     app.include_router(create_host_tunnel_router(registry, host_store), prefix="/v1")
     app.include_router(create_hosts_router(registry, host_store, conv_store), prefix="/v1")
 
-    @app.exception_handler(OmnigentError)
+    @app.exception_handler(AgentNexusError)
     async def _handle_omnigent_error(
         request: Request,
-        exc: OmnigentError,
+        exc: AgentNexusError,
     ) -> JSONResponse:
         """Convert application errors to structured JSON responses."""
         return JSONResponse(
@@ -248,7 +248,7 @@ async def test_store_credential_tolerates_a_garbled_gateway_inference(
         }
 
     monkeypatch.setattr(
-        "omnigent.server.routes.hosts._proxy_store_secret",
+        "agentnexus.server.routes.hosts._proxy_store_secret",
         _garbled_reply,
     )
 
@@ -505,7 +505,7 @@ async def test_non_owner_returns_403(
     """A host owned by another user returns 403 — not configurable by non-owners."""
     from typing import Any as _Any
 
-    from omnigent.server.auth import AuthProvider
+    from agentnexus.server.auth import AuthProvider
 
     _app, _reg, host_store, conv_store = cred_app
 

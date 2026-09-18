@@ -1,12 +1,12 @@
 ---
 name: cursor-sdk-e2e-dev
-description: Spin up a live local Omnigent server and exercise the Cursor SDK harness end-to-end — build cursor agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the cursor harness (omnigent/inner/cursor_executor.py, cursor_harness.py, cursor_auth.py) or its auth / model / tool-bridge behavior.
+description: Spin up a live local AgentNexus server and exercise the Cursor SDK harness end-to-end — build cursor agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the cursor harness (agentnexus/inner/cursor_executor.py, cursor_harness.py, cursor_auth.py) or its auth / model / tool-bridge behavior.
 ---
 
 # Cursor SDK harness: end-to-end dev & testing
 
 The `cursor` harness drives the **Cursor Python SDK** (`cursor_sdk`, an
-`AsyncAgent` over a local bridge) and bridges Omnigent's `sys_*` tools into
+`AsyncAgent` over a local bridge) and bridges AgentNexus's `sys_*` tools into
 Cursor as SDK `custom_tools`. This skill is the proven recipe for running it
 **for real** against a live local server — not just the unit tests.
 
@@ -21,7 +21,7 @@ Cursor as SDK `custom_tools`. This skill is the proven recipe for running it
    (`crsr_…`); there is no `cursor-agent login` path. Verify (booleans only —
    never print the key):
    ```bash
-   .venv/bin/python -c "from omnigent.onboarding.cursor_auth import cursor_api_key_configured; import os; print('config:', cursor_api_key_configured(), 'env:', bool(os.environ.get('CURSOR_API_KEY')))"
+   .venv/bin/python -c "from agentnexus.onboarding.cursor_auth import cursor_api_key_configured; import os; print('config:', cursor_api_key_configured(), 'env:', bool(os.environ.get('CURSOR_API_KEY')))"
    ```
    If both are `False`, run `omni setup` and register a Cursor key, or
    `export CURSOR_API_KEY=crsr_…`.
@@ -34,13 +34,13 @@ Cursor as SDK `custom_tools`. This skill is the proven recipe for running it
 ## Step 1 — start a local server
 
 ```bash
-cd /path/to/omnigent
+cd /path/to/agentnexus
 .venv/bin/omni server --background          # spawns a detached server on a free loopback port
 .venv/bin/omni server status         # prints the URL, e.g. http://127.0.0.1:6767
 ```
 
 Use the **printed URL** below as `$SERVER`. (You can also run a foreground
-server on a fixed port with `omnigent server --port 7777 --no-open`.)
+server on a fixed port with `agentnexus server --port 7777 --no-open`.)
 
 ## Step 2 — build a cursor agent bundle
 
@@ -54,7 +54,7 @@ spec_version: 1
 name: cursor-dev
 description: Cursor SDK dev/test agent.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: cursor
     # model: gpt-5            # optional; omit for cursor "auto"
@@ -99,7 +99,7 @@ that works, the full stack is good: key, egress, bridge, harness.
    deploy — which may be **stale** and reject the cursor harness with
    `executor.config.harness: must be one of […], got 'cursor'`. **Always pass
    `--server http://127.0.0.1:<port>`** for local testing. (That allowlist is
-   `omnigent/spec/_omnigent_compat.py`; if a *local* server rejects `cursor`,
+   `agentnexus/spec/_agentnexus_compat.py`; if a *local* server rejects `cursor`,
    it's running stale code — restart it from your checkout.)
 2. **A spec with `spec_version` must be a directory + `config.yaml`**, never a
    single `.yaml` file.
@@ -121,10 +121,10 @@ that works, the full stack is good: key, egress, bridge, harness.
 
 ## Code & tests
 
-- **Executor (SDK bridge):** `omnigent/inner/cursor_executor.py`
-- **Wrap (HARNESS_CURSOR_* env → executor):** `omnigent/inner/cursor_harness.py`
-- **Auth / key resolution:** `omnigent/onboarding/cursor_auth.py`
-- **Spawn env:** `_build_cursor_spawn_env` in `omnigent/runtime/workflow.py`
+- **Executor (SDK bridge):** `agentnexus/inner/cursor_executor.py`
+- **Wrap (HARNESS_CURSOR_* env → executor):** `agentnexus/inner/cursor_harness.py`
+- **Auth / key resolution:** `agentnexus/onboarding/cursor_auth.py`
+- **Spawn env:** `_build_cursor_spawn_env` in `agentnexus/runtime/workflow.py`
 
 ```bash
 # Unit tests (use --frozen; the cwsandbox extra is unsatisfiable on public PyPI here)
@@ -133,7 +133,7 @@ uv run --frozen --group test python -m pytest \
   tests/runtime/test_cursor_spawn_env.py \
   tests/onboarding/test_cursor_auth.py -q
 # Gated end-to-end harness test
-uv run --frozen --group test python -m pytest tests/e2e/omnigent/test_per_harness_cursor.py -q
+uv run --frozen --group test python -m pytest tests/e2e/agentnexus/test_per_harness_cursor.py -q
 ```
 
 ## Bug-bash (fan out)

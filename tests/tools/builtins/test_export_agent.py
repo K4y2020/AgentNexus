@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.export_agent import ExportAgentTool
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.export_agent import ExportAgentTool
 
 
 @pytest.fixture()

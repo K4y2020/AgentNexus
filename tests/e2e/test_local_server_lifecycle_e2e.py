@@ -18,8 +18,8 @@ without ``--llm-api-key``::
     .venv/bin/python -m pytest tests/e2e/test_local_server_lifecycle_e2e.py -v
 
 Each test isolates ``$HOME`` to a tmp dir so the pidfile / sig / DB land
-under ``<home>/.omnigent`` and never touch the developer's real
-``~/.omnigent`` or a server on the real :8000 (a busy :8000 just makes
+under ``<home>/.agentnexus`` and never touch the developer's real
+``~/.agentnexus`` or a server on the real :8000 (a busy :8000 just makes
 the canonical server fall back to a free port, recorded in the isolated
 pidfile — discovery is via the pidfile, never the port).
 """
@@ -62,18 +62,18 @@ _ENV_TO_CLEAR = (
     "OPENAI_API_KEY",
     "CLAUDE_CODE",
     "CODEX",
-    "OMNIGENT_DATA_DIR",
-    "OMNIGENT_CONFIG_HOME",
-    "OMNIGENT_AUTH_ENABLED",
+    "AGENTNEXUS_DATA_DIR",
+    "AGENTNEXUS_CONFIG_HOME",
+    "AGENTNEXUS_AUTH_ENABLED",
     # An ambient issuer would select oidc once auth is (accidentally) enabled.
-    "OMNIGENT_OIDC_ISSUER",
-    "OMNIGENT_AUTH_PROVIDER",
-    # ensure_local_omnigent_server honors OMNIGENT_DATABASE_URI over the isolated
-    # tmp sqlite db, and the server honors OMNIGENT_RUNNER_TUNNEL_TOKEN — if
+    "AGENTNEXUS_OIDC_ISSUER",
+    "AGENTNEXUS_AUTH_PROVIDER",
+    # ensure_local_omnigent_server honors AGENTNEXUS_DATABASE_URI over the isolated
+    # tmp sqlite db, and the server honors AGENTNEXUS_RUNNER_TUNNEL_TOKEN — if
     # either is set on the dev box / CI, the spawned server escapes the
     # isolated HOME (shared DB, tunnel-token allowlist) and the test flakes.
-    "OMNIGENT_DATABASE_URI",
-    "OMNIGENT_RUNNER_TUNNEL_TOKEN",
+    "AGENTNEXUS_DATABASE_URI",
+    "AGENTNEXUS_RUNNER_TUNNEL_TOKEN",
 )
 
 
@@ -117,7 +117,7 @@ def _isolated_env(home: Path) -> dict[str, str]:
     Databricks profile. PYTHONPATH pins the worktree checkout so the
     subprocess imports the branch under test, not a stale installed wheel.
 
-    :param home: The tmp home dir; ``<home>/.omnigent`` holds the pidfile,
+    :param home: The tmp home dir; ``<home>/.agentnexus`` holds the pidfile,
         sig, DB, and artifacts for this test.
     :returns: The environment dict for ``subprocess.Popen``.
     """
@@ -133,9 +133,9 @@ def _pidfile_path(home: Path) -> Path:
     """Return the canonical local-server pidfile path under an isolated home.
 
     :param home: The isolated home dir.
-    :returns: ``<home>/.omnigent/local_server.pid``.
+    :returns: ``<home>/.agentnexus/local_server.pid``.
     """
-    return home / ".omnigent" / "local_server.pid"
+    return home / ".agentnexus" / "local_server.pid"
 
 
 def _read_pidfile(path: Path) -> tuple[int, int] | None:
@@ -268,8 +268,8 @@ def _respawned_server_pids(home: Path) -> set[int]:
     The single-server invariant for scenario 1: ``connect`` must REUSE the
     foreground server, not spawn a competitor. Any respawn goes through
     :func:`ensure_local_omnigent_server`, which spawns a detached
-    ``omnigent server --database-uri sqlite:///<home>/.omnigent/chat.db
-    --artifact-location <home>/.omnigent/artifacts`` — so its argv carries
+    ``omnigent server --database-uri sqlite:///<home>/.agentnexus/chat.db
+    --artifact-location <home>/.agentnexus/artifacts`` — so its argv carries
     this isolated HOME path. The reused foreground server (spawned here as a
     bare ``["server"]``) does NOT, so every match is a respawned competitor,
     never the original. This is independent of the pidfile, so it catches a
@@ -289,13 +289,13 @@ def _respawned_server_pids(home: Path) -> set[int]:
         text=True,
         check=False,
     ).stdout
-    # Match the home as a directory PREFIX (``<home>/.omnigent/...`` always
+    # Match the home as a directory PREFIX (``<home>/.agentnexus/...`` always
     # appears in a respawn's argv), not a bare substring — so a sibling home
     # sharing a prefix (``/tmp/x/home`` vs ``/tmp/x/home2``) can't false-match.
     home_prefix = f"{home}{os.sep}"
     pids: set[int] = set()
     for line in out.splitlines():
-        if "omnigent.cli" not in line or home_prefix not in line:
+        if "agentnexus.cli" not in line or home_prefix not in line:
             continue
         if not re.search(r"\bserver\b", line):
             continue
@@ -347,7 +347,7 @@ class _Procs:
         fh = open(log, "wb")  # noqa: SIM115
         self._logs.append(fh)
         proc = subprocess.Popen(
-            [sys.executable, "-m", "omnigent.cli", *args],
+            [sys.executable, "-m", "agentnexus.cli", *args],
             env=env,
             cwd=str(cwd),
             stdout=fh,

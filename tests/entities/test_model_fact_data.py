@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities import ModelFactData, NewConversationItem, parse_item_data
+from agentnexus.entities import ModelFactData, NewConversationItem, parse_item_data
 
 
 def test_model_fact_round_trips_all_three_layers() -> None:
@@ -59,7 +59,7 @@ def test_model_fact_unknown_layers_carry_reasons() -> None:
 
 def test_model_fact_api_dict_flattens_snake_case_fields() -> None:
     """to_api_dict exposes the fact chain fields for GET items consumers."""
-    from omnigent.entities import ConversationItem
+    from agentnexus.entities import ConversationItem
 
     item = ConversationItem(
         id="item_1",

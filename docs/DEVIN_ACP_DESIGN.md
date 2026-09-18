@@ -1,6 +1,6 @@
 # Devin (`acp:devin`) — architecture, state of the world, and follow-ups
 
-Devin (Cognition's `devin acp`) runs through Omnigent's **generic ACP harness** —
+Devin (Cognition's `devin acp`) runs through AgentNexus's **generic ACP harness** —
 no bespoke transport, no fork of the executor six other agents share. What makes
 it more than a config row is one small, self-contained vendor layer that plugs in
 above a seam; everything below the seam is the generic ACP pipeline.
@@ -15,14 +15,14 @@ This document is three things:
 
 > Current as of 2026-08-26. Grounded in `harness_capabilities()` on `main`, the
 > harness bench (`tests/harness_bench`), and live `devin acp` probes (Devin Pro,
-> v3000.x). Devin authenticates itself (`devin auth login`); Omnigent stores no
+> v3000.x). Devin authenticates itself (`devin auth login`); AgentNexus stores no
 > Devin credential.
 
 ---
 
 ## State of the world
 
-Devin rides the generic executor (`omnigent/inner/acp_executor.py`), so it starts
+Devin rides the generic executor (`agentnexus/inner/acp_executor.py`), so it starts
 with everything that path already does and adds a Devin-specific sub-agent layer.
 The table is Devin-centric: **✓** works on `main`, **~** partial/caveated, **✗**
 absent. Where a gap has a tracking PR it is named; those are expanded under
@@ -31,11 +31,11 @@ absent. Where a gap has a tracking PR it is named; those are expanded under
 | Capability | State | Mechanism / caveat |
 |---|:---:|---|
 | Integration | ✓ | ACP subprocess (`devin acp`) over JSON-RPC/stdio; generic executor |
-| Auth | ✓ | Devin's own (`devin auth login`); Omnigent stores no credential |
+| Auth | ✓ | Devin's own (`devin auth login`); AgentNexus stores no credential |
 | Model family | ✓ | Multi — SWE / Claude / Gemini / GPT; effort is encoded in the model id |
 | Model switch mid-session | ✓ | Warm, via `session/set_config_option` (#4703) — no respawn |
 | Setup + picker | ✓ | Builtin `devin` row; catalog-derived identity (#4909, #4920); a configured `acp:` agent of the same name wins (#4927) |
-| Omnigent MCP relay | ✓ | stdio; 26 builtin tools bridged via `session/new.mcpServers` |
+| AgentNexus MCP relay | ✓ | stdio; 26 builtin tools bridged via `session/new.mcpServers` |
 | Streaming / reasoning / tool cards | ✓ | `agent_message_chunk` / `agent_thought_chunk` / `tool_call` |
 | Images · cost/usage · interrupt | ✓ | image blocks · `result.usage` · `session/cancel` |
 | Tool-call identity in the approval card | ✓ | Card names the tool + command, not `"tool"` / `{}` (#5050) |
@@ -45,7 +45,7 @@ absent. Where a gap has a tracking PR it is named; those are expanded under
 | **Sub-agents surface in the UI** | ✓ | Devin's parallel sub-agents appear as child sessions, labelled "Devin" (#5489) |
 | Sub-agent transcript depth | ✓ | Child chat shows the sub-agent's nested tool calls, routed via `cognition.ai/subagent_context` (#5575), and they persist across reload (#5583) |
 | Policy on edits / MCP tools | ~ | Shell is gated; file edits (under *accept-edits*) and the agent's own MCP tools are not — #4707 |
-| Shell **execution** | ~ | Devin executes its shell; Omnigent gates but does not run it (no terminal takeover) — #4701 |
+| Shell **execution** | ~ | Devin executes its shell; AgentNexus gates but does not run it (no terminal takeover) — #4701 |
 | Cost / token budget | ~ | `cachedReadTokens` dropped; no budget primitive — #4704 |
 | Compaction | ~ | Devin compacts internally and surfaces no progress |
 | Warm resume | ✗ | Cold text-replay only; `session/load` not implemented — #4705 |
@@ -70,16 +70,16 @@ kilocode, Qwen, and every BYO `acp:<slug>` agent already share.
 ### The mental model
 
 ```
-AcpSubAgentSource   (Protocol, generic)        omnigent/inner/acp_subagents.py
+AcpSubAgentSource   (Protocol, generic)        agentnexus/inner/acp_subagents.py
    read(update) -> Sequence[SubAgentStart | SubAgentEnd]
         ▲ implements
-DevinSubAgentSource                            omnigent/inner/devin/subagents.py   ← vendor
+DevinSubAgentSource                            agentnexus/inner/devin/subagents.py   ← vendor
         │ held by
-AcpExtension(name, subagent_sources=(...))     omnigent/inner/acp_extension.py     ← the seam
+AcpExtension(name, subagent_sources=(...))     agentnexus/inner/acp_extension.py     ← the seam
    NO_ACP_EXTENSION    = ("acp",   ())         ← generic default: reads no vendor field
-   DEVIN_ACP_EXTENSION = ("devin", (DevinSubAgentSource(),))   omnigent/inner/devin/__init__.py
+   DEVIN_ACP_EXTENSION = ("devin", (DevinSubAgentSource(),))   agentnexus/inner/devin/__init__.py
         │ injected via  create_app(extension=...)
-AcpExecutor(config, *, extension=NO_ACP_EXTENSION)   omnigent/inner/acp_executor.py  ← generic
+AcpExecutor(config, *, extension=NO_ACP_EXTENSION)   agentnexus/inner/acp_executor.py  ← generic
    consumes ext.subagent_sources — no vendor name anywhere
 ```
 
@@ -97,7 +97,7 @@ Devin delegates to parallel sub-agents and reports each in its own vendor dialec
 
 ```mermaid
 flowchart TB
-  subgraph V["Vendor · omnigent/inner/devin/"]
+  subgraph V["Vendor · agentnexus/inner/devin/"]
     D["Devin CLI · devin acp"]
     S["DevinSubAgentSource.read(update)"]
     D -->|"_meta cognition.ai/subagent_started = {agentId, title, task}"| S
@@ -108,7 +108,7 @@ flowchart TB
     E["AcpExecutor._handle_session_update<br/>read_subagent_events(update, ext.subagent_sources) → SubAgentStarted"]
     A["ExecutorAdapter._translate_event → SubagentStartedEvent (SSE, runner-internal)"]
     R["runner proxy_stream → _mint_acp_subagent_child"]
-    SV["server _persist_external_acp_subagent_start<br/>mints kind=sub_agent child · no omnigent.wrapper label"]
+    SV["server _persist_external_acp_subagent_start<br/>mints kind=sub_agent child · no agentnexus.wrapper label"]
     P["Subagents panel · one row, labelled Devin"]
     E -->|"ExecutorEvent"| A
     A -->|"subagent.started · never sent to the client"| R
@@ -122,7 +122,7 @@ records the sub-agent's summary + status on the child.
 
 ### Key code
 
-The seam — `omnigent/inner/acp_extension.py`:
+The seam — `agentnexus/inner/acp_extension.py`:
 
 ```python
 @dataclass(frozen=True)
@@ -137,7 +137,7 @@ class AcpExtension:
 NO_ACP_EXTENSION = AcpExtension(name="acp")     # the generic default; reads no vendor field
 ```
 
-Devin plugs in — `omnigent/inner/devin/`:
+Devin plugs in — `agentnexus/inner/devin/`:
 
 ```python
 # subagents.py — the ~30 lines that are genuinely Devin's
@@ -156,7 +156,7 @@ def create_app():
 ```
 
 The generic executor consumes it with no vendor name in sight —
-`omnigent/inner/acp_executor.py`:
+`agentnexus/inner/acp_executor.py`:
 
 ```python
 for sub in read_subagent_events(update, self._extension.subagent_sources):
@@ -210,7 +210,7 @@ core rather than per-vendor.
 ### The child carries no wrapper label — so it inherits the parent's identity
 
 A first cut minted the child through the claude-native path, which stamps
-`omnigent.wrapper = claude-code-native-ui-subagent`. The UI resolves a child's
+`agentnexus.wrapper = claude-code-native-ui-subagent`. The UI resolves a child's
 displayed harness from that label **first**, so a Devin sub-agent rendered as
 "Claude Code". The ACP mint (`_persist_external_acp_subagent_start`) sets **no**
 wrapper value; the child's harness then resolves through `_resolve_harness_impl` to
@@ -287,7 +287,7 @@ flowchart TB
 ```
 
 - **A new Devin capability** (policy hooks, steering) is a sibling module in
-  `omnigent/inner/devin/` plus **one new field** on `AcpExtension` that the executor
+  `agentnexus/inner/devin/` plus **one new field** on `AcpExtension` that the executor
   reads at one more place. This is why the seam is a dataclass, not a bool — it has
   room to carry a `tool_gate`, an `initialize`-capabilities contribution (the opt-in
   the Claude-Code `subagent-transcript` convention needs), and so on.
@@ -302,10 +302,10 @@ flowchart TB
 
 The package is deliberately shaped like a community harness plugin — a folder of
 vendor code plus a `create_app()`, the same layout as
-[`omnigent-rovo`](https://omnigent.ai/docs/build/harnesses/community) and the
+[`agentnexus-rovo`](https://agentnexus.ai/docs/build/harnesses/community) and the
 [Harness Plugin Interface](../designs/harness-plugin-interface.md). Moving Devin to
 its own repo is a **move, not a rewrite**: relocate the folder, add an
-`omnigent.community.harness` entry point, and delete the builtin catalog row (a
+`agentnexus.community.harness` entry point, and delete the builtin catalog row (a
 plugin may not override a builtin harness name). The one dependency it keeps is the
 shared surface — `Executor`, `ExecutorAdapter`, `AcpExtension` — which is exactly
 the plugin contract, and which `test_devin_liftability` enforces so the code cannot
@@ -333,13 +333,13 @@ The roadmap, roughly in priority order. Each is additive and capability-gated pe
 the constraint above. Items with an open PR are named; the rest have no PR yet. A
 couple have shipped since this doc first landed — kept below, marked, as history.
 
-### Tool mediation — run the shell in Omnigent (#4701, open)
+### Tool mediation — run the shell in AgentNexus (#4701, open)
 
-Today Omnigent *gates* Devin's shell (the command is visible to policy since #5050)
+Today AgentNexus *gates* Devin's shell (the command is visible to policy since #5050)
 but Devin *executes* it. Advertising the ACP `terminal/*` client capability makes
-Devin delegate execution back to Omnigent, so the sandbox, audit trail, and policy
+Devin delegate execution back to AgentNexus, so the sandbox, audit trail, and policy
 verdict cannot be bypassed by the agent's own mode — and the user can take the
-terminal over. Verified end-to-end against real `devin acp` (ALLOW ran in Omnigent;
+terminal over. Verified end-to-end against real `devin acp` (ALLOW ran in AgentNexus;
 DENY blocked). Gated on the capability, so agents that ignore it are unaffected.
 
 ### Gate edits and MCP tools via PreToolUse hooks (#4707, open)
@@ -360,7 +360,7 @@ fallback.
 
 ### Detect un-lent MCP servers (#4706, open)
 
-Any ACP agent can load MCP servers Omnigent never lent, bypassing policy. Devin
+Any ACP agent can load MCP servers AgentNexus never lent, bypassing policy. Devin
 announces them (`_cognition.ai/mcp/serversChanged`); parsing that turns an invisible
 hole into a visible warning for the whole ACP family. (Note: the PreToolUse bridge
 above can *gate* those tools via `^mcp__.*` even though it can't stop them loading.)
@@ -384,13 +384,13 @@ reload. Kept here as history — no longer open.
 
 ### Sub-agent sandbox root
 
-**Devin's own isolation model, not an Omnigent seam gap.** Observed while capturing
+**Devin's own isolation model, not an AgentNexus seam gap.** Observed while capturing
 frames: Devin's sub-agents run under a different env root than the task directory
 (e.g. `tmp.tmvzH5OXHu` vs the task's `tmp.nAW8FoCJcT`), so a sub-agent's `write` to
 the task dir is denied and Devin falls back to writing files itself via `exec`. The
 sub-agent's `request_scope` can't cross into the parent task's root — that is Devin's
 sandbox architecture, not something the `AcpExtension` seam can or should fix from
-Omnigent's side. There is no Omnigent PR because there is no Omnigent-side gap; if it
+AgentNexus's side. There is no AgentNexus PR because there is no AgentNexus-side gap; if it
 ever needs addressing it belongs upstream in Devin (or a future ACP scope-negotiation
 primitive).
 
@@ -398,7 +398,7 @@ primitive).
 
 - **Fork history** — no ACP mechanism; native harnesses rebuild from history.
 - **Steering (mid-turn) / live queue** — ACP has no mid-turn message path, so
-  Omnigent can interrupt and re-prompt but not inject into a running turn.
+  AgentNexus can interrupt and re-prompt but not inject into a running turn.
 - **Compaction progress** — Devin compacts internally and surfaces no
   `CompactionComplete`, so long sessions show no compaction indicator.
 - **Headless silent-stall** — a permission request in `-p` mode with no card to

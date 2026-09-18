@@ -35,13 +35,13 @@ _DEPLOY_PY = _ROOT / "deploy" / "databricks" / "deploy.py"
 
 _REQUIRED_ARGS = [
     "--app-name",
-    "omnigent",
+    "agentnexus",
     "--lakebase-branch",
     "projects/omnigent/branches/production",
     "--lakebase-database",
     "projects/omnigent/branches/production/databases/databricks-postgres",
     "--volume-name",
-    "main.omnigent.artifacts",
+    "main.agentnexus.artifacts",
 ]
 
 
@@ -82,11 +82,11 @@ def test_uc_grant_permission_failure_warns_and_continues(
     deploy_mod._ensure_app_sp_uc_traversal(args, "app-sp-1234")
 
     # The second grant is still attempted after the first one fails.
-    assert attempted == ["main", "main.omnigent"]
+    assert attempted == ["main", "main.agentnexus"]
 
     out = capsys.readouterr().out
     assert "warning: USE_CATALOG grant on main failed" in out
-    assert "warning: USE_SCHEMA grant on main.omnigent failed" in out
+    assert "warning: USE_SCHEMA grant on main.agentnexus failed" in out
     assert "PERMISSION_DENIED" in out
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from omnigent.entities.policy import Policy
+from agentnexus.entities.policy import Policy
 
 
 def test_policy_minimal() -> None:
@@ -13,14 +13,14 @@ def test_policy_minimal() -> None:
         scope="session",
         created_at=1700000000,
         type="python",
-        handler="omnigent.policies.builtins.safety.block_push",
+        handler="agentnexus.policies.builtins.safety.block_push",
     )
     assert pol.id == "pol_abc123"
     assert pol.name == "block_push"
     assert pol.session_id == "conv_1"
     assert pol.scope == "session"
     assert pol.type == "python"
-    assert pol.handler == "omnigent.policies.builtins.safety.block_push"
+    assert pol.handler == "agentnexus.policies.builtins.safety.block_push"
     assert pol.factory_params is None
     assert pol.enabled is True
     assert pol.updated_at is None
@@ -35,7 +35,7 @@ def test_policy_full() -> None:
         scope="default",
         created_at=1700000000,
         type="python",
-        handler="omnigent.policies.builtins.cost.cost_budget",
+        handler="agentnexus.policies.builtins.cost.cost_budget",
         factory_params={"limit": 10.0, "currency": "USD"},
         enabled=False,
         updated_at=1700001000,

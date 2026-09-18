@@ -16,13 +16,13 @@ from typing import Any
 
 import pytest
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostStatFrame,
     decode_host_frame,
 )
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.routes._workspace_validation import (
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.routes._workspace_validation import (
     WorkspaceValidationError,
     validate_workspace,
 )

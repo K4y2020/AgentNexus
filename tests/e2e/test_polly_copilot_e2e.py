@@ -49,7 +49,7 @@ _COPILOT_RUN_TIMEOUT_SEC = 280
 def _copilot_token_available() -> bool:
     """Return whether a Copilot-capable GitHub token is resolvable on this host."""
     try:
-        from omnigent.onboarding.copilot_auth import (
+        from agentnexus.onboarding.copilot_auth import (
             COPILOT_TOKEN_ENV_VARS,
             copilot_github_token_configured,
         )
@@ -87,7 +87,7 @@ def local_polly_server_real(tmp_path: Path) -> Iterator[str]:
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--host",
             "127.0.0.1",
@@ -99,7 +99,7 @@ def local_polly_server_real(tmp_path: Path) -> Iterator[str]:
             str(tmp_path / "artifacts"),
         ],
         cwd=str(_REPO),
-        env={**os.environ, "OMNIGENT_SKIP_ONBOARD": "1", "OMNIGENT_NO_UPDATE_CHECK": "1"},
+        env={**os.environ, "AGENTNEXUS_SKIP_ONBOARD": "1", "AGENTNEXUS_NO_UPDATE_CHECK": "1"},
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -130,7 +130,7 @@ def test_polly_brain_on_copilot_boots_and_responds(local_polly_server_real: str)
         [
             sys.executable,
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(_POLLY),
             "--server",
@@ -143,7 +143,7 @@ def test_polly_brain_on_copilot_boots_and_responds(local_polly_server_real: str)
             "In one short sentence, what are you and how do you handle a coding task?",
         ],
         cwd=str(_REPO),
-        env={**os.environ, "OMNIGENT_SKIP_ONBOARD": "1", "OMNIGENT_NO_UPDATE_CHECK": "1"},
+        env={**os.environ, "AGENTNEXUS_SKIP_ONBOARD": "1", "AGENTNEXUS_NO_UPDATE_CHECK": "1"},
         capture_output=True,
         text=True,
         timeout=_COPILOT_RUN_TIMEOUT_SEC,

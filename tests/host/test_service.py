@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.host import service
+from agentnexus.host import service
 
 
 def _capture_runs(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
@@ -28,7 +28,7 @@ def _capture_runs(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 def test_enable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "state"))
     monkeypatch.setattr(service.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(service.os, "getuid", lambda: 501)
     monkeypatch.setattr(service.sys, "executable", "/opt/omnigent/bin/python")
@@ -40,12 +40,12 @@ def test_enable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     )
 
     payload = plistlib.loads(installed.path.read_bytes())
-    assert installed.path == tmp_path / "Library/LaunchAgents/ai.omnigent.host.plist"
-    assert payload["Label"] == "ai.omnigent.host"
+    assert installed.path == tmp_path / "Library/LaunchAgents/ai.agentnexus.host.plist"
+    assert payload["Label"] == "ai.agentnexus.host"
     assert payload["ProgramArguments"] == [
         "/opt/omnigent/bin/python",
         "-m",
-        "omnigent.host.service_entry",
+        "agentnexus.host.service_entry",
         "--server",
         "https://example.com",
     ]
@@ -53,7 +53,7 @@ def test_enable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert payload["KeepAlive"] == {"SuccessfulExit": False}
     assert "ProcessType" not in payload
     assert calls == [
-        ["launchctl", "bootout", "gui/501/ai.omnigent.host"],
+        ["launchctl", "bootout", "gui/501/ai.agentnexus.host"],
         [
             "launchctl",
             "bootstrap",
@@ -68,7 +68,7 @@ def test_disable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(service.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(service.os, "getuid", lambda: 502)
-    path = tmp_path / "Library/LaunchAgents/ai.omnigent.host.plist"
+    path = tmp_path / "Library/LaunchAgents/ai.agentnexus.host.plist"
     path.parent.mkdir(parents=True)
     path.write_text("old")
     calls = _capture_runs(monkeypatch)
@@ -78,8 +78,8 @@ def test_disable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.Monkey
     assert removed.path == path
     assert not path.exists()
     assert calls == [
-        ["launchctl", "bootout", "gui/502/ai.omnigent.host"],
-        ["launchctl", "print", "gui/502/ai.omnigent.host"],
+        ["launchctl", "bootout", "gui/502/ai.agentnexus.host"],
+        ["launchctl", "print", "gui/502/ai.agentnexus.host"],
     ]
 
 
@@ -99,13 +99,13 @@ def test_enable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert installed.path == tmp_path / "xdg/systemd/user/omnigent-host.service"
     assert 'Environment="HOME=' in unit
     assert (
-        'ExecStart="/opt/omnigent/bin/python" "-m" "omnigent.host.service_entry" "--local"'
+        'ExecStart="/opt/omnigent/bin/python" "-m" "agentnexus.host.service_entry" "--local"'
     ) in unit
     assert "Restart=on-failure" in unit
     assert "RestartPreventExitStatus=78 143" in unit
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],
-        ["systemctl", "--user", "enable", "--now", "omnigent-host.service"],
+        ["systemctl", "--user", "enable", "--now", "agentnexus-host.service"],
     ]
 
 
@@ -135,7 +135,7 @@ def test_disable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.Monkey
     assert removed.path == path
     assert not path.exists()
     assert calls == [
-        ["systemctl", "--user", "disable", "--now", "omnigent-host.service"],
+        ["systemctl", "--user", "disable", "--now", "agentnexus-host.service"],
         ["systemctl", "--user", "daemon-reload"],
     ]
 
@@ -148,8 +148,8 @@ def test_host_service_rejects_unsupported_platform(monkeypatch: pytest.MonkeyPat
 
 
 def test_service_entry_maps_fatal_host_exit(monkeypatch: pytest.MonkeyPatch) -> None:
-    from omnigent.cli import cli
-    from omnigent.host import HOST_FATAL_EXIT_CODE, service_entry
+    from agentnexus.cli import cli
+    from agentnexus.host import HOST_FATAL_EXIT_CODE, service_entry
 
     monkeypatch.setattr(sys, "argv", ["service-entry", "--local"])
 

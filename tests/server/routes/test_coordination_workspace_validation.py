@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.server.routes._coordination_workspace import (
+from agentnexus.server.routes._coordination_workspace import (
     CoordinationWorkspaceError,
     canonical_workspace_path,
     is_path_within,

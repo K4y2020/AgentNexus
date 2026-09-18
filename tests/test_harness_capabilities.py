@@ -9,9 +9,9 @@ drift.
 
 from __future__ import annotations
 
-from omnigent import harness_plugins as hp
-from omnigent.harness_availability import CODEX_CANONICAL_HARNESSES
-from omnigent.harness_capabilities import (
+from agentnexus import harness_plugins as hp
+from agentnexus.harness_availability import CODEX_CANONICAL_HARNESSES
+from agentnexus.harness_capabilities import (
     AuthModel,
     EffortFamily,
     Elicitation,
@@ -22,7 +22,7 @@ from omnigent.harness_capabilities import (
     ModelFamily,
     Resume,
 )
-from omnigent.harness_plugins import (
+from agentnexus.harness_plugins import (
     HarnessContribution,
     harness_capabilities,
     harness_catalog,
@@ -30,8 +30,8 @@ from omnigent.harness_plugins import (
     native_agents,
     valid_harnesses,
 )
-from omnigent.inner.devin import DEVIN_ACP_EXTENSION
-from omnigent.model_override import (
+from agentnexus.inner.devin import DEVIN_ACP_EXTENSION
+from agentnexus.model_override import (
     _ANTIGRAVITY_FAMILY_HARNESSES,
     _CLAUDE_FAMILY_HARNESSES,
 )
@@ -76,7 +76,7 @@ def test_model_family_matches_model_override_sets() -> None:
 def test_subagents_matches_its_implementing_mechanism() -> None:
     """``subagents`` is derivable — from the two mechanisms that implement it.
 
-    1. A **native** agent with a ``subagent_wrapper_label``: Omnigent intercepts
+    1. A **native** agent with a ``subagent_wrapper_label``: AgentNexus intercepts
        the vendor's own spawn and mints the child session.
     2. An **ACP vendor extension** carrying a sub-agent dialect
        (:mod:`omnigent.inner.devin`): the agent reports its sub-agent lifecycle in
@@ -115,7 +115,7 @@ def test_p0_bench_harnesses_declare_interrupt_and_streaming() -> None:
 
 def test_pi_harnesses_declare_the_pi_effort_family() -> None:
     """Both pi harnesses advertise pi's 7-level ladder, not "no effort knob"."""
-    from omnigent.reasoning_effort import EFFORT_VALUES, PI_EFFORTS
+    from agentnexus.reasoning_effort import EFFORT_VALUES, PI_EFFORTS
 
     caps = harness_capabilities()
     for harness in ("pi", "pi-native"):
@@ -172,7 +172,7 @@ def test_community_capabilities_cannot_override_builtin() -> None:
     # declares capabilities for a built-in harness id is rejected rather than
     # silently overriding the built-in declaration (last-wins in _merge_dict).
     evil = HarnessContribution(
-        name="omnigent-evil",
+        name="agentnexus-evil",
         capabilities={
             "claude-sdk": HarnessCapabilities(
                 IntegrationMode.SDK_IN_PROCESS,
@@ -224,8 +224,8 @@ def test_hermes_picker_row_has_spawn_env_plumbing() -> None:
     Hermes' model env key is what both threads ``/model`` into the spawn env and
     (via ``_SDK_MODEL_OVERRIDE_HARNESSES``) makes the server accept the override
     instead of rejecting it up front."""
-    from omnigent.harness_plugins import model_env_keys
-    from omnigent.model_override import harness_supports_model_override
+    from agentnexus.harness_plugins import model_env_keys
+    from agentnexus.model_override import harness_supports_model_override
 
     assert model_env_keys()["hermes"] == "HARNESS_HERMES_MODEL"
     assert harness_supports_model_override("hermes")
@@ -274,7 +274,7 @@ def test_fork_history_axis_matches_canonical_declarations() -> None:
     preamble set iff PREAMBLE. (The sets also carry reversed ``native-<x>``
     spellings — asserted separately below.)
     """
-    from omnigent.server.routes._sessions.common import (
+    from agentnexus.server.routes._sessions.common import (
         _CURSOR_FORK_HISTORY_HARNESSES,
         _FORK_HISTORY_NATIVE_HARNESSES,
     )
@@ -293,7 +293,7 @@ def test_fork_history_derivation_preserves_prior_membership() -> None:
     present, or a fork silently loses history. The derived set may add extra
     reversed spellings that canonicalize into it (harmless at the read site).
     """
-    from omnigent.server.routes._sessions.common import (
+    from agentnexus.server.routes._sessions.common import (
         _CURSOR_FORK_HISTORY_HARNESSES,
         _FORK_HISTORY_NATIVE_HARNESSES,
     )
@@ -327,8 +327,8 @@ def test_reversed_native_spellings_classify_fork_history() -> None:
     regression where an identically-behaving reversed-spelling agent silently
     loses fork history. Mirrors test_fork_reversed_native_spelling_carry_gating.
     """
-    from omnigent.harness_aliases import canonicalize_harness
-    from omnigent.server.routes._sessions.common import (
+    from agentnexus.harness_aliases import canonicalize_harness
+    from agentnexus.server.routes._sessions.common import (
         _CURSOR_FORK_HISTORY_HARNESSES,
         _FORK_HISTORY_NATIVE_HARNESSES,
     )
@@ -356,7 +356,7 @@ def test_native_tui_harnesses_declare_shell_tool_provocation() -> None:
             continue
         assert capability.shell_tool_name, harness
         assert capability.shell_tool_prompt, harness
-        assert "omnigent-bench-ok" in capability.shell_tool_prompt, harness
+        assert "agentnexus-bench-ok" in capability.shell_tool_prompt, harness
 
 
 def test_every_canonical_harness_declares_instruction_delivery() -> None:

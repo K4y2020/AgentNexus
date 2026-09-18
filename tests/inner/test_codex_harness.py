@@ -18,8 +18,8 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.inner import codex_harness
-from omnigent.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.inner import codex_harness
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
 
 def test_harness_module_registered_in_module_registry() -> None:
@@ -28,7 +28,7 @@ def test_harness_module_registered_in_module_registry() -> None:
     Without this entry, the runner subprocess can't find the wrap
     when AP-side tries to spawn it for a ``harness: codex`` spec.
     """
-    assert _HARNESS_MODULES.get("codex") == "omnigent.inner.codex_harness"
+    assert _HARNESS_MODULES.get("codex") == "agentnexus.inner.codex_harness"
 
 
 def test_create_app_returns_fastapi_with_required_routes() -> None:
@@ -74,7 +74,7 @@ def test_executor_factory_reads_env_vars(
     monkeypatch.setenv("HARNESS_CODEX_GATEWAY_AUTH_REFRESH_INTERVAL_MS", "900000")
     monkeypatch.setenv("HARNESS_CODEX_CWD", "/tmp/test-cwd")
     monkeypatch.setenv("HARNESS_CODEX_PATH", "/usr/local/bin/codex")
-    monkeypatch.delenv("OMNIGENT_CODEX_PATH", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_CODEX_PATH", raising=False)
     monkeypatch.setenv("HARNESS_CODEX_ENABLE_WEB_SEARCH", "false")
     monkeypatch.setenv("HARNESS_CODEX_DISABLE_NATIVE_TOOLS", "true")
 
@@ -111,7 +111,7 @@ def test_executor_factory_reads_env_vars(
         captured["disable_native_tools"] = disable_native_tools
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -148,11 +148,11 @@ def test_executor_factory_cwd_falls_back_to_runner_workspace(
     """Locks the harness half of the contract asserted by
     ``tests/runtime/test_spawn_env_cwd.py::test_builder_omits_cwd_when_none``:
     when the builder omits ``HARNESS_CODEX_CWD``, the harness falls back
-    to ``OMNIGENT_RUNNER_WORKSPACE``. Mirrors the claude-sdk / kimi / pi /
+    to ``AGENTNEXUS_RUNNER_WORKSPACE``. Mirrors the claude-sdk / kimi / pi /
     hermes harnesses.
     """
     monkeypatch.delenv("HARNESS_CODEX_CWD", raising=False)
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/home/bobby/code/agents")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/home/bobby/code/agents")
 
     captured: dict[str, Any] = {}
 
@@ -160,7 +160,7 @@ def test_executor_factory_cwd_falls_back_to_runner_workspace(
         captured["cwd"] = cwd
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -172,9 +172,9 @@ def test_executor_factory_explicit_cwd_wins_over_workspace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An explicit ``HARNESS_CODEX_CWD`` takes precedence over the
-    ``OMNIGENT_RUNNER_WORKSPACE`` fallback."""
+    ``AGENTNEXUS_RUNNER_WORKSPACE`` fallback."""
     monkeypatch.setenv("HARNESS_CODEX_CWD", "/tmp/explicit")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/home/bobby/code/agents")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/home/bobby/code/agents")
 
     captured: dict[str, Any] = {}
 
@@ -182,7 +182,7 @@ def test_executor_factory_explicit_cwd_wins_over_workspace(
         captured["cwd"] = cwd
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -196,7 +196,7 @@ def test_executor_factory_blank_cwd_env_vars_pass_none(
     """Empty cwd env vars normalize to ``None`` rather than an empty
     string, so the executor reaches its own inherited-cwd fallback."""
     monkeypatch.setenv("HARNESS_CODEX_CWD", "")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "")
 
     captured: dict[str, Any] = {}
 
@@ -204,7 +204,7 @@ def test_executor_factory_blank_cwd_env_vars_pass_none(
         captured["cwd"] = cwd
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -217,7 +217,7 @@ def test_executor_factory_decodes_os_env_json(
 ) -> None:
     """``HARNESS_CODEX_OS_ENV`` decodes into the inner OSEnvSpec.
 
-    Omnigent serializes ``spec.os_env`` via :func:`dataclasses.asdict`
+    AgentNexus serializes ``spec.os_env`` via :func:`dataclasses.asdict`
     and JSON-encodes the result; the wrap must reconstruct an
     :class:`OSEnvSpec` (with nested sandbox spec) so
     :class:`CodexExecutor` sees the same config a non-AP mode
@@ -251,7 +251,7 @@ def test_executor_factory_decodes_os_env_json(
         captured["os_env"] = kwargs["os_env"]
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -288,7 +288,7 @@ def test_executor_factory_falls_back_on_malformed_os_env_json(
         captured["os_env"] = kwargs["os_env"]
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -331,7 +331,7 @@ def test_databricks_env_var_truthy_parsing(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -375,7 +375,7 @@ def test_enable_web_search_default_is_true(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -415,7 +415,7 @@ def test_disable_native_tools_default_is_false(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -454,7 +454,7 @@ def test_skills_filter_env_var_decodes(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -473,7 +473,7 @@ def test_skills_filter_env_var_missing_falls_back_to_all(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -501,7 +501,7 @@ def test_bundle_dir_and_agent_name_env_vars_thread_through(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()
@@ -522,7 +522,7 @@ def test_bundle_dir_unset_passes_none(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.codex_harness.CodexExecutor.__init__",
+        "agentnexus.inner.codex_harness.CodexExecutor.__init__",
         _fake_init,
     ):
         codex_harness._build_codex_executor()

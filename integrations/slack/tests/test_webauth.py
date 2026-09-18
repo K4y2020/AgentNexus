@@ -6,11 +6,11 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
-from omnigent_slack.config import Settings
-from omnigent_slack.databricks_oauth import DatabricksOAuthError, DatabricksTokens
-from omnigent_slack.enrollment_state import verify_state
-from omnigent_slack.tokens import InMemoryTokenStore
-from omnigent_slack.webauth import WebAuthServer
+from agentnexus_slack.config import Settings
+from agentnexus_slack.databricks_oauth import DatabricksOAuthError, DatabricksTokens
+from agentnexus_slack.enrollment_state import verify_state
+from agentnexus_slack.tokens import InMemoryTokenStore
+from agentnexus_slack.webauth import WebAuthServer
 
 _EMAIL = "user@example.com"
 _WORKSPACE = "https://ws.cloud.databricks.com"
@@ -29,14 +29,14 @@ def _workspace_host_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def _settings() -> Settings:
     return Settings(
         _env_file=None,  # type: ignore[call-arg]
-        OMNIGENT_SLACK_BOT_TOKEN="xoxb-x",
-        OMNIGENT_SLACK_APP_TOKEN="xapp-x",
-        OMNIGENT_SERVER_URL="https://omnigent.example.com",
-        OMNIGENT_SLACK_SERVER_AUTH="databricks",
-        OMNIGENT_SLACK_DATABRICKS_APP_URL="https://slackbot.example.com",
-        OMNIGENT_SLACK_DATABRICKS_CLIENT_ID="client-id",
-        OMNIGENT_SLACK_DATABRICKS_CLIENT_SECRET="client-secret",
-        OMNIGENT_SLACK_DATABRICKS_STATE_SECRET=_STATE_SECRET,
+        AGENTNEXUS_SLACK_BOT_TOKEN="xoxb-x",
+        AGENTNEXUS_SLACK_APP_TOKEN="xapp-x",
+        AGENTNEXUS_SERVER_URL="https://omnigent.example.com",
+        AGENTNEXUS_SLACK_SERVER_AUTH="databricks",
+        AGENTNEXUS_SLACK_DATABRICKS_APP_URL="https://slackbot.example.com",
+        AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID="client-id",
+        AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET="client-secret",
+        AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET=_STATE_SECRET,
     )
 
 

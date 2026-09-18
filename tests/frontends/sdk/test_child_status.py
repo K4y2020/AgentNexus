@@ -13,7 +13,7 @@ when a driver decides "nothing is working" — exactly the bug #444 reports.
 from __future__ import annotations
 
 import pytest
-from omnigent_client import child_session_busy, child_summary_busy
+from agentnexus_client import child_session_busy, child_summary_busy
 
 
 @pytest.mark.parametrize(

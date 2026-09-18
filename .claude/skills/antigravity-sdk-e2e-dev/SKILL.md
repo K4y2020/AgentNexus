@@ -1,13 +1,13 @@
 ---
 name: antigravity-sdk-e2e-dev
-description: Spin up a live local Omnigent server and exercise the Antigravity (Gemini) SDK harness end-to-end — build antigravity agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the antigravity harness (omnigent/inner/antigravity_executor.py, antigravity_harness.py, omnigent/onboarding/antigravity_auth.py) or its auth / model / tool-bridge behavior.
+description: Spin up a live local AgentNexus server and exercise the Antigravity (Gemini) SDK harness end-to-end — build antigravity agents, run real turns, smoke-test, and bug-bash. Load when developing, testing, or debugging the antigravity harness (agentnexus/inner/antigravity_executor.py, antigravity_harness.py, agentnexus/onboarding/antigravity_auth.py) or its auth / model / tool-bridge behavior.
 ---
 
 # Antigravity SDK harness: end-to-end dev & testing
 
 The `antigravity` harness drives Google's **Antigravity Python SDK**
 (`google-antigravity`, an in-process `Agent`/`Conversation`) and bridges
-Omnigent's `sys_*` tools into the SDK as `custom_tools`. It is **Gemini-native**:
+AgentNexus's `sys_*` tools into the SDK as `custom_tools`. It is **Gemini-native**:
 it authenticates with a Gemini / Antigravity API key (or Vertex AI) and has **no
 OpenAI-compatible gateway / Databricks path**. This skill is the proven recipe
 for running it **for real** against a live local server — not just the unit
@@ -23,12 +23,12 @@ tests.
 2. **A Gemini API key is configured.** The SDK *requires* one (`AIza…`); there
    is no login flow. Verify (booleans only — never print the key):
    ```bash
-   .venv/bin/python -c "from omnigent.onboarding.antigravity_auth import antigravity_api_key_configured as c; import os; print('config:', c(), 'env:', bool(os.environ.get('GEMINI_API_KEY') or os.environ.get('ANTIGRAVITY_API_KEY')))"
+   .venv/bin/python -c "from agentnexus.onboarding.antigravity_auth import antigravity_api_key_configured as c; import os; print('config:', c(), 'env:', bool(os.environ.get('GEMINI_API_KEY') or os.environ.get('ANTIGRAVITY_API_KEY')))"
    ```
    If both are `False`, run `omni setup` → **Antigravity** and paste a key, or
    `export GEMINI_API_KEY=AIza…`.
 3. **`google-antigravity` is installed** (the `antigravity` extra —
-   `pip install "omnigent[antigravity]"`):
+   `pip install "agentnexus[antigravity]"`):
    `.venv/bin/python -c "import google.antigravity as a; print(a.__file__)"`.
 4. **glibc ≥ ~2.36.** The SDK spawns a **native `localharness` binary** that
    needs a recent glibc (`GLIBC_ABI_DT_RELR`). Check `ldd --version | head -1`.
@@ -46,13 +46,13 @@ tests.
 ## Step 1 — start a local server
 
 ```bash
-cd /path/to/omnigent
+cd /path/to/agentnexus
 .venv/bin/omni server --background          # spawns a detached server on a free loopback port
 .venv/bin/omni server status         # prints the URL, e.g. http://127.0.0.1:6767
 ```
 
 Use the **printed URL** below as `$SERVER`. (You can also run a foreground
-server on a fixed port with `omnigent server --port 7777 --no-open`.)
+server on a fixed port with `agentnexus server --port 7777 --no-open`.)
 
 ## Step 2 — build an antigravity agent bundle
 
@@ -67,7 +67,7 @@ spec_version: 1
 name: agy-dev
 description: Antigravity SDK dev/test agent.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: antigravity
     model: gemini-3.5-flash      # default; gemini-3-pro 404s on a plain AI-Studio key
@@ -113,7 +113,7 @@ streaming, harness.
    `--server` sends your turn to that remote deploy — which may be **stale** and
    reject the antigravity harness with `executor.config.harness: must be one of
    […], got 'antigravity'`. **Always pass `--server http://127.0.0.1:<port>`**
-   for local testing. (That allowlist is `omnigent/spec/_omnigent_compat.py`; if
+   for local testing. (That allowlist is `agentnexus/spec/_agentnexus_compat.py`; if
    a *local* server rejects `antigravity`, it's running stale code — restart it
    from your checkout.)
 2. **A spec with `spec_version` must be a directory + `config.yaml`**, never a
@@ -139,10 +139,10 @@ streaming, harness.
 
 ## Code & tests
 
-- **Executor (SDK driver):** `omnigent/inner/antigravity_executor.py`
-- **Wrap (HARNESS_ANTIGRAVITY_* env → executor):** `omnigent/inner/antigravity_harness.py`
-- **Auth / key resolution:** `omnigent/onboarding/antigravity_auth.py`
-- **Spawn env:** `_build_antigravity_spawn_env` in `omnigent/runtime/workflow.py`
+- **Executor (SDK driver):** `agentnexus/inner/antigravity_executor.py`
+- **Wrap (HARNESS_ANTIGRAVITY_* env → executor):** `agentnexus/inner/antigravity_harness.py`
+- **Auth / key resolution:** `agentnexus/onboarding/antigravity_auth.py`
+- **Spawn env:** `_build_antigravity_spawn_env` in `agentnexus/runtime/workflow.py`
 
 ```bash
 # Unit tests (use --frozen; the cwsandbox extra is unsatisfiable on public PyPI here)
@@ -156,7 +156,7 @@ uv run --frozen --group test python -m pytest \
 
 There is no gated per-harness antigravity e2e test yet (it is deliberately
 excluded from the live no-AGENT harness matrix in
-`tests/e2e/omnigent/test_run_harness_without_agent_e2e.py`, because that matrix
+`tests/e2e/agentnexus/test_run_harness_without_agent_e2e.py`, because that matrix
 authenticates through the Databricks gateway and antigravity is Gemini-native).
 This skill IS the live coverage.
 

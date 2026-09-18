@@ -2,11 +2,11 @@
 
 ## Goal
 
-Turn Omnigent's session-scoped agents (today: Debby/Polly-style YAML personas that
+Turn AgentNexus's session-scoped agents (today: Debby/Polly-style YAML personas that
 exist only while a session runs) into **persistent teammates** — bots with identity,
 memory, routines, message channels, and optionally a dedicated machine — without
 changing the harness invocation layer. This is the product counterpart of
-"AI teammates you actually own" (Rakazo's positioning), built on Omnigent's
+"AI teammates you actually own" (Rakazo's positioning), built on AgentNexus's
 harness-agnostic architecture instead of a self-hosted bot runtime.
 
 Non-goals: voice/calling, general-purpose assistant bots (chat companions,
@@ -68,7 +68,7 @@ must carry NOTICE attribution.
 ## Concept model
 
 ```
-Company     = Omnigent server (identities, memory, routines, track record, billing)
+Company     = AgentNexus server (identities, memory, routines, track record, billing)
 Employee    = bot: agent YAML (persona + harness binding + policies) + platform-side
               memory + routine bindings + channel bindings. Logical, portable.
 Workstation = a machine running the runner daemon, or a cloud sandbox. Pure compute.
@@ -98,17 +98,17 @@ are only essential for login-state / resident-service scenarios.
 
 ## Existing foundations (audited)
 
-| Rakazo concept | Omnigent counterpart | Status |
+| Rakazo concept | AgentNexus counterpart | Status |
 |---|---|---|
 | Bot definition | Agent YAML — `examples/debby/`, `examples/polly/` already demonstrate identity + harness binding + multi-harness sub-agents + `sys_session_send`/inbox async collaboration + `blast_radius` guardrails | **Working exemplars** |
-| Routines | `omnigent/entities/scheduled_task.py` — `scheduled_tasks`/`scheduled_task_runs`, `/v1/scheduled-tasks`, `sys_scheduled_task_*` tools; rrule triggers; per-task `model_override`/`permission_mode`/`cost_budget`; fire results bound to conversation (`last_run_conversation_id`). Product name "Automations" | **Shipped**; `execution_target` limited to `"connected_host"` (`scheduled_task.py:91`) |
+| Routines | `agentnexus/entities/scheduled_task.py` — `scheduled_tasks`/`scheduled_task_runs`, `/v1/scheduled-tasks`, `sys_scheduled_task_*` tools; rrule triggers; per-task `model_override`/`permission_mode`/`cost_budget`; fire results bound to conversation (`last_run_conversation_id`). Product name "Automations" | **Shipped**; `execution_target` limited to `"connected_host"` (`scheduled_task.py:91`) |
 | Channels | `integrations/slack/` — Socket Mode, thread = session, per-user auth, DM/@mention/channels | **Slack only** |
 | Memory | `tools/builtins/hindsight.py` | **Opt-in, not persistent** |
 | Bot-to-bot delegation | `coordination/workflow_engine.py` + `workflow_scheduler.py` + A2A bus | **Chain exists; 4×P1 open** (see Phase 2) |
 | Remote CLI execution | Runner daemon (FastAPI + WebSocket, `runner/app.py`) on the target machine; server relays via tunnel (`app.py:432`); runner spawns the harness locally (`_auto_create_claude_terminal`) — a daemon model, not SSH exec | **Shipped** |
 | Machine lifecycle | `server/managed_hosts.py` — launch/terminate/`resume_managed_host`, "wake in place" gating (`:3066`, `:3118`) | **Shipped; lacks owner semantics** |
 | Governance | Three-level policies (server/agent/session), `cost_budget`, approval flows | **Shipped, stronger than Rakazo** |
-| Launcher extensibility | `claude_launcher.py` — `OMNIGENT_CLAUDE_LAUNCHER` env + setuptools entry-point wraps the CLI command (auth/telemetry/cost wrappers) without code changes | **Shipped** |
+| Launcher extensibility | `claude_launcher.py` — `AGENTNEXUS_CLAUDE_LAUNCHER` env + setuptools entry-point wraps the CLI command (auth/telemetry/cost wrappers) without code changes | **Shipped** |
 
 Gaps: persistent memory injection, channels beyond Slack, bot roster/management UI,
 per-bot workstation binding, voice, non-Slack channel adapters.

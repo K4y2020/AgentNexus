@@ -25,7 +25,7 @@ import { NewChatLandingScreen, resetLandingDraft } from "./NewChatDialog";
 // workspace, last-used agent). These tests pin those seeding rules.
 const navigateMock = vi.fn();
 
-const RECENT_KEY = "omnigent:recent-workspaces";
+const RECENT_KEY = "agentnexus:recent-workspaces";
 const RECENT_WORKSPACE = "/Users/corey/universe/src/foo";
 const REPO = "/Users/corey/projects/alpha";
 
@@ -297,7 +297,7 @@ describe("NewChatLandingScreen project prefill", () => {
     // The configured agent is only resolvable through discovery's pinning
     // (a session-derived row, absent from the plain catalog); a stored
     // last-agent-id must not displace it.
-    localStorage.setItem("omnigent:last-agent-id", "ag_hello");
+    localStorage.setItem("agentnexus:last-agent-id", "ag_hello");
     vi.mocked(useAvailableAgents).mockReturnValue({
       data: [
         agent(),
@@ -331,7 +331,7 @@ describe("NewChatLandingScreen project prefill", () => {
     // The configured agent resolves nowhere (catalog, scan, and pinned lookup
     // all missed it). The composer must say so and block submit — not fall
     // back to last-agent-id or the picker's first row.
-    localStorage.setItem("omnigent:last-agent-id", "ag_hello");
+    localStorage.setItem("agentnexus:last-agent-id", "ag_hello");
     setProjectConfig({ host_id: "host_1", workspace: REPO, agent_id: "ag_gone" });
     renderLanding();
 
@@ -669,7 +669,7 @@ describe("NewChatLandingScreen project prefill", () => {
 // worktree. Precedence: a project's explicit `use_worktree` (true OR false)
 // wins; an unset project falls through to this global default. These cases pin
 // the full global × project matrix.
-const ALWAYS_WORKTREE_KEY = "omnigent:always-use-worktree";
+const ALWAYS_WORKTREE_KEY = "agentnexus:always-use-worktree";
 
 describe("NewChatLandingScreen global always-use-worktree default", () => {
   // The branch chip's label reflects the branch field ("Worktree" when empty),

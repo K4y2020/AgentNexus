@@ -10,8 +10,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent import codex_native_hook, native_policy_hook
-from omnigent.codex_native_bridge import (
+from agentnexus import codex_native_hook, native_policy_hook
+from agentnexus.codex_native_bridge import (
     CodexNativeBridgeState,
     codex_home_for_bridge_dir,
     prepare_bridge_dir,
@@ -65,7 +65,7 @@ class _DenyHttpxClient:
         """
         Record the outgoing request and return a DENY EvaluationResponse.
 
-        :param url: Target Omnigent URL.
+        :param url: Target AgentNexus URL.
         :param json: Request body (the EvaluationRequest).
         :returns: A real 200 response carrying a DENY verdict.
         """
@@ -120,14 +120,14 @@ class _RaisesIfCalled:
         """
         Fail loudly — the hook should never reach the network here.
 
-        :param url: Target Omnigent URL (unused).
+        :param url: Target AgentNexus URL (unused).
         :param json: Request body (unused).
         :returns: Never returns.
         :raises AssertionError: Always.
         """
         del url, json
         raise AssertionError(
-            "evaluate-policy POSTed to Omnigent when it should have short-circuited "
+            "evaluate-policy POSTed to AgentNexus when it should have short-circuited "
             "(missing bridge state or policy_hook config)."
         )
 
@@ -138,14 +138,14 @@ def bridge_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Create an isolated codex-native bridge directory with state.
 
     Redirects the bridge root under ``tmp_path`` so the test never
-    touches the real ``~/.omnigent`` tree, then writes a valid bridge
-    state whose ``session_id`` the hook reads to build the Omnigent URL.
+    touches the real ``~/.agentnexus`` tree, then writes a valid bridge
+    state whose ``session_id`` the hook reads to build the AgentNexus URL.
 
     :param tmp_path: pytest temp directory.
     :param monkeypatch: pytest monkeypatch fixture.
     :returns: Prepared bridge directory.
     """
-    monkeypatch.setattr("omnigent.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
+    monkeypatch.setattr("agentnexus.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
     bdir = prepare_bridge_dir("bridge_test")
     write_bridge_state(
         bdir,
@@ -354,7 +354,7 @@ def test_missing_bridge_state_is_fail_open(
     block tools — the hook returns 0 with no verdict. ``_RaisesIfCalled``
     asserts the network was never reached.
     """
-    monkeypatch.setattr("omnigent.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
+    monkeypatch.setattr("agentnexus.codex_native_bridge._BRIDGE_ROOT", tmp_path / "codex-native")
     empty_dir = prepare_bridge_dir("bridge_no_state")
     monkeypatch.setattr(native_policy_hook.httpx, "Client", _RaisesIfCalled)
 
@@ -377,8 +377,8 @@ def test_missing_policy_config_is_fail_open(
     """
     With bridge state but no policy_hook config, the hook never POSTs.
 
-    The session has state but no Omnigent coordinates were written (e.g. a
-    local run with no Omnigent server), so there is nothing to enforce against.
+    The session has state but no AgentNexus coordinates were written (e.g. a
+    local run with no AgentNexus server), so there is nothing to enforce against.
     The hook returns 0 with no output and does not touch the network.
     """
     monkeypatch.setattr(native_policy_hook.httpx, "Client", _RaisesIfCalled)
@@ -486,7 +486,7 @@ def test_pre_tool_use_uses_relay_when_tool_relay_json_has_session_id(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Hook POSTs to relay /policies/evaluate when tool_relay.json has session_id."""
-    from omnigent.claude_native_bridge import _TOOL_RELAY_FILE
+    from agentnexus.claude_native_bridge import _TOOL_RELAY_FILE
 
     relay_token = "relay-tok-abc"
     relay_url = "http://127.0.0.1:19999"
@@ -521,7 +521,7 @@ def test_pre_tool_use_falls_back_to_policy_hook_json_when_relay_has_no_session_i
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Hook falls back to policy_hook.json when tool_relay.json has no session_id."""
-    from omnigent.claude_native_bridge import _TOOL_RELAY_FILE
+    from agentnexus.claude_native_bridge import _TOOL_RELAY_FILE
 
     # Relay present but no session_id — not policy-capable.
     (bridge_dir / _TOOL_RELAY_FILE).write_text(
@@ -560,7 +560,7 @@ def _advertise_turn_router(bridge_dir: Path) -> None:
     """
     import os
 
-    from omnigent.runner.turn_routing import ADVERTISEMENT_FILE
+    from agentnexus.runner.turn_routing import ADVERTISEMENT_FILE
 
     (bridge_dir / ADVERTISEMENT_FILE).write_text(
         json.dumps(
@@ -604,7 +604,7 @@ def test_route_turn_fast_skips_on_the_marker(
     re-fires ``UserPromptSubmit``, and a second block there would drop the
     routed turn.
     """
-    from omnigent.runner.turn_routing import write_turn_routing_marker
+    from agentnexus.runner.turn_routing import write_turn_routing_marker
 
     _advertise_turn_router(bridge_dir)
     write_turn_routing_marker(bridge_dir, session_id="conv_active", decision_id="d1")
@@ -634,7 +634,7 @@ def test_route_turn_blocks_and_switches_on_a_routed_verdict(
     Order is load-bearing: the marker is the runner's "I blocked it, you
     owe it a replay" handshake, so it must be on disk before the block.
     """
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     sent: dict[str, object] = {}
@@ -693,7 +693,7 @@ def test_route_turn_allows_and_marks_an_already_pinned_session(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A terminal no-op writes the marker so later prompts skip the hop."""
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -725,7 +725,7 @@ def test_route_turn_keeps_asking_after_a_non_terminal_no_op(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Routing can be toggled on mid-session, so no marker is written."""
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -752,7 +752,7 @@ def test_route_turn_allows_the_prompt_when_the_switch_fails(
     The runner's replay only fires when the marker appears, so a hook that
     blocked without switching would drop the user's message entirely.
     """
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -792,7 +792,7 @@ def test_route_turn_declines_visibly_when_the_pane_cannot_serve_the_pick(
     The reason reaches both the routing trace and stderr, so "the pane never
     moved" is answerable without reproducing the stale gateway map.
     """
-    from omnigent.runner.turn_routing import MARKER_FILE, TRACE_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE, TRACE_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -853,7 +853,7 @@ def test_route_turn_no_ops_when_the_endpoint_is_unreachable(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A routing outage must never block a user's turn."""
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(codex_native_hook, "_post_json", lambda *args, **kwargs: None)
@@ -874,7 +874,7 @@ def test_route_turn_falls_open_on_the_ladders_own_request_budget(
     Same hazard as claude's: the typed prompt is held in the TUI until this
     expires. Asserted against the constant, not elapsed time.
     """
-    from omnigent.runner.turn_routing import HOOK_REQUEST_TIMEOUT_S, MARKER_FILE
+    from agentnexus.runner.turn_routing import HOOK_REQUEST_TIMEOUT_S, MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     seen: list[float] = []
@@ -905,7 +905,7 @@ def test_the_thread_switch_is_capped_inside_the_harness_hook_budget() -> None:
     killed mid-``thread/settings/update``: the block marker is written after
     the switch, so the harness would drop the prompt with nothing to replay it.
     """
-    from omnigent.runner.turn_routing import (
+    from agentnexus.runner.turn_routing import (
         HARNESS_HOOK_TIMEOUT_S,
         HOOK_REQUEST_TIMEOUT_S,
         SETTINGS_UPDATE_TIMEOUT_S,
@@ -933,7 +933,7 @@ def test_route_turn_traces_every_fall_open(
     from the logs, which is exactly how a reported "it never routed" ends
     up unattributable.
     """
-    from omnigent.runner.turn_routing import TRACE_FILE
+    from agentnexus.runner.turn_routing import TRACE_FILE
 
     if advertise:
         _advertise_turn_router(bridge_dir)
@@ -954,7 +954,7 @@ def test_route_turn_traces_the_route_it_applied(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from omnigent.runner.turn_routing import TRACE_FILE
+    from agentnexus.runner.turn_routing import TRACE_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -1043,7 +1043,7 @@ def _install_fake_client(
     :returns: The stub the hook will use.
     """
     monkeypatch.setattr(
-        "omnigent.codex_native_app_server.client_for_transport",
+        "agentnexus.codex_native_app_server.client_for_transport",
         lambda *args, **kwargs: client,
     )
     return client
@@ -1075,7 +1075,7 @@ def test_apply_thread_model_switches_in_codex_spelling(
     applied: str,
 ) -> None:
     """The thread switch and the config.toml mirror both speak codex."""
-    from omnigent.codex_native_bridge import read_codex_config_model
+    from agentnexus.codex_native_bridge import read_codex_config_model
 
     codex_home_for_bridge_dir(bridge_dir).mkdir(parents=True, exist_ok=True)
     client = _install_fake_client(monkeypatch, _FakeAppServerClient(_LIVE_CATALOG))
@@ -1101,7 +1101,7 @@ def test_apply_thread_model_declines_a_model_this_pane_cannot_serve(
     the authority: no row names the pick, no switch, and the reason is said out
     loud rather than being swallowed.
     """
-    from omnigent.codex_native_bridge import read_codex_config_model
+    from agentnexus.codex_native_bridge import read_codex_config_model
 
     codex_home_for_bridge_dir(bridge_dir).mkdir(parents=True, exist_ok=True)
     client = _install_fake_client(monkeypatch, _FakeAppServerClient(_LIVE_CATALOG))
@@ -1122,7 +1122,7 @@ def test_apply_thread_model_declines_when_the_catalog_cannot_be_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An unreadable catalog proves nothing, so it is not proof of reachability."""
-    from omnigent.codex_native_bridge import read_codex_config_model
+    from agentnexus.codex_native_bridge import read_codex_config_model
 
     codex_home_for_bridge_dir(bridge_dir).mkdir(parents=True, exist_ok=True)
     client = _install_fake_client(monkeypatch, _FakeAppServerClient(None))
@@ -1180,7 +1180,7 @@ def test_route_turn_ignores_a_marker_another_session_left_in_the_dir(
     never route its first message, and the routing it never got would be
     attributed to the superseded session id.
     """
-    from omnigent.runner.turn_routing import turn_routing_marker_session, write_turn_routing_marker
+    from agentnexus.runner.turn_routing import turn_routing_marker_session, write_turn_routing_marker
 
     _advertise_turn_router(bridge_dir)
     write_turn_routing_marker(bridge_dir, session_id="conv_superseded", decision_id="d0")
@@ -1204,7 +1204,7 @@ def test_route_turn_writes_a_session_scoped_marker_on_a_terminal_no_op(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The marker names the session and the decision it belongs to."""
-    from omnigent.runner.turn_routing import MARKER_FILE
+    from agentnexus.runner.turn_routing import MARKER_FILE
 
     _advertise_turn_router(bridge_dir)
     monkeypatch.setattr(
@@ -1235,7 +1235,7 @@ def test_route_turn_is_not_registered_for_a_session_that_cannot_route(
     the hook's routing round trip (25s worst case on a degraded server) only to
     be told the session does not route. The policy gate stays, unaffected.
     """
-    from omnigent.codex_native_app_server import _codex_policy_hooks_settings
+    from agentnexus.codex_native_app_server import _codex_policy_hooks_settings
 
     off = _codex_policy_hooks_settings(tmp_path, sys.executable, turn_routing=False)
     commands = [
@@ -1256,8 +1256,8 @@ def test_the_turn_router_advertisement_is_the_switch_for_the_hook(tmp_path: Path
     """The runner only advertises for a session that launched with routing on."""
     import os
 
-    from omnigent.codex_native_app_server import _turn_router_advertised
-    from omnigent.runner.turn_routing import ADVERTISEMENT_FILE
+    from agentnexus.codex_native_app_server import _turn_router_advertised
+    from agentnexus.runner.turn_routing import ADVERTISEMENT_FILE
 
     assert _turn_router_advertised(tmp_path) is False
     (tmp_path / ADVERTISEMENT_FILE).write_text(

@@ -25,10 +25,10 @@ def test_delivery_cap_drops_followup_without_failed_session_status(
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -57,7 +57,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -182,7 +182,7 @@ require("fs").writeFileSync(
     authHeaders: { authorization: "Bearer test" },
   }),
 );
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -219,10 +219,10 @@ def test_message_end_posts_external_session_usage(tmp_path: Path) -> None:
         pytest.skip("node is required for the pi-native extension e2e test")
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = (
@@ -273,10 +273,10 @@ def test_usage_accumulates_and_dedupes_across_messages(tmp_path: Path) -> None:
         pytest.skip("node is required for the pi-native extension e2e test")
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = (
@@ -326,10 +326,10 @@ def test_no_usage_message_posts_nothing(tmp_path: Path) -> None:
         pytest.skip("node is required for the pi-native extension e2e test")
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = (
@@ -386,10 +386,10 @@ def test_distinct_messages_with_identical_usage_are_not_collapsed(
         pytest.skip("node is required for the pi-native extension e2e test")
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = (
@@ -448,10 +448,10 @@ def test_agent_end_dedupes_real_shaped_messages_by_timestamp(
         pytest.skip("node is required for the pi-native extension e2e test")
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = (
@@ -490,10 +490,10 @@ def test_agent_end_dedupes_real_shaped_messages_by_timestamp(
 def _extension_path() -> Path:
     return (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
 
@@ -525,7 +525,7 @@ fs.writeFileSync(
   configPath,
   JSON.stringify({ serverUrl: "http://omnigent.test", sessionId: "session-1" }),
 );
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const posted = [];
 global.fetch = async (_url, request) => {
@@ -809,7 +809,7 @@ def test_registers_omnigent_tools_and_execute_round_trips(tmp_path: Path) -> Non
     Drives the real JavaScript extension under Node with a config carrying a
     flat tool list (as the runner now writes). Asserts each tool is registered
     via ``pi.registerTool`` with its schema, and that calling a registered
-    tool's ``execute`` POSTs a JSON-RPC ``tools/call`` to the Omnigent server's
+    tool's ``execute`` POSTs a JSON-RPC ``tools/call`` to the AgentNexus server's
     ``/v1/sessions/{id}/mcp`` proxy and returns the tool output to Pi.
     """
     node = shutil.which("node")
@@ -818,10 +818,10 @@ def test_registers_omnigent_tools_and_execute_round_trips(tmp_path: Path) -> Non
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -861,14 +861,14 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 // Capture every fetch so we can assert the execute() round-trip hits /mcp with
 // a JSON-RPC tools/call and the right auth headers.
 const fetchCalls = [];
 global.fetch = async (url, request) => {
   fetchCalls.push({ url, request });
-  // Mimic the Omnigent /mcp proxy success envelope.
+  // Mimic the AgentNexus /mcp proxy success envelope.
   return {
     ok: true,
     async json() {
@@ -951,7 +951,7 @@ require(extensionPath)(pi);
 
 
 def test_bridged_tool_call_skips_hook_policy_eval(tmp_path: Path) -> None:
-    """The tool_call hook must NOT re-evaluate policy for bridged Omnigent tools.
+    """The tool_call hook must NOT re-evaluate policy for bridged AgentNexus tools.
 
     Bridged tools are policy-evaluated server-side inside the /mcp proxy when
     execute() runs, so the hook-level ``policies/evaluate`` call would
@@ -964,10 +964,10 @@ def test_bridged_tool_call_skips_hook_policy_eval(tmp_path: Path) -> None:
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -994,7 +994,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const policyUrls = [];
 global.fetch = async (url, _request) => {
@@ -1070,10 +1070,10 @@ def test_input_required_approve_round_trips_then_executes(tmp_path: Path) -> Non
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1104,7 +1104,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const ELICIT_ID = "elicit_abc123";
 const REQUEST_STATE = JSON.stringify({ elicitation_id: ELICIT_ID, session_id: "conv_abc" });
@@ -1190,7 +1190,7 @@ require(extensionPath)(pi);
 
 
 def test_mcp_unreachable_fails_closed_without_throwing(tmp_path: Path) -> None:
-    """An unreachable Omnigent MCP server resolves to an error, never a throw.
+    """An unreachable AgentNexus MCP server resolves to an error, never a throw.
 
     Boundary discipline at the /mcp call site: a transport failure (connection
     refused) and an HTTP non-2xx must each resolve ``execute`` to a readable
@@ -1203,10 +1203,10 @@ def test_mcp_unreachable_fails_closed_without_throwing(tmp_path: Path) -> None:
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1233,7 +1233,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 let mode = "throw";
 global.fetch = async () => {
@@ -1292,10 +1292,10 @@ def test_input_required_denied_fails_closed_not_false_success(tmp_path: Path) ->
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1322,7 +1322,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const ELICIT_ID = "elicit_deny";
 const REQUEST_STATE = JSON.stringify({ elicitation_id: ELICIT_ID, session_id: "conv_abc" });
@@ -1425,10 +1425,10 @@ def test_compact_payload_triggers_ctx_compact_and_brackets_spinner(
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1461,7 +1461,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -1590,7 +1590,7 @@ fs.writeFileSync(
   JSON.stringify({ serverUrl: "http://omnigent.test", sessionId: "session-1", inboxDir }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 // Record the order the SERVER receives edges (on resolution), and stall only
 // the in_progress POST so a non-awaited completed could overtake it.
@@ -1678,10 +1678,10 @@ def test_compact_payload_without_ctx_compact_surfaces_error_and_consumes_file(
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1709,7 +1709,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -1809,10 +1809,10 @@ def test_compact_payload_synchronous_throw_dismisses_spinner(
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1840,7 +1840,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -1924,10 +1924,10 @@ def test_compact_payload_failure_dismisses_spinner(tmp_path: Path) -> None:
 
     extension_path = (
         Path(__file__).resolve().parents[1]
-        / "omnigent"
+        / "agentnexus"
         / "resources"
         / "pi_native"
-        / "omnigent_pi_native_extension.js"
+        / "agentnexus_pi_native_extension.js"
     )
 
     script = r"""
@@ -1955,7 +1955,7 @@ fs.writeFileSync(
   }),
 );
 
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const postedEvents = [];
 global.fetch = async (_url, request) => {
@@ -2052,7 +2052,7 @@ fs.writeFileSync(
     authHeaders: { authorization: "Bearer test" },
   }),
 );
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 // Captured evaluate-request bodies (parsed) in call order.
 const evalBodies = [];
@@ -2597,7 +2597,7 @@ function writeConfig(bearer) {
   );
 }
 writeConfig("Bearer stale");
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const sentAuth = [];
 global.fetch = async (_url, request) => {
@@ -2656,7 +2656,7 @@ fs.writeFileSync(
   configPath,
   JSON.stringify({ serverUrl: "http://omnigent.test", sessionId: "session-1", inboxDir }),
 );
-process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
 const posted = [];
 global.fetch = async (_url, request) => {
@@ -2668,9 +2668,9 @@ const setModelCalls = [];
 // The catalog Pi's modelRegistry exposes; setModel returns false for a model
 // with no configured API key (mirrors Pi's real contract).
 const catalog = [
-  { provider: "omnigent", id: "databricks-claude-sonnet-4-6", name: "Sonnet", hasKey: true },
-  { provider: "omnigent", id: "databricks-claude-opus-4-1", name: "Opus", hasKey: true },
-  { provider: "omnigent", id: "no-key-model", name: "NoKey", hasKey: false },
+  { provider: "agentnexus", id: "databricks-claude-sonnet-4-6", name: "Sonnet", hasKey: true },
+  { provider: "agentnexus", id: "databricks-claude-opus-4-1", name: "Opus", hasKey: true },
+  { provider: "agentnexus", id: "no-key-model", name: "NoKey", hasKey: false },
 ];
 const pi = {
   registerCommand() {},
@@ -2692,7 +2692,7 @@ const ctx = {
   // external_model_change). ``getAvailable`` returns only auth-configured
   // models (what the picker should show); ``getAll`` is Pi's full built-in
   // catalog (the fallback for older Pi).
-  model: { provider: "omnigent", id: "databricks-claude-sonnet-4-6", name: "Sonnet" },
+  model: { provider: "agentnexus", id: "databricks-claude-sonnet-4-6", name: "Sonnet" },
   modelRegistry: {
     getAll: () => catalog,
     getAvailable: () => catalog.filter((m) => m.hasKey),
@@ -2735,7 +2735,7 @@ function finish() {
 def test_inbox_model_change_applies_via_set_model(tmp_path: Path) -> None:
     """A web-picked ``model_change`` inbox payload calls Pi's ``setModel``.
 
-    The runner queues the payload after the Omnigent server persisted the
+    The runner queues the payload after the AgentNexus server persisted the
     override; the extension must resolve the id against ``ctx.modelRegistry``
     and apply it live via ``pi.setModel`` — with no error item posted.
     """
@@ -2749,7 +2749,7 @@ def test_inbox_model_change_applies_via_set_model(tmp_path: Path) -> None:
 (async () => {
   await handlers.session_start({}, ctx); // starts the inbox poller
   delete ctx.modelRegistry.find;
-  await deliverModelChange("omnigent/databricks-claude-opus-4-1");
+  await deliverModelChange("agentnexus/databricks-claude-opus-4-1");
 
   assert.equal(setModelCalls.length, 1, JSON.stringify(setModelCalls));
   assert.equal(setModelCalls[0].id, "databricks-claude-opus-4-1");
@@ -2798,7 +2798,7 @@ def test_model_select_mirrors_to_external_model_change(tmp_path: Path) -> None:
     """A user ``/model`` pick inside Pi posts ``external_model_change`` (two-way sync).
 
     Pi fires ``model_select`` for both in-TUI switches and startup restores.
-    A ``set`` / ``cycle`` source must mirror back to Omnigent; a ``restore``
+    A ``set`` / ``cycle`` source must mirror back to AgentNexus; a ``restore``
     (Pi re-applying the saved model at startup) must NOT.
     """
     node = shutil.which("node")
@@ -2816,23 +2816,23 @@ def test_model_select_mirrors_to_external_model_change(tmp_path: Path) -> None:
   // resolves from the start; ignore that when checking the user switch.
   const startupChanges = posted.filter((e) => e.type === "external_model_change");
   assert.equal(startupChanges.length, 1, JSON.stringify(posted));
-  assert.equal(startupChanges[0].data.model, "omnigent/databricks-claude-sonnet-4-6");
+  assert.equal(startupChanges[0].data.model, "agentnexus/databricks-claude-sonnet-4-6");
 
   // A genuine user switch mirrors back.
   await handlers.model_select(
-    { source: "set", model: { provider: "omnigent", id: "databricks-claude-opus-4-1" } },
+    { source: "set", model: { provider: "agentnexus", id: "databricks-claude-opus-4-1" } },
     ctx,
   );
   // A startup restore must be ignored (could clobber a pending web override).
   await handlers.model_select(
-    { source: "restore", model: { provider: "omnigent", id: "databricks-claude-sonnet-4-6" } },
+    { source: "restore", model: { provider: "agentnexus", id: "databricks-claude-sonnet-4-6" } },
     ctx,
   );
 
   const changes = posted.filter((e) => e.type === "external_model_change");
   // Two total: the startup mirror + the one user switch (restore ignored).
   assert.equal(changes.length, 2, JSON.stringify(posted));
-  assert.equal(changes[1].data.model, "omnigent/databricks-claude-opus-4-1");
+  assert.equal(changes[1].data.model, "agentnexus/databricks-claude-opus-4-1");
   finish();
 })().catch((error) => {
   finish();
@@ -2873,8 +2873,8 @@ def test_session_start_posts_model_options_from_registry(tmp_path: Path) -> None
   assert.deepEqual(
     models.map((m) => m.id),
     [
-      "omnigent/databricks-claude-sonnet-4-6",
-      "omnigent/databricks-claude-opus-4-1",
+      "agentnexus/databricks-claude-sonnet-4-6",
+      "agentnexus/databricks-claude-opus-4-1",
     ],
     JSON.stringify(models),
   );
@@ -2884,7 +2884,7 @@ def test_session_start_posts_model_options_from_registry(tmp_path: Path) -> None
   // The launch model is mirrored so the pill/active-row resolve immediately.
   const changes = posted.filter((e) => e.type === "external_model_change");
   assert.equal(changes.length, 1, JSON.stringify(posted));
-  assert.equal(changes[0].data.model, "omnigent/databricks-claude-sonnet-4-6");
+  assert.equal(changes[0].data.model, "agentnexus/databricks-claude-sonnet-4-6");
   finish();
 })().catch((error) => {
   finish();

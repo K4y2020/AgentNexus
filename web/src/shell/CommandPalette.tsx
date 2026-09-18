@@ -225,7 +225,7 @@ export function CommandPalette({
       <DialogContent
         aria-describedby={undefined}
         // Mobile: a top-anchored full-screen sheet sized to the keyboard-aware
-        // visible viewport (--omnigent-viewport-height), so the input and results
+        // visible viewport (--agentnexus-viewport-height), so the input and results
         // sit above the soft keyboard instead of a centered card whose lower half
         // hides behind it. Desktop keeps the centered command palette.
         className={cn(
@@ -238,13 +238,13 @@ export function CommandPalette({
           isMobile
             ? {
                 top: 0,
-                height: "var(--omnigent-viewport-height, 100dvh)",
-                maxHeight: "var(--omnigent-viewport-height, 100dvh)",
+                height: "var(--agentnexus-viewport-height, 100dvh)",
+                maxHeight: "var(--agentnexus-viewport-height, 100dvh)",
                 // Pad both insets: safe-top clears the notch, safe-bottom keeps
                 // the last row above the home indicator when the keyboard is
                 // closed (the visible-viewport height then spans the home bar).
-                paddingTop: "var(--omnigent-safe-top, 0px)",
-                paddingBottom: "var(--omnigent-safe-bottom, 0px)",
+                paddingTop: "var(--agentnexus-safe-top, 0px)",
+                paddingBottom: "var(--agentnexus-safe-bottom, 0px)",
               }
             : undefined
         }

@@ -9,7 +9,7 @@
 在日志中查找 `seedance_edit_canvas` 的调用，确认传递了哪些参数：
 
 ```bash
-tail -f ~/.omnigent/logs/host/host-*.log | grep -A 20 "seedance_edit_canvas"
+tail -f ~/.agentnexus/logs/host/host-*.log | grep -A 20 "seedance_edit_canvas"
 ```
 
 #### 2. 测试最小可复现案例
@@ -114,10 +114,10 @@ curl http://127.0.0.1:8893/v3/projects/{project_id}/snapshot \
 
 ```bash
 # 1. 查看最近的 seedance_edit_canvas 调用
-grep -r "seedance_edit_canvas" ~/.omnigent/logs/runner/ | tail -20
+grep -r "seedance_edit_canvas" ~/.agentnexus/logs/runner/ | tail -20
 
 # 2. 检查创建节点的完整命令
-grep -A 30 "canvas.create_node" ~/.omnigent/logs/runner/*.log | tail -50
+grep -A 30 "canvas.create_node" ~/.agentnexus/logs/runner/*.log | tail -50
 
 # 3. 查看 Seedance 服务日志（如果可访问）
 tail -f ~/AI/seedance-v3/logs/*.log

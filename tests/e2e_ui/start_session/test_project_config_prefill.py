@@ -574,7 +574,7 @@ async def _drive_fork_fresh(base_url: str, session_id: str) -> None:
             # auto-seed would land here and reuse it.
             await page.add_init_script(
                 f"""window.localStorage.setItem(
-                    "omnigent:recent-workspaces",
+                    "agentnexus:recent-workspaces",
                     JSON.stringify({{ {_HOST_ID}: ["{_LINKED_WORKTREE}"] }})
                 );"""
             )
@@ -612,7 +612,7 @@ async def _drive_fork_fresh(base_url: str, session_id: str) -> None:
 _GIT_REPO = "/work/omnigent"
 # The user-global "always use a worktree" preference key (Settings › Git),
 # mirrors STORAGE_KEY in web/src/lib/worktreeDefaultPreferences.ts.
-_ALWAYS_WORKTREE_KEY = "omnigent:always-use-worktree"
+_ALWAYS_WORKTREE_KEY = "agentnexus:always-use-worktree"
 
 
 def _git_repo_worktrees_body() -> str:
@@ -807,7 +807,7 @@ async def _drive_project_opt_out(base_url: str, session_id: str) -> None:
             )
             # Workspace settles first; then assert no worktree branch was seeded.
             await expect(page.get_by_test_id("new-chat-landing-workspace-chip")).to_contain_text(
-                "omnigent", timeout=15_000
+                "agentnexus", timeout=15_000
             )
             await expect(page.get_by_test_id("new-chat-landing-branch-chip")).to_contain_text(
                 "Worktree", timeout=15_000

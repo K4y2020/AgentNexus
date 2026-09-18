@@ -6,7 +6,7 @@ import click
 import httpx
 import pytest
 
-from omnigent import native_terminal
+from agentnexus import native_terminal
 
 
 @pytest.mark.asyncio
@@ -16,7 +16,7 @@ async def test_bind_session_runner_patches_encoded_session_path() -> None:
 
     A regression here would either bind the wrong session when ids
     contain path separators, or drop the ``runner_id`` body that the
-    Omnigent server expects before launching a native terminal.
+    AgentNexus server expects before launching a native terminal.
     """
     seen: dict[str, object] = {}
 
@@ -127,7 +127,7 @@ async def test_bind_session_runner_raises_click_exception_on_connect_error() -> 
         base_url="https://example.databricks.com",
         transport=httpx.MockTransport(_handler),
     ) as client:
-        with pytest.raises(click.ClickException, match="Couldn't reach the Omnigent server"):
+        with pytest.raises(click.ClickException, match="Couldn't reach the AgentNexus server"):
             await native_terminal.bind_session_runner(client, "conv_abc", "runner_abc")
 
 
@@ -155,7 +155,7 @@ async def test_bind_session_runner_treats_connect_timeout_as_unreachable() -> No
         base_url="https://example.databricks.com",
         transport=httpx.MockTransport(_handler),
     ) as client:
-        with pytest.raises(click.ClickException, match="Couldn't reach the Omnigent server"):
+        with pytest.raises(click.ClickException, match="Couldn't reach the AgentNexus server"):
             await native_terminal.bind_session_runner(client, "conv_abc", "runner_abc")
 
 

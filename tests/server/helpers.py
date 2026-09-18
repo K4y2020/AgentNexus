@@ -17,14 +17,14 @@ import httpx
 import yaml
 from fastapi import FastAPI
 
-from omnigent.onboarding.sandboxes import (
+from agentnexus.onboarding.sandboxes import (
     RemoteCommandResult,
     RemoteProcess,
     SandboxLauncher,
 )
-from omnigent.runner.transports.ws_tunnel.frames import HelloFrame
-from omnigent.runtime import session_stream
-from omnigent.server.smart_routing import RoutingResult, RoutingSettings
+from agentnexus.runner.transports.ws_tunnel.frames import HelloFrame
+from agentnexus.runtime import session_stream
+from agentnexus.server.smart_routing import RoutingResult, RoutingSettings
 
 # Sentinel ready event so a stream collector's registration is a
 # deterministic sync point (first delivered item) rather than a
@@ -114,9 +114,9 @@ class HostStartInvocation:
     orchestration runs inside the sandbox, so tests can assert on (and
     act with) the exact identity + credential the server injected.
 
-    :param host_id: Value of the injected ``OMNIGENT_HOST_ID``.
-    :param host_name: Value of the injected ``OMNIGENT_HOST_NAME``.
-    :param token: Value of the injected ``OMNIGENT_HOST_TOKEN`` — the
+    :param host_id: Value of the injected ``AGENTNEXUS_HOST_ID``.
+    :param host_name: Value of the injected ``AGENTNEXUS_HOST_NAME``.
+    :param token: Value of the injected ``AGENTNEXUS_HOST_TOKEN`` — the
         raw launch token.
     :param command: The full shell command, for free-form assertions.
     """
@@ -258,7 +258,7 @@ class FakeSandboxLauncher(SandboxLauncher):
             raise click.ClickException(f"simulated failure of: {command}")
         if 'printf %s "$HOME"' in command:
             return RemoteCommandResult(returncode=0, stdout=self._home, stderr="")
-        if "omnigent host" in command:
+        if "agentnexus host" in command:
             if self.fail_on_host_start:
                 raise click.ClickException("simulated in-sandbox host start failure")
             invocation = _parse_host_start(command)
@@ -298,7 +298,7 @@ def _parse_host_start(command: str) -> HostStartInvocation:
     """
     Parse the injected identity/token out of a host start command.
 
-    The managed flow injects ``OMNIGENT_HOST_TOKEN`` / ``_HOST_ID`` /
+    The managed flow injects ``AGENTNEXUS_HOST_TOKEN`` / ``_HOST_ID`` /
     ``_HOST_NAME`` as inline env assignments; the values are
     shell-safe tokens (``shlex.quote`` leaves them unquoted), so a
     plain non-space match recovers them.
@@ -309,14 +309,14 @@ def _parse_host_start(command: str) -> HostStartInvocation:
         the production command regressed.
     """
     values: dict[str, str] = {}
-    for var in ("OMNIGENT_HOST_TOKEN", "OMNIGENT_HOST_ID", "OMNIGENT_HOST_NAME"):
+    for var in ("AGENTNEXUS_HOST_TOKEN", "AGENTNEXUS_HOST_ID", "AGENTNEXUS_HOST_NAME"):
         match = re.search(rf"{var}=(\S+)", command)
         assert match is not None, f"host start command missing {var}: {command}"
         values[var] = match.group(1)
     return HostStartInvocation(
-        host_id=values["OMNIGENT_HOST_ID"],
-        host_name=values["OMNIGENT_HOST_NAME"],
-        token=values["OMNIGENT_HOST_TOKEN"],
+        host_id=values["AGENTNEXUS_HOST_ID"],
+        host_name=values["AGENTNEXUS_HOST_NAME"],
+        token=values["AGENTNEXUS_HOST_TOKEN"],
         command=command,
     )
 
@@ -336,7 +336,7 @@ def install_fake_modal_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.modal as modal_mod
+    import agentnexus.onboarding.sandboxes.modal as modal_mod
 
     def _ctor(
         *, image: str | None = None, secrets: list[str] | None = None
@@ -363,7 +363,7 @@ def install_fake_daytona_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.daytona as daytona_mod
+    import agentnexus.onboarding.sandboxes.daytona as daytona_mod
 
     def _ctor(*, image: str | None = None, env: list[str] | None = None) -> FakeSandboxLauncher:
         """Stand-in constructor recording the construction wiring."""
@@ -379,7 +379,7 @@ def install_fake_blaxel_launcher(
     fake: FakeSandboxLauncher,
 ) -> None:
     """Substitute the fake for ``BlaxelSandboxLauncher``."""
-    import omnigent.onboarding.sandboxes.blaxel as blaxel_mod
+    import agentnexus.onboarding.sandboxes.blaxel as blaxel_mod
 
     def _ctor(
         *,
@@ -413,7 +413,7 @@ def install_fake_boxlite_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.boxlite as boxlite_mod
+    import agentnexus.onboarding.sandboxes.boxlite as boxlite_mod
 
     def _ctor(
         *,
@@ -452,7 +452,7 @@ def install_fake_islo_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.islo as islo_mod
+    import agentnexus.onboarding.sandboxes.islo as islo_mod
 
     def _ctor(
         *,
@@ -497,7 +497,7 @@ def install_fake_e2b_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.e2b as e2b_mod
+    import agentnexus.onboarding.sandboxes.e2b as e2b_mod
 
     def _ctor(*, template: str | None = None, env: list[str] | None = None) -> FakeSandboxLauncher:
         """Stand-in constructor recording the construction wiring."""
@@ -526,7 +526,7 @@ def install_fake_openshell_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.openshell as openshell_mod
+    import agentnexus.onboarding.sandboxes.openshell as openshell_mod
 
     def _ctor(
         *,
@@ -561,7 +561,7 @@ def install_fake_kubernetes_launcher(
     :param monkeypatch: The test's ``pytest.MonkeyPatch``.
     :param fake: The fake launcher to substitute.
     """
-    import omnigent.onboarding.sandboxes.kubernetes as kubernetes_mod
+    import agentnexus.onboarding.sandboxes.kubernetes as kubernetes_mod
 
     def _ctor(
         *,
@@ -701,7 +701,7 @@ def build_agent_bundle(
         to force an ``incomplete`` terminal state after a known
         number of LLM turns. ``None`` uses the spec default.
     :param executor: Optional executor block to write verbatim,
-        e.g. ``{"type": "omnigent", "config": {"harness":
+        e.g. ``{"type": "agentnexus", "config": {"harness":
         "codex"}}``. ``None`` uses the default in-process LLM
         executor.
     :param skills: Optional bundled skills. Each dict must include
@@ -838,7 +838,7 @@ async def create_test_agent(
     :param description: Optional agent description.
     :param max_iterations: Optional executor iteration cap.
     :param executor: Optional executor block to write verbatim,
-        e.g. ``{"type": "omnigent", "config": {"harness":
+        e.g. ``{"type": "agentnexus", "config": {"harness":
         "codex"}}``.
     :param skills: Optional bundled skills. Each dict must include
         ``"name"``, ``"description"``, and ``"content"``.
@@ -920,7 +920,7 @@ async def create_test_session(
         ``{"env": "test"}``.
     :param max_iterations: Optional executor iteration cap.
     :param executor: Optional executor block to write verbatim,
-        e.g. ``{"type": "omnigent", "config": {"harness":
+        e.g. ``{"type": "agentnexus", "config": {"harness":
         "codex"}}``.
     :param skills: Optional bundled skills. Each dict must include
         ``"name"``, ``"description"``, and ``"content"``.
@@ -954,11 +954,11 @@ class CapturingRunnerClient:
     """
     Real stub for the in-process runner client used by popup-forward tests.
 
-    Records every control event the Omnigent server POSTs to the runner's
+    Records every control event the AgentNexus server POSTs to the runner's
     ``/events`` and signals when a ``cost_approval_popup`` arrives. A real
     class (not MagicMock) so an unexpected call shape fails loud rather than
     silently returning a mock. Install it as the global runner client with
-    ``monkeypatch.setattr("omnigent.runtime._globals._runner_client", c)``;
+    ``monkeypatch.setattr("agentnexus.runtime._globals._runner_client", c)``;
     the server's forward falls back to it when no runner is bound.
 
     :param posted: Accumulated ``{"url", "json"}`` records of each POST.

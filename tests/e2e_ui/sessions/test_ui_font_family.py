@@ -3,7 +3,7 @@
 The font-family control lives on the Settings page (``pages/SettingsPage.tsx``,
 ``UiFontFamilyControl``): a free-text input (Cursor-style) plus a ``Reset``
 button under a ``role="group"`` labelled "Font family". Typing a name writes the
-choice to ``localStorage["omnigent:ui-font-family"]`` and applies it as the
+choice to ``localStorage["agentnexus:ui-font-family"]`` and applies it as the
 ``--ui-font-family`` custom property on ``<html>`` (see
 ``lib/uiFontPreferences.ts``). A blank field is "System default": the property is
 removed and the ``html`` rule falls back to ``var(--font-sans)``.
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-STORAGE_KEY = "omnigent:ui-font-family"
+STORAGE_KEY = "agentnexus:ui-font-family"
 
 
 def _ui_font_family(page: Page) -> str:

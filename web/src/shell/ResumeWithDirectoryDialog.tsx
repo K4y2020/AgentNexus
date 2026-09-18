@@ -41,7 +41,7 @@ import { getSessionSlim, launchRunner } from "@/lib/sessionsApi";
  * session from the browser. Serves two unbound cases:
  *
  * - **Fork clone** (``sourceSessionId`` set): a fork of a session that had a
- *   working directory (``omnigent.fork.source_id`` label). Prefills from the
+ *   working directory (``agentnexus.fork.source_id`` label). Prefills from the
  *   *source* session — its host is the default, its workspace the default
  *   directory, and when it used a git worktree a branch is suggested so the
  *   clone diverges onto its own worktree. When the source's host is offline
@@ -56,12 +56,12 @@ import { getSessionSlim, launchRunner } from "@/lib/sessionsApi";
  * @param open - Whether the dialog is visible.
  * @param onOpenChange - Radix-controlled visibility setter.
  * @param sessionId - The unbound session to bind, e.g. ``"conv_abc"``.
- * @param sourceSessionId - Fork source (``omnigent.fork.source_id``) read for
+ * @param sourceSessionId - Fork source (``agentnexus.fork.source_id``) read for
  *   host/dir/branch prefill; ``null``/absent for a host-less session.
  * @param prefill - Defaults for the host-less case (the session's own
  *   host/workspace/branch). Ignored when ``sourceSessionId`` is set.
  * @param serverUrl - Origin for the CLI fallback command.
- * @param wrapper - The session's ``omnigent.wrapper`` label (CLI fallback).
+ * @param wrapper - The session's ``agentnexus.wrapper`` label (CLI fallback).
  * @param onBound - Called after a successful bind so the caller can
  *   replay the message the user was trying to send.
  */
@@ -273,7 +273,7 @@ export function ResumeWithDirectoryDialog({
         ) : noOnlineHosts ? (
           <p className="text-sm text-muted-foreground" data-testid="resume-dir-no-hosts">
             None of your machines are online. Start one with{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono">omnigent host</code> from your
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">agentnexus host</code> from your
             terminal, then reopen this dialog.
           </p>
         ) : showCliFallback ? (
@@ -288,7 +288,7 @@ export function ResumeWithDirectoryDialog({
                 serverUrl,
                 wrapper,
                 // The source's host is offline here. With a host binding the
-                // owner re-registers the host (`omnigent host`); without one
+                // owner re-registers the host (`agentnexus host`); without one
                 // the runner is relaunched directly via the wrapper's resume
                 // form.
                 state: sourceHostId ? "host_offline" : "local_stranded",

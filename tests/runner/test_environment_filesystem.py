@@ -12,13 +12,13 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.entities import DEFAULT_ENVIRONMENT_ID
-from omnigent.entities.environment_filesystem import FilesystemPathNotFound
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.os_env import create_os_environment
-from omnigent.runner import create_runner_app
-from omnigent.runner.environment_filesystem import CallerProcessFilesystem, is_absolute_request
-from omnigent.runner.resource_registry import SessionResourceRegistry
+from agentnexus.entities import DEFAULT_ENVIRONMENT_ID
+from agentnexus.entities.environment_filesystem import FilesystemPathNotFound
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.os_env import create_os_environment
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.environment_filesystem import CallerProcessFilesystem, is_absolute_request
+from agentnexus.runner.resource_registry import SessionResourceRegistry
 from tests.runner.helpers import NullServerClient
 
 
@@ -419,7 +419,7 @@ async def test_stat_path_with_command_substitution_does_not_execute(
     containing a command substitution must raise ``FilesystemPathNotFound``
     without creating the marker the substituted command would produce.
     """
-    from omnigent.runner.environment_filesystem import CallerProcessFilesystem
+    from agentnexus.runner.environment_filesystem import CallerProcessFilesystem
 
     os_env = create_os_environment(
         OSEnvSpec(
@@ -454,7 +454,7 @@ async def test_stat_real_file_with_command_substitution_name(
     file-type entry with the real byte size. A shell-interpreted path would
     stat a different string and raise instead.
     """
-    from omnigent.runner.environment_filesystem import CallerProcessFilesystem
+    from agentnexus.runner.environment_filesystem import CallerProcessFilesystem
 
     os_env = create_os_environment(
         OSEnvSpec(
@@ -1636,7 +1636,7 @@ async def test_search_scan_budget_bounds_a_no_match_walk(
         (deep / f"f{i}.txt").write_text("x")
 
     monkeypatch.setattr(
-        "omnigent.runner.environment_filesystem._SEARCH_SCAN_BUDGET",
+        "agentnexus.runner.environment_filesystem._SEARCH_SCAN_BUDGET",
         10,
     )
     fs = CallerProcessFilesystem(

@@ -13,10 +13,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins import get_builtin_tool
-from omnigent.tools.builtins import hindsight as hindsight_mod
-from omnigent.tools.builtins.hindsight import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins import get_builtin_tool
+from agentnexus.tools.builtins import hindsight as hindsight_mod
+from agentnexus.tools.builtins.hindsight import (
     HindsightRecallTool,
     HindsightReflectTool,
     HindsightRetainTool,
@@ -247,7 +247,7 @@ def test_hindsight_tools_absent_from_registry_when_sdk_missing(
     import importlib.util
     from importlib.machinery import ModuleSpec
 
-    import omnigent.tools.builtins as builtins_mod
+    import agentnexus.tools.builtins as builtins_mod
 
     real_find_spec = importlib.util.find_spec
 

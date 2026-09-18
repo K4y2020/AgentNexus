@@ -10,18 +10,18 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine, event
 
-from omnigent.db import current_query_name, query_name_scope
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.db import current_query_name, query_name_scope
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
 
 _REPOSITORY_ROOT = Path(__file__).parents[2]
 _APPLICATION_STORE_PATHS = [
-    *_REPOSITORY_ROOT.glob("omnigent/stores/*/sqlalchemy_store.py"),
-    _REPOSITORY_ROOT / "omnigent/stores/host_store.py",
-    _REPOSITORY_ROOT / "omnigent/server/accounts_store.py",
-    _REPOSITORY_ROOT / "omnigent/server/device_grant_store.py",
+    *_REPOSITORY_ROOT.glob("agentnexus/stores/*/sqlalchemy_store.py"),
+    _REPOSITORY_ROOT / "agentnexus/stores/host_store.py",
+    _REPOSITORY_ROOT / "agentnexus/server/accounts_store.py",
+    _REPOSITORY_ROOT / "agentnexus/server/device_grant_store.py",
 ]
 
 
@@ -118,29 +118,29 @@ def test_file_store_names_each_application_query(db_uri: str) -> None:
 
     with _capture_application_query_names(file_store._engine) as query_names:
         file = file_store.create("report.txt", 10, session_id="94c349190e241f85a984b3df8f129696")
-        assert query_names == ["omnigent.file_store.insert_file"]
+        assert query_names == ["agentnexus.file_store.insert_file"]
 
         query_names.clear()
         file_store.get(file.id)
-        assert query_names == ["omnigent.file_store.select_file_by_id"]
+        assert query_names == ["agentnexus.file_store.select_file_by_id"]
 
         query_names.clear()
         file_store.list(session_id="94c349190e241f85a984b3df8f129696")
-        assert query_names == ["omnigent.file_store.list_files"]
+        assert query_names == ["agentnexus.file_store.list_files"]
 
         query_names.clear()
         file_store.delete(file.id)
         assert query_names == [
-            "omnigent.file_store.select_file_by_id",
-            "omnigent.file_store.delete_file",
+            "agentnexus.file_store.select_file_by_id",
+            "agentnexus.file_store.delete_file",
         ]
 
         file_store.create("old.txt", 1, session_id="94c349190e241f85a984b3df8f129696")
         query_names.clear()
         file_store.delete_all_for_session("94c349190e241f85a984b3df8f129696")
         assert query_names == [
-            "omnigent.file_store.list_session_files_for_delete",
-            "omnigent.file_store.delete_session_files",
+            "agentnexus.file_store.list_session_files_for_delete",
+            "agentnexus.file_store.delete_session_files",
         ]
 
 
@@ -153,8 +153,8 @@ def test_conversation_store_names_create_and_get_queries(
     with _capture_application_query_names(store._engine, store._conv_engine) as query_names:
         parent = store.create_conversation(title="parent")
         assert query_names == [
-            "omnigent.conversation_store.insert_conversation",
-            "omnigent.conversation_store.insert_conversation_metadata",
+            "agentnexus.conversation_store.insert_conversation",
+            "agentnexus.conversation_store.insert_conversation_metadata",
         ]
 
         query_names.clear()
@@ -163,10 +163,10 @@ def test_conversation_store_names_create_and_get_queries(
             parent_conversation_id=parent.id,
         )
         assert query_names == [
-            "omnigent.conversation_store.select_parent_conversation",
-            "omnigent.conversation_store.select_duplicate_child_title",
-            "omnigent.conversation_store.insert_conversation",
-            "omnigent.conversation_store.insert_conversation_metadata",
+            "agentnexus.conversation_store.select_parent_conversation",
+            "agentnexus.conversation_store.select_duplicate_child_title",
+            "agentnexus.conversation_store.insert_conversation",
+            "agentnexus.conversation_store.insert_conversation_metadata",
         ]
 
         query_names.clear()
@@ -174,7 +174,7 @@ def test_conversation_store_names_create_and_get_queries(
         assert fetched is not None
         assert fetched.id == child.id
         assert query_names == [
-            "omnigent.conversation_store.select_conversation_by_id",
-            "omnigent.conversation_store.select_conversation_metadata_by_id",
-            "omnigent.conversation_store.select_conversation_labels",
+            "agentnexus.conversation_store.select_conversation_by_id",
+            "agentnexus.conversation_store.select_conversation_metadata_by_id",
+            "agentnexus.conversation_store.select_conversation_labels",
         ]

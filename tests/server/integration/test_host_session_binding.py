@@ -16,36 +16,36 @@ from asgiref.testing import ApplicationCommunicator
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from omnigent.entities import Conversation
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.host.frames import (
+from agentnexus.entities import Conversation
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostLaunchRunnerFrame,
     HostLaunchRunnerResultFrame,
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.server.host_registry import HostRegistry
-from omnigent.server.managed_hosts import (
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.server.host_registry import HostRegistry
+from agentnexus.server.managed_hosts import (
     ManagedHostLaunch,
     ManagedLaunchTracker,
     ManagedSandboxConfig,
     ManagedSandboxDeployment,
     parse_sandbox_config,
 )
-from omnigent.server.routes.host_tunnel import create_host_tunnel_router
-from omnigent.server.routes.hosts import create_hosts_router
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
+from agentnexus.server.routes.hosts import create_hosts_router
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.host_store import HostStore
 from tests.server.helpers import (
     FakeSandboxLauncher,
     HostStartInvocation,
@@ -321,7 +321,7 @@ async def _fake_sandbox_host(
     Connects to the app's real host tunnel authenticating ONLY with
     the launch token (exactly what a sandbox has), sends hello with
     the server-injected host name (the real host reads it from
-    ``OMNIGENT_HOST_NAME``; the name must match the pre-registered
+    ``AGENTNEXUS_HOST_NAME``; the name must match the pre-registered
     row's ``(owner, name)`` key), then answers the launch frame with a
     launched result — the full protocol a real managed host performs.
 
@@ -334,7 +334,7 @@ async def _fake_sandbox_host(
         dropping it garbage-collects the ASGI task, which tears the
         tunnel down and flips the host offline.
     """
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     scope = _websocket_scope(f"/v1/hosts/{host_id}/tunnel")
     scope["headers"] = [(b"x-omnigent-host-token", token.encode("ascii"))]
@@ -419,12 +419,12 @@ async def test_managed_session_create_end_to_end(
     # A healthy fake host registers in well under a second; shrink the
     # online-poll budget so a registration regression fails the test in
     # seconds instead of hanging into the pytest timeout.
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     # No real runner ever connects in this harness; shrink the
     # background task's runner-tunnel wait so it settles (and the
     # task finishes) within the test instead of lingering 30s.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
+        "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
@@ -510,10 +510,10 @@ async def test_managed_session_create_with_repo_workspace_binds_cloned_dir(
     env = managed_session_env
     # Same shrunken online-poll budget as the e2e golden path: a
     # registration regression should fail in seconds.
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     # No real runner connects; settle the background task quickly.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
+        "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
@@ -575,9 +575,9 @@ async def test_managed_multipart_bundle_create_end_to_end(
     is scheduled, so a launch failure can't orphan an unowned row).
     """
     env = managed_session_env
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
+        "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
@@ -850,10 +850,10 @@ async def test_managed_launch_progress_surfaces_on_snapshot_and_stream(
     """
     import threading
 
-    from omnigent.runtime import session_stream
+    from agentnexus.runtime import session_stream
 
     env = managed_session_env
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     # This test asserts the happy-path "ready" progress edge; fake the
     # runner tunnel connect so settlement is driven by progress ordering,
     # not by the runner WebSocket harness.
@@ -966,9 +966,9 @@ async def test_subagent_session_reuses_managed_sandbox_runner(
     the sub-agent runs nowhere.
     """
     env = managed_session_env
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
+        "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
@@ -1039,7 +1039,7 @@ async def test_message_relaunches_dead_managed_sandbox(
     503s and none of the generation-2 effects below happen.
     """
     env = managed_session_env
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     # Let the initial create settle successfully; after that this test switches
     # the relaunch generation back to a runner-connect timeout.
     monkeypatch.setattr(
@@ -1049,9 +1049,9 @@ async def test_message_relaunches_dead_managed_sandbox(
     )
     # Shrink relaunch waits so the message POST and background task settle fast.
     monkeypatch.setattr(
-        "omnigent.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
+        "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
-    monkeypatch.setattr("omnigent.server.routes.sessions._HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.1)
+    monkeypatch.setattr("agentnexus.server.routes.sessions._HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.1)
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
 
@@ -1166,7 +1166,7 @@ async def test_resumable_managed_wake_ignores_stale_db_liveness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A paused Islo host wakes and signals re-address when online cross-replica."""
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     host_store = HostStore(db_uri)
     conv_store = SqlAlchemyConversationStore(db_uri)
@@ -1217,7 +1217,7 @@ async def test_resumable_managed_wake_ignores_stale_db_liveness(
     )
 
     assert host_store.is_online("40bb7200abc8ed27d5b2fcbfad8e89d2") is True
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         await sessions_module._maybe_relaunch_managed_sandbox(
             session_id=conv.id,
             conv=conv,
@@ -1233,7 +1233,7 @@ async def test_resumable_managed_wake_drops_fresh_local_tunnels_when_provider_pa
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A paused Islo host wakes stale tunnels and signals re-address when online cross-replica."""
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     host_store = HostStore(db_uri)
     conv_store = SqlAlchemyConversationStore(db_uri)
@@ -1306,7 +1306,7 @@ async def test_resumable_managed_wake_drops_fresh_local_tunnels_when_provider_pa
         ),
     )
 
-    with pytest.raises(OmnigentError) as exc:
+    with pytest.raises(AgentNexusError) as exc:
         await sessions_module._maybe_wake_stale_resumable_managed_sandbox(
             session_id=conv.id,
             conv=conv,
@@ -1323,7 +1323,7 @@ async def test_managed_wake_fails_when_runner_never_reconnects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A wake cannot publish ready if the launched runner tunnel times out."""
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     session_id = "1a9de2e74d453be7cd665c5290b481b9"
     conv = SimpleNamespace(
@@ -1351,7 +1351,7 @@ async def test_managed_wake_fails_when_runner_never_reconnects(
         async def wait_for_runner(self, _runner_id: str, *, timeout_s: float) -> None:
             del timeout_s
 
-    monkeypatch.setattr("omnigent.server.managed_hosts.resume_managed_host", _resume_noop)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.resume_managed_host", _resume_noop)
     monkeypatch.setattr(sessions_module, "_launch_runner_on_host", _launch_runner)
     monkeypatch.setattr(
         sessions_module,
@@ -1387,7 +1387,7 @@ async def test_managed_launch_fails_when_runner_never_connects(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Initial managed launch settlement also depends on the runner tunnel."""
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     session_id = "1a41e11887aca4570e42c0be40f24833"
     conv = SimpleNamespace(id=session_id)
@@ -1458,7 +1458,7 @@ async def test_cancel_managed_launch_tasks_returns_while_provision_parked(
     """
     import threading
 
-    from omnigent.server.routes.sessions import cancel_managed_launch_tasks
+    from agentnexus.server.routes.sessions import cancel_managed_launch_tasks
 
     env = managed_session_env
     gate = threading.Event()
@@ -1497,7 +1497,7 @@ async def test_managed_session_deleted_during_provision_terminates_sandbox(
     import threading
 
     env = managed_session_env
-    monkeypatch.setattr("omnigent.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
+    monkeypatch.setattr("agentnexus.server.managed_hosts.MANAGED_HOST_ONLINE_TIMEOUT_S", 10)
     loop = asyncio.get_running_loop()
     gate = threading.Event()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []

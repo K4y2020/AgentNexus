@@ -34,7 +34,7 @@ export const SECURE_STREAMDOWN_REHYPE_PLUGINS = createStreamdownRehypePlugins(fa
 export const FILE_LINK_STREAMDOWN_REHYPE_PLUGINS = createStreamdownRehypePlugins(true);
 
 // Attribute carrying the original, unhardened href of a workspace-file link.
-export const WORKSPACE_FILE_LINK_ATTR = "data-omnigent-file";
+export const WORKSPACE_FILE_LINK_ATTR = "data-agentnexus-file";
 
 // An href that can only be a protocol URL, a protocol-relative URL, or an
 // in-page anchor, never a path to a file in the session workspace. The
@@ -46,7 +46,7 @@ const NON_FILE_HREF = /^(?:[a-zA-Z][a-zA-Z0-9+.-]*:(?!\d+(?::\d+)?$)|\/\/|#)/;
 // attribute. Must be a *named* fragment: harden passes a fragment-only href
 // through only when `new URL(href, base).hash` round-trips, and a bare "#"
 // parses to an empty hash, so it would be blocked like any unresolvable URL.
-const PARKED_FILE_HREF = "#omnigent-file";
+const PARKED_FILE_HREF = "#agentnexus-file";
 
 interface HastElement {
   type: string;

@@ -33,7 +33,7 @@ import httpx
 import pytest
 import yaml as _yaml
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests.e2e.conftest import (
     configure_mock_llm,
     find_free_port,
@@ -116,7 +116,7 @@ def registered_agent_server(
     Mirrors the remote-URL target: the caller knows only the agent's name,
     and must resolve its id from the server to create a session.
     """
-    from omnigent.chat import (
+    from agentnexus.chat import (
         _start_local_server,
         _stop_local_server,
         _wait_for_server,
@@ -192,14 +192,14 @@ def test_repl_adapter_creates_session_without_bundle(
     URL target: a remote client owns no runner, so the adapter has to adopt one
     the server already has online or the first turn fails to dispatch.
     """
-    from omnigent_client import OmnigentClient
+    from agentnexus_client import AgentNexusClient
 
-    from omnigent.repl._repl import _SessionsChatReplAdapter
+    from agentnexus.repl._repl import _SessionsChatReplAdapter
 
     server = registered_agent_server
 
     async def _drive() -> str:
-        async with OmnigentClient(base_url=server.base_url) as client:
+        async with AgentNexusClient(base_url=server.base_url) as client:
             adapter = _SessionsChatReplAdapter(
                 client=client,
                 agent_name=server.agent_name,
@@ -226,14 +226,14 @@ def test_repl_adapter_unknown_agent_name_is_reported(
     Guards the resolve step: a typo'd or missing agent must surface as a clear
     lookup failure rather than a confusing session-create error.
     """
-    from omnigent_client import OmnigentClient
+    from agentnexus_client import AgentNexusClient
 
-    from omnigent.repl._repl import _SessionsChatReplAdapter
+    from agentnexus.repl._repl import _SessionsChatReplAdapter
 
     server = registered_agent_server
 
     async def _drive() -> None:
-        async with OmnigentClient(base_url=server.base_url) as client:
+        async with AgentNexusClient(base_url=server.base_url) as client:
             adapter = _SessionsChatReplAdapter(
                 client=client,
                 agent_name="no-such-agent",
@@ -269,7 +269,7 @@ def test_server_creates_fresh_session_via_json_agent_id(
         resp = client.post(
             "/v1/sessions",
             json={"agent_id": agent_id},
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         )
         resp.raise_for_status()
         session_id = str(resp.json()["id"])
@@ -311,14 +311,14 @@ def test_headless_prompt_without_bundle_uses_sessions_api(
     ``/v1/responses`` endpoint, which the server no longer exposes.  It must
     now resolve the registered agent and use the sessions API instead.
     """
-    from omnigent_client import OmnigentClient
+    from agentnexus_client import AgentNexusClient
 
-    from omnigent.chat import _query_sessions_once
+    from agentnexus.chat import _query_sessions_once
 
     server = registered_agent_server
 
     async def _one_shot() -> str | None:
-        async with OmnigentClient(base_url=server.base_url) as client:
+        async with AgentNexusClient(base_url=server.base_url) as client:
             return await _query_sessions_once(
                 client=client,
                 agent_name=server.agent_name,
@@ -345,7 +345,7 @@ def test_run_one_shot_without_bundle_answers(
     require a bundle and fall back to the legacy client query, so a
     remote-URL one-shot failed with ``Not Found``.
     """
-    from omnigent.chat import _run_one_shot
+    from agentnexus.chat import _run_one_shot
 
     server = registered_agent_server
 
@@ -384,7 +384,7 @@ def test_json_create_returns_full_session_snapshot(
         resp = client.post(
             "/v1/sessions",
             json={"agent_id": server.agent_id()},
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         )
         resp.raise_for_status()
         body = resp.json()
@@ -405,14 +405,14 @@ def test_no_online_runner_reports_actionable_error(
     server has none, the turn cannot dispatch, so the error should point at
     starting a host rather than at the ``--server`` flag the user already used.
     """
-    from omnigent_client import OmnigentClient
+    from agentnexus_client import AgentNexusClient
 
-    from omnigent.repl._repl import _SessionsChatReplAdapter
+    from agentnexus.repl._repl import _SessionsChatReplAdapter
 
     server = registered_agent_server
 
     async def _drive() -> None:
-        async with OmnigentClient(base_url=server.base_url) as client:
+        async with AgentNexusClient(base_url=server.base_url) as client:
             adapter = _SessionsChatReplAdapter(
                 client=client,
                 agent_name=server.agent_name,
@@ -454,9 +454,9 @@ def test_runner_adoption_matches_harness_aliases(agent_harness: str, advertised:
     """
     import json
 
-    from omnigent_client._sessions import SessionsNamespace
+    from agentnexus_client._sessions import SessionsNamespace
 
-    from omnigent.harness_aliases import canonicalize_harness
+    from agentnexus.harness_aliases import canonicalize_harness
 
     class _Resp:
         status_code = 200

@@ -22,14 +22,14 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from omnigent.entities.conversation import Conversation
-from omnigent.runtime import pending_elicitations, subagent_block_notifier
-from omnigent.runtime.subagent_block_notifier import (
+from agentnexus.entities.conversation import Conversation
+from agentnexus.runtime import pending_elicitations, subagent_block_notifier
+from agentnexus.runtime.subagent_block_notifier import (
     SubagentBlockNotifier,
     _block_reason,
     _child_label,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -165,7 +165,7 @@ async def conv_store(tmp_path: Path) -> AsyncIterator[SqlAlchemyConversationStor
     Per-test SQLite-backed conversation store.
 
     A real store is used (not a mock) so the notifier exercises the
-    same ``get_conversation`` path the Omnigent server uses; a test-only
+    same ``get_conversation`` path the AgentNexus server uses; a test-only
     in-memory shim could mask a regression in the parent-walk lookup.
 
     :param tmp_path: Pytest-provided unique temp directory.
@@ -904,7 +904,7 @@ async def test_observe_retries_then_releases_arm_when_dispatch_raises(
     )
 
     expected_attempts = 1 + subagent_block_notifier._WAKE_RETRIES
-    with caplog.at_level(logging.WARNING, logger="omnigent.runtime.subagent_block_notifier"):
+    with caplog.at_level(logging.WARNING, logger="agentnexus.runtime.subagent_block_notifier"):
         notifier.observe(child.id, _request_event("elicit_fail"))
         await _wait_for_calls(dispatch, expected=expected_attempts)
         # Yield so the handler unwinds (final release + summary log) after the

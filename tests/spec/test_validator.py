@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.spec.types import (
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.spec.types import (
     AgentSpec,
     CompactionConfig,
     ExecutorSpec,
@@ -17,7 +17,7 @@ from omnigent.spec.types import (
     SkillSpec,
     ToolsConfig,
 )
-from omnigent.spec.validator import validate
+from agentnexus.spec.validator import validate
 
 
 def _minimal_spec(**overrides: object) -> AgentSpec:
@@ -415,7 +415,7 @@ def test_omnigent_executor_accepts_valid_harness() -> None:
     spec = _minimal_spec(
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "claude-sdk", "profile": "test-profile"},
         ),
     )
@@ -429,13 +429,13 @@ def test_omnigent_executor_accepts_antigravity_native_harness() -> None:
     validates cleanly.
 
     Failure here means the antigravity-native harness is missing from
-    ``OMNIGENT_HARNESSES``, which would cause every spec that targets it
+    ``AGENTNEXUS_HARNESSES``, which would cause every spec that targets it
     to be rejected at load time with an "unknown harness" validation error.
     """
     spec = _minimal_spec(
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "antigravity-native"},
         ),
     )
@@ -453,7 +453,7 @@ def test_omnigent_executor_rejects_missing_harness() -> None:
     """
     spec = _minimal_spec(
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
-        executor=ExecutorSpec(type="omnigent", config={}),
+        executor=ExecutorSpec(type="agentnexus", config={}),
     )
     result = validate(spec)
     assert not result.valid
@@ -470,7 +470,7 @@ def test_omnigent_executor_rejects_unknown_harness() -> None:
     spec = _minimal_spec(
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "totally-bogus"},
         ),
     )
@@ -490,7 +490,7 @@ def test_omnigent_executor_rejects_compaction() -> None:
     spec = _minimal_spec(
         llm=LLMConfig(model="databricks-claude-sonnet-4-6"),
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "claude-sdk"},
         ),
         compaction=CompactionConfig(),

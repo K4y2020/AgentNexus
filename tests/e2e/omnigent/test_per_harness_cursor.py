@@ -92,7 +92,7 @@ def test_per_harness_cursor_one_shot(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--harness",

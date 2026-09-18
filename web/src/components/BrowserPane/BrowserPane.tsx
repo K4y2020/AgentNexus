@@ -45,7 +45,7 @@ interface NavResult {
   error?: string;
 }
 
-/** Subset of `window.omnigentDesktop` the pane calls. Typed locally so the
+/** Subset of `window.agentnexusDesktop` the pane calls. Typed locally so the
  *  component doesn't depend on the full nativeBridge type; every method is
  *  optional (an older shell may predate the browser feature). */
 interface BrowserPaneBridge {
@@ -88,8 +88,8 @@ interface BrowserPaneBridge {
 
 function getBridge(): BrowserPaneBridge | null {
   if (!supportsBrowser()) return null;
-  const w = window as unknown as { omnigentDesktop?: BrowserPaneBridge };
-  return w.omnigentDesktop ?? null;
+  const w = window as unknown as { agentnexusDesktop?: BrowserPaneBridge };
+  return w.agentnexusDesktop ?? null;
 }
 
 export interface BrowserPaneProps {

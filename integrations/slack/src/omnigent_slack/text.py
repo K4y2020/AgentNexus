@@ -13,8 +13,8 @@ WHITESPACE_RE = re.compile(r"\s+")
 # dependency-free leaf) so the streaming, notification, and service layers share
 # one wording.
 GENERIC_FAILURE_TEXT = (
-    ":warning: Something went wrong on the Omnigent server. Please try again; if it "
-    "keeps happening, contact your Omnigent operator."
+    ":warning: Something went wrong on the AgentNexus server. Please try again; if it "
+    "keeps happening, contact your AgentNexus operator."
 )
 
 

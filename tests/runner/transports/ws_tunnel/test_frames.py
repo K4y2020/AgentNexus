@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from omnigent.runner.transports.ws_tunnel.frames import (
+from agentnexus.runner.transports.ws_tunnel.frames import (
     FrameKind,
     HelloFrame,
     PingFrame,

@@ -8,7 +8,7 @@ import { toast } from "sonner";
  */
 export function showToast(content: ReactNode, opts?: { duration?: number }): string | number {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("omnigent:toast", { detail: { content } }));
+    window.dispatchEvent(new CustomEvent("agentnexus:toast", { detail: { content } }));
   }
   return toast(content, {
     closeButton: true,

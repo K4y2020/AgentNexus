@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 if TYPE_CHECKING:
-    from ._client import OmnigentClient
+    from ._client import AgentNexusClient
 
 
 def _find_free_port() -> int:
@@ -54,7 +54,7 @@ class LocalServer:
         self._port = port if port != 0 else _find_free_port()
         self._proc: subprocess.Popen[bytes] | None = None
         self._tmpdir: str | None = None
-        self._client: OmnigentClient | None = None
+        self._client: AgentNexusClient | None = None
 
     @property
     def base_url(self) -> str:
@@ -62,7 +62,7 @@ class LocalServer:
         return f"http://{self._host}:{self._port}"
 
     @property
-    def client(self) -> OmnigentClient:
+    def client(self) -> AgentNexusClient:
         """A pre-configured client connected to this server."""
         if self._client is None:
             raise RuntimeError("Server not started — use 'async with LocalServer(...) as server:'")
@@ -71,9 +71,9 @@ class LocalServer:
     async def __aenter__(self) -> LocalServer:
         self._start()
         # Import here to avoid circular import at module level.
-        from ._client import OmnigentClient
+        from ._client import AgentNexusClient
 
-        self._client = OmnigentClient(base_url=self.base_url)
+        self._client = AgentNexusClient(base_url=self.base_url)
         return self
 
     async def __aexit__(self, *exc: object) -> None:
@@ -84,7 +84,7 @@ class LocalServer:
 
     def _start(self) -> None:
         """Launch the server subprocess."""
-        self._tmpdir = tempfile.mkdtemp(prefix="omnigent-client-")
+        self._tmpdir = tempfile.mkdtemp(prefix="agentnexus-client-")
         db_uri = f"sqlite:///{self._tmpdir}/chat.db"
         art_loc = f"{self._tmpdir}/artifacts"
 
@@ -97,7 +97,7 @@ class LocalServer:
             [
                 sys.executable,
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--host",
                 self._host,
@@ -126,13 +126,13 @@ class LocalServer:
         # Try from agent path first.
         candidate = pathlib.Path(self._agent_path).resolve()
         for parent in [candidate, *list(candidate.parents)]:
-            if (parent / "omnigent" / "cli.py").exists():
+            if (parent / "agentnexus" / "cli.py").exists():
                 return str(parent)
 
         # Try from this file's location (inside frontends/clients/python/).
         candidate = pathlib.Path(__file__).resolve()
         for parent in candidate.parents:
-            if (parent / "omnigent" / "cli.py").exists():
+            if (parent / "agentnexus" / "cli.py").exists():
                 return str(parent)
 
         # Fallback to cwd.

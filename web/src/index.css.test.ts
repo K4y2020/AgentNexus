@@ -735,8 +735,8 @@ describe("index.css native safe-area insets for mobile overlays", () => {
 
   it("has the inset rule this test exists to protect", () => {
     expect(rule).not.toBeNull();
-    expect(rule?.body).toContain("padding-top: var(--omnigent-safe-top)");
-    expect(rule?.body).toContain("padding-bottom: var(--omnigent-safe-bottom)");
+    expect(rule?.body).toContain("padding-top: var(--agentnexus-safe-top)");
+    expect(rule?.body).toContain("padding-bottom: var(--agentnexus-safe-bottom)");
   });
 
   it.each([

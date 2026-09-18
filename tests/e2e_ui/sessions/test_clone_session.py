@@ -225,13 +225,13 @@ def test_clone_dialog_offers_cross_family_native_target_and_forks(
     snap = httpx.get(f"{base_url}/v1/sessions/{fork_id}", timeout=30.0)
     snap.raise_for_status()
     labels: dict[str, str] = snap.json().get("labels") or {}
-    assert labels.get("omnigent.fork.carry_history") == "1", (
+    assert labels.get("agentnexus.fork.carry_history") == "1", (
         f"cross-family native fork must stamp carry-history, got {labels!r}"
     )
-    assert "omnigent.fork.source_external_session_id" not in labels, (
+    assert "agentnexus.fork.source_external_session_id" not in labels, (
         f"fork of an SDK source must not stamp a source native session id, got {labels!r}"
     )
-    assert labels.get("omnigent.wrapper") == "claude-code-native-ui", (
+    assert labels.get("agentnexus.wrapper") == "claude-code-native-ui", (
         f"fork must present as the TARGET (claude-native) harness, got {labels!r}"
     )
     # The run-config section's permission pick rode the fork body as launch

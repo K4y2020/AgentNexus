@@ -36,7 +36,7 @@ export const PROJECT_LABEL_KEY = "omni_project";
  * `PROJECT_LABEL_KEY` in this leaf module so the sidebar can derive pin state
  * without a hooks-layer import cycle.
  */
-export const PINNED_LABEL_KEY = "omnigent.pinned";
+export const PINNED_LABEL_KEY = "agentnexus.pinned";
 
 /** Filter dimensions encoded by a `["conversations", ...]` query key. */
 export interface ConversationListFilters {

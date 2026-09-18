@@ -54,7 +54,7 @@ def _launch_env(bug_url: str) -> dict[str, str]:
     Reading a Linear ticket needs ``DATABRICKS_LINEAR_API_KEY`` to reach the
     agent's shell. Under ``--server`` the daemon→runner hop strips everything
     not in its allowlist, and the ``DATABRICKS_`` prefix survives only the
-    CLI→daemon hop — so we also name the key in ``OMNIGENT_RUNNER_ENV_PASSTHROUGH``
+    CLI→daemon hop — so we also name the key in ``AGENTNEXUS_RUNNER_ENV_PASSTHROUGH``
     (itself allowlisted), which tells the runner env-build to forward it the rest
     of the way. Maintainers usually export the plain ``LINEAR_API_KEY`` locally,
     so mirror that into the ``DATABRICKS_`` name when only the plain one is set.
@@ -74,10 +74,10 @@ def _launch_env(bug_url: str) -> dict[str, str]:
             file=sys.stderr,
         )
         return env
-    names = [n for n in env.get("OMNIGENT_RUNNER_ENV_PASSTHROUGH", "").split(",") if n.strip()]
+    names = [n for n in env.get("AGENTNEXUS_RUNNER_ENV_PASSTHROUGH", "").split(",") if n.strip()]
     if "DATABRICKS_LINEAR_API_KEY" not in names:
         names.append("DATABRICKS_LINEAR_API_KEY")
-    env["OMNIGENT_RUNNER_ENV_PASSTHROUGH"] = ",".join(names)
+    env["AGENTNEXUS_RUNNER_ENV_PASSTHROUGH"] = ",".join(names)
     return env
 
 
@@ -141,7 +141,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--server",
         default=None,
-        help="Omnigent server URL to reproduce against. Omit to use the local "
+        help="AgentNexus server URL to reproduce against. Omit to use the local "
         "server omnigent run spins up.",
     )
     p.add_argument(
@@ -183,7 +183,7 @@ def main() -> None:
     # runs from a linked worktree (a feature branch), would miss the very commit
     # that adds dev/repro-agent. Pinning the base to our own HEAD makes the new
     # worktree a faithful copy of what we're running from.
-    from omnigent.host.git_worktree import WorktreeError, create_worktree
+    from agentnexus.host.git_worktree import WorktreeError, create_worktree
 
     head = subprocess.run(
         ["git", "-C", str(_REPO_ROOT), "rev-parse", "HEAD"],
@@ -205,7 +205,7 @@ def main() -> None:
     # Run the agent FROM the worktree so the worktree is its workspace (local
     # mode uses the runner's cwd as the workspace). dev/repro-agent resolves
     # relative to the worktree, which is a full checkout of the same commit.
-    cmd = ["omnigent", "run", _AGENT_REL, "-p", prompt]
+    cmd = ["agentnexus", "run", _AGENT_REL, "-p", prompt]
     if args.server is not None:
         cmd += ["--server", args.server]
 

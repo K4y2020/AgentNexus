@@ -9,7 +9,7 @@
 // lock auto-releases when its tab closes or crashes, so a dead tab never strands
 // a slot.
 //
-// Modelled as N named slot-locks (`omnigent:stream-slot:0..N-1`) acquired with
+// Modelled as N named slot-locks (`agentnexus:stream-slot:0..N-1`) acquired with
 // `{ ifAvailable: true }`. That grants a free slot atomically or hands back
 // `null` — unlike querying the held count and then acquiring, which races (two
 // tabs both read "one free" and both take it). N is the same transport-derived
@@ -37,7 +37,7 @@ export interface StreamSlotManager {
   tryAcquire: () => Promise<StreamSlot | null>;
 }
 
-const SLOT_LOCK_PREFIX = "omnigent:stream-slot:";
+const SLOT_LOCK_PREFIX = "agentnexus:stream-slot:";
 
 /**
  * Hold `name` until the returned slot's `release` runs, or resolve `null` when

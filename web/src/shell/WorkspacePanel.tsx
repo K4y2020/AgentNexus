@@ -70,7 +70,7 @@ function WorkspaceTabTooltip({
 // choice is remembered across the menu's remounts (it renders in two spots) and
 // reloads. App-global (not per-session): the user's preferred shell rarely
 // varies by conversation.
-const PREFERRED_SHELL_KEY = "omnigent:preferred-shell";
+const PREFERRED_SHELL_KEY = "agentnexus:preferred-shell";
 
 function readPreferredShell(): string | null {
   try {
@@ -96,7 +96,7 @@ function readPreferredShell(): string | null {
 //     session it reads "Reconnecting…" with a spinner, since the cold wake can
 //     take tens of seconds.
 //   - offline (host_offline, local_stranded): the web can't reconnect from the
-//     browser (a CLI `omnigent host` / `--resume` is required), so the item is
+//     browser (a CLI `agentnexus host` / `--resume` is required), so the item is
 //     disabled and labeled "Offline" — the chat reconnect banner owns recovery.
 // ---------------------------------------------------------------------------
 

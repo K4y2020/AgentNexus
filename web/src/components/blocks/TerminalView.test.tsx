@@ -106,21 +106,21 @@ describe("buildAttachPath", () => {
     );
   });
 
-  it("appends ?omnigent_slice_key=host_id for host-sharded routing", () => {
+  it("appends ?agentnexus_slice_key=host_id for host-sharded routing", () => {
     expect(buildAttachPath("conv_abc", "terminal_bash_s1", false, "host_123")).toBe(
-      "/v1/sessions/conv_abc/resources/terminals/terminal_bash_s1/attach?omnigent_slice_key=host_123",
+      "/v1/sessions/conv_abc/resources/terminals/terminal_bash_s1/attach?agentnexus_slice_key=host_123",
     );
   });
 
   it("combines read_only and slice-key params", () => {
     const path = buildAttachPath("conv_abc", "terminal_bash_s1", true, "host_789");
     expect(path).toContain("read_only=true");
-    expect(path).toContain("omnigent_slice_key=host_789");
+    expect(path).toContain("agentnexus_slice_key=host_789");
   });
 
-  it("omits ?omnigent_slice_key when no hostId is provided", () => {
+  it("omits ?agentnexus_slice_key when no hostId is provided", () => {
     const path = buildAttachPath("conv_abc", "terminal_bash_s1", false);
-    expect(path.includes("omnigent_slice_key")).toBe(false);
+    expect(path.includes("agentnexus_slice_key")).toBe(false);
   });
 
   it("url-encodes the session and terminal ids", () => {

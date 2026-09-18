@@ -10,10 +10,10 @@
 # number of rounds before they converge.
 #
 # Usage:
-#   omnigent run examples/debby
+#   agentnexus run examples/debby
 #
 # Debby's two heads run on the claude-sdk and codex harnesses, so
-# configure both a Claude and an OpenAI provider first (e.g. `omnigent setup`,
+# configure both a Claude and an OpenAI provider first (e.g. `agentnexus setup`,
 # or export ANTHROPIC_API_KEY and OPENAI_API_KEY).
 
 spec_version: 1
@@ -28,12 +28,12 @@ description: >-
 # thinking of her own on the user's question — she orchestrates the two
 # partners, lays out both views, and (under `debate`) runs the critique
 # loop and synthesizes. No model is pinned, so the claude-sdk harness runs on
-# whatever Claude provider you configured (`omnigent setup`) — an Anthropic
+# whatever Claude provider you configured (`agentnexus setup`) — an Anthropic
 # API key, a Claude subscription, an OpenAI-compatible gateway, or a Databricks
 # workspace — resolving that provider's default Claude model (the bundled
 # catalog default is claude-opus-4-8).
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
     # A pinned brain also pins the family her heads are routed within, which
@@ -200,14 +200,14 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
     spawn_bounds:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.policies.builtins.orchestration.spawn_bounds
+        path: agentnexus.policies.builtins.orchestration.spawn_bounds
         arguments:
           max_dispatches_per_turn: 2
           dispatch_tools: [sys_session_send]

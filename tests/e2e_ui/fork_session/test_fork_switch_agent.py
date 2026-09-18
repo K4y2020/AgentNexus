@@ -46,9 +46,9 @@ from tests.e2e_ui.conftest import _FILES_PROBE_ENV_AGENT_NAME
 # another test's message.
 _MARKER = "tangerine-switch-marker"
 
-_WRAPPER_LABEL_KEY = "omnigent.wrapper"
-_CARRY_HISTORY_LABEL_KEY = "omnigent.fork.carry_history"
-_SOURCE_EXTERNAL_SESSION_LABEL_KEY = "omnigent.fork.source_external_session_id"
+_WRAPPER_LABEL_KEY = "agentnexus.wrapper"
+_CARRY_HISTORY_LABEL_KEY = "agentnexus.fork.carry_history"
+_SOURCE_EXTERNAL_SESSION_LABEL_KEY = "agentnexus.fork.source_external_session_id"
 
 
 def _agent_id_by_name(base_url: str, name: str) -> str:
@@ -63,7 +63,7 @@ def _agent_id_by_name(base_url: str, name: str) -> str:
     agent = next((a for a in resp.json()["data"] if a["name"] == name), None)
     assert agent is not None, (
         f"built-in agent {name!r} not registered on the test server — the SDK "
-        f"targets come from OMNIGENT_BUILTIN_AGENT_DIRS and the native targets "
+        f"targets come from AGENTNEXUS_BUILTIN_AGENT_DIRS and the native targets "
         f"are seeded unconditionally at startup, so absence is a server bug"
     )
     return str(agent["id"])

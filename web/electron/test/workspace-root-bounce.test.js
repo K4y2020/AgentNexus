@@ -22,13 +22,13 @@ class FakeWebContents extends EventEmitter {
 }
 
 describe("registerWorkspaceRootBounce", () => {
-  it("redirects a completed workspace-root navigation to /omnigent", () => {
+  it("redirects a completed workspace-root navigation to /agentnexus", () => {
     const webContents = new FakeWebContents();
     registerWorkspaceRootBounce(webContents, () => "https://ws.cloud.databricks.com");
 
     webContents.emit("did-navigate", {}, "https://ws.cloud.databricks.com/?o=123#page");
 
-    assert.deepEqual(webContents.loads, ["https://ws.cloud.databricks.com/omnigent?o=123#page"]);
+    assert.deepEqual(webContents.loads, ["https://ws.cloud.databricks.com/agentnexus?o=123#page"]);
   });
 
   it("redirects main-frame in-page navigation but ignores subframes", () => {
@@ -38,7 +38,7 @@ describe("registerWorkspaceRootBounce", () => {
     webContents.emit("did-navigate-in-page", {}, "https://ws.azuredatabricks.net/", false);
     webContents.emit("did-navigate-in-page", {}, "https://ws.azuredatabricks.net/", true);
 
-    assert.deepEqual(webContents.loads, ["https://ws.azuredatabricks.net/omnigent"]);
+    assert.deepEqual(webContents.loads, ["https://ws.azuredatabricks.net/agentnexus"]);
   });
 
   it("does not redirect foreign origins or non-workspace hosts", () => {
@@ -58,11 +58,11 @@ describe("registerWorkspaceRootBounce", () => {
 
     webContents.emit("did-navigate", {}, `${origin}/`);
     webContents.emit("did-navigate", {}, `${origin}/`);
-    assert.deepEqual(webContents.loads, [`${origin}/omnigent`]);
+    assert.deepEqual(webContents.loads, [`${origin}/agentnexus`]);
 
-    webContents.url = `${origin}/omnigent`;
+    webContents.url = `${origin}/agentnexus`;
     webContents.emit("did-finish-load");
     webContents.emit("did-navigate", {}, `${origin}/`);
-    assert.deepEqual(webContents.loads, [`${origin}/omnigent`, `${origin}/omnigent`]);
+    assert.deepEqual(webContents.loads, [`${origin}/agentnexus`, `${origin}/agentnexus`]);
   });
 });

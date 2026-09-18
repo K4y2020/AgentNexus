@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _ALL_LOCAL_TOOLS,
     _NATIVE_RELAY_BUILTIN_TOOLS,
     _SCHEDULED_TASK_TOOLS,
@@ -212,8 +212,8 @@ async def test_no_server_client_errors() -> None:
 
 def test_tools_registered_without_spec_optin() -> None:
     """All four tools register on a minimal spec (always-on, like policy)."""
-    from omnigent.spec.types import AgentSpec
-    from omnigent.tools.manager import ToolManager
+    from agentnexus.spec.types import AgentSpec
+    from agentnexus.tools.manager import ToolManager
 
     mgr = ToolManager(AgentSpec(spec_version=1))
     names = {s["function"]["name"] for s in mgr.get_tool_schemas()}
@@ -221,7 +221,7 @@ def test_tools_registered_without_spec_optin() -> None:
 
 
 def test_create_tool_schema_makes_workspace_and_host_optional() -> None:
-    from omnigent.tools.builtins.scheduled_tasks import SysScheduledTaskCreateTool
+    from agentnexus.tools.builtins.scheduled_tasks import SysScheduledTaskCreateTool
 
     schema = SysScheduledTaskCreateTool().get_schema()["function"]["parameters"]
     properties = schema["properties"]
@@ -237,7 +237,7 @@ def test_create_tool_schema_makes_workspace_and_host_optional() -> None:
 
 
 def test_update_tool_schema_allows_connected_host_changes() -> None:
-    from omnigent.tools.builtins.scheduled_tasks import SysScheduledTaskUpdateTool
+    from agentnexus.tools.builtins.scheduled_tasks import SysScheduledTaskUpdateTool
 
     schema = SysScheduledTaskUpdateTool().get_schema()["function"]["parameters"]
     properties = schema["properties"]

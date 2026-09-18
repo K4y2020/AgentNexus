@@ -11,14 +11,14 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     ExecutorConfig,
     ExecutorError,
     TextChunk,
     ToolCallRequest,
     TurnComplete,
 )
-from omnigent.inner.open_responses_sdk import (
+from agentnexus.inner.open_responses_sdk import (
     OpenResponsesExecutor,
     _convert_messages_to_responses,
     _convert_tools_to_responses,
@@ -877,8 +877,8 @@ class TestOpenResponsesExecutor(unittest.TestCase):
 
 class TestOpenAIClientConfig(unittest.TestCase):
     def test_client_uses_openai_env(self):
-        from omnigent.inner.open_responses_sdk import _get_openai_client
-        from omnigent.spec.types import RetryPolicy
+        from agentnexus.inner.open_responses_sdk import _get_openai_client
+        from agentnexus.spec.types import RetryPolicy
 
         with (
             patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=True),
@@ -893,8 +893,8 @@ class TestOpenAIClientConfig(unittest.TestCase):
             )
 
     def test_client_uses_openai_base_url_override(self):
-        from omnigent.inner.open_responses_sdk import _get_openai_client
-        from omnigent.spec.types import RetryPolicy
+        from agentnexus.inner.open_responses_sdk import _get_openai_client
+        from agentnexus.spec.types import RetryPolicy
 
         with (
             patch.dict(
@@ -915,14 +915,14 @@ class TestOpenAIClientConfig(unittest.TestCase):
             )
 
     def test_client_uses_databricks_config(self):
-        from omnigent.inner.databricks_executor import DatabricksCredentials
-        from omnigent.inner.open_responses_sdk import _get_openai_client
-        from omnigent.spec.types import RetryPolicy
+        from agentnexus.inner.databricks_executor import DatabricksCredentials
+        from agentnexus.inner.open_responses_sdk import _get_openai_client
+        from agentnexus.spec.types import RetryPolicy
 
         with (
             patch.dict("os.environ", {}, clear=True),
             patch(
-                "omnigent.inner.databricks_executor._read_databrickscfg",
+                "agentnexus.inner.databricks_executor._read_databrickscfg",
                 return_value=DatabricksCredentials(
                     host="https://example.cloud.databricks.com",
                     token="dapi_test",

@@ -9,10 +9,10 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities.comment import Comment, CommentsFingerprint
-from omnigent.stores.comment_store import CommentStore
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.update_comment import UpdateCommentTool
+from agentnexus.entities.comment import Comment, CommentsFingerprint
+from agentnexus.stores.comment_store import CommentStore
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.update_comment import UpdateCommentTool
 
 # ── In-memory store stub ──────────────────────────────────────────────────────
 
@@ -240,7 +240,7 @@ def tool(store: _InMemoryCommentStore, monkeypatch: pytest.MonkeyPatch) -> Updat
     :param monkeypatch: pytest monkeypatching fixture.
     :returns: Configured :class:`UpdateCommentTool` instance.
     """
-    import omnigent.runtime as _runtime
+    import agentnexus.runtime as _runtime
 
     monkeypatch.setattr(_runtime, "get_comment_store", lambda: store)
     return UpdateCommentTool()
@@ -292,7 +292,7 @@ def test_no_conversation_id(monkeypatch: pytest.MonkeyPatch) -> None:
     Without a session id the tool cannot verify ownership; an error is
     returned rather than allowing a cross-session update.
     """
-    import omnigent.runtime as _runtime
+    import agentnexus.runtime as _runtime
 
     monkeypatch.setattr(_runtime, "get_comment_store", lambda: _InMemoryCommentStore())
     t = UpdateCommentTool()
@@ -307,11 +307,11 @@ def test_no_store_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Returns an error when ``get_comment_store()`` returns ``None``.
 
-    Deployments without Omnigent server do not initialise a comment store;
+    Deployments without AgentNexus server do not initialise a comment store;
     the tool must surface a clear message rather than raising on
     ``None.get(...)``.
     """
-    import omnigent.runtime as _runtime
+    import agentnexus.runtime as _runtime
 
     monkeypatch.setattr(_runtime, "get_comment_store", lambda: None)
     t = UpdateCommentTool()

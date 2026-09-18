@@ -7,26 +7,26 @@
 > Slack-specific concepts — the requesting application names itself with the
 > RFC 8628 `client_id` (a public string like `"slack"`; display/audit only).
 > It is a public OAuth client by default (no client secret), with an
-> **optional** shared secret (`OMNIGENT_DEVICE_CLIENT_SECRET`) that gates the
+> **optional** shared secret (`AGENTNEXUS_DEVICE_CLIENT_SECRET`) that gates the
 > client-facing endpoints when set — see the phishing mitigations below.
 >
-> Server: `omnigent/server/routes/device_auth.py` (endpoints + the
+> Server: `agentnexus/server/routes/device_auth.py` (endpoints + the
 > `mint_delegated_token` / `DELEGATED_SCOPE` it owns),
-> `omnigent/server/device_grant_store.py`, `SqlDeviceGrant` +
+> `agentnexus/server/device_grant_store.py`, `SqlDeviceGrant` +
 > `device_grants` migration (`d1e2f3a4b5c6`), and scope + revocation
-> enforcement in `omnigent/server/auth.py` (`delegated_path_allowed`,
-> `set_grant_revocation_check`). Wired in `omnigent/server/app.py`,
-> **opt-in and default-off** via `OMNIGENT_DEVICE_GRANT_ENABLED` (the
+> enforcement in `agentnexus/server/auth.py` (`delegated_path_allowed`,
+> `set_grant_revocation_check`). Wired in `agentnexus/server/app.py`,
+> **opt-in and default-off** via `AGENTNEXUS_DEVICE_GRANT_ENABLED` (the
 > `/oauth/device/*` consent routes are unmounted unless it is truthy), and
 > then only in **accounts** mode (OIDC delegates login to the IdP via the
 > cli-ticket flow and never mounts the consent routes). The token/revoke
 > half (`/oauth/token`, `/oauth/revoke`) mounts **unconditionally** in both
 > accounts and OIDC modes: login-issued refresh grants (below) need it.
-> Slack: `integrations/slack/src/omnigent_slack/oauth.py`,
+> Slack: `integrations/slack/src/agentnexus_slack/oauth.py`,
 > `tokens.py` (Fernet-encrypted `oauth_tokens`), `auth_manager.py`, plus
-> the bearer/refresh wiring in `omnigent.py` (`ClientAuth`,
-> per-`(server,user)` pool). Login is folded into the `/omnigent` setup
-> modal; `/omnigent logout` revokes + clears.
+> the bearer/refresh wiring in `agentnexus.py` (`ClientAuth`,
+> per-`(server,user)` pool). Login is folded into the `/agentnexus` setup
+> modal; `/agentnexus logout` revokes + clears.
 >
 > **Auth-mode selection (Slack).** The bot probes the server's mode
 > (`oauth.probe_auth_mode` → `GET /v1/me`, mirroring the CLI) and picks
@@ -47,25 +47,25 @@
 ## Problem
 
 The Slack integration (`integrations/slack/`) is a standalone Socket-Mode
-process that calls each user's Omnigent server over HTTP + SSE
-(`OmnigentClient` / `OmnigentClientPool`). Each Slack user's turns must reach
-the Omnigent server **as that user's own authenticated identity** — so the
+process that calls each user's AgentNexus server over HTTP + SSE
+(`AgentNexusClient` / `AgentNexusClientPool`). Each Slack user's turns must reach
+the AgentNexus server **as that user's own authenticated identity** — so the
 server can scope permissions and audit who did what — **without the Slack
-process ever handling the user's Omnigent credentials**. An unauthenticated
+process ever handling the user's AgentNexus credentials**. An unauthenticated
 client can only reach auth-disabled servers, and would present one shared
 anonymous identity the server can't distinguish per user.
 
 ## Topology and trust
 
 ```
-  omnigent server   <->   slack socket server   <->   slack.com   <->   user
+  agentnexus server   <->   slack socket server   <->   slack.com   <->   user
   (Auth + Resource        (OAuth client /             (transport)      (browser =
    Server)                 "device")                                    Resource Owner)
 ```
 
 Slack relays all messages between the user and the socket server, so **no
-Omnigent credential may pass through Slack**. The user authenticates directly
-against the Omnigent server in their own browser, out of band. This is exactly
+AgentNexus credential may pass through Slack**. The user authenticates directly
+against the AgentNexus server in their own browser, out of band. This is exactly
 the shape of the **OAuth 2.0 Device Authorization Grant (RFC 8628)**: a device
 that cannot host a browser obtains a code, the user approves out-of-band, and
 the device polls for a token.
@@ -74,8 +74,8 @@ Role mapping:
 
 | RFC 8628 role            | Here                                            |
 |--------------------------|-------------------------------------------------|
-| Authorization Server     | Omnigent server (`/oauth/device/*`, `/oauth/token`) |
-| Resource Server          | Omnigent server (existing `/v1/**` APIs)        |
+| Authorization Server     | AgentNexus server (`/oauth/device/*`, `/oauth/token`) |
+| Resource Server          | AgentNexus server (existing `/v1/**` APIs)        |
 | Client / "device"        | Slack socket server                             |
 | Resource Owner           | The Slack user, authenticating in their browser |
 | Out-of-band channel      | Slack (delivers the verification link only)     |
@@ -106,15 +106,15 @@ The device grant builds on existing server primitives:
    the secret `device_code` the client holds, the ephemeral verification
    link, and authenticated in-browser consent; initiation is per-IP
    rate-limited and nothing is granted until a real user approves. On top of
-   that, setting `OMNIGENT_DEVICE_CLIENT_SECRET` on the server gates the
+   that, setting `AGENTNEXUS_DEVICE_CLIENT_SECRET` on the server gates the
    **client-facing** endpoints (authorize / token / revoke) behind a shared
-   secret header (`X-Omnigent-Client-Secret`, constant-time compared), so
+   secret header (`X-AgentNexus-Client-Secret`, constant-time compared), so
    only an authorized client can drive the flow. The **browser** endpoints
    (consent GET / approve / deny) are never gated by it — the user's browser
    doesn't hold the secret; their trust is the session cookie + Origin check.
    Unset ⇒ endpoints stay public (backward compatible). Shipping the secret to
    the Slack client is safe because its target is a **fixed operator config**
-   (`OMNIGENT_SERVER_URL`), not a user-supplied URL, so the secret only ever
+   (`AGENTNEXUS_SERVER_URL`), not a user-supplied URL, so the secret only ever
    travels to the trusted server.
 2. **Refresh tokens** — short-lived access tokens (≤ 1 h) plus a rotating,
    revocable refresh token, with a 30-day absolute grant lifetime. The Slack
@@ -124,13 +124,13 @@ The device grant builds on existing server primitives:
 ## Flow
 
 ```
- 1. A Slack user opens the `/omnigent` setup modal against an
+ 1. A Slack user opens the `/agentnexus` setup modal against an
        accounts-mode server; the modal detects auth is required and starts
        the device flow (there is no separate login command).
 
- 2. Slack server ─ POST /oauth/device/authorize ─────────────▶ Omnigent
+ 2. Slack server ─ POST /oauth/device/authorize ─────────────▶ AgentNexus
        body: { client_id }        # public app name, e.g. "slack"
-    Omnigent ─────────────────────────────────────────────────▶ Slack server
+    AgentNexus ─────────────────────────────────────────────────▶ Slack server
        { device_code,            # secret, HELD BY SLACK SERVER ONLY
          user_code,              # short, human-readable
          verification_uri,       # e.g. https://srv/oauth/device
@@ -142,13 +142,13 @@ The device grant builds on existing server primitives:
        plus the user_code so the user can confirm the match. The
        device_code is NOT included — it never leaves the server pair.
 
- 4. User clicks → Omnigent consent page (verification_uri).
+ 4. User clicks → AgentNexus consent page (verification_uri).
        The page REQUIRES a login started for THIS flow: if the browser's
        session predates the grant (session iat < grant.created_at), it
        bounces through the login page with ?reauth=1 — which forces a fresh
        password entry even for an already-signed-in user — and returns here.
        Once re-authenticated, the page shows: "<client_id> is requesting
-       permission to act as YOU (alice@example.com) on this Omnigent server.
+       permission to act as YOU (alice@example.com) on this AgentNexus server.
        [Approve] [Deny]" plus a warning to approve only a self-started login.
        The forced re-auth means a grant can't be approved by one reflexive
        click on a link the user didn't personally start (see threat #2).
@@ -157,7 +157,7 @@ The device grant builds on existing server primitives:
        (alice@…). client_id is recorded for display/audit only, never as
        an authorization key.
 
- 6. Slack server polls ─ POST /oauth/token ──────────────────▶ Omnigent
+ 6. Slack server polls ─ POST /oauth/token ──────────────────▶ AgentNexus
        grant_type=urn:ietf:params:oauth:grant-type:device_code
        { device_code }
     Responses: 400 authorization_pending | 429 slow_down |
@@ -177,15 +177,15 @@ The device grant builds on existing server primitives:
 
 The Slack `(team_id, slack_user_id)` → identity mapping lives entirely on
 the Slack side (step 7). The server-side grant is client-agnostic: it
-knows only the RFC 8628 `client_id` and the Omnigent identity that
+knows only the RFC 8628 `client_id` and the AgentNexus identity that
 approved it.
 
 ## Server-side changes
 
-### Router `omnigent/server/routes/device_auth.py`
+### Router `agentnexus/server/routes/device_auth.py`
 
 The RFC 8628 consent surface (`/oauth/device/*`) is mounted in `app.py`
-only when **`OMNIGENT_DEVICE_GRANT_ENABLED` is truthy** (opt-in,
+only when **`AGENTNEXUS_DEVICE_GRANT_ENABLED` is truthy** (opt-in,
 **default-off**), and then **only in `accounts` mode** (the in-browser
 consent needs the accounts login page; header mode has no server-mintable
 identity — see `create_device_auth_router`, which raises if constructed for
@@ -229,9 +229,9 @@ mount is gated. This router also **owns** `mint_delegated_token` and
   (the `grant_id` then reads as revoked in the denylist check). Accepts a
   `refresh_token`, or falls back to the `grant_id` on the caller's own bearer
   so a client holding only its access token can still log out. Idempotent.
-  Backs `/omnigent logout`.
+  Backs `/agentnexus logout`.
 
-### New store `omnigent/server/device_grant_store.py`
+### New store `agentnexus/server/device_grant_store.py`
 
 Modeled on `SqlAlchemyAccountStore` — workspace-scoped, secrets stored hashed,
 atomic single-use redemption, `purge_expired`. New table `device_grants`:
@@ -243,7 +243,7 @@ atomic single-use redemption, `purge_expired`. New table `device_grants`:
 | `user_code`          | short code shown/typed by the user                 |
 | `client_id`          | RFC 8628 client id — the requesting application (e.g. `slack`); display + audit |
 | `status`             | `pending` / `approved` / `denied` / `redeemed` / `revoked` |
-| `user_id`            | bound Omnigent identity, set at approval           |
+| `user_id`            | bound AgentNexus identity, set at approval           |
 | `refresh_token_hash` / `prev_refresh_token_hash` | current + prior digest (rotation + reuse detection) |
 | `created_at` / `expires_at` / `approved_at` / `last_polled_at` | TTL, absolute-lifetime clock, `slow_down` timing |
 
@@ -275,13 +275,13 @@ HS256 shape (so `_check_cookie` accepts them) plus four delegated-only claims:
 
 - **`oauth.py`** — device-authorize → post ephemeral link → poll token
   endpoint (respecting `interval` / `slow_down`) → store tokens.
-- **`omnigent.py`** — attach `Authorization: Bearer` per
+- **`agentnexus.py`** — attach `Authorization: Bearer` per
   `(server_url, slack_user_id)`; on 401, refresh once and retry; on refresh
-  failure, surface a re-login prompt. `OmnigentClientPool` keys clients by
+  failure, surface a re-login prompt. `AgentNexusClientPool` keys clients by
   `(server_url, slack_user_id)` instead of `server_url` alone.
 - **`store.py`** — new `oauth_tokens` table `(team_id, user_id, server_url)` →
   access/refresh **encrypted at rest** (key from env / secret manager, never in
-  the DB). `/omnigent logout` → `POST /oauth/revoke` + local delete.
+  the DB). `/agentnexus logout` → `POST /oauth/revoke` + local delete.
 - **`setup.py`** — validation uses the user's token, so auth-enabled servers
   are supported.
 - **`config.py`** — holds the local encryption key for token storage.
@@ -291,7 +291,7 @@ HS256 shape (so `_check_cookie` accepts them) plus four delegated-only claims:
 | # | Threat | Mitigation |
 |---|--------|-----------|
 | 1 | `device_code` leak → token theft | Never transits Slack or the user — only `verification_uri_complete` (a `user_code`) does. Stored hashed; single-use. |
-| 2 | Link misdelivery / phishing another user | Link shown to the initiator only (in their own setup modal). **Consent requires a login started FOR this flow: the consent page rejects a session whose `iat` predates the grant and bounces through the login page with `reauth=1`, forcing a fresh password entry even for an already-signed-in user.** So an attacker-initiated flow can't be approved by a single reflexive click — the victim must deliberately re-enter their password against a screen naming the exact Omnigent identity and requesting `client_id`. The gate is enforced on both the consent GET and the approve POST. |
+| 2 | Link misdelivery / phishing another user | Link shown to the initiator only (in their own setup modal). **Consent requires a login started FOR this flow: the consent page rejects a session whose `iat` predates the grant and bounces through the login page with `reauth=1`, forcing a fresh password entry even for an already-signed-in user.** So an attacker-initiated flow can't be approved by a single reflexive click — the victim must deliberately re-enter their password against a screen naming the exact AgentNexus identity and requesting `client_id`. The gate is enforced on both the consent GET and the approve POST. |
 | 3 | Anyone can initiate/poll (public client) | Cheap `pending` state grants nothing until an authenticated user approves. `POST /oauth/device/authorize` is rate-limited per client IP (10/60s → 429 `slow_down`); short (10 min) `device_code` expiry; `slow_down` enforced server-side on aggressive polling; expired grants purged opportunistically. |
 | 4 | Slack SQLite exfiltration → mass impersonation | Tokens **encrypted at rest**; access tokens short-lived (≤ 1 h); refresh tokens revocable. Bounded, centrally killable window. |
 | 5 | Compromised Slack server acts as all users (inherent to delegation) | Reduced scope (no admin), short TTL + refresh rotation, per-grant revocation, **absolute grant lifetime (30 d) enforced on refresh** so even an un-revoked grant dies, and an `act`-claim audit trail. |
@@ -305,7 +305,7 @@ HS256 shape (so `_check_cookie` accepts them) plus four delegated-only claims:
 ### Device-code phishing — accepted risk, mitigated in depth
 
 The canonical RFC 8628 risk: a stranger initiates a flow and tricks a victim
-Omnigent user into approving the verification link, binding the grant to the
+AgentNexus user into approving the verification link, binding the grant to the
 *victim's* identity while the attacker (holding the `device_code`) polls for the
 token.
 
@@ -331,13 +331,13 @@ initiation is open — the defense is layered, not a gate:
 - Initiation is rate-limited per IP; nothing is granted until a real user
   authenticates and approves in their own browser.
 - **Startup warning.** When the grant is mounted on a multi-user (accounts)
-  server with `OMNIGENT_DEVICE_CLIENT_SECRET` unset, the server logs a loud
+  server with `AGENTNEXUS_DEVICE_CLIENT_SECRET` unset, the server logs a loud
   warning at startup that the authorize endpoint is public — nudging the
   operator to opt into the secret rather than leaving initiation open unknowingly
   (`app.py`, at the device-router mount).
 
-Setting `OMNIGENT_DEVICE_CLIENT_SECRET` closes initiation entirely to
-unauthorized callers: without the matching `X-Omnigent-Client-Secret` header,
+Setting `AGENTNEXUS_DEVICE_CLIENT_SECRET` closes initiation entirely to
+unauthorized callers: without the matching `X-AgentNexus-Client-Secret` header,
 authorize / token / revoke return `401 invalid_client` before anything is
 created, so only the operator's own client (which holds the secret) can even
 start a flow. This is now shippable to the Slack client because its server
@@ -347,7 +347,7 @@ absolute lifetime remain the defenses when the secret is left unset.
 
 ### Deliberate deviation from the current model
 
-Ordinary Omnigent session JWTs are stateless and unrevocable today (revocation =
+Ordinary AgentNexus session JWTs are stateless and unrevocable today (revocation =
 cookie deletion + expiry). Delegated tokens are higher-value — one server acts
 for many users — so this design makes **delegated** tokens revocable (persisted
 grant + per-`grant_id` revocation check) while leaving normal sessions
@@ -366,7 +366,7 @@ stateless. This added invariant is the main thing for reviewers to scrutinize.
 ## Login-issued refresh grants
 
 The fix for unattended hosts dying at session-JWT expiry (a host
-authenticated via `omnigent login` previously had **no renewal path** —
+authenticated via `agentnexus login` previously had **no renewal path** —
 the stored `{token, user_id, expires_at}` record simply lapsed, default
 8 h, and the next tunnel reconnect got a misleading 403).
 
@@ -378,7 +378,7 @@ the stored `{token, user_id, expires_at}` record simply lapsed, default
   form — a browser must not receive refresh material). The raw refresh
   token rides back once (`/auth/cli-poll` / the login response) as an
   optional `refresh_token` key — old CLIs ignore it, new CLIs against old
-  servers see it absent. `client_id` is `"omnigent-cli"`.
+  servers see it absent. `client_id` is `"agentnexus-cli"`.
 - **Authority** — a refreshed login-grant token carries `grant_id` (so
   revocation still kills it) but **no `scope` claim**, so the delegated
   path allowlist does not apply: it renews the session JWT and keeps that
@@ -394,7 +394,7 @@ the stored `{token, user_id, expires_at}` record simply lapsed, default
   the client persisting) into a permanently revoked grant. Only the
   short-lived access token is renewed; revocation and the absolute lifetime
   cap still bound exposure. Device grants keep rotating.
-- **Renewal** — `omnigent.cli_auth.refresh_stored_token` POSTs
+- **Renewal** — `agentnexus.cli_auth.refresh_stored_token` POSTs
   `grant_type=refresh_token`, persists the result, and returns the
   fresh access token. The runner/host auth-token factory
   calls it when the stored token lapses, and the host tunnel rebuilds
@@ -409,10 +409,10 @@ the stored `{token, user_id, expires_at}` record simply lapsed, default
   other. A per-replica login is still preferred so a single host can be
   revoked without cutting off the rest.
 - **Lifetime** — the absolute grant lifetime stays 30 days by default;
-  `OMNIGENT_GRANT_MAX_LIFETIME_DAYS` lets an operator extend it
+  `AGENTNEXUS_GRANT_MAX_LIFETIME_DAYS` lets an operator extend it
   deliberately for long-lived unattended hosts. Invalid values fall back
   to the default (never fail open to unbounded).
-- **Client-secret interaction** — `OMNIGENT_DEVICE_CLIENT_SECRET` gates
+- **Client-secret interaction** — `AGENTNEXUS_DEVICE_CLIENT_SECRET` gates
   the endpoints that mint from an ephemeral code (device authorize + the
   `device_code` exchange). Refresh and revoke are NOT gated: the presented
   refresh/access token is itself the credential, and a CLI renewing its own
@@ -425,7 +425,7 @@ the stored `{token, user_id, expires_at}` record simply lapsed, default
 
 ### Known limitation
 
-General CLI commands (`omnigent usage`, session commands, direct
+General CLI commands (`agentnexus usage`, session commands, direct
 remote-URL chat) still read the stored token without attempting a refresh —
 only the host/runner auth-token factory renews today. An expired login with
 valid refresh material therefore leaves those commands unauthenticated

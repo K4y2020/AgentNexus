@@ -1,7 +1,7 @@
 # Create a GitHub Release entry (the `…/releases` page) when a version tag is
 # pushed. This is METADATA ONLY — it does NOT build or publish any installable
 # artifact. PyPI publishing lives in a Databricks-internal secure-release repo
-# (its `omnigent` workflow), on hardened runners with OIDC Trusted Publishing
+# (its `agentnexus` workflow), on hardened runners with OIDC Trusted Publishing
 # and a mandatory dependency scan. Keeping those concerns separate is
 # deliberate (see the maintainer release runbook):
 #
@@ -42,7 +42,7 @@ permissions:
 jobs:
   draft-release:
     # Inert in forks / mirrors — only the canonical repo should cut releases.
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

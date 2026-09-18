@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from omnigent.harness_aliases import is_native_harness
-from omnigent.harness_capabilities import AuthModel, HarnessCapabilities, IntegrationMode, Resume
-from omnigent.harness_plugins import (
+from agentnexus.harness_aliases import is_native_harness
+from agentnexus.harness_capabilities import AuthModel, HarnessCapabilities, IntegrationMode, Resume
+from agentnexus.harness_plugins import (
     harness_aliases,
     harness_capabilities,
     harness_install_keys,
@@ -12,7 +12,7 @@ from omnigent.harness_plugins import (
     install_specs,
     model_env_keys,
 )
-from omnigent.onboarding.harness_install import required_cli_for_harness
+from agentnexus.onboarding.harness_install import required_cli_for_harness
 from tests.e2e._harness_probes import HARNESS_PROBES, HarnessProbe
 from tests.harness_bench.profile import BenchProfile
 from tests.harness_bench.verdict import Verdict
@@ -26,7 +26,7 @@ _INTEGRATION_MODE_PROSE: dict[IntegrationMode, str] = {
 }
 
 _AUTH_PROSE: dict[AuthModel, str] = {
-    AuthModel.OMNIGENT_CREDENTIAL: "Omnigent credential (gateway / provider config)",
+    AuthModel.AGENTNEXUS_CREDENTIAL: "AgentNexus credential (gateway / provider config)",
     AuthModel.OWN_AUTH: "Own auth (vendor login / API key)",
     AuthModel.SESSION_SCOPED_CONFIG: "Session-scoped vendor config",
 }

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Install or update the omnigent nightly build.
+# Install or update the agentnexus nightly build.
 #
 # Nightlies are datestamped prerelease tags (vX.Y.Z.devYYYYMMDD) cut from
 # the newest green commit on main by .github/workflows/nightly-release.yml
 # (about 04:30 UTC). This script resolves the newest nightly tag and
-# installs it with uv, which pins the whole install (omnigent,
-# omnigent-client, omnigent-ui-sdk) to that one tagged commit.
+# installs it with uv, which pins the whole install (agentnexus,
+# agentnexus-client, agentnexus-ui-sdk) to that one tagged commit.
 #
 # Requirements: git, uv, and Node.js 22+ with pnpm (the wheel build
 # compiles the web UI and fails with an actionable message if they are
@@ -13,15 +13,15 @@
 #
 # Idempotent: exits fast when the newest nightly is already installed,
 # so it is safe to run from cron, e.g. daily at 9am:
-#   0 9 * * * bash /path/to/update_nightly.sh >> "$HOME/.omnigent-nightly.log" 2>&1
+#   0 9 * * * bash /path/to/update_nightly.sh >> "$HOME/.agentnexus-nightly.log" 2>&1
 
 set -euo pipefail
 
-REPO="${OMNIGENT_REPO:-https://github.com/omnigent-ai/omnigent}"
+REPO="${AGENTNEXUS_REPO:-https://github.com/agentnexus-ai/agentnexus}"
 # Match install.sh: pinning the interpreter keeps uv reusing the existing
 # tool environment instead of recreating it (which removes the working
 # install before the new wheel is built, so a build failure leaves none).
-PYTHON_VERSION="${OMNIGENT_PYTHON_VERSION:-3.12}"
+PYTHON_VERSION="${AGENTNEXUS_PYTHON_VERSION:-3.12}"
 
 # Newest nightly tag: strictly vX.Y.Z.devYYYYMMDD (the 8-digit date also
 # screens out legacy .dev0-style tags). Version sorts before date, so the
@@ -36,13 +36,13 @@ if [ -z "$tag" ]; then
 fi
 
 # Skip the (slow, web-UI-building) reinstall when already current.
-if command -v omnigent >/dev/null 2>&1 \
-  && omnigent --version 2>/dev/null | grep -qF "${tag#v}"; then
+if command -v agentnexus >/dev/null 2>&1 \
+  && agentnexus --version 2>/dev/null | grep -qF "${tag#v}"; then
   echo "update_nightly: already on ${tag}"
   exit 0
 fi
 
 echo "update_nightly: installing ${tag}"
 uv tool install --reinstall --python "$PYTHON_VERSION" \
-  "omnigent @ git+${REPO}@${tag}"
-omnigent --version
+  "agentnexus @ git+${REPO}@${tag}"
+agentnexus --version

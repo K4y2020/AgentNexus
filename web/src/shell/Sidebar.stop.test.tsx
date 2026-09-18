@@ -191,7 +191,7 @@ describe("sidebar Stop session item", () => {
         ...HOST_SPAWNED,
         host_id: undefined,
         runner_id: undefined,
-        labels: { "omnigent.wrapper": "claude-code-native-ui" },
+        labels: { "agentnexus.wrapper": "claude-code-native-ui" },
       },
     ]);
     renderSidebar();

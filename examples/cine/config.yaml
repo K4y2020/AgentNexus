@@ -2,7 +2,7 @@ spec_version: 1
 name: cine
 description: "Creative film Bot: skill-led film analysis, adaptation, character/art design and Seedance V3 canvas production."
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     # Cine is intentionally model-configurable. The OpenAI-compatible harness
     # preserves tool-call IDs for Gemini/DeepSeek/GPT gateway models; routing

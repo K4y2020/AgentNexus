@@ -1,4 +1,4 @@
-"""E2E coverage for the ``OMNIGENT_MODEL`` env-var fallback on ``omnigent run``.
+"""E2E coverage for the ``AGENTNEXUS_MODEL`` env-var fallback on ``omnigent run``.
 
 The fallback fires in ``omnigent/chat.py:_apply_overrides_to_raw`` when the
 spec has no ``executor.model`` / ``executor.harness`` and no ``--model`` /
@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 from tests.e2e._run_with_group_timeout import run_with_group_timeout
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 # ``databricks-`` prefix is load-bearing on two counts:
 # 1. ``databricks-`` exempts ``llm.connection`` from
@@ -65,7 +65,7 @@ def _run_omnigent_with_model_env(
     harness: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run ``omnigent run <minimal>.yaml -p "..."`` with ``OMNIGENT_MODEL`` set.
+    Run ``omnigent run <minimal>.yaml -p "..."`` with ``AGENTNEXUS_MODEL`` set.
 
     Writes a minimal no-``executor`` YAML to *tmp_path*; reusing the shared
     ``hello_world.yaml`` would defeat the test because that file declares
@@ -78,7 +78,7 @@ def _run_omnigent_with_model_env(
     hold the captured pipe open and wedge ``communicate()`` long past the
     deadline.
 
-    :param model_env_value: ``OMNIGENT_MODEL`` value (real or bogus).
+    :param model_env_value: ``AGENTNEXUS_MODEL`` value (real or bogus).
     :param tmp_path: Per-test tmp dir for the minimal YAML.
     :param mock_credentials_env: Mock-LLM env vars pointing at the
         mock server.
@@ -90,12 +90,12 @@ def _run_omnigent_with_model_env(
     yaml_path = tmp_path / "hello_world_no_executor.yaml"
     yaml_path.write_text(_MINIMAL_YAML)
     env = dict(mock_credentials_env)
-    env["OMNIGENT_MODEL"] = model_env_value
+    env["AGENTNEXUS_MODEL"] = model_env_value
     return run_with_group_timeout(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "-p",
@@ -119,7 +119,7 @@ def test_omnigent_model_env_var_drives_successful_run(
     tmp_path: Path,
 ) -> None:
     """
-    Smoke test: a valid model in ``OMNIGENT_MODEL`` produces a successful turn.
+    Smoke test: a valid model in ``AGENTNEXUS_MODEL`` produces a successful turn.
 
     A pass alone doesn't prove the env var was honored (the default model also
     succeeds); the bogus-value sibling carries the decisive proof. This test
@@ -144,7 +144,7 @@ def test_omnigent_model_env_var_drives_successful_run(
     # Non-zero exit means either the env var never reached the executor block
     # or the resolved model failed at the FM API — both silently break users.
     assert result.returncode == 0, (
-        f"omnigent run with OMNIGENT_MODEL={_VALID_MODEL!r} exited "
+        f"agentnexus run with AGENTNEXUS_MODEL={_VALID_MODEL!r} exited "
         f"with code {result.returncode}.\n"
         f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
     )
@@ -165,7 +165,7 @@ def test_omnigent_model_env_var_bogus_value_fails_with_named_error(
     tmp_path: Path,
 ) -> None:
     """
-    Decisive test: a bogus ``OMNIGENT_MODEL`` fails with the bogus name in stderr.
+    Decisive test: a bogus ``AGENTNEXUS_MODEL`` fails with the bogus name in stderr.
 
     A failure that names the sentinel can only happen if the env-var value
     traveled the full pipeline to the FM API. If the env var were silently
@@ -208,7 +208,7 @@ def test_omnigent_model_env_var_bogus_value_fails_with_named_error(
 
     # Exit 0 means the env var was dropped and the default model took over.
     assert result.returncode != 0, (
-        f"omnigent run with OMNIGENT_MODEL={_BOGUS_MODEL!r} unexpectedly "
+        f"agentnexus run with AGENTNEXUS_MODEL={_BOGUS_MODEL!r} unexpectedly "
         f"succeeded (exit 0); the env var was silently dropped.\n"
         f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
     )

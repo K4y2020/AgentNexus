@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import omnigent.harness_plugins as hp
-from omnigent.harness_install_spec import HarnessInstallSpec
+import agentnexus.harness_plugins as hp
+from agentnexus.harness_install_spec import HarnessInstallSpec
 
 
 class _EntryPoint:
@@ -41,12 +41,12 @@ def _install_entry_points(
 def test_community_harness_contribution_is_merged(monkeypatch: pytest.MonkeyPatch) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.foo.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.foo.inner.foo_harness"},
             aliases={"foo-code": "foo"},
             model_env_keys={"foo": "HARNESS_FOO_MODEL"},
-            spawn_env_builders={"foo": "omnigent.community.harness.foo.plugin:build_spawn_env"},
+            spawn_env_builders={"foo": "agentnexus.community.harness.foo.plugin:build_spawn_env"},
             harness_labels={"foo": "Foo"},
         )
 
@@ -54,10 +54,10 @@ def test_community_harness_contribution_is_merged(monkeypatch: pytest.MonkeyPatc
 
     assert "foo" in hp.valid_harnesses()
     assert hp.harness_aliases()["foo-code"] == "foo"
-    assert hp.harness_modules()["foo-code"] == "omnigent.community.harness.foo.inner.foo_harness"
+    assert hp.harness_modules()["foo-code"] == "agentnexus.community.harness.foo.inner.foo_harness"
     assert hp.model_env_keys()["foo"] == "HARNESS_FOO_MODEL"
     assert (
-        hp.spawn_env_builders()["foo"] == "omnigent.community.harness.foo.plugin:build_spawn_env"
+        hp.spawn_env_builders()["foo"] == "agentnexus.community.harness.foo.plugin:build_spawn_env"
     )
     foo_row = next((row for row in hp.harness_catalog() if row["id"] == "foo"), None)
     assert foo_row is not None
@@ -71,9 +71,9 @@ def test_community_harness_rejects_non_community_import_path(
 ) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent_foo.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus_foo.inner.foo_harness"},
         )
 
     _install_entry_points(monkeypatch, _EntryPoint("foo", _contribution))
@@ -86,16 +86,16 @@ def test_community_harness_rejects_non_community_import_path(
 def test_community_harness_rejects_builtin_collision(monkeypatch: pytest.MonkeyPatch) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-evil",
+            name="agentnexus-evil",
             valid_harnesses=frozenset({"claude-sdk"}),
-            harness_modules={"claude-sdk": "omnigent.community.harness.evil.inner.evil_harness"},
+            harness_modules={"claude-sdk": "agentnexus.community.harness.evil.inner.evil_harness"},
         )
 
     _install_entry_points(monkeypatch, _EntryPoint("evil", _contribution))
 
     state = hp.plugin_state()
     assert "evil" in state.load_errors
-    assert hp.harness_modules()["claude-sdk"] == "omnigent.inner.claude_sdk_harness"
+    assert hp.harness_modules()["claude-sdk"] == "agentnexus.inner.claude_sdk_harness"
 
 
 def test_community_harness_rejects_alias_collision_with_builtin(
@@ -103,9 +103,9 @@ def test_community_harness_rejects_alias_collision_with_builtin(
 ) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-evil",
+            name="agentnexus-evil",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.evil.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.evil.inner.foo_harness"},
             aliases={"claude-sdk": "foo"},
         )
 
@@ -121,16 +121,16 @@ def test_community_harness_rejects_community_collision(
 ) -> None:
     def _first() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.foo.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.foo.inner.foo_harness"},
         )
 
     def _second() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-bar",
+            name="agentnexus-bar",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.bar.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.bar.inner.foo_harness"},
         )
 
     _install_entry_points(
@@ -141,7 +141,7 @@ def test_community_harness_rejects_community_collision(
 
     state = hp.plugin_state()
     assert "bar" in state.load_errors
-    assert hp.harness_modules()["foo"] == "omnigent.community.harness.foo.inner.foo_harness"
+    assert hp.harness_modules()["foo"] == "agentnexus.community.harness.foo.inner.foo_harness"
 
 
 def test_community_harness_rejects_native_terminal_metadata(
@@ -149,9 +149,9 @@ def test_community_harness_rejects_native_terminal_metadata(
 ) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo-native"}),
-            harness_modules={"foo-native": "omnigent.community.harness.foo.inner.foo_harness"},
+            harness_modules={"foo-native": "agentnexus.community.harness.foo.inner.foo_harness"},
             native_harnesses=frozenset({"foo-native"}),
         )
 
@@ -167,9 +167,9 @@ def test_community_harness_readiness_uses_install_metadata(
 ) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.foo.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.foo.inner.foo_harness"},
             aliases={"foo-code": "foo"},
             install_specs={
                 "foo": HarnessInstallSpec(
@@ -184,7 +184,7 @@ def test_community_harness_readiness_uses_install_metadata(
 
     _install_entry_points(monkeypatch, _EntryPoint("foo", _contribution))
 
-    from omnigent.onboarding import harness_readiness as readiness
+    from agentnexus.onboarding import harness_readiness as readiness
 
     monkeypatch.setattr(readiness, "resolve_cli_binary", lambda _binary: None)
     assert readiness.harness_is_configured("foo") is False
@@ -201,20 +201,20 @@ def test_community_namespace_imports_external_harness_package(
     tmp_path: Path,
 ) -> None:
     package_root = tmp_path / "plugin"
-    package_dir = package_root / "omnigent" / "community" / "harness" / "foo"
+    package_dir = package_root / "agentnexus" / "community" / "harness" / "foo"
     package_dir.mkdir(parents=True)
     (package_dir / "__init__.py").write_text("VALUE = 'ok'\n", encoding="utf-8")
 
     monkeypatch.syspath_prepend(str(package_root))
 
-    import omnigent.community as community
-    import omnigent.community.harness as harnesses
+    import agentnexus.community as community
+    import agentnexus.community.harness as harnesses
 
     importlib.reload(community)
     importlib.reload(harnesses)
-    sys.modules.pop("omnigent.community.harness.foo", None)
+    sys.modules.pop("agentnexus.community.harness.foo", None)
 
-    module = importlib.import_module("omnigent.community.harness.foo")
+    module = importlib.import_module("agentnexus.community.harness.foo")
     assert module.VALUE == "ok"
 
 
@@ -238,12 +238,12 @@ def test_community_harness_can_register_background_title_generator(
 ) -> None:
     def _contribution() -> hp.HarnessContribution:
         return hp.HarnessContribution(
-            name="omnigent-foo",
+            name="agentnexus-foo",
             valid_harnesses=frozenset({"foo"}),
-            harness_modules={"foo": "omnigent.community.harness.foo.inner.foo_harness"},
+            harness_modules={"foo": "agentnexus.community.harness.foo.inner.foo_harness"},
             background_title_generators={
                 "foo": hp.BackgroundTitleGeneratorSpec(
-                    "omnigent.community.harness.foo.background_titles:generate"
+                    "agentnexus.community.harness.foo.background_titles:generate"
                 )
             },
         )
@@ -251,7 +251,7 @@ def test_community_harness_can_register_background_title_generator(
     _install_entry_points(monkeypatch, _EntryPoint("foo", _contribution))
 
     generator = hp.background_title_generators()["foo"]
-    assert generator.generator == ("omnigent.community.harness.foo.background_titles:generate")
+    assert generator.generator == ("agentnexus.community.harness.foo.background_titles:generate")
 
 
 def test_builtin_native_providers_cover_every_native_agent() -> None:
@@ -283,7 +283,7 @@ def test_builtin_native_provider_paths_resolve() -> None:
     This is the guard that keeps the provider rows honest: a typo'd import path
     or a renamed run_<x>_native symbol fails here rather than at dispatch time.
     """
-    from omnigent import native_dispatch
+    from agentnexus import native_dispatch
 
     for provider in hp.native_providers():
         for hook in (
@@ -304,9 +304,9 @@ def test_builtin_native_provider_bridge_id_label_keys_match_constants() -> None:
     modules (which would break its import-light contract). Pin the derivation
     against the actual constants so a rename can't silently diverge.
     """
-    from omnigent.antigravity_native_bridge import ANTIGRAVITY_NATIVE_BRIDGE_ID_LABEL_KEY
-    from omnigent.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
-    from omnigent.opencode_native_bridge import OPENCODE_NATIVE_BRIDGE_ID_LABEL_KEY
+    from agentnexus.antigravity_native_bridge import ANTIGRAVITY_NATIVE_BRIDGE_ID_LABEL_KEY
+    from agentnexus.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
+    from agentnexus.opencode_native_bridge import OPENCODE_NATIVE_BRIDGE_ID_LABEL_KEY
 
     expected = {
         "codex": CODEX_NATIVE_BRIDGE_ID_LABEL_KEY,

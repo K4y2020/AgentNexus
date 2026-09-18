@@ -5,8 +5,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from omnigent.entities.conversation import Conversation
-from omnigent.server.schemas import SessionEventInput
+from agentnexus.entities.conversation import Conversation
+from agentnexus.server.schemas import SessionEventInput
 
 
 def _conversation_with_wrapper(wrapper: str) -> Conversation:
@@ -22,7 +22,7 @@ def _conversation_with_wrapper(wrapper: str) -> Conversation:
         updated_at=0,
         root_conversation_id="e1f7c651c9f97fac088ea70ef633409d",
         agent_id="d5de5cef9504e12d06e729f3071d4f48",
-        labels={"omnigent.wrapper": wrapper},
+        labels={"agentnexus.wrapper": wrapper},
     )
 
 
@@ -45,9 +45,9 @@ def test_codex_native_session_uses_codex_harness_for_web_messages() -> None:
     """
     Codex-native sessions use the native bypass and dispatch web
     messages into the ``codex-native`` harness instead of the normal
-    Omnigent persistence path.
+    AgentNexus persistence path.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("codex-native-ui")
 
@@ -67,7 +67,7 @@ def test_codex_native_session_uses_codex_harness_for_web_messages() -> None:
 
 def test_kiro_native_session_uses_kiro_harness_for_web_messages() -> None:
     """Kiro-native web messages use the native bypass, like Codex."""
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("kiro-native-ui")
 
@@ -90,7 +90,7 @@ def test_antigravity_native_session_uses_antigravity_harness_for_web_messages() 
     persist the message itself instead of forwarding it to the agy terminal,
     and the runner would never see the turn.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("antigravity-native-ui")
 
@@ -112,7 +112,7 @@ def test_antigravity_native_runtime_maps_wrapper_to_agy_terminal() -> None:
     probe (``_ensure_native_terminal_ready``) routes off exactly these two
     helpers, so a missing antigravity branch would 400 the first web message.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("antigravity-native-ui")
 
@@ -127,7 +127,7 @@ def test_antigravity_native_runtime_maps_wrapper_to_agy_terminal() -> None:
 
 def test_transcript_forwarded_native_sessions_use_native_bypass() -> None:
     """Transcript-forwarded native sessions skip AP-side message persistence."""
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     assert sessions_routes._is_native_terminal_session(
         _conversation_with_wrapper("claude-code-native-ui")
@@ -143,9 +143,9 @@ def test_transcript_forwarded_native_sessions_use_native_bypass() -> None:
 def test_unknown_wrapper_session_does_not_use_native_bypass() -> None:
     """
     Non-native wrapper labels must not enter the native terminal
-    bypass, otherwise Omnigent would skip persistence for regular sessions.
+    bypass, otherwise AgentNexus would skip persistence for regular sessions.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("regular-chat")
 
@@ -182,7 +182,7 @@ def test_policy_notice_from_ensure_response(
     a non-JSON 2xx body — the last of which must not turn a successful
     readiness probe into a crash.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     assert sessions_routes._policy_notice_from_ensure_response(response) == expected
 
@@ -202,7 +202,7 @@ def test_custom_native_harness_session_without_wrapper_label_is_native(
     treat it as native via the RESOLVED harness; otherwise the inbound user
     message is persisted AP-side AND mirrored by the forwarder (double input).
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = Conversation(
         id="0e877e3fab4a2d5f5e386ef9f791eec0",
@@ -229,7 +229,7 @@ def test_custom_sdk_harness_session_is_not_native(
     SDK harnesses have no transcript forwarder, so the server's single
     persisted copy is correct — the harness fallback must not over-fire.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = Conversation(
         id="9842b654446e37e810871eba75f58608",
@@ -251,7 +251,7 @@ def test_wrapper_label_session_is_native_without_resolving_harness(
     Built-in terminal-first wrapper sessions are recognized by label alone, so
     the (spec-loading) harness resolution never runs for them.
     """
-    from omnigent.server.routes import sessions as sessions_routes
+    from agentnexus.server.routes import sessions as sessions_routes
 
     conv = _conversation_with_wrapper("codex-native-ui")
 

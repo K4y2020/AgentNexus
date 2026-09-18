@@ -27,10 +27,10 @@ uuid we assign (``_clone_claude_transcript``) and launches plain
 Why this is opt-in (same rationale as ``test_host_claude_native_e2e``):
 claude-native needs a real *interactive* Claude login anchored to the
 real ``$HOME`` — it cannot be relocated into CI. Set
-``OMNIGENT_E2E_CLAUDE_NATIVE=1`` (with ``claude`` installed + logged
+``AGENTNEXUS_E2E_CLAUDE_NATIVE=1`` (with ``claude`` installed + logged
 in) to run::
 
-    OMNIGENT_E2E_CLAUDE_NATIVE=1 \\
+    AGENTNEXUS_E2E_CLAUDE_NATIVE=1 \\
     .venv/bin/python -m pytest tests/e2e/test_host_claude_native_fork_e2e.py \\
         --llm-api-key "mock-key" \\
         -v
@@ -71,10 +71,10 @@ from tests.e2e.test_host_claude_native_e2e import (
 # Opt-in only — see module docstring and test_host_claude_native_e2e for
 # why binary presence alone is not a sufficient gate.
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_CLAUDE_NATIVE") != "1" or shutil.which("claude") is None,
+    os.environ.get("AGENTNEXUS_E2E_CLAUDE_NATIVE") != "1" or shutil.which("claude") is None,
     reason=(
         "claude-native e2e needs an interactive Claude login; set "
-        "OMNIGENT_E2E_CLAUDE_NATIVE=1 (and have `claude` installed + logged in) to run"
+        "AGENTNEXUS_E2E_CLAUDE_NATIVE=1 (and have `claude` installed + logged in) to run"
     ),
 )
 
@@ -772,7 +772,7 @@ def test_fork_sdk_source_into_native_builds_history(
 
             # 2. Fork SWITCHING to claude-native. The SDK source has no
             # external_session_id, so the runner rebuilds the native
-            # transcript from the copied Omnigent items (build-from-items).
+            # transcript from the copied AgentNexus items (build-from-items).
             fork_id = _fork_session(
                 http_client,
                 source_id=source_id,
@@ -782,7 +782,7 @@ def test_fork_sdk_source_into_native_builds_history(
             _launch_runner(http_client, host_id=host_id, session_id=fork_id, workspace=workspace)
 
             # 3. The native clone recalls the planted word — only possible
-            # if the Omnigent items were rebuilt into its Claude transcript and
+            # if the AgentNexus items were rebuilt into its Claude transcript and
             # resumed; a fresh launch has no history.
             _send_user_message(
                 http_client,
@@ -797,7 +797,7 @@ def test_fork_sdk_source_into_native_builds_history(
             )
             assert marker in text, (
                 f"native clone did not recall {marker!r} (got {text!r}) — the SDK "
-                "source's Omnigent items were not rebuilt into the clone's Claude "
+                "source's AgentNexus items were not rebuilt into the clone's Claude "
                 "transcript, so it launched fresh without history"
             )
 
@@ -811,9 +811,9 @@ def test_fork_native_source_into_sdk_carries_history(
     A claude-native source forked into a claude-sdk agent recalls history.
 
     This exercises the native→SDK switch (already supported via SDK
-    transcript replay — the SDK target serializes the copied Omnigent
+    transcript replay — the SDK target serializes the copied AgentNexus
     transcript as context). The clone binds the built-in ``sdk-chat-builtin``
-    (a plain claude-sdk chat agent seeded via OMNIGENT_BUILTIN_AGENT_DIRS —
+    (a plain claude-sdk chat agent seeded via AGENTNEXUS_BUILTIN_AGENT_DIRS —
     NOT the polly supervisor, so the recall is deterministic). It runs on
     the host daemon via the Claude CLI's OAuth, like claude-native.
 
@@ -863,7 +863,7 @@ def test_fork_native_source_into_sdk_carries_history(
 
             # The clone must NOT inherit the source's terminal-first labels.
             snap = http_client.get(f"/v1/sessions/{fork_id}", timeout=30.0).json()
-            assert snap.get("labels", {}).get("omnigent.ui") != "terminal", (
+            assert snap.get("labels", {}).get("agentnexus.ui") != "terminal", (
                 "SDK clone of a claude-native source must drop terminal-first "
                 f"mode, got labels {snap.get('labels')!r}"
             )

@@ -1,15 +1,15 @@
-"""Shared helper: spawn a dedicated *accounts-mode* Omnigent server with the
+"""Shared helper: spawn a dedicated *accounts-mode* AgentNexus server with the
 device-authorization grant enabled.
 
 The suite's shared ``live_server`` runs single-user
-(``OMNIGENT_LOCAL_SINGLE_USER=1``, set in ``tests/conftest.py``) with auth
+(``AGENTNEXUS_LOCAL_SINGLE_USER=1``, set in ``tests/conftest.py``) with auth
 disabled, so it has no password login form and no ``/oauth/*`` device routes.
 The forced-reauthentication flow under test needs all three: accounts mode (the
 ``/login`` password form + a session cookie whose ``iat`` the consent page
-checks), the device grant mounted (``OMNIGENT_DEVICE_GRANT_ENABLED=1``), and a
+checks), the device grant mounted (``AGENTNEXUS_DEVICE_GRANT_ENABLED=1``), and a
 seeded admin the browser can sign in as.
 
-This spins one up with a pre-seeded admin (``OMNIGENT_ACCOUNTS_INIT_ADMIN_*``)
+This spins one up with a pre-seeded admin (``AGENTNEXUS_ACCOUNTS_INIT_ADMIN_*``)
 and exposes :meth:`AccountsServer.start_device_flow` so a test can mint a
 ``pending`` grant exactly as the Slack client would (``POST
 /oauth/device/authorize``) and then drive the browser consent page.
@@ -155,17 +155,17 @@ def spawn_accounts_server(mock_llm_server_url: str, server_tmp) -> Iterator[Acco
         # Accounts mode + a pre-seeded admin so the browser can sign in with a
         # known password. The base URL must be the browser-visible origin (the
         # public loopback alias) so the session cookie is issued for it.
-        "OMNIGENT_AUTH_PROVIDER": "accounts",
-        "OMNIGENT_AUTH_ENABLED": "1",
-        "OMNIGENT_LOCAL_SINGLE_USER": "",
-        "OMNIGENT_ACCOUNTS_COOKIE_SECRET": secrets.token_hex(32),
-        "OMNIGENT_ACCOUNTS_BASE_URL": public_url,
-        "OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME": ADMIN_USERNAME,
-        "OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD": ADMIN_PASSWORD,
-        "OMNIGENT_ACCOUNTS_AUTO_OPEN": "0",
-        "OMNIGENT_ADMIN_CREDENTIALS_PATH": str(server_tmp / "admin-creds"),
+        "AGENTNEXUS_AUTH_PROVIDER": "accounts",
+        "AGENTNEXUS_AUTH_ENABLED": "1",
+        "AGENTNEXUS_LOCAL_SINGLE_USER": "",
+        "AGENTNEXUS_ACCOUNTS_COOKIE_SECRET": secrets.token_hex(32),
+        "AGENTNEXUS_ACCOUNTS_BASE_URL": public_url,
+        "AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME": ADMIN_USERNAME,
+        "AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD": ADMIN_PASSWORD,
+        "AGENTNEXUS_ACCOUNTS_AUTO_OPEN": "0",
+        "AGENTNEXUS_ADMIN_CREDENTIALS_PATH": str(server_tmp / "admin-creds"),
         # Mount the /oauth/* device routes (opt-in, default-off).
-        "OMNIGENT_DEVICE_GRANT_ENABLED": "1",
+        "AGENTNEXUS_DEVICE_GRANT_ENABLED": "1",
         "OPENAI_BASE_URL": f"{mock_llm_server_url}/v1",
         "OPENAI_API_KEY": "mock-key",
         "ANTHROPIC_API_KEY": "",
@@ -176,7 +176,7 @@ def spawn_accounts_server(mock_llm_server_url: str, server_tmp) -> Iterator[Acco
         [
             sys.executable,
             "-c",
-            "from omnigent.cli import main; main()",
+            "from agentnexus.cli import main; main()",
             "server",
             "--host",
             "127.0.0.1",

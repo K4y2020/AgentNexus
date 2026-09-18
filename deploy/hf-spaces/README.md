@@ -1,4 +1,4 @@
-# Omnigent on Hugging Face Spaces
+# AgentNexus on Hugging Face Spaces
 
 > **Demo-grade target.** On the free tier, Space storage is **ephemeral** —
 > data (and the SQLite DB) reset on restart. Good for kicking the tires, not for
@@ -18,7 +18,7 @@ files plus two secrets.
    - a `README.md` starting with this front-matter (HF reads it):
      ```yaml
      ---
-     title: Omnigent
+     title: AgentNexus
      emoji: 🤖
      colorFrom: indigo
      colorTo: blue
@@ -33,13 +33,13 @@ files plus two secrets.
    | `PORT` | variable | `8000` (pin it so the app and `app_port` agree) |
    | `HOST` | variable | `0.0.0.0` |
    | `DATABASE_URL` | variable | `sqlite:////data/artifacts/chat.db` |
-   | `OMNIGENT_ACCOUNTS_COOKIE_SECRET` | secret | `openssl rand -hex 32` (pin it: ephemeral disk would otherwise drop sessions on restart) |
+   | `AGENTNEXUS_ACCOUNTS_COOKIE_SECRET` | secret | `openssl rand -hex 32` (pin it: ephemeral disk would otherwise drop sessions on restart) |
 
 4. The Space builds + boots. No admin credential is auto-generated: first boot
    prints a "No admin yet" line to the Space **Logs**, and the Space serves a
    web Create-admin form where you pick your own username + password. The base
    URL is auto-detected from `SPACE_HOST`, so it needs no manual set. To create
-   the admin directly instead, add `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` as a
+   the admin directly instead, add `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD` as a
    Space secret before first boot.
 5. **Log in via the direct URL** `https://<user>-<space>.hf.space` in its own
    tab — not HF's embedded preview. The session cookie is `SameSite=Lax`, which
@@ -48,7 +48,7 @@ files plus two secrets.
    (same-site), so login sticks. Make the Space **Public** so the direct URL
    isn't gated — but note the Create-admin form is unauthenticated until the
    first admin is claimed, so a public Space can be claimed by the first
-   visitor. Pre-seed `OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD` (step 4) or claim
+   visitor. Pre-seed `AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD` (step 4) or claim
    the admin immediately after it goes public.
 
 ## Want persistence / multi-user later?

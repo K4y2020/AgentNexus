@@ -27,7 +27,7 @@ def _reload_module():
     """Re-import accounts_secret so the module's top-level os reference
     reflects any monkeypatches already applied to the os module.
     """
-    import omnigent.server.accounts_secret as mod
+    import agentnexus.server.accounts_secret as mod
 
     importlib.reload(mod)
     return mod
@@ -41,16 +41,16 @@ def _reload_module():
 def test_env_var_wins_without_touching_disk(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """OMNIGENT_ACCOUNTS_COOKIE_SECRET in env is returned as-is, no file I/O.
+    """AGENTNEXUS_ACCOUNTS_COOKIE_SECRET in env is returned as-is, no file I/O.
 
     On every platform — including Windows — the env-var path must work
     without calling os.open / os.fchmod, because the function returns before
     any file access.
     """
     expected = "a" * 64
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", expected)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", expected)
 
-    import omnigent.server.accounts_secret as mod
+    import agentnexus.server.accounts_secret as mod
 
     result = mod.load_or_generate_cookie_secret(tmp_path)
 
@@ -61,9 +61,9 @@ def test_env_var_wins_without_touching_disk(
 
 def test_generates_secret_on_first_boot(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A new data-dir results in a fresh 64-char hex secret persisted to disk."""
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
 
-    import omnigent.server.accounts_secret as mod
+    import agentnexus.server.accounts_secret as mod
 
     result = mod.load_or_generate_cookie_secret(tmp_path)
 
@@ -78,13 +78,13 @@ def test_generates_secret_on_first_boot(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
 def test_reads_existing_secret_on_restart(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A pre-existing secret file is reused — sessions survive restarts."""
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
 
     secret_file = tmp_path / "accounts-cookie-secret"
     persisted = "b" * 64
     secret_file.write_text(persisted + "\n")
 
-    import omnigent.server.accounts_secret as mod
+    import agentnexus.server.accounts_secret as mod
 
     result = mod.load_or_generate_cookie_secret(tmp_path)
 
@@ -104,7 +104,7 @@ def test_no_crash_when_fchmod_unavailable(monkeypatch: pytest.MonkeyPatch, tmp_p
     This test simulates that platform by removing fchmod from the os module
     and asserts the function still returns a valid secret.
     """
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
 
     # monkeypatch.delattr removes the attribute and restores it after the test,
     # faithfully simulating a Windows Python where os.fchmod is absent.
@@ -142,7 +142,7 @@ def test_no_crash_when_fchmod_unavailable_uses_fallback_permissions(
     """
     import sys
 
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
 
     if hasattr(os, "fchmod"):
         monkeypatch.delattr(os, "fchmod")

@@ -259,8 +259,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--server",
         default=None,
-        help="Omnigent server URL to run against. Omit to use the local server "
-        "omnigent run spins up.",
+        help="AgentNexus server URL to run against. Omit to use the local server "
+        "agentnexus run spins up.",
     )
     p.add_argument(
         "--skip-push",
@@ -334,7 +334,7 @@ def main() -> None:
     except ValueError as exc:
         _die(str(exc))
 
-    from omnigent.host.git_worktree import WorktreeError, create_worktree
+    from agentnexus.host.git_worktree import WorktreeError, create_worktree
 
     # Base the fresh fix worktree on the latest `main`, NOT this checkout's HEAD:
     # the script may be run from a feature branch, and branching off HEAD would
@@ -371,7 +371,7 @@ def main() -> None:
     # from an older base), so a relative path could 404. The main checkout always
     # has the agent files; cwd stays the worktree so the agent still edits there.
     agent_arg = str(_REPO_ROOT / _AGENT_REL)
-    cmd = ["omnigent", "run", agent_arg, "-p", payload]
+    cmd = ["agentnexus", "run", agent_arg, "-p", payload]
     if args.server is not None:
         cmd += ["--server", args.server]
 

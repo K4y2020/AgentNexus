@@ -31,17 +31,17 @@ def test_sessions_routes_import_does_not_trigger_cycle() -> None:
     """The original failure shape: importing the server routes module
     triggered ``reasoning_effort`` -> ``llms.errors`` -> ``llms.__init__``
     -> ``llms.client`` -> ``reasoning_effort`` re-entry."""
-    _purge("omnigent.llms")
-    _purge("omnigent.reasoning_effort")
-    _purge("omnigent.server.routes.sessions")
-    importlib.import_module("omnigent.server.routes.sessions")
+    _purge("agentnexus.llms")
+    _purge("agentnexus.reasoning_effort")
+    _purge("agentnexus.server.routes.sessions")
+    importlib.import_module("agentnexus.server.routes.sessions")
 
 
 def test_short_form_import_still_works() -> None:
-    """``from omnigent.llms import Client`` must keep working
+    """``from agentnexus.llms import Client`` must keep working
     after the lazy-attribute switch."""
-    _purge("omnigent.llms")
-    from omnigent.llms import Client, get_model_context_window
+    _purge("agentnexus.llms")
+    from agentnexus.llms import Client, get_model_context_window
 
     assert Client is not None
     assert callable(get_model_context_window)
@@ -50,18 +50,18 @@ def test_short_form_import_still_works() -> None:
 def test_module_only_import_does_not_load_client() -> None:
     """Importing ``omnigent.llms`` by itself should NOT eagerly pull
     in ``client.py`` -- that's the whole point of the lazy shim."""
-    _purge("omnigent.llms")
-    importlib.import_module("omnigent.llms")
-    assert "omnigent.llms.client" not in sys.modules, (
-        "omnigent.llms.client was imported eagerly; lazy shim regressed"
+    _purge("agentnexus.llms")
+    importlib.import_module("agentnexus.llms")
+    assert "agentnexus.llms.client" not in sys.modules, (
+        "agentnexus.llms.client was imported eagerly; lazy shim regressed"
     )
 
 
 def test_unknown_attribute_raises_attribute_error() -> None:
     """The ``__getattr__`` shim should preserve normal AttributeError
     semantics for unknown names."""
-    _purge("omnigent.llms")
-    import omnigent.llms as llms_pkg
+    _purge("agentnexus.llms")
+    import agentnexus.llms as llms_pkg
 
     try:
         llms_pkg.does_not_exist  # noqa: B018

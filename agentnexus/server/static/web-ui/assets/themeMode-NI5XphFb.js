@@ -1,0 +1,1 @@
+function e(e){return e===`light`||e===`dark`||e===`system`}function t(t){return e(t)?t:`system`}function n(e){return e===`dark`?`dark`:`light`}export{n,t as r,e as t};

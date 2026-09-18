@@ -1,11 +1,11 @@
 # Kiro-native Elicitation
 
 **Status:** implemented for one-time tool approvals observed on Kiro CLI 2.8.1.
-**Code:** `omnigent/kiro_native_permissions.py`, `omnigent/kiro_native_bridge.py`, runner wiring in `omnigent/runner/app.py`.
+**Code:** `agentnexus/kiro_native_permissions.py`, `agentnexus/kiro_native_bridge.py`, runner wiring in `agentnexus/runner/app.py`.
 
 ## Behavior
 
-`omnigent kiro` still runs Kiro's own terminal UI. When Kiro shows a tool approval prompt in the embedded Terminal, Omnigent also mirrors supported one-time approvals into Chat as an approval card. The Terminal prompt remains authoritative and answerable; the Chat card is additive.
+`agentnexus kiro` still runs Kiro's own terminal UI. When Kiro shows a tool approval prompt in the embedded Terminal, AgentNexus also mirrors supported one-time approvals into Chat as an approval card. The Terminal prompt remains authoritative and answerable; the Chat card is additive.
 
 Supported today:
 
@@ -24,7 +24,7 @@ Not surfaced today:
 
 Kiro's persisted CLI session JSONL under `~/.kiro/sessions/cli` mirrors transcript records, but during the characterization probe it did not contain pending permission records. It contained conversation/tool-result records such as `Prompt`, `AssistantMessage`, and `ToolResults`.
 
-The usable permission signal is Kiro's TUI ACP recorder. The runner sets `KIRO_ACP_RECORD_PATH` to a per-session file under the Kiro bridge directory, then `omnigent/kiro_native_permissions.py` tails that JSONL file. The observed record wrapper is:
+The usable permission signal is Kiro's TUI ACP recorder. The runner sets `KIRO_ACP_RECORD_PATH` to a per-session file under the Kiro bridge directory, then `agentnexus/kiro_native_permissions.py` tails that JSONL file. The observed record wrapper is:
 
 ```json
 {"dir":"out","msg":"{...json-rpc message...}","ts":"..."}
@@ -77,4 +77,4 @@ For new records:
 - The runner sets `KIRO_ACP_RECORD_PATH` itself inside the allowlisted child environment. It does not inherit an arbitrary recorder path from the parent shell.
 - Kiro-derived prompt text is treated as untrusted UI input and truncated before it is sent as a card preview.
 - The web UI never exposes persistent trust for Kiro. Users who want persistent trust must use Kiro's own trust flags or TUI controls deliberately.
-- Kiro remains authenticated by Kiro's own CLI login and does not use Omnigent Databricks, OpenAI, or Anthropic provider credentials.
+- Kiro remains authenticated by Kiro's own CLI login and does not use AgentNexus Databricks, OpenAI, or Anthropic provider credentials.

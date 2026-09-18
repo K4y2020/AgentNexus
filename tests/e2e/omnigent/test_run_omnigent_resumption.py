@@ -8,7 +8,7 @@ pipe the user prompt and ``/quit`` through stdin.
 
 Verifies that a unique nonce sent in run #1 is recovered by the
 LLM in run #2, proving that the persistent omnigent store at
-``$HOME/.omnigent/chat.db`` carries history between invocations.
+``$HOME/.agentnexus/chat.db`` carries history between invocations.
 
 **What breaks if this fails:**
 
@@ -34,7 +34,7 @@ LLM in run #2, proving that the persistent omnigent store at
   resolution succeeded.
 
 This is the canonical regression test for the
-``designs/RUN_OMNIGENT_SESSION_RESUMPTION.md`` feature. If it
+``designs/RUN_AGENTNEXUS_SESSION_RESUMPTION.md`` feature. If it
 passes, the user-visible promise of ``--continue`` is
 intact.
 """
@@ -46,7 +46,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 # ``openai-agents`` is picked because it honors
 # ``OPENAI_BASE_URL`` / ``OPENAI_API_KEY`` directly — no
@@ -117,7 +117,7 @@ def _argv_run_omnigent(
     return [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -154,7 +154,7 @@ def _argv_run_omnigent_interactive(
     return [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(yaml_path),
         "--model",
@@ -171,7 +171,7 @@ def _daemon_log_tails(home: Path, *, tail_chars: int = 3000) -> str:
     Collect the tails of every daemon-side log under the fake ``$HOME``.
 
     Each ``omnigent run`` subprocess spawns its own local server, host
-    daemon, and runner whose logs land under ``$HOME/.omnigent/logs/``
+    daemon, and runner whose logs land under ``$HOME/.agentnexus/logs/``
     (``server/``, ``runner/``, ``host-runner/``). When the CLI exits
     nonzero those logs are the only record of WHY — e.g. the local
     server dying mid-startup surfaces in the CLI only as a bare
@@ -183,7 +183,7 @@ def _daemon_log_tails(home: Path, *, tail_chars: int = 3000) -> str:
     :returns: A formatted multi-log report for embedding in an
         assertion message, or a placeholder when no logs exist.
     """
-    logs_dir = home / ".omnigent" / "logs"
+    logs_dir = home / ".agentnexus" / "logs"
     log_files = sorted(logs_dir.rglob("*.log")) if logs_dir.is_dir() else []
     if not log_files:
         return f"(no daemon logs under {logs_dir})"
@@ -201,12 +201,12 @@ def _isolated_env(
     home: Path,
 ) -> dict[str, str]:
     """
-    Override ``HOME`` and the explicit Omnigent state/config roots so
+    Override ``HOME`` and the explicit AgentNexus state/config roots so
     the subprocess's persistent store, local server pidfile, and host
     daemon records all land inside the test's temp dir.
 
     Without this isolation the test would write to the
-    developer's real ``~/.omnigent/chat.db`` and could
+    developer's real ``~/.agentnexus/chat.db`` and could
     pick up unrelated prior conversations (or overwrite
     them).
 
@@ -218,8 +218,8 @@ def _isolated_env(
     """
     env = dict(base_env)
     env["HOME"] = str(home)
-    env["OMNIGENT_CONFIG_HOME"] = str(home / ".omnigent")
-    env["OMNIGENT_DATA_DIR"] = str(home / ".omnigent")
+    env["AGENTNEXUS_CONFIG_HOME"] = str(home / ".agentnexus")
+    env["AGENTNEXUS_DATA_DIR"] = str(home / ".agentnexus")
     return env
 
 
@@ -290,10 +290,10 @@ def test_run_omnigent_continue_carries_history_across_invocations(
     # The persistent store should now exist under the fake
     # HOME. If it doesn't, ``--continue`` in run #2 would
     # find nothing and fail loud.
-    persistent_db = fake_home / ".omnigent" / "chat.db"
+    persistent_db = fake_home / ".agentnexus" / "chat.db"
     assert persistent_db.is_file(), (
         f"Persistent store was not created at {persistent_db}. "
-        f"Run #1 didn't write to ``~/.omnigent/chat.db`` — "
+        f"Run #1 didn't write to ``~/.agentnexus/chat.db`` — "
         f"either ``--no-session`` slipped in, or "
         f"``_omnigent_persistent_dir`` regressed."
     )
@@ -466,7 +466,7 @@ def test_run_omnigent_continue_works_across_oneshot_and_interactive_paths(
     interactive_argv = [
         str(omnigent_python),
         "-m",
-        "omnigent",
+        "agentnexus",
         "run",
         str(omnigent_repo_root / "tests" / "resources" / "examples" / "hello_world.yaml"),
         "--model",
@@ -552,7 +552,7 @@ def test_run_omnigent_session_id_pins_the_specific_conversation(
     env = _isolated_env(mock_credentials_env, fake_home)
     nonce_a = _make_nonce()
     nonce_b = _make_nonce()
-    persistent_db = fake_home / ".omnigent" / "chat.db"
+    persistent_db = fake_home / ".agentnexus" / "chat.db"
     # 4 LLM calls: plant A, plant B, recall A (--resume convA), recall B (--resume convB).
     configure_mock_llm(
         mock_llm_server_url,
@@ -779,7 +779,7 @@ def test_run_omnigent_no_session_does_not_pollute_persistent_store(
 ) -> None:
     """
     ``--no-session`` opts back into the per-run tmpdir —
-    the persistent ``$HOME/.omnigent/chat.db`` must NOT
+    the persistent ``$HOME/.agentnexus/chat.db`` must NOT
     be touched by the run.
 
     What breaks if this fails: ``--no-session`` users who
@@ -811,7 +811,7 @@ def test_run_omnigent_no_session_does_not_pollute_persistent_store(
     # ``_omnigent_persistent_dir`` regardless of
     # ``--no-session`` — that's a one-time mkdir, not a
     # write), but the chat.db file MUST NOT.
-    persistent_db = fake_home / ".omnigent" / "chat.db"
+    persistent_db = fake_home / ".agentnexus" / "chat.db"
     assert not persistent_db.exists(), (
         f"--no-session unexpectedly wrote to {persistent_db}. "
         f"Either the ephemeral branch in _build_omnigent_stores "

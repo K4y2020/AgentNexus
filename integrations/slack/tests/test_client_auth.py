@@ -4,7 +4,7 @@ import asyncio
 
 import httpx
 import respx
-from omnigent_slack.omnigent import ClientAuth, OmnigentClient, OmnigentClientPool
+from agentnexus_slack.agentnexus import ClientAuth, AgentNexusClient, AgentNexusClientPool
 
 _BASE = "http://omnigent.test"
 
@@ -15,7 +15,7 @@ async def test_bearer_attached_to_requests() -> None:
         return_value=httpx.Response(200, json={"data": []})
     )
     auth = ClientAuth("tok-1", _no_refresh)
-    client = OmnigentClient(_BASE, auth=auth)
+    client = AgentNexusClient(_BASE, auth=auth)
     try:
         await client.list_agents()
     finally:
@@ -40,7 +40,7 @@ async def test_refresh_on_401_then_retry() -> None:
         return "tok-2"
 
     auth = ClientAuth("tok-1", _refresh)
-    client = OmnigentClient(_BASE, auth=auth)
+    client = AgentNexusClient(_BASE, auth=auth)
     try:
         await client.list_agents()
     finally:
@@ -70,7 +70,7 @@ async def test_refresh_on_proxy_redirect_then_retry() -> None:
         return "tok-2"
 
     auth = ClientAuth("tok-1", _refresh)
-    client = OmnigentClient(_BASE, auth=auth)
+    client = AgentNexusClient(_BASE, auth=auth)
     try:
         await client.check_health()
     finally:
@@ -100,7 +100,7 @@ async def test_benign_redirect_does_not_trigger_refresh() -> None:
         return "tok-2"
 
     auth = ClientAuth("tok-1", _refresh)
-    client = OmnigentClient(_BASE, auth=auth)
+    client = AgentNexusClient(_BASE, auth=auth)
     try:
         resp = await client._request("GET", "/health")
     finally:
@@ -140,7 +140,7 @@ async def test_pool_keys_by_server_and_user() -> None:
     async def resolver(server_url: str, user_id: str) -> ClientAuth | None:
         return ClientAuth(f"tok-{user_id}", _no_refresh)
 
-    pool = OmnigentClientPool(auth_resolver=resolver)
+    pool = AgentNexusClientPool(auth_resolver=resolver)
     try:
         c1 = await pool.get(_BASE, "U1")
         c1_again = await pool.get(_BASE, "U1")
@@ -164,7 +164,7 @@ async def test_invalidate_rebuilds_client_with_new_token() -> None:
     async def resolver(server_url: str, user_id: str) -> ClientAuth | None:
         return ClientAuth(token, _no_refresh) if token else None
 
-    pool = OmnigentClientPool(auth_resolver=resolver)
+    pool = AgentNexusClientPool(auth_resolver=resolver)
     try:
         # Pre-login probe: no token yet → unauthenticated client, cached.
         before = await pool.get(_BASE, "U1")

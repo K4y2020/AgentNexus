@@ -16,18 +16,18 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.claude_native import (
+from agentnexus.claude_native import (
     ClaudeNativeUcodeConfig,
     build_native_claude_terminal_env,
 )
-from omnigent.runner.app import _build_claude_native_base_args, _claude_terminal_env_unset
-from omnigent.runner.native.orchestration import (
+from agentnexus.runner.app import _build_claude_native_base_args, _claude_terminal_env_unset
+from agentnexus.runner.native.orchestration import (
     _ROUTED_SPAWN_ALLOWED_TOOLS,
     _claude_launch_metadata_from_envelope,
     _load_legacy_claude_launch_metadata,
     _routed_spawn_launch_args,
 )
-from omnigent.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
+from agentnexus.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
 
 
 @pytest.mark.parametrize(
@@ -229,8 +229,8 @@ def test_routed_launch_model_reaches_the_terminal_env_as_the_custom_slot() -> No
     slot, which is the only spelling ``/model`` accepts for an id no family
     alias points at (``opus`` here resolves to the newer generation).
     """
-    from omnigent.claude_model_vocabulary import claude_model_command_arg
-    from omnigent.claude_native import claude_config_with_launch_model_pinned
+    from agentnexus.claude_model_vocabulary import claude_model_command_arg
+    from agentnexus.claude_native import claude_config_with_launch_model_pinned
 
     config = ClaudeNativeUcodeConfig(
         env={
@@ -342,14 +342,14 @@ def bridge_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     :param tmp_path: Per-test temp directory.
     :returns: Bridge dir under the patched bridge root.
     """
-    monkeypatch.setattr("omnigent.claude_native_bridge._TRUSTED_PARENT", tmp_path)
-    monkeypatch.setattr("omnigent.claude_native_bridge._BRIDGE_ROOT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._TRUSTED_PARENT", tmp_path)
+    monkeypatch.setattr("agentnexus.claude_native_bridge._BRIDGE_ROOT", tmp_path)
     return tmp_path
 
 
 def _augmented(bridge_dir: Path, *, auto_harness: bool) -> list[str]:
     """Run the runner's own claude-native argv composition for one session shape."""
-    from omnigent.claude_native_bridge import augment_claude_args
+    from agentnexus.claude_native_bridge import augment_claude_args
 
     note, allowed = _routed_spawn_launch_args(auto_harness)
     return augment_claude_args(
@@ -369,7 +369,7 @@ def test_auto_harness_launch_names_the_routed_spawn_tool_and_preapproves_it(
     Both halves of the live failure: the model reported
     ``mcp__omnigent__sys_session_create`` as nonexistent (no note, and the
     schema is deferred behind tool search), and Claude Code's don't-ask mode
-    denied the Omnigent MCP call outright (no ``--allowedTools``).
+    denied the AgentNexus MCP call outright (no ``--allowedTools``).
     """
     args = _augmented(bridge_dir, auto_harness=True)
 
@@ -393,7 +393,7 @@ def test_pinned_harness_launch_argv_is_unchanged(bridge_dir: Path) -> None:
     sessions only; leaking either into a pinned launch would change every
     non-routed native session's command line.
     """
-    from omnigent.claude_native_bridge import augment_claude_args
+    from agentnexus.claude_native_bridge import augment_claude_args
 
     baseline = augment_claude_args(
         ("--model", "databricks-claude-sonnet-5"),
@@ -431,7 +431,7 @@ def test_envelope_metadata_reads_the_auto_harness_flag(
     harness_override: str | None,
     expected: bool,
 ) -> None:
-    from omnigent.runner.session_init_protocol import (
+    from agentnexus.runner.session_init_protocol import (
         SESSION_INIT_PROTOCOL_VERSION,
         RunnerSessionInitEnvelope,
     )

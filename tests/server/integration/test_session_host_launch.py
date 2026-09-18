@@ -28,8 +28,8 @@ import pytest
 from asgiref.testing import ApplicationCommunicator
 from fastapi import FastAPI
 
-from omnigent.entities import Conversation
-from omnigent.host.frames import (
+from agentnexus.entities import Conversation
+from agentnexus.host.frames import (
     HostHelloFrame,
     HostLaunchRunnerFrame,
     HostLaunchRunnerResultFrame,
@@ -42,17 +42,17 @@ from omnigent.host.frames import (
     decode_host_frame,
     encode_host_frame,
 )
-from omnigent.runner.transports.ws_tunnel.frames import HelloFrame
-from omnigent.runtime.agent_cache import AgentCache
-from omnigent.server.app import create_app
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.runner.transports.ws_tunnel.frames import HelloFrame
+from agentnexus.runtime.agent_cache import AgentCache
+from agentnexus.server.app import create_app
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+from agentnexus.stores.host_store import HostStore
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio
@@ -479,7 +479,7 @@ async def test_inline_launch_stamps_terminal_view_label_at_creation(
 
     assert resp.status_code == 201, f"expected 201, got {resp.status_code}: {resp.text}"
     body = resp.json()
-    assert body["labels"].get("omnigent.ui") == "terminal", (
+    assert body["labels"].get("agentnexus.ui") == "terminal", (
         f"create response must carry the terminal-view label; got {body['labels']}"
     )
     # The stamp merges over caller labels rather than replacing them.
@@ -487,7 +487,7 @@ async def test_inline_launch_stamps_terminal_view_label_at_creation(
     # Persisted, not just echoed — the snapshot a reloading UI reads is the row.
     conv = SqlAlchemyConversationStore(db_uri).get_conversation(body["id"])
     assert conv is not None
-    assert conv.labels.get("omnigent.ui") == "terminal"
+    assert conv.labels.get("agentnexus.ui") == "terminal"
 
 
 async def test_inline_launch_skips_terminal_view_label_for_native_harness(
@@ -505,7 +505,7 @@ async def test_inline_launch_skips_terminal_view_label_for_native_harness(
     comm = await _connect_host(app)
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        executor={"type": "agentnexus", "config": {"harness": "claude-native"}},
     )
 
     responder = asyncio.create_task(_serve_one_launch(comm, launch_status="launched"))
@@ -516,7 +516,7 @@ async def test_inline_launch_skips_terminal_view_label_for_native_harness(
     await responder
 
     assert resp.status_code == 201, f"expected 201, got {resp.status_code}: {resp.text}"
-    assert "omnigent.ui" not in resp.json()["labels"]
+    assert "agentnexus.ui" not in resp.json()["labels"]
 
 
 async def test_unbound_session_skips_terminal_view_label(
@@ -532,7 +532,7 @@ async def test_unbound_session_skips_terminal_view_label(
     resp = await client.post("/v1/sessions", json={"agent_id": agent["id"]})
 
     assert resp.status_code == 201, f"expected 201, got {resp.status_code}: {resp.text}"
-    assert "omnigent.ui" not in resp.json()["labels"]
+    assert "agentnexus.ui" not in resp.json()["labels"]
 
 
 async def test_inline_launch_failure_still_returns_bound_session(
@@ -609,7 +609,7 @@ async def test_inline_create_harness_not_configured_stays_lenient(
     comm = await _connect_host(app)
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
 
     responder = asyncio.create_task(
@@ -667,8 +667,8 @@ async def test_message_relaunch_harness_not_configured_persists_error_turn(
     ``runner_unavailable`` and no error item is written — both assertions
     below fail.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     # Grace=0 so the message takes the relaunch branch immediately instead
     # of waiting for the (never-connecting) create-bound runner.
@@ -677,7 +677,7 @@ async def test_message_relaunch_harness_not_configured_persists_error_turn(
     comm = await _connect_host(app)
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     # Create with a successful create-time launch so the session binds a
     # runner_id (the fake runner never actually connects).
@@ -737,7 +737,7 @@ async def test_message_relaunch_harness_not_configured_persists_error_turn(
         f"expected exactly one error item for the refused relaunch, got {error_items!r}"
     )
     assert error_items[0]["code"] == "harness_not_configured"
-    assert "omnigent setup" in error_items[0]["message"]
+    assert "agentnexus setup" in error_items[0]["message"]
     assert "harness 'codex' is not configured" in error_items[0]["message"]
 
     # Binding kept so a post-setup message can relaunch.
@@ -821,7 +821,7 @@ async def _stop_host_session(
     :param session_id: Session to stop, e.g. ``"d1f9214d74c38b9f9a9db17ed8352dc4"``.
     :returns: The ``runner_id`` the host was told to stop.
     """
-    from omnigent.runtime import set_runner_client
+    from agentnexus.runtime import set_runner_client
 
     def _runner_handler(request: httpx.Request) -> httpx.Response:
         """204 every runner POST (pane-kill forward) and snapshot GET."""
@@ -914,7 +914,7 @@ async def test_stopped_host_session_writes_no_label_and_host_stays_online(
     # Stop is non-sticky: no persistent marker is written. A re-introduced
     # sticky label would resurface the retired omnigent.stopped behavior.
     snap = await client.get(f"/v1/sessions/{session_id}")
-    assert "omnigent.stopped" not in snap.json()["labels"], (
+    assert "agentnexus.stopped" not in snap.json()["labels"], (
         f"Stop must NOT persist any omnigent.stopped label; got {snap.json()['labels']!r}"
     )
 
@@ -939,8 +939,8 @@ async def test_stopped_host_session_message_relaunches_runner(
     to the relaunch branch and no launch frame is sent — the first
     assertion fails.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
@@ -1023,8 +1023,8 @@ async def test_host_reports_runner_unknown_skips_connect_grace(
     ``_answer_runner_status_then_wait_for_launch`` times out and returns
     ``None``, failing the assertion.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     # Long grace: a blind wait would take this long; the verdict must beat it.
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 5.0)
@@ -1092,8 +1092,8 @@ async def test_host_session_message_relaunches_offline_runner(
     returns ``None`` and the first assertion fails. Make ``replace_runner_id``
     a no-op and the runner_id-rotation assertion fails.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
@@ -1178,7 +1178,7 @@ async def test_host_session_message_waits_for_bound_runner_before_relaunch(
     and this test observes a second host launch frame plus a changed
     conversation ``runner_id``.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     comm = await _connect_host(app)
     session = await _inline_launch_session(client, comm)
@@ -1317,7 +1317,7 @@ async def test_relaunch_posts_session_init_before_forwarding_message(
     leading ``/v1/sessions`` POST (first assertion fails). Move it after
     the forward and the index-ordering assertion fails.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
@@ -1482,8 +1482,8 @@ async def test_codex_goal_relaunch_posts_session_init_before_goal_event(
     500s. Moving the init after the goal-event forward fails the ordering
     assertion.
     """
-    from omnigent._wrapper_labels import CODEX_NATIVE_WRAPPER_VALUE, WRAPPER_LABEL_KEY
-    from omnigent.server.routes.codex import sessions as codex_sessions_module
+    from agentnexus._wrapper_labels import CODEX_NATIVE_WRAPPER_VALUE, WRAPPER_LABEL_KEY
+    from agentnexus.server.routes.codex import sessions as codex_sessions_module
 
     # Inline-launch a host-bound session (the goal relaunch path bails early
     # unless ``conv.host_id`` is set), then mark it codex-native so the goal
@@ -1708,8 +1708,8 @@ async def _serve_fs_requests(
     """
     from pathlib import Path
 
-    from omnigent.host.frames import HostFsRequestFrame, HostFsResultFrame
-    from omnigent.workspace_fs import WorkspaceReader, WorkspaceReaderError
+    from agentnexus.host.frames import HostFsRequestFrame, HostFsResultFrame
+    from agentnexus.workspace_fs import WorkspaceReader, WorkspaceReaderError
 
     reader = WorkspaceReader(Path(workspace_root))
     for _ in range(max_frames):
@@ -1794,8 +1794,8 @@ async def test_offline_runner_serves_file_content_and_changes_from_host(
     (ws / "hello.txt").write_text("changed on disk\n")
     (ws / "new.txt").write_text("brand new\n")
 
-    from omnigent.errors import ErrorCode, OmnigentError
-    from omnigent.runtime import _globals, set_runner_router
+    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.runtime import _globals, set_runner_router
 
     comm = await _connect_host(app)
     session = await _inline_launch_session(client, comm)
@@ -1812,7 +1812,7 @@ async def test_offline_runner_serves_file_content_and_changes_from_host(
             conversation: Conversation | None = None,
         ) -> object:
             del session_id, conversation
-            raise OmnigentError("runner is offline", code=ErrorCode.RUNNER_UNAVAILABLE)
+            raise AgentNexusError("runner is offline", code=ErrorCode.RUNNER_UNAVAILABLE)
 
     prior_router = _globals._runner_router
     set_runner_router(_OfflineRunnerRouter())  # type: ignore[arg-type]
@@ -1862,8 +1862,8 @@ async def test_offline_runner_no_host_still_returns_503(
     client shows its reconnect affordance rather than a blank success.
     Guards against the fallback masking a genuinely unreachable workspace.
     """
-    from omnigent.errors import ErrorCode, OmnigentError
-    from omnigent.runtime import _globals, set_runner_router
+    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.runtime import _globals, set_runner_router
 
     comm = await _connect_host(app)
     session = await _inline_launch_session(client, comm)
@@ -1877,7 +1877,7 @@ async def test_offline_runner_no_host_still_returns_503(
             conversation: Conversation | None = None,
         ) -> object:
             del session_id, conversation
-            raise OmnigentError("runner is offline", code=ErrorCode.RUNNER_UNAVAILABLE)
+            raise AgentNexusError("runner is offline", code=ErrorCode.RUNNER_UNAVAILABLE)
 
     prior_router = _globals._runner_router
     set_runner_router(_OfflineRunnerRouter())  # type: ignore[arg-type]
@@ -1917,15 +1917,15 @@ async def test_message_relaunch_workspace_missing_persists_error_turn(
     ``_ensure_runner_relay_ready`` and the message 503s with
     ``runner_unavailable`` and no error item is written.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
     comm = await _connect_host(app)
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "claude-native"}},
+        executor={"type": "agentnexus", "config": {"harness": "claude-native"}},
     )
     create_responder = asyncio.create_task(_serve_one_launch(comm, launch_status="launched"))
     create_resp = await client.post(
@@ -1992,9 +1992,9 @@ async def test_retry_session_relaunches_dead_runner_without_mutating_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Retry relaunches one dead runner and confirms its recovered lifecycle."""
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import routes_events
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import routes_events
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
     comm = await _connect_host(app)
@@ -2041,9 +2041,9 @@ async def test_retry_session_single_flight_launches_and_rotates_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Concurrent retries share one host launch and one binding rotation."""
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.routes.sessions import routes_events
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.routes.sessions import routes_events
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
     comm = await _connect_host(app)
@@ -2099,7 +2099,7 @@ async def test_retry_session_single_flight_evicts_after_only_waiter_cancelled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A settled recovery is not reused after its only waiter is cancelled."""
-    from omnigent.server.routes.sessions import routes_events
+    from agentnexus.server.routes.sessions import routes_events
 
     session_id = "cancelled-retry-waiter"
     first_started = asyncio.Event()
@@ -2172,8 +2172,8 @@ async def test_retry_session_host_refusal_is_typed_and_does_not_persist(
     expected_status: int,
 ) -> None:
     """Retry host refusals stay typed and never enter message persistence."""
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
     comm = await _connect_host(app)
@@ -2219,8 +2219,8 @@ async def test_relaunch_stops_the_superseded_runner(
     ``_launch_runner_on_host_locked`` and no stop frame arrives — the
     stop-frame assertion fails.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
@@ -2300,8 +2300,8 @@ async def test_concurrent_relaunches_are_single_flight(
     Mutation check: remove the relaunch lock / re-read short-circuit and
     two launch frames arrive — the exactly-one assertion fails.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
@@ -2392,15 +2392,15 @@ async def test_rider_of_a_refused_relaunch_surfaces_the_refusal(
     Both messages must return promptly, and every error turn they leave
     behind must carry the actionable refusal.
     """
-    from omnigent.runtime import set_runner_client
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import set_runner_client
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(sessions_module, "_HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.0)
 
     comm = await _connect_host(app)
     agent = await create_test_agent(
         client,
-        executor={"type": "omnigent", "config": {"harness": "codex"}},
+        executor={"type": "agentnexus", "config": {"harness": "codex"}},
     )
     create_responder = asyncio.create_task(_serve_one_launch(comm, launch_status="launched"))
     create_resp = await client.post(
@@ -2484,4 +2484,4 @@ async def test_rider_of_a_refused_relaunch_surfaces_the_refusal(
             f"a racing caller surfaced a non-actionable error instead of the "
             f"host refusal: {item!r}"
         )
-        assert "omnigent setup" in item["message"], item
+        assert "agentnexus setup" in item["message"], item

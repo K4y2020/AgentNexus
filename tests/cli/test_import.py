@@ -11,8 +11,8 @@ import httpx
 import respx
 from click.testing import CliRunner
 
-from omnigent.cli import _CLICK_SUBCOMMANDS, cli
-from omnigent.session_import.models import SessionImportNotFoundError
+from agentnexus.cli import _CLICK_SUBCOMMANDS, cli
+from agentnexus.session_import.models import SessionImportNotFoundError
 
 _BASE = "http://localhost:6767"
 
@@ -47,7 +47,7 @@ def _write_claude_transcript(
 
 @respx.mock
 def test_import_command_loads_local_session_and_posts_normalized_items(tmp_path: Path) -> None:
-    """The CLI reads local history and submits only Omnigent item shapes."""
+    """The CLI reads local history and submits only AgentNexus item shapes."""
     session_id = "a1b2c3d4-1234-5678-9abc-def012345678"
     _write_claude_transcript(tmp_path, session_id, text="inspect TODO.md")
     route = respx.post(f"{_BASE}/v1/imports").mock(
@@ -57,7 +57,7 @@ def test_import_command_loads_local_session_and_posts_normalized_items(tmp_path:
         )
     )
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "claude", "--session", session_id],
@@ -102,7 +102,7 @@ def test_import_command_sends_force_override(tmp_path: Path) -> None:
         )
     )
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "claude", "--session", session_id, "--force"],
@@ -151,7 +151,7 @@ def test_import_command_accepts_qwen_session(tmp_path: Path) -> None:
         )
     )
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "qwen", "--session", session_id],
@@ -185,8 +185,8 @@ def test_import_command_accepts_opencode_export() -> None:
     }
 
     with (
-        patch("omnigent.cli._resolve_attach_server", return_value=_BASE),
-        patch("omnigent.session_import.local._run_opencode_json", return_value=export),
+        patch("agentnexus.cli._resolve_attach_server", return_value=_BASE),
+        patch("agentnexus.session_import.local._run_opencode_json", return_value=export),
     ):
         result = CliRunner().invoke(
             cli,
@@ -204,7 +204,7 @@ def test_import_command_accepts_opencode_export() -> None:
 def test_import_command_reports_opencode_discovery_failure() -> None:
     """Batch discovery surfaces a missing or broken OpenCode CLI cleanly."""
     with patch(
-        "omnigent.session_import.local._run_opencode_json",
+        "agentnexus.session_import.local._run_opencode_json",
         side_effect=SessionImportNotFoundError("opencode CLI not found on PATH"),
     ):
         result = CliRunner().invoke(
@@ -246,7 +246,7 @@ def test_import_command_imports_last_sessions_oldest_first_and_skips_duplicates(
 
     route = respx.post(f"{_BASE}/v1/imports").mock(side_effect=_respond)
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "claude", "--last", "2"],
@@ -295,7 +295,7 @@ def test_import_command_batch_reports_oldest_first_despite_completion_order(
 
     respx.post(f"{_BASE}/v1/imports").mock(side_effect=_respond)
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "claude", "--last", "3"],
@@ -332,7 +332,7 @@ def test_import_command_continues_batch_after_session_failure(tmp_path: Path) ->
         ]
     )
 
-    with patch("omnigent.cli._resolve_attach_server", return_value=_BASE):
+    with patch("agentnexus.cli._resolve_attach_server", return_value=_BASE):
         result = CliRunner().invoke(
             cli,
             ["import", "--harness", "claude", "--last", "2"],
@@ -386,8 +386,8 @@ def test_import_command_all_harnesses_requires_last() -> None:
 @respx.mock
 def test_import_command_all_harnesses_spans_sources() -> None:
     """``--harness all --last`` imports the globally-recent targets across harnesses."""
-    from omnigent.entities import NewConversationItem, parse_item_data
-    from omnigent.session_import.models import LocalSessionImport
+    from agentnexus.entities import NewConversationItem, parse_item_data
+    from agentnexus.session_import.models import LocalSessionImport
 
     # The cross-harness selector already merged/ranked; the CLI just loads these.
     def fake_across(*, limit: int) -> list[tuple[str, str]]:
@@ -416,9 +416,9 @@ def test_import_command_all_harnesses_spans_sources() -> None:
     )
 
     with (
-        patch("omnigent.cli._resolve_attach_server", return_value=_BASE),
-        patch("omnigent.session_import.local.list_recent_sessions_across_harnesses", fake_across),
-        patch("omnigent.session_import.local.load_local_session", fake_load),
+        patch("agentnexus.cli._resolve_attach_server", return_value=_BASE),
+        patch("agentnexus.session_import.local.list_recent_sessions_across_harnesses", fake_across),
+        patch("agentnexus.session_import.local.load_local_session", fake_load),
     ):
         result = CliRunner().invoke(cli, ["import", "--harness", "all", "--last", "5"])
 

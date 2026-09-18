@@ -22,8 +22,8 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.inner import claude_sdk_harness
-from omnigent.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.inner import claude_sdk_harness
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
 
 def test_harness_module_registered_in_module_registry() -> None:
@@ -32,8 +32,8 @@ def test_harness_module_registered_in_module_registry() -> None:
     Without this entry, the runner subprocess can't find the wrap
     when AP-side tries to spawn it.
     """
-    assert _HARNESS_MODULES.get("claude-sdk") == "omnigent.inner.claude_sdk_harness"
-    assert _HARNESS_MODULES.get("claude") == "omnigent.inner.claude_sdk_harness"
+    assert _HARNESS_MODULES.get("claude-sdk") == "agentnexus.inner.claude_sdk_harness"
+    assert _HARNESS_MODULES.get("claude") == "agentnexus.inner.claude_sdk_harness"
 
 
 def test_create_app_returns_fastapi_with_required_routes() -> None:
@@ -109,7 +109,7 @@ def test_executor_factory_reads_env_vars(
         captured["gateway_auth_refresh_interval_ms"] = gateway_auth_refresh_interval_ms
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -145,13 +145,13 @@ def test_executor_factory_cwd_falls_back_to_runner_workspace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """With no ``HARNESS_CLAUDE_SDK_CWD``, the factory falls back to the
-    runner's ``OMNIGENT_RUNNER_WORKSPACE`` (the folder the user launched
+    runner's ``AGENTNEXUS_RUNNER_WORKSPACE`` (the folder the user launched
     in, and what the tmux terminal uses) rather than leaving cwd unset —
     which let the SDK root the CLI at the daemon's ``$HOME``. Mirrors the
     kimi / pi / hermes harnesses.
     """
     monkeypatch.delenv("HARNESS_CLAUDE_SDK_CWD", raising=False)
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/home/bobby/code/agents")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/home/bobby/code/agents")
 
     captured: dict[str, Any] = {}
 
@@ -159,7 +159,7 @@ def test_executor_factory_cwd_falls_back_to_runner_workspace(
         captured["cwd"] = cwd
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -171,9 +171,9 @@ def test_executor_factory_explicit_cwd_wins_over_workspace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An explicit ``HARNESS_CLAUDE_SDK_CWD`` takes precedence over the
-    ``OMNIGENT_RUNNER_WORKSPACE`` fallback."""
+    ``AGENTNEXUS_RUNNER_WORKSPACE`` fallback."""
     monkeypatch.setenv("HARNESS_CLAUDE_SDK_CWD", "/tmp/explicit")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/home/bobby/code/agents")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/home/bobby/code/agents")
 
     captured: dict[str, Any] = {}
 
@@ -181,7 +181,7 @@ def test_executor_factory_explicit_cwd_wins_over_workspace(
         captured["cwd"] = cwd
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -194,7 +194,7 @@ def test_executor_factory_decodes_os_env_json(
 ) -> None:
     """``HARNESS_CLAUDE_SDK_OS_ENV`` decodes into the inner OSEnvSpec.
 
-    Omnigent serializes ``spec.executor.config["os_env"]`` via
+    AgentNexus serializes ``spec.executor.config["os_env"]`` via
     :func:`dataclasses.asdict` and JSON-encodes the result; the
     wrap must reconstruct an :class:`OSEnvSpec` (with nested
     sandbox spec) so :class:`ClaudeSDKExecutor` sees the same
@@ -240,7 +240,7 @@ def test_executor_factory_decodes_os_env_json(
         captured["os_env"] = os_env
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -290,7 +290,7 @@ def test_executor_factory_falls_back_on_malformed_os_env_json(
         captured["os_env"] = os_env
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -339,7 +339,7 @@ def test_databricks_env_var_truthy_parsing(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -364,7 +364,7 @@ def test_skills_filter_env_var_decodes(
     """``HARNESS_CLAUDE_SDK_SKILLS_FILTER`` decodes JSON into ``str``
     or ``list[str]``.
 
-    The env-var bridge between the Omnigent runtime and the
+    The env-var bridge between the AgentNexus runtime and the
     claude-sdk harness subprocess is the load-bearing surface
     for ``skills:`` plumbing — without it the harness wrap
     falls back to the constructor's ``"all"`` default and
@@ -378,7 +378,7 @@ def test_skills_filter_env_var_decodes(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -402,7 +402,7 @@ def test_skills_filter_env_var_missing_falls_back_to_all(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -427,7 +427,7 @@ def test_skills_filter_env_var_malformed_json_falls_back_to_all(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -458,7 +458,7 @@ def test_bundle_dir_and_agent_name_env_vars_thread_through(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()
@@ -484,7 +484,7 @@ def test_bundle_dir_unset_passes_none(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
+        "agentnexus.inner.claude_sdk_harness.ClaudeSDKExecutor.__init__",
         _fake_init,
     ):
         claude_sdk_harness._build_claude_sdk_executor()

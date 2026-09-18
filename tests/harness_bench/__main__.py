@@ -46,7 +46,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="Databricks gateway profile override. Optional: without it the "
         "bench derives creds the way `omni run` does (a configured "
-        "~/.omnigent profile or ambient OPENAI_*). The live layer turns on "
+        "~/.agentnexus profile or ambient OPENAI_*). The live layer turns on "
         "whenever creds are resolvable; use --no-live for the offline matrix.",
     )
     parser.add_argument(
@@ -55,7 +55,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         default=None,
         help="Force the live layer. Needs resolvable gateway creds (--profile, "
-        "a configured ~/.omnigent profile, or ambient OPENAI_*) unless every "
+        "a configured ~/.agentnexus profile, or ambient OPENAI_*) unless every "
         "selected harness authenticates its own model.",
     )
     parser.add_argument(

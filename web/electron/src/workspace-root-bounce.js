@@ -22,7 +22,7 @@ function originOf(rawUrl) {
  *
  * One redirect is allowed until a non-root page on the pinned origin finishes.
  * This prevents a workspace without the mount from looping forever if
- * ``/omnigent`` redirects back to ``/``.
+ * ``/agentnexus`` redirects back to ``/``.
  *
  * @param {{
  *   on: (event: string, listener: (...args: unknown[]) => void) => void,

@@ -9,7 +9,7 @@
 // (`_electron` is JS-only), so this lane can't ride the Python suite at all.
 //
 // So this is the desktop analog of tests/e2e_ui/auth/_oidc_server.py: a small
-// JS harness that (1) spawns the same mock-LLM + `omnigent server` pair the
+// JS harness that (1) spawns the same mock-LLM + `agentnexus server` pair the
 // Python suite spawns, and (2) launches the REAL packaged main process via
 // Playwright's `_electron.launch({ recordVideo })`, so the recorded video is
 // the actual desktop window — the setup page, the connect, and the shell (or
@@ -33,7 +33,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 /** The Electron app package root (its package.json `main` is src/main.js). */
 const APP_ROOT = path.resolve(__dirname, "..");
 /** The SPA the server serves; the Python suite builds it into here too. */
-const WEB_UI_DIST = path.join(REPO_ROOT, "omnigent", "server", "static", "web-ui");
+const WEB_UI_DIST = path.join(REPO_ROOT, "agentnexus", "server", "static", "web-ui");
 /** The mock LLM server the Python suite drives, reused verbatim. */
 const MOCK_LLM_SERVER = path.join(
   REPO_ROOT,
@@ -140,7 +140,7 @@ async function waitForHealthy(url, label, logPath) {
 }
 
 /**
- * Spawn the mock-LLM server and an `omnigent server` wired to it, mirroring
+ * Spawn the mock-LLM server and an `agentnexus server` wired to it, mirroring
  * the env + argv of tests/e2e_ui/conftest.py's `mock_llm_server` +
  * `live_server` fixtures (so the desktop shell talks to the same fake backend
  * the Python lanes do — no real provider creds, deterministic replies).
@@ -210,7 +210,7 @@ async function spawnServer(tmpDir) {
     PYTHON,
     [
       "-c",
-      "from omnigent.cli import main; main()",
+      "from agentnexus.cli import main; main()",
       "server",
       "--host",
       "127.0.0.1",
@@ -262,7 +262,7 @@ async function spawnServer(tmpDir) {
   };
 
   try {
-    await waitForHealthy(`${serverUrl}/health`, "omnigent server", serverLog);
+    await waitForHealthy(`${serverUrl}/health`, "agentnexus server", serverLog);
   } catch (err) {
     await close();
     throw serverSpawnError ?? err;

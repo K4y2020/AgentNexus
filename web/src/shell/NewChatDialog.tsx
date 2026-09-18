@@ -649,7 +649,7 @@ function harnessWarningMessage(
  * Amber "harness not ready on this host" notice under the composer, for the
  * currently-selected agent (case A: surfaced without opening the picker).
  *
- * Gated on the setup feature: when OFF, renders the original "run omnigent
+ * Gated on the setup feature: when OFF, renders the original "run agentnexus
  * setup" guidance so the flag-off UI is unchanged. When ON, offers a "Set up
  * <agent>" action that opens the shared {@link HarnessSetupDialog}.
  */
@@ -4088,8 +4088,8 @@ export function NewChatLandingScreen() {
         buildMentionPreamble(mentionedItems, selectedAgent?.harness ?? null) +
         sanitizeInitialPrompt(message);
 
-      // Native terminal agents open terminal-first: `omnigent.ui: terminal`
-      // tells the UI to render the terminal wrapper, and `omnigent.wrapper`
+      // Native terminal agents open terminal-first: `agentnexus.ui: terminal`
+      // tells the UI to render the terminal wrapper, and `agentnexus.wrapper`
       // selects which CLI bridge the runner launches — the values are the
       // registered wrapper ids the runner keys off, not the display name. The
       // DANGEROUS codex full-bypass opt-in rides along as an extra label (only
@@ -5310,7 +5310,7 @@ export function NewChatLandingScreen() {
                           autoCorrect="off"
                           autoCapitalize="off"
                           spellCheck={false}
-                          name="omnigent-worktree-branch"
+                          name="agentnexus-worktree-branch"
                           // pr-9 leaves room for the generate button overlaid at
                           // the right edge.
                           className="rounded-md border border-input bg-background py-2 pr-9 pl-3 text-sm outline-none transition-colors focus-visible:border-ring"

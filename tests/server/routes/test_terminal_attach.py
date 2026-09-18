@@ -26,23 +26,23 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from omnigent.entities import Conversation, SessionPermission
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.runtime import (
+from agentnexus.entities import Conversation, SessionPermission
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.runtime import (
     _globals,
     set_runner_client,
     set_runner_router,
     set_runner_ws_factory,
 )
-from omnigent.server.auth import (
+from agentnexus.server.auth import (
     LEVEL_EDIT,
     LEVEL_OWNER,
     LEVEL_READ,
     RESERVED_USER_PUBLIC,
     UnifiedAuthProvider,
 )
-from omnigent.server.routes.terminal_attach import create_terminal_attach_router
-from omnigent.terminals import TerminalRegistry
+from agentnexus.server.routes.terminal_attach import create_terminal_attach_router
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.helpers import make_test_terminal_instance
 
 
@@ -663,7 +663,7 @@ async def test_attach_terminal_local_fallback_uses_control_mode(
         calls.append((socket_path, tmux_target, read_only))
 
     monkeypatch.setattr(
-        "omnigent.server.routes.terminal_attach.bridge_tmux_control_to_websocket",
+        "agentnexus.server.routes.terminal_attach.bridge_tmux_control_to_websocket",
         fake_control,
     )
 

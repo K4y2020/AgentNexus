@@ -20,15 +20,15 @@ from pathlib import Path
 
 import pytest
 
-import omnigent
-from omnigent.host.runner_zygote import (
+import agentnexus
+from agentnexus.host.runner_zygote import (
     _ZYGOTE_LOST_EXIT_CODE,
     ZygoteManager,
     ZygoteRunnerProc,
     ZygoteUnavailable,
 )
-from omnigent.runner import _zygote
-from omnigent.runner._zygote import (
+from agentnexus.runner import _zygote
+from agentnexus.runner._zygote import (
     _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR,
     _ZYGOTE_TEST_CHILD_SLEEP_ENV_VAR,
     _disk_build_stamp,
@@ -94,7 +94,7 @@ def test_import_graph_is_single_threaded() -> None:
     """
     probe = "\n".join(
         [
-            "from omnigent.runner._zygote import _import_runner_graph",
+            "from agentnexus.runner._zygote import _import_runner_graph",
             "import threading",
             "_import_runner_graph()",
             "print(threading.active_count())",
@@ -154,7 +154,7 @@ def test_child_systemexit_code_is_preserved(manager: ZygoteManager, tmp_path) ->
     :param tmp_path: Temp dir for the child's log.
     """
     env = _fork_env(5)
-    env["OMNIGENT_RUNNER_ZYGOTE_TEST_CHILD_RAISE"] = "1"
+    env["AGENTNEXUS_RUNNER_ZYGOTE_TEST_CHILD_RAISE"] = "1"
     proc = manager.fork_runner(env, str(tmp_path / "runner.log"), str(tmp_path))
     assert _wait_exit(proc) == 5
 
@@ -219,7 +219,7 @@ def test_fork_after_stop_raises_unavailable(manager: ZygoteManager, tmp_path) ->
 def test_child_env_is_isolated_between_forks(manager: ZygoteManager, tmp_path) -> None:
     """Each fork's env fully replaces the child environment (no cross-leak).
 
-    The test-seam child echoes its view of ``OMNIGENT_ZYGOTE_MARKER`` to its
+    The test-seam child echoes its view of ``AGENTNEXUS_ZYGOTE_MARKER`` to its
     log; two forks with different markers must each see only their own value.
 
     :param manager: The started manager fixture.
@@ -228,9 +228,9 @@ def test_child_env_is_isolated_between_forks(manager: ZygoteManager, tmp_path) -
     log_a = tmp_path / "a.log"
     log_b = tmp_path / "b.log"
     env_a = _fork_env(0)
-    env_a["OMNIGENT_ZYGOTE_MARKER"] = "aaa"
+    env_a["AGENTNEXUS_ZYGOTE_MARKER"] = "aaa"
     env_b = _fork_env(0)
-    env_b["OMNIGENT_ZYGOTE_MARKER"] = "bbb"
+    env_b["AGENTNEXUS_ZYGOTE_MARKER"] = "bbb"
 
     proc_a = manager.fork_runner(env_a, str(log_a), str(tmp_path))
     assert _wait_exit(proc_a) == 0
@@ -263,7 +263,7 @@ def test_forked_runner_runs_in_the_requested_workspace(manager: ZygoteManager, t
 
 
 def test_stale_payload_tty_fd_is_cleared_in_child(manager: ZygoteManager, tmp_path) -> None:
-    """A daemon-side OMNIGENT_LOG_TTY_FD in the payload never leaks as-is.
+    """A daemon-side AGENTNEXUS_LOG_TTY_FD in the payload never leaks as-is.
 
     The terminal-mirror fd is only valid as its zygote-local number. With no
     terminal mirror on the zygote, a stale payload value must be cleared in the
@@ -273,7 +273,7 @@ def test_stale_payload_tty_fd_is_cleared_in_child(manager: ZygoteManager, tmp_pa
     :param tmp_path: Temp dir for the child's log.
     """
     env = _fork_env(0)
-    env["OMNIGENT_LOG_TTY_FD"] = "999"  # bogus daemon-side number
+    env["AGENTNEXUS_LOG_TTY_FD"] = "999"  # bogus daemon-side number
     log = tmp_path / "runner.log"
     proc = manager.fork_runner(env, str(log), str(tmp_path))
     assert _wait_exit(proc) == 0
@@ -298,7 +298,7 @@ def test_malloc_tuning_is_applied_at_the_zygote_exec(monkeypatch, tmp_path) -> N
     :param monkeypatch: Fixture used to force the Linux tuning branch.
     :param tmp_path: Temp dir for the zygote log path.
     """
-    monkeypatch.setattr("omnigent.inner._proc.IS_LINUX", True)
+    monkeypatch.setattr("agentnexus.inner._proc.IS_LINUX", True)
     captured: dict[str, str] = {}
 
     class _FakePopen:
@@ -324,7 +324,7 @@ def test_operator_malloc_override_wins_at_the_zygote_exec(monkeypatch, tmp_path)
     :param monkeypatch: Fixture used to force Linux and seed the parent env.
     :param tmp_path: Temp dir for the zygote log path.
     """
-    monkeypatch.setattr("omnigent.inner._proc.IS_LINUX", True)
+    monkeypatch.setattr("agentnexus.inner._proc.IS_LINUX", True)
     monkeypatch.setenv("MALLOC_ARENA_MAX", "16")
     captured: dict[str, str] = {}
 
@@ -352,7 +352,7 @@ def test_zygote_boots_from_inside_an_omnigent_checkout(monkeypatch, tmp_path) ->
     :param monkeypatch: Fixture used to run from the poisoned directory.
     :param tmp_path: Temp dir holding the poisoned package and the zygote log.
     """
-    package = tmp_path / "omnigent"
+    package = tmp_path / "agentnexus"
     package.mkdir()
     (package / "__init__.py").write_text('raise ImportError("poisoned omnigent")\n')
     monkeypatch.chdir(tmp_path)
@@ -418,7 +418,7 @@ def test_fork_harness_reports_pid_and_reaps(manager: ZygoteManager, tmp_path) ->
     env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "0",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
     }
     reply = _control_exchange(
         manager,
@@ -437,7 +437,7 @@ def test_fork_harness_nonzero_exit_is_reported(manager: ZygoteManager, tmp_path)
     env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "9",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
     }
     reply = _control_exchange(
         manager,
@@ -459,7 +459,7 @@ def test_fork_harness_argv_round_trips_to_child(manager: ZygoteManager, tmp_path
     env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "0",
-        "OMNIGENT_PROCESS_LOG_FILE": str(log),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(log),
     }
     argv = ["--harness", "claude-native", "--conversation-id", "conv-42"]
     reply = _control_exchange(manager, {"cmd": "fork_harness", "argv": argv, "env": env})
@@ -599,7 +599,7 @@ def test_zygote_still_serves_daemon_after_harness_fork(manager: ZygoteManager, t
     env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "0",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
     }
     reply = _control_exchange(manager, {"cmd": "fork_harness", "argv": [], "env": env})
     assert _wait_harness_exit(manager, reply["pid"]) == 0
@@ -686,7 +686,7 @@ def test_dropped_runner_harness_exit_codes_do_not_leak(manager: ZygoteManager, t
     harness_env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "0",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
     }
     reply = _control_exchange(manager, {"cmd": "fork_harness", "argv": [], "env": harness_env})
     harness_pid = reply["pid"]
@@ -796,7 +796,7 @@ def test_polled_harness_pid_is_released_from_its_owner(manager: ZygoteManager, t
     env = {
         "PATH": os.environ.get("PATH", ""),
         _ZYGOTE_TEST_CHILD_EXIT_ENV_VAR: "0",
-        "OMNIGENT_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
+        "AGENTNEXUS_PROCESS_LOG_FILE": str(tmp_path / "harness.log"),
     }
     reply = _control_exchange(manager, {"cmd": "fork_harness", "argv": [], "env": env})
     pid = reply["pid"]

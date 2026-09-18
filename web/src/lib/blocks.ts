@@ -1,4 +1,4 @@
-// Mirrors sdks/python-client/omnigent_client/_blocks.py.
+// Mirrors sdks/python-client/agentnexus_client/_blocks.py.
 //
 // Hand-ported. When _blocks.py changes, update this file and the
 // matching reducer logic in blockStream.ts. See web/README.md

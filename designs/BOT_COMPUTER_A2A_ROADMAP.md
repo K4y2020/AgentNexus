@@ -280,7 +280,7 @@ Bot -> ComputerProvider -> Host -> Runner -> Harness -> CLI/SDK
 建议默认 Bot Home：
 
 ```text
-~/.omnigent/bots/<bot-id>/workspace
+~/.agentnexus/bots/<bot-id>/workspace
 ```
 
 用户选择 Git 项目时创建/更新 `BotProjectBinding`；普通 Topic 使用该项目 checkout，
@@ -672,8 +672,8 @@ send_to_teammate
 2. 为每个现有内置 Teammate Agent 创建一个 Bot；
 3. 给 Session 增加 nullable `bot_id/purpose/singleton_slot`，并建立单向
    `Session.bot_id -> Bot.id` 外键；
-4. 优先使用 `omnigent.teammate.primary=true` 回填 `purpose='primary'`；
-5. 使用 `omnigent.teammate.channel=a2a` 回填 `purpose='a2a'`；
+4. 优先使用 `agentnexus.teammate.primary=true` 回填 `purpose='primary'`；
+5. 使用 `agentnexus.teammate.channel=a2a` 回填 `purpose='a2a'`；
 6. 同一 Bot 出现多个 primary/a2a 候选时保留显式标签且最早创建的一条，其余降级为
    `topic`，并记录 migration audit；
 7. 其余同 Agent Session 按父子关系与创建时间归入 Bot Topics；

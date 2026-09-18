@@ -19,7 +19,7 @@ LABEL = "waiting-on-author"
 # this says "back in the reviewer's queue", which is what a maintainer filters on.
 REVIEW_LABEL = "waiting-for-review"
 WAITING_DAYS = 7
-CANONICAL_REPO = "omnigent-ai/omnigent"
+CANONICAL_REPO = "agentnexus-ai/omnigent"
 MAX_CLOSURES_PER_RUN = 30
 REVIEW_EVENTS = {"pull_request_review", "pull_request_review_comment"}
 

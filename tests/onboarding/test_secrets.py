@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-import omnigent.onboarding.secrets as secrets
+import agentnexus.onboarding.secrets as secrets
 
 
 @pytest.fixture(autouse=True)
 def _file_backend(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Force the file backend at a tmp config home (off the real keychain)."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
 
 
 def test_store_and_load_roundtrip() -> None:

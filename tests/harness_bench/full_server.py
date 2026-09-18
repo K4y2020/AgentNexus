@@ -1,4 +1,4 @@
-"""Shared full-server infrastructure: spawn a real Omnigent server + runner.
+"""Shared full-server infrastructure: spawn a real AgentNexus server + runner.
 
 Split from :mod:`tests.harness_bench.full_server_driver` so the *server
 lifecycle* (spawning the server/runner, registering bench agents + sessions)
@@ -31,7 +31,7 @@ from typing import Any
 import httpx
 import yaml
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN, token_bound_runner_id
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN, token_bound_runner_id
 from tests._helpers.compat import (
     apply_runner_env,
     apply_server_env,
@@ -73,7 +73,7 @@ def spawn_omnigent_server(
     args = [
         server_executable(),
         "-m",
-        "omnigent.cli",
+        "agentnexus.cli",
         "server",
         "--port",
         str(port),
@@ -84,7 +84,7 @@ def spawn_omnigent_server(
     ]
     return subprocess.Popen(
         args,
-        env={**base_env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token},
+        env={**base_env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token},
         cwd=compat_server_cwd(),
         stdout=log.open("wb"),
         stderr=subprocess.STDOUT,
@@ -99,14 +99,14 @@ def _spawn_bench_runner(
     runner_env = apply_runner_env(
         {
             **base_env,
-            "OMNIGENT_RUNNER_ID": runner_id,
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-            "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+            "AGENTNEXUS_RUNNER_ID": runner_id,
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
             "RUNNER_SERVER_URL": base_url,
         }
     )
     return subprocess.Popen(
-        [runner_executable(), "-m", "omnigent.runner._entry"],
+        [runner_executable(), "-m", "agentnexus.runner._entry"],
         env=runner_env,
         cwd=compat_runner_cwd(),
         stdout=log.open("wb"),
@@ -153,7 +153,7 @@ def _build_bench_agent_config(
     safe_harness = profile.harness.replace(":", "-")
     name = f"bench-{safe_harness}" + (f"-{policy_action}" if policy_action else "")
     executor: dict[str, Any] = {
-        "type": "omnigent",
+        "type": "agentnexus",
         "model": profile.model,
         "config": {"harness": profile.harness},
     }
@@ -178,7 +178,7 @@ def _build_bench_agent_config(
                 f"{policy_action}_tool": {
                     "type": "function",
                     "function": {
-                        "path": "omnigent.policies.function.make_fixed_action_callable",
+                        "path": "agentnexus.policies.function.make_fixed_action_callable",
                         "arguments": {
                             "action": policy_action,
                             "reason": _DENY_REASON,
@@ -206,7 +206,7 @@ def _bundle_agent_config(config: dict[str, Any]) -> bytes:
 class SharedFullServer:
     """One server + one runner shared by several full-server harnesses.
 
-    The Omnigent server is multi-agent/multi-session, and a single runner
+    The AgentNexus server is multi-agent/multi-session, and a single runner
     resolves the harness type per session from that session's agent spec (see
     ``runner/app.py``). So N SDK harnesses do NOT each need their own
     server+runner — they can each register as their own agent + session on one
@@ -247,7 +247,7 @@ class SharedFullServer:
         self.client = httpx.Client(
             base_url=self.base_url,
             timeout=300.0,
-            headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+            headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         )
         return self
 

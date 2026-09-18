@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.db.db_models import (
+from agentnexus.db.db_models import (
     InvalidUuidError,
     Uuid16,
     normalize_uuid,

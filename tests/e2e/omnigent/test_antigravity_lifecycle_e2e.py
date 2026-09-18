@@ -154,7 +154,7 @@ def _antigravity_prereqs_missing(omnigent_python: Path) -> str | None:
             "except Exception:\n"
             "    sdk = False\n"
             "try:\n"
-            "    from omnigent.onboarding.antigravity_auth import "
+            "    from agentnexus.onboarding.antigravity_auth import "
             "antigravity_api_key_configured as c\n"
             "    cfg = c()\n"
             "except Exception:\n"
@@ -184,7 +184,7 @@ def _antigravity_prereqs_missing(omnigent_python: Path) -> str | None:
         return (
             "antigravity prerequisite missing: no Gemini API key resolvable. The "
             "Antigravity SDK is Gemini-native (no Databricks-gateway path), so "
-            "configure an 'antigravity:' key via 'omnigent setup' or export "
+            "configure an 'antigravity:' key via 'agentnexus setup' or export "
             "GEMINI_API_KEY / ANTIGRAVITY_API_KEY. Skipped (not failed) when absent."
         )
     return None
@@ -233,8 +233,8 @@ def _antigravity_env() -> dict[str, str]:
     :returns: An env dict for ``subprocess.run(env=...)``.
     """
     env = dict(os.environ)
-    env["OMNIGENT_SKIP_ONBOARD"] = "1"
-    env["OMNIGENT_NO_UPDATE_CHECK"] = "1"
+    env["AGENTNEXUS_SKIP_ONBOARD"] = "1"
+    env["AGENTNEXUS_NO_UPDATE_CHECK"] = "1"
     return env
 
 
@@ -263,7 +263,7 @@ def _run_antigravity_turn(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(bundle_dir),
             "--harness",

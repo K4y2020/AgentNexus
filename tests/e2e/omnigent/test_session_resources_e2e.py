@@ -114,7 +114,7 @@ def _omnigent_server(
         [
             str(python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--agent",
             str(agent_path),
@@ -123,7 +123,7 @@ def _omnigent_server(
             "--database-uri",
             f"sqlite:///{db_path}",
         ],
-        env={**env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token},
+        env={**env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token},
         cwd=str(cwd),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -132,12 +132,12 @@ def _omnigent_server(
 
     # Spawn runner as sibling subprocess.
     runner_proc = subprocess.Popen(
-        [str(python), "-m", "omnigent.runner._entry"],
+        [str(python), "-m", "agentnexus.runner._entry"],
         env={
             **env,
-            "OMNIGENT_RUNNER_ID": runner_id,
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-            "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+            "AGENTNEXUS_RUNNER_ID": runner_id,
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
             "RUNNER_SERVER_URL": base_url,
         },
         cwd=str(cwd),
@@ -287,7 +287,7 @@ def test_session_resources_e2e(
     :param tmp_path: Pytest temp directory for the agent YAML
         and SQLite database.
     """
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     python = omnigent_python
     repo_root = omnigent_repo_root
@@ -347,7 +347,7 @@ def test_session_resources_e2e(
 
             # ── Terminals (auto-created REPL terminal) ────────
             # Runner-hosted SDK sessions auto-create the embedded
-            # Omnigent REPL terminal (``terminal_tui_main``) on bind;
+            # AgentNexus REPL terminal (``terminal_tui_main``) on bind;
             # it is the only terminal until the agent launches more.
             # An empty list means the auto-create regressed; extra
             # entries mean something else launched unexpectedly.
@@ -514,7 +514,7 @@ def test_direct_attach_e2e(
     import websockets
     from websockets.exceptions import InvalidStatus
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     python = omnigent_python
     repo_root = omnigent_repo_root

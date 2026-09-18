@@ -2,7 +2,7 @@
 End-to-end regression for the conversation_items position race
 (2026-04-30 user-reported ``UNIQUE constraint failed`` symptom).
 
-This test runs a REAL Omnigent server subprocess against a REAL SQLite
+This test runs a REAL AgentNexus server subprocess against a REAL SQLite
 database, then drives many concurrent ``append()`` calls
 through the live ``SqlAlchemyConversationStore`` instance the
 server's ``ConversationStore`` was wired with at startup. The
@@ -12,7 +12,7 @@ when:
 
 1. The store is constructed in a separate process from the
    test (matches the user's ``omnigent run`` setup
-   where the Omnigent server is a subprocess of the REPL).
+   where the AgentNexus server is a subprocess of the REPL).
 2. The store's session factory + busy_timeout pragmas come
    from the production code path
    (:func:`omnigent.db.utils.make_managed_session_maker`),
@@ -34,8 +34,8 @@ SELECT.
 
 This e2e test:
 
-- Spins up an Omnigent server subprocess (:fixture:`ap_server`).
-- Imports the Omnigent server's actual ``SqlAlchemyConversationStore``
+- Spins up an AgentNexus server subprocess (:fixture:`ap_server`).
+- Imports the AgentNexus server's actual ``SqlAlchemyConversationStore``
   via the same ``get_or_create_engine`` cache the server uses,
   pointing at the same DB file.
 - Fires N concurrent appends from M threads in this test
@@ -67,8 +67,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.entities import MessageData, NewConversationItem
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.entities import MessageData, NewConversationItem
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 
@@ -76,7 +76,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _find_free_port() -> int:
-    """Pick a free TCP port for the Omnigent subprocess to bind."""
+    """Pick a free TCP port for the AgentNexus subprocess to bind."""
     s = socket.socket()
     s.bind(("", 0))
     port: int = s.getsockname()[1]
@@ -87,14 +87,14 @@ def _find_free_port() -> int:
 @pytest.fixture
 def ap_server_with_shared_db() -> Iterator[tuple[str, str]]:
     """
-    Start a real Omnigent server subprocess and yield (base_url, db_uri).
+    Start a real AgentNexus server subprocess and yield (base_url, db_uri).
 
     The DB URI is the same one the test uses to construct its own
     ``SqlAlchemyConversationStore`` — so writes from the test
-    process and writes from the Omnigent server hit the same SQLite
+    process and writes from the AgentNexus server hit the same SQLite
     file. Reproduces the cross-process write contention the
     user's REPL session triggers (REPL process does HTTP →
-    Omnigent server process writes; test process directly writes via
+    AgentNexus server process writes; test process directly writes via
     the store, simulating a concurrent path).
 
     :yields: ``(base_url, db_uri)`` — server URL and SQLite URI
@@ -124,7 +124,7 @@ def ap_server_with_shared_db() -> Iterator[tuple[str, str]]:
         [
             str(_REPO_ROOT / ".venv" / "bin" / "python"),
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),
@@ -167,7 +167,7 @@ def test_concurrent_appends_against_live_omnigent_server_db_no_collision(
     ap_server_with_shared_db: tuple[str, str],
 ) -> None:
     """
-    With a live Omnigent server running, fire N concurrent appends
+    With a live AgentNexus server running, fire N concurrent appends
     from this test process against the SAME SQLite DB file the
     server is using. No append must raise IntegrityError; final
     positions must be contiguous.
@@ -177,7 +177,7 @@ def test_concurrent_appends_against_live_omnigent_server_db_no_collision(
     - The lock-escalation fix in
       :meth:`SqlAlchemyConversationStore._lock_conversation`
       works against a database file shared with another process
-      (the Omnigent server). On revert, the test surfaces the user's
+      (the AgentNexus server). On revert, the test surfaces the user's
       exact ``UNIQUE constraint failed`` error.
     - The production engine-cache + session-factory wiring
       (``get_or_create_engine`` + ``make_managed_session_maker``)
@@ -185,7 +185,7 @@ def test_concurrent_appends_against_live_omnigent_server_db_no_collision(
       session, so the second writer blocks rather than failing
       fast on SQLITE_BUSY.
 
-    Note: this test does NOT exercise the Omnigent route layer (the
+    Note: this test does NOT exercise the AgentNexus route layer (the
     HTTP append endpoint doesn't exist; appends go through
     workflow execution which needs an LLM). Coverage of the
     HTTP path is captured by the workflow integration tests
@@ -197,7 +197,7 @@ def test_concurrent_appends_against_live_omnigent_server_db_no_collision(
 
     # Create our own store handle pointing at the SAME database
     # file. ``get_or_create_engine`` caches engines per URI, so
-    # this gets a separate engine in this process (the Omnigent server
+    # this gets a separate engine in this process (the AgentNexus server
     # has its own engine in its process); both share the SQLite
     # file via filesystem-level concurrency control.
     conv_store = SqlAlchemyConversationStore(db_uri)
@@ -240,7 +240,7 @@ def test_concurrent_appends_against_live_omnigent_server_db_no_collision(
         t.join(timeout=60.0)
 
     assert errors == [], (
-        f"Concurrent appends against the live Omnigent server's SQLite "
+        f"Concurrent appends against the live AgentNexus server's SQLite "
         f"DB raised {len(errors)} error(s); first: {errors[0]!r}. "
         f"The cross-process / cross-engine lock escalation "
         f"regressed — the user-reported 2026-04-30 IntegrityError "

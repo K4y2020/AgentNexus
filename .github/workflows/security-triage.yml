@@ -1,6 +1,6 @@
 name: Security Alert Triage
 
-# Scheduled AI triage of open Dependabot + CodeQL alerts via Omnigent.
+# Scheduled AI triage of open Dependabot + CodeQL alerts via AgentNexus.
 #
 # Architecture (prompt-injection resistant — same model as issue-triage.yml):
 #   1. TRUSTED steps fetch the open alerts via `gh api`.
@@ -42,7 +42,7 @@ permissions:
   security-events: write # dismiss CodeQL code-scanning alerts
 
 env:
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
   # Mutations stay OFF until explicitly enabled, so merging this workflow never
@@ -199,7 +199,7 @@ jobs:
           # Install outside the checked-out tree: a repo-root package.json would
           # otherwise capture this bare `npm install` and hoist it there, leaving
           # this dir's node_modules empty.
-          CC_CLI_DIR="${RUNNER_TEMP}/omnigent-cc-cli"
+          CC_CLI_DIR="${RUNNER_TEMP}/agentnexus-cc-cli"
           mkdir -p "$CC_CLI_DIR" && cd "$CC_CLI_DIR"
           npm install --ignore-scripts --no-audit --no-fund @anthropic-ai/claude-code@2.1.212
           node node_modules/@anthropic-ai/claude-code/install.cjs
@@ -223,14 +223,14 @@ jobs:
           # broaden the credential to every later step. The agent step passes
           # LLM_API_KEY in its own env; the gateway config reads env:LLM_API_KEY.
 
-      - name: Write Omnigent provider config
+      - name: Write AgentNexus provider config
         if: steps.creds.outputs.available == 'true'
         env:
           GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
-          OMNIGENT_AGENT_MODEL: ${{ vars.OMNIGENT_CI_FAST_ANTHROPIC_MODEL }}
+          AGENTNEXUS_AGENT_MODEL: ${{ vars.AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL }}
         run: |
-          : "${OMNIGENT_AGENT_MODEL:?Set OMNIGENT_CI_FAST_ANTHROPIC_MODEL}"
-          mkdir -p "$HOME/.omnigent"
+          : "${AGENTNEXUS_AGENT_MODEL:?Set AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL}"
+          mkdir -p "$HOME/.agentnexus"
           python3 -c "
           import pathlib, os, json
           gw = os.environ['GATEWAY_BASE_URL']
@@ -242,12 +242,12 @@ jobs:
                       'anthropic': {
                           'base_url': gw + '/anthropic',
                           'api_key_ref': 'env:LLM_API_KEY',
-                          'models': {'default': os.environ['OMNIGENT_AGENT_MODEL']},
+                          'models': {'default': os.environ['AGENTNEXUS_AGENT_MODEL']},
                       },
                   }
               }
           }
-          pathlib.Path.home().joinpath('.omnigent', 'config.yaml').write_text(
+          pathlib.Path.home().joinpath('.agentnexus', 'config.yaml').write_text(
               json.dumps(cfg, indent=2)
           )
           "
@@ -278,7 +278,7 @@ jobs:
         run: |
           set -euo pipefail
           prompt=$(cat /tmp/sec_prompt.txt)
-          uv run omnigent run .github/triage/security/ \
+          uv run agentnexus run .github/triage/security/ \
             -p "$prompt" \
             --no-session \
             2>sec-stderr.log \

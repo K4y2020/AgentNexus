@@ -205,7 +205,7 @@ export function SessionUpdatesProvider({ children }: { children: ReactNode }) {
 
   // Freeze the fallback slice key (the modal host over all seen sessions) once
   // the session list first loads, then start the updates socket — which keys
-  // its `?omnigent_slice_key=` off that frozen value. Gating start() on the
+  // its `?agentnexus_slice_key=` off that frozen value. Gating start() on the
   // latch (rather than starting eagerly) matters ONLY for this WS: it's a
   // persistent connection, so starting pre-latch (empty map → no key) and then
   // re-keying would force a reconnect. Ordinary `authenticatedFetch` fallback

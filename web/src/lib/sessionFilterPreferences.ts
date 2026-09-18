@@ -9,7 +9,7 @@
 // account or session state is changed — so it lives in localStorage like the
 // other `*Preferences` helpers.
 
-const STORAGE_KEY = "omnigent:session-filter";
+const STORAGE_KEY = "agentnexus:session-filter";
 
 /**
  * Which slice of sessions the sidebar shows. Mirrors the sidebar's tab

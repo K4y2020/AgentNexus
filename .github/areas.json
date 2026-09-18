@@ -32,7 +32,7 @@
     "               LAST matching area in this array wins per file. So broad prefixes",
     "               MUST come before their more-specific children:",
     "                 - 'web/' before 'web/electron/' and 'web/ios/'",
-    "                 - 'omnigent/inner/' before every 'omnigent/inner/<harness>_'.",
+    "                 - 'agentnexus/inner/' before every 'agentnexus/inner/<harness>_'.",
     "  owners     - candidate reviewers/assignees. Must be maintainers in",
     "               .github/MAINTAINER. 2+ each incl. owners_paused. Edit these freely: the",
     "               reviewer-logic tests run against a frozen fixture",
@@ -133,7 +133,7 @@
       "weight_source": "editorial",
       "definition": "Core agent runtime and the harness/executor layer shared by all harnesses (loader, executor base, tool bridge, sandboxes). Harness-specific code has its own areas below.",
       "paths": [
-        "omnigent/inner/"
+        "agentnexus/inner/"
       ],
       "owners": [
         "dhruv0811",
@@ -154,7 +154,7 @@
       "weight_source": "editorial",
       "definition": "The agent runner: the execution engine that drives a turn.",
       "paths": [
-        "omnigent/runner/"
+        "agentnexus/runner/"
       ],
       "owners": [
         "dhruv0811",
@@ -174,7 +174,7 @@
       "weight_source": "editorial",
       "definition": "The agent runtime and execution scaffolding surrounding the runner.",
       "paths": [
-        "omnigent/runtime/"
+        "agentnexus/runtime/"
       ],
       "owners": [
         "dhruv0811",
@@ -192,9 +192,9 @@
       "priority_label": "comp:server",
       "weight": 1.2,
       "weight_source": "editorial",
-      "definition": "The Omnigent server: HTTP API, session creation and lifecycle, request routing.",
+      "definition": "The AgentNexus server: HTTP API, session creation and lifecycle, request routing.",
       "paths": [
-        "omnigent/server/"
+        "agentnexus/server/"
       ],
       "owners": [
         "dhruv0811",
@@ -215,15 +215,15 @@
       "weight_source": "editorial",
       "definition": "Authentication, OIDC/OAuth, account login, and runtime credentials.",
       "paths": [
-        "omnigent/cli_auth.py",
-        "omnigent/runtime/credentials/",
-        "omnigent/server/auth.py",
-        "omnigent/server/oidc.py",
-        "omnigent/server/oidc_access.py",
-        "omnigent/server/routes/_auth_helpers.py",
-        "omnigent/server/routes/accounts_auth.py",
-        "omnigent/server/routes/auth.py",
-        "omnigent/server/routes/device_auth.py"
+        "agentnexus/cli_auth.py",
+        "agentnexus/runtime/credentials/",
+        "agentnexus/server/auth.py",
+        "agentnexus/server/oidc.py",
+        "agentnexus/server/oidc_access.py",
+        "agentnexus/server/routes/_auth_helpers.py",
+        "agentnexus/server/routes/accounts_auth.py",
+        "agentnexus/server/routes/auth.py",
+        "agentnexus/server/routes/device_auth.py"
       ],
       "owners": [
         "dhruv0811",
@@ -239,7 +239,7 @@
       "weight_source": "editorial",
       "definition": "The setup / onboarding flow: first-run setup, provider auth, credential onboarding driven through the CLI.",
       "paths": [
-        "omnigent/onboarding/"
+        "agentnexus/onboarding/"
       ],
       "owners": [
         "dhruv0811",
@@ -254,7 +254,7 @@
       "weight_source": "editorial",
       "definition": "Safety policies, guardrails, and policy evaluation/elicitation.",
       "paths": [
-        "omnigent/policies/"
+        "agentnexus/policies/"
       ],
       "owners": [
         "TomeHirata"
@@ -271,7 +271,7 @@
       "weight_source": "editorial",
       "definition": "Spec and schema layer: representation of agents/sessions and their serialized form.",
       "paths": [
-        "omnigent/spec/"
+        "agentnexus/spec/"
       ],
       "owners": [
         "TomeHirata",
@@ -287,7 +287,7 @@
       "weight_source": "editorial",
       "definition": "LLM provider and model-catalog layer: gateways, provider adapters, model selection.",
       "paths": [
-        "omnigent/llms/"
+        "agentnexus/llms/"
       ],
       "owners": [
         "dhruv0811",
@@ -302,7 +302,7 @@
       "weight_source": "editorial",
       "definition": "The host / daemon: the long-running local process that hosts sessions and terminals.",
       "paths": [
-        "omnigent/host/"
+        "agentnexus/host/"
       ],
       "owners": [
         "fanzeyi",
@@ -319,7 +319,7 @@
       "weight_source": "editorial",
       "definition": "The OS sandbox (bwrap/seatbelt isolation) and egress controls around agent execution.",
       "paths": [
-        "omnigent/sandbox/"
+        "agentnexus/sandbox/"
       ],
       "owners": [
         "fanzeyi",
@@ -334,7 +334,7 @@
       "weight_source": "editorial",
       "definition": "Database and persistence layer for the server.",
       "paths": [
-        "omnigent/db/"
+        "agentnexus/db/"
       ],
       "owners": [
         "bbqiu",
@@ -354,7 +354,7 @@
       "weight_source": "editorial",
       "definition": "Stores: persistence and serialization of sessions, history, and artifacts.",
       "paths": [
-        "omnigent/stores/"
+        "agentnexus/stores/"
       ],
       "owners": [
         "bbqiu",
@@ -377,7 +377,7 @@
       "weight_source": "editorial",
       "definition": "Terminal management: PTY/terminal launch, read, and lifecycle.",
       "paths": [
-        "omnigent/terminals/"
+        "agentnexus/terminals/"
       ],
       "owners": [
         "fanzeyi",
@@ -397,7 +397,7 @@
       "weight_source": "editorial",
       "definition": "Built-in tools and the tool-bridge exposed to harnesses.",
       "paths": [
-        "omnigent/tools/"
+        "agentnexus/tools/"
       ],
       "owners": [
         "dhruv0811",
@@ -418,7 +418,7 @@
       "weight_source": "editorial",
       "definition": "Entity models: the core data model for agents, sessions, and related objects.",
       "paths": [
-        "omnigent/entities/"
+        "agentnexus/entities/"
       ],
       "owners": [
         "daniellok-db",
@@ -433,7 +433,7 @@
       "weight_source": "editorial",
       "definition": "The interactive REPL and its terminal UI.",
       "paths": [
-        "omnigent/repl/"
+        "agentnexus/repl/"
       ],
       "owners": [
         "dhruv0811",
@@ -451,7 +451,7 @@
       "weight_source": "editorial",
       "definition": "Bundled resources and static assets used by the runtime.",
       "paths": [
-        "omnigent/resources/"
+        "agentnexus/resources/"
       ],
       "owners": [
         "fanzeyi",
@@ -504,8 +504,8 @@
       "weight_source": "telemetry",
       "definition": "The Claude harness family: the Claude SDK executor/harness (claude-sdk) and the native Claude Code terminal integration.",
       "paths": [
-        "omnigent/inner/claude_",
-        "omnigent/claude_native"
+        "agentnexus/inner/claude_",
+        "agentnexus/claude_native"
       ],
       "owners": [
         "dhruv0811",
@@ -526,10 +526,10 @@
       "weight_source": "telemetry",
       "definition": "The Codex / OpenAI harness family: the OpenAI Agents SDK executor/harness, the open-responses SDK, and the native Codex integration.",
       "paths": [
-        "omnigent/inner/codex_",
-        "omnigent/inner/openai_",
-        "omnigent/inner/open_responses_sdk.py",
-        "omnigent/codex_native"
+        "agentnexus/inner/codex_",
+        "agentnexus/inner/openai_",
+        "agentnexus/inner/open_responses_sdk.py",
+        "agentnexus/codex_native"
       ],
       "owners": [
         "dhruv0811",
@@ -550,8 +550,8 @@
       "weight_source": "telemetry",
       "definition": "The Cursor harness: SDK executor/harness and the native Cursor integration.",
       "paths": [
-        "omnigent/inner/cursor_",
-        "omnigent/cursor_native"
+        "agentnexus/inner/cursor_",
+        "agentnexus/cursor_native"
       ],
       "owners": [
         "dhruv0811",
@@ -566,10 +566,10 @@
       "weight_source": "telemetry",
       "definition": "The Antigravity (Gemini) harness: SDK executor/harness, native integration, and Gemini/Antigravity auth.",
       "paths": [
-        "omnigent/inner/antigravity_",
-        "omnigent/antigravity_native",
-        "omnigent/onboarding/antigravity_auth.py",
-        "omnigent/onboarding/gemini_auth.py"
+        "agentnexus/inner/antigravity_",
+        "agentnexus/antigravity_native",
+        "agentnexus/onboarding/antigravity_auth.py",
+        "agentnexus/onboarding/gemini_auth.py"
       ],
       "owners": [
         "TomeHirata",
@@ -584,9 +584,9 @@
       "weight_source": "telemetry",
       "definition": "The Goose harness: SDK executor/harness, native TUI/ACP integration, and Goose auth.",
       "paths": [
-        "omnigent/inner/goose_",
-        "omnigent/goose_native",
-        "omnigent/onboarding/goose_auth.py"
+        "agentnexus/inner/goose_",
+        "agentnexus/goose_native",
+        "agentnexus/onboarding/goose_auth.py"
       ],
       "owners": [
         "dhruv0811",
@@ -601,8 +601,8 @@
       "weight_source": "telemetry",
       "definition": "The Hermes harness: SDK executor/harness and the native Hermes integration.",
       "paths": [
-        "omnigent/inner/hermes_",
-        "omnigent/hermes_native"
+        "agentnexus/inner/hermes_",
+        "agentnexus/hermes_native"
       ],
       "owners": [
         "dhruv0811",
@@ -617,8 +617,8 @@
       "weight_source": "telemetry",
       "definition": "The Kimi harness: SDK executor/harness and the native Kimi integration.",
       "paths": [
-        "omnigent/inner/kimi_",
-        "omnigent/kimi_native"
+        "agentnexus/inner/kimi_",
+        "agentnexus/kimi_native"
       ],
       "owners": [
         "dhruv0811",
@@ -636,8 +636,8 @@
       "weight_source": "telemetry",
       "definition": "The Kiro harness: SDK executor/harness and the native Kiro integration.",
       "paths": [
-        "omnigent/inner/kiro_",
-        "omnigent/kiro_native"
+        "agentnexus/inner/kiro_",
+        "agentnexus/kiro_native"
       ],
       "owners": [
         "PattaraS",
@@ -653,9 +653,9 @@
       "weight_source": "telemetry",
       "definition": "The OpenCode harness: SDK executor/harness, native integration, HTTP transport, and OpenCode auth.",
       "paths": [
-        "omnigent/inner/opencode_",
-        "omnigent/opencode_",
-        "omnigent/onboarding/opencode_auth.py"
+        "agentnexus/inner/opencode_",
+        "agentnexus/opencode_",
+        "agentnexus/onboarding/opencode_auth.py"
       ],
       "owners": [
         "dhruv0811",
@@ -672,8 +672,8 @@
       "weight_source": "telemetry",
       "definition": "The Pi harness: SDK executor/harness and the native Pi integration.",
       "paths": [
-        "omnigent/inner/pi_",
-        "omnigent/pi_native"
+        "agentnexus/inner/pi_",
+        "agentnexus/pi_native"
       ],
       "owners": [
         "TomeHirata",
@@ -688,8 +688,8 @@
       "weight_source": "telemetry",
       "definition": "The Qwen harness: SDK executor/harness and the native Qwen integration.",
       "paths": [
-        "omnigent/inner/qwen_",
-        "omnigent/qwen_native"
+        "agentnexus/inner/qwen_",
+        "agentnexus/qwen_native"
       ],
       "owners": [
         "serena-ruan",
@@ -705,8 +705,8 @@
       "weight_source": "telemetry",
       "definition": "The GitHub Copilot harness: SDK executor/harness and Copilot auth.",
       "paths": [
-        "omnigent/inner/copilot_",
-        "omnigent/onboarding/copilot_auth.py"
+        "agentnexus/inner/copilot_",
+        "agentnexus/onboarding/copilot_auth.py"
       ],
       "owners": [
         "PattaraS",

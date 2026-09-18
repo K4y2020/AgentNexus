@@ -28,10 +28,10 @@ describe("baseBranchPreferences", () => {
   it("normalizes a raw stored value on read (defensive against hand edits)", () => {
     // A value that bypassed the writer (hand-edited storage, stale entry) must
     // still read back trimmed, and a whitespace-only entry reads as unset.
-    localStorage.setItem("omnigent:default-base-branch", "  develop  ");
+    localStorage.setItem("agentnexus:default-base-branch", "  develop  ");
     expect(readDefaultBaseBranch()).toBe("develop");
 
-    localStorage.setItem("omnigent:default-base-branch", "   ");
+    localStorage.setItem("agentnexus:default-base-branch", "   ");
     expect(readDefaultBaseBranch()).toBeNull();
   });
 

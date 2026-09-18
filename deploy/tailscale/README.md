@@ -1,4 +1,4 @@
-# Omnigent on Tailscale
+# AgentNexus on Tailscale
 
 [Tailscale](https://tailscale.com) gives every device on your network a
 stable private hostname (`<machine>.ts.net`) and connects them peer-to-peer
@@ -17,7 +17,7 @@ other device you own.
 
 - Tailscale installed on your server machine and every client device.
   All signed in to the same Tailscale account.
-- Omnigent server running locally (e.g. `omnigent server` or
+- AgentNexus server running locally (e.g. `agentnexus server` or
   `docker compose up -d` from `deploy/docker/`).
 
 ## Tailnet-only access (phone / tablet / remote laptop)
@@ -37,16 +37,16 @@ Set two environment variables on the server before starting it:
 ```dotenv
 # Trust the Tailscale origin so WebSocket handshakes and multipart
 # uploads are accepted from the browser on your phone/tablet.
-OMNIGENT_WS_ALLOWED_ORIGINS=https://<machine>.ts.net
+AGENTNEXUS_WS_ALLOWED_ORIGINS=https://<machine>.ts.net
 
 # Public base URL — used to build the correct __Host- cookie prefix
 # and any invite / magic-link URLs.
-OMNIGENT_ACCOUNTS_BASE_URL=https://<machine>.ts.net
+AGENTNEXUS_ACCOUNTS_BASE_URL=https://<machine>.ts.net
 ```
 
-Without `OMNIGENT_WS_ALLOWED_ORIGINS` the browser will get WebSocket close
+Without `AGENTNEXUS_WS_ALLOWED_ORIGINS` the browser will get WebSocket close
 code `4403` and an HTTP 403 *"Forbidden: this endpoint requires a trusted
-Origin header"* on chat and file uploads. Without `OMNIGENT_ACCOUNTS_BASE_URL`
+Origin header"* on chat and file uploads. Without `AGENTNEXUS_ACCOUNTS_BASE_URL`
 session cookies won't use the `__Host-` prefix and invite links resolve to
 the wrong host.
 
@@ -57,8 +57,8 @@ the wrong host.
 cp deploy/docker/.env.example deploy/docker/.env
 
 # add to .env:
-OMNIGENT_WS_ALLOWED_ORIGINS=https://<machine>.ts.net
-OMNIGENT_ACCOUNTS_BASE_URL=https://<machine>.ts.net
+AGENTNEXUS_WS_ALLOWED_ORIGINS=https://<machine>.ts.net
+AGENTNEXUS_ACCOUNTS_BASE_URL=https://<machine>.ts.net
 ```
 
 Then restart:
@@ -71,7 +71,7 @@ Open `https://<machine>.ts.net` on any device on your tailnet.
 
 ## Cloud sandbox hosts and Tailscale Funnel
 
-Cloud sandbox providers (Modal, Daytona, E2B, …) run the Omnigent host
+Cloud sandbox providers (Modal, Daytona, E2B, …) run the AgentNexus host
 process *inside* a remote container. That host dials **out** to
 `server_url` over WebSocket to receive work — so it needs to reach the
 server from the sandbox provider's cloud network, not just from your
@@ -100,8 +100,8 @@ sandbox:
 > auth before turning it on:
 >
 > ```dotenv
-> OMNIGENT_AUTH_ENABLED=1
-> OMNIGENT_ACCOUNTS_BASE_URL=https://<machine>.ts.net
+> AGENTNEXUS_AUTH_ENABLED=1
+> AGENTNEXUS_ACCOUNTS_BASE_URL=https://<machine>.ts.net
 > ```
 >
 > See [Auth](../README.md#auth) for the full setup.
@@ -117,6 +117,6 @@ sandbox:
 
 | Variable | Purpose |
 |---|---|
-| `OMNIGENT_WS_ALLOWED_ORIGINS` | Comma-separated origin allowlist. Set to `https://<machine>.ts.net` to trust the Tailscale origin for WebSocket and multipart routes. |
-| `OMNIGENT_ACCOUNTS_BASE_URL` | Public base URL. Used for session cookie security (`__Host-` prefix) and invite / magic-link URLs. |
-| `OMNIGENT_AUTH_ENABLED` | `1` to require login. Recommended when using Tailscale Funnel (public internet exposure). |
+| `AGENTNEXUS_WS_ALLOWED_ORIGINS` | Comma-separated origin allowlist. Set to `https://<machine>.ts.net` to trust the Tailscale origin for WebSocket and multipart routes. |
+| `AGENTNEXUS_ACCOUNTS_BASE_URL` | Public base URL. Used for session cookie security (`__Host-` prefix) and invite / magic-link URLs. |
+| `AGENTNEXUS_AUTH_ENABLED` | `1` to require login. Recommended when using Tailscale Funnel (public internet exposure). |

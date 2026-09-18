@@ -9,7 +9,7 @@ model to X **and saved as your default for new sessions**" and rewrites the
 ``model`` key in the person's own ``~/.claude/settings.json`` — an accepted
 trade-off, since the alternative (driving the interactive picker over tmux)
 cost ~530 lines of fragile screen-scraping automation. What still has to hold
-is that Omnigent itself never writes that file, and that the switch path polls
+is that AgentNexus itself never writes that file, and that the switch path polls
 the TUI rather than guessing at its render latency.
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-_OMNIGENT = Path(__file__).resolve().parent.parent / "omnigent"
+_OMNIGENT = Path(__file__).resolve().parent.parent / "agentnexus"
 
 #: Functions on the claude model-switch path. A fixed sleep in any of them is
 #: the row-100 defect: the "Switch model?" dialog took 1.861 s to render on a
@@ -79,7 +79,7 @@ def test_the_model_switch_path_polls_and_never_sleeps_a_fixed_interval(name: str
     A sleep on a literal is a guess about how long a TUI takes to render, which
     is what row 100 disproved.
     """
-    from omnigent import claude_native_bridge
+    from agentnexus import claude_native_bridge
 
     tree = _tree("claude_native_bridge.py")
     functions = {

@@ -38,7 +38,7 @@ for node in nodes:
 ## 根本原因
 
 ### 代码缺陷位置
-`omnigent/seedance/bridge.py` 第 478-496 行：
+`agentnexus/seedance/bridge.py` 第 478-496 行：
 
 ```python
 # 错误的实现
@@ -63,7 +63,7 @@ def create_node(...):
 
 ### 修复 1：代码逻辑修正
 
-**文件：** `omnigent/seedance/bridge.py`
+**文件：** `agentnexus/seedance/bridge.py`
 
 ```python
 # 修复后的实现
@@ -149,7 +149,7 @@ EP03: content=2082 chars, prompt=0 chars ✅
 ## 相关文件
 
 ### 修改的源代码
-- `omnigent/seedance/bridge.py` - 核心修复
+- `agentnexus/seedance/bridge.py` - 核心修复
 
 ### 测试和工具
 - `test_seedance_debug.py` - API 测试脚本
@@ -184,5 +184,5 @@ EP03: content=2082 chars, prompt=0 chars ✅
 ---
 
 **调试日期：** 2026-09-08  
-**影响项目：** AgentNexus (Omnigent fork)  
+**影响项目：** AgentNexus (AgentNexus fork)  
 **相关组件：** Seedance V3 Bridge, Cinebot

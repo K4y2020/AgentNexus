@@ -21,7 +21,7 @@ def test_mobile_enter_inserts_newline_and_send_submits_once(
         viewport=_MOBILE_VIEWPORT,
         has_touch=True,
         is_mobile=True,
-        record_video_dir=os.environ.get("OMNIGENT_E2E_RECORD_DIR"),
+        record_video_dir=os.environ.get("AGENTNEXUS_E2E_RECORD_DIR"),
     )
     page = context.new_page()
     event_posts: list[dict[str, Any]] = []

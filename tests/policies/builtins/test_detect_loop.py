@@ -13,7 +13,7 @@ Covers:
 
 from __future__ import annotations
 
-from omnigent.policies.builtins.safety import _LOOP_STATE_KEY, _args_hash, detect_loop
+from agentnexus.policies.builtins.safety import _LOOP_STATE_KEY, _args_hash, detect_loop
 from tests.policies.builtins.helpers import tool_call_event as tc
 
 

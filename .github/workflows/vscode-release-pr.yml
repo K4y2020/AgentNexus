@@ -14,7 +14,7 @@
 # This is a tools-less, one-shot "prompt in -> text out" call, so it hits the
 # Databricks gateway's OpenAI-compatible /chat/completions endpoint directly
 # with a stdlib urllib POST (same pattern as auto-assign-reviewer.yml) — no
-# Omnigent runtime, uv sync, or Claude Code CLI needed. The agent only ever
+# AgentNexus runtime, uv sync, or Claude Code CLI needed. The agent only ever
 # sees already-merged history.
 name: VS Code Extension Release PR
 
@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   release-pr:
-    if: github.repository == 'omnigent-ai/omnigent'
+    if: github.repository == 'agentnexus-ai/agentnexus'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -170,7 +170,7 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
-          DRAFTER_MODEL: ${{ vars.OMNIGENT_CI_FAST_ANTHROPIC_MODEL }}
+          DRAFTER_MODEL: ${{ vars.AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
@@ -179,7 +179,7 @@ jobs:
             exit 0
           fi
           if [ -z "${DRAFTER_MODEL:-}" ]; then
-            echo "::warning::Repository variable OMNIGENT_CI_FAST_ANTHROPIC_MODEL is empty — keeping the CHANGELOG placeholder."
+            echo "::warning::Repository variable AGENTNEXUS_CI_FAST_ANTHROPIC_MODEL is empty — keeping the CHANGELOG placeholder."
             exit 0
           fi
           echo "::add-mask::${LLM_API_KEY}"
@@ -190,7 +190,7 @@ jobs:
           pr_material = pathlib.Path("/tmp/pr_material.txt").read_text(encoding="utf-8", errors="replace")
 
           system = (
-              "You draft the CHANGELOG bullet list for a new release of the Omnigent "
+              "You draft the CHANGELOG bullet list for a new release of the AgentNexus "
               "VS Code extension, from the list of PRs merged since the previous "
               "release. Write USER-FACING bullets — what a user gains or what visibly "
               "changed — not internal mechanics; DROP pure-internal churn (refactors, "
@@ -308,4 +308,4 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "Release (vscode): v$VERSION" \
-            --body "Bumps the Omnigent VS Code extension to \`v$VERSION\` and drafts its CHANGELOG section from the PRs merged since the last release. **Review the CHANGELOG entries and edit if needed** before merging. After merge, run the **VS Code Extension Release** workflow to build the \`.vsix\` and cut the draft release. See \`editors/vscode/PUBLISHING.md\`."
+            --body "Bumps the AgentNexus VS Code extension to \`v$VERSION\` and drafts its CHANGELOG section from the PRs merged since the last release. **Review the CHANGELOG entries and edit if needed** before merging. After merge, run the **VS Code Extension Release** workflow to build the \`.vsix\` and cut the draft release. See \`editors/vscode/PUBLISHING.md\`."

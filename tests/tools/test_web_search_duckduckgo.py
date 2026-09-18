@@ -14,7 +14,7 @@ import httpx
 import pytest
 import respx
 
-from omnigent.tools.builtins.web_search_duckduckgo import (
+from agentnexus.tools.builtins.web_search_duckduckgo import (
     _DDG_HTML_URL,
     _MAX_RESULTS,
     _decode_result_href,
@@ -144,8 +144,8 @@ def test_web_search_no_provider_fails_loudly(
     """With no ``search_provider``, the selector returns a loud, helpful error
     naming the engines — it does NOT silently pick one (per maintainer review),
     so it's always explicit which engine ran. The DDG backend is not invoked."""
-    import omnigent.tools.builtins.web_search_duckduckgo as ddg
-    from omnigent.tools.builtins.web_search import _search
+    import agentnexus.tools.builtins.web_search_duckduckgo as ddg
+    from agentnexus.tools.builtins.web_search import _search
 
     monkeypatch.setattr(
         ddg, "_search_duckduckgo", lambda q, c: pytest.fail("must not auto-run DDG")
@@ -159,8 +159,8 @@ def test_web_search_explicit_duckduckgo_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``search_provider: duckduckgo`` selects the DDG backend explicitly."""
-    import omnigent.tools.builtins.web_search_duckduckgo as ddg
-    from omnigent.tools.builtins.web_search import _search
+    import agentnexus.tools.builtins.web_search_duckduckgo as ddg
+    from agentnexus.tools.builtins.web_search import _search
 
     monkeypatch.setattr(ddg, "_search_duckduckgo", lambda q, c: "DDG-OK")
     assert _search("hi", {"search_provider": "duckduckgo"}) == "DDG-OK"
@@ -324,7 +324,7 @@ def test_parse_results_returns_partial_when_parser_raises(
     must not propagate it — it returns whatever was parsed before the fault.
     (``html.parser`` is tolerant enough that no real input triggers this, so we
     inject the failure to prove the H2 guard.)"""
-    import omnigent.tools.builtins.web_search_duckduckgo as ddg
+    import agentnexus.tools.builtins.web_search_duckduckgo as ddg
 
     def _boom(self: ddg._ResultParser, data: str) -> None:
         self.results.append({"title": "Partial", "url": "https://a.com", "snippet": "s"})

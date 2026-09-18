@@ -30,32 +30,32 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from omnigent.server.accounts_bootstrap import (
+from agentnexus.server.accounts_bootstrap import (
     bootstrap_admin,
     resolve_admin_username,
 )
-from omnigent.server.accounts_config import AccountsConfig
-from omnigent.server.accounts_store import SqlAlchemyAccountStore
-from omnigent.server.auth import (
+from agentnexus.server.accounts_config import AccountsConfig
+from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+from agentnexus.server.auth import (
     AuthProvider,
     UnifiedAuthProvider,
     create_auth_provider,
     resolve_auth_source,
 )
-from omnigent.server.passwords import (
+from agentnexus.server.passwords import (
     InvalidPasswordError,
     hash_password,
     needs_rehash,
     verify_password,
 )
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 
 
 @pytest.fixture(autouse=True)
 def _clear_ambient_oidc_issuer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Strip an ambient ``OMNIGENT_OIDC_ISSUER`` for the accounts suite.
+    """Strip an ambient ``AGENTNEXUS_OIDC_ISSUER`` for the accounts suite.
 
     With auth enabled, the presence of an issuer selects ``oidc`` over
     ``accounts`` (see :func:`resolve_auth_source`). A developer who
@@ -65,7 +65,7 @@ def _clear_ambient_oidc_issuer(monkeypatch: pytest.MonkeyPatch) -> None:
     it is safe for every test in this file. Tests that need an issuer
     set it explicitly *after* this fixture runs.
     """
-    monkeypatch.delenv("OMNIGENT_OIDC_ISSUER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_ISSUER", raising=False)
 
 
 # ── Password helper (unit) ────────────────────────────────────────
@@ -136,8 +136,8 @@ def _set_required_accounts_env(
     base_url: str = "https://omnigent.example.com",
 ) -> None:
     """Populate every required env var so from_env() doesn't fail loud."""
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", base_url)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", base_url)
 
 
 def test_accounts_config_round_trips_required_env(
@@ -145,8 +145,8 @@ def test_accounts_config_round_trips_required_env(
 ) -> None:
     """from_env() parses every required var into the dataclass."""
     secret_hex = secrets.token_hex(32)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", secret_hex)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "https://omnigent.example.com")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", secret_hex)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "https://omnigent.example.com")
 
     cfg = AccountsConfig.from_env()
 
@@ -160,10 +160,10 @@ def test_accounts_config_missing_cookie_secret_fails_loud(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing COOKIE_SECRET raises with a remediation message."""
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
 
-    with pytest.raises(RuntimeError, match="OMNIGENT_ACCOUNTS_COOKIE_SECRET"):
+    with pytest.raises(RuntimeError, match="AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"):
         AccountsConfig.from_env()
 
 
@@ -175,8 +175,8 @@ def test_accounts_config_short_cookie_secret_fails_loud(
     HS256 with a key shorter than the digest size is a real
     weakness; matching OIDCConfig's stance.
     """
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", "00" * 16)  # only 16 bytes
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", "00" * 16)  # only 16 bytes
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
 
     with pytest.raises(RuntimeError, match="at least 32 bytes"):
         AccountsConfig.from_env()
@@ -186,8 +186,8 @@ def test_accounts_config_non_hex_cookie_secret_fails_loud(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A non-hex COOKIE_SECRET raises with a clear message."""
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", "not-hex-at-all")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", "not-hex-at-all")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
 
     with pytest.raises(RuntimeError, match="valid hex string"):
         AccountsConfig.from_env()
@@ -214,8 +214,8 @@ def test_accounts_config_rejects_non_http_scheme(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """BASE_URL must start with http(s):// — fail loud otherwise."""
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "ftp://omnigent.example.com")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "ftp://omnigent.example.com")
 
     with pytest.raises(RuntimeError, match="http://"):
         AccountsConfig.from_env()
@@ -231,7 +231,7 @@ def test_accounts_config_init_admin_empty_string_is_unset(
     silently set a zero-length admin password if not guarded.
     """
     _set_required_accounts_env(monkeypatch)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", "")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", "")
 
     cfg = AccountsConfig.from_env()
 
@@ -277,7 +277,7 @@ class _FakeReq:
 
 def test_accounts_source_reads_valid_cookie() -> None:
     """The accounts source extracts a user_id from a valid session JWT."""
-    from omnigent.server.oidc import mint_session_cookie
+    from agentnexus.server.oidc import mint_session_cookie
 
     cfg = _make_accounts_config()
     provider = UnifiedAuthProvider(source="accounts", accounts_config=cfg)
@@ -297,7 +297,7 @@ def test_accounts_source_rejects_reserved_user_in_cookie() -> None:
     malicious admin somehow gets a session JWT with sub=local
     minted, the auth provider refuses to honor it.
     """
-    from omnigent.server.oidc import mint_session_cookie
+    from agentnexus.server.oidc import mint_session_cookie
 
     cfg = _make_accounts_config()
     provider = UnifiedAuthProvider(source="accounts", accounts_config=cfg)
@@ -317,7 +317,7 @@ def test_accounts_source_rejects_cookie_signed_with_wrong_secret() -> None:
     server and presenting it to another with a different secret
     must not authenticate.
     """
-    from omnigent.server.oidc import mint_session_cookie
+    from agentnexus.server.oidc import mint_session_cookie
 
     cfg = _make_accounts_config()
     provider = UnifiedAuthProvider(source="accounts", accounts_config=cfg)
@@ -335,10 +335,10 @@ def test_accounts_source_accepts_bearer_token_for_cli() -> None:
     """CLI bearer tokens (no cookie) also authenticate against accounts.
 
     The runner / CLI use Authorization: Bearer <jwt> after picking
-    the token up from ~/.omnigent/auth_tokens.json — the same
+    the token up from ~/.agentnexus/auth_tokens.json — the same
     code path the OIDC mode supports.
     """
-    from omnigent.server.oidc import mint_session_cookie
+    from agentnexus.server.oidc import mint_session_cookie
 
     cfg = _make_accounts_config()
     provider = UnifiedAuthProvider(source="accounts", accounts_config=cfg)
@@ -435,17 +435,17 @@ def test_resolve_auth_source_defaults_to_header(
     and the config-signature all rely on, so a regression here would
     desync them.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.delenv("OMNIGENT_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_ENABLED", raising=False)
     assert resolve_auth_source() == "header"
 
 
 def test_resolve_auth_source_opt_in_selects_accounts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``OMNIGENT_AUTH_ENABLED=1`` (no OIDC config) opts into accounts mode."""
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
+    """``AGENTNEXUS_AUTH_ENABLED=1`` (no OIDC config) opts into accounts mode."""
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
     # _clear_ambient_oidc_issuer (autouse) guarantees no issuer is set,
     # so the enable switch resolves to the built-in accounts flow.
     assert resolve_auth_source() == "accounts"
@@ -454,7 +454,7 @@ def test_resolve_auth_source_opt_in_selects_accounts(
 def test_resolve_auth_source_oidc_issuer_selects_oidc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``OMNIGENT_AUTH_ENABLED=1`` + an OIDC issuer selects oidc, not accounts.
+    """``AGENTNEXUS_AUTH_ENABLED=1`` + an OIDC issuer selects oidc, not accounts.
 
     This is the unified-switch contract: the same enable flag turns on
     accounts by default, but flips to the native OIDC flow the moment
@@ -463,9 +463,9 @@ def test_resolve_auth_source_oidc_issuer_selects_oidc(
     would be dead — an operator who set the OIDC vars would silently get
     the built-in login form instead of their IdP.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://accounts.google.com")
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://accounts.google.com")
     assert resolve_auth_source() == "oidc"
 
 
@@ -480,9 +480,9 @@ def test_resolve_auth_source_oidc_issuer_ignored_when_auth_disabled(
     an OIDC one. If this resolved to ``"oidc"`` the switch would have
     been bypassed.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.delenv("OMNIGENT_AUTH_ENABLED", raising=False)
-    monkeypatch.setenv("OMNIGENT_OIDC_ISSUER", "https://accounts.google.com")
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_OIDC_ISSUER", "https://accounts.google.com")
     assert resolve_auth_source() == "header"
 
 
@@ -495,8 +495,8 @@ def test_resolve_auth_source_explicit_passthrough_lowercased(
     unknown values is the factory's job); the signature folds whatever
     string it returns, so the passthrough must be stable.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "OIDC")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "OIDC")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
     assert resolve_auth_source() == "oidc"
 
 
@@ -506,17 +506,17 @@ def test_resolve_auth_source_explicit_passthrough_lowercased(
 def test_factory_defaults_to_header_when_env_unset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unset OMNIGENT_AUTH_PROVIDER (+ no enable switch) → header mode.
+    """Unset AGENTNEXUS_AUTH_PROVIDER (+ no enable switch) → header mode.
 
     The shipped default is single-user, no-login: a bare
     ``omnigent server`` on a laptop should pop open with no
     multi-user wiring. Multi-user (accounts) is opt-in via
-    ``OMNIGENT_AUTH_ENABLED=1`` (see
+    ``AGENTNEXUS_AUTH_ENABLED=1`` (see
     :func:`test_factory_accounts_enabled_truthy_enables_accounts`).
     No accounts env is set here — header mode must not require it.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.delenv("OMNIGENT_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_ENABLED", raising=False)
 
     provider = create_auth_provider()
 
@@ -527,16 +527,16 @@ def test_factory_defaults_to_header_when_env_unset(
 def test_factory_explicit_header_beats_enable_switch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Explicit ``OMNIGENT_AUTH_PROVIDER=header`` wins over the enable switch.
+    """Explicit ``AGENTNEXUS_AUTH_PROVIDER=header`` wins over the enable switch.
 
     An explicit provider always wins, so a stale
-    ``OMNIGENT_AUTH_ENABLED=1`` in a shell can't silently turn
+    ``AGENTNEXUS_AUTH_ENABLED=1`` in a shell can't silently turn
     accounts on for a deploy that pinned header (e.g. the internal
     hosted product, which sets header via ``setdefault`` in its
     entrypoint).
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "1")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "1")
 
     provider = create_auth_provider()
 
@@ -548,7 +548,7 @@ def test_factory_accepts_accounts_explicit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Explicit accounts setting still works the same way."""
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "accounts")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "accounts")
     _set_required_accounts_env(monkeypatch)
 
     provider = create_auth_provider()
@@ -559,7 +559,7 @@ def test_factory_accepts_accounts_explicit(
 
 def test_factory_rejects_unknown_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """A bogus AUTH_PROVIDER value fails loud, doesn't fall through."""
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "bogus")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "bogus")
 
     with pytest.raises(RuntimeError, match="bogus"):
         create_auth_provider()
@@ -570,7 +570,7 @@ def test_factory_accounts_enabled_falsy_stays_header(
     monkeypatch: pytest.MonkeyPatch,
     disable_value: str,
 ) -> None:
-    """An explicitly falsy ``OMNIGENT_AUTH_ENABLED`` → header mode.
+    """An explicitly falsy ``AGENTNEXUS_AUTH_ENABLED`` → header mode.
 
     Header is already the env-unset default, but a falsy value must
     be treated the same as unset (not as "set, therefore truthy") —
@@ -578,8 +578,8 @@ def test_factory_accounts_enabled_falsy_stays_header(
     when no proxy header is present. No accounts env needed — header
     mode doesn't build AccountsConfig.
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", disable_value)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", disable_value)
 
     provider = create_auth_provider()
 
@@ -592,15 +592,15 @@ def test_factory_accounts_enabled_truthy_enables_accounts(
     monkeypatch: pytest.MonkeyPatch,
     enable_value: str,
 ) -> None:
-    """A truthy ``OMNIGENT_AUTH_ENABLED`` (no OIDC) opts INTO accounts mode.
+    """A truthy ``AGENTNEXUS_AUTH_ENABLED`` (no OIDC) opts INTO accounts mode.
 
     This is the multi-user opt-in: with no explicit
-    ``OMNIGENT_AUTH_PROVIDER`` and no OIDC issuer, a truthy enable
+    ``AGENTNEXUS_AUTH_PROVIDER`` and no OIDC issuer, a truthy enable
     switch turns on the accounts login flow (the inverse of the
     env-unset header default).
     """
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", enable_value)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", enable_value)
     _set_required_accounts_env(monkeypatch)
 
     provider = create_auth_provider()
@@ -618,8 +618,8 @@ def test_factory_explicit_accounts_beats_disabled_switch(
     stale ``AUTH_ENABLED=0`` in a shell can't silently downgrade
     an operator who explicitly opted into accounts.
     """
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "accounts")
-    monkeypatch.setenv("OMNIGENT_AUTH_ENABLED", "0")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "accounts")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_ENABLED", "0")
     _set_required_accounts_env(monkeypatch)
 
     provider = create_auth_provider()
@@ -644,7 +644,7 @@ def fresh_store(tmp_path: Path) -> SqlAlchemyAccountStore:
     in play at this layer of the suite.
     """
     db_url = f"sqlite:///{tmp_path}/test.db"
-    from omnigent.db.utils import get_or_create_engine
+    from agentnexus.db.utils import get_or_create_engine
 
     get_or_create_engine(db_url)  # runs alembic upgrade
     return SqlAlchemyAccountStore(db_url)
@@ -655,19 +655,19 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect $HOME so cli_auth.store_token writes to a temp file.
 
     Without this, the test could write into the developer's real
-    ``~/.omnigent/auth_tokens.json`` — fine, but noisy. The
-    fixture also pins OMNIGENT_ADMIN_CREDENTIALS_PATH so the
+    ``~/.agentnexus/auth_tokens.json`` — fine, but noisy. The
+    fixture also pins AGENTNEXUS_ADMIN_CREDENTIALS_PATH so the
     bootstrap's 0600 file lands inside the tmp dir too.
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-credentials"))
     # Pin the admin username to "admin" so the existing test
     # assertions (which were written against the old hardcoded
     # "admin" constant) don't depend on whatever
     # getpass.getuser() happens to return in CI. The OS-username
     # resolution path is exercised by its own dedicated tests
     # below.
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
     return tmp_path
 
 
@@ -677,7 +677,7 @@ def test_bootstrap_with_password_creates_admin(
     """A supplied password creates the admin on first boot.
 
     The flag/env path (``--admin-password`` /
-    ``OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD``) is the one
+    ``AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD``) is the one
     bootstrap path that creates an admin directly — for headless /
     CI deploys. The password the caller supplied must be the one
     that authenticates.
@@ -782,7 +782,7 @@ def test_bootstrap_remote_no_password_needs_setup_no_token(
     assert result.needs_setup is True
     assert result.open_url is None
     assert result.tui_token_written is False
-    assert not (isolated_home / ".omnigent" / "auth_tokens.json").exists()
+    assert not (isolated_home / ".agentnexus" / "auth_tokens.json").exists()
 
 
 def test_bootstrap_loopback_no_password_needs_setup_opens_form(
@@ -826,7 +826,7 @@ def test_bootstrap_init_password_loopback_writes_cli_token_no_autoopen(
     assert result.needs_setup is False
     assert result.open_url is None
     assert result.tui_token_written is True
-    from omnigent import cli_auth
+    from agentnexus import cli_auth
 
     assert cli_auth.load_token(base_url) is not None
 
@@ -843,7 +843,7 @@ def test_bootstrap_refreshes_cli_token_on_returning_loopback_boot(
     that motivated this). Here the second boot uses a *different* base
     URL (new port) and must still produce a usable token for it.
     """
-    from omnigent import cli_auth
+    from agentnexus import cli_auth
 
     first = bootstrap_admin(
         fresh_store,
@@ -875,14 +875,14 @@ def test_bootstrap_refreshes_cli_token_on_returning_loopback_boot(
 def test_resolve_admin_username_uses_env_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME wins over the OS user.
+    """AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME wins over the OS user.
 
     The override is the right knob for headless / Docker deploys
     where ``getpass.getuser()`` returns ``"root"`` (not great
     semantically) or for any deploy that wants a stable account
     name regardless of who launches the process.
     """
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", "operator")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", "operator")
     assert resolve_admin_username() == "operator"
 
 
@@ -896,7 +896,7 @@ def test_resolve_admin_username_falls_back_to_os_user(
     and the web UI share one identity from the start (no
     separate "local" / "admin" split).
     """
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
     # Mock getpass.getuser to a known value so the test is deterministic
     # across CI runners with different $USER values.
     import getpass
@@ -917,7 +917,7 @@ def test_resolve_admin_username_falls_back_to_admin_on_reserved_name(
     immediately have it rejected by the auth provider's
     reserved-name guard — silent breakage.
     """
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
     import getpass
 
     monkeypatch.setattr(getpass, "getuser", lambda: "local")
@@ -934,7 +934,7 @@ def test_resolve_admin_username_falls_back_on_regex_mismatch(
     spaces, or other characters the route layer would reject at
     registration time anyway.
     """
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", raising=False)
     import getpass
 
     monkeypatch.setattr(getpass, "getuser", lambda: "Administrator")
@@ -969,44 +969,44 @@ def _build_accounts_app(
         admin is created and ``/v1/info`` reports ``needs_setup``.
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(tmp_path / ".omnigent"))
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / ".agentnexus"))
     # Accounts is the default provider now, but pin it explicitly
     # so this fixture doesn't depend on the global default.
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "accounts")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "accounts")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", secrets.token_hex(32))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
     if init_admin_password is not None:
-        monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", init_admin_password)
+        monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", init_admin_password)
     else:
-        monkeypatch.delenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", raising=False)
+        monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", raising=False)
     # Pin the admin username to "admin" so the existing test
     # assertions don't depend on whatever getpass.getuser() returns
     # in CI. The OS-username resolution path is exercised by
     # dedicated tests below.
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
     # Don't auto-open the browser during tests.
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_AUTO_OPEN", "0")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_AUTO_OPEN", "0")
 
     db_url = f"sqlite:///{tmp_path}/test.db"
-    from omnigent.db.utils import get_or_create_engine
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.app import create_app
-    from omnigent.stores.agent_store.sqlalchemy_store import (
+    from agentnexus.db.utils import get_or_create_engine
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.agent_store.sqlalchemy_store import (
         SqlAlchemyAgentStore,
     )
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import (
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import (
         SqlAlchemyCommentStore,
     )
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     get_or_create_engine(db_url)
     telemetry.init()
@@ -1084,25 +1084,25 @@ def header_mode_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
     # Accounts is now the default provider — explicitly pin
     # "header" so this negative-case fixture actually exercises
     # header mode regardless of the global default.
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", raising=False)
-    monkeypatch.delenv("OMNIGENT_ACCOUNTS_BASE_URL", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_BASE_URL", raising=False)
 
     db_url = f"sqlite:///{tmp_path}/header.db"
-    from omnigent.db.utils import get_or_create_engine
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.app import create_app
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.db.utils import get_or_create_engine
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     get_or_create_engine(db_url)
     telemetry.init()
@@ -1443,8 +1443,8 @@ def test_admin_list_excludes_legacy_local_and_public_sentinels(
     ``accounts_app`` fixture wired up, then confirm the admin
     list filter drops them.
     """
-    from omnigent.db.db_models import SqlUser
-    from omnigent.db.utils import get_or_create_engine, make_managed_session_maker
+    from agentnexus.db.db_models import SqlUser
+    from agentnexus.db.utils import get_or_create_engine, make_managed_session_maker
 
     db_url = f"sqlite:///{tmp_path}/test.db"
     engine = get_or_create_engine(db_url)
@@ -1765,7 +1765,7 @@ def test_cli_accounts_login_happy_path_stores_token(
 
     Mocks the network surface (the /v1/me probe + the /auth/login
     POST) and the token storage (cli_auth.store_token writes to
-    the user's ~/.omnigent/), so the test verifies the CLI
+    the user's ~/.agentnexus/), so the test verifies the CLI
     plumbing without spinning up a server.
 
     Closes the AI-review gap flagged in the first review pass —
@@ -1775,8 +1775,8 @@ def test_cli_accounts_login_happy_path_stores_token(
     import httpx as _httpx
     from click.testing import CliRunner
 
-    from omnigent import cli_auth
-    from omnigent.cli import cli
+    from agentnexus import cli_auth
+    from agentnexus.cli import cli
 
     # Redirect $HOME so cli_auth.store_token writes into tmp.
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -1836,7 +1836,7 @@ def test_cli_accounts_login_happy_path_stores_token(
 
     assert result.exit_code == 0, result.output
     assert "Logged in as alice" in result.output
-    # The store_token side effect lands in ~/.omnigent/auth_tokens.json.
+    # The store_token side effect lands in ~/.agentnexus/auth_tokens.json.
     assert cli_auth.load_token("http://localhost:8000") == "fake.jwt.token"
     # The refresh token from /auth/login must also be persisted when present.
     entry = cli_auth._load_entry("http://localhost:8000")
@@ -1856,7 +1856,7 @@ def test_cli_accounts_login_wrong_password_surfaces_clean_error(
     import httpx as _httpx
     from click.testing import CliRunner
 
-    from omnigent.cli import cli
+    from agentnexus.cli import cli
 
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -1906,7 +1906,7 @@ def test_cli_accounts_login_network_failure_surfaces_clean_error(
     import httpx as _httpx
     from click.testing import CliRunner
 
-    from omnigent.cli import cli
+    from agentnexus.cli import cli
 
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -1987,7 +1987,7 @@ def test_setup_writes_loopback_cli_token(
     the in-flight ``omnigent run`` is signed in immediately instead of
     401-ing until the next server boot.
     """
-    from omnigent import cli_auth
+    from agentnexus import cli_auth
 
     client = accounts_app_needs_setup
     base_url = "http://localhost:8000"

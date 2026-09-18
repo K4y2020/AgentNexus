@@ -1,10 +1,10 @@
-# Omnigent performance benchmark
+# AgentNexus performance benchmark
 
-Baseline, repeatable latency/throughput numbers for key Omnigent user
+Baseline, repeatable latency/throughput numbers for key AgentNexus user
 journeys, so we can track them over time and catch regressions. Modeled on
 MLflow's `dev/benchmarks/gateway/` workflow.
 
-The harness boots a real `omnigent server`, drives the selected journeys under
+The harness boots a real `agentnexus server`, drives the selected journeys under
 load, prints latency/throughput tables, and writes a versioned JSON report.
 Two families: **HTTP/API journeys** (server + DB, no runner/LLM — fast and
 low-noise) and **full-turn journeys** (a real agent turn through the runner +
@@ -20,24 +20,24 @@ cost SQLite doesn't have. See *Seeding* and *Backends* below.
 
 ```bash
 # All journeys, sequential latency (100 iterations × 3 runs each).
-uv run --no-sync dev/benchmarks/omnigent/run.py
+uv run --no-sync dev/benchmarks/agentnexus/run.py
 
 # A subset, writing a report for CI artifact upload.
-uv run --no-sync dev/benchmarks/omnigent/run.py \
+uv run --no-sync dev/benchmarks/agentnexus/run.py \
     --journeys list_sessions,load_conversation_history \
     --iterations 200 --runs 3 --output bench.json
 
 # Throughput mode: >1 concurrency drives concurrency-safe journeys as load.
-uv run --no-sync dev/benchmarks/omnigent/run.py \
+uv run --no-sync dev/benchmarks/agentnexus/run.py \
     --requests 500 --concurrency 25 --runs 3
 
 # CI gating: exit 1 if a threshold is breached.
-uv run --no-sync dev/benchmarks/omnigent/run.py --max-p50-ms 25 --max-p99-ms 100
+uv run --no-sync dev/benchmarks/agentnexus/run.py --max-p50-ms 25 --max-p99-ms 100
 ```
 
 `--no-sync` runs against the already-installed venv. (A bare `uv run` may try to
 rebuild the project, which fails in a git worktree without a Node web-UI build;
-`OMNIGENT_SKIP_WEB_UI=true uv sync` prepares the venv once, then use
+`AGENTNEXUS_SKIP_WEB_UI=true uv sync` prepares the venv once, then use
 `--no-sync`.)
 
 Key flags (`--help` for all): `--journeys A,B`, `--database-uri URI` (seeded
@@ -79,7 +79,7 @@ lifetime is user-visible streaming latency, and the same interpreter+import
 cost fronts every statusline refresh and per-tool-call policy hook. The
 journey needs no server or runner; registering it here rides hook spawn cost
 on the same nightly/release regression comparison as everything else
-(`omnigent/__init__` re-exports lazily so this stays ~interpreter-sized). The
+(`agentnexus/__init__` re-exports lazily so this stays ~interpreter-sized). The
 import-graph side of the guarantee is pinned deterministically by
 `tests/test_claude_native_message_display_hook.py`.
 
@@ -170,7 +170,7 @@ same daemon process reconnects through its own loop.
 `agents` library + an HTTP call to the mock LLM) — no vendor binary, no external
 process. Native harnesses (e.g. `claude-native`) launch the real vendor CLI
 into a tmux pane, whose startup we don't control, so they're deliberately
-excluded. The mock LLM is zero-latency, so every number is omnigent
+excluded. The mock LLM is zero-latency, so every number is agentnexus
 dispatch/streaming/cancel overhead, not model latency.
 
 Add a journey by registering a `Journey` in `journeys.py` (set `needs_runner`
@@ -204,7 +204,7 @@ How it works, and why it never ships in production:
   it, so a tiny router (`debug_router.py`) exposes it at
   `GET /debug/server-metrics`.
 - That router lives under `dev/`, which `pyproject.toml` excludes from the wheel
-  (`include = ["omnigent*"]`) — a production install can't even import it.
+  (`include = ["agentnexus*"]`) — a production install can't even import it.
 - It's mounted only via the `debug_router_modules` config key, which mirrors the
   existing `policy_modules` load-by-dotted-path seam (`create_app` →
   `_load_debug_routers`). The harness's generated `server.yaml` sets it;
@@ -266,10 +266,10 @@ API (no HTTP, no runner) into the same DB the server then boots against:
 
 ```bash
 # Seed 5000 sessions × 50 items into a SQLite file, then benchmark against it.
-uv run --no-sync dev/benchmarks/omnigent/seed.py \
+uv run --no-sync dev/benchmarks/agentnexus/seed.py \
     --database-uri sqlite:////abs/path/bench.db --sessions 5000 --items-per-session 50 \
     --projects 20 --filed-fraction 0.5
-uv run --no-sync dev/benchmarks/omnigent/run.py \
+uv run --no-sync dev/benchmarks/agentnexus/run.py \
     --database-uri sqlite:////abs/path/bench.db --output bench.json
 ```
 
@@ -440,7 +440,7 @@ seeding.
   SQLite leg only rather than both — wire a runner `--journeys` set into
   `benchmark.yml` when desired.
 - **Simulated provider latency.** The mock LLM returns at ~zero latency, which
-  is what isolates omnigent overhead. A fixed per-response delay knob would let
+  is what isolates agentnexus overhead. A fixed per-response delay knob would let
   turns model end-user wall-clock instead; it's a small change behind the
   `configure_mock` / `set_mock_fallback` seam if that's ever wanted. (Distinct
   from `--network-delay-ms`, which models the *client↔server* hop — see

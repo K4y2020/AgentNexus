@@ -8,9 +8,9 @@ import httpx
 import pytest
 import respx
 
-from omnigent.seedance.bridge import execute_seedance_canvas_edit
-from omnigent.seedance.client import SeedanceError
-from omnigent.seedance.production_gate import (
+from agentnexus.seedance.bridge import execute_seedance_canvas_edit
+from agentnexus.seedance.client import SeedanceError
+from agentnexus.seedance.production_gate import (
     ProductionRejected,
     assert_current,
     storyboard_state_requirements,

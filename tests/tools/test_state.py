@@ -11,7 +11,7 @@ import threading
 from pathlib import Path
 
 import pytest
-from omnigent_client.tools import ToolState
+from agentnexus_client.tools import ToolState
 
 
 @pytest.fixture()

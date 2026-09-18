@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent import (
+from agentnexus import (
     antigravity_native_bridge,
     claude_native_bridge,
     cursor_native_bridge,

@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import command
 from sqlalchemy.engine import Engine
 
-from omnigent.db.utils import (
+from agentnexus.db.utils import (
     _build_alembic_config,
     clear_engine_cache,
     get_or_create_engine,
@@ -100,8 +100,8 @@ def test_backfill_sets_default_scope_for_default_policies(db_engine: Engine) -> 
 
 def test_scope_round_trip_via_store(db_engine: Engine) -> None:
     """scope is returned correctly by the policy store create methods."""
-    from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-    from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+    from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
     uri = str(db_engine.url)
     conv_store = SqlAlchemyConversationStore(uri)
@@ -129,8 +129,8 @@ def test_scope_round_trip_via_store(db_engine: Engine) -> None:
 
 def test_list_defaults_uses_scope_filter(db_engine: Engine) -> None:
     """list_defaults returns only scope='default' policies."""
-    from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-    from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+    from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
     uri = str(db_engine.url)
     conv_store = SqlAlchemyConversationStore(uri)

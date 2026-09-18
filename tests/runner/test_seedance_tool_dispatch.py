@@ -8,12 +8,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     execute_tool,
     should_dispatch_locally,
 )
-from omnigent.spec.types import AgentSpec
-from omnigent.tools.manager import ToolManager
+from agentnexus.spec.types import AgentSpec
+from agentnexus.tools.manager import ToolManager
 
 
 def test_should_dispatch_seedance_locally():
@@ -87,7 +87,7 @@ async def test_seedance_dispatch_success_payload():
     }
 
     with patch(
-        "omnigent.seedance.bridge.execute_seedance_agent_message",
+        "agentnexus.seedance.bridge.execute_seedance_agent_message",
         new=AsyncMock(return_value=mock_result),
     ):
         async with httpx.AsyncClient() as client:
@@ -163,7 +163,7 @@ async def test_seedance_read_canvas_dispatch_success():
     }
 
     with patch(
-        "omnigent.seedance.bridge.read_seedance_canvas_snapshot",
+        "agentnexus.seedance.bridge.read_seedance_canvas_snapshot",
         new=AsyncMock(return_value=mock_result),
     ):
         async with httpx.AsyncClient() as client:
@@ -232,7 +232,7 @@ async def test_seedance_edit_canvas_update_success():
     }
 
     with patch(
-        "omnigent.seedance.bridge.execute_seedance_canvas_edit",
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
         new=AsyncMock(return_value=mock_result),
     ):
         async with httpx.AsyncClient() as client:
@@ -256,7 +256,7 @@ async def test_seedance_edit_canvas_update_success():
 @pytest.mark.asyncio
 async def test_cast_validation_does_not_default_to_video():
     with patch(
-        "omnigent.seedance.bridge.execute_seedance_canvas_edit",
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
         new=AsyncMock(return_value={"status": "validated", "submitted": False}),
     ) as edit:
         async with httpx.AsyncClient() as client:
@@ -276,7 +276,7 @@ async def test_cast_validation_does_not_default_to_video():
 
 @pytest.mark.asyncio
 async def test_generation_catalog_dispatch_is_read_only():
-    with patch("omnigent.seedance.bridge.read_seedance_generation", new=AsyncMock(
+    with patch("agentnexus.seedance.bridge.read_seedance_generation", new=AsyncMock(
         return_value={"status": "completed", "models": [{"value": "test-image"}]}
     )) as read:
         async with httpx.AsyncClient() as client:

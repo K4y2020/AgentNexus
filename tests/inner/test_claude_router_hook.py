@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.claude_model_vocabulary import claude_model_alias
-from omnigent.inner.hook_scripts import claude_router_hook, subagent_router
+from agentnexus.claude_model_vocabulary import claude_model_alias
+from agentnexus.inner.hook_scripts import claude_router_hook, subagent_router
 from tests.inner.conftest import advertise_relay_tools, advertise_router
 
 
@@ -226,7 +226,7 @@ def test_redirect_denies_with_mcp_prefixed_session_create_instruction(
     reason = _redirect_reason(tmp_path, monkeypatch)
 
     # The instruction must name the tool the way Claude advertises it. Claude
-    # exposes Omnigent's MCP tools as ``mcp__omnigent__<tool>``, so the bare
+    # exposes AgentNexus's MCP tools as ``mcp__omnigent__<tool>``, so the bare
     # name it used to quote made the model report the tool as nonexistent and
     # abandon the sub-task (live: session e26d94b2).
     assert "mcp__omnigent__sys_session_create" in reason
@@ -239,7 +239,7 @@ def test_redirect_denies_with_mcp_prefixed_session_create_instruction(
     assert "codex" in reason
     # Claude Code defers MCP schemas behind tool search, so the tool is absent
     # from the up-front list; the reason must say to search rather than assume.
-    assert "omnigent" in reason
+    assert "agentnexus" in reason
     assert "search" in reason.lower()
 
 
@@ -535,7 +535,7 @@ class _FakeOptions:
 
 
 def _install() -> _FakeOptions:
-    from omnigent.inner.claude_sdk_executor import ClaudeSDKExecutor
+    from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
 
     options = _FakeOptions()
     ClaudeSDKExecutor()._install_subagent_router_hook(_FakeSDK(), options, "parent-model")  # type: ignore[arg-type]

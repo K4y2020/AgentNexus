@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runner for the Omnigent host load test — boot a local stack, drive real turns.
+"""Runner for the AgentNexus host load test — boot a local stack, drive real turns.
 
 One command that boots the whole stack, runs the load, and writes a report.
 Because turns execute on the **host** (a runner subprocess it spawns → LLM), and
@@ -47,7 +47,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-_LOCUSTFILE = Path(__file__).with_name("omnigent_load_test.py")
+_LOCUSTFILE = Path(__file__).with_name("agentnexus_load_test.py")
 _RESULTS_ROOT = Path(__file__).with_name("results")
 
 # Prefix locust's --csv writes: "<prefix>_stats.csv", "<prefix>_failures.csv", …
@@ -57,7 +57,7 @@ _CSV_PREFIX = "report"
 def _build_parser() -> argparse.ArgumentParser:
     """Build the runner's argument parser."""
     parser = argparse.ArgumentParser(
-        description="Boot a local Omnigent stack and load-test it with real host turns.",
+        description="Boot a local AgentNexus stack and load-test it with real host turns.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--users", type=int, default=4, help="Concurrent hosts (locust -u).")
@@ -97,7 +97,7 @@ def _resolve_out_dir(out_dir: str | None) -> Path:
         out = Path(out_dir)
     else:
         stamp = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime("%Y%m%d-%H%M%S")
-        out = _RESULTS_ROOT / f"omnigent_load_test-{stamp}"
+        out = _RESULTS_ROOT / f"agentnexus_load_test-{stamp}"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -180,7 +180,7 @@ def _write_run_config(
 ) -> None:
     """Record inputs, resolved locust argv, and outcome (no secrets involved)."""
     config = {
-        "scenario": "omnigent_load_test",
+        "scenario": "agentnexus_load_test",
         "users_hosts": args.users,
         "spawn_rate": args.spawn_rate,
         "run_time": args.run_time,
@@ -271,7 +271,7 @@ def _write_summary(
     lines.append("")
     lines.append(
         "- **turn** is the headline: one full post→idle agent turn that ran on a "
-        "simulated host's runner (mocked LLM), so it is Omnigent's own per-turn "
+        "simulated host's runner (mocked LLM), so it is AgentNexus's own per-turn "
         "overhead, not provider latency."
     )
     lines.append(
@@ -296,7 +296,7 @@ def _write_summary(
 
 async def _boot_and_run(args: argparse.Namespace, out_dir: Path) -> int:
     """Boot the stack, register the agent + mock reply, run locust, write results."""
-    from dev.benchmarks.omnigent.environment import BenchEnvironment
+    from dev.benchmarks.agentnexus.environment import BenchEnvironment
 
     print(
         f"Booting local stack (server + mock LLM) for {args.users} hosts × "

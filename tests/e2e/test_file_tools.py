@@ -154,7 +154,7 @@ def test_list_files_finds_uploaded_file(
 
     upload_resp = http_client.post(
         f"/v1/sessions/{session_id}/resources/files",
-        files={"file": ("test_data.txt", b"Hello from omnigent", "text/plain")},
+        files={"file": ("test_data.txt", b"Hello from agentnexus", "text/plain")},
     )
     upload_resp.raise_for_status()
 

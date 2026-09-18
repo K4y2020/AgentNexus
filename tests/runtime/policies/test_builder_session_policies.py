@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.entities import Policy as StoredPolicy
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.policies.function import FunctionPolicy
-from omnigent.runtime.policies.builder import (
+from agentnexus.entities import Policy as StoredPolicy
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.policies.function import FunctionPolicy
+from agentnexus.runtime.policies.builder import (
     _DEFAULT_POLICY_SPECS_CACHE,
     _SESSION_POLICY_SPECS_CACHE,
     _load_default_policy_specs,
@@ -26,16 +26,16 @@ from omnigent.runtime.policies.builder import (
     invalidate_default_policy_specs_cache,
     invalidate_session_policy_specs_cache,
 )
-from omnigent.spec.types import (
+from agentnexus.spec.types import (
     AgentSpec,
     FunctionPolicySpec,
     FunctionRef,
     GuardrailsSpec,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
 # ── _stored_policy_to_spec ──────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ def test_stored_url_policy_raises() -> None:
         type="url",
         handler="https://example.com/eval",
     )
-    with pytest.raises(OmnigentError) as excinfo:
+    with pytest.raises(AgentNexusError) as excinfo:
         _stored_policy_to_spec(stored)
     assert excinfo.value.code == ErrorCode.INVALID_INPUT
     assert "url" in str(excinfo.value)
@@ -233,7 +233,7 @@ def test_load_session_policy_specs_rejects_enabled_url(db_uri: str) -> None:
         enabled=True,
     )
 
-    with pytest.raises(OmnigentError) as excinfo:
+    with pytest.raises(AgentNexusError) as excinfo:
         _load_session_policy_specs(conv.id, store)
     assert excinfo.value.code == ErrorCode.INVALID_INPUT
 

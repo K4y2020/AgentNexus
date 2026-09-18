@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: omnigent
+  name: agentnexus
 spec:
   template:
     spec:
       securityContext:
         runAsNonRoot: true
       containers:
-        - name: omnigent
+        - name: agentnexus
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

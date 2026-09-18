@@ -6,7 +6,7 @@ import importlib.metadata
 
 import pytest
 
-from omnigent.claude_launcher import (
+from agentnexus.claude_launcher import (
     CLAUDE_LAUNCHER_ENTRY_POINT_GROUP,
     CLAUDE_LAUNCHER_ENV_VAR,
     ClaudeLauncher,

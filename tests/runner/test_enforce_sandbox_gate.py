@@ -21,8 +21,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import (
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import (
     AgentSpec,
     ExecutorSpec,
     FunctionPolicySpec,
@@ -139,7 +139,7 @@ def _spec_with_enforce_sandbox(
     :returns: An ``AgentSpec`` with guardrails containing the
         ``enforce_sandbox`` policy.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     factory_args: dict[str, Any] = {
         "sandbox_type": sandbox_type,
@@ -165,7 +165,7 @@ def _spec_with_enforce_sandbox(
                     name="force_bwrap",
                     on=None,
                     function=FunctionRef(
-                        path="omnigent.policies.builtins.safety.enforce_sandbox",
+                        path="agentnexus.policies.builtins.safety.enforce_sandbox",
                         arguments=factory_args,
                     ),
                 ),
@@ -260,7 +260,7 @@ async def test_enforce_sandbox_no_policy_leaves_spec_unchanged() -> None:
     Control test: ensures the gate is a no-op when no policy applies.
     If this fails, the gate is mutating specs unconditionally.
     """
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
 
     spec = AgentSpec(
         spec_version=1,

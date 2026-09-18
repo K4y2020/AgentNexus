@@ -11,8 +11,8 @@ The stack each CUJ runs against:
   yielding, log tail on timeout, SIGTERM teardown.
 * :func:`routing_host` — a real ``omnigent host`` daemon registered against
   that server, under the developer's real ``$HOME`` (the ``claude`` / ``codex``
-  logins cannot be relocated) but an isolated ``OMNIGENT_CONFIG_HOME`` /
-  ``OMNIGENT_DATA_DIR``. It never reads or writes ``~/.omnigent``.
+  logins cannot be relocated) but an isolated ``AGENTNEXUS_CONFIG_HOME`` /
+  ``AGENTNEXUS_DATA_DIR``. It never reads or writes ``~/.agentnexus``.
 
 The panes launched by these tests do real inference on the gateway, so no CUJ
 asserts on answer content — only on routing artifacts. That is deliberate: a
@@ -37,7 +37,7 @@ import httpx
 import pytest
 import yaml
 
-from omnigent.runner.identity import OMNIGENT_INTERNAL_WS_ORIGIN
+from agentnexus.runner.identity import AGENTNEXUS_INTERNAL_WS_ORIGIN
 from tests.e2e.routing._helpers import POLL_INTERVAL_S, wait_for
 from tests.e2e.routing._mock_router import MockRouter, serve_mock_router
 
@@ -45,15 +45,15 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 #: Opt-in gate. This suite launches real ``claude`` / ``codex`` TUIs against a
 #: real gateway, so it never runs in CI by accident.
-_RUN_GATE_ENV = "OMNIGENT_E2E_SMART_ROUTING"
+_RUN_GATE_ENV = "AGENTNEXUS_E2E_SMART_ROUTING"
 
 #: Second gate for the repeat-run reliability variants (CUJ 4's 5x nightly
 #: form), which multiply an already slow suite.
-RELIABILITY_GATE_ENV = "OMNIGENT_E2E_RELIABILITY"
+RELIABILITY_GATE_ENV = "AGENTNEXUS_E2E_RELIABILITY"
 
 #: Where the provider config for the host comes from. The routing worktree's
 #: isolated dev config is the default; override to point at another workspace.
-_PROVIDER_CONFIG_ENV = "OMNIGENT_E2E_ROUTING_PROVIDER_CONFIG"
+_PROVIDER_CONFIG_ENV = "AGENTNEXUS_E2E_ROUTING_PROVIDER_CONFIG"
 
 #: Seconds to wait for the server's health endpoint.
 _SERVER_HEALTH_TIMEOUT_S = 60.0
@@ -125,7 +125,7 @@ def _provider_block() -> dict[str, Any]:
     :raises pytest.skip.Exception: When no provider config can be found.
     """
     override = os.environ.get(_PROVIDER_CONFIG_ENV)
-    candidates = [Path(override)] if override else [_REPO_ROOT / ".omnigent-local" / "config.yaml"]
+    candidates = [Path(override)] if override else [_REPO_ROOT / ".agentnexus-local" / "config.yaml"]
     for path in candidates:
         if not path.is_file():
             continue
@@ -179,13 +179,13 @@ def routing_server(
         )
     )
 
-    env = {**os.environ, "PYTHONPATH": str(_REPO_ROOT), "OMNIGENT_LOG_TO_STDERR": "1"}
+    env = {**os.environ, "PYTHONPATH": str(_REPO_ROOT), "AGENTNEXUS_LOG_TO_STDERR": "1"}
     log_handle = open(log_path, "w")  # noqa: SIM115 — lives for the subprocess's lifetime
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),
@@ -264,7 +264,7 @@ def routing_client(routing_server: str) -> Iterator[httpx.Client]:
     with httpx.Client(
         base_url=routing_server,
         timeout=120,
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
     ) as client:
         yield client
 
@@ -280,7 +280,7 @@ def routing_host(
     The daemon inherits the real ``$HOME`` — the ``claude`` and ``codex``
     logins live there and cannot be relocated — but its omnigent config home
     and data dir are temporary, seeded with only the gateway ``providers:``
-    block. ``~/.omnigent/config.yaml`` is never read or written.
+    block. ``~/.agentnexus/config.yaml`` is never read or written.
 
     :param routing_server: Server URL the daemon registers with.
     :param routing_client: Used to poll ``GET /v1/hosts``.
@@ -298,17 +298,17 @@ def routing_host(
 
     env = {
         **os.environ,
-        "OMNIGENT_CONFIG_HOME": str(config_home),
-        "OMNIGENT_DATA_DIR": str(root / "data"),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_DATA_DIR": str(root / "data"),
         "PYTHONPATH": str(_REPO_ROOT),
-        "OMNIGENT_LOG_TO_STDERR": "1",
+        "AGENTNEXUS_LOG_TO_STDERR": "1",
     }
     # Claude Code refuses to start a nested session; the agent process running
     # this suite may export the marker.
     env.pop("CLAUDECODE", None)
     log_handle = open(log_path, "w")  # noqa: SIM115 — lives for the subprocess's lifetime
     proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.host._daemon_entry", "--server", routing_server],
+        [sys.executable, "-m", "agentnexus.host._daemon_entry", "--server", routing_server],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=log_handle,

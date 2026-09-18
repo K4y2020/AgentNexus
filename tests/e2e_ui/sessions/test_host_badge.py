@@ -363,7 +363,7 @@ def test_host_badge_click_shows_host_reconnect_instructions(
     expect(page.get_by_test_id("reconnect-session-description")).to_contain_text(
         "This session's host"
     )
-    expect(page.get_by_test_id("reconnect-session-command")).to_contain_text("omnigent host")
+    expect(page.get_by_test_id("reconnect-session-command")).to_contain_text("agentnexus host")
 
 
 def test_host_badge_labels_sandbox_session_by_provider(

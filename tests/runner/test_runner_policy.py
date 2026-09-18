@@ -1,6 +1,6 @@
 """Tests for ``_evaluate_policy_via_omnigent`` fail-open / fail-closed.
 
-The runner proxies harness policy-evaluation requests to the Omnigent
+The runner proxies harness policy-evaluation requests to the AgentNexus
 server and posts the verdict back to the harness. When that round-trip
 errors or returns non-200 the default verdict must be *phase-aware*:
 
@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner.app import _evaluate_policy_via_omnigent
+from agentnexus.runner.app import _evaluate_policy_via_omnigent
 
 
 class _RaisingServerClient:
@@ -55,7 +55,7 @@ class _CapturingHarnessClient:
 async def _run(server_client: Any, phase: str) -> dict[str, Any]:
     """Drive the proxy once and return the verdict body posted to the harness.
 
-    :param server_client: Stub Omnigent-server client.
+    :param server_client: Stub AgentNexus-server client.
     :param phase: Proto phase string, e.g. ``"PHASE_TOOL_CALL"``.
     :returns: The single ``policy_verdict`` body the harness received.
     """
@@ -127,7 +127,7 @@ async def test_success_deny_verdict_passed_through() -> None:
 )
 async def test_missing_context_tool_call_fails_closed(phase: str, expected_action: str) -> None:
     """No active turn context defaults TOOL_CALL to DENY, advisory phases to ALLOW."""
-    from omnigent.runtime.harnesses._executor_adapter import ExecutorAdapter
+    from agentnexus.runtime.harnesses._executor_adapter import ExecutorAdapter
 
     adapter = ExecutorAdapter(executor_factory=lambda: None)  # type: ignore[arg-type,return-value]
     # No turn is active: _current_ctx is None.

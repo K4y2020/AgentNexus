@@ -138,7 +138,7 @@ _SESSION_BODY = {
     "created_at": 1704067200,
     "updated_at": 1704067200,
     # claude-native wrapper: drives the composer gear + model/effort label.
-    "labels": {"omnigent.wrapper": "claude-code-native-ui"},
+    "labels": {"agentnexus.wrapper": "claude-code-native-ui"},
     "harness": "claude",
     "llm_model": "system.ai.claude-sonnet-5",
     "model_options": _MODEL_OPTIONS,

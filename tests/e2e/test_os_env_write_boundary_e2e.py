@@ -55,7 +55,7 @@ _WORKTREE_GUARD_CONFIG: dict[str, Any] = {
     "policies": {
         "confine_writes_to_workspace": {
             "type": "function",
-            "handler": "omnigent.inner.nessie.policies.worktree_guard",
+            "handler": "agentnexus.inner.nessie.policies.worktree_guard",
             "factory_params": {
                 "allowed_root": "workspace",
                 "deny_reason": "Writes must stay inside the workspace.",

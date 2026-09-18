@@ -12,12 +12,12 @@ from typing import Any
 
 import pytest
 
-from omnigent.native_server_transport import (
+from agentnexus.native_server_transport import (
     NativeLaunchConfig,
     NativePermissionDecision,
     NativePrompt,
 )
-from omnigent.opencode_http_transport import OpenCodeHttpTransport, build_prompt_payload
+from agentnexus.opencode_http_transport import OpenCodeHttpTransport, build_prompt_payload
 
 # ── build_prompt_payload + part/model helpers ──────────────────────────────
 

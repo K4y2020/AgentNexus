@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.server.helpers import start_session_stream_collector
@@ -109,15 +109,15 @@ class _HeartbeatRunnerClient:
 @pytest.mark.asyncio
 async def test_runner_relay_ready_waits_for_runner_heartbeat() -> None:
     """
-    Omnigent relay readiness is set only after the runner stream heartbeat.
+    AgentNexus relay readiness is set only after the runner stream heartbeat.
 
     Production breakage this catches: accepting a user message after
-    merely scheduling the relay task, before Omnigent has actually subscribed
+    merely scheduling the relay task, before AgentNexus has actually subscribed
     to runner output. A fast harness can otherwise complete before the
     relay is listening, producing a successful CLI run with empty
     stdout.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     sessions_module._runner_relay_tasks.clear()
     release = asyncio.Event()
@@ -266,8 +266,8 @@ async def test_relay_text_flush_publishes_persisted_item(db_uri: str) -> None:
     reconciliation splices the persisted copy in next to it as a
     duplicate bubble (the fork-to-relay-agent duplicate-response bug).
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     sessions_module._runner_relay_tasks.clear()
     store = SqlAlchemyConversationStore(db_uri)
@@ -433,11 +433,11 @@ async def test_relay_publishes_failed_status_on_tunnel_close(
     stream truncated with no error event. The reconnect grace is zeroed
     so the drop is terminal on the first attempt.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -534,11 +534,11 @@ async def test_relay_persists_disconnect_error_labels_on_tunnel_close(
     "Failed"). The code must be ``runner_disconnected`` so the UI can
     branch on it before the generic failed path.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -607,11 +607,11 @@ async def test_runner_recovery_clears_persisted_disconnect_error_labels(
     This asserts recovery clears the labels so the projection returns
     ``None`` again.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -684,8 +684,8 @@ async def test_relay_suppresses_disconnect_error_on_intentional_stop() -> None:
     quiet ``idle`` (no ``runner_disconnected`` status, no persisted error
     labels) rather than rendering "Error · runner_disconnected".
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     sessions_module._runner_relay_tasks.clear()
     gate = asyncio.Event()
@@ -814,11 +814,11 @@ async def test_relay_running_edge_clears_stale_intentional_stop_marker(
     later turn still surfaces ``runner_disconnected`` rather than being
     silently downgraded to a quiet idle.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -901,11 +901,11 @@ async def test_relay_stays_quiet_when_runner_leaves_an_idle_session(
     the drop and asserts the relay publishes no failure and persists no
     error labels — the disconnect surfaces through liveness instead.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -978,11 +978,11 @@ async def test_relay_fails_mid_turn_session_from_the_row_when_the_cache_is_cold(
     with no error. The durable ``live_status`` on the row is the fallback,
     matching ``_mark_runner_sessions_offline_impl``.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -1037,11 +1037,11 @@ async def test_relay_reports_the_drop_when_the_live_status_read_fails(
     ``failed`` status exists to prevent. An indeterminate answer therefore
     reports the drop, as the ungated relay always did.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -1126,10 +1126,10 @@ async def test_relay_retries_transport_drop_within_grace(
     its stream instead of publishing ``failed``/``runner_disconnected``
     for a blip the next attempt rides out.
     """
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration._RELAY_RETRY_INTERVAL_S",
+        "agentnexus.server.routes._sessions.orchestration._RELAY_RETRY_INTERVAL_S",
         0.01,
     )
     sessions_module._runner_relay_tasks.clear()
@@ -1230,9 +1230,9 @@ async def test_mark_runner_sessions_offline_only_fails_interrupted_turns(
     fan-out carried no ``ErrorDetail`` — left a failure the UI could not
     tell from a real one and the reconnect recovery could not clear.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes import sessions as sessions_module
-    from omnigent.server.schemas import ErrorDetail
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes import sessions as sessions_module
+    from agentnexus.server.schemas import ErrorDetail
 
     session_id = "b04d1f3c9a5e4f7a8c2b6d0e1f3a5c79"
     store = _RecordingLabelStore()
@@ -1285,12 +1285,12 @@ async def test_relay_does_not_fail_turn_during_server_shutdown(
     give-up path must publish no ``failed`` status and persist no
     ``runner_disconnected`` labels for that self-inflicted loss.
     """
-    from omnigent.runtime import session_stream
-    from omnigent.server import shutdown_state
-    from omnigent.server.routes import sessions as sessions_module
+    from agentnexus.runtime import session_stream
+    from agentnexus.server import shutdown_state
+    from agentnexus.server.routes import sessions as sessions_module
 
     monkeypatch.setattr(
-        "omnigent.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
+        "agentnexus.server.routes._sessions.orchestration.RUNNER_DISCONNECT_GRACE_S",
         0.0,
     )
     sessions_module._runner_relay_tasks.clear()

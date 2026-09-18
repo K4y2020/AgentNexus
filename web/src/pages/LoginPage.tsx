@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { getMe, login as loginRequest } from "@/lib/accountsApi";
 
 const DEFAULT_RETURN_TO = "/";
-const LAST_USERNAME_KEY = "omnigent.lastLoginUsername";
+const LAST_USERNAME_KEY = "agentnexus.lastLoginUsername";
 
 function readLastUsername(): string {
   try {
@@ -138,8 +138,8 @@ export function LoginPage() {
       // Centered auth page (no header / native bars): just keep the card clear
       // of the notch + home indicator. 0 off the iOS shell. See index.css.
       style={{
-        paddingTop: "var(--omnigent-safe-top)",
-        paddingBottom: "var(--omnigent-safe-bottom)",
+        paddingTop: "var(--agentnexus-safe-top)",
+        paddingBottom: "var(--agentnexus-safe-bottom)",
       }}
     >
       <div className="w-full max-w-sm space-y-6">

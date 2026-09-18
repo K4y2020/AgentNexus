@@ -1,6 +1,6 @@
 """Keep the endpoint catalog honest against the client's real call sites.
 
-``test_api_spec_drift.py`` reconciles the catalog (:data:`OMNIGENT_ENDPOINTS`)
+``test_api_spec_drift.py`` reconciles the catalog (:data:`AGENTNEXUS_ENDPOINTS`)
 against the SERVER's ``openapi.json``. But that only guards the endpoints the
 catalog already lists — if someone adds a NEW ``self._request("POST", "/v1/…")``
 and forgets to add it to the catalog, the drift test stays green while the
@@ -9,16 +9,16 @@ catalog listed a phantom ``/oauth/device/token`` while the real ``/oauth/token``
 ``/oauth/revoke``, ``/auth/cli-login``, ``/auth/cli-poll`` calls went unlisted.)
 
 This test closes that gap from the client side: it parses the modules that talk
-to the Omnigent server with ``ast``, extracts every HTTP call, normalizes each
+to the AgentNexus server with ``ast``, extracts every HTTP call, normalizes each
 path to the catalog's ``{param}`` template form, and asserts every one appears in
 the catalog. A new/renamed endpoint that isn't cataloged fails here with a
-``file:line`` pointer to ``fakes.py``'s ``OMNIGENT_ENDPOINTS``.
+``file:line`` pointer to ``fakes.py``'s ``AGENTNEXUS_ENDPOINTS``.
 
 Scope: the two modules whose httpx client is bound to the OMNIGENT SERVER —
 ``omnigent.py`` (the main API surface, via the ``_request`` / ``_get_list`` /
 ``_get_json`` / ``stream`` helpers) and ``oauth.py`` (the login flow, via direct
 ``client.get`` / ``client.post`` calls). ``databricks_oauth.py`` is deliberately
-excluded: its client targets the Databricks WORKSPACE, not the Omnigent server.
+excluded: its client targets the Databricks WORKSPACE, not the AgentNexus server.
 """
 
 from __future__ import annotations
@@ -26,11 +26,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from fakes import OMNIGENT_ENDPOINTS
+from fakes import AGENTNEXUS_ENDPOINTS
 
-_SRC = Path(__file__).resolve().parents[1] / "src" / "omnigent_slack"
-# Modules whose HTTP client is bound to the Omnigent server base URL.
-_SCANNED_SOURCES = [_SRC / "omnigent.py", _SRC / "oauth.py"]
+_SRC = Path(__file__).resolve().parents[1] / "src" / "agentnexus_slack"
+# Modules whose HTTP client is bound to the AgentNexus server base URL.
+_SCANNED_SOURCES = [_SRC / "agentnexus.py", _SRC / "oauth.py"]
 
 # Helper calls where (method, path) sit at args 0, 1 (omnigent.py):
 #   _request(method, url, ...) ; self._client.stream(method, url, …)
@@ -126,8 +126,8 @@ def _literal_method(node: ast.expr) -> str:
 
 
 # Catalog paths, normalized the same way, keyed for lookup.
-_CATALOG_PATHS = {(m, _normalize(p)) for m, p, _documented in OMNIGENT_ENDPOINTS}
-_CATALOG_PATHS_ANY_METHOD = {_normalize(p) for _m, p, _documented in OMNIGENT_ENDPOINTS}
+_CATALOG_PATHS = {(m, _normalize(p)) for m, p, _documented in AGENTNEXUS_ENDPOINTS}
+_CATALOG_PATHS_ANY_METHOD = {_normalize(p) for _m, p, _documented in AGENTNEXUS_ENDPOINTS}
 
 
 def test_client_source_is_scannable() -> None:
@@ -147,7 +147,7 @@ def test_client_source_is_scannable() -> None:
 
 
 def test_every_client_endpoint_is_cataloged() -> None:
-    """Every endpoint the client calls appears in OMNIGENT_ENDPOINTS.
+    """Every endpoint the client calls appears in AGENTNEXUS_ENDPOINTS.
 
     Fails when a new/renamed HTTP call (``_request`` / ``_get_list`` /
     ``_get_json`` / ``stream`` in omnigent.py, or a direct ``client.<verb>`` in
@@ -168,7 +168,7 @@ def test_every_client_endpoint_is_cataloged() -> None:
     assert not missing, (
         "The client calls endpoints missing from the catalog:\n  "
         + "\n  ".join(missing)
-        + "\n\nAdd them to OMNIGENT_ENDPOINTS in tests/fakes.py (with the correct "
+        + "\n\nAdd them to AGENTNEXUS_ENDPOINTS in tests/fakes.py (with the correct "
         "documented=True/False), so the OpenAPI drift test covers them too."
     )
 
@@ -188,7 +188,7 @@ def test_catalog_has_no_phantom_endpoints() -> None:
     scanned = {(m, p) for m, p, _loc in _extract_client_calls()}
     scannable_prefixes = ("/v1", "/oauth", "/auth", "/health")
     phantom: list[str] = []
-    for method, path, _documented in OMNIGENT_ENDPOINTS:
+    for method, path, _documented in AGENTNEXUS_ENDPOINTS:
         norm = _normalize(path)
         if not norm.startswith(scannable_prefixes):
             continue
@@ -197,6 +197,6 @@ def test_catalog_has_no_phantom_endpoints() -> None:
     assert not phantom, (
         "Catalog lists endpoints the client never calls (phantoms):\n  "
         + "\n  ".join(phantom)
-        + "\n\nRemove them from OMNIGENT_ENDPOINTS in tests/fakes.py, or fix the "
+        + "\n\nRemove them from AGENTNEXUS_ENDPOINTS in tests/fakes.py, or fix the "
         "path to match the real call site."
     )

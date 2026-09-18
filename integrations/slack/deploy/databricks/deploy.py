@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the Omnigent Slack bot to a Databricks App via Asset Bundles.
+"""Deploy the AgentNexus Slack bot to a Databricks App via Asset Bundles.
 
 Builds a wheel for the ``omnigent-slack`` package, generates an app-level
 ``pyproject.toml`` that depends on that wheel (with the bot's runtime deps
@@ -40,11 +40,11 @@ from pathlib import Path
 import tomllib
 
 # Must match resources.apps.<key> and bundle.name in databricks.yml.
-_BUNDLE_RESOURCE_KEY = "omnigent-slack"
+_BUNDLE_RESOURCE_KEY = "agentnexus-slack"
 
 # Distribution / import names of the package being deployed.
-_DIST_NAME = "omnigent-slack"
-_WHEEL_PREFIX = "omnigent_slack-"
+_DIST_NAME = "agentnexus-slack"
+_WHEEL_PREFIX = "agentnexus_slack-"
 
 _APP_REQUIRES_PYTHON = ">=3.12,<3.13"
 
@@ -179,7 +179,7 @@ def _write_app_pyproject(wheel: Path, deploy_version: str) -> None:
     dep_lines = "".join(f"  {_toml_string(d)},\n" for d in deps)
     pyproject = (
         "[project]\n"
-        'name = "omnigent-slack-databricks-app"\n'
+        'name = "agentnexus-slack-databricks-app"\n'
         'version = "0.0.0"\n'
         f"requires-python = {_toml_string(_APP_REQUIRES_PYTHON)}\n"
         "dependencies = [\n"
@@ -239,7 +239,7 @@ def main() -> None:
     parser.add_argument(
         "--server-url",
         required=True,
-        help="Base URL of the Omnigent server app the bot talks to.",
+        help="Base URL of the AgentNexus server app the bot talks to.",
     )
     parser.add_argument(
         "--oauth-client-id",

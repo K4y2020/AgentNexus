@@ -24,7 +24,7 @@ These tests pin two contracts:
 
 from __future__ import annotations
 
-from omnigent_ui_sdk import TerminalHost
+from agentnexus_ui_sdk import TerminalHost
 
 
 def _ansi_sequences() -> dict[str, object]:

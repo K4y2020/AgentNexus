@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.tools.base import Tool, ToolContext, is_valid_tool_name
+from agentnexus.tools.base import Tool, ToolContext, is_valid_tool_name
 
 # ── is_valid_tool_name ───────────────────────────────────
 

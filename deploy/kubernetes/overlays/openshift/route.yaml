@@ -1,14 +1,14 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: omnigent
+  name: agentnexus
   labels:
-    app: omnigent
+    app: agentnexus
 spec:
-  host: omnigent.apps.example.com
+  host: agentnexus.apps.example.com
   to:
     kind: Service
-    name: omnigent
+    name: agentnexus
     weight: 100
   port:
     targetPort: http

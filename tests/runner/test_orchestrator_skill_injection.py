@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import omnigent
-from omnigent.inner.codex_executor import codex_skill_sources, select_codex_skill_dirs
-from omnigent.runner.native.orchestration import (
+import agentnexus
+from agentnexus.inner.codex_executor import codex_skill_sources, select_codex_skill_dirs
+from agentnexus.runner.native.orchestration import (
     _ensure_orchestrator_skills_in_bundle,
 )
 

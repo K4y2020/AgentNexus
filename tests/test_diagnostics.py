@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent import diagnostics
-from omnigent.diagnostics import collect_snapshot
-from omnigent.version import VERSION
+from agentnexus import diagnostics
+from agentnexus.diagnostics import collect_snapshot
+from agentnexus.version import VERSION
 
 
 def test_snapshot_local_only_has_no_server_version(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OMNIGENT_AUTH_PROVIDER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_AUTH_PROVIDER", raising=False)
     snap = collect_snapshot(server_url=None)
     assert snap["cli_version"] == VERSION
     assert snap["server_url"] is None
@@ -35,7 +35,7 @@ def test_snapshot_reports_only_known_keys() -> None:
 
 
 def test_local_auth_source_reflects_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "OIDC")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "OIDC")
     snap = collect_snapshot(server_url=None)
     assert snap["auth_source"] == "oidc"
     assert snap["auth_source_origin"] == "local-env"
@@ -71,7 +71,7 @@ def test_auth_source_derived_from_info(info: dict, expected: str) -> None:
 
 
 def test_unreachable_server_falls_back_to_local(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "header")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "header")
     monkeypatch.setattr(diagnostics, "_fetch_server_info", lambda url, *, timeout: None)
     snap = collect_snapshot(server_url="http://127.0.0.1:6767")
     assert snap["server_version"] is None

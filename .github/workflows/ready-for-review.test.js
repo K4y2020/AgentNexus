@@ -190,7 +190,7 @@ const verdictOf = (rows, n) => (rows.find((r) => r[0] === `#${n}`) || [])[1];
     ["MEMBER", { assoc: "MEMBER" }],
     ["OWNER", { assoc: "OWNER" }],
     ["COLLABORATOR", { assoc: "COLLABORATOR" }],
-    ["a bot", { bot: true, author: "omnigent-ci[bot]" }],
+    ["a bot", { bot: true, author: "agentnexus-ci[bot]" }],
   ]) {
     const { labeled, rows } = await run([pr({ number: 30, ...opts })], {
       linked: { 30: 1 },

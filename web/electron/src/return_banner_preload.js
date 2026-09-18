@@ -8,13 +8,13 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("omnigentReturnBanner", {
+contextBridge.exposeInMainWorld("agentnexusReturnBanner", {
   /** Navigate the parent window back to the remembered server URL. */
   goBack: () => {
-    ipcRenderer.send("omnigent:return-banner-go-back");
+    ipcRenderer.send("agentnexus:return-banner-go-back");
   },
   /** Hide the banner without navigating. */
   dismiss: () => {
-    ipcRenderer.send("omnigent:return-banner-dismiss");
+    ipcRenderer.send("agentnexus:return-banner-dismiss");
   },
 });

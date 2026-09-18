@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlalchemy as sa
 from alembic import command
 
-from omnigent.db.utils import _build_alembic_config, clear_engine_cache
+from agentnexus.db.utils import _build_alembic_config, clear_engine_cache
 
 
 def _upgrade(uri: str, engine: sa.Engine, revision: str) -> None:

@@ -158,7 +158,7 @@ def create_app() -> FastAPI:
         """
         Accept a harness session event.
 
-        :param conversation_id: Omnigent conversation id, e.g.
+        :param conversation_id: AgentNexus conversation id, e.g.
             ``"conv_cancel"``.
         :param request: FastAPI request handle.
         :returns: Empty ``204 No Content`` response.

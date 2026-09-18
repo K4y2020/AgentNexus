@@ -5,7 +5,7 @@
 // session has no per-tab view selection; AppShell's sessionStorage state still
 // wins after the user switches a particular chat.
 
-const STORAGE_KEY = "omnigent:default-transcript-view";
+const STORAGE_KEY = "agentnexus:default-transcript-view";
 
 export const transcriptViewDefaults = ["chat", "terminal"] as const;
 export type TranscriptViewDefault = (typeof transcriptViewDefaults)[number];

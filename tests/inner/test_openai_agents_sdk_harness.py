@@ -18,8 +18,8 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.inner import openai_agents_sdk_harness
-from omnigent.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.inner import openai_agents_sdk_harness
+from agentnexus.runtime.harnesses import _HARNESS_MODULES
 
 
 def test_harness_module_registered_in_module_registry() -> None:
@@ -28,12 +28,12 @@ def test_harness_module_registered_in_module_registry() -> None:
     Without this entry, the runner subprocess can't find the wrap
     when AP-side tries to spawn it for an
     ``executor.harness == "openai-agents"`` spec. The registry key
-    matches the Omnigent YAML spelling (no ``-sdk`` suffix); the
+    matches the AgentNexus YAML spelling (no ``-sdk`` suffix); the
     Python module name retains ``_sdk`` because the underlying
     package is ``openai-agents`` and the executor class is
     ``OpenAIAgentsSDKExecutor``.
     """
-    assert _HARNESS_MODULES.get("openai-agents") == "omnigent.inner.openai_agents_sdk_harness"
+    assert _HARNESS_MODULES.get("openai-agents") == "agentnexus.inner.openai_agents_sdk_harness"
 
 
 def test_create_app_returns_fastapi_with_required_routes() -> None:
@@ -106,7 +106,7 @@ def test_executor_factory_reads_databricks_profile_env(
         captured["reasoning_item_id_policy"] = reasoning_item_id_policy
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -135,7 +135,7 @@ def test_executor_factory_use_responses_default_true(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -168,7 +168,7 @@ def test_executor_factory_databricks_kimi_defaults_to_chat_completions(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -221,7 +221,7 @@ def test_executor_factory_non_gpt_databricks_defaults_to_chat_completions(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -247,7 +247,7 @@ def test_executor_factory_databricks_kimi_respects_truthy_use_responses_env(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -285,7 +285,7 @@ def test_use_responses_env_var_truthy_parsing(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -305,7 +305,7 @@ def test_executor_factory_threads_reasoning_item_id_policy(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()
@@ -338,7 +338,7 @@ def test_executor_factory_no_env_returns_blank_config(
         captured.update(kwargs)
 
     with patch(
-        "omnigent.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
         _fake_init,
     ):
         openai_agents_sdk_harness._build_openai_agents_sdk_executor()

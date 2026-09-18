@@ -49,7 +49,7 @@ export type LivenessRow = Pick<Conversation, "host_id" | "permission_level" | "c
   kind?: "default" | "sub_agent";
   /**
    * Whether this session was imported from a local harness transcript (the
-   * `omnigent.import.source` label). An import has no runner booting, so it
+   * `agentnexus.import.source` label). An import has no runner booting, so it
    * must skip the cold-boot startup grace — otherwise it shows "Connecting…"
    * for {@link STARTING_GRACE_S} before settling to `local_stranded`, when it
    * should offer the resume picker immediately. Absent ⇒ treated `false`.
@@ -58,7 +58,7 @@ export type LivenessRow = Pick<Conversation, "host_id" | "permission_level" | "c
 };
 
 /** Label marking a session imported from a local harness transcript. */
-export const IMPORT_SOURCE_LABEL_KEY = "omnigent.import.source";
+export const IMPORT_SOURCE_LABEL_KEY = "agentnexus.import.source";
 
 /**
  * Build a {@link LivenessRow} from the single-session snapshot

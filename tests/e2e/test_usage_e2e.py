@@ -21,7 +21,7 @@ import httpx
 import pytest
 import yaml
 
-from omnigent import codex_native_forwarder
+from agentnexus import codex_native_forwarder
 
 _OWNER_EMAIL = "usage-owner@e2e.test"
 _AGENT_NAME = "e2e-usage-test"
@@ -33,7 +33,7 @@ def _build_minimal_agent_bundle() -> bytes:
         {
             "spec_version": 1,
             "name": _AGENT_NAME,
-            "executor": {"type": "omnigent", "config": {"harness": "openai-agents"}},
+            "executor": {"type": "agentnexus", "config": {"harness": "openai-agents"}},
             "llm": {"model": _AGENT_NAME, "connection": {"api_key": "test-key"}},
         }
     ).encode()

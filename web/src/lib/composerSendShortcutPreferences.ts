@@ -1,4 +1,4 @@
-export const COMPOSER_SEND_SHORTCUT_STORAGE_KEY = "omnigent:composer-submit-with-mod-enter";
+export const COMPOSER_SEND_SHORTCUT_STORAGE_KEY = "agentnexus:composer-submit-with-mod-enter";
 
 export const DEFAULT_SUBMIT_WITH_MOD_ENTER = false;
 

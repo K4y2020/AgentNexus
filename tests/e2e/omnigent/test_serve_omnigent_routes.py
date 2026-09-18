@@ -4,10 +4,10 @@ Migrated to mock LLM: the test only boots the server and probes
 HTTP routes -- no LLM calls are made, so mock credentials suffice.
 
 **What breaks if this fails:**
-- The Omnigent mode dispatch site at ``_serve_agent`` stops calling into
+- The AgentNexus mode dispatch site at ``_serve_agent`` stops calling into
   omnigent and falls back to the legacy ``create_app``.
 - The shim's ``_omnigent_register_yaml_bundle`` stops registering
-  the synthesized bundle with Omnigent' ``AgentStore``.
+  the synthesized bundle with AgentNexus' ``AgentStore``.
 - The shim's YAML translation pipeline regresses.
 """
 
@@ -25,7 +25,7 @@ from typing import Any
 import httpx
 import pytest
 
-from tests.e2e.omnigent._snapshot import compare_snapshot
+from tests.e2e.agentnexus._snapshot import compare_snapshot
 
 _YAML_RELPATH = ("tests", "resources", "examples", "hello_world.yaml")
 
@@ -50,7 +50,7 @@ def _omnigent_serve_omnigent(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "server",
             "--agent",
             str(yaml_path),
@@ -80,14 +80,14 @@ def _wait_for_health(
     timeout: float,
     proc: subprocess.Popen[str],
 ) -> None:
-    """Poll Omnigent' ``/health`` until the server responds 200."""
+    """Poll AgentNexus' ``/health`` until the server responds 200."""
     deadline = time.monotonic() + timeout
     last_error: str | None = None
     while time.monotonic() < deadline:
         if proc.poll() is not None:
             output = proc.stdout.read() if proc.stdout is not None else "<no output>"
             raise AssertionError(
-                f"omnigent server --agent exited early with code "
+                f"agentnexus server --agent exited early with code "
                 f"{proc.returncode} before /health became ready.\n\n"
                 f"Server output:\n{output}"
             )
@@ -101,7 +101,7 @@ def _wait_for_health(
             last_error = f"HTTP {resp.status_code}"
         time.sleep(_POLL_INTERVAL_S)
     pytest.fail(
-        f"omnigent server --agent did not respond on /health within "
+        f"agentnexus server --agent did not respond on /health within "
         f"{timeout}s (last_error={last_error!r})."
     )
 

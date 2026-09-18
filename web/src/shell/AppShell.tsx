@@ -464,7 +464,7 @@ export function AppShell() {
   // sessions OR the per-session snapshot (``activeSession``) for ALL
   // sessions including children. The sidebar list omits child (sub-agent)
   // rows, so for a user-added agent ``activeConv`` is null and only the
-  // snapshot carries ``omnigent.ui``/``omnigent.wrapper`` — without
+  // snapshot carries ``agentnexus.ui``/``agentnexus.wrapper`` — without
   // this merge an added claude-native agent loses its terminal-first
   // toggle. Snapshot wins on conflict; spreading undefined is a no-op.
   const sessionLabels = { ...activeConv?.labels, ...activeSession?.labels };
@@ -491,13 +491,13 @@ export function AppShell() {
     setCanvasDialogOpen(false);
     setReviewDialogOpen(false);
   }, [conversationId]);
-  const terminalFirst = sessionLabels["omnigent.ui"] === "terminal";
-  const isClaudeNative = sessionLabels["omnigent.wrapper"] === "claude-code-native-ui";
+  const terminalFirst = sessionLabels["agentnexus.ui"] === "terminal";
+  const isClaudeNative = sessionLabels["agentnexus.wrapper"] === "claude-code-native-ui";
   // Native-CLI wrapper of either family. Keys harness behavior gates
   // (composer slash commands, `/model`); terminal-first SDK sessions
   // (embedded Omnigent REPL terminal) have NO wrapper label and must
   // keep regular chat behavior. See TerminalFirstContext.tsx.
-  const isNativeWrapper = isNativeWrapperLabel(sessionLabels["omnigent.wrapper"]);
+  const isNativeWrapper = isNativeWrapperLabel(sessionLabels["agentnexus.wrapper"]);
   // Used for the header "Back to parent" link, which is hidden on
   // top-level sessions. The Subagents tab itself is always visible —
   // it lists the root's children plus a "main" entry, so the user
@@ -852,7 +852,7 @@ export function AppShell() {
   useEffect(() => {
     if (!supportsBrowser()) return;
     const w = window as unknown as {
-      omnigentDesktop?: {
+      agentnexusDesktop?: {
         onBrowserElementSelected?: (
           cb: (p: { conversationId?: string; screenshot?: string | null }) => void,
         ) => () => void;
@@ -873,7 +873,7 @@ export function AppShell() {
         ) => Promise<{ ok: boolean; error?: string }>;
       };
     };
-    const desktop = w.omnigentDesktop;
+    const desktop = w.agentnexusDesktop;
     if (!desktop) return;
 
     const unsubSelected = desktop.onBrowserElementSelected?.((payload) => {
@@ -953,7 +953,7 @@ export function AppShell() {
     (key: string | null) => {
       setPanelInitialKeyState(key);
       if (conversationId) {
-        const storageKey = `omnigent.web.panel-key:${conversationId}`;
+        const storageKey = `agentnexus.web.panel-key:${conversationId}`;
         sessionStorage.setItem(storageKey, key === null ? CHAT_VIEW_STORAGE_VALUE : key);
       }
       if (terminalFirst) {
@@ -1001,7 +1001,7 @@ export function AppShell() {
     }
     const persisted = readSessionWorkspaceState(conversationId);
 
-    const storageKey = `omnigent.web.panel-key:${conversationId}`;
+    const storageKey = `agentnexus.web.panel-key:${conversationId}`;
     const stored = sessionStorage.getItem(storageKey);
     const requestedView = terminalFirst ? searchParams.get("view") : null;
     const terminalKey =
@@ -1075,7 +1075,7 @@ export function AppShell() {
   useEffect(() => {
     if (!conversationId || !terminalFirst) return;
     const requestedView = searchParams.get("view");
-    const stored = sessionStorage.getItem(`omnigent.web.panel-key:${conversationId}`);
+    const stored = sessionStorage.getItem(`agentnexus.web.panel-key:${conversationId}`);
     const terminalKey =
       agentTerminal === null ? PANEL_NO_TERMINAL_KEY : terminalTabKey(agentTerminal);
     if (requestedView === "chat") {

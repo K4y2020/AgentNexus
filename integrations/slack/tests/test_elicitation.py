@@ -3,19 +3,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from omnigent_slack.approvals import ElicitationCoordinator, Verdict
-from omnigent_slack.elicitation import (
+from agentnexus_slack.approvals import ElicitationCoordinator, Verdict
+from agentnexus_slack.elicitation import (
     ElicitationController,
     ElicitationTurnState,
     PendingElicitation,
 )
-from omnigent_slack.events import ElicitationRequest
-from omnigent_slack.models import SlackTurn, ThreadKey
+from agentnexus_slack.events import ElicitationRequest
+from agentnexus_slack.models import SlackTurn, ThreadKey
 
 _KEY = ThreadKey(team_id="T1", channel_id="C1", thread_ts="100.1")
 
 
-class _RecordingOmnigent:
+class _RecordingAgentNexus:
     """Records resolve_elicitation calls; optionally fails the decline POST."""
 
     def __init__(self, *, fail_resolve: bool = False) -> None:
@@ -79,7 +79,7 @@ async def test_finish_pending_declines_when_timeout_decline_post_failed() -> Non
     # the server parked (timed_out=True AND delivery_failed=True). finish_pending
     # must still re-decline to release the park — timed_out must not mask
     # delivery_failed and skip the release, or the session wedges.
-    omnigent = _RecordingOmnigent()
+    omnigent = _RecordingAgentNexus()
     controller = _controller()
     turn = _turn()
     state = ElicitationTurnState()
@@ -94,7 +94,7 @@ async def test_finish_pending_declines_when_timeout_decline_post_failed() -> Non
 async def test_finish_pending_no_redecline_when_timeout_decline_succeeded() -> None:
     # A clean timeout (decline POST landed) must NOT be re-declined — the park is
     # already released; a second POST would be wasteful.
-    omnigent = _RecordingOmnigent()
+    omnigent = _RecordingAgentNexus()
     controller = _controller()
     state = ElicitationTurnState()
     state.pending["el_1"] = _pending(timed_out=True)
@@ -106,7 +106,7 @@ async def test_finish_pending_no_redecline_when_timeout_decline_succeeded() -> N
 
 async def test_finish_pending_declines_unanswered() -> None:
     # A card left genuinely unanswered (server still parked) is declined.
-    omnigent = _RecordingOmnigent()
+    omnigent = _RecordingAgentNexus()
     controller = _controller()
     state = ElicitationTurnState()
     state.pending["el_1"] = _pending()
@@ -118,7 +118,7 @@ async def test_finish_pending_declines_unanswered() -> None:
 
 async def test_finish_pending_no_redecline_when_verdict_delivered() -> None:
     # A delivered verdict already released the park — no re-decline.
-    omnigent = _RecordingOmnigent()
+    omnigent = _RecordingAgentNexus()
     controller = _controller()
     state = ElicitationTurnState()
     state.pending["el_1"] = _pending(verdict=Verdict(accepted=True))

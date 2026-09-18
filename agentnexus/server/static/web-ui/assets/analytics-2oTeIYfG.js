@@ -1,0 +1,1 @@
+import{a as e}from"./rolldown-runtime-CNC7AqOf.js";import{t}from"./react-Augu_vA3.js";import{r as n}from"./routing-B815e3wm.js";import{n as r}from"./analyticsEmit-DJkhORPa.js";var i=e(t(),1);function a(e){let{pathname:t}=n(),a=(0,i.useRef)(null);(0,i.useEffect)(()=>{let n=`${e} ${t}`;a.current!==n&&(a.current=n,r({type:`page_view`,pageId:e}))},[e,t])}export{a as t};

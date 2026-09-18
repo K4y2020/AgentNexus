@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.runtime.workflow import _build_copilot_spawn_env
-from omnigent.spec.types import (
+from agentnexus.runtime.workflow import _build_copilot_spawn_env
+from agentnexus.spec.types import (
     AgentSpec,
     ApiKeyAuth,
     DatabricksAuth,
@@ -33,8 +33,8 @@ from omnigent.spec.types import (
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Isolate the global config to an empty tmp dir and clear ambient GitHub
     tokens so the no-auth / DatabricksAuth cases are deterministic."""
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_DISABLE_KEYRING", "1")
     for var in ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         monkeypatch.delenv(var, raising=False)
     return tmp_path
@@ -54,7 +54,7 @@ def _make_spec(
         spec_version=1,
         name=name,
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model, auth=auth),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model, auth=auth),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 

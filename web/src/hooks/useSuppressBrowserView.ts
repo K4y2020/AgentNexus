@@ -14,7 +14,7 @@ let openOverlayCount = 0;
 
 /**
  * The desktop shell's suppress method, or undefined outside a browser-capable
- * Electron shell. Read straight off `window.omnigentDesktop` (the same pattern
+ * Electron shell. Read straight off `window.agentnexusDesktop` (the same pattern
  * BrowserPane uses) rather than through nativeBridge, so this hook adds no new
  * import that partial-mock tests would have to stub. Gating on the actual
  * method means an older shell without it simply no-ops.
@@ -22,9 +22,9 @@ let openOverlayCount = 0;
 function browserSuppressor(): ((suppressed: boolean) => unknown) | undefined {
   if (typeof window === "undefined") return undefined;
   const w = window as unknown as {
-    omnigentDesktop?: { browserSetSuppressed?: (suppressed: boolean) => Promise<unknown> };
+    agentnexusDesktop?: { browserSetSuppressed?: (suppressed: boolean) => Promise<unknown> };
   };
-  return w.omnigentDesktop?.browserSetSuppressed;
+  return w.agentnexusDesktop?.browserSetSuppressed;
 }
 
 /**

@@ -17,7 +17,7 @@ from pathlib import Path as _Path
 from web_ui_archive import extract_web_ui_archive as _extract_web_ui_archive
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, force=True)
-logger = logging.getLogger("omnigent-app")
+logger = logging.getLogger("agentnexus-app")
 
 # ── Web UI location ────────────────────────────────────────
 #
@@ -36,14 +36,14 @@ def _prepare_web_ui() -> None:
     archive = here / "web-ui.tar.gz"
     loose = here / "web-ui"
     if loose.is_dir() and not archive.is_file():
-        os.environ.setdefault("OMNIGENT_WEB_UI_DIST", str(loose))
+        os.environ.setdefault("AGENTNEXUS_WEB_UI_DIST", str(loose))
         logger.info("Web UI: serving legacy loose assets from %s", loose)
         return
     if not archive.is_file():
         logger.info("Web UI: no archive at %s; using packaged assets", archive)
         return
 
-    extracted = _Path(_tempfile.mkdtemp(prefix="omnigent-web-ui-"))
+    extracted = _Path(_tempfile.mkdtemp(prefix="agentnexus-web-ui-"))
     try:
         _extract_web_ui_archive(archive, extracted)
     except (OSError, ValueError, _tarfile.TarError) as exc:
@@ -51,7 +51,7 @@ def _prepare_web_ui() -> None:
         logger.warning("Web UI: failed to extract %s: %s; using packaged assets", archive, exc)
         return
 
-    os.environ.setdefault("OMNIGENT_WEB_UI_DIST", str(extracted))
+    os.environ.setdefault("AGENTNEXUS_WEB_UI_DIST", str(extracted))
     logger.info("Web UI: serving extracted assets from %s", extracted)
 
 
@@ -164,12 +164,12 @@ try:
 
     import uvicorn
 
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.app import create_app
-    from omnigent.server.auth import create_auth_provider, warn_if_single_user_exposed
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.app import create_app
+    from agentnexus.server.auth import create_auth_provider, warn_if_single_user_exposed
 
     # OTel: the Databricks Apps platform auto-injects
     # OTEL_EXPORTER_OTLP_ENDPOINT when `telemetry_export_destinations`
@@ -177,26 +177,26 @@ try:
     # OTLP to the platform collector, which writes to the configured
     # UC tables. No-op if neither OTEL nor MLflow env vars are set.
     telemetry.init()
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.databricks_volumes import (
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.databricks_volumes import (
         DatabricksVolumesArtifactStore,
     )
-    from omnigent.stores.comment_store.sqlalchemy_store import (
+    from agentnexus.stores.comment_store.sqlalchemy_store import (
         SqlAlchemyCommentStore,
     )
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
-    from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
-    from omnigent.stores.project_store.sqlalchemy_store import (
+    from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+    from agentnexus.stores.project_store.sqlalchemy_store import (
         SqlAlchemyProjectStore,
     )
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -210,7 +210,7 @@ try:
     # The app SP owns the tables — run any pending Alembic upgrades
     # before the stores boot, since the verify-schema check refuses
     # to start a stale DB. Idempotent: a no-op when the DB is at head.
-    from omnigent.db.utils import _run_migrations as _run_alembic_upgrade
+    from agentnexus.db.utils import _run_migrations as _run_alembic_upgrade
 
     _migration_engine = sqlalchemy.create_engine(DB_URI)
     try:
@@ -246,9 +246,9 @@ try:
     # every request, so we run in header mode. Header is the
     # framework default, but pin it explicitly so the hosted product
     # keeps its existing behavior regardless of any ambient
-    # OMNIGENT_AUTH_ENABLED in the deploy env (an explicit
+    # AGENTNEXUS_AUTH_ENABLED in the deploy env (an explicit
     # provider always wins over the enable switch).
-    os.environ.setdefault("OMNIGENT_AUTH_PROVIDER", "header")
+    os.environ.setdefault("AGENTNEXUS_AUTH_PROVIDER", "header")
 
     # A single-user marker here would serve un-proxied requests as "local".
     _exposure = warn_if_single_user_exposed("0.0.0.0")

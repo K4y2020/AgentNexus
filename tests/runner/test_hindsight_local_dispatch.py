@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     _ALL_LOCAL_TOOLS,
     _HINDSIGHT_TOOLS,
     _NATIVE_RELAY_BUILTIN_TOOLS,

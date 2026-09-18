@@ -78,16 +78,16 @@ function resolve(fn) {
   return match;
 }
 const cases = [
-  ["omnigent/inner/foo.py", "inner"],
-  ["omnigent/inner/claude_sdk_executor.py", "harness-claude"],
-  ["omnigent/inner/kimi_executor.py", "harness-kimi"],
-  ["omnigent/inner/kiro_native_harness.py", "harness-kiro"],
+  ["agentnexus/inner/foo.py", "inner"],
+  ["agentnexus/inner/claude_sdk_executor.py", "harness-claude"],
+  ["agentnexus/inner/kimi_executor.py", "harness-kimi"],
+  ["agentnexus/inner/kiro_native_harness.py", "harness-kiro"],
   ["web/src/main.tsx", "web"],
   ["web/ios/App.swift", "mobile-app"],
   ["web/android/app/src/main/MainActivity.kt", "android-app"],
   ["web/electron/main.ts", "desktop-app"],
-  ["omnigent/server/api.py", "server"],
-  ["omnigent/server/auth.py", "auth"],
+  ["agentnexus/server/api.py", "server"],
+  ["agentnexus/server/auth.py", "auth"],
 ];
 for (const [fn, key] of cases) {
   const m = resolve(fn);

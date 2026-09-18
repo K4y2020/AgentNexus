@@ -29,15 +29,15 @@ from typing import Any
 import pytest
 from mcp.types import Tool as McpToolDef
 
-from omnigent.runner import mcp_manager as _mcp_manager_module
-from omnigent.runner.mcp_manager import (
+from agentnexus.runner import mcp_manager as _mcp_manager_module
+from agentnexus.runner.mcp_manager import (
     _POOL_SPEC_CAPACITY,
     McpSchemasResult,
     RunnerMcpManager,
     compute_server_hash,
     compute_spec_hash,
 )
-from omnigent.spec.types import AgentSpec, MCPServerConfig
+from agentnexus.spec.types import AgentSpec, MCPServerConfig
 
 
 def _make_spec(*configs: MCPServerConfig) -> AgentSpec:
@@ -131,7 +131,7 @@ def patch_connection(
             return await self._inner.call_tool(name, arguments)
 
     monkeypatch.setattr(
-        "omnigent.runner.mcp_manager.McpServerConnection",
+        "agentnexus.runner.mcp_manager.McpServerConnection",
         _PatchedConn,
     )
     # Tests script per-server behavior by mutating these dicts BEFORE
@@ -304,7 +304,7 @@ async def test_invalid_tool_name_is_filtered(
     # that didn't tear down (e.g. crash mid-test), the False sticks
     # for the rest of the worker — caplog's root handler then misses
     # every ``omnigent.*`` warning.
-    logging.getLogger("omnigent").propagate = True
+    logging.getLogger("agentnexus").propagate = True
     patch_connection["__tools_for__"]["jira"] = [
         _make_tool_def("ok_tool"),
         _make_tool_def("bad name with spaces"),
@@ -320,12 +320,12 @@ async def test_invalid_tool_name_is_filtered(
     # where caplog listens — capturing nothing. Attaching caplog's handler
     # to the mcp_manager logger makes capture independent of the propagate
     # chain, so the assertion below is robust to that state leak.
-    mcp_logger = logging.getLogger("omnigent.runner.mcp_manager")
+    mcp_logger = logging.getLogger("agentnexus.runner.mcp_manager")
     mcp_logger.addHandler(caplog.handler)
     try:
         # Bare ``at_level(WARNING)`` — no ``logger=`` arg. We've forced
         # propagation above, so records reach the root logger where
-        # caplog's handler lives. Passing ``logger="omnigent.runner.
+        # caplog's handler lives. Passing ``logger="agentnexus.runner.
         # mcp_manager"`` here in addition would double-attach the
         # handler (root + that named logger), capturing each warning
         # twice.
@@ -859,7 +859,7 @@ def test_strip_mcp_tool_prefix_preserves_bare_double_underscore() -> None:
     Only strip Claude-SDK MCP-prefixed names; pass everything else
     through.
     """
-    from omnigent.runtime.workflow import _strip_mcp_tool_prefix
+    from agentnexus.runtime.workflow import _strip_mcp_tool_prefix
 
     # Claude-SDK shape: stripped to the bare name.
     assert _strip_mcp_tool_prefix("mcp__jira__jira_search_issues") == "jira_search_issues"

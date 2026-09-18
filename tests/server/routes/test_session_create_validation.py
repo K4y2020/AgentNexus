@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.server.routes._session_create_validation import validate_session_agent
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.server.routes._session_create_validation import validate_session_agent
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 
@@ -70,7 +70,7 @@ async def test_single_user_none_authorizes_session_scoped_agent(
     old 401.
     """
     monkeypatch.setattr(
-        "omnigent.server.routes._session_create_validation.local_single_user_enabled",
+        "agentnexus.server.routes._session_create_validation.local_single_user_enabled",
         lambda: True,
     )
     agent_id = _mint_session_agent(conv_store)
@@ -104,12 +104,12 @@ async def test_multi_user_none_still_unauthorized_for_session_scoped_agent(
     guard must still reject — the local fallback must not leak into multi-user.
     """
     monkeypatch.setattr(
-        "omnigent.server.routes._session_create_validation.local_single_user_enabled",
+        "agentnexus.server.routes._session_create_validation.local_single_user_enabled",
         lambda: False,
     )
     agent_id = _mint_session_agent(conv_store)
 
-    with pytest.raises(OmnigentError) as excinfo:
+    with pytest.raises(AgentNexusError) as excinfo:
         await validate_session_agent(
             user_id=None,
             agent_id=agent_id,

@@ -11,7 +11,7 @@ another directory. Project checkout/worktree resolution remains unchanged.
 Delegated workers should receive the explicit task workspace; independent Git
 writers still require worktree isolation.
 
-Sessions using this layout carry `omnigent.workspace_layout=topic-v1`.
+Sessions using this layout carry `agentnexus.workspace_layout=topic-v1`.
 The runner adds the storage conventions to framework instructions. Directory
 isolation is enforced by assignment; file placement within the directory is
 agent guidance, not a filesystem sandbox.

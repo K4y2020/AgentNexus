@@ -18,7 +18,7 @@
 #
 # Usage:
 #   export DATABRICKS_CONFIG_PROFILE=<your-profile>
-#   python -m omnigent tests/resources/examples/risk_score_agent.yaml \
+#   python -m agentnexus tests/resources/examples/risk_score_agent.yaml \
 #       --prompt "Search the web for our competitors, then email a summary."
 #   # Five web searches raise the score to the threshold; the gmail_message_send
 #   # is then escalated to ASK.
@@ -51,7 +51,7 @@ tools:
 policies:
   session_risk:
     type: function
-    handler: omnigent.policies.builtins.risk_score.risk_score_policy
+    handler: agentnexus.policies.builtins.risk_score.risk_score_policy
     factory_params:
       threshold: 50
       # Each of these tool calls adds risk. This is the portable path: it needs

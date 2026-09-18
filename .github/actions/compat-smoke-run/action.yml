@@ -37,7 +37,7 @@ runs:
       shell: bash
       run: |
         {
-          echo "OMNIGENT_SKIP_WEB_UI=true"
+          echo "AGENTNEXUS_SKIP_WEB_UI=true"
           echo "ANTHROPIC_API_KEY="
           echo "OPENAI_API_KEY="
           echo "CODEX="
@@ -90,9 +90,9 @@ runs:
         uv venv --python 3.12 "$venv"
         uv pip install --python "$venv/bin/python" \
           -e "$src" -e "$src/sdks/python-client" -e "$src/sdks/ui"
-        "$venv/bin/omnigent" --version
-        echo "OMNIGENT_COMPAT_SERVER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
-        echo "OMNIGENT_COMPAT_SERVER_VERSION=${tag#v}" >> "$GITHUB_ENV"
+        "$venv/bin/agentnexus" --version
+        echo "AGENTNEXUS_COMPAT_SERVER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
+        echo "AGENTNEXUS_COMPAT_SERVER_VERSION=${tag#v}" >> "$GITHUB_ENV"
 
     - name: "Build pinned old runner/host (Config 1: new server, old runner)"
       if: ${{ inputs.runner_version != '' }}
@@ -110,14 +110,14 @@ runs:
         uv venv --python 3.12 "$venv"
         uv pip install --python "$venv/bin/python" \
           -e "$src" -e "$src/sdks/python-client" -e "$src/sdks/ui"
-        "$venv/bin/omnigent" --version
-        echo "OMNIGENT_COMPAT_RUNNER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
-        echo "OMNIGENT_COMPAT_RUNNER_VERSION=${tag#v}" >> "$GITHUB_ENV"
+        "$venv/bin/agentnexus" --version
+        echo "AGENTNEXUS_COMPAT_RUNNER_PYTHON=$venv/bin/python" >> "$GITHUB_ENV"
+        echo "AGENTNEXUS_COMPAT_RUNNER_VERSION=${tag#v}" >> "$GITHUB_ENV"
 
     - name: Run compat smoke tests
       shell: bash
       env:
-        E2E_TMP_BASE: /tmp/omnigent-compat-smoke-${{ github.run_id }}
+        E2E_TMP_BASE: /tmp/agentnexus-compat-smoke-${{ github.run_id }}
       run: |
         mkdir -p "$E2E_TMP_BASE"
         uv run pytest tests/e2e/ \
@@ -134,10 +134,10 @@ runs:
       with:
         name: compat-smoke-logs-${{ github.run_id }}${{ inputs.artifact_suffix }}
         path: |
-          /tmp/omnigent-compat-smoke-${{ github.run_id }}/**/server.log
-          /tmp/omnigent-compat-smoke-${{ github.run_id }}/**/runner.log
-          /tmp/omnigent-compat-smoke-${{ github.run_id }}/**/.omnigent/logs/**/*.log
-          /tmp/omnigent-compat-smoke-${{ github.run_id }}/junit.xml
+          /tmp/agentnexus-compat-smoke-${{ github.run_id }}/**/server.log
+          /tmp/agentnexus-compat-smoke-${{ github.run_id }}/**/runner.log
+          /tmp/agentnexus-compat-smoke-${{ github.run_id }}/**/.agentnexus/logs/**/*.log
+          /tmp/agentnexus-compat-smoke-${{ github.run_id }}/junit.xml
         retention-days: 7
         if-no-files-found: warn
         include-hidden-files: true

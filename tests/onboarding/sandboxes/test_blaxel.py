@@ -13,8 +13,8 @@ import click
 import httpx
 import pytest
 
-from omnigent.onboarding.sandboxes.base import SandboxCapabilityError
-from omnigent.onboarding.sandboxes.blaxel import (
+from agentnexus.onboarding.sandboxes.base import SandboxCapabilityError
+from agentnexus.onboarding.sandboxes.blaxel import (
     DEFAULT_BLAXEL_HOST_IMAGE,
     BlaxelSandboxLauncher,
     _BlaxelLogParser,
@@ -291,11 +291,11 @@ def _install_fake_blaxel(monkeypatch: pytest.MonkeyPatch) -> _State:
         return handle
 
     monkeypatch.setattr(
-        "omnigent.onboarding.sandboxes.blaxel._open_process_log_stream",
+        "agentnexus.onboarding.sandboxes.blaxel._open_process_log_stream",
         _open_fake_stream,
     )
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._READINESS_INITIAL_BACKOFF_S", 0)
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._PROCESS_POLL_INTERVAL_S", 0)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._READINESS_INITIAL_BACKOFF_S", 0)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._PROCESS_POLL_INTERVAL_S", 0)
     return state
 
 
@@ -330,7 +330,7 @@ def test_live_smoke_accepts_clear_test_workspace_name() -> None:
 def test_prepare_reports_missing_optional_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "blaxel", None)
 
-    with pytest.raises(click.ClickException, match=r"omnigent\[blaxel\]"):
+    with pytest.raises(click.ClickException, match=r"agentnexus\[blaxel\]"):
         BlaxelSandboxLauncher(image="image").prepare()
 
 
@@ -354,7 +354,7 @@ def test_prepare_rejects_workspace_without_authentication(
 
 def test_prepare_uses_public_compatible_image(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_fake_blaxel(monkeypatch)
-    monkeypatch.delenv("OMNIGENT_BLAXEL_HOST_IMAGE", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_BLAXEL_HOST_IMAGE", raising=False)
     launcher = BlaxelSandboxLauncher()
 
     launcher.prepare()
@@ -364,7 +364,7 @@ def test_prepare_uses_public_compatible_image(monkeypatch: pytest.MonkeyPatch) -
 
 def test_image_precedence_reaches_create_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     state = _install_fake_blaxel(monkeypatch)
-    monkeypatch.setenv("OMNIGENT_BLAXEL_HOST_IMAGE", "sandbox/environment-host:v1")
+    monkeypatch.setenv("AGENTNEXUS_BLAXEL_HOST_IMAGE", "sandbox/environment-host:v1")
 
     BlaxelSandboxLauncher(image="sandbox/explicit-host:v2").provision("explicit")
     BlaxelSandboxLauncher().provision("environment")
@@ -389,19 +389,19 @@ def test_provision_forwards_config_and_checks_readiness(
     assert launcher.provision("omni-test") == "omni-test"
     assert len(state.created) == 1
     created = state.created[0]
-    assert created | {"labels": {"managed-by": "omnigent"}} == {
+    assert created | {"labels": {"managed-by": "agentnexus"}} == {
         "name": "omni-test",
         "image": "registry/image",
         "memory": 8192,
-        "labels": {"managed-by": "omnigent"},
+        "labels": {"managed-by": "agentnexus"},
         "envs": [{"name": "MODEL_KEY", "value": "secret-value"}],
         "region": "us-test-1",
         "ttl": "2h",
     }
     labels = created["labels"]
     assert isinstance(labels, dict)
-    assert labels["managed-by"] == "omnigent"
-    assert len(str(labels["omnigent-create-attempt"])) == 32
+    assert labels["managed-by"] == "agentnexus"
+    assert len(str(labels["agentnexus-create-attempt"])) == 32
     assert state.sandboxes["omni-test"].fs.listed == ["/"]
 
 
@@ -423,7 +423,7 @@ def test_provision_applies_public_image_and_bounded_default_ttl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state = _install_fake_blaxel(monkeypatch)
-    monkeypatch.delenv("OMNIGENT_BLAXEL_HOST_IMAGE", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_BLAXEL_HOST_IMAGE", raising=False)
 
     BlaxelSandboxLauncher().provision("sb")
 
@@ -521,10 +521,10 @@ def test_ambiguous_create_does_not_delete_preexisting_fixed_cli_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state = _install_fake_blaxel(monkeypatch)
-    name = "omnigent-host"
+    name = "agentnexus-host"
     state.sandboxes[name] = _FakeSandbox(
         name,
-        labels={"managed-by": "omnigent", "omnigent-create-attempt": "older-attempt"},
+        labels={"managed-by": "agentnexus", "agentnexus-create-attempt": "older-attempt"},
     )
     state.create_error = TimeoutError("request outcome unknown")
 
@@ -532,7 +532,7 @@ def test_ambiguous_create_does_not_delete_preexisting_fixed_cli_name(
         BlaxelSandboxLauncher(image="image").provision(name)
 
     assert state.deleted == []
-    assert state.sandboxes[name].metadata.labels["omnigent-create-attempt"] == "older-attempt"
+    assert state.sandboxes[name].metadata.labels["agentnexus-create-attempt"] == "older-attempt"
 
 
 def test_provision_does_not_delete_namesake_after_explicit_conflict(
@@ -608,7 +608,7 @@ def test_run_returns_separate_output_and_checks_exit(
 def test_bounded_utf8_counter_stops_at_limit_plus_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._UTF8_COUNT_CHARS", 4)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._UTF8_COUNT_CHARS", 4)
 
     assert _bounded_utf8_size(("ab€", "cd"), 8) == 7
     assert _bounded_utf8_size(("€" * 100_000,), 10) == 11
@@ -623,7 +623,7 @@ def test_run_applies_output_cap_to_authoritative_final_state(
         _ProcessResponse(status="completed", stdout="123456", stderr="78901", exit_code=0)
     ]
     state.sandboxes["sb"] = sandbox
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._MAX_PROCESS_OUTPUT_BYTES", 10)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._MAX_PROCESS_OUTPUT_BYTES", 10)
 
     with pytest.raises(click.ClickException, match="output exceeded 10 bytes"):
         BlaxelSandboxLauncher(image="image").run("sb", "echo too-much")
@@ -651,8 +651,8 @@ def test_run_timeout_kills_remote_process(monkeypatch: pytest.MonkeyPatch) -> No
     sandbox.process.stream_done = False
     state.sandboxes["sb"] = sandbox
     ticks = iter([0.0, 2.0])
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
 
     with pytest.raises(click.ClickException, match="timed out"):
         BlaxelSandboxLauncher(image="image").run("sb", "sleep 20")
@@ -667,8 +667,8 @@ def test_run_timeout_reports_remote_kill_failure(monkeypatch: pytest.MonkeyPatch
     sandbox.process.kill_error = RuntimeError("kill unavailable")
     state.sandboxes["sb"] = sandbox
     ticks = iter([0.0, 2.0])
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
 
     with pytest.raises(click.ClickException, match="Remote kill also failed: kill unavailable"):
         BlaxelSandboxLauncher(image="image").run("sb", "sleep 20")
@@ -694,16 +694,16 @@ def test_background_launch_keeps_token_out_of_command_metadata(
 
     BlaxelSandboxLauncher(image="image").run_background(
         "sb",
-        "OMNIGENT_HOST_TOKEN=token-value OMNIGENT_HOST_ID=host-1 omnigent host",
+        "AGENTNEXUS_HOST_TOKEN=token-value AGENTNEXUS_HOST_ID=host-1 omnigent host",
     )
 
     request = sandbox.process.exec_calls[0]
     assert request["env"] == {
-        "OMNIGENT_HOST_TOKEN": "token-value",
-        "OMNIGENT_HOST_ID": "host-1",
+        "AGENTNEXUS_HOST_TOKEN": "token-value",
+        "AGENTNEXUS_HOST_ID": "host-1",
     }
     assert "token-value" not in str(request["command"])
-    assert "omnigent host" in str(request["command"])
+    assert "agentnexus host" in str(request["command"])
     assert "while :; do" in str(request["command"]), "host crashes must be supervised"
     assert request["keep_alive"] is True
     assert request["timeout"] == 0
@@ -716,11 +716,11 @@ def test_background_launch_preserves_shell_operators(monkeypatch: pytest.MonkeyP
 
     BlaxelSandboxLauncher(image="image").run_background(
         "sb",
-        "OMNIGENT_HOST_TOKEN='token with space' first && second > output",
+        "AGENTNEXUS_HOST_TOKEN='token with space' first && second > output",
     )
 
     request = sandbox.process.exec_calls[0]
-    assert request["env"] == {"OMNIGENT_HOST_TOKEN": "token with space"}
+    assert request["env"] == {"AGENTNEXUS_HOST_TOKEN": "token with space"}
     assert "first && second > output" in str(request["command"])
 
 
@@ -731,7 +731,7 @@ def test_background_launch_rejects_immediate_exit(monkeypatch: pytest.MonkeyPatc
     state.sandboxes["sb"] = sandbox
 
     with pytest.raises(click.ClickException, match="failed to start"):
-        BlaxelSandboxLauncher(image="image").run_background("sb", "omnigent host")
+        BlaxelSandboxLauncher(image="image").run_background("sb", "agentnexus host")
 
 
 def test_file_copy_and_idempotent_termination(
@@ -822,7 +822,7 @@ def test_running_state_does_not_hide_provider_outage(monkeypatch: pytest.MonkeyP
 def _streaming_launcher(monkeypatch: pytest.MonkeyPatch) -> tuple[BlaxelSandboxLauncher, _State]:
     """Provision a sandbox whose process API streams output through callbacks."""
     state = _install_fake_blaxel(monkeypatch)
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._STREAM_POLL_INTERVAL_S", 0)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._STREAM_POLL_INTERVAL_S", 0)
     launcher = BlaxelSandboxLauncher(image="image")
     launcher.provision("sb")
     state.sandboxes["sb"].process.stream_events = [("stdout", "streamed output\n")]
@@ -1113,7 +1113,7 @@ def test_log_stream_close_before_client_activation_opens_no_request(
             return self.client
 
     process_api = _ProcessAPI()
-    monkeypatch.setattr("omnigent.onboarding.sandboxes.blaxel._STREAM_CLOSE_TIMEOUT_S", 0.01)
+    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._STREAM_CLOSE_TIMEOUT_S", 0.01)
     stream = _BlaxelLogStream(process_api, "42", lambda _text: None, lambda _text: None)
     assert get_started.wait(timeout=1)
 

@@ -24,11 +24,11 @@ _NATIVE_TURN_TIMEOUT_MS = 180_000
 _KIRO_SKIP_REASON = _kiro_unavailable_reason()
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("OMNIGENT_E2E_KIRO_NATIVE") != "1" or _KIRO_SKIP_REASON is not None,
+    os.environ.get("AGENTNEXUS_E2E_KIRO_NATIVE") != "1" or _KIRO_SKIP_REASON is not None,
     reason=(
         _KIRO_SKIP_REASON
         or "native Kiro approval e2e needs an interactive Kiro login; "
-        "set OMNIGENT_E2E_KIRO_NATIVE=1"
+        "set AGENTNEXUS_E2E_KIRO_NATIVE=1"
     ),
 )
 

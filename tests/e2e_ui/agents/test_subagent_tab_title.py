@@ -108,7 +108,7 @@ def test_claude_native_subagent_reads_as_the_product(
 
     The child reuses its parent's ``claude-native-ui`` agent row and
     carries ``sub_agent_name="general-purpose"`` (the Task tool's
-    ``subagent_type``). Both are Omnigent/Claude internals, and both used
+    ``subagent_type``). Both are AgentNexus/Claude internals, and both used
     to reach the screen — the header rendered the raw agent name and the
     composer's identity label rendered the sub-agent type. The wrapper
     label is the only field naming the product, so both surfaces must
@@ -120,7 +120,7 @@ def test_claude_native_subagent_reads_as_the_product(
     # carry the internal names the UI must not surface.
     child = httpx.get(f"{base_url}/v1/sessions/{child_id}", timeout=10.0).json()
     assert child["sub_agent_name"] == "general-purpose"
-    assert child["labels"]["omnigent.wrapper"] == "claude-code-native-ui-subagent"
+    assert child["labels"]["agentnexus.wrapper"] == "claude-code-native-ui-subagent"
 
     page.goto(f"{base_url}/c/{child_id}")
     expect(page.get_by_role("link", name="Back to parent session")).to_be_visible(timeout=30_000)

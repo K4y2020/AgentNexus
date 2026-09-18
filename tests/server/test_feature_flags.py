@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from omnigent.server.feature_flags import (
+from agentnexus.server.feature_flags import (
     FEATURE_DEFINITIONS,
     FEATURES_ENV_VAR,
     Feature,
@@ -38,12 +38,12 @@ def test_empty_entries_are_ignored() -> None:
 
 
 def test_removed_harness_install_variable_fails_with_migration_hint() -> None:
-    with pytest.raises(ValueError, match="OMNIGENT_FEATURES=harness_install"):
-        resolve_feature_flags({"OMNIGENT_HARNESS_INSTALL_ENABLED": "1"})
+    with pytest.raises(ValueError, match="AGENTNEXUS_FEATURES=harness_install"):
+        resolve_feature_flags({"AGENTNEXUS_HARNESS_INSTALL_ENABLED": "1"})
 
 
 def test_removed_harness_install_variable_allows_explicit_off() -> None:
-    flags = resolve_feature_flags({"OMNIGENT_HARNESS_INSTALL_ENABLED": "0"})
+    flags = resolve_feature_flags({"AGENTNEXUS_HARNESS_INSTALL_ENABLED": "0"})
 
     assert not flags.enabled(Feature.HARNESS_INSTALL)
 

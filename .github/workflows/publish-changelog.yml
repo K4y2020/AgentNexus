@@ -1,7 +1,7 @@
 name: Publish Changelog
 
 # When a final GitHub Release is PUBLISHED, mirror its (by-now human-curated)
-# notes to the docs site: open a PR to omnigent-site adding
+# notes to the docs site: open a PR to agentnexus-site adding
 # app/releases/<version>/page.mdx, a per-version post.
 #
 # The granular CHANGELOG.md is NOT touched here — that PR is opened earlier, at
@@ -15,8 +15,8 @@ name: Publish Changelog
 # one draft-release-notes.yml seeded and the coordinator then edited.
 #
 # Cross-repo writes can't use the workflow's own GITHUB_TOKEN (scoped to this
-# repo), so we mint a short-lived token from the omnigent-ci GitHub App scoped to
-# omnigent-site — the same App used by sync-openapi-to-site.yml.
+# repo), so we mint a short-lived token from the agentnexus-ci GitHub App scoped to
+# agentnexus-site — the same App used by sync-openapi-to-site.yml.
 #
 # Manual dispatch with `dry_run: true` previews only — it renders the site page
 # and prints it to the run log + job summary, mints no token, and opens no PR (so
@@ -91,7 +91,7 @@ jobs:
           echo "Resolved tag=${tag} is_final=${is_final} dry_run=${dry_run}" | tee -a "$GITHUB_STEP_SUMMARY"
 
   publish:
-    name: Open release-post PR (omnigent-site)
+    name: Open release-post PR (agentnexus-site)
     needs: resolve
     runs-on: ubuntu-latest
     # Canonical repo only, and only where the App is configured — EXCEPT a
@@ -100,22 +100,22 @@ jobs:
     if: >-
       needs.resolve.outputs.is_final == 'true' &&
       (needs.resolve.outputs.dry_run == 'true' ||
-       (github.repository == 'omnigent-ai/omnigent' &&
-        vars.OMNIGENT_BOT_APP_ID != ''))
+       (github.repository == 'agentnexus-ai/agentnexus' &&
+        vars.AGENTNEXUS_BOT_APP_ID != ''))
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       DRY_RUN: ${{ needs.resolve.outputs.dry_run }}
       SOURCE_REPO: ${{ github.repository }}
-      SITE_REPO: ${{ github.repository_owner }}/omnigent-site
+      SITE_REPO: ${{ github.repository_owner }}/agentnexus-site
       RELEASES_BRANCH: auto/releases/${{ needs.resolve.outputs.tag }}
-      OMNIGENT_SKIP_WEB_UI: "true"
+      AGENTNEXUS_SKIP_WEB_UI: "true"
       UV_INDEX_URL: https://pypi.org/simple
       PIP_INDEX_URL: https://pypi.org/simple
     steps:
-      - name: Checkout omnigent (for the render script)
+      - name: Checkout agentnexus (for the render script)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          path: omnigent
+          path: agentnexus
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
@@ -123,7 +123,7 @@ jobs:
           python-version: "3.11"
 
       - name: Read the curated release body
-        working-directory: omnigent
+        working-directory: agentnexus
         # The release read uses the workflow's own token (scoped to this repo);
         # only the cross-repo site write needs the App token, minted below.
         env:
@@ -160,7 +160,7 @@ jobs:
 
       # Build a docs index (URL + title, one per line) from the live site so the
       # formatter can link each feature to a real /docs page — or omit the link
-      # when nothing fits. omnigent-site is public; a blobless partial + sparse
+      # when nothing fits. agentnexus-site is public; a blobless partial + sparse
       # checkout of app/docs pulls only the page.mdx tree, no token needed. Best
       # effort: on any failure the index is empty and every "Learn more" is dropped.
       - name: Build docs index
@@ -215,7 +215,7 @@ jobs:
           print(f"Indexed {pages} docs pages, {len(lines) - pages} sections.")
           PYEOF
           else
-            echo "::warning::Could not fetch omnigent-site docs — 'Learn more' links will be omitted."
+            echo "::warning::Could not fetch agentnexus-site docs — 'Learn more' links will be omitted."
           fi
           rm -rf "$tmp"
 
@@ -228,7 +228,7 @@ jobs:
           python3 -u <<'PYEOF'
           import os, pathlib
           tag = os.environ["TAG"]
-          # `omnigent run -p` passes the whole prompt as one argv string, capped at
+          # `agentnexus run -p` passes the whole prompt as one argv string, capped at
           # ~128 KiB on Linux (MAX_ARG_STRLEN). A release body is far smaller, but
           # cap defensively; the raw body is the fallback if the agent can't run.
           MAX = 100_000
@@ -250,21 +250,21 @@ jobs:
           PYEOF
 
       # Runs the tools-less formatter and secret-scans its output; degrades to the
-      # raw release body (below) if the agent can't run. Omnigent is checked out
-      # into omnigent/, so the action's workdir is that subdir.
+      # raw release body (below) if the agent can't run. AgentNexus is checked out
+      # into agentnexus/, so the action's workdir is that subdir.
       - name: Run release-post formatter
         id: format
         if: steps.creds.outputs.available == 'true'
-        uses: ./omnigent/.github/actions/run-omnigent-agent
+        uses: ./agentnexus/.github/actions/run-agentnexus-agent
         with:
-          workdir: omnigent
+          workdir: agentnexus
           agent: release-post-formatter
           prompt-file: /tmp/format_prompt.txt
           output-file: /tmp/format_out.txt
           stderr-file: /tmp/format-stderr.log
           gateway-base-url: ${{ secrets.GATEWAY_BASE_URL }}
           llm-api-key: ${{ secrets.LLM_API_KEY }}
-          model: ${{ vars.OMNIGENT_CI_ANTHROPIC_MODEL }}
+          model: ${{ vars.AGENTNEXUS_CI_ANTHROPIC_MODEL }}
 
       - name: Extract narrative post (fall back to raw body)
         if: steps.creds.outputs.available == 'true'
@@ -295,7 +295,7 @@ jobs:
       - name: Build demo-video reference table
         id: demotable
         continue-on-error: true
-        working-directory: omnigent
+        working-directory: agentnexus
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REPO: ${{ env.SOURCE_REPO }}
@@ -408,7 +408,7 @@ jobs:
           PYEOF
 
       - name: Render the release post to MDX
-        working-directory: omnigent
+        working-directory: agentnexus
         run: |
           set -euo pipefail
           mkdir -p /tmp/site_page
@@ -437,17 +437,17 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           echo "Dry-run: no token minted, no PR opened."
 
-      - name: Mint App token (omnigent-site)
+      - name: Mint App token (agentnexus-site)
         id: app-token
         if: env.DRY_RUN != 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.OMNIGENT_BOT_APP_ID }}
-          private-key: ${{ secrets.OMNIGENT_BOT_APP_KEY }}
+          app-id: ${{ vars.AGENTNEXUS_BOT_APP_ID }}
+          private-key: ${{ secrets.AGENTNEXUS_BOT_APP_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: omnigent-site
+          repositories: agentnexus-site
 
-      - name: Checkout omnigent-site (sync target)
+      - name: Checkout agentnexus-site (sync target)
         if: env.DRY_RUN != 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -455,7 +455,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           path: site
 
-      - name: Open or update the release-post PR (omnigent-site)
+      - name: Open or update the release-post PR (agentnexus-site)
         if: env.DRY_RUN != 'true'
         working-directory: site
         env:
@@ -471,8 +471,8 @@ jobs:
               | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          git config user.name "omnigent-ci[bot]"
-          git config user.email "294685417+omnigent-ci[bot]@users.noreply.github.com"
+          git config user.name "agentnexus-ci[bot]"
+          git config user.email "294685417+agentnexus-ci[bot]@users.noreply.github.com"
           git switch -C "$RELEASES_BRANCH"
           git add "$dest/page.mdx"
           git commit -m "docs(releases): publish ${TAG} release post"
@@ -482,7 +482,7 @@ jobs:
             echo "Release-post PR already open for ${RELEASES_BRANCH} — force-push updated it."
             exit 0
           fi
-          body="$(printf 'Publishes the **%s** release post at `/releases/%s` — the curated GitHub Release notes reformatted into the site'"'"'s narrative, prose-driven style.\n\nGenerated by omnigent `.github/workflows/publish-changelog.yml`. Edit the GitHub Release, not this file.' "$TAG" "$VERSION")"
+          body="$(printf 'Publishes the **%s** release post at `/releases/%s` — the curated GitHub Release notes reformatted into the site'"'"'s narrative, prose-driven style.\n\nGenerated by agentnexus `.github/workflows/publish-changelog.yml`. Edit the GitHub Release, not this file.' "$TAG" "$VERSION")"
           # Append the demo-video reference table: which feature PRs already ship a
           # recording a reviewer can drop into the post'"'"'s `TODO` demo placeholders.
           if [ -s /tmp/demo_table.md ]; then
@@ -501,7 +501,7 @@ jobs:
       # and merges it, publishing all the version's docs at once. Skipped cleanly
       # when the branch doesn't exist or carries nothing beyond main (e.g. a patch
       # release with no staged docs).
-      - name: Open docs-branch → main PR (omnigent-site)
+      - name: Open docs-branch → main PR (agentnexus-site)
         if: env.DRY_RUN != 'true'
         working-directory: site
         env:
@@ -529,7 +529,7 @@ jobs:
             exit 0
           fi
 
-          body="$(printf 'Publishes the staged **%s** documentation to the live site: merges `%s` (%s commit(s) of doc-sync + OpenAPI updates accumulated this cycle) into main.\n\nOpened by omnigent `.github/workflows/publish-changelog.yml` on the **%s** release. Review the batch and merge to go live.' "${VERSION%.*}" "$DOCS_BRANCH" "$ahead" "$TAG")"
+          body="$(printf 'Publishes the staged **%s** documentation to the live site: merges `%s` (%s commit(s) of doc-sync + OpenAPI updates accumulated this cycle) into main.\n\nOpened by agentnexus `.github/workflows/publish-changelog.yml` on the **%s** release. Review the batch and merge to go live.' "${VERSION%.*}" "$DOCS_BRANCH" "$ahead" "$TAG")"
           gh pr create \
             --repo "$SITE_REPO" \
             --base main \

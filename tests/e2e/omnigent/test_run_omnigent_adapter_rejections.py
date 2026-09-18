@@ -1,8 +1,8 @@
 """
 End-to-end: omnigent example YAMLs that declare unsupported
-concepts MUST fail loud at spec-load time under Omnigent mode.
+concepts MUST fail loud at spec-load time under AgentNexus mode.
 
-The adapter in :mod:`omnigent.spec.omnigent` rejects several
+The adapter in :mod:`omnigent.spec.agentnexus` rejects several
 concepts it cannot faithfully translate into an omnigent
 :class:`AgentSpec` (see
 :func:`_reject_unsupported_concepts_def`):
@@ -32,7 +32,7 @@ least one rejection, and asserts:
   unpoliced agent, security-relevant behavior is silently
   missing.
 - The CLI's error-propagation path swallows the adapter's
-  :class:`OmnigentError` and exits 0.
+  :class:`AgentNexusError` and exits 0.
 - Someone adds translation support for one of these concepts
   but forgets to remove its entry here.
 """
@@ -51,7 +51,7 @@ _TIMEOUT_SEC = 30
 # (yaml_relpath, expected_error_substring, id)
 #
 # The rejection surface in :func:`_reject_unsupported_concepts`
-# has shrunk over time as the Omnigent translator has grown:
+# has shrunk over time as the AgentNexus translator has grown:
 #
 # - **Policies**: lifted into ``AgentSpec.guardrails.policies``
 #   and enforced by the workflow layer (see
@@ -99,7 +99,7 @@ def test_run_omnigent_rejects_unsupported_yaml(
     :param yaml_rel: Path under *omnigent_repo_root* to the
         example YAML to load.
     :param expected_error: Substring the adapter's
-        :class:`OmnigentError` message MUST contain — the
+        :class:`AgentNexusError` message MUST contain — the
         specific field name that tripped the rejection.
     """
     yaml_path = omnigent_repo_root / yaml_rel
@@ -109,7 +109,7 @@ def test_run_omnigent_rejects_unsupported_yaml(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "-p",
@@ -139,7 +139,7 @@ def test_run_omnigent_rejects_unsupported_yaml(
     assert expected_error in combined, (
         f"Expected error substring {expected_error!r} missing from "
         f"--omnigent rejection output. The adapter may have raised a less-"
-        f"specific error than the OmnigentError in "
+        f"specific error than the AgentNexusError in "
         f"_reject_unsupported_concepts_def. "
         f"stderr tail:\n{result.stderr[-1500:]}"
     )

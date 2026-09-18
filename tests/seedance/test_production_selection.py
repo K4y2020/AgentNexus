@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.seedance.production_gate import native_checker
+from agentnexus.seedance.production_gate import native_checker
 
 SKILLS = Path(__file__).resolve().parents[2] / "examples/cine/skills"
 

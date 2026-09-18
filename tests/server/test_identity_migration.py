@@ -18,26 +18,26 @@ from click.testing import CliRunner
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from omnigent.cli import cli
-from omnigent.db.db_models import (
+from agentnexus.cli import cli
+from agentnexus.db.db_models import (
     SqlAccountToken,
     SqlComment,
     SqlHost,
     SqlPolicy,
 )
-from omnigent.db.enum_codecs import (
+from agentnexus.db.enum_codecs import (
     encode_account_token_kind,
     encode_comment_status,
     encode_host_status,
     encode_policy_scope,
     encode_policy_type,
 )
-from omnigent.db.utils import get_or_create_engine
-from omnigent.server.accounts_store import SqlAlchemyAccountStore
-from omnigent.server.identity_migration import build_domain_mapping, remap_identities
-from omnigent.server.passwords import hash_password
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
-from omnigent.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
+from agentnexus.db.utils import get_or_create_engine
+from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+from agentnexus.server.identity_migration import build_domain_mapping, remap_identities
+from agentnexus.server.passwords import hash_password
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.stores.permission_store.sqlalchemy_store import SqlAlchemyPermissionStore
 
 
 def _conversation(db_uri: str) -> str:

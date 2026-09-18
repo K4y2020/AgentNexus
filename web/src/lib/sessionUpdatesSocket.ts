@@ -4,7 +4,7 @@
 // long-lived connection: the client tells the server which session ids it's
 // displaying (the "watch-set"), and the server pushes a snapshot followed by
 // diffs whenever those sessions change. See the server endpoint docstring in
-// `omnigent/server/routes/sessions.py` for the wire protocol.
+// `agentnexus/server/routes/sessions.py` for the wire protocol.
 //
 // This module owns only the transport (connect, reconnect, send watch-set,
 // dispatch frames). SessionUpdatesProvider wires the parsed frames into the
@@ -62,7 +62,7 @@ function nextReconnectDelay(failedAttempts: number): number {
  * (whether served by the Omnigent server directly or through the Vite dev proxy),
  * and an embedding host rebases it onto its proxied WS surface.
  *
- * When a host fetcher is installed, append `?omnigent_slice_key=<frozen modal
+ * When a host fetcher is installed, append `?agentnexus_slice_key=<frozen modal
  * host>`. A browser WebSocket handshake can't set request headers, so the
  * routing key rides the query string (the same seam the terminal-attach WS
  * uses). This WS watches sessions across MANY hosts, so no single key is
@@ -86,7 +86,7 @@ function buildUpdatesUrl(): string {
   if (!getOmnigentHostConfig().fetcher) return resolveWebSocketUrl(path);
   const sliceKey = modalHostId();
   return resolveWebSocketUrl(
-    sliceKey ? `${path}?omnigent_slice_key=${encodeURIComponent(sliceKey)}` : path,
+    sliceKey ? `${path}?agentnexus_slice_key=${encodeURIComponent(sliceKey)}` : path,
   );
 }
 

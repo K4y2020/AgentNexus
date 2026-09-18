@@ -34,14 +34,14 @@ from typing import Any
 
 import pytest
 
-from omnigent.antigravity_native_interactions import (
+from agentnexus.antigravity_native_interactions import (
     _freshest_waiting,
     agy_elicitation_id,
     bridge_interaction,
 )
-from omnigent.antigravity_native_rpc import AntigravityRpcError
-from omnigent.antigravity_native_steps import PendingInteraction
-from omnigent.server.schemas import ElicitationRequestParams, ElicitationResult
+from agentnexus.antigravity_native_rpc import AntigravityRpcError
+from agentnexus.antigravity_native_steps import PendingInteraction
+from agentnexus.server.schemas import ElicitationRequestParams, ElicitationResult
 
 _CASCADE = "test-cascade-id"
 _TRAJ = "test-trajectory-id"
@@ -729,8 +729,8 @@ def test_tui_injector_for_binds_an_explicit_bridge_dir(
     """
     import asyncio
 
-    import omnigent.antigravity_native_bridge as bridge_mod
-    from omnigent.antigravity_native_interactions import tui_injector_for
+    import agentnexus.antigravity_native_bridge as bridge_mod
+    from agentnexus.antigravity_native_interactions import tui_injector_for
 
     monkeypatch.delenv("HARNESS_ANTIGRAVITY_NATIVE_BRIDGE_DIR", raising=False)
     calls: list[tuple[Any, tuple[str, ...]]] = []

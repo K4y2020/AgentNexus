@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from omnigent.server.schemas import (
+from agentnexus.server.schemas import (
     PolicyDeniedEvent,
     ServerStreamEvent,
     SessionCreatedEvent,
@@ -116,12 +116,12 @@ def test_emit_sites_referenced_by_grep_are_all_in_the_union() -> None:
     # routes/sessions.py.
     repo_root = Path(__file__).resolve().parent.parent.parent
     paths = [
-        repo_root / "omnigent/runtime/workflow.py",
-        repo_root / "omnigent/runtime/compaction.py",
-        repo_root / "omnigent/runtime/policies/approval.py",
-        repo_root / "omnigent/runtime/llm_retry.py",
-        repo_root / "omnigent/runtime/tool_retry.py",
-        repo_root / "omnigent/server/routes/sessions.py",
+        repo_root / "agentnexus/runtime/workflow.py",
+        repo_root / "agentnexus/runtime/compaction.py",
+        repo_root / "agentnexus/runtime/policies/approval.py",
+        repo_root / "agentnexus/runtime/llm_retry.py",
+        repo_root / "agentnexus/runtime/tool_retry.py",
+        repo_root / "agentnexus/server/routes/sessions.py",
     ]
     pattern = re.compile(r'"type":\s*"(response\.[^"]+|session\.[^"]+)"')
     found: set[str] = set()
@@ -136,7 +136,7 @@ def test_emit_sites_referenced_by_grep_are_all_in_the_union() -> None:
         f"Wire-name string literals emitted by the runtime/server "
         f"that are NOT registered in ServerStreamEvent: "
         f"{sorted(unknown)}. Either add a typed event subclass to "
-        f"omnigent.server.schemas and include it in the "
+        f"agentnexus.server.schemas and include it in the "
         f"union, or remove the offending emit site."
     )
 
@@ -427,8 +427,8 @@ def test_publish_policy_denied_helper_emits_typed_event() -> None:
     as the status helper test) and asserts the wire name / fields, plus that
     the dict round-trips the union adapter — the wire-validation gate.
     """
-    from omnigent.runtime import session_stream as cs
-    from omnigent.server.routes.sessions import _publish_policy_denied
+    from agentnexus.runtime import session_stream as cs
+    from agentnexus.server.routes.sessions import _publish_policy_denied
 
     captured: list[tuple[str, dict[str, Any]]] = []
     real_publish = cs.publish
@@ -460,7 +460,7 @@ def test_policy_denied_format_sse_uses_response_prefixed_wire_name() -> None:
     native driver key on — a rename to ``policy_denied`` would silently break
     both (the web UI drops the frame, the driver's key misses).
     """
-    from omnigent.server.routes.sessions import _format_sse
+    from agentnexus.server.routes.sessions import _format_sse
 
     sse = _format_sse("response.policy_denied", {"type": "response.policy_denied"})
     assert sse.startswith("event: response.policy_denied\ndata: {")
@@ -471,8 +471,8 @@ async def test_stream_overflow_closes_without_done_for_reconnect(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Subscriber overflow ends as a reconnectable drop, not a clean close."""
-    from omnigent.runtime import session_stream
-    from omnigent.server.routes.sessions import _stream_live_events
+    from agentnexus.runtime import session_stream
+    from agentnexus.server.routes.sessions import _stream_live_events
 
     async def overflowing_subscribe(*_args: Any, **_kwargs: Any):
         yield {"type": "session.heartbeat"}
@@ -503,8 +503,8 @@ def test_publish_session_status_helper_uses_waiting_literal() -> None:
     Pydantic model. We capture published payloads via the live
     publish hook on the session_stream module.
     """
-    from omnigent.runtime import session_stream as cs
-    from omnigent.server.routes.sessions import _publish_status as _publish_session_status
+    from agentnexus.runtime import session_stream as cs
+    from agentnexus.server.routes.sessions import _publish_status as _publish_session_status
 
     captured: list[tuple[str, dict[str, Any]]] = []
     real_publish = cs.publish
@@ -538,7 +538,7 @@ def test_publish_session_status_helper_uses_waiting_literal() -> None:
 
 def test_publish_session_status_rejects_unknown_status() -> None:
     """The helper fails loud on out-of-set status values (rule 15)."""
-    from omnigent.server.routes.sessions import _publish_status as _publish_session_status
+    from agentnexus.server.routes.sessions import _publish_status as _publish_session_status
 
     with pytest.raises(ValidationError):
         _publish_session_status("conv_abc", "bogus")

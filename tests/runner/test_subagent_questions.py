@@ -5,10 +5,10 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from omnigent.runner import app
-from omnigent.runner.tool_dispatch import _execute_subagent_tool
-from omnigent.runtime.subagent_block_notifier import _format_block_notice
-from omnigent.runtime.subagent_questions import ordinary_question, validate_answers
+from agentnexus.runner import app
+from agentnexus.runner.tool_dispatch import _execute_subagent_tool
+from agentnexus.runtime.subagent_block_notifier import _format_block_notice
+from agentnexus.runtime.subagent_questions import ordinary_question, validate_answers
 
 
 def question_event(phase="codex_request_user_input"):
@@ -133,7 +133,7 @@ def test_claude_permission_is_not_a_question_without_exact_tool():
 
 @pytest.mark.asyncio
 async def test_question_wakes_parent_once_without_approval_grace(monkeypatch):
-    from omnigent.runtime import subagent_block_notifier as module
+    from agentnexus.runtime import subagent_block_notifier as module
 
     async def forbidden_sleep(_seconds):
         raise AssertionError("Ordinary questions must not wait for approval escalation")

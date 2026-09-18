@@ -24,8 +24,8 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from omnigent.server.auth import create_auth_provider
-from omnigent.stores.permission_store.sqlalchemy_store import (
+from agentnexus.server.auth import create_auth_provider
+from agentnexus.stores.permission_store.sqlalchemy_store import (
     SqlAlchemyPermissionStore,
 )
 
@@ -54,36 +54,36 @@ def _build_app(
     so it can be used with ``httpx.ASGITransport``.
     """
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("OMNIGENT_AUTH_PROVIDER", "accounts")
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_COOKIE_SECRET", _COOKIE_SECRET_HEX)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_BASE_URL", "http://localhost:8000")
+    monkeypatch.setenv("AGENTNEXUS_AUTH_PROVIDER", "accounts")
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET", _COOKIE_SECRET_HEX)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_BASE_URL", "http://localhost:8000")
     if init_admin_password is not None:
-        monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", init_admin_password)
+        monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", init_admin_password)
     else:
-        monkeypatch.delenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD", raising=False)
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_INIT_ADMIN_USERNAME", _ADMIN_USERNAME)
-    monkeypatch.setenv("OMNIGENT_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
-    monkeypatch.setenv("OMNIGENT_ACCOUNTS_AUTO_OPEN", "0")
+        monkeypatch.delenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_INIT_ADMIN_USERNAME", _ADMIN_USERNAME)
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_CREDENTIALS_PATH", str(tmp_path / "admin-creds"))
+    monkeypatch.setenv("AGENTNEXUS_ACCOUNTS_AUTO_OPEN", "0")
     # Strip ambient OIDC issuer so the enable switch resolves to accounts.
-    monkeypatch.delenv("OMNIGENT_OIDC_ISSUER", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_OIDC_ISSUER", raising=False)
 
     db_url = f"sqlite:///{tmp_path}/test.db"
 
-    from omnigent.db.utils import get_or_create_engine
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.accounts_store import SqlAlchemyAccountStore
-    from omnigent.server.app import create_app
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
-    from omnigent.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.db.utils import get_or_create_engine
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.accounts_store import SqlAlchemyAccountStore
+    from agentnexus.server.app import create_app
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import SqlAlchemyCommentStore
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
 
     get_or_create_engine(db_url)
     telemetry.init()
@@ -136,7 +136,7 @@ def setup_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
 @pytest_asyncio.fixture()
 async def client(accounts_app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     """Async HTTP client wired to the pre-seeded accounts app."""
-    from omnigent.db.utils import clear_engine_cache
+    from agentnexus.db.utils import clear_engine_cache
 
     transport = httpx.ASGITransport(app=accounts_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
@@ -147,7 +147,7 @@ async def client(accounts_app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
 @pytest_asyncio.fixture()
 async def setup_client(setup_app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     """Async HTTP client wired to the needs-setup accounts app."""
-    from omnigent.db.utils import clear_engine_cache
+    from agentnexus.db.utils import clear_engine_cache
 
     transport = httpx.ASGITransport(app=setup_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:

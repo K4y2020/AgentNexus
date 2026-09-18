@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.runtime import session_stream
-from omnigent.server import presence
-from omnigent.server.routes.sessions import _stream_live_events
+from agentnexus.runtime import session_stream
+from agentnexus.server import presence
+from agentnexus.server.routes.sessions import _stream_live_events
 
 pytestmark = pytest.mark.asyncio
 

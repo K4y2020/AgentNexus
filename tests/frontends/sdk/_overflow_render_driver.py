@@ -33,9 +33,9 @@ from __future__ import annotations
 
 import sys
 
-from omnigent_client import BlockContext, TextChunk, TextDone
-from omnigent_ui_sdk.terminal._formatter import RichBlockFormatter
-from omnigent_ui_sdk.terminal._host import TerminalHost
+from agentnexus_client import BlockContext, TextChunk, TextDone
+from agentnexus_ui_sdk.terminal._formatter import RichBlockFormatter
+from agentnexus_ui_sdk.terminal._host import TerminalHost
 
 
 def _main() -> None:

@@ -282,7 +282,7 @@ def test_idle_notification_fires_when_backgrounded(
     if body != "Agent finished and is ready for your input.":
         assert len(body) <= 160, f"preview exceeds its 160-char cap: {notifs}"
         assert body.count("\n") <= 2, f"preview exceeds its 3-line cap: {notifs}"
-    assert first["options"]["tag"] == f"omnigent:session:{session_id}", notifs
+    assert first["options"]["tag"] == f"agentnexus:session:{session_id}", notifs
 
 
 @pytest.mark.nightly
@@ -435,4 +435,4 @@ def test_idle_notification_deferred_until_settle(
     page.wait_for_timeout(3_000)  # catch a duplicate
     notifs = page.evaluate("window.__notifs")
     assert len(notifs) == 1, f"expected exactly one settled notification, got {notifs}"
-    assert notifs[0]["options"]["tag"] == f"omnigent:session:{session_id}", notifs
+    assert notifs[0]["options"]["tag"] == f"agentnexus:session:{session_id}", notifs

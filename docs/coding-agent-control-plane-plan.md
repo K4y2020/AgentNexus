@@ -2,7 +2,7 @@
 
 > 状态：In progress（按 P0–P6 门禁逐项推进，未宣布完成）
 >
-> 基线：Omnigent `0.12.0.dev0` 本地二开分支
+> 基线：AgentNexus `0.12.0.dev0` 本地二开分支
 >
 > 制定日期：2026-08-31
 >
@@ -10,13 +10,13 @@
 
 ## 0. 执行摘要
 
-本项目不再把 Omnigent 仅仅当成“多个 CLI 的统一聊天前端”，而是把它二开为：
+本项目不再把 AgentNexus 仅仅当成“多个 CLI 的统一聊天前端”，而是把它二开为：
 
 > **一个本地优先、跨产品、可观察、可治理的 Coding Agent 协作控制平面。**
 
 用户可以在一个可视化工作台中组合 Claude Code、Codex、Cursor、Hermes、ACP Agent 和自定义 Agent；分别配置角色、Harness、模型、Provider、工作目录和 Git checkout；实时观察 Agent 之间的任务、消息、工具调用、文件修改、成本和失败原因；并在需要时进行审批、打断、转交、重试和合并。
 
-本计划采用增量扩展，不重写 Omnigent 已有的 Server → Host/Runner → Harness 架构：
+本计划采用增量扩展，不重写 AgentNexus 已有的 Server → Host/Runner → Harness 架构：
 
 - 保留现有 Conversation、ConversationItem、Runner、Policy、SSE/WebSocket 和 Harness 适配层。
 - 新增协调域：Run、Task、AgentBinding、AgentMessage、Artifact、WorkspaceLease 和 CoordinationEvent。
@@ -43,7 +43,7 @@
 
 ### 1.1 上游已具备的基础
 
-Omnigent 已经提供：
+AgentNexus 已经提供：
 
 - 多 Harness：Claude、Codex、Cursor、Hermes、ACP、自定义 YAML Agent 等。
 - Server、Host、Runner、Harness 子进程的分层运行架构。
@@ -290,10 +290,10 @@ flowchart LR
 
 保持模块化单体，在现有包中新增四个边界清晰的领域模块：
 
-- `omnigent/coordination/`：MessageStore、Router、Outbox、DeliveryWorker 和 Projector。
-- `omnigent/execution/`：ExecutionProfile、AgentInstance、Run 和 ProfileResolver。
-- `omnigent/workspaces/`：Repo、Checkout、Lease、SwitchOperation 和 Git 事务。
-- `omnigent/observability/`：Durable activity、错误归一化、诊断投影。
+- `agentnexus/coordination/`：MessageStore、Router、Outbox、DeliveryWorker 和 Projector。
+- `agentnexus/execution/`：ExecutionProfile、AgentInstance、Run 和 ProfileResolver。
+- `agentnexus/workspaces/`：Repo、Checkout、Lease、SwitchOperation 和 Git 事务。
+- `agentnexus/observability/`：Durable activity、错误归一化、诊断投影。
 
 迁移原则：
 
@@ -702,7 +702,7 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
 - 若用户显式选择外部 Ponytail Pack，固定 tag/commit/digest，并保留其 MIT License 与来源记录。
 - 产品默认分发的是独立编写的 `lean-engineering`；不运行 GitHub 最新分支的第三方 Node Hook，不修改用户全局 Claude/Codex 配置。
 - 第三方 Benchmark 只作为实验方法参考；收益必须在本产品、目标模型和 Demo 仓库重新测量。
-- 2026-09-01：BEHAVIOR-001/002 已落地为纯领域模块 `omnigent/coordination/behavior.py`：
+- 2026-09-01：BEHAVIOR-001/002 已落地为纯领域模块 `agentnexus/coordination/behavior.py`：
   digest 固定、模式优先级（user > workflow > role default）、strict workflow 授权门
   和安全边界；`compose_injection_prompt` 只生成注入文本，不直接改 Harness 状态。
   固定与模板 Workflow 的 kickoff/派发/重试/改派消息已通过
@@ -711,7 +711,7 @@ Behavior Pack 不得省略 AgentMessage 协议字段、Artifact、错误详情�
   （需 root_session_id）返回最新绑定的 requested/resolved/digest/injection
   channel 与真实 delivery/consumption 状态；Agent Inspector 显示模式徽章，
   并明确区分 confirmed、queued、failed 与 unknown，不把未确认注入显示为
-  已生效。BEHAVIOR-003 继续推进：会话级模式现可通过 `omnigent.behavior_mode` label 选择并持久化，Inspector 在未注入前如实显示为 pending，并新增会话级模式/并发隔离测试；并把会话级模式按轮写入 Runner Prompt Composer（`framework_instructions`，labels 短缓存，best-effort 降级为空）；Inspector 仍以 delivery/consumption 回执为准，未回执前如实显示 pending。BEHAVIOR-003 剩余：会话级注入的持久回执占位与多环境门禁。
+  已生效。BEHAVIOR-003 继续推进：会话级模式现可通过 `agentnexus.behavior_mode` label 选择并持久化，Inspector 在未注入前如实显示为 pending，并新增会话级模式/并发隔离测试；并把会话级模式按轮写入 Runner Prompt Composer（`framework_instructions`，labels 短缓存，best-effort 降级为空）；Inspector 仍以 delivery/consumption 回执为准，未回执前如实显示 pending。BEHAVIOR-003 剩余：会话级注入的持久回执占位与多环境门禁。
 
 ## 12. Workspace 与 Git 协调
 
@@ -955,12 +955,12 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 >
 > 2026-09-01 P5 Windows 发布体系已补齐可自动化部分：NSIS 安装器改为
 > assisted/per-user/可选安装目录，并同时产出 portable zip；安装清单注册
-> `agentnexus://` 主协议并保留 `omnigent://` 兼容协议；升级前自动备份
+> `agentnexus://` 主协议并保留 `agentnexus://` 兼容协议；升级前自动备份
 > Electron `settings.json` 与本地 server 的
 > `chat.db*`/`config.yaml`/`auth_tokens.json`/`daemons` 到
 > `%APPDATA%\AgentNexus\update-backups`（保留最近 5 份，备份失败则不安装，
 > `restoreFromBackup` 可显式恢复）；Windows 卸载默认保留用户数据，assisted
-> 卸载时明确询问是否清理 `%APPDATA%\AgentNexus` 与 `~/.omnigent`，静默/更新
+> 卸载时明确询问是否清理 `%APPDATA%\AgentNexus` 与 `~/.agentnexus`，静默/更新
 > 路径永不清理。新增 backup/installer/DAG 定向测试。仍需要真实 Windows
 > 签名证书、干净机 15 分钟首次协作验收与候选发布 24 小时 soak 才能关闭 P5。
 >
@@ -1014,7 +1014,7 @@ GET    /v1/sessions/{id}/workspace-operations/{operation_id}
 > 2026-09-01 Windows 进程清理已收敛：`live_server` fixture teardown 与
 > `HarnessProcessManager._close_entry` 改为整树终止（超时后强制杀树）；
 > `process_reaper` 按规范化分隔符匹配 Windows 命令行路径、识别 `pytest.exe`，
-> 泄漏回归补充 Windows 上真实 `omnigent server` 子进程探针。可靠性 3 样本
+> 泄漏回归补充 Windows 上真实 `agentnexus server` 子进程探针。可靠性 3 样本
 > 无残留进程，process reaper 14 例和进程泄漏回归均通过；真实环境的
 > 24 小时无 orphan soak 仍属于 P5/P6 验收门禁。
 >
@@ -1300,7 +1300,7 @@ macOS/Linux 正式安装包、完整自动升级回滚和企业离线包进入 P
 ### 19.2 安装包组成
 
 - Desktop shell/Web assets。
-- 受控 Python runtime 和 Omnigent fork。
+- 受控 Python runtime 和 AgentNexus fork。
 - Host/Server 生命周期管理器。
 - Node/Harness 依赖探测，不无条件捆绑所有 Vendor CLI。
 - 配置、日志、Artifact、数据库和缓存使用独立目录。
@@ -1318,7 +1318,7 @@ macOS/Linux 正式安装包、完整自动升级回滚和企业离线包进入 P
 
 ### 20.1 Git 策略
 
-- `upstream`：跟踪 Omnigent 官方仓库。
+- `upstream`：跟踪 AgentNexus 官方仓库。
 - `origin`：二开产品仓库。
 - `product/main`：可发布主线。
 - 每个功能使用短分支和独立 migration。
@@ -1345,11 +1345,11 @@ macOS/Linux 正式安装包、完整自动升级回滚和企业离线包进入 P
 
 - 保留 LICENSE。
 - 保留并更新 NOTICE 和第三方归属。
-- 标记本产品包含基于 Omnigent 的修改。
+- 标记本产品包含基于 AgentNexus 的修改。
 - 替换名称、包名、图标、域名、配置目录和安装器标识。
 - Electron 打包元数据已完成首轮迁移：name/productName/appId/仓库作者/更新地址
   已改为 AgentNexus（ai.agentnexus.desktop、GitHub Releases feed）；内部
-  omnigent:// 协议、IPC 通道和 ~/.omnigent 数据目录仍作为兼容迁移项保留。
+  agentnexus:// 协议、IPC 通道和 ~/.agentnexus 数据目录仍作为兼容迁移项保留。
 - 发布前单独核查商标、第三方素材和 Vendor CLI 的分发条款。
 - 第一方 `lean-engineering` 使用独立文本、代码、测试、模式名称和指标，不复制 Ponytail 的原文、Hooks、Logo 或宣传数据。
 - 用户显式安装的外部 Ponytail Pack 保留原始 MIT License、版本、来源和 digest；若未来 vendoring 其任何实质内容，必须进入第三方许可证/NOTICE。

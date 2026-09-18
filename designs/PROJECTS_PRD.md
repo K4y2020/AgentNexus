@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Author: Serena Ruan
-- Related: [`designs/SESSION_PROJECTS_SIDEBAR.md`](./SESSION_PROJECTS_SIDEBAR.md) (v1, label-based sidebar grouping), issue [#863](https://github.com/omnigent-ai/omnigent/issues/863), PR [#869](https://github.com/omnigent-ai/omnigent/pull/869)
+- Related: [`designs/SESSION_PROJECTS_SIDEBAR.md`](./SESSION_PROJECTS_SIDEBAR.md) (v1, label-based sidebar grouping), issue [#863](https://github.com/agentnexus-ai/agentnexus/issues/863), PR [#869](https://github.com/agentnexus-ai/agentnexus/pull/869)
 
 ## 1. Overview
 
@@ -47,25 +47,25 @@ Priority order (highest first), per product direction:
 The exploration of the current codebase established the following, which every
 requirement below builds on:
 
-- **Session = `Conversation`** (`omnigent/entities/conversation.py`). Key fields:
+- **Session = `Conversation`** (`agentnexus/entities/conversation.py`). Key fields:
   `id`, `title`, `runner_id`, `host_id`, `workspace` (absolute path, **immutable
   after creation**), `git_branch`, `model_override`, `reasoning_effort`,
   `harness_override`, `cost_control_mode_override`, `labels`, `session_state`,
   `archived`.
 - **Session creation** goes through `POST /v1/sessions`
-  (`SessionCreateRequest`, `omnigent/server/schemas.py`) with `agent_id`,
+  (`SessionCreateRequest`, `agentnexus/server/schemas.py`) with `agent_id`,
   `host_type` (`external` | `managed`), `host_id`, `workspace`, optional `git`
   worktree spec, and per-session overrides. UX lives in
   `web/src/shell/NewChatDialog.tsx`.
 - **Working directory & host**: `workspace` is a path on a `host` (a machine
-  running `omnigent host`, or a server-managed sandbox). Bound at creation,
+  running `agentnexus host`, or a server-managed sandbox). Bound at creation,
   immutable thereafter. Git worktrees are opt-in at create time.
 - **Memory/context today**: only `session_state` (per-session key/value for
   policy callables) and `session_usage`. There is **no cross-session or
   project-level memory** and no shared context store.
 - **Permissions**: per-`(user_id, conversation_id)` rows with levels
-  read(1)/edit(2)/manage(3)/owner(4) (`omnigent/db/db_models.py`,
-  `omnigent/entities/permission.py`). `__public__` sentinel grants public read.
+  read(1)/edit(2)/manage(3)/owner(4) (`agentnexus/db/db_models.py`,
+  `agentnexus/entities/permission.py`). `__public__` sentinel grants public read.
   No org/team model. `workspace_id` is a multi-tenancy partition key, not a
   user-facing grouping.
 - **Projects v1 already exists**: reserved label `omni_project` in
@@ -142,12 +142,12 @@ stays small and reversible.
 ### 5.5 Proposed Phase-1 schema
 
 Follows the repo's conventions from the most recent table (`scheduled_tasks`,
-migration `z6…`, `omnigent/db/db_models.py`): `workspace_id` leads the PK, **no
+migration `z6…`, `agentnexus/db/db_models.py`): `workspace_id` leads the PK, **no
 DB foreign keys** (schema Rule R032 — relationships enforced in the app), owner
 scoping via a `*_user_id` column, epoch-seconds timestamps.
 
 ```python
-class SqlProject(OmnigentBase):
+class SqlProject(AgentNexusBase):
     """A user-defined, owner-private container that groups sessions."""
     __tablename__ = "projects"
 
@@ -180,7 +180,7 @@ class SqlProject(OmnigentBase):
 ```
 
 Membership is one nullable column on the existing metadata table
-(`SqlConversationMetadata`, `omnigent_conversation_metadata`):
+(`SqlConversationMetadata`, `agentnexus_conversation_metadata`):
 
 ```python
 # Relates to projects.id; no DB FK (Rule R032). NULL = unfiled.
@@ -194,7 +194,7 @@ Index("ix_conversation_metadata_project_id", "workspace_id", "project_id", "id")
 | Choice | Proposed | Rationale / alternative |
 |---|---|---|
 | `id` type | `String(64)`, `proj_`-prefixed | Reads as a sibling of `conv_…` ids; lives in the metadata String column. Newest tables use `Uuid16` — diverge here for readability + column symmetry. |
-| Membership location | `project_id` on `omnigent_conversation_metadata` | Metadata already holds host/workspace/runner; `list_conversations` can filter it inline. |
+| Membership location | `project_id` on `agentnexus_conversation_metadata` | Metadata already holds host/workspace/runner; `list_conversations` can filter it inline. |
 | Name uniqueness | store-level check, **no** unique index | Matches §7.1; case-sensitivity still open (Q3). The unique index shipped in Phase 1a and was dropped in `d5e6f7a8b9c0`: it never held for single-user mode (NULL owner, and SQL treats NULLs as distinct), and `name` is mutable, so it was maintained on every rename. Concurrent creates/renames to one name can now both land. |
 | Ownership | `user_id` **column on the row** | See "Where ownership lives" below — differs from sessions on purpose. |
 | Ordering | **no `position` column** | Reorder is deferred and client-only (§7.2); no server state until proven needed. |
@@ -222,7 +222,7 @@ If §9 is ever reversed and projects become shareable, we would drop this column
 and derive ownership from a `project_permissions` ACL, mirroring sessions.
 
 **Migration (mirrors `z6…`):** `op.create_table("projects", …)` with the two
-indexes; `op.add_column("omnigent_conversation_metadata", project_id)` + its
+indexes; `op.add_column("agentnexus_conversation_metadata", project_id)` + its
 index. **No backfill needed** for empty-project support — existing sessions stay
 `project_id = NULL` (unfiled). The `omni_project`-label → `project_id` backfill
 is a **separate, later** step (only when migrating v1 label-projects), kept out
@@ -525,7 +525,7 @@ folder), carrying the first-class `id` when one exists.
 ### Done (Benchmark — #3094)
 - ✅ **Latency journeys + corpus seeder.** Added `list_projects` (sidebar project
   list, dual-read union) and `list_project_sessions` (`?project=` folder fetch)
-  latency journeys to `dev/benchmarks/omnigent`, mirroring the `list_sessions`
+  latency journeys to `dev/benchmarks/agentnexus`, mirroring the `list_sessions`
   hot read path. The corpus seeder now also seeds first-class `projects` rows
   and files a configurable fraction of sessions into them (`--projects`,
   `--filed-fraction`) so the journeys measure a realistic sidebar instead of an

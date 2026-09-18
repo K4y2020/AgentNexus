@@ -26,7 +26,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from omnigent.antigravity_native_steps import (
+from agentnexus.antigravity_native_steps import (
     OutboundEvent,
     _execution_discriminator,
     map_step_to_events,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from omnigent.runtime.workflow import (
+from agentnexus.runtime.workflow import (
     _async_handle_message,
     _AsyncToolHandle,
 )

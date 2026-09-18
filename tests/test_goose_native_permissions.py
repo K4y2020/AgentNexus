@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-import omnigent.goose_native_permissions as gp
-from omnigent.goose_native_permissions import (
+import agentnexus.goose_native_permissions as gp
+from agentnexus.goose_native_permissions import (
     goose_permission_elicitation_id,
     parse_goose_approval_prompt,
 )

@@ -6,8 +6,8 @@ from typing import Final
 
 import pytest
 
-from omnigent.cli import _build_host_daemon_env
-from omnigent.host.connect import (
+from agentnexus.cli import _build_host_daemon_env
+from agentnexus.host.connect import (
     RUNNER_ENV_PASSTHROUGH_ENV_VAR,
     _build_runner_env,
 )

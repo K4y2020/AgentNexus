@@ -26,7 +26,7 @@ permissions:
 
 env:
   # No web SPA build during `uv sync`; this job never serves the bundle.
-  OMNIGENT_SKIP_WEB_UI: "true"
+  AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
 
@@ -144,12 +144,12 @@ jobs:
             extra: databricks
             markexpr: databricks
           # Slack integration (integrations/slack). Its tests live outside the
-          # top-level tests/ tree and import the decoupled `omnigent_slack`
+          # top-level tests/ tree and import the decoupled `agentnexus_slack`
           # package, so this lane installs the `slack` extra to pull it in. The
           # tests are run from the repo root on purpose: they rely on the root
           # pyproject's `asyncio_mode = auto` (rootdir resolution), and
-          # coverage of the omnigent package is a no-op here (the code under
-          # test is omnigent_slack, not omnigent) — harmless, kept for a
+          # coverage of the agentnexus package is a no-op here (the code under
+          # test is agentnexus_slack, not agentnexus) — harmless, kept for a
           # uniform pytest step.
           - group: slack
             paths: integrations/slack/tests
@@ -195,11 +195,11 @@ jobs:
         env:
           PYTHONFAULTHANDLER: "1"
           PYTEST_PROGRESS_LOG_DIR: artifacts/progress
-          OMNIGENT_TOKEN_USAGE_JSON: artifacts/tokens-${{ matrix.group }}.json
+          AGENTNEXUS_TOKEN_USAGE_JSON: artifacts/tokens-${{ matrix.group }}.json
           # Outside the repo: coverage.py's transient `.coverage.*` files
           # under the ro-bound cwd raced the sandbox's dotfile masker. Staged
           # back into artifacts/ below for the coverage-report job.
-          COVERAGE_FILE: ${{ runner.temp }}/omnigent-coverage/.coverage.${{ matrix.group }}
+          COVERAGE_FILE: ${{ runner.temp }}/agentnexus-coverage/.coverage.${{ matrix.group }}
           # sysmon: the default C-trace coverage backend pushed the heaviest
           # shard past its timeout; only line coverage is collected.
           COVERAGE_CORE: sysmon
@@ -214,7 +214,7 @@ jobs:
               --dist=${{ matrix.dist || 'loadfile' }} \
               --timeout=${{ matrix.timeout || '300' }} \
               --junitxml=artifacts/pytest-${{ matrix.group }}.xml \
-              --cov=omnigent --cov-report= \
+              --cov=agentnexus --cov-report= \
               -v --tb=long --showlocals --log-level=INFO -r a \
               || { rc=$?; [ "$rc" -eq 5 ] && echo "::notice::No tests collected in this shard; treating as a pass." || exit "$rc"; }
 
@@ -222,7 +222,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          cov_file="${{ runner.temp }}/omnigent-coverage/.coverage.${{ matrix.group }}"
+          cov_file="${{ runner.temp }}/agentnexus-coverage/.coverage.${{ matrix.group }}"
           if [[ -f "$cov_file" ]]; then
             cp "$cov_file" "artifacts/.coverage.${{ matrix.group }}"
           else
@@ -248,8 +248,8 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: omnigent
-          POSTGRES_DB: omnigent_root
+          POSTGRES_PASSWORD: agentnexus
+          POSTGRES_DB: agentnexus_root
         ports:
           - 5432:5432
         options: >-
@@ -269,7 +269,7 @@ jobs:
         run: uv sync --locked --extra all --group test --extra databricks
       - name: Run store + DB tests against PostgreSQL
         env:
-          OMNIGENT_TEST_DB_URI: postgresql+psycopg://postgres:omnigent@localhost:5432/omnigent_root
+          AGENTNEXUS_TEST_DB_URI: postgresql+psycopg://postgres:agentnexus@localhost:5432/agentnexus_root
         run: |
           uv run pytest tests/stores tests/db \
             -m "not databricks" \
@@ -294,12 +294,12 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: omnigent
-          MYSQL_DATABASE: omnigent_root
+          MYSQL_ROOT_PASSWORD: agentnexus
+          MYSQL_DATABASE: agentnexus_root
         ports:
           - 3306:3306
         options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root -pomnigent"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root -pagentnexus"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -317,7 +317,7 @@ jobs:
         run: uv sync --locked --extra all --group test --extra databricks && uv pip install mysqlclient
       - name: Run store + DB tests against MySQL
         env:
-          OMNIGENT_TEST_DB_URI: mysql+mysqldb://root:omnigent@127.0.0.1:3306/omnigent_root
+          AGENTNEXUS_TEST_DB_URI: mysql+mysqldb://root:agentnexus@127.0.0.1:3306/agentnexus_root
         run: |
           uv run pytest tests/stores tests/db \
             -m "not databricks" \

@@ -40,7 +40,7 @@ export class EditorPanelController {
       return;
     }
     const panel = vscode.window.createWebviewPanel(
-      "omnigent",
+      "agentnexus",
       "Omnigent",
       vscode.ViewColumn.Beside,
       {
@@ -57,7 +57,7 @@ export class EditorPanelController {
       }
     });
     this.render(panel.webview);
-    this.output.appendLine("[omnigent] opened editor-beside panel");
+    this.output.appendLine("[agentnexus] opened editor-beside panel");
   }
 
   /** Whether the editor panel is currently open. */

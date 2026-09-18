@@ -2,9 +2,9 @@
 
 With Codex CLI 0.150.1, a normal first turn emits a *second*
 ``thread/started`` about nine seconds in, for a ``system`` thread with
-``ephemeral=true`` and ``path=null``. Omnigent's forwarder treats every
+``ephemeral=true`` and ``path=null``. AgentNexus's forwarder treats every
 non-subagent ``thread/started`` whose id differs from the active thread as a
-user ``/clear`` and rotates the parent Omnigent session onto that thread
+user ``/clear`` and rotates the parent AgentNexus session onto that thread
 (``_maybe_rotate_session_on_thread_started`` ->
 ``_create_thread_replacement_session``). The session is now bound to a
 non-persistable thread: the real turn's output is rejected as stale and goal
@@ -42,8 +42,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent import codex_native_forwarder as fwd
-from omnigent.codex_native_bridge import (
+from agentnexus import codex_native_forwarder as fwd
+from agentnexus.codex_native_bridge import (
     CodexNativeBridgeState,
     read_bridge_state,
     write_bridge_state,
@@ -56,7 +56,7 @@ APP_SERVER_URL = "ws://127.0.0.1:9876"
 
 
 class _RecordingAP:
-    """httpx-shaped Omnigent client: answers the snapshot GET, records writes.
+    """httpx-shaped AgentNexus client: answers the snapshot GET, records writes.
 
     ``_create_thread_replacement_session`` fetches the old session snapshot
     (GET), then creates the replacement (POST /v1/sessions) and issues a series
@@ -194,7 +194,7 @@ async def test_ephemeral_system_thread_does_not_rotate_parent(tmp_path: Path) ->
     """Case 1 + 4: the ephemeral system ``thread/started`` must not rotate.
 
     This is the bug. On the buggy build the forwarder rotates the parent
-    Omnigent session onto the ephemeral thread (creating a replacement session,
+    AgentNexus session onto the ephemeral thread (creating a replacement session,
     transferring the terminal, and rewriting bridge state), which strands the
     real turn's output as stale and breaks goal reads. The parent session must
     stay bound to the persistent thread so goals keep working.
@@ -222,7 +222,7 @@ async def test_real_user_clear_thread_still_rotates(tmp_path: Path) -> None:
 
     The fix must be narrow: a real user ``/clear`` starts a fresh persistent
     top-level thread (``ephemeral`` absent/false, no sub-agent spawn source),
-    and that must keep rotating the Omnigent session as before.
+    and that must keep rotating the AgentNexus session as before.
     """
     ap = _RecordingAP()
     bridge_dir = _seed_bridge(tmp_path)

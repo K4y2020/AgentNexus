@@ -40,29 +40,29 @@ from typing import Any
 
 import pytest
 
-from omnigent.errors import ElicitationDeclinedError
-from omnigent.policies.function import FunctionPolicy
-from omnigent.policies.types import ElicitationRequest, PolicyResult
-from omnigent.runtime.policies.approval import (
+from agentnexus.errors import ElicitationDeclinedError
+from agentnexus.policies.function import FunctionPolicy
+from agentnexus.policies.types import ElicitationRequest, PolicyResult
+from agentnexus.runtime.policies.approval import (
     ELICITATION_PENDING_TOOL_NAME,
     _await_elicitation,
     _is_explicit_decline,
     _parse_verdict,
     _truncate,
 )
-from omnigent.runtime.policies.approval import (
+from agentnexus.runtime.policies.approval import (
     build_elicitation_params_json as _params_json,
 )
-from omnigent.runtime.policies.approval import (
+from agentnexus.runtime.policies.approval import (
     build_elicitation_request_event as _elicitation_request_event,
 )
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     Phase,
     PhaseSelector,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_policy
@@ -327,7 +327,7 @@ def test_elicitation_request_event_url_mode(monkeypatch: pytest.MonkeyPatch) -> 
     This is the primary contract the frontend relies on to render a
     link instead of inline buttons.
     """
-    monkeypatch.setattr("omnigent.runtime.policies.approval._ELICITATION_MODE", "url")
+    monkeypatch.setattr("agentnexus.runtime.policies.approval._ELICITATION_MODE", "url")
     req = ElicitationRequest(
         message="approve shell?",
         phase="tool_call",
@@ -349,7 +349,7 @@ def test_elicitation_request_event_form_mode_explicit(monkeypatch: pytest.Monkey
     form mode and carries no ``url`` field even when session_id is
     provided.
     """
-    monkeypatch.setattr("omnigent.runtime.policies.approval._ELICITATION_MODE", "form")
+    monkeypatch.setattr("agentnexus.runtime.policies.approval._ELICITATION_MODE", "form")
     req = ElicitationRequest(
         message="approve?",
         phase="tool_call",
@@ -371,7 +371,7 @@ def test_elicitation_request_event_no_session_id_stays_form(
     uses form mode regardless of config — the runner doesn't serve
     HTML pages.
     """
-    monkeypatch.setattr("omnigent.runtime.policies.approval._ELICITATION_MODE", "url")
+    monkeypatch.setattr("agentnexus.runtime.policies.approval._ELICITATION_MODE", "url")
     req = ElicitationRequest(
         message="approve?",
         phase="tool_call",

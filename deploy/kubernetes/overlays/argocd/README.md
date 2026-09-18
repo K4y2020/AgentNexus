@@ -1,6 +1,6 @@
 # ArgoCD overlay
 
-Deploy Omnigent with the kubernetes sandbox provider via ArgoCD. This overlay
+Deploy AgentNexus with the kubernetes sandbox provider via ArgoCD. This overlay
 adds safety annotations onto the
 [`sandbox-runners`](../sandbox-runners/README.md) overlay:
 
@@ -27,11 +27,11 @@ ArgoCD renders Kustomize natively — no plugin or Helm chart needed.
 
    ```yaml
    # deploy/kubernetes/base/secret.yaml
-   DATABASE_URL: "postgresql+psycopg://user:pass@your-db-host:5432/omnigent"
-   OMNIGENT_ACCOUNTS_COOKIE_SECRET: "<run: openssl rand -hex 32>"
+   DATABASE_URL: "postgresql+psycopg://user:pass@your-db-host:5432/agentnexus"
+   AGENTNEXUS_ACCOUNTS_COOKIE_SECRET: "<run: openssl rand -hex 32>"
    ```
 
-   For production, manage `omnigent-secrets` externally (sealed-secrets or
+   For production, manage `agentnexus-secrets` externally (sealed-secrets or
    external-secrets) and remove `secret.yaml` from the overlay render with a
    `$patch: delete` — see `openshift/kustomization.yaml:12-20` for the pattern.
    The Application's `ignoreDifferences` entry prevents `selfHeal` from
@@ -42,7 +42,7 @@ ArgoCD renders Kustomize natively — no plugin or Helm chart needed.
    auth**, or run single-user. See
    [`sandbox-runners/README.md` § Server auth](../sandbox-runners/README.md#server-auth-managed-hosts).
 
-4. **Set your domain** *(optional)* — replace `omnigent.example.com` in
+4. **Set your domain** *(optional)* — replace `agentnexus.example.com` in
    `base/ingress.yaml`. To skip the Ingress entirely, add a `$patch: delete`
    in your fork's overlay (see `openshift/kustomization.yaml:12-20` for the
    pattern — do not delete `base/ingress.yaml` itself, as it is shared by all
@@ -61,14 +61,14 @@ ArgoCD renders Kustomize natively — no plugin or Helm chart needed.
 
    ```bash
    kubectl wait --for=jsonpath='{.status.phase}'=Active \
-     namespace/omnigent-sandboxes --timeout=300s
+     namespace/agentnexus-sandboxes --timeout=300s
    ```
 
 7. **Create the harness-credentials Secret** — LLM API keys for runner Pods.
    Not in Git (credentials don't belong there):
 
    ```bash
-   kubectl create secret generic omnigent-creds -n omnigent-sandboxes \
+   kubectl create secret generic agentnexus-creds -n agentnexus-sandboxes \
      --from-literal=ANTHROPIC_API_KEY=sk-ant-... \
      --from-literal=OPENAI_API_KEY=sk-...
    ```
@@ -83,7 +83,7 @@ ArgoCD does not *create* these resources — but it **owns the namespaces they
 live in**. Deleting the Application (with the default finalizer) deletes both
 namespaces and garbage-collects everything inside them, including:
 
-- **`omnigent-creds` Secret** (step 7 above) — without it, runner Pods stall
+- **`agentnexus-creds` Secret** (step 7 above) — without it, runner Pods stall
   in `CreateContainerConfigError`. See the
   [sandbox-runners README](../sandbox-runners/README.md#apply) for which keys
   to set.
@@ -103,7 +103,7 @@ finalizer from `application.yaml`.
   the next sync. `Prune=false` annotations on Namespaces and the PVC exempt
   them.
 - **`selfHeal: true`** — manual cluster edits are reverted to match Git.
-  `ignoreDifferences` on `omnigent-secrets` and `omnigent-artifacts` exempts
+  `ignoreDifferences` on `agentnexus-secrets` and `agentnexus-artifacts` exempts
   their data, so out-of-band credential edits and volume expansions are kept.
 - **Deleting the Application** — with the finalizer, deletes both namespaces,
   the artifact PVC, and everything inside them. Without it, orphans everything.

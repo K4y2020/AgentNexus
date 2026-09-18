@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner.hook_scripts.subagent_router import read_router_endpoint
-from omnigent.runner import turn_routing
-from omnigent.runner.turn_routing import (
+from agentnexus.inner.hook_scripts.subagent_router import read_router_endpoint
+from agentnexus.runner import turn_routing
+from agentnexus.runner.turn_routing import (
     ADVERTISEMENT_FILE,
     MARKER_FILE,
     TurnRouteDecision,
@@ -51,7 +51,7 @@ class _FakeConv:
 
 
 def _routed_labels() -> dict[str, str]:
-    from omnigent.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
+    from agentnexus.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
 
     return {ROUTING_DECISION_LABEL_KEY: "decision-1"}
 
@@ -227,7 +227,7 @@ async def test_a_pinned_parents_in_family_pane_still_routes() -> None:
 
 
 async def test_an_auto_parents_cross_family_pane_still_routes() -> None:
-    from omnigent.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
+    from agentnexus.runner.subagent_routing import AUTO_HARNESS_LABEL_KEY
 
     rec = _Recorder()
     decision = await resolve_turn_route(
@@ -335,7 +335,7 @@ async def test_benign_allows_record_no_decline_chip() -> None:
     decision = await resolve_turn_route(
         "conv_1",
         _request(),
-        conv=_FakeConv(labels={"omnigent.routing.decision_id": "dec_1"}),
+        conv=_FakeConv(labels={"agentnexus.routing.decision_id": "dec_1"}),
         route_turn=rec.route,
         pin=rec.pin,
         persist=rec.persist,
@@ -971,7 +971,7 @@ async def test_recovery_ignores_another_session_sharing_the_bridge_dir(
 
 def test_in_harness_turn_routing_covers_both_native_harnesses() -> None:
     """The CLI's bare ``--smart-routing`` gate reads this predicate."""
-    from omnigent.runner.turn_routing import supports_in_harness_turn_routing
+    from agentnexus.runner.turn_routing import supports_in_harness_turn_routing
 
     assert supports_in_harness_turn_routing("codex-native")
     assert supports_in_harness_turn_routing("claude-native")
@@ -991,7 +991,7 @@ def test_settle_probe_reads_the_pane_for_claude_and_the_turn_id_for_codex(
     """
     asked: list[Path] = []
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.claude_pane_ready",
+        "agentnexus.claude_native_bridge.claude_pane_ready",
         lambda bridge_dir: bool(asked.append(bridge_dir)) or True,
     )
 
@@ -1033,10 +1033,10 @@ async def test_replay_switches_the_claude_pane_before_delivering(
         switched.append((bridge_dir, command, auto_confirm))
 
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.inject_slash_command", _inject, raising=False
+        "agentnexus.claude_native_bridge.inject_slash_command", _inject, raising=False
     )
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.read_model_env",
+        "agentnexus.claude_native_bridge.read_model_env",
         lambda _dir: {"ANTHROPIC_DEFAULT_SONNET_MODEL": "databricks-claude-sonnet-5"},
     )
 
@@ -1077,9 +1077,9 @@ async def test_replay_still_delivers_when_the_claude_switch_fails(
         del command, auto_confirm, confirm_hint
         raise RuntimeError("tmux target is not advertised")
 
-    monkeypatch.setattr("omnigent.claude_native_bridge.inject_slash_command", _boom, raising=False)
+    monkeypatch.setattr("agentnexus.claude_native_bridge.inject_slash_command", _boom, raising=False)
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.read_model_env",
+        "agentnexus.claude_native_bridge.read_model_env",
         lambda _dir: {"ANTHROPIC_DEFAULT_SONNET_MODEL": "databricks-claude-sonnet-5"},
     )
 
@@ -1112,12 +1112,12 @@ async def test_replay_skips_the_switch_for_an_unspeakable_model(
     _mark(tmp_path)
     client = _FakeServerClient()
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.inject_slash_command",
+        "agentnexus.claude_native_bridge.inject_slash_command",
         lambda *a, **k: pytest.fail("must not touch the pane"),
         raising=False,
     )
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.read_model_env",
+        "agentnexus.claude_native_bridge.read_model_env",
         lambda _dir: {"ANTHROPIC_DEFAULT_SONNET_MODEL": "databricks-claude-sonnet-5"},
     )
 
@@ -1145,7 +1145,7 @@ async def test_replay_leaves_the_model_alone_for_codex(
     _mark(tmp_path)
     client = _FakeServerClient()
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.inject_slash_command",
+        "agentnexus.claude_native_bridge.inject_slash_command",
         lambda *a, **k: pytest.fail("codex must not drive the claude pane"),
         raising=False,
     )
@@ -1202,11 +1202,11 @@ async def test_replay_skips_the_switch_when_the_pane_is_already_there(
     _mark(tmp_path)
     client = _FakeServerClient()
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.read_claude_status_model",
+        "agentnexus.claude_native_bridge.read_claude_status_model",
         lambda _dir: "databricks-claude-sonnet-5",
     )
     monkeypatch.setattr(
-        "omnigent.claude_native_bridge.inject_slash_command",
+        "agentnexus.claude_native_bridge.inject_slash_command",
         lambda *a, **k: pytest.fail("no switch when the pane is already on it"),
         raising=False,
     )
@@ -1235,7 +1235,7 @@ async def test_replay_skips_the_switch_when_the_pane_is_already_there(
 
 def test_the_timeout_ladder_is_strictly_decreasing_inwards() -> None:
     """Add #25: the hook's budget > the relay's > the server hop's."""
-    from omnigent.runner.turn_routing import (
+    from agentnexus.runner.turn_routing import (
         HARNESS_HOOK_TIMEOUT_S,
         HOOK_REQUEST_TIMEOUT_S,
         RELAY_TIMEOUT_S,
@@ -1261,8 +1261,8 @@ def test_the_router_clients_own_timeout_sits_inside_the_hook_budget() -> None:
     """
     import inspect
 
-    from omnigent.runner.turn_routing import HOOK_REQUEST_TIMEOUT_S
-    from omnigent.server.smart_routing import ExternalRoutingClient
+    from agentnexus.runner.turn_routing import HOOK_REQUEST_TIMEOUT_S
+    from agentnexus.server.smart_routing import ExternalRoutingClient
 
     default = (
         inspect.signature(ExternalRoutingClient.__init__).parameters["request_timeout"].default
@@ -1284,14 +1284,14 @@ def test_every_routing_budget_stays_inside_the_owners_ceiling() -> None:
     (~3s measured) plus the routing call (~1.6s), so every hook budget must
     clear that comfortably while staying at or under the 15s ceiling.
     """
-    from omnigent.inner.hook_scripts.subagent_router import (
+    from agentnexus.inner.hook_scripts.subagent_router import (
         HOOK_TIMEOUT_S as SPAWN_HOOK_TIMEOUT_S,
     )
-    from omnigent.inner.hook_scripts.subagent_router import (
+    from agentnexus.inner.hook_scripts.subagent_router import (
         REQUEST_TIMEOUT_S as SPAWN_REQUEST_TIMEOUT_S,
     )
-    from omnigent.runner import subagent_routing, turn_routing
-    from omnigent.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
+    from agentnexus.runner import subagent_routing, turn_routing
+    from agentnexus.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
 
     # The routing call itself, the innermost wait on every path. It must leave
     # room under the hops above it for the preparation that precedes it.
@@ -1336,13 +1336,13 @@ def test_the_subagent_ladder_is_strictly_decreasing_inwards() -> None:
     cross-reference (the script is stdlib-only and cannot import it), so the
     two spellings must agree or the documented ladder is fiction.
     """
-    from omnigent.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
-    from omnigent.runner.subagent_routing import (
+    from agentnexus.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
+    from agentnexus.runner.subagent_routing import (
         HOOK_REQUEST_TIMEOUT_S,
         RELAY_TIMEOUT_S,
         SERVER_HOP_TIMEOUT_S,
     )
-    from omnigent.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
+    from agentnexus.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
 
     assert HOOK_REQUEST_TIMEOUT_S == REQUEST_TIMEOUT_S
     assert HOOK_TIMEOUT_S > REQUEST_TIMEOUT_S > RELAY_TIMEOUT_S > SERVER_HOP_TIMEOUT_S
@@ -1359,8 +1359,8 @@ def test_the_routing_call_is_the_innermost_wait_on_the_turn_path() -> None:
     verdict") reaches the runner instead of the runner giving up first and
     reporting the vaguer "routing server unreachable".
     """
-    from omnigent.runner.turn_routing import SERVER_HOP_TIMEOUT_S
-    from omnigent.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
+    from agentnexus.runner.turn_routing import SERVER_HOP_TIMEOUT_S
+    from agentnexus.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S
 
     assert SERVER_HOP_TIMEOUT_S > ROUTING_REQUEST_TIMEOUT_S
 
@@ -1376,7 +1376,7 @@ def test_the_builtin_judge_shares_the_external_routers_budget() -> None:
     """
     import inspect
 
-    from omnigent.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S, LLMRoutingClient
+    from agentnexus.server.smart_routing import ROUTING_REQUEST_TIMEOUT_S, LLMRoutingClient
 
     source = inspect.getsource(LLMRoutingClient.route)
     # Both bounds: the adapter's own per-call HTTP timeout, and a wait_for that
@@ -1871,9 +1871,9 @@ def test_the_subagent_hook_budget_is_strictly_outside_its_request_budget() -> No
     request timed out and the harness saw a dead hook instead of "no opinion".
     The other two paths already carried headroom.
     """
-    from omnigent.inner.codex_executor import _CODEX_ROUTER_HOOK_TIMEOUT_SECONDS
-    from omnigent.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
-    from omnigent.runner.subagent_routing import RELAY_TIMEOUT_S
+    from agentnexus.inner.codex_executor import _CODEX_ROUTER_HOOK_TIMEOUT_SECONDS
+    from agentnexus.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
+    from agentnexus.runner.subagent_routing import RELAY_TIMEOUT_S
 
     assert HOOK_TIMEOUT_S > REQUEST_TIMEOUT_S > RELAY_TIMEOUT_S
     # And the harness entries that register a budget agree with it.
@@ -1884,8 +1884,8 @@ def test_the_claude_sdk_spawn_hook_is_registered_outside_its_own_request() -> No
     """The in-process claude-sdk hook reads the outer constant, not the inner."""
     import inspect
 
-    from omnigent.inner import claude_sdk_executor
-    from omnigent.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
+    from agentnexus.inner import claude_sdk_executor
+    from agentnexus.inner.hook_scripts.subagent_router import HOOK_TIMEOUT_S, REQUEST_TIMEOUT_S
 
     source = inspect.getsource(claude_sdk_executor)
     assert "timeout=subagent_router.HOOK_TIMEOUT_S" in source
@@ -1910,12 +1910,12 @@ def _hook_settings_after_launch(
     session_id: str,
 ) -> dict[str, Any]:
     """Generate a native launch's hook settings for one session snapshot."""
-    from omnigent.codex_native_app_server import (
+    from agentnexus.codex_native_app_server import (
         _codex_policy_hooks_settings,
         _turn_router_advertised,
     )
-    from omnigent.runner.native.orchestration import _start_turn_router_for_native_session
-    from omnigent.runner.subagent_routing import routing_class_from_snapshot
+    from agentnexus.runner.native.orchestration import _start_turn_router_for_native_session
+    from agentnexus.runner.subagent_routing import routing_class_from_snapshot
 
     routing_class = routing_class_from_snapshot(
         cost_control_mode="on", harness_override=harness, labels=labels
@@ -1932,7 +1932,7 @@ def _hook_settings_after_launch(
             return _codex_policy_hooks_settings(
                 tmp_path, "/venv/bin/python", turn_routing=_turn_router_advertised(tmp_path)
             )
-        from omnigent.claude_native_bridge import build_hook_settings
+        from agentnexus.claude_native_bridge import build_hook_settings
 
         return build_hook_settings(tmp_path, turn_routing=router is not None)
     finally:
@@ -1952,7 +1952,7 @@ def _prompt_submit_commands(settings: dict[str, Any]) -> list[str]:
 async def test_a_create_routed_session_launches_without_the_turn_hook(
     tmp_path: Path, harness: str
 ) -> None:
-    from omnigent.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
+    from agentnexus.runner.subagent_routing import ROUTING_DECISION_LABEL_KEY
 
     settings = _hook_settings_after_launch(
         tmp_path,

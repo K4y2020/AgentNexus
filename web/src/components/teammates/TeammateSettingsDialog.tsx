@@ -164,12 +164,12 @@ export function TeammateSettingsDialog({
   // Polly subagent routing state
   const subagentRoutingOverride = useChatStore((s) => s.subagentRoutingOverride);
   const [pollyRoutingOn, setPollyRoutingOn] = useState<boolean>(
-    session?.labels?.["omnigent.routing.subagents"] === "on" || subagentRoutingOverride === "on",
+    session?.labels?.["agentnexus.routing.subagents"] === "on" || subagentRoutingOverride === "on",
   );
   const [pollySaved, setPollySaved] = useState(false);
 
   // Behavior Pack / Lean mode
-  const sessionBehaviorMode = session?.labels?.["omnigent.behavior_mode"] || "off";
+  const sessionBehaviorMode = session?.labels?.["agentnexus.behavior_mode"] || "off";
   const [behaviorMode, setBehaviorMode] = useState<string>("off");
   const [behaviorSaved, setBehaviorSaved] = useState(false);
 
@@ -184,7 +184,7 @@ export function TeammateSettingsDialog({
     if (targetConvId) {
       try {
         await updateSession(targetConvId, {
-          labels: { "omnigent.behavior_mode": val },
+          labels: { "agentnexus.behavior_mode": val },
           silent: true,
         });
         await queryClient.invalidateQueries({ queryKey: ["session", targetConvId] });
@@ -217,13 +217,13 @@ export function TeammateSettingsDialog({
         const savedClaude =
           sessionClaudeModel ||
           (typeof localStorage !== "undefined"
-            ? localStorage.getItem("omnigent.debby.claude_partner_model")
+            ? localStorage.getItem("agentnexus.debby.claude_partner_model")
             : null) ||
           "default";
         const savedGpt =
           sessionGptModel ||
           (typeof localStorage !== "undefined"
-            ? localStorage.getItem("omnigent.debby.gpt_partner_model")
+            ? localStorage.getItem("agentnexus.debby.gpt_partner_model")
             : null) ||
           "default";
         setClaudePartnerModel(savedClaude || "default");
@@ -232,7 +232,7 @@ export function TeammateSettingsDialog({
       }
       if (isPolly) {
         const isRouting =
-          session?.labels?.["omnigent.routing.subagents"] === "on" ||
+          session?.labels?.["agentnexus.routing.subagents"] === "on" ||
           subagentRoutingOverride === "on";
         setPollyRoutingOn(isRouting);
         setPollySaved(false);
@@ -240,19 +240,19 @@ export function TeammateSettingsDialog({
         const savedClaude =
           sessionPollyClaudeModel ||
           (typeof localStorage !== "undefined"
-            ? localStorage.getItem("omnigent.polly.claude_model")
+            ? localStorage.getItem("agentnexus.polly.claude_model")
             : null) ||
           "default";
         const savedCodex =
           sessionPollyCodexModel ||
           (typeof localStorage !== "undefined"
-            ? localStorage.getItem("omnigent.polly.codex_model")
+            ? localStorage.getItem("agentnexus.polly.codex_model")
             : null) ||
           "default";
         const savedCodebuddy =
           sessionPollyCodebuddyModel ||
           (typeof localStorage !== "undefined"
-            ? localStorage.getItem("omnigent.polly.codebuddy_model")
+            ? localStorage.getItem("agentnexus.polly.codebuddy_model")
             : null) ||
           "default";
         setPollyClaudeModel(savedClaude || "default");
@@ -284,8 +284,8 @@ export function TeammateSettingsDialog({
 
   async function handleSaveDebbyPartners() {
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("omnigent.debby.claude_partner_model", claudePartnerModel);
-      localStorage.setItem("omnigent.debby.gpt_partner_model", gptPartnerModel);
+      localStorage.setItem("agentnexus.debby.claude_partner_model", claudePartnerModel);
+      localStorage.setItem("agentnexus.debby.gpt_partner_model", gptPartnerModel);
     }
     if (targetConvId) {
       try {
@@ -313,7 +313,7 @@ export function TeammateSettingsDialog({
       try {
         await updateSession(targetConvId, {
           labels: {
-            "omnigent.routing.subagents": checked ? "on" : "off",
+            "agentnexus.routing.subagents": checked ? "on" : "off",
           },
           silent: true,
         });
@@ -327,9 +327,9 @@ export function TeammateSettingsDialog({
 
   async function handleSavePollySubagents() {
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("omnigent.polly.claude_model", pollyClaudeModel);
-      localStorage.setItem("omnigent.polly.codex_model", pollyCodexModel);
-      localStorage.setItem("omnigent.polly.codebuddy_model", pollyCodebuddyModel);
+      localStorage.setItem("agentnexus.polly.claude_model", pollyClaudeModel);
+      localStorage.setItem("agentnexus.polly.codex_model", pollyCodexModel);
+      localStorage.setItem("agentnexus.polly.codebuddy_model", pollyCodebuddyModel);
     }
     if (targetConvId) {
       try {

@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from omnigent.policies.builtins.routing import (
+from agentnexus.policies.builtins.routing import (
     _CACHE_KEY_PREFIX,
     _CLASSIFICATION_SCHEMA,
     _INTENT_CHECK_PREFIX,
@@ -494,13 +494,13 @@ def test_registry_entry_well_formed() -> None:
     required ``expensive_models`` parameter.
     """
     handlers = {e["handler"] for e in POLICY_REGISTRY}
-    assert "omnigent.policies.builtins.routing.deny_trivial_to_expensive_model" in handlers
-    assert "omnigent.policies.builtins.routing.intent_based_authorization" in handlers
+    assert "agentnexus.policies.builtins.routing.deny_trivial_to_expensive_model" in handlers
+    assert "agentnexus.policies.builtins.routing.intent_based_authorization" in handlers
 
     trivial_entry = next(
         e
         for e in POLICY_REGISTRY
-        if e["handler"] == "omnigent.policies.builtins.routing.deny_trivial_to_expensive_model"
+        if e["handler"] == "agentnexus.policies.builtins.routing.deny_trivial_to_expensive_model"
     )
     assert trivial_entry["kind"] == "factory"
     schema = trivial_entry["params_schema"]
@@ -510,7 +510,7 @@ def test_registry_entry_well_formed() -> None:
     intent_entry = next(
         e
         for e in POLICY_REGISTRY
-        if e["handler"] == "omnigent.policies.builtins.routing.intent_based_authorization"
+        if e["handler"] == "agentnexus.policies.builtins.routing.intent_based_authorization"
     )
     assert intent_entry["kind"] == "factory"
     assert intent_entry["params_schema"]["required"] == []

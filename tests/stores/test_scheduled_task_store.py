@@ -11,8 +11,8 @@ import uuid
 
 import pytest
 
-from omnigent.db.db_models import workspace_scope
-from omnigent.stores.scheduled_task_store.sqlalchemy_store import SqlAlchemyScheduledTaskStore
+from agentnexus.db.db_models import workspace_scope
+from agentnexus.stores.scheduled_task_store.sqlalchemy_store import SqlAlchemyScheduledTaskStore
 
 
 # scheduled_tasks.id / scheduled_task_runs.id / scheduled_task_id are Uuid16

@@ -18,7 +18,7 @@
 // read — a bare string value `v` becomes `{ mode: v }` — so a returning user's
 // remembered mode survives the generalization without a reset.
 
-const STORAGE_KEY = "omnigent:last-mode-by-harness";
+const STORAGE_KEY = "agentnexus:last-mode-by-harness";
 
 /** A harness's remembered option knobs (e.g. `{ mode, model, effort }`). */
 export type HarnessOptions = Record<string, string>;

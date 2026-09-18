@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.types import SkillSpec
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins import LoadSkillTool
+from agentnexus.spec.types import SkillSpec
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins import LoadSkillTool
 
 
 @pytest.fixture()
@@ -151,7 +151,7 @@ def test_load_skill_schema_lists_skill_names(
 
 def test_list_skill_resources_includes_root_level_files(tmp_path: Path) -> None:
     """Auxiliary docs beside SKILL.md are readable resources."""
-    from omnigent.tools.builtins.load_skill import list_skill_resources
+    from agentnexus.tools.builtins.load_skill import list_skill_resources
 
     skill_dir = tmp_path / "codebase-design"
     skill_dir.mkdir()
@@ -170,7 +170,7 @@ def test_list_skill_resources_includes_root_level_files(tmp_path: Path) -> None:
 
 def test_list_skill_resources_excludes_skill_md_and_dotfiles(tmp_path: Path) -> None:
     """SKILL.md is the skill itself, and dotfiles are not content."""
-    from omnigent.tools.builtins.load_skill import list_skill_resources
+    from agentnexus.tools.builtins.load_skill import list_skill_resources
 
     skill_dir = tmp_path / "example"
     skill_dir.mkdir()
@@ -188,7 +188,7 @@ def test_list_skill_resources_excludes_skill_md_and_dotfiles(tmp_path: Path) -> 
 
 def test_list_skill_resources_lists_root_files_before_subdirs(tmp_path: Path) -> None:
     """Root files come first; subdir entries keep their relative paths."""
-    from omnigent.tools.builtins.load_skill import list_skill_resources
+    from agentnexus.tools.builtins.load_skill import list_skill_resources
 
     skill_dir = tmp_path / "example"
     (skill_dir / "references").mkdir(parents=True)

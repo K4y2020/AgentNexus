@@ -11,13 +11,13 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent import (
+from agentnexus import (
     claude_native_bridge,
     codex_native_bridge,
 )
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.runner import app as runner_app_mod
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.runner import app as runner_app_mod
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.helpers import NullServerClient
 
 
@@ -39,7 +39,7 @@ class _WakePost:
 
 class _QueuedResponseServerClient:
     """
-    Omnigent HTTP client stub that returns a fixed queue of real responses.
+    AgentNexus HTTP client stub that returns a fixed queue of real responses.
 
     A real stub (NOT ``MagicMock``) so that an unexpected attribute access or
     an extra POST beyond the queue fails the test loudly instead of silently
@@ -114,7 +114,7 @@ async def test_wake_post_retries_transient_503_then_succeeds(
     """
     A transient 503 wake response is retried and the next 200 succeeds.
 
-    Guards the core bug: Omnigent returns a genuine 503 ``RUNNER_UNAVAILABLE``
+    Guards the core bug: AgentNexus returns a genuine 503 ``RUNNER_UNAVAILABLE``
     *response* (not a transport exception) while the parent's runner tunnel
     reconnects. The wake POST must treat that as a failure and retry, not
     accept it as delivered.
@@ -289,7 +289,7 @@ def test_wake_post_transport_error_is_retryable() -> None:
     A transport-level error (no response) is always retryable.
 
     A ``ConnectError`` carries no HTTP response — the POST may never have
-    reached Omnigent — so the wake should be retried.
+    reached AgentNexus — so the wake should be retried.
     """
     request = httpx.Request("POST", "http://test/v1/sessions/p/events")
     exc = httpx.ConnectError("connection refused", request=request)
@@ -664,7 +664,7 @@ async def test_auto_create_claude_terminal_recreate_cancels_prior_forwarder(
             raise
 
     monkeypatch.setattr(
-        "omnigent.claude_native_forwarder.supervise_forwarder",
+        "agentnexus.claude_native_forwarder.supervise_forwarder",
         _parking_forwarder,
     )
 
@@ -757,15 +757,15 @@ async def test_auto_create_codex_terminal_recreate_cancels_prior_forwarder(
     :param tmp_path: Temporary directory for isolated bridge state.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
 
     session_id = "a3f4361a350851cfb9eb3db2bf2b0380"
     thread_id = "019e96aa-0be2-7343-8d3b-6f914d60936b"
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     class _SnapshotServerClient:
         """Server client returning a persisted resume thread + one item."""
@@ -917,7 +917,7 @@ async def test_auto_create_codex_terminal_recreate_cancels_prior_forwarder(
         spec_version=1,
         name="codex",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )
@@ -993,7 +993,7 @@ async def test_forwarder_task_exit_paths_are_logged(
         return None
 
     try:
-        with caplog.at_level(logging.INFO, logger="omnigent.runner.app"):
+        with caplog.at_level(logging.INFO, logger="agentnexus.runner.app"):
             parked_task = asyncio.create_task(_parked(), name="claude-forwarder-cancelled")
             runner_app_mod._register_auto_forwarder_task(cancelled_id, parked_task)
             await asyncio.sleep(0)
@@ -1014,7 +1014,7 @@ async def test_forwarder_task_exit_paths_are_logged(
             return [
                 record
                 for record in caplog.records
-                if record.name == "omnigent.runner.app"
+                if record.name == "agentnexus.runner.app"
                 and record.levelno == level
                 and needle in record.getMessage()
             ]
@@ -1047,15 +1047,15 @@ async def test_auto_create_codex_terminal_refused_resume_closes_app_server(
     :param tmp_path: Temporary directory for isolated bridge state.
     :param monkeypatch: Pytest monkeypatch fixture.
     """
-    import omnigent.codex_native_app_server as codex_app_mod
+    import agentnexus.codex_native_app_server as codex_app_mod
 
     session_id = "b7d2c1e0aa114b52b7c2f1d3e4a5b6c7"
     thread_id = "019e96aa-0be2-7343-8d3b-6f914d60936c"
     monkeypatch.setattr(codex_native_bridge, "_BRIDGE_ROOT", tmp_path / "codex-bridge")
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", str(tmp_path / "workspace"))
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://ap.example")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
-    monkeypatch.setattr("omnigent.runner._entry._make_auth_token_factory", lambda: None)
+    monkeypatch.setattr("agentnexus.runner._entry._make_auth_token_factory", lambda: None)
 
     class _SnapshotServerClient:
         """Server client whose snapshot carries a persisted resume thread."""
@@ -1168,7 +1168,7 @@ async def test_auto_create_codex_terminal_refused_resume_closes_app_server(
         spec_version=1,
         name="codex",
         executor=ExecutorSpec(
-            type="omnigent",
+            type="agentnexus",
             config={"harness": "codex-native", "model": "gpt-5-default"},
         ),
     )

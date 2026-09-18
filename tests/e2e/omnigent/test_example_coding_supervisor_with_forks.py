@@ -23,13 +23,13 @@ from shutil import which
 import pytest
 
 from tests.e2e._harness_probes import HARNESS_HARNESS_MODELS, HARNESS_IDS
-from tests.e2e.omnigent._example_helpers import (
+from tests.e2e.agentnexus._example_helpers import (
     assert_completed_one_shot,
     require_claude_sdk,
     require_codex_cli,
     run_one_shot,
 )
-from tests.e2e.omnigent.conftest import configure_mock_llm, reset_mock_llm
+from tests.e2e.agentnexus.conftest import configure_mock_llm, reset_mock_llm
 
 
 @pytest.mark.parametrize("harness,model", HARNESS_HARNESS_MODELS, ids=HARNESS_IDS)

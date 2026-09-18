@@ -241,9 +241,9 @@ async def test_fork_coding_session_stamps_fork_source_label(
     # original host/dir/branch. A missing key means fork_conversation
     # didn't detect source.workspace; a wrong value means it stamped the
     # wrong source.
-    assert fork["labels"].get("omnigent.fork.source_id") == source["id"], (
+    assert fork["labels"].get("agentnexus.fork.source_id") == source["id"], (
         f"Expected fork-source label = {source['id']!r}, got "
-        f"{fork['labels'].get('omnigent.fork.source_id')!r}."
+        f"{fork['labels'].get('agentnexus.fork.source_id')!r}."
     )
     # The workspace itself must NOT be carried over — the clone rebinds
     # its own. If this is set, the clone would look bound and skip the
@@ -275,7 +275,7 @@ async def test_fork_chat_session_has_no_fork_source_label(
 
     # Absent key — presence would route a chat-only clone into the
     # coding-resume path it doesn't belong in.
-    assert "omnigent.fork.source_id" not in fork["labels"], (
+    assert "agentnexus.fork.source_id" not in fork["labels"], (
         f"Chat-only fork must not carry the fork-source label, got labels {fork['labels']!r}."
     )
 

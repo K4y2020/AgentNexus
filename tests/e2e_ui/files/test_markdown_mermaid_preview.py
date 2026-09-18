@@ -63,7 +63,7 @@ def test_mermaid_fence_renders_as_preview_diagram(
     page.add_init_script(
         """
         window.localStorage.setItem(
-          "omnigent:file-view-preferences",
+          "agentnexus:file-view-preferences",
           JSON.stringify({
             diffActive: false,
             diffLayout: "unified",

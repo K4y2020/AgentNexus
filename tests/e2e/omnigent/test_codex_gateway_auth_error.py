@@ -78,8 +78,8 @@ def test_codex_gateway_auth_failure_exits_with_actionable_error(
         import json
         import os
 
-        from omnigent.inner.codex_executor import CodexExecutor
-        from omnigent.inner.executor import ExecutorError
+        from agentnexus.inner.codex_executor import CodexExecutor
+        from agentnexus.inner.executor import ExecutorError
 
 
         async def main():

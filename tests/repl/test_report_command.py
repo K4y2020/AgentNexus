@@ -11,9 +11,9 @@ from __future__ import annotations
 from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
-from omnigent_ui_sdk import RichBlockFormatter
+from agentnexus_ui_sdk import RichBlockFormatter
 
-from omnigent.repl._repl import (
+from agentnexus.repl._repl import (
     COMMANDS,
     _build_github_issue_url,
     handle_slash_command,
@@ -240,7 +240,7 @@ async def test_report_command_includes_description_arg_in_url(
 async def test_report_command_includes_version_in_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Omnigent version is included in the issue body when available.
+    """AgentNexus version is included in the issue body when available.
 
     Failure: the version field is blank, making it impossible to tell
     which release a report came from.
@@ -250,7 +250,7 @@ async def test_report_command_includes_version_in_url(
     # Patch importlib.metadata.version to return a known string.
     monkeypatch.setattr(
         "importlib.metadata.version",
-        lambda pkg: "9.8.7" if pkg == "omnigent" else "0.0.0",
+        lambda pkg: "9.8.7" if pkg == "agentnexus" else "0.0.0",
     )
 
     host = _Host()

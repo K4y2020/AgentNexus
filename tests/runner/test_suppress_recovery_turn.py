@@ -24,11 +24,11 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from omnigent.runner import create_runner_app
-from omnigent.runner.session_init_protocol import (
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.session_init_protocol import (
     build_runner_session_init_payload,
 )
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -119,7 +119,7 @@ def _session_init_payload(
     suppress_recovery_turn: bool,
     server_version: str = "0.0.0-test",
 ) -> dict[str, Any]:
-    from omnigent.entities import Conversation
+    from agentnexus.entities import Conversation
 
     conv = Conversation(
         id=SESSION_ID,

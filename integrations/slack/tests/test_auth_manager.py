@@ -7,8 +7,8 @@ import httpx
 import pytest
 import respx
 from cryptography.fernet import Fernet
-from omnigent_slack.auth_manager import AuthManager, slack_client_id
-from omnigent_slack.tokens import EncryptedTokenStore, TokenStore
+from agentnexus_slack.auth_manager import AuthManager, slack_client_id
+from agentnexus_slack.tokens import EncryptedTokenStore, TokenStore
 
 _BASE = "http://omnigent.test"
 
@@ -20,10 +20,10 @@ async def _manager(tmp_path: Path) -> tuple[AuthManager, TokenStore]:
 
 
 def test_slack_client_id_format() -> None:
-    assert slack_client_id("Acme Corp") == "Slack-Omnigent-Acme Corp"
+    assert slack_client_id("Acme Corp") == "Slack-AgentNexus-Acme Corp"
     # Missing/blank workspace name falls back to the bare label.
-    assert slack_client_id("") == "Slack-Omnigent"
-    assert slack_client_id("  ") == "Slack-Omnigent"
+    assert slack_client_id("") == "Slack-AgentNexus"
+    assert slack_client_id("  ") == "Slack-AgentNexus"
 
 
 async def test_disabled_without_key() -> None:
@@ -62,7 +62,7 @@ async def test_authorize_returns_link_and_await_persists_on_approval(tmp_path: P
     )
     mgr, store = await _manager(tmp_path)
 
-    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-Omnigent-Test")
+    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-AgentNexus-Test")
     assert "ABCD-2345" in pending.verification_url
 
     succeeded: list[bool] = []
@@ -98,7 +98,7 @@ async def test_await_authorization_denied_calls_on_failure(tmp_path: Path) -> No
         return_value=httpx.Response(400, json={"error": "access_denied"})
     )
     mgr, store = await _manager(tmp_path)
-    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-Omnigent-Test")
+    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-AgentNexus-Test")
 
     failures: list[str] = []
 
@@ -142,7 +142,7 @@ async def test_login_fires_token_changed_hook(tmp_path: Path) -> None:
         changed.append((team_id, user_id, server_url))
 
     mgr = AuthManager(store, on_token_changed=hook)
-    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-Omnigent-Test")
+    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-AgentNexus-Test")
 
     async def _noop() -> None:
         return None
@@ -245,7 +245,7 @@ async def test_oidc_login_stores_session_jwt_no_refresh(tmp_path: Path) -> None:
     )
     mgr, store = await _manager(tmp_path)
 
-    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-Omnigent-Test")
+    pending = await mgr.authorize(server_url=_BASE, client_id="Slack-AgentNexus-Test")
     assert "ticket=T1" in pending.verification_url
     assert pending.user_code == ""  # no code in the OIDC flow
 
@@ -380,7 +380,7 @@ class _Pair:
 
 async def test_rotator_refresh_rotates_via_external_client(tmp_path: Path) -> None:
     # In databricks mode refresh goes to the workspace OAuth app (the rotator),
-    # NOT the Omnigent server's /oauth/* — and a fresh pair is persisted.
+    # NOT the AgentNexus server's /oauth/* — and a fresh pair is persisted.
     store = EncryptedTokenStore(tmp_path / "t.sqlite3", Fernet.generate_key().decode())
     await store.initialize()
     rotator = _FakeRotator(_Pair("new-access", "new-refresh"))
@@ -435,7 +435,7 @@ async def test_rotator_transient_failure_keeps_token(tmp_path: Path) -> None:
     # discard a still-valid refresh grant. It raises TokenRefreshTransientError
     # (so the caller keeps the current access token and skips a re-login prompt),
     # and the stored refresh token is untouched.
-    from omnigent_slack.omnigent import TokenRefreshTransientError
+    from agentnexus_slack.agentnexus import TokenRefreshTransientError
 
     store = EncryptedTokenStore(tmp_path / "t.sqlite3", Fernet.generate_key().decode())
     await store.initialize()

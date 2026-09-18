@@ -14,7 +14,7 @@ import asyncio
 import contextlib
 from collections.abc import Callable
 
-from omnigent.suspend_watch import (
+from agentnexus.suspend_watch import (
     SUSPEND_GAP_THRESHOLD_S,
     SUSPEND_POLL_INTERVAL_S,
     watch_for_resume,

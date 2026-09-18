@@ -15,7 +15,7 @@ import { childSessionsQueryKey } from "@/hooks/useChildSessions";
 import { createSession } from "@/lib/sessionsApi";
 
 // Title sentinel marking a user-added agent. Mirrors the server's
-// ``_UI_ADDED_AGENT_TITLE_PREFIX`` in omnigent/server/routes/sessions.py:
+// ``_UI_ADDED_AGENT_TITLE_PREFIX`` in agentnexus/server/routes/sessions.py:
 // the 3-segment "ui:<agent>:<name>" title is parsed back into
 // tool=<agent>, session_name=<name> by the child_sessions endpoint, and a
 // sub-agent named "ui" is rejected by the spec validator to avoid collision.
@@ -120,7 +120,7 @@ export function AddAgentDialog({
             {agentList.length === 0 ? (
               <p data-testid="add-agent-empty" className="text-sm text-muted-foreground">
                 No agents available on this server. Register one with{" "}
-                <code className="font-mono">omnigent server --agent</code>.
+                <code className="font-mono">agentnexus server --agent</code>.
               </p>
             ) : (
               agentList.map((agent) => (

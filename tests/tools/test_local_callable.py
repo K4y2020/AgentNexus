@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.types import LocalToolInfo, ToolRuntime
-from omnigent.tools.base import ToolContext
-from omnigent.tools.local_callable import LocalCallableTool, load_local_callable_tools
+from agentnexus.spec.types import LocalToolInfo, ToolRuntime
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.local_callable import LocalCallableTool, load_local_callable_tools
 
 _TEST_CTX = ToolContext(task_id="task_test", agent_id="agent_test")
-_CALLABLE_LANGUAGE = "omnigent-python-callable"
+_CALLABLE_LANGUAGE = "agentnexus-python-callable"
 
 
 @pytest.fixture()

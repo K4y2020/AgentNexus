@@ -27,19 +27,19 @@ from typing import Any
 import pytest
 import yaml
 
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.runner import create_runner_app
-from omnigent.runner import tool_dispatch as _tool_dispatch
-from omnigent.runner.app import _resolve_harness_config, _spec_with_workdir_paths
-from omnigent.runner.native.orchestration import (
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.runner import create_runner_app
+from agentnexus.runner import tool_dispatch as _tool_dispatch
+from agentnexus.runner.app import _resolve_harness_config, _spec_with_workdir_paths
+from agentnexus.runner.native.orchestration import (
     ResolvedSpec,
     _ensure_orchestrator_skills_in_bundle,
     _resolve_sub_agent_spec_entry,
 )
-from omnigent.runner.resource_registry import SessionResourceRegistry
-from omnigent.spec.parser import parse
-from omnigent.spec.types import AgentSpec, LocalToolInfo
-from omnigent.terminals import TerminalRegistry
+from agentnexus.runner.resource_registry import SessionResourceRegistry
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import AgentSpec, LocalToolInfo
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -70,7 +70,7 @@ def _write_agent(
     config: dict[str, Any] = {
         "spec_version": 1,
         "name": name,
-        "executor": {"type": "omnigent", "config": {"harness": harness}},
+        "executor": {"type": "agentnexus", "config": {"harness": harness}},
     }
     config.update(extra or {})
     (directory / "config.yaml").write_text(yaml.dump(config))
@@ -262,7 +262,7 @@ async def test_native_terminal_ensure_launches_against_child_bundle(
     # launch adapter, which forwards ``ctx.bundle_dir`` to the builder — so the
     # builder is patched where the adapter looks it up.
     monkeypatch.setattr(
-        f"omnigent.runner.native.orchestration.{target}", _capture_auto_create(calls)
+        f"agentnexus.runner.native.orchestration.{target}", _capture_auto_create(calls)
     )
     monkeypatch.setattr(SessionResourceRegistry, "get_terminal_resource", _no_terminal)
 
@@ -483,7 +483,7 @@ def _write_python_tool(root: Path, rel_path: str) -> None:
     target = root / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        "from omnigent_client.tools import tool\n\n"
+        "from agentnexus_client.tools import tool\n\n"
         "@tool\n"
         "def bundle_tool(text: str) -> str:\n"
         "    return text\n"

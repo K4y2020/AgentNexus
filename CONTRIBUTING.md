@@ -49,7 +49,7 @@ missing from the model. Automation preserves those overrides and does not
 replace a maintainer-set priority with its own proposal. The queue is rerun as
 issues change, while unchanged LLM classifications are reused.
 
-For bugs, include the observed impact, reproduction evidence, Omnigent version,
+For bugs, include the observed impact, reproduction evidence, AgentNexus version,
 platform, and affected harness or authentication mode. Direct steps are best,
 but a clear intermittent observation, controlled test, diagnostics, or concrete
 analysis of the failing code path can also give maintainers enough to
@@ -115,7 +115,7 @@ Install local prerequisites first:
 
 ```bash
 git clone https://github.com/K4y2020/AgentNexus.git
-cd omnigent
+cd agentnexus
 
 uv python install
 uv venv --python "$(cat .python-version)"
@@ -160,7 +160,7 @@ For full-stack manual testing, use `omnidev`.
 `omnidev` runs the current checkout's server, host, and Vite frontend in one
 terminal. Each checkout path, including each worktree, gets isolated state,
 configuration, database, artifacts, logs, and automatically allocated ports,
-so it can run alongside your normal Omnigent installation and other worktrees.
+so it can run alongside your normal AgentNexus installation and other worktrees.
 
 Install the supervisor once from an up-to-date checkout:
 
@@ -172,26 +172,26 @@ Then run it from anywhere inside the branch checkout or worktree you want to
 test. A fresh worktree needs its own Python environment first:
 
 ```bash
-cd /path/to/omnigent-worktree
+cd /path/to/agentnexus-worktree
 uv sync --extra all --group dev
 omnidev
 ```
 
 Open the exact `ui` URL displayed in the header; do not assume the Vite port is
-`5173`. Python changes under `omnigent/` reload the server and host, while
+`5173`. Python changes under `agentnexus/` reload the server and host, while
 frontend changes use Vite HMR.
 
 Run CLI commands against the development pod through the passthrough so they
 use that checkout and its isolated state instead of a globally installed
-`omnigent`:
+`agentnexus`:
 
 ```bash
-omnidev omnigent config show
-omnidev omnigent agent list
+omnidev agentnexus config show
+omnidev agentnexus agent list
 ```
 
 Keep `omnidev` in the foreground and quit with `q` or `Ctrl-C` so it tears down
-all three processes. An interactive terminal inside an existing Omnigent
+all three processes. An interactive terminal inside an existing AgentNexus
 session also works; use `git rev-parse --show-toplevel` to confirm that its
 current checkout is the one you intend to test.
 
@@ -206,10 +206,10 @@ assume the default ports are free:
 
 ```bash
 # Terminal 1: local server on :6767
-uv run omnigent server
+uv run agentnexus server
 
 # Terminal 2: register your machine as a host
-uv run omnigent host --server http://localhost:6767
+uv run agentnexus host --server http://localhost:6767
 
 # Terminal 3: frontend dev server
 cd web
@@ -221,8 +221,8 @@ Open the Vite URL from the frontend dev server, usually
 your filesystem and start new sessions on your machine — without it, the web UI
 is read/continue-only.
 
-`omni` is an alias for `omnigent`, so `omni host --server ...` works too.
-The host URL can also be passed positionally (`omnigent host
+`omni` is an alias for `agentnexus`, so `omni host --server ...` works too.
+The host URL can also be passed positionally (`agentnexus host
 http://localhost:6767`). See the [README](README.md) for more on hosts,
 harnesses, and credentials.
 
@@ -241,7 +241,7 @@ PORT=18090 scripts/backend-smoke.sh   # override the port if 18080 is busy
 ```
 
 It installs `uv` into a throwaway toolchain venv, runs `uv sync --frozen`,
-starts the server in API-only mode (`OMNIGENT_SKIP_WEB_UI=true`), waits for
+starts the server in API-only mode (`AGENTNEXUS_SKIP_WEB_UI=true`), waits for
 `/health`, and smoke-tests `/`, `/health`, `/docs`, `/v1/agents`, and
 `/v1/sessions` -- expecting HTTP `200` from all five. It exits non-zero if any
 check fails.
@@ -255,10 +255,10 @@ Notes:
 - **Fully isolated, disposable:** every artifact -- the toolchain and project
   venvs, config, data, the SQLite database, artifacts, logs, and `pip`/`uv`
   caches -- lives under one `mktemp -d` runtime directory removed on exit, so
-  the run never touches your real `~/.omnigent`, `~/.config` / `~/Library`, or
+  the run never touches your real `~/.agentnexus`, `~/.config` / `~/Library`, or
   package caches. `HOME` is the primary isolation lever (it redirects
   `~/.config` on Linux and `~/Library` on macOS); the explicit `UV_*` / `PIP_*`
-  / `OMNIGENT_*` overrides pin the toolchain and app state regardless of OS,
+  / `AGENTNEXUS_*` overrides pin the toolchain and app state regardless of OS,
   and `XDG_*` are set so an `XDG_*` already exported in your shell cannot
   redirect state back to your real home.
 - **What it does not cover:** the web UI, mobile access, human-in-the-loop
@@ -267,7 +267,7 @@ Notes:
 
 ## Tests
 
-A change that alters behaviour under `omnigent/` should ship with a test, and a
+A change that alters behaviour under `agentnexus/` should ship with a test, and a
 bug fix should add a test that fails before the fix. Pure refactors, renames,
 type-only changes, dependency bumps, and edits with no observable behaviour
 change don't need a new test.
@@ -282,7 +282,7 @@ would do.
 Put the test in the suite that matches the area you changed — most backend
 areas mirror their source directory under `tests/`:
 
-| Area changed (`omnigent/…`) | Test suite (`tests/…`) |
+| Area changed (`agentnexus/…`) | Test suite (`tests/…`) |
 | --- | --- |
 | `server/` | `server/` |
 | `runner/` | `runner/` |

@@ -6,7 +6,7 @@ import json
 import stat
 from pathlib import Path
 
-from omnigent import pi_native_bridge
+from agentnexus import pi_native_bridge
 
 
 def _inbox_files(bridge_dir: Path) -> list[str]:
@@ -159,7 +159,7 @@ def test_prepare_bridge_dir_is_owner_only(tmp_path: Path, monkeypatch) -> None:
     """The bridge dir and its inbox are created 0o700 (per-session isolation).
 
     The bearer token written alongside the inbox makes owner-only perms the
-    isolation boundary between sessions sharing ``~/.omnigent/pi-native``.
+    isolation boundary between sessions sharing ``~/.agentnexus/pi-native``.
     """
     monkeypatch.setattr(pi_native_bridge, "_BRIDGE_ROOT", tmp_path / "pi-native")
 
@@ -196,7 +196,7 @@ def test_clear_inbox_is_a_noop_without_an_inbox(tmp_path: Path) -> None:
 def test_write_extension_files_embeds_tools(tmp_path: Path) -> None:
     """write_extension_files embeds the tool list so the extension can register it.
 
-    The runner builds the session's Omnigent tool surface (sys_* tools) and
+    The runner builds the session's AgentNexus tool surface (sys_* tools) and
     passes it to write_extension_files; the extension reads ``config.tools`` and
     registers each via ``pi.registerTool``. The config must round-trip the list
     verbatim so the schemas reach the Pi agent unchanged.
@@ -303,7 +303,7 @@ def test_refresh_config_auth_headers_preserves_launch_written_headers(tmp_path: 
     """Bearer refresh merges over existing headers; launch-written extras survive.
 
     On guest-on-shared-host runners the extension config is written at launch
-    with both the OAuth bearer and an ``X-Omnigent-Runner-Tunnel-Token`` header
+    with both the OAuth bearer and an ``X-AgentNexus-Runner-Tunnel-Token`` header
     needed for the extension's ``/events`` POSTs to be authorised as self-access.
     The per-turn bearer refresh must not wipe that header — it only knows about
     the fresh bearer, not the tunnel token.
@@ -316,7 +316,7 @@ def test_refresh_config_auth_headers_preserves_launch_written_headers(tmp_path: 
         conversation_url="http://omnigent.test/c/conv_abc",
         auth_headers={
             "Authorization": "Bearer stale",
-            "X-Omnigent-Runner-Tunnel-Token": "tunnel-tok",
+            "X-AgentNexus-Runner-Tunnel-Token": "tunnel-tok",
         },
     )
 
@@ -329,12 +329,12 @@ def test_refresh_config_auth_headers_preserves_launch_written_headers(tmp_path: 
     # Bearer is updated to the fresh value.
     assert payload["authHeaders"]["Authorization"] == "Bearer fresh"
     # Tunnel token written at launch is preserved across the bearer rotation.
-    assert payload["authHeaders"]["X-Omnigent-Runner-Tunnel-Token"] == "tunnel-tok"
+    assert payload["authHeaders"]["X-AgentNexus-Runner-Tunnel-Token"] == "tunnel-tok"
 
 
 def test_inject_relay_into_config_writes_relay_fields(tmp_path: Path) -> None:
     """inject_relay_into_config writes relayUrl and relayToken into config.json."""
-    from omnigent import pi_native_bridge
+    from agentnexus import pi_native_bridge
 
     bridge_dir = tmp_path / "bridge"
     bridge_dir.mkdir()
@@ -360,7 +360,7 @@ def test_inject_relay_into_config_writes_relay_fields(tmp_path: Path) -> None:
 
 def test_inject_relay_into_config_noops_when_config_absent(tmp_path: Path) -> None:
     """inject_relay_into_config returns False when config.json is missing."""
-    from omnigent import pi_native_bridge
+    from agentnexus import pi_native_bridge
 
     bridge_dir = tmp_path / "missing"
     bridge_dir.mkdir()

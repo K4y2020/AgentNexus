@@ -11,7 +11,7 @@ correctness change. See the comment on ``uvicorn.run`` in ``omnigent/cli.py``.
 
 from __future__ import annotations
 
-from omnigent.runner.transports.ws_tunnel.limits import (
+from agentnexus.runner.transports.ws_tunnel.limits import (
     RUNNER_TUNNEL_MAX_MESSAGE_BYTES,
     TUNNEL_KEEPALIVE_PING_INTERVAL_S,
     TUNNEL_KEEPALIVE_PING_TIMEOUT_S,
@@ -47,7 +47,7 @@ def test_keepalive_not_stricter_than_app_level_budget() -> None:
     deliberate app-level policy ever applies — the regression this guards. Checked
     against BOTH tunnels, which share the same budget.
     """
-    from omnigent.server.routes import host_tunnel, runner_tunnel
+    from agentnexus.server.routes import host_tunnel, runner_tunnel
 
     for module in (runner_tunnel, host_tunnel):
         app_level_dead_after_s = module.PING_INTERVAL_S * module.PING_MISS_THRESHOLD

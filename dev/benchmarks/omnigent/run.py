@@ -1,4 +1,4 @@
-"""Omnigent user-journey benchmark runner.
+"""AgentNexus user-journey benchmark runner.
 
 Boots a real ``omnigent server`` against a SQLite DB (no runner, no LLM),
 drives the selected HTTP journeys under load, prints per-journey latency /
@@ -31,22 +31,22 @@ from pathlib import Path
 # Allow ``uv run <path>`` (no package context) to import the sibling modules.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from dev.benchmarks.omnigent.environment import BenchEnvironment
-from dev.benchmarks.omnigent.journeys import (
+from dev.benchmarks.agentnexus.environment import BenchEnvironment
+from dev.benchmarks.agentnexus.journeys import (
     ALL_JOURNEYS,
     Journey,
     resolve_journeys,
     run_latency,
     run_throughput,
 )
-from dev.benchmarks.omnigent.measure import (
+from dev.benchmarks.agentnexus.measure import (
     RunResult,
     aggregate,
     check_thresholds,
     console,
     print_results,
 )
-from dev.benchmarks.omnigent.schema import build_report
+from dev.benchmarks.agentnexus.schema import build_report
 
 # Harness label stamped in the report: HTTP/DB journeys drive no agent turn;
 # runner journeys drive turns through the in-process openai-agents SDK harness.
@@ -224,7 +224,7 @@ async def run_benchmark(args: argparse.Namespace) -> tuple[dict[str, object], bo
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="omnigent-benchmark",
+        prog="agentnexus-benchmark",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

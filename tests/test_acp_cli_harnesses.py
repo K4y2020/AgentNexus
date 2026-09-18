@@ -19,10 +19,10 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.acp_cli_harnesses import ACP_CLI_HARNESSES, AcpCliHarness
-from omnigent.harness_aliases import canonicalize_harness
-from omnigent.harness_install_spec import HarnessInstallSpec
-from omnigent.harness_plugins import (
+from agentnexus.acp_cli_harnesses import ACP_CLI_HARNESSES, AcpCliHarness
+from agentnexus.harness_aliases import canonicalize_harness
+from agentnexus.harness_install_spec import HarnessInstallSpec
+from agentnexus.harness_plugins import (
     harness_capabilities,
     harness_install_keys,
     harness_labels,
@@ -30,10 +30,10 @@ from omnigent.harness_plugins import (
     install_specs,
     valid_harnesses,
 )
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.onboarding.harness_install import ui_setup_steps
-from omnigent.runtime.workflow import _build_acp_cli_spawn_env
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.onboarding.harness_install import ui_setup_steps
+from agentnexus.runtime.workflow import _build_acp_cli_spawn_env
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 
 _FAKE_ROW = AcpCliHarness(
     install=HarnessInstallSpec(
@@ -62,7 +62,7 @@ def _spec(
         spec_version=1,
         name=f"test-{harness}",
         instructions="Test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model),
         os_env=os_env,
     )
 
@@ -82,11 +82,11 @@ def test_spawn_env_forwards_cwd_sandbox_and_quotes_command(
     runner workspace), so the catalog path must prove them.
     """
     monkeypatch.setitem(ACP_CLI_HARNESSES, "fakecli", _FAKE_ROW)
-    monkeypatch.delenv("OMNIGENT_FAKECLI_PATH", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_FAKECLI_PATH", raising=False)
     # A resolved binary path containing a space must survive the round-trip
     # through the shlex-split command string.
     monkeypatch.setattr(
-        "omnigent._platform.resolve_cli_binary",
+        "agentnexus._platform.resolve_cli_binary",
         lambda name, **k: "/opt/fake cli/fakecli" if name == "fakecli" else None,
     )
     os_env = OSEnvSpec(
@@ -113,21 +113,21 @@ def test_spawn_env_forwards_cwd_sandbox_and_quotes_command(
 
 def test_spawn_env_honors_path_override_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(ACP_CLI_HARNESSES, "fakecli", _FAKE_ROW)
-    monkeypatch.setenv("OMNIGENT_FAKECLI_PATH", "/custom/fakecli")
+    monkeypatch.setenv("AGENTNEXUS_FAKECLI_PATH", "/custom/fakecli")
     env = _build_acp_cli_spawn_env(_spec("fakecli"), harness="fakecli")
     assert shlex.split(env["HARNESS_ACP_COMMAND"])[0] == "/custom/fakecli"
     # No session cwd and no os_env on the spec: neither var may be emitted, so
-    # the wrap falls back to OMNIGENT_RUNNER_WORKSPACE / its own default.
+    # the wrap falls back to AGENTNEXUS_RUNNER_WORKSPACE / its own default.
     assert "HARNESS_ACP_CWD" not in env
     assert "HARNESS_ACP_OS_ENV" not in env
 
 
 def test_runner_dispatch_routes_catalog_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """_build_spawn_env_from_spec picks up any catalog row without new wiring."""
-    from omnigent.runner.app import _build_spawn_env_from_spec
+    from agentnexus.runner.app import _build_spawn_env_from_spec
 
     monkeypatch.setitem(ACP_CLI_HARNESSES, "fakecli", _FAKE_ROW)
-    monkeypatch.delenv("OMNIGENT_FAKECLI_PATH", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_FAKECLI_PATH", raising=False)
     env = _build_spawn_env_from_spec(_spec("fakecli"), "fakecli")
     assert env is not None
     assert env["HARNESS_ACP_NAME"] == "Fake CLI"
@@ -149,7 +149,7 @@ def test_fake_row_login_command() -> None:
 # AcpExtension into the same shared ACP executor (see omnigent.inner.devin).
 # Listing one here is deliberate: it declares that the row no longer runs the
 # shared wrap and may declare capabilities the generic profile does not.
-_VENDOR_WRAPS = {"devin": "omnigent.inner.devin.harness"}
+_VENDOR_WRAPS = {"devin": "agentnexus.inner.devin.harness"}
 
 
 @pytest.mark.parametrize("name", sorted(ACP_CLI_HARNESSES))
@@ -159,7 +159,7 @@ def test_catalog_row_is_fully_registered(name: str) -> None:
 
     assert name in valid_harnesses()
     assert harness_labels()[name] == row.label
-    assert harness_modules()[name] == _VENDOR_WRAPS.get(name, "omnigent.inner.acp_harness")
+    assert harness_modules()[name] == _VENDOR_WRAPS.get(name, "agentnexus.inner.acp_harness")
 
     caps = harness_capabilities()
     if name in _VENDOR_WRAPS:
@@ -188,7 +188,7 @@ def test_catalog_row_is_fully_registered(name: str) -> None:
     assert row.install.install_hint or row.install.package
     # The /v1/harnesses catalog advertises model_arg exactly for rows whose
     # launch argv pins a model — the client's signal to offer model pinning.
-    from omnigent.harness_plugins import harness_catalog
+    from agentnexus.harness_plugins import harness_catalog
 
     payload = {r["id"]: r for r in harness_catalog()}
     assert payload[name].get("model_arg") == row.model_arg
@@ -229,11 +229,11 @@ def test_setup_drill_in_names_install_and_login(
     **What breaks if this fails**: a user picks the harness in setup and is told
     nothing about how to make it work.
     """
-    from omnigent import cli_config
+    from agentnexus import cli_config
 
     row = ACP_CLI_HARNESSES[name]
     # Force the "not installed" branch so the install hint has to be shown.
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _binary: None)
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _binary: None)
     cli_config._show_acp_cli_harness(name)
 
     out = capsys.readouterr().out
@@ -247,7 +247,7 @@ def test_setup_drill_in_names_install_and_login(
 
 def test_setup_drill_in_ignores_unknown_row() -> None:
     """A stale key (concurrent config change) must not raise."""
-    from omnigent import cli_config
+    from agentnexus import cli_config
 
     cli_config._show_acp_cli_harness("definitely-not-a-row")
 
@@ -262,7 +262,7 @@ def test_spawn_env_forwards_permission_mode(monkeypatch: pytest.MonkeyPatch) -> 
     """
     monkeypatch.setitem(ACP_CLI_HARNESSES, "fakecli", _FAKE_ROW)
     monkeypatch.setattr(
-        "omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/fakecli"
+        "agentnexus._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/fakecli"
     )
 
     env = _build_acp_cli_spawn_env(
@@ -296,7 +296,7 @@ def test_spawn_env_pins_spec_model_only_for_rows_with_model_arg(
     their binary would reject (or ignore) is the failure mode the row opt-in
     exists to prevent.
     """
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: f"/usr/bin/{_b}")
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: f"/usr/bin/{_b}")
     env = _build_acp_cli_spawn_env(_spec(harness, model="glm-5.3"), harness=harness)
     argv = shlex.split(env["HARNESS_ACP_COMMAND"])
     if expected_argv_tail:
@@ -311,7 +311,7 @@ def test_spawn_env_drops_gateway_model_for_model_arg_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A databricks gateway id is not a valid vendor model id — drop it."""
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
     env = _build_acp_cli_spawn_env(
         _spec("codebuddy", model="databricks-claude-opus-4-8"), harness="codebuddy"
     )
@@ -323,6 +323,6 @@ def test_spawn_env_omits_model_flag_when_spec_has_no_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No spec model -> the row runs its account-default model, argv untouched."""
-    monkeypatch.setattr("omnigent._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
+    monkeypatch.setattr("agentnexus._platform.resolve_cli_binary", lambda _b, **k: "/usr/bin/cb")
     env = _build_acp_cli_spawn_env(_spec("codebuddy"), harness="codebuddy")
     assert shlex.split(env["HARNESS_ACP_COMMAND"]) == ["/usr/bin/cb", "--acp"]

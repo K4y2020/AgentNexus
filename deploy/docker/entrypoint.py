@@ -1,4 +1,4 @@
-"""OSS Docker entrypoint for the Omnigent server.
+"""OSS Docker entrypoint for the AgentNexus server.
 
 Mirrors ``deploy/databricks/src/app.py`` (the Databricks Apps entrypoint) but
 configured for a plain Postgres database and a local-filesystem
@@ -44,10 +44,10 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-    from omnigent.stores.artifact_store import ArtifactStore
+    from agentnexus.stores.artifact_store import ArtifactStore
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, force=True)
-logger = logging.getLogger("omnigent-docker")
+logger = logging.getLogger("agentnexus-docker")
 
 # Defaults live as module-level constants — the Dockerfile and
 # docker-compose.yaml both also set these, so the values here just
@@ -102,7 +102,7 @@ def run_migrations(database_url: str) -> None:
     """
     import sqlalchemy
 
-    from omnigent.db.utils import _run_migrations as _run_alembic_upgrade
+    from agentnexus.db.utils import _run_migrations as _run_alembic_upgrade
 
     migration_engine = sqlalchemy.create_engine(database_url)
     try:
@@ -114,14 +114,14 @@ def run_migrations(database_url: str) -> None:
 def _resolve_config() -> _ResolvedConfig:
     """Load config and resolve startup settings before migrations run."""
 
-    from omnigent.db.utils import normalize_database_url
-    from omnigent.server.paas_env import detect_base_url, resolve_bind_host
-    from omnigent.server.server_config import load_server_config
+    from agentnexus.db.utils import normalize_database_url
+    from agentnexus.server.paas_env import detect_base_url, resolve_bind_host
+    from agentnexus.server.server_config import load_server_config
 
     # ── Configuration ────────────────────────────────────────
     # Non-secret settings come from a YAML config file (default
     # <data_dir>/config.yaml, e.g. /data/config.yaml on the volume, or
-    # OMNIGENT_CONFIG) — the same experience a laptop gets from
+    # AGENTNEXUS_CONFIG) — the same experience a laptop gets from
     # `omnigent server -c`. Secrets stay in the environment:
     # DATABASE_URL (carries the password) and the cookie / OIDC secrets.
     cfg = load_server_config()
@@ -155,10 +155,10 @@ def _resolve_config() -> _ResolvedConfig:
     # Optional remote artifact store (S3 / Cloudflare R2 / MinIO / …). When set,
     # the artifact STORE is remote and durable; artifact_dir stays local for the
     # cookie secret and on-disk cache. Mirrors how DATABASE_URL selects the DB.
-    artifact_store_uri = cfg.get("artifact_store_uri") or os.environ.get("OMNIGENT_ARTIFACT_URI")
+    artifact_store_uri = cfg.get("artifact_store_uri") or os.environ.get("AGENTNEXUS_ARTIFACT_URI")
     if artifact_store_uri and not artifact_store_uri.startswith("s3://"):
         raise RuntimeError(
-            "OMNIGENT_ARTIFACT_URI (or `artifact_store_uri:` in config) must be an "
+            "AGENTNEXUS_ARTIFACT_URI (or `artifact_store_uri:` in config) must be an "
             f"'s3://bucket[/prefix]' URI, got: {artifact_store_uri!r}"
         )
 
@@ -175,31 +175,31 @@ def _resolve_config() -> _ResolvedConfig:
     # single-user header mode with no login, but a Docker / HF / PaaS
     # instance is typically network-exposed, so we opt it into the
     # multi-user login flow here — accounts by default, or OIDC if the
-    # operator supplied OMNIGENT_OIDC_* config. An operator can still
-    # force header/oidc/accounts via OMNIGENT_AUTH_PROVIDER, or turn
-    # auth off with OMNIGENT_AUTH_ENABLED=0.
-    os.environ.setdefault("OMNIGENT_AUTH_ENABLED", "1")
+    # operator supplied AGENTNEXUS_OIDC_* config. An operator can still
+    # force header/oidc/accounts via AGENTNEXUS_AUTH_PROVIDER, or turn
+    # auth off with AGENTNEXUS_AUTH_ENABLED=0.
+    os.environ.setdefault("AGENTNEXUS_AUTH_ENABLED", "1")
 
-    # Kill-switch ergonomics: OMNIGENT_AUTH_ENABLED=0 means "no login,
+    # Kill-switch ergonomics: AGENTNEXUS_AUTH_ENABLED=0 means "no login,
     # single-user local container" (the documented local-dev posture).
     # Header mode now fails closed on a missing X-Forwarded-Email,
     # so without this marker a no-auth container would
     # 401 every request — nothing injects the header. Only the implicit
     # kill-switch path gets the marker: an EXPLICIT
-    # OMNIGENT_AUTH_PROVIDER=header deploy declared a header-injecting
+    # AGENTNEXUS_AUTH_PROVIDER=header deploy declared a header-injecting
     # proxy and must stay strict.
-    from omnigent.server.auth import (
+    from agentnexus.server.auth import (
         env_var_is_truthy,
         resolve_auth_source,
         warn_if_single_user_exposed,
     )
 
-    # Compose passes OMNIGENT_AUTH_PROVIDER as "" when unset
+    # Compose passes AGENTNEXUS_AUTH_PROVIDER as "" when unset
     # ("${VAR:-}"): empty and missing both mean "not explicitly pinned".
-    _raw_auth_provider = os.environ.get("OMNIGENT_AUTH_PROVIDER")
+    _raw_auth_provider = os.environ.get("AGENTNEXUS_AUTH_PROVIDER")
     _auth_provider_explicit = bool(_raw_auth_provider and _raw_auth_provider.strip())
-    if not _auth_provider_explicit and not env_var_is_truthy("OMNIGENT_AUTH_ENABLED"):
-        os.environ.setdefault("OMNIGENT_LOCAL_SINGLE_USER", "1")
+    if not _auth_provider_explicit and not env_var_is_truthy("AGENTNEXUS_AUTH_ENABLED"):
+        os.environ.setdefault("AGENTNEXUS_LOCAL_SINGLE_USER", "1")
 
     # Accounts mode ergonomics: when the operator hasn't set them, supply the
     # two required vars (cookie secret + base URL) so a 1-click / `docker
@@ -207,19 +207,19 @@ def _resolve_config() -> _ResolvedConfig:
     # selection so an explicit header/oidc deploy (or AUTH_ENABLED=0)
     # doesn't mint accounts secrets it never reads.
     if resolve_auth_source() == "accounts":
-        from omnigent.server.accounts_secret import load_or_generate_cookie_secret
+        from agentnexus.server.accounts_secret import load_or_generate_cookie_secret
 
         # Empty-check, not setdefault: compose passes these as empty strings
         # ("${VAR:-}"), which setdefault would leave in place — defeating the default.
-        if not os.environ.get("OMNIGENT_ACCOUNTS_COOKIE_SECRET"):
-            os.environ["OMNIGENT_ACCOUNTS_COOKIE_SECRET"] = load_or_generate_cookie_secret(
+        if not os.environ.get("AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"):
+            os.environ["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"] = load_or_generate_cookie_secret(
                 artifact_dir
             )
-        if not os.environ.get("OMNIGENT_ACCOUNTS_BASE_URL"):
+        if not os.environ.get("AGENTNEXUS_ACCOUNTS_BASE_URL"):
             # Auto-detect the public URL from the PaaS env (Render / Railway /
             # Fly / HF Spaces) so a 1-click deploy needs zero manual config;
             # falls back to the bind address for local / Docker / EC2.
-            os.environ["OMNIGENT_ACCOUNTS_BASE_URL"] = detect_base_url(
+            os.environ["AGENTNEXUS_ACCOUNTS_BASE_URL"] = detect_base_url(
                 os.environ, host=host, port=port
             )
 
@@ -252,10 +252,10 @@ def _select_artifact_store(resolved_config: _ResolvedConfig) -> ArtifactStore:
     :returns: The selected
         :class:`~omnigent.stores.artifact_store.ArtifactStore`.
     """
-    from omnigent.stores.artifact_store.local import LocalArtifactStore
+    from agentnexus.stores.artifact_store.local import LocalArtifactStore
 
     if resolved_config.artifact_store_uri:
-        from omnigent.stores.artifact_store.s3 import S3ArtifactStore
+        from agentnexus.stores.artifact_store.s3 import S3ArtifactStore
 
         return S3ArtifactStore(resolved_config.artifact_store_uri)
     return LocalArtifactStore(str(resolved_config.artifact_dir))
@@ -266,7 +266,7 @@ def _build_local_llm_routing_client(
 ) -> Any | None:  # type: ignore[explicit-any]  # LLMRoutingClient | None
     if server_llm is None:
         return None
-    from omnigent.runtime.policies.builder import (
+    from agentnexus.runtime.policies.builder import (
         _build_policy_llm_client,
         _resolve_server_llm_connection,
     )
@@ -275,7 +275,7 @@ def _build_local_llm_routing_client(
     policy_client = _build_policy_llm_client(server_llm, conn)
     if policy_client is None:
         return None
-    from omnigent.server.smart_routing import LLMRoutingClient
+    from agentnexus.server.smart_routing import LLMRoutingClient
 
     return LLMRoutingClient(policy_client)
 
@@ -295,7 +295,7 @@ def _build_routing(
         built-in judge when no external router is configured.
     :returns: ``(routing_client, routing_settings)`` for ``RuntimeCaps``.
     """
-    from omnigent.cli import _build_external_routing_client, parse_routing_settings
+    from agentnexus.cli import _build_external_routing_client, parse_routing_settings
 
     routing_cfg = cfg.get("routing")
     settings = parse_routing_settings(routing_cfg)
@@ -315,8 +315,8 @@ def build_app(resolved_config: _ResolvedConfig | None = None) -> _BuiltApp:
     This function intentionally does not run migrations; ``main()`` runs
     them explicitly after config resolution and before store construction.
     """
-    from omnigent.server.app import create_app
-    from omnigent.server.server_config import config_str_list
+    from agentnexus.server.app import create_app
+    from agentnexus.server.server_config import config_str_list
 
     if resolved_config is None:
         resolved_config = _resolve_config()
@@ -327,26 +327,26 @@ def build_app(resolved_config: _ResolvedConfig | None = None) -> _BuiltApp:
 
     # ── Stores ───────────────────────────────────────────────
 
-    from omnigent.runtime import init as init_runtime
-    from omnigent.runtime import telemetry
-    from omnigent.runtime.agent_cache import AgentCache
-    from omnigent.runtime.caps import RuntimeCaps
-    from omnigent.server.managed_hosts import parse_sandbox_config
-    from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-    from omnigent.stores.comment_store.sqlalchemy_store import (
+    from agentnexus.runtime import init as init_runtime
+    from agentnexus.runtime import telemetry
+    from agentnexus.runtime.agent_cache import AgentCache
+    from agentnexus.runtime.caps import RuntimeCaps
+    from agentnexus.server.managed_hosts import parse_sandbox_config
+    from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+    from agentnexus.stores.comment_store.sqlalchemy_store import (
         SqlAlchemyCommentStore,
     )
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
-    from omnigent.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
-    from omnigent.stores.host_store import HostStore
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.file_store.sqlalchemy_store import SqlAlchemyFileStore
+    from agentnexus.stores.host_store import HostStore
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
-    from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
-    from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
-    from omnigent.stores.scheduled_task_store.sqlalchemy_store import (
+    from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+    from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from agentnexus.stores.scheduled_task_store.sqlalchemy_store import (
         SqlAlchemyScheduledTaskStore,
     )
 
@@ -372,7 +372,7 @@ def build_app(resolved_config: _ResolvedConfig | None = None) -> _BuiltApp:
         cache_dir=artifact_dir / ".cache",
     )
 
-    from omnigent.spec import parse_default_policies, parse_server_llm
+    from agentnexus.spec import parse_default_policies, parse_server_llm
 
     server_llm = parse_server_llm(cfg.get("llm"))
 
@@ -403,13 +403,13 @@ def build_app(resolved_config: _ResolvedConfig | None = None) -> _BuiltApp:
     # so internally, so this same code path can opt out by passing
     # None for non-accounts deploys (matching the structural
     # contract used on the hosted product).
-    from omnigent.server.auth import UnifiedAuthProvider as _UAP
-    from omnigent.server.auth import create_auth_provider
+    from agentnexus.server.auth import UnifiedAuthProvider as _UAP
+    from agentnexus.server.auth import create_auth_provider
 
     auth_provider = create_auth_provider()
     account_store = None
     if isinstance(auth_provider, _UAP) and auth_provider._source == "accounts":
-        from omnigent.server.accounts_store import SqlAlchemyAccountStore
+        from agentnexus.server.accounts_store import SqlAlchemyAccountStore
 
         account_store = SqlAlchemyAccountStore(database_url)
 
@@ -459,7 +459,7 @@ def main() -> None:
 
         import uvicorn
 
-        from omnigent.runner.transports.ws_tunnel.limits import (
+        from agentnexus.runner.transports.ws_tunnel.limits import (
             RUNNER_TUNNEL_MAX_MESSAGE_BYTES,
         )
 

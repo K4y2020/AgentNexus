@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from omnigent.onboarding import kimi_auth as ka
+from agentnexus.onboarding import kimi_auth as ka
 
 
 def test_credential_present_and_nonempty_detected(tmp_path: Path) -> None:

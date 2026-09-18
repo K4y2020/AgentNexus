@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from omnigent.host.frames import (
+from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE,
     HostConnectionErrorFrame,
     HostCreateDirFrame,
@@ -1431,7 +1431,7 @@ def test_store_secret_value_is_redacted_from_telemetry() -> None:
     is named so ``_REDACT_KEY_SUBSTRINGS`` masks it. A rename that broke this
     would leak the credential onto a trace.
     """
-    from omnigent.runtime import telemetry
+    from agentnexus.runtime import telemetry
 
     redacted = telemetry._redact_payload(
         {"secret_value": "sk-ant-SECRET", "harness": "claude", "kind_": "key"}

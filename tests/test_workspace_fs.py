@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.workspace_fs import WorkspaceReader, WorkspaceReaderError
+from agentnexus.workspace_fs import WorkspaceReader, WorkspaceReaderError
 
 
 def _git_env() -> dict[str, str]:
@@ -120,7 +120,7 @@ def test_read_oversize_file_is_capped_and_flagged(tmp_path: Path, monkeypatch) -
     slurping the whole file, so a huge file can't OOM the host. Uses a tiny cap
     so the test writes only a few bytes.
     """
-    monkeypatch.setattr("omnigent.workspace_fs._MAX_READ_BYTES", 8)
+    monkeypatch.setattr("agentnexus.workspace_fs._MAX_READ_BYTES", 8)
     (tmp_path / "big.txt").write_text("0123456789abcdef")  # 16 bytes > cap 8
     reader = WorkspaceReader(tmp_path)
 
@@ -138,7 +138,7 @@ def test_oversize_text_split_on_codepoint_stays_text(tmp_path: Path, monkeypatch
     trailing codepoint keeps the file classified as text (matching the runner's
     boundary-safe truncation) instead of flipping it to base64.
     """
-    monkeypatch.setattr("omnigent.workspace_fs._MAX_READ_BYTES", 4)
+    monkeypatch.setattr("agentnexus.workspace_fs._MAX_READ_BYTES", 4)
     # "aé" → b"a\xc3\xa9"; cap 4 keeps "aé" whole, so pad so the cap lands
     # inside the é: 3 ASCII + é = b"abc\xc3\xa9", cap 4 splits the é.
     (tmp_path / "u.txt").write_text("abcé")
@@ -158,7 +158,7 @@ def test_oversize_binary_still_serves_base64(tmp_path: Path, monkeypatch) -> Non
     a binary file has invalid bytes earlier in the buffer and must fall through
     to base64.
     """
-    monkeypatch.setattr("omnigent.workspace_fs._MAX_READ_BYTES", 4)
+    monkeypatch.setattr("agentnexus.workspace_fs._MAX_READ_BYTES", 4)
     (tmp_path / "b.bin").write_bytes(b"\xff\xfe\x00\x01\x02\x03")  # 6 bytes > cap 4
     reader = WorkspaceReader(tmp_path)
 

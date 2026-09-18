@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.onboarding.acp_auth import (
+from agentnexus.onboarding.acp_auth import (
     acp_agents,
     acp_agents_settings,
     shadowed_builtin_acp_rows,
@@ -17,7 +17,7 @@ def test_omnigent_mcp_round_trips_only_when_disabled() -> None:
                     {
                         "name": "OpenClaw",
                         "command": "openclaw acp --url https://gateway --token token",
-                        "omnigent_mcp": False,
+                        "agentnexus_mcp": False,
                     },
                     {
                         "name": "Goose",
@@ -30,14 +30,14 @@ def test_omnigent_mcp_round_trips_only_when_disabled() -> None:
         }
     )
 
-    assert [entry.omnigent_mcp for entry in entries] == [False, True]
+    assert [entry.agentnexus_mcp for entry in entries] == [False, True]
     assert acp_agents_settings(entries) == {
         "acp": {
             "agents": [
                 {
                     "name": "OpenClaw",
                     "command": "openclaw acp --url https://gateway --token token",
-                    "omnigent_mcp": False,
+                    "agentnexus_mcp": False,
                 },
                 {
                     "name": "Goose",
@@ -52,7 +52,7 @@ def test_omnigent_mcp_round_trips_only_when_disabled() -> None:
 
 @pytest.mark.parametrize("value", ["false", None, 0, 1])
 def test_omnigent_mcp_requires_boolean(value: object) -> None:
-    with pytest.raises(ValueError, match="omnigent_mcp must be a boolean"):
+    with pytest.raises(ValueError, match="agentnexus_mcp must be a boolean"):
         acp_agents(
             {
                 "acp": {
@@ -60,7 +60,7 @@ def test_omnigent_mcp_requires_boolean(value: object) -> None:
                         {
                             "name": "OpenClaw",
                             "command": "openclaw acp",
-                            "omnigent_mcp": value,
+                            "agentnexus_mcp": value,
                         }
                     ]
                 }

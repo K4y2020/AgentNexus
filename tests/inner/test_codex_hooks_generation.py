@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner import codex_executor
-from omnigent.inner.codex_executor import (
+from agentnexus.inner import codex_executor
+from agentnexus.inner.codex_executor import (
     CODEX_EXTENDED_CATALOG_ENV_VAR,
     CODEX_ROUTER_DIR_ENV_VAR,
     CODEX_ROUTER_SESSION_ID_ENV_VAR,
@@ -25,7 +25,7 @@ from omnigent.inner.codex_executor import (
     merge_codex_user_hooks,
     write_codex_router_hooks_file,
 )
-from omnigent.inner.hook_scripts.subagent_router import REQUEST_TIMEOUT_S
+from agentnexus.inner.hook_scripts.subagent_router import REQUEST_TIMEOUT_S
 
 _USER_HOOKS = {
     "hooks": {
@@ -530,7 +530,7 @@ def test_router_hook_survives_a_shadowing_workspace(tmp_path: Path) -> None:
     process starts cleanly, finds no router advertisement, and exits 0.
     """
     workspace = tmp_path / "workspace"
-    decoy = workspace / "omnigent"
+    decoy = workspace / "agentnexus"
     decoy.mkdir(parents=True)
     (decoy / "__init__.py").write_text("raise AssertionError('decoy package imported')\n")
     bridge_dir = tmp_path / "bridge"

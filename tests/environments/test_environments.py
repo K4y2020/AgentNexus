@@ -13,9 +13,9 @@ directly.
 
 from __future__ import annotations
 
-import omnigent.inner.datamodel as inner_dm
-import omnigent.inner.os_env as inner_os_env
-from omnigent import environments
+import agentnexus.inner.datamodel as inner_dm
+import agentnexus.inner.os_env as inner_os_env
+from agentnexus import environments
 
 
 def test_environments_all_symbols_importable() -> None:
@@ -28,7 +28,7 @@ def test_environments_all_symbols_importable() -> None:
     surface at the first downstream import.
     """
     for name in environments.__all__:
-        assert hasattr(environments, name), f"omnigent.environments missing re-export {name!r}"
+        assert hasattr(environments, name), f"agentnexus.environments missing re-export {name!r}"
 
 
 def test_environments_reexports_inner_os_env_objects() -> None:

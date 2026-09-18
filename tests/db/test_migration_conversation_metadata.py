@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlalchemy as sa
 from alembic import command
 
-from omnigent.db.utils import _build_alembic_config, clear_engine_cache
+from agentnexus.db.utils import _build_alembic_config, clear_engine_cache
 
 
 def _upgrade(uri: str, engine: sa.Engine, revision: str) -> None:
@@ -71,7 +71,7 @@ def test_metadata_split_round_trip_with_host_bound_row(tmp_path: Path) -> None:
     # Downgrade past the split: must not trip the re-created check constraint
     # on the host-bound row, and must restore every value.
     _downgrade(uri, raw_engine, "z5a2b3c4d5e6")
-    assert "omnigent_conversation_metadata" not in sa.inspect(raw_engine).get_table_names()
+    assert "agentnexus_conversation_metadata" not in sa.inspect(raw_engine).get_table_names()
     with raw_engine.begin() as conn:
         restored = conn.execute(
             sa.text(

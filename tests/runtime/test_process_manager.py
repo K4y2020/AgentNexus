@@ -16,8 +16,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
-from omnigent.runtime.harnesses.process_manager import (
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
+from agentnexus.runtime.harnesses.process_manager import (
     HarnessProcessManager,
     _build_harness_spawn_env,
     _HarnessEndpoint,

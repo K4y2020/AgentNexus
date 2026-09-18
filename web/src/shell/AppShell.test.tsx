@@ -628,7 +628,7 @@ describe("AppShell header", () => {
       {
         id: "conv_terminal",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -655,7 +655,7 @@ describe("AppShell header", () => {
       {
         id: "conv_terminal",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -683,7 +683,7 @@ describe("AppShell header", () => {
       {
         id: "conv_terminal",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -698,7 +698,7 @@ describe("AppShell header", () => {
       isLoading: false,
       error: null,
     });
-    sessionStorage.setItem("omnigent.web.panel-key:conv_terminal", "terminal:terminal_claude_main");
+    sessionStorage.setItem("agentnexus.web.panel-key:conv_terminal", "terminal:terminal_claude_main");
 
     renderShell("/c/conv_terminal?view=chat");
 
@@ -751,7 +751,7 @@ describe("AppShell header", () => {
       {
         id: "conv_terminal",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     rerender(makeTree());
@@ -765,7 +765,7 @@ describe("AppShell header", () => {
     // Baseline for the suppression test below: terminalPending (PTY being
     // created) with no terminals available drives terminalStartingUp true.
     mockConversations([
-      { id: "conv_terminal", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_terminal", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     // terminalPending is only ever emitted by a live runner — model it.
     runnerHealthState.runnerOnline = true;
@@ -782,7 +782,7 @@ describe("AppShell header", () => {
     // must drop the spinner so the error banner stands alone — otherwise
     // the user sees a spinner that spins forever beside the error.
     mockConversations([
-      { id: "conv_terminal", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_terminal", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     useChatStore.setState({ terminalPending: true, sessionStatus: "failed" });
 
@@ -798,7 +798,7 @@ describe("AppShell header", () => {
     // right now, so the spinner must show through the relaunch window
     // instead of leaving a silent gap until the runner is fully booted.
     mockConversations([
-      { id: "conv_terminal", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_terminal", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     runnerHealthState.runnerOnline = true;
     useChatStore.setState({ terminalPending: true, sessionStatus: "failed", status: "streaming" });
@@ -856,7 +856,7 @@ describe("AppShell header", () => {
         status: "idle",
         createdAt: Math.floor(Date.now() / 1000),
         title: "Fresh session",
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         items: [],
         pendingElicitations: [],
         permissionLevel: null,
@@ -881,7 +881,7 @@ describe("AppShell header", () => {
       {
         id: "conv_stopped",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         created_at: Math.floor(Date.now() / 1000),
       },
     ]);
@@ -901,7 +901,7 @@ describe("AppShell header", () => {
       {
         id: "conv_fresh_online",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         created_at: created,
       },
     ]);
@@ -920,7 +920,7 @@ describe("AppShell header", () => {
       {
         id: "conv_fresh_deleted",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         created_at: created,
       },
     ]);
@@ -973,13 +973,13 @@ describe("AppShell header", () => {
       {
         id: "conv_lived",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         created_at: created - 3600,
       },
       {
         id: "conv_new",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
         created_at: created,
       },
     ]);
@@ -1043,8 +1043,8 @@ describe("TerminalFirstContext", () => {
         id: "conv_native",
         permission_level: null,
         labels: {
-          "omnigent.ui": "terminal",
-          "omnigent.wrapper": "claude-code-native-ui",
+          "agentnexus.ui": "terminal",
+          "agentnexus.wrapper": "claude-code-native-ui",
         },
       },
       {
@@ -1087,8 +1087,8 @@ describe("TerminalFirstContext", () => {
         id: "conv_native",
         permission_level: null,
         labels: {
-          "omnigent.ui": "terminal",
-          "omnigent.wrapper": "codex-native-ui",
+          "agentnexus.ui": "terminal",
+          "agentnexus.wrapper": "codex-native-ui",
         },
       },
     ]);
@@ -1117,7 +1117,7 @@ describe("TerminalFirstContext", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1154,8 +1154,8 @@ describe("TerminalFirstContext", () => {
         createdAt: 0,
         title: null,
         labels: {
-          "omnigent.ui": "terminal",
-          "omnigent.wrapper": "claude-code-native-ui",
+          "agentnexus.ui": "terminal",
+          "agentnexus.wrapper": "claude-code-native-ui",
         },
         items: [],
         pendingElicitations: [],
@@ -1194,7 +1194,7 @@ describe("TerminalFirstContext", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1238,7 +1238,7 @@ describe("TerminalFirstContext", () => {
       {
         id: "conv_native_empty",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1266,7 +1266,7 @@ describe("TerminalFirstContext", () => {
     // selected view so its stopped-harness state can explain what happened and
     // offer the resume action instead of unexpectedly switching back to Chat.
     mockConversations([
-      { id: "conv_native", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_native", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     useTerminalsMock.mockReturnValue({
       terminals: [{ id: "terminal_claude_main", name: "claude", session: "main", running: true }],
@@ -1316,7 +1316,7 @@ describe("TerminalFirstContext", () => {
     // terminal is coming right back — the startingUp guard must hold the
     // terminal view so a wake doesn't flip chat/terminal back and forth.
     mockConversations([
-      { id: "conv_native", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_native", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     // terminalPending + a non-failed status makes terminalStartingUp true once
     // the list empties (see the startup-spinner tests above).
@@ -1377,7 +1377,7 @@ describe("TerminalFirstContext", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
       { id: "conv_other", permission_level: null, labels: {} },
     ]);
@@ -1419,7 +1419,7 @@ describe("TerminalFirstContext", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1434,12 +1434,12 @@ describe("TerminalFirstContext", () => {
   });
 
   it("opens terminal-first transcripts in Terminal when configured", () => {
-    localStorage.setItem("omnigent:default-transcript-view", "terminal");
+    localStorage.setItem("agentnexus:default-transcript-view", "terminal");
     mockConversations([
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1454,12 +1454,12 @@ describe("TerminalFirstContext", () => {
   });
 
   it("remembers an explicit Chat choice over the Terminal default", () => {
-    localStorage.setItem("omnigent:default-transcript-view", "terminal");
+    localStorage.setItem("agentnexus:default-transcript-view", "terminal");
     mockConversations([
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1479,7 +1479,7 @@ describe("TerminalFirstContext", () => {
   });
 
   it("does not apply the Terminal default to regular chat sessions", () => {
-    localStorage.setItem("omnigent:default-transcript-view", "terminal");
+    localStorage.setItem("agentnexus:default-transcript-view", "terminal");
     mockConversations([{ id: "conv_regular", permission_level: null, labels: {} }]);
 
     renderShell("/c/conv_regular");
@@ -1502,7 +1502,7 @@ describe("Right-rail terminals card", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -1541,7 +1541,7 @@ describe("Right-rail terminals card", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -2045,7 +2045,7 @@ describe("Subagents tab", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useChildSessionsMock.mockReturnValue(oneChild);
@@ -2851,9 +2851,9 @@ describe("Embedded REPL terminal rail inventory", () => {
       {
         id: "conv_sdk",
         permission_level: null,
-        // Terminal-first SDK session: omnigent.ui stamped by the
+        // Terminal-first SDK session: agentnexus.ui stamped by the
         // runner's REPL auto-create, NO native wrapper label.
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
 
@@ -3225,8 +3225,8 @@ describe("Mobile session menu", () => {
         // Native sessions stamp BOTH labels: the wrapper (behavior
         // gates) and the terminal-first UI marker (presentation).
         labels: {
-          "omnigent.wrapper": "claude-code-native-ui",
-          "omnigent.ui": "terminal",
+          "agentnexus.wrapper": "claude-code-native-ui",
+          "agentnexus.ui": "terminal",
         },
       },
     ]);
@@ -3268,7 +3268,7 @@ describe("Mobile session menu", () => {
   });
 
   it("keeps the Terminals entry in terminal-first SDK sessions (no native wrapper)", () => {
-    // Terminal-first SDK sessions (embedded Omnigent REPL, `omnigent.ui:
+    // Terminal-first SDK sessions (embedded Omnigent REPL, `agentnexus.ui:
     // terminal` without a wrapper label) keep the rail/menu Shells entry
     // for user shells: the pill is quick access to the REPL, while the
     // rail lists the shell inventory (sans the agent's own terminal).
@@ -3280,7 +3280,7 @@ describe("Mobile session menu", () => {
       {
         id: "conv_native",
         permission_level: null,
-        labels: { "omnigent.ui": "terminal" },
+        labels: { "agentnexus.ui": "terminal" },
       },
     ]);
     useTerminalsMock.mockReturnValue({
@@ -3903,7 +3903,7 @@ describe("Terminal-first shells — opening a shell from the mobile drawer", () 
       isLoading: false,
     } as unknown as ReturnType<typeof useWorkspaceEnvironment>);
     mockConversations([
-      { id: "conv_native", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_native", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     useTerminalsMock.mockReturnValue({
       terminals: [
@@ -3940,7 +3940,7 @@ describe("Terminal-first shells — opening a shell from the mobile drawer", () 
       isLoading: false,
     } as unknown as ReturnType<typeof useWorkspaceEnvironment>);
     mockConversations([
-      { id: "conv_native", permission_level: null, labels: { "omnigent.ui": "terminal" } },
+      { id: "conv_native", permission_level: null, labels: { "agentnexus.ui": "terminal" } },
     ]);
     useTerminalsMock.mockReturnValue({
       terminals: [

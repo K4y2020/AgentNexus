@@ -9,7 +9,7 @@ prune_invalid_sub_agents=True)`` (runner ``_entry`` + server ``agent_cache``)
 gracefully DROPS a sub-agent whose harness a client doesn't recognize, so an old
 client loads polly with its remaining workers instead of failing. Combined with
 ``opencode-native`` now being a recognized harness
-(``omnigent.spec._omnigent_compat.OMNIGENT_HARNESSES``), polly re-declares its
+(``omnigent.spec._omnigent_compat.AGENTNEXUS_HARNESSES``), polly re-declares its
 ``opencode`` worker; the positive test below guards that it stays wired.
 
 debby, however, is still deliberately opencode-free (reverted in #1295), and the
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from omnigent.spec import load
+from agentnexus.spec import load
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 

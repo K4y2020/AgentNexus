@@ -7,12 +7,12 @@ import json
 import httpx
 import pytest
 
-from omnigent.runner.tool_dispatch import (
+from agentnexus.runner.tool_dispatch import (
     build_native_relay_tool_schemas,
     dispatch_tool_locally,
     execute_tool,
 )
-from omnigent.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec
 
 
 @pytest.mark.parametrize("spec", [AgentSpec(spec_version=1), None])

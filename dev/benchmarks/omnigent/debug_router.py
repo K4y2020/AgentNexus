@@ -10,7 +10,7 @@ client-side hook in the benchmark process can't see.
 **This never reaches the production server.** Three independent reasons:
 
 1. The module lives under ``dev/``, which ``pyproject.toml`` excludes from the
-   wheel (``include = ["omnigent*"]``), so a production install cannot import it.
+   wheel (``include = ["agentnexus*"]``), so a production install cannot import it.
 2. It is loaded only via the ``debug_router_modules`` config key, which the
    benchmark's generated ``server.yaml`` sets and production config never does.
 3. ``create_app`` loads the module tolerantly — an ``ImportError`` logs a

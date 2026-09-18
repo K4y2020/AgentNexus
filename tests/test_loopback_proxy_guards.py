@@ -1,7 +1,7 @@
 """Guard: server-directed HTTP clients must opt out of environment proxies.
 
 An HTTP proxy resolves ``127.0.0.1`` against itself, so it can never reach
-this machine's local Omnigent server. httpx trusts the environment by
+this machine's local AgentNexus server. httpx trusts the environment by
 default — and on Windows ``getproxies()`` also reads the system registry —
 so any client built without ``trust_env`` fails against a perfectly healthy
 local server with ``ConnectError: All connection attempts failed``.
@@ -20,15 +20,15 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# Modules whose httpx clients are bound to the Omnigent server's base URL.
+# Modules whose httpx clients are bound to the AgentNexus server's base URL.
 # Deliberately not repo-wide: runner tool/transport clients talk to harnesses
 # and MCP endpoints, where the environment's proxy is the right thing to use.
 _SERVER_CLIENT_MODULES: list[Path] = [
-    *sorted((_REPO_ROOT / "omnigent").glob("*_native.py")),
-    _REPO_ROOT / "omnigent" / "chat.py",
-    _REPO_ROOT / "omnigent" / "cli.py",
-    _REPO_ROOT / "omnigent" / "runner" / "_entry.py",
-    _REPO_ROOT / "omnigent" / "runner" / "app.py",
+    *sorted((_REPO_ROOT / "agentnexus").glob("*_native.py")),
+    _REPO_ROOT / "agentnexus" / "chat.py",
+    _REPO_ROOT / "agentnexus" / "cli.py",
+    _REPO_ROOT / "agentnexus" / "runner" / "_entry.py",
+    _REPO_ROOT / "agentnexus" / "runner" / "app.py",
 ]
 
 
@@ -37,7 +37,7 @@ def _clients_missing_trust_env(path: Path) -> list[int]:
     Return the line numbers of server-bound httpx clients lacking ``trust_env``.
 
     Only calls that pass ``base_url`` are considered: a client with no base
-    URL is not pinned to the Omnigent server, so the proxy question is the
+    URL is not pinned to the AgentNexus server, so the proxy question is the
     caller's to answer at the request site.
 
     :param path: Module to scan, e.g. ``omnigent/claude_native.py``.

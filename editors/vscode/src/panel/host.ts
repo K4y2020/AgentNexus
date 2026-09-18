@@ -39,7 +39,7 @@ export function renderInto(webview: vscode.Webview, opts: RenderIntoOptions): vo
   });
   webview.html = buildIframeHtml({ baseUrl: opts.target.baseUrl, csp, nonce });
   opts.log?.(
-    `[omnigent] iframe rendered (origin=${opts.target.origin}, nonce=${nonce.slice(0, 8)}...)`,
+    `[agentnexus] iframe rendered (origin=${opts.target.origin}, nonce=${nonce.slice(0, 8)}...)`,
   );
 }
 

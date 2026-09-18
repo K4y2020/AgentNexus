@@ -18,7 +18,7 @@ async function run({ author = "ext", closer = "maintainer1", merged = false, exi
     },
   };
   const context = {
-    repo: { owner: "omnigent-ai", repo: "omnigent" },
+    repo: { owner: "agentnexus-ai", repo: "agentnexus" },
     payload: {
       pull_request: { number: 7, merged, user: { login: author } },
       sender: { login: closer },

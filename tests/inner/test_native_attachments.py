@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.inner.native_attachments import (
+from agentnexus.inner.native_attachments import (
     ATTACHMENT_MARKER_STRIP_PATTERN,
     UNRESOLVED_ATTACHMENT_MARKER_PATTERN,
     DataUri,
@@ -135,7 +135,7 @@ def test_materialize_attachment_unresolved_file_id_logs_error(
     """
     block = {"type": "input_image", "file_id": "file_unresolved"}
 
-    with caplog.at_level(logging.ERROR, logger="omnigent.inner.native_attachments"):
+    with caplog.at_level(logging.ERROR, logger="agentnexus.inner.native_attachments"):
         path = materialize_attachment(block, tmp_path)
 
     assert path is None

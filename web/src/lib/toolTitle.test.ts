@@ -280,8 +280,8 @@ describe("formatToolRunLabel", () => {
     ).toBe("Ran 1 shell command, listed 1 directory");
   });
 
-  it("strips the mcp__omnigent__ prefix before categorizing", () => {
-    expect(formatToolRunLabel([call("mcp__omnigent__sys_os_read")])).toBe("Read 1 file");
+  it("strips the mcp__agentnexus__ prefix before categorizing", () => {
+    expect(formatToolRunLabel([call("mcp__agentnexus__sys_os_read")])).toBe("Read 1 file");
   });
 
   it("falls back to a generic 'Called N tools' when no tool is recognized", () => {

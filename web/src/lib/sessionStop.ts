@@ -1,6 +1,6 @@
 // Gate for the sidebar row kebab's "Stop session" item.
 
-const WRAPPER_LABEL_KEY = "omnigent.wrapper";
+const WRAPPER_LABEL_KEY = "agentnexus.wrapper";
 const CLAUDE_NATIVE_WRAPPER_VALUE = "claude-code-native-ui";
 
 /**

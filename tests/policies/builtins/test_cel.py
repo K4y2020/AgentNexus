@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("celpy", reason="cel-python not installed")
 
-from omnigent.policies.builtins.cel import cel_policy
+from agentnexus.policies.builtins.cel import cel_policy
 
 # ── Map return: DENY ────────────────────────────────────────────
 

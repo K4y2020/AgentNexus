@@ -50,21 +50,21 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 import pytest
 
-from omnigent.runner._entry import (
+from agentnexus.runner._entry import (
     _InitialAuthTokenFactory,
     _make_auth_token_factory,
     _ManagedMintTokenFactory,
     _RunnerDatabricksAuth,
 )
-from omnigent.runner.identity import (
-    OMNIGENT_INTERNAL_WS_ORIGIN,
+from agentnexus.runner.identity import (
+    AGENTNEXUS_INTERNAL_WS_ORIGIN,
     RUNNER_DELEGATED_AUTH_ENV_VAR,
     RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR,
     RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR,
     token_bound_runner_id,
 )
-from omnigent.server.oidc import mint_session_cookie
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.server.oidc import mint_session_cookie
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests._helpers.compat import apply_server_env, compat_server_cwd, server_executable
@@ -109,7 +109,7 @@ def _await_health(base_url: str, log_path: Path) -> None:
 def accounts_server(tmp_path: Path) -> Iterator[tuple[str, str]]:
     """Run a real ``omnigent server`` subprocess with accounts auth enabled.
 
-    Accounts mode is selected by ``OMNIGENT_AUTH_PROVIDER=accounts`` plus a
+    Accounts mode is selected by ``AGENTNEXUS_AUTH_PROVIDER=accounts`` plus a
     shared cookie secret; the subprocess handles the full runtime lifecycle
     (migrations, DBOS, auth provider, permission store) exactly as a deployed
     server does. The server boots without prompting; first-admin setup is
@@ -132,12 +132,12 @@ def accounts_server(tmp_path: Path) -> Iterator[tuple[str, str]]:
     base_url = f"http://localhost:{port}"
 
     env = {**os.environ}
-    env["OMNIGENT_AUTH_PROVIDER"] = "accounts"
-    env["OMNIGENT_ACCOUNTS_COOKIE_SECRET"] = _COOKIE_SECRET_HEX
-    env["OMNIGENT_ACCOUNTS_BASE_URL"] = base_url
+    env["AGENTNEXUS_AUTH_PROVIDER"] = "accounts"
+    env["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"] = _COOKIE_SECRET_HEX
+    env["AGENTNEXUS_ACCOUNTS_BASE_URL"] = base_url
     # Force the accounts branch of the auth-source switch (an ambient OIDC
     # issuer in the environment would otherwise select oidc mode).
-    env.pop("OMNIGENT_OIDC_ISSUER", None)
+    env.pop("AGENTNEXUS_OIDC_ISSUER", None)
     # Import the server package from this worktree, not an installed copy.
     apply_server_env(env, _REPO_ROOT)
 
@@ -146,7 +146,7 @@ def accounts_server(tmp_path: Path) -> Iterator[tuple[str, str]]:
         [
             server_executable(),
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),
@@ -195,7 +195,7 @@ def _seed_owned_session_with_managed_runner(base_url: str, db_uri: str) -> str:
             "/v1/sessions",
             headers={
                 "Authorization": f"Bearer {owner_cookie}",
-                "Origin": OMNIGENT_INTERNAL_WS_ORIGIN,
+                "Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN,
             },
             data={"metadata": "{}"},
             files={"bundle": ("agent.tar.gz", bundle, "application/gzip")},
@@ -311,7 +311,7 @@ async def _get_agent_contents(
     async with httpx.AsyncClient(
         base_url=base_url,
         auth=auth,
-        headers={"Origin": OMNIGENT_INTERNAL_WS_ORIGIN},
+        headers={"Origin": AGENTNEXUS_INTERNAL_WS_ORIGIN},
         follow_redirects=False,
         timeout=30.0,
     ) as client:
@@ -344,7 +344,7 @@ def test_managed_runner_callback_authenticates_end_to_end(
     #    Databricks config. Forcing both credential sources to miss is what a
     #    fresh sandbox actually is, and it routes _make_auth_token_factory to
     #    the managed-mint tier under test.
-    from omnigent.inner.databricks_executor import DatabricksAuthError
+    from agentnexus.inner.databricks_executor import DatabricksAuthError
 
     def _no_databricks_creds(*args: object, **kwargs: object) -> tuple[object, str]:
         """Stand in for _resolve_databricks_auth in a credential-less sandbox."""
@@ -352,9 +352,9 @@ def test_managed_runner_callback_authenticates_end_to_end(
 
     monkeypatch.setenv("RUNNER_SERVER_URL", base_url)
     monkeypatch.setenv(RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR, _BINDING_TOKEN)
-    monkeypatch.setattr("omnigent.cli_auth.load_token", lambda _url, **_kw: None)
+    monkeypatch.setattr("agentnexus.cli_auth.load_token", lambda _url, **_kw: None)
     monkeypatch.setattr(
-        "omnigent.inner.databricks_executor._resolve_databricks_auth",
+        "agentnexus.inner.databricks_executor._resolve_databricks_auth",
         _no_databricks_creds,
     )
 
@@ -423,7 +423,7 @@ def test_managed_runner_survives_mint_403_after_token_expiry(
         monkeypatch.setenv(RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR, _BINDING_TOKEN)
         monkeypatch.setenv(RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR, owner_cookie)
         monkeypatch.setenv(RUNNER_DELEGATED_AUTH_ENV_VAR, "1")
-        monkeypatch.setattr("omnigent.cli_auth.load_token", lambda _url, **_kw: owner_cookie)
+        monkeypatch.setattr("agentnexus.cli_auth.load_token", lambda _url, **_kw: owner_cookie)
 
         factory = _make_auth_token_factory()
         assert isinstance(factory, _InitialAuthTokenFactory)

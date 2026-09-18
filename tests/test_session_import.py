@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.kimi_native_forwarder import KimiWireItem, read_kimi_wire_items
-from omnigent.kiro_native_session_forwarder import (
+from agentnexus.kimi_native_forwarder import KimiWireItem, read_kimi_wire_items
+from agentnexus.kiro_native_session_forwarder import (
     KiroConversationMessage,
     parse_kiro_jsonl_line,
 )
-from omnigent.session_import import local as local_import
-from omnigent.session_import.local import (
+from agentnexus.session_import import local as local_import
+from agentnexus.session_import.local import (
     list_recent_local_session_ids,
     load_claude_session,
     load_codex_session,
@@ -25,7 +25,7 @@ from omnigent.session_import.local import (
     load_pi_session,
     load_qwen_session,
 )
-from omnigent.session_import.models import SessionImportNotFoundError
+from agentnexus.session_import.models import SessionImportNotFoundError
 
 
 def test_import_adapters_use_stable_forwarder_parser_contracts(tmp_path: Path) -> None:
@@ -223,7 +223,7 @@ def test_list_recent_opencode_sessions_treats_empty_output_as_none(
 def test_load_opencode_session_preserves_messages_files_and_tools(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The public export maps ordered parts to durable Omnigent items."""
+    """The public export maps ordered parts to durable AgentNexus items."""
     export = {
         "info": {
             "id": "ses_import",
@@ -327,7 +327,7 @@ def test_load_opencode_session_rejects_invalid_or_mismatched_ids(
 
 
 def test_load_claude_session_normalizes_parent_transcript(tmp_path: Path) -> None:
-    """Claude parent messages and tools become ordinary Omnigent items."""
+    """Claude parent messages and tools become ordinary AgentNexus items."""
     session_id = "a1b2c3d4-1234-5678-9abc-def012345678"
     transcript = tmp_path / "projects" / "-repo" / f"{session_id}.jsonl"
     transcript.parent.mkdir(parents=True)

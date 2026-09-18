@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.bots import bot_owner_id
+from agentnexus.bots import bot_owner_id
 from tests.server.helpers import create_test_agent
 
 pytestmark = pytest.mark.asyncio

@@ -31,17 +31,17 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.entities import Conversation
-from omnigent.runtime.policies.builder import build_policy_engine
-from omnigent.spec.parser import parse
-from omnigent.spec.types import (
+from agentnexus.entities import Conversation
+from agentnexus.runtime.policies.builder import build_policy_engine
+from agentnexus.spec.parser import parse
+from agentnexus.spec.types import (
     AgentSpec,
     GuardrailsSpec,
     LabelDef,
     Phase,
     PhaseSelector,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_function_policy_spec
@@ -282,7 +282,7 @@ llm:
         }
     }
     monkeypatch.setattr(
-        "omnigent.onboarding.provider_config.load_config",
+        "agentnexus.onboarding.provider_config.load_config",
         lambda: provider_config,
     )
 
@@ -682,7 +682,7 @@ def test_policy_seed_uses_policy_cost_while_display_uses_total_cost(
     that posts only ``total_cost_usd`` (codex/relay style) must still count
     toward the parent's enforcement total via fallback.
     """
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -861,7 +861,7 @@ def test_load_session_usage_merges_by_model_across_subtree(
     subtree ``total_cost_usd`` (no double-count / drop), and the display-only
     ``by_model`` must not leak into the policy engine's usage seed.
     """
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -959,7 +959,7 @@ def test_build_injects_subtree_usage_only_when_policy_present(
     This guards against unnecessary DB traversals (the conditional
     injection pattern) — if the policy isn't used, we skip the lookup.
     """
-    from omnigent.spec.types import GuardrailsSpec
+    from agentnexus.spec.types import GuardrailsSpec
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1009,7 +1009,7 @@ def test_build_subagent_subtree_usage_excludes_parent_and_siblings(
     This is the key semantic difference from cost_budget (which sees
     session-wide) vs. subagent_cost_budget (which sees only its own subtree).
     """
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1050,7 +1050,7 @@ def test_normalize_usage_for_engine_drops_display_fields() -> None:
     enforcement cost (falling back to ``total_cost_usd`` when no enforcement
     cost exists).
     """
-    from omnigent.runtime.policies.builder import _normalize_usage_for_engine
+    from agentnexus.runtime.policies.builder import _normalize_usage_for_engine
 
     # Case 1: Has both policy_cost (enforcement) and by_model (display).
     usage = {
@@ -1124,7 +1124,7 @@ def test_build_issues_one_read_and_one_tree_scan(
     Both seeds must stay correct and identical either way: session-wide
     gating from the whole tree, subtree display from the node's own subtree.
     """
-    from omnigent.spec.types import FunctionPolicySpec, FunctionRef
+    from agentnexus.spec.types import FunctionPolicySpec, FunctionRef
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1142,7 +1142,7 @@ def test_build_issues_one_read_and_one_tree_scan(
         name="subtree_budget",
         on=None,
         function=FunctionRef(
-            path="omnigent.policies.builtins.cost.subagent_cost_budget",
+            path="agentnexus.policies.builtins.cost.subagent_cost_budget",
             arguments={"max_cost_usd": 10.0},
         ),
     )
@@ -1184,7 +1184,7 @@ def test_build_counts_archived_spend_and_inherits_approval(
     one. (This previously asserted the opposite, codifying an omission
     that let an archive-after-preload seed $0 and ALLOW over budget.)
     """
-    from omnigent.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
+    from agentnexus.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1211,13 +1211,13 @@ def test_build_rejects_mismatched_preloaded_conversation(
 ) -> None:
     """A preloaded row for a different session must fail closed, not mix
     one session's labels/state/usage into another's policy decision."""
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     a = conversation_store.create_conversation(title="a")
     b = conversation_store.create_conversation(title="b")
     row_b = conversation_store.get_conversation(b.id)
 
-    with pytest.raises(OmnigentError, match="does not match"):
+    with pytest.raises(AgentNexusError, match="does not match"):
         build_policy_engine(
             spec=AgentSpec(spec_version=1, name="x"),
             conversation_id=a.id,
@@ -1294,14 +1294,14 @@ def test_deleted_after_preload_fails_closed(
     from the stale snapshot nor from empty ($0) state."""
     import asyncio
 
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     conv = conversation_store.create_conversation(title="deleted")
     conversation_store.set_session_usage(conv.id, {"total_cost_usd": 5.0})
     stale_row = conversation_store.get_conversation(conv.id)
     asyncio.run(conversation_store.delete_conversation(conv.id))
 
-    with pytest.raises(OmnigentError, match="disappeared"):
+    with pytest.raises(AgentNexusError, match="disappeared"):
         build_policy_engine(
             spec=AgentSpec(spec_version=1, name="x"),
             conversation_id=conv.id,
@@ -1329,7 +1329,7 @@ def test_agent_rebind_after_spec_resolution_fails_closed(
     """
     import asyncio
 
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     spec = AgentSpec(spec_version=1, name="x")
     agent_a = "1" * 32
@@ -1361,7 +1361,7 @@ def test_agent_rebind_after_spec_resolution_fails_closed(
     # 1. Rebind, no preload.
     c1 = conversation_store.create_conversation(title="rebind-nopreload", agent_id=agent_a)
     _switch(c1.id, uuid.uuid4().hex)
-    with pytest.raises(OmnigentError, match="no longer resolves to agent"):
+    with pytest.raises(AgentNexusError, match="no longer resolves to agent"):
         build_policy_engine(
             spec=spec,
             conversation_id=c1.id,
@@ -1375,7 +1375,7 @@ def test_agent_rebind_after_spec_resolution_fails_closed(
     stale_row = conversation_store.get_conversation(c2.id)
     assert stale_row.agent_id == agent_a
     _switch(c2.id, uuid.uuid4().hex)
-    with pytest.raises(OmnigentError, match="no longer resolves to agent"):
+    with pytest.raises(AgentNexusError, match="no longer resolves to agent"):
         build_policy_engine(
             spec=spec,
             conversation_id=c2.id,
@@ -1388,7 +1388,7 @@ def test_agent_rebind_after_spec_resolution_fails_closed(
     #    guard, so an unbound session accepted any spec.
     c3 = conversation_store.create_conversation(title="unbound")
     assert conversation_store.get_conversation(c3.id).agent_id is None
-    with pytest.raises(OmnigentError, match="no longer resolves to agent"):
+    with pytest.raises(AgentNexusError, match="no longer resolves to agent"):
         build_policy_engine(
             spec=spec,
             conversation_id=c3.id,
@@ -1399,7 +1399,7 @@ def test_agent_rebind_after_spec_resolution_fails_closed(
     # 4. No fresh row at all (deleted, no preload): also a mismatch.
     c4 = conversation_store.create_conversation(title="gone", agent_id=agent_a)
     asyncio.run(conversation_store.delete_conversation(c4.id))
-    with pytest.raises(OmnigentError, match="no longer resolves to agent"):
+    with pytest.raises(AgentNexusError, match="no longer resolves to agent"):
         build_policy_engine(
             spec=spec,
             conversation_id=c4.id,
@@ -1423,7 +1423,7 @@ def test_delete_survives_the_hot_cache_overlay(
     the union and the union keeps whatever the left-hand (stale) cache still
     holds. The next evaluation reads that stale cache, not the store.
     """
-    from omnigent.spec.types import StateUpdate, StateUpdateAction
+    from agentnexus.spec.types import StateUpdate, StateUpdateAction
 
     conv = conversation_store.create_conversation(title="state-delete")
     spec = AgentSpec(spec_version=1, name="x")
@@ -1461,8 +1461,8 @@ def test_delete_of_a_root_inherited_key_does_not_resurrect_from_the_snapshot(
     machinery; it pins that the diversion still produces the right answer for
     a DELETE, since only SET was previously exercised anywhere.
     """
-    from omnigent.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
-    from omnigent.spec.types import StateUpdate, StateUpdateAction
+    from agentnexus.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
+    from agentnexus.spec.types import StateUpdate, StateUpdateAction
 
     parent = conversation_store.create_conversation()
     conversation_store.set_session_state(parent.id, {SESSION_COST_ASK_APPROVED_STATE_KEY: 0.05})
@@ -1504,8 +1504,8 @@ def test_delete_of_the_same_key_name_on_a_top_level_session_removes_it(
     call's ops named, not by a fixed key list — an earlier, key-list-based
     version of this fix got exactly this case wrong.
     """
-    from omnigent.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
-    from omnigent.spec.types import StateUpdate, StateUpdateAction
+    from agentnexus.policies.schema import SESSION_COST_ASK_APPROVED_STATE_KEY
+    from agentnexus.spec.types import StateUpdate, StateUpdateAction
 
     root = conversation_store.create_conversation(title="root-own-approval-key")
     spec = AgentSpec(spec_version=1, name="x")
@@ -1554,7 +1554,7 @@ def test_supplied_root_is_a_hint_that_gets_verified(
        fails here);
     3. the delete/recreate case that produced the regression.
     """
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1599,7 +1599,7 @@ def test_recreated_conversation_is_summed_in_its_new_tree(
     """
     import asyncio
 
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     old_parent = conversation_store.create_conversation(title="old-root")
     child = conversation_store.create_conversation(
@@ -1673,7 +1673,7 @@ def test_mid_build_change_fails_closed_on_every_provenance(
     """
     import asyncio
 
-    from omnigent.errors import OmnigentError
+    from agentnexus.errors import AgentNexusError
 
     agent_a = "2" * 32
     conv = conversation_store.create_conversation(title=f"mid-build-{hazard}", agent_id=agent_a)
@@ -1704,7 +1704,7 @@ def test_mid_build_change_fails_closed_on_every_provenance(
         expected = "disappeared"
 
     store = _MutateOnTreeLoad(conversation_store, _apply)
-    with pytest.raises(OmnigentError, match=expected):
+    with pytest.raises(AgentNexusError, match=expected):
         build_policy_engine(
             spec=AgentSpec(spec_version=1, name="x"),
             conversation_id=conv.id,
@@ -1729,7 +1729,7 @@ def test_archived_descendant_spend_counts_toward_the_displayed_total(
     blocks the user — and it belongs with the change that caused it rather
     than in a later PR.
     """
-    from omnigent.runtime.policies.builder import load_session_usage
+    from agentnexus.runtime.policies.builder import load_session_usage
 
     parent = conversation_store.create_conversation()
     child = conversation_store.create_conversation(
@@ -1821,8 +1821,8 @@ def test_engine_refuses_a_tree_assembled_across_a_change(
     """
     import asyncio
 
-    from omnigent.errors import OmnigentError
-    from omnigent.runtime.policies import builder as builder_mod
+    from agentnexus.errors import AgentNexusError
+    from agentnexus.runtime.policies import builder as builder_mod
 
     root = conversation_store.create_conversation(title="paged-root")
     child = conversation_store.create_conversation(
@@ -1869,7 +1869,7 @@ def test_engine_refuses_a_tree_assembled_across_a_change(
     original_page_size = builder_mod._SUBTREE_USAGE_PAGE_SIZE
     builder_mod._SUBTREE_USAGE_PAGE_SIZE = 1
     try:
-        with pytest.raises(OmnigentError, match="moved while its spawn tree"):
+        with pytest.raises(AgentNexusError, match="moved while its spawn tree"):
             build_policy_engine(
                 spec=AgentSpec(spec_version=1, name="x"),
                 conversation_id=child.id,
@@ -1896,7 +1896,7 @@ def test_ancestor_walk_discards_an_untrustworthy_chain(shape: str, links: dict[s
     returned id a cost event, so `A → B → A` notified B off a cycle and
     `C → missing-D` notified an id that is not in the tree at all.
     """
-    from omnigent.runtime.policies.builder import ancestor_ids_from_tree
+    from agentnexus.runtime.policies.builder import ancestor_ids_from_tree
 
     tree = [
         Conversation(

@@ -25,7 +25,7 @@ pytestmark = pytest.mark.asyncio
 _REVIEW_MARKER = "review impl against designs/feature-x.md [marker-7f3a]"
 
 # A Codex reviewer is just another agent with a codex executor block.
-_CODEX_EXECUTOR: dict[str, Any] = {"type": "omnigent", "config": {"harness": "codex"}}
+_CODEX_EXECUTOR: dict[str, Any] = {"type": "agentnexus", "config": {"harness": "codex"}}
 
 
 # ── Helpers ──────────────────────────────────────────────
@@ -195,8 +195,8 @@ async def test_add_claude_native_child_applies_wrapper_label(
     # (the wire contracts the runner + Web UI key on), not just presence:
     #  - omnigent.wrapper → runner routes the session to Claude Code.
     #  - omnigent.ui=terminal → AppShell renders it terminal-first.
-    assert row["labels"].get("omnigent.wrapper") == "claude-code-native-ui"
-    assert row["labels"].get("omnigent.ui") == "terminal"
+    assert row["labels"].get("agentnexus.wrapper") == "claude-code-native-ui"
+    assert row["labels"].get("agentnexus.ui") == "terminal"
     # The 3-segment "ui:" title still parses to the bound agent + label.
     assert row["tool"] == "claude-native-ui"
     assert row["session_name"] == "1"
@@ -302,7 +302,7 @@ async def test_added_child_history_and_resources_resolve_independently(
 @pytest.mark.xfail(
     reason=(
         "No mounted GET /api/agents catalog route (documented in "
-        "omnigent/server/API.md, not wired in app.py). Flips to XPASS "
+        "agentnexus/server/API.md, not wired in app.py). Flips to XPASS "
         "when the route lands."
     ),
     strict=False,

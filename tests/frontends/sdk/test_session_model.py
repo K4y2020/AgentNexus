@@ -13,9 +13,9 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from omnigent_client._events import ResponseCompleted, ResponseCreated
-from omnigent_client._session import Session
-from omnigent_client._types import Response
+from agentnexus_client._events import ResponseCompleted, ResponseCreated
+from agentnexus_client._session import Session
+from agentnexus_client._types import Response
 
 
 class _ResponsesStub:
@@ -46,7 +46,7 @@ class _ResponsesStub:
 
 
 class _ClientStub:
-    """Stand-in for :class:`OmnigentClient` exposing only ``responses``."""
+    """Stand-in for :class:`AgentNexusClient` exposing only ``responses``."""
 
     def __init__(self) -> None:
         self.responses = _ResponsesStub()

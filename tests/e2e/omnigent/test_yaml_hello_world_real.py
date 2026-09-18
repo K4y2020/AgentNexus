@@ -4,7 +4,7 @@ Migrated to mock LLM: uses a canned text response so the test is
 deterministic and needs no real credentials.
 
 **What breaks if this fails:**
-- Omnigent' YAML spec parser regresses on the minimal
+- AgentNexus' YAML spec parser regresses on the minimal
   ``name:`` + ``prompt:`` shape.
 - ``omnigent.loader`` stops applying CLI ``--model`` as a
   fallback when the YAML omits ``executor.model``.
@@ -27,7 +27,7 @@ from tests.e2e._harness_probes import (
     skip_if_harness_cli_missing,
 )
 from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
-from tests.e2e.omnigent._snapshot import compare_snapshot
+from tests.e2e.agentnexus._snapshot import compare_snapshot
 
 _PROMPT = "say hi in 5 words"
 
@@ -109,7 +109,7 @@ def test_yaml_hello_world_real(
         [
             str(omnigent_python),
             "-m",
-            "omnigent",
+            "agentnexus",
             "run",
             str(yaml_path),
             "--model",

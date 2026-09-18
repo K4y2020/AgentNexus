@@ -1,6 +1,6 @@
 /**
  * Hand-written client for `GET /v1/teammates`, mirroring
- * `omnigent/server/routes/teammates.py`. Requests go through the Vite `/v1`
+ * `agentnexus/server/routes/teammates.py`. Requests go through the Vite `/v1`
  * proxy; the wire is snake_case while the TS surface is camelCase.
  *
  * The roster is the management/display side of the same template registry the

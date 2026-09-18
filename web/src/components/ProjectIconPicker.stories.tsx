@@ -5,7 +5,7 @@ import { ProjectLandingIcon } from "./ProjectIconPicker";
 
 const projectConfig = {
   host_id: "host-story",
-  workspace: "/workspace/omnigent",
+  workspace: "/workspace/agentnexus",
   agent_id: "agent-story",
 };
 

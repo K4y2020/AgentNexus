@@ -12,12 +12,12 @@ from typing import Any
 import httpx
 import pytest
 
-from omnigent.runner.app import (
+from agentnexus.runner.app import (
     _pi_native_launch_config,
     _PiNativeLaunchConfig,
     _resolve_pi_resume_session,
 )
-from omnigent.stores.conversation_store import (
+from agentnexus.stores.conversation_store import (
     FORK_CARRY_HISTORY_LABEL_KEY,
     FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
 )
@@ -59,7 +59,7 @@ class _GetClient:
 
 @pytest.mark.asyncio
 async def test_launch_config_reads_fork_labels(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/repo")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/repo")
     client = _GetClient(
         {
             "workspace": "/repo",
@@ -76,7 +76,7 @@ async def test_launch_config_reads_fork_labels(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.asyncio
 async def test_launch_config_defaults_no_fork(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_RUNNER_WORKSPACE", "/repo")
+    monkeypatch.setenv("AGENTNEXUS_RUNNER_WORKSPACE", "/repo")
     client = _GetClient({"workspace": "/repo"})
     config = await _pi_native_launch_config(session_id="conv_1", server_client=client)
     assert config.fork_source_external_id is None

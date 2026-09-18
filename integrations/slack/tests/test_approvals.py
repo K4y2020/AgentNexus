@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any
 
-from omnigent_slack.approvals import (
+from agentnexus_slack.approvals import (
     ACTION_APPROVE,
     ACTION_DENY,
     ACTION_FORM_ANSWER,
@@ -17,7 +17,7 @@ from omnigent_slack.approvals import (
     resolved_card_blocks,
     route_elicitation_click,
 )
-from omnigent_slack.omnigent import ElicitationOption, ElicitationQuestion, ElicitationRequest
+from agentnexus_slack.agentnexus import ElicitationOption, ElicitationQuestion, ElicitationRequest
 
 # Thread owner used across click tests; the value carried on every control is
 # "<owner> <session_id> <elicitation_id>" so a non-owner click can be rejected.
@@ -169,9 +169,9 @@ def test_form_card_renders_inputs_per_question() -> None:
     inputs = {
         b["block_id"]: b["accessory"]["type"]
         for b in blocks
-        if isinstance(b.get("block_id"), str) and b["block_id"].startswith("omnigent_q::")
+        if isinstance(b.get("block_id"), str) and b["block_id"].startswith("agentnexus_q::")
     }
-    assert inputs == {"omnigent_q::store": "radio_buttons", "omnigent_q::langs": "checkboxes"}
+    assert inputs == {"agentnexus_q::store": "radio_buttons", "agentnexus_q::langs": "checkboxes"}
     # A Submit carrying the resolve target.
     actions = next(b for b in blocks if b["type"] == "actions")
     submit = next(e for e in actions["elements"] if e["action_id"] == ACTION_FORM_SUBMIT)
@@ -182,8 +182,8 @@ def test_parse_form_answers_single_and_multi() -> None:
     # Option values are indices (the label can exceed Slack's 75-char cap); they
     # are mapped back to labels later by resolve_form_answers.
     state_values = {
-        "omnigent_q::store": {ACTION_FORM_ANSWER: {"selected_option": {"value": "0"}}},
-        "omnigent_q::langs": {
+        "agentnexus_q::store": {ACTION_FORM_ANSWER: {"selected_option": {"value": "0"}}},
+        "agentnexus_q::langs": {
             ACTION_FORM_ANSWER: {"selected_options": [{"value": "0"}, {"value": "1"}]}
         },
         # An unrelated block is ignored.
@@ -194,8 +194,8 @@ def test_parse_form_answers_single_and_multi() -> None:
 
 def test_parse_form_answers_omits_unanswered() -> None:
     state_values = {
-        "omnigent_q::store": {ACTION_FORM_ANSWER: {"selected_option": None}},
-        "omnigent_q::langs": {ACTION_FORM_ANSWER: {"selected_options": []}},
+        "agentnexus_q::store": {ACTION_FORM_ANSWER: {"selected_option": None}},
+        "agentnexus_q::langs": {ACTION_FORM_ANSWER: {"selected_options": []}},
     }
     assert parse_form_answers(state_values) == {}
 
@@ -286,7 +286,7 @@ async def test_route_form_submit_carries_answers() -> None:
         "user": {"id": _OWNER},
         "state": {
             "values": {
-                "omnigent_q::store": {ACTION_FORM_ANSWER: {"selected_option": {"value": "0"}}},
+                "agentnexus_q::store": {ACTION_FORM_ANSWER: {"selected_option": {"value": "0"}}},
             }
         },
     }

@@ -9,9 +9,9 @@ here with a store stub that hands back controlled pages.
 
 from __future__ import annotations
 
-from omnigent.entities.conversation import ConversationItem, MessageData
-from omnigent.entities.pagination import PagedList
-from omnigent.runtime.workflow import fetch_all_items
+from agentnexus.entities.conversation import ConversationItem, MessageData
+from agentnexus.entities.pagination import PagedList
+from agentnexus.runtime.workflow import fetch_all_items
 
 
 def _item(item_id: str) -> ConversationItem:

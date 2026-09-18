@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.artifact_store.local import LocalArtifactStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.artifact_store.local import LocalArtifactStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
+from agentnexus.stores.policy_store.sqlalchemy_store import SqlAlchemyPolicyStore
 
 
 @pytest.fixture()
@@ -42,7 +42,7 @@ def conversation_store(db_uri: str) -> SqlAlchemyConversationStore:
 def split_db_conversation_store(tmp_path: Path) -> SqlAlchemyConversationStore:
     """
     :returns: A SqlAlchemyConversationStore with two separate SQLite databases
-        (Omnigent DB + AP/conversations DB) to exercise split-DB routing.
+        (AgentNexus DB + AP/conversations DB) to exercise split-DB routing.
     """
     omnigent_uri = f"sqlite:///{tmp_path}/omnigent.db"
     conv_uri = f"sqlite:///{tmp_path}/conversations.db"

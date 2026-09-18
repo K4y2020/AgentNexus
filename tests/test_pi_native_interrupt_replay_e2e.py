@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent import pi_native_bridge
+from agentnexus import pi_native_bridge
 
 pytestmark = pytest.mark.skipif(
     shutil.which("node") is None,
@@ -60,7 +60,7 @@ def _run_extension_scenario(
 
             const require = createRequire(import.meta.url);
             const extensionPath = process.env.PI_NATIVE_EXTENSION_PATH;
-            const configPath = process.env.OMNIGENT_PI_NATIVE_CONFIG;
+            const configPath = process.env.AGENTNEXUS_PI_NATIVE_CONFIG;
             const scenario = process.env.PI_NATIVE_INTERRUPT_SCENARIO;
             const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
@@ -184,7 +184,7 @@ def _run_extension_scenario(
 
     env = {
         **os.environ,
-        "OMNIGENT_PI_NATIVE_CONFIG": str(config_path),
+        "AGENTNEXUS_PI_NATIVE_CONFIG": str(config_path),
         "PI_NATIVE_EXTENSION_PATH": str(extension_path),
         "PI_NATIVE_INTERRUPT_SCENARIO": scenario,
     }

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.runtime.caps import RuntimeCaps
-from omnigent.spec.types import ExecutorSpec
+from agentnexus.runtime.caps import RuntimeCaps
+from agentnexus.spec.types import ExecutorSpec
 
 
 def test_runtime_caps_default_value() -> None:

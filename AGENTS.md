@@ -15,7 +15,7 @@ Use `just` for common tasks; run `just --list` for grouped recipes.
 
 - `just ensure` — install/check prerequisites
 - `just run-ios` / `just run-android` — build/run mobile apps
-- `just dev` / `just dev-mobile` — start the omnigent dev pod
+- `just dev` / `just dev-mobile` — start the agentnexus dev pod
 - `just electron-dev` / `just electron-build` — Electron desktop shell
 - `just lint` / `just lint-all` — run pre-commit
 - `just normalize-locks` — rewrite lockfile registries to PyPI/npmjs.org
@@ -85,7 +85,7 @@ instructions:
 
 - Agent-spec and per-request instructions are user-authored. Framework-owned
   instructions are additive runtime behavior and are appended after them in
-  `omnigent/runtime/prompt.py`.
+  `agentnexus/runtime/prompt.py`.
 - Keep the canonical instruction text and lifecycle gate in the owning framework
   module. Harness adapters should only transport the composed instructions; do
   not duplicate policy across adapters or add lifecycle metadata to `AgentSpec`.

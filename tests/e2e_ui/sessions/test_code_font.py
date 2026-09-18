@@ -3,8 +3,8 @@
 The code-font controls live on the Settings page (``pages/SettingsPage.tsx``,
 ``UiCodeFontSizeControl`` / ``UiCodeFontFamilyControl`` /
 ``UiCodeFontWeightControl``). Stepping the size writes the px choice to
-``localStorage["omnigent:code-font-size"]``; enabling "Heavier code text"
-writes the 500 preset to ``localStorage["omnigent:code-font-weight"]``.
+``localStorage["agentnexus:code-font-size"]``; enabling "Heavier code text"
+writes the 500 preset to ``localStorage["agentnexus:code-font-weight"]``.
 
 Unlike the chrome font (which rides the ``--ui-font-scale`` CSS variable), the
 code editor (Monaco) and terminal (xterm) are fixed-pixel widgets: they read a
@@ -27,8 +27,8 @@ import httpx
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
-SIZE_STORAGE_KEY = "omnigent:code-font-size"
-WEIGHT_STORAGE_KEY = "omnigent:code-font-weight"
+SIZE_STORAGE_KEY = "agentnexus:code-font-size"
+WEIGHT_STORAGE_KEY = "agentnexus:code-font-weight"
 
 # The seeded file lands in ``<cwd>/<session_id>/`` (the agent spec uses
 # ``os_env.cwd: .``); mirror test_file_autosave.py's per-session cleanup.

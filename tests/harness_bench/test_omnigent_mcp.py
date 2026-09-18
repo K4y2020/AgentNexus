@@ -1,9 +1,9 @@
-"""Verdict tests for the native Omnigent-MCP probe."""
+"""Verdict tests for the native AgentNexus-MCP probe."""
 
 from __future__ import annotations
 
 from tests.harness_bench.driver import TurnResult
-from tests.harness_bench.probes.omnigent_mcp import OmnigentMcpProbe
+from tests.harness_bench.probes.agentnexus_mcp import AgentNexusMcpProbe
 from tests.harness_bench.profile import BenchProfile
 from tests.harness_bench.verdict import Applicability, Priority, Verdict
 
@@ -25,7 +25,7 @@ class _Driver:
 
 
 async def test_supported_for_prefixed_omnigent_tool_call() -> None:
-    result = await OmnigentMcpProbe().run(
+    result = await AgentNexusMcpProbe().run(
         _Driver(TurnResult(tool_calls=[{"name": "mcp__omnigent__sys_session_list"}])),
         _PROFILE,
     )
@@ -34,7 +34,7 @@ async def test_supported_for_prefixed_omnigent_tool_call() -> None:
 
 
 async def test_supported_for_bare_omnigent_tool_call() -> None:
-    result = await OmnigentMcpProbe().run(
+    result = await AgentNexusMcpProbe().run(
         _Driver(TurnResult(tool_calls=[{"name": "sys_session_list"}])),
         _PROFILE,
     )
@@ -43,7 +43,7 @@ async def test_supported_for_bare_omnigent_tool_call() -> None:
 
 
 async def test_skipped_for_unrelated_suffix_match() -> None:
-    result = await OmnigentMcpProbe().run(
+    result = await AgentNexusMcpProbe().run(
         _Driver(TurnResult(tool_calls=[{"name": "other_sys_session_list"}])),
         _PROFILE,
     )
@@ -52,17 +52,17 @@ async def test_skipped_for_unrelated_suffix_match() -> None:
 
 
 async def test_skipped_when_native_has_no_mcp_bridge() -> None:
-    result = await OmnigentMcpProbe().run(
-        _Driver(TurnResult(error="'pi-native' has no Omnigent MCP bridge")),
+    result = await AgentNexusMcpProbe().run(
+        _Driver(TurnResult(error="'pi-native' has no AgentNexus MCP bridge")),
         _PROFILE,
     )
 
     assert result.verdict is Verdict.SKIPPED
-    assert "no Omnigent MCP bridge" in result.note
+    assert "no AgentNexus MCP bridge" in result.note
 
 
 async def test_skipped_when_model_calls_another_tool() -> None:
-    result = await OmnigentMcpProbe().run(
+    result = await AgentNexusMcpProbe().run(
         _Driver(TurnResult(completed=True, tool_calls=[{"name": "Bash"}])),
         _PROFILE,
     )
@@ -72,7 +72,7 @@ async def test_skipped_when_model_calls_another_tool() -> None:
 
 
 def test_probe_is_native_p1() -> None:
-    probe = OmnigentMcpProbe()
+    probe = AgentNexusMcpProbe()
 
     assert probe.priority is Priority.P1
     assert probe.applies_to is Applicability.NATIVE

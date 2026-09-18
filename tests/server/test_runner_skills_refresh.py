@@ -18,17 +18,17 @@ from typing import Any, cast
 
 import pytest
 
-from omnigent.server.routes._sessions.common import (
+from agentnexus.server.routes._sessions.common import (
     _runner_skills_cache,
     _runner_skills_inflight,
     _runner_skills_stale,
 )
-from omnigent.server.routes._sessions.helpers import (
+from agentnexus.server.routes._sessions.helpers import (
     _invalidate_runner_backed_snapshot_state,
     _load_runner_skills,
 )
-from omnigent.server.routes._sessions.orchestration import _fetch_runner_skills
-from omnigent.server.schemas import SkillSummary
+from agentnexus.server.routes._sessions.orchestration import _fetch_runner_skills
+from agentnexus.server.schemas import SkillSummary
 
 SESSION = "conv_refresh_probe"
 

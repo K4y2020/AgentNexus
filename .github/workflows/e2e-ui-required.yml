@@ -71,9 +71,9 @@ jobs:
           # OpenAI-compatible gateway (same secrets the e2e suites use).
           OPENAI_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
           OPENAI_API_KEY: ${{ secrets.LLM_API_KEY }}
-          E2E_UI_JUDGE_MODEL: ${{ vars.OMNIGENT_CI_E2E_JUDGE_MODEL }}
+          E2E_UI_JUDGE_MODEL: ${{ vars.AGENTNEXUS_CI_E2E_JUDGE_MODEL }}
         run: |
-          if [ -z "${E2E_UI_JUDGE_MODEL:-}" ] || [ "${REPO:-}" != "omnigent-ai/omnigent" ]; then
+          if [ -z "${E2E_UI_JUDGE_MODEL:-}" ] || [ "${REPO:-}" != "agentnexus-ai/agentnexus" ]; then
             echo "::warning::E2E UI judge not configured for $REPO; skipping check."
             exit 0
           fi

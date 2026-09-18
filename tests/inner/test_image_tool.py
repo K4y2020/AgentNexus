@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from PIL import Image
 
-from omnigent.runtime.image_tool import MAX_IMAGE_BYTES, image_mcp_response, read_image
+from agentnexus.runtime.image_tool import MAX_IMAGE_BYTES, image_mcp_response, read_image
 
 
 def image_result():
@@ -22,7 +22,7 @@ def image_result():
 
 
 async def test_sdk_receives_image_not_base64_text():
-    from omnigent.inner.claude_sdk_executor import _build_mcp_tools
+    from agentnexus.inner.claude_sdk_executor import _build_mcp_tools
 
     env = AsyncMock()
     env.read.return_value = image_result()
@@ -75,7 +75,7 @@ def test_missing_payload_is_not_success():
 
 
 def test_visual_guidance_is_capability_gated():
-    from omnigent.runtime.image_tool import image_instructions
+    from agentnexus.runtime.image_tool import image_instructions
 
     assert image_instructions([]) == ()
     assert "blocked" in image_instructions([{"name": "sys_os_view_image"}])[0]
@@ -85,8 +85,8 @@ def test_visual_guidance_is_capability_gated():
 
 
 async def test_real_os_environment_reads_image(tmp_path):
-    from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-    from omnigent.inner.os_env import create_os_environment
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+    from agentnexus.inner.os_env import create_os_environment
 
     (tmp_path / "frame.png").write_bytes(base64.b64decode(image_result()["content"]))
     env = create_os_environment(

@@ -122,12 +122,12 @@ class _CatalogSession:
 def _orchestrator_yaml(mock_llm_server_url: str) -> str:
     """Build the orchestrator spec: an openai-agents brain + cursor-native worker.
 
-    Omnigent-flavored single-file YAML with an inline ``type: agent`` tool
+    AgentNexus-flavored single-file YAML with an inline ``type: agent`` tool
     (the compat-adapter shape, same as the two-agent chat fixture), so the
     ``cursor`` sub-agent registers ``sys_session_send`` / ``sys_list_models``
     on the brain. An explicit ``auth`` block pins the brain to the mock LLM
     server so an ambient provider config (e.g. a CI gateway in
-    ``OMNIGENT_CONFIG_HOME``) can't shadow the mock routing.
+    ``AGENTNEXUS_CONFIG_HOME``) can't shadow the mock routing.
 
     :param mock_llm_server_url: Mock LLM server base URL.
     :returns: YAML text ready for bundle upload.

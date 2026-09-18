@@ -18,8 +18,8 @@ step *after* repro-agent, which produced a live-confirmed reproduction — a
 reconstructed journey, an overall verdict with a per-facet breakdown, and a
 durable end-to-end test keyed to the concrete failure. You do **not** merge.
 
-You are running as a session **inside the Omnigent app you were launched
-against**. Your working directory is an `omnigent-ai/omnigent` checkout — the
+You are running as a session **inside the AgentNexus app you were launched
+against**. Your working directory is an `agentnexus-ai/agentnexus` checkout — the
 product repo where the bug lives, the code you may change, and where the tests
 belong.
 
@@ -39,7 +39,7 @@ itself (repro-agent already read that). Exactly one of these is provided:
   **local** path: you were launched right after `dev/repro.py`. Read the session
   to recover the handoff (see below).
 - `ci_link` (a CI run URL) — e.g.
-  `https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184`.
+  `https://github.com/agentnexus-ai/agentnexus-internal/actions/runs/30974269184`.
   This is the **CI** path: repro-agent ran in a throwaway CI worktree that no
   longer exists, so you recover everything from the run itself (see below).
 
@@ -133,7 +133,7 @@ and fall back rather than assuming a fixed structure:
 ## Your workspace
 
 `dev/resolve.py` runs you from a **fresh worktree off latest `main`** — an
-`omnigent-ai/omnigent` checkout with a `tests/` tree and the code the bug
+`agentnexus-ai/agentnexus` checkout with a `tests/` tree and the code the bug
 references. Confirm this on the first turn. The worktree starts **without** the
 reproduction test — recovering it is your job (see "Recovering the handoff"): in
 the `session` path you read it off the repro session's `workspace` and copy it in;
@@ -165,7 +165,7 @@ Do all of this before Step 1:
      redirect you to a different bug.
    Either way, every downstream action (the PR you review or open, the ticket you
    comment on) must be about this `bug_url` and no other.
-3. **Confirm the workspace**: your cwd is an omnigent checkout, the test exists at
+3. **Confirm the workspace**: your cwd is an agentnexus checkout, the test exists at
    `test_path`, and your tooling works — `git`, `gh` (authenticated:
    `gh auth status`), and the test runner. If `gh` is not authenticated you can
    neither find an existing PR nor open one; note it now.
@@ -264,7 +264,7 @@ reproduction test is your objective instrument.
    carrying footage — you have the test and the journey, which is all the recorder
    needs, so produce the after-clip whether or not any before-clip was recovered.
    Use the same lanes as 2B.5 — see [`dev/recording-lanes.md`](../recording-lanes.md)
-   (build the SPA first, record via `OMNIGENT_E2E_RECORD_DIR`, per-surface `web` /
+   (build the SPA first, record via `AGENTNEXUS_E2E_RECORD_DIR`, per-surface `web` /
    `mobile` / `terminal` / `cli` / `desktop` mechanics) — saving to
    `recordings/<slug>/after-<facet>.<ext>` with a `caption` for what the clip shows. A passing run's footage is the "after" half (the bug resolved); a
    failing run's footage shows the PR author exactly what still breaks — either
@@ -274,7 +274,7 @@ reproduction test is your objective instrument.
    genuinely unobtainable (recorder tooling missing, or the fixture can't come
    online after the SPA build **and** the leaked runner env is stripped) — say so
    explicitly in your review comment and in `evidence`, naming the blocker. An
-   `online: false` seen while `OMNIGENT_RUNNER_ID` is still set is your own
+   `online: false` seen while `AGENTNEXUS_RUNNER_ID` is still set is your own
    un-stripped env, not a blocker: re-run with the `env -u` prefix from
    `dev/recording-lanes.md` first. A missing upstream before-clip is never that
    blocker. Never drop it silently.
@@ -352,7 +352,7 @@ which auto-closes the newer one — yours, and a cleanup left for the end of Ste
 is what a mid-turn SSE drop strands): `gh pr comment <old> --body 'Superseded by
 #<yours> — a different approach was needed; see there.'` then `gh pr close <old>`.
 Closing a PR is a base-repo operation (it flips `state` on the PR object in
-`omnigent-ai/omnigent`), so `pull_requests: write` covers it **even for a
+`agentnexus-ai/agentnexus`), so `pull_requests: write` covers it **even for a
 contributor's fork PR** — expect the close to succeed; run it. Only if it returns
 a real error, record that error in `maintainer_review` and ask the maintainer to
 close it — never leave both open. Use this escape hatch deliberately, not for
@@ -484,7 +484,7 @@ worktree/artifacts are gone) and is **not** a reason to skip the after-clip.
 
 **See [`dev/recording-lanes.md`](../recording-lanes.md) for the full how-to** —
 standing the recorder's server up (build the SPA first, strip leaked runner env),
-recording via `OMNIGENT_E2E_RECORD_DIR` (not the no-op `--video on`), and the
+recording via `AGENTNEXUS_E2E_RECORD_DIR` (not the no-op `--video on`), and the
 per-surface mechanics for `web` / `mobile` / `terminal` / `cli` / `desktop`, plus the
 empty-recordings and caption rules. This step states only *which clip resolve
 produces*:
@@ -503,7 +503,7 @@ produces*:
   blockers named in `dev/recording-lanes.md` (tooling missing, server won't come
   online, `api`-surface facet with nothing to film) — and then say which, with the
   evidence; never report an after-clip you didn't actually produce. When you run
-  inside a server-spawned runner (`OMNIGENT_RUNNER_ID` is set), a recorder
+  inside a server-spawned runner (`AGENTNEXUS_RUNNER_ID` is set), a recorder
   `online: false` is **not** an environmental blocker until you have stripped the
   leaked runner/host env vars per `dev/recording-lanes.md`; an un-stripped
   `online: false` is your own env and must be re-run with the `env -u` prefix, not
@@ -565,7 +565,7 @@ then goes straight to Step 4 to land it.) Once the set is genuinely green:
 Any write to GitHub — `git push`, `gh pr create`, `gh pr edit --add-reviewer`,
 `gh pr comment`, `gh pr close` — needs the resolve-agent App installation token
 (`omni-resolve-agent[bot]`, `contents`+`pull_requests` write on
-`omnigent-ai/omnigent`). **Your shell does not inherit it in a usable env var**:
+`agentnexus-ai/agentnexus`). **Your shell does not inherit it in a usable env var**:
 you run inside the session's runner process (a different process, often a
 different machine when hosted on `--server`), so `$GH_TOKEN` in your shell is
 empty and a bare `git push` fails with a 403 / permission error. This is **not**
@@ -591,12 +591,12 @@ gh auth setup-git   # route git pushes through gh's credential helper with this 
 - Do this **once** at the start of Step 3 (and again in Step 4 if a later
   `gh`/`git push` call reports it lost auth). Then push, open the PR, request the
   reviewer, and comment normally — all of them use this token. Confirm it works
-  and is write-scoped with `gh auth status` / a cheap `gh api /repos/omnigent-ai/omnigent`
+  and is write-scoped with `gh auth status` / a cheap `gh api /repos/agentnexus-ai/agentnexus`
   before relying on it.
 - **Do not go hunting elsewhere first.** The token is **not** reachable via
   `/proc/*/environ` (that is denied in the session sandbox), and the ambient
-  `github-actions[bot]` credential is read-only on `omnigent-ai/omnigent` (it's
-  scoped to `omnigent-internal`) — both are dead ends that waste the turn. The
+  `github-actions[bot]` credential is read-only on `agentnexus-ai/agentnexus` (it's
+  scoped to `agentnexus-internal`) — both are dead ends that waste the turn. The
   extraheader above is the one that works.
 - If the extraheader is genuinely absent (rare — e.g. a `skip_push` run, or the
   checkout didn't persist it), report that exact fact in `maintainer_review` with
@@ -613,8 +613,8 @@ Once the set is genuinely green:
    changes, amend or add a follow-up commit so the branch reflects the final fix.
    **Never commit workspace artifacts.** The commit must contain only the fix and
    its reproduction test — nothing else. In particular, **never** stage or commit
-   the `recordings/` clips or any `.omnigent/` handoff files (e.g.
-   `.omnigent/repro-handoff.json`): recordings are workspace artifacts that ride
+   the `recordings/` clips or any `.agentnexus/` handoff files (e.g.
+   `.agentnexus/repro-handoff.json`): recordings are workspace artifacts that ride
    in the PR's Demo section / CI artifact bundle, not in the diff (see
    [`dev/recording-lanes.md`](../recording-lanes.md)). Do **not** use a blanket
    `git add -A` / `git add .` that sweeps them in — stage the fix and test paths
@@ -694,12 +694,12 @@ concurrently.
 fix commits freely. On the **review path** the PR is someone else's; whether you
 can land a fix depends on where its branch lives:
 
-- **In-repo PR branch** (the head branch is on `omnigent-ai/omnigent`, not a fork)
+- **In-repo PR branch** (the head branch is on `agentnexus-ai/agentnexus`, not a fork)
   → you have write access. Push fixes the same as the author path, then re-check.
   Say in your review comments that you pushed, so the author isn't surprised.
 - **Fork PR** (the head branch is on a contributor's fork, `head.repo.fork ==
   true`) → you **cannot** push to it. An App installation token is scoped to
-  `omnigent-ai/omnigent` only; GitHub does not honor "allow edits from maintainers"
+  `agentnexus-ai/agentnexus` only; GitHub does not honor "allow edits from maintainers"
   for an App token (that grant is for maintainer *users*), so a push to the fork
   branch is rejected. **Do not attempt the push** — it will always fail. Instead:
   - **If the fork PR needs a fix** (repro test fails against it, CI is red from its
@@ -729,7 +729,7 @@ can land a fix depends on where its branch lives:
       last is exactly what gets lost — stranding two open PRs. Close first, then
       hand off. This both keeps the contributor informed and stops the dedup bot
       from closing your PR as the duplicate. Closing a PR is a base-repo operation
-      (it flips `state` on the PR object in `omnigent-ai/omnigent`), so
+      (it flips `state` on the PR object in `agentnexus-ai/agentnexus`), so
       `pull_requests: write` covers it **even though the head branch is on a fork**
       — the fork-push restriction does not apply to a close. Expect it to succeed;
       run it. Only if the close returns a real error, **record that error in
@@ -774,7 +774,7 @@ PR's code to a Databricks workspace, so applying it vouches that *this* code is
 safe to run there. That trust boundary is about **fork code**, not about CI being
 green — so the two paths label at different times:
 
-  - **A PR you authored (author path)** is a branch on `omnigent-ai/omnigent`
+  - **A PR you authored (author path)** is a branch on `agentnexus-ai/agentnexus`
     itself — a same-repo PR no outside contributor can push to, carrying code that
     already came through your repro→fix→CI→Polly pipeline. There is no untrusted
     code to gate, so **label it immediately, the moment `gh pr create` returns** —
@@ -827,34 +827,34 @@ that both attaches a runner and opens Claude Code on the validation journey
 against the preview is:
 
 ```
-omnigent claude -p '<validation_prompt>' --server <url>
+agentnexus claude -p '<validation_prompt>' --server <url>
 ```
 
-`omnigent claude` launches native Claude Code against the remote `--server`
+`agentnexus claude` launches native Claude Code against the remote `--server`
 (starting a local runner that carries the reviewer's credentials); `-p` is the
 validation prompt from 4.4 (bug-specific) used as the TUI's initial prompt;
 `--server <url>` is the preview URL. That one line is what you put in front of the
 reviewer (in the PR body's "Validate the fix live" section and the maintainer
 comment) — filled in with the real `<url>` and prompt, never left as placeholders.
 If the bug is specific to a different harness, use that harness's launcher instead
-(e.g. `omnigent codex`), but `omnigent claude` is the default.
+(e.g. `agentnexus codex`), but `agentnexus claude` is the default.
 
 **Classify the fix's validation surface — the preview does not always carry your
 code.** `--server <preview>` puts the fix only on the **server** side: the preview
 deploy runs the PR build, but the reviewer's *local runner* is their **installed**
-omnigent, not your branch. So which side your diff runs on decides whether the
+agentnexus, not your branch. So which side your diff runs on decides whether the
 preview attach actually exercises the fix. Set a `validation_surface` in your
 handoff:
 
-- **`server`** — the fix lives in server/web/UI code (`omnigent/server/**`, `web/**`,
+- **`server`** — the fix lives in server/web/UI code (`agentnexus/server/**`, `web/**`,
   routing, schemas). The preview build *is* the fix; `--server <preview>` validates
   it end-to-end. This is the default.
 - **`runner`** — the fix lives in **runner** code that runs in the host/runner
-  process (`omnigent/runner/**`, `omnigent/host/**`, the runner half of a transport
+  process (`agentnexus/runner/**`, `agentnexus/host/**`, the runner half of a transport
   like `ws_tunnel/serve.py`). Attaching a local runner to the preview runs your
   **fixed server against an unfixed runner** — the fix half never executes, so the
   preview attach proves nothing. The reviewer must run the **PR build on the runner
-  side**: `gh pr checkout <pr>` then `omnigent claude --server ""` (a local server
+  side**: `gh pr checkout <pr>` then `agentnexus claude --server ""` (a local server
   the same checkout serves), so both halves are your code.
 - **`both`** — the diff spans both sides (e.g. a wire-format change touching
   `frames.py` used by server and runner). Treat it like `runner`: only a local PR
@@ -973,7 +973,7 @@ bot/association gate, and it reviews a prefetched diff so it works even for a fo
 PR whose automatic run skipped:
 
 ```
-gh workflow run polly-review.yml -R omnigent-ai/omnigent -f pr=<pr>
+gh workflow run polly-review.yml -R agentnexus-ai/agentnexus -f pr=<pr>
 ```
 
 Your App token carries `actions: write`, so this dispatch is expected to succeed;
@@ -1023,7 +1023,7 @@ Now that the fix is green and reviewed, give the human an **agent-ready prompt**
 that reproduces the original journey and confirms the fix — the fastest way for
 them to trust it without reading the diff. Build it from the recovered `journey`,
 `facets`, and `bug_url`: a self-contained natural-language instruction they can
-paste to an Omnigent agent (driving the UI preview from 4.1, or their own local
+paste to an AgentNexus agent (driving the UI preview from 4.1, or their own local
 app) that (a) walks the exact steps that used to fail and (b) states the corrected
 behavior to look for. Keep it copy-pasteable and specific — concrete inputs,
 routes, or clicks; the expected *correct* result for each live facet; and for a
@@ -1051,13 +1051,13 @@ Put it where it belongs for the path you're on, and carry the same text in the
   > Run this against the deployed UI preview (attaches your own host, which carries
   > your model credentials):
   > ```
-  > omnigent claude -p 'Reproduce and validate a bug fix. Steps: <the journey —
+  > agentnexus claude -p 'Reproduce and validate a bug fix. Steps: <the journey —
   > concrete inputs/clicks/routes>. Before this fix, <the buggy behavior>. Confirm
   > the fix by checking that <the corrected behavior / value for each live facet>.
   > Report whether each step now behaves correctly.' --server <url>
   > ```
   > No preview URL? Drop `--server <url>` to run against your own local app. Or paste
-  > just the prompt to an agent already connected to an Omnigent app.
+  > just the prompt to an agent already connected to an AgentNexus app.
 
 - **`runner` or `both` surface** — the preview's server carries the fix but the
   reviewer's local runner would not, so **do not** lead with `--server <preview>`
@@ -1069,7 +1069,7 @@ Put it where it belongs for the path you're on, and carry the same text in the
   > runner):
   > ```
   > gh pr checkout <pr>
-  > omnigent claude -p 'Reproduce and validate a bug fix. Steps: <the journey>.
+  > agentnexus claude -p 'Reproduce and validate a bug fix. Steps: <the journey>.
   > Before this fix, <the buggy behavior>. Confirm the fix by checking that <the
   > corrected behavior>. Report whether each step now behaves correctly.' --server ''
   > ```
@@ -1098,7 +1098,7 @@ when one was recovered), and `recordings` in your handoff lists an `after` entry
 for **every** `web`/`mobile`/`terminal`/`cli`/`desktop` facet. You **added the
 reproduction test** — that is the driver the recorder needs, so on a web/mobile
 fix the after-clip is obtainable here; produce it (build the SPA, record via
-`OMNIGENT_E2E_RECORD_DIR` per `dev/recording-lanes.md`) rather than linking only
+`AGENTNEXUS_E2E_RECORD_DIR` per `dev/recording-lanes.md`) rather than linking only
 the repro run and a manual "run it yourself" command. Omit the after-clip **only**
 for a genuine, named environmental blocker (recorder tooling missing, fixture
 won't come online after the SPA build, `api`-surface facet with nothing to film) —
@@ -1150,11 +1150,11 @@ token" excuse.
   post an `@mention` comment asking them (or, with no assignee/non-issue bug,
   noting the PR is ready for a maintainer):
   ```
-  gh pr comment <pr> --body '@<login> this fixes #<closing_issue_number> — CI is green and the automated review is clean. Ready for your review. Try it live: `omnigent claude -p '\''<validation_prompt>'\'' --server <url>` (the UI preview from the ui-preview comment). See "Validate the fix live" (in the PR body, or the comment above on a reviewed PR).'
+  gh pr comment <pr> --body '@<login> this fixes #<closing_issue_number> — CI is green and the automated review is clean. Ready for your review. Try it live: `agentnexus claude -p '\''<validation_prompt>'\'' --server <url>` (the UI preview from the ui-preview comment). See "Validate the fix live" (in the PR body, or the comment above on a reviewed PR).'
   ```
 
 When there is a preview `<url>`, always include the ready-to-run
-`omnigent claude -p '<validation_prompt>' --server <url>` line in this comment with
+`agentnexus claude -p '<validation_prompt>' --server <url>` line in this comment with
 the real URL — that is the reviewer's fastest path to see the fix work. Drop
 `--server <url>` when no preview was produced.
 
@@ -1187,7 +1187,7 @@ the message. Same discipline as repro-agent:
 
 ```json
 {
-  "bug_url": "https://github.com/omnigent-ai/omnigent/issues/1234",
+  "bug_url": "https://github.com/agentnexus-ai/agentnexus/issues/1234",
   "mode": "authored_fix",
   "outcome": "fixed",
   "root_cause": "picker rendered raw catalog IDs because format_label() was never called on the option list",
@@ -1210,7 +1210,7 @@ the message. Same discipline as repro-agent:
   "test_audit": "repro e2e was behavioral (failed on raw IDs); no rewrite needed",
   "hermetic_check": "test_picker_label re-run with ambient env vars set — still passes",
   "cross_review": "codex reviewer: no blocking findings; noted a null-guard, addressed",
-  "pr_url": "https://github.com/omnigent-ai/omnigent/pull/4200",
+  "pr_url": "https://github.com/agentnexus-ai/agentnexus/pull/4200",
   "reviewed_pr_url": "",
   "pushed_branch": "",
   "ci_status": "green (all required checks pass)",
@@ -1293,7 +1293,7 @@ Field meanings:
   the review-verdict step). Empty when no PR was opened.
 - `ui_preview` — the result of Step 4.1 (run on every PR, not just frontend fixes):
   the **preview URL** (verbatim, so the ticket write-back can surface it and a
-  reviewer can `omnigent claude -p '<prompt>' --server <url>`), or why it failed to
+  reviewer can `agentnexus claude -p '<prompt>' --server <url>`), or why it failed to
   deploy (e.g. workspace secrets not configured, or the label couldn't be
   applied under your identity). Empty when no PR was opened.
 - `validation_surface` — which side the fix runs on, from Step 4.1: `server` (the

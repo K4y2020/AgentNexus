@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from omnigent.reasoning_effort import (
+from agentnexus.reasoning_effort import (
     ANTHROPIC_EFFORTS,
     CODEX_EFFORTS,
     CODEX_NATIVE_EFFORTS,
@@ -177,14 +177,14 @@ def test_explicit_caps_drive_the_model_switch_default() -> None:
 
 def test_routing_settings_effort_caps_reach_the_clamp() -> None:
     """A ``routing.effort_caps`` override reaches the clamp with no threading."""
-    from omnigent.server.smart_routing import RoutingSettings, parse_routing_tables
+    from agentnexus.server.smart_routing import RoutingSettings, parse_routing_tables
 
     settings = RoutingSettings(
         **parse_routing_tables(
             {"effort_caps": {"gpt-5.6-sol": {"fallback": "medium", "unsupported": ["xhigh"]}}}
         )
     )
-    with patch("omnigent.runtime._globals._caps", new=SimpleNamespace(routing_settings=settings)):
+    with patch("agentnexus.runtime._globals._caps", new=SimpleNamespace(routing_settings=settings)):
         assert clamp_effort_for_model("xhigh", "databricks-gpt-5-6-sol") == "medium"
         # The configured table REPLACES the default, so GLM is no longer capped.
         assert clamp_effort_for_model("xhigh", "system.ai.glm-5-2") == "xhigh"
@@ -237,7 +237,7 @@ def test_efforts_for_harness_distinguishes_unsupported_from_unknown() -> None:
     returns ``None`` (callers cannot classify it, so a filter must pass the
     value through rather than drop what a plugin harness might accept).
     """
-    from omnigent.reasoning_effort import GEMINI_EFFORTS, efforts_for_harness
+    from agentnexus.reasoning_effort import GEMINI_EFFORTS, efforts_for_harness
 
     assert efforts_for_harness("claude-sdk") == ANTHROPIC_EFFORTS
     assert efforts_for_harness("claude-native") == ANTHROPIC_EFFORTS
@@ -254,8 +254,8 @@ def test_efforts_for_harness_distinguishes_unsupported_from_unknown() -> None:
 
 def test_efforts_for_harness_resolves_aliases() -> None:
     """An alias resolves to the same vocabulary as its canonical name."""
-    from omnigent.harness_aliases import canonicalize_harness
-    from omnigent.reasoning_effort import efforts_for_harness
+    from agentnexus.harness_aliases import canonicalize_harness
+    from agentnexus.reasoning_effort import efforts_for_harness
 
     canonical = canonicalize_harness("claude-code") or "claude-code"
     assert efforts_for_harness("claude-code") == efforts_for_harness(canonical)

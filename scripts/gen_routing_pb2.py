@@ -37,11 +37,11 @@ from pathlib import Path
 # the generated package path is ``omnigent/api/routing/v1/routing_pb2`` —
 # matching the import the runtime uses (and the proto's ``package`` line).
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_PROTO = Path("omnigent/api/routing/v1/routing.proto")
+_PROTO = Path("agentnexus/api/routing/v1/routing.proto")
 # The two files protoc emits for the schema, relative to the repo root.
 _OUTPUTS = (
-    Path("omnigent/api/routing/v1/routing_pb2.py"),
-    Path("omnigent/api/routing/v1/routing_pb2.pyi"),
+    Path("agentnexus/api/routing/v1/routing_pb2.py"),
+    Path("agentnexus/api/routing/v1/routing_pb2.pyi"),
 )
 
 

@@ -26,16 +26,16 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.policies.builtins._shell import SHELL_TOOLS
-from omnigent.policies.builtins.working_dir import block_working_dir_changes
-from omnigent.policies.function import FunctionPolicy, resolve_function_policy
-from omnigent.policies.registry import get_registry, load_registry, validate_factory_params
-from omnigent.policies.schema import PolicyEvent, PolicyResponse
-from omnigent.policies.types import EvaluationContext
-from omnigent.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
+from agentnexus.policies.builtins._shell import SHELL_TOOLS
+from agentnexus.policies.builtins.working_dir import block_working_dir_changes
+from agentnexus.policies.function import FunctionPolicy, resolve_function_policy
+from agentnexus.policies.registry import get_registry, load_registry, validate_factory_params
+from agentnexus.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.spec.types import FunctionPolicySpec, FunctionRef, Phase, PolicyAction
 from tests.policies.builtins.helpers import tool_call_event as tc
 
-_HANDLER = "omnigent.policies.builtins.working_dir.block_working_dir_changes"
+_HANDLER = "agentnexus.policies.builtins.working_dir.block_working_dir_changes"
 
 
 def _sh(command: str) -> PolicyEvent:

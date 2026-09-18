@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from omnigent.db.utils import builtin_agent_id
-from omnigent.errors import OmnigentError
-from omnigent.server.routes.imports import _stream_local_sessions_from_host
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
+from agentnexus.db.utils import builtin_agent_id
+from agentnexus.errors import AgentNexusError
+from agentnexus.server.routes.imports import _stream_local_sessions_from_host
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import SqlAlchemyConversationStore
 
 
 def _seed_claude_agent(db_uri: str) -> str:
@@ -73,7 +73,7 @@ async def test_import_session_creates_normal_session_and_blocks_duplicate(
     assert conversation.external_session_id == "claude-session-1"
     assert conversation.workspace == "/repo"
     assert conversation.title == "inspect TODO.md"
-    assert conversation.labels["omnigent.wrapper"] == "claude-code-native-ui"
+    assert conversation.labels["agentnexus.wrapper"] == "claude-code-native-ui"
     items = await client.get(f"/v1/sessions/{session_id}/items")
     assert items.status_code == 200
     assert [item["type"] for item in items.json()["data"]] == ["message", "message"]
@@ -216,7 +216,7 @@ def test_imported_session_ref_allows_null_title() -> None:
     derive a title from; the /imports/local batch builds one ImportedSessionRef
     per new session, so a None title must validate instead of 500-ing the run.
     """
-    from omnigent.server.routes.imports import ImportedSessionRef
+    from agentnexus.server.routes.imports import ImportedSessionRef
 
     assert ImportedSessionRef(session_id="conv_x").title is None
     assert ImportedSessionRef(session_id="conv_y", title=None).title is None
@@ -310,7 +310,7 @@ async def test_stream_local_sessions_raises_on_failed_done() -> None:
             (queue,) = conn.pending_import_local.values()
             queue.put_nowait(("done", {"status": "failed", "error": "host blew up"}))
 
-    with pytest.raises(OmnigentError, match="host blew up"):
+    with pytest.raises(AgentNexusError, match="host blew up"):
         _ = [
             session
             async for session in _stream_local_sessions_from_host(

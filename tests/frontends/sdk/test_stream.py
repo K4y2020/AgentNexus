@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from omnigent_client._blocks import (
+from agentnexus_client._blocks import (
     ReasoningBlock,
     ReasoningChunk,
     ReasoningStartBlock,
@@ -15,7 +15,7 @@ from omnigent_client._blocks import (
     ToolGroup,
     ToolResultBlock,
 )
-from omnigent_client._events import (
+from agentnexus_client._events import (
     MessageDone,
     ReasoningDelta,
     ReasoningStarted,
@@ -27,8 +27,8 @@ from omnigent_client._events import (
     ToolCall,
     ToolResult,
 )
-from omnigent_client._stream import BlockStream
-from omnigent_client._types import Response
+from agentnexus_client._stream import BlockStream
+from agentnexus_client._types import Response
 
 
 def _make_response(

@@ -38,7 +38,7 @@ async def test_internal_only_policies_excluded_from_registry(
     allowlist (for sys_session_send to attach them) but don't appear in the
     UI's policy selector.
     """
-    from omnigent.policies.registry import get_registry, load_registry
+    from agentnexus.policies.registry import get_registry, load_registry
 
     # Ensure the registry is loaded with all built-in policies.
     load_registry()

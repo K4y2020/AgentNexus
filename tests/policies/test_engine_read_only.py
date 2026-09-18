@@ -19,11 +19,11 @@ from typing import Any
 
 import pytest
 
-from omnigent.entities import ConversationItem, PagedList
-from omnigent.policies.base import Policy
-from omnigent.policies.types import EvaluationContext, PolicyResult
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec.types import (
+from agentnexus.entities import ConversationItem, PagedList
+from agentnexus.policies.base import Policy
+from agentnexus.policies.types import EvaluationContext, PolicyResult
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec.types import (
     FunctionPolicySpec,
     Phase,
     PolicyAction,

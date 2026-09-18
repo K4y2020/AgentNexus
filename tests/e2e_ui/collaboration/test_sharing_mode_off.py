@@ -1,11 +1,11 @@
 """UI: the Share control is grayed out with an explanatory tooltip when the
-server's ``OMNIGENT_SHARING_MODE`` is ``off``.
+server's ``AGENTNEXUS_SHARING_MODE`` is ``off``.
 
 Companion to ``test_permissions_modal.py::test_multi_user_shows_enabled_share_
 button`` (Share enabled) and the single-user *hide* tests. The shared
 session-scoped ``live_server`` runs the default policy (sharing ``on``) and is
 also single-user (which hides Share outright), so this spins up a dedicated
-NON-single-user server with ``OMNIGENT_SHARING_MODE=off`` and drives the real
+NON-single-user server with ``AGENTNEXUS_SHARING_MODE=off`` and drives the real
 SPA to confirm the server-side kill switch surfaces as a *disabled* Share
 button — not a hidden one (single-user) and not merely a 403 on the grant
 endpoint.
@@ -30,7 +30,7 @@ from tests.e2e_ui.collaboration._multi_user_server import (
 )
 
 # Mirrors AppShell.tsx's shareDisabledReason for the sharing-off case.
-_OFF_REASON = "Sharing has been disabled for this Omnigent server."
+_OFF_REASON = "Sharing has been disabled for this AgentNexus server."
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +39,7 @@ def sharing_off_server(
     mock_llm_server_url: str,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[MultiUserServer]:
-    """A dedicated NON-single-user server with ``OMNIGENT_SHARING_MODE=off``.
+    """A dedicated NON-single-user server with ``AGENTNEXUS_SHARING_MODE=off``.
 
     Multi-user (so Share isn't hidden by single-user mode) but sharing off (so
     Share is *disabled*), letting the test isolate the sharing-off disable.
@@ -48,7 +48,7 @@ def sharing_off_server(
     yield from spawn_multi_user_server(
         mock_llm_server_url,
         server_tmp,
-        extra_server_env={"OMNIGENT_SHARING_MODE": "off"},
+        extra_server_env={"AGENTNEXUS_SHARING_MODE": "off"},
     )
 
 
@@ -56,7 +56,7 @@ def test_sharing_off_disables_share_button_with_tooltip(
     browser: Browser,
     sharing_off_server: MultiUserServer,
 ) -> None:
-    """``OMNIGENT_SHARING_MODE=off`` grays out the header Share button and
+    """``AGENTNEXUS_SHARING_MODE=off`` grays out the header Share button and
     explains why — the server-side kill switch surfaced in the SPA."""
     context = browser.new_context(extra_http_headers={"X-Forwarded-Email": ADMIN_EMAIL})
     page = context.new_page()

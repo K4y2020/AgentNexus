@@ -15,15 +15,15 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.runtime.workflow import _build_pi_spawn_env
-from omnigent.spec.types import AgentSpec, ExecutorSpec, LLMConfig
+from agentnexus.runtime.workflow import _build_pi_spawn_env
+from agentnexus.spec.types import AgentSpec, ExecutorSpec, LLMConfig
 
 
 @pytest.fixture(autouse=True)
 def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Point OMNIGENT_CONFIG_HOME at an empty temp dir for every test in
-    this file so the developer's real ``~/.omnigent/config.yaml`` (e.g.
+    Point AGENTNEXUS_CONFIG_HOME at an empty temp dir for every test in
+    this file so the developer's real ``~/.agentnexus/config.yaml`` (e.g.
     a default provider) cannot hijack the legacy-profile path under test.
 
     ``HOME`` is redirected there too. An empty omnigent config is not enough
@@ -36,11 +36,11 @@ def _isolate_global_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Temporary directory for the isolated config and home.
     """
-    monkeypatch.setenv("OMNIGENT_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTNEXUS_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setattr(
-        "omnigent.runtime.workflow._resolve_catalog_default_model",
+        "agentnexus.runtime.workflow._resolve_catalog_default_model",
         lambda provider_name, family, *, context: f"catalog-{provider_name}-{family}-default",
     )
 
@@ -65,7 +65,7 @@ def _make_spec(*, model: str | None = None, profile: str | None = None) -> Agent
         spec_version=1,
         name="test-pi",
         instructions="You are a test agent.",
-        executor=ExecutorSpec(type="omnigent", config=config, model=model),
+        executor=ExecutorSpec(type="agentnexus", config=config, model=model),
         llm=LLMConfig(model=model) if model is not None else None,
     )
 
@@ -105,7 +105,7 @@ def _ucode_state_for_pi(
         entry at all, exercising the early-return in
         ``configure_agent_harness_with_ucode``.
     """
-    from omnigent.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
+    from agentnexus.onboarding.ucode_state import UcodeAgentState, UcodeWorkspaceState
 
     agents = (
         {
@@ -126,11 +126,11 @@ def _ucode_state_for_pi(
         agents=agents,
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.get_workspace_url_for_profile",
+        "agentnexus.runtime.workflow.get_workspace_url_for_profile",
         lambda profile: "https://example.databricks.com",
     )
     monkeypatch.setattr(
-        "omnigent.runtime.workflow.read_ucode_state",
+        "agentnexus.runtime.workflow.read_ucode_state",
         lambda workspace_url: state,
     )
 

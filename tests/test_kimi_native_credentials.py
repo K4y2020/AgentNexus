@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import tomllib
 
-from omnigent.kimi_native_credentials import (
+from agentnexus.kimi_native_credentials import (
     KIMI_CODE_HOME_ENV_VAR,
     build_kimi_session_home,
     render_kimi_hooks_toml,
@@ -33,7 +33,7 @@ def test_render_hooks_toml_is_valid_and_complete() -> None:
     events = {h["event"] for h in parsed["hooks"]}
     assert events == {"PreToolUse", "PermissionRequest"}
     for hook in parsed["hooks"]:
-        assert "omnigent.kimi_native_hook" in hook["command"]
+        assert "agentnexus.kimi_native_hook" in hook["command"]
         assert "/tmp/b r" in hook["command"]  # space-bearing path round-trips
         # ``-I`` (isolated mode) is mandatory: kimi runs the hook with cwd set to
         # the session workspace, so without it a workspace containing its own
@@ -61,7 +61,7 @@ def test_build_session_home_preserves_user_config_and_appends_hooks(
     # User config preserved …
     assert parsed["default_model"] == "kimi-code/x"
     assert "managed" in parsed["providers"]
-    # … and the Omnigent hooks appended.
+    # … and the AgentNexus hooks appended.
     assert {h["event"] for h in parsed["hooks"]} == {"PreToolUse", "PermissionRequest"}
 
 

@@ -35,7 +35,7 @@ import tomllib
 # scripts/sync_version_py.py -> repo root is one level up.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
-_VERSION_PY = _REPO_ROOT / "omnigent" / "version.py"
+_VERSION_PY = _REPO_ROOT / "agentnexus" / "version.py"
 
 # The ``VERSION = "..."`` assignment (its own line) in omnigent/version.py.
 _VERSION_ASSIGN = re.compile(r'^VERSION = "[^"]*"$', re.MULTILINE)

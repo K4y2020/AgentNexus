@@ -49,7 +49,7 @@
         "name": "AgentNexus session link",
         "schemes": [
           "agentnexus",
-          "omnigent"
+          "agentnexus"
         ]
       }
     ],

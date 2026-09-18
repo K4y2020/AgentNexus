@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from omnigent.runner.tool_dispatch import _execute_skill_tool
+from agentnexus.runner.tool_dispatch import _execute_skill_tool
 
 SKILL_MD = (
     "---\nname: example\ndescription: An example skill.\n---\n\nBody of the example skill.\n"
@@ -63,7 +63,7 @@ def test_read_skill_file_resolves_bundled_skill(
     isolated_home: Path,
 ) -> None:
     """Bundled skills keep working — the fix must not regress them."""
-    from omnigent.spec.types import SkillSpec
+    from agentnexus.spec.types import SkillSpec
 
     skill_dir = tmp_path / "bundle" / "skills" / "bundled"
     skill_dir.mkdir(parents=True)

@@ -9,7 +9,7 @@ present and responsive. Turn synchronization uses the visible
 ``⠹ working`` line and the ``❯`` prompt rather than the
 truncated/CPR-suppressed ``state:`` badge (see test_repl_smoke).
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 REPL pexpect suite — "Ctrl+L clear".
 """
 
@@ -18,15 +18,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     await_turn_complete,
     clean_exit,
     spawn_omnigent_run,
     submit_prompt,
 )
-from tests.e2e.omnigent._repl_test_helpers import drain_for
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus._repl_test_helpers import drain_for
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 # Visible turn-synchronization markers (see test_repl_smoke).
 _RUNNING_MARKER = r"working"

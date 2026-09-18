@@ -12,9 +12,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from omnigent.server.admin_list import AdminList
-from omnigent.server.auth import UnifiedAuthProvider
-from omnigent.server.routes.auth import (
+from agentnexus.server.admin_list import AdminList
+from agentnexus.server.auth import UnifiedAuthProvider
+from agentnexus.server.routes.auth import (
     _GITHUB_EMAILS_ENDPOINT,
     _claim_is_verified_true,
     _CliTicket,

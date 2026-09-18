@@ -4,13 +4,13 @@
 
 AgentNexus runs on an Alembic-managed SQLAlchemy schema. On server startup the
 runtime automatically migrates the configured database to the schema head that
-the running build knows (`omnigent/db/utils.py`). A fresh database has no
+the running build knows (`agentnexus/db/utils.py`). A fresh database has no
 `alembic_version` table and is migrated to head without manual action; an older
 database is migrated forward; a database whose revision is newer than the
 running build is refused rather than downgraded blindly.
 
 Users do not need to run migrations by hand for normal upgrades. The migration
-scripts live under `omnigent/db/migrations/versions/` and are committed with
+scripts live under `agentnexus/db/migrations/versions/` and are committed with
 their upgrade/downgrade functions. Downgrade support exists per-revision for
 authoring/testing, but downgrading a production database out-of-band is not a
 supported upgrade path; the supported recovery path is a pre-upgrade backup.
@@ -42,8 +42,8 @@ through `restoreFromBackup` in `web/electron/src/update_backup.js`.
 ## Environment overrides
 
 The runtime data, config, and state directories can be redirected with
-`OMNIGENT_DATA_DIR` and `OMNIGENT_CONFIG_HOME`; the shared state directory is
-always `~/.omnigent`. The desktop updater snapshots exactly the effective
+`AGENTNEXUS_DATA_DIR` and `AGENTNEXUS_CONFIG_HOME`; the shared state directory is
+always `~/.agentnexus`. The desktop updater snapshots exactly the effective
 directories and restores exactly the paths recorded in `backup.json`, so
 override setups are backed up consistently.
 

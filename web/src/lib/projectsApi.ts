@@ -1,5 +1,5 @@
 // Typed client for the `/v1/projects` first-class projects CRUD
-// (`omnigent/server/routes/projects.py`). Projects are owner-private
+// (`agentnexus/server/routes/projects.py`). Projects are owner-private
 // containers that group sessions and exist independently of their members —
 // so they can be empty, renamed, and deleted without touching sessions.
 //

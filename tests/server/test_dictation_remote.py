@@ -16,7 +16,7 @@ from collections.abc import Iterator
 import pytest
 import uvicorn
 
-from omnigent.server import dictation
+from agentnexus.server import dictation
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +30,7 @@ def _fake_engine_env(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def worker_url() -> Iterator[str]:
     """Run the real worker app on an ephemeral port; yield its stream URL."""
-    from omnigent.server.dictation_worker import create_worker_app
+    from agentnexus.server.dictation_worker import create_worker_app
 
     config = uvicorn.Config(create_worker_app(), host="127.0.0.1", port=0, log_level="warning")
     server = uvicorn.Server(config)
@@ -130,7 +130,7 @@ def test_remote_unavailable_without_url(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_remote_engine_selected_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    """OMNIGENT_DICTATION_ENGINE=remote + a URL selects the relay engine."""
+    """AGENTNEXUS_DICTATION_ENGINE=remote + a URL selects the relay engine."""
     monkeypatch.setenv(dictation.ENGINE_ENV, dictation.ENGINE_REMOTE)
     monkeypatch.setenv(dictation.REMOTE_URL_ENV, "ws://example:8100/v1/dictation/stream")
     monkeypatch.setattr(dictation, "_engine", None)

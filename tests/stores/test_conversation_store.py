@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import event, text
 
-from omnigent.db.utils import get_or_create_engine
-from omnigent.entities import (
+from agentnexus.db.utils import get_or_create_engine
+from agentnexus.entities import (
     CompactionData,
     ErrorData,
     FunctionCallData,
@@ -16,16 +16,16 @@ from omnigent.entities import (
     NewConversationItem,
     ReasoningData,
 )
-from omnigent.server.auth import RESERVED_USER_LOCAL
-from omnigent.session_import import (
+from agentnexus.server.auth import RESERVED_USER_LOCAL
+from agentnexus.session_import import (
     IMPORT_EXTERNAL_SESSION_ID_LABEL_KEY,
     IMPORT_SOURCE_LABEL_KEY,
 )
-from omnigent.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
-from omnigent.stores.host_store import HostStore
+from agentnexus.stores.host_store import HostStore
 
 # ── CRUD ──────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ def test_fork_drops_per_user_pin_labels(
     """A fork is a NEW conversation, so it must not inherit the source's pins:
     neither the forker's nor any other user's per-user pin key rides along
     (those keys have a dynamic suffix, so a prefix drop is required)."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     source = conversation_store.create_conversation()
     conversation_store.set_labels(
@@ -124,7 +124,7 @@ def test_create_and_get(conversation_store: SqlAlchemyConversationStore) -> None
 
 def test_create_with_existing_caller_supplied_id_raises(db_uri: str) -> None:
     """A stable caller id turns a retry from another store into a typed conflict."""
-    from omnigent.stores.conversation_store import ConversationAlreadyExistsError
+    from agentnexus.stores.conversation_store import ConversationAlreadyExistsError
 
     conversation_id = "a" * 32
     first_store = SqlAlchemyConversationStore(db_uri)
@@ -175,7 +175,7 @@ def test_get_conversations_bulk(
     b = conversation_store.create_conversation(title="beta")
     # Label only one row to prove labels are joined per-id, not smeared
     # across the batch or dropped for the unlabeled row.
-    conversation_store.set_labels(a.id, {"omnigent.ui": "terminal"})
+    conversation_store.set_labels(a.id, {"agentnexus.ui": "terminal"})
 
     result = conversation_store.get_conversations([a.id, b.id, "5eca720dc2bc6cdc3a99028d7bd0f917"])
 
@@ -186,7 +186,7 @@ def test_get_conversations_bulk(
     assert result[a.id].title == "alpha"
     assert result[b.id].title == "beta"
     # Labels are attached to the row they belong to and only that row.
-    assert result[a.id].labels == {"omnigent.ui": "terminal"}
+    assert result[a.id].labels == {"agentnexus.ui": "terminal"}
     assert result[b.id].labels == {}
 
 
@@ -317,7 +317,7 @@ def test_ranked_latest_message_items_omits_search_text(
     ``search_text`` differs from its visible text and asserts the returned item
     still carries the visible text, proving the preview reads ``data``.
     """
-    from omnigent.stores.conversation_store.sqlalchemy_store import (
+    from agentnexus.stores.conversation_store.sqlalchemy_store import (
         _ranked_latest_message_items,
     )
 
@@ -479,7 +479,7 @@ def test_update_archived_bumps_updated_at(
 
     # Pin the clock past created_at so the new updated_at is unambiguous.
     monkeypatch.setattr(
-        "omnigent.stores.conversation_store.sqlalchemy_store.now_epoch",
+        "agentnexus.stores.conversation_store.sqlalchemy_store.now_epoch",
         lambda: created_at + 100,
     )
     updated = conversation_store.update_conversation(conv.id, archived=True)
@@ -789,9 +789,9 @@ def test_position_not_enforced_by_db(
     code catches a position IntegrityError. This documents that raw
     duplicate-position inserts are accepted at the DB level.
     """
-    from omnigent.db.db_models import SqlConversationItem
-    from omnigent.db.enum_codecs import encode_item_status, encode_item_type
-    from omnigent.db.utils import generate_item_id
+    from agentnexus.db.db_models import SqlConversationItem
+    from agentnexus.db.enum_codecs import encode_item_status, encode_item_type
+    from agentnexus.db.utils import generate_item_id
 
     conv = conversation_store.create_conversation()
     conversation_store.append(
@@ -1802,7 +1802,7 @@ def test_list_items_type_filter_returns_only_matching_type(
     list_items(type=...) returns only items of the specified type,
     while list_items() without a filter returns all types.
     """
-    from omnigent.entities import CompactionData
+    from agentnexus.entities import CompactionData
 
     conv = conversation_store.create_conversation()
 
@@ -1878,7 +1878,7 @@ def test_list_items_type_filter_with_order_and_limit(
     list_items(type="compaction", order="desc", limit=1) returns only
     the most recently appended compaction item.
     """
-    from omnigent.entities import CompactionData
+    from agentnexus.entities import CompactionData
 
     conv = conversation_store.create_conversation()
 
@@ -2073,7 +2073,7 @@ def test_append_bumps_updated_at(
     Appending items to a conversation advances updated_at
     to the current time.
     """
-    import omnigent.stores.conversation_store.sqlalchemy_store as store_mod
+    import agentnexus.stores.conversation_store.sqlalchemy_store as store_mod
 
     # Freeze time at creation
     monkeypatch.setattr(store_mod, "now_epoch", lambda: 1000)
@@ -2109,7 +2109,7 @@ def test_update_title_bumps_updated_at(
     """
     Updating the title of a conversation advances updated_at.
     """
-    import omnigent.stores.conversation_store.sqlalchemy_store as store_mod
+    import agentnexus.stores.conversation_store.sqlalchemy_store as store_mod
 
     monkeypatch.setattr(store_mod, "now_epoch", lambda: 1000)
     conv = conversation_store.create_conversation()
@@ -2134,7 +2134,7 @@ def test_list_conversations_sort_by_updated_at(
     Sorting by updated_at returns conversations in order of
     last activity, not creation order.
     """
-    import omnigent.stores.conversation_store.sqlalchemy_store as store_mod
+    import agentnexus.stores.conversation_store.sqlalchemy_store as store_mod
 
     # Create conv_a at t=100, conv_b at t=200
     monkeypatch.setattr(store_mod, "now_epoch", lambda: 100)
@@ -2188,7 +2188,7 @@ def test_list_conversations_sort_by_updated_at_with_pagination(
     Cursor-based pagination works correctly when sorting
     by updated_at.
     """
-    import omnigent.stores.conversation_store.sqlalchemy_store as store_mod
+    import agentnexus.stores.conversation_store.sqlalchemy_store as store_mod
 
     # Create 3 conversations with distinct updated_at values
     ids = []
@@ -2267,7 +2267,7 @@ def test_create_duplicate_title_under_same_parent_raises(
     conversation_store: SqlAlchemyConversationStore,
 ) -> None:
     """The app-level ``(parent, title)`` check rejects sibling duplicates."""
-    from omnigent.stores.conversation_store import NameAlreadyExistsError
+    from agentnexus.stores.conversation_store import NameAlreadyExistsError
 
     parent = conversation_store.create_conversation()
     conversation_store.create_conversation(
@@ -2438,7 +2438,7 @@ def test_list_conversations_filtered_by_agent_id_returns_matching_only(
     agent_store: SqlAlchemyAgentStore,
 ) -> None:
     """
-    Powers Omnigent mode ``--continue`` (resume the most-recent
+    Powers AgentNexus mode ``--continue`` (resume the most-recent
     conversation for *this agent*). Two agents, three
     conversations: agent_alpha owns convs 1+2, agent_beta
     owns conv 3. Filtering by agent_alpha returns exactly the
@@ -2551,7 +2551,7 @@ def test_list_conversations_filter_orders_by_sort_by(
     :param agent_store: The agent store fixture.
     :param monkeypatch: Pytest monkeypatch for time control.
     """
-    import omnigent.stores.conversation_store.sqlalchemy_store as store_mod
+    import agentnexus.stores.conversation_store.sqlalchemy_store as store_mod
 
     alpha = agent_store.create(
         agent_id="56d6facd8237c8523d783d591fa43baa",
@@ -2688,8 +2688,8 @@ def test_list_conversations_by_runner_id_hydrates_labels(
     conversation_store.set_labels(
         bound.id,
         {
-            "omnigent.fork.carry_history": "1",
-            "omnigent.fork.source_external_session_id": "src-claude-sid",
+            "agentnexus.fork.carry_history": "1",
+            "agentnexus.fork.source_external_session_id": "src-claude-sid",
         },
     )
 
@@ -2697,8 +2697,8 @@ def test_list_conversations_by_runner_id_hydrates_labels(
 
     assert [c.id for c in result] == [bound.id]
     assert result[0].labels == {
-        "omnigent.fork.carry_history": "1",
-        "omnigent.fork.source_external_session_id": "src-claude-sid",
+        "agentnexus.fork.carry_history": "1",
+        "agentnexus.fork.source_external_session_id": "src-claude-sid",
     }
 
 
@@ -2845,7 +2845,7 @@ def test_set_host_id_missing_conversation_raises(
     If it silently succeeds, the guard clause is missing and a
     stale host_id could be written to a phantom row.
     """
-    from omnigent.stores.conversation_store import ConversationNotFoundError
+    from agentnexus.stores.conversation_store import ConversationNotFoundError
 
     with pytest.raises(ConversationNotFoundError):
         conversation_store.set_host_id(
@@ -2936,7 +2936,7 @@ def test_clear_host_binding_missing_conversation_raises(
     conversation_store: SqlAlchemyConversationStore,
 ) -> None:
     """clear_host_binding raises for an unknown conversation id."""
-    from omnigent.stores.conversation_store import ConversationNotFoundError
+    from agentnexus.stores.conversation_store import ConversationNotFoundError
 
     with pytest.raises(ConversationNotFoundError):
         conversation_store.clear_host_binding("ad563e906854634c49e1a6fd2fbb31d4")
@@ -3119,7 +3119,7 @@ def test_create_session_with_agent_missing_parent_fails_loud(
     must fail loud so no half-linked child row (and no orphaned agent
     row) is committed.
     """
-    from omnigent.stores.conversation_store import ConversationNotFoundError
+    from agentnexus.stores.conversation_store import ConversationNotFoundError
 
     with pytest.raises(ConversationNotFoundError):
         conversation_store.create_session_with_agent(
@@ -3426,7 +3426,7 @@ def test_set_external_session_id_missing_conversation_raises(
     routes translate this into a 404, so silently no-oping here would
     let the route return 200 for a write that never happened.
     """
-    from omnigent.stores.conversation_store import ConversationNotFoundError
+    from agentnexus.stores.conversation_store import ConversationNotFoundError
 
     with pytest.raises(ConversationNotFoundError):
         conversation_store.set_external_session_id(
@@ -3876,14 +3876,14 @@ def test_fork_conversation_drops_instance_scoped_labels(
     conversation_store.set_labels(
         source.id,
         {
-            "omnigent.claude_native.bridge_id": source.id,
-            "omnigent.codex_native.bridge_id": source.id,
-            "omnigent.last_context_tokens": "39903",
-            "omnigent.last_context_window": "1000000",
+            "agentnexus.claude_native.bridge_id": source.id,
+            "agentnexus.codex_native.bridge_id": source.id,
+            "agentnexus.last_context_tokens": "39903",
+            "agentnexus.last_context_window": "1000000",
             # The dangerous bypass opt-in must NOT ride into the fork.
-            "omnigent.codex_native.bypass_sandbox": "1",
+            "agentnexus.codex_native.bypass_sandbox": "1",
             # An ordinary, non-instance label that SHOULD carry over.
-            "omnigent.wrapper": "claude-code-native-ui",
+            "agentnexus.wrapper": "claude-code-native-ui",
         },
     )
 
@@ -3893,7 +3893,7 @@ def test_fork_conversation_drops_instance_scoped_labels(
     # source's per-instance state. A bridge-id here would re-introduce
     # the cross-bridge bug; the metrics would show the source's stale
     # usage.
-    assert fork.labels == {"omnigent.wrapper": "claude-code-native-ui"}, (
+    assert fork.labels == {"agentnexus.wrapper": "claude-code-native-ui"}, (
         f"Fork must drop instance-scoped labels, kept {fork.labels!r}"
     )
 
@@ -3916,18 +3916,18 @@ def test_fork_extra_labels_rearm_bypass_over_the_always_drop(
         bundle_location="c1a2b3c4d5e6f7081920314253647586/fakehash",
     )
     source = conversation_store.create_conversation(agent_id="c1a2b3c4d5e6f7081920314253647586")
-    conversation_store.set_labels(source.id, {"omnigent.codex_native.bypass_sandbox": "1"})
+    conversation_store.set_labels(source.id, {"agentnexus.codex_native.bypass_sandbox": "1"})
 
     # Same-agent fork WITHOUT the opt-in: the source's label is dropped.
     plain = conversation_store.fork_conversation(source.id)
-    assert "omnigent.codex_native.bypass_sandbox" not in plain.labels
+    assert "agentnexus.codex_native.bypass_sandbox" not in plain.labels
 
     # WITH the opt-in via extra_labels: armed on the fork despite the drop.
     armed = conversation_store.fork_conversation(
         source.id,
-        extra_labels={"omnigent.codex_native.bypass_sandbox": "1"},
+        extra_labels={"agentnexus.codex_native.bypass_sandbox": "1"},
     )
-    assert armed.labels.get("omnigent.codex_native.bypass_sandbox") == "1", (
+    assert armed.labels.get("agentnexus.codex_native.bypass_sandbox") == "1", (
         f"extra_labels must re-arm bypass over the always-drop, got {armed.labels!r}"
     )
 
@@ -3959,11 +3959,11 @@ def test_fork_conversation_stamps_source_external_session_id(
     fork = conversation_store.fork_conversation(source.id)
 
     # Directive carries the SOURCE's claude uuid for the resume+fork launch.
-    assert fork.labels.get("omnigent.fork.source_external_session_id") == "claude-uuid-abc", (
+    assert fork.labels.get("agentnexus.fork.source_external_session_id") == "claude-uuid-abc", (
         f"Fork should carry the source's external session id, got {fork.labels!r}"
     )
     # The clone is a fresh session — it has no native session of its own
-    # yet. Copying external_session_id would make two Omnigent sessions claim
+    # yet. Copying external_session_id would make two AgentNexus sessions claim
     # the same Claude session.
     reloaded = conversation_store.get_conversation(fork.id)
     assert reloaded is not None
@@ -3986,7 +3986,7 @@ def test_fork_conversation_no_external_session_id_no_directive(
 
     fork = conversation_store.fork_conversation(source.id)
 
-    assert "omnigent.fork.source_external_session_id" not in fork.labels, (
+    assert "agentnexus.fork.source_external_session_id" not in fork.labels, (
         f"No source native session → no resume directive, got {fork.labels!r}"
     )
 
@@ -4078,7 +4078,7 @@ def test_fork_conversation_truncated_drops_external_session_directive(
     omitted so the runner's carry-history fork-rebuild path
     synthesizes the transcript from the truncated items instead.
     """
-    from omnigent.stores.conversation_store import (
+    from agentnexus.stores.conversation_store import (
         FORK_CARRY_HISTORY_LABEL_KEY,
         FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
     )
@@ -4118,9 +4118,9 @@ def test_fork_conversation_cross_family_drops_external_session_directive(
     and the runner's clone path launches FRESH when its clone attempt
     fails — silently losing history. Omitting the directive routes the
     runner to the carry-history rebuild path (native transcript built from
-    the copied Omnigent items) instead.
+    the copied AgentNexus items) instead.
     """
-    from omnigent.stores.conversation_store import (
+    from agentnexus.stores.conversation_store import (
         FORK_CARRY_HISTORY_LABEL_KEY,
         FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY,
     )
@@ -4163,7 +4163,7 @@ def test_fork_conversation_up_to_last_response_keeps_external_directive(
     kept — the runner can still clone the source's native transcript
     verbatim (full fidelity) instead of rebuilding from items.
     """
-    from omnigent.stores.conversation_store import FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY
+    from agentnexus.stores.conversation_store import FORK_SOURCE_EXTERNAL_SESSION_LABEL_KEY
 
     agent_store.create(
         agent_id="c774126dd8d6bf6ca0d1baba1893dec2",
@@ -4290,9 +4290,9 @@ def test_instance_scoped_label_keys_match_harness_constants() -> None:
     forks would re-inherit the source's bridge. Importing the real
     constants here makes that rename fail loudly at test time.
     """
-    from omnigent.claude_native_bridge import BRIDGE_ID_LABEL_KEY
-    from omnigent.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
-    from omnigent.stores.conversation_store import _INSTANCE_SCOPED_LABEL_KEYS
+    from agentnexus.claude_native_bridge import BRIDGE_ID_LABEL_KEY
+    from agentnexus.codex_native_bridge import CODEX_NATIVE_BRIDGE_ID_LABEL_KEY
+    from agentnexus.stores.conversation_store import _INSTANCE_SCOPED_LABEL_KEYS
 
     # Each harness's canonical bridge-id key must be in the denylist; a
     # miss means a rename slipped past the store's hard-coded literal.
@@ -4404,7 +4404,7 @@ def test_fork_conversation_carry_history_into_native_stamps_label(
     a normal fork into a native target doesn't trigger a rebuild from the
     wrong items.
     """
-    from omnigent.stores.conversation_store import FORK_CARRY_HISTORY_LABEL_KEY
+    from agentnexus.stores.conversation_store import FORK_CARRY_HISTORY_LABEL_KEY
 
     agent_store.create(
         agent_id="69ca49f61d21b0fe5219340e39afecf4",
@@ -4462,13 +4462,13 @@ def test_switch_conversation_agent_cross_family_resets_and_relabels(
     cross-family switch resets model settings, clears the native session
     id, and replaces the harness-presentation labels.
     """
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         CODEX_NATIVE_WRAPPER_VALUE,
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.stores.conversation_store import (
+    from agentnexus.stores.conversation_store import (
         FORK_CARRY_HISTORY_LABEL_KEY,
         SWITCH_PREVIOUS_BUILTIN_LABEL_KEY,
     )
@@ -4476,7 +4476,7 @@ def test_switch_conversation_agent_cross_family_resets_and_relabels(
     # An instance-scoped label (belongs to the running instance, dropped on a
     # switch). Uses a literal still in _INSTANCE_SCOPED_LABEL_KEYS — the old
     # omnigent.stopped marker was retired upstream.
-    instance_label = "omnigent.last_context_tokens"
+    instance_label = "agentnexus.last_context_tokens"
 
     # A real session binds a session-scoped agent (agent.session_id == conv).
     created = conversation_store.create_session_with_agent(
@@ -4500,7 +4500,7 @@ def test_switch_conversation_agent_cross_family_resets_and_relabels(
             # DANGEROUS codex bypass opt-in: in the instance-scoped set so a
             # switch (a new agent/harness context) drops it rather than
             # silently re-arming bypass without a fresh typed confirmation.
-            "omnigent.codex_native.bypass_sandbox": "1",
+            "agentnexus.codex_native.bypass_sandbox": "1",
             UI_MODE_LABEL_KEY: UI_MODE_TERMINAL_VALUE,
             WRAPPER_LABEL_KEY: "claude-code-native-ui",
         },
@@ -4555,7 +4555,7 @@ def test_switch_conversation_agent_cross_family_resets_and_relabels(
     assert updated.labels[FORK_CARRY_HISTORY_LABEL_KEY] == "1"
     assert updated.labels[SWITCH_PREVIOUS_BUILTIN_LABEL_KEY] == "52adb39f0c5ea92b5563da5327dac08f"
     assert instance_label not in updated.labels, "instance-scoped labels must not survive a switch"
-    assert "omnigent.codex_native.bypass_sandbox" not in updated.labels, (
+    assert "agentnexus.codex_native.bypass_sandbox" not in updated.labels, (
         "the dangerous bypass opt-in must not survive a switch (re-confirm per context)"
     )
     # Transcript is untouched (in place, not copied).
@@ -4570,12 +4570,12 @@ def test_switch_conversation_agent_same_family_keeps_model_settings(
     presentation labels) drops the old ui/wrapper labels and does not stamp
     the carry-history directive.
     """
-    from omnigent._wrapper_labels import (
+    from agentnexus._wrapper_labels import (
         UI_MODE_LABEL_KEY,
         UI_MODE_TERMINAL_VALUE,
         WRAPPER_LABEL_KEY,
     )
-    from omnigent.stores.conversation_store import (
+    from agentnexus.stores.conversation_store import (
         FORK_CARRY_HISTORY_LABEL_KEY,
         SWITCH_PREVIOUS_BUILTIN_LABEL_KEY,
     )
@@ -4681,7 +4681,7 @@ def test_get_session_connectivity_reports_needs_workspace_for_fork(
     """
     fork = conversation_store.create_conversation()
     conversation_store.set_labels(
-        fork.id, {"omnigent.fork.source_id": "e9f8f58523cec9a57d3bdf93be543e8c"}
+        fork.id, {"agentnexus.fork.source_id": "e9f8f58523cec9a57d3bdf93be543e8c"}
     )
     plain = conversation_store.create_conversation()
 
@@ -4708,7 +4708,7 @@ def test_get_session_connectivity_reports_imported(
     instead of treating it as a reachable in-process session.
     """
     imported = conversation_store.create_conversation()
-    conversation_store.set_labels(imported.id, {"omnigent.import.source": "claude"})
+    conversation_store.set_labels(imported.id, {"agentnexus.import.source": "claude"})
     plain = conversation_store.create_conversation()
 
     result = conversation_store.get_session_connectivity([imported.id, plain.id])
@@ -4792,7 +4792,7 @@ def test_get_session_owner_returns_highest_level_grantee(
     db_uri: str,
 ) -> None:
     """The owner is the max-``level`` grantee, regardless of grant order."""
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
 
@@ -4823,8 +4823,8 @@ def test_get_session_owner_excludes_public_sentinel(
     db_uri: str,
 ) -> None:
     """A session with only a public grant (no real owner) returns None."""
-    from omnigent.server.auth import RESERVED_USER_PUBLIC
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.server.auth import RESERVED_USER_PUBLIC
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
 
@@ -4989,7 +4989,7 @@ def _stored_next_position(
     conversation_store: SqlAlchemyConversationStore, conversation_id: str
 ) -> int | None:
     """Read the raw ``conversations.next_position`` counter for assertions."""
-    from omnigent.db.db_models import SqlConversation
+    from agentnexus.db.db_models import SqlConversation
 
     with conversation_store._session("test_setup") as session:
         row = session.get(SqlConversation, (0, conversation_id))
@@ -5004,7 +5004,7 @@ def _stored_positions(
     truth ``list_items`` (which hides ``position``) cannot assert on."""
     from sqlalchemy import select
 
-    from omnigent.db.db_models import SqlConversationItem
+    from agentnexus.db.db_models import SqlConversationItem
 
     with conversation_store._session("test_setup") as session:
         return sorted(
@@ -5056,7 +5056,7 @@ def test_append_reads_counter_not_max_scan(
     scan: advancing the counter past the real max makes the next item land at
     the counter value, which a scan-based implementation could never produce.
     """
-    from omnigent.db.db_models import SqlConversation
+    from agentnexus.db.db_models import SqlConversation
 
     conv = conversation_store.create_conversation()
     conversation_store.append(conv.id, [_user_message("a"), _user_message("b")])
@@ -5112,7 +5112,7 @@ def test_append_falls_back_to_scan_when_counter_null(
     MAX(position) scan to place items correctly, then persists the advanced
     counter so subsequent appends are scan-free.
     """
-    from omnigent.db.db_models import SqlConversation
+    from agentnexus.db.db_models import SqlConversation
 
     conv = conversation_store.create_conversation()
     if preexisting:
@@ -5272,7 +5272,7 @@ def test_list_projects_scoped_by_accessible_by(
 ) -> None:
     """When ``accessible_by`` is set, only projects on sessions the user has a
     permission row for are returned — mirroring the list_conversations ACL."""
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
 
@@ -5392,7 +5392,7 @@ def test_list_conversations_filters_by_project_name_dual_read(
     ``metadata.project_id`` points at the owner's project of that name) OR the
     legacy ``omni_project`` label with that value. ``""`` returns sessions in
     NEITHER (unfiled)."""
-    from omnigent.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
     project_store = SqlAlchemyProjectStore(db_uri)
     # Single-user: null owner. The route passes owned_by=None to match.
@@ -5424,7 +5424,7 @@ def test_list_conversations_filters_by_pinned_label(
     ``omnigent.pinned.<user>`` label, not a shared key (see ``pinned_label_key``).
     Key-presence based (the value is the epoch-ms pin time). Another user's pin
     on the same session does not match; clearing the label drops it."""
-    from omnigent.stores.conversation_store import pinned_label_key
+    from agentnexus.stores.conversation_store import pinned_label_key
 
     pinned = conversation_store.create_conversation(title="pinned")
     other = conversation_store.create_conversation(title="other")
@@ -5452,7 +5452,7 @@ def test_pinned_label_key_fits_column_for_long_user_ids() -> None:
     column. Short ids stay verbatim (DB-readable); an over-long id (e.g. a long
     SSO subject) falls back to a fixed-width hash suffix, deterministic in the
     id so writes and the pinned filter still agree."""
-    from omnigent.stores.conversation_store import PINNED_LABEL_KEY, pinned_label_key
+    from agentnexus.stores.conversation_store import PINNED_LABEL_KEY, pinned_label_key
 
     # A normal email is used verbatim.
     assert pinned_label_key("alice@example.com") == f"{PINNED_LABEL_KEY}.alice@example.com"
@@ -5473,7 +5473,7 @@ def test_list_projects_owned_by_excludes_shared_only_projects(
     """``owned_by`` restricts to projects the user OWNS, not ones merely shared
     with them — so a project whose sessions are only shared to the user (owned
     by someone else) does not surface as one of their own sidebar folders."""
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
 
@@ -5506,7 +5506,7 @@ def test_list_conversations_owned_by_excludes_shared_sessions(
     """``owned_by`` on a project filter returns only sessions the user owns; a
     session shared with them (read grant) under the same project is excluded so
     it stays out of the owner-only project folder."""
-    from omnigent.stores.permission_store.sqlalchemy_store import (
+    from agentnexus.stores.permission_store.sqlalchemy_store import (
         SqlAlchemyPermissionStore,
     )
 
@@ -5542,7 +5542,7 @@ def test_live_state_columns_round_trip_without_bumping_updated_at(
     ``runner_last_seen`` (bulk by runner, cleared on disconnect),
     ``live_status`` (enum round-trip), ``pending_elicitation_count``.
     """
-    from omnigent.stores.conversation_store import runner_seen_is_fresh
+    from agentnexus.stores.conversation_store import runner_seen_is_fresh
 
     conv_a = conversation_store.create_conversation(title="a")
     conv_b = conversation_store.create_conversation(title="b")
@@ -5608,8 +5608,8 @@ def test_live_state_writes_via_chokepoint_land_in_scoped_workspace(
     """
     import time
 
-    from omnigent.db.db_models import workspace_scope
-    from omnigent.server import session_live_state
+    from agentnexus.db.db_models import workspace_scope
+    from agentnexus.server import session_live_state
 
     ws = 987654  # any non-default (non-zero) workspace
     try:
@@ -5666,7 +5666,7 @@ def _stored_item_data(store: SqlAlchemyConversationStore, conversation_id: str) 
     order — what actually sits in the row before :func:`_to_item` decodes it."""
     from sqlalchemy import select
 
-    from omnigent.db.db_models import SqlConversationItem
+    from agentnexus.db.db_models import SqlConversationItem
 
     with store._conv_session("test_setup") as session:
         return list(
@@ -5762,7 +5762,7 @@ def test_item_search_text_seam_redirects_persisted_value(db_uri: str) -> None:
     """
     from sqlalchemy import select
 
-    from omnigent.db.db_models import SqlConversationItem
+    from agentnexus.db.db_models import SqlConversationItem
 
     class _CustomSearchTextStore(SqlAlchemyConversationStore):
         def _item_search_text(self, item: NewConversationItem) -> str:

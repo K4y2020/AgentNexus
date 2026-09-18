@@ -74,7 +74,7 @@ def test_cursor_missing_cli_shows_install_and_login_guidance(
     page.route(re.compile(r"/v1/sessions\?.*kind=any"), _fulfill_empty_agent_scan)
     page.add_init_script(
         f"""window.localStorage.setItem(
-            "omnigent:recent-workspaces",
+            "agentnexus:recent-workspaces",
             JSON.stringify({{ {_HOST_ID!r}: ["/work/repo"] }})
         );"""
     )

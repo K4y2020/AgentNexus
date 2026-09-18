@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 import pytest
 
-from omnigent import goose_native as gn
+from agentnexus import goose_native as gn
 
 
 def test_resolve_goose_executable_found() -> None:
@@ -17,14 +17,14 @@ def test_resolve_goose_executable_found() -> None:
 
 def test_resolve_goose_executable_honors_path_override() -> None:
     resolved = gn.resolve_goose_executable(
-        env={"OMNIGENT_GOOSE_PATH": "/opt/goose"},
+        env={"AGENTNEXUS_GOOSE_PATH": "/opt/goose"},
         which=lambda cmd: cmd if cmd == "/opt/goose" else None,
     )
     assert resolved == "/opt/goose"
 
 
 def test_resolve_goose_executable_missing_raises_with_hint() -> None:
-    from omnigent import _platform
+    from agentnexus import _platform
 
     with pytest.raises(click.ClickException) as exc:
         # No PATH hit and an empty fallback ladder, so the CLI is truly absent.
@@ -42,7 +42,7 @@ def test_resolve_goose_executable_uses_fallback_ladder(monkeypatch, tmp_path) ->
     binary. Before, the bare ``shutil.which`` lookup raised despite the CLI
     being installed. Representative of all seven native ``resolve_*_executable``
     functions, which share this pattern."""
-    from omnigent import _platform
+    from agentnexus import _platform
 
     fallback = tmp_path / "bin"
     fallback.mkdir()

@@ -1,7 +1,7 @@
 """Timeout-budget invariants for host model-option discovery."""
 
-from omnigent import claude_native, model_catalog
-from omnigent.server.routes import hosts
+from agentnexus import claude_native, model_catalog
+from agentnexus.server.routes import hosts
 
 
 def test_outer_model_options_timeout_contains_provider_and_probe_budgets() -> None:

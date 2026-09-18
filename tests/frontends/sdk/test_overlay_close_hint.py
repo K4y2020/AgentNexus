@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from omnigent_ui_sdk.terminal._host import (
+from agentnexus_ui_sdk.terminal._host import (
     Overlay,
     _abbreviate_key,
     _build_close_hint,

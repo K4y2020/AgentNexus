@@ -23,7 +23,7 @@ The actual canonical revision `4777c7a4148d45baaaff6c452c8e5875` contains 11 sho
 ending at PTS 480000 with time base 1/16000: **30 seconds**, not 505.52 seconds.
 
 Recorded shell call `5fc33164e4394124a9ac9ffc6dba8483` reads all four ledgers from
-`C:/Users/Kay/.omnigent/bots/50cbe1836fb7541da95e4f859b447ae5/scratch/projects/wozaixiandai_ep1`,
+`C:/Users/Kay/.agentnexus/bots/50cbe1836fb7541da95e4f859b447ae5/scratch/projects/wozaixiandai_ep1`,
 modifies the first three shot descriptions and evidence paths, and writes them as
 the new Topic's `*_full.json` files. Another call copies the old evidence JPEGs.
 `script.md` and `script.json` in the new project are byte-for-byte identical to
@@ -94,7 +94,7 @@ The missing control is on report publication/completion, not merely image delive
 ## Evidence Locations
 
 Project root:
-`C:/Users/Kay/.omnigent/bots/50cbe1836fb7541da95e4f859b447ae5/topics/9d352108608eeeca7cab77d57e0a7a8d/projects/wozaixiandai_ep1`.
+`C:/Users/Kay/.agentnexus/bots/50cbe1836fb7541da95e4f859b447ae5/topics/9d352108608eeeca7cab77d57e0a7a8d/projects/wozaixiandai_ep1`.
 
 Read `project.json`, the committed revision's `source_shots.json`, the reviews
 sidecar, `source_shots_full.json`, and the copied `script.md`/`script.json` together.

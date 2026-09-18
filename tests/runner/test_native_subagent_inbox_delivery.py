@@ -22,9 +22,9 @@ from typing import Any
 
 import pytest
 
-from omnigent.runner import app as runner_app
-from omnigent.runner import create_runner_app
-from omnigent.spec.types import AgentSpec, ExecutorSpec
+from agentnexus.runner import app as runner_app
+from agentnexus.runner import create_runner_app
+from agentnexus.spec.types import AgentSpec, ExecutorSpec
 from tests.runner.conftest import (
     _FakeProcessManager,
     _runner_client,
@@ -155,7 +155,7 @@ async def _post_native_idle(
         return AgentSpec(
             spec_version=1,
             name="reviewer",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
         )
 
     app = create_runner_app(
@@ -313,7 +313,7 @@ async def test_replayed_idle_after_drain_does_not_redeliver(
         return AgentSpec(
             spec_version=1,
             name="reviewer",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
         )
 
     app = create_runner_app(
@@ -385,7 +385,7 @@ async def test_routed_child_off_its_native_spec_still_delivers(
         return AgentSpec(
             spec_version=1,
             name="claude_code",
-            executor=ExecutorSpec(type="omnigent", config={"harness": "claude-native"}),
+            executor=ExecutorSpec(type="agentnexus", config={"harness": "claude-native"}),
         )
 
     app = create_runner_app(

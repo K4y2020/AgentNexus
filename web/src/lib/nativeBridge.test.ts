@@ -17,14 +17,14 @@ import {
   supportsBrowser,
 } from "./nativeBridge";
 
-// The Electron preload bridge mock, installed on window.omnigentDesktop.
+// The Electron preload bridge mock, installed on window.agentnexusDesktop.
 const electronSetBadge = vi.fn();
 const electronNotify = vi.fn().mockResolvedValue(true);
 const electronUnsubscribe = vi.fn();
 const electronOnNotificationActivated = vi.fn().mockReturnValue(electronUnsubscribe);
 const electronSetColorScheme = vi.fn();
 
-// The iOS WKWebView bridge mock, installed on window.omnigentNative.
+// The iOS WKWebView bridge mock, installed on window.agentnexusNative.
 const iosSetBadge = vi.fn();
 const iosNotify = vi.fn().mockResolvedValue(true);
 const iosUnsubscribe = vi.fn();
@@ -34,7 +34,7 @@ const iosOnSidebarDrag = vi.fn().mockReturnValue(iosOnSidebarDragUnsubscribe);
 const iosSetServerSwitcherHidden = vi.fn();
 const iosSetSidebarOpen = vi.fn();
 
-// The Android WebView bridge mock, installed on window.omnigentNative. The MVP
+// The Android WebView bridge mock, installed on window.agentnexusNative. The MVP
 // Android shell exposes the shell-agnostic subset (notifications + badge); the
 // optional iOS-only chrome (sidebar drag, server switcher, view mode) is absent.
 const androidSetBadge = vi.fn();
@@ -53,7 +53,7 @@ const androidSetColorScheme = vi.fn();
  */
 function setElectron(on: boolean, withClickRouting = true, withBrowser = false): void {
   if (on) {
-    (window as unknown as Record<string, unknown>).omnigentDesktop = {
+    (window as unknown as Record<string, unknown>).agentnexusDesktop = {
       kind: "electron",
       setBadgeCount: (...args: unknown[]) => electronSetBadge(...args),
       setColorScheme: (...args: unknown[]) => electronSetColorScheme(...args),
@@ -67,14 +67,14 @@ function setElectron(on: boolean, withClickRouting = true, withBrowser = false):
       ...(withBrowser ? { browserOpenOrNavigate: () => Promise.resolve({ ok: true }) } : {}),
     };
   } else {
-    delete (window as unknown as Record<string, unknown>).omnigentDesktop;
+    delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
   }
 }
 
 /** Simulate running inside / outside the iOS shell via the WKWebView bridge. */
 function setIOS(on: boolean, withClickRouting = true): void {
   if (on) {
-    (window as unknown as Record<string, unknown>).omnigentNative = {
+    (window as unknown as Record<string, unknown>).agentnexusNative = {
       kind: "ios",
       setBadgeCount: (...args: unknown[]) => iosSetBadge(...args),
       notify: (...args: unknown[]) => iosNotify(...args),
@@ -88,14 +88,14 @@ function setIOS(on: boolean, withClickRouting = true): void {
         : {}),
     };
   } else {
-    delete (window as unknown as Record<string, unknown>).omnigentNative;
+    delete (window as unknown as Record<string, unknown>).agentnexusNative;
   }
 }
 
 /** Simulate running inside / outside the Android shell via the WebView bridge. */
 function setAndroid(on: boolean, withClickRouting = true): void {
   if (on) {
-    (window as unknown as Record<string, unknown>).omnigentNative = {
+    (window as unknown as Record<string, unknown>).agentnexusNative = {
       kind: "android",
       setBadgeCount: (...args: unknown[]) => androidSetBadge(...args),
       setColorScheme: (...args: unknown[]) => androidSetColorScheme(...args),
@@ -108,7 +108,7 @@ function setAndroid(on: boolean, withClickRouting = true): void {
         : {}),
     };
   } else {
-    delete (window as unknown as Record<string, unknown>).omnigentNative;
+    delete (window as unknown as Record<string, unknown>).agentnexusNative;
   }
 }
 
@@ -169,14 +169,14 @@ describe("isNativeShell / isElectronShell", () => {
   });
 
   it("ignore a bridge with the wrong discriminator", () => {
-    (window as unknown as Record<string, unknown>).omnigentDesktop = { kind: "nope" };
-    (window as unknown as Record<string, unknown>).omnigentNative = { kind: "nope" };
+    (window as unknown as Record<string, unknown>).agentnexusDesktop = { kind: "nope" };
+    (window as unknown as Record<string, unknown>).agentnexusNative = { kind: "nope" };
     expect(isElectronShell()).toBe(false);
     expect(isIOSShell()).toBe(false);
     expect(isAndroidShell()).toBe(false);
     expect(isNativeShell()).toBe(false);
-    delete (window as unknown as Record<string, unknown>).omnigentDesktop;
-    delete (window as unknown as Record<string, unknown>).omnigentNative;
+    delete (window as unknown as Record<string, unknown>).agentnexusDesktop;
+    delete (window as unknown as Record<string, unknown>).agentnexusNative;
   });
 });
 
@@ -287,8 +287,8 @@ describe("setThemeSource", () => {
   it("routes the selected theme through the Android bridge over Electron legacy", () => {
     setElectron(true);
     (
-      window as unknown as { omnigentNative?: { kind: string; setColorScheme?: unknown } }
-    ).omnigentNative = undefined;
+      window as unknown as { agentnexusNative?: { kind: string; setColorScheme?: unknown } }
+    ).agentnexusNative = undefined;
     setThemeSource("system");
     expect(electronSetColorScheme).toHaveBeenCalledWith("system");
   });
@@ -417,7 +417,7 @@ describe("onNativeSidebarDrag", () => {
 
   it("returns a no-op unsubscribe under a shell lacking the gesture hook", () => {
     setIOS(true);
-    delete (window as unknown as { omnigentNative: Record<string, unknown> }).omnigentNative
+    delete (window as unknown as { agentnexusNative: Record<string, unknown> }).agentnexusNative
       .onSidebarDrag;
     const unsubscribe = onNativeSidebarDrag(vi.fn());
     expect(iosOnSidebarDrag).not.toHaveBeenCalled();
@@ -507,7 +507,7 @@ describe("setNativeServerSwitcherHidden", () => {
 
   it("falls back to the legacy sidebar bridge name", () => {
     setIOS(true);
-    delete (window as unknown as { omnigentNative: Record<string, unknown> }).omnigentNative
+    delete (window as unknown as { agentnexusNative: Record<string, unknown> }).agentnexusNative
       .setServerSwitcherHidden;
     setNativeServerSwitcherHidden(true);
     expect(iosSetSidebarOpen).toHaveBeenCalledWith(true);

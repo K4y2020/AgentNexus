@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from omnigent.onboarding import hermes_auth
-from omnigent.onboarding.hermes_auth import HermesConfigSummary, hermes_config_summary
+from agentnexus.onboarding import hermes_auth
+from agentnexus.onboarding.hermes_auth import HermesConfigSummary, hermes_config_summary
 
 
 def _write_config(home: Path, model_section: object) -> None:

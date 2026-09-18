@@ -1,20 +1,20 @@
-# omnigent-client
+# agentnexus-client
 
-Python client SDK for the [omnigent](https://github.com/omnigent-ai/omnigent)
+Python client SDK for the [agentnexus](https://github.com/agentnexus-ai/agentnexus)
 server API.
 
-`omnigent-client` is a typed client for driving omnigent sessions over the
+`agentnexus-client` is a typed client for driving agentnexus sessions over the
 server's HTTP + SSE API — creating sessions, sending turns, and streaming
 responses. It shares the `StreamEvent` / `SessionStreamEventType` types that the
 server emits, so streamed envelopes are validated against a single source of
 truth.
 
-It is released in lockstep with the core `omnigent` package at a matching
+It is released in lockstep with the core `agentnexus` package at a matching
 version:
 
 ```bash
-pip install omnigent-client
+pip install agentnexus-client
 ```
 
-See the [omnigent repository](https://github.com/omnigent-ai/omnigent) for full
+See the [agentnexus repository](https://github.com/agentnexus-ai/agentnexus) for full
 documentation.

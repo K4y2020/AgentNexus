@@ -1,4 +1,4 @@
-"""Tests for the Omnigent datamodel module."""
+"""Tests for the AgentNexus datamodel module."""
 
 import asyncio
 import sys
@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from omnigent.inner.datamodel import (
+from agentnexus.inner.datamodel import (
     AgentDef,
     Connection,
     Credentials,

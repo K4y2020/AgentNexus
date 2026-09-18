@@ -61,7 +61,7 @@ interface ErrorBannerProps {
  * One-line English descriptions for known failure `code`s, so an
  * unclassified failure (no `title`/`cause` from the runner) still reads as a
  * sentence instead of a raw enum. Mirrors the server-side
- * `describe_failure_code` table (omnigent/runner/launch_failure.py); keep the
+ * `describe_failure_code` table (agentnexus/runner/launch_failure.py); keep the
  * two in sync.
  */
 const FAILURE_CODE_DESCRIPTIONS: Record<string, string> = {

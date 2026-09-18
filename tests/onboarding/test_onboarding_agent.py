@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.spec.parser import parse
+from agentnexus.spec.parser import parse
 
 
 def onboarding_agent_dir() -> Path:
@@ -15,7 +15,7 @@ def onboarding_agent_dir() -> Path:
 
     :returns: Absolute path to ``omnigent/onboarding/agent/``.
     """
-    return Path(__file__).parent.parent.parent / "omnigent" / "onboarding" / "agent"
+    return Path(__file__).parent.parent.parent / "agentnexus" / "onboarding" / "agent"
 
 
 def test_onboarding_agent_parses_successfully(
@@ -40,7 +40,7 @@ def test_onboarding_agent_has_expected_skills(
     assert skill_names == [
         "build-omnigent",
         "detect-framework",
-        "omnigent-knowledge",
+        "agentnexus-knowledge",
     ], f"Expected exactly the three designed skills, got {skill_names}."
 
 

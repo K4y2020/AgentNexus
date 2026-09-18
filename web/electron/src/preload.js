@@ -3,10 +3,10 @@
 // API via contextBridge rather than leaking `ipcRenderer` or Node into the
 // page. Two consumers:
 //
-//   1. window.omnigentDesktop — read by the web app's nativeBridge.ts
+//   1. window.agentnexusDesktop — read by the web app's nativeBridge.ts
 //      (badge + notifications). Its `kind: "electron"` field is the
 //      feature-detection discriminator.
-//   2. window.omnigentSetup — used only by the bundled setup page to
+//   2. window.agentnexusSetup — used only by the bundled setup page to
 //      persist/read the server URL.
 //
 // The same preload is attached to both the setup page and the remote SPA;
@@ -36,18 +36,18 @@ function bannerSafe(status) {
 // Native integrations for the SPA: a dock/taskbar badge and OS notifications.
 // Numbers/strings only so the values survive contextBridge's structured-clone
 // boundary.
-contextBridge.exposeInMainWorld("omnigentDesktop", {
+contextBridge.exposeInMainWorld("agentnexusDesktop", {
   kind: "electron",
   /** Paint the dock/taskbar badge; 0 clears it. Fire-and-forget. */
   setBadgeCount: (count) => {
-    ipcRenderer.send("omnigent:set-badge-count", count);
+    ipcRenderer.send("agentnexus:set-badge-count", count);
   },
   /**
    * Fire an OS notification. Resolves true when shown, false otherwise.
    * @param {{title: string, body?: string, navigatePath?: string}} params
    */
   notify: (params) =>
-    ipcRenderer.invoke("omnigent:notify", {
+    ipcRenderer.invoke("agentnexus:notify", {
       title: params?.title,
       body: params?.body,
       navigatePath: params?.navigatePath,
@@ -66,8 +66,8 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
       // the renderer routes on the value, even if main ever sends junk.
       if (typeof path === "string" && path.startsWith("/")) callback(path);
     };
-    ipcRenderer.on("omnigent:notification-activated", listener);
-    return () => ipcRenderer.removeListener("omnigent:notification-activated", listener);
+    ipcRenderer.on("agentnexus:notification-activated", listener);
+    return () => ipcRenderer.removeListener("agentnexus:notification-activated", listener);
   },
   /**
    * Subscribe to in-app navigation from the main process. Native menu actions
@@ -83,35 +83,35 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
       // the renderer routes on the value, even if main ever sends junk.
       if (typeof path === "string" && path.startsWith("/")) callback(path);
     };
-    ipcRenderer.on("omnigent:open-path", listener);
-    return () => ipcRenderer.removeListener("omnigent:open-path", listener);
+    ipcRenderer.on("agentnexus:open-path", listener);
+    return () => ipcRenderer.removeListener("agentnexus:open-path", listener);
   },
   /**
    * Server picker data: the current origin plus organization-provided and
    * recently-connected server URLs. Resolves null off a connected server.
    */
-  getServerPicker: () => ipcRenderer.invoke("omnigent:get-server-picker"),
+  getServerPicker: () => ipcRenderer.invoke("agentnexus:get-server-picker"),
   /**
    * Re-point this window to a URL returned by getServerPicker (anything else
    * rejects in the main process).
    */
-  switchServer: (url) => ipcRenderer.invoke("omnigent:switch-server", url),
+  switchServer: (url) => ipcRenderer.invoke("agentnexus:switch-server", url),
   /** Return this window to the bundled "connect to server" setup page. */
   openServerSetup: () => {
-    ipcRenderer.send("omnigent:open-server-setup");
+    ipcRenderer.send("agentnexus:open-server-setup");
   },
   /**
    * This machine's identity — `{ cliInstalled, hostId }` — read from local
    * config with no subprocess, so it's instant. Lets the SPA recognize "this
    * machine" in the server's host list.
    */
-  getHostIdentity: () => ipcRenderer.invoke("omnigent:host-get-identity"),
+  getHostIdentity: () => ipcRenderer.invoke("agentnexus:host-get-identity"),
   /**
    * Start / stop / restart this machine's host daemon for the window's server.
    * Resolves a `{ ok, error? }` result.
    * @param {"start" | "stop" | "restart"} action
    */
-  controlHost: (action) => ipcRenderer.invoke("omnigent:host-control", action),
+  controlHost: (action) => ipcRenderer.invoke("agentnexus:host-control", action),
   /**
    * Subscribe to host status-change pings. Fired only on real events (a host
    * child connecting/exiting, or a control action) — never on a timer — so the
@@ -122,21 +122,21 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    */
   onHostStatusChanged: (callback) => {
     const listener = () => callback();
-    ipcRenderer.on("omnigent:host-status-changed", listener);
-    return () => ipcRenderer.removeListener("omnigent:host-status-changed", listener);
+    ipcRenderer.on("agentnexus:host-status-changed", listener);
+    return () => ipcRenderer.removeListener("agentnexus:host-status-changed", listener);
   },
   /**
    * The local `omni` CLI status — `{ installed, path, version, source,
    * installCommand }`. Read-only; lets the in-app Local CLI settings show which
    * binary is in use.
    */
-  getCliStatus: () => ipcRenderer.invoke("omnigent:cli-get-status"),
+  getCliStatus: () => ipcRenderer.invoke("agentnexus:cli-get-status"),
   /**
    * Clear the saved CLI-path override (revert to auto-detection). The SPA can
    * reset but cannot SET a path: choosing a binary is restricted to the trusted
    * setup page, so a connected server can't repoint the CLI at an arbitrary one.
    */
-  resetCliPath: () => ipcRenderer.invoke("omnigent:cli-reset-path"),
+  resetCliPath: () => ipcRenderer.invoke("agentnexus:cli-reset-path"),
   // Update bridge for the server page — CONFIG ONLY, by design. Desktop update
   // NOTIFICATIONS are owned by the shell now (a native corner overlay with its
   // own preload + the Server menu). This bridge stays so Settings can still
@@ -148,27 +148,27 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
   // (duplicate) banner, while Settings still gets check progress and errors
   // (error-security is forwarded as idle+lastError, which Settings surfaces).
   updates: {
-    getConfig: () => ipcRenderer.invoke("omnigent:get-update-config"),
-    getStatus: () => ipcRenderer.invoke("omnigent:get-update-status").then(bannerSafe),
-    check: () => ipcRenderer.invoke("omnigent:update-check"),
-    download: () => ipcRenderer.invoke("omnigent:update-download"),
-    installNow: () => ipcRenderer.invoke("omnigent:update-install"),
-    setConfig: (patch) => ipcRenderer.invoke("omnigent:set-update-config", patch),
+    getConfig: () => ipcRenderer.invoke("agentnexus:get-update-config"),
+    getStatus: () => ipcRenderer.invoke("agentnexus:get-update-status").then(bannerSafe),
+    check: () => ipcRenderer.invoke("agentnexus:update-check"),
+    download: () => ipcRenderer.invoke("agentnexus:update-download"),
+    installNow: () => ipcRenderer.invoke("agentnexus:update-install"),
+    setConfig: (patch) => ipcRenderer.invoke("agentnexus:set-update-config", patch),
     onStatus: (callback) => {
       const listener = (_event, status) => callback(bannerSafe(status));
-      ipcRenderer.on("omnigent:update-status", listener);
-      return () => ipcRenderer.removeListener("omnigent:update-status", listener);
+      ipcRenderer.on("agentnexus:update-status", listener);
+      return () => ipcRenderer.removeListener("agentnexus:update-status", listener);
     },
     /** Current shell-owned update-overlay card height in CSS pixels. */
-    getOverlayHeight: () => ipcRenderer.invoke("omnigent:get-update-overlay-height"),
+    getOverlayHeight: () => ipcRenderer.invoke("agentnexus:get-update-overlay-height"),
     /** Subscribe to overlay height changes; returns an unsubscribe function. */
     onOverlayHeight: (callback) => {
       const listener = (_event, height) => {
         const normalized = Math.max(0, Math.round(Number(height) || 0));
         callback(normalized);
       };
-      ipcRenderer.on("omnigent:update-overlay-height", listener);
-      return () => ipcRenderer.removeListener("omnigent:update-overlay-height", listener);
+      ipcRenderer.on("agentnexus:update-overlay-height", listener);
+      return () => ipcRenderer.removeListener("agentnexus:update-overlay-height", listener);
     },
   },
   /**
@@ -177,7 +177,7 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * menus in sync with the in-app theme switcher (not just the OS setting).
    * @param {"light" | "dark" | "system"} scheme
    */
-  setColorScheme: (scheme) => ipcRenderer.send("omnigent:set-color-scheme", scheme),
+  setColorScheme: (scheme) => ipcRenderer.send("agentnexus:set-color-scheme", scheme),
 
   // ── Embedded browser pane ──────────────────────────────────────────────
   // The relay hook (web/src/hooks/useBrowserAgentRelay.ts) drives a native
@@ -195,35 +195,35 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @param {{force?: boolean, agent?: boolean}} [opts]
    */
   browserOpenOrNavigate: (conversationId, url, bounds, opts) =>
-    ipcRenderer.invoke("omnigent:browser-open-or-navigate", { conversationId, url, bounds, opts }),
+    ipcRenderer.invoke("agentnexus:browser-open-or-navigate", { conversationId, url, bounds, opts }),
   /**
    * Attach a conversation's view to the host window (detaching the previous
    * active one). Pass null to detach everything (no pane mounted).
    * @param {string | null} conversationId
    */
   browserSetActive: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-set-active", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-set-active", { conversationId }),
   /**
    * Hide (true) or show (false) the active browser view while a DOM overlay is
    * open, so the native layer doesn't cover dialogs/menus/tooltips/toasts.
    * @param {boolean} suppressed
    */
   browserSetSuppressed: (suppressed) =>
-    ipcRenderer.invoke("omnigent:browser-set-suppressed", { suppressed }),
+    ipcRenderer.invoke("agentnexus:browser-set-suppressed", { suppressed }),
   /**
    * Reposition the conversation's view to freshly-measured placeholder bounds.
    * @param {string} conversationId
    * @param {{x:number,y:number,width:number,height:number,devicePixelRatio?:number}} bounds
    */
   browserResize: (conversationId, bounds) =>
-    ipcRenderer.invoke("omnigent:browser-resize", { conversationId, bounds }),
+    ipcRenderer.invoke("agentnexus:browser-resize", { conversationId, bounds }),
   /**
    * Capture the conversation's view as a base64 PNG data URL.
    * @param {string} conversationId
    * @returns {Promise<{ ok: boolean, dataUrl?: string, error?: string }>}
    */
   browserScreenshot: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-screenshot", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-screenshot", { conversationId }),
   /**
    * Run a relay-template JS string in the conversation's view. PRIVATE to the
    * relay's fixed templates (snapshot / click / type) — never an agent-facing
@@ -233,14 +233,14 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @returns {Promise<{ ok: boolean, result?: string, error?: string }>}
    */
   browserExecute: (conversationId, js) =>
-    ipcRenderer.invoke("omnigent:browser-execute", { conversationId, js }),
+    ipcRenderer.invoke("agentnexus:browser-execute", { conversationId, js }),
   /**
    * Destroy the conversation's view (explicit close — unmount only detaches).
    * @param {string} conversationId
    * @param {string} [reason]
    */
   browserClose: (conversationId, reason) =>
-    ipcRenderer.invoke("omnigent:browser-close", { conversationId, reason }),
+    ipcRenderer.invoke("agentnexus:browser-close", { conversationId, reason }),
   /**
    * Subscribe to which conversation's browser view is currently attached to the
    * host window (`{conversationId}` or `{conversationId: null}` when detached).
@@ -272,7 +272,7 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @returns {Promise<{ exists: boolean }>}
    */
   browserHasView: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-has-view", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-has-view", { conversationId }),
   /**
    * Subscribe to browser-view close events (`{conversationId, reason}`) so the
    * SPA can drop the pane when the view is destroyed. Returns an unsubscribe.
@@ -296,28 +296,28 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @returns {Promise<{ ok: boolean, canGoBack?: boolean, canGoForward?: boolean, error?: string }>}
    */
   browserGoBack: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-go-back", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-go-back", { conversationId }),
   /**
    * Navigate the conversation's view forward one history entry.
    * @param {string} conversationId
    * @returns {Promise<{ ok: boolean, canGoBack?: boolean, canGoForward?: boolean, error?: string }>}
    */
   browserGoForward: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-go-forward", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-go-forward", { conversationId }),
   /**
    * Reload the conversation's view.
    * @param {string} conversationId
    * @returns {Promise<{ ok: boolean, error?: string }>}
    */
   browserReload: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-reload", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-reload", { conversationId }),
   /**
    * Toggle Chrome DevTools (docked bottom) for the conversation's view.
    * @param {string} conversationId
    * @returns {Promise<{ ok: boolean, error?: string }>}
    */
   openBrowserDevTools: (conversationId) =>
-    ipcRenderer.invoke("omnigent:open-browser-devtools", { conversationId }),
+    ipcRenderer.invoke("agentnexus:open-browser-devtools", { conversationId }),
   /**
    * Subscribe to the real url of a view as it navigates (redirects, links,
    * back/forward) so the URL bar stays honest. Returns an unsubscribe.
@@ -352,14 +352,14 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @returns {Promise<{ ok: boolean, error?: string }>}
    */
   browserEnableDesignMode: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-enable-design-mode", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-enable-design-mode", { conversationId }),
   /**
    * Tear the design-mode picker back down.
    * @param {string} conversationId
    * @returns {Promise<{ ok: boolean, error?: string }>}
    */
   browserDisableDesignMode: (conversationId) =>
-    ipcRenderer.invoke("omnigent:browser-disable-design-mode", { conversationId }),
+    ipcRenderer.invoke("agentnexus:browser-disable-design-mode", { conversationId }),
   /**
    * Signal a submit's success/failure back into the in-page popup so it shows
    * green/red feedback. `id` must match the submitId the popup emitted.
@@ -368,7 +368,7 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
    * @returns {Promise<{ ok: boolean, error?: string }>}
    */
   browserSignalDesignResult: (conversationId, result) =>
-    ipcRenderer.invoke("omnigent:browser-signal-design-result", {
+    ipcRenderer.invoke("agentnexus:browser-signal-design-result", {
       conversationId,
       id: result?.id,
       ok: result?.ok,
@@ -411,36 +411,36 @@ contextBridge.exposeInMainWorld("omnigentDesktop", {
 
 // Setup-page bridge: persist + navigate to a server URL, and read the saved
 // one to pre-fill the form. Separate object so the SPA never sees it.
-contextBridge.exposeInMainWorld("omnigentSetup", {
-  getServerUrl: () => ipcRenderer.invoke("omnigent:get-server-url"),
+contextBridge.exposeInMainWorld("agentnexusSetup", {
+  getServerUrl: () => ipcRenderer.invoke("agentnexus:get-server-url"),
   /**
    * Persist + navigate to a server URL. Connecting this machine as a runner is
    * a separate, explicit action from the host menu — not a connect-time choice.
    * @param {string} url
    */
-  setServerUrl: (url) => ipcRenderer.invoke("omnigent:set-server-url", url),
+  setServerUrl: (url) => ipcRenderer.invoke("agentnexus:set-server-url", url),
   /** Organization-provided server URLs from macOS Managed Preferences. */
-  getManagedServers: () => ipcRenderer.invoke("omnigent:get-managed-servers"),
+  getManagedServers: () => ipcRenderer.invoke("agentnexus:get-managed-servers"),
   /** Recently-connected server URLs, most recent first. */
-  getRecentServers: () => ipcRenderer.invoke("omnigent:get-recent-servers"),
+  getRecentServers: () => ipcRenderer.invoke("agentnexus:get-recent-servers"),
   /** Copy text from the bundled setup page to the native clipboard. */
-  copyText: (text) => ipcRenderer.invoke("omnigent:copy-setup-text", text),
+  copyText: (text) => ipcRenderer.invoke("agentnexus:copy-setup-text", text),
   /**
-   * Whether the `omnigent` CLI is installed/runnable, e.g.
+   * Whether the `agentnexus` CLI is installed/runnable, e.g.
    * `{installed, path, version, source, installCommand}`.
    */
-  getCliStatus: () => ipcRenderer.invoke("omnigent:get-cli-status"),
+  getCliStatus: () => ipcRenderer.invoke("agentnexus:get-cli-status"),
   /**
-   * Set an explicit path to the omnigent binary. Resolves the CLI status plus
+   * Set an explicit path to the agentnexus binary. Resolves the CLI status plus
    * `accepted` (whether that exact path validated and was saved).
    * @param {string} path
    */
-  setCliPath: (path) => ipcRenderer.invoke("omnigent:set-cli-path", path),
-  /** Native file picker for the omnigent binary; resolves the path or null. */
-  browseCliPath: () => ipcRenderer.invoke("omnigent:browse-cli-path"),
+  setCliPath: (path) => ipcRenderer.invoke("agentnexus:set-cli-path", path),
+  /** Native file picker for the agentnexus binary; resolves the path or null. */
+  browseCliPath: () => ipcRenderer.invoke("agentnexus:browse-cli-path"),
   /**
    * Start (or reuse) the local server. Resolves `{ok, url?, error?}`; the
    * caller then connects to `url` via setServerUrl.
    */
-  startLocalServer: () => ipcRenderer.invoke("omnigent:start-local-server"),
+  startLocalServer: () => ipcRenderer.invoke("agentnexus:start-local-server"),
 });

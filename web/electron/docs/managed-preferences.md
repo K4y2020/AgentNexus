@@ -1,13 +1,13 @@
 # Managed Preferences (macOS)
 
 Administrators can use macOS MDM Managed Preferences to provide server URLs to
-Omnigent Desktop. People can then choose their organization’s server instead of
+AgentNexus Desktop. People can then choose their organization’s server instead of
 typing it.
 
 The preference domain is the desktop bundle identifier:
 
 ```text
-ai.omnigent.desktop
+ai.agentnexus.desktop
 ```
 
 ## Key
@@ -20,7 +20,7 @@ A schemeless host is accepted and interpreted as `https://`. Paths are
 preserved, so an administrator can provide a workspace mount directly:
 
 ```text
-https://my-workspace.cloud.databricks.com/ml/omnigents
+https://my-workspace.cloud.databricks.com/ml/agentnexuss
 ```
 
 Entries with the same origin are collapsed, keeping the first. An invalid type,
@@ -31,7 +31,7 @@ an insecure or malformed entry, or more than 10 entries rejects the whole list.
 Managed servers appear under **Provided by your organization** on the connect
 screen and in the in-app server switcher. They are offered, not enforced:
 
-- Omnigent does not connect automatically.
+- AgentNexus does not connect automatically.
 - People can still enter another server URL.
 - Managed values are read from macOS on demand rather than copied wholesale
   into `settings.json`.
@@ -44,7 +44,7 @@ is opened or the connect screen is loaded.
 ## MDM profile example
 
 Use the standard `com.apple.ManagedClient.preferences` payload and the
-`ai.omnigent.desktop` application preference domain. Most MDM products expose
+`ai.agentnexus.desktop` application preference domain. Most MDM products expose
 this as a custom settings or managed preferences payload.
 
 ```xml
@@ -58,7 +58,7 @@ this as a custom settings or managed preferences payload.
     <dict>
       <key>PayloadContent</key>
       <dict>
-        <key>ai.omnigent.desktop</key>
+        <key>ai.agentnexus.desktop</key>
         <dict>
           <key>Forced</key>
           <array>
@@ -67,8 +67,8 @@ this as a custom settings or managed preferences payload.
               <dict>
                 <key>serverUrls</key>
                 <array>
-                  <string>https://omnigent.corp.example.com</string>
-                  <string>https://my-workspace.cloud.databricks.com/ml/omnigents</string>
+                  <string>https://agentnexus.corp.example.com</string>
+                  <string>https://my-workspace.cloud.databricks.com/ml/agentnexuss</string>
                 </array>
               </dict>
             </dict>
@@ -76,9 +76,9 @@ this as a custom settings or managed preferences payload.
         </dict>
       </dict>
       <key>PayloadDisplayName</key>
-      <string>Omnigent Desktop Managed Preferences</string>
+      <string>AgentNexus Desktop Managed Preferences</string>
       <key>PayloadIdentifier</key>
-      <string>com.example.omnigent.preferences</string>
+      <string>com.example.agentnexus.preferences</string>
       <key>PayloadType</key>
       <string>com.apple.ManagedClient.preferences</string>
       <key>PayloadUUID</key>
@@ -88,9 +88,9 @@ this as a custom settings or managed preferences payload.
     </dict>
   </array>
   <key>PayloadDisplayName</key>
-  <string>Omnigent Desktop</string>
+  <string>AgentNexus Desktop</string>
   <key>PayloadIdentifier</key>
-  <string>com.example.omnigent</string>
+  <string>com.example.agentnexus</string>
   <key>PayloadScope</key>
   <string>User</string>
   <key>PayloadType</key>
@@ -108,20 +108,20 @@ Replace the example organization identifiers and UUIDs before deployment.
 ## Local verification
 
 For development only, the effective preference can be simulated with
-`defaults` while a **packaged Omnigent app** is closed. An unpackaged
+`defaults` while a **packaged AgentNexus app** is closed. An unpackaged
 `electron .` / `just electron-dev` process uses Electron's development bundle
-identifier, not `ai.omnigent.desktop`, so it will not see this value:
+identifier, not `ai.agentnexus.desktop`, so it will not see this value:
 
 ```bash
-defaults write ai.omnigent.desktop serverUrls -array \
-  "https://omnigent.corp.example.com" \
-  "https://my-workspace.cloud.databricks.com/ml/omnigents"
+defaults write ai.agentnexus.desktop serverUrls -array \
+  "https://agentnexus.corp.example.com" \
+  "https://my-workspace.cloud.databricks.com/ml/agentnexuss"
 ```
 
 Remove the test value with:
 
 ```bash
-defaults delete ai.omnigent.desktop serverUrls
+defaults delete ai.agentnexus.desktop serverUrls
 ```
 
 Production deployment should use an MDM-forced preference rather than a local

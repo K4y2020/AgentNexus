@@ -1,9 +1,9 @@
-"""Snapshot loader + comparator for Omnigent Phase 0 characterization tests.
+"""Snapshot loader + comparator for AgentNexus Phase 0 characterization tests.
 
 Snapshots are JSON files under ``tests/e2e/omnigent/snapshots/``
 and capture the *structural* observations a test makes about a
-live Omnigent run. They are the golden-master contract the
-Phase 0 design requires: written against current Omnigent,
+live AgentNexus run. They are the golden-master contract the
+Phase 0 design requires: written against current AgentNexus,
 re-run unchanged in later phases to prove the integration
 doesn't change observable behavior.
 
@@ -81,7 +81,7 @@ def load_snapshot(test_name: str) -> dict[str, SnapshotField]:
     if not path.is_file():
         raise FileNotFoundError(
             f"Snapshot not found: {path}. Phase 0 tests ship with "
-            f"their snapshots captured against current Omnigent."
+            f"their snapshots captured against current AgentNexus."
         )
     raw = json.loads(path.read_text())
     out: dict[str, SnapshotField] = {}
@@ -106,7 +106,7 @@ def compare_snapshot(
     :param test_name: The snapshot name — see :func:`load_snapshot`.
         Example: ``"test_per_harness_claude_sdk"``.
     :param observed: Dict of observed values the test gathered
-        from the live Omnigent run, e.g.
+        from the live AgentNexus run, e.g.
         ``{"exit_code": 0, "assistant_text": "Hello there..."}``.
     :returns: A list of human-readable mismatch descriptions.
         Empty list means all comparators passed; callers assert

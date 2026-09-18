@@ -27,16 +27,16 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.policies.types import EvaluationContext
-from omnigent.runtime.policies import build_policy_engine
-from omnigent.runtime.policies.engine import PolicyEngine
-from omnigent.spec import load
-from omnigent.spec.types import (
+from agentnexus.policies.types import EvaluationContext
+from agentnexus.runtime.policies import build_policy_engine
+from agentnexus.runtime.policies.engine import PolicyEngine
+from agentnexus.spec import load
+from agentnexus.spec.types import (
     Phase,
     PhaseSelector,
     PolicyAction,
 )
-from omnigent.stores.conversation_store.sqlalchemy_store import (
+from agentnexus.stores.conversation_store.sqlalchemy_store import (
     SqlAlchemyConversationStore,
 )
 from tests.runtime.policies.conftest import make_fixed_policy
@@ -217,7 +217,7 @@ async def test_parallel_conversations_with_different_specs(
     one spec's schema doesn't impose constraints on the
     other's writes (labels are conversation-scoped; schemas
     are spec-scoped)."""
-    from omnigent.spec.types import LabelDef
+    from agentnexus.spec.types import LabelDef
 
     # Spec A: has a schema for `integrity`.
     policy_a = make_fixed_policy(

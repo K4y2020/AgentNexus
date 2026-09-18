@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.tools.base import ToolContext
-from omnigent.tools.builtins.agents import (
+from agentnexus.tools.base import ToolContext
+from agentnexus.tools.builtins.agents import (
     SysAgentDownloadTool,
     SysAgentGetTool,
     SysAgentListTool,

@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 
-from omnigent.runtime import pending_elicitations
+from agentnexus.runtime import pending_elicitations
 
 
 @pytest.fixture(autouse=True)
@@ -169,7 +169,7 @@ def test_resolve_removes_outstanding_id() -> None:
     Resolving a tracked id drops the per-session count back to zero.
 
     This is what fires when the user accepts/rejects in the UI —
-    the Omnigent server's approval dispatch calls
+    the AgentNexus server's approval dispatch calls
     :func:`resolve` and the sidebar badge should clear on the
     next poll.
     """
@@ -283,7 +283,7 @@ def test_record_publish_clears_index_on_elicitation_resolved_event() -> None:
     publish chokepoint clears the matching index entry.
 
     The runner emits this event from the ``finally`` block of its
-    own approval wait — that's the only signal the Omnigent server gets
+    own approval wait — that's the only signal the AgentNexus server gets
     when the runner's Future was cancelled / timed out without a
     UI verdict. If the type filter doesn't match this event, the
     badge stays stuck after the runner gives up.
@@ -308,7 +308,7 @@ def test_record_publish_handles_resolved_event_for_unknown_id() -> None:
     A ``response.elicitation_resolved`` event for an id that was
     never tracked is a silent no-op — the runner can fire-and-
     forget at every Future cleanup without coordinating with the
-    Omnigent server's view of what's currently tracked.
+    AgentNexus server's view of what's currently tracked.
     """
     pending_elicitations.record_publish(
         "conv_a",
@@ -569,7 +569,7 @@ def test_set_elicitation_observer_none_clears_registration() -> None:
     pending_elicitations.record_publish("conv_a", _elicit_event("elicit_2"))
     # Still one entry: the second publish bypassed the cleared
     # observer. A second entry here would mean teardown leaks across
-    # Omnigent server lifespans (the lifespan callsite calls clear at
+    # AgentNexus server lifespans (the lifespan callsite calls clear at
     # shutdown).
     assert received == ["conv_a"]
 

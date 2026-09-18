@@ -111,8 +111,8 @@ export function ConnectionIndicator({
         <div
           aria-hidden
           className={cn(
-            "omnigent-native-bottom-spacer",
-            terminalFirst?.view === "chat" && "omnigent-native-bottom-spacer--chat",
+            "agentnexus-native-bottom-spacer",
+            terminalFirst?.view === "chat" && "agentnexus-native-bottom-spacer--chat",
           )}
         />
       ) : null;
@@ -146,8 +146,8 @@ export function ConnectionIndicator({
           <div
             aria-hidden
             className={cn(
-              "omnigent-native-bottom-spacer",
-              terminalFirst?.view === "chat" && "omnigent-native-bottom-spacer--chat",
+              "agentnexus-native-bottom-spacer",
+              terminalFirst?.view === "chat" && "agentnexus-native-bottom-spacer--chat",
             )}
           />
         )}
@@ -171,8 +171,8 @@ export function ConnectionIndicator({
         <div
           aria-hidden
           className={cn(
-            "omnigent-native-bottom-spacer",
-            terminalFirst.view === "chat" && "omnigent-native-bottom-spacer--chat",
+            "agentnexus-native-bottom-spacer",
+            terminalFirst.view === "chat" && "agentnexus-native-bottom-spacer--chat",
           )}
         />
       ) : null;

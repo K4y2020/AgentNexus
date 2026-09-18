@@ -28,14 +28,14 @@ deep-research/
 ## Run it
 
 This example's brain uses the `claude-sdk` harness, so it needs a Claude
-provider configured (`omnigent setup`) — an Anthropic API key, a Claude
+provider configured (`agentnexus setup`) — an Anthropic API key, a Claude
 subscription, an OpenAI-compatible gateway, or a Databricks workspace.
 
 The Keenable MCP endpoint (`https://api.keenable.ai/mcp`) has a **keyless
 public mode** (rate-limited), so the search side runs with zero signup:
 
 ```bash
-omnigent run examples/deep-research/   # opens the UI; then ask your question
+agentnexus run examples/deep-research/   # opens the UI; then ask your question
 ```
 
 To lift the public rate limits, add an API key: uncomment the `X-API-Key`
@@ -44,7 +44,7 @@ line in `tools/mcp/keenable.yaml`'s `headers` block and set `KEENABLE_API_KEY`.
 ## Choose a search provider
 
 Keenable is the active default because its public MCP endpoint needs no signup.
-It is an example, not a required backend. To use omnigent's built-in
+It is an example, not a required backend. To use agentnexus's built-in
 `web_search` tool instead:
 
 1. remove or rename `tools/mcp/keenable.yaml`, and
@@ -68,7 +68,7 @@ prompt and skill if it exposes different tool names or arguments.
 
 ## Why MCP (not a custom backend)
 
-Keenable is reached through omnigent's standard MCP path — the framework's
+Keenable is reached through agentnexus's standard MCP path — the framework's
 sanctioned extension point — so there are **no core changes**. The same agent
-can use another MCP search server or one of omnigent's built-in search providers
+can use another MCP search server or one of agentnexus's built-in search providers
 by changing only its bundle configuration and tool-specific instructions.

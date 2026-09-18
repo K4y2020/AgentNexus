@@ -1,7 +1,7 @@
-# Holistic Distributed Tracing for Omnigent
+# Holistic Distributed Tracing for AgentNexus
 
 **Status:** Proposed
-**Scope:** End-to-end visibility into all data flowing between Omnigent's distributed
+**Scope:** End-to-end visibility into all data flowing between AgentNexus's distributed
 components, using the official OpenTelemetry clients with real W3C trace-context
 propagation across every transport boundary.
 
@@ -9,13 +9,13 @@ propagation across every transport boundary.
 
 ## 1. Motivation
 
-Omnigent is a distributed, multi-process system (host daemon, runners/harnesses,
+AgentNexus is a distributed, multi-process system (host daemon, runners/harnesses,
 server, clients, database). It is heavily vibe-coded and lacks a clear mental map,
 which makes stability and reliability work hard. Static analysis alone has proven
 unreliable; we want to incorporate signal from **real usage** by tracing every RPC,
 message, and cross-process call.
 
-Today there is a partial telemetry layer (`omnigent/runtime/telemetry.py`) built on
+Today there is a partial telemetry layer (`agentnexus/runtime/telemetry.py`) built on
 MLflow Tracing + OpenTelemetry, but:
 
 - Trace context is **never propagated over the wire**. Instead each layer on the
@@ -186,7 +186,7 @@ Server, Policy Server, Server database.** Choke points below are from the codeba
   **opt-in by configuration** — active only when `VITE_OTEL_EXPORTER_OTLP_ENDPOINT` is
   set (mirroring the server's "on when a backend is configured" rule); otherwise it is a
   no-op with zero overhead. The browser exports over OTLP/HTTP to `${endpoint}/v1/traces`.
-  Service name `omni-web` (override via `VITE_OTEL_SERVICE_NAME`). **CORS:** Omnigent is a
+  Service name `omni-web` (override via `VITE_OTEL_SERVICE_NAME`). **CORS:** AgentNexus is a
   same-origin deployment — the server serves the SPA and the API from one origin (vite
   proxies in dev), and there is **no `CORSMiddleware`** — so `traceparent` propagates to
   same-origin API calls with no server change. `propagateTraceHeaderCorsUrls` is scoped to
@@ -202,7 +202,7 @@ Server, Policy Server, Server database.** Choke points below are from the codeba
 
 ### 6.2 TUI ↔ Server
 
-- REST + SSE via `OmnigentClient`'s single `httpx.AsyncClient` (`_client.py:89`). Wiring
+- REST + SSE via `AgentNexusClient`'s single `httpx.AsyncClient` (`_client.py:89`). Wiring
   `HTTPXClientInstrumentor` injects `traceparent` on every outbound call automatically —
   one line, covers the entire TUI boundary.
 
@@ -253,7 +253,7 @@ Server, Policy Server, Server database.** Choke points below are from the codeba
 
 ## 7. SDK / provider setup
 
-Build on the existing `omnigent/runtime/telemetry.py` `init()`; it already establishes a
+Build on the existing `agentnexus/runtime/telemetry.py` `init()`; it already establishes a
 **unified global `TracerProvider`** shared between MLflow and raw OTel
 (`MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false`) and flips OTLP export on when
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Changes:
@@ -262,7 +262,7 @@ Build on the existing `omnigent/runtime/telemetry.py` `init()`; it already estab
    - `HTTPXClientInstrumentor().instrument()`
    - `SQLAlchemyInstrumentor().instrument(engine=...)` at each engine build site.
 2. **Default `FastAPIInstrumentor` on** for both the server and runner apps (currently
-   gated behind `OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION`; the remote-parent span patch in
+   gated behind `AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION`; the remote-parent span patch in
    `telemetry.py:135` already handles MLflow's raw-span edge case).
 3. **`service.name` per component** via `OTEL_SERVICE_NAME` (or a resource attribute set
    in `init()`) so Jaeger shows distinct services: `omni-host`, `omni-server`,
@@ -287,21 +287,21 @@ All standard OpenTelemetry env vars; nothing backend-specific in code.
 
 | Variable | Dev value | Effect |
 |---|---|---|
-| `OMNIGENT_TELEMETRY_ENABLED` | `true` | **Master opt-in; off by default.** When unset/false, `init()` is a no-op and no instrumentor installs — zero telemetry cost. Required for any row below to take effect. |
+| `AGENTNEXUS_TELEMETRY_ENABLED` | `true` | **Master opt-in; off by default.** When unset/false, `init()` is a no-op and no instrumentor installs — zero telemetry cost. Required for any row below to take effect. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | Once opted in, enables OTLP export and selects the collector |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` (default) | `grpc` or `http/protobuf` |
 | `OTEL_SERVICE_NAME` | per component | Service identity in Jaeger |
 | `OTEL_TRACES_SAMPLER` | `parentbased_always_on` (dev) | Always sample locally; ratio-based in prod |
-| `OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION` | `true` | Server/runner HTTP spans + extract |
-| `OMNIGENT_OTEL_CAPTURE_CONTENT` | `true` (dev only) | Include payloads on spans; **off in prod** (PII) |
+| `AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION` | `true` | Server/runner HTTP spans + extract |
+| `AGENTNEXUS_OTEL_CAPTURE_CONTENT` | `true` (dev only) | Include payloads on spans; **off in prod** (PII) |
 
 Telemetry is **opt-in**: nothing is instrumented and no spans are created unless
-`OMNIGENT_TELEMETRY_ENABLED` is truthy, so a default install is never burdened with
+`AGENTNEXUS_TELEMETRY_ENABLED` is truthy, so a default install is never burdened with
 telemetry it didn't ask for. Opt in first, then point `OTEL_EXPORTER_OTLP_ENDPOINT` at a
 backend.
 
 **Session correlation (`session.id`).** Every span that originates from a session is
-tagged with the Omnigent session (conversation) id (`conv_…`) under the `session.id`
+tagged with the AgentNexus session (conversation) id (`conv_…`) under the `session.id`
 attribute: the FastAPI server span (parsed from the `/sessions/<conv_…>/` request path —
 covers REST/SSE on **both** server and runner), the agent/LLM/tool/policy spans (from the
 runner's `TracingContext`), the in-process `policy.evaluate` span, and `terminal.attach`.
@@ -323,11 +323,11 @@ the right default: bodies hold PII/secrets, the trace backend is not a payload s
 the HTTP/WS auto-instrumentors never record bodies.
 
 When an operator needs to see the literal contents flowing between services, set
-`OMNIGENT_OTEL_CAPTURE_CONTENT=true`. This wires `should_capture_content()` (previously a
-dormant flag) into the boundaries Omnigent controls:
+`AGENTNEXUS_OTEL_CAPTURE_CONTENT=true`. This wires `should_capture_content()` (previously a
+dormant flag) into the boundaries AgentNexus controls:
 
 - **Host-tunnel frames** — inbound on the consumer span (`consume_frame_span`) and
-  outbound at `encode_host_frame`; recorded as `omnigent.message.payload`.
+  outbound at `encode_host_frame`; recorded as `agentnexus.message.payload`.
 - **Session-updates WS frames** — outbound at `_send`, inbound at the `watch` consumer
   span.
 - **Policy evaluation** — the content under evaluation, as `policy.content` on the
@@ -363,9 +363,9 @@ separately, but the instrumentation sites are shared so both can be added togeth
 ### 10.1 Local loop
 
 1. Start Jaeger all-in-one (§3).
-2. `export OMNIGENT_TELEMETRY_ENABLED=true` (master opt-in), then
+2. `export AGENTNEXUS_TELEMETRY_ENABLED=true` (master opt-in), then
    `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`,
-   `OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION=true`, `OMNIGENT_OTEL_CAPTURE_CONTENT=true`.
+   `AGENTNEXUS_OTEL_FASTAPI_INSTRUMENTATION=true`, `AGENTNEXUS_OTEL_CAPTURE_CONTENT=true`.
 3. Start server + host daemon; run a turn from the TUI.
 4. Open `http://localhost:16686`, pick service `omni-tui`, open the trace.
 
@@ -389,7 +389,7 @@ official OTel test harness.
 
 ### 10.4 Verification results (local Jaeger, real turn)
 
-A headless turn (`omnigent run --harness claude-sdk -p "…"`) against a local Jaeger
+A headless turn (`agentnexus run --harness claude-sdk -p "…"`) against a local Jaeger
 all-in-one produced the expected connected traces:
 
 - **Agent turn — one trace, 54 spans across three processes**
@@ -443,14 +443,14 @@ replay/diff tooling for transcript reconstruction, fork, and resume.
   server→runner forward stays in the caller's trace. (The downstream turn — claude-native
   `tmux send-keys` + the log-polling forwarder — is a separate async boundary and is *not*
   covered by this; it remains its own trace, correlated by `conversation_id`.)
-- **PII / secrets.** `OMNIGENT_OTEL_CAPTURE_CONTENT` must remain **off** outside dev;
+- **PII / secrets.** `AGENTNEXUS_OTEL_CAPTURE_CONTENT` must remain **off** outside dev;
   the durable event log (§9), not spans, is the right home for full payloads with proper
   access controls.
 - **Sampling cost.** `always_on` is for dev/test only; production uses parent-based
   ratio sampling so the cross-boundary parent decision is honored consistently.
 - **Browser-side propagation (implemented).** OTel web SDK with fetch/XHR
   instrumentation, opt-in via `VITE_OTEL_EXPORTER_OTLP_ENDPOINT`, exporting over OTLP/HTTP
-  (`:4318`). Omnigent is same-origin with no `CORSMiddleware`, so same-origin `traceparent`
+  (`:4318`). AgentNexus is same-origin with no `CORSMiddleware`, so same-origin `traceparent`
   propagation needs no server change; `propagateTraceHeaderCorsUrls` is scoped to the
   app's own origin. A future cross-origin deployment that introduces CORS must allow the
   `traceparent`/`tracestate` request headers (server and any reverse proxy) or the header

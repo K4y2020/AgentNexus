@@ -27,7 +27,7 @@ import sys
 
 import pytest
 
-from omnigent.inner._seccomp import (
+from agentnexus.inner._seccomp import (
     BASELINE_DENYLIST_SYSCALLS,
     _compat_arches_for_native,
 )
@@ -253,7 +253,7 @@ def test_apply_baseline_denylist_blocks_ptrace_in_child() -> None:
     """
     probe = (
         "import ctypes, errno, sys\n"
-        "from omnigent.inner._seccomp import apply_baseline_denylist\n"
+        "from agentnexus.inner._seccomp import apply_baseline_denylist\n"
         "libc = ctypes.CDLL(None, use_errno=True)\n"
         # PR_SET_NO_NEW_PRIVS is required before seccomp_load for
         # unprivileged processes.
@@ -289,7 +289,7 @@ def test_apply_baseline_denylist_does_not_break_subprocess_basics() -> None:
     """
     probe = (
         "import ctypes, os, sys, tempfile\n"
-        "from omnigent.inner._seccomp import apply_baseline_denylist\n"
+        "from agentnexus.inner._seccomp import apply_baseline_denylist\n"
         "ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0)\n"
         "apply_baseline_denylist()\n"
         "fd, path = tempfile.mkstemp()\n"
@@ -329,7 +329,7 @@ def test_arg_filter_blocks_socket_family_only() -> None:
 
     probe = (
         "import errno, json, socket, sys\n"
-        "from omnigent.inner._seccomp import (\n"
+        "from agentnexus.inner._seccomp import (\n"
         "    SCMP_CMP_EQ, SeccompArgFilter, SeccompRule,\n"
         "    apply_seccomp_filter, scmp_act_errno,\n"
         ")\n"
@@ -373,7 +373,7 @@ def test_masked_eq_filter_blocks_clone_with_namespace_bit() -> None:
     """
     probe = (
         "import ctypes, errno, os, sys\n"
-        "from omnigent.inner._seccomp import (\n"
+        "from agentnexus.inner._seccomp import (\n"
         "    SCMP_CMP_MASKED_EQ, SeccompArgFilter, SeccompRule,\n"
         "    apply_seccomp_filter, scmp_act_errno,\n"
         ")\n"
@@ -415,7 +415,7 @@ def test_unknown_syscall_silently_skipped() -> None:
     """
     probe = (
         "import ctypes, errno, sys\n"
-        "from omnigent.inner._seccomp import (\n"
+        "from agentnexus.inner._seccomp import (\n"
         "    SeccompRule, apply_seccomp_filter, scmp_act_errno,\n"
         ")\n"
         "libc = ctypes.CDLL(None, use_errno=True)\n"
@@ -508,7 +508,7 @@ def test_seccomp_filter_applies_to_i386_compat_abi_on_x86_64() -> None:
     """
     probe = (
         "import ctypes, errno, mmap, sys\n"
-        "from omnigent.inner._seccomp import (\n"
+        "from agentnexus.inner._seccomp import (\n"
         "    SeccompRule, apply_seccomp_filter, scmp_act_errno,\n"
         ")\n"
         "ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0)\n"

@@ -15,7 +15,7 @@ pre-built omnigent host template — it validates the launcher's SDK wiring
 in isolation. Pass ``--template omnigent-host`` (after ``e2b template
 build``; see deploy/e2b/README.md) to smoke the real host template too.
 
-    pip install 'omnigent[e2b]'
+    pip install 'agentnexus[e2b]'
     export E2B_API_KEY=e2b_...
     python tests/e2e/integrations/deploy/e2b/e2b_smoke_test.py [--template NAME] [--keep]
 
@@ -32,7 +32,7 @@ import time
 # The launcher lazy-imports the e2b SDK; surface a clean hint if it (or the
 # omnigent package) isn't importable rather than a raw traceback.
 try:
-    from omnigent.onboarding.sandboxes.e2b import (
+    from agentnexus.onboarding.sandboxes.e2b import (
         E2BSandboxLauncher,
         resolve_max_lifetime_s,
     )
@@ -55,7 +55,7 @@ def main() -> int:
         "--template",
         default="base",
         help="E2B template to boot from (default: E2B's stock 'base'; pass "
-        "'omnigent-host' to smoke the real host template once built).",
+        "'agentnexus-host' to smoke the real host template once built).",
     )
     parser.add_argument("--keep", action="store_true", help="don't terminate at the end")
     args = parser.parse_args()
@@ -67,7 +67,7 @@ def main() -> int:
     # A sentinel env var we inject at provision and read back from inside the
     # sandbox — exercises the env-passthrough path (resolved from THIS process
     # env by name, exactly like the server forwards its own environment).
-    marker_name = "OMNIGENT_E2B_SMOKE_MARKER"
+    marker_name = "AGENTNEXUS_E2B_SMOKE_MARKER"
     marker_value = f"smoke-{int(time.time())}"
     os.environ[marker_name] = marker_value
 

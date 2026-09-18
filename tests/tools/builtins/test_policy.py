@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omnigent.tools.builtins.policy import SysAddPolicyTool, SysPolicyRegistryTool
+from agentnexus.tools.builtins.policy import SysAddPolicyTool, SysPolicyRegistryTool
 
 # ── SysAddPolicyTool ─────────────────────────────────────
 
@@ -37,7 +37,7 @@ class TestSysAddPolicyTool:
         sys_add_policy is runner-dispatched; invoking it in-process
         raises NotImplementedError.
         """
-        from omnigent.tools.base import ToolContext
+        from agentnexus.tools.base import ToolContext
 
         tool = SysAddPolicyTool()
         ctx = ToolContext(task_id="t", agent_id="a")
@@ -69,7 +69,7 @@ class TestSysPolicyRegistryTool:
 
     def test_invoke_raises_not_implemented(self) -> None:
         """Runner-dispatched; raises if called in-process."""
-        from omnigent.tools.base import ToolContext
+        from agentnexus.tools.base import ToolContext
 
         tool = SysPolicyRegistryTool()
         ctx = ToolContext(task_id="t", agent_id="a")

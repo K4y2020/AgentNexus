@@ -1,8 +1,8 @@
 """Targeted tests for the control plane's 11-layer error envelope."""
 
-from omnigent.entities import ErrorData
-from omnigent.error_layers import ERROR_LAYERS, classify_error_layer
-from omnigent.server.schemas import ErrorDetail, RetryErrorDetail
+from agentnexus.entities import ErrorData
+from agentnexus.error_layers import ERROR_LAYERS, classify_error_layer
+from agentnexus.server.schemas import ErrorDetail, RetryErrorDetail
 
 
 def test_plan_error_layer_enum_has_exactly_11_layers() -> None:

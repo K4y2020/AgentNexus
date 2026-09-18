@@ -441,7 +441,7 @@ describe("HeaderConversationMenu", () => {
     renderMenu({
       conversation: {
         ...CONVERSATION,
-        labels: { "omnigent.pinned": "1700000000000" },
+        labels: { "agentnexus.pinned": "1700000000000" },
       },
       shareDisabled: true,
       shareDisabledReason: "Sharing is unavailable from a local server.",

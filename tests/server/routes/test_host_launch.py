@@ -11,13 +11,13 @@ from dataclasses import dataclass, field
 import pytest
 from fastapi import HTTPException
 
-from omnigent.entities import Conversation
-from omnigent.errors import ErrorCode, OmnigentError
-from omnigent.server.routes._host_launch import (
+from agentnexus.entities import Conversation
+from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.server.routes._host_launch import (
     resolve_host_launch,
     resolve_host_owner,
 )
-from omnigent.stores.host_store import now_epoch
+from agentnexus.stores.host_store import now_epoch
 
 
 @dataclass
@@ -92,7 +92,7 @@ class TestResolveHostLaunch:
         store = _FakeHostStore(hosts={"host_1": host})
         registry = _FakeHostRegistry()  # empty = no connections
         conv_store = _FakeConversationStore()
-        with pytest.raises(OmnigentError) as exc_info:
+        with pytest.raises(AgentNexusError) as exc_info:
             resolve_host_launch(
                 user_id="alice",
                 host_id="host_1",

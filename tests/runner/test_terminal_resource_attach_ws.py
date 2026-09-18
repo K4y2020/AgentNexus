@@ -18,20 +18,20 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from omnigent.entities.session_resources import SessionResourceView
-from omnigent.inner.terminal import TerminalInstance
-from omnigent.runner import create_runner_app
-from omnigent.runner.direct_attach import (
+from agentnexus.entities.session_resources import SessionResourceView
+from agentnexus.inner.terminal import TerminalInstance
+from agentnexus.runner import create_runner_app
+from agentnexus.runner.direct_attach import (
     allowed_origin_for_server,
     create_direct_attach_app,
     start_direct_attach_listener,
 )
-from omnigent.runner.resource_registry import (
-    OMNIGENT_REPL_TERMINAL_ROLE,
+from agentnexus.runner.resource_registry import (
+    AGENTNEXUS_REPL_TERMINAL_ROLE,
     QWEN_NATIVE_TERMINAL_ROLE,
     SessionResourceRegistry,
 )
-from omnigent.terminals import TerminalRegistry
+from agentnexus.terminals import TerminalRegistry
 from tests.runner.helpers import NullServerClient, make_test_terminal_instance
 
 
@@ -80,7 +80,7 @@ def _patch_control_attach(
         raise RuntimeError("bridge stopped")
 
     monkeypatch.setattr(
-        "omnigent.runner.app.bridge_tmux_control_to_websocket",
+        "agentnexus.runner.app.bridge_tmux_control_to_websocket",
         fake_control,
     )
 
@@ -266,7 +266,7 @@ def test_runner_resource_attach_recreates_dead_repl_terminal(
     # Role stamped at auto-create time in production (resource_role);
     # seeded directly here to avoid spawning real tmux.
     resource_registry._terminal_roles[("conv_abc", "terminal_tui_main")] = (
-        OMNIGENT_REPL_TERMINAL_ROLE
+        AGENTNEXUS_REPL_TERMINAL_ROLE
     )
 
     app = create_runner_app(
@@ -298,7 +298,7 @@ def test_runner_resource_attach_recreates_dead_repl_terminal(
         :param session_id: Session being recreated, e.g. ``"conv_abc"``.
         :param rr: The runner's resource registry (unused by the stub).
         :param publish_event: Per-session SSE emitter (unused).
-        :param server_client: Omnigent server client (unused).
+        :param server_client: AgentNexus server client (unused).
         :param agent_spec: Resolved session agent spec threaded by the
             recreate path so the REPL terminal inherits the agent sandbox
             (unused by the stub).
@@ -313,7 +313,7 @@ def test_runner_resource_attach_recreates_dead_repl_terminal(
             name="tui",
         )
 
-    monkeypatch.setattr("omnigent.runner.app._auto_create_repl_terminal", fake_auto_create)
+    monkeypatch.setattr("agentnexus.runner.app._auto_create_repl_terminal", fake_auto_create)
 
     attach_sockets: list[str] = []
 
@@ -419,7 +419,7 @@ def test_runner_resource_attach_recreates_dead_qwen_terminal(
         :param session_id: Session being recreated, e.g. ``"conv_abc"``.
         :param rr: The runner's resource registry (unused by the stub).
         :param publish_event: Per-session SSE emitter (unused).
-        :param server_client: Omnigent server client (unused).
+        :param server_client: AgentNexus server client (unused).
         :param ensure_comment_relay: Comment relay hook threaded by the
             recreate path (unused by the stub).
         :returns: Terminal resource view for the fresh pane.
@@ -433,7 +433,7 @@ def test_runner_resource_attach_recreates_dead_qwen_terminal(
             name="qwen",
         )
 
-    monkeypatch.setattr("omnigent.runner.app._auto_create_qwen_terminal", fake_auto_create)
+    monkeypatch.setattr("agentnexus.runner.app._auto_create_qwen_terminal", fake_auto_create)
 
     attach_sockets: list[str] = []
 
@@ -511,10 +511,10 @@ def test_runner_resource_attach_dead_non_repl_terminal_keeps_4404(
         """
         raise AssertionError(
             "REPL auto-create was invoked for a non-REPL terminal — the "
-            "recreate path must be gated on OMNIGENT_REPL_TERMINAL_ROLE."
+            "recreate path must be gated on AGENTNEXUS_REPL_TERMINAL_ROLE."
         )
 
-    monkeypatch.setattr("omnigent.runner.app._auto_create_repl_terminal", must_not_recreate)
+    monkeypatch.setattr("agentnexus.runner.app._auto_create_repl_terminal", must_not_recreate)
 
     with TestClient(app).websocket_connect(
         "/v1/sessions/conv_abc/resources/terminals/terminal_bash_s1/attach"

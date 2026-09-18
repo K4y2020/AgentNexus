@@ -15,8 +15,8 @@ from pathlib import Path
 import click
 import pytest
 
-from omnigent import cursor_native_bridge
-from omnigent.cursor_native_bridge import write_tmux_target
+from agentnexus import cursor_native_bridge
+from agentnexus.cursor_native_bridge import write_tmux_target
 
 _SOCK = "/tmp/example/cursor.sock"
 _TARGET = "cursor:0.0"
@@ -336,7 +336,7 @@ class TestHooksConfig:
         # The recorder is invoked isolated (-I) on the usage module, with the
         # absolute bridge dir baked in so it writes where the forwarder reads.
         assert "-I" in command
-        assert "omnigent.cursor_native_usage" in command
+        assert "agentnexus.cursor_native_usage" in command
         assert "record-usage" in command
         assert "/tmp/bridge" in command
         assert command.startswith("/usr/bin/python3")

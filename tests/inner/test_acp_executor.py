@@ -23,11 +23,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from omnigent.inner import acp_executor as acp_executor_module
-from omnigent.inner._acp_omnigent_mcp import OmnigentAcpMcp, _to_acp_mcp_servers
-from omnigent.inner.acp_executor import AcpAgentConfig, AcpExecutor
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.executor import (
+from agentnexus.inner import acp_executor as acp_executor_module
+from agentnexus.inner._acp_omnigent_mcp import AgentNexusAcpMcp, _to_acp_mcp_servers
+from agentnexus.inner.acp_executor import AcpAgentConfig, AcpExecutor
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.executor import (
     ExecutorError,
     ReasoningChunk,
     SubAgentCompleted,
@@ -367,7 +367,7 @@ class _FakeSubAgentDialect:
 
     def read(self, update: dict[str, object]) -> tuple[object, ...]:
         """Return start / activity / end for ``acme.dev/{spawn,work,done}``."""
-        from omnigent.inner.acp_subagents import SubAgentActivity, SubAgentEnd, SubAgentStart
+        from agentnexus.inner.acp_subagents import SubAgentActivity, SubAgentEnd, SubAgentStart
 
         if isinstance(update.get("acme.dev/spawn"), dict):
             return (SubAgentStart(child_key="w1", title="worker", task="do a thing"),)
@@ -384,7 +384,7 @@ class _FakeSubAgentDialect:
 
 def _extended_executor() -> AcpExecutor:
     """An executor whose extension supplies one dialect (a vendor's wrap does this)."""
-    from omnigent.inner.acp_extension import AcpExtension
+    from agentnexus.inner.acp_extension import AcpExtension
 
     return AcpExecutor(
         AcpAgentConfig(command="x"),
@@ -494,9 +494,9 @@ def test_claimed_completion_frame_emits_no_spurious_parent_card() -> None:
         ),
         (
             {
-                "title": "omnigent: sys session get info",
+                "title": "agentnexus: sys session get info",
                 "rawInput": {"session_id": ""},
-                "_meta": {"goose": {"toolCall": {"toolName": "omnigent__sys_session_get_info"}}},
+                "_meta": {"goose": {"toolCall": {"toolName": "agentnexus__sys_session_get_info"}}},
             },
             True,
         ),
@@ -514,7 +514,7 @@ def test_only_advertised_bridge_aliases_enter_dispatch_correlation(
             "sys_session_get_info",
             "mcp_omnigent_sys_session_get_info",
             "mcp__omnigent__sys_session_get_info",
-            "omnigent__sys_session_get_info",
+            "agentnexus__sys_session_get_info",
         }
     )
 
@@ -546,7 +546,7 @@ async def test_bridge_aliases_hold_until_the_session_resets(
     """The agent keeps the tools sent at session/new, so classify against those."""
     ex = AcpExecutor(AcpAgentConfig(command="x"))
     ex._rpc = AsyncMock(return_value={"result": {"sessionId": "s1"}})  # type: ignore[method-assign]
-    monkeypatch.setattr(ex._mcp, "session_new_servers", lambda **_: [{"name": "omnigent"}])
+    monkeypatch.setattr(ex._mcp, "session_new_servers", lambda **_: [{"name": "agentnexus"}])
 
     ex._omnigent_tools = [{"name": "sys_session_get_info"}]
     await ex._ensure_session()
@@ -601,8 +601,8 @@ async def test_native_call_before_a_bridge_call_keeps_each_call_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The reported defect: a native call ahead of a bridge call stole its id."""
-    import omnigent.runtime.harnesses._executor_adapter as adapter_module
-    from omnigent.runtime.harnesses._executor_adapter import ExecutorAdapter
+    import agentnexus.runtime.harnesses._executor_adapter as adapter_module
+    from agentnexus.runtime.harnesses._executor_adapter import ExecutorAdapter
 
     ex = AcpExecutor(AcpAgentConfig(command="x"))
     ex._bridge_tool_aliases = frozenset({"sys_session_get_info"})
@@ -1030,7 +1030,7 @@ async def test_bypass_never_sends_the_agents_own_bypass_option() -> None:
 
 def test_harness_wrap_reads_permission_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """The wrap decodes the forwarded mode, closing spawn env → child config."""
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "devin acp")
     monkeypatch.setenv("HARNESS_ACP_PERMISSION_MODE", "bypassPermissions")
@@ -1042,7 +1042,7 @@ def test_harness_wrap_reads_permission_mode(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_harness_wrap_permission_mode_defaults_to_auto(monkeypatch: pytest.MonkeyPatch) -> None:
     """An unset (or blank) var leaves the wrap prompting, as before this option."""
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "devin acp")
     monkeypatch.delenv("HARNESS_ACP_PERMISSION_MODE", raising=False)
@@ -1256,7 +1256,7 @@ async def test_interrupt_noop_without_session() -> None:
 
 
 def test_harness_wrap_requires_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.delenv("HARNESS_ACP_COMMAND", raising=False)
     with pytest.raises(RuntimeError, match="HARNESS_ACP_COMMAND"):
@@ -1264,13 +1264,13 @@ def test_harness_wrap_requires_command(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_harness_wrap_builds_executor(monkeypatch: pytest.MonkeyPatch) -> None:
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "goose acp")
     monkeypatch.setenv("HARNESS_ACP_NAME", "Goose")
     monkeypatch.setenv("HARNESS_ACP_SESSION_ID_MODE", "client")
     monkeypatch.setenv("HARNESS_ACP_SEND_MODEL", "1")
-    monkeypatch.setenv("HARNESS_ACP_OMNIGENT_MCP", "0")
+    monkeypatch.setenv("HARNESS_ACP_AGENTNEXUS_MCP", "0")
     monkeypatch.setenv("HARNESS_ACP_MODEL", "gpt-5.3")
     ex = acp_harness._build_acp_executor()
     assert isinstance(ex, AcpExecutor)
@@ -1278,13 +1278,13 @@ def test_harness_wrap_builds_executor(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ex._config.name == "Goose"
     assert ex._config.session_id_mode == "client"
     assert ex._config.send_model_in_session_new is True
-    assert ex._config.omnigent_mcp is False
+    assert ex._config.agentnexus_mcp is False
     assert ex._config.model == "gpt-5.3"
 
 
 def test_harness_wrap_reads_inject_system_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
     """HARNESS_ACP_INJECT_SYSTEM_PROMPT=0 sets inject_system_prompt=False (#4917)."""
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "omp acp")
     monkeypatch.setenv("HARNESS_ACP_INJECT_SYSTEM_PROMPT", "0")
@@ -1297,7 +1297,7 @@ def test_harness_wrap_inject_system_prompt_defaults_to_true(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """inject_system_prompt defaults to True when env var is absent."""
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "goose acp")
     monkeypatch.delenv("HARNESS_ACP_INJECT_SYSTEM_PROMPT", raising=False)
@@ -1308,7 +1308,7 @@ def test_harness_wrap_inject_system_prompt_defaults_to_true(
 
 def test_harness_wrap_reads_env_passthrough_names(monkeypatch: pytest.MonkeyPatch) -> None:
     """The wrap decodes the forwarded names, closing parent → child → spawn env."""
-    from omnigent.inner import acp_harness
+    from agentnexus.inner import acp_harness
 
     monkeypatch.setenv("HARNESS_ACP_COMMAND", "grok agent stdio")
     monkeypatch.setenv("HARNESS_ACP_ENV_PASSTHROUGH", "XAI_API_KEY, GROK_TOKEN ,")
@@ -1426,18 +1426,18 @@ async def test_end_to_end_against_fake_acp_agent(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Omnigent MCP bridge (session/new.mcpServers via the shared serve-mcp relay)
+# AgentNexus MCP bridge (session/new.mcpServers via the shared serve-mcp relay)
 # ---------------------------------------------------------------------------
 
 
 def test_mcp_to_acp_servers_flattens_env_to_array() -> None:
     """ACP wants env as [{name,value}], not a dict; command/args pass through."""
     out = _to_acp_mcp_servers(
-        {"mcpServers": {"omnigent": {"command": "/py", "args": ["-Im", "x"], "env": {"A": "1"}}}}
+        {"mcpServers": {"agentnexus": {"command": "/py", "args": ["-Im", "x"], "env": {"A": "1"}}}}
     )
     assert out == [
         {
-            "name": "omnigent",
+            "name": "agentnexus",
             "command": "/py",
             "args": ["-Im", "x"],
             "env": [{"name": "A", "value": "1"}],
@@ -1446,7 +1446,7 @@ def test_mcp_to_acp_servers_flattens_env_to_array() -> None:
 
 
 def test_mcp_disabled_returns_empty() -> None:
-    m = OmnigentAcpMcp("t")
+    m = AgentNexusAcpMcp("t")
     assert (
         m.session_new_servers(
             tools=[{"name": "x"}], tool_executor=lambda *a: None, loop=None, enabled=False
@@ -1456,13 +1456,13 @@ def test_mcp_disabled_returns_empty() -> None:
 
 
 def test_mcp_no_executor_returns_empty() -> None:
-    m = OmnigentAcpMcp("t")
+    m = AgentNexusAcpMcp("t")
     assert m.session_new_servers(tools=[{"name": "x"}], tool_executor=None, loop=None) == []
 
 
 def test_mcp_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OMNIGENT_ACP_MCP", "0")
-    m = OmnigentAcpMcp("t")
+    monkeypatch.setenv("AGENTNEXUS_ACP_MCP", "0")
+    m = AgentNexusAcpMcp("t")
     assert (
         m.session_new_servers(tools=[{"name": "x"}], tool_executor=lambda *a: None, loop=None)
         == []
@@ -1473,7 +1473,7 @@ def test_mcp_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_mcp_relay_starts_and_builds_serve_mcp_entry() -> None:
     """A real relay boots (writes bridge.json + tool_relay.json + HTTP server)
     and yields one ACP stdio server pointing at the shared serve-mcp."""
-    m = OmnigentAcpMcp("t")
+    m = AgentNexusAcpMcp("t")
 
     async def fake_exec(name: str, args: dict) -> dict:
         return {"ok": True}
@@ -1487,9 +1487,9 @@ async def test_mcp_relay_starts_and_builds_serve_mcp_entry() -> None:
     try:
         assert len(servers) == 1
         entry = servers[0]
-        assert entry["name"] == "omnigent"
+        assert entry["name"] == "agentnexus"
         assert "serve-mcp" in entry["args"]
-        assert "omnigent.claude_native_bridge" in entry["args"]
+        assert "agentnexus.claude_native_bridge" in entry["args"]
         assert all("name" in e and "value" in e for e in entry["env"])
         # Idempotent: a second call returns the cached relay, not a new one.
         assert m.session_new_servers(tools=[], tool_executor=fake_exec, loop=loop) is servers
@@ -1503,7 +1503,7 @@ async def test_acp_session_new_carries_mcp_servers() -> None:
     ex = AcpExecutor(AcpAgentConfig(command="x"))
     ex._tool_executor = lambda n, a: None  # type: ignore[assignment]
     ex._omnigent_tools = [{"name": "sys_agent_list"}]
-    sentinel = [{"name": "omnigent", "command": "/py", "args": [], "env": []}]
+    sentinel = [{"name": "agentnexus", "command": "/py", "args": [], "env": []}]
     ex._mcp.session_new_servers = lambda **kw: sentinel  # type: ignore[method-assign]
     captured: dict = {}
 
@@ -1546,7 +1546,7 @@ def test_omnigent_tools_cleared_when_mcp_disabled() -> None:
 
     # Simulate the first few lines of run_turn: capture _omnigent_tools.
     # When omnigent_mcp is False the assignment must yield an empty list.
-    ex._omnigent_tools = (tools or []) if ex._config.omnigent_mcp else []
+    ex._omnigent_tools = (tools or []) if ex._config.agentnexus_mcp else []
     assert ex._omnigent_tools == [], "tools must be discarded when omnigent_mcp=False"
 
 
@@ -1554,7 +1554,7 @@ def test_omnigent_tools_kept_when_mcp_enabled() -> None:
     """Sanity: _omnigent_tools is populated when omnigent_mcp=True."""
     ex = AcpExecutor(AcpAgentConfig(command="x", omnigent_mcp=True))
     tools = [{"name": "load_skill"}, {"name": "sys_session_rename"}]
-    ex._omnigent_tools = (tools or []) if ex._config.omnigent_mcp else []
+    ex._omnigent_tools = (tools or []) if ex._config.agentnexus_mcp else []
     assert ex._omnigent_tools == tools, "tools must be stored when omnigent_mcp=True"
 
 
@@ -1563,7 +1563,7 @@ async def test_inject_system_prompt_false_skips_prepend(tmp_path: Path) -> None:
     """inject_system_prompt=False prevents the spec's system prompt from being
     folded into the first ACP user turn (#4917 — Pi-fork agents like omp).
 
-    Without this fix, Omnigent's system prompt is prepended to the user message
+    Without this fix, AgentNexus's system prompt is prepended to the user message
     on the first turn.  For agents that fully own their own system prompt (Pi
     forks), this confuses the internal Claude model into emitting XML tool-call
     fragments (``</function></tool_call>``) when there is no MCP relay backing

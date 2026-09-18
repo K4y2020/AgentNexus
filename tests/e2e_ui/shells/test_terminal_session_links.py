@@ -1,7 +1,7 @@
 """E2E: terminal session links stay in the current web app tab.
 
 The embedded xterm makes URLs in TUI / shell output clickable via
-``WebLinksAddon``. Same-origin Omnigent session URLs are app navigation, not
+``WebLinksAddon``. Same-origin AgentNexus session URLs are app navigation, not
 external content: clicking one should update the current SPA route instead of
 opening a duplicate browser tab/window for the same chat.
 """

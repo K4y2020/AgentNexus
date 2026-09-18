@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-from omnigent.inner import copilot_executor
-from omnigent.inner.copilot_executor import (
+from agentnexus.inner import copilot_executor
+from agentnexus.inner.copilot_executor import (
     COPILOT_HOST_ENV_VAR,
     CopilotExecutor,
     _accumulate_usage,
@@ -35,7 +35,7 @@ from omnigent.inner.copilot_executor import (
     _resolve_model,
     _resolve_reasoning_effort,
 )
-from omnigent.inner.executor import (
+from agentnexus.inner.executor import (
     CompactionComplete,
     ExecutorConfig,
     ExecutorError,
@@ -47,7 +47,7 @@ from omnigent.inner.executor import (
     ToolCallStatus,
     TurnComplete,
 )
-from omnigent.onboarding import copilot_auth
+from agentnexus.onboarding import copilot_auth
 
 
 def _user(content: str, session_id: str = "conv1") -> Message:

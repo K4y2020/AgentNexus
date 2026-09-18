@@ -12,10 +12,10 @@ directly.
 
 from __future__ import annotations
 
-import omnigent.inner.bwrap_sandbox as inner_bwrap
-import omnigent.inner.sandbox as inner_sandbox
-from omnigent import sandbox
-from omnigent.sandbox import bwrap
+import agentnexus.inner.bwrap_sandbox as inner_bwrap
+import agentnexus.inner.sandbox as inner_sandbox
+from agentnexus import sandbox
+from agentnexus.sandbox import bwrap
 
 
 def test_sandbox_all_symbols_importable() -> None:
@@ -25,10 +25,10 @@ def test_sandbox_all_symbols_importable() -> None:
 
     Catches accidental drift between the ``__all__`` list and the actual
     re-export — the failure mode is "looks fine in the source, breaks at
-    `from omnigent.sandbox import X`".
+    `from agentnexus.sandbox import X`".
     """
     for name in sandbox.__all__:
-        assert hasattr(sandbox, name), f"omnigent.sandbox missing re-export {name!r}"
+        assert hasattr(sandbox, name), f"agentnexus.sandbox missing re-export {name!r}"
 
 
 def test_sandbox_reexports_are_inner_objects() -> None:
@@ -66,7 +66,7 @@ def test_bwrap_all_symbols_importable() -> None:
     consumers.
     """
     for name in bwrap.__all__:
-        assert hasattr(bwrap, name), f"omnigent.sandbox.bwrap missing re-export {name!r}"
+        assert hasattr(bwrap, name), f"agentnexus.sandbox.bwrap missing re-export {name!r}"
 
 
 def test_bwrap_reexports_are_inner_objects() -> None:
@@ -114,11 +114,11 @@ def test_default_sandbox_for_platform_is_bwrap_on_linux_regardless_of_binary() -
     import sys
     from unittest.mock import patch
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec
 
     with (
         patch.object(sys, "platform", "linux"),
-        patch("omnigent.inner.sandbox.shutil.which", return_value=None),
+        patch("agentnexus.inner.sandbox.shutil.which", return_value=None),
     ):
         spec = inner_sandbox._default_sandbox_for_platform()
     assert isinstance(spec, OSEnvSandboxSpec)
@@ -138,11 +138,11 @@ def test_default_sandbox_for_platform_is_seatbelt_on_macos_regardless_of_binary(
     import sys
     from unittest.mock import patch
 
-    from omnigent.inner.datamodel import OSEnvSandboxSpec
+    from agentnexus.inner.datamodel import OSEnvSandboxSpec
 
     with (
         patch.object(sys, "platform", "darwin"),
-        patch("omnigent.inner.sandbox.shutil.which", return_value=None),
+        patch("agentnexus.inner.sandbox.shutil.which", return_value=None),
     ):
         spec = inner_sandbox._default_sandbox_for_platform()
     assert isinstance(spec, OSEnvSandboxSpec)

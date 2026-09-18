@@ -72,7 +72,7 @@ def test_older_node_fails(version: str) -> None:
     assert "Node.js 22.13.0 or newer is required" in message
     assert version.strip().lstrip("v") in message
     assert "https://nodejs.org/en/download" in message
-    assert "OMNIGENT_SKIP_WEB_UI=true" in message
+    assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
 
 
 def test_unparseable_version_fails() -> None:
@@ -83,7 +83,7 @@ def test_unparseable_version_fails() -> None:
     assert "could not parse Node.js version not-a-version" in message
     assert "Node.js 22.13.0 or newer is required" in message
     assert "https://nodejs.org/en/download" in message
-    assert "OMNIGENT_SKIP_WEB_UI=true" in message
+    assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
 
 
 def test_node_missing_fails() -> None:
@@ -95,7 +95,7 @@ def test_node_missing_fails() -> None:
     assert "Node.js not found on PATH" in message
     assert "Node.js 22.13.0 or newer is required" in message
     assert "https://nodejs.org/en/download" in message
-    assert "OMNIGENT_SKIP_WEB_UI=true" in message
+    assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
 
 
 def test_node_version_probe_failure_fails() -> None:
@@ -114,12 +114,12 @@ def test_node_version_probe_failure_fails() -> None:
     assert "could not determine the Node.js version" in message
     assert "Node.js 22.13.0 or newer is required" in message
     assert "https://nodejs.org/en/download" in message
-    assert "OMNIGENT_SKIP_WEB_UI=true" in message
+    assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
 
 
 def test_skip_web_ui_bypasses_node_gate(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_setup_module()
-    monkeypatch.setenv("OMNIGENT_SKIP_WEB_UI", "true")
+    monkeypatch.setenv("AGENTNEXUS_SKIP_WEB_UI", "true")
     require_node = mock.Mock()
     with mock.patch.object(module, "_require_supported_node", require_node):
         module._GenerateBuildInfo._build_web_ui(object())
@@ -128,8 +128,8 @@ def test_skip_web_ui_bypasses_node_gate(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_newer_node_build_failure_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_setup_module()
-    monkeypatch.delenv("OMNIGENT_SKIP_WEB_UI", raising=False)
-    monkeypatch.setenv("OMNIGENT_BUILD_WEB_UI", "1")
+    monkeypatch.delenv("AGENTNEXUS_SKIP_WEB_UI", raising=False)
+    monkeypatch.setenv("AGENTNEXUS_BUILD_WEB_UI", "1")
     failure = module.subprocess.CalledProcessError(
         1,
         ["pnpm", "install"],
@@ -146,7 +146,7 @@ def test_newer_node_build_failure_is_actionable(monkeypatch: pytest.MonkeyPatch)
     assert "web UI build failed on Node.js 25.2.1" in message
     assert "ERR_PNPM_UNSUPPORTED_ENGINE" in message
     assert "upgrade to Node.js 22.13.0 or newer" in message
-    assert "OMNIGENT_SKIP_WEB_UI=true" in message
+    assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
     assert excinfo.value.__cause__ is failure
 
 
@@ -158,12 +158,12 @@ def test_real_node_floor_matches_pinned_pnpm() -> None:
     toolchain check that cannot pass from mocked ``node --version`` output.
     """
     node_paths = {
-        "22.12.0": os.environ.get("OMNIGENT_TEST_NODE_22_12"),
-        "22.13.0": os.environ.get("OMNIGENT_TEST_NODE_22_13"),
+        "22.12.0": os.environ.get("AGENTNEXUS_TEST_NODE_22_12"),
+        "22.13.0": os.environ.get("AGENTNEXUS_TEST_NODE_22_13"),
     }
     if not any(node_paths.values()):
         pytest.skip(
-            "set OMNIGENT_TEST_NODE_22_12 and OMNIGENT_TEST_NODE_22_13 "
+            "set AGENTNEXUS_TEST_NODE_22_12 and AGENTNEXUS_TEST_NODE_22_13 "
             "to run the real toolchain boundary check"
         )
     assert all(node_paths.values()), "both real Node boundary binaries are required"

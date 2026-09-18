@@ -6,7 +6,7 @@ description: Pi coding sub-agent — the multi-model third worker; reviews, expl
 # behind the harness RPC contract, and its shell access flows through the
 # bridged sys_os_* tools, so every command passes the policy layer.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: pi
 
@@ -25,7 +25,7 @@ prompt: |
     you mention counts, distinguish collected test cases from test functions.
   - Co-sign every commit you author: end each commit message with a blank line
     followed by this exact trailer as its final line —
-    `Co-authored-by: omnigent <noreply@omnigent.ai>`
+    `Co-authored-by: agentnexus <noreply@agentnexus.ai>`
   - When green, push your task branch and open a PR with `gh pr create` (clear
     title, what changed, how you verified). Never push to a protected branch
     (e.g. main) or force-push — open a PR and let it be reviewed/merged.
@@ -63,6 +63,6 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false

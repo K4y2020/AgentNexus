@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.bot_workspace import ensure_bot_task_workspace
+from agentnexus.bot_workspace import ensure_bot_task_workspace
 
 
 def test_topics_are_isolated_and_resumes_preserve_files(tmp_path):

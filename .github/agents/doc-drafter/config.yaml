@@ -1,28 +1,28 @@
-# doc-drafter — drafts the actual omnigent-site documentation change for ONE
+# doc-drafter — drafts the actual agentnexus-site documentation change for ONE
 # merged PR that was classified `needs-doc-update`.
 #
 # Unlike the classifier (which only labels), the drafter gets a checkout of the
-# omnigent-site docs repo as its working tree, so it inspects the REAL current
+# agentnexus-site docs repo as its working tree, so it inspects the REAL current
 # site (sidebar + existing MDX) to decide where the content belongs, then writes
-# the edit in place. It can also read the omnigent code checkout to confirm facts
+# the edit in place. It can also read the agentnexus code checkout to confirm facts
 # before writing. It is a single agent (no sub-agents) for simplicity and speed.
 #
-# Run headlessly by .github/workflows/doc-sync.yml with cwd = the omnigent-site
-# checkout:  omnigent run .github/agents/doc-drafter -p "<context>" --no-session
+# Run headlessly by .github/workflows/doc-sync.yml with cwd = the agentnexus-site
+# checkout:  agentnexus run .github/agents/doc-drafter -p "<context>" --no-session
 # The agent ONLY edits MDX in the site checkout and prints a summary; the
 # workflow commits, pushes, and opens the PR.
 
 spec_version: 1
 name: doc-drafter
 description: >-
-  Drafts the omnigent-site documentation change for a single merged PR. Inspects
-  the live docs site to decide placement, confirms facts against the omnigent
+  Drafts the agentnexus-site documentation change for a single merged PR. Inspects
+  the live docs site to decide placement, confirms facts against the agentnexus
   code, edits the matching MDX in place, and flags manual-only work (e.g. stale
   screenshots). Writes docs prose only — never product code — and never commits
   or pushes (the workflow does that).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
@@ -35,7 +35,7 @@ cancellable: true
 #   - It only runs on ALREADY-MERGED PRs (a maintainer reviewed + merged the diff),
 #     whereas Polly runs on open, un-reviewed PRs.
 #   - The only secret in this process's env is LLM_API_KEY (same as Polly). The
-#     omnigent-site write-token is minted by the workflow AFTER this agent finishes
+#     agentnexus-site write-token is minted by the workflow AFTER this agent finishes
 #     and is never present while the (PR-influenced) drafter runs.
 #   - It is fed only the code diff (via DIFF_FILE) — never the PR title/description
 #     — shrinking the prose prompt-injection surface.
@@ -49,7 +49,7 @@ cancellable: true
 # one only because it proved fragile/unverifiable in CI (uv-venv interpreter exec
 # under bwrap/seatbelt), so we accept the same residual risk already accepted for
 # polly-review. cwd is the workspace root (holds the PR-diff file the drafter reads
-# and the omnigent-site checkout it writes).
+# and the agentnexus-site checkout it writes).
 os_env:
   type: caller_process
   cwd: .
@@ -64,19 +64,19 @@ guardrails:
       type: function
       on: [tool_call]
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           gate_pushes: false
 
 prompt: |
-  You are the Omnigent documentation drafter. A single pull request has merged
-  into the omnigent code repo and been classified as needing a user-facing
-  documentation update. Your job: write that update into the omnigent-site docs.
+  You are the AgentNexus documentation drafter. A single pull request has merged
+  into the agentnexus code repo and been classified as needing a user-facing
+  documentation update. Your job: write that update into the agentnexus-site docs.
   You author documentation prose (MDX) only — you NEVER write product source code
-  or tests, and you NEVER edit anything in the omnigent code repo.
+  or tests, and you NEVER edit anything in the agentnexus code repo.
 
   ## Inputs (in the run prompt)
-  - `SITE_REPO` — absolute path to the omnigent-site checkout. It is your ONLY
+  - `SITE_REPO` — absolute path to the agentnexus-site checkout. It is your ONLY
     WRITE target — make all doc edits there.
   - `DIFF_FILE` — a path (in your current directory) to a file holding the merged
     PR's full diff. **Read it first with `sys_os_read`** — it is your ONLY source of

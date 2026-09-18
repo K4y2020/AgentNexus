@@ -24,10 +24,10 @@ from pathlib import Path
 
 import pytest
 
-from omnigent.entities.environment_filesystem import PathUnreachable
-from omnigent.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
-from omnigent.inner.os_env import _handle_helper_request, create_os_environment
-from omnigent.inner.sandbox import (
+from agentnexus.entities.environment_filesystem import PathUnreachable
+from agentnexus.inner.datamodel import OSEnvSandboxSpec, OSEnvSpec
+from agentnexus.inner.os_env import _handle_helper_request, create_os_environment
+from agentnexus.inner.sandbox import (
     SandboxPolicy,
     contained_realpath,
     containment_prefix,
@@ -35,7 +35,7 @@ from omnigent.inner.sandbox import (
     reachable_roots,
     resolve_sandbox,
 )
-from omnigent.runner.environment_filesystem import resolve_browse_target
+from agentnexus.runner.environment_filesystem import resolve_browse_target
 
 
 def _grant_policy(
@@ -551,7 +551,7 @@ async def test_unconfined_write_inside_a_read_grant_still_succeeds(tmp_path: Pat
     helper will perform, so treating it as "covered" would deny a write the
     environment is otherwise allowed to make.
     """
-    from omnigent.runner.environment_filesystem import CallerProcessFilesystem
+    from agentnexus.runner.environment_filesystem import CallerProcessFilesystem
 
     cwd = tmp_path / "ws"
     cwd.mkdir()

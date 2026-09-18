@@ -115,7 +115,7 @@ def credential_less_codex_rig(
     """Server + runner whose environment has no routable Codex credential.
 
     Empty ``CODEX_HOME`` (Codex not logged in) and empty
-    ``OMNIGENT_CONFIG_HOME`` (no provider configured for the codex harness):
+    ``AGENTNEXUS_CONFIG_HOME`` (no provider configured for the codex harness):
     the launch router resolves to "Codex CLI login" with nothing to show at
     a headless terminal — the routing state in which the reported timeout
     fires.
@@ -125,7 +125,7 @@ def credential_less_codex_rig(
     if shutil.which("codex") is None:
         pytest.skip("codex CLI is required for the codex-native headless repro")
 
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     work = tmp_path_factory.mktemp("codex_headless_subagent")
     config_home = work / "config-home"
@@ -144,17 +144,17 @@ def credential_less_codex_rig(
     shared_env = {
         **_no_proxy_env(),
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_CONFIG_HOME": str(config_home),
-        "OMNIGENT_CODEX_NATIVE_STATE_DIR": str(state_dir),
+        "AGENTNEXUS_CONFIG_HOME": str(config_home),
+        "AGENTNEXUS_CODEX_NATIVE_STATE_DIR": str(state_dir),
         "CODEX_HOME": str(codex_home),
         "HOME": str(home_dir),
     }
-    server_env = {**shared_env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token}
+    server_env = {**shared_env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token}
     runner_env = {
         **shared_env,
-        "OMNIGENT_RUNNER_ID": runner_id,
-        "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-        "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+        "AGENTNEXUS_RUNNER_ID": runner_id,
+        "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+        "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
         "RUNNER_SERVER_URL": base_url,
     }
 
@@ -169,7 +169,7 @@ def credential_less_codex_rig(
             [
                 sys.executable,
                 "-m",
-                "omnigent.cli",
+                "agentnexus.cli",
                 "server",
                 "--host",
                 "127.0.0.1",
@@ -186,7 +186,7 @@ def credential_less_codex_rig(
             cwd=str(_REPO_ROOT),
         )
         runner_proc = subprocess.Popen(
-            [sys.executable, "-m", "omnigent.runner._entry"],
+            [sys.executable, "-m", "agentnexus.runner._entry"],
             env=runner_env,
             stdout=runner_handle,
             stderr=subprocess.STDOUT,

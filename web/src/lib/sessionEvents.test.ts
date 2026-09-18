@@ -1,6 +1,6 @@
 // Pin the wire envelopes for `session.*` SSE events.
 //
-// Each event in `omnigent/server/schemas.py` uses either a FLAT
+// Each event in `agentnexus/server/schemas.py` uses either a FLAT
 // envelope (`{type, ...fields}`) or a NESTED envelope (`{type, data:
 // {...}}`). The parser in `sse.ts` must lift each into the same
 // camelCase TS interface; bugs in that lift are silent (the reducer

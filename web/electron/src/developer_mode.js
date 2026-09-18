@@ -1,6 +1,6 @@
 "use strict";
 
-/** macOS NSUserDefaults key in the ai.omnigent.desktop preference domain. */
+/** macOS NSUserDefaults key in the ai.agentnexus.desktop preference domain. */
 const DEVELOPER_MODE_KEY = "DeveloperMode";
 
 /**

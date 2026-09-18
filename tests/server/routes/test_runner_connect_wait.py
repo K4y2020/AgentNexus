@@ -13,8 +13,8 @@ import asyncio
 
 import pytest
 
-from omnigent.server.host_registry import RunnerExitReports
-from omnigent.server.routes.sessions import _wait_for_runner_client
+from agentnexus.server.host_registry import RunnerExitReports
+from agentnexus.server.routes.sessions import _wait_for_runner_client
 
 pytestmark = pytest.mark.asyncio
 

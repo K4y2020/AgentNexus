@@ -7,7 +7,7 @@ multi-line message reached the agent by looking for BOTH halves
 in the user turn the REPL echoes to scrollback (under the ``❯``
 prompt glyph) before streaming the assistant response (under ``◆``).
 
-Design reference: ``designs/OMNIGENT_INTEGRATION.md`` §Phase 0
+Design reference: ``designs/AGENTNEXUS_INTEGRATION.md`` §Phase 0
 REPL pexpect suite — "Multi-line input".
 """
 
@@ -16,15 +16,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from tests.e2e.omnigent._pexpect_harness import (
+from tests.e2e.agentnexus._pexpect_harness import (
     await_turn_complete,
     clean_exit,
     spawn_omnigent_run,
     strip_ansi,
     wait_for_ready,
 )
-from tests.e2e.omnigent._snapshot import compare_snapshot
-from tests.e2e.omnigent.conftest import configure_mock_llm
+from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.agentnexus.conftest import configure_mock_llm
 
 _MODEL = "mock-model"
 _HARNESS = "openai-agents"

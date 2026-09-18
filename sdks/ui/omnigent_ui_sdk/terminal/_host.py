@@ -26,7 +26,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from omnigent_client import TERMINAL_TASK_STATUSES, child_session_busy
+from agentnexus_client import TERMINAL_TASK_STATUSES, child_session_busy
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import get_app
@@ -849,10 +849,10 @@ class TerminalHost:
     :param prompt_marker: Character shown before the cursor.
     :param accent_color: Color for prompt bars and marker.
     :param history_file: Path for persistent input history.
-        Defaults to ``"~/.omnigent_history"`` to match the
+        Defaults to ``"~/.agentnexus_history"`` to match the
         legacy ``omnigent run`` CLI's location
         (``omnigent/inner/cli.py:_cli_history_file_path``) so
-        users who flip between legacy and Omnigent mode see the same
+        users who flip between legacy and AgentNexus mode see the same
         ↑ / Ctrl+R recall in both. SDK consumers outside
         omnigent can override.
     :param model_name: Shown in the bottom toolbar.
@@ -883,7 +883,7 @@ class TerminalHost:
         *,
         prompt_marker: str = "❯",
         accent_color: str = "#F43BA6",
-        history_file: str = "~/.omnigent_history",
+        history_file: str = "~/.agentnexus_history",
         model_name: str | None = None,
         toolbar_hints: list[str] | None = None,
         window_title: str | None = None,
@@ -1499,7 +1499,7 @@ class TerminalHost:
         (``omnigent/inner/cli.py:2717-2723``) swallows the same
         way for the same reason; mirroring keeps behavior
         identical so a session that boots green on legacy boots
-        green on Omnigent mode regardless of terminal quirks.
+        green on AgentNexus mode regardless of terminal quirks.
         """
         if self._window_title is None:
             return
@@ -1535,7 +1535,7 @@ class TerminalHost:
         # calls don't paint into the prompt-toolkit screen.
         # Restored in __aexit__.
         try:
-            from omnigent.cli_diagnostics import redirect_stderr_to_log
+            from agentnexus.cli_diagnostics import redirect_stderr_to_log
 
             redirect_stderr_to_log()
         except Exception as err:
@@ -1580,7 +1580,7 @@ class TerminalHost:
         # may log or raise, and those should go to the real terminal
         # now that the TUI is tearing down.
         try:
-            from omnigent.cli_diagnostics import restore_stderr
+            from agentnexus.cli_diagnostics import restore_stderr
 
             restore_stderr()
         except Exception as err:
@@ -2040,7 +2040,7 @@ class TerminalHost:
             hammer the server. Matches omnigent' overview polling
             strategy (see ``omnigent/cli.py::_refresh_loop``),
             with the interval bumped from 50 ms → 500 ms because
-            Omnigent' builder crosses a real HTTP boundary
+            AgentNexus' builder crosses a real HTTP boundary
             while omnigent' builder just reads in-process state.
             """
             try:
@@ -3170,7 +3170,7 @@ class TerminalHost:
         # session 409s). Imported lazily to keep this UI SDK importable without
         # the ``omnigent`` server package on the path.
         if not node.closed:
-            from omnigent.session_lifecycle import is_session_closed
+            from agentnexus.session_lifecycle import is_session_closed
 
             if is_session_closed(child.get("labels"), child.get("title")):
                 node.closed = True

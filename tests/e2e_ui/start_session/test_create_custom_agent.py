@@ -186,7 +186,7 @@ async def _seed_workspace(page) -> None:
     """Seed a recent workspace so the composer can enable Send."""
     await page.add_init_script(
         f"""window.localStorage.setItem(
-            "omnigent:recent-workspaces",
+            "agentnexus:recent-workspaces",
             JSON.stringify({{ {_HOST_ID}: ["/work/repo"] }})
         );"""
     )

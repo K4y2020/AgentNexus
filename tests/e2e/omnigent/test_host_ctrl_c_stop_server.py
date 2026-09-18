@@ -71,7 +71,7 @@ def _connect_env(base_env: Mapping[str, str], home: Path) -> dict[str, str]:
 
     Isolates ``HOME`` so the local-server pidfile, host registry, and sqlite
     db land under the per-test directory (``ensure_local_omnigent_server`` keys its
-    data dir off ``~/.omnigent`` when ``OMNIGENT_DATA_DIR`` is unset),
+    data dir off ``~/.agentnexus`` when ``AGENTNEXUS_DATA_DIR`` is unset),
     keeping the test from touching the developer's real local server.
 
     :param base_env: Fixture-provided credentials environment, e.g.
@@ -82,7 +82,7 @@ def _connect_env(base_env: Mapping[str, str], home: Path) -> dict[str, str]:
     env = dict(base_env)
     # The suite-level pytest data directory would otherwise override this
     # test's deliberately isolated HOME in the spawned CLI process.
-    env.pop("OMNIGENT_DATA_DIR", None)
+    env.pop("AGENTNEXUS_DATA_DIR", None)
     env["HOME"] = str(home)
     env["TERM"] = "xterm-256color"
     env["LINES"] = "40"
@@ -99,18 +99,18 @@ def _spawn_connect(
     Spawn ``omnigent host ""`` (local mode) under a real PTY.
 
     The empty positional argument selects local mode — connect spawns (or
-    reuses) the detached local Omnigent server and connects the foreground daemon
+    reuses) the detached local AgentNexus server and connects the foreground daemon
     to it. Databricks auth comes from the env (the ``--profile`` flag was
     removed from the omnigent CLI).
 
-    :param omnigent_python: Python interpreter with Omnigent installed.
+    :param omnigent_python: Python interpreter with AgentNexus installed.
     :param repo_root: Checkout root used as the subprocess cwd.
     :param env: Subprocess environment from :func:`_connect_env`.
     :returns: A live pexpect child.
     """
     return pexpect.spawn(
         str(omnigent_python),
-        ["-m", "omnigent", "host", ""],
+        ["-m", "agentnexus", "host", ""],
         env=dict(env),
         cwd=str(repo_root),
         encoding="utf-8",
@@ -128,7 +128,7 @@ def _read_local_server_record(home: Path) -> tuple[int, int]:
     :returns: ``(pid, port)`` recorded by ``ensure_local_omnigent_server``.
     :raises AssertionError: If the pidfile is missing or malformed.
     """
-    pid_path = home / ".omnigent" / "local_server.pid"
+    pid_path = home / ".agentnexus" / "local_server.pid"
     try:
         lines = pid_path.read_text().strip().splitlines()
         return int(lines[0]), int(lines[1])
@@ -222,14 +222,14 @@ def _prespawn_persistent_server(
     respawning — i.e. it reproduces "a server is already running that connect
     did not start".
 
-    :param omnigent_python: Python interpreter with Omnigent installed.
+    :param omnigent_python: Python interpreter with AgentNexus installed.
     :param repo_root: Checkout root used as the subprocess cwd.
     :param env: Subprocess environment (isolated HOME) from
         :func:`_connect_env`.
     :returns: ``(pid, port)`` of the running detached server.
     """
     code = (
-        "from omnigent.host.local_server import ensure_local_omnigent_server;"
+        "from agentnexus.host.local_server import ensure_local_omnigent_server;"
         "print(ensure_local_omnigent_server().url)"
     )
     proc = subprocess.run(

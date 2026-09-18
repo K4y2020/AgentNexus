@@ -215,7 +215,7 @@ def _build_mock_workspace_writer_bundle(mock_llm_server_url: str) -> bytes:
 # ── Workspace-rooted server+runner (for the agent-write tests) ─────────────────
 #
 # The shared ``live_server`` fixture spawns its runner with no
-# ``OMNIGENT_RUNNER_WORKSPACE``. That leaves the runner with no filesystem
+# ``AGENTNEXUS_RUNNER_WORKSPACE``. That leaves the runner with no filesystem
 # registry (so ``GET .../changes`` is always empty) AND resolves the agent's
 # ``sys_os_write`` cwd to a throwaway ``/tmp`` dir (so writes never land where a
 # watcher could see them) — see ``_effective_runner_os_env_spec`` and
@@ -280,7 +280,7 @@ def fs_ws_runner_id() -> str:
 
     :returns: Runner id string bound to a per-module binding token.
     """
-    from omnigent.runner.identity import token_bound_runner_id
+    from agentnexus.runner.identity import token_bound_runner_id
 
     if "runner_id" not in _fs_ws_runner_state:
         token = secrets.token_urlsafe(32)
@@ -299,7 +299,7 @@ def fs_ws_server(
 ) -> Iterator[str]:
     """Spawn an ``omnigent server`` + runner rooted at the isolated git workspace.
 
-    The runner is given ``OMNIGENT_RUNNER_WORKSPACE=fs_workspace`` (and the
+    The runner is given ``AGENTNEXUS_RUNNER_WORKSPACE=fs_workspace`` (and the
     server CWD matches), so ``create_filesystem_registry`` builds a
     :class:`GitFilesystemRegistry` over that workspace and the agent's relative
     ``sys_os_write`` lands inside it — the two prerequisites for writes to
@@ -322,11 +322,11 @@ def fs_ws_server(
         **os.environ,
         "OPENAI_API_KEY": llm_api_key,
         # PYTHONPATH stays the repo so the subprocess imports this worktree's
-        # omnigent; only the *workspace* (cwd / OMNIGENT_RUNNER_WORKSPACE) is
+        # omnigent; only the *workspace* (cwd / AGENTNEXUS_RUNNER_WORKSPACE) is
         # the throwaway git dir.
         "PYTHONPATH": f"{_REPO_ROOT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
-        "OMNIGENT_SKIP_ONBOARD": "1",
-        "OMNIGENT_NO_UPDATE_CHECK": "1",
+        "AGENTNEXUS_SKIP_ONBOARD": "1",
+        "AGENTNEXUS_NO_UPDATE_CHECK": "1",
         "OPENAI_BASE_URL": f"{mock_llm_server_url}/v1",
     }
 
@@ -335,7 +335,7 @@ def fs_ws_server(
         [
             sys.executable,
             "-m",
-            "omnigent.cli",
+            "agentnexus.cli",
             "server",
             "--port",
             str(port),
@@ -344,7 +344,7 @@ def fs_ws_server(
             "--artifact-location",
             str(artifact_dir),
         ],
-        env={**env, "OMNIGENT_RUNNER_TUNNEL_TOKEN": binding_token},
+        env={**env, "AGENTNEXUS_RUNNER_TUNNEL_TOKEN": binding_token},
         cwd=str(fs_workspace),
         stdout=log_handle,
         stderr=subprocess.STDOUT,
@@ -354,12 +354,12 @@ def fs_ws_server(
     runner_log = tmp_path_factory.mktemp("e2e_fs_runner_logs") / "runner.log"
     runner_log_handle = open(runner_log, "w")  # noqa: SIM115 — closed in cleanup below
     runner_proc = subprocess.Popen(
-        [sys.executable, "-m", "omnigent.runner._entry"],
+        [sys.executable, "-m", "agentnexus.runner._entry"],
         env={
             **env,
-            "OMNIGENT_RUNNER_ID": fs_ws_runner_id,
-            "OMNIGENT_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
-            "OMNIGENT_RUNNER_PARENT_PID": str(os.getpid()),
+            "AGENTNEXUS_RUNNER_ID": fs_ws_runner_id,
+            "AGENTNEXUS_RUNNER_TUNNEL_BINDING_TOKEN": binding_token,
+            "AGENTNEXUS_RUNNER_PARENT_PID": str(os.getpid()),
             "RUNNER_SERVER_URL": base_url,
             # The crux: without a workspace the runner builds no filesystem
             # registry (app.py) so writes never surface in GET .../changes,
@@ -367,7 +367,7 @@ def fs_ws_server(
             # the isolated git workspace so the GitFilesystemRegistry watches
             # the same tree the agent writes into. The real CLI sets this via
             # _start_cli_runner_process.
-            "OMNIGENT_RUNNER_WORKSPACE": str(fs_workspace),
+            "AGENTNEXUS_RUNNER_WORKSPACE": str(fs_workspace),
         },
         cwd=str(fs_workspace),
         stdout=runner_log_handle,
@@ -607,7 +607,7 @@ def test_filesystem_changes_appear_after_agent_write(
       boundary causes the file to be invisible.
 
     Uses the isolated git-workspace server+runner (``fs_ws_*``) rather than the
-    shared ``live_server``: the runner needs ``OMNIGENT_RUNNER_WORKSPACE`` set so
+    shared ``live_server``: the runner needs ``AGENTNEXUS_RUNNER_WORKSPACE`` set so
     it builds a filesystem registry and resolves ``sys_os_write`` into the
     watched tree (see the fixtures above). The agent writes into the throwaway
     workspace, so no repo-tree cleanup is needed.

@@ -5,11 +5,11 @@ from typing import Any
 
 import pytest
 
-from omnigent import claude_native, codex_native_app_server, gateway_inference
-from omnigent.claude_native import ClaudeNativeUcodeConfig
-from omnigent.codex_native_app_server import NativeCodexLaunch, native_codex_launch_base_url
-from omnigent.databricks_ai_gateway import is_databricks_ai_gateway_url
-from omnigent.gateway_inference import (
+from agentnexus import claude_native, codex_native_app_server, gateway_inference
+from agentnexus.claude_native import ClaudeNativeUcodeConfig
+from agentnexus.codex_native_app_server import NativeCodexLaunch, native_codex_launch_base_url
+from agentnexus.databricks_ai_gateway import is_databricks_ai_gateway_url
+from agentnexus.gateway_inference import (
     CLAUDE_GATEWAY_HARNESSES,
     CODEX_GATEWAY_HARNESSES,
     claude_gateway_inference_backed,
@@ -18,7 +18,7 @@ from omnigent.gateway_inference import (
     gateway_inference_state,
     not_gateway_backed,
 )
-from omnigent.inner import codex_executor
+from agentnexus.inner import codex_executor
 
 _GATEWAY_CODEX_URL = "https://example.cloud.databricks.com/ai-gateway/codex/v1"
 _GATEWAY_ANTHROPIC_URL = "https://example.cloud.databricks.com/ai-gateway/anthropic"
@@ -304,7 +304,7 @@ def test_codex_not_gateway_backed_for_cli_config_missing_provider_table(
 
 
 def _stub_codex_dismissed(monkeypatch: pytest.MonkeyPatch, dismissed: bool) -> None:
-    from omnigent.onboarding import detected
+    from agentnexus.onboarding import detected
 
     monkeypatch.setattr(detected, "codex_config_provider_dismissed", lambda _config: dismissed)
 

@@ -83,7 +83,7 @@ def _find_runner_pids() -> list[int]:
     next test.
     """
     result = subprocess.run(
-        ["pgrep", "-f", "omnigent.runner._entry"], capture_output=True, text=True
+        ["pgrep", "-f", "agentnexus.runner._entry"], capture_output=True, text=True
     )
     if result.returncode != 0:
         return []
@@ -190,7 +190,7 @@ def test_empty_terminal_view_remains_selectable_and_resumable(
 
     terminal_first = httpx.patch(
         f"{base_url}/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.ui": "terminal"}},
+        json={"labels": {"agentnexus.ui": "terminal"}},
         timeout=10.0,
     )
     terminal_first.raise_for_status()
@@ -332,7 +332,7 @@ def test_starting_terminal_view_shows_loading_without_resume(
 
     terminal_first = httpx.patch(
         f"{base_url}/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.ui": "terminal"}},
+        json={"labels": {"agentnexus.ui": "terminal"}},
         timeout=10.0,
     )
     terminal_first.raise_for_status()
@@ -414,7 +414,7 @@ def test_stopped_terminal_view_keeps_resume(page: Page, terminal_session: tuple[
 
     terminal_first = httpx.patch(
         f"{base_url}/v1/sessions/{session_id}",
-        json={"labels": {"omnigent.ui": "terminal"}},
+        json={"labels": {"agentnexus.ui": "terminal"}},
         timeout=10.0,
     )
     terminal_first.raise_for_status()
