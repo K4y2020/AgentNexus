@@ -141,6 +141,28 @@ class LoadSkillTool(Tool):
         return format_skill_content(skill, resources)
 
 
+def skill_resource_is_readable(skill: SkillSpec, rel_path: str) -> bool:
+    """Keep a documentation-only skill's implementation out of resource reads."""
+    if skill.resource_access == "all":
+        return True
+    if skill.skill_dir is None:
+        return False
+    root = skill.skill_dir.resolve()
+    resolved = (root / rel_path.replace("\\", "/")).resolve()
+    if not resolved.is_relative_to(root):
+        return False
+    relative = resolved.relative_to(root)
+    if len(relative.parts) == 1:
+        return relative.suffix.lower() == ".md"
+    return relative.parts[0] in {"references", "examples"} and relative.suffix.lower() in {
+        ".md",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+    }
+
+
 def list_skill_resources(skill: SkillSpec) -> list[str]:
     """
     List resource files in a skill's directory.
@@ -171,7 +193,7 @@ def list_skill_resources(skill: SkillSpec) -> list[str]:
             if fp.is_file():
                 rel = fp.relative_to(skill.skill_dir).as_posix()
                 files.append(rel)
-    return files
+    return [path for path in files if skill_resource_is_readable(skill, path)]
 
 
 def format_skill_content(
@@ -189,7 +211,7 @@ def format_skill_content(
     :returns: The skill content, optionally followed by
         an ``## Available files`` section.
     """
-    if not resource_files:
+    if not resource_files and (skill.skill_dir is None or skill.resource_access == "all"):
         return skill.content
 
     lines = [
@@ -199,9 +221,17 @@ def format_skill_content(
         "Resolve bundled scripts and resources relative to this directory; "
         "no filesystem search is needed.",
         "",
-        "## Available files",
-        "Use the read_skill_file tool to read these:",
     ]
+    if skill.resource_access == "documentation":
+        lines.extend(
+            [
+                "Packaged programs are execution entrypoints, not reading resources. "
+                "Run the documented command directly; read only task-relevant guidance below.",
+                "",
+            ]
+        )
+    if resource_files:
+        lines.extend(["## Available files", "Use read_skill_file only for task-relevant files:"])
     for path in resource_files:
         lines.append(f"- {path}")
     return "\n".join(lines)

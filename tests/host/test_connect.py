@@ -4069,6 +4069,43 @@ async def test_handle_model_options_serves_claude_sdk_endpoint_listing(
     _cleanup_host(host)
 
 
+async def test_handle_model_options_serves_openai_agents_gateway_listing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The configurable OpenAI Agents worker exposes its gateway catalog."""
+    from omnigent.model_catalog import ModelEntry, ModelListing
+
+    def _fake_listing(spec: object, harness: str) -> ModelListing:
+        assert harness == "openai-agents"
+        return ModelListing(
+            source="openai-compatible",
+            verified=True,
+            models=(
+                ModelEntry(id="gemini-3.8-flash-high", family="other"),
+                ModelEntry(id="gpt-5.6-luna", family="openai"),
+            ),
+            note="test gateway catalog",
+        )
+
+    monkeypatch.setattr("omnigent.model_catalog.list_provider_models_for_worker", _fake_listing)
+    host = _make_host_process()
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_openai_agents", harness="openai-agents"),
+    )
+
+    assert result == HostModelOptionsResultFrame(
+        request_id="req_openai_agents",
+        status="ok",
+        models=[
+            {"id": "gemini-3.8-flash-high", "displayName": "gemini-3.8-flash-high"},
+            {"id": "gpt-5.6-luna", "displayName": "gpt-5.6-luna"},
+        ],
+        routable_models=["gemini-3.8-flash-high", "gpt-5.6-luna"],
+    )
+    _cleanup_host(host)
+
+
 async def test_handle_fs_request_reads_an_absolute_file_target(tmp_path: Path) -> None:
     """Offline host fallback can root an authorized browse at a file."""
     target = tmp_path / "CLEANUP.md"

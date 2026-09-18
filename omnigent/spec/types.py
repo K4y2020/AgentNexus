@@ -892,6 +892,8 @@ class SkillSpec:
     content: str
     skill_dir: Path | None = None
     user_invocable: bool = True
+    # Opt-in instruction/resource boundary; this does not sandbox shell access.
+    resource_access: Literal["all", "documentation"] = "all"
 
 
 @dataclass

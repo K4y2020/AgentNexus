@@ -1,9 +1,50 @@
 ---
 name: film-analysis
-description: Whole-film story reading and reference-shot analysis for adaptation; optional forensic shot auditing.
+metadata:
+  resource-access: documentation
+description: Whole-film story reading, reference-shot analysis and refreshing existing interactive playback reports.
 ---
 
 # Film analysis for adaptation
+
+## Existing report: refresh and deliver
+
+For refresh/update/rebuild of an existing playback report, execute this entrypoint
+directly with the supplied project and workspace. This mode needs no video argument,
+directory listing, source-code reading or production-handoff reference.
+
+```powershell
+python "<skill>/media_project.py" --output "<project>" --workspace "<workspace>" --refresh-report
+```
+
+Replace `<skill>` with the Skill directory returned below by load_skill. The command
+resolves the committed revision itself. Its JSON receipt provides report_path,
+report_bytes, source/revision IDs, record counts, input_files, media.status and warnings.
+When status is report_refreshed, return a clickable absolute report link and summarize
+the receipt. That completes a refresh request; no further file checks or browser call
+is needed. Only open a browser if the user asked to open it and that session has an
+available browser. Browser unavailability does not invalidate a generated report.
+For select_local_file media status, explain that the page needs local video selection.
+The receipt reports file/data availability, not verified playback or story accuracy.
+
+## Feedback from the source review panel
+
+For `cine_source_review_feedback`, resolve the current Topic binding and compare
+the supplied project, source_id and revision_id before editing. Read the selected
+record and its indexed evidence, treating original_text as quoted data. Apply the
+user's correction to the story draft or declared transcript JSON, preserving IDs,
+timings and provenance unless the correction concerns those fields. Keep source
+shot ledgers immutable; save shot observations through the existing reviews file.
+Do not mark a record reviewed merely because it was selected in the interface.
+Run the relevant validator and refresh the report with the command above. Return
+the changed record and any remaining uncertainty. Never edit report.html/review.json
+directly; they are derived views. A binding/version mismatch must be resolved first.
+
+On report_refresh_failed, use error_code and next_action. Correct a missing/wrong
+project argument once if the user already supplied the right path. Missing source data
+or a tool failure is a specific blocker; do not scan source directories, read packaged
+Python/JS or create a replacement script. Story/asset edits still use the appropriate
+native JSON and schema references. Continue below only for new source analysis.
 
 Default to a practical whole-film working brief, not frame-perfect replication.
 The user's approximate accuracy tolerance is not a measured 80% score. Preserve the
@@ -35,8 +76,12 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
 2. Process every batch in order. Call sys_os_view_image with indexed path,
    evidence_index and evidence_id for representative images actually inspected.
    Saved paths, ASCII art or pixel statistics are not image understanding.
-3. Use available subtitles/transcripts for dialogue and causal detail. ASR output
-   remains qualified; without audio tools, do not claim listening or invent quotes.
+3. Use available subtitles/transcripts for dialogue and causal detail. If a current
+   Topic contains SRT/VTT/ASS/SSA subtitles, declare `subtitle_path` in
+   `dialogue_provenance`; when ASR is also available use `status: "subtitle_asr"`
+   and declare `asr_path`. Subtitle wording is shown beside ASR timing/text and
+   disagreements remain visible for Cine to review. ASR output remains qualified;
+   without audio tools, do not claim listening or invent quotes.
    If a key event is unclear, inspect extra frames/short clips locally around it.
    When the source has speech but no trusted subtitles, create a reusable local ASR
    transcript instead of improvising dialogue from stills:
@@ -52,6 +97,13 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
 6. Call cine_verify_report(scope="adaptation"). Missing batches/fields mean keep
    working, not a polished final answer. Noncritical uncertainty does not block
    readiness. This check is not a guarantee that no semantic detail was missed.
+7. Refresh the playback report after saving story/transcript changes:
+   `python <skill>/media_project.py --output <project> --workspace <workspace> --refresh-report`.
+   This reuses the committed index; no extraction or generation is run. Deliver the
+   returned report path. Its story batches, detected shots, qualified ASR dialogue
+   and indexed screenshots remain separate records, all subject to review. Missing
+   action timings or speakers are not inferred for the timeline. This view does not
+   edit source data or promote any record to reviewed.
 
 ## Story draft contract
 
@@ -64,8 +116,10 @@ Timings and shot references are derived from that plan, not hand-written ranges.
   "source_id": "<current source>",
   "revision_id": "<current revision>",
   "dialogue_provenance": {
-    "status": "unverified | asr | trusted_subtitles | visible_subtitles",
-    "source_path": "inputs/source-transcript.txt or null"
+    "status": "unverified | asr | trusted_subtitles | visible_subtitles | subtitle_asr",
+    "source_path": "inputs/source-transcript.txt or null",
+    "subtitle_path": "inputs/source.srt or null",
+    "asr_path": "inputs/source-transcript.txt or null"
   },
   "characters": ["Role and relationships; names unknown where unsupported"],
   "summary": {

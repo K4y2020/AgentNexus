@@ -1,10 +1,13 @@
 import { isCineAgent, openSeedanceCanvas } from "@/lib/seedanceCanvas";
+import { openCineReview } from "@/lib/cineReview";
+import { isOwnerLevel } from "@/lib/permissionsApi";
 import {
   BotIcon,
   PanelRightOpenIcon,
   PaletteIcon,
   EllipsisVerticalIcon,
   FileIcon,
+  FilmIcon,
   GitCompareIcon,
   InfoIcon,
   ListIcon,
@@ -506,6 +509,12 @@ export function ChatHeader({
         {/* Chat/Terminal switcher for terminal-first sessions — self-gates to
             null otherwise (and in the iOS shell, where it's the native bar). */}
         {conversationId && <ViewModeToggle />}
+        {conversationId && isCineSession && isOwnerLevel(actionConversation?.permission_level ?? null) && (
+          <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm"
+            aria-label="打开原片复核" onClick={() => openCineReview(conversationId)}>
+            <FilmIcon /><span className="hidden sm:inline">原片复核</span>
+          </Button></TooltipTrigger><TooltipContent>打开原片复核</TooltipContent></Tooltip>
+        )}
         {conversationId && isCineSession && (
           <Button
             asChild

@@ -27,6 +27,7 @@ triggers:
   - scene bible
   - prop sheet
 metadata:
+  resource-access: documentation
   license: Apache-2.0
   requires:
     bins:

@@ -27,6 +27,10 @@ prompt: |
   character settings/three views -> novel-characters; environments/props -> novel-art;
   script -> novel-script; shots -> novel-storyboard. Do not restart film analysis
   or reconstruct upstream story documents for a local asset revision.
+  Existing playback report refresh -> load film-analysis, run its refresh entrypoint,
+  then deliver the structured receipt and report link. File counts, input paths and
+  media warnings come from that receipt; no source-code inspection or browser launch
+  is required. Open a browser only on an explicit request with an available session.
 
   For a short scene with a sufficient brief, go directly to script and shots;
   use outline only when adaptation/episode planning is needed. Reuse confirmed
@@ -59,6 +63,11 @@ prompt: |
   owning skills' bounded review/revision process; do not create more agents.
 
   Creative execution boundary:
+  - Treat packaged Python/JS/templates as executable tools, not creative reference
+    material. Read SKILL.md, task-relevant schema/reference documents and project
+    story/asset JSON. Do not read implementation files through read_skill_file,
+    sys_os_read or shell to infer usage or justify a successful receipt. A tool's
+    implementation error goes to maintenance with its error receipt, not a code search.
   - Read/write creative text, native JSON and reports in this Topic. For repeatable
     media processing/validation/rendering, run only the packaged skill commands
     at the paths returned by load_skill. Do not write one-off Python/JS/PowerShell
@@ -119,9 +128,13 @@ prompt: |
      Use --profile forensic only for explicit detailed shot auditing.
   3. Follow story_plan.json in order. Inspect its images with sys_os_view_image using
      evidence_index/evidence_id. Read available subtitles/transcript as supporting
-     evidence. When dialogue matters and trusted subtitles are absent, use the packaged
-     film-analysis pipeline/transcribe.py entry to create source-transcript.txt and
-     record dialogue_provenance in the story draft. ASR remains qualified. Never create
+     evidence. If an SRT, VTT, ASS or SSA file exists for the current source, declare
+     its Topic-relative subtitle_path in dialogue_provenance. When dialogue matters
+     and trusted subtitles are absent, use the packaged film-analysis pipeline/transcribe.py
+     entry to create source-transcript.txt and record asr_path/source_path in the story
+     draft. With both sources use status=subtitle_asr: subtitles supply wording, ASR
+     supplies timing and gap checks, and every disagreement stays visible for review.
+     ASR remains qualified. Never create
      inputs/source.txt from screenshots or a visual summary and call it source dialogue.
      If ASR is unavailable, disclose dialogue uncertainty and do not invent quotes.
      Inspect extra frames/short clips only where a key event or transition is unclear.

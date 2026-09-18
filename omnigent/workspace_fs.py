@@ -96,6 +96,11 @@ class WorkspaceReader:
 
     # ── Path confinement ──────────────────────────────────────────
 
+    def cine_review(self, session_id: str, params: dict) -> dict:
+        from omnigent.cine_review import read_review
+
+        return read_review(self._root, session_id, params)
+
     def _resolve(self, path: str) -> Path:
         """Resolve a relative path to an absolute path under the root.
 

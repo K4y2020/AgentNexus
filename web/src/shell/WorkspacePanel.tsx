@@ -2,6 +2,7 @@ import {
   BotIcon,
   CheckIcon,
   FileIcon,
+  FilmIcon,
   FolderTreeIcon,
   FileDiffIcon,
   GlobeIcon,
@@ -31,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TerminalView } from "@/components/blocks/TerminalView";
 import { BrowserPane } from "@/components/BrowserPane/BrowserPane";
 import { SeedanceCanvasPanel } from "./SeedanceCanvasPanel";
+import { CineReviewPanel } from "./CineReviewPanel";
 import { useSessionAgent } from "@/hooks/useAgents";
 import type { SessionLiveness } from "@/hooks/useSessionLiveness";
 import { terminalTabKey, useCreateTerminal, useTerminals } from "@/hooks/useTerminals";
@@ -566,6 +568,7 @@ interface WorkspacePanelProps {
    *  plain web build, which has no embedded WebContentsView). */
   showBrowserTab: boolean;
   canvasUrl?: string;
+  showCineReview?: boolean;
   /** Count of changed files, shown as the Changes tab badge. */
   changedCount: number;
   /** How many child agents are actively working (Agents tab badge). */
@@ -658,6 +661,7 @@ export function WorkspacePanel({
   showFilesPanel,
   showBrowserTab,
   canvasUrl,
+  showCineReview,
   changedCount,
   subagentsWorking,
   agentCount,
@@ -829,6 +833,13 @@ export function WorkspacePanel({
                 <span className="sr-only">Coordination</span>
               </TabsTrigger>
             </WorkspaceTabTooltip>
+            {showCineReview && (
+              <WorkspaceTabTooltip label="原片复核">
+                <TabsTrigger value="cine-review" aria-label="原片复核">
+                  <FilmIcon /><span className="sr-only">原片复核</span>
+                </TabsTrigger>
+              </WorkspaceTabTooltip>
+            )}
             {canvasUrl && (
               <WorkspaceTabTooltip label="Seedance canvas">
                 <TabsTrigger value="canvas" aria-label="Seedance canvas">
@@ -955,6 +966,9 @@ export function WorkspacePanel({
             onCommentsOpenChange={onCommentsOpenChange}
             sort={filesPanelSort}
           />
+        ) : rightRailTab === "cine-review" && showCineReview ? (
+          <CineReviewPanel key={conversationId} conversationId={conversationId}
+            onFeedback={() => { if (maximized) onToggleMaximized(); }} />
         ) : rightRailTab === "canvas" && canvasUrl ? (
           <SeedanceCanvasPanel url={canvasUrl} />
         ) : rightRailTab === "browser" && showBrowserTab ? (

@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 from .probe import _sha256_chunk
@@ -176,9 +177,12 @@ def index_media(
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", required=True, type=Path)
+    parser.add_argument("--video", type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--refresh-report", action="store_true")
     parser.add_argument("--start", type=float, default=0)
     parser.add_argument("--end", type=float)
     parser.add_argument("--profile", choices=["adaptation", "forensic"], default="adaptation")
@@ -186,6 +190,34 @@ def main() -> None:
     parser.add_argument("--session-id")
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     args = parser.parse_args()
+    if args.refresh_report:
+        try:
+            from .render import refresh_report
+
+            result = refresh_report(args.output, args.workspace, with_receipt=True)
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, ImportError) as exc:
+            if isinstance(exc, FileNotFoundError):
+                code = "REPORT_INPUT_MISSING"
+                action = "Check the supplied project path or restore the named input file."
+            elif isinstance(exc, (ValueError, KeyError, TypeError)):
+                code = "REPORT_INPUT_INVALID"
+                action = "Check the project/workspace arguments and the named input data."
+            else:
+                code = "REPORT_TOOL_ERROR"
+                action = "Report this receipt to maintenance; do not inspect or rewrite tool code."
+            result = {
+                "status": "report_refresh_failed",
+                "error_code": code,
+                "error": str(exc),
+                "project_path": str(args.output),
+                "next_action": action,
+            }
+        print(json.dumps(result, ensure_ascii=False))
+        if result["status"] != "report_refreshed":
+            raise SystemExit(2)
+        return
+    if args.video is None:
+        parser.error("--video is required unless --refresh-report is selected")
     result = index_media(
         args.video,
         args.output,

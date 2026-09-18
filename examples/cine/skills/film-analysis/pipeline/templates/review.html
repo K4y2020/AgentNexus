@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cine · 原片拉片 · {{ source_name }}</title>
+<style>{% include 'review.css' %}</style>
+</head>
+<body>
+<header class="masthead">
+  <div><span class="brand">CINE</span><span class="divider">/</span><h1>原片拉片</h1></div>
+  <span class="source-name" title="{{ source_name }}">{{ source_name }}</span>
+  <span class="status">待复核</span>
+</header>
+<main>
+  <div class="workspace">
+    <section class="viewing" aria-label="视频与时间线">
+      <div class="section-bar"><h2>原片</h2><span>{{ duration_s }} · {{ shots|length }} 个检测镜头</span></div>
+      {% if cross_drive %}
+      <!-- media not co-located; open report from the project directory -->
+      {% endif %}
+      <div class="media-stage">
+        <video id="player" controls preload="metadata" playsinline>
+          <source src="{{ media_rel_path }}" type="video/mp4">
+        </video>
+      </div>
+      <p id="media-error" class="notice" hidden>原片暂时无法播放，请重新选择本地原片。</p>
+      <div class="transport">
+        <output id="clock">00:00.0</output><span class="muted">/ {{ duration_s }}</span>
+        <button id="replay" type="button" disabled>片段回放</button>
+        <label><input id="loop" type="checkbox"> 循环</label>
+        <label class="file-button">选择本地原片<input id="local-video" type="file" accept="video/*"></label>
+      </div>
+      <section class="timeline-section" aria-label="拉片时间线">
+        <div class="section-bar timeline-tools">
+          <h2>时间线</h2>
+          <label>范围 <select id="zoom"><option value="all">全片</option><option value="60">60 秒</option><option value="30" selected>30 秒</option><option value="10">10 秒</option></select></label>
+          <label><input id="follow" type="checkbox" checked> 跟随播放</label>
+        </div>
+        <div class="filters" role="group" aria-label="时间线轨道">
+          <label class="story"><input type="checkbox" data-track="story" checked> 剧情 <span id="count-story"></span></label>
+          <label class="shot"><input type="checkbox" data-track="shot" checked> 镜头 <span id="count-shot"></span></label>
+          <label class="dialogue"><input type="checkbox" data-track="dialogue" checked> 对白 <span id="count-dialogue"></span></label>
+          <input type="search" id="search" aria-label="搜索拉片记录" placeholder="搜索记录">
+        </div>
+        <div class="timeline-layout">
+          <div id="lane-labels" aria-hidden="true"></div>
+          <div id="timeline-scroll" tabindex="0" aria-label="时间线横向滚动">
+            <div id="timeline"><div id="ruler"></div><div id="tracks"></div><div id="playhead"></div></div>
+          </div>
+        </div>
+        <p id="no-results" class="empty" hidden>没有匹配的记录</p>
+        <div class="evidence-heading"><h2>抽帧证据</h2><span id="evidence-count"></span></div>
+        <div id="evidence-strip"></div>
+      </section>
+    </section>
+    <aside class="inspector" aria-label="剧情与证据详情">
+      <div class="tabs" role="tablist" aria-label="详情视图">
+        <button id="summary-tab" type="button" role="tab" aria-selected="true" aria-controls="summary-panel">剧情概览</button>
+        <button id="detail-tab" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" tabindex="-1">记录详情</button>
+      </div>
+      <section id="summary-panel" role="tabpanel" aria-labelledby="summary-tab">
+        <p class="eyebrow">原片解读 · 待核验</p>
+        {% for key, label in [('premise', '开端'), ('conflict', '主要冲突'), ('turning_points', '转折'), ('ending', '结尾')] %}
+        <h3>{{ label }}</h3>
+        {% if review.summary.get(key) %}
+          {% if key == 'turning_points' %}<ul>{% for point in review.summary[key] %}<li>{{ point }}</li>{% endfor %}</ul>
+          {% else %}<p>{{ review.summary[key] }}</p>{% endif %}
+        {% else %}<p class="muted">尚未记录</p>{% endif %}
+        {% endfor %}
+        <h3>人物与关系</h3>
+        {% if review.characters %}<ul>{% for character in review.characters %}<li>{{ character }}</li>{% endfor %}</ul>
+        {% else %}<p class="muted">尚未记录</p>{% endif %}
+      </section>
+      <section id="detail-panel" role="tabpanel" aria-labelledby="detail-tab" hidden>
+        <p id="detail-status" class="eyebrow">尚未选择记录</p>
+        <h3 id="detail-title">记录详情</h3>
+        <p id="detail-time" class="mono"></p><p id="detail-speaker" class="muted"></p><p id="detail-source" class="muted"></p>
+        <p id="detail-text" class="prose"></p>
+        <div id="detail-dialogue-compare" class="compare" hidden></div>
+        <p id="detail-connection" class="prose"></p>
+        <ul id="detail-uncertainties"></ul>
+        <p id="detail-id" class="record-id"></p>
+        <div id="detail-images"></div>
+      </section>
+    </aside>
+  </div>
+  {% if review.warnings %}<div class="notice">{% for warning in review.warnings %}<p>{{ warning }}</p>{% endfor %}</div>{% endif %}
+  <details class="audit"><summary>索引与校验记录 <span>{{ revision_id[:12] }}</span></summary>
+    <p>结构校验：{% if not has_validation %}未执行{% elif validation_passed %}通过{% else %}未通过{% endif %}。语义与视听内容仍待复核。</p>
+    <p>Source: {{ review.sourceId }} · Revision: {{ revision_id }}</p>
+    <div class="table-scroll"><table><caption>切点候选（{{ candidate_count }}）</caption><thead><tr><th>序号</th><th>PTS</th><th>时间（秒）</th><th>检测器</th><th>状态</th><th>证据文件</th></tr></thead><tbody>
+    {% for row in candidate_rows %}<tr><td>{{ loop.index }}</td><td>{{ row.pts }}</td><td>{{ '%.3f'|format(row.pts_seconds) }}</td><td>{{ row.detector }}</td><td class="badge-{{ row.status }}">{{ row.status }}</td><td>{% for url in row.evidence %}<a href="{{ url }}">{{ loop.index }}</a> {% endfor %}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% for issue in validation_issues %}<p>{{ issue.severity }} · {{ issue.code }} · {{ issue.message }}</p>{% endfor %}
+  </details>
+</main>
+<dialog id="image-dialog"><button id="close-image" type="button">关闭</button><img id="full-image" alt=""><p id="full-image-caption"></p></dialog>
+<script id="review-data" type="application/json">{{ review|tojson }}</script>
+<script>{% include 'review.js' %}</script>
+</body>
+</html>

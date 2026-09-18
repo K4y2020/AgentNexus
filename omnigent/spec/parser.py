@@ -2442,12 +2442,22 @@ def _parse_skill(skill_md: Path) -> SkillSpec:
     # ``user-invocable: false`` marks an internal orchestration skill that
     # the user should not invoke directly; absent/true ⇒ invocable.
     user_invocable = not _falsey_flag(frontmatter.get("user-invocable", True))
+    metadata = frontmatter.get("metadata")
+    resource_access = (
+        metadata.get("resource-access", "all") if isinstance(metadata, dict) else "all"
+    )
+    if resource_access not in ("all", "documentation"):
+        raise OmnigentError(
+            f"SKILL.md metadata.resource-access must be all or documentation: {skill_md}",
+            code=ErrorCode.INVALID_INPUT,
+        )
     return SkillSpec(
         name=str(name),
         description=str(description),
         content=content.strip(),
         skill_dir=skill_md.parent,
         user_invocable=user_invocable,
+        resource_access=resource_access,
     )
 
 

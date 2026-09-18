@@ -608,6 +608,10 @@ def register_resources_routes(
             # runner proxy, which wraps non-200/404 responses as a 502.
             raise HTTPException(status_code=502, detail=exc.message) from exc
 
+    from omnigent.server.routes.cine_review import register_cine_review_routes
+
+    register_cine_review_routes(router, _validate_session, _read_workspace_via_host)
+
     async def _proxy_post_to_runner(
         session_id: str,
         path: str,

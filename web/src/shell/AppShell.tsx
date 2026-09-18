@@ -31,6 +31,8 @@ import {
 import { onBrowserActionRequest } from "@/lib/browserActionBus";
 import { isCineAgent, onSeedanceCanvasOpen, seedanceEmbedUrl, SeedanceCanvasContext } from "@/lib/seedanceCanvas";
 import { SeedanceCanvasPanel } from "./SeedanceCanvasPanel";
+import { CineReviewPanel } from "./CineReviewPanel";
+import { onCineReviewOpen } from "@/lib/cineReview";
 import {
   buildDesignModePrompt,
   dataUrlToFile,
@@ -468,8 +470,10 @@ export function AppShell() {
   const sessionLabels = { ...activeConv?.labels, ...activeSession?.labels };
   const [canvasRequest, setCanvasRequest] = useState<{ conversationId: string | undefined; url: string } | null>(null);
   const [canvasDialogOpen, setCanvasDialogOpen] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const boundCanvasProject = sessionLabels["seedance.project_id"];
   const cineCanvasEnabled = activeSession?.parentSessionId == null && isCineAgent(activeSession?.agentName ?? activeConv?.agent_name ?? boundAgent?.name);
+  const cineReviewEnabled = cineCanvasEnabled && isOwnerLevel(permissionLevel);
   const requestedCanvasUrl = canvasRequest?.conversationId === conversationId ? canvasRequest?.url : undefined;
   const canvasBaseUrl = requestedCanvasUrl ?? (typeof boundCanvasProject === "string"
     ? seedanceEmbedUrl(`http://127.0.0.1:5173/?project=${encodeURIComponent(boundCanvasProject)}`) ?? undefined
@@ -485,6 +489,7 @@ export function AppShell() {
   })();
   useEffect(() => {
     setCanvasDialogOpen(false);
+    setReviewDialogOpen(false);
   }, [conversationId]);
   const terminalFirst = sessionLabels["omnigent.ui"] === "terminal";
   const isClaudeNative = sessionLabels["omnigent.wrapper"] === "claude-code-native-ui";
@@ -779,6 +784,7 @@ export function AppShell() {
         // surface a dead tab whose calls no-op.
         browser: supportsBrowser(),
         canvas: Boolean(canvasUrl),
+        "cine-review": cineReviewEnabled,
         // Agents tab is unconditional: the panel always lists at least
         // the main agent (its "main" row), so there's never a dead end.
         subagents: true,
@@ -788,7 +794,7 @@ export function AppShell() {
         // rail's tab strip (see WorkspacePanel's TerminalTabsStrip / "+"
         // menu). Mobile keeps a shells drawer (see ``showShellsTab`` below).
       }) as const,
-    [showFilesPanel, canvasUrl],
+    [showFilesPanel, canvasUrl, cineReviewEnabled],
   );
   // Whether the rail has anything at all to show. When false the workspace
   // card doesn't mount and the header hides its collapse toggle — a
@@ -1199,6 +1205,22 @@ export function AppShell() {
       setRightPanelOpen(true);
     }
   }), [conversationId, boundCanvasProject, clearFileViewerUrl, cineCanvasEnabled]);
+
+  useEffect(() => onCineReviewOpen((session) => {
+    if (!cineReviewEnabled || session !== conversationId) return;
+    if (isMobileViewport()) setReviewDialogOpen(true);
+    else {
+      setSelectedFilePath(null);
+      setSelectedTerminalKey(null);
+      setFileViewerCommentsOpen(false);
+      clearFileViewerUrl();
+      setPanelInitialKey(null);
+      setExecutionLogsKey(null);
+      setFilesPanelOpen(false);
+      setRightRailTab("cine-review");
+      setRightPanelOpen(true);
+    }
+  }), [conversationId, cineReviewEnabled, clearFileViewerUrl]);
 
   // Toggle the right (Workspace) sidebar — shared by the header's collapse
   // button and the ⌘⌥]/Ctrl+Alt+] hotkey so they can't drift. Beyond flipping the
@@ -2026,6 +2048,7 @@ export function AppShell() {
                     showFilesPanel={showFilesPanel}
                     showBrowserTab={railTabsAvailable.browser}
                     canvasUrl={canvasUrl}
+                    showCineReview={cineReviewEnabled}
                     changedCount={changedCount}
                     subagentsWorking={subagentsWorking}
                     agentCount={agentCount}
@@ -2199,6 +2222,13 @@ export function AppShell() {
                 <DialogTitle>Seedance V3</DialogTitle>
               </DialogHeader>
               {canvasUrl && <SeedanceCanvasPanel url={canvasUrl} />}
+            </DialogContent>
+          </Dialog>
+          <Dialog open={reviewDialogOpen && cineReviewEnabled} onOpenChange={setReviewDialogOpen}>
+            <DialogContent className="flex h-[90dvh] max-w-[96vw] flex-col gap-0 p-0 sm:max-w-[96vw]" aria-describedby={undefined}>
+              <DialogHeader className="shrink-0 px-4 py-4 pr-16"><DialogTitle>原片复核</DialogTitle></DialogHeader>
+              {conversationId && <CineReviewPanel key={conversationId} conversationId={conversationId}
+                onFeedback={() => setReviewDialogOpen(false)} />}
             </DialogContent>
           </Dialog>
           <KeyboardShortcutsDialog />

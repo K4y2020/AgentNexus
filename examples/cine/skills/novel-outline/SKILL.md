@@ -23,6 +23,7 @@ triggers:
   - 大纲体检
   - adaptation outline
 metadata:
+  resource-access: documentation
   license: Apache-2.0
   requires:
     bins:

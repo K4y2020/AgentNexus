@@ -125,6 +125,15 @@ class ReadSkillFileTool(Tool):
             return f"Error: skill {skill_name!r} not found. Available skills: {available}"
         if skill.skill_dir is None:
             return "Error: skill has no directory on disk (loaded from in-memory config)."
+        from omnigent.tools.builtins.load_skill import skill_resource_is_readable
+
+        if not skill_resource_is_readable(skill, rel_path):
+            return (
+                "Error: SKILL_RESOURCE_DOCUMENTATION_ONLY. This skill exposes instructions, "
+                "reference documents and example data for reading. Run its documented commands "
+                "without reading implementation files. Use the command's result/error receipt; "
+                "do not retry the source read through shell or file tools."
+            )
         return _read_file_safely(skill.skill_dir, rel_path)
 
 

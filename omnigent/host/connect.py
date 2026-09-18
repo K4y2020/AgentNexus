@@ -2738,12 +2738,13 @@ class HostProcess:
                 models=pi_models,
             )
 
-        if harness == "codex":
-            # Gateway-truth lane for the wrapped Codex partner. Unlike the
-            # native CLI picker above, this list comes from the active OpenAI
-            # provider's /v1/models endpoint and remains unfiltered and in
-            # endpoint order. The bearer credential stays inside the host-side
-            # request made by model_catalog and is never serialized here.
+        if harness in ("codex", "openai-agents", "openai-agents-sdk"):
+            # Gateway-truth lane for multi-model workers. Unlike the native CLI
+            # picker above, this list comes from the worker's configured
+            # provider and remains unfiltered and in endpoint order. The
+            # bearer credential stays inside the host-side request made by
+            # model_catalog and is never serialized here.
+            worker_harness = "codex" if harness == "codex" else "openai-agents"
             try:
                 from omnigent.model_catalog import list_provider_models_for_worker
                 from omnigent.spec.types import AgentSpec, ExecutorSpec
@@ -2753,20 +2754,20 @@ class HostProcess:
                     name="codex-gateway-prelaunch",
                     executor=ExecutorSpec(
                         type="omnigent",
-                        config={"harness": "codex"},
+                        config={"harness": worker_harness},
                     ),
                 )
                 listing = await asyncio.to_thread(
                     list_provider_models_for_worker,
                     codex_spec,
-                    "codex",
+                    worker_harness,
                 )
             except Exception:
-                _logger.exception("Failed to resolve pre-launch Codex gateway model options")
+                _logger.exception("Failed to resolve pre-launch %s model options", worker_harness)
                 return HostModelOptionsResultFrame(
                     request_id=frame.request_id,
                     status="failed",
-                    error="failed to resolve Codex gateway model options",
+                    error=f"failed to resolve {worker_harness} gateway model options",
                 )
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
@@ -2899,6 +2900,8 @@ class HostProcess:
         from omnigent.workspace_fs import WorkspaceReader
 
         r = cast("WorkspaceReader", reader)
+        if op == "cine_review":
+            return r.cine_review(session_id, params)
         if op == "list_or_read":
             return r.list_or_read(
                 str(params.get("path", "")),

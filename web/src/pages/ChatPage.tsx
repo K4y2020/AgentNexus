@@ -127,6 +127,7 @@ import {
 } from "@/lib/nativeCodingAgents";
 import { readAlwaysSteer } from "@/lib/alwaysSteerPreferences";
 import { isComposerSendKey, readSubmitWithModEnter } from "@/lib/composerSendShortcutPreferences";
+import { onCineReviewFeedback } from "@/lib/cineReview";
 import {
   buildMentionPreamble,
   detectMentionAt,
@@ -1204,7 +1205,10 @@ export function ChatPage() {
         ? "claude-native"
         : activeSession?.harness === "claude-sdk"
           ? "claude-sdk"
-          : null;
+          : activeSession?.harness === "openai-agents" ||
+              activeSession?.harness === "openai-agents-sdk"
+            ? "openai-agents"
+            : null;
   const { data: hostProbeOptions } = useHostModelOptions(
     activeSession?.hostId ?? null,
     hostProbeHarness ?? "",
@@ -1331,7 +1335,12 @@ export function ChatPage() {
   // the same session model_override path becomes reachable from the composer.
   const modelPickerKind: NativeModelPickerKind | null =
     nativeModelPickerKind ??
-    (activeSession?.harness === "claude-sdk" && codexModelOptions.length > 0 ? "sdk" : null);
+    ((activeSession?.harness === "claude-sdk" ||
+      activeSession?.harness === "openai-agents" ||
+      activeSession?.harness === "openai-agents-sdk") &&
+    codexModelOptions.length > 0
+      ? "sdk"
+      : null);
   // Effort ladders key on the model the session is actually on — the
   // reported `llmModel` — falling back to the sticky preference only
   // before the first report lands.
@@ -3404,11 +3413,12 @@ function UserBubble({ bubble }: { bubble: Extract<Bubble, { kind: "user" }> }) {
                     <SessionImage
                       key={img.file_id ?? `inline-image-${index}`}
                       path={
-                        typeof img.image_url === "string" && /^data:image\/(png|jpeg|webp);base64,/i.test(img.image_url)
+                        typeof img.image_url === "string" &&
+                        /^data:image\/(png|jpeg|webp);base64,/i.test(img.image_url)
                           ? img.image_url
                           : sessionId && img.file_id
-                          ? `/v1/sessions/${encodeURIComponent(sessionId)}/resources/files/${encodeURIComponent(img.file_id)}/content`
-                          : undefined
+                            ? `/v1/sessions/${encodeURIComponent(sessionId)}/resources/files/${encodeURIComponent(img.file_id)}/content`
+                            : undefined
                       }
                       alt={img.filename ?? img.file_id ?? "Attached image"}
                       // Sizing lives in SessionImage, which reserves a matching
@@ -4543,6 +4553,17 @@ export function Composer({
     if (!conversationId || settledConversationId !== conversationId || !dirtyRef.current) return;
     setSessionDraft(conversationId, { text: value, files });
   }, [conversationId, settledConversationId, value, files]);
+
+  useEffect(
+    () =>
+      onCineReviewFeedback((session, text) => {
+        if (session !== conversationId) return;
+        dirtyRef.current = true;
+        setValue((previous) => [previous, text].filter(Boolean).join("\n\n"));
+        if (!isMobileRef.current) textareaRef.current?.focus();
+      }),
+    [conversationId],
+  );
 
   // Adding a reply quote (via the floating "Reply" button) should drop the
   // caret straight into the composer so the user can type immediately. Only
@@ -6533,7 +6554,9 @@ function SessionConfigModal({
                   data-testid="composer-config-permission-mode"
                   aria-label="Permission mode"
                 >
-                  <SelectValue>{claudePermissionModeLabel(draftPermissionMode || "default")}</SelectValue>
+                  <SelectValue>
+                    {claudePermissionModeLabel(draftPermissionMode || "default")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent position="popper" align="start">
                   {CLAUDE_NATIVE_SWITCHABLE_PERMISSION_MODES.map((mode) => (
@@ -6702,7 +6725,9 @@ function ComposerConfigGear({
                 setOpen(true);
               }}
               data-testid="composer-config-gear"
-              aria-label={currentTeammate ? `Configure ${currentTeammate.agent.name}` : "Configure session"}
+              aria-label={
+                currentTeammate ? `Configure ${currentTeammate.agent.name}` : "Configure session"
+              }
             >
               <SettingsIcon className="size-4" data-icon-size="16" />
             </Button>

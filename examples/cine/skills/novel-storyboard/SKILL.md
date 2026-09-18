@@ -28,6 +28,7 @@ triggers:
   - storyboard
   - shot list
 metadata:
+  resource-access: documentation
   license: Apache-2.0
   requires:
     bins:

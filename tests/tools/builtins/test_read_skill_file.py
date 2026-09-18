@@ -25,6 +25,48 @@ def test_utf8_resource_ignores_windows_locale(tmp_path, monkeypatch):
     assert _read_file_safely(tmp_path, "SKILL.md") == content
 
 
+def test_documentation_access_preserves_data_and_blocks_alternate_source_paths(tmp_path, tool_ctx):
+    from dataclasses import replace
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "references").mkdir()
+    (tmp_path / "scripts/tool.py").write_text("SECRET_IMPLEMENTATION", encoding="utf-8")
+    (tmp_path / "references/schema.json").write_text('{"fields": []}', encoding="utf-8")
+    skill = SkillSpec(
+        name="creative", description="creative", content="Run tool", skill_dir=tmp_path
+    )
+    args = {"skill_name": "creative", "path": "scripts/tool.py"}
+    assert ReadSkillFileTool([skill]).invoke(json.dumps(args), tool_ctx) == "SECRET_IMPLEMENTATION"
+    reader = ReadSkillFileTool([replace(skill, resource_access="documentation")])
+    for path in ["scripts/tool.py", "references/../scripts/tool.py", "scripts\\tool.py"]:
+        result = reader.invoke(json.dumps({**args, "path": path}), tool_ctx)
+        assert "DOCUMENTATION_ONLY" in result and "SECRET_IMPLEMENTATION" not in result
+    assert (
+        reader.invoke(json.dumps({**args, "path": "references/schema.json"}), tool_ctx)
+        == '{"fields": []}'
+    )
+    try:
+        (tmp_path / "references/guide.md").symlink_to(tmp_path / "scripts/tool.py")
+    except OSError:
+        return
+    assert "DOCUMENTATION_ONLY" in reader.invoke(
+        json.dumps({**args, "path": "references/guide.md"}), tool_ctx
+    )
+
+
+def test_skill_parser_rejects_unknown_resource_access(tmp_path):
+    from omnigent.errors import OmnigentError
+    from omnigent.spec.parser import _parse_skill
+
+    path = tmp_path / "SKILL.md"
+    path.write_text(
+        "---\nname: sample\ndescription: sample\nmetadata:\n  resource-access: typo\n---\nRun",
+        encoding="utf-8",
+    )
+    with pytest.raises(OmnigentError, match="resource-access"):
+        _parse_skill(path)
+
+
 @pytest.fixture()
 def skill_with_resources(tmp_path: Path) -> SkillSpec:
     """

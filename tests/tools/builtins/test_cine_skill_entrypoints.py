@@ -14,6 +14,7 @@ from omnigent.runtime.prompt import (
 from omnigent.spec.parser import _parse_skill, parse
 from omnigent.tools.base import ToolContext
 from omnigent.tools.builtins.load_skill import LoadSkillTool, format_skill_meta_text
+from omnigent.tools.builtins.read_skill_file import ReadSkillFileTool
 
 
 def test_cine_uses_gateway_neutral_harness_for_configurable_models():
@@ -21,6 +22,38 @@ def test_cine_uses_gateway_neutral_harness_for_configurable_models():
     spec = parse(root)
     assert spec.executor.type == "omnigent"
     assert spec.executor.config["harness"] == "openai-agents"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "film-analysis",
+        "novel-outline",
+        "novel-script",
+        "novel-storyboard",
+        "novel-characters",
+        "novel-art",
+    ],
+)
+def test_cine_exposes_guidance_but_not_tool_implementations(name):
+    root = Path(__file__).resolve().parents[3] / "examples/cine/skills"
+    skill = _parse_skill(root / name / "SKILL.md")
+    assert skill.resource_access == "documentation"
+    ctx = ToolContext(task_id="", conversation_id="", agent_id="")
+    load = LoadSkillTool([skill], skills_filter="none").invoke(json.dumps({"name": name}), ctx)
+    listing = load.split("## Available files")[-1]
+    assert ".mjs" not in listing and ".py" not in listing
+    reader = ReadSkillFileTool([skill])
+    path = (
+        "references/production-handoff.md" if name == "film-analysis" else "references/schema.md"
+    )
+    assert not reader.invoke(json.dumps({"skill_name": name, "path": path}), ctx).startswith(
+        "Error:"
+    )
+    code = "media_project.py" if name == "film-analysis" else f"scripts/{name}.mjs"
+    assert "DOCUMENTATION_ONLY" in reader.invoke(
+        json.dumps({"skill_name": name, "path": code}), ctx
+    )
 
 
 @pytest.mark.parametrize("name", ["novel-script", "novel-storyboard"])
