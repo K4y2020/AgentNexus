@@ -214,7 +214,7 @@ class _FakeImage:
     Recorder for a ``modal.Image.from_registry`` definition.
 
     :param tag: The registry image reference, e.g.
-        ``"ghcr.io/omnigent-ai/omnigent-host:latest"``.
+        ``"ghcr.io/K4y2020/AgentNexus-host:latest"``.
     :param secret: Registry-credentials secret, or ``None`` for an
         anonymous pull.
     """

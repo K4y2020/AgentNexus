@@ -3,7 +3,7 @@
 Both polly and debby once declared an optional ``opencode`` sub-agent
 (``harness: opencode-native``). Shipping a sub-agent whose harness older
 clients don't recognize made every old runner/host fail to launch the agent at
-all — the version-skew incident behind omnigent-ai/omnigent#1145. That incident
+all — the version-skew incident behind K4y2020/AgentNexus#1145. That incident
 is now mitigated on the execution path: ``spec.load(...,
 prune_invalid_sub_agents=True)`` (runner ``_entry`` + server ``agent_cache``)
 gracefully DROPS a sub-agent whose harness a client doesn't recognize, so an old

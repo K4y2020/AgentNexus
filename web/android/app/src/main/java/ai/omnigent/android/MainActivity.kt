@@ -762,7 +762,7 @@ class MainActivity : AppCompatActivity() {
 
         // Agent-generated files arrive as blob:/data: URLs, which DownloadManager
         // can't handle — fetch them in page context and save via the blob bridge
-        // (fixes omnigent-ai/omnigent#969, which the iOS shell leaves broken).
+        // (fixes K4y2020/AgentNexus#969, which the iOS shell leaves broken).
         if (url.startsWith("blob:") || url.startsWith("data:")) {
             webView.evaluateJavascript(BlobDownloadScript.fetchAsBase64(url, name), null)
             return
