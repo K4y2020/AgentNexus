@@ -44,7 +44,7 @@ def test_parse_session_ref_rejects_empty() -> None:
     ("url", "expected"),
     [
         (
-            "https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184",
+            "https://github.com/K4y2020/AgentNexus-internal/actions/runs/30974269184",
             {"org": "agentnexus-ai", "repo": "agentnexus-internal", "run_id": "30974269184"},
         ),
         (
@@ -64,8 +64,8 @@ def test_parse_ci_run_url(url: str, expected: dict[str, str]) -> None:
 @pytest.mark.parametrize(
     "url",
     [
-        "https://github.com/omnigent-ai/omnigent/pull/4099",
-        "https://github.com/omnigent-ai/omnigent/actions",
+        "https://github.com/omnigent-ai/agentnexus/pull/4099",
+        "https://github.com/omnigent-ai/agentnexus/actions",
         "not a url",
         "",
         # A different host that merely contains the run path — the old

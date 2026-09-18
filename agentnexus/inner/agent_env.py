@@ -5,7 +5,7 @@ Every harness spawns a vendor CLI as a child process. Handing it
 providers' API keys — whether or not a sandbox wraps the process afterwards.
 
 The pi and codex executors already filtered; five siblings did not
-(omnigent-ai/omnigent#3445). This is the shared implementation so the next
+(K4y2020/AgentNexus#3445). This is the shared implementation so the next
 harness added is filtered by construction rather than by remembering.
 
 The model is not "no credentials ever". It is:

@@ -854,7 +854,7 @@ def test_azure_vanity_url_falls_back_to_probed_canonical_host(
             # login-target detector does not recognize.
             f"{vanity_root}/v1/me": _response(303, headers={"location": "/login"}),
             f"{canonical_root}/v1/me": _response(404, headers={"server": "databricks"}),
-            f"{canonical_root}/api/2.0/omnigent/v1/me": _response(
+            f"{canonical_root}/api/2.0/agentnexus/v1/me": _response(
                 401, headers={"www-authenticate": 'DatabricksRealm realm="agentnexus"'}
             ),
         },
@@ -1296,7 +1296,7 @@ def test_workspace_url_expands_web_ui_path_to_api_mount(
 
     assert cli_mod._workspace_api_server_url(f"{_WORKSPACE}/omnigent") == _WORKSPACE_API_URL
     # The bare root and its API mount were probed — never the UI path itself.
-    assert f"{_WORKSPACE}/omnigent/v1/me" not in probed
+    assert f"{_WORKSPACE}/agentnexus/v1/me" not in probed
 
 
 def test_workspace_url_web_ui_path_left_alone_off_workspace(

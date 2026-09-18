@@ -6,7 +6,7 @@ AgentNexus' ``(ctx, context)`` convention.
 
 Each test pins one of the shim's contracts. The e2e integration
 that exercises the full translator → engine pipeline lives in
-``tests/e2e/omnigent/test_run_omnigent_policy_enforcement.py``.
+``tests/e2e/agentnexus/test_run_omnigent_policy_enforcement.py``.
 """
 
 from __future__ import annotations

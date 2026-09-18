@@ -68,7 +68,7 @@ def test_build_report_contains_required_fields(data_dir: Path) -> None:
     assert "# Crash Report — omnigent" in report
     assert "ValueError" in report
     assert f"agentnexus {VERSION}" in report or "agentnexus unknown" in report  # version line
-    assert "https://github.com/omnigent-ai/omnigent" in report
+    assert "https://github.com/K4y2020/omnigent" in report
     assert "Source:** uncaught" in report
     assert "the frobnicator failed" in report
 
@@ -313,7 +313,7 @@ def test_interactive_yes_copies_and_opens_browser(
 
     out = _strip_ansi(stream.getvalue())
     assert "copied" in calls and "yes-branch" in calls["copied"]
-    assert calls["url"].startswith("https://github.com/omnigent-ai/omnigent/issues/new?")
+    assert calls["url"].startswith("https://github.com/K4y2020/agentnexus/issues/new?")
     assert "template=bug_report.yml" in calls["url"]
     assert "review and submit" in out
 
@@ -377,7 +377,7 @@ def test_issue_url_is_prefilled_title(data_dir: Path) -> None:
     )
     # Uses the repo's bug-report template.
     assert "template=bug_report.yml" in url
-    assert url.startswith("https://github.com/omnigent-ai/omnigent/issues/new?")
+    assert url.startswith("https://github.com/K4y2020/agentnexus/issues/new?")
     # Title is URL-encoded and prefilled.
     assert "%5BCrash%5D" in url
     # Version and OS fields prefilled from the crash context.

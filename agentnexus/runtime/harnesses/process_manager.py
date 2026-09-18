@@ -218,7 +218,7 @@ def _socket_path(instance_dir: Path, conversation_id: str) -> Path:
     Per-conversation socket path under the per-AP-instance dir.
 
     :param instance_dir: This AgentNexus instance's directory, e.g.
-        ``/tmp/omnigent/ap-abc123``.
+        ``/tmp/agentnexus/ap-abc123``.
     :param conversation_id: AP-allocated conversation id, e.g.
         ``"conv_xyz789"``.
     :returns: Absolute Unix socket path the runner binds and AP's
@@ -448,7 +448,7 @@ class _SubprocessEntry:
         to this subprocess over its Unix socket.
     :param socket_path: Absolute Unix socket path the runner
         bound, e.g.
-        ``Path("/tmp/omnigent/ap-abc/conv-xyz.sock")``.
+        ``Path("/tmp/agentnexus/ap-abc/conv-xyz.sock")``.
     :param harness: The harness name this subprocess serves
         (e.g. ``"claude-sdk"``). Recorded so the reaper can
         include it in log lines.
@@ -629,7 +629,7 @@ class HarnessProcessManager:
         """
         This AgentNexus instance's per-instance directory.
 
-        :returns: Path like ``/tmp/omnigent/ap-<uuid>``.
+        :returns: Path like ``/tmp/agentnexus/ap-<uuid>``.
         """
         return self._instance_dir
 

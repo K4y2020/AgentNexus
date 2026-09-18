@@ -868,7 +868,7 @@ def test_wrap_launcher_argv_reexposes_interpreter_under_masked_dotdir(
     """
     When cwd is an ancestor of the helper interpreter and the
     interpreter lives under a hidden dir (a ``uv tool`` install at
-    ``~/.local/share/uv/tools/omnigent/bin/python`` with cwd=``$HOME``),
+    ``~/.local/share/uv/tools/agentnexus/bin/python`` with cwd=``$HOME``),
     the dotfile masker ``--tmpfs``-masks ``.local`` — and, emitted last,
     that mask would hide the interpreter and make bwrap's ``execvp``
     fail with ENOENT.
@@ -1662,7 +1662,7 @@ def test_interpreter_under_masked_dotdir_still_spawns(tmp_path: Path) -> None:
     cwd still runs, while sibling content under that dir stays masked.
 
     Mirrors the reported failure — a ``uv tool``-installed omnigent at
-    ``~/.local/share/uv/tools/omnigent/bin/python`` with the sandbox
+    ``~/.local/share/uv/tools/agentnexus/bin/python`` with the sandbox
     rooted at ``$HOME`` — where the dotfile masker ``--tmpfs``-masked
     ``.local`` and bwrap died with ``execvp ...: No such file or
     directory``. Proves the interpreter now execs AND that the mask

@@ -37,8 +37,8 @@ def test_bundle_vars_provide_a_valid_empty_feature_source(
 ) -> None:
     args = Namespace(
         app_name="agentnexus",
-        lakebase_branch="projects/omnigent/branches/production",
-        lakebase_database="projects/omnigent/branches/production/databases/databricks-postgres",
+        lakebase_branch="projects/agentnexus/branches/production",
+        lakebase_database="projects/agentnexus/branches/production/databases/databricks-postgres",
         volume_name="main.agentnexus.artifacts",
         otel_table_schema="main.agentnexus_logs",
         features=features,

@@ -73,7 +73,7 @@ def _bronze(number, author="community"):
         number=number,
         title="Database fails",
         body="Cannot start",
-        url=f"https://github.com/omnigent-ai/omnigent/issues/{number}",
+        url=f"https://github.com/K4y2020/AgentNexus/issues/{number}",
         author=author,
         labels=("Bug", "P2-medium"),
         created_at=datetime(2026, 8, 1, tzinfo=UTC),

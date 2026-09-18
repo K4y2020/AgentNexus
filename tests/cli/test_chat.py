@@ -3133,7 +3133,7 @@ def test_databricks_token_auth_sets_org_header(monkeypatch: pytest.MonkeyPatch) 
         server_url="https://acme.databricks.com/api/2.0/omnigent"
     )
     flow = auth.auth_flow(
-        httpx.Request("GET", "https://acme.databricks.com/api/2.0/omnigent/v1/sessions")
+        httpx.Request("GET", "https://acme.databricks.com/api/2.0/agentnexus/v1/sessions")
     )
     request = next(flow)
     flow.close()

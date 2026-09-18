@@ -4,7 +4,7 @@ Lets users override the executable (``command``) and base launch args
 (``args``) for each harness in ``config.yaml`` via a polymorphic
 ``harness:`` key — a scalar (legacy default) or a mapping with
 ``default`` plus per-harness overrides. See
-``~/.pi/plans/omnigent/harness-startup-command-overrides.md``.
+``~/.pi/plans/agentnexus/harness-startup-command-overrides.md``.
 
 This is a leaf resolver module: it lazy-imports
 :func:`omnigent.harness_aliases.canonicalize_harness` so it can be used

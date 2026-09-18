@@ -38,7 +38,7 @@ def _issue(labels=()) -> BronzeIssue:
         number=7,
         title="Session fails",
         body="Cannot start a session",
-        url="https://github.com/omnigent-ai/omnigent/issues/7",
+        url="https://github.com/K4y2020/AgentNexus/issues/7",
         author="community",
         labels=labels,
         created_at=datetime(2026, 8, 6, tzinfo=UTC),

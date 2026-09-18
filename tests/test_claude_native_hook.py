@@ -160,7 +160,7 @@ def test_session_start_hook_maps_workspace_hosted_server_to_ui_mount(
     assert json.loads(captured.out) == {
         "systemMessage": (
             "Open this session in AgentNexus: "
-            "https://example.databricks.com/omnigent/c/conv_abc?o=2850744067564480"
+            "https://example.databricks.com/agentnexus/c/conv_abc?o=2850744067564480"
         )
     }
 

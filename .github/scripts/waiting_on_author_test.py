@@ -544,7 +544,7 @@ class AutoWaitingOnAuthorTest(unittest.TestCase):
                     "user": {"login": "alice"},
                     "body": "fixed",
                     "pull_request_url": (
-                        "https://api.github.com/repos/omnigent-ai/omnigent/pulls/12"
+                        "https://api.github.com/repos/K4y2020/AgentNexus/pulls/12"
                     ),
                 }
             },
@@ -572,7 +572,7 @@ class AutoWaitingOnAuthorTest(unittest.TestCase):
                 73: {
                     "id": 73,
                     "pull_request_url": (
-                        "https://api.github.com/repos/omnigent-ai/omnigent/pulls/99"
+                        "https://api.github.com/repos/K4y2020/AgentNexus/pulls/99"
                     ),
                 }
             },

@@ -24,7 +24,7 @@ import pytest
 #
 # Derived from the conftest's own location so git worktrees work
 # naturally: this file lives at
-# ``<root>/tests/e2e/omnigent/conftest.py`` (post-unification), so
+# ``<root>/tests/e2e/agentnexus/conftest.py`` (post-unification), so
 # the checkout root is three levels up. Hardcoding an absolute path
 # broke worktrees because a subprocess spawned there would still
 # exec the main-checkout ``omnigent`` (via the editable install),
@@ -81,7 +81,7 @@ def omnigent_python() -> Path:
 
     :returns: Absolute path to the AgentNexus ``.venv`` Python
         interpreter, e.g.
-        ``"/path/to/omnigent/.venv/bin/python"``.
+        ``"/path/to/agentnexus/.venv/bin/python"``.
     :raises RuntimeError: If the interpreter is not present at
         the expected path — indicates the AgentNexus checkout is
         missing or its .venv hasn't been created.

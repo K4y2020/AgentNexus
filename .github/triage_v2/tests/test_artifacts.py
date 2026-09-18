@@ -19,7 +19,7 @@ def test_dry_run_artifacts_are_complete_and_deterministic(tmp_path) -> None:
         Issue(
             number=2,
             title="Database crash",
-            url="https://github.com/omnigent-ai/omnigent/issues/2",
+            url="https://github.com/K4y2020/AgentNexus/issues/2",
             issue_type=IssueType.BUG,
             impact=Impact.HIGH,
             area_keys=("db",),
@@ -30,7 +30,7 @@ def test_dry_run_artifacts_are_complete_and_deterministic(tmp_path) -> None:
         Issue(
             number=1,
             title="Small request",
-            url="https://github.com/omnigent-ai/omnigent/issues/1",
+            url="https://github.com/K4y2020/AgentNexus/issues/1",
             issue_type=IssueType.ENHANCEMENT,
             impact=Impact.LOW,
             area_keys=("db",),
@@ -70,7 +70,7 @@ def test_cli_writes_review_artifacts_without_network(tmp_path) -> None:
                 {
                     "number": 7,
                     "title": "iOS login fails",
-                    "url": "https://github.com/omnigent-ai/omnigent/issues/7",
+                    "url": "https://github.com/K4y2020/AgentNexus/issues/7",
                     "type": "Bug",
                     "severity": "S1",
                     "area_keys": ["ios"],

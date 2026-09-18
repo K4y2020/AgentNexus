@@ -99,7 +99,7 @@ stores into ``create_app``):
 
    Most providers default to a public prebaked host image, so
    ``provider`` + ``server_url`` is a complete config. Registry-backed
-   providers use ``ghcr.io/omnigent-ai/omnigent-host:latest`` (see
+   providers use ``ghcr.io/K4y2020/AgentNexus-host:latest`` (see
    :data:`omnigent.onboarding.sandboxes.base.DEFAULT_HOST_IMAGE`); Blaxel uses
    ``blaxel/omnigent-host:latest``, which adds its required ``sandbox-api``.
    Both defaults remain overridable. Use a private immutable Blaxel image when

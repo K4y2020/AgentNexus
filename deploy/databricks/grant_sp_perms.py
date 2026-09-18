@@ -22,7 +22,7 @@ class _GrantArgs(Protocol):
 
     :param app_name: Databricks App name, e.g. ``"agentnexus"``.
     :param lakebase_endpoint: Full Lakebase endpoint resource path, e.g.
-        ``"projects/omnigent/branches/production/endpoints/primary"``.
+        ``"projects/agentnexus/branches/production/endpoints/primary"``.
     :param database: PostgreSQL database name, e.g.
         ``"databricks_postgres"``.
     :param profile: Optional Databricks CLI profile name, e.g.
@@ -52,7 +52,7 @@ def _parse_args() -> _GrantArgs:
         required=True,
         help=(
             "Full Lakebase endpoint resource path, e.g. "
-            "'projects/omnigent/branches/production/endpoints/primary'."
+            "'projects/agentnexus/branches/production/endpoints/primary'."
         ),
     )
     parser.add_argument(
@@ -95,7 +95,7 @@ def _resolve_endpoint_host(wc: WorkspaceClient, endpoint_name: str) -> str | Non
 
     :param wc: Databricks workspace client.
     :param endpoint_name: Full Lakebase endpoint resource path, e.g.
-        ``"projects/omnigent/branches/production/endpoints/primary"``.
+        ``"projects/agentnexus/branches/production/endpoints/primary"``.
     :returns: Endpoint hostname, or ``None`` when the endpoint is not ready.
     """
     endpoint = wc.postgres.get_endpoint(name=endpoint_name)
@@ -121,7 +121,7 @@ def _build_conn_params(
     :param database: PostgreSQL database name, e.g.
         ``"databricks_postgres"``.
     :param endpoint_name: Full Lakebase endpoint resource path, e.g.
-        ``"projects/omnigent/branches/production/endpoints/primary"``.
+        ``"projects/agentnexus/branches/production/endpoints/primary"``.
     :returns: psycopg connection keyword params for the current user.
     """
     cred = wc.postgres.generate_database_credential(endpoint=endpoint_name)

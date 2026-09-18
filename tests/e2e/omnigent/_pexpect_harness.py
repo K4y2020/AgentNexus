@@ -173,7 +173,7 @@ def spawn_omnigent_run(
 
     :param omnigent_python: Python interpreter with omnigent
         installed, e.g.
-        ``Path("/Users/.../omnigent/.venv/bin/python")``.
+        ``Path("/Users/.../agentnexus/.venv/bin/python")``.
     :param yaml_path: Absolute path to the agent YAML, e.g.
         ``examples/hello_world.yaml``. Pass ``None`` to exercise
         ``omnigent run --harness ...`` without an explicit

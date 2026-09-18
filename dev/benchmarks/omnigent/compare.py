@@ -2,7 +2,7 @@
 """Compare two benchmark JSON reports for performance regressions.
 
 Usage:
-    uv run --no-sync dev/benchmarks/omnigent/compare.py \\
+    uv run --no-sync dev/benchmarks/agentnexus/compare.py \\
         --baseline nightly.json --candidate pr.json [--threshold 0.20] \\
         [--output-markdown report.md] [--backend sqlite]
 

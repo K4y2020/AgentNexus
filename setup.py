@@ -72,7 +72,7 @@ class _GenerateBuildInfo(build_py):
         Fix: after ``build_py`` has populated ``build_lib``, copy the real
         example trees from the top-level ``examples/`` dir (present in every
         checkout) into
-        ``build_lib/omnigent/resources/examples/<name>`` so every wheel is
+        ``build_lib/agentnexus/resources/examples/<name>`` so every wheel is
         self-contained. This honors the contract documented in cli.py's
         ``_bundled_polly_path``: a symlink in a checkout, a real directory in
         an installed wheel. Editable installs (``uv sync``) resolve the

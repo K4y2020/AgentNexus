@@ -39,8 +39,8 @@ def test_parse_volume_root_with_prefix() -> None:
     **What breaks if wrong**: prefix is stripped, artifacts land
     in the volume root instead of the intended subdirectory.
     """
-    result = _parse_volume_root("dbfs:/Volumes/cat/schema/vol/omnigent/artifacts")
-    assert result == "/Volumes/cat/schema/vol/omnigent/artifacts"
+    result = _parse_volume_root("dbfs:/Volumes/cat/schema/vol/agentnexus/artifacts")
+    assert result == "/Volumes/cat/schema/vol/agentnexus/artifacts"
 
 
 def test_parse_volume_root_rejects_non_dbfs() -> None:

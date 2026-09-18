@@ -1,6 +1,6 @@
 """Snapshot loader + comparator for AgentNexus Phase 0 characterization tests.
 
-Snapshots are JSON files under ``tests/e2e/omnigent/snapshots/``
+Snapshots are JSON files under ``tests/e2e/agentnexus/snapshots/``
 and capture the *structural* observations a test makes about a
 live AgentNexus run. They are the golden-master contract the
 Phase 0 design requires: written against current AgentNexus,

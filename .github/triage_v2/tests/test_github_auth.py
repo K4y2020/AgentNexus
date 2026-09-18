@@ -41,7 +41,7 @@ def test_app_provider_resolves_installation_and_mints_token() -> None:
     assert calls == [
         (
             "GET",
-            "/repos/omnigent-ai/omnigent/installation",
+            "/repos/K4y2020/AgentNexus/installation",
             None,
             "app-jwt",
         ),

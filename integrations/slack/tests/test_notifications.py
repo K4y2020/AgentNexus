@@ -68,5 +68,5 @@ def test_session_web_link_maps_workspace_api_mount_to_ui() -> None:
     )
     assert (
         notifier._session_web_link("conv_abc")
-        == "https://ws.databricks.com/omnigent/c/conv_abc?o=123"
+        == "https://ws.databricks.com/agentnexus/c/conv_abc?o=123"
     )

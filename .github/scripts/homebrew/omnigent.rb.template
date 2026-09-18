@@ -9,7 +9,7 @@
 #     PyPI sdist, or a pinned wheel for WHEEL_REQUIRED / PREFER_WHEEL)
 #
 # Edit the hand-tuned STRUCTURAL parts here (desc, depends_on, install, test).
-# Edit the dependency set in omnigent-ai/omnigent's `pyproject.toml`
+# Edit the dependency set in K4y2020/AgentNexus's `pyproject.toml`
 # (`[project.dependencies]` and the bundled `cursor` extra).
 # When you change the brewed `depends_on ... => :no_linkage` set, also update the
 # `BREWED_EXCLUSIONS` in `generate_formula.py` so those packages are emitted as
@@ -23,7 +23,7 @@ class Omnigent < Formula
   include Language::Python::Virtualenv
 
   desc "Meta-harness for AI agents"
-  homepage "https://github.com/omnigent-ai/omnigent"
+  homepage "https://github.com/K4y2020/AgentNexus"
   url "__OMNIGENT_URL__"
   sha256 "__OMNIGENT_SHA256__"
   license "Apache-2.0"

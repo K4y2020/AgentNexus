@@ -9,7 +9,7 @@ branch) in exactly the ways `model-flows-report.md` cites, and goes green as
 the landing-order steps land. Run one row's red twin with::
 
     AGENTNEXUS_E2E_MODEL_FLOWS=1 AGENTNEXUS_E2E_MODEL_FLOWS_REPO=~/omnigent \\
-        pytest tests/e2e/omnigent/test_model_flows_live.py -k row1 -x
+        pytest tests/e2e/agentnexus/test_model_flows_live.py -k row1 -x
 
 Rows are numbered after the design's §10.1 table.
 """

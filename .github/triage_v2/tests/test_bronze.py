@@ -22,7 +22,7 @@ def test_bronze_adapter_accepts_github_structs_and_json() -> None:
             "created_at": "2026-08-01T00:00:00Z",
             "raw_json": json.dumps(
                 {
-                    "html_url": "https://github.com/omnigent-ai/omnigent/issues/42",
+                    "html_url": "https://github.com/K4y2020/AgentNexus/issues/42",
                     "reactions": {"total_count": 5, "+1": 3, "-1": 2},
                 }
             ),
@@ -41,7 +41,7 @@ def test_bronze_adapter_accepts_github_structs_and_json() -> None:
     normalized = issue.to_issue(classification, datetime(2026, 8, 5, tzinfo=UTC))
 
     assert issue.labels == ("Bug", "P1-high")
-    assert issue.url == "https://github.com/omnigent-ai/omnigent/issues/42"
+    assert issue.url == "https://github.com/K4y2020/AgentNexus/issues/42"
     assert issue.upvote_count == 3
     assert normalized.current_priority == Priority.P1
     assert normalized.age_days == 4

@@ -231,7 +231,7 @@ class SlackNotifier:
         parts = urlsplit(self._server_url.rstrip("/"))
         if parts.path == "/api/2.0/omnigent":
             return urlunsplit(
-                (parts.scheme, parts.netloc, f"/omnigent/c/{session_id}", parts.query, "")
+                (parts.scheme, parts.netloc, f"/agentnexus/c/{session_id}", parts.query, "")
             )
         base = urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
         return f"{base}/c/{session_id}"

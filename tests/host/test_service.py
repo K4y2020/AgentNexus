@@ -31,7 +31,7 @@ def test_enable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "state"))
     monkeypatch.setattr(service.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(service.os, "getuid", lambda: 501)
-    monkeypatch.setattr(service.sys, "executable", "/opt/omnigent/bin/python")
+    monkeypatch.setattr(service.sys, "executable", "/opt/agentnexus/bin/python")
     calls = _capture_runs(monkeypatch)
 
     installed = service.enable_user_host_service(
@@ -43,7 +43,7 @@ def test_enable_launchd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert installed.path == tmp_path / "Library/LaunchAgents/ai.agentnexus.host.plist"
     assert payload["Label"] == "ai.agentnexus.host"
     assert payload["ProgramArguments"] == [
-        "/opt/omnigent/bin/python",
+        "/opt/agentnexus/bin/python",
         "-m",
         "agentnexus.host.service_entry",
         "--server",
@@ -87,7 +87,7 @@ def test_enable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.setattr(service.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(service.sys, "executable", "/opt/omnigent/bin/python")
+    monkeypatch.setattr(service.sys, "executable", "/opt/agentnexus/bin/python")
     calls = _capture_runs(monkeypatch)
 
     installed = service.enable_user_host_service(
@@ -99,7 +99,7 @@ def test_enable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert installed.path == tmp_path / "xdg/systemd/user/omnigent-host.service"
     assert 'Environment="HOME=' in unit
     assert (
-        'ExecStart="/opt/omnigent/bin/python" "-m" "agentnexus.host.service_entry" "--local"'
+        'ExecStart="/opt/agentnexus/bin/python" "-m" "agentnexus.host.service_entry" "--local"'
     ) in unit
     assert "Restart=on-failure" in unit
     assert "RestartPreventExitStatus=78 143" in unit

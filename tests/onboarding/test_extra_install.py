@@ -26,15 +26,15 @@ from agentnexus.onboarding.extra_install import (
     "prefix, expected",
     [
         # Default Linux/macOS layout
-        ("/home/user/.local/share/uv/tools/omnigent/bin/python", True),
+        ("/home/user/.local/share/uv/tools/agentnexus/bin/python", True),
         # Windows layout (forward-slash normalized)
-        ("C:/Users/user/AppData/Local/uv/tools/omnigent/Scripts/python", True),
+        ("C:/Users/user/AppData/Local/uv/tools/agentnexus/Scripts/python", True),
         # Regular virtualenv — not a uv tool install
-        ("/home/user/repos/omnigent/.venv", False),
+        ("/home/user/repos/agentnexus/.venv", False),
         # System Python
         ("/usr", False),
         # pipx venv (should NOT be detected as uv tool)
-        ("/home/user/.local/pipx/venvs/omnigent/bin/python", False),
+        ("/home/user/.local/pipx/venvs/agentnexus/bin/python", False),
     ],
     ids=["linux-uv-tool", "windows-uv-tool", "venv", "system", "pipx"],
 )
@@ -48,7 +48,7 @@ def test_is_uv_tool_install(monkeypatch: pytest.MonkeyPatch, prefix: str, expect
 
 def test_installed_vcs_url_git_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """Surfaces the ``vcs_url`` recorded for a git-source install."""
-    url = "git+https://github.com/omnigent-ai/omnigent.git"
+    url = "git+https://github.com/K4y2020/AgentNexus.git"
     monkeypatch.setattr(
         "agentnexus.update_check._read_installed_wheel_info",
         lambda: SimpleNamespace(vcs_url=url),
@@ -88,7 +88,7 @@ def test_extra_install_command_uv_tool(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_extra_install_command_uv_tool_git_source(monkeypatch: pytest.MonkeyPatch) -> None:
     """A git-source uv tool install reinstalls from that source, not PyPI."""
-    url = "git+https://github.com/omnigent-ai/omnigent.git"
+    url = "git+https://github.com/K4y2020/AgentNexus.git"
     monkeypatch.setattr(extra_install, "_is_uv_tool_install", lambda: True)
     monkeypatch.setattr(extra_install, "_installed_vcs_url", lambda: url)
     cmd = extra_install_command("cursor")
@@ -122,7 +122,7 @@ def test_extra_install_command_uv_on_path_targets_running_interpreter(
     ``--python sys.executable`` also keeps the install off an unrelated
     virtualenv that happens to be active in the user's shell.
     """
-    brew_python = "/opt/homebrew/Cellar/omnigent/0.8.2/libexec/bin/python"
+    brew_python = "/opt/homebrew/Cellar/agentnexus/0.8.2/libexec/bin/python"
     monkeypatch.setattr(extra_install, "_is_uv_tool_install", lambda: False)
     monkeypatch.setattr(extra_install.shutil, "which", lambda name: "/opt/homebrew/bin/uv")
     monkeypatch.setattr(extra_install.sys, "executable", brew_python)

@@ -195,7 +195,7 @@ class _SessionSnapshot(Protocol):
 # (``{model · state} … hints … state: sleeping``) fits the e2e PTY
 # width (120 cols). Adding an entry here can wrap the toolbar and
 # split the ``state: sleeping`` sync marker the e2e harness waits on
-# (tests/e2e/omnigent/_pexpect_harness.py). /quit discoverability is
+# (tests/e2e/agentnexus/_pexpect_harness.py). /quit discoverability is
 # served by the grouped ``/help`` output instead.
 WELCOME_HINTS = ["/help help", "Ctrl+O debug", "Ctrl+T show tools", "Esc cancel", "Ctrl+C exit"]
 
@@ -6230,7 +6230,7 @@ def _build_github_issue_url(
     ]
 
     body = "\n".join(body_parts)
-    base = "https://github.com/omnigent-ai/omnigent/issues/new"
+    base = "https://github.com/K4y2020/AgentNexus/issues/new"
     return (
         f"{base}"
         f"?title={quote('[Bug] TUI issue')}"

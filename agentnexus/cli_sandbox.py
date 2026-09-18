@@ -48,7 +48,7 @@ def _omnigent_repo_root() -> Path:
     """
     cwd = Path.cwd().resolve()
     candidates: list[Path] = [cwd, *cwd.parents]
-    # ``cli_sandbox.py`` lives at ``<repo>/omnigent/cli_sandbox.py``;
+    # ``cli_sandbox.py`` lives at ``<repo>/agentnexus/cli_sandbox.py``;
     # parents[1] is the repo root that hosts ``sdks/`` and
     # ``omnigent/``. Editable installs (``pip install -e .``) point
     # ``__file__`` into the checkout, so this branch covers the "invoke

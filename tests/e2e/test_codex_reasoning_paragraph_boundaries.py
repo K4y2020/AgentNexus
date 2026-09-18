@@ -34,7 +34,7 @@ Journey (user-observable)
 -------------------------
 1. Run a codex agent with a simple custom harness.
 2. Ask a reasoning-heavy prompt ("Can you explain the arch of
-   https://github.com/omnigent-ai/omnigent"), then follow up with
+   https://github.com/K4y2020/AgentNexus"), then follow up with
    "can you dive into the runner flow a little more?".
 3. Watch the streaming reasoning display:
    - (bug 1) the final words of the first reasoning paragraph are withheld

@@ -37,9 +37,9 @@ _REQUIRED_ARGS = [
     "--app-name",
     "agentnexus",
     "--lakebase-branch",
-    "projects/omnigent/branches/production",
+    "projects/agentnexus/branches/production",
     "--lakebase-database",
-    "projects/omnigent/branches/production/databases/databricks-postgres",
+    "projects/agentnexus/branches/production/databases/databricks-postgres",
     "--volume-name",
     "main.agentnexus.artifacts",
 ]

@@ -19,7 +19,7 @@ What it does:
 
 Usage (from the repo root):
   python dev/repro.py                     # prompts for the bug URL
-  python dev/repro.py https://github.com/omnigent-ai/omnigent/issues/1234
+  python dev/repro.py https://github.com/K4y2020/agentnexus/issues/1234
   python dev/repro.py OMNI-1234 --server http://localhost:6767
   python dev/repro.py <bug_url> --public  # share the session public-read at start
 
@@ -162,7 +162,7 @@ def main() -> None:
     if not (agent_dir / "config.yaml").is_file():
         _die(
             f"{_AGENT_REL}/config.yaml not found under {_REPO_ROOT}. "
-            "Run this from an omnigent-ai/omnigent source checkout."
+            "Run this from an K4y2020/AgentNexus source checkout."
         )
 
     bug_url = args.bug_url or input("Bug URL (GitHub issue or Linear ticket): ").strip()

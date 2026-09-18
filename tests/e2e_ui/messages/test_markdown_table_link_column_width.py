@@ -40,7 +40,7 @@ _SHORT_LINK_TEXT = "#3090"
 
 # Rendered as its own link text, and too long to fit one line in a cell.
 _LONG_URL = (
-    "https://github.com/omnigent-ai/omnigent/pull/3350/files#diff-markdown-table-link-column"
+    "https://github.com/K4y2020/agentnexus/pull/3350/files#diff-markdown-table-link-column"
 )
 
 
@@ -53,7 +53,7 @@ def _row(num: str, title: str, author: str, waiting: str) -> str:
     :param waiting: age cell.
     :returns: the pipe-delimited markdown row.
     """
-    href = f"https://github.com/omnigent-ai/omnigent/pull/{num.lstrip('#')}"
+    href = f"https://github.com/K4y2020/agentnexus/pull/{num.lstrip('#')}"
     cells = (f"[{num}]({href})", title, author, waiting, f"[{_LONG_URL}]({_LONG_URL})")
     return f"| {' | '.join(cells)} |"
 

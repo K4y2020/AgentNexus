@@ -283,7 +283,7 @@ def _contained_session_dir(root: str | Path, session_id: str) -> str:
     is inside the runner workspace — instead of trusting that reduction. The
     two are independent, so a gap in either alone is not enough to escape.
 
-    :param root: Runner workspace root, e.g. ``"/var/omnigent/sessions"``.
+    :param root: Runner workspace root, e.g. ``"/var/agentnexus/sessions"``.
     :param session_id: Raw session/conversation identifier.
     :returns: Absolute path to the session directory.
     :raises ValueError: If the joined path escapes *root*.

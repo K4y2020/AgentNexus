@@ -7209,7 +7209,7 @@ async def test_in_pane_permission_mode_switch_reaches_the_sse_wire_end_to_end(
                 await fwd._forward_permission_mode_from_pane(
                     client=client,
                     session_id=session_id,
-                    bridge_dir=Path("/tmp/omnigent/claude-native/e2e"),
+                    bridge_dir=Path("/tmp/agentnexus/claude-native/e2e"),
                     dedupe=dedupe,
                 )
 

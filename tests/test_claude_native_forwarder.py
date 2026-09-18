@@ -8327,7 +8327,7 @@ async def test_forwarder_does_not_leave_running_open_for_slash_command_only_turn
 
 def _http_status_error(status_code: int, body: object) -> httpx.HTTPStatusError:
     """Build an httpx.HTTPStatusError whose response.json() returns `body`."""
-    request = httpx.Request("POST", "http://omnigent/v1/sessions/conv_x/events")
+    request = httpx.Request("POST", "http://agentnexus/v1/sessions/conv_x/events")
     content = json.dumps(body).encode() if body is not None else b""
     response = httpx.Response(status_code, request=request, content=content)
     return httpx.HTTPStatusError("rejected", request=request, response=response)

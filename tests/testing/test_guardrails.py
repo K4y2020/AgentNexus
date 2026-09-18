@@ -100,7 +100,7 @@ def test_looks_like_test_db_rejects_symlink_to_real_db(tmp_path) -> None:  # typ
     # classifier would otherwise trust); its target is a real DB outside any
     # temp root. Without resolution this passes on name/location alone.
     link = tmp_path / "test.db"
-    link.symlink_to("/opt/omnigent/prod.db")
+    link.symlink_to("/opt/agentnexus/prod.db")
     assert looks_like_test_db(f"sqlite:///{link}") is False
 
 

@@ -32,20 +32,20 @@ fn spec_default_has_databricks_extra_and_main() {
     let c = InstallConfig::default();
     assert_eq!(
         c.spec(),
-        "omnigent[databricks] @ git+https://github.com/omnigent-ai/omnigent.git@main"
+        "omnigent[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main"
     );
 }
 
 #[test]
 fn spec_no_extras_is_bare_git_url() {
     let c = InstallConfig {
-        repo: "https://github.com/omnigent-ai/omnigent.git".into(),
+        repo: "https://github.com/K4y2020/AgentNexus.git".into(),
         git_ref: "main".into(),
         extras: vec![],
     };
     assert_eq!(
         c.spec(),
-        "git+https://github.com/omnigent-ai/omnigent.git@main"
+        "git+https://github.com/K4y2020/AgentNexus.git@main"
     );
 }
 
@@ -69,7 +69,7 @@ fn config_round_trips_through_disk() {
     std::env::set_var("XDG_CONFIG_HOME", &tmp);
 
     let c = InstallConfig {
-        repo: "https://github.com/omnigent-ai/omnigent.git".into(),
+        repo: "https://github.com/K4y2020/AgentNexus.git".into(),
         git_ref: "main".into(),
         extras: vec!["databricks".into()],
     };

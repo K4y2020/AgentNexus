@@ -424,7 +424,7 @@ def _render_workspace_prep_command(
     with the error as the container log tail — rather than silently leaving the
     host without its workspace or provider config.
 
-    :param workspace: The workspace root to create, e.g. ``"/home/omnigent/workspace"``.
+    :param workspace: The workspace root to create, e.g. ``"/home/agentnexus/workspace"``.
     :param clone_dir: Directory the clone lands in, or ``None`` for no clone.
     :param repo_url: Repository clone URL, or ``None`` for an empty workspace.
     :param repo_branch: Branch to clone (``--branch … --single-branch``), or

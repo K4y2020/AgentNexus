@@ -41,7 +41,7 @@ def _git_install_info() -> _InstalledWheelInfo:
     return _InstalledWheelInfo(
         install_time_epoch=0.0,
         installer="uv",
-        vcs_url="git+https://github.com/omnigent-ai/omnigent.git",
+        vcs_url="git+https://github.com/K4y2020/omnigent.git",
         commit_sha="a" * 40,
         is_editable=False,
         package_version="0.1.0",
@@ -498,7 +498,7 @@ def test_upgrade_git_install_repulls_and_verifies_commit(
 
     assert result.exit_code == 0, result.output
     assert ran == [
-        f"uv tool install --reinstall{_UV_PY} git+https://github.com/omnigent-ai/omnigent.git"
+        f"uv tool install --reinstall{_UV_PY} git+https://github.com/K4y2020/omnigent.git"
     ]
     assert "Updated to git bbbbbbbbb" in result.output
 
@@ -573,7 +573,7 @@ def test_newest_nightly_version_none_when_no_nightlies() -> None:
 def test_nightly_suggestion_shapes_per_installer() -> None:
     """Every installer maps to a git spec pinned to the nightly tag."""
     version = "0.9.0.dev20260804"
-    spec = f"git+https://github.com/omnigent-ai/omnigent@v{version}"
+    spec = f"git+https://github.com/K4y2020/omnigent@v{version}"
 
     def info_for(installer: str | None) -> _InstalledWheelInfo:
         return _InstalledWheelInfo(
@@ -642,7 +642,7 @@ def test_upgrade_nightly_installs_pinned_tag(
     assert result.exit_code == 0, result.output
     assert ran == [
         f"uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/omnigent-ai/omnigent@v0.2.0.dev20260804"
+        "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804"
     ]
     assert "Upgraded to nightly v0.2.0.dev20260804" in result.output
 
@@ -698,7 +698,7 @@ def test_nightly_suggestion_preserves_and_unions_extras() -> None:
     assert suggestion.runnable
     assert suggestion.command == (
         f"uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/omnigent-ai/omnigent@v0.9.0.dev20260804#egg=omnigent[all,server]"
+        "git+https://github.com/K4y2020/omnigent@v0.9.0.dev20260804#egg=omnigent[all,server]"
     )
 
 
@@ -729,7 +729,7 @@ def test_upgrade_nightly_refuses_registry_pip(
 
     assert result.exit_code == 0, result.output
     assert "install the nightly manually" in result.output
-    assert "git+https://github.com/omnigent-ai/omnigent@v0.2.0.dev20260804" in result.output
+    assert "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804" in result.output
 
 
 def test_upgrade_nightly_dry_run_prints_without_running(
@@ -750,7 +750,7 @@ def test_upgrade_nightly_dry_run_prints_without_running(
     assert result.exit_code == 0, result.output
     assert (
         f"Would run: uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/omnigent-ai/omnigent@v0.2.0.dev20260804" in result.output
+        "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804" in result.output
     )
 
 
@@ -790,7 +790,7 @@ def test_nightly_uv_never_uses_destructive_force() -> None:
             assert "--force" not in command, command
             assert command.startswith(f"uv tool install --reinstall{_UV_PY} ")
             # Always the nightly tag, never the fork's recorded URL.
-            assert f"git+https://github.com/omnigent-ai/omnigent@v{version}" in command
+            assert f"git+https://github.com/K4y2020/omnigent@v{version}" in command
 
 
 def test_nightly_pipx_spells_out_the_tag_instead_of_reinstall() -> None:
@@ -814,7 +814,7 @@ def test_nightly_pipx_spells_out_the_tag_instead_of_reinstall() -> None:
 
     nightly = _build_nightly_upgrade_suggestion(pipx_info(None), "0.9.0.dev20260804")
     assert nightly.command == (
-        "pipx install --force git+https://github.com/omnigent-ai/omnigent@v0.9.0.dev20260804"
+        "pipx install --force git+https://github.com/K4y2020/omnigent@v0.9.0.dev20260804"
     )
     # An ordinary extras-less VCS refresh still uses the cheap re-pull.
     same_source = _build_upgrade_suggestion(pipx_info("git+https://host/omnigent.git"))

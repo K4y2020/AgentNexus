@@ -849,7 +849,7 @@ def _ensure_executable_visible(argv: list[str], cwd: Path) -> list[str]:
     - ``./.venv/bin/python`` inside cwd, symlinking into ``/usr``:
       covered by the cwd bind (literal) plus ``/usr`` (resolved);
       nothing extra emitted.
-    - ``/home/me/omnigent/.venv/bin/python`` while the helper
+    - ``/home/me/agentnexus/.venv/bin/python`` while the helper
       runs in ``/tmp/scratch`` (uv-managed Python with intermediate
       ``cpython-3.12`` symlink): binds the venv bin/lib roots at the
       literal paths and the uv-python install dir at its literal
@@ -978,7 +978,7 @@ def _interpreter_reexpose_after_mask(
     interpreter that cwd nominally covers. When cwd is an ancestor of
     the interpreter and the interpreter lives under a hidden dir (e.g. a
     ``uv tool``-installed omnigent at
-    ``~/.local/share/uv/tools/omnigent/bin/python``), the dotfile masker
+    ``~/.local/share/uv/tools/agentnexus/bin/python``), the dotfile masker
     ``--tmpfs``-masks that dir — and, being emitted last, the mask wins
     over the cwd bind, so the interpreter vanishes and bwrap's
     ``execvp`` fails with ``ENOENT``.

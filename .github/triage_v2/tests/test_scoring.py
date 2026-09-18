@@ -28,7 +28,7 @@ def _issue(**changes: object) -> Issue:
     issue = Issue(
         number=1,
         title="Harness fails",
-        url="https://github.com/omnigent-ai/omnigent/issues/1",
+        url="https://github.com/K4y2020/AgentNexus/issues/1",
         issue_type=IssueType.BUG,
         impact=Impact.HIGH,
         area_keys=("harness-claude",),

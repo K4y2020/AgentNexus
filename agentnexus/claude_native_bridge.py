@@ -758,7 +758,7 @@ class ClaudeNativeToolRelay:
     within one turn.
 
     :param bridge_dir: Bridge directory containing
-        ``tool_relay.json``, e.g. ``/tmp/omnigent/claude-native/x``.
+        ``tool_relay.json``, e.g. ``/tmp/agentnexus/claude-native/x``.
     :param httpd: Started localhost HTTP server for tool calls. Its bound
         address identifies this relay's advertisement on close.
     """
@@ -768,7 +768,7 @@ class ClaudeNativeToolRelay:
         Initialize the relay handle.
 
         :param bridge_dir: Bridge directory containing the relay
-            advertisement, e.g. ``Path("/tmp/omnigent/...")``.
+            advertisement, e.g. ``Path("/tmp/agentnexus/...")``.
         :param httpd: Started localhost HTTP server for tool calls.
         :returns: None.
         """
@@ -3074,7 +3074,7 @@ def write_tmux_target(
     same private socket the terminal was launched on.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :param socket_path: Absolute path to the terminal's private tmux
         socket, e.g. ``Path("/tmp/.../tmux.sock")``.
     :param tmux_target: tmux pane target string, e.g. ``"claude:0.0"``.
@@ -3260,7 +3260,7 @@ def inject_interrupt(
     web stop button / Escape keybind.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :param timeout_s: Seconds to wait for ``tmux.json`` to be
         advertised by the runner, e.g. ``30.0``.
     :returns: None.
@@ -3297,7 +3297,7 @@ def kill_session(
     are synthesized here.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :param timeout_s: Seconds to wait for ``tmux.json`` to be
         advertised by the runner, e.g. ``30.0``. A short value is
         appropriate for the UI path — a missing ``tmux.json`` means
@@ -3333,7 +3333,7 @@ def inject_slash_command(
     command cannot be typed into it.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :param command: Single-line slash command including the leading
         ``/``, e.g. ``"/effort high"``.
     :param timeout_s: Seconds to wait for ``tmux.json``, e.g. ``30.0``.
@@ -3561,7 +3561,7 @@ def set_permission_mode(
     enabled, so a fixed press count could land on the wrong mode.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :param mode: Target ``--permission-mode`` value, one of
         :data:`CYCLEABLE_PERMISSION_MODES`, e.g. ``"auto"``.
     :param timeout_s: Seconds to wait for ``tmux.json`` to be
@@ -3719,7 +3719,7 @@ def display_cost_approval_popup(
     ``ApprovalCard`` remains the answer surface.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``. Supplies the tmux target
+        ``/tmp/agentnexus/claude-native/<digest>``. Supplies the tmux target
         (``tmux.json``); the AP-routing config comes from *config_file*.
     :param session_id: AgentNexus session id that owns the elicitation, e.g.
         ``"conv_abc123"``. Used in the resolve URL the popup POSTs to.
@@ -5416,7 +5416,7 @@ def read_permission_mode(bridge_dir: Path) -> str | None:
     "unknown" as "no fresh observation" rather than a change.
 
     :param bridge_dir: Bridge directory path, e.g.
-        ``/tmp/omnigent/claude-native/<digest>``.
+        ``/tmp/agentnexus/claude-native/<digest>``.
     :returns: The ``--permission-mode`` value rendered in the pane, e.g.
         ``"auto"``, or ``None`` when it cannot be determined.
     """

@@ -23,8 +23,8 @@ class IssueDuplicatesTest(unittest.TestCase):
             "number": 4000,
             "title": "Related to #3101",
             "body": (
-                "See omnigent-ai/omnigent#2386 and "
-                "https://github.com/omnigent-ai/omnigent/issues/3085. "
+                "See K4y2020/AgentNexus#2386 and "
+                "https://github.com/K4y2020/AgentNexus/issues/3085. "
                 "Ignore https://github.com/other/repo/issues/2999 and "
                 "other/repo#2888. "
                 "Ignore newer #4001 and repeated #3101."
@@ -655,7 +655,7 @@ class IssueDuplicatesTest(unittest.TestCase):
             "**Traceback:**\n"
             "```\n"
             "Traceback (most recent call last):\n"
-            '  File "/x/omnigent/cli.py", line 1608, in main\n'
+            '  File "/x/agentnexus/cli.py", line 1608, in main\n'
             "    cli(args=argv, standalone_mode=False)\n"
             '  File "/x/click/core.py", line 1161, in __call__\n'
             "    return self.main(*args, **kwargs)\n"
@@ -684,7 +684,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                     "**Traceback:**\n"
                     "```\n"
                     "Traceback (most recent call last):\n"
-                    '  File "/x/omnigent/cli.py", line 1608, in main\n'
+                    '  File "/x/agentnexus/cli.py", line 1608, in main\n'
                     "    cli(args=argv, standalone_mode=False)\n"
                     '  File "/x/click/core.py", line 1161, in __call__\n'
                     "    return self.main(*args, **kwargs)\n"

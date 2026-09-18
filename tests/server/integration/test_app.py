@@ -468,7 +468,7 @@ async def test_unmatched_api_path_404s_for_every_method(
         # The reported crash: a base URL carrying the web-UI path, so the
         # bundled-create route never matches.
         prefixed = await client.post(
-            "/omnigent/v1/sessions",
+            "/agentnexus/v1/sessions",
             data={"metadata": "{}"},
             files={"bundle": ("agent.tar.gz", b"x", "application/gzip")},
         )

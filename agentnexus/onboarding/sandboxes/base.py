@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-DEFAULT_HOST_IMAGE: str = "ghcr.io/omnigent-ai/omnigent-host:latest"
+DEFAULT_HOST_IMAGE: str = "ghcr.io/K4y2020/AgentNexus-host:latest"
 """Default sandbox image across providers: the official prebaked
 AgentNexus host image, published by CI from the ``host`` target of
 ``deploy/docker/Dockerfile`` (``:latest`` tracks main; ``:sha-<short>``

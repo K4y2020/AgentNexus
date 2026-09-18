@@ -424,7 +424,7 @@ def _plant_poisoned_omnigent_package(workspace: Path) -> None:
     recorded, and the assistant marker never appears.
 
     :param workspace: Absolute workspace path the session starts in; the
-        package is written as ``workspace/omnigent/__init__.py``.
+        package is written as ``workspace/agentnexus/__init__.py``.
     :returns: None.
     """
     pkg_dir = workspace / "agentnexus"

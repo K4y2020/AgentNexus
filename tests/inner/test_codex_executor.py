@@ -1679,7 +1679,7 @@ class TestCodexExecutor(unittest.TestCase):
     def test_app_server_run_turn_reasoning_deltas_yield_reasoning_chunks(self):
         """item/reasoning/textDelta and item/reasoning/summaryTextDelta events
         yield ReasoningChunk events so the idle watchdog resets during long
-        think phases (regression guard for omnigent-ai/omnigent#738)."""
+        think phases (regression guard for K4y2020/AgentNexus#738)."""
 
         async def _t():
             session = _CodexAppServerSession(

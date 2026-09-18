@@ -126,7 +126,7 @@ def test_conversation_link_for_id_maps_workspace_hosted_server_to_ui_mount(
 
     assert (
         conversation_link_for_id("conv_abc123", base_url=server)
-        == "https://example.databricks.com/omnigent/c/conv_abc123?o=2850744067564480"
+        == "https://example.databricks.com/agentnexus/c/conv_abc123?o=2850744067564480"
     )
 
 

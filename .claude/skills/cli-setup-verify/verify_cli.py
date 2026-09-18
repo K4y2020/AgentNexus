@@ -51,7 +51,7 @@ except ImportError:  # pragma: no cover - guidance, not logic
     )
     raise
 
-# --- PTY constants (mirrors tests/e2e/omnigent/_pexpect_harness.py) ---------
+# --- PTY constants (mirrors tests/e2e/agentnexus/_pexpect_harness.py) ---------
 
 # prompt-toolkit refuses to draw on TERM=dumb; this is what the REPL tests use.
 TERM = "xterm-256color"

@@ -37,7 +37,7 @@ _TOKEN = "launch-token-xyz"
 _MANIFEST_KW = {
     "job_name": "agentnexus-managed-abc-1a2b3c",
     "namespace": "agentnexus-sandboxes",
-    "image": "ghcr.io/omnigent-ai/omnigent-host:latest",
+    "image": "ghcr.io/K4y2020/AgentNexus-host:latest",
     "service_account": "agentnexus-runner",
     "host_id": "host_abcdef",
     "host_name": "managed-abcdef",
@@ -46,7 +46,7 @@ _MANIFEST_KW = {
     "harness_secret": "agentnexus-creds",
     "env_literals": {},
     "node_selector": None,
-    "workspace": "/home/omnigent/workspace",
+    "workspace": "/home/agentnexus/workspace",
 }
 
 # Minimal valid host_config exercised by the injection tests below.
@@ -101,7 +101,7 @@ def test_build_job_manifest_has_no_liveness_probe() -> None:
 def test_build_job_manifest_init_container_prepares_and_clones_workspace() -> None:
     """The init container makes the workspace and clones the repo before the host."""
     manifest = build_job_manifest(
-        **{**_MANIFEST_KW, "clone_dir": "/home/omnigent/workspace/repo"},
+        **{**_MANIFEST_KW, "clone_dir": "/home/agentnexus/workspace/repo"},
         repo_url="https://github.com/org/repo.git",
         repo_branch="main",
     )
@@ -109,23 +109,23 @@ def test_build_job_manifest_init_container_prepares_and_clones_workspace() -> No
     assert len(init) == 1
     assert init[0]["name"] == "workspace-prep"
     script = init[0]["command"][2]
-    assert "mkdir -p /home/omnigent/workspace" in script
+    assert "mkdir -p /home/agentnexus/workspace" in script
     assert "git clone --branch main --single-branch -- " in script
-    assert "https://github.com/org/repo.git /home/omnigent/workspace/repo" in script
+    assert "https://github.com/org/repo.git /home/agentnexus/workspace/repo" in script
 
 
 def test_build_job_manifest_without_repo_has_no_clone() -> None:
     """No repo → the init container only makes the workspace, no git clone."""
     manifest = build_job_manifest(**_MANIFEST_KW)
     script = _pod_spec(manifest)["initContainers"][0]["command"][2]
-    assert "mkdir -p /home/omnigent/workspace" in script
+    assert "mkdir -p /home/agentnexus/workspace" in script
     assert "git clone" not in script
 
 
 def test_build_job_manifest_host_config_is_written_by_init_container() -> None:
     """host_config rides the init container script, after mkdir/clone, before the host."""
     manifest = build_job_manifest(
-        **{**_MANIFEST_KW, "clone_dir": "/home/omnigent/workspace/repo"},
+        **{**_MANIFEST_KW, "clone_dir": "/home/agentnexus/workspace/repo"},
         repo_url="https://github.com/org/repo.git",
         host_config=_HOST_CONFIG,
     )
@@ -143,7 +143,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
         **{
             **_MANIFEST_KW,
             "env_literals": {
-                "AGENTNEXUS_CONFIG_HOME": "/home/omnigent/custom-config",
+                "AGENTNEXUS_CONFIG_HOME": "/home/agentnexus/custom-config",
                 "PLAIN_CONFIG": "host-only",
             },
         },
@@ -157,7 +157,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
         {"name": "HOME", "value": "/home/omnigent"},
         {
             "name": "AGENTNEXUS_CONFIG_HOME",
-            "value": "/home/omnigent/custom-config",
+            "value": "/home/agentnexus/custom-config",
         },
     ]
     assert {entry["name"] for entry in host_env} >= {
@@ -168,7 +168,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
 
 @pytest.mark.parametrize(
     "config_home",
-    ["/tmp/elsewhere", "/home/omnigent-other", "/home/omnigent/../tmp", "../etc"],
+    ["/tmp/elsewhere", "/home/omnigent-other", "/home/agentnexus/../tmp", "../etc"],
 )
 def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: str) -> None:
     """
@@ -184,7 +184,7 @@ def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: st
 
 @pytest.mark.parametrize(
     "config_home",
-    ["/home/omnigent", "/home/omnigent/", "/home/omnigent/cfg", "cfg", "relative/dir", ".", ""],
+    ["/home/omnigent", "/home/agentnexus/", "/home/agentnexus/cfg", "cfg", "relative/dir", ".", ""],
 )
 def test_build_job_manifest_accepts_config_home_at_or_under_home_dir(config_home: str) -> None:
     """A dir at or under HOME is on the shared volume — allowed."""
@@ -695,7 +695,7 @@ def test_launch_host_creates_secret_then_job_and_returns_workspace(
         host_name="managed-1",
         server_url="http://srv.example.com",
     )
-    assert workspace == "/home/omnigent/workspace"
+    assert workspace == "/home/agentnexus/workspace"
     # Secret is created before the Job.
     all_calls = core.calls + batch.calls
     assert all_calls.index("create_secret") < all_calls.index("create_job")
@@ -811,7 +811,7 @@ def test_launch_host_with_repo_returns_clone_dir(
         repo_url="https://github.com/org/repo.git",
         repo_name="repo",
     )
-    assert workspace == "/home/omnigent/workspace/repo"
+    assert workspace == "/home/agentnexus/workspace/repo"
 
 
 def test_launch_host_cleans_up_on_create_failure(

@@ -12,7 +12,7 @@ CLI flag).
 
 Run with:
 
-    pytest tests/e2e/omnigent/test_claude_harness_alias_e2e.py -v --profile oss
+    pytest tests/e2e/agentnexus/test_claude_harness_alias_e2e.py -v --profile oss
 """
 
 from __future__ import annotations

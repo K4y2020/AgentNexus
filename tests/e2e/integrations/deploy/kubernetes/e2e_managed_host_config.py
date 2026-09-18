@@ -10,7 +10,7 @@ reachable from where this script runs, e.g. via ``kubectl port-forward``).
 
 The script creates a managed session, waits for the runner Pod's host to
 register, then ``kubectl exec``'s into the Pod and asserts the injected
-config landed at ``/home/omnigent/.agentnexus/config.yaml`` before the host
+config landed at ``/home/agentnexus/.agentnexus/config.yaml`` before the host
 came up. It needs ``kubectl`` on PATH with access to the runner namespace.
 
     python tests/e2e/integrations/deploy/kubernetes/e2e_managed_host_config.py \

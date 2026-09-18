@@ -25,7 +25,7 @@ import pytest
 from agentnexus.spec import load
 from agentnexus.spec.types import AgentSpec
 
-# tests/e2e/omnigent/test_example_swe_org.py -> repo root is 3 parents up.
+# tests/e2e/agentnexus/test_example_swe_org.py -> repo root is 3 parents up.
 _SWE_ORG_YAML = (
     Path(__file__).resolve().parents[3] / "tests" / "resources" / "examples" / "swe_org.yaml"
 )

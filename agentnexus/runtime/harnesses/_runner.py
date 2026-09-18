@@ -306,7 +306,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     :param argv: Argument list (without the program name),
         e.g. ``["--harness", "claude-sdk", "--module",
         "agentnexus.inner.claude_sdk_harness", "--socket",
-        "/tmp/omnigent/<id>/conv-abc.sock", "--conversation-id",
+        "/tmp/agentnexus/<id>/conv-abc.sock", "--conversation-id",
         "conv_abc123", "--parent-pid", "12345"]``.
     :returns: Parsed namespace with ``harness``, ``module``,
         ``socket``, ``conversation_id``, and ``parent_pid``

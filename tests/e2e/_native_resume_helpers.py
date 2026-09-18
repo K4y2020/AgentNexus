@@ -99,7 +99,7 @@ def omnigent_console_script() -> Path:
 
     :returns: Absolute path to the ``omnigent`` entry point next to the
         running interpreter, e.g.
-        ``"/Users/…/omnigent/.venv/bin/omnigent"``.
+        ``"/Users/…/agentnexus/.venv/bin/omnigent"``.
     :raises RuntimeError: If the console script is not found beside
         ``sys.executable``.
     """

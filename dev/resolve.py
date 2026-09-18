@@ -31,7 +31,7 @@ agent runs unattended after that.
 Usage (from the repo root):
   python dev/resolve.py http://localhost:6767/c/dc59e331-...   # local session link
   python dev/resolve.py dc59e331-...                           # bare session id
-  python dev/resolve.py --ci-link https://github.com/omnigent-ai/omnigent-internal/actions/runs/30974269184
+  python dev/resolve.py --ci-link https://github.com/K4y2020/AgentNexus-internal/actions/runs/30974269184
   python dev/resolve.py <session> --yes                        # skip the confirm
   python dev/resolve.py <session> --skip-push                  # author: commit locally, no push/PR
 """
@@ -320,7 +320,7 @@ def main() -> None:
     if not (agent_dir / "config.yaml").is_file():
         _die(
             f"{_AGENT_REL}/config.yaml not found under {_REPO_ROOT}. "
-            "Run this from an omnigent-ai/omnigent source checkout."
+            "Run this from an K4y2020/AgentNexus source checkout."
         )
 
     try:

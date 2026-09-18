@@ -13,7 +13,7 @@ This test drives a real ``omnigent run --harness pi`` subprocess with:
 - a marker file the extension writes on ``session_start``.
 
 **Serial execution:** uses the session-scoped mock LLM server like the other
-``tests/e2e/omnigent/`` pi rows — do not run under xdist against a shared mock.
+``tests/e2e/agentnexus/`` pi rows — do not run under xdist against a shared mock.
 """
 
 from __future__ import annotations

@@ -10,10 +10,10 @@ spawns the real server, so it is NOT a standalone PEP 723 script. Invoke with
 ``--no-sync`` so ``uv`` uses the existing environment instead of rebuilding the
 project (which triggers a web-UI build that fails in a worktree)::
 
-    uv run --no-sync dev/benchmarks/omnigent/run.py
-    uv run --no-sync dev/benchmarks/omnigent/run.py --journeys list_sessions,get_session
-    uv run --no-sync dev/benchmarks/omnigent/run.py --requests 500 --concurrency 25 --runs 3
-    uv run --no-sync dev/benchmarks/omnigent/run.py --output bench.json --max-p50-ms 25
+    uv run --no-sync dev/benchmarks/agentnexus/run.py
+    uv run --no-sync dev/benchmarks/agentnexus/run.py --journeys list_sessions,get_session
+    uv run --no-sync dev/benchmarks/agentnexus/run.py --requests 500 --concurrency 25 --runs 3
+    uv run --no-sync dev/benchmarks/agentnexus/run.py --output bench.json --max-p50-ms 25
 
 The JSON is the contract consumed by the workspace Databricks ETL notebook —
 see ``README.md``.

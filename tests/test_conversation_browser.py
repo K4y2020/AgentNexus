@@ -196,7 +196,7 @@ def test_conversation_url_maps_workspace_hosted_server_to_ui_mount(tmp_path, mon
 
     url = conversation_url(server, "conv_abc123")
 
-    assert url == ("https://example.databricks.com/omnigent/c/conv_abc123?o=2850744067564480")
+    assert url == ("https://example.databricks.com/agentnexus/c/conv_abc123?o=2850744067564480")
 
 
 def test_conversation_url_workspace_hosted_without_org_record(tmp_path, monkeypatch) -> None:
@@ -214,7 +214,7 @@ def test_conversation_url_workspace_hosted_without_org_record(tmp_path, monkeypa
 
     url = conversation_url("https://example.databricks.com/api/2.0/omnigent", "conv_abc123")
 
-    assert url == "https://example.databricks.com/omnigent/c/conv_abc123"
+    assert url == "https://example.databricks.com/agentnexus/c/conv_abc123"
 
 
 def test_conversation_url_plain_server_unchanged(tmp_path, monkeypatch) -> None:
@@ -243,7 +243,7 @@ def test_conversation_url_plain_server_unchanged(tmp_path, monkeypatch) -> None:
         ("https://app.databricksapps.com/c/conv_abc/", "https://app.databricksapps.com"),
         ("http://127.0.0.1:6767/c/conv_abc", "http://127.0.0.1:6767"),
         # Workspace web-UI mount keeps its prefix; only the route is trimmed.
-        ("https://ws.databricks.com/omnigent/c/conv_abc", "https://ws.databricks.com/omnigent"),
+        ("https://ws.databricks.com/agentnexus/c/conv_abc", "https://ws.databricks.com/omnigent"),
         # Real server bases must survive untouched.
         (
             "https://ws.databricks.com/api/2.0/omnigent",

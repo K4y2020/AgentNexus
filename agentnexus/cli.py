@@ -5287,7 +5287,7 @@ def upgrade(
             "--nightly and --target-version are mutually exclusive: --nightly "
             "always tracks the newest nightly tag. To install a specific "
             "nightly, run your installer against that tag directly, e.g. "
-            "`uv tool install --force git+https://github.com/omnigent-ai/omnigent@v0.8.0.dev20260801`."
+            "`uv tool install --force git+https://github.com/K4y2020/AgentNexus@v0.8.0.dev20260801`."
         )
 
     # Source checkout / editable install — there's no released wheel to

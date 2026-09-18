@@ -169,7 +169,7 @@ def test_org_id_from_url(url: str, expected: str | None) -> None:
         ),
         # Trailing slash on the API mount still maps cleanly.
         (
-            "https://ws.databricks.com/api/2.0/omnigent/",
+            "https://ws.databricks.com/api/2.0/agentnexus/",
             "https://ws.databricks.com/omnigent",
         ),
         # Non-Databricks URLs pass through unchanged (sans trailing slash).
@@ -192,7 +192,7 @@ def test_display_server_url_maps_databricks_api_mount(url: str, expected: str) -
     "url,expected",
     [
         ("https://ws.databricks.com/api/2.0/omnigent", True),
-        ("https://ws.databricks.com/api/2.0/omnigent/", True),
+        ("https://ws.databricks.com/api/2.0/agentnexus/", True),
         ("https://ws.databricks.com/omnigent", False),  # the SPA URL, not the API mount
         ("http://127.0.0.1:6767", False),
         ("https://omnigent-02m5.onrender.com", False),

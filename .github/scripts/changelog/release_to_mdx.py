@@ -44,7 +44,7 @@ Install or upgrade AgentNexus:
 uv tool install --python 3.12 omnigent   # or: pip install "agentnexus"
 ```
 
-- Star the project and file issues on [GitHub](https://github.com/omnigent-ai/omnigent).
+- Star the project and file issues on [GitHub](https://github.com/K4y2020/AgentNexus).
 - Join the conversation on our [Discord](https://discord.gg/omnigent).
 - Browse the [docs](https://omnigent.ai/docs) to go deeper."""
 

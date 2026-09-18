@@ -155,8 +155,8 @@ def test_loader_unreadable_file_is_empty(tmp_path: Path) -> None:
 
 def test_resolve_admin_list_path_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """``AGENTNEXUS_ADMIN_LIST_PATH`` wins over the default."""
-    monkeypatch.setenv("AGENTNEXUS_ADMIN_LIST_PATH", "/etc/omnigent/admins")
-    assert resolve_admin_list_path() == Path("/etc/omnigent/admins")
+    monkeypatch.setenv("AGENTNEXUS_ADMIN_LIST_PATH", "/etc/agentnexus/admins")
+    assert resolve_admin_list_path() == Path("/etc/agentnexus/admins")
 
 
 def test_resolve_data_dir_uses_credentials_parent(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1236,10 +1236,10 @@ def test_ensure_executable_visible_two_hop_proxy_finds_cpython_install_root(
     Regression for uv tool-install two-hop symlink layout (issue #3237).
 
     ``uv tool install omnigent`` creates:
-      ~/.local/share/uv/tools/omnigent/bin/python  →  (proxy symlink)
+      ~/.local/share/uv/tools/agentnexus/bin/python  →  (proxy symlink)
           ~/.local/share/uv/python/cpython-3.12.X-.../bin/python3.12
 
-    The LITERAL path grandparent (``tools/omnigent/``) has no CPython
+    The LITERAL path grandparent (``tools/agentnexus/``) has no CPython
     ``lib/`` markers.  The RESOLVED target grandparent
     (``cpython-3.12.X-.../``) does.  Pre-fix, ``_interpreter_install_root``
     was called only on the literal path, returned ``None``, and

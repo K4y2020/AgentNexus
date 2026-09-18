@@ -13,9 +13,9 @@ every step is idempotent.
 Usage example:
     python deploy/databricks/deploy.py \\
         --app-name omnigent --profile <your-profile> \\
-        --lakebase-branch projects/omnigent/branches/production \\
+        --lakebase-branch projects/agentnexus/branches/production \\
         --lakebase-database \\
-            projects/omnigent/branches/production/databases/databricks-postgres \\
+            projects/agentnexus/branches/production/databases/databricks-postgres \\
         --volume-name main.agentnexus.artifacts
 
 See ``README.md`` in the same directory for the full guide,
@@ -631,14 +631,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--lakebase-branch",
         required=True,
-        help=("Full Lakebase branch resource path, e.g. 'projects/omnigent/branches/production'."),
+        help=("Full Lakebase branch resource path, e.g. 'projects/agentnexus/branches/production'."),
     )
     parser.add_argument(
         "--lakebase-database",
         required=True,
         help=(
             "Full Lakebase database resource path, e.g. "
-            "'projects/omnigent/branches/production/databases/databricks-postgres'."
+            "'projects/agentnexus/branches/production/databases/databricks-postgres'."
         ),
     )
     parser.add_argument(

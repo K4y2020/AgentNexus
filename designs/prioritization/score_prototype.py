@@ -12,7 +12,7 @@ content). Regex is used only so the dry-run is reproducible and inspectable.
 Usage:
     # refresh the snapshot (external org -> ghx from gh-profiles)
     GH_HOST=github.com ghx api --paginate \
-      "repos/omnigent-ai/omnigent/issues?state=all&per_page=100" > /tmp/all_issues_raw.json
+      "repos/K4y2020/AgentNexus/issues?state=all&per_page=100" > /tmp/all_issues_raw.json
     python3 designs/prioritization/score_prototype.py /tmp/all_issues_raw.json
     # priority-LABEL backfill preview (current vs regraded bucket, no scores):
     python3 designs/prioritization/score_prototype.py /tmp/all_issues_raw.json --regrade
@@ -355,7 +355,7 @@ def print_markdown(opn, limit=200):
         arrow = f"+{delta}" if delta > 0 else str(delta)
         title = i["title"].replace("|", "\\|")[:70]
         num = i["number"]
-        link = f"[#{num}](https://github.com/omnigent-ai/omnigent/issues/{num})"
+        link = f"[#{num}](https://github.com/K4y2020/AgentNexus/issues/{num})"
         derived = priority_from_score(i).replace("-critical", "").replace("-high", "")
         derived = derived.replace("-medium", "").replace("-low", "")
         now = current_prio(i).replace("-critical", "").replace("-high", "")

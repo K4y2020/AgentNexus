@@ -27,7 +27,7 @@ a folder count and per-folder depth — instead of an empty project set.
 
 Run standalone::
 
-    uv run --no-sync dev/benchmarks/omnigent/seed.py \
+    uv run --no-sync dev/benchmarks/agentnexus/seed.py \
         --database-uri sqlite:///tmp/bench.db --sessions 5000 --items-per-session 50 \
         --projects 20 --filed-fraction 0.5
 """

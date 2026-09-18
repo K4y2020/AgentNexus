@@ -13,7 +13,7 @@ Rows are pure data; every registration a row needs derives from this table:
 - spawn env: :func:`omnigent.runtime.workflow._build_acp_cli_spawn_env`
 - dispatch: ``_build_spawn_env_from_spec`` in ``omnigent/runner/app.py``
 - live e2e matrix exclusion:
-  ``tests/e2e/omnigent/test_run_harness_without_agent_e2e.py``
+  ``tests/e2e/agentnexus/test_run_harness_without_agent_e2e.py``
 
 Every row runs through the shared generic wrap
 (``omnigent/inner/acp_harness.py``) and :class:`~omnigent.inner.acp_executor.

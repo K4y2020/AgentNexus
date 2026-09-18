@@ -153,7 +153,7 @@ class _InstalledWheelInfo:
         ``/pipx/venvs/`` pattern to detect it.
     :param vcs_url: The git URL recorded in ``direct_url.json``
         (PEP 610) when the install came from a VCS source, e.g.
-        ``"git+https://github.com/omnigent-ai/omnigent.git"``.
+        ``"git+https://github.com/K4y2020/AgentNexus.git"``.
         ``None`` for registry installs (no ``direct_url.json``) or
         URL installs without ``vcs_info``.
     :param commit_sha: The pinned commit SHA recorded by uv or pip
@@ -701,12 +701,12 @@ def _find_repo_root() -> Path | None:
 
         <repo>/.git/
         <repo>/pyproject.toml
-        <repo>/omnigent/update_check.py    ← this file
+        <repo>/agentnexus/update_check.py    ← this file
 
     We do NOT walk further up the filesystem tree. The previous
     implementation did, which caused a real bug: when ``omnigent``
     is installed via ``uv tool install`` at
-    ``~/.local/share/uv/tools/omnigent/…``, the unbounded walk-up
+    ``~/.local/share/uv/tools/agentnexus/…``, the unbounded walk-up
     matched ``~/.git/`` (a dotfiles repo, or any other unrelated
     git repo between $HOME and the install dir) and misclassified
     the install as a dev clone. The dispatcher then ran
@@ -716,7 +716,7 @@ def _find_repo_root() -> Path | None:
     :returns: The repo root ``Path`` for a dev clone, or ``None``
         for any installed-wheel scenario.
     """
-    package_dir = Path(__file__).resolve().parent  # <candidate>/omnigent/
+    package_dir = Path(__file__).resolve().parent  # <candidate>/agentnexus/
     candidate = package_dir.parent
     # ``.git`` may be a directory (a normal clone) or a file (a git
     # worktree), so check for existence rather than requiring a dir.
@@ -1028,9 +1028,9 @@ def _unredact_ssh_userinfo(vcs_url: str) -> str:
     non-SSH URLs (HTTPS, ``file://``) pass through untouched.
 
     :param vcs_url: The normalized ``<vcs>+<scheme>://…`` reinstall URL,
-        e.g. ``"git+ssh://****@github.com/omnigent-ai/omnigent.git"``.
+        e.g. ``"git+ssh://****@github.com/K4y2020/AgentNexus.git"``.
     :returns: The same URL with a redacted SSH user restored to ``git``,
-        e.g. ``"git+ssh://git@github.com/omnigent-ai/omnigent.git"``;
+        e.g. ``"git+ssh://git@github.com/K4y2020/AgentNexus.git"``;
         the input unchanged when no redacted SSH user is present.
     """
     from urllib.parse import urlsplit, urlunsplit
@@ -1620,7 +1620,7 @@ def _build_upgrade_suggestion(
 # Canonical public repo for nightly builds. Nightlies are git tags consumed
 # straight from GitHub (they never reach an index), so the channel lives
 # upstream by definition: fork installs also upgrade onto upstream nightlies.
-_NIGHTLY_REPO_URL = "https://github.com/omnigent-ai/omnigent"
+_NIGHTLY_REPO_URL = "https://github.com/K4y2020/AgentNexus"
 
 
 def _newest_nightly_version(ls_remote_output: str) -> str | None:
@@ -1882,7 +1882,7 @@ def _remote_git_head(vcs_url: str) -> str | None:
     determine" rather than crashing.
 
     :param vcs_url: A normalized VCS URL, e.g.
-        ``"git+https://github.com/omnigent-ai/omnigent.git"`` or
+        ``"git+https://github.com/K4y2020/AgentNexus.git"`` or
         ``"git+https://…/omnigent.git@main"``.
     :returns: The 40-char commit SHA the ref resolves to, or ``None``.
     """

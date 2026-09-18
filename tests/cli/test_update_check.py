@@ -68,7 +68,7 @@ def test_find_repo_root_ignores_unrelated_ancestor_git(
     Layout:
 
         tmp_path/.git/                      ← unrelated dotfiles-style repo
-        tmp_path/install/site-packages/omnigent/update_check.py
+        tmp_path/install/site-packages/agentnexus/update_check.py
         (no .git/ or pyproject.toml in install/site-packages/)
 
     Expected: returns ``None`` because the direct parent of
@@ -95,7 +95,7 @@ def test_find_repo_root_requires_pyproject_alongside_git(
     """``.git/`` next to ``omnigent/`` without ``pyproject.toml`` → None.
 
     Defense in depth against a hypothetical layout where someone
-    has a directory tree like ``some_repo/omnigent/`` (e.g. a
+    has a directory tree like ``some_repo/agentnexus/`` (e.g. a
     monorepo subdir, or an accidentally-named folder) but no
     ``pyproject.toml`` in the candidate. The pyproject check
     confirms we found OUR repo, not just any directory that
@@ -686,14 +686,14 @@ def test_read_wheel_info_uv_git_install(tmp_path: Path, monkeypatch: pytest.Monk
         # ``git`` to ``****``. We restore ``git`` so the reinstall
         # command can authenticate; without this it ssh's in as ``****``.
         (
-            "git+ssh://****@github.com/omnigent-ai/omnigent.git",
-            "git+ssh://git@github.com/omnigent-ai/omnigent.git",
+            "git+ssh://****@github.com/K4y2020/omnigent.git",
+            "git+ssh://git@github.com/K4y2020/omnigent.git",
         ),
         # Same redaction, but the URL was stored without the ``git+``
         # VCS prefix (the shape uv wrote on the machine in the report).
         (
-            "ssh://****@github.com/omnigent-ai/omnigent.git",
-            "ssh://git@github.com/omnigent-ai/omnigent.git",
+            "ssh://****@github.com/K4y2020/omnigent.git",
+            "ssh://git@github.com/K4y2020/omnigent.git",
         ),
         # Already-correct SSH user — must be left exactly as-is.
         (
@@ -746,7 +746,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     command) would still contain ``****@`` and the user would hit
     ``Permission denied (publickey)`` when they confirmed the prompt.
     """
-    redacted_url = "ssh://****@github.com/omnigent-ai/omnigent.git"
+    redacted_url = "ssh://****@github.com/K4y2020/omnigent.git"
     dist = _write_fake_dist_info(
         tmp_path,
         installer="uv",
@@ -765,7 +765,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     assert info is not None
     # The redacted ``****@`` user was rewritten to the canonical
     # ``git@`` and normalized to the ``git+`` reinstall form.
-    assert info.vcs_url == "git+ssh://git@github.com/omnigent-ai/omnigent.git"
+    assert info.vcs_url == "git+ssh://git@github.com/K4y2020/omnigent.git"
     # ``****`` must not survive anywhere in the URL we'd display/run.
     assert "****" not in info.vcs_url
 
@@ -775,7 +775,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     assert suggestion.runnable is True
     assert (
         suggestion.command
-        == f"uv tool install --reinstall{_UV_PY} git+ssh://git@github.com/omnigent-ai/omnigent.git"
+        == f"uv tool install --reinstall{_UV_PY} git+ssh://git@github.com/K4y2020/omnigent.git"
     )
 
 
@@ -1339,7 +1339,7 @@ def test_fetch_latest_version_pep691_json(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert fetch_latest_version() == "0.2.0"
     # Default index + normalized project name + JSON Accept header.
-    assert captured["url"] == "https://pypi.org/simple/omnigent/"
+    assert captured["url"] == "https://pypi.org/simple/agentnexus/"
     assert captured["headers"] == {"Accept": "application/vnd.pypi.simple.v1+json"}
 
 

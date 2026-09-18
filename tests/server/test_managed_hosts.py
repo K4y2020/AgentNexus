@@ -951,7 +951,7 @@ def test_parse_kubernetes_without_pvc_mounts_is_none(monkeypatch: pytest.MonkeyP
         ([{"claim_name": "c", "mount_path": "//home/omnigent"}], "normalized"),
         ([{"claim_name": "c", "mount_path": "//mnt/x"}], "normalized"),
         ([{"claim_name": "c", "mount_path": "/"}], "reserved"),
-        ([{"claim_name": "c", "mount_path": "/home/omnigent/data"}], "reserved"),
+        ([{"claim_name": "c", "mount_path": "/home/agentnexus/data"}], "reserved"),
         ([{"claim_name": "c", "mount_path": "/var/run/secrets/x"}], "reserved"),
         # Ancestors of reserved paths: a PVC at /home would mount over the
         # HOME emptyDir's /home/omnigent mountpoint (likewise /var, /var/run
@@ -1163,7 +1163,7 @@ def test_parse_kubernetes_without_secret_mounts_is_none(monkeypatch: pytest.Monk
         ([{"secret_name": "s", "mount_path": "/mnt/x/"}], "normalized"),
         ([{"secret_name": "s", "mount_path": "//mnt/x"}], "normalized"),
         ([{"secret_name": "s", "mount_path": "/"}], "reserved"),
-        ([{"secret_name": "s", "mount_path": "/home/omnigent/data"}], "reserved"),
+        ([{"secret_name": "s", "mount_path": "/home/agentnexus/data"}], "reserved"),
         ([{"secret_name": "s", "mount_path": "/var/run/secrets/x"}], "reserved"),
         # Ancestors of reserved paths would mount over HOME / the Secret projections.
         ([{"secret_name": "s", "mount_path": "/home"}], "reserved"),
@@ -2315,7 +2315,7 @@ class _EntrypointFakeLauncher(FakeSandboxLauncher):
         )
         # Simulate the host's entrypoint dialing back over the tunnel.
         self._host_store.upsert_on_connect(host_id=host_id, name=host_name, user_id=_OWNER)
-        return f"/home/omnigent/workspace/{repo_name}" if repo_name else "/home/omnigent/workspace"
+        return f"/home/agentnexus/workspace/{repo_name}" if repo_name else "/home/agentnexus/workspace"
 
 
 async def test_launch_entrypoint_provider_arms_token_before_launch_host(db_uri: str) -> None:
@@ -2344,7 +2344,7 @@ async def test_launch_entrypoint_provider_arms_token_before_launch_host(db_uri: 
     # The token was already resolvable when start_host ran (no dial-back race).
     assert fake.token_resolved_at_start is True
     # The workspace (cloned dir) is returned and the host is online + bound.
-    assert result.workspace == "/home/omnigent/workspace/repo"
+    assert result.workspace == "/home/agentnexus/workspace/repo"
     host = host_store.get_host(result.host_id)
     assert host is not None
     assert host.status == "online"

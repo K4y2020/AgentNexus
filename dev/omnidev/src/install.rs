@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::paths;
 
-pub const DEFAULT_REPO: &str = "https://github.com/omnigent-ai/omnigent.git";
+pub const DEFAULT_REPO: &str = "https://github.com/K4y2020/AgentNexus.git";
 pub const DEFAULT_REF: &str = "main";
 pub const DEFAULT_EXTRA: &str = "databricks";
 pub const PYTHON_VERSION: &str = "3.12";
@@ -60,7 +60,7 @@ impl InstallConfig {
     }
 
     /// The PEP 508 install spec, e.g.
-    /// `omnigent[databricks] @ git+https://github.com/omnigent-ai/omnigent.git@main`.
+    /// `omnigent[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main`.
     /// With no extras it collapses to the bare `git+<repo>@<ref>` URL.
     pub fn spec(&self) -> String {
         let source = format!("git+{}@{}", self.repo, self.git_ref);

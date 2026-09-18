@@ -761,7 +761,7 @@ def test_mcp_stdio_yaml_reverse_trip_recovers_mcp_tool(mcp_tool_yaml: Path) -> N
     ``unsupported concept``) or silently drops the MCP tool
     (LLM sees no MCP tool, never calls it, agent returns
     "I don't have that tool"). Covers the exact regression
-    the live E2E test under tests/e2e/omnigent/ guards
+    the live E2E test under tests/e2e/agentnexus/ guards
     against.
     """
     from agentnexus.inner.tools import MCPTool

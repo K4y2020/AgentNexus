@@ -386,7 +386,7 @@ def _latest_user_text(messages: list[Message], bridge_dir: Path) -> str:
 
     :param messages: Conversation history in executor message shape.
     :param bridge_dir: Bridge directory path for writing attachment
-        files, e.g. ``Path("/tmp/omnigent/claude-native/<digest>")``.
+        files, e.g. ``Path("/tmp/agentnexus/claude-native/<digest>")``.
     :returns: Concatenated latest user message text, or ``""`` when
         no user text is present.
     """
@@ -410,7 +410,7 @@ def _content_to_text(content: EnqueuedContent, bridge_dir: Path) -> str:
         contain ``input_image`` blocks with an ``image_url`` data URI
         or ``input_file`` blocks with a ``file_data`` data URI.
     :param bridge_dir: Bridge directory path for writing attachment
-        files, e.g. ``Path("/tmp/omnigent/claude-native/<digest>")``.
+        files, e.g. ``Path("/tmp/agentnexus/claude-native/<digest>")``.
     :returns: Plain text content with file-path references prepended
         for any materialized attachments.
     """
