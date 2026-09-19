@@ -255,4 +255,16 @@ describe("Cine review", () => {
     fireEvent.click(screen.getByRole("button", { name: "剧情 00:10.0 发现线索" }));
     expect((screen.getByLabelText("原片播放器") as HTMLVideoElement).currentTime).toBe(10);
   });
+
+  it("supports zooming the timeline tracks and reveals zoom levels", async () => {
+    mount();
+    expect(await screen.findByText("全片")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "放大时间线" }));
+    expect(screen.getByText("1.5x")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "4x" }));
+    expect(screen.getAllByText("4x")).toHaveLength(2);
+    expect(screen.getByLabelText("跟随")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "适应" }));
+    expect(screen.getByText("全片")).toBeVisible();
+  });
 });

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquarePlusIcon, PlayIcon, RefreshCwIcon, RepeatIcon } from "lucide-react";
+import {
+  MessageSquarePlusIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  RepeatIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -129,6 +136,9 @@ function ReviewContent({
   const [feedbackAdded, setFeedbackAdded] = useState(false);
   const [addingFeedback, setAddingFeedback] = useState(false);
   const [showAdaptation, setShowAdaptation] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [follow, setFollow] = useState(true);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const customFetcher = Boolean(getOmnigentHostConfig().fetcher);
   const selectedImages = data.images.filter((image) => selected?.imageIds.includes(image.id));
   const filtered = data.cues.filter(
@@ -191,6 +201,27 @@ function ReviewContent({
       setAddingFeedback(false);
     }
   }
+
+  useEffect(() => {
+    if (!follow || zoom <= 1 || !timelineScrollRef.current || !data.duration) return;
+    const scrollEl = timelineScrollRef.current;
+    const playheadRatio = current / data.duration;
+    const targetScrollLeft = playheadRatio * scrollEl.scrollWidth - scrollEl.clientWidth / 2;
+    scrollEl.scrollLeft = Math.max(0, targetScrollLeft);
+  }, [current, follow, zoom, data.duration]);
+
+  const visibleSeconds = data.duration / zoom;
+  const tickStep =
+    [1, 2, 5, 10, 15, 30, 60, 120, 300, 600].find(
+      (s) => (s / Math.max(1, visibleSeconds)) * 100 >= 10,
+    ) || 30;
+  const ticks: number[] = [];
+  if (data.duration > 0) {
+    for (let t = 0; t <= data.duration; t += tickStep) {
+      ticks.push(t);
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col text-ui">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
@@ -238,85 +269,206 @@ function ReviewContent({
                 {mediaError}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-2 py-2">
-              <span className="font-mono text-sm">
-                {reviewTime(current)} / {reviewTime(data.duration)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!selected || customFetcher}
-                onClick={() => {
-                  if (!selected) return;
-                  seek(selected.start);
-                  setPlayingSelection(true);
-                  void video.current?.play().catch(() => setMediaError("播放失败，请检查原片。"));
-                }}
-              >
-                <PlayIcon />
-                片段回放
-              </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={loop ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    aria-label="循环片段"
-                    aria-pressed={loop}
-                    onClick={() => setLoop(!loop)}
-                  >
-                    <RepeatIcon />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>循环片段</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="space-y-1 border-y py-2" aria-label="拉片时间线">
-              {(
-                [
-                  ["story", "剧情"],
-                  ["shot", "镜头"],
-                  ["dialogue", "对白"],
-                ] as const
-              ).map(([type, label]) => (
-                <div className="flex items-center gap-2" key={type}>
-                  <span className="w-8 shrink-0 text-sm text-muted-foreground">{label}</span>
-                  <div className="relative h-8 min-w-0 flex-1 overflow-hidden rounded-sm bg-muted">
-                    {data.cues
-                      .filter((cue) => cue.type === type)
-                      .map((cue) => (
-                        <button
-                          key={cue.id}
-                          type="button"
-                          aria-label={`${label} ${reviewTime(cue.start)} ${cue.title}`}
-                          title={`${reviewTime(cue.start)} ${cue.title}`}
-                          className={cn(
-                            "absolute inset-y-0.5 min-w-[2px] overflow-hidden border-l border-background/60 px-1 text-left flex items-center cursor-pointer transition-colors focus:z-10 focus:outline focus:outline-2",
-                            selected?.id === cue.id
-                              ? "bg-primary text-primary-foreground font-semibold shadow-sm z-[2]"
-                              : current >= cue.start && current < cue.end
-                                ? "bg-foreground/60 text-background font-medium"
-                                : "bg-foreground/20 text-foreground/85 hover:bg-foreground/30 hover:text-foreground",
-                          )}
-                          style={{
-                            left: `${(cue.start / Math.max(1, data.duration)) * 100}%`,
-                            width: `${Math.max(((cue.end - cue.start) / Math.max(1, data.duration)) * 100, 0.4)}%`,
-                          }}
-                          onClick={() => {
-                            setKind(type);
-                            select(cue);
-                          }}
-                        >
-                          <span className="truncate block w-full text-[11px] leading-tight select-none pointer-events-none">
-                            {type === "story" && cue.sourceId && !cue.title.startsWith(cue.sourceId)
-                              ? `${cue.sourceId} ${cue.title}`
-                              : cue.title}
-                          </span>
-                        </button>
-                      ))}
-                  </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm">
+                  {reviewTime(current)} / {reviewTime(data.duration)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!selected || customFetcher}
+                  onClick={() => {
+                    if (!selected) return;
+                    seek(selected.start);
+                    setPlayingSelection(true);
+                    void video.current?.play().catch(() => setMediaError("播放失败，请检查原片。"));
+                  }}
+                >
+                  <PlayIcon />
+                  片段回放
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={loop ? "secondary" : "ghost"}
+                      size="icon-sm"
+                      aria-label="循环片段"
+                      aria-pressed={loop}
+                      onClick={() => setLoop(!loop)}
+                    >
+                      <RepeatIcon />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>循环片段</TooltipContent>
+                </Tooltip>
+              </div>
+
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="shrink-0 mr-0.5">缩放:</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={zoom <= 1}
+                      onClick={() => setZoom((z) => Math.max(1, Math.round((z / 1.5) * 10) / 10))}
+                      aria-label="缩小时间线"
+                    >
+                      <ZoomOutIcon className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>缩小时间线</TooltipContent>
+                </Tooltip>
+
+                <span className="font-mono w-9 text-center text-foreground font-medium">
+                  {zoom === 1 ? "全片" : `${zoom}x`}
+                </span>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={zoom >= 16}
+                      onClick={() => setZoom((z) => Math.min(16, Math.round(z * 1.5 * 10) / 10))}
+                      aria-label="放大时间线"
+                    >
+                      <ZoomInIcon className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>放大时间线</TooltipContent>
+                </Tooltip>
+
+                <div className="flex items-center rounded-sm bg-muted p-0.5 ml-1 gap-0.5">
+                  {[1, 2, 4, 8].map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      className={cn(
+                        "px-1.5 py-0.5 rounded-xs text-[11px] font-medium transition-colors cursor-pointer",
+                        zoom === level
+                          ? "bg-background text-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                      onClick={() => setZoom(level)}
+                    >
+                      {level === 1 ? "适应" : `${level}x`}
+                    </button>
+                  ))}
                 </div>
-              ))}
+
+                {zoom > 1 && (
+                  <label className="flex items-center gap-1 ml-1.5 cursor-pointer text-[11px] select-none">
+                    <input
+                      type="checkbox"
+                      checked={follow}
+                      onChange={(e) => setFollow(e.target.checked)}
+                      className="rounded-xs size-3 cursor-pointer"
+                    />
+                    跟随
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="flex border-y py-2 gap-2" aria-label="拉片时间线">
+              <div className="w-8 shrink-0 flex flex-col justify-between py-0.5 text-xs text-muted-foreground font-medium select-none">
+                <div className="h-4 flex items-center text-[10px]">刻度</div>
+                <div className="h-8 flex items-center">剧情</div>
+                <div className="h-8 flex items-center">镜头</div>
+                <div className="h-8 flex items-center">对白</div>
+              </div>
+
+              <div
+                ref={timelineScrollRef}
+                className="relative flex-1 min-w-0 overflow-x-auto overflow-y-hidden rounded-sm bg-muted/40 p-1"
+                tabIndex={0}
+                aria-label="时间线轨道滚动区"
+              >
+                <div
+                  className="relative min-w-full space-y-1"
+                  style={{ width: `${zoom * 100}%` }}
+                >
+                  <div
+                    className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-20 pointer-events-none transition-[left] duration-75"
+                    style={{ left: `${(current / Math.max(1, data.duration)) * 100}%` }}
+                  >
+                    <div className="w-2.5 h-2.5 -ml-1 bg-red-500 rotate-45 -mt-1 rounded-[1px]" />
+                  </div>
+
+                  <div
+                    className="relative h-4 w-full cursor-pointer text-[10px] text-muted-foreground border-b border-border/50 select-none overflow-hidden"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const ratio = (e.clientX - rect.left) / rect.width;
+                      seek(Math.max(0, Math.min(data.duration, ratio * data.duration)));
+                    }}
+                  >
+                    {ticks.map((t) => (
+                      <span
+                        key={t}
+                        className="absolute -translate-x-1/2 font-mono whitespace-nowrap"
+                        style={{ left: `${(t / Math.max(1, data.duration)) * 100}%` }}
+                      >
+                        {reviewTime(t)}
+                      </span>
+                    ))}
+                  </div>
+
+                  {(
+                    [
+                      ["story", "剧情"],
+                      ["shot", "镜头"],
+                      ["dialogue", "对白"],
+                    ] as const
+                  ).map(([type, label]) => (
+                    <div
+                      key={type}
+                      className="relative h-8 w-full overflow-hidden rounded-sm bg-muted cursor-pointer"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const ratio = (e.clientX - rect.left) / rect.width;
+                        seek(Math.max(0, Math.min(data.duration, ratio * data.duration)));
+                      }}
+                    >
+                      {data.cues
+                        .filter((cue) => cue.type === type)
+                        .map((cue) => (
+                          <button
+                            key={cue.id}
+                            type="button"
+                            aria-label={`${label} ${reviewTime(cue.start)} ${cue.title}`}
+                            title={`${label} · ${reviewTime(cue.start)}–${reviewTime(cue.end)} · ${cue.title}`}
+                            className={cn(
+                              "absolute inset-y-0.5 min-w-[2px] overflow-hidden border-l border-background/60 px-1 text-left flex items-center cursor-pointer transition-colors focus:z-10 focus:outline focus:outline-2",
+                              selected?.id === cue.id
+                                ? "bg-primary text-primary-foreground font-semibold shadow-sm z-[2]"
+                                : current >= cue.start && current < cue.end
+                                  ? "bg-foreground/60 text-background font-medium"
+                                  : "bg-foreground/20 text-foreground/85 hover:bg-foreground/30 hover:text-foreground",
+                            )}
+                            style={{
+                              left: `${(cue.start / Math.max(1, data.duration)) * 100}%`,
+                              width: `${Math.max(((cue.end - cue.start) / Math.max(1, data.duration)) * 100, 0.4)}%`,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setKind(type);
+                              select(cue);
+                            }}
+                          >
+                            <span className="truncate block w-full text-[11px] leading-tight select-none pointer-events-none">
+                              {type === "story" && cue.sourceId && !cue.title.startsWith(cue.sourceId)
+                                ? `${cue.sourceId} ${cue.title}`
+                                : cue.title}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto" data-review-records>
