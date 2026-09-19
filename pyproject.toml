@@ -374,11 +374,12 @@ dev = [
 ]
 
 [project.scripts]
-# Unified entry point. `agentnexus` / `nexus` are primary CLI entry points,
-# with `agentnexus` / `omni` maintained as backward-compatible aliases.
+# Primary CLI entry points
 agentnexus = "agentnexus.cli:main"
 nexus = "agentnexus.cli:main"
-agentnexus = "agentnexus.cli:main"
+
+# Legacy aliases (deprecated, will be removed in 2.0)
+omnigent = "agentnexus.cli:main"
 omni = "agentnexus.cli:main"
 
 [tool.uv]

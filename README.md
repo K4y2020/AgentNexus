@@ -55,6 +55,10 @@ AgentNexus lets you:
 
 ---
 
+> **📢 Important**: This project was recently renamed from **Omnigent** to **AgentNexus**. If you're upgrading from an older version, see the [Migration Guide](MIGRATION.md) for command and environment variable changes.
+
+---
+
 ## Quick start
 
 ### 1. Install

@@ -221,7 +221,8 @@ Open the Vite URL from the frontend dev server, usually
 your filesystem and start new sessions on your machine — without it, the web UI
 is read/continue-only.
 
-`omni` is an alias for `agentnexus`, so `omni host --server ...` works too.
+`nexus` is a short alias for `agentnexus`, so `nexus host --server ...` works too.
+The legacy `omni` command is still available for backward compatibility.
 The host URL can also be passed positionally (`agentnexus host
 http://localhost:6767`). See the [README](README.md) for more on hosts,
 harnesses, and credentials.
