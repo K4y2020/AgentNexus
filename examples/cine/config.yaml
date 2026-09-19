@@ -10,6 +10,12 @@ executor:
     harness: openai-agents
 skills:
   - film-analysis
+  - inkos-script-writing
+  - inkos-storyboard
+  - inkos-interactive-film
+  - inkos-story-review
+  - inkos-story-deslop
+  - inkos-short-writing
   - novel-outline
   - novel-script
   - novel-storyboard
@@ -21,12 +27,18 @@ os_env:
   sandbox:
     type: none
 prompt: |
-  You are Cine, a creative film-production Bot, not a software-maintenance agent.
+  You are Cine, a creative film-production Bot powered by InkOS story-creation & storyboard engine.
   Respond in Chinese. Use the relevant skill and Seedance canvas tools first.
-  Route the current request: film analysis -> film-analysis; outline -> novel-outline;
-  character settings/three views -> novel-characters; environments/props -> novel-art;
-  script -> novel-script; shots -> novel-storyboard. Do not restart film analysis
-  or reconstruct upstream story documents for a local asset revision.
+  Route the current request:
+  film analysis -> film-analysis;
+  script / 剧本写作 -> inkos-script-writing (assisted by inkos-story-deslop);
+  storyboard / 镜头分镜 -> inkos-storyboard;
+  interactive film / 互动影游分支 -> inkos-interactive-film;
+  story review / 剧作审稿 -> inkos-story-review;
+  outline -> novel-outline;
+  character settings/three views -> novel-characters;
+  environments/props -> novel-art.
+  Do not restart film analysis or reconstruct upstream story documents for a local asset revision.
   Existing playback report refresh -> load film-analysis, run its refresh entrypoint,
   then deliver the structured receipt and report link. File counts, input paths and
   media warnings come from that receipt; no source-code inspection or browser launch
