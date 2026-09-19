@@ -2750,6 +2750,7 @@ class HostProcess:
             # bearer credential stays inside the host-side request made by
             # model_catalog and is never serialized here.
             worker_harness = "codex" if harness in ("codex", "open-responses") else "openai-agents"
+            listing = None
             try:
                 from agentnexus.model_catalog import list_provider_models_for_worker
                 from agentnexus.spec.types import AgentSpec, ExecutorSpec
@@ -2769,28 +2770,44 @@ class HostProcess:
                 )
             except Exception:
                 _logger.exception("Failed to resolve pre-launch %s model options", worker_harness)
-                return HostModelOptionsResultFrame(
-                    request_id=frame.request_id,
-                    status="failed",
-                    error=f"failed to resolve {worker_harness} gateway model options",
-                )
+
+            from agentnexus.model_override import is_codex_compatible_model
+
+            openai_models = [
+                m for m in ((listing.models if listing else None) or [])
+                if m.family == "openai" or is_codex_compatible_model(m.id)
+            ]
+            candidates = openai_models if openai_models else ((listing.models if listing else None) or [])
 
             models_dict: dict[str, dict[str, Any]] = {
                 model.id: {"id": model.id, "displayName": model.id}
-                for model in (listing.models or [])
+                for model in candidates
             }
-            probed = await self._probed_codex_model_options()
-            if probed is not None:
-                for row in (probed.models or []):
-                    rid = str(row.get("id") or row.get("model") or "")
-                    if rid and rid not in models_dict:
-                        models_dict[rid] = {
-                            "id": rid,
-                            "displayName": str(row.get("displayName") or rid),
-                        }
-                for rid in (probed.routable_models or []):
-                    if rid and rid not in models_dict:
-                        models_dict[rid] = {"id": rid, "displayName": rid}
+
+            # If provider declares custom alias mappings, include them
+            try:
+                from agentnexus.onboarding.provider_config import load_config, default_provider_for_harness
+                prov = default_provider_for_harness(load_config(), worker_harness)
+                if prov and prov.families.get("openai") and prov.families["openai"].models:
+                    for alias, target in prov.families["openai"].models.items():
+                        if alias != "default" and alias not in models_dict:
+                            models_dict[alias] = {"id": alias, "displayName": f"{alias} ({target})"}
+            except Exception:
+                pass
+
+            if not models_dict:
+                probed = await self._probed_codex_model_options()
+                if probed is not None:
+                    for row in (probed.models or []):
+                        rid = str(row.get("id") or row.get("model") or "")
+                        if rid and rid not in models_dict:
+                            models_dict[rid] = {
+                                "id": rid,
+                                "displayName": str(row.get("displayName") or rid),
+                            }
+                    for rid in (probed.routable_models or []):
+                        if rid and rid not in models_dict:
+                            models_dict[rid] = {"id": rid, "displayName": rid}
 
             if not models_dict:
                 try:
@@ -2809,7 +2826,7 @@ class HostProcess:
                 status="ok",
                 models=models,
                 routable_models=routable,
-                error=listing.note if not models else None,
+                error=listing.note if (listing and not models) else None,
             )
 
         if harness in ("cursor", "cursor-native", "native-cursor"):
@@ -2855,6 +2872,7 @@ class HostProcess:
             # SDK-mode Claude is a pass-through client with no model catalog
             # of its own, so the endpoint listing IS the harness truth — the
             # ids are already in the exact spelling the SDK sends.
+            listing = None
             try:
                 from agentnexus.model_catalog import list_models_for_worker
                 from agentnexus.spec.types import AgentSpec, ExecutorSpec
@@ -2870,27 +2888,42 @@ class HostProcess:
                 listing = await asyncio.to_thread(list_models_for_worker, sdk_spec, "claude-sdk")
             except Exception:
                 _logger.exception("Failed to resolve pre-launch Claude SDK model options")
-                return HostModelOptionsResultFrame(
-                    request_id=frame.request_id,
-                    status="failed",
-                    error="failed to resolve Claude SDK model options",
-                )
+
+            claude_models = [
+                m for m in ((listing.models if listing else None) or [])
+                if m.family == "claude" or "claude" in m.id.lower()
+            ]
+            candidates = claude_models if claude_models else ((listing.models if listing else None) or [])
+
             models_dict: dict[str, dict[str, Any]] = {
                 model.id: {"id": model.id, "displayName": model.id}
-                for model in (listing.models or [])
+                for model in candidates
             }
-            probed = await self._probed_claude_model_options()
-            if probed is not None:
-                for row in (probed.models or []):
-                    rid = str(row.get("id") or row.get("model") or "")
-                    if rid and rid not in models_dict:
-                        models_dict[rid] = {
-                            "id": rid,
-                            "displayName": str(row.get("displayName") or rid),
-                        }
-                for rid in (probed.routable_models or []):
-                    if rid and rid not in models_dict:
-                        models_dict[rid] = {"id": rid, "displayName": rid}
+
+            # If provider declares custom alias mappings, include them
+            try:
+                from agentnexus.onboarding.provider_config import load_config, default_provider_for_harness
+                prov = default_provider_for_harness(load_config(), "claude-sdk")
+                if prov and prov.families.get("anthropic") and prov.families["anthropic"].models:
+                    for alias, target in prov.families["anthropic"].models.items():
+                        if alias != "default" and alias not in models_dict:
+                            models_dict[alias] = {"id": alias, "displayName": f"{alias} ({target})"}
+            except Exception:
+                pass
+
+            if not models_dict:
+                probed = await self._probed_claude_model_options()
+                if probed is not None:
+                    for row in (probed.models or []):
+                        rid = str(row.get("id") or row.get("model") or "")
+                        if rid and rid not in models_dict:
+                            models_dict[rid] = {
+                                "id": rid,
+                                "displayName": str(row.get("displayName") or rid),
+                            }
+                    for rid in (probed.routable_models or []):
+                        if rid and rid not in models_dict:
+                            models_dict[rid] = {"id": rid, "displayName": rid}
 
             models = list(models_dict.values())
             routable = list(models_dict.keys())
