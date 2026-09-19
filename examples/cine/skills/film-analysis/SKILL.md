@@ -89,6 +89,8 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    --media <source> --output <workspace>/inputs/source-transcript --workspace <workspace>
    --model large-v3-turbo --language zh`. For heavy BGM, singing or music-masked dialogue, add
    `--separate-vocals` (uses Demucs) and `--initial-prompt "<context-summary-and-character-names>"`.
+   Add `--llm-refine` to enable automatic LLM contextual proofreading, typo correction (fixing homophones
+   and Whisper BPE artifacts), and speaker attribution via the AgentNexus gateway.
    This automatically generates `.json`, `.txt` and `.srt` in the workspace. Never create `inputs/source.txt` from visual guesses.
 4. Save each batch into <project>/story/<revision>.json immediately. Resume saved
    progress after interruptions. Do not ask permission to continue each batch.

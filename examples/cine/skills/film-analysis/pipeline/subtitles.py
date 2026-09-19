@@ -109,30 +109,69 @@ def reconcile_dialogue(
     used_asr: set[int] = set()
     conflict_count = 0
     for index, subtitle in enumerate(subtitles, 1):
-        overlaps = [
+        sub_norm = normalized_text(subtitle["text"])
+        candidates = [
             (i, row)
             for i, row in enumerate(asr)
             if row["end"] > subtitle["start"] - 0.75 and row["start"] < subtitle["end"] + 0.75
         ]
-        asr_text = " ".join(
-            row["text"].strip() for _, row in overlaps if row.get("text", "").strip()
-        )
+
+        # Check for direct match with an individual ASR segment
+        best_match = None
+        best_ratio = 0.0
+        for i, row in candidates:
+            r = (
+                SequenceMatcher(None, sub_norm, normalized_text(row.get("text", ""))).ratio()
+                if row.get("text")
+                else 0.0
+            )
+            if r > best_ratio:
+                best_ratio = r
+                best_match = (i, row)
+
+        overlaps: list[tuple[int, dict]] = []
+        if best_ratio >= 0.72 and best_match is not None:
+            overlaps = [best_match]
+            used_asr.add(best_match[0])
+            asr_text = best_match[1]["text"].strip()
+            conflicts = []
+        else:
+            # Check if multi-segment concatenation matches (e.g. sentence split into multiple ASR chunks)
+            combo_rows = [c for c in candidates if c[0] not in used_asr]
+            combo_text = " ".join(
+                c[1]["text"].strip() for c in combo_rows if c[1].get("text", "").strip()
+            )
+            combo_ratio = (
+                SequenceMatcher(None, sub_norm, normalized_text(combo_text)).ratio()
+                if combo_text
+                else 0.0
+            )
+            if combo_ratio >= 0.72:
+                overlaps = combo_rows
+                for c in combo_rows:
+                    used_asr.add(c[0])
+                asr_text = combo_text
+                conflicts = []
+            else:
+                # Text disagreement or missing ASR
+                overlaps = candidates
+                for c in candidates:
+                    used_asr.add(c[0])
+                asr_text = (
+                    " ".join(
+                        c[1]["text"].strip() for c in candidates if c[1].get("text", "").strip()
+                    )
+                    if candidates
+                    else ""
+                )
+                conflicts = []
+                if asr_text:
+                    conflicts.append("字幕与 ASR 文本不一致")
+                    conflict_count += 1
+
         speaker_values = {
             row.get("speaker", "").strip() for _, row in overlaps if row.get("speaker")
         }
-        ratio = (
-            SequenceMatcher(
-                None, normalized_text(subtitle["text"]), normalized_text(asr_text)
-            ).ratio()
-            if asr_text
-            else 0
-        )
-        conflicts = []
-        if asr_text and ratio < 0.72:
-            conflicts.append("字幕与 ASR 文本不一致")
-            conflict_count += 1
-        for i, _ in overlaps:
-            used_asr.add(i)
         cue = {
             "id": f"dialogue:subtitle:{index}",
             "sourceId": subtitle["id"],
