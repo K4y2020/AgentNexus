@@ -595,6 +595,13 @@ export function TeammateSettingsDialog({
                               <SelectItem value="default" className="text-xs">
                                 Provider Default
                               </SelectItem>
+                              {claudePartnerModel &&
+                                claudePartnerModel !== "default" &&
+                                !claudePartnerOptions.some((opt) => opt.id === claudePartnerModel) && (
+                                  <SelectItem value={claudePartnerModel} className="text-xs font-mono">
+                                    {claudePartnerModel} (Current)
+                                  </SelectItem>
+                                )}
                               {claudePartnerOptions.map((opt) => (
                                 <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
                                   {opt.displayName ?? opt.id}
@@ -626,6 +633,13 @@ export function TeammateSettingsDialog({
                               <SelectItem value="default" className="text-xs">
                                 Provider Default
                               </SelectItem>
+                              {gptPartnerModel &&
+                                gptPartnerModel !== "default" &&
+                                !gptPartnerOptions.some((opt) => opt.id === gptPartnerModel) && (
+                                  <SelectItem value={gptPartnerModel} className="text-xs font-mono">
+                                    {gptPartnerModel} (Current)
+                                  </SelectItem>
+                                )}
                               {gptPartnerOptions.map((opt) => (
                                 <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
                                   {opt.displayName ?? opt.id}
@@ -772,6 +786,13 @@ export function TeammateSettingsDialog({
                                 <SelectItem value="default" className="text-xs">
                                   Default (claude-sonnet-4-6)
                                 </SelectItem>
+                                {pollyClaudeModel &&
+                                  pollyClaudeModel !== "default" &&
+                                  !claudePartnerOptions.some((opt) => opt.id === pollyClaudeModel) && (
+                                    <SelectItem value={pollyClaudeModel} className="text-xs font-mono">
+                                      {pollyClaudeModel} (Current)
+                                    </SelectItem>
+                                  )}
                                 {claudePartnerOptions.map((opt) => (
                                   <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
                                     {opt.displayName ?? opt.id}
@@ -800,6 +821,13 @@ export function TeammateSettingsDialog({
                                 <SelectItem value="default" className="text-xs">
                                   Default (gpt-5.4)
                                 </SelectItem>
+                                {pollyCodexModel &&
+                                  pollyCodexModel !== "default" &&
+                                  !gptPartnerOptions.some((opt) => opt.id === pollyCodexModel) && (
+                                    <SelectItem value={pollyCodexModel} className="text-xs font-mono">
+                                      {pollyCodexModel} (Current)
+                                    </SelectItem>
+                                  )}
                                 {gptPartnerOptions.map((opt) => (
                                   <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
                                     {opt.displayName ?? opt.id}
@@ -917,7 +945,7 @@ export function TeammateSettingsDialog({
                       </div>
                     </div>
                   </div>
-                ) : modelOptions.length > 0 ? (
+                ) : (
                   <div className="space-y-3 rounded-lg border border-border/60 bg-background p-3.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-foreground block">
@@ -945,6 +973,13 @@ export function TeammateSettingsDialog({
                           <SelectItem value="default" className="text-xs">
                             Provider Default
                           </SelectItem>
+                          {selectedBotModel &&
+                            selectedBotModel !== "default" &&
+                            !modelOptions.some((opt) => opt.id === selectedBotModel) && (
+                              <SelectItem value={selectedBotModel} className="text-xs font-mono">
+                                {selectedBotModel} (Current)
+                              </SelectItem>
+                            )}
                           {modelOptions.map((opt) => (
                             <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
                               {opt.displayName ?? opt.id}
@@ -962,7 +997,7 @@ export function TeammateSettingsDialog({
                       </Button>
                     </div>
                   </div>
-                ) : null}
+                )}
 
                 {/* Behavior Pack (Lean Engineering) */}
                 <div className="space-y-3 rounded-lg border border-border/60 bg-background p-3.5">

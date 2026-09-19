@@ -2720,31 +2720,36 @@ class HostProcess:
                 error="the codex model probe failed — see the host log",
             )
 
-        if harness == "pi-native":
+        if harness in ("pi", "pi-native", "native-pi"):
+            pi_models: list[dict[str, Any]] = []
             try:
                 from agentnexus.pi_native_credentials import pi_native_model_options
 
                 pi_models = await asyncio.to_thread(pi_native_model_options)
             except Exception:
                 _logger.exception("Failed to resolve pre-launch Pi model options")
-                return HostModelOptionsResultFrame(
-                    request_id=frame.request_id,
-                    status="failed",
-                    error="failed to resolve Pi model options",
-                )
+            if not pi_models:
+                pi_models = [
+                    {"id": "auto", "displayName": "Auto"},
+                    {"id": "claude-sonnet-5", "displayName": "Claude Sonnet 5"},
+                    {"id": "gpt-5.6-sol", "displayName": "GPT-5.6-Sol"},
+                ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
                 models=pi_models,
+                routable_models=[
+                    str(m.get("id")) for m in pi_models if isinstance(m, dict) and m.get("id")
+                ],
             )
 
-        if harness in ("codex", "openai-agents", "openai-agents-sdk"):
+        if harness in ("codex", "openai-agents", "openai-agents-sdk", "open-responses"):
             # Gateway-truth lane for multi-model workers. Unlike the native CLI
             # picker above, this list comes from the worker's configured
             # provider and remains unfiltered and in endpoint order. The
             # bearer credential stays inside the host-side request made by
             # model_catalog and is never serialized here.
-            worker_harness = "codex" if harness == "codex" else "openai-agents"
+            worker_harness = "codex" if harness in ("codex", "open-responses") else "openai-agents"
             try:
                 from agentnexus.model_catalog import list_provider_models_for_worker
                 from agentnexus.spec.types import AgentSpec, ExecutorSpec
@@ -2769,12 +2774,81 @@ class HostProcess:
                     status="failed",
                     error=f"failed to resolve {worker_harness} gateway model options",
                 )
+
+            models_dict: dict[str, dict[str, Any]] = {
+                model.id: {"id": model.id, "displayName": model.id}
+                for model in (listing.models or [])
+            }
+            probed = await self._probed_codex_model_options()
+            if probed is not None:
+                for row in (probed.models or []):
+                    rid = str(row.get("id") or row.get("model") or "")
+                    if rid and rid not in models_dict:
+                        models_dict[rid] = {
+                            "id": rid,
+                            "displayName": str(row.get("displayName") or rid),
+                        }
+                for rid in (probed.routable_models or []):
+                    if rid and rid not in models_dict:
+                        models_dict[rid] = {"id": rid, "displayName": rid}
+
+            if not models_dict:
+                try:
+                    from agentnexus.onboarding.providers import get_chat_models
+                    catalog_models = await asyncio.to_thread(get_chat_models, "openai")
+                    for m in catalog_models[:20]:
+                        if m.name not in models_dict:
+                            models_dict[m.name] = {"id": m.name, "displayName": m.name}
+                except Exception:
+                    pass
+
+            models = list(models_dict.values())
+            routable = list(models_dict.keys())
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
-                models=[{"id": model.id, "displayName": model.id} for model in listing.models],
-                routable_models=[model.id for model in listing.models],
-                error=listing.note if not listing.models else None,
+                models=models,
+                routable_models=routable,
+                error=listing.note if not models else None,
+            )
+
+        if harness in ("cursor", "cursor-native", "native-cursor"):
+            cursor_models: list[dict[str, Any]] = []
+            try:
+                from agentnexus.cursor_native import list_cursor_cli_model_options
+                options = await asyncio.to_thread(list_cursor_cli_model_options)
+                cursor_models = [
+                    {"id": str(opt["id"]), "displayName": str(opt.get("displayName") or opt["id"])}
+                    for opt in options
+                ]
+            except Exception:
+                pass
+            if not cursor_models:
+                cursor_models = [
+                    {"id": "auto-smart", "displayName": "Auto (Smart)"},
+                    {"id": "composer-2.5", "displayName": "Composer 2.5"},
+                    {"id": "gpt-5.6-sol", "displayName": "GPT-5.6-Sol"},
+                    {"id": "claude-sonnet-5", "displayName": "Claude Sonnet 5"},
+                ]
+            return HostModelOptionsResultFrame(
+                request_id=frame.request_id,
+                status="ok",
+                models=cursor_models,
+                routable_models=[m["id"] for m in cursor_models],
+            )
+
+        if harness in ("antigravity", "antigravity-native", "agy", "agy-native", "google-antigravity"):
+            gemini_models = [
+                {"id": "gemini-2.5-pro", "displayName": "Gemini 2.5 Pro"},
+                {"id": "gemini-2.5-flash", "displayName": "Gemini 2.5 Flash"},
+                {"id": "gemini-2.0-flash", "displayName": "Gemini 2.0 Flash"},
+                {"id": "gemini-1.5-pro", "displayName": "Gemini 1.5 Pro"},
+            ]
+            return HostModelOptionsResultFrame(
+                request_id=frame.request_id,
+                status="ok",
+                models=gemini_models,
+                routable_models=[m["id"] for m in gemini_models],
             )
 
         if is_claude_sdk_harness_name(harness):
