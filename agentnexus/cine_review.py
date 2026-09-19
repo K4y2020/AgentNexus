@@ -175,13 +175,108 @@ def _production_packages(workspace: Path) -> list[dict]:
     return packages
 
 
-def _script_packages(
-    workspace: Path, source_id: str | None = None, revision_id: str | None = None
+def _outputs_packages(
+    workspace: Path,
+    source_id: str | None = None,
+    revision_id: str | None = None,
+    source_shots: list[dict] | None = None,
 ) -> list[dict]:
     outputs = (workspace / "outputs").resolve()
     if not outputs.is_dir():
         return []
     packages = []
+
+    # 1. Look for storyboards in outputs/
+    sb_candidates = sorted(
+        list(outputs.glob("*-storyboard.json")) + list(outputs.glob("storyboard.json")),
+        key=lambda p: p.name.casefold(),
+    )
+    handled_stems = set()
+    for sb_file in sb_candidates:
+        try:
+            sb_raw = sb_file.read_text(encoding="utf-8")
+            sb_data = json.loads(sb_raw)
+            stem = sb_file.name.replace("-storyboard.json", "").replace(".json", "")
+            handled_stems.add(stem)
+
+            # Look for matching script
+            script_file = outputs / f"{stem}-script.json"
+            if not script_file.is_file():
+                script_file = outputs / "script.json"
+            script_data = {}
+            if script_file.is_file():
+                script_data = json.loads(script_file.read_text(encoding="utf-8"))
+
+            episodes = sb_data.get("episodes") or []
+            ep = episodes[0] if episodes else {}
+            segments = ep.get("segments") or []
+            total_cuts = sum(len(s.get("cuts", [])) for s in segments)
+            title = sb_data.get("title") or stem
+
+            # Generate or load mapping
+            mapping_file = outputs / f"{stem}-mapping.json"
+            if not mapping_file.is_file():
+                mapping_file = outputs / "mapping.json"
+            mappings = []
+            if mapping_file.is_file():
+                mappings = json.loads(mapping_file.read_text(encoding="utf-8"))
+            elif source_shots:
+                total_src = len(source_shots)
+                shot_idx = 0
+                for seg in segments:
+                    for c_idx, cut in enumerate(seg.get("cuts", []), 1):
+                        matched_src_ids = []
+                        if shot_idx < total_src:
+                            span = max(1, round(total_src / max(1, total_cuts)))
+                            matched_src_ids = [
+                                s["shot_id"] for s in source_shots[shot_idx : shot_idx + span]
+                            ]
+                            shot_idx += span
+                        mappings.append({
+                            "ep": 1,
+                            "segment_id": seg.get("id"),
+                            "cut": c_idx,
+                            "kind": "adapted",
+                            "source_shot_ids": matched_src_ids,
+                        })
+
+            manifest_token = hashlib.sha256(sb_raw.encode("utf-8")).hexdigest()
+            target_sec = ep.get("targetSeconds") or sum(
+                sum(c.get("seconds", 0) for c in s.get("cuts", [])) for s in segments
+            )
+            packages.append({
+                "id": sb_file.relative_to(workspace).as_posix(),
+                "name": f"分镜 · {title}",
+                "mode": "改编分镜",
+                "scope": f"{total_cuts} 镜 · {len(segments)} 段",
+                "targetSeconds": round(target_sec, 1) if target_sec else None,
+                "stages": ["script", "storyboard"] if script_data else ["storyboard"],
+                "hashStatus": [{"stage": "storyboard", "match": True}],
+                "hashesMatch": True,
+                "mappingCount": len(mappings),
+                "validation": {
+                    "status": "draft",
+                    "runId": None,
+                    "productionAuthorized": False,
+                    "unverified": [],
+                    "stageStatuses": {"storyboard": "ready"},
+                },
+                "blockers": [],
+                "manifestToken": manifest_token,
+                "artifacts": {
+                    "storyboard": sb_data,
+                    "script": script_data,
+                    "mapping": mappings,
+                    "source_material": {
+                        "source_id": source_id or "",
+                        "revision_id": revision_id or "",
+                    },
+                },
+            })
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            continue
+
+    # 2. Look for standalone scripts in outputs/
     script_candidates = sorted(
         list(outputs.glob("*-script.json")) + list(outputs.glob("script.json")),
         key=lambda p: p.name.casefold(),
@@ -243,8 +338,16 @@ def read_review(workspace: Path, session_id: str, params: dict) -> dict:
             raise ValueError("CINE_REVIEW_STALE: refresh the report view")
         asset = params.get("asset")
         if asset is None:
-            production_packages = _production_packages(workspace.resolve()) + _script_packages(
-                workspace.resolve(), data.get("sourceId"), data.get("revisionId")
+            source_shots_path = revision / "source_shots.json"
+            source_shots = []
+            if source_shots_path.is_file():
+                try:
+                    source_shots = json.loads(source_shots_path.read_text(encoding="utf-8"))
+                except Exception:
+                    source_shots = []
+
+            production_packages = _production_packages(workspace.resolve()) + _outputs_packages(
+                workspace.resolve(), data.get("sourceId"), data.get("revisionId"), source_shots
             )
             selected_production = None
             requested_production = params.get("production")
