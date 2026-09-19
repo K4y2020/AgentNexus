@@ -65,25 +65,29 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         for pid, p in providers.items():
             if not isinstance(p, dict):
                 continue
-            family = "anthropic" if "anthropic" in p else ("openai" if "openai" in p else "other")
-            sub = p.get(family, {}) if isinstance(p.get(family), dict) else {}
-            base_url = str(sub.get("base_url", "") or "")
-            raw_key = sub.get("api_key") or sub.get("api_key_ref") or ""
-            models_dict = sub.get("models", {}) if isinstance(sub.get("models"), dict) else {}
-            default_model = models_dict.get("default", "")
+            found_families = [f for f in ("anthropic", "openai") if f in p and isinstance(p[f], dict)]
+            if not found_families:
+                found_families = ["other"]
+            for family in found_families:
+                sub = p.get(family, {}) if isinstance(p.get(family), dict) else {}
+                base_url = str(sub.get("base_url", "") or "")
+                raw_key = sub.get("api_key") or sub.get("api_key_ref") or ""
+                models_dict = sub.get("models", {}) if isinstance(sub.get("models"), dict) else {}
+                default_model = models_dict.get("default", "")
 
-            gateways.append({
-                "id": pid,
-                "name": pid,
-                "kind": p.get("kind", "gateway"),
-                "family": family,
-                "base_url": base_url,
-                "has_api_key": bool(raw_key),
-                "api_key_masked": _mask_api_key(str(raw_key) if raw_key else None),
-                "is_default": bool(p.get("default")),
-                "default_model": default_model,
-                "wire_api": sub.get("wire_api", ""),
-            })
+                card_id = f"{pid}-{family}" if len(found_families) > 1 else pid
+                gateways.append({
+                    "id": card_id,
+                    "name": f"{pid} ({family})" if len(found_families) > 1 else pid,
+                    "kind": p.get("kind", "gateway"),
+                    "family": family,
+                    "base_url": base_url,
+                    "has_api_key": bool(raw_key),
+                    "api_key_masked": _mask_api_key(str(raw_key) if raw_key else None),
+                    "is_default": bool(p.get("default")),
+                    "default_model": default_model,
+                    "wire_api": sub.get("wire_api", ""),
+                })
 
         return {"gateways": gateways}
 
@@ -97,6 +101,10 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
             providers = {}
 
         norm_id = payload.id.strip().replace(" ", "-")
+        for suffix in ("-anthropic", "-openai"):
+            if norm_id.endswith(suffix):
+                norm_id = norm_id[:-len(suffix)]
+                break
         base_url = payload.base_url.strip().rstrip("/")
         clean_key = payload.api_key.strip() if payload.api_key else None
 
@@ -121,8 +129,8 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         if payload.default_model:
             models["default"] = payload.default_model
         if payload.family == "anthropic" and len(models) <= 1:
-            models.setdefault("sonnet", "claude-sonnet-4-6")
-            models.setdefault("opus", "claude-opus-4-8")
+            models.setdefault("sonnet", "claude-sonnet-5")
+            models.setdefault("opus", "claude-opus-5")
             models.setdefault("haiku", "claude-haiku-4-5")
             models.setdefault("fable", "claude-fable-5")
             models.setdefault("claude-opus-4-8", "claude-opus-4-6-thinking")
@@ -146,11 +154,11 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         if payload.family == "openai" and payload.wire_api:
             sub_config["wire_api"] = payload.wire_api
 
-        new_entry: dict[str, Any] = {
-            "kind": payload.kind or "gateway",
-            "default": payload.is_default,
-            payload.family: sub_config,
-        }
+        # Preserve existing sibling families so updating openai doesn't wipe anthropic!
+        new_entry: dict[str, Any] = dict(existing_entry)
+        new_entry["kind"] = payload.kind or existing_entry.get("kind", "gateway")
+        new_entry["default"] = payload.is_default
+        new_entry[payload.family] = sub_config
 
         providers[norm_id] = new_entry
         _save_global_config({"providers": providers})
@@ -167,12 +175,23 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         require_user(request, auth_provider)
         cfg = _load_global_config()
         providers = cfg.get("providers", {})
-        if not isinstance(providers, dict) or gateway_id not in providers:
+        if not isinstance(providers, dict):
+            providers = {}
+
+        target_id = gateway_id
+        for suffix in ("-anthropic", "-openai"):
+            if target_id.endswith(suffix) and target_id not in providers:
+                stripped = target_id[:-len(suffix)]
+                if stripped in providers:
+                    target_id = stripped
+                    break
+
+        if target_id not in providers:
             raise HTTPException(status_code=404, detail=f"Gateway {gateway_id} not found")
 
-        del providers[gateway_id]
+        del providers[target_id]
         _save_global_config({"providers": providers})
-        return {"status": "ok", "deleted": gateway_id}
+        return {"status": "ok", "deleted": target_id}
 
     @router.post("/gateways/{gateway_id}/set-default")
     async def set_default_gateway(gateway_id: str, request: Request) -> dict[str, Any]:
@@ -180,23 +199,36 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         require_user(request, auth_provider)
         cfg = _load_global_config()
         providers = cfg.get("providers", {})
-        if not isinstance(providers, dict) or gateway_id not in providers:
+        if not isinstance(providers, dict):
+            providers = {}
+
+        target_id = gateway_id
+        forced_family = None
+        for suffix in ("-anthropic", "-openai"):
+            if target_id.endswith(suffix) and target_id not in providers:
+                forced_family = suffix[1:]
+                stripped = target_id[:-len(suffix)]
+                if stripped in providers:
+                    target_id = stripped
+                    break
+
+        if target_id not in providers:
             raise HTTPException(status_code=404, detail=f"Gateway {gateway_id} not found")
 
-        target = providers[gateway_id]
+        target = providers[target_id]
         if not isinstance(target, dict):
             raise HTTPException(status_code=400, detail="Invalid gateway entry")
 
-        target_fam = "anthropic" if "anthropic" in target else ("openai" if "openai" in target else None)
+        target_fam = forced_family or ("anthropic" if "anthropic" in target else ("openai" if "openai" in target else None))
         if not target_fam:
             raise HTTPException(status_code=400, detail="Gateway has no anthropic or openai family")
 
         for other_id, other_p in providers.items():
             if isinstance(other_p, dict) and target_fam in other_p:
-                other_p["default"] = (other_id == gateway_id)
+                other_p["default"] = (other_id == target_id)
 
         _save_global_config({"providers": providers})
-        return {"status": "ok", "default_gateway": gateway_id, "family": target_fam}
+        return {"status": "ok", "default_gateway": target_id, "family": target_fam}
 
     @router.post("/gateways/test")
     async def test_gateway(payload: GatewayTestPayload, request: Request) -> dict[str, Any]:
@@ -206,17 +238,37 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         if not base_url:
             raise HTTPException(status_code=400, detail="Base URL is required")
 
+        base_clean = base_url[:-3] if base_url.endswith("/v1") else base_url
+
+        key = payload.api_key.strip() if payload.api_key else None
+        if not key:
+            cfg = _load_global_config()
+            providers = cfg.get("providers", {})
+            if isinstance(providers, dict):
+                for p in providers.values():
+                    if isinstance(p, dict):
+                        for fam in ("anthropic", "openai", payload.family):
+                            sub = p.get(fam, {})
+                            if isinstance(sub, dict):
+                                b = str(sub.get("base_url", "")).rstrip("/")
+                                if b and (b == base_url or b == base_clean or b == f"{base_clean}/v1"):
+                                    k = sub.get("api_key")
+                                    if isinstance(k, str) and k:
+                                        key = k
+                                        break
+                    if key:
+                        break
+
         headers: dict[str, str] = {}
-        if payload.api_key:
-            key = payload.api_key.strip()
+        if key:
             if payload.family == "anthropic":
                 headers["x-api-key"] = key
                 headers["anthropic-version"] = "2023-06-01"
             headers["Authorization"] = f"Bearer {key}"
 
         test_urls = [
-            f"{base_url}/v1/models",
-            f"{base_url}/models",
+            f"{base_clean}/v1/models",
+            f"{base_clean}/models",
             base_url,
         ]
 
@@ -256,7 +308,9 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                                 "models": [],
                                 "message": f"Connected successfully (HTTP 200, {latency_ms}ms).",
                             }
-                    else:
+                    elif resp.status_code in (401, 403):
+                        last_error = f"HTTP {resp.status_code}: Authentication failed. Please check API Key."
+                    elif not last_error or last_error.startswith("HTTP 404") or last_error == "Unknown error":
                         last_error = f"HTTP {resp.status_code}: {resp.text[:120]}"
                 except httpx.ConnectError:
                     last_error = f"Cannot connect to {base_url} (Connection refused)"
