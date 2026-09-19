@@ -208,10 +208,12 @@ def _script_packages(
                 "mappingCount": 0,
                 "validation": {
                     "status": "draft",
+                    "runId": None,
                     "productionAuthorized": False,
                     "unverified": [],
                     "stageStatuses": {"script": "ready"},
                 },
+                "blockers": [],
                 "manifestToken": manifest_token,
                 "artifacts": {
                     "script": sdata,
