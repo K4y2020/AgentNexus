@@ -130,15 +130,46 @@ _DATABRICKS_GATEWAY_PREFIX = "databricks-"
 # dispatches: ``chatgpt-4o-latest`` (the token is glued to a prefix) and
 # ``gpt4o`` (glued to its generation) are real OpenAI ids that a per-segment
 # match rejects outright.
-_CODEX_SUBSTRING_TOKENS: tuple[str, ...] = ("gpt", "codex")
+_CODEX_SUBSTRING_TOKENS: tuple[str, ...] = (
+    "gpt",
+    "codex",
+    "qwen",
+    "deepseek",
+    "grok",
+    "gemini",
+    "claude",
+    "glm",
+    "kimi",
+    "minimax",
+    "moonshot",
+    "hunyuan",
+    "doubao",
+    "mistral",
+    "llama",
+    "omen",
+)
 
 # Tokens matched per segment (``-``/``_``/``.``/``/`` separated) with an
 # optional trailing generation number, so ``system.ai.glm-5-2`` and
 # ``kimi-k2-instruct`` match while an unrelated endpoint name that merely
-# contains the letters (``glmqlfit-eval``) does not. Only the families added
-# for codex-compatible routing: three letters inside an arbitrary endpoint name
-# is far likelier to be a coincidence than "gpt" is.
-_CODEX_COMPATIBLE_SEGMENT_TOKENS: tuple[str, ...] = ("glm", "kimi")
+# contains the letters (``glmqlfit-eval``) does not. Extended to cover
+# third-party and custom gateway provider models.
+_CODEX_COMPATIBLE_SEGMENT_TOKENS: tuple[str, ...] = (
+    "glm",
+    "kimi",
+    "qwen",
+    "deepseek",
+    "grok",
+    "gemini",
+    "claude",
+    "minimax",
+    "moonshot",
+    "hunyuan",
+    "doubao",
+    "mistral",
+    "llama",
+    "omen",
+)
 
 _ID_SEGMENT_SPLIT = re.compile(r"[^a-z0-9]+")
 

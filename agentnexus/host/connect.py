@@ -2771,17 +2771,9 @@ class HostProcess:
             except Exception:
                 _logger.exception("Failed to resolve pre-launch %s model options", worker_harness)
 
-            from agentnexus.model_override import is_codex_compatible_model
-
-            openai_models = [
-                m for m in ((listing.models if listing else None) or [])
-                if m.family == "openai" or is_codex_compatible_model(m.id)
-            ]
-            candidates = openai_models if openai_models else ((listing.models if listing else None) or [])
-
             models_dict: dict[str, dict[str, Any]] = {
                 model.id: {"id": model.id, "displayName": model.id}
-                for model in candidates
+                for model in ((listing.models if listing else None) or [])
             }
 
             # If provider declares custom alias mappings, include them
