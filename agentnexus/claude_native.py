@@ -2782,9 +2782,12 @@ def _provider_config_for_native_claude(entry: ProviderEntry) -> ClaudeNativeUcod
         default_env_var = ALIAS_MODEL_ENV_VARS.get(base_alias)
         if default_env_var:
             pin_env.setdefault(default_env_var, family.default_model)
+    claude_base_url = family.base_url.rstrip("/")
+    if claude_base_url.endswith("/v1"):
+        claude_base_url = claude_base_url[:-3]
     return ClaudeNativeUcodeConfig(
         env={
-            _UCODE_CLAUDE_BASE_URL_ENV: family.base_url,
+            _UCODE_CLAUDE_BASE_URL_ENV: claude_base_url,
             **(
                 {CLAUDE_API_KEY_HELPER_TOKEN_ENV: static_api_key}
                 if static_api_key is not None

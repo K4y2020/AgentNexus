@@ -212,7 +212,10 @@ class ClaudeGatewayShim:
         strip_sdk_internal_system_blocks: bool = False,
         session_id: str | None = None,
     ) -> None:
-        self._upstream_base_url = upstream_base_url.rstrip("/")
+        clean_url = upstream_base_url.rstrip("/")
+        if clean_url.endswith("/v1"):
+            clean_url = clean_url[:-3]
+        self._upstream_base_url = clean_url
         self._strip_sdk_internal_system_blocks = strip_sdk_internal_system_blocks
         self._session_id = session_id
         self._default_session_id = session_id or uuid.uuid4().hex
@@ -360,7 +363,10 @@ class ClaudeGatewayShim:
         if not has_opencode_session:
             headers.append(("x-opencode-session", self._session_id or self._default_session_id))
         query = scope.get("query_string", b"").decode("latin-1")
-        url = f"{self._upstream_base_url}{path}" + (f"?{query}" if query else "")
+        path_to_use = path
+        if self._upstream_base_url.endswith("/v1") and path.startswith("/v1"):
+            path_to_use = path[3:]
+        url = f"{self._upstream_base_url}{path_to_use}" + (f"?{query}" if query else "")
 
         try:
             async with self._client.stream(
