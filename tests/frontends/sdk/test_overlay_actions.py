@@ -1,5 +1,5 @@
 """
-Unit tests for :class:`omnigent_ui_sdk.OverlayAction` —
+Unit tests for :class:`agentnexus_ui_sdk.OverlayAction` —
 per-target action keybindings registered on a sidebar
 overlay.
 

@@ -1,4 +1,4 @@
-"""Unit tests for :class:`omnigent_client.tools.ToolState`.
+"""Unit tests for :class:`agentnexus_client.tools.ToolState`.
 
 Exercises the public API directly using a tmp_path root. No
 subprocess, no server — that part is covered by e2e tests.

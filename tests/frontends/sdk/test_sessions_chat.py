@@ -1,4 +1,4 @@
-"""Unit tests for :class:`omnigent_client._sessions_chat.SessionsChat`.
+"""Unit tests for :class:`agentnexus_client._sessions_chat.SessionsChat`.
 
 These exercise the chat helper end-to-end through a fake
 :class:`SessionsNamespace`. We use a real stub class (not MagicMock)

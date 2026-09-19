@@ -165,7 +165,7 @@ def test_parse_sub_agent_handle_returns_none_for_garbage(raw: str) -> None:
 
 class _CapturingHost:
     """
-    Minimal :class:`omnigent_ui_sdk.TerminalHost`-shaped stub that
+    Minimal :class:`agentnexus_ui_sdk.TerminalHost`-shaped stub that
     records every ``output(...)`` call.
 
     The real :class:`TerminalHost` writes to prompt-toolkit's UI;

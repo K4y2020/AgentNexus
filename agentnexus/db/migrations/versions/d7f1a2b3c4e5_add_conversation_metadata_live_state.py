@@ -1,4 +1,4 @@
-"""add live-state columns to omnigent_conversation_metadata
+"""add live-state columns to agentnexus_conversation_metadata
 
 Revision ID: d7f1a2b3c4e5
 Revises: a7b3c4d5e6f7
@@ -20,7 +20,7 @@ in-memory caches of the replica holding the session's runner tunnel):
   elicitation (approval-prompt) count. NULL means never written.
 
 All three are written by the pod holding the runner tunnel. They live on
-``omnigent_conversation_metadata`` (AgentNexus operational state, beside
+``agentnexus_conversation_metadata`` (AgentNexus operational state, beside
 ``runner_id``/``host_id``), so writes cannot bump
 ``conversations.updated_at`` — which drives sidebar ordering.
 """

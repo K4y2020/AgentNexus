@@ -71,7 +71,7 @@ class _FakeSDKTextDelta:
 
 @dataclass
 class _FakeStreamingText:
-    """Stub for ``omnigent_ui_sdk.StreamingText``.
+    """Stub for ``agentnexus_ui_sdk.StreamingText``.
 
     :param text: The text content, e.g. ``"Hello world!"``.
     """

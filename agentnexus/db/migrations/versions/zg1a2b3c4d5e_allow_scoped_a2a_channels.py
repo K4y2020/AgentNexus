@@ -38,7 +38,7 @@ def downgrade() -> None:
     """Restore the singleton-only A2A invariant when no scoped rows remain."""
     bind = op.get_bind()
     scoped_count = bind.exec_driver_sql(
-        "SELECT COUNT(*) FROM omnigent_conversation_metadata "
+        "SELECT COUNT(*) FROM agentnexus_conversation_metadata "
         "WHERE purpose = 'a2a' AND singleton_slot IS NULL"
     ).scalar_one()
     if scoped_count:

@@ -1,7 +1,7 @@
 """E2E: ``StreamHooks`` sub-agent lifecycle hooks fire on a live sub-agent run.
 
 ``StreamHooks`` declares ``on_sub_agent_spawned`` / ``on_sub_agent_completed``
-as part of the SDK's public hook surface (``omnigent_client._tool_handler``).
+as part of the SDK's public hook surface (``agentnexus_client._tool_handler``).
 An observability adapter (e.g. an MLflow tracer) registers them to open a
 per-sub-agent span when the orchestrator delegates work.
 

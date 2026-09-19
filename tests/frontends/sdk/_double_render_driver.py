@@ -1,7 +1,7 @@
 """
 Driver for the double-render regression test (test_double_render.py).
 
-Boots a real :class:`omnigent_ui_sdk.terminal.TerminalHost` running
+Boots a real :class:`agentnexus_ui_sdk.terminal.TerminalHost` running
 ``host.run(handler)`` (the same entry point the REPL uses), simulates
 the formatter's chunk-by-chunk output for a markdown response, and
 exits cleanly. Assertions run in the parent process against the

@@ -5,7 +5,7 @@ A parent session's own ``status`` is per-session: a delegating agent fans out
 sub-agents and returns to its own prompt, so the parent reads ``idle`` while
 its children are still working. To answer *"is anything in this subtree still
 working?"* both the CLI (the ``state: N agents running`` badge / ``↓`` menu in
-:mod:`omnigent_ui_sdk.terminal`) and SDK rollups
+:mod:`agentnexus_ui_sdk.terminal`) and SDK rollups
 (:meth:`SessionsNamespace.subtree_busy` / :meth:`SessionsChat.tree_busy`) need
 one agreed definition of a *single* child being busy. That definition lives
 here so the two can't drift.

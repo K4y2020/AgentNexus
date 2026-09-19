@@ -5,7 +5,7 @@ Revises: cc3d4e5f6a7b
 Create Date: 2026-07-14 00:00:00.000000
 
 The conversations split (``aa1b2c3d4e5f``) moved ``archived`` onto
-``omnigent_conversation_metadata``. That forced ``list_conversations`` to
+``agentnexus_conversation_metadata``. That forced ``list_conversations`` to
 pre-fetch every non-archived conversation id from the AgentNexus DB and filter
 the AP query with a giant ``IN (...)``, because the sort keys
 (``created_at``/``updated_at``) stayed on ``conversations`` while the filter
@@ -13,7 +13,7 @@ moved to the other logical DB.
 
 This migration moves ``archived`` back onto ``conversations`` so the AP query
 can filter it inline next to the sort keys. It adds the column, backfills from
-``omnigent_conversation_metadata`` via a portable correlated subquery, drops
+``agentnexus_conversation_metadata`` via a portable correlated subquery, drops
 it from the metadata table, and adds a composite index supporting the default
 sidebar (``archived=false ORDER BY updated_at DESC``). ``kind`` intentionally
 stays on the metadata table — the list filter now derives it from
@@ -37,7 +37,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """
     Add ``conversations.archived``, backfill it from the metadata table,
-    then drop it from ``omnigent_conversation_metadata``.
+    then drop it from ``agentnexus_conversation_metadata``.
 
     ``server_default=sa.false()`` backfills existing rows for the NOT NULL
     add; the subsequent UPDATE overwrites them with the real value copied
@@ -61,7 +61,7 @@ def upgrade() -> None:
         UPDATE conversations
         SET archived = COALESCE(
             (SELECT m.archived
-             FROM omnigent_conversation_metadata m
+             FROM agentnexus_conversation_metadata m
              WHERE m.workspace_id = conversations.workspace_id
                AND m.id = conversations.id),
             FALSE
@@ -99,12 +99,12 @@ def downgrade() -> None:
 
     op.execute(
         """
-        UPDATE omnigent_conversation_metadata
+        UPDATE agentnexus_conversation_metadata
         SET archived = COALESCE(
             (SELECT c.archived
              FROM conversations c
-             WHERE c.workspace_id = omnigent_conversation_metadata.workspace_id
-               AND c.id = omnigent_conversation_metadata.id),
+             WHERE c.workspace_id = agentnexus_conversation_metadata.workspace_id
+               AND c.id = agentnexus_conversation_metadata.id),
             FALSE
         )
         """

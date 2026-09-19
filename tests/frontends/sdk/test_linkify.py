@@ -1,6 +1,6 @@
 """
 Tests for the OSC 8 URL-linkification helper used by
-:class:`omnigent_ui_sdk.terminal.TerminalHost`.
+:class:`agentnexus_ui_sdk.terminal.TerminalHost`.
 
 Covers:
 

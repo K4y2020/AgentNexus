@@ -3,7 +3,7 @@ Client-side ``coding`` tool set.
 
 Eight coding tools — Read, Write, Edit, Glob, Grep, Bash, LSP,
 get_current_time — defined as ``@tool``-decorated Python
-functions and surfaced through the ``omnigent_client``
+functions and surfaced through the ``agentnexus_client``
 SDK's ``build_tool_handler``. The legacy ``TOOLS`` list and
 ``execute_tool`` dispatcher are derived from the same
 functions so consumers that hand-construct schemas
@@ -344,8 +344,8 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
 
     Used by ``examples/frontends/terminal.py`` and ``omnigent chat``'s
     raw-schema path. New consumers should construct a
-    :class:`~omnigent_client.tools.ToolHandler` via
-    :func:`~omnigent_client.tools.build_tool_handler` against
+    :class:`~agentnexus_client.tools.ToolHandler` via
+    :func:`~agentnexus_client.tools.build_tool_handler` against
     the ``@tool`` functions directly.
 
     :param name: Tool function name, e.g. ``"Read"`` or ``"Bash"``.

@@ -14,9 +14,9 @@ hex form (entities, JSON blobs, URLs, the FTS mirror), so only the physical
 column changes.
 
 Columns deliberately NOT converted (kept as strings):
-``omnigent_conversation_metadata.runner_id`` and
+``agentnexus_conversation_metadata.runner_id`` and
 ``conversation_items.response_id`` (polymorphic harness task tokens, not our
-uuids), ``omnigent_conversation_metadata.external_session_id`` (harness-native),
+uuids), ``agentnexus_conversation_metadata.external_session_id`` (harness-native),
 ``agents.bundle_location`` (a physical artifact-store key ``<agent_id>/<sha>``),
 ``account_tokens.id`` (a secret token), ``hosts.token_hash`` (a sha256), and the
 email / username identity columns.
@@ -32,7 +32,7 @@ raise and abort the whole migration. Rather than block the deploy or drop the
 row, such a value maps to ``md5(value)`` (16 bytes). Because ``md5`` is a pure
 function of the string and identical across PostgreSQL, MySQL, and Python, a
 junk value and every column that references it (e.g. ``hosts.host_id`` and the
-``omnigent_conversation_metadata.host_id`` copies) map to the SAME bytes, so
+``agentnexus_conversation_metadata.host_id`` copies) map to the SAME bytes, so
 cross-references still resolve. A well-formed id always takes the hex-decode
 branch, so this changes nothing for normal data.
 

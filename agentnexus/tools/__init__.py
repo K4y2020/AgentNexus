@@ -8,7 +8,7 @@ Public API (lazy):
 - ``ClientSideToolSpec``: Configuration for a client-side tool.
 - ``LocalPythonTool``: A tool backed by a local Python file in the agent image.
 The ``tool`` decorator and ``ToolMetadata`` now live in
-``omnigent_client.tools`` — import them from there.
+``agentnexus_client.tools`` — import them from there.
 
 Imports are lazy so that loading ``omnigent.tools`` does not pull
 in heavy submodules (``manager`` transitively imports ``mcp``, which
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 # Map exported name → (submodule path, attribute name).
 # Add an entry here when adding a new public re-export.
 # NOTE: The `tool` decorator and `ToolMetadata` now live in the
-# `omnigent_client.tools` package (see sdks/python-client/). Import
+# `agentnexus_client.tools` package (see sdks/python-client/). Import
 # them from there — they used to be re-exported here but the
 # duplicate surface was removed in the SDK carve-out.
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -57,7 +57,7 @@ def __getattr__(name: str) -> Any:
 
     Importing one symbol from this package no longer drags in
     every submodule. Subprocess-loaded tool files import the
-    ``tool`` decorator from ``omnigent_client`` (not here),
+    ``tool`` decorator from ``agentnexus_client`` (not here),
     which avoids triggering the ``ToolManager`` → ``mcp`` import
     chain that conflicts with the upstream ``mcp`` pip package
     in subprocess environments — see ``list_builtin_tools.py``

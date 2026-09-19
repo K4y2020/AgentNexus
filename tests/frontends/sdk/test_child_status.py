@@ -1,5 +1,5 @@
 """Unit tests for the canonical sub-agent busy predicate
-(:mod:`omnigent_client._child_status`).
+(:mod:`agentnexus_client._child_status`).
 
 This predicate is the single source of truth shared by the CLI ``state: N
 agents running`` badge (via the terminal host) and the SDK rollups

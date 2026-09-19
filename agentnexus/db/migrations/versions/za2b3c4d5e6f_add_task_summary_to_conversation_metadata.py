@@ -4,7 +4,7 @@ Revision ID: za2b3c4d5e6f
 Revises: d5e9f1a2b3c4
 Create Date: 2026-08-10 00:00:00.000000
 
-Adds a nullable ``task_summary`` column to ``omnigent_conversation_metadata``.
+Adds a nullable ``task_summary`` column to ``agentnexus_conversation_metadata``.
 Sub-agent sessions use this column to store a human-readable, task-derived label
 (e.g. "Investigate auth token refresh") generated asynchronously by the
 background title coordinator. The structured title
@@ -28,7 +28,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Add ``task_summary`` to ``omnigent_conversation_metadata``.
+    """Add ``task_summary`` to ``agentnexus_conversation_metadata``.
 
     Idempotent: skips the DDL when the column already exists (e.g. added
     outside Alembic by a hotfix), so re-running upgrade does not crash with
@@ -45,6 +45,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove ``task_summary`` from ``omnigent_conversation_metadata``."""
+    """Remove ``task_summary`` from ``agentnexus_conversation_metadata``."""
     with op.batch_alter_table("agentnexus_conversation_metadata") as batch_op:
         batch_op.drop_column("task_summary")

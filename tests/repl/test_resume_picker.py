@@ -918,7 +918,7 @@ def test_runtime_badge_non_claude_native(labels: Mapping[str, str] | None) -> No
 
 
 class _FakeSessionsNamespace:
-    """Stub mimicking :class:`omnigent_client.SessionsNamespace`.
+    """Stub mimicking :class:`agentnexus_client.SessionsNamespace`.
 
     Picker switched to the Sessions API so wrapper-only sessions (no
     task rows) still appear. Captures the kwargs each ``list`` call
@@ -936,7 +936,7 @@ class _FakeSessionsNamespace:
 
 
 class _FakeConversationsNamespace:
-    """Stub mimicking :class:`omnigent_client.ConversationsNamespace`.
+    """Stub mimicking :class:`agentnexus_client.ConversationsNamespace`.
 
     Only ``list_items`` is used (by the preview fetch); list lives on
     sessions now."""
@@ -956,7 +956,7 @@ class _FakeConversationsNamespace:
 
 
 class _FakeAPClient:
-    """Stub :class:`omnigent_client.AgentNexusClient` exposing
+    """Stub :class:`agentnexus_client.AgentNexusClient` exposing
     ``.sessions`` (for list) and ``.conversations`` (for list_items)."""
 
     def __init__(self, rows: list[_BadgeRow]) -> None:

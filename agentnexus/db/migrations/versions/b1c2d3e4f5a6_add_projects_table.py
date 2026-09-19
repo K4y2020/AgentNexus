@@ -11,7 +11,7 @@ independently of its members (so it can be empty, renamed, and carry its own
 config).
 
 This migration creates only the container. Session→project membership (the
-``omnigent_conversation_metadata.project_id`` column) lands in a follow-up
+``agentnexus_conversation_metadata.project_id`` column) lands in a follow-up
 migration alongside the store/route code that reads it, so this PR ships no
 column that nothing consumes yet.
 

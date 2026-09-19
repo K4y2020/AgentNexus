@@ -88,7 +88,7 @@ def upgrade() -> None:
         )
 
     op.execute(
-        "UPDATE omnigent_conversation_metadata SET purpose = 'subagent' WHERE kind = 2"
+        "UPDATE agentnexus_conversation_metadata SET purpose = 'subagent' WHERE kind = 2"
     )
 
 

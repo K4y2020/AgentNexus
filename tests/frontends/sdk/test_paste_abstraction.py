@@ -1,6 +1,6 @@
 """
 Unit tests for the bracketed-paste abstraction in
-:mod:`omnigent_ui_sdk.terminal._host`.
+:mod:`agentnexus_ui_sdk.terminal._host`.
 
 Covers the pure threshold/format helpers, the host-level registry
 methods, the ``Keys.BracketedPaste`` key binding, and the

@@ -10,12 +10,12 @@ the server intentionally does not buffer past events.
 
 The SDK-side ``Session`` dataclass in this module mirrors
 :class:`omnigent.server.schemas.SessionResponse`. Note that the
-``Session`` class exported from :mod:`omnigent_client._session` is
+``Session`` class exported from :mod:`agentnexus_client._session` is
 an unrelated higher-level ``/v1/responses`` chat helper; the two
 concepts share a name because the server route is ``/v1/sessions``
 and the chat helper predates the new route. To avoid surfacing the
 collision in the public namespace we deliberately do NOT re-export
-this module's ``Session`` from :mod:`omnigent_client.__init__` —
+this module's ``Session`` from :mod:`agentnexus_client.__init__` —
 callers obtain it via ``client.sessions.create()``.
 """
 
@@ -116,8 +116,8 @@ class Session:
     a single point-in-time snapshot — to observe state changes the
     caller fetches a new snapshot via :meth:`SessionsNamespace.get`.
 
-    Note: distinct from :class:`omnigent_client._session.Session`
-    (re-exported as ``omnigent_client.Session``), which is a
+    Note: distinct from :class:`agentnexus_client._session.Session`
+    (re-exported as ``agentnexus_client.Session``), which is a
     higher-level chat helper over ``/v1/responses``. See this module's
     docstring for the rationale on why we do NOT re-export this class
     publicly.
@@ -975,7 +975,7 @@ class SessionsNamespace:
         per-session and reads ``idle`` once it delegates and returns to its own
         prompt, even while its sub-agents run. This recurses the subtree
         (:meth:`child_sessions_tree`) and applies the canonical
-        :func:`omnigent_client.child_summary_busy` predicate — the same "busy"
+        :func:`agentnexus_client.child_summary_busy` predicate — the same "busy"
         definition the CLI badge and the web ``SubagentsPanel`` use — so an
         eval loop can gate "your turn" on real subtree activity.
 

@@ -1,14 +1,14 @@
 """Sessions-API-native chat helper.
 
-A higher-level wrapper over :class:`omnigent_client._sessions.SessionsNamespace`
-that mirrors enough of :class:`omnigent_client._session.Session`'s
+A higher-level wrapper over :class:`agentnexus_client._sessions.SessionsNamespace`
+that mirrors enough of :class:`agentnexus_client._session.Session`'s
 public surface for downstream consumers (terminal REPL, ``omnigent
 chat``, ``inner/cli.py``, …) to migrate without rewriting their event
 loops, while being implemented entirely on top of ``/v1/sessions``
 (no ``/v1/responses`` dependency).
 
 The two helpers differ in one important way: the legacy
-:class:`omnigent_client._session.Session` synthesizes a multi-turn
+:class:`agentnexus_client._session.Session` synthesizes a multi-turn
 conversation by threading ``previous_response_id`` across one-shot
 ``/v1/responses`` calls. :class:`SessionsChat` instead binds to a
 single durable session id once and re-uses it for every turn —
@@ -21,7 +21,7 @@ until the turn's terminal ``response.*`` event arrives.
 
 The helper does NOT re-export under the existing public name
 ``Session`` — that name already belongs to
-:class:`omnigent_client._session.Session` and renaming would break
+:class:`agentnexus_client._session.Session` and renaming would break
 in-flight migrations. Instead we expose
 :class:`SessionsChat` (chat helper) alongside the lower-level
 :class:`SessionsNamespace` (raw HTTP wrapper).
@@ -131,7 +131,7 @@ class SessionToolCallInfo:
     Context passed to a client-side tool callable.
 
     Distinct from the legacy
-    :class:`omnigent_client._tool_handler.ToolCallInfo` — that
+    :class:`agentnexus_client._tool_handler.ToolCallInfo` — that
     type is bound to the ``/v1/responses`` ``ToolHandler`` dispatch
     loop and carries a ``response_id`` / ``iteration`` /
     ``agent_name`` triple sourced from the responses-API event
@@ -216,7 +216,7 @@ class _AgentToolsGetter(Protocol):
 # per-turn stream subscription. Matches the response-lifecycle
 # terminal set listed in ``omnigent/server/schemas.py`` (and
 # the ``_TERMINAL_STATUSES`` set in
-# :mod:`omnigent_client._session`).
+# :mod:`agentnexus_client._session`).
 _TURN_TERMINAL_EVENT_TYPES = (
     CompletedEvent,
     FailedEvent,
@@ -267,7 +267,7 @@ class SessionsChat:
     """
     Sessions-API-native chat helper bound to a single durable session.
 
-    Usage mirrors :class:`omnigent_client._session.Session` for
+    Usage mirrors :class:`agentnexus_client._session.Session` for
     consumer-side migration parity::
 
         chat = await client.sessions_chat(bundle=b"...")
@@ -1382,7 +1382,7 @@ class SessionsChat:
         Accepts either a bare string or a pre-built content-block
         list, then appends ``input_file``/``input_image`` blocks
         for any uploaded files. Mirrors
-        :meth:`omnigent_client._session.Session._build_input_with_files`
+        :meth:`agentnexus_client._session.Session._build_input_with_files`
         so consumers see the same wire shape regardless of which
         helper they use.
 
@@ -1437,7 +1437,7 @@ class _FilesUploader(Protocol):
     Protocol for the file-upload callable injected into :class:`SessionsChat`.
 
     Matches the signature of
-    :meth:`omnigent_client._files.FilesNamespace.upload`. Defined
+    :meth:`agentnexus_client._files.FilesNamespace.upload`. Defined
     as a Protocol (not a bare ``Callable``) so the parameter name
     is preserved in hover docs.
     """
@@ -1458,7 +1458,7 @@ class _FilesGetter(Protocol):
     Protocol for the file-fetch callable injected into :class:`SessionsChat`.
 
     Matches the signature of
-    :meth:`omnigent_client._files.FilesNamespace.get`.
+    :meth:`agentnexus_client._files.FilesNamespace.get`.
     """
 
     async def __call__(self, file_id: str) -> File:

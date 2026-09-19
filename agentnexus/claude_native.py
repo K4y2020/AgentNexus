@@ -1441,7 +1441,7 @@ def _resolve_session_id_for_resume(
         return session_id
     if not resume_picker:
         return None
-    # Deferred — omnigent_client / repl pull in heavy graphs we don't want at startup.
+    # Deferred — agentnexus_client / repl pull in heavy graphs we don't want at startup.
     from agentnexus_client import AgentNexusClient
 
     from agentnexus.repl._resume_picker import pick_conversation_by_wrapper_label_from_sdk

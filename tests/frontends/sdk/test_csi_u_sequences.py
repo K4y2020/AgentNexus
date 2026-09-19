@@ -1,7 +1,7 @@
 """
 Unit tests for the Kitty Keyboard Protocol (CSI-u) escape
 sequence registration in
-:mod:`omnigent_ui_sdk.terminal._host`.
+:mod:`agentnexus_ui_sdk.terminal._host`.
 
 The host installs a set of ``\\x1b[<cp>;<modifier>u`` →
 :class:`prompt_toolkit.keys.Keys` translations at construction

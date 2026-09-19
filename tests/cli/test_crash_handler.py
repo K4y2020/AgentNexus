@@ -253,7 +253,7 @@ def test_traceback_shows_exception_message_lines(data_dir: Path) -> None:
 def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: Path) -> None:
     """A core SDK package installed into site-packages stays visible.
 
-    In a shipped wheel the SDKs (``omnigent_client``, ``omnigent_ui_sdk``)
+    In a shipped wheel the SDKs (``agentnexus_client``, ``agentnexus_ui_sdk``)
     live under site-packages next to click/yaml. The default first-party
     prefix ``("agentnexus",)`` must keep their frames shown rather than
     collapsed — otherwise a crash inside an SDK would be hidden from the
@@ -285,7 +285,7 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
     finally:
         _os.chdir(old)
     assert "agentnexus_client/_probe.py" in out  # shown, not collapsed
-    assert "frames hidden in omnigent_client" not in out
+    assert "frames hidden in agentnexus_client" not in out
     assert "sdk probe" in out
 
 

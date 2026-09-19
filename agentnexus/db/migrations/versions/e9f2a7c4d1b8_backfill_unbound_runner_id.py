@@ -24,7 +24,7 @@ down_revision: str | None = "d7a6b3c91f48"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-OFFLINE_MIGRATED_RUNNER_ID = "__omnigent_migrated_offline_runner__"
+OFFLINE_MIGRATED_RUNNER_ID = "__agentnexus_migrated_offline_runner__"
 
 
 def upgrade() -> None:

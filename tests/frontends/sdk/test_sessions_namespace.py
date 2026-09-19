@@ -1,4 +1,4 @@
-"""Unit tests for :class:`omnigent_client._sessions.SessionsNamespace`.
+"""Unit tests for :class:`agentnexus_client._sessions.SessionsNamespace`.
 
 Mocks at the HTTP transport boundary via :class:`httpx.MockTransport`,
 using real types (``Session``, ``SessionEventInput``, the typed

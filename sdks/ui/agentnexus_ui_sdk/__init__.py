@@ -1,9 +1,9 @@
 """agentnexus UI SDK — terminal UI components for omnigent frontends.
 
-Built on top of :mod:`omnigent_client`. This package provides
+Built on top of :mod:`agentnexus_client`. This package provides
 Rich-based block formatting and a prompt_toolkit-based terminal host
 for building REPLs. For the headless client (HTTP, SSE, blocks),
-import from :mod:`omnigent_client` directly.
+import from :mod:`agentnexus_client` directly.
 
 Usage::
 

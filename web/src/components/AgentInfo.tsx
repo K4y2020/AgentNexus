@@ -279,20 +279,50 @@ function AddPolicyDialog({
       }
     | null
     | undefined;
+
+  // Check if this policy needs model options but they're not loaded yet
+  const needsModelOptions = useMemo(() => {
+    if (!entry || entry.kind !== "factory") return false;
+    const props = rawSchema?.properties ?? {};
+    return Object.values(props).some((prop) => prop.items?.["x-enum-source"] === "models");
+  }, [entry, rawSchema]);
+
+  const modelOptionsLoading = needsModelOptions && codexModelOptions.length === 0;
+
   const modelIds = useMemo(() => {
+    // Start with Claude native models as the baseline
     const ids: string[] = CLAUDE_NATIVE_MODELS.map((m) => m.id);
+
+    // Add Codex model options if available
     for (const opt of codexModelOptions) {
       if (opt.id && !ids.includes(opt.id)) ids.push(opt.id);
     }
+
+    // Ensure we always have at least some models to show
+    if (ids.length === 0) {
+      console.warn("No model IDs available for policy parameter dropdown");
+    }
+
     return ids;
   }, [codexModelOptions]);
   const properties = useMemo(() => {
     const props = rawSchema?.properties ?? {};
-    if (!modelIds.length) return props;
+    // Always enrich when we have model IDs, even if modelIds is empty
+    // (in that case the field will get an empty enum)
     const enriched: typeof props = {};
     for (const [key, prop] of Object.entries(props)) {
-      if (prop.items?.["x-enum-source"] === "models" && !prop.items.enum) {
-        enriched[key] = { ...prop, items: { ...prop.items, enum: modelIds } };
+      if (prop.items?.["x-enum-source"] === "models") {
+        // Fill models enum if not already present
+        if (!prop.items.enum) {
+          enriched[key] = { ...prop, items: { ...prop.items, enum: modelIds } };
+          console.debug(
+            `[AgentInfo] Enriched property "${key}" with ${modelIds.length} model options:`,
+            modelIds,
+          );
+        } else {
+          // Already has enum, keep as-is
+          enriched[key] = prop;
+        }
       } else {
         enriched[key] = prop;
       }
@@ -451,6 +481,14 @@ function AddPolicyDialog({
           )}
           {entry?.kind === "factory" && paramKeys.length > 0 && (
             <div className="space-y-2">
+              {modelOptionsLoading && (
+                <div
+                  role="status"
+                  className="rounded-md border border-muted bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
+                >
+                  Loading model options...
+                </div>
+              )}
               {paramKeys.map((key) => {
                 const prop = properties[key];
                 return (
@@ -622,7 +660,7 @@ function AddPolicyDialog({
               type="button"
               onClick={handleAdd}
               loading={addPolicy.isPending}
-              disabled={!selected}
+              disabled={!selected || modelOptionsLoading}
             >
               Add
             </Button>

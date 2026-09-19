@@ -7811,7 +7811,7 @@ def _publish_input_deny_terminal(session_id: str, conv: Conversation, reason: st
     The short-circuit never forwards to a runner, so no runner-relayed
     terminal ``response.*`` event is emitted. SSE consumers that drive a
     turn off the live-tail (the headless ``-p`` client,
-    :class:`omnigent_client.SessionsChat.send`) iterate until a
+    :class:`agentnexus_client.SessionsChat.send`) iterate until a
     turn-terminal event arrives and would otherwise block forever. The
     output carries the same sentinel text so the terminal-snapshot fallback
     also surfaces the deny.

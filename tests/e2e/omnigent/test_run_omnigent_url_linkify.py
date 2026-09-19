@@ -277,7 +277,7 @@ def _assert_url_was_linkified(captured: str) -> None:
         f"holds 2 URL occurrences.)\n\n"
         f"This is a coverage gap: linkify is wired at most call "
         f"sites but missed at least one. Audit "
-        f"``sdks/ui/omnigent_ui_sdk/terminal/_host.py`` for "
+        f"``sdks/ui/agentnexus_ui_sdk/terminal/_host.py`` for "
         f"``print()`` / ``sys.stdout.write()`` calls that emit "
         f"rendered content without first running through "
         f"``linkify_ansi``.\n\n"

@@ -121,8 +121,8 @@ def install_crash_handler(
                       never collapsed — even when installed under
                       site-packages in a distributed wheel). Defaults to
                       ``("agentnexus")``, which covers the three core
-                      packages (``omnigent``, ``omnigent_client``,
-                      ``omnigent_ui_sdk``) via the ``<prefix>_`` rule.
+                      packages (``omnigent``, ``agentnexus_client``,
+                      ``agentnexus_ui_sdk``) via the ``<prefix>_`` rule.
     """
     _CONFIG["app_name"] = app_name
     _CONFIG["repo"] = repo

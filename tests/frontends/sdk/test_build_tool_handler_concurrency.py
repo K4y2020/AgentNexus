@@ -1,6 +1,6 @@
 """
 Deterministic regression test for the D6 fan-out bug in
-:func:`omnigent_client.tools.build_tool_handler`.
+:func:`agentnexus_client.tools.build_tool_handler`.
 
 The bug: the handler's ``async def execute`` wrapper called a
 user-supplied sync ``@tool`` function inline, blocking the

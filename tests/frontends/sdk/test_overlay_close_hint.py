@@ -1,6 +1,6 @@
 """
 Unit tests for ``_build_close_hint`` and ``_abbreviate_key`` in
-``omnigent_ui_sdk.terminal._host``.
+``agentnexus_ui_sdk.terminal._host``.
 
 Covers the close-hint rendering bug from Kasey's bug report:
 auto-generated footer mixed long names (``escape``), single

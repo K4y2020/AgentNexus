@@ -1,4 +1,4 @@
-"""add project_id to omnigent_conversation_metadata
+"""add project_id to agentnexus_conversation_metadata
 
 Revision ID: c2d3e4f5a6b7
 Revises: b1c2d3e4f5a6
@@ -6,7 +6,7 @@ Create Date: 2026-07-22 00:00:00.000000
 
 Phase 1b of the projects feature (see ``designs/PROJECTS_PRD.md``): links
 sessions to first-class projects. Adds a nullable ``project_id`` (Uuid16) to
-``omnigent_conversation_metadata`` — the session→project membership pointer.
+``agentnexus_conversation_metadata`` — the session→project membership pointer.
 ``NULL`` means unfiled. ``b1c2d3e4f5a6`` created the ``projects`` container;
 this migration adds the column that references it, alongside the store/route
 code that reads and writes it, so no column ships unused.

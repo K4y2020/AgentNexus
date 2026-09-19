@@ -3,12 +3,12 @@
 Three CUJs caught these regressions during manual testing of
 ``omnigent run`` in sessions mode:
 
-1. ``ResponseCreated`` was imported from the public ``omnigent_client``
+1. ``ResponseCreated`` was imported from the public ``agentnexus_client``
    re-export, which doesn't include it. ImportError on first turn.
 2. The adapter passed server-shape events
    (:class:`omnigent.server.schemas.OutputTextDeltaEvent`) through
    without translating to the SDK-shape dataclasses in
-   :mod:`omnigent_client._events`. Net: spinner spun, server-side
+   :mod:`agentnexus_client._events`. Net: spinner spun, server-side
    LLM call completed, no assistant text reached the TUI.
 3. The translator initially used wrong class names from
    ``omnigent.server.schemas`` (``ResponseTextDeltaEvent`` vs the

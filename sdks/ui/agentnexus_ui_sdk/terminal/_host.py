@@ -188,13 +188,13 @@ def _format_paste_placeholder(block_id: int, text: str) -> str:
 # Sentinel returned by the main prompt when a registered overlay
 # trigger fires. ``host.run`` detects it and launches the overlay
 # app instead of dispatching to the input handler.
-_OVERLAY_REQUEST_SENTINEL: str = "\x00__omnigent_ui_sdk.overlay_trigger__\x00"
+_OVERLAY_REQUEST_SENTINEL: str = "\x00__agentnexus_ui_sdk.overlay_trigger__\x00"
 
 # Sentinel returned by the main prompt when the user picks a sub-agent
 # from the inline ``↓`` menu (sentinel + chosen session id). ``host.run``
 # decodes the id and invokes ``on_subagent_select`` between prompt
 # iterations — the safe context for switching sessions + re-rendering.
-_SUBAGENT_SELECT_SENTINEL: str = "\x00__omnigent_ui_sdk.subagent_select__\x00"
+_SUBAGENT_SELECT_SENTINEL: str = "\x00__agentnexus_ui_sdk.subagent_select__\x00"
 
 # Braille-dot spinner frames for the "thinking…" indicator and
 # the bottom-toolbar state badge. Eight frames give a smooth

@@ -245,7 +245,7 @@ def setup_cli_logging(argv: list[str]) -> CliLogContext:
 
     Creates the log directory, opens a per-invocation log file,
     installs the redaction filter, wires up the ``omnigent`` and
-    ``omnigent_ui_sdk`` logger hierarchies, and prunes old log
+    ``agentnexus_ui_sdk`` logger hierarchies, and prunes old log
     files beyond :data:`MAX_LOG_FILES`.
 
     Call as early as possible in :func:`omnigent.cli.main` —

@@ -153,7 +153,7 @@ def repl_env(
     """
     Build the env dict for ``omnigent chat`` — OPENAI_API_KEY plus
     whatever PYTHONPATH the outer shell already provides (so
-    ``omnigent`` + ``omnigent_client`` resolve to this
+    ``omnigent`` + ``agentnexus_client`` resolve to this
     worktree, not the sibling editable install).
 
     Redirects ``HOME`` to a temp dir seeded with

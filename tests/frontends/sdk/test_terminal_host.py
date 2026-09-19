@@ -1,5 +1,5 @@
 """
-Unit tests for :class:`omnigent_ui_sdk.terminal._host.TerminalHost`.
+Unit tests for :class:`agentnexus_ui_sdk.terminal._host.TerminalHost`.
 
 Focused on host-level state-management methods that don't need a
 real pty (overlays, key bindings, and rendering paths are covered
@@ -644,7 +644,7 @@ def test_output_wraps_urls_in_osc_8_hyperlink(
     etc.) render them as ⌘-clickable links.
 
     Pins the wiring between :meth:`TerminalHost.output` and
-    :func:`omnigent_ui_sdk.terminal._linkify.linkify_ansi`.
+    :func:`agentnexus_ui_sdk.terminal._linkify.linkify_ansi`.
     The detection logic itself is tested in
     ``tests/frontends/sdk/test_linkify.py``; this test only
     confirms the post-render hook is actually called on the

@@ -10,7 +10,7 @@ in a half-cancelled state.
 
 **The cancel gesture:** the REPL binds ``Escape`` to
 ``host.cancel()`` (the ``@kb.add("escape")`` handler in
-``omnigent_ui_sdk.terminal._host``), which cancels the in-flight
+``agentnexus_ui_sdk.terminal._host``), which cancels the in-flight
 turn and renders a muted ``cancelled`` line — the surface the
 bottom toolbar advertises as "Esc cancel". This is the live
 mid-turn cancel path, and the design doc's spec ("send the
@@ -84,7 +84,7 @@ _FOLLOW_UP_PROMPT = "say hi"
 _CANCEL_ACK_MARKER = r"cancelled"
 
 # The ``◆`` diamond the formatter commits in front of an assistant
-# message (``_DiamondMarkdown`` in omnigent_ui_sdk; ``◆ <model>`` on
+# message (``_DiamondMarkdown`` in agentnexus_ui_sdk; ``◆ <model>`` on
 # the resume path). It is committed to scrollback only when the model
 # actually returns text, and never appears in the user-prompt echo
 # (``❯``) or toolbar chrome — so it is an assistant-ONLY signal, not

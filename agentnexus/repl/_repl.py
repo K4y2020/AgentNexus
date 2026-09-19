@@ -1123,7 +1123,7 @@ def _elicitation_resolve_session_id(sdk_event: object, fallback_session_id: str)
     ``target_session_id`` unset and fall back to the stream's session.
 
     :param sdk_event: The translated
-        :class:`omnigent_client._events.ElicitationRequest`; its
+        :class:`agentnexus_client._events.ElicitationRequest`; its
         ``target_session_id`` is read when set.
     :param fallback_session_id: The session the event was received on,
         e.g. ``"conv_parent123"``. Used when the elicitation is not a
@@ -1139,7 +1139,7 @@ def _server_event_to_sdk_event(event: object) -> object | None:
 
     :class:`SessionsChat` yields validated server-side Pydantic
     events; the REPL renderer consumes the SDK-shape dataclasses in
-    :mod:`omnigent_client._events`. Returns ``None`` for variants
+    :mod:`agentnexus_client._events`. Returns ``None`` for variants
     the renderer doesn't consume (forward-compatible skip).
     """
     from agentnexus_client._events import (

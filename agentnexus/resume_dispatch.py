@@ -128,7 +128,7 @@ def _pick_conversation_for_resume(
         :returns: Selected conversation id, ``None`` on cancel /
             empty list.
         """
-        # Deferred import: ``omnigent_client`` carries the full SDK
+        # Deferred import: ``agentnexus_client`` carries the full SDK
         # surface and is only needed for the picker, not for every
         # ``omnigent`` invocation.
         from agentnexus_client import AgentNexusClient

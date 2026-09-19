@@ -27,7 +27,7 @@ def build_tool_handler(functions: list[Callable[..., Any]]) -> ToolHandler:
     """Build a :class:`ToolHandler` from ``@tool``-decorated functions.
 
     Each function must carry tool metadata attached by the
-    :func:`~omnigent_client.tool` decorator (checked via
+    :func:`~agentnexus_client.tool` decorator (checked via
     :data:`TOOL_MARKER_ATTR`). The returned handler exposes the
     OpenAI-shape schemas the SDK sends to the server, and an
     ``execute`` callable that dispatches incoming tool calls by

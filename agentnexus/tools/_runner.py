@@ -49,7 +49,7 @@ _STDOUT_PREFIX = "__AP_RESPONSE__:"
 _TOOL_MARKER_ATTR = "_omnigent_tool_metadata"
 
 # Reserved parameter name — kept in sync with
-# ``omnigent_client.tools._schema.STATE_PARAM_NAME``. We hardcode
+# ``agentnexus_client.tools._schema.STATE_PARAM_NAME``. We hardcode
 # it here instead of importing to keep the subprocess runner's
 # import surface minimal on the hot path.
 _STATE_PARAM_NAME = "tool_state"

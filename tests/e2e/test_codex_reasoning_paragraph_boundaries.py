@@ -208,7 +208,7 @@ def _to_client_events(executor_events: list[Any]) -> list[Any]:
     SSE parser — so a regression in either mapping fails these tests too.
 
     :param executor_events: Events yielded by ``run_turn``.
-    :returns: The equivalent ``omnigent_client`` event stream.
+    :returns: The equivalent ``agentnexus_client`` event stream.
     """
     adapter = ExecutorAdapter(executor_factory=Executor)
     ctx = _RecordingCtx()
