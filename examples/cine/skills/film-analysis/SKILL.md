@@ -92,6 +92,14 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    Add `--llm-refine` to enable automatic LLM contextual proofreading, typo correction (fixing homophones
    and Whisper BPE artifacts), and speaker attribution via the AgentNexus gateway.
    This automatically generates `.json`, `.txt` and `.srt` in the workspace. Never create `inputs/source.txt` from visual guesses.
+
+   Voiceover & Off-screen dialogue handling:
+   - When speech is heard without matching lip movement on screen (e.g. cold-open narration,
+     deceased character's recorded voice on phone/radio, internal monologue, off-screen shouting,
+     or documentary narration), explicitly attribute the speaker as `[角色 (画外音)]`, `[角色 (生前录音)]`,
+     `[角色 (内心独白)]`, or `[旁白]`. Never force off-screen speech onto on-screen silent actors.
+   - Separate background singing from dialogue: label musical lyrics as `[插曲]` or `[片尾插曲]`,
+     avoiding treating lyrical singing as spoken character dialogue.
 4. Save each batch into <project>/story/<revision>.json immediately. Resume saved
    progress after interruptions. Do not ask permission to continue each batch.
 5. Complete the ending and whole-film summary before final delivery. Noncritical

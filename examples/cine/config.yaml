@@ -131,13 +131,24 @@ prompt: |
      evidence. If an SRT, VTT, ASS or SSA file exists for the current source, declare
      its Topic-relative subtitle_path in dialogue_provenance. When dialogue matters
      and trusted subtitles are absent, use the packaged film-analysis pipeline/transcribe.py
-     entry to create source-transcript.txt and record asr_path/source_path in the story
-     draft. With both sources use status=subtitle_asr: subtitles supply wording, ASR
-     supplies timing and gap checks, and every disagreement stays visible for review.
-     ASR remains qualified. Never create
+     with `--model large-v3-turbo --language zh`, adding `--separate-vocals` (Demucs) to
+     isolate clean vocals from BGM/SFX, `--initial-prompt "<character-names-and-terms>"`,
+     and `--llm-refine` for automatic contextual typo proofreading and speaker attribution
+     via the gateway. Record asr_path/source_path in the story draft. With both sources use
+     status=subtitle_asr: subtitles supply wording, ASR supplies timing and gap checks, and
+     every disagreement stays visible for review. ASR remains qualified. Never create
      inputs/source.txt from screenshots or a visual summary and call it source dialogue.
      If ASR is unavailable, disclose dialogue uncertainty and do not invent quotes.
      Inspect extra frames/short clips only where a key event or transition is unclear.
+
+     Voiceover and off-screen dialogue handling:
+     - Distinguish on-camera dialogue from off-screen speech: when a voice is heard
+       without matching lip movement (e.g. cold-open V.O., deceased lover's phone
+       recording, internal monologue, off-screen character shouting, or narrator),
+       attribute it explicitly as `[角色 (画外音)]`, `[角色 (生前录音)]`, `[角色 (内心独白)]`,
+       or `[旁白]`. Never assign off-screen speech to an on-screen silent character's mouth.
+     - Distinguish background singing/lyrics from narrative dialogue: label musical
+       lyrics as `[插曲]` or `[片尾插曲]`, keeping the core dialogue track clean.
   4. Fill the generated story draft under <project>/story/<revision>.json. After each
      batch save events, connection to adjacent events, image receipts and uncertainties.
      Resume that draft after an interruption; do not regenerate unchanged indexes.
