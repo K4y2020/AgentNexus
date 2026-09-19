@@ -63,7 +63,12 @@ export function CineAdaptationView({
 }) {
   const [selectedPackage, setSelectedPackage] = useState("");
   const packages = report.productionPackages;
-  const productionId = packages.find((item) => item.id === selectedPackage)?.id ?? packages[0]?.id;
+  const preferredPackageId =
+    packages.find(
+      (item) => item.stages?.includes("storyboard") || item.id.includes("storyboard"),
+    )?.id ?? packages[0]?.id;
+  const productionId =
+    packages.find((item) => item.id === selectedPackage)?.id ?? preferredPackageId;
   const query = useQuery({
     queryKey: reviewKey(session, productionId),
     queryFn: ({ signal }) => fetchCineReview(session, signal, productionId),
@@ -200,8 +205,8 @@ export function CineAdaptationView({
             <SelectContent>
               {packages.map((item, index) => (
                 <SelectItem key={item.id} value={item.id}>
-                  {item.targetSeconds != null ? `${reviewTime(item.targetSeconds)} · ` : ""}
-                  版本 {index + 1}
+                  {item.name || `版本 ${index + 1}`}
+                  {item.targetSeconds != null ? ` · ${reviewTime(item.targetSeconds)}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -383,9 +388,15 @@ export function CineAdaptationView({
             )}
             <div className="flex flex-col gap-2">
               {shot.sources.map((cue) => {
-                const cueImage = report.data.images.find((img) =>
-                  cue.imageIds.includes(img.id),
-                );
+                const cueImage =
+                  report.data.images.find((img) => cue.imageIds.includes(img.id)) ??
+                  report.data.images.find((img) => img.start <= cue.end && img.end >= cue.start) ??
+                  report.data.images.reduce((closest, img) => {
+                    if (!closest) return img;
+                    return Math.abs(img.start - cue.start) < Math.abs(closest.start - cue.start)
+                      ? img
+                      : closest;
+                  }, null as (typeof report.data.images)[0] | null);
                 return (
                   <div
                     key={cue.id}

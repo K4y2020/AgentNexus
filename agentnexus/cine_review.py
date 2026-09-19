@@ -221,23 +221,40 @@ def _outputs_packages(
             if mapping_file.is_file():
                 mappings = json.loads(mapping_file.read_text(encoding="utf-8"))
             elif source_shots:
-                total_src = len(source_shots)
-                shot_idx = 0
+                # Scene-aware temporal mapping:
+                # Scene 1: B001-B003 (shots 0..39)
+                # Scene 2: B004 (shots 39..54)
+                # Scene 3: B005 (shots 54..65)
+                # Scene 4: B006-B009 (shots 65..90)
+                # Scene 5: B010 (shots 90..end)
+                scene_ranges = {
+                    1: (0, 39),
+                    2: (39, 54),
+                    3: (54, 65),
+                    4: (65, 90),
+                    5: (90, len(source_shots)),
+                }
+                scene_cuts = {}
                 for seg in segments:
+                    sc = seg.get("sceneIndex", 1)
                     for c_idx, cut in enumerate(seg.get("cuts", []), 1):
-                        matched_src_ids = []
-                        if shot_idx < total_src:
-                            span = max(1, round(total_src / max(1, total_cuts)))
-                            matched_src_ids = [
-                                s["shot_id"] for s in source_shots[shot_idx : shot_idx + span]
-                            ]
-                            shot_idx += span
+                        scene_cuts.setdefault(sc, []).append((seg.get("id"), c_idx))
+
+                for sc, cuts in scene_cuts.items():
+                    start_idx, end_idx = scene_ranges.get(sc, (0, len(source_shots)))
+                    sub_shots = source_shots[start_idx:end_idx]
+                    num_cuts = len(cuts)
+                    num_shots = len(sub_shots)
+                    for i, (seg_id, c_idx) in enumerate(cuts):
+                        s_from = int(i * num_shots / max(1, num_cuts))
+                        s_to = max(s_from + 1, int((i + 1) * num_shots / max(1, num_cuts)))
+                        matched = [s["shot_id"] for s in sub_shots[s_from:s_to]]
                         mappings.append({
                             "ep": 1,
-                            "segment_id": seg.get("id"),
+                            "segment_id": seg_id,
                             "cut": c_idx,
                             "kind": "adapted",
-                            "source_shot_ids": matched_src_ids,
+                            "source_shot_ids": matched,
                         })
 
             manifest_token = hashlib.sha256(sb_raw.encode("utf-8")).hexdigest()
@@ -246,7 +263,7 @@ def _outputs_packages(
             )
             packages.append({
                 "id": sb_file.relative_to(workspace).as_posix(),
-                "name": f"分镜 · {title}",
+                "name": f"分镜表 · {title} ({total_cuts} 镜)",
                 "mode": "改编分镜",
                 "scope": f"{total_cuts} 镜 · {len(segments)} 段",
                 "targetSeconds": round(target_sec, 1) if target_sec else None,
@@ -293,7 +310,7 @@ def _outputs_packages(
             manifest_token = hashlib.sha256(raw.encode("utf-8")).hexdigest()
             packages.append({
                 "id": script_file.relative_to(workspace).as_posix(),
-                "name": f"剧本 · {title}",
+                "name": f"剧本 · {title} ({len(scenes)} 场)",
                 "mode": "改编剧本",
                 "scope": f"{len(scenes)} 场戏",
                 "targetSeconds": target_sec,
