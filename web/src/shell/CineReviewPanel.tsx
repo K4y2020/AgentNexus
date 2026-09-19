@@ -281,7 +281,7 @@ function ReviewContent({
               ).map(([type, label]) => (
                 <div className="flex items-center gap-2" key={type}>
                   <span className="w-8 shrink-0 text-sm text-muted-foreground">{label}</span>
-                  <div className="relative h-8 min-w-0 flex-1 overflow-hidden bg-muted">
+                  <div className="relative h-8 min-w-0 flex-1 overflow-hidden rounded-sm bg-muted">
                     {data.cues
                       .filter((cue) => cue.type === type)
                       .map((cue) => (
@@ -291,22 +291,28 @@ function ReviewContent({
                           aria-label={`${label} ${reviewTime(cue.start)} ${cue.title}`}
                           title={`${reviewTime(cue.start)} ${cue.title}`}
                           className={cn(
-                            "absolute inset-y-1 min-w-0 border-l border-background focus:z-10 focus:outline focus:outline-2",
+                            "absolute inset-y-0.5 min-w-[2px] overflow-hidden border-l border-background/60 px-1 text-left flex items-center cursor-pointer transition-colors focus:z-10 focus:outline focus:outline-2",
                             selected?.id === cue.id
-                              ? "bg-primary"
+                              ? "bg-primary text-primary-foreground font-semibold shadow-sm z-[2]"
                               : current >= cue.start && current < cue.end
-                                ? "bg-foreground/50"
-                                : "bg-foreground/20",
+                                ? "bg-foreground/60 text-background font-medium"
+                                : "bg-foreground/20 text-foreground/85 hover:bg-foreground/30 hover:text-foreground",
                           )}
                           style={{
                             left: `${(cue.start / Math.max(1, data.duration)) * 100}%`,
-                            width: `${((cue.end - cue.start) / Math.max(1, data.duration)) * 100}%`,
+                            width: `${Math.max(((cue.end - cue.start) / Math.max(1, data.duration)) * 100, 0.4)}%`,
                           }}
                           onClick={() => {
                             setKind(type);
                             select(cue);
                           }}
-                        />
+                        >
+                          <span className="truncate block w-full text-[11px] leading-tight select-none pointer-events-none">
+                            {type === "story" && cue.sourceId && !cue.title.startsWith(cue.sourceId)
+                              ? `${cue.sourceId} ${cue.title}`
+                              : cue.title}
+                          </span>
+                        </button>
                       ))}
                   </div>
                 </div>
