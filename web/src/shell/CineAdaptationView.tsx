@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   fetchCineReview,
+  reviewAsset,
   reviewKey,
   reviewTime,
   type CineReview,
@@ -288,7 +289,7 @@ export function CineAdaptationView({
                   >
                     {cueImage && (
                       <img
-                        src={reviewAsset(session, report.token, "image", cueImage.url)}
+                        src={reviewAsset(session, report.token, cueImage.id)}
                         alt={`原片截图 ${reviewTime(cue.start)}`}
                         className="h-12 w-20 shrink-0 rounded object-cover border bg-muted"
                       />
