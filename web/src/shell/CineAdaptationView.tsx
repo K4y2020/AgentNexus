@@ -276,22 +276,40 @@ export function CineAdaptationView({
                 </CollapsibleContent>
               </Collapsible>
             )}
-            <div className="flex flex-wrap gap-1">
-              {shot.sources.map((cue) => (
-                <Button
-                  key={cue.id}
-                  size="list"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setSelection({ packageId: productionId!, key: shot.key });
-                    onSelectSource(cue);
-                  }}
-                >
-                  <CrosshairIcon />
-                  原片 {reviewTime(cue.start)} · {cue.title}
-                </Button>
-              ))}
+            <div className="flex flex-col gap-2">
+              {shot.sources.map((cue) => {
+                const cueImage = report.data.images.find((img) =>
+                  cue.imageIds.includes(img.id),
+                );
+                return (
+                  <div
+                    key={cue.id}
+                    className="flex items-center gap-2 rounded-md border bg-card/60 p-1.5 text-xs shadow-2xs"
+                  >
+                    {cueImage && (
+                      <img
+                        src={reviewAsset(session, report.token, "image", cueImage.url)}
+                        alt={`原片截图 ${reviewTime(cue.start)}`}
+                        className="h-12 w-20 shrink-0 rounded object-cover border bg-muted"
+                      />
+                    )}
+                    <Button
+                      size="list"
+                      variant="outline"
+                      className="min-w-0 flex-1 justify-start gap-1.5 text-left"
+                      onClick={() => {
+                        setSelection({ packageId: productionId!, key: shot.key });
+                        onSelectSource(cue);
+                      }}
+                    >
+                      <CrosshairIcon className="size-3.5 shrink-0" />
+                      <span className="truncate">
+                        原片 {reviewTime(cue.start)} · {cue.title}
+                      </span>
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
             {(shot.missingSources > 0 || !shot.sources.length) && (
               <p className="text-sm text-muted-foreground">
