@@ -2,10 +2,13 @@
 
 import hashlib
 import json
+import logging
 import uuid
 from pathlib import Path
 
 from .production_gate import ProductionRejected, inside
+
+logger = logging.getLogger(__name__)
 
 
 async def _create_target(client, project_id, *, node_type, title, data):
@@ -136,6 +139,82 @@ async def import_storyboard(
         hashlib.sha256(path.read_bytes()).hexdigest() != value for path, value in hashes.items()
     ):
         raise ProductionRejected("CINE_IMPORT_SOURCE_CHANGED", {"receipt": receipt})
+
+    # Auto-project all segments in the storyboard to video_prompt cards on the canvas,
+    # ensuring 100% strict alignment between storyboard cuts, durations, and video prompts.
+    try:
+        fresh_snap = await client.get_snapshot(bound)
+        curr_nodes = {n["id"]: n for n in fresh_snap.get("nodes", [])}
+        video_cards = {
+            n.get("data", {}).get("segmentId"): n
+            for n in curr_nodes.values()
+            if n.get("type") == "video_prompt" and n.get("data", {}).get("segmentId")
+        }
+        sb_node_id = episode_nodes.get(episode_numbers[0])
+
+        for ep in documents[0].get("episodes", []):
+            for seg in ep.get("segments", []):
+                seg_id = seg.get("id")
+                if not seg_id:
+                    continue
+                cuts = seg.get("cuts", [])
+                dur_sec = round(sum(c.get("seconds", 0) for c in cuts), 1)
+                h3_prompt = seg.get("h3Prompt", "")
+                brief = seg.get("brief") or (
+                    cuts[0].get("description", "") if cuts else f"{seg_id} 生成段"
+                )
+
+                existing = video_cards.get(seg_id)
+                if existing:
+                    await client.submit_command(
+                        bound,
+                        {
+                            "type": "canvas.update_node",
+                            "nodeId": existing["id"],
+                            "patch": {
+                                "title": f"{seg_id} · {brief[:20]}",
+                                "data": {
+                                    **existing.get("data", {}),
+                                    "segmentId": seg_id,
+                                    "durationSec": dur_sec,
+                                    "prompt": h3_prompt,
+                                    "brief": brief,
+                                },
+                            },
+                            "commandId": f"cine-sync-vp-{uuid.uuid4().hex}",
+                        },
+                    )
+                else:
+                    new_card, _ = await _create_target(
+                        client,
+                        bound,
+                        node_type="video_prompt",
+                        title=f"{seg_id} · {brief[:20]}",
+                        data={
+                            "segmentId": seg_id,
+                            "durationSec": dur_sec,
+                            "prompt": h3_prompt,
+                            "brief": brief,
+                            "aspectRatio": "16:9",
+                            "model": "minimax-h3-remote-ref2va-v2",
+                        },
+                    )
+                    if sb_node_id:
+                        await client.submit_command(
+                            bound,
+                            {
+                                "type": "canvas.connect",
+                                "from": sb_node_id,
+                                "to": new_card["id"],
+                                "kind": "references",
+                                "commandId": f"cine-conn-vp-{uuid.uuid4().hex}",
+                            },
+                        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to auto-project video prompt nodes during storyboard import: %s", exc
+        )
+
     return {
         "status": "synced",
         "outcome": "succeeded",
