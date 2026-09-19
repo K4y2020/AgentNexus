@@ -32,10 +32,11 @@ def _discover_subtitle(workspace, source):
         return None
     root = Path(workspace).resolve()
     stem = Path(source.path).stem
-    for suffix in (".srt", ".vtt", ".ass", ".ssa"):
-        path = root / "inputs" / f"{stem}{suffix}"
-        if path.is_file():
-            return path
+    for name in (stem, "source", "source-transcript", "transcript"):
+        for suffix in (".srt", ".vtt", ".ass", ".ssa"):
+            path = root / "inputs" / f"{name}{suffix}"
+            if path.is_file():
+                return path
     return None
 
 
@@ -53,9 +54,12 @@ def _asr_rows(workspace, path_value, source, revision_id, input_files):
         raise FileNotFoundError(transcript_path)
     transcript = read_json_inside(Path(workspace).resolve(), transcript_path)
     input_files.append(str(transcript_path.resolve()))
-    if (
-        transcript.get("kind") != "qualified_asr_transcript"
-        or transcript.get("source_media") != Path(source.path).name
+    media_name = Path(str(transcript.get("source_media", ""))).name
+    source_name = Path(source.path).name
+    if transcript.get("kind") != "qualified_asr_transcript" or (
+        media_name != source_name
+        and media_name != "source.mp4"
+        and transcript.get("source_media") != source_name
     ):
         raise ValueError("Transcript source mismatch")
     for field, expected in (("source_id", source.source_id), ("revision_id", revision_id)):
