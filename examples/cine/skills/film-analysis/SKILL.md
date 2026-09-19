@@ -87,8 +87,9 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    transcript instead of improvising dialogue from stills:
    `uv run --with "faster-whisper>=1.2,<2" python <skill>/pipeline/transcribe.py
    --media <source> --output <workspace>/inputs/source-transcript --workspace <workspace>
-   --model small --language zh`. This produces qualified evidence, not a certified
-   verbatim transcript. Never create `inputs/source.txt` from visual guesses.
+   --model large-v3-turbo --language zh`. For heavy BGM, singing or music-masked dialogue, add
+   `--separate-vocals` (uses Demucs) and `--initial-prompt "<context-summary-and-character-names>"`.
+   This automatically generates `.json`, `.txt` and `.srt` in the workspace. Never create `inputs/source.txt` from visual guesses.
 4. Save each batch into <project>/story/<revision>.json immediately. Resume saved
    progress after interruptions. Do not ask permission to continue each batch.
 5. Complete the ending and whole-film summary before final delivery. Noncritical
