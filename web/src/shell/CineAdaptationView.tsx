@@ -80,12 +80,12 @@ export function CineAdaptationView({
     sourceMaterial.source_id === report.data.sourceId &&
     sourceMaterial.revision_id === report.data.revisionId;
   const [selection, setSelection] = useState<{ packageId: string; key: string } | null>(null);
+  const scriptEpisodes = rows(record(production?.artifacts.script).episodes);
   const shots = useMemo(() => {
     const sourceCues = new Map(
       report.data.cues.filter((cue) => cue.type === "shot").map((cue) => [cue.sourceId, cue]),
     );
     const mappings = rows(production?.artifacts.mapping);
-    const scriptEpisodes = rows(record(production?.artifacts.script).episodes);
     const sceneNames = new Map(
       rows(record(production?.artifacts.art).scenes).map((scene) => [
         text(scene.id),
@@ -183,9 +183,13 @@ export function CineAdaptationView({
       <div className="shrink-0 space-y-2 border-b p-3">
         <div className="flex items-center gap-2 text-ui font-medium">
           <FilmIcon className="size-4" />
-          改编分镜{" "}
+          {shots.length ? "改编分镜" : "改编剧本"}{" "}
           <span className="text-sm text-muted-foreground">
-            {shots.length ? `${shots.length} 镜` : ""}
+            {shots.length
+              ? `${shots.length} 镜`
+              : scriptEpisodes[0]
+                ? `${rows(scriptEpisodes[0].scenes).length} 场`
+                : ""}
           </span>
         </div>
         {packages.length > 0 && (
@@ -220,7 +224,107 @@ export function CineAdaptationView({
             改编引用的原片或版本无法与当前报告核对，暂不联动定位。
           </p>
         )}
-        {production && !shots.length && <p>当前版本尚无分镜内容。</p>}
+        {production && !shots.length && scriptEpisodes.length > 0 && (
+          <div className="space-y-4">
+            {scriptEpisodes.map((ep, epIdx) => {
+              const hook = text(ep.hook);
+              const cliff = text(ep.cliff);
+              const targetSec = typeof ep.targetSeconds === "number" ? ep.targetSeconds : null;
+              return (
+                <div key={epIdx} className="space-y-3">
+                  {(hook || cliff || targetSec) && (
+                    <div className="rounded-md border bg-muted/50 p-2.5 text-xs space-y-1.5">
+                      {targetSec && (
+                        <p className="font-medium text-foreground">
+                          预估时长：<span className="font-mono text-primary">{reviewTime(targetSec)}</span>
+                        </p>
+                      )}
+                      {hook && (
+                        <p className="text-muted-foreground leading-relaxed">
+                          <strong className="text-foreground">开场钩子：</strong>
+                          {hook}
+                        </p>
+                      )}
+                      {cliff && (
+                        <p className="text-muted-foreground leading-relaxed">
+                          <strong className="text-foreground">结尾悬念：</strong>
+                          {cliff}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {rows(ep.scenes).map((scene, scIdx) => {
+                    const sceneId =
+                      text(scene.sceneId) || `S${String(scIdx + 1).padStart(2, "0")}`;
+                    const lighting = text(scene.lighting);
+                    const flowItems = rows(scene.flow);
+                    return (
+                      <article
+                        key={sceneId}
+                        className="rounded-md border bg-card p-3 text-xs space-y-2.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between border-b pb-1.5">
+                          <span className="font-semibold text-sm text-foreground">
+                            {sceneId} {lighting ? `· ${lighting}` : ""}
+                          </span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {flowItems.length} 节拍
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2">
+                          {flowItems.map((item, fIdx) => {
+                            const action = text(item.action);
+                            const line = text(item.line);
+                            const speaker = text(item.speaker);
+                            const delivery = text(item.delivery);
+                            if (action) {
+                              return (
+                                <p
+                                  key={fIdx}
+                                  className="text-muted-foreground leading-relaxed pl-2 border-l-2 border-muted-foreground/30 py-0.5"
+                                >
+                                  {action}
+                                </p>
+                              );
+                            }
+                            if (line) {
+                              return (
+                                <div
+                                  key={fIdx}
+                                  className="rounded bg-muted/50 p-2 text-xs space-y-0.5 border"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <strong className="text-primary font-medium">
+                                      {speaker || "说话人"}
+                                    </strong>
+                                    {delivery && (
+                                      <span className="text-[11px] text-muted-foreground italic">
+                                        （{delivery}）
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-foreground text-[13px] leading-relaxed pl-0.5">
+                                    {line}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {production && !shots.length && !scriptEpisodes.length && (
+          <p className="text-sm text-muted-foreground">当前版本尚无分镜或剧本内容。</p>
+        )}
         {shots.map((shot) => (
           <article
             key={shot.key}

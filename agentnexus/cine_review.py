@@ -175,6 +175,57 @@ def _production_packages(workspace: Path) -> list[dict]:
     return packages
 
 
+def _script_packages(
+    workspace: Path, source_id: str | None = None, revision_id: str | None = None
+) -> list[dict]:
+    outputs = (workspace / "outputs").resolve()
+    if not outputs.is_dir():
+        return []
+    packages = []
+    script_candidates = sorted(
+        list(outputs.glob("*-script.json")) + list(outputs.glob("script.json")),
+        key=lambda p: p.name.casefold(),
+    )
+    for script_file in script_candidates:
+        try:
+            raw = script_file.read_text(encoding="utf-8")
+            sdata = json.loads(raw)
+            episodes = sdata.get("episodes") or []
+            ep = episodes[0] if episodes else {}
+            title = sdata.get("title") or script_file.stem.replace("-script", "")
+            target_sec = ep.get("targetSeconds")
+            scenes = ep.get("scenes") or []
+            manifest_token = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+            packages.append({
+                "id": script_file.relative_to(workspace).as_posix(),
+                "name": f"剧本 · {title}",
+                "mode": "改编剧本",
+                "scope": f"{len(scenes)} 场戏",
+                "targetSeconds": target_sec,
+                "stages": ["script"],
+                "hashStatus": [{"stage": "script", "match": True}],
+                "hashesMatch": True,
+                "mappingCount": 0,
+                "validation": {
+                    "status": "draft",
+                    "productionAuthorized": False,
+                    "unverified": [],
+                    "stageStatuses": {"script": "ready"},
+                },
+                "manifestToken": manifest_token,
+                "artifacts": {
+                    "script": sdata,
+                    "source_material": {
+                        "source_id": source_id or "",
+                        "revision_id": revision_id or "",
+                    },
+                },
+            })
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            continue
+    return packages
+
+
 def read_review(workspace: Path, session_id: str, params: dict) -> dict:
     """No arbitrary path parameter: assets must belong to the current source revision."""
     try:
@@ -190,7 +241,9 @@ def read_review(workspace: Path, session_id: str, params: dict) -> dict:
             raise ValueError("CINE_REVIEW_STALE: refresh the report view")
         asset = params.get("asset")
         if asset is None:
-            production_packages = _production_packages(workspace.resolve())
+            production_packages = _production_packages(workspace.resolve()) + _script_packages(
+                workspace.resolve(), data.get("sourceId"), data.get("revisionId")
+            )
             selected_production = None
             requested_production = params.get("production")
             if requested_production:
