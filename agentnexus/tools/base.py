@@ -130,7 +130,7 @@ class Tool(abc.ABC):
         raise NotImplementedError(
             f"{type(self).__name__}.invoke is runner-dispatched; the "
             f"AP-side path should not reach this method. The runner "
-            f"handles dispatch via omnigent/runner/tool_dispatch.py."
+            f"handles dispatch via agentnexus/runner/tool_dispatch.py."
         )
 
     def cancel(self) -> None:  # noqa: B027 — optional override hook; default is a no-op

@@ -359,6 +359,9 @@ _TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
 
 # Seedance V3 canvas / agent message tool. Runner-local bridge to Seedance V3.
 _SEEDANCE_TOOLS = frozenset({"seedance_agent_message", "seedance_read_canvas", "seedance_edit_canvas", "cine_verify_report"})
+
+# TypeSafe JEV System One judgment tool — local HTTP call, no server client needed.
+_JEV_TOOLS = frozenset({"cine_jev_judge"})
 _MEMORY_TOOLS = frozenset({"save_teammate_memory"})
 
 # Hindsight long-term memory builtins. Runner-local (like web_search) so that a
@@ -639,7 +642,7 @@ def build_native_relay_tool_schemas(spec: AgentSpec | None) -> list[_JsonObject]
 # sys_agent_list: locally-authored agent config YAMLs live under this
 # subdirectory of the agent's os_env cwd, so the list tool can find them
 # and the agent can read/edit them via sys_os_* (configs are authored with
-# sys_os_write, e.g. following the ``build-omnigent`` skill).
+# sys_os_write, e.g. following the ``build-agentnexus`` skill).
 _AGENT_CONFIG_SUBDIR = ".agentnexus/agent-configs"
 
 # Broad internal page size for discovery fan-out reads.
@@ -896,6 +899,7 @@ _ALL_LOCAL_TOOLS = (
     | _NIMBLE_EXTRACT_TOOLS
     | _TEAMMATE_DISPATCH_TOOLS
     | _SEEDANCE_TOOLS
+    | _JEV_TOOLS
     | _MEMORY_TOOLS
     | _HINDSIGHT_TOOLS
     | _TIMER_TOOLS
@@ -6754,6 +6758,170 @@ async def _execute_send_to_teammate_tool(
     )
 
 
+def _jev_http_client_kwargs():
+    """Yield httpx.AsyncClient kwargs for the TypeSafe call, best option first.
+
+    A loopback proxy configured with an ``https://`` scheme (common on Windows,
+    where the value comes from the WinINET registry) makes httpx attempt a TLS
+    handshake with the plaintext proxy itself, which answers with an immediate
+    EOF. Normalizing the scheme to ``http://`` fixes it; the direct connection
+    is yielded as a fallback so a broken proxy cannot mask a reachable API.
+    """
+    import re
+    import urllib.request
+
+    proxy = ""
+    candidates = [
+        os.environ.get(var, "")
+        for var in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy")
+    ]
+    try:
+        detected = urllib.request.getproxies()
+    except Exception:
+        detected = {}
+    candidates.extend(detected.get(scheme, "") for scheme in ("https", "http"))
+    for value in candidates:
+        value = (value or "").strip()
+        if value:
+            proxy = value
+            break
+
+    if proxy:
+        if re.match(r"^https://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?/?$", proxy, re.IGNORECASE):
+            proxy = "http://" + proxy[len("https://") :]
+        yield {"timeout": 30, "proxy": proxy, "trust_env": False}
+    yield {"timeout": 30, "trust_env": False}
+
+
+async def _execute_jev_tool(args: _JsonObject) -> str:
+    """Execute cine_jev_judge: batch typed questions to TypeSafe System One API."""
+    import os
+    from pathlib import Path as _Path
+
+    import httpx
+
+    state = args.get("state")
+    questions_raw = args.get("questions")
+    model = str(args.get("model") or "jev-latest")
+    if not isinstance(state, (dict, list, str)):
+        return json.dumps({"error": "state must be an object, array, or string"})
+    if not isinstance(questions_raw, dict) or not questions_raw:
+        return json.dumps({"error": "questions must be a non-empty object"})
+
+    # Normalize question specs into the API wire format
+    wire_questions: dict[str, dict] = {}
+    for qid, spec in questions_raw.items():
+        if not isinstance(spec, dict):
+            return json.dumps({"error": f"question {qid!r} must be an object"})
+        qtype = str(spec.get("type", "")).lower()
+        instructions = str(spec.get("instructions", "") or "")
+        criteria = spec.get("criteria")
+        if qtype == "choice":
+            wire_questions[str(qid)] = {
+                "type": "choice", "instructions": instructions, "criteria": criteria or {},
+            }
+        elif qtype == "noul":
+            wire_questions[str(qid)] = {"type": "noul", "instructions": instructions}
+        elif qtype == "score":
+            wire_questions[str(qid)] = {
+                "type": "score", "instructions": instructions,
+                "criteria": criteria if isinstance(criteria, list) else [],
+            }
+        else:
+            return json.dumps({"error": f"question {qid} has unknown type {qtype!r}"})
+
+    api_key = os.environ.get("TYPESAFE_API_KEY", "")
+    if not api_key:
+        candidates = (
+            _Path.cwd() / ".env",
+            _Path.home() / ".agentnexus" / ".env",
+            _Path.home() / ".env",
+            _Path(__file__).resolve().parents[2] / ".env",
+        )
+        for cand in candidates:
+            if cand.is_file():
+                try:
+                    for line in cand.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if line.startswith("TYPESAFE_API_KEY="):
+                            api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            break
+                except OSError:
+                    pass
+            if api_key:
+                break
+    if not api_key:
+        return json.dumps({"error": "TYPESAFE_API_KEY is not configured on this host"})
+
+    import httpx
+
+    payload = {"state": state, "model": model, "questions": wire_questions}
+    body: dict = {}
+    try:
+        for client_kwargs in _jev_http_client_kwargs():
+            try:
+                async with httpx.AsyncClient(**client_kwargs) as client:
+                    resp = await client.post(
+                        "https://api.typesafe.ai/v1/systemone",
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json=payload,
+                    )
+                    resp.raise_for_status()
+                    body = resp.json()
+                break
+            except (httpx.ConnectError, httpx.ProxyError, httpx.ConnectTimeout):
+                # A misconfigured loopback proxy often breaks only one of the
+                # two transports; the caller's direct connection may still work.
+                if not client_kwargs.get("proxy"):
+                    raise
+                continue
+            except httpx.HTTPStatusError:
+                raise
+        else:
+            raise httpx.ConnectError("no JEV transport available")
+        answers = body.get("answers", {})
+        if not isinstance(answers, dict) or set(answers) != set(wire_questions):
+            return json.dumps(
+                {
+                    "error": "typesafe api returned an incomplete answer set",
+                    "expected_questions": sorted(wire_questions),
+                    "received_answers": sorted(answers) if isinstance(answers, dict) else [],
+                },
+                ensure_ascii=False,
+            )
+    except httpx.HTTPStatusError as exc:
+        return json.dumps({"error": f"typesafe api {exc.response.status_code}: {exc.response.text[:200]}"})
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        return json.dumps({"error": f"jev call failed: {exc}"})
+
+    # Normalize answers into a flat, agent-friendly shape
+    out: dict[str, dict] = {}
+    for qid, a in answers.items():
+        atype = str(a.get("type", ""))
+        if atype == "choice":
+            out[qid] = {
+                "type": "choice",
+                "choice": a.get("choice"),
+                "probabilities": a.get("probabilities"),
+                "confidence": a.get("confidence"),
+            }
+        elif atype == "noul":
+            out[qid] = {"type": "noul", "noul": a.get("noul")}
+        elif atype == "score":
+            out[qid] = {
+                "type": "score",
+                "score": a.get("score"),
+                "probabilities": a.get("probabilities"),
+                "confidence": a.get("confidence"),
+            }
+        else:
+            out[qid] = a
+    return json.dumps(
+        {"model": body.get("model", model), "answers": out},
+        ensure_ascii=False,
+    )
+
+
 async def _execute_seedance_tool(
     args: _JsonObject,
     *,
@@ -7269,6 +7437,8 @@ async def execute_tool(
                 agent_spec=agent_spec,
                 task_id=task_id,
             )
+        elif tool_name in _JEV_TOOLS:
+            output = await _execute_jev_tool(args)
         elif tool_name in _MEMORY_TOOLS:
             output = await _execute_save_teammate_memory_tool(
                 args,
@@ -9265,12 +9435,12 @@ def _inject_orchestrator_skills(
     """
     Auto-inject built-in platform skills for every omnigent agent.
 
-    The ``build-omnigent`` skill teaches the LLM how to author valid
+    The ``build-agentnexus`` skill teaches the LLM how to author valid
     agent configs. Every agent on the platform should have access to it
     — whether it declares ``tools.agents`` or not — so that any
-    ``omnigent claude`` user can author and launch new agents. The
+    ``agentnexus claude`` user can author and launch new agents. The
     skill is injected from the canonical source at
-    ``omnigent/onboarding/agent/skills/build-omnigent/`` when not
+    ``omnigent/onboarding/agent/skills/build-agentnexus/`` when not
     already present in the bundled set.
 
     :param skills: The agent's current skill list (bundled +
@@ -9281,7 +9451,7 @@ def _inject_orchestrator_skills(
     """
     del agent_spec  # no longer gated; inject unconditionally
     existing_names = {getattr(s, "name", None) for s in skills}
-    if "build-omnigent" in existing_names:
+    if "build-agentnexus" in existing_names:
         return skills
     from agentnexus.spec.parser import _discover_skills
 
@@ -9291,7 +9461,7 @@ def _inject_orchestrator_skills(
     if not onboarding_skills_dir.is_dir():
         return skills
     for spec in _discover_skills(onboarding_skills_dir, skipped=[]):
-        if spec.name == "build-omnigent":
+        if spec.name == "build-agentnexus":
             skills.append(spec)
             break
     return skills
@@ -9323,7 +9493,7 @@ def _execute_skill_tool(
 
     bundled_skills = list(getattr(agent_spec, "skills", None) or [])
     skills_filter = getattr(agent_spec, "skills_filter", "all")
-    # Auto-inject the build-omnigent skill for agents that opt into the
+    # Auto-inject the build-agentnexus skill for agents that opt into the
     # orchestration surface (tools.agents). This teaches the LLM how to
     # author valid agent configs via sys_os_write without requiring the
     # agent's own bundle to ship a skills/ directory.

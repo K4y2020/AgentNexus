@@ -10,6 +10,13 @@ from agentnexus.tools.base import Tool, ToolContext
 from agentnexus.tools.builtins._arguments import parse_json_object_arguments
 
 
+# Legacy platform skill names remain readable until 2.0; advertise only new names.
+LEGACY_SKILL_NAMES = {
+    "build-omnigent": "build-agentnexus",
+    "omnigent-knowledge": "agentnexus-knowledge",
+}
+
+
 class LoadSkillTool(Tool):
     """
     Built-in tool that loads a skill's full instructions by name.
@@ -133,7 +140,9 @@ class LoadSkillTool(Tool):
             return "Error: missing required 'name' argument"
         if not isinstance(skill_name, str):
             return "Error: 'name' must be a string"
-        skill = self._skills_by_name.get(skill_name)
+        skill = self._skills_by_name.get(skill_name) or self._skills_by_name.get(
+            LEGACY_SKILL_NAMES.get(skill_name, skill_name)
+        )
         if skill is None:
             available = list(self._skills_by_name.keys())
             return f"Error: skill {skill_name!r} not found. Available skills: {available}"
@@ -250,6 +259,9 @@ def find_skill_by_name(skills: list[SkillSpec], name: str) -> SkillSpec | None:
     for skill in skills:
         if skill.name == name:
             return skill
+    canonical = LEGACY_SKILL_NAMES.get(name)
+    if canonical:
+        return next((skill for skill in skills if skill.name == canonical), None)
     return None
 
 

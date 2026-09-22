@@ -8,6 +8,7 @@ from typing import Any
 from agentnexus.spec.types import SkillSpec
 from agentnexus.tools.base import Tool, ToolContext
 from agentnexus.tools.builtins._arguments import parse_json_object_arguments
+from agentnexus.tools.builtins.load_skill import LEGACY_SKILL_NAMES
 
 
 class ReadSkillFileTool(Tool):
@@ -119,7 +120,9 @@ class ReadSkillFileTool(Tool):
         if not isinstance(rel_path, str):
             return "Error: 'path' must be a string"
 
-        skill = self._skills_by_name.get(skill_name)
+        skill = self._skills_by_name.get(skill_name) or self._skills_by_name.get(
+            LEGACY_SKILL_NAMES.get(skill_name, skill_name)
+        )
         if skill is None:
             available = list(self._skills_by_name.keys())
             return f"Error: skill {skill_name!r} not found. Available skills: {available}"

@@ -66,13 +66,13 @@ class SeedanceEditCanvasTool(Tool):
                             ),
                         },
                         "storyboard_file": {
-                            "type": "string", "description": "For import_storyboard: native novel-storyboard JSON path inside the current Topic workspace.",
+                            "type": "string", "description": "For import_storyboard: native cine-storyboard JSON path inside the current Topic workspace.",
                         },
                         "job_id": {"type": "string", "description": "For export_image: exact succeeded V3 image or video job ID. Downloads its output into this Topic; no generation or filesystem search."},
                         "output_path": {"type": "string", "description": "For export_image: optional destination inside this Topic. Existing different files are not overwritten. Default outputs/v3-media/<hash>.<actual-format>."},
                         "output_index": {"type": "integer", "minimum": 0, "description": "For export_image: zero-based index in the job's outputRefs, default 0."},
                         "script_file": {
-                            "type": "string", "description": "For import_storyboard: matching native novel-script JSON path in this Topic. No ad hoc conversion scripts.",
+                            "type": "string", "description": "For import_storyboard: matching native cine-script JSON path in this Topic. No ad hoc conversion scripts.",
                         },
                         "episode_nodes": {
                             "type": "object", "additionalProperties": {"type": "string"},

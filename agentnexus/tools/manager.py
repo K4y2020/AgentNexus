@@ -568,6 +568,7 @@ class ToolManager:
         """
         from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
         from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
+        from agentnexus.tools.builtins.cine_camera_evidence import CineCameraEvidenceTool
         from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
         from agentnexus.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
         from agentnexus.tools.builtins.send_to_teammate import SendToTeammateTool
@@ -578,6 +579,10 @@ class ToolManager:
         self._tools[SeedanceReadCanvasTool.name()] = SeedanceReadCanvasTool()
         self._tools[SeedanceEditCanvasTool.name()] = SeedanceEditCanvasTool()
         self._tools[CineVerifyReportTool.name()] = CineVerifyReportTool()
+        self._tools[CineCameraEvidenceTool.name()] = CineCameraEvidenceTool()
+        from agentnexus.tools.builtins.cine_jev_judge import CineJevJudgeTool
+
+        self._tools[CineJevJudgeTool.name()] = CineJevJudgeTool()
         self._tools[SaveTeammateMemoryTool.name()] = SaveTeammateMemoryTool()
 
     def _register_browser_tools(self) -> None:
