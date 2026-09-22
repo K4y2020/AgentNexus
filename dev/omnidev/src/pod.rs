@@ -1,6 +1,7 @@
 //! A `Pod` = one isolated dev instance: its own state dir, ports, and the env
 //! map injected into every supervised child.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -14,14 +15,14 @@ pub struct Pod {
     pub ports: Ports,
     pub vite_host: String,
     /// LAN origins to trust for device testing (`--trust-lan-origins`); empty
-    /// otherwise. Fed to the server as `OMNIGENT_WS_ALLOWED_ORIGINS`.
+    /// otherwise. Fed to the server as `AGENTNEXUS_WS_ALLOWED_ORIGINS`.
     pub trusted_origins: Vec<String>,
     pub profile: Option<Profile>,
 }
 
 impl Pod {
     /// Create the pod directory tree (idempotent) and return the pod handle.
-    /// Only omnigent's own state is isolated (DB, artifacts, logs, config); the
+    /// Only agentnexus's own state is isolated (DB, artifacts, logs, config); the
     /// pod inherits your real home, credentials, and caches.
     pub fn create(
         repo_root: PathBuf,
@@ -41,6 +42,7 @@ impl Pod {
         trusted_origins: Vec<String>,
         profile: Option<Profile>,
     ) -> Result<Pod> {
+        // Keep the persisted state directory so existing pods retain their history.
         for sub in ["data/omnigent", "artifacts", "logs", "config"] {
             let p = dir.join(sub);
             std::fs::create_dir_all(&p)
@@ -78,8 +80,8 @@ impl Pod {
     }
 
     /// The pod's isolated config home, exposed to children as
-    /// `OMNIGENT_CONFIG_HOME` so its `config.yaml` is separate from the
-    /// developer's real `~/.omnigent/config.yaml`.
+    /// `AGENTNEXUS_CONFIG_HOME` so its `config.yaml` is separate from the
+    /// developer's real `~/.agentnexus/config.yaml`.
     pub fn config_dir(&self) -> PathBuf {
         self.dir.join("config")
     }
@@ -90,7 +92,7 @@ impl Pod {
 
     /// Clickable URLs for display. Terminals linkify `localhost` but often not
     /// a bare `127.0.0.1`. Functional uses (server bind, host `--server`,
-    /// `OMNIGENT_URL`) stay on `127.0.0.1` so we don't accidentally target IPv6
+    /// `AGENTNEXUS_URL`) stay on `127.0.0.1` so we don't accidentally target IPv6
     /// `localhost` (`::1`), where the server isn't listening.
     pub fn server_display_url(&self) -> String {
         format!("http://localhost:{}", self.ports.server)
@@ -150,7 +152,7 @@ impl Pod {
             self.profile
                 .as_ref()
                 .map(|profile| profile.backend_dir.as_path())
-                .unwrap_or_else(|| Path::new("omnigent")),
+                .unwrap_or_else(|| Path::new("agentnexus")),
         )
     }
 
@@ -165,30 +167,30 @@ impl Pod {
     }
 
     /// The env overrides applied on top of the inherited parent env for every
-    /// child. We isolate omnigent's own state — the DB, data dir, and config
+    /// child. We isolate agentnexus's own state — the DB, data dir, and config
     /// home — so concurrent pods don't share a database, pidfile, or
     /// `config.yaml`. The rest (real `HOME`, credentials, uv/pnpm caches) is
-    /// inherited, since the agents omnigent runs need it. `OMNIGENT_URL` is the
+    /// inherited, since the agents agentnexus runs need it. `AGENTNEXUS_URL` is the
     /// seam `web/vite.config.ts` reads to point its proxy at this pod's backend;
-    /// `OMNIGENT_CONFIG_HOME` is where the server/host/runner read `config.yaml`.
+    /// `AGENTNEXUS_CONFIG_HOME` is where the server/host/runner read `config.yaml`.
     pub fn env(&self) -> Vec<(String, String)> {
         let d = |p: &str| self.dir.join(p).display().to_string();
         let mut env = vec![
-            ("OMNIGENT_DATA_DIR".into(), d("data/omnigent")),
-            ("OMNIGENT_DATABASE_URI".into(), self.db_uri()),
-            ("OMNIGENT_URL".into(), self.server_url()),
+            ("AGENTNEXUS_DATA_DIR".into(), d("data/omnigent")),
+            ("AGENTNEXUS_DATABASE_URI".into(), self.db_uri()),
+            ("AGENTNEXUS_URL".into(), self.server_url()),
             (
-                "OMNIGENT_CONFIG_HOME".into(),
+                "AGENTNEXUS_CONFIG_HOME".into(),
                 self.config_dir().display().to_string(),
             ),
         ];
         if let Some(allowed) = self.allowed_origins_env() {
-            env.push(("OMNIGENT_WS_ALLOWED_ORIGINS".into(), allowed));
+            env.push(("AGENTNEXUS_WS_ALLOWED_ORIGINS".into(), allowed));
         }
         env
     }
 
-    /// The `OMNIGENT_WS_ALLOWED_ORIGINS` value to inject, or `None` to leave it
+    /// The `AGENTNEXUS_WS_ALLOWED_ORIGINS` value to inject, or `None` to leave it
     /// untouched. Merges the trusted LAN origins onto any value inherited from
     /// the parent environment (comma-separated, order-preserving, deduped) so a
     /// developer's own allowlist survives. Returns `None` when there are no LAN
@@ -197,7 +199,8 @@ impl Pod {
         if self.trusted_origins.is_empty() {
             return None;
         }
-        let inherited = std::env::var("OMNIGENT_WS_ALLOWED_ORIGINS").unwrap_or_default();
+        let inherited = env_value("WS_ALLOWED_ORIGINS").unwrap_or_default();
+        let inherited = inherited.to_string_lossy();
         let mut merged: Vec<String> = Vec::new();
         let parts = inherited
             .split(',')
@@ -223,19 +226,39 @@ pub fn clean(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The developer's real omnigent `config.yaml` to seed a fresh pod from.
+/// The developer's real agentnexus `config.yaml` to seed a fresh pod from.
 ///
-/// Honors `OMNIGENT_CONFIG_HOME` if the parent env sets it (nested/test
-/// setups), else `~/.omnigent/config.yaml` via `HOME`. Returns `None` when the
-/// file does not exist — a fresh pod then starts with an empty config, just
-/// like a first-run user.
+/// Uses the configured home or the default config path, with legacy reads until 2.0.
 fn real_config_path() -> Option<PathBuf> {
-    let home = match std::env::var_os("OMNIGENT_CONFIG_HOME") {
+    resolve_config_path(env_value("CONFIG_HOME"), std::env::var_os("HOME"))
+}
+
+fn resolve_config_path(config_home: Option<OsString>, user_home: Option<OsString>) -> Option<PathBuf> {
+    let explicit = config_home.is_some();
+    let home = match config_home {
         Some(h) if !h.is_empty() => PathBuf::from(h),
-        _ => PathBuf::from(std::env::var_os("HOME")?).join(".omnigent"),
+        _ => PathBuf::from(user_home.as_ref()?).join(".agentnexus"),
     };
     let path = home.join("config.yaml");
-    path.exists().then_some(path)
+    if path.exists() {
+        return Some(path);
+    }
+    if !explicit {
+        let legacy = PathBuf::from(user_home?).join(".omnigent/config.yaml");
+        return legacy.exists().then_some(legacy);
+    }
+    None
+}
+
+fn env_value(suffix: &str) -> Option<OsString> {
+    env_value_from(suffix, |name| std::env::var_os(name))
+}
+
+fn env_value_from(suffix: &str, mut read: impl FnMut(&str) -> Option<OsString>) -> Option<OsString> {
+    // Legacy prefixes are supported until 2.0; an explicitly empty new value wins.
+    ["AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"]
+        .iter()
+        .find_map(|prefix| read(&format!("{prefix}{suffix}")))
 }
 
 /// Copy `src` to `dest`, but only when `dest` does not already exist — a normal
@@ -288,17 +311,17 @@ mod tests {
         .unwrap()
     }
 
-    /// Point `OMNIGENT_CONFIG_HOME` at `home` for the duration of `f`, restoring
+    /// Point `AGENTNEXUS_CONFIG_HOME` at `home` for the duration of `f`, restoring
     /// the previous value afterwards. Serialized against other env-touching
     /// tests via `ENV_LOCK`.
     fn with_config_home<T>(home: &Path, f: impl FnOnce() -> T) -> T {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let prev = std::env::var_os("OMNIGENT_CONFIG_HOME");
-        std::env::set_var("OMNIGENT_CONFIG_HOME", home);
+        let prev = std::env::var_os("AGENTNEXUS_CONFIG_HOME");
+        std::env::set_var("AGENTNEXUS_CONFIG_HOME", home);
         let out = f();
         match prev {
-            Some(v) => std::env::set_var("OMNIGENT_CONFIG_HOME", v),
-            None => std::env::remove_var("OMNIGENT_CONFIG_HOME"),
+            Some(v) => std::env::set_var("AGENTNEXUS_CONFIG_HOME", v),
+            None => std::env::remove_var("AGENTNEXUS_CONFIG_HOME"),
         }
         out
     }
@@ -317,7 +340,7 @@ mod tests {
         let env = pod.env();
         let got = env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_CONFIG_HOME")
+            .find(|(k, _)| k == "AGENTNEXUS_CONFIG_HOME")
             .map(|(_, v)| v.clone());
         assert_eq!(got, Some(pod.config_dir().display().to_string()));
     }
@@ -363,30 +386,45 @@ mod tests {
     }
 
     #[test]
-    fn real_config_path_falls_back_to_home_dot_omnigent() {
-        // With no OMNIGENT_CONFIG_HOME, the real config resolves under
-        // `$HOME/.omnigent/` — the path a normal pod run seeds from.
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let prev_cfg = std::env::var_os("OMNIGENT_CONFIG_HOME");
-        let prev_home = std::env::var_os("HOME");
-
+    fn real_config_path_preserves_legacy_and_prefers_canonical_config() {
         let home = tempdir();
         std::fs::create_dir_all(home.join(".omnigent")).unwrap();
         std::fs::write(home.join(".omnigent/config.yaml"), "y: 2\n").unwrap();
+        let resolve = |override_home| resolve_config_path(override_home, Some(home.clone().into()));
+        assert_eq!(resolve(None), Some(home.join(".omnigent/config.yaml")));
+        assert_eq!(resolve(Some(OsString::new())), None);
+        std::fs::create_dir_all(home.join(".agentnexus")).unwrap();
+        std::fs::write(home.join(".agentnexus/config.yaml"), "").unwrap();
+        assert_eq!(resolve(None), Some(home.join(".agentnexus/config.yaml")));
+    }
 
-        std::env::remove_var("OMNIGENT_CONFIG_HOME");
-        std::env::set_var("HOME", &home);
-        let got = real_config_path();
-
-        match prev_cfg {
-            Some(v) => std::env::set_var("OMNIGENT_CONFIG_HOME", v),
-            None => std::env::remove_var("OMNIGENT_CONFIG_HOME"),
+    #[test]
+    fn env_prefix_precedence_preserves_explicit_empty_values() {
+        let mut env = std::collections::HashMap::new();
+        let suffix = "WS_ALLOWED_ORIGINS";
+        for prefix in ["OMNIAGENTS_", "OMNIGENTS_", "OMNIGENT_", "AGENTNEXUS_"] {
+            env.insert(format!("{prefix}{suffix}"), OsString::from(prefix));
+            assert_eq!(
+                env_value_from(suffix, |key| env.get(key).cloned()),
+                Some(prefix.into())
+            );
         }
-        match prev_home {
-            Some(v) => std::env::set_var("HOME", v),
-            None => std::env::remove_var("HOME"),
-        }
+        env.insert("AGENTNEXUS_WS_ALLOWED_ORIGINS".into(), OsString::new());
+        assert_eq!(
+            env_value_from(suffix, |key| env.get(key).cloned()),
+            Some(OsString::new())
+        );
+    }
 
-        assert_eq!(got, Some(home.join(".omnigent/config.yaml")));
+    #[test]
+    fn backend_watch_path_is_canonical_but_persisted_data_path_is_retained() {
+        let real = tempdir();
+        let pod = with_config_home(&real, || make_pod(tempdir()));
+        assert_eq!(pod.backend_dir(), pod.repo_root.join("agentnexus"));
+        assert!(pod.dir.join("data/omnigent").is_dir());
+        assert!(pod
+            .env()
+            .iter()
+            .all(|(key, _)| key.starts_with("AGENTNEXUS_")));
     }
 }

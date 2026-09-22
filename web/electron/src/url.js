@@ -200,10 +200,11 @@
     return url.toString();
   }
 
-  const WORKSPACE_API_PATHS = new Set([
-    "/api/2.0/agentnexus",
-    // Databricks keeps this plural route for older clients.
-    "/api/2.0/agentnexuss",
+  // Explicit legacy deployments retain their own UI mount until 2.0.
+  const WORKSPACE_API_PATHS = new Map([
+    ["/api/2.0/agentnexus", WORKSPACE_UI_PATH],
+    ["/api/2.0/omnigent", "/omnigent"],
+    ["/api/2.0/omnigents", "/omnigent"],
   ]);
 
   /**
@@ -228,7 +229,7 @@
     if (!isDatabricksWorkspaceHost(url.hostname)) return rawUrl;
     const pathWithoutTrailingSlash = url.pathname.replace(/\/+$/, "");
     if (!WORKSPACE_API_PATHS.has(pathWithoutTrailingSlash)) return rawUrl;
-    url.pathname = WORKSPACE_UI_PATH;
+    url.pathname = WORKSPACE_API_PATHS.get(pathWithoutTrailingSlash);
     return url.toString();
   }
 

@@ -64,8 +64,8 @@ def render_kimi_hooks_toml(*, bridge_dir: Path, python_executable: str | None = 
     # package and the hook dies on ``ImportError`` before it can POST — so the
     # approval card never publishes. ``-I`` drops cwd + PYTHONPATH + user-site
     # from the path, importing only the interpreter's own omnigent. Mirrors
-    # claude-native's ``python -I -m omnigent.claude_native_hook``.
-    base = f"{shlex.quote(python)} -I -m omnigent.kimi_native_hook"
+    # claude-native's ``python -I -m agentnexus.claude_native_hook``.
+    base = f"{shlex.quote(python)} -I -m agentnexus.kimi_native_hook"
     bridge = shlex.quote(str(bridge_dir))
     pre = f"{base} evaluate-policy --bridge-dir {bridge}"
     perm = f"{base} permission-request --bridge-dir {bridge}"

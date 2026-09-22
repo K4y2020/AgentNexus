@@ -88,7 +88,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Starts a local runner, binds the session, "
+            "Remote AgentNexus URL. Starts a local runner, binds the session, "
             "launches Claude in a terminal resource, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -307,7 +307,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch Codex, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -451,7 +451,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch OpenCode, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -554,7 +554,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch Pi, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -643,7 +643,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the Cursor TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -760,7 +760,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the Kiro TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -890,7 +890,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the Goose TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -977,7 +977,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the Hermes TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -1064,7 +1064,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, binds a runner, "
+            "Remote AgentNexus URL. Ensures the host daemon, binds a runner, "
             "launches Antigravity (agy) in a terminal resource, and attaches "
             'this TTY. Pass --server "" to auto-spawn a persistent local '
             "server in the background and use that instead of a remote one."
@@ -1168,7 +1168,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the qwen TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -1255,7 +1255,7 @@ def register_native_commands(cli: click.Group) -> None:
         "--server",
         default=None,
         help=(
-            "Remote omnigent URL. Ensures the host daemon, asks the "
+            "Remote AgentNexus URL. Ensures the host daemon, asks the "
             "daemon-spawned runner to launch the Kimi TUI, and attaches this TTY. "
             'Pass --server "" to auto-spawn a persistent local server in the '
             "background and use that instead of a remote one."
@@ -1298,7 +1298,7 @@ def register_native_commands(cli: click.Group) -> None:
         own backend (``kimi login`` for OAuth, or a Moonshot API key).
 
         For the headless SDK harness (per-turn ``kimi -p`` behind the AgentNexus
-        REPL) use ``omnigent run --harness kimi`` instead.
+        REPL) use ``agentnexus run --harness kimi`` instead.
 
         \b
         Examples:

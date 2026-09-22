@@ -14,7 +14,7 @@ place the redirect can be exercised end to end:
    Routing stamped on the row.
 3. Send a message whose sub-task the ``both`` recipe places on the **counterpart**
    family. The spawn is denied with an instruction naming
-   ``mcp__omnigent__sys_session_create`` — the tool a routed spawn actually
+   ``mcp__agentnexus__sys_session_create`` — the tool a routed spawn actually
    holds — and the ``native_subagent`` decision records the cross-family arm.
 
 **Nothing is awaited past the spawn.** The child conversation row is checked in
@@ -63,7 +63,7 @@ pytestmark = [pytest.mark.smart_routing, pytest.mark.timeout(900)]
 
 #: The routed spawn's deny reason must name the tool the session actually holds,
 #: in the spelling claude-native advertises it under.
-_REDIRECT_TOOL = "mcp__omnigent__sys_session_create"
+_REDIRECT_TOOL = "mcp__agentnexus__sys_session_create"
 
 _SPAWN_TIMEOUT_S = 300.0
 _PANE_TIMEOUT_S = 300.0

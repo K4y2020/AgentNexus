@@ -1,6 +1,6 @@
 """Phase 0 characterization test — pi harness, one-shot prompt.
 
-Runs ``omnigent run hello_world.yaml --harness pi --model
+Runs ``agentnexus run hello_world.yaml --harness pi --model
 <mock-model> -p "..."`` as a real subprocess against the mock LLM
 server and snapshots structural observations (exit code, stderr
 cleanliness, assistant text length).
@@ -83,7 +83,7 @@ def test_per_harness_pi_one_shot(
     mock_llm_server_url: str,
 ) -> None:
     """
-    ``omnigent run hello_world.yaml --harness pi -p <prompt>``
+    ``agentnexus run hello_world.yaml --harness pi -p <prompt>``
     exits 0 and emits a non-trivial assistant reply.
 
     Uses the mock LLM server so the test runs without real API

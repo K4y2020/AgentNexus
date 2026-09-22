@@ -62,7 +62,7 @@ _OBSERVED_TOOL_CALL_STATUS = "in_progress"
 _COMPLETED_TOOL_CALL_STATUS = "completed"
 
 
-# Prefix for Claude SDK MCP-registered tool names (e.g. ``mcp__omnigent__sys_terminal_launch``).
+# Prefix for Claude SDK MCP-registered tool names (e.g. ``mcp__agentnexus__sys_terminal_launch``).
 # Inline observed events are emitted at ToolCallRequest; the ``tool_use_id`` is queued so the
 # post-stream dispatch reuses the same ``call_id``, letting BlockStream dedupe the two renders.
 _MCP_TOOL_NAME_PREFIX = "mcp__"

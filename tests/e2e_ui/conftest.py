@@ -1015,7 +1015,7 @@ def live_server(
             # presence-leave assertion in test_collab_realtime clears in ~1s
             # instead of the prod 15s dwell (which only exists to absorb the
             # ingress' ~5-min stream recycle a test server never hits).
-            # Mirrors ``python -m omnigent`` (omnigent/__main__.py).
+            # Mirrors ``python -m agentnexus`` (omnigent/__main__.py).
             "-c",
             "import agentnexus.server.presence as _p; _p._LEAVE_GRACE_S = 1.0; "
             + "from agentnexus.cli import main; main()",
@@ -2255,7 +2255,7 @@ def server_pid(live_server: str) -> int:
 #
 # ``native_claude_session`` is the native-CLI counterpart: it spins up a real
 # ``claude-native`` ("Claude Code") wrapper session — the same terminal-first
-# spec ``omnigent claude`` ships — and yields ``(base_url, session_id)``. The
+# spec ``agentnexus claude`` ships — and yields ``(base_url, session_id)``. The
 # runner auto-launches Claude Code in the session terminal on bind, including
 # the gateway auth it derives from the runner's own credentials and the
 # first-run trust/onboarding pre-accept, so no CLI client is needed. In CI the
@@ -2373,7 +2373,7 @@ def _create_native_claude_session(
 ) -> str:
     """Register the ``claude-native`` wrapper agent and bind its session.
 
-    Reuses the exact terminal-first spec ``omnigent claude`` ships
+    Reuses the exact terminal-first spec ``agentnexus claude`` ships
     (:func:`omnigent.claude_native._materialize_claude_agent_spec`) so the
     fixture never drifts from production, and stamps the same wrapper /
     terminal-first labels (``omnigent.wrapper`` + ``omnigent.ui = terminal``)

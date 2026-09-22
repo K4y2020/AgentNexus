@@ -1,4 +1,4 @@
-"""CLI-side auth storage for ``omnigent login``.
+"""CLI-side auth storage for ``agentnexus login``.
 
 Persists per-server auth state in ``~/.agentnexus/auth_tokens.json``
 keyed by server URL. Two record shapes live side by side:
@@ -7,7 +7,7 @@ keyed by server URL. Two record shapes live side by side:
   (``{"token": ..., "user_id": ..., "expires_at": ...}``).
 - **Databricks Apps pointer records**
   (``{"auth_type": "databricks", "workspace_host": ...}``) written by
-  ``omnigent login <apps-url>``. These deliberately store NO token:
+  ``agentnexus login <apps-url>``. These deliberately store NO token:
   Databricks OAuth access tokens expire after ~1 hour, so the record
   just names the workspace whose host-keyed Databricks CLI OAuth cache
   (``databricks auth login --host <ws>``) mints fresh bearers on
@@ -172,7 +172,7 @@ def store_token(
     :param refresh_token: Login-issued refresh grant token, when the
         server handed one out. Lets :func:`refresh_stored_token` renew
         the access token past expiry without a human re-running
-        ``omnigent login``.
+        ``agentnexus login``.
     """
     entry: dict[str, str | float] = {
         "token": token,
@@ -311,7 +311,7 @@ def _warn_expired_once(server_url: str, expires_at: float, *, has_refresh: bool)
     else:
         _logger.warning(
             "Stored login session for %s expired on %s and holds no refresh "
-            "material. Run `omnigent login %s` to re-authenticate.",
+            "material. Run `agentnexus login %s` to re-authenticate.",
             normalized,
             expired_on,
             normalized,
@@ -439,7 +439,7 @@ def _refresh_locked(server_url: str, normalized: str, timeout: float) -> str | N
         return None
     if resp.status_code != 200:
         _logger.warning(
-            "Token refresh against %s refused (HTTP %d) — run `omnigent login %s` "
+            "Token refresh against %s refused (HTTP %d) — run `agentnexus login %s` "
             "to re-authenticate.",
             normalized,
             resp.status_code,
@@ -585,7 +585,7 @@ def databricks_request_headers(
 
     The single source of truth for server-request headers. It always
     includes the :data:`DATABRICKS_ORG_ID_HEADER` workspace-routing header
-    when ``omnigent login https://<host>/?o=<id>`` recorded a selector, and
+    when ``agentnexus login https://<host>/?o=<id>`` recorded a selector, and
     adds ``Authorization`` when a bearer is supplied. Folding both into one
     builder makes routing travel with auth: a caller that has a token gets
     routing for free, and a caller whose credential is set elsewhere (an

@@ -1,4 +1,4 @@
-"""End-to-end test: ``omnigent run examples/coding_supervisor.yaml
+"""End-to-end test: ``agentnexus run examples/coding_supervisor.yaml
 --omnigent`` works.
 
 Exercises the full pipeline that was failing in user-reported bugs:
@@ -31,7 +31,7 @@ Two test scenarios:
   translator — coding-supervisor-shaped YAMLs with inline
   sub-agent-as-tool declarations stop loading under AgentNexus mode.
 - ``_run_agent_via_omnigent`` regresses to the "requires a prompt"
-  hard-error path — interactive ``omnigent run <yaml>``
+  hard-error path — interactive ``agentnexus run <yaml>``
   starts exiting non-zero instead of opening the REPL.
 - The plain ``FunctionTool`` → ``LocalToolInfo`` translation
   breaks — YAMLs with ``type: function`` tools (``sleep``-style)
@@ -132,7 +132,7 @@ def test_run_omnigent_coding_supervisor_oneshot(
     mock_llm_server_url: str,
 ) -> None:
     """
-    ``omnigent run examples/coding_supervisor.yaml -p ...``
+    ``agentnexus run examples/coding_supervisor.yaml -p ...``
     completes successfully end-to-end.
 
     coding_supervisor.yaml exercises every concept the phase 0-5
@@ -188,7 +188,7 @@ def test_run_omnigent_coding_supervisor_oneshot(
     # validator → registration → executor construction →
     # /v1/responses → assistant text extraction) succeeded.
     assert result.returncode == 0, (
-        f"`omnigent run --omnigent` exited {result.returncode}. "
+        f"`agentnexus run --omnigent` exited {result.returncode}. "
         f"stderr tail:\n{result.stderr[-2000:]}\n"
         f"stdout tail:\n{result.stdout[-1000:]}"
     )
@@ -306,7 +306,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
     mock_llm_server_url: str,
 ) -> None:
     """
-    Infrastructure smoke test: ``omnigent run`` on
+    Infrastructure smoke test: ``agentnexus run`` on
     coding_supervisor.yaml boots the AgentNexus stack, the mock
     supervisor LLM responds with a file listing, and that listing
     flows through stdout without error.
@@ -412,7 +412,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
     # Exit 0 proves no PermanentLLMError bubbled up from the Codex
     # sub-agent's workflow.
     assert result.returncode == 0, (
-        f"`omnigent run --omnigent` exited {result.returncode}. "
+        f"`agentnexus run --omnigent` exited {result.returncode}. "
         f"stderr tail:\n{result.stderr[-2000:]}\n"
         f"stdout tail:\n{result.stdout[-1500:]}"
     )
@@ -436,7 +436,7 @@ def test_run_omnigent_coding_supervisor_interactive_enters_repl(
     mock_credentials_env: dict[str, str],
 ) -> None:
     """
-    ``omnigent run examples/coding_supervisor.yaml`` (no
+    ``agentnexus run examples/coding_supervisor.yaml`` (no
     prompt) enters the interactive REPL via the SSE bridge. Exit
     cleanly on Ctrl+D.
 
@@ -444,7 +444,7 @@ def test_run_omnigent_coding_supervisor_interactive_enters_repl(
     without a prompt hard-errored with "requires a prompt" —
     the shim must instead delegate to
     :func:`_run_chat_via_omnigent` so interactive semantics match the
-    legacy ``omnigent run`` no-prompt behavior.
+    legacy ``agentnexus run`` no-prompt behavior.
 
     :param omnigent_python: Interpreter with omnigent +
         omnigent installed.
@@ -487,7 +487,7 @@ def test_run_omnigent_coding_supervisor_interactive_enters_repl(
         buffered = child.before or ""
 
         assert index == 0, (
-            f"`omnigent run --omnigent` (no prompt) did not reach the "
+            f"`agentnexus run --omnigent` (no prompt) did not reach the "
             f"REPL ready state within {_REPL_BOOT_TIMEOUT}s. "
             f"Match index={index} "
             f"(0=ready, 1=legacy-hard-error, 2=EOF). "

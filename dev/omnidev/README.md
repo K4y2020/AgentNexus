@@ -80,6 +80,13 @@ Each pod gets its own `config.yaml` under `<pod>/config/`, pointed to by
 keeps your providers — after which the two are independent: server-config edits
 inside a pod (via the UI or `agentnexus config`) don't touch your real config.
 
+Existing pod state remains in `<pod>/data/omnigent/`, and the `omnidev` cache
+and `install.toml` locations retain their established names. This preserves
+conversation history and saved install preferences. Config reads accept the
+legacy `OMNIGENT_*`, `OMNIGENTS_*`, and `OMNIAGENTS_*` prefixes and
+`~/.omnigent/config.yaml` until AgentNexus 2.0. An explicit `AGENTNEXUS_*` value,
+including an empty value, takes precedence over legacy environment inputs.
+
 The OSS pod also imports the curated JSONL transcripts under
 `dev/omnidev/fixtures/conversations/` through `agentnexus session import` once the
 server is healthy. Versioned per-fixture markers in the pod make normal starts
@@ -164,6 +171,8 @@ pod, via `uv run agentnexus …`, with the pod's isolated env applied
 uses, so a command talks to the pod's database and config — and `AGENTNEXUS_URL`
 points at a running supervisor's server when one is up.
 
+The previous `omnidev omnigent …` spelling remains an alias until AgentNexus 2.0.
+
 ```bash
 omnidev agentnexus agent run "fix the flaky test"
 omnidev agentnexus config show
@@ -226,7 +235,7 @@ every shell startup and print a "command not found" error whenever omnidev is
 absent.)
 
 On each interactive shell it runs `omnidev check --quiet`, which reads a cached
-result (`${XDG_CACHE_HOME:-~/.cache}/omnidev/agentnexus-check.json`) and, when
+result (`${XDG_CACHE_HOME:-~/.cache}/omnidev/omnigent-check.json`) and, when
 stale (>24h), refreshes it in a detached background process — so shell startup
 never blocks on the network. When a newer commit is available it prints a notice
 and, on a terminal, prompts `Update agentnexus now? [y/N]`; on yes it runs

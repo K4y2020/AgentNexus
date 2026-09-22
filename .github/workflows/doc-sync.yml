@@ -45,7 +45,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CODE_REPO: agentnexus-ai/agentnexus
+  CODE_REPO: K4y2020/AgentNexus
   SITE_REPO_SLUG: ${{ github.repository_owner }}/agentnexus-site
   AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
@@ -57,7 +57,7 @@ jobs:
     # Cheap pre-gate; the `plan` step refines (no associated PR, or a
     # no-doc-update-labeled merge → no-op).
     if: >-
-      github.repository == 'agentnexus-ai/agentnexus' &&
+      github.repository == 'K4y2020/AgentNexus' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 40

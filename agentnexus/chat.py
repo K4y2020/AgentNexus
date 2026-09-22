@@ -85,7 +85,7 @@ _YamlMapping: TypeAlias = dict[str, Any]  # type: ignore[explicit-any]
 logger = logging.getLogger(__name__)
 
 # Local server readiness polling: use a short initial interval so
-# freshly-launched ``omnigent run`` sessions don't burn a
+# freshly-launched ``agentnexus run`` sessions don't burn a
 # fixed 500 ms before noticing the server is ready, then back off
 # slightly while still remaining responsive on slower cold starts.
 _SERVER_READY_INITIAL_POLL_SECONDS = 0.05
@@ -171,7 +171,7 @@ def _default_cli_model() -> str:
 @dataclass(frozen=True)
 class ChatOverrides:
     """
-    CLI overrides from ``omnigent run`` flags.
+    CLI overrides from ``agentnexus run`` flags.
 
     Applied by materializing a rewritten copy of the agent YAML in a
     temp dir and pointing the local server at that copy — the user's
@@ -314,7 +314,7 @@ def run_chat(
     auto_open_conversation: bool = False,
 ) -> None:
     """
-    Main entry point for ``omnigent run`` (and the ``attach`` client).
+    Main entry point for ``agentnexus run`` (and the ``attach`` client).
 
     :param target: Path to an agent directory/bundle, or a server URL.
     :param client_tools: Optional client-side tool set name.
@@ -505,7 +505,7 @@ def run_prompt(
     """Run one prompt headlessly and print only the assistant text.
 
     This is the non-interactive sibling of :func:`run_chat` for
-    ``omnigent run ... -p``. It deliberately bypasses the
+    ``agentnexus run ... -p``. It deliberately bypasses the
     Rich/prompt-toolkit REPL startup path so ``-p`` behaves like a
     scriptable CLI mode: send one turn, print the assistant response,
     and return.
@@ -693,15 +693,15 @@ def _remote_headers(
     Resolution order:
       1. explicit ``AGENTNEXUS_REMOTE_AUTH_TOKEN`` env var
       2. stored OIDC token from ``~/.agentnexus/auth_tokens.json``
-         (populated by ``omnigent login``)
+         (populated by ``agentnexus login``)
       3. stored Databricks Apps pointer record for ``server_url``
-         (populated by ``omnigent login <apps-url>``) — mints a
+         (populated by ``agentnexus login <apps-url>``) — mints a
          fresh workspace OAuth token via the SDK
       4. ambient Databricks CLI / ``~/.databrickscfg`` credentials
          (the SDK's default resolution; no profile is threaded)
 
-    This lets ``omnigent run --server <apps-url>`` work against
-    Databricks Apps after a one-time ``omnigent login <apps-url>``,
+    This lets ``agentnexus run --server <apps-url>`` work against
+    Databricks Apps after a one-time ``agentnexus login <apps-url>``,
     without forcing the user to manually copy a bearer into an env var.
 
     :param server_url: Optional remote server URL for looking up
@@ -723,7 +723,7 @@ def _remote_headers(
     elif server_url:
         from agentnexus.cli_auth import load_token
 
-        # 2. Stored OIDC session token from `omnigent login`.
+        # 2. Stored OIDC session token from `agentnexus login`.
         oidc_token = load_token(server_url)
         if oidc_token:
             headers["Authorization"] = f"Bearer {oidc_token}"
@@ -761,7 +761,7 @@ _databricks_auth_cache: dict[str, object] = {}
 def _stored_databricks_record_token(server_url: str) -> str | None:
     """Mint a workspace token from a stored Databricks Apps record.
 
-    ``omnigent login <apps-url>`` stores a pointer record naming the
+    ``agentnexus login <apps-url>`` stores a pointer record naming the
     workspace that fronts the app; this resolves it to a fresh bearer
     via the Databricks CLI's host-keyed OAuth cache. One-shot — callers
     that issue many requests should use :class:`_DatabricksTokenAuth`,
@@ -804,7 +804,7 @@ class _DatabricksTokenAuth(httpx.Auth):
 
     Resolution order:
       1. static env-var token (``AGENTNEXUS_REMOTE_AUTH_TOKEN``)
-      2. stored OIDC token (from ``omnigent login``)
+      2. stored OIDC token (from ``agentnexus login``)
       3. Databricks SDK credentials — resolved ONCE and reused, so the
          SDK serves the cached token from memory and only re-runs the
          Databricks CLI near expiry (not on every request).
@@ -854,7 +854,7 @@ class _DatabricksTokenAuth(httpx.Auth):
         Resolves Databricks SDK auth on first use and reuses it, so
         repeat requests hit the SDK's in-memory token cache instead of
         re-shelling to the Databricks CLI. A stored Databricks Apps
-        pointer record for the server (from ``omnigent login
+        pointer record for the server (from ``agentnexus login
         <apps-url>``) takes precedence over profile/ambient resolution
         — the record names the exact workspace the Apps edge accepts
         tokens from.
@@ -916,7 +916,7 @@ class _DatabricksTokenAuth(httpx.Auth):
         if self._static_token:
             request.headers["Authorization"] = f"Bearer {self._static_token}"
         else:
-            # Check stored OIDC token from `omnigent login`, then fall back to
+            # Check stored OIDC token from `agentnexus login`, then fall back to
             # the reused Databricks SDK auth.
             oidc_token = None
             if self._server_url:
@@ -963,7 +963,7 @@ def _server_auth(
     Build an httpx Auth for a remote AgentNexus server client.
 
     Returns a :class:`_DatabricksTokenAuth` when any credential
-    source is available (env var, stored ``omnigent login`` record,
+    source is available (env var, stored ``agentnexus login`` record,
     or ambient Databricks credentials). Returns ``None`` for local
     servers that don't need auth, so the caller can pass it straight
     to ``AgentNexusClient(auth=...)``.
@@ -983,7 +983,7 @@ def _server_auth(
     raw = os.environ.get(_REMOTE_AUTH_TOKEN_ENV)
     if raw and raw.strip():
         return _DatabricksTokenAuth(server_url=server_url, session_id=session_id)
-    # Check stored `omnigent login` records: a session JWT or a
+    # Check stored `agentnexus login` records: a session JWT or a
     # Databricks Apps pointer record.
     if server_url:
         from agentnexus.cli_auth import load_databricks_workspace_host, load_token
@@ -1242,7 +1242,7 @@ def _finish_native_redirect_progress(
     click.echo(
         (
             f"\n  Conversation {conversation_id} is a {wrapper_name} "
-            f"session — redirecting to `omnigent {native_command} --resume`.\n"
+            f"session — redirecting to `agentnexus {native_command} --resume`.\n"
         ),
         err=True,
     )
@@ -1501,7 +1501,7 @@ def _await_accounts_first_run_setup(
 ) -> None:
     """Block until a fresh accounts-mode local server has its first admin.
 
-    When ``omnigent run`` (re)spawns the local AgentNexus server in accounts mode on
+    When ``agentnexus run`` (re)spawns the local AgentNexus server in accounts mode on
     a machine with no admin yet, the server reports ``needs_setup`` and (by
     default) opens a browser to its Create-admin form. Until an admin is
     claimed there is no CLI credential, so the first authenticated call would
@@ -2843,7 +2843,7 @@ def _run_picker(
 
     async def _lookup() -> str | None:
         async with AgentNexusClient(base_url=base_url, headers=headers) as client:
-            # Multipart ``omnigent run <yaml>`` uploads now create a
+            # Multipart ``agentnexus run <yaml>`` uploads now create a
             # fresh session-scoped agent for every session so users who
             # choose the same YAML ``name:`` never share a bundle. Resume
             # lookup therefore scopes by the user-authored name across
@@ -2940,7 +2940,7 @@ def _materialize_override_bundle(source: Path, overrides: ChatOverrides) -> Path
     omnigent validator rejects that shape, and the legacy
     argparse CLI used to paper over it by injecting a model. This preserves
     that behavior through catalog resolution so
-    ``omnigent run examples/hello_world.yaml`` (minimal spec) still
+    ``agentnexus run examples/hello_world.yaml`` (minimal spec) still
     launches cleanly.
 
     When no override is set and the spec already declares harness or
@@ -3267,7 +3267,7 @@ def _apply_overrides_to_raw(raw: _YamlMapping, overrides: ChatOverrides) -> None
     if overrides.harness is not None:
         _apply_harness_override_to_executor(raw, executor_block, overrides.harness)
         # A harness-only override drops any prior model pin so the new
-        # harness resolves its provider default — e.g. ``omnigent run
+        # harness resolves its provider default — e.g. ``agentnexus run
         # examples/polly --harness pi`` must not keep Polly's Claude-only
         # a Claude-only ``executor.model``. An explicit ``--model``
         # (applied above) wins and is left alone.
@@ -3306,7 +3306,7 @@ def _apply_harness_override_to_executor(
     ``spec_version``) read the flat ``executor.harness`` key.
     ``spec_version`` bundles (e.g. ``examples/polly``) read ONLY
     ``executor.config.harness`` — writing the flat key there is a
-    silent no-op, which made ``omnigent run examples/polly
+    silent no-op, which made ``agentnexus run examples/polly
     --harness pi`` keep the claude-sdk brain.
 
     :param raw: Parsed top-level YAML mapping (used to detect the
@@ -3438,7 +3438,7 @@ def _canonicalize_local_agent_path(agent_path: Path) -> Path:
     sibling directories such as ``agents/`` and ``skills/`` from the
     uploaded bundle, so canonicalize it to the bundle root.
 
-    :param agent_path: Existing local path supplied to ``omnigent run``,
+    :param agent_path: Existing local path supplied to ``agentnexus run``,
         e.g. ``Path("examples/polly/config.yaml")``.
     :returns: The bundle root for root ``config.yaml`` paths, otherwise
         the original path.
@@ -3488,7 +3488,7 @@ def _omnigent_persistent_dir() -> Path:
 
     Must resolve identically to
     :func:`omnigent.host.local_server._local_data_dir` — the local server
-    writes its DB under that dir while ``omnigent run`` reads the resume DB
+    writes its DB under that dir while ``agentnexus run`` reads the resume DB
     from here, so a divergence would silently lose history. ``AGENTNEXUS_CONFIG_HOME``
     is intentionally not consulted (it isolates config, not data).
 
@@ -3575,8 +3575,8 @@ def _start_local_server(
     # AccountsConfig.from_env() can satisfy its required-fields check.
     # Mirrors the same logic in cli.py:_ensure_local_omnigent_server; see
     # the comment block there for the full UX explanation. (Two
-    # spawn paths exist because `omnigent run --server ""` goes
-    # through _ensure_local_omnigent_server while `omnigent run` with
+    # spawn paths exist because `agentnexus run --server ""` goes
+    # through _ensure_local_omnigent_server while `agentnexus run` with
     # an agent spec and no --server flag goes through here.)
     child_env = {
         **os.environ,

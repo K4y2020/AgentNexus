@@ -97,7 +97,7 @@ def _no_real_zygote(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ``HostProcess.run()`` prewarms the zygote at daemon start, so without
     this opt-out every test that drives ``run()`` would spawn a real
-    ``python -m omnigent.runner._zygote`` (a 1-2s import of the runner
+    ``python -m agentnexus.runner._zygote`` (a 1-2s import of the runner
     graph). Zygote behavior itself is exercised via ``_FakeZygote`` here
     and with real ``ZygoteManager`` instances in ``test_runner_zygote.py``
     (which this construction-time gate does not affect).
@@ -3362,7 +3362,7 @@ async def test_run_retries_on_login_redirect(
     ``InvalidURI`` because the redirect scheme isn't ws/wss. This can
     happen transiently during server restarts, so the host must retry
     with backoff rather than dying. The warning still surfaces the single
-    ``omnigent login`` remediation so the operator can act if the cause
+    ``agentnexus login`` remediation so the operator can act if the cause
     is persistent.
     """
     monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
@@ -3381,7 +3381,7 @@ async def test_run_retries_on_login_redirect(
     # 2 = redirect attempt + cancel attempt → it genuinely reconnected.
     assert spy.call_count == 2
     # The warning surfaces the login-page cause and the credentials hint —
-    # the single remediation message recommending `omnigent login <url>`.
+    # the single remediation message recommending `agentnexus login <url>`.
     assert any("login page" in r.message for r in caplog.records)
     assert any(
         "agentnexus login https://app.example.databricks.com" in r.message for r in caplog.records
@@ -3398,7 +3398,7 @@ async def test_login_redirect_prints_warning_to_terminal(
     not-logged-in ``omnigent host`` sat completely silent on the terminal
     while retrying (the user's only signal was Ctrl-C and reading the log).
     The terminal warning must name the cause and the copy-pasteable
-    ``omnigent login <url>`` remedy.
+    ``agentnexus login <url>`` remedy.
     """
     monkeypatch.setattr("agentnexus.host.connect._RECONNECT_BASE_S", 0.0)
     spy = _ConnectSpy(
@@ -3621,7 +3621,7 @@ async def test_run_fails_loud_on_permanent_4xx(
 async def test_auth_rejection_suggests_omnigent_login(
     monkeypatch: pytest.MonkeyPatch, status: int
 ) -> None:
-    """401/403 rejections point the user at ``omnigent login``.
+    """401/403 rejections point the user at ``agentnexus login``.
 
     Both statuses are auth failures the user can resolve by logging in to
     an accounts/OIDC-mode server (a Databricks profile token may
@@ -3646,7 +3646,7 @@ async def test_auth_rejection_suggests_omnigent_login(
 async def test_non_auth_permanent_4xx_omits_login_hint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A non-auth permanent 4xx (404) does NOT suggest ``omnigent login``.
+    """A non-auth permanent 4xx (404) does NOT suggest ``agentnexus login``.
 
     The login remedy is specific to credential/authorization failures;
     surfacing it on a 404 ("wrong URL / route missing") would misdirect
@@ -4957,7 +4957,7 @@ def test_post_connect_auth_rejection_escalates_without_going_fatal(
 ) -> None:
     """A 401/403 AFTER the host has connected retries forever (never fatal),
     but a sustained streak escalates the operator message from a transient-
-    network hint to a re-auth prompt that names ``omnigent login`` — so a
+    network hint to a re-auth prompt that names ``agentnexus login`` — so a
     permanently-rejected credential surfaces instead of looping silently.
     """
     from agentnexus.host.connect import _AUTH_REJECT_ESCALATE_ATTEMPTS

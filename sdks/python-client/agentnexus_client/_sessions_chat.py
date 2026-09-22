@@ -2,7 +2,7 @@
 
 A higher-level wrapper over :class:`agentnexus_client._sessions.SessionsNamespace`
 that mirrors enough of :class:`agentnexus_client._session.Session`'s
-public surface for downstream consumers (terminal REPL, ``omnigent
+public surface for downstream consumers (terminal REPL, ``agentnexus
 chat``, ``inner/cli.py``, …) to migrate without rewriting their event
 loops, while being implemented entirely on top of ``/v1/sessions``
 (no ``/v1/responses`` dependency).
@@ -13,10 +13,10 @@ conversation by threading ``previous_response_id`` across one-shot
 ``/v1/responses`` calls. :class:`SessionsChat` instead binds to a
 single durable session id once and re-uses it for every turn —
 matching the server-side conversation lifecycle defined in
-``omnigent/server/API.md`` ("Sessions API"). Per the same spec
+``agentnexus/server/API.md`` ("Sessions API"). Per the same spec
 there is no event replay; this helper opens a fresh SSE subscription
 per :meth:`send` call, posts the input event, and yields the typed
-:data:`omnigent.server.schemas.ServerStreamEvent` envelopes
+:data:`agentnexus.server.schemas.ServerStreamEvent` envelopes
 until the turn's terminal ``response.*`` event arrives.
 
 The helper does NOT re-export under the existing public name
@@ -89,14 +89,14 @@ _OUTPUT_TEXT_BLOCK_TYPES: frozenset[str] = frozenset({"output_text", "text"})
 
 # Wire ``type`` literal that the input-message wire format uses for
 # user-text events. Mirrors the ``"message"`` arm of
-# :class:`omnigent.server.schemas.SessionEventInput`. Kept as a
+# :class:`agentnexus.server.schemas.SessionEventInput`. Kept as a
 # named constant so a single grep finds every emit/match site.
 _MESSAGE_INPUT_TYPE: str = "message"
 
 # Wire ``type`` literal for the function_call_output event posted back
 # to the session after a client-side tool callable finishes. Mirrors
 # the ``"function_call_output"`` arm of
-# :class:`omnigent.server.schemas.SessionEventInput`. Kept as a
+# :class:`agentnexus.server.schemas.SessionEventInput`. Kept as a
 # named constant so a single grep finds every emit site.
 _FUNCTION_CALL_OUTPUT_TYPE: str = "function_call_output"
 
@@ -214,7 +214,7 @@ class _AgentToolsGetter(Protocol):
 # Concrete event classes that signal a turn's terminal state. Used
 # by :meth:`SessionsChat.send` to know when to stop iterating the
 # per-turn stream subscription. Matches the response-lifecycle
-# terminal set listed in ``omnigent/server/schemas.py`` (and
+# terminal set listed in ``agentnexus/server/schemas.py`` (and
 # the ``_TERMINAL_STATUSES`` set in
 # :mod:`agentnexus_client._session`).
 _TURN_TERMINAL_EVENT_TYPES = (
@@ -1539,7 +1539,7 @@ def _build_tool_call_info(item: dict[str, Any]) -> SessionToolCallInfo:
     Parse an action_required ``function_call`` item into a typed info object.
 
     ``name`` and ``call_id`` are required wire fields (see
-    ``omnigent/server/schemas.py:OutputItemDoneEvent``) —
+    ``agentnexus/server/schemas.py:OutputItemDoneEvent``) —
     reading via ``[]`` makes a missing field surface as a
     ``KeyError``, which is the project's "fail loud" stance for
     required wire fields.

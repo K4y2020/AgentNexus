@@ -7,7 +7,7 @@ pre-translated omnigent-native fixtures. The fixtures there
 are hand-maintained ports; any bug in the omnigent → omnigent
 adapter layer (e.g. ``condition: {}`` parse rejection,
 ``match_tools`` → ``on:`` expansion) slips past those tests. This module goes through
-:func:`omnigent.spec.load` — the same path ``omnigent run``
+:func:`omnigent.spec.load` — the same path ``agentnexus run``
 uses — so the adapter is exercised on every run.
 
 Scenarios mirror the user-documented trigger matrix:

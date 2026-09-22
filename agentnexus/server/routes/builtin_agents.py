@@ -112,7 +112,7 @@ def _to_agent_object(agent: Agent, agent_cache: AgentCache) -> AgentObject:
         # Seeded built-ins use a deterministic, name-derived id; an
         # operator/user-registered template (e.g. ``--agent``) uses a
         # random id. The picker protects the former from being shadowed
-        # by a same-named ``omnigent run`` upload, but lets a newer
+        # by a same-named ``agentnexus run`` upload, but lets a newer
         # upload supersede the latter.
         builtin=agent.session_id is None and agent.id == builtin_agent_id(agent.name),
     )

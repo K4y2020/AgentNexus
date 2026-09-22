@@ -13,7 +13,7 @@ Engines are looked up by name in a small registry
 (:func:`register_engine`), selected via ``AGENTNEXUS_DICTATION_ENGINE``:
 
 - unset (default) — the sherpa-onnx engine. Requires the ``dictation``
-  extra (``pip install omnigent[dictation]``) and a streaming transducer
+  extra (``pip install agentnexus[dictation]``) and a streaming transducer
   model on disk; both are checked lazily so the base install carries no
   new dependencies.
 - ``sherpa`` — the same engine, named explicitly.
@@ -478,7 +478,7 @@ class RemoteDictationEngine:
 
     The worker is anything speaking the ``/v1/dictation/stream`` wire
     protocol — another omnigent server or the standalone
-    ``python -m omnigent.server.dictation_worker``. Lets a small main
+    ``python -m agentnexus.server.dictation_worker``. Lets a small main
     server (a mini-PC) borrow a beefier LAN box for recognition.
 
     Fallback happens per take, at stream creation: if the worker is

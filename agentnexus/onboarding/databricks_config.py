@@ -75,7 +75,7 @@ def databricks_sdk_installed() -> bool:
 def list_databricks_profiles() -> list[str]:
     """Return the profile section names declared in ``~/.databrickscfg``.
 
-    Used by ``omnigent setup --no-internal-beta`` to offer the user a pick-list
+    Used by ``agentnexus setup --no-internal-beta`` to offer the user a pick-list
     when adding a ``kind: databricks`` provider, so they don't have to
     recall the exact profile name.
 

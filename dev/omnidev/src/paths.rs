@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 /// Walk up from `start` looking for the checkout root.
 ///
 /// The root is the first ancestor holding a `.jj/` or `.git/` marker — the VCS
-/// root. We then require `web/` and `omnigent/` to be present so we fail early
+/// root. We then require `web/` and `agentnexus/` to be present so we fail early
 /// on an unrelated repo rather than mid-spawn.
 pub fn find_repo_root(start: &Path, external_profile: bool) -> Result<PathBuf> {
     let start = start
@@ -18,11 +18,11 @@ pub fn find_repo_root(start: &Path, external_profile: bool) -> Result<PathBuf> {
     while let Some(dir) = cur {
         if dir.join(".jj").is_dir() || dir.join(".git").exists() {
             let root = dir.to_path_buf();
-            if !external_profile && (!root.join("omnigent").is_dir() || !root.join("web").is_dir())
+            if !external_profile && (!root.join("agentnexus").is_dir() || !root.join("web").is_dir())
             {
                 bail!(
-                    "found a VCS root at {} but it lacks omnigent/ and web/ — \
-                     run omnidev from inside an Omnigent checkout",
+                    "found a VCS root at {} but it lacks agentnexus/ and web/ — \
+                     run omnidev from inside an AgentNexus checkout",
                     root.display()
                 );
             }
@@ -79,6 +79,7 @@ pub fn install_config_path() -> Result<PathBuf> {
 
 /// `~/.cache/omnidev/omnigent-check.json` — volatile update-check state.
 pub fn check_cache_path() -> Result<PathBuf> {
+    // Persisted cache identity is retained across the product rename.
     Ok(cache_home()?.join("omnidev").join("omnigent-check.json"))
 }
 

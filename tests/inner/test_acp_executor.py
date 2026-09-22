@@ -485,11 +485,11 @@ def test_claimed_completion_frame_emits_no_spurious_parent_card() -> None:
     [
         ({"title": "sys_session_get_info", "rawInput": {}}, True),
         (
-            {"title": "Session info", "rawInput": {"tool": "mcp_omnigent_sys_session_get_info"}},
+            {"title": "Session info", "rawInput": {"tool": "mcp_agentnexus_sys_session_get_info"}},
             True,
         ),
         (
-            {"title": "Session info", "rawInput": {"tool": "mcp__omnigent__sys_session_get_info"}},
+            {"title": "Session info", "rawInput": {"tool": "mcp__agentnexus__sys_session_get_info"}},
             True,
         ),
         (
@@ -512,8 +512,8 @@ def test_only_advertised_bridge_aliases_enter_dispatch_correlation(
     ex._bridge_tool_aliases = frozenset(
         {
             "sys_session_get_info",
-            "mcp_omnigent_sys_session_get_info",
-            "mcp__omnigent__sys_session_get_info",
+            "mcp_agentnexus_sys_session_get_info",
+            "mcp__agentnexus__sys_session_get_info",
             "agentnexus__sys_session_get_info",
         }
     )

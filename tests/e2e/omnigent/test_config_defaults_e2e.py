@@ -1,7 +1,7 @@
 """E2E tests for ``omnigent config --global`` defaults (mock LLM).
 
 Migrated to mock LLM: tests 1 and 2 never used LLM (config commands
-only). Test 3 uses ``omnigent run`` with a mock model so no real
+only). Test 3 uses ``agentnexus run`` with a mock model so no real
 credentials are needed.
 
 Unit-level coverage of the config command lives in
@@ -49,7 +49,7 @@ def _run_omnigent(
     args: list[str],
     stdin: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Spawn ``python -m omnigent <args>`` with the given env."""
+    """Spawn ``python -m agentnexus <args>`` with the given env."""
     return subprocess.run(
         [str(omnigent_python), "-m", "agentnexus", *args],
         env=env,
@@ -230,7 +230,7 @@ def test_global_config_default_agent_drives_bare_omnigent(
         args=["run", "-p", "say hi in 5 words", "--no-session", "--no-log"],
     )
     assert run.returncode == 0, (
-        f"bare ``omnigent run`` with global default_agent failed: "
+        f"bare ``agentnexus run`` with global default_agent failed: "
         f"stdout={run.stdout!r} stderr={run.stderr!r}"
     )
     assert len(run.stdout.strip()) >= 4, (

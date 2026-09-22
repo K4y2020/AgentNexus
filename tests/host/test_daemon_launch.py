@@ -5,7 +5,7 @@ through *transient* transport errors (connection refused while the local
 server is still binding, a dropped keepalive) instead of crashing on the
 first one, and must surface the last transport error when the deadline
 expires. A regression here reproduces the CI failure where a single
-refused status poll killed ``omnigent run`` with a bare
+refused status poll killed ``agentnexus run`` with a bare
 ``httpx.ConnectError`` even though the deadline had 50+ seconds left.
 """
 

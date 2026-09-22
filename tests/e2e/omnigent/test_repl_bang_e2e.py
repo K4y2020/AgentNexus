@@ -5,7 +5,7 @@ helpers — the clip/context builders and the ``_run_bang_command`` runner. What
 it cannot reach is the wiring inside ``run_repl.on_input``: the ``!`` / ``!!`` /
 bare-``!`` dispatch and the buffer that folds a command's output into the *next*
 agent turn. Those only exist as a closure over the live REPL, so they are
-exercised here by driving the real ``omnigent run`` REPL under a PTY and
+exercised here by driving the real ``agentnexus run`` REPL under a PTY and
 inspecting what the model actually received via the mock LLM server.
 
 **What breaks if these fail:**

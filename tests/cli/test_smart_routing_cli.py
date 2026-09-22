@@ -562,7 +562,7 @@ def test_run_no_longer_advertises_smart_routing() -> None:
 def test_a_subcommand_arms_the_session_and_launches_bare(
     command: str, launcher: str, monkeypatch: pytest.MonkeyPatch, _routing_env: None
 ) -> None:
-    # `omnigent claude|codex --smart-routing` takes no -p: the hook routes.
+    # `agentnexus claude|codex --smart-routing` takes no -p: the hook routes.
     _mock_info()
     _mock_hosts({f"{command}-native": True})
     route = _mock_create(harness=f"{command}-native")

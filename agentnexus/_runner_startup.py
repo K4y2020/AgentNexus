@@ -1,7 +1,7 @@
 """Shared UX helpers for local-runner startup.
 
 The CLI flows that spawn the laptop-side runner subprocess
-(``omnigent run --server``, ``omnigent claude --server``)
+(``agentnexus run --server``, ``agentnexus claude --server``)
 share two needs:
 
 1. A progress indicator while waiting for the runner to come up,
@@ -180,7 +180,7 @@ def runner_startup_progress(
         from agentnexus.inner.mascots import MASCOT_ART_COLOR
 
         # ``Console(stderr=True)`` keeps the spinner off stdout so piped
-        # one-shot output (``omnigent run … -p "…"``) stays clean.
+        # one-shot output (``agentnexus run … -p "…"``) stays clean.
         # ``transient=True`` erases the spinner line on stop. We drive a
         # ``Live`` directly (rather than ``console.status``) for two
         # reasons: (1) ``finish()`` can stop it mid-block, so one spinner

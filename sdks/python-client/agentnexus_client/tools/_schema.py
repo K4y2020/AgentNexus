@@ -6,13 +6,13 @@ schema the LLM sees. The pipeline:
 
 1. Inspect the signature for parameters, annotations, and defaults.
 2. Parse the Google-style docstring for description and per-param
-   descriptions (see :mod:`omnigent.tools._docstring`).
+   descriptions (see :mod:`agentnexus.tools._docstring`).
 3. Build a Pydantic model from the parameters via ``create_model``;
    Pydantic does the heavy lifting for type → schema (primitives,
    Pydantic models, ``Optional``, ``Literal``, ``Annotated[..., Field]``,
    etc.).
 4. Apply strict-mode normalization (see
-   :mod:`omnigent.tools._strict`) when ``strict=True``.
+   :mod:`agentnexus.tools._strict`) when ``strict=True``.
 
 Permissive types (``Any``, ``object``, missing annotations) are
 allowed but produce an INFO-level warning so authors can find them.

@@ -4,7 +4,8 @@ default:
 export FASTLANE_SKIP_UPDATE_CHECK := "1"
 
 # iOS device override (default: iPhone 17 Pro)
-DEVICE := env("OMNIGENT_IOS_SIMULATOR", "iPhone 17 Pro")
+# Legacy environment spelling is supported until 2.0.
+DEVICE := env("AGENTNEXUS_IOS_SIMULATOR", env("OMNIGENT_IOS_SIMULATOR", "iPhone 17 Pro"))
 
 # --- uv Python env ---
 
@@ -113,10 +114,10 @@ typecheck-python: _ensure-uv
 
 [group('lint')]
 lint-ts:
-    pnpm install --frozen-lockfile --filter web --filter omnigent-vscode
+    pnpm install --frozen-lockfile --filter web --filter agentnexus-vscode
     pnpm --filter web run lint
     pnpm --filter web run type-check
-    pnpm --filter omnigent-vscode run type-check
+    pnpm --filter agentnexus-vscode run type-check
 
 # --- Lockfile maintenance ---
 

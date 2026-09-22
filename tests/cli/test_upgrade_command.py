@@ -1,4 +1,4 @@
-"""Tests for the ``omni upgrade`` command (omnigent.cli.upgrade)."""
+"""Tests for the ``omni upgrade`` command (agentnexus.cli.upgrade)."""
 
 from __future__ import annotations
 
@@ -18,13 +18,13 @@ from agentnexus.update_check import (
     _uv_python_pin,
 )
 
-# uv upgrade commands pin the interpreter omnigent is running under, so
+# uv upgrade commands pin the interpreter agentnexus is running under, so
 # expectations derive the flag instead of hardcoding a python version.
 _UV_PY = _uv_python_pin()
 
 
 def _uv_registry_info() -> _InstalledWheelInfo:
-    """A registry uv-tool install → ``uv tool upgrade omnigent`` (runnable)."""
+    """A registry uv-tool install → ``uv tool upgrade agentnexus`` (runnable)."""
     return _InstalledWheelInfo(
         install_time_epoch=0.0,
         installer="uv",
@@ -41,7 +41,7 @@ def _git_install_info() -> _InstalledWheelInfo:
     return _InstalledWheelInfo(
         install_time_epoch=0.0,
         installer="uv",
-        vcs_url="git+https://github.com/K4y2020/omnigent.git",
+        vcs_url="git+https://github.com/K4y2020/AgentNexus.git",
         commit_sha="a" * 40,
         is_editable=False,
         package_version="0.1.0",
@@ -142,7 +142,7 @@ def test_upgrade_runs_installer_and_drains_first(
     assert result.exit_code == 0, result.output
     # Drain happened before the stop, before the install ran.
     assert events == ["drained", "stop(force=False)"]
-    assert ran == ["uv tool upgrade omnigent"]
+    assert ran == ["uv tool upgrade agentnexus"]
     assert "Upgraded to v0.2.0" in result.output
 
 
@@ -211,7 +211,7 @@ def test_upgrade_rejects_editable(monkeypatch: pytest.MonkeyPatch, _wheel_instal
     editable = _InstalledWheelInfo(
         install_time_epoch=0.0,
         installer="uv",
-        vcs_url="file:///Users/me/omnigent",
+        vcs_url="file:///Users/me/agentnexus",
         commit_sha=None,
         is_editable=True,
         package_version="0.1.0",
@@ -329,7 +329,7 @@ def test_upgrade_pre_passes_prerelease_flag_to_installer(
     result = CliRunner().invoke(cli, ["upgrade", "--pre"])
 
     assert result.exit_code == 0, result.output
-    assert ran == ["uv tool upgrade omnigent --prerelease allow"]
+    assert ran == ["uv tool upgrade agentnexus --prerelease allow"]
 
 
 # ── ``omni update`` alias ────────────────────────────────────────────
@@ -498,7 +498,7 @@ def test_upgrade_git_install_repulls_and_verifies_commit(
 
     assert result.exit_code == 0, result.output
     assert ran == [
-        f"uv tool install --reinstall{_UV_PY} git+https://github.com/K4y2020/omnigent.git"
+        f"uv tool install --reinstall{_UV_PY} git+https://github.com/K4y2020/AgentNexus.git"
     ]
     assert "Updated to git bbbbbbbbb" in result.output
 
@@ -573,7 +573,7 @@ def test_newest_nightly_version_none_when_no_nightlies() -> None:
 def test_nightly_suggestion_shapes_per_installer() -> None:
     """Every installer maps to a git spec pinned to the nightly tag."""
     version = "0.9.0.dev20260804"
-    spec = f"git+https://github.com/K4y2020/omnigent@v{version}"
+    spec = f"git+https://github.com/K4y2020/AgentNexus@v{version}"
 
     def info_for(installer: str | None) -> _InstalledWheelInfo:
         return _InstalledWheelInfo(
@@ -642,7 +642,7 @@ def test_upgrade_nightly_installs_pinned_tag(
     assert result.exit_code == 0, result.output
     assert ran == [
         f"uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804"
+        "git+https://github.com/K4y2020/AgentNexus@v0.2.0.dev20260804"
     ]
     assert "Upgraded to nightly v0.2.0.dev20260804" in result.output
 
@@ -698,7 +698,7 @@ def test_nightly_suggestion_preserves_and_unions_extras() -> None:
     assert suggestion.runnable
     assert suggestion.command == (
         f"uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/K4y2020/omnigent@v0.9.0.dev20260804#egg=omnigent[all,server]"
+        "git+https://github.com/K4y2020/AgentNexus@v0.9.0.dev20260804#egg=agentnexus[all,server]"
     )
 
 
@@ -729,7 +729,7 @@ def test_upgrade_nightly_refuses_registry_pip(
 
     assert result.exit_code == 0, result.output
     assert "install the nightly manually" in result.output
-    assert "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804" in result.output
+    assert "git+https://github.com/K4y2020/AgentNexus@v0.2.0.dev20260804" in result.output
 
 
 def test_upgrade_nightly_dry_run_prints_without_running(
@@ -750,7 +750,7 @@ def test_upgrade_nightly_dry_run_prints_without_running(
     assert result.exit_code == 0, result.output
     assert (
         f"Would run: uv tool install --reinstall{_UV_PY} "
-        "git+https://github.com/K4y2020/omnigent@v0.2.0.dev20260804" in result.output
+        "git+https://github.com/K4y2020/AgentNexus@v0.2.0.dev20260804" in result.output
     )
 
 
@@ -768,14 +768,14 @@ def test_nightly_uv_never_uses_destructive_force() -> None:
     """No uv upgrade command may use ``--force``, whatever the install shape.
 
     uv's ``--force`` removes the tool environment (and the ``omni`` /
-    ``omnigent`` executables) before the replacement is built. Nightlies build
+    ``agentnexus`` executables) before the replacement is built. Nightlies build
     from source, so the build can fail, and then nothing is left to fall back
     to. ``--reinstall`` performs the same registry-to-git hop and the same
     tag-to-tag hop while keeping the working install until the new one exists.
     """
     version = "0.9.0.dev20260804"
     for extras in ((), ("databricks",)):
-        for vcs_url in (None, "git+https://github.com/a-fork/omnigent.git"):
+        for vcs_url in (None, "git+https://github.com/a-fork/agentnexus.git"):
             info = _InstalledWheelInfo(
                 install_time_epoch=0.0,
                 installer="uv",
@@ -790,7 +790,7 @@ def test_nightly_uv_never_uses_destructive_force() -> None:
             assert "--force" not in command, command
             assert command.startswith(f"uv tool install --reinstall{_UV_PY} ")
             # Always the nightly tag, never the fork's recorded URL.
-            assert f"git+https://github.com/K4y2020/omnigent@v{version}" in command
+            assert f"git+https://github.com/K4y2020/AgentNexus@v{version}" in command
 
 
 def test_nightly_pipx_spells_out_the_tag_instead_of_reinstall() -> None:
@@ -814,11 +814,11 @@ def test_nightly_pipx_spells_out_the_tag_instead_of_reinstall() -> None:
 
     nightly = _build_nightly_upgrade_suggestion(pipx_info(None), "0.9.0.dev20260804")
     assert nightly.command == (
-        "pipx install --force git+https://github.com/K4y2020/omnigent@v0.9.0.dev20260804"
+        "pipx install --force git+https://github.com/K4y2020/AgentNexus@v0.9.0.dev20260804"
     )
     # An ordinary extras-less VCS refresh still uses the cheap re-pull.
-    same_source = _build_upgrade_suggestion(pipx_info("git+https://host/omnigent.git"))
-    assert same_source.command == "pipx reinstall omnigent"
+    same_source = _build_upgrade_suggestion(pipx_info("git+https://host/agentnexus.git"))
+    assert same_source.command == "pipx reinstall agentnexus"
 
 
 def test_upgrade_failure_message_reports_a_destroyed_install(
@@ -834,7 +834,7 @@ def test_upgrade_failure_message_reports_a_destroyed_install(
     assert "your previous install is intact" not in message
     assert "no longer installed" in message
     # Actionable recovery, preserving the extras this install had.
-    assert "install.sh | sh -s -- --extra databricks" in message
+    assert "install_oss.sh | sh -s -- --extra databricks" in message
     assert "agentnexus login" in message
     assert "AGENTNEXUS_SKIP_WEB_UI=true" in message
 
@@ -842,7 +842,7 @@ def test_upgrade_failure_message_reports_a_destroyed_install(
 def test_upgrade_failure_message_confirms_a_surviving_install(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the probe still finds omnigent, the reassuring message is correct."""
+    """When the probe still finds agentnexus, the reassuring message is correct."""
     monkeypatch.setattr(
         "agentnexus.update_check._probe_installed_distribution", lambda: ("0.8.2", None)
     )
@@ -876,4 +876,4 @@ def test_upgrade_nightly_failure_surfaces_recovery_when_install_is_gone(
     assert result.exit_code != 0
     assert "your previous install is intact" not in result.output
     assert "no longer installed" in result.output
-    assert "install.sh" in result.output
+    assert "install_oss.sh" in result.output

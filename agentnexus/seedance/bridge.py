@@ -1050,12 +1050,67 @@ async def execute_seedance_canvas_edit(
                     "error": "disconnect 需要指定 edge_id",
                 }
 
+            requested_edge_id = edge_id
+            snap_before = await client.get_snapshot(resolved_project_id)
+            current_edges = snap_before.get("edges", []) if isinstance(snap_before, dict) else []
+            exact_edge = next((edge for edge in current_edges if edge.get("id") == edge_id), None)
+            if exact_edge is None:
+                # Older Cine runs prefixed a real V3 edge id with a local label
+                # (for example edge_ref_C08_E01-08_<real-edge-id>). Resolve only
+                # a unique suffix match; never guess between multiple edges.
+                candidates = [
+                    edge
+                    for edge in current_edges
+                    if isinstance(edge.get("id"), str)
+                    and (
+                        edge_id.endswith(edge["id"])
+                        or edge["id"].endswith(edge_id)
+                        or edge_id.endswith(edge["id"].removeprefix("edge_"))
+                    )
+                    and len(edge["id"]) >= 16
+                ]
+                if len(candidates) == 1:
+                    edge_id = candidates[0]["id"]
+
             cmd = {
                 "type": "canvas.disconnect",
                 "edgeId": edge_id,
                 "commandId": cmd_id,
             }
-            res = await client.submit_command(resolved_project_id, cmd)
+            try:
+                res = await client.submit_command(resolved_project_id, cmd)
+            except SeedanceNotFoundError as exc:
+                if exc.code != "CANVAS_EDGE_NOT_FOUND":
+                    raise
+                # Disconnect is idempotent. If the read model still exposes the
+                # edge, report reconciliation rather than claiming deletion.
+                snap_missing = await client.get_snapshot(resolved_project_id)
+                edge_still_visible = any(
+                    edge.get("id") == edge_id
+                    for edge in (snap_missing.get("edges", []) if isinstance(snap_missing, dict) else [])
+                )
+                if edge_still_visible:
+                    return {
+                        "status": "reconcile_required",
+                        "outcome": "failed",
+                        "error_code": "CANVAS_EDGE_READ_WRITE_DRIFT",
+                        "edge_id": edge_id,
+                        "error": (
+                            f"Seedance 快照仍能读到连线 {edge_id}，但命令仓库报告不存在；"
+                            "已停止重试，等待画布数据对账。"
+                        ),
+                    }
+                return {
+                    "status": "completed",
+                    "outcome": "succeeded",
+                    "action": "disconnect",
+                    "seedance_project_id": resolved_project_id,
+                    "seedance_canvas_url": canvas_url,
+                    "verified": True,
+                    "already_absent": True,
+                    "edge_id": edge_id,
+                    "summary": f"连线 {edge_id} 已不存在，按幂等删除处理。",
+                }
             if not res.get("accepted"):
                 return {
                     "status": "failed",
@@ -1074,6 +1129,7 @@ async def execute_seedance_canvas_edit(
                 "seedance_canvas_url": canvas_url,
                 "verified": not still_has_edge,
                 "edge_id": edge_id,
+                "requested_edge_id": requested_edge_id if requested_edge_id != edge_id else None,
                 "summary": f"已断开连线 {edge_id}，读后验证通过。",
             }
 

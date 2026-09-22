@@ -1,8 +1,8 @@
 """Generate the routing API protobuf bindings from its ``routing.proto``.
 
 The routing API ships a protobuf schema
-(``omnigent/api/routing/v1/routing.proto``); the runtime imports the generated
-``omnigent.api.routing.v1.routing_pb2`` module. Generated
+(``agentnexus/api/routing/v1/routing.proto``); the runtime imports the generated
+``agentnexus.api.routing.v1.routing_pb2`` module. Generated
 code is checked in (so a plain ``pip install`` / editor / type checker sees it without a
 build step), and this script is the one blessed way to regenerate it — run it
 whenever ``routing.proto`` changes and commit the result.
@@ -34,7 +34,7 @@ import tempfile
 from pathlib import Path
 
 # Repo root (this file lives in ``scripts/``). ``--proto_path`` is rooted here so
-# the generated package path is ``omnigent/api/routing/v1/routing_pb2`` —
+# the generated package path is ``agentnexus/api/routing/v1/routing_pb2`` —
 # matching the import the runtime uses (and the proto's ``package`` line).
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PROTO = Path("agentnexus/api/routing/v1/routing.proto")

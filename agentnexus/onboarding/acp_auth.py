@@ -1,4 +1,4 @@
-"""Generic ACP-agent registry for ``omnigent setup`` and the runtime.
+"""Generic ACP-agent registry for ``agentnexus setup`` and the runtime.
 
 The generic ``acp`` harness (see :func:`omnigent.runtime.workflow._build_acp_spawn_env`
 and :mod:`omnigent.inner.acp_harness`) drives *any* agent that speaks the Agent
@@ -76,6 +76,11 @@ class AcpAgentEntry:
     omnigent_mcp: bool = True
     inject_system_prompt: bool = True
     env_passthrough: tuple[str, ...] = ()
+
+    @property
+    def agentnexus_mcp(self) -> bool:
+        """Canonical accessor; the old constructor spelling is retained until 2.0."""
+        return self.omnigent_mcp
 
 
 def slugify(name: str) -> str:
@@ -162,9 +167,10 @@ def acp_agents(config: dict[str, object] | None = None) -> list[AcpAgentEntry]:
         slug = base if count == 1 else f"{base}-{count}"
         model = raw.get("model")
         mode = raw.get("session_id_mode")
-        omnigent_mcp = raw.get("agentnexus_mcp", True)
+        # Read the legacy config key until 2.0; an explicit new key wins.
+        omnigent_mcp = raw.get("agentnexus_mcp", raw.get("omnigent_mcp", True))
         if not isinstance(omnigent_mcp, bool):
-            raise ValueError("acp agent omnigent_mcp must be a boolean")
+            raise ValueError("acp agent agentnexus_mcp must be a boolean")
         inject_system_prompt = raw.get("inject_system_prompt", True)
         if not isinstance(inject_system_prompt, bool):
             raise ValueError("acp agent inject_system_prompt must be a boolean")
@@ -281,7 +287,7 @@ class AcpConfigSummary:
 
 
 def acp_config_summary(config: dict[str, object] | None = None) -> AcpConfigSummary:
-    """Summarize the configured ACP agents for ``omnigent setup``.
+    """Summarize the configured ACP agents for ``agentnexus setup``.
 
     :param config: A pre-loaded config mapping; ``None`` loads the global config.
     :returns: An :class:`AcpConfigSummary` — ``configured`` is ``True`` iff at

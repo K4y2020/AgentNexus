@@ -214,7 +214,7 @@ def test_build_host_daemon_env_local_preserves_server_credentials(
     """Local daemon env carries credentials needed by its AgentNexus server.
 
     The daemon's local server is the process that performs LLM calls, so
-    stripping ``OPENAI_*`` here makes default persistent ``omnigent run``
+    stripping ``OPENAI_*`` here makes default persistent ``agentnexus run``
     invocations hang or fail after booting a credential-less server.
     """
     monkeypatch.setenv("PATH", "/usr/bin")
@@ -1645,7 +1645,7 @@ def _fake_run_claude_native_capture(captured: dict[str, object]) -> Any:
 def test_claude_command_routes_server_through_ensure_backend(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``omnigent claude --server ""`` resolves via ``_ensure_backend``.
+    """``agentnexus claude --server ""`` resolves via ``_ensure_backend``.
 
     The empty/local value must be turned into the concrete daemon-backed URL
     and passed to ``run_claude_native`` — never forwarded raw.
@@ -2419,7 +2419,7 @@ def test_resolve_host_server_defaults_scheme_and_accepts_omnigent(
 
     The internal user guide's web URL omits the scheme and ends in
     ``/omnigent``; host must default it to https before expansion, just
-    like ``omnigent login``.
+    like ``agentnexus login``.
     """
     seen: list[str] = []
     monkeypatch.setattr(cli, "_workspace_api_server_url", _recording_expander(seen))

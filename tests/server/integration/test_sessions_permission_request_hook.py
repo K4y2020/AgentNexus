@@ -2,7 +2,7 @@
 Integration tests for ``POST /v1/sessions/{id}/hooks/permission-request``.
 
 The endpoint receives Claude Code's ``PermissionRequest`` HTTP hook
-payload (when ``omnigent claude`` wraps the native TUI), parks
+payload (when ``agentnexus claude`` wraps the native TUI), parks
 the call on the same in-memory elicitation registry the claude-sdk
 path uses, emits an SSE event for the web UI's :file:`ApprovalCard`,
 and returns Claude's expected ``hookSpecificOutput`` decision JSON

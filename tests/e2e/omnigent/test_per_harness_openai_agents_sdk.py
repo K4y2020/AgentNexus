@@ -1,6 +1,6 @@
 """Phase 0 characterization test — openai-agents-sdk harness, one-shot prompt.
 
-Runs ``omnigent run hello_world.yaml --harness openai-agents
+Runs ``agentnexus run hello_world.yaml --harness openai-agents
 --model <mock-model> -p "..."`` as a real subprocess against the
 mock LLM server and snapshots structural observations (exit code,
 stderr cleanliness, assistant text length).
@@ -91,7 +91,7 @@ def test_per_harness_openai_agents_sdk_one_shot(
     openai_agents_available: bool,
 ) -> None:
     """
-    ``omnigent run hello_world.yaml --harness openai-agents -p
+    ``agentnexus run hello_world.yaml --harness openai-agents -p
     <prompt>`` exits 0 and emits a non-trivial assistant reply.
 
     Uses the mock LLM server so the test runs without real API

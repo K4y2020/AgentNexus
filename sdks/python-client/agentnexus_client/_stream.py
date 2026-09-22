@@ -200,7 +200,7 @@ class BlockStream:
         # inline from ``_dispatch_action_required`` (the moment
         # the dispatch returns) and once from the
         # ``response.completed`` flush in
-        # ``_translate_omnigent_event``. Without this, the result
+        # ``_translate_agentnexus_event``. Without this, the result
         # panel renders twice.
         seen_result_call_ids: set[str] = set()
         agent: str | None = None
@@ -375,7 +375,7 @@ class BlockStream:
                 # the inner SDK parses the tool_use block, and a
                 # post-stream action_required event emitted when
                 # the SDK invokes the MCP-server handler. The
-                # adapter (omnigent/runtime/harnesses/
+                # adapter (agentnexus/runtime/harnesses/
                 # _executor_adapter.py) threads the SDK's
                 # tool_use_id through both so they share a
                 # call_id; this block keeps the first occurrence

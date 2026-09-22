@@ -82,7 +82,7 @@ _CLIENT_SECRET_HEADER = "X-AgentNexus-Client-Secret"
 DELEGATED_SCOPE = "sessions"
 
 # Reserved ``client_id`` for a first-party login grant (issued by
-# ``omnigent login``, not the RFC 8628 device flow). It is a
+# ``agentnexus login``, not the RFC 8628 device flow). It is a
 # security-decision key here, so the device-authorize endpoint REFUSES a
 # request that names it — a third-party device client can never obtain a
 # grant tagged this way, and a refresh of such a grant is therefore safe
@@ -376,7 +376,7 @@ def issue_login_grant(
 
     Called by the login flows (OIDC cli-ticket fulfillment, accounts
     ``/auth/login``) so the CLI walks away with refresh material and can
-    renew its access without a human re-running ``omnigent login``. The
+    renew its access without a human re-running ``agentnexus login``. The
     interactive login *is* the consent step, so the grant is born
     ``redeemed`` and tagged with the reserved
     :data:`LOGIN_GRANT_CLIENT_ID` — which the device-authorize path

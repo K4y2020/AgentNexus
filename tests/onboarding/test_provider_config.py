@@ -588,7 +588,7 @@ def test_set_default_provider_pi_scope_round_trips_and_moves() -> None:
             True,
         ),
         ({"kind": "databricks", "profile": "my-ws"}, True),
-        # Bedrock mode is native-`omnigent claude` only — pi cannot use it.
+        # Bedrock mode is native-`agentnexus claude` only — pi cannot use it.
         (
             {"kind": "bedrock", "anthropic": {"base_url": "https://x", "api_key_ref": "env:K"}},
             False,
@@ -767,7 +767,7 @@ def test_describe_active_credential_cli_config() -> None:
 
 
 def test_bedrock_kind_rejected_for_non_native_harnesses() -> None:
-    """`kind: bedrock` is native-`omnigent claude` only; in-process harnesses fail loud.
+    """`kind: bedrock` is native-`agentnexus claude` only; in-process harnesses fail loud.
 
     ``configure_agent_harness_with_provider`` has no Bedrock path — emitting the
     generic ``HARNESS_*_GATEWAY_*`` vars would silently point claude-sdk / pi at

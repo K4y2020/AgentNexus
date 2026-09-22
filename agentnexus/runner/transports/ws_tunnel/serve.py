@@ -432,7 +432,7 @@ async def serve_tunnel(
                 if not ever_connected and login_redirect_streak >= _LOGIN_REDIRECT_FATAL_ATTEMPTS:
                     # Show the display form (workspace /omnigent URL, ?o=
                     # when known), not the internal API mount; it round-trips
-                    # through `omnigent login` to the same server.
+                    # through `agentnexus login` to the same server.
                     from agentnexus.server_url import display_server_url
 
                     raise RuntimeError(
@@ -456,7 +456,7 @@ async def serve_tunnel(
                         and http_auth_rejection_streak >= _HTTP_AUTH_REJECTION_FATAL_ATTEMPTS
                     ):
                         if server_url:
-                            # `omnigent login` detects the fronting workspace
+                            # `agentnexus login` detects the fronting workspace
                             # itself — unlike a raw `databricks auth login
                             # --host`, which would need the workspace host,
                             # not the server URL (for workspace-hosted
@@ -464,7 +464,7 @@ async def serve_tunnel(
                             from agentnexus.server_url import display_server_url
 
                             login_hint = (
-                                f"run `omnigent login {display_server_url(server_url)}` "
+                                f"run `agentnexus login {display_server_url(server_url)}` "
                                 "to re-authenticate"
                             )
                         else:

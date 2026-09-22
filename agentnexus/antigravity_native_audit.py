@@ -146,7 +146,7 @@ def build_audit_evaluation_request(
     Reuses the harness-neutral
     :func:`omnigent.native_policy_hook.hook_payload_to_evaluation_request` with a
     ``PreToolUse`` payload so the request lands on the ``PHASE_TOOL_CALL`` phase
-    (the phase tool-name / cost / CEL deny policies fire on). ``mcp__omnigent__*``
+    (the phase tool-name / cost / CEL deny policies fire on). ``mcp__agentnexus__*``
     tools return ``None`` (already relay-enforced via ``ProxyMcpManager`` — see
     the translation layer), so the forwarder skips them; connector-native MCP
     tools (e.g. ``mcp__github__*``) are NOT relay-enforced and still produce a
@@ -160,7 +160,7 @@ def build_audit_evaluation_request(
     :param model: The session's agy model label, e.g. ``"gemini-2.5-pro"``, or
         ``None`` when unknown (then ``context.model`` is omitted).
     :returns: An ``EvaluationRequest`` dict to POST to ``/policies/evaluate``, or
-        ``None`` when the tool is not policy-relevant (an ``mcp__omnigent__*``
+        ``None`` when the tool is not policy-relevant (an ``mcp__agentnexus__*``
         tool).
     """
     request = hook_payload_to_evaluation_request(

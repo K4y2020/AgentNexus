@@ -1,4 +1,4 @@
-"""Tests for :mod:`omnigent.update_check`."""
+"""Tests for :mod:`agentnexus.update_check`."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def test_find_repo_root_ignores_unrelated_ancestor_git(
 
     Regression for the ``uv tool install`` scenario. The previous
     walk-up implementation matched ``~/.git/`` (a dotfiles repo) when
-    omnigent was installed under ``~/.local/share/uv/tools/`` —
+    agentnexus was installed under ``~/.local/share/uv/tools/`` —
     misclassifying the install as a dev clone and writing
     ``kind: "clone"`` to the update-check cache.
 
@@ -72,7 +72,7 @@ def test_find_repo_root_ignores_unrelated_ancestor_git(
         (no .git/ or pyproject.toml in install/site-packages/)
 
     Expected: returns ``None`` because the direct parent of
-    ``omnigent/`` (i.e. ``install/site-packages/``) is not a
+    ``agentnexus/`` (i.e. ``install/site-packages/``) is not a
     real repo, even though a ``.git/`` exists higher up.
     """
     (tmp_path / ".git").mkdir()
@@ -92,14 +92,14 @@ def test_find_repo_root_ignores_unrelated_ancestor_git(
 def test_find_repo_root_requires_pyproject_alongside_git(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``.git/`` next to ``omnigent/`` without ``pyproject.toml`` → None.
+    """``.git/`` next to ``agentnexus/`` without ``pyproject.toml`` → None.
 
     Defense in depth against a hypothetical layout where someone
     has a directory tree like ``some_repo/agentnexus/`` (e.g. a
     monorepo subdir, or an accidentally-named folder) but no
     ``pyproject.toml`` in the candidate. The pyproject check
     confirms we found OUR repo, not just any directory that
-    happens to contain a folder called ``omnigent/``.
+    happens to contain a folder called ``agentnexus/``.
     """
     repo_like = tmp_path
     (repo_like / ".git").mkdir()
@@ -118,7 +118,7 @@ def test_find_repo_root_requires_pyproject_alongside_git(
 def test_find_repo_root_accepts_git_plus_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``.git/`` AND ``pyproject.toml`` directly above ``omnigent/`` → repo root."""
+    """``.git/`` AND ``pyproject.toml`` directly above ``agentnexus/`` → repo root."""
     repo = tmp_path / "agentnexus"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -131,7 +131,7 @@ def test_find_repo_root_accepts_git_plus_pyproject(
     import agentnexus.update_check as mod
 
     monkeypatch.setattr(mod, "__file__", str(fake_file))
-    # Returns exactly the repo root — the parent of omnigent/.
+    # Returns exactly the repo root — the parent of agentnexus/.
     assert mod._find_repo_root() == repo
 
 
@@ -512,7 +512,7 @@ from agentnexus.update_check import (  # noqa: E402
     _uv_python_pin,
 )
 
-# uv upgrade commands pin the interpreter omnigent is running under, so
+# uv upgrade commands pin the interpreter agentnexus is running under, so
 # expectations derive the flag instead of hardcoding a python version.
 _UV_PY = _uv_python_pin()
 
@@ -532,11 +532,11 @@ def _block_build_info_import(monkeypatch: pytest.MonkeyPatch) -> None:
 
     1. ``sys.modules["agentnexus._build_info"] = None`` — Python's
        documented "this import raises ImportError" sentinel.
-    2. ``delattr(omnigent, "_build_info")`` — once a previous test
+    2. ``delattr(agentnexus, "_build_info")`` — once a previous test
        has done ``from agentnexus import _build_info`` successfully
        (via its own ``sys.modules`` override with a fake module),
        Python *also* sets ``_build_info`` as an attribute on the
-       ``omnigent`` package. Subsequent ``from agentnexus import
+       ``agentnexus`` package. Subsequent ``from agentnexus import
        _build_info`` finds the attribute first and never consults
        ``sys.modules``, defeating the block above. Wiping the
        attribute restores the import to a clean state.
@@ -548,7 +548,7 @@ def _block_build_info_import(monkeypatch: pytest.MonkeyPatch) -> None:
     We deliberately do NOT monkeypatch ``_read_build_info`` itself.
     If we did, tests of the function would unknowingly call a stub
     instead of the real implementation (because ``from
-    omnigent.update_check import _read_build_info`` inside a test
+    agentnexus.update_check import _read_build_info`` inside a test
     body would resolve to the stubbed module attribute).
     """
     monkeypatch.setitem(sys.modules, "agentnexus._build_info", None)
@@ -574,7 +574,7 @@ def _no_real_background_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # A git URL with a recognizable host/path so assertions can match a
 # substring of the formatted command. Not a real endpoint — never hit.
-_FAKE_GIT_URL = "git+https://github.com/example-org/omnigent.git"
+_FAKE_GIT_URL = "git+https://github.com/example-org/agentnexus.git"
 _FAKE_COMMIT = "abcdef1234567890abcdef1234567890abcdef12"
 
 
@@ -631,7 +631,7 @@ def _write_fake_dist_info(
     dist_info = tmp_path / f"agentnexus-{version}.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text(
-        f"Metadata-Version: 2.1\nName: omnigent\nVersion: {version}\n"
+        f"Metadata-Version: 2.1\nName: agentnexus\nVersion: {version}\n"
     )
     if installer is not None:
         (dist_info / "INSTALLER").write_text(installer + "\n")
@@ -686,14 +686,14 @@ def test_read_wheel_info_uv_git_install(tmp_path: Path, monkeypatch: pytest.Monk
         # ``git`` to ``****``. We restore ``git`` so the reinstall
         # command can authenticate; without this it ssh's in as ``****``.
         (
-            "git+ssh://****@github.com/K4y2020/omnigent.git",
-            "git+ssh://git@github.com/K4y2020/omnigent.git",
+            "git+ssh://****@github.com/K4y2020/AgentNexus.git",
+            "git+ssh://git@github.com/K4y2020/AgentNexus.git",
         ),
         # Same redaction, but the URL was stored without the ``git+``
         # VCS prefix (the shape uv wrote on the machine in the report).
         (
-            "ssh://****@github.com/K4y2020/omnigent.git",
-            "ssh://git@github.com/K4y2020/omnigent.git",
+            "ssh://****@github.com/K4y2020/AgentNexus.git",
+            "ssh://git@github.com/K4y2020/AgentNexus.git",
         ),
         # Already-correct SSH user — must be left exactly as-is.
         (
@@ -746,7 +746,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     command) would still contain ``****@`` and the user would hit
     ``Permission denied (publickey)`` when they confirmed the prompt.
     """
-    redacted_url = "ssh://****@github.com/K4y2020/omnigent.git"
+    redacted_url = "ssh://****@github.com/K4y2020/AgentNexus.git"
     dist = _write_fake_dist_info(
         tmp_path,
         installer="uv",
@@ -765,7 +765,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     assert info is not None
     # The redacted ``****@`` user was rewritten to the canonical
     # ``git@`` and normalized to the ``git+`` reinstall form.
-    assert info.vcs_url == "git+ssh://git@github.com/K4y2020/omnigent.git"
+    assert info.vcs_url == "git+ssh://git@github.com/K4y2020/AgentNexus.git"
     # ``****`` must not survive anywhere in the URL we'd display/run.
     assert "****" not in info.vcs_url
 
@@ -775,7 +775,7 @@ def test_read_wheel_info_repairs_redacted_ssh_user(
     assert suggestion.runnable is True
     assert (
         suggestion.command
-        == f"uv tool install --reinstall{_UV_PY} git+ssh://git@github.com/K4y2020/omnigent.git"
+        == f"uv tool install --reinstall{_UV_PY} git+ssh://git@github.com/K4y2020/AgentNexus.git"
     )
 
 
@@ -793,7 +793,7 @@ def test_read_wheel_info_editable_install_is_marked(
         tmp_path,
         installer="uv",
         direct_url={
-            "url": "file:///Users/me/omnigent",
+            "url": "file:///Users/me/agentnexus",
             "dir_info": {"editable": True},
         },
     )
@@ -808,7 +808,7 @@ def test_read_wheel_info_editable_install_is_marked(
 def test_read_wheel_info_pip_registry_install(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``pip install omnigent`` from PyPI: no direct_url, mtime fallback."""
+    """``pip install agentnexus`` from PyPI: no direct_url, mtime fallback."""
     # 2 days ago in epoch seconds.
     install_time = time.time() - 2 * 86400
     dist = _write_fake_dist_info(
@@ -849,7 +849,7 @@ def test_read_wheel_info_handles_corrupt_direct_url(
     install_time = time.time() - 86400 - 60  # just over 1 day
     dist_info = tmp_path / "agentnexus-0.1.0.dist-info"
     dist_info.mkdir()
-    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: omnigent\nVersion: 0.1.0\n")
+    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: agentnexus\nVersion: 0.1.0\n")
     (dist_info / "INSTALLER").write_text("uv\n")
     (dist_info / "direct_url.json").write_text("{not valid json")
     import os
@@ -875,28 +875,28 @@ def test_read_wheel_info_handles_corrupt_direct_url(
         ("uv", _FAKE_GIT_URL, f"uv tool install --reinstall{_UV_PY} {_FAKE_GIT_URL}", True),
         # uv + registry install — ``uv tool upgrade`` resolves from the
         # configured index. The user doesn't need to remember the spec.
-        ("uv", None, "uv tool upgrade omnigent", True),
+        ("uv", None, "uv tool upgrade agentnexus", True),
         # pip + git install — pip's ``--force-reinstall`` re-pulls the
         # spec; plain ``pip install`` would no-op because the version
         # tag (or HEAD) is the same string.
         ("pip", _FAKE_GIT_URL, f"pip install --force-reinstall {_FAKE_GIT_URL}", True),
         # pip + registry — the canonical upgrade incantation.
-        ("pip", None, "pip install -U omnigent", True),
+        ("pip", None, "pip install -U agentnexus", True),
         # pipx — pipx has its own subcommands; we never recommend the
         # underlying pip command because pipx wraps the venv.
-        ("pipx", _FAKE_GIT_URL, "pipx reinstall omnigent", True),
-        ("pipx", None, "pipx upgrade omnigent", True),
+        ("pipx", _FAKE_GIT_URL, "pipx reinstall agentnexus", True),
+        ("pipx", None, "pipx upgrade agentnexus", True),
         # poetry path — included for completeness; poetry is rare for
         # CLI tool installs but the format is documented.
-        ("poetry", None, "poetry update omnigent", True),
+        ("poetry", None, "poetry update agentnexus", True),
         # Unknown installer WITH a VCS URL — we know the source but
         # not the tool, so the suggestion is prose ("reinstall X from
         # <url>"), not a command. Must be runnable=False so the
         # interactive prompt doesn't offer to execute prose.
-        ("custom_tool", _FAKE_GIT_URL, f"reinstall omnigent from {_FAKE_GIT_URL}", False),
+        ("custom_tool", _FAKE_GIT_URL, f"reinstall agentnexus from {_FAKE_GIT_URL}", False),
         # Unknown installer with no source URL — honest fallback.
         # Must also be runnable=False.
-        (None, None, "reinstall omnigent from your original source", False),
+        (None, None, "reinstall agentnexus from your original source", False),
     ],
 )
 def test_build_upgrade_suggestion_matrix(
@@ -909,7 +909,7 @@ def test_build_upgrade_suggestion_matrix(
 
     The ``runnable`` half of the assertion guards ``omni upgrade``: if a
     prose-fallback row ever flipped to runnable=True, the command would
-    try to ``subprocess.run`` the literal string "reinstall omnigent
+    try to ``subprocess.run`` the literal string "reinstall agentnexus
     from ...", which would error or worse (if a binary named "reinstall"
     happened to exist on PATH).
     """
@@ -968,7 +968,7 @@ def test_pip_upgrade_suggestions_use_running_interpreter(
 
     assert (
         _build_upgrade_suggestion(_info(None)).command
-        == "/opt/venv/bin/python -m pip install -U omnigent"
+        == "/opt/venv/bin/python -m pip install -U agentnexus"
     )
     assert (
         _build_upgrade_suggestion(_info(_FAKE_GIT_URL)).command
@@ -1061,7 +1061,7 @@ def test_wheel_check_nags_when_newer_release_available(
     # proves the message pipeline runs end to end.
     assert "agentnexus 0.2.0 is out" in err
     assert "you have 0.1.0" in err
-    assert "omni upgrade" in err
+    assert "agentnexus upgrade" in err
     # The notified version is stamped so the nag fires once per release.
     refreshed = _read_cache()
     assert refreshed is not None
@@ -1119,7 +1119,7 @@ def test_wheel_check_bails_for_editable_install(
         tmp_path,
         installer="uv",
         direct_url={
-            "url": "file:///Users/me/omnigent",
+            "url": "file:///Users/me/agentnexus",
             "dir_info": {"editable": True},
         },
     )
@@ -1439,8 +1439,8 @@ def test_fetch_latest_version_html_fallback(monkeypatch: pytest.MonkeyPatch) -> 
     _clear_index_env(monkeypatch)
     html = (
         "<!DOCTYPE html><html><body>"
-        '<a href="/p/omnigent-0.1.0-py3-none-any.whl#sha256=a">omnigent-0.1.0-py3-none-any.whl</a>'
-        '<a href="/p/omnigent-0.2.0.tar.gz#sha256=b">omnigent-0.2.0.tar.gz</a>'
+        '<a href="/p/agentnexus-0.1.0-py3-none-any.whl#sha256=a">agentnexus-0.1.0-py3-none-any.whl</a>'
+        '<a href="/p/agentnexus-0.2.0.tar.gz#sha256=b">agentnexus-0.2.0.tar.gz</a>'
         "</body></html>"
     )
     monkeypatch.setattr(
@@ -1500,24 +1500,24 @@ def test_build_upgrade_suggestion_allow_prerelease() -> None:
         )
 
     # Default (no pre) is unchanged.
-    assert _build_upgrade_suggestion(_info("uv")).command == "uv tool upgrade omnigent"
+    assert _build_upgrade_suggestion(_info("uv")).command == "uv tool upgrade agentnexus"
     # uv / pip registry installs get the right flag appended.
     assert (
         _build_upgrade_suggestion(_info("uv"), allow_prerelease=True).command
-        == "uv tool upgrade omnigent --prerelease allow"
+        == "uv tool upgrade agentnexus --prerelease allow"
     )
     # pip pins the upgrade to the running interpreter (``<python> -m pip``)
     # so it can't land in some other env whose ``pip`` shadows ours on PATH.
     assert (
         _build_upgrade_suggestion(_info("pip"), allow_prerelease=True).command
-        == f"{_pip_invocation()} install -U omnigent --pre"
+        == f"{_pip_invocation()} install -U agentnexus --pre"
     )
     # VCS install carries the flag too.
     assert (
         _build_upgrade_suggestion(
-            _info("uv", vcs_url="git+https://x/omnigent.git"), allow_prerelease=True
+            _info("uv", vcs_url="git+https://x/agentnexus.git"), allow_prerelease=True
         ).command
-        == f"uv tool install --reinstall{_UV_PY} git+https://x/omnigent.git --prerelease allow"
+        == f"uv tool install --reinstall{_UV_PY} git+https://x/agentnexus.git --prerelease allow"
     )
 
 
@@ -1555,15 +1555,15 @@ def _make_info(
 def test_build_upgrade_suggestion_preserves_uv_tool_extras() -> None:
     """uv tool installs with extras use ``install --reinstall`` to keep them."""
     # No extras → plain uv tool upgrade.
-    assert _build_upgrade_suggestion(_make_info("uv")).command == "uv tool upgrade omnigent"
+    assert _build_upgrade_suggestion(_make_info("uv")).command == "uv tool upgrade agentnexus"
     # With extras → reinstall with the PEP 508 spec.
     assert (
         _build_upgrade_suggestion(_make_info("uv", extras=("all",))).command
-        == f"uv tool install --reinstall{_UV_PY} omnigent[all]"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus[all]"
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv", extras=("server", "all"))).command
-        == f"uv tool install --reinstall{_UV_PY} omnigent[all,server]"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus[all,server]"
     )
 
 
@@ -1571,13 +1571,13 @@ def test_build_upgrade_suggestion_uv_target_version() -> None:
     """A pinned target version produces ``install --reinstall`` with the spec."""
     assert (
         _build_upgrade_suggestion(_make_info("uv"), target_version="0.2.0").command
-        == f"uv tool install --reinstall{_UV_PY} omnigent==0.2.0"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus==0.2.0"
     )
     assert (
         _build_upgrade_suggestion(
             _make_info("uv", extras=("all",)), target_version="0.2.0"
         ).command
-        == f"uv tool install --reinstall{_UV_PY} omnigent==0.2.0[all]"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus==0.2.0[all]"
     )
 
 
@@ -1587,33 +1587,33 @@ def test_build_upgrade_suggestion_extra_overrides_win() -> None:
         _build_upgrade_suggestion(
             _make_info("uv", extras=("all",)), extra_overrides=("server",)
         ).command
-        == f"uv tool install --reinstall{_UV_PY} omnigent[all,server]"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus[all,server]"
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv"), extra_overrides=("all",)).command
-        == f"uv tool install --reinstall{_UV_PY} omnigent[all]"
+        == f"uv tool install --reinstall{_UV_PY} agentnexus[all]"
     )
 
 
 def test_build_upgrade_suggestion_preserves_pipx_extras() -> None:
     """pipx installs with extras use ``install --force``; plain ones use ``upgrade``."""
-    assert _build_upgrade_suggestion(_make_info("pipx")).command == "pipx upgrade omnigent"
+    assert _build_upgrade_suggestion(_make_info("pipx")).command == "pipx upgrade agentnexus"
     assert (
         _build_upgrade_suggestion(_make_info("pipx", extras=("all",))).command
-        == "pipx install --force omnigent[all]"
+        == "pipx install --force agentnexus[all]"
     )
 
 
 def test_build_upgrade_suggestion_vcs_preserves_extras() -> None:
     """VCS installs append extras via an egg fragment."""
-    git_url = "git+https://github.com/example-org/omnigent.git"
+    git_url = "git+https://github.com/example-org/agentnexus.git"
     assert (
         _build_upgrade_suggestion(_make_info("uv", vcs_url=git_url)).command
         == f"uv tool install --reinstall{_UV_PY} {git_url}"
     )
     assert (
         _build_upgrade_suggestion(_make_info("uv", vcs_url=git_url, extras=("all",))).command
-        == f"uv tool install --reinstall{_UV_PY} {git_url}#egg=omnigent[all]"
+        == f"uv tool install --reinstall{_UV_PY} {git_url}#egg=agentnexus[all]"
     )
 
 
@@ -1621,7 +1621,7 @@ def test_build_upgrade_suggestion_pip_still_forms_command() -> None:
     """pip commands are still generated; ``omni upgrade`` refuses to run them."""
     assert (
         _build_upgrade_suggestion(_make_info("pip", extras=("all",))).command
-        == f"{_pip_invocation()} install -U omnigent[all]"
+        == f"{_pip_invocation()} install -U agentnexus[all]"
     )
 
 
@@ -1907,7 +1907,7 @@ def test_upgrade_command_for_installed(
     monkeypatch.setattr("agentnexus.update_check._get_distribution", lambda: dist)
     suggestion = upgrade_command_for_installed()
     assert suggestion is not None
-    assert suggestion.command == "uv tool upgrade omnigent"
+    assert suggestion.command == "uv tool upgrade agentnexus"
     assert suggestion.runnable is True
 
     monkeypatch.setattr("agentnexus.update_check._get_distribution", lambda: None)
@@ -2200,7 +2200,7 @@ def test_run_upgrade_command_returns_minus_one_when_binary_missing(
     monkeypatch.setattr(_subprocess, "run", _raise)
 
     console = Console(stderr=True)
-    code = _run_upgrade_command("uv tool upgrade omnigent", console)
+    code = _run_upgrade_command("uv tool upgrade agentnexus", console)
 
     # -1 distinguishes "couldn't start" from "ran and exited
     # non-zero" — the latter would be the subprocess's own code.
@@ -2217,7 +2217,7 @@ def test_run_upgrade_command_returns_minus_one_when_binary_missing(
 
 
 def test_format_version_falls_back_to_bare_version_when_build_info_missing() -> None:
-    """Without ``_build_info``, ``--version`` prints ``omnigent <ver>``.
+    """Without ``_build_info``, ``--version`` prints ``agentnexus <ver>``.
 
     Source checkouts (and any wheel built without our setup.py hook)
     hit this path. The line must remain stable across releases —
@@ -2298,12 +2298,12 @@ def test_split_vcs_url_strips_prefix_and_separates_revision() -> None:
     """``git+<url>@<rev>`` splits into the bare repo URL and the revision."""
     from agentnexus.update_check import _split_vcs_url
 
-    assert _split_vcs_url("git+https://github.com/o/omnigent.git") == (
-        "https://github.com/o/omnigent.git",
+    assert _split_vcs_url("git+https://github.com/o/agentnexus.git") == (
+        "https://github.com/o/agentnexus.git",
         None,
     )
-    assert _split_vcs_url("git+https://github.com/o/omnigent.git@main") == (
-        "https://github.com/o/omnigent.git",
+    assert _split_vcs_url("git+https://github.com/o/agentnexus.git@main") == (
+        "https://github.com/o/agentnexus.git",
         "main",
     )
 
@@ -2316,12 +2316,12 @@ def test_split_vcs_url_strips_pip_fragment() -> None:
     """
     from agentnexus.update_check import _split_vcs_url
 
-    assert _split_vcs_url("git+https://github.com/o/omnigent.git#egg=omnigent") == (
-        "https://github.com/o/omnigent.git",
+    assert _split_vcs_url("git+https://github.com/o/agentnexus.git#egg=agentnexus") == (
+        "https://github.com/o/agentnexus.git",
         None,
     )
-    assert _split_vcs_url("git+https://github.com/o/omnigent.git@main#subdirectory=pkg") == (
-        "https://github.com/o/omnigent.git",
+    assert _split_vcs_url("git+https://github.com/o/agentnexus.git@main#subdirectory=pkg") == (
+        "https://github.com/o/agentnexus.git",
         "main",
     )
 
@@ -2330,13 +2330,13 @@ def test_split_vcs_url_ssh_userinfo_is_not_a_revision() -> None:
     """An ``@`` in SSH userinfo (``git@host``) must not be read as a revision."""
     from agentnexus.update_check import _split_vcs_url
 
-    assert _split_vcs_url("git+ssh://git@github.com/o/omnigent.git") == (
-        "ssh://git@github.com/o/omnigent.git",
+    assert _split_vcs_url("git+ssh://git@github.com/o/agentnexus.git") == (
+        "ssh://git@github.com/o/agentnexus.git",
         None,
     )
     # …but a real trailing revision still parses, even with SSH userinfo.
-    assert _split_vcs_url("git+ssh://git@github.com/o/omnigent.git@v1") == (
-        "ssh://git@github.com/o/omnigent.git",
+    assert _split_vcs_url("git+ssh://git@github.com/o/agentnexus.git@v1") == (
+        "ssh://git@github.com/o/agentnexus.git",
         "v1",
     )
 
@@ -2410,7 +2410,7 @@ def test_cli_upgrade_refuses_pip_and_prints_manual_command(
     result = runner.invoke(cli, ["upgrade"])
     assert result.exit_code == 0
     assert "pip does not record which extras" in result.output
-    assert "pip install -U omnigent" in result.output
+    assert "pip install -U agentnexus" in result.output
 
 
 def test_cli_upgrade_refuses_uv_pip_and_prints_manual_command(
@@ -2428,7 +2428,7 @@ def test_cli_upgrade_refuses_uv_pip_and_prints_manual_command(
     result = runner.invoke(cli, ["upgrade"])
     assert result.exit_code == 0
     assert "uv pip" in result.output
-    assert "uv pip install -U omnigent" in result.output
+    assert "uv pip install -U agentnexus" in result.output
 
 
 def test_cli_upgrade_dry_run_uv_tool_with_extras(
@@ -2450,7 +2450,7 @@ def test_cli_upgrade_dry_run_uv_tool_with_extras(
     runner = CliRunner()
     result = runner.invoke(cli, ["upgrade", "--dry-run"])
     assert result.exit_code == 0
-    assert f"uv tool install --reinstall{_UV_PY} omnigent[all]" in result.output
+    assert f"uv tool install --reinstall{_UV_PY} agentnexus[all]" in result.output
     assert "Would run:" in result.output
 
 

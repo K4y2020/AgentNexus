@@ -198,7 +198,7 @@ class SysAgentListTool(Tool):
       direct ``sys_session_create`` launch) and its ``session_id`` (so
       the caller can ``sys_agent_get`` / ``sys_agent_download`` it); and
     - **local configs**: agent config YAMLs authored locally with
-      ``sys_os_write`` (e.g. following the ``build-omnigent`` skill) — a
+      ``sys_os_write`` (e.g. following the ``build-agentnexus`` skill) — a
       scan of the working directory's agent-config subdir.
 
     Both ``builtins`` and ``session_agents`` rows carry an ``agent_id``

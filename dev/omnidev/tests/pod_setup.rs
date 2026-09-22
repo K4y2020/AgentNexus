@@ -24,20 +24,20 @@ mod profile;
 use pod::Pod;
 use ports::Ports;
 
-/// A fake checkout (.git + omnigent/ + web/) is recognized as a root, and a
+/// A fake checkout (.git + agentnexus/ + web/) is recognized as a root, and a
 /// nested subdir resolves up to it.
 #[test]
 fn finds_repo_root_from_subdir() {
     let tmp = tempdir();
     fs::create_dir_all(tmp.join(".git")).unwrap();
-    fs::create_dir_all(tmp.join("omnigent/server")).unwrap();
+    fs::create_dir_all(tmp.join("agentnexus/server")).unwrap();
     fs::create_dir_all(tmp.join("web/src")).unwrap();
 
-    let root = paths::find_repo_root(&tmp.join("omnigent/server"), false).unwrap();
+    let root = paths::find_repo_root(&tmp.join("agentnexus/server"), false).unwrap();
     assert_eq!(root, tmp.canonicalize().unwrap());
 }
 
-/// A VCS root without omnigent/+web/ is rejected.
+/// A VCS root without agentnexus/+web/ is rejected.
 #[test]
 fn rejects_non_omnigent_project() {
     let tmp = tempdir();
@@ -156,7 +156,7 @@ fn pod_lock_is_exclusive() {
     lock::acquire(&pod).expect("acquire succeeds again after release");
 }
 
-const ALLOWED_ORIGINS_ENV: &str = "OMNIGENT_WS_ALLOWED_ORIGINS";
+const ALLOWED_ORIGINS_ENV: &str = "AGENTNEXUS_WS_ALLOWED_ORIGINS";
 
 /// Tests that read/write the process-global allowlist env var; serialize them.
 static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -165,7 +165,7 @@ fn lock_env() -> MutexGuard<'static, ()> {
     ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Run `body` with `OMNIGENT_WS_ALLOWED_ORIGINS` set to `value` (or unset when
+/// Run `body` with `AGENTNEXUS_WS_ALLOWED_ORIGINS` set to `value` (or unset when
 /// `None`), restoring the prior value afterward so tests don't leak env state.
 fn with_allowlist_env(value: Option<&str>, body: impl FnOnce()) {
     let _guard = lock_env();

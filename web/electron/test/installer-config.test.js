@@ -20,14 +20,12 @@ describe("Windows installer configuration", () => {
   it("registers both branded and legacy deep-link schemes", () => {
     const schemes = pkg.build.protocols[0].schemes;
     assert.ok(schemes.includes("agentnexus"));
-    assert.ok(schemes.includes("agentnexus"));
+    assert.ok(schemes.includes("omnigent"));
+    assert.equal(new Set(schemes).size, schemes.length);
   });
 
   it("keeps data on silent/updated uninstall and only purges on explicit choice", () => {
-    const script = fs.readFileSync(
-      path.join(__dirname, "..", "build", "installer.nsh"),
-      "utf8",
-    );
+    const script = fs.readFileSync(path.join(__dirname, "..", "build", "installer.nsh"), "utf8");
     assert.match(script, /customUnInstall/);
     assert.match(script, /MessageBox/);
     assert.match(script, /RMDir \/r "\$APPDATA\\AgentNexus"/);

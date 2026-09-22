@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-CANONICAL_REPO = "agentnexus-ai/omnigent"
+CANONICAL_REPO = "K4y2020/AgentNexus"
 
 # Priority labels from most to least urgent; the earliest match wins.
 PRIORITY_ORDER = ("P0-critical", "P1-high", "P2-medium", "P3-low")

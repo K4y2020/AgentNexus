@@ -1,7 +1,7 @@
 /**
- * Shared render helper for the Omnigent editor panel.
+ * Shared render helper for the AgentNexus editor panel.
  *
- * The Omnigent UI renders in the editor-beside `WebviewPanel`
+ * The AgentNexus UI renders in the editor-beside `WebviewPanel`
  * (EditorPanelController → ViewColumn.Beside) as a single <iframe> pointed at
  * the running LOCAL server. This module factors the render logic into a single
  * `renderInto(webview, opts)` so the controller stays thin.
@@ -29,8 +29,11 @@ export interface RenderIntoOptions {
   log?: (msg: string) => void;
 }
 
-/** Render the Omnigent iframe host into a webview. Sets `webview.html`. */
-export function renderInto(webview: vscode.Webview, opts: RenderIntoOptions): void {
+/** Render the AgentNexus iframe host into a webview. Sets `webview.html`. */
+export function renderInto(
+  webview: vscode.Webview,
+  opts: RenderIntoOptions,
+): void {
   const nonce = crypto.randomBytes(16).toString("base64url");
   const csp = buildCsp({
     serverOrigin: opts.target.origin,
@@ -51,7 +54,7 @@ export function renderResolvingHtml(): string {
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
-  <title>Omnigent</title>
+  <title>AgentNexus</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
     body {
@@ -63,7 +66,7 @@ export function renderResolvingHtml(): string {
   </style>
 </head>
 <body>
-  <p>Resolving Omnigent server…</p>
+  <p>Resolving AgentNexus server…</p>
 </body>
 </html>`;
 }

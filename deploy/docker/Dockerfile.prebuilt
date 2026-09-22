@@ -1,7 +1,7 @@
-# Pulls the CI-built server image instead of building from source — the web UI
-# bundle is gitignored, so a plain `docker build` would fail. For platforms that
-# only run `docker build` (Railway, HF Spaces). Override the tag via
-# --build-arg OMNIGENT_IMAGE=ghcr.io/K4y2020/AgentNexus-server:vX.Y.Z.
+# Pulls the server image configured in oss-publish-images.yml instead of
+# building from source. Override the image with --build-arg AGENTNEXUS_IMAGE=...
 
-ARG OMNIGENT_IMAGE=ghcr.io/K4y2020/AgentNexus-server:latest
-FROM ${OMNIGENT_IMAGE}
+# Legacy build argument is supported until 2.0; an explicit new value wins.
+ARG OMNIGENT_IMAGE=ghcr.io/agentnexus-ai/agentnexus-server:latest
+ARG AGENTNEXUS_IMAGE=${OMNIGENT_IMAGE}
+FROM ${AGENTNEXUS_IMAGE}

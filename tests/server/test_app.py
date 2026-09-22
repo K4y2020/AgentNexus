@@ -74,7 +74,8 @@ def test_server_version_reads_version_constant() -> None:
 
 
 @pytest.mark.asyncio
-async def test_well_known_manifest_shape(client: httpx.AsyncClient) -> None:
+@pytest.mark.parametrize("name", ["agentnexus", "omnigent"])
+async def test_well_known_manifest_shape(client: httpx.AsyncClient, name: str) -> None:
     """GET /.well-known/omnigent.json returns the version manifest.
 
     The desktop shell reads this BEFORE loading the SPA to decide how to open a
@@ -83,7 +84,7 @@ async def test_well_known_manifest_shape(client: httpx.AsyncClient) -> None:
     """
     from agentnexus.version import VERSION
 
-    resp = await client.get("/.well-known/omnigent.json")
+    resp = await client.get(f"/.well-known/{name}.json")
     assert resp.status_code == 200
     # JSON, not the SPA's index.html — see the not-swallowed test below.
     assert resp.headers["content-type"].startswith("application/json")
@@ -105,13 +106,14 @@ async def test_well_known_manifest_shape(client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_well_known_manifest_is_unauthed(client: httpx.AsyncClient) -> None:
+@pytest.mark.parametrize("name", ["agentnexus", "omnigent"])
+async def test_well_known_manifest_is_unauthed(client: httpx.AsyncClient, name: str) -> None:
     """The manifest is readable without a session cookie.
 
     The shell consults it before the app loads — i.e. before any login could
     have happened — so an auth gate here would defeat its purpose entirely.
     """
-    resp = await client.get("/.well-known/omnigent.json", headers={"Cookie": ""})
+    resp = await client.get(f"/.well-known/{name}.json", headers={"Cookie": ""})
     assert resp.status_code == 200
     assert resp.json()["manifest_version"] >= 1
 

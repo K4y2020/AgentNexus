@@ -437,12 +437,12 @@ async def test_orphan_host_tool_callback_forces_immediate_resync(
 
 
 async def test_orphan_host_tool_mcp_prefixed_form_also_resyncs() -> None:
-    """Gap 2: the ``mcp__omnigent__sys_os_*`` wire form is recognized too."""
+    """Gap 2: the ``mcp__agentnexus__sys_os_*`` wire form is recognized too."""
     executor = _FakeExecutor()
     adapter = ExecutorAdapter(executor_factory=lambda: executor)
     adapter._ensure_executor()
 
-    result = await adapter._stable_tool_executor("mcp__omnigent__sys_os_read", {"path": "/x"})
+    result = await adapter._stable_tool_executor("mcp__agentnexus__sys_os_read", {"path": "/x"})
 
     assert result["code"] == "runner_turn_context_desync"
     assert adapter._executor is None

@@ -2,9 +2,9 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -34,6 +34,7 @@ cwsandbox = "2026-06-12T00:00:00Z"
 google-antigravity = "2026-06-12T00:00:00Z"
 cryptography = "2026-06-26T00:00:00Z"
 nimble-python = "2026-07-29T00:00:00Z"
+typesafe-sdk = "2026-09-19T00:00:00Z"
 pydantic-settings = "2026-06-26T00:00:00Z"
 
 [manifest]
@@ -132,6 +133,7 @@ boxlite = [
 cine = [
     { name = "jinja2" },
     { name = "scenedetect" },
+    { name = "typesafe-sdk" },
 ]
 copilot = [
     { name = "github-copilot-sdk" },
@@ -334,6 +336,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=1.0.1,<2" },
     { name = "tiktoken", specifier = ">=0.7,<1" },
     { name = "tomlkit", specifier = ">=0.12,<1" },
+    { name = "typesafe-sdk", marker = "extra == 'cine'", specifier = ">=0.7,<1" },
     { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
     { name = "websockets", specifier = ">=10.4,<15" },
@@ -1433,9 +1436,9 @@ name = "databricks-sdk"
 version = "0.67.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -1453,16 +1456,16 @@ name = "databricks-sdk"
 version = "0.115.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "google-auth" },
-    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" } },
-    { name = "requests" },
+    { name = "google-auth", marker = "extra == 'extra-10-agentnexus-cwsandbox' or extra == 'extra-10-agentnexus-databricks' or extra == 'extra-10-agentnexus-modal' or extra == 'group-10-agentnexus-dev' or extra == 'group-10-agentnexus-lint' or extra != 'extra-10-agentnexus-antigravity'" },
+    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-10-agentnexus-cwsandbox' or extra == 'extra-10-agentnexus-databricks' or extra == 'extra-10-agentnexus-modal' or extra == 'group-10-agentnexus-dev' or extra == 'group-10-agentnexus-lint' or extra != 'extra-10-agentnexus-antigravity'" },
+    { name = "requests", marker = "extra == 'extra-10-agentnexus-cwsandbox' or extra == 'extra-10-agentnexus-databricks' or extra == 'extra-10-agentnexus-modal' or extra == 'group-10-agentnexus-dev' or extra == 'group-10-agentnexus-lint' or extra != 'extra-10-agentnexus-antigravity'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/49/1fd8121d4517849ea67fddbd827e535871b94037fab985235c011fdc60d1/databricks_sdk-0.115.0.tar.gz", hash = "sha256:a91f219313ea1afcde9575ea083825cbcb3dde2d00cb4c858c49d9dfd61b3129", size = 965481, upload-time = "2026-06-08T09:43:01.138Z" }
 wheels = [
@@ -2422,6 +2425,19 @@ wheels = [
 ]
 
 [[package]]
+name = "httpcore2"
+version = "2.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "h11" },
+    { name = "truststore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/be/ad/f4f0e57345f1870f3e8cb624e058d7eca6e5a27d33bcc3311d9b618734cd/httpcore2-2.12.0.tar.gz", hash = "sha256:9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648", size = 67548, upload-time = "2026-08-18T13:22:08.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/74/d370e55600d9bcfa0d9794b0166126d49291a3d2b20c268fc98c453a4948/httpcore2-2.12.0-py3-none-any.whl", hash = "sha256:7e04258ce01013d7d615e5b910a3b27fac937d7a95038227e79652b4ba3b4ceb", size = 83074, upload-time = "2026-08-18T13:22:05.854Z" },
+]
+
+[[package]]
 name = "httptools"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2494,6 +2510,32 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cd/cd/ca91a07ae446451f7476bf3fcc909e98cb942ff032ebfda0e3fe449aca7b/httpx_ws-0.9.0.tar.gz", hash = "sha256:797373326f70eec1ae96f6e43ae9f12002fd7d73aee139a4985eaab964338a08", size = 107105, upload-time = "2026-03-28T14:11:10.781Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/f8/a6bc80313a9e93c888fa10534dfce2ad76ff86911b6f485777ce6de6a073/httpx_ws-0.9.0-py3-none-any.whl", hash = "sha256:71640d2fb1bf9a225775015b33cd755cfd4c5f7e21c885192fe3adc4c387b248", size = 15759, upload-time = "2026-03-28T14:11:11.887Z" },
+]
+
+[[package]]
+name = "httpx2"
+version = "2.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", marker = "sys_platform != 'emscripten' or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint')" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten' or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint')" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten' or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint')" },
+    { name = "idna" },
+    { name = "truststore", marker = "sys_platform != 'emscripten' or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz", hash = "sha256:7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf", size = 100040, upload-time = "2026-08-18T13:22:09.086Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl", hash = "sha256:cc8b6eecb8661c146b8f89a60e97456ee086e91a784ed31ac450c3a9e613dd36", size = 95427, upload-time = "2026-08-18T13:22:06.834Z" },
+]
+
+[[package]]
+name = "httpx2-jsfetch"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/0e5636363151a2a1795e0a77617168b9ca438e1748ec05fc9b5687f93d64/httpx2_jsfetch-1.0.tar.gz", hash = "sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60", size = 6872, upload-time = "2026-08-07T00:13:07.492Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/43/832f631d32e4f1211caa2ba368317739fe71f0b8530e4c9d15dc454bac2a/httpx2_jsfetch-1.0-py3-none-any.whl", hash = "sha256:cb916b707601e69a07721aabc8f3f6659be3a6893bc1ff5c6f9e02241df2da32", size = 6382, upload-time = "2026-08-07T00:13:06.567Z" },
 ]
 
 [[package]]
@@ -4010,7 +4052,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "python_full_version == '3.13.*' or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint') or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4273,9 +4315,9 @@ name = "protobuf"
 version = "6.33.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -4295,9 +4337,9 @@ name = "protobuf"
 version = "7.35.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -4670,7 +4712,7 @@ name = "pyte"
 version = "0.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "wcwidth" },
+    { name = "wcwidth", marker = "python_full_version == '3.13.*' or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint') or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ab/ab/b599762933eba04de7dc5b31ae083112a6c9a9db15b01d3109ad797559d9/pyte-0.8.2.tar.gz", hash = "sha256:5af970e843fa96a97149d64e170c984721f20e52227a2f57f0a54207f08f083f", size = 92301, upload-time = "2023-11-12T09:33:43.217Z" }
 wheels = [
@@ -5471,8 +5513,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "python_full_version == '3.13.*' or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint') or sys_platform != 'win32'" },
+    { name = "jeepney", marker = "python_full_version == '3.13.*' or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-cwsandbox') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-databricks') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'extra-10-agentnexus-modal') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-dev') or (python_full_version != '3.13.*' and extra == 'extra-10-agentnexus-antigravity' and extra == 'group-10-agentnexus-lint') or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -5895,6 +5937,15 @@ wheels = [
 ]
 
 [[package]]
+name = "truststore"
+version = "0.10.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz", hash = "sha256:9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301", size = 26169, upload-time = "2025-08-12T18:49:02.73Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/19/97/56608b2249fe206a67cd573bc93cd9896e1efb9e98bce9c163bcdc704b88/truststore-0.10.4-py3-none-any.whl", hash = "sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981", size = 18660, upload-time = "2025-08-12T18:49:01.46Z" },
+]
+
+[[package]]
 name = "types-certifi"
 version = "2021.10.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -5922,6 +5973,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4b/11/6ece999e91f2ccb848ab4420f3f4816e78ac0541f739e6864affdaaa5737/types_toml-0.10.8.20260518.tar.gz", hash = "sha256:80e10facd24fdeda9d5c672187d72be3ac284843788d67f5aae59e3e016db6fe", size = 9419, upload-time = "2026-05-18T06:02:16.719Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/91/25/489751806bf5c95e4007f8e17409199c54d31e49ffbea07c5729b1286c8e/types_toml-0.10.8.20260518-py3-none-any.whl", hash = "sha256:0e564ab05f6fde62a315b3b5a9b6624fda569399795d30a37e64705a70459303", size = 9669, upload-time = "2026-05-18T06:02:15.86Z" },
+]
+
+[[package]]
+name = "typesafe-sdk"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx2" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/e2/ac317772d4d5cfabf3cecdeacd83cc838523e240bb4e1cf256837e6005bb/typesafe_sdk-0.7.0.tar.gz", hash = "sha256:930d42fd73cfed6f25bccae488ce0f30f6043eaedd8682ef59734e79ab94a876", size = 22235, upload-time = "2026-09-18T09:12:30.846Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/2a/16f4163e6d8827ef80b2ed7a400c80688e1ebf571c10f143f792bdafc654/typesafe_sdk-0.7.0-py3-none-any.whl", hash = "sha256:c6d2257c4b04b8d4d81cff2b55489b4188795fd44fb40b9cef26ff243b2d1080", size = 35352, upload-time = "2026-09-18T09:12:29.625Z" },
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-"""Goose readiness + config reporting for ``omnigent setup``.
+"""Goose readiness + config reporting for ``agentnexus setup``.
 
 Unlike :mod:`omnigent.onboarding.cursor_auth`, AgentNexus manages **no** Goose
 credentials: Goose owns its own auth via ``goose configure`` (keyring or

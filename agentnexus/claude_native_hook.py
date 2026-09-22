@@ -1036,7 +1036,7 @@ def _main_evaluate_policy(argv: list[str]) -> int:
     ``UserPromptSubmit`` and ``PostToolUse`` fail OPEN. Pre-evaluation
     conditions that mean the session simply is not governed — no active
     session, no ``ap_server_url``, an unparseable hook payload, or an
-    ``mcp__omnigent__*`` tool already gated on the relay path — still
+    ``mcp__agentnexus__*`` tool already gated on the relay path — still
     return exit 0 with no output ("no opinion") so non-AgentNexus tool
     calls are never blocked.
 
@@ -1152,7 +1152,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         ``["--bridge-dir", "/tmp/x"]``.
     :returns: Parsed argparse namespace.
     """
-    parser = argparse.ArgumentParser(prog="python -m omnigent.claude_native_hook")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_hook")
     parser.add_argument("--bridge-dir", required=True)
     parser.add_argument("--conversation-url")
     return parser.parse_args(argv)
@@ -1165,7 +1165,7 @@ def _parse_evaluate_policy_args(argv: list[str]) -> argparse.Namespace:
     :param argv: CLI argv excluding program name and subcommand.
     :returns: Parsed argparse namespace.
     """
-    parser = argparse.ArgumentParser(prog="python -m omnigent.claude_native_hook evaluate-policy")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_hook evaluate-policy")
     parser.add_argument("--bridge-dir", required=True)
     return parser.parse_args(argv)
 
@@ -1178,11 +1178,12 @@ def _parse_permission_args(argv: list[str]) -> argparse.Namespace:
     :returns: Parsed argparse namespace.
     """
     parser = argparse.ArgumentParser(
-        prog="python -m omnigent.claude_native_hook permission-request"
+        prog="python -m agentnexus.claude_native_hook permission-request"
     )
     parser.add_argument("--bridge-dir", required=True)
-    parser.add_argument("--omnigent-server-url")
-    parser.add_argument("--omnigent-auth-headers-json")
+    # Old generated hook configurations remain usable until 2.0.
+    parser.add_argument("--agentnexus-server-url", "--omnigent-server-url")
+    parser.add_argument("--agentnexus-auth-headers-json", "--omnigent-auth-headers-json")
     return parser.parse_args(argv)
 
 
@@ -1249,7 +1250,7 @@ def _main_route_turn(argv: list[str]) -> int:
         turn_routing_marker_present,
     )
 
-    parser = argparse.ArgumentParser(prog="python -m omnigent.claude_native_hook route-turn")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_hook route-turn")
     parser.add_argument("--bridge-dir", required=True)
     parser.add_argument("--harness", default="claude-native")
     args = parser.parse_args(argv)

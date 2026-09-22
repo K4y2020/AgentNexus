@@ -476,10 +476,10 @@ def _make_auth_token_factory(
       2. Host-delegated runner token, when the host launch marker and
          binding token are present.
       3. Stored OIDC token from ``~/.agentnexus/auth_tokens.json``
-         (populated by ``omnigent login``), keyed by ``server_url``.
+         (populated by ``agentnexus login``), keyed by ``server_url``.
       4. Databricks OAuth token (refreshed via the SDK) — host-keyed
          when a Databricks Apps pointer record is stored for
-         ``server_url`` (``omnigent login <apps-url>``), ambient
+         ``server_url`` (``agentnexus login <apps-url>``), ambient
          otherwise.
 
     Returns ``None`` when no credentials are available.
@@ -586,7 +586,7 @@ def _make_auth_token_factory(
         nonlocal sdk_auth, sdk_auth_resolved
         if not sdk_auth_resolved:
             # A stored Databricks Apps pointer record (from
-            # ``omnigent login <apps-url>``) names the exact workspace
+            # ``agentnexus login <apps-url>``) names the exact workspace
             # the Apps edge accepts tokens from, so it beats ambient
             # profile resolution.
             from agentnexus.cli_auth import load_databricks_workspace_host
@@ -614,7 +614,7 @@ def _make_auth_token_factory(
     def _factory() -> str | None:
         """Return a fresh auth token.
 
-        Checks the stored OIDC token first (from ``omnigent login``),
+        Checks the stored OIDC token first (from ``agentnexus login``),
         then falls back to the reused Databricks SDK auth.
 
         :returns: Bearer token string, or ``None`` if no credentials
@@ -1197,7 +1197,7 @@ def create_app(
     from agentnexus.runner.identity import (
         AGENTNEXUS_INTERNAL_WS_ORIGIN,
         AGENTNEXUS_SESSION_ENV_VALUE,
-        AGENTNEXUS_SESSION_ENV_VAR,
+        AGENTNEXUS_SESSION_ENV_VARS,
         RUNNER_ID_ENV_VAR,
         RUNNER_TUNNEL_TOKEN_HEADER,
         get_stable_runner_id,
@@ -1218,7 +1218,8 @@ def create_app(
     # merges os.environ), native CLI terminals copy os.environ, and the
     # claude-sdk SDK merges os.environ. The deny-by-default env scrubbers
     # (os_env, codex, pi) allowlist it so it survives their scrub.
-    os.environ[AGENTNEXUS_SESSION_ENV_VAR] = AGENTNEXUS_SESSION_ENV_VALUE
+    for marker in AGENTNEXUS_SESSION_ENV_VARS:
+        os.environ[marker] = AGENTNEXUS_SESSION_ENV_VALUE
 
     # Keep the harness manager on its default /tmp/omnigent root.
     # Nesting harness UDS paths under caller-provided temp dirs can

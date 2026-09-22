@@ -42,7 +42,7 @@ os.environ.setdefault("AGENTNEXUS_DISABLE_CATALOG_LOOKUP", "1")
 # shell. Accounts/OIDC-specific tests still opt in by monkeypatching the
 # vars inside their own fixtures (tests/server/test_accounts.py,
 # tests/server/test_oidc.py). Module-level setdefault rather than a fixture
-# so subprocess-spawning tests (e2e shells out to `omnigent run`) inherit
+# so subprocess-spawning tests (e2e shells out to `agentnexus run`) inherit
 # the pin via env.
 os.environ.setdefault("AGENTNEXUS_AUTH_PROVIDER", "header")
 
@@ -323,7 +323,7 @@ def _isolate_claude_native_state(
     """
     Redirect claude-native client-side persistent state to a tmp dir.
 
-    The ``omnigent claude`` wrapper writes per-conversation
+    The ``agentnexus claude`` wrapper writes per-conversation
     launch state (the cwd a session was created in) under
     ``~/.agentnexus/claude-native/<hash>/launch.json``. Any test
     that drives the wrapper -- directly or indirectly via test
@@ -483,7 +483,11 @@ def cleanup_snapshot_failures(pytestconfig: pytest.Config) -> Generator[None, No
     """
     import shutil
 
-    from pytest_playwright_visual_snapshot.plugin import SnapshotPaths, _get_option
+    try:
+        from pytest_playwright_visual_snapshot.plugin import SnapshotPaths, _get_option
+    except ImportError:
+        yield
+        return
 
     root_dir = Path(pytestconfig.rootdir)  # type: ignore[arg-type]
 

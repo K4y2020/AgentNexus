@@ -1563,7 +1563,7 @@ def _codex_policy_hook_command(bridge_dir: Path, python_executable: str | None) 
     :param python_executable: Python executable to run, e.g.
         ``"/path/to/python"``. ``None`` uses :data:`sys.executable`.
     :returns: A shell-escaped command string, e.g.
-        ``"/path/python -I -m omnigent.codex_native_hook evaluate-policy
+        ``"/path/python -I -m agentnexus.codex_native_hook evaluate-policy
         --bridge-dir /home/u/.agentnexus/codex-native/abc"``.
     """
     python = python_executable or sys.executable
@@ -2694,7 +2694,7 @@ def resolve_native_codex_launch(
     Mirrors the in-process codex harness routing precedence
     (:func:`omnigent.runtime.workflow._resolve_provider_for_build`) for the
     ``openai`` surface, so ``omnigent codex`` and a host-spawned native
-    Codex session route through ``omnigent setup``:
+    Codex session route through ``agentnexus setup``:
 
     0. (with *spec*) a spec-level credential — ``executor.auth`` naming a
        provider (:class:`~omnigent.spec.types.ProviderAuth`, fails loud when
@@ -2721,7 +2721,7 @@ def resolve_native_codex_launch(
     4. else the codex CLI's own login.
 
     Without a *spec* (or when the spec carries no spec-level credential),
-    credentials are controlled by ``omnigent setup`` provider config (or the
+    credentials are controlled by ``agentnexus setup`` provider config (or the
     legacy global ``auth:`` block) exactly as before — there is no CLI/env
     profile override, and machine-level flows are unchanged.
 
@@ -2870,7 +2870,7 @@ def resolve_native_codex_launch(
         log_info_once(
             _logger,
             "native-codex routing: Codex CLI login (no provider configured for the Codex "
-            "harness, no Databricks profile). Run `omnigent setup --no-internal-beta` to route "
+            "harness, no Databricks profile). Run `agentnexus setup --no-internal-beta` to route "
             "through a provider.",
         )
         return NativeCodexLaunch(

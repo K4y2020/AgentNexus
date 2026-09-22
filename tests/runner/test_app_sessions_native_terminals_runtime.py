@@ -2963,7 +2963,7 @@ async def test_codex_subagent_always_needs_runner_terminal(
 
     The ``parent_host_id=None`` case is the regression: gating the child
     on the parent's ``host_id`` made codex-native sub-agents under a CLI-driven
-    parent (e.g. nessie run via ``omnigent run --server``) silently never get
+    parent (e.g. nessie run via ``agentnexus run --server``) silently never get
     a terminal, so ``sys_session_send`` dispatch no-op'd. If that case returns
     ``False``, the regression has reappeared.
 

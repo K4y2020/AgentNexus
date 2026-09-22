@@ -207,7 +207,7 @@ def test_provider_routing_for_antigravity_fails_loud() -> None:
 def test_stored_gemini_key_used_when_spec_has_no_auth(
     monkeypatch: pytest.MonkeyPatch, _isolate_global_config: Path
 ) -> None:
-    """A Gemini key registered via ``omnigent setup`` (the ``antigravity:``
+    """A Gemini key registered via ``agentnexus setup`` (the ``antigravity:``
     block) flows when the spec declares no auth — so a user need not export it
     in every shell."""
     monkeypatch.setenv("GEMINI_KEY_SRC", "AIza_stored_123")

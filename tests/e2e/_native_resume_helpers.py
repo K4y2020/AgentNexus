@@ -1,6 +1,6 @@
 """Shared machinery for the native-CLI resume end-to-end tests.
 
-Both ``omnigent claude`` and ``omnigent codex`` support resuming a prior
+Both ``agentnexus claude`` and ``omnigent codex`` support resuming a prior
 conversation (``--resume <conv_id>``). The regression these tests guard: a
 resumed session must come back with its **history intact** — sending a new
 message to the resumed session must let the model answer from the earlier
@@ -93,7 +93,7 @@ def omnigent_console_script() -> Path:
     """
     Return the ``omnigent`` console-script path in the active venv.
 
-    Driving the installed console script (rather than ``python -m omnigent``)
+    Driving the installed console script (rather than ``python -m agentnexus``)
     matches how users invoke the CLI; ``PYTHONPATH`` (set by :func:`cli_env`)
     points it at the worktree's code.
 

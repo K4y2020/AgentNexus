@@ -26,7 +26,7 @@ MODEL_OVERRIDE_MAX_LEN = 256
 _MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\[\]-]*$")
 
 # SDK harnesses whose model override lands in the spawn env — must stay
-# in sync with ``_HARNESS_MODEL_ENV_KEY`` in ``omnigent/runner/app.py``.
+# in sync with ``_HARNESS_MODEL_ENV_KEY`` in ``agentnexus/runner/app.py``.
 _SDK_MODEL_OVERRIDE_HARNESSES: frozenset[str] = frozenset(
     {
         "claude-sdk",
@@ -101,7 +101,7 @@ _PROVIDER_VOCABULARY_CLAUDE_HARNESSES: frozenset[str] = frozenset(
 # multi-model like pi and accepts any validated id (no family rejection).
 # antigravity is Gemini-native: it authenticates a direct Gemini API key /
 # Vertex AI and has no Databricks/gateway path (see _build_antigravity_spawn_env
-# in omnigent/runtime/workflow.py). So unlike the single-vendor harnesses above,
+# in agentnexus/runtime/workflow.py). So unlike the single-vendor harnesses above,
 # the rule here is framed as a *reject-list* of the families it definitively
 # cannot serve (Claude / GPT, and any ``databricks-``-prefixed gateway id),
 # rather than a strict Gemini allow-list — bare/ambiguous ids (e.g. a future
@@ -286,7 +286,7 @@ def canonical_model_spelling(model: str) -> str:
     counterpart name the same model — :func:`normalize_model_for_provider`
     converts between them per provider — so comparisons that must treat
     the two spellings as equivalent (e.g. cost-tier ranking in
-    :mod:`omnigent.cost_plan`) compare in this form.
+    :mod:`agentnexus.cost_plan`) compare in this form.
 
     :param model: A model id, e.g. ``"databricks-claude-haiku-4-5"``.
     :returns: The bare canonical id (``"claude-haiku-4-5"``) when the
@@ -332,7 +332,7 @@ def normalize_model_for_provider(model: str, provider_kind: str | None) -> str:
     :param model: A model id that already passed
         :func:`validate_model_override`, e.g. ``"claude-sonnet-4-6"``.
     :param provider_kind: The child's resolved provider kind from
-        :func:`omnigent.model_catalog.resolve_model_provider`, e.g.
+        :func:`agentnexus.model_catalog.resolve_model_provider`, e.g.
         ``"databricks"`` or ``"key"``; ``None`` when undeterminable.
     :returns: The localized model id, or *model* unchanged.
     """

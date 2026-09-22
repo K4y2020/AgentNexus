@@ -14,7 +14,7 @@ servers and host daemons running after the suite exits":
 The nested run drives the exact leak seam from the report: an ``omnigent
 claude --server <url>`` invocation that stubs the native launcher but not
 ``_ensure_backend``, so the Click command's ``_ensure_host_daemon`` really
-Popens ``python -m omnigent.host._daemon_entry`` with
+Popens ``python -m agentnexus.host._daemon_entry`` with
 ``start_new_session=True``. The target URL is a loopback port nothing
 listens on — connection-refused keeps the daemon in its retry loop for
 minutes (``_LOOPBACK_REFUSED_FATAL_ATTEMPTS``), so a surviving orphan is
@@ -51,9 +51,9 @@ import psutil
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# The nested leaky test: drives the real `omnigent claude` Click command
+# The nested leaky test: drives the real `agentnexus claude` Click command
 # with only the native launcher and config loading stubbed — the same
-# seam as the suite's real leaking tests (e.g. the `omnigent claude
+# seam as the suite's real leaking tests (e.g. the `agentnexus claude
 # --resume` parsing tests) — so `_ensure_backend` really spawns a
 # detached `omnigent.host._daemon_entry` child. The daemon target comes
 # from the environment: a loopback port with no listener, so the daemon
@@ -84,7 +84,7 @@ def test_claude_command_spawns_detached_host_daemon(monkeypatch) -> None:
     global _detached_server
     captured = {}
     if os.name == "nt":
-        # Windows has no native tmux/PTY ``omnigent claude``, so drive the
+        # Windows has no native tmux/PTY ``agentnexus claude``, so drive the
         # same detached-process seam with a real ``omnigent server`` child.
         import subprocess
         import sys
@@ -251,7 +251,7 @@ def test_pytest_run_leaves_no_omnigent_processes(tmp_path: Path) -> None:
     Drives the real journey: run pytest on a CLI test that spawns a
     detached AgentNexus host daemon, let pytest exit, then assert nothing
     from the run is still alive. Without session-teardown reaping this
-    FAILS: the run leaves a ``python -m omnigent.host._daemon_entry``
+    FAILS: the run leaves a ``python -m agentnexus.host._daemon_entry``
     orphan behind (and, on runs that exercise the local-backend path,
     ``omnigent.cli server`` / ``omnigent.runner._zygote`` orphans too) —
     free to squat port 6767 and to keep serving after its temp data dir

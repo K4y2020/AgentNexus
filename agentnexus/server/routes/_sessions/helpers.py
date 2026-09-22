@@ -3372,7 +3372,7 @@ async def _persist_external_subagent_start(
         )
     if parent_conv.agent_id is None:
         # claude-native parents are always created with an agent_id
-        # by ``omnigent claude`` (the synthetic Claude bundle).
+        # by ``agentnexus claude`` (the synthetic Claude bundle).
         # A null agent_id here means we're being called against a
         # legacy / corrupt row — fail loud rather than silently
         # mint a child without a parent agent.
@@ -4925,7 +4925,7 @@ class _HostLaunchAttempt:
         no code.
     :param error: Human-readable failure message from the host, e.g.
         ``"harness 'codex' is not configured on host 'laptop' — run
-        `omnigent setup` ..."``; ``None`` when there was no error.
+        `agentnexus setup` ..."``; ``None`` when there was no error.
     """
 
     runner_id: str
@@ -5540,7 +5540,7 @@ def _native_coding_agent_for_session(conv: Conversation) -> NativeCodingAgent | 
     handling must NOT be coupled to the terminal-first presentation labels:
 
     * the ``omnigent.wrapper`` presentation label — set for the built-in
-      terminal-first wrapper sessions (``omnigent claude`` / ``omnigent
+      terminal-first wrapper sessions (``agentnexus claude`` / ``omnigent
       codex``); resolved directly and cheaply here (short-circuits the harness
       load below); and
     * the bound agent's RESOLVED harness — for a CUSTOM agent that declares a

@@ -1814,7 +1814,7 @@ async def test_runner_shutdown_closes_terminal_registry(
     """The --server local runner shuts down terminal-owned resources.
 
     ``examples/databricks_coding_agent.yaml`` exposes terminal tools,
-    and in ``omnigent run --server`` mode those terminals are owned
+    and in ``agentnexus run --server`` mode those terminals are owned
     by the local tunnel runner. This test drives the runner app
     startup/shutdown hooks directly and verifies shutdown includes the
     TerminalRegistry, not just harness subprocesses and MCPs.
@@ -2427,7 +2427,7 @@ def test_auth_token_factory_refreshes_expired_oidc_token(
     integration in ``_factory`` (only the unit-level refresh was covered before).
     """
     monkeypatch.setenv("RUNNER_SERVER_URL", "https://omnigent.example.com")
-    # A plain `omnigent login` host on the stored-OIDC-token path: no host
+    # A plain `agentnexus login` host on the stored-OIDC-token path: no host
     # bootstrap bearer and no managed-sandbox delegation.
     monkeypatch.delenv(RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR, raising=False)
     monkeypatch.delenv("AGENTNEXUS_RUNNER_DELEGATED_AUTH", raising=False)

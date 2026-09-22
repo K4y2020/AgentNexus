@@ -810,7 +810,7 @@ def test_bootstrap_init_password_loopback_writes_cli_token_no_autoopen(
     """Supplied password on loopback → admin created, CLI token written, no auto-open.
 
     The flag path creates the admin and mints the loopback CLI token
-    (so ``omnigent run`` is signed in), but does NOT auto-open the
+    (so ``agentnexus run`` is signed in), but does NOT auto-open the
     browser — the operator chose the password and will log in when
     they want.
     """
@@ -865,7 +865,7 @@ def test_bootstrap_refreshes_cli_token_on_returning_loopback_boot(
     assert second.tui_token_written is True
     assert cli_auth.load_token(new_url) is not None, (
         "returning boot must mint a CLI token for the new spawn URL so "
-        "`omnigent run` authenticates"
+        "`agentnexus run` authenticates"
     )
 
 
@@ -1761,7 +1761,7 @@ def test_purge_expired_tokens_drops_only_expired(
 def test_cli_accounts_login_happy_path_stores_token(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`omnigent login` in accounts mode prompts → POSTs → stores token.
+    """`agentnexus login` in accounts mode prompts → POSTs → stores token.
 
     Mocks the network surface (the /v1/me probe + the /auth/login
     POST) and the token storage (cli_auth.store_token writes to
@@ -1980,11 +1980,11 @@ def test_setup_writes_loopback_cli_token(
 ) -> None:
     """First-run web admin-claim mints the loopback CLI token.
 
-    The local CUJ: ``omnigent run`` (re)spawns the local server in
+    The local CUJ: ``agentnexus run`` (re)spawns the local server in
     accounts mode with no admin, so the operator claims it via the
     browser form. ``/auth/setup`` must also mint the loopback CLI token
     (the fixture's base URL is ``http://localhost:8000`` — loopback) so
-    the in-flight ``omnigent run`` is signed in immediately instead of
+    the in-flight ``agentnexus run`` is signed in immediately instead of
     401-ing until the next server boot.
     """
     from agentnexus import cli_auth
@@ -2050,7 +2050,7 @@ def test_cli_login_with_issue_refresh_issues_grant(accounts_app: TestClient) -> 
     """``POST /auth/login`` with ``issue_refresh=True`` returns a usable refresh_token.
 
     The CLI sends this flag; unattended hosts can renew past session-JWT expiry
-    via /oauth/token without a human re-running ``omnigent login``.
+    via /oauth/token without a human re-running ``agentnexus login``.
     """
     resp = accounts_app.post(
         "/auth/login",

@@ -259,7 +259,7 @@ def test_read_login_url_returns_first_authorize_url() -> None:
 def test_read_login_url_returns_none_when_no_url_printed() -> None:
     """
     A stream that ends without an authorize URL yields ``None`` — not
-    an exception: ``omnigent login`` legitimately completes without a
+    an exception: ``agentnexus login`` legitimately completes without a
     browser step when a cached workspace grant verifies, and the
     caller decides success vs. failure from the exit code.
     """
@@ -301,7 +301,7 @@ def test_login_runs_in_sandbox_and_forwards_callback_port(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Golden path: run ``omnigent login`` inside the box with a forced
+    Golden path: run ``agentnexus login`` inside the box with a forced
     PTY, parse the dynamic callback port from the printed URL, forward
     exactly that port BEFORE opening the URL locally, and clean the
     process up.
@@ -333,7 +333,7 @@ def test_login_runs_in_sandbox_and_forwards_callback_port(
     )
 
     # The login runs INSIDE the sandbox with a forced PTY — and it is
-    # `omnigent login <server>` (which infers the fronting workspace
+    # `agentnexus login <server>` (which infers the fronting workspace
     # itself), NOT a raw `databricks auth login` with profile flags.
     assert launcher.stream_calls == [
         _StreamCall(
@@ -378,7 +378,7 @@ def test_login_completes_without_browser_when_no_url_printed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``omnigent login`` reuses a cached workspace grant when one
+    ``agentnexus login`` reuses a cached workspace grant when one
     verifies against the server — it then exits 0 without printing an
     authorize URL. The flow must treat that as success: no port
     forward, no browser, no error.

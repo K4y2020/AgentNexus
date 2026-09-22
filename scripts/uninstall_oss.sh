@@ -1,12 +1,17 @@
 #!/bin/sh
 
-# Omnigent uninstaller. POSIX sh by design so it still works when the Python
+# AgentNexus uninstaller. POSIX sh by design so it still works when the Python
 # wheel is wedged or PATH is broken.
 
 set -u
 
-MARKER_BEGIN="# >>> Omnigent installer >>>"
-MARKER_END="# <<< Omnigent installer <<<"
+MARKER_BEGIN="# >>> AgentNexus installer >>>"
+MARKER_END="# <<< AgentNexus installer <<<"
+# Legacy markers and env inputs are supported until 2.0.
+LEGACY_MARKER_BEGIN="# >>> Omnigent installer >>>"
+LEGACY_MARKER_END="# <<< Omnigent installer <<<"
+AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST="${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST-${OMNIGENT_UNINSTALL_LEDGER_MANIFEST-}}"
+AGENTNEXUS_UNINSTALL_LEDGER_SOURCE="${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE-${OMNIGENT_UNINSTALL_LEDGER_SOURCE-}}"
 TAB=$(printf '\t')
 TARGETS=""
 DRY_RUN=false
@@ -132,11 +137,18 @@ if [ "$DESTRUCTIVE_FLAG" != true ]; then
 fi
 
 state_home() {
-  if [ -n "${AGENTNEXUS_DATA_DIR:-}" ]; then
-    printf '%s\n' "$AGENTNEXUS_DATA_DIR"
-  else
-    printf '%s/.agentnexus\n' "$HOME"
+  value="${AGENTNEXUS_DATA_DIR-${OMNIGENT_DATA_DIR-}}"
+  if [ -n "$value" ]; then
+    printf '%s\n' "$value"
+    return
   fi
+  # Existing state paths remain discoverable until 2.0; explicit empty opts out.
+  if [ "${AGENTNEXUS_DATA_DIR+x}${OMNIGENT_DATA_DIR+x}" = "" ] && \
+    [ ! -d "$HOME/.agentnexus" ] && [ -d "$HOME/.omnigent" ]; then
+    printf '%s/.omnigent\n' "$HOME"
+    return
+  fi
+  printf '%s/.agentnexus\n' "$HOME"
 }
 
 is_pid_alive() {
@@ -204,7 +216,7 @@ stop_processes() {
     tmux list-sessions -F '#S' >"$sessions_file" 2>/dev/null || true
     while IFS= read -r session; do
       case "$session" in
-        agentnexus:*)
+        agentnexus:* | omnigent:*)
           if [ "$DRY_RUN" = true ]; then
             record_action tmux "$session" stop reported "" "would kill tmux session"
           elif tmux kill-session -t "$session" 2>/dev/null; then
@@ -281,6 +293,8 @@ has_shell_install_signal() {
   [ -n "${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE:-}" ] && [ "$AGENTNEXUS_UNINSTALL_LEDGER_SOURCE" != unknown ] && return 0
   [ -f "$(state_home)/installation_id" ] && return 0
   command -v agentnexus >/dev/null 2>&1 && return 0
+  command -v nexus >/dev/null 2>&1 && return 0
+  command -v omnigent >/dev/null 2>&1 && return 0
   command -v omni >/dev/null 2>&1 && return 0
   profiles_file="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-anchor-profiles.XXXXXX")" || return 1
   profile_candidates >"$profiles_file"
@@ -296,11 +310,15 @@ has_shell_install_signal() {
 
 profile_has_block() {
   [ -f "$1" ] || return 1
-  awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" '
-    $0 == begin { found_begin=1 }
-    found_begin && $0 == end { found_end=1 }
-    END { exit(found_begin && found_end ? 0 : 1) }
-  ' "$1"
+  block_range="$(awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" \
+    -v old_begin="$LEGACY_MARKER_BEGIN" -v old_end="$LEGACY_MARKER_END" '
+    $0 == begin { start=NR; finish=end; next }
+    $0 == old_begin { start=NR; finish=old_end; next }
+    start && $0 == finish { print start ":" NR; exit }
+  ' "$1")"
+  [ -n "$block_range" ] || return 1
+  BLOCK_START="${block_range%:*}"
+  BLOCK_END="${block_range#*:}"
 }
 
 sha256_file() {
@@ -319,10 +337,9 @@ sha256_file() {
 write_profile_block() {
   profile="$1"
   output="$2"
-  awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" '
-    $0 == begin { printing=1 }
-    printing { print }
-    printing && $0 == end { exit }
+  profile_has_block "$profile" || return 1
+  awk -v start="$BLOCK_START" -v end="$BLOCK_END" '
+    NR >= start && NR <= end { print }
   ' "$profile" >"$output"
 }
 
@@ -333,10 +350,7 @@ remove_profile_block() {
     record_action profile_block "$profile" remove skipped "" "marker block absent"
     return 0
   fi
-  line_range="$(awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" '
-    $0 == begin { start=NR }
-    start && $0 == end { print start "-" NR; exit }
-  ' "$profile")"
+  line_range="$BLOCK_START-$BLOCK_END"
   if [ "$DRY_RUN" = true ]; then
     record_action profile_block "$profile" remove reported "" "would remove lines $line_range"
     return 0
@@ -356,17 +370,14 @@ remove_profile_block() {
       return 1
     fi
   fi
-  backup="$profile.agentnexus.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+  backup="$(mktemp "$profile.agentnexus.bak.XXXXXX")" || return 1
   tmp="$(mktemp "$profile.agentnexus.tmp.XXXXXX")" || return 1
   if ! cp "$profile" "$backup"; then
     record_action profile_block "$profile" remove failed "" "failed to write backup"
     return 1
   fi
-  if awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" '
-    $0 == begin { skipping=1; found=1; next }
-    skipping && $0 == end { skipping=0; next }
-    !skipping { print }
-    END { exit(found ? 0 : 42) }
+  if awk -v start="$BLOCK_START" -v end="$BLOCK_END" '
+    NR < start || NR > end { print }
   ' "$profile" >"$tmp" && mv "$tmp" "$profile"; then
     record_action profile_block "$profile" remove done "" "block removed, backup at $backup"
   else
@@ -387,13 +398,14 @@ cleanup_profiles() {
     profile_candidates >"$profiles_file"
     while IFS= read -r profile; do
       [ -n "$profile" ] || continue
-      if profile_has_block "$profile"; then
+      while profile_has_block "$profile"; do
         remove_profile_block "$profile" ""
-        if [ "$EXIT_CODE" = 3 ]; then
+        if [ "$EXIT_CODE" != 0 ]; then
           rm -f "$profiles_file"
           return 1
         fi
-      fi
+        [ "$DRY_RUN" = true ] && break
+      done
     done <"$profiles_file"
     rm -f "$profiles_file"
   fi
@@ -581,15 +593,22 @@ remove_tree() {
 }
 
 desktop_paths() {
+  # Old desktop application data remains removable until 2.0.
   case "$(uname -s)" in
     Darwin)
       printf '%s\n' \
+        "$HOME/Library/Application Support/AgentNexus" \
+        "$HOME/Library/Caches/AgentNexus" \
+        "$HOME/Library/Logs/AgentNexus" \
         "$HOME/Library/Application Support/Omnigent" \
         "$HOME/Library/Caches/Omnigent" \
         "$HOME/Library/Logs/Omnigent"
       ;;
     *)
       printf '%s\n' \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/AgentNexus" \
+        "${XDG_CACHE_HOME:-$HOME/.cache}/AgentNexus" \
+        "${XDG_STATE_HOME:-$HOME/.local/state}/AgentNexus" \
         "${XDG_CONFIG_HOME:-$HOME/.config}/Omnigent" \
         "${XDG_CACHE_HOME:-$HOME/.cache}/Omnigent" \
         "${XDG_STATE_HOME:-$HOME/.local/state}/Omnigent"
@@ -639,31 +658,38 @@ report_shared_deps() {
 }
 
 uninstall_wheel() {
+  # The previous distribution can coexist with the current one until 2.0.
+  uninstall_package agentnexus
+  uninstall_package omnigent
+}
+
+uninstall_package() {
+  package="$1"
   if [ "$DRY_RUN" = true ]; then
-    record_action wheel agentnexus remove reported "" "would run uv tool uninstall agentnexus"
+    record_action wheel "$package" remove reported "" "would run uv tool uninstall $package"
     return 0
   fi
   if ! command -v uv >/dev/null 2>&1; then
-    if ! command -v agentnexus >/dev/null 2>&1 && ! command -v omni >/dev/null 2>&1; then
-      record_action wheel agentnexus remove skipped "" "already absent"
+    if ! command -v "$package" >/dev/null 2>&1 && ! command -v omni >/dev/null 2>&1; then
+      record_action wheel "$package" remove skipped "" "already absent"
       return 0
     fi
-    record_action wheel agentnexus remove failed "" "uv not found; remove the tool manually"
+    record_action wheel "$package" remove failed "" "uv not found; remove the tool manually"
     return 1
   fi
   uv_output="$(mktemp "${TMPDIR:-/tmp}/agentnexus-uninstall-uv.XXXXXX")" || return 1
-  if uv tool uninstall agentnexus >"$uv_output" 2>&1; then
+  if uv tool uninstall "$package" >"$uv_output" 2>&1; then
     rm -f "$uv_output"
-    record_action wheel agentnexus remove done "" "uv tool uninstall agentnexus"
+    record_action wheel "$package" remove done "" "uv tool uninstall $package"
   else
     output="$(cat "$uv_output" 2>/dev/null || true)"
     rm -f "$uv_output"
     case "$output" in
       *'not installed'* | *'No tool'* | *'not found'*)
-        record_action wheel agentnexus remove skipped "" "already absent"
+        record_action wheel "$package" remove skipped "" "already absent"
         ;;
       *)
-        record_action wheel agentnexus remove failed "" "uv tool uninstall failed: $output"
+        record_action wheel "$package" remove failed "" "uv tool uninstall failed: $output"
         ;;
     esac
   fi
@@ -698,7 +724,7 @@ emit_json() {
 }
 
 if ! has_shell_install_signal; then
-  record_action anchor agentnexus detect failed "" "no Omnigent install detected"
+  record_action anchor agentnexus detect failed "" "no AgentNexus install detected"
   EXIT_CODE=3
   [ "$JSON" = true ] && emit_json
   exit "$EXIT_CODE"

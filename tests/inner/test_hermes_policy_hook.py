@@ -1,6 +1,6 @@
 """Tests for the Hermes pre_tool_call policy hook's relay-tool skip.
 
-AgentNexus relay tools (surfaced into Hermes as ``mcp_omnigent_*``) are gated when
+AgentNexus relay tools (surfaced into Hermes as ``mcp_agentnexus_*``) are gated when
 the relay dispatches them back through the server's tool path. The hook must NOT
 gate them a second time (that parks a duplicate approval card whose long-poll
 hangs, wedging the turn). Hermes' own tools are still gated here.
@@ -49,9 +49,9 @@ def _run(monkeypatch: pytest.MonkeyPatch, tool_name: str) -> tuple[dict, bool]:
 @pytest.mark.parametrize(
     "tool_name",
     [
-        "mcp_omnigent_sys_session_get_info",  # hermes single-underscore form
-        "mcp_omnigent_sys_os_write",
-        "mcp__omnigent__list_comments",  # native double-underscore form
+        "mcp_agentnexus_sys_session_get_info",  # hermes single-underscore form
+        "mcp_agentnexus_sys_os_write",
+        "mcp__agentnexus__list_comments",  # native double-underscore form
     ],
 )
 def test_relay_tools_are_skipped(

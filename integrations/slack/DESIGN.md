@@ -214,7 +214,7 @@ user-facing messages, shared by the session-startup and mid-turn paths:
 
 - **401** → "log in again" (`/agentnexus`).
 - **Unreachable** → "reconfigure" (`/agentnexus`).
-- **No online host** → the `omni host --server …` command.
+- **No online host** → the `agentnexus host --server …` command.
 - **412 `harness_not_configured`** → the server's *curated* `error.message` (run
   `agentnexus setup` on the host). Server error bodies are otherwise **not** echoed
   to the channel (they can leak internal paths/stack traces) — only this specific,

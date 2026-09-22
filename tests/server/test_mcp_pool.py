@@ -99,6 +99,8 @@ class _FakeConn:
     connect_calls: int = 0
     close_calls: int = 0
     call_tool_results: dict[str, str] = None  # type: ignore[assignment]
+    call_started: asyncio.Event | None = None
+    release_call: asyncio.Event | None = None
 
     def __post_init__(self) -> None:
         """Initialize mutable defaults."""
@@ -127,6 +129,10 @@ class _FakeConn:
         :param arguments: Tool arguments (unused).
         :returns: Scripted result or generic stub string.
         """
+        if self.call_started is not None:
+            self.call_started.set()
+        if self.release_call is not None:
+            await self.release_call.wait()
         return self.call_tool_results.get(name, f"result:{name}")
 
 
@@ -455,6 +461,64 @@ async def test_shutdown_all_closes_all_entries(
     assert patch_mcp_connection["jira"].close_calls == 1, (
         "jira connection must be closed once by shutdown_all"
     )
+
+
+@pytest.mark.asyncio
+async def test_eviction_waits_for_active_tool_call(
+    patch_mcp_connection: dict[str, _FakeConn],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Eviction must not close a connection while its tool call is running."""
+    monkeypatch.setattr(_mcp_pool_module, "_POOL_AGENT_CAPACITY", 1)
+    conn = _FakeConn(tools=[_make_tool("search")])
+    conn.call_started = asyncio.Event()
+    conn.release_call = asyncio.Event()
+    patch_mcp_connection["gh"] = conn
+    patch_mcp_connection["jira"] = _FakeConn(tools=[_make_tool("create_ticket")])
+    pool = ServerMcpPool()
+    spec_gh = _make_spec(_make_config("gh"))
+    spec_jira = _make_spec(_make_config("jira"))
+
+    call_task = asyncio.create_task(pool.call_tool("agent_gh", spec_gh, "gh", "search", {}))
+    await asyncio.wait_for(conn.call_started.wait(), timeout=1)
+    await pool.list_tools("agent_jira", spec_jira)
+    await asyncio.sleep(0)
+    assert conn.close_calls == 0
+
+    conn.release_call.set()
+    assert await call_task == "result:search"
+    await pool.shutdown_all()
+    assert conn.close_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_all_waits_for_background_evictions(
+    patch_mcp_connection: dict[str, _FakeConn],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Server shutdown must await evictions started by the capacity guard."""
+    monkeypatch.setattr(_mcp_pool_module, "_POOL_AGENT_CAPACITY", 1)
+    conn = _FakeConn(tools=[_make_tool("search")])
+    conn.call_started = asyncio.Event()
+    conn.release_call = asyncio.Event()
+    patch_mcp_connection["gh"] = conn
+    patch_mcp_connection["jira"] = _FakeConn(tools=[_make_tool("create_ticket")])
+    pool = ServerMcpPool()
+    spec_gh = _make_spec(_make_config("gh"))
+    spec_jira = _make_spec(_make_config("jira"))
+
+    call_task = asyncio.create_task(pool.call_tool("agent_gh", spec_gh, "gh", "search", {}))
+    await asyncio.wait_for(conn.call_started.wait(), timeout=1)
+    await pool.list_tools("agent_jira", spec_jira)
+    shutdown_task = asyncio.create_task(pool.shutdown_all())
+    await asyncio.sleep(0)
+    assert not shutdown_task.done()
+    assert conn.close_calls == 0
+
+    conn.release_call.set()
+    await call_task
+    await asyncio.wait_for(shutdown_task, timeout=1)
+    assert conn.close_calls == 1
 
 
 # ── spec hash invalidation ─────────────────────────────────────────────────

@@ -160,7 +160,7 @@ def test_global_config_databricks_auth_applied_when_spec_has_no_auth(
     When the spec declares no auth, ``_load_global_auth()`` is consulted
     and a global ``auth: {type: databricks, profile: …}`` is applied.
 
-    Failure means ``omnigent setup`` auth configuration is silently
+    Failure means ``agentnexus setup`` auth configuration is silently
     ignored for claude-sdk agents (it was applied to openai-agents but
     not claude-sdk before this fix).
     """

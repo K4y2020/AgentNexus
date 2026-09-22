@@ -69,7 +69,7 @@ concurrency:
 jobs:
   benchmark:
     name: Run benchmark (${{ matrix.backend }})
-    if: github.repository == 'agentnexus-ai/agentnexus'
+    if: github.repository == 'K4y2020/AgentNexus'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:

@@ -34,7 +34,7 @@ def _argv_run_omnigent(
     yaml_path: Path,
     prompt: str,
 ) -> list[str]:
-    """Build the ``omnigent run -p`` argv."""
+    """Build the ``agentnexus run -p`` argv."""
     return [
         str(omnigent_python),
         "-m",
@@ -60,7 +60,7 @@ def test_instructions_path_field_loaded_via_omnigent_run_omnigent(
 ) -> None:
     """
     A YAML with ``instructions: AGENTS.md`` runs through
-    ``omnigent run`` and the agent starts successfully.
+    ``agentnexus run`` and the agent starts successfully.
 
     The mock LLM is configured to return the marker, proving
     the instructions file was resolved and injected.

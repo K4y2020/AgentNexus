@@ -50,6 +50,18 @@ def test_omnigent_mcp_round_trips_only_when_disabled() -> None:
     }
 
 
+@pytest.mark.parametrize("current", [False, True])
+def test_legacy_mcp_config_key_is_read_but_written_with_new_name(current: bool) -> None:
+    entry = {"name": "Example", "command": "example acp", "omnigent_mcp": False}
+    config = {"acp": {"agents": [entry]}}
+    assert acp_agents(config)[0].agentnexus_mcp is False
+    assert acp_agents_settings(acp_agents(config))["acp"]["agents"][0]["agentnexus_mcp"] is False
+    entry["agentnexus_mcp"] = current
+    parsed = acp_agents(config)
+    assert parsed[0].agentnexus_mcp is current
+    assert "omnigent_mcp" not in acp_agents_settings(parsed)["acp"]["agents"][0]
+
+
 @pytest.mark.parametrize("value", ["false", None, 0, 1])
 def test_omnigent_mcp_requires_boolean(value: object) -> None:
     with pytest.raises(ValueError, match="agentnexus_mcp must be a boolean"):

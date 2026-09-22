@@ -55,7 +55,7 @@ def conversation_url(base_url: str, conversation_id: str) -> str:
     (``https://<ws>/api/2.0/omnigent``) the web UI lives on the
     workspace SPA mount, so the link becomes
     ``https://<ws>/agentnexus/c/<id>`` — with the ``?o=<org>``
-    workspace selector appended when ``omnigent login`` recorded the
+    workspace selector appended when ``agentnexus login`` recorded the
     org id.
 
     :param base_url: AgentNexus server base URL, e.g. ``"http://127.0.0.1:6767"``.
@@ -70,7 +70,7 @@ def conversation_url(base_url: str, conversation_id: str) -> str:
             (
                 parsed.scheme,
                 parsed.netloc,
-                f"{WORKSPACE_UI_PATH}/c/{encoded_id}",
+                f"{server.workspace_ui_path or WORKSPACE_UI_PATH}/c/{encoded_id}",
                 urllib.parse.urlencode({"o": server.org_id}) if server.org_id else "",
                 "",
             )

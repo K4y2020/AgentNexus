@@ -47,4 +47,4 @@ def test_reads_process_environment_by_default(monkeypatch: pytest.MonkeyPatch) -
 def test_rendered_hint_names_the_wrapper() -> None:
     env = {WRAPPER_COMMAND_ENV: "isaac omni"}
     assert f"Run `{cli_invocation(env=env)} stop`" == "Run `isaac omni stop`"
-    assert f"Run `{cli_invocation(env={})} stop`" == "Run `omnigent stop`"
+    assert f"Run `{cli_invocation(env={})} stop`" == "Run `agentnexus stop`"

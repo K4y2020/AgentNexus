@@ -6,6 +6,12 @@ bot talks to **one** AgentNexus server, set by the operator via
 issues requests to that fixed host. Each user still authenticates as their own
 AgentNexus identity against it.
 
+Existing `/omnigent` Slack commands, legacy `OMNIGENT_*` environment variables,
+and prior `omnigent_slack.sqlite3` databases remain supported until AgentNexus
+2.0. Canonical `AGENTNEXUS_*` values win, including explicitly empty values.
+Existing SQLite column names are preserved so thread mappings and tokens survive
+the package rename.
+
 > This README is the operator/user guide (setup, scopes, running, auth). For the
 > user-facing behaviour contract (setup, DM, channels, error handling), see
 > **[docs/CUJS.md](docs/CUJS.md)**; for the Databricks-App auth design, see
@@ -78,18 +84,18 @@ Under **Event Subscriptions → Subscribe to bot events**, add:
 
 ## Running the bot
 
-With the `omni` CLI installed, the Slack bot is managed as a background daemon:
+With the `agentnexus` CLI installed, the Slack bot is managed as a background daemon:
 
 ```bash
-omni integration slack              # run in the foreground (Ctrl-C to stop)
-omni integration slack --background # run in the background (detached)
-omni integration slack status       # is the background bot running?
-omni integration slack stop         # stop the background bot
-omni integration slack logs         # print the background bot's log path
-omni integration slack logs -f      # follow the log (like tail -f)
+agentnexus integration slack              # run in the foreground (Ctrl-C to stop)
+agentnexus integration slack --background # run in the background (detached)
+agentnexus integration slack status       # is the background bot running?
+agentnexus integration slack stop         # stop the background bot
+agentnexus integration slack logs         # print the background bot's log path
+agentnexus integration slack logs -f      # follow the log (like tail -f)
 ```
 
-`omni integration slack --background` spawns a detached daemon and returns
+`agentnexus integration slack --background` spawns a detached daemon and returns
 immediately; `status`/`stop`/`logs` manage it. Running `--background` again
 while it's already up is a no-op that reports the existing process.
 
@@ -99,13 +105,13 @@ All configuration (the two Slack tokens, `AGENTNEXUS_SERVER_URL`, and the
 optional `AGENTNEXUS_DEVICE_CLIENT_SECRET` / `AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY`)
 comes from **real environment variables** — the bot does **not** read a `.env`
 file itself. For local dev, either export the vars, or launch under a tool that
-injects a `.env` — e.g. `uv run --env-file .env omni integration slack`, or
+injects a `.env` — e.g. `uv run --env-file .env agentnexus integration slack`, or
 `export $(grep -v '^#' .env | xargs)` before running. In production the
 Docker / Databricks deploy sets them directly. `.env.example` documents the
 full set of variables to copy from.
 
 The bot lives in the separate `agentnexus-slack` package, which must be installed
-**in the same environment as** `omni` for the `omni integration slack` commands
+**in the same environment as** `agentnexus` for the `agentnexus integration slack` commands
 to find it. Install it as the `slack` extra of agentnexus:
 
 ```bash
@@ -269,7 +275,7 @@ with the command to start one, then reconfigure:
 
 ```text
 Run this on the machine you want to use, then run /agentnexus:
-`omni host --server <your-server-url>`
+`agentnexus host --server <your-server-url>`
 ```
 
 
@@ -313,5 +319,5 @@ from the repo-root env:
 ```bash
 # From the repo root — install the Slack capability and contributor tooling:
 uv sync --extra slack --group dev
-uv run --no-sync omni integration slack
+uv run --no-sync agentnexus integration slack
 ```

@@ -1,5 +1,5 @@
 """
-Async-dispatch demo tool set for ``omnigent run --tools async_demo``.
+Async-dispatch demo tool set for ``agentnexus run --tools async_demo``.
 
 Ships one tool — ``slow_compute`` — registered as a client-side
 tool. The LLM dispatches it asynchronously by calling
@@ -19,7 +19,7 @@ point is to show the async protocol end-to-end in the TUI
 without needing a real compute workload.
 
 Registered via :func:`omnigent.client_tools.get_tool_set`,
-which ``omnigent run`` calls when ``--tools async_demo`` is
+which ``agentnexus run`` calls when ``--tools async_demo`` is
 passed.
 """
 
@@ -67,7 +67,7 @@ TOOLS: list[dict[str, Any]] = [
 
 def execute_tool(name: str, arguments: dict[str, Any]) -> str:
     """
-    Execute a client-side tool call from ``omnigent run``.
+    Execute a client-side tool call from ``agentnexus run``.
 
     Called by the SDK's action_required handler
     (``_execute_and_patch``) after the server's

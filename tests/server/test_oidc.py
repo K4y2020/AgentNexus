@@ -660,8 +660,8 @@ def test_oidc_source_caches_validated_cookie() -> None:
 def test_oidc_source_accepts_bearer_token() -> None:
     """OIDC source accepts a session JWT via Authorization: Bearer header.
 
-    This is the code path used by ``omnigent run --server`` after
-    ``omnigent login`` stores a token. The CLI sends the JWT as
+    This is the code path used by ``agentnexus run --server`` after
+    ``agentnexus login`` stores a token. The CLI sends the JWT as
     a Bearer token instead of a cookie.
     """
     config = _make_oidc_config()

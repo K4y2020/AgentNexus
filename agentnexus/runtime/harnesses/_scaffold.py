@@ -51,7 +51,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from agentnexus import _native_forwarder_health as native_forwarder_health
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.policies.types import FAIL_CLOSED_PHASES
 from agentnexus.runtime.tool_output import cap_tool_output
 from agentnexus.server.schemas import (
@@ -176,8 +176,10 @@ class MessageEvent(BaseModel):
     A ``message`` arriving while no turn is in flight starts a fresh
     turn (the scaffold allocates a ``response_id`` and runs
     ``run_turn``). A ``message`` arriving while a turn is in flight
-    is enqueued onto that turn's injection queue (the harness
-    delivers it to ``run_turn`` via :meth:`TurnContext.next_injection`).
+    is enqueued onto that turn's injection queue when it has no
+    ``previous_response_id`` or names the active response. A stale
+    or mismatched ``previous_response_id`` is rejected with 409
+    instead of starting a competing turn.
     The harness has at most one in-flight turn per conversation, so
     no explicit turn id is needed on the wire.
 
@@ -1258,13 +1260,15 @@ class HarnessApp:
         Start a new turn or inject into the in-flight one.
 
         Invoked by :meth:`_post_session_event` for ``message``
-        events. Three cases:
+        events. Four cases:
 
         1. ``previous_response_id`` matches an in-flight turn →
            in-band injection: enqueue the request body on that
            turn's injection queue, return 204.
-        2. Scaffold is shutting down → refuse with 503.
-        3. Otherwise → start a new turn: allocate ``response_id``,
+        2. A non-matching ``previous_response_id`` with an active turn →
+           reject with 409 rather than creating a competing turn.
+        3. Scaffold is shutting down → refuse with 503.
+        4. Otherwise → start a new turn: allocate ``response_id``,
            build a :class:`TurnContext`, register it in
            ``_in_flight``, and return a streaming SSE response
            that runs ``run_turn`` to completion.
@@ -1273,18 +1277,27 @@ class HarnessApp:
         :returns: Either a :class:`StreamingResponse` for the new
             turn or a 204 :class:`Response` for an in-band
             injection.
-        :raises AgentNexusError: 503 on shutdown.
+        :raises AgentNexusError: 409 for an active-turn correlation conflict;
+            503 on shutdown.
         """
-        if (
-            request.previous_response_id is not None
-            and request.previous_response_id in self._in_flight
-            and not self._in_flight[request.previous_response_id].cancelled.is_set()
-        ):
-            ctx = self._in_flight[request.previous_response_id]
-            ctx._push_injection(request)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
-
         async with self._lock:
+            active_ctx = self._active_turn_ctx
+
+            if request.previous_response_id is not None:
+                ctx = self._in_flight.get(request.previous_response_id)
+                if ctx is not None and not ctx.cancelled.is_set():
+                    ctx._push_injection(request)
+                    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+                # A stale/mistyped continuation must not create a competing
+                # turn while another response is still running.
+                if active_ctx is not None and not active_ctx.cancelled.is_set():
+                    raise AgentNexusError(
+                        "previous_response_id does not match the active in-flight turn "
+                        f"{active_ctx.response_id!r}",
+                        code=ErrorCode.CONFLICT,
+                    )
+
             # Sessions-native steering: no previous_response_id on
             # the wire, but a turn is actively streaming. Inject.
             # Serialized under _lock so two concurrent requests
@@ -1292,10 +1305,10 @@ class HarnessApp:
             # _active_turn_ctx.
             if (
                 request.previous_response_id is None
-                and self._active_turn_ctx is not None
-                and not self._active_turn_ctx.cancelled.is_set()
+                and active_ctx is not None
+                and not active_ctx.cancelled.is_set()
             ):
-                self._active_turn_ctx._push_injection(request)
+                active_ctx._push_injection(request)
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
 
             if self._shutting_down.is_set():

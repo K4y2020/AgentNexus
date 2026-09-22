@@ -2,7 +2,7 @@
 
 The web UI's "Add a credential" flow (Setup From the UI, M3) needs to write a
 provider credential onto a connected host without the interactive
-``omnigent setup`` wizard. This module is the shared, prompt-free core the host
+``agentnexus setup`` wizard. This module is the shared, prompt-free core the host
 daemon's ``host.store_secret`` handler calls — and which the CLI wizard can
 call too — mirroring how M1 extracted :func:`try_install_harness_cli` as the
 non-interactive install core.
@@ -78,7 +78,7 @@ def _config_writer() -> tuple[Callable[[], dict[str, object]], _ConfigSaver]:
     Isolated so the daemon writes to the same ``~/.agentnexus/config.yaml`` the
     readiness layer reads, without importing the CLI. ``save`` deep-merges the
     ``providers:`` block (adds/updates one entry without dropping siblings),
-    matching ``omnigent setup``'s writer.
+    matching ``agentnexus setup``'s writer.
     """
     import yaml
 
@@ -168,7 +168,7 @@ def store_harness_credential(
     a ``providers:`` entry (``key`` or ``gateway``) referencing it as
     ``keychain:<name>`` — never the raw secret — and makes it the family default
     when no default is set yet. This is the prompt-free equivalent of the
-    ``omnigent setup`` "add a key / gateway" path.
+    ``agentnexus setup`` "add a key / gateway" path.
 
     The secret is passed by value and handed straight to the secret store; it is
     never logged, echoed, or written to ``config.yaml``.

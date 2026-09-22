@@ -4,8 +4,8 @@ const osModule = require("os");
 
 // Markers bracket the PATH value in the shell's stdout so a banner / MOTD /
 // version-manager greeting printed by an rc file can't corrupt what we parse.
-const START = "__OMNIGENT_PATH_START__";
-const END = "__OMNIGENT_PATH_END__";
+const START = "__AGENTNEXUS_PATH_START__";
+const END = "__AGENTNEXUS_PATH_END__";
 
 // Strip ANSI escape sequences (color codes, etc.) that an rc file may emit,
 // before treating the captured bytes as a PATH. Matches a CSI sequence —

@@ -1028,7 +1028,7 @@ def register_resources_routes(
         access: the requested ``terminal`` must be one of the names
         declared in the agent spec's ``terminals:`` block. Native
         harness bootstrap requests (marked ``ensure_native_terminal``
-        or ``bridge_inject_dir`` — the ``omnigent claude`` / ``codex``
+        or ``bridge_inject_dir`` — the ``agentnexus claude`` / ``codex``
         wrappers launching the session's own CLI terminal) are exempt:
         they launch undeclared names via the runner's
         synthesize-from-body path and predate the gate. The markers

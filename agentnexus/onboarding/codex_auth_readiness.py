@@ -20,7 +20,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib  # type: ignore[no-redef]
 
 CODEX_BUILTIN_PROVIDERS = frozenset(
     {"openai", "amazon-bedrock", "amazon-bedrock-runtime", "ollama", "lmstudio"}

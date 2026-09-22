@@ -12,7 +12,7 @@ every step is idempotent.
 
 Usage example:
     python deploy/databricks/deploy.py \\
-        --app-name omnigent --profile <your-profile> \\
+        --app-name agentnexus --profile <your-profile> \\
         --lakebase-branch projects/agentnexus/branches/production \\
         --lakebase-database \\
             projects/agentnexus/branches/production/databases/databricks-postgres \\
@@ -122,8 +122,8 @@ def _compute_deploy_version(base: str, explicit: str | None) -> str:
     base = re.sub(r"(\.post\d+|\.dev\d+)+$", "", base)
     # Post-release, not dev: pip treats `.dev` as a pre-release and
     # ignores it when resolving `>=` constraints, so a deploy that
-    # bumps via `.dev` clashes with `omnigent-ui-sdk` declaring
-    # `omnigent-client>=0.1.0`. `.post` is a final release and
+    # bumps via `.dev` clashes with `agentnexus-ui-sdk` declaring
+    # `agentnexus-client>=0.1.0`. `.post` is a final release and
     # sorts strictly above the base.
     return f"{base}.post{int(time.time())}"
 
@@ -151,11 +151,11 @@ def set_version_in_pyproject(path: Path, new_version: str) -> str:
     )
     if count != 1:
         raise RuntimeError(f"could not rewrite version in {path}")
-    # The lockstep graph is circular: omnigent pins both SDKs, the
-    # client pins omnigent back, and the ui-sdk pins the client. All
+    # The lockstep graph is circular: agentnexus pins both SDKs, the
+    # client pins agentnexus back, and the ui-sdk pins the client. All
     # three names must be stamped or the resolver still dead-ends.
     updated = re.sub(
-        r'"(omnigent(?:-client|-ui-sdk)?)==[^"]+"',
+        r'"(agentnexus(?:-client|-ui-sdk)?)==[^"]+"',
         rf'"\1=={new_version}"',
         updated,
     )
@@ -179,7 +179,7 @@ def _restore_versions(backups: dict[Path, str]) -> None:
 def _clean_build_artifacts() -> None:
     """Remove stale build outputs.
 
-    Old Vite bundles in ``omnigent/server/static/web-ui/``
+    Old Vite bundles in ``agentnexus/server/static/web-ui/``
     accumulate uniquely-hashed JS chunk filenames between builds.
     Without this sweep, orphan files get bundled into the main wheel
     and push it over the 10 MB Workspace upload limit.
@@ -229,7 +229,7 @@ def _build_wheels(skip_web_ui: bool) -> list[Path]:
 class _ClassifiedWheels:
     """Result of sorting built wheels by size for upload routing.
 
-    :param main: The top-level ``omnigent`` wheel — always uploaded
+    :param main: The top-level ``agentnexus`` wheel — always uploaded
         with the ``[databricks,tracing]`` extras.
     :param small: Wheels ≤ 10 MB. Uploaded into the bundle's
         ``source_code_path`` and referenced by relative path.
@@ -259,7 +259,7 @@ def _wheel_version(wheel: Path, prefix: str) -> str:
     """Extract a deploy version from an AgentNexus wheel filename.
 
     :param wheel: Built wheel path, e.g.
-        ``dist/omnigent-0.1.0.post123-py3-none-any.whl``.
+        ``dist/agentnexus-0.1.0.post123-py3-none-any.whl``.
     :param prefix: Expected wheel filename prefix, e.g. ``"agentnexus-"``.
     :returns: Version embedded in the wheel filename, e.g.
         ``"0.1.0.post123"``.
@@ -374,7 +374,7 @@ def _toml_string(value: str) -> str:
     """Return ``value`` encoded as a TOML basic string.
 
     :param value: String to encode for generated TOML, e.g.
-        ``"./omnigent-0.1.0-py3-none-any.whl"``.
+        ``"./agentnexus-0.1.0-py3-none-any.whl"``.
     :returns: TOML string literal with quotes and backslashes escaped.
     """
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -384,7 +384,7 @@ def _wheel_source_path(wheel: Path) -> str:
     """Return the path Databricks Apps should use for a wheel source.
 
     :param wheel: Built wheel path, e.g.
-        ``dist/omnigent-0.1.0-py3-none-any.whl``.
+        ``dist/agentnexus-0.1.0-py3-none-any.whl``.
     :returns: Relative source path for bundled wheels.
     :raises SystemExit: If ``wheel`` is oversize.
     """
@@ -403,8 +403,8 @@ def _uv_source_lines(
 ) -> list[str]:
     """Build ``[tool.uv.sources]`` lines for the three deploy wheels.
 
-    :param main_wheel: Top-level ``omnigent`` wheel path, e.g.
-        ``dist/omnigent-0.1.0-py3-none-any.whl``.
+    :param main_wheel: Top-level ``agentnexus`` wheel path, e.g.
+        ``dist/agentnexus-0.1.0-py3-none-any.whl``.
     :param small_wheels: Wheels copied into the app source directory.
     :param oversize_wheels: Wheels too large for the app source directory.
     :returns: TOML lines mapping package names to wheel paths.
@@ -432,8 +432,8 @@ def build_uv_pyproject(
 ) -> str:
     """Compose the app-level ``pyproject.toml`` for Databricks Apps.
 
-    :param main_wheel: Top-level ``omnigent`` wheel path, e.g.
-        ``dist/omnigent-0.1.0-py3-none-any.whl``.
+    :param main_wheel: Top-level ``agentnexus`` wheel path, e.g.
+        ``dist/agentnexus-0.1.0-py3-none-any.whl``.
     :param small_wheels: Wheels copied into the app source directory.
     :param oversize_wheels: Wheels too large for the app source directory.
     :param deploy_version: Version stamped into the wheels, e.g.
@@ -491,8 +491,8 @@ def write_uv_dependency_files(
     """Write the uv dependency files Databricks Apps should install.
 
     :param src: App source directory, e.g. ``deploy/databricks/src``.
-    :param main_wheel: Top-level ``omnigent`` wheel path, e.g.
-        ``dist/omnigent-0.1.0-py3-none-any.whl``.
+    :param main_wheel: Top-level ``agentnexus`` wheel path, e.g.
+        ``dist/agentnexus-0.1.0-py3-none-any.whl``.
     :param small_wheels: Wheels copied into ``src``.
     :param oversize_wheels: Wheels too large for ``src``.
     :param deploy_version: Version stamped into the wheels, e.g.

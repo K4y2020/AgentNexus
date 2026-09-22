@@ -20,7 +20,7 @@
     "test": "node --test",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
-    "build:mac:release": "OMNIGENT_NOTARIZE_DMG=true electron-builder --mac -c.mac.notarize=true -c.dmg.sign=true",
+    "build:mac:release": "AGENTNEXUS_NOTARIZE_DMG=true electron-builder --mac -c.mac.notarize=true -c.dmg.sign=true",
     "build:linux": "electron-builder --linux",
     "build:win": "electron-builder --win",
     "build:win:portable": "electron-builder --win zip",
@@ -49,7 +49,7 @@
         "name": "AgentNexus session link",
         "schemes": [
           "agentnexus",
-          "agentnexus"
+          "omnigent"
         ]
       }
     ],

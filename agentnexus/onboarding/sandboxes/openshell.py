@@ -455,7 +455,7 @@ class OpenShellSandboxLauncher(SandboxLauncher):
         """
         Run *command* in the sandbox, streaming its output, until it exits.
 
-        Holds ``omnigent host`` open for ``omnigent sandbox connect``;
+        Holds ``omnigent host`` open for ``agentnexus sandbox connect``;
         Ctrl-C kills the remote process and re-raises ``KeyboardInterrupt``.
         """
         client = self._openshell()

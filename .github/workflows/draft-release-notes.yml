@@ -57,7 +57,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_REPO: agentnexus-ai/agentnexus
+  SOURCE_REPO: K4y2020/AgentNexus
   AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
@@ -66,7 +66,7 @@ jobs:
   draft:
     name: Harvest CHANGELOG and draft release notes
     if: >-
-      github.repository == 'agentnexus-ai/agentnexus' &&
+      github.repository == 'K4y2020/AgentNexus' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest

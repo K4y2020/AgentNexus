@@ -1,6 +1,6 @@
 """Single source of truth for AgentNexus wrapper-session labels.
 
-Wrapper-style sessions (``omnigent claude`` today; future
+Wrapper-style sessions (``agentnexus claude`` today; future
 ``codex`` / ``pi`` wrappers tomorrow) stamp an ``omnigent.wrapper``
 label on the conversation row at creation time. The server reads it
 to gate behavior (claude-native message bypass at
@@ -36,7 +36,7 @@ WRAPPER_LABEL_KEY = "agentnexus.wrapper"
 UI_MODE_LABEL_KEY = "agentnexus.ui"
 UI_MODE_TERMINAL_VALUE = "terminal"
 
-# Value the ``omnigent claude`` wrapper writes into
+# Value the ``agentnexus claude`` wrapper writes into
 # ``conversations.labels[WRAPPER_LABEL_KEY]``. Treated as a string
 # literal on the wire (see API.md "Bind Session Runner") so changes
 # here are a server-side contract break.

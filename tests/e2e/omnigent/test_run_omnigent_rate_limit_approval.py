@@ -1,10 +1,10 @@
 """
 End-to-end test for the rate-limit-search policy ASK / approve
-flow under ``omnigent run``.
+flow under ``agentnexus run``.
 
 Reproduces the user-reported scenario verbatim:
 
-1. Spawn ``omnigent run examples/rate_limited_search_agent.yaml``
+1. Spawn ``agentnexus run examples/rate_limited_search_agent.yaml``
    under a real PTY (Databricks routing via the credentials env).
 2. Send a prompt that asks for 4 web searches — the policy ALLOWs
    the first 3 and ASKs on the 4th.

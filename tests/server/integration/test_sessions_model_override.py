@@ -342,11 +342,11 @@ async def test_create_session_explicit_reasoning_effort_overrides_spec(
 async def test_bundle_create_inherits_spec_reasoning_effort(
     client: httpx.AsyncClient,
 ) -> None:
-    """A bundle upload (the ``omnigent run <dir>`` path) inherits spec effort.
+    """A bundle upload (the ``agentnexus run <dir>`` path) inherits spec effort.
 
     ``create_test_agent`` creates its owning session via the multipart bundle
     path, which must seed ``executor.reasoning_effort`` from the spec just like
-    the agent-id path — otherwise ``omnigent run`` with a spec-level default
+    the agent-id path — otherwise ``agentnexus run`` with a spec-level default
     would silently start at the harness default.
     """
     agent = await create_test_agent(

@@ -1,9 +1,9 @@
-"""Rendering + flow helpers for ``omnigent setup --no-internal-beta``.
+"""Rendering + flow helpers for ``agentnexus setup --no-internal-beta``.
 
 The user-facing model-selection surface (chunk 2b of
 ``designs/oss-cuj/04-model-selection-implementation.md``) has two pieces:
 
-- the ``omnigent setup --no-internal-beta`` CLI command (interactive
+- the ``agentnexus setup --no-internal-beta`` CLI command (interactive
   add/set-default/remove + a scriptable ``list`` subcommand), and
 - the ``/model`` REPL readout/switch (in :mod:`omnigent.repl._repl`).
 
@@ -495,12 +495,12 @@ def add_menu_options() -> list[AddOption]:
             other=True,
         ),
         # AWS Bedrock / Bedrock-compatible gateway — anthropic-only, drives the
-        # native ``omnigent claude`` terminal in Bedrock mode. Listed last so it
+        # native ``agentnexus claude`` terminal in Bedrock mode. Listed last so it
         # never shifts the first-party / extras order users already know.
         _opt(
             "AWS Bedrock — API key",
             "AWS Bedrock or a Bedrock-compatible gateway for the native Claude "
-            "terminal (omnigent claude). Claude only.",
+            "terminal (agentnexus claude). Claude only.",
             BEDROCK_KIND,
         ),
     ]
@@ -825,7 +825,7 @@ def build_bedrock_provider_entry(
     """Build a ``kind: bedrock`` provider entry body (config shape).
 
     A Bedrock provider serves only the ``anthropic`` family and drives the
-    native ``omnigent claude`` terminal in AWS Bedrock mode (the in-process /
+    native ``agentnexus claude`` terminal in AWS Bedrock mode (the in-process /
     gateway harnesses reject it). ``base_url`` is the regional Bedrock-runtime
     endpoint or a Bedrock-compatible gateway; ``api_key_ref`` resolves the AWS
     bearer token delivered via ``AWS_BEARER_TOKEN_BEDROCK``.

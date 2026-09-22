@@ -1,13 +1,13 @@
-//! omnidev — dev tooling for Omnigent.
+//! omnidev — dev tooling for AgentNexus.
 //!
 //! Three surfaces in one binary:
 //! - **pod supervisor** (bare `omnidev`): manages an isolated dev instance for
 //!   the current checkout — server/host/vite, restarting the backend on Python
 //!   changes while Vite handles frontend HMR.
 //! - **install management** (`omnidev install`/`update`/`check`/…): install and
-//!   keep a git-based omnigent up to date. These need no checkout and run
+//!   keep a git-based agentnexus up to date. These need no checkout and run
 //!   anywhere.
-//! - **omnigent passthrough** (`omnidev omnigent …`): run any omnigent command
+//! - **agentnexus passthrough** (`omnidev agentnexus …`): run any agentnexus command
 //!   against the current checkout's pod via pinned `uv run --python …`, with the pod's
 //!   isolated env applied. Requires a checkout, like the supervisor.
 
@@ -43,7 +43,7 @@ use state::Shared;
 use supervisor::{Cmd, Supervisor};
 
 #[derive(Parser, Debug)]
-#[command(name = "omnidev", about = "Dev tooling for Omnigent", version)]
+#[command(name = "omnidev", about = "Dev tooling for AgentNexus", version)]
 struct Args {
     #[command(subcommand)]
     command: Option<Command>,
@@ -52,11 +52,11 @@ struct Args {
     run: RunArgs,
 }
 
-/// Top-level subcommands. Install management works anywhere; the `omnigent`
+/// Top-level subcommands. Install management works anywhere; the `agentnexus`
 /// passthrough requires a checkout (like the bare supervisor default).
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Install omnigent from git (defaults to the databricks extra, main).
+    /// Install agentnexus from git (defaults to the databricks extra, main).
     Install {
         /// Git ref (branch/tag/sha) to track.
         #[arg(long, default_value = install::DEFAULT_REF)]
@@ -73,7 +73,7 @@ enum Command {
     },
     /// Reinstall the latest of the tracked ref/extras.
     Update,
-    /// Check for an omnigent update (the shell hook calls this).
+    /// Check for an agentnexus update (the shell hook calls this).
     Check {
         /// Print nothing when already up to date.
         #[arg(long)]
@@ -83,13 +83,15 @@ enum Command {
     Refresh,
     /// Print a shell snippet to eval from .zshrc/.bashrc for daily checks.
     ShellHook,
-    /// Run an omnigent command against this checkout's pod (pinned `uv run --python …`).
+    /// Run an agentnexus command against this checkout's pod (pinned `uv run --python …`).
     ///
-    /// Everything after the subcommand is forwarded verbatim to omnigent. The
+    /// Everything after the subcommand is forwarded verbatim to agentnexus. The
     /// pod's isolated env (data dir, database, config, server URL) is applied,
     /// so a command talks to the same pod the supervisor runs — and coexists
     /// with a running supervisor. Use `--` to pass flags that look like
-    /// omnidev's own: `omnidev omnigent -- --verbose agent run …`.
+    /// omnidev's own: `omnidev agentnexus -- --verbose agent run …`.
+    // The legacy command alias is supported until AgentNexus 2.0.
+    #[command(name = "agentnexus", visible_alias = "omnigent")]
     Omnigent {
         #[arg(num_args = 0.., trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
@@ -99,7 +101,7 @@ enum Command {
 /// Flags for the default (no-subcommand) pod-supervisor run.
 #[derive(clap::Args, Debug)]
 struct RunArgs {
-    /// Process profile for an Omnigent integration with a different repository layout.
+    /// Process profile for an AgentNexus integration with a different repository layout.
     #[arg(long)]
     profile: Option<PathBuf>,
 
@@ -142,7 +144,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     // Install-management subcommands manage a global tool and must work from
-    // anywhere — dispatch them before any checkout discovery. `omnigent …` is
+    // anywhere — dispatch them before any checkout discovery. `agentnexus …` is
     // the pod-wired passthrough. No subcommand runs the pod supervisor.
     match args.command {
         Some(Command::Install {
@@ -177,12 +179,12 @@ fn main() -> Result<()> {
     }
 }
 
-/// `omnidev omnigent …` — run an arbitrary omnigent command against this
+/// `omnidev agentnexus …` — run an arbitrary agentnexus command against this
 /// checkout's pod via pinned `uv run --python …`, with the pod's isolated env (data
 /// dir, database URI, config home, server URL) applied on top of the inherited
 /// parent env. Resolves the repo root and pod dir (same as the supervisor),
 /// ensures the pod tree exists, then spawns in the foreground inheriting stdio.
-/// Exits with omnigent's status code. Acquires no lock — it coexists with a
+/// Exits with agentnexus's status code. Acquires no lock — it coexists with a
 /// running supervisor (the common case: server up, you run a command).
 fn run_omnigent(args: RunArgs, passthrough: Vec<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
@@ -193,7 +195,7 @@ fn run_omnigent(args: RunArgs, passthrough: Vec<String>) -> Result<()> {
     };
     std::fs::create_dir_all(&pod_dir)?;
 
-    // Read persisted ports so OMNIGENT_URL points at a running supervisor's
+    // Read persisted ports so AGENTNEXUS_URL points at a running supervisor's
     // server (if any). Supervisor-only flags don't apply to the passthrough, so
     // never override — the pod stays in sync with whatever the supervisor set.
     let ports = Ports::resolve(&pod_dir, None, None)?;
@@ -210,7 +212,7 @@ fn run_omnigent(args: RunArgs, passthrough: Vec<String>) -> Result<()> {
 }
 
 /// Default path: the pod supervisor for the current checkout. This is the only
-/// path that requires an Omnigent checkout.
+/// path that requires an AgentNexus checkout.
 #[tokio::main]
 async fn run_supervisor(args: RunArgs) -> Result<()> {
     let cwd = std::env::current_dir()?;
@@ -289,4 +291,21 @@ async fn run_supervisor(args: RunArgs) -> Result<()> {
     let _ = sup_handle.await;
 
     result
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+
+    #[test]
+    fn canonical_and_legacy_passthrough_preserve_arguments() {
+        for command in ["agentnexus", "omnigent"] {
+            let args = Args::try_parse_from(["omnidev", command, "--", "--verbose", "agent", "list"])
+                .unwrap();
+            match args.command {
+                Some(Command::Omnigent { args }) => assert_eq!(args, ["--verbose", "agent", "list"]),
+                other => panic!("unexpected parsed command: {other:?}"),
+            }
+        }
+    }
 }

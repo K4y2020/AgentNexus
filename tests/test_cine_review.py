@@ -76,6 +76,33 @@ def test_host_dispatch_reads_only_bound_report_and_current_token(project):
         read_review(root, "session1", {})
 
 
+def test_topic_workspace_accepts_runner_session_via_canonical_topic_binding(tmp_path):
+    """A server session may differ from the canonical Bot Topic id."""
+    root = tmp_path / "topics/topic1"
+    project = root / "projects/film"
+    revision = project / "revisions/r1"
+    write(
+        root / ".cine/sessions/topic1.json",
+        {"session_id": "topic1", "project_path": str(project)},
+    )
+    write(project / "project.json", {"current_revision": "r1"})
+    write(project / "source.json", {"source_id": "source1", "path": "inputs/source.mp4"})
+    write(revision / "source_shots.json", [])
+    write(revision / "evidence_index.json", [])
+    data = {"sourceId": "source1", "revisionId": "r1", "images": [], "cues": []}
+    report = revision / "report/report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text(
+        '<script id="review-data" type="application/json">' + json.dumps(data) + "</script>",
+        encoding="utf-8",
+    )
+
+    result = read_review(root, "server-session", {})
+
+    assert result["status"] == "ready"
+    assert result["project"] == "projects/film"
+
+
 def test_new_json_and_old_writer_cannot_leave_stale_report(project):
     root, _, revision, data = project
     report = revision / "report/report.html"

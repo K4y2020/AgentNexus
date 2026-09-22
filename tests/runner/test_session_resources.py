@@ -782,7 +782,7 @@ async def test_get_terminal_by_id_returns_404_when_tmux_exited(
     """
     GET verifies live tmux state instead of trusting a stale flag.
 
-    This is the signal ``omnigent claude`` uses after its attach
+    This is the signal ``agentnexus claude`` uses after its attach
     WebSocket closes cleanly. If this endpoint returns 200 after the
     command's tmux server has exited, the native wrapper treats normal
     Claude exit as a server bounce and reconnects forever.
@@ -943,7 +943,7 @@ async def test_create_terminal_uses_runner_workspace_as_default_cwd(
     """
     Runner-created terminals default to the local runner workspace.
 
-    This is the resource endpoint used by ``omnigent claude``. The
+    This is the resource endpoint used by ``agentnexus claude``. The
     request body intentionally avoids embedding the client's cwd, so
     the runner must supply its own workspace default before launching
     tmux.
@@ -1039,7 +1039,7 @@ async def test_create_terminal_threads_agent_parent_os_env_through(
     ``TerminalEnvSpec`` from the body with **no** sandbox at all,
     so every REST-launched terminal ran completely outside the
     agent's configured sandbox — operator/API callers (e.g. the
-    ``omnigent claude`` wrapper) could spawn an unsandboxed
+    ``agentnexus claude`` wrapper) could spawn an unsandboxed
     terminal in a session whose YAML declared an egress allow-list.
     """
     from agentnexus.inner.datamodel import AgentDef, OSEnvSandboxSpec, OSEnvSpec

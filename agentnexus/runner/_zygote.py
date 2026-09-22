@@ -1,6 +1,6 @@
 """A copy-on-write forkserver ("zygote") for runner processes.
 
-Every session today spawns a fresh ``python -m omnigent.runner._entry``, each
+Every session today spawns a fresh ``python -m agentnexus.runner._entry``, each
 paying the full import floor (omnigent's graph + pydantic/fastapi/httpx) — on a
 host running N sessions that floor is duplicated N times. This module collapses
 it: a single long-lived zygote imports the runner graph ONCE, then ``os.fork()``s
@@ -24,7 +24,7 @@ Protocol (newline-delimited JSON, one request → one response):
 The forked child closes the control socket, points stdio at the session log
 file, applies the request's env into ``os.environ``, and calls the unchanged
 ``omnigent.runner._entry.main()`` — so it behaves exactly like a cold
-``python -m omnigent.runner._entry``.
+``python -m agentnexus.runner._entry``.
 
 **Parent-pid contract:** the runner's parent-death watchdog treats
 ``os.getppid() != RUNNER_PARENT_PID`` as "orphaned" (see
@@ -250,7 +250,7 @@ def _maybe_run_test_seam() -> None:
 def _run_harness_child(request: dict[str, Any]) -> None:
     """Execute a harness subprocess in the freshly forked child. Never returns.
 
-    Reproduces ``python -m omnigent.runtime.harnesses._runner`` (which the
+    Reproduces ``python -m agentnexus.runtime.harnesses._runner`` (which the
     process manager would otherwise exec) in-process, so the harness shares the
     zygote's already-imported graph copy-on-write. The fork handler has already
     closed every inherited zygote control socket.

@@ -1,4 +1,4 @@
-"""End-to-end: ``omnigent run`` renders through sessions (mock LLM).
+"""End-to-end: ``agentnexus run`` renders through sessions (mock LLM).
 
 Migrated to mock LLM: uses the mock server for the LLM response
 so the test is deterministic and needs no Databricks credentials.
@@ -35,7 +35,7 @@ def _spawn_repl(
     yaml_path: Path,
     env: dict[str, str],
 ) -> pexpect.spawn:
-    """Spawn ``omnigent run`` under a PTY."""
+    """Spawn ``agentnexus run`` under a PTY."""
     spawn_env = {
         **env,
         "TERM": "xterm-256color",
@@ -66,7 +66,7 @@ def test_repl_default_sessions_renders_assistant_text(
     mock_llm_server_url: str,
     tmp_path: Path,
 ) -> None:
-    """``omnigent run`` renders assistant text through sessions.
+    """``agentnexus run`` renders assistant text through sessions.
 
     Drives the REPL through a PTY: types the prompt, waits for the
     marker to appear on stdout, then exits via Ctrl+D.

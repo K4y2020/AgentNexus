@@ -92,7 +92,7 @@ def validate_agent_bundle(
         reject any ``type: function`` policy whose handler is not a
         registered policy handler, before the inner loader
         can resolve and call it. Callers pass ``False`` only for a
-        trusted single-user/local server, where ``omnigent run`` uploads
+        trusted single-user/local server, where ``agentnexus run`` uploads
         the operator's own bundle through this same path and custom
         handlers must keep working (the operator already has code
         execution, so the restriction would add no security). See the

@@ -940,10 +940,10 @@ def _print_pypi_notice(current: str, latest: str) -> None:
     console = Console(stderr=True)
     body = Text.assemble(
         ("Update available", "bold yellow"),
-        " — omnigent ",
+        " — agentnexus ",
         (latest, "bold"),
         f" is out (you have {current}).\nRun ",
-        ("omni upgrade", "bold"),
+        ("agentnexus upgrade", "bold"),
         " to update.",
     )
     console.print(Panel(body, border_style="yellow", expand=False))
@@ -1411,7 +1411,7 @@ class _UpgradeSuggestion:
     """A suggested upgrade command for the user's install shape.
 
     :param command: The shell command (or prose) we display in the
-        nag panel, e.g. ``"uv tool upgrade omnigent"`` or
+        nag panel, e.g. ``"uv tool upgrade agentnexus"`` or
         ``"reinstall omnigent from your original source"``.
         Always populated.
     :param runnable: ``True`` when ``command`` is a real shell
@@ -1719,7 +1719,7 @@ def _run_upgrade_command(command: str, console: Console) -> int:
     ``shell=True``; the command is tokenized with ``shlex.split``.
 
     :param command: Shell-style command line, e.g.
-        ``"uv tool upgrade omnigent"``.
+        ``"uv tool upgrade agentnexus"``.
     :param console: Rich console (stderr) used for the surrounding
         "Running:" / failure status lines, kept consistent with the
         panel above.
@@ -1747,7 +1747,7 @@ def upgrade_command_for_installed() -> _UpgradeSuggestion | None:
 
     Convenience wrapper used by ``omni upgrade``: reads the installed
     distribution's metadata and maps it to the installer-appropriate
-    upgrade command (``uv tool upgrade omnigent``, ``pip install -U
+    upgrade command (``uv tool upgrade agentnexus``, ``pip install -U
     omnigent``, etc.).
 
     :returns: A :class:`_UpgradeSuggestion`, or ``None`` when the
@@ -1837,12 +1837,13 @@ def _upgrade_failure_message(code: int, extras: Collection[str] = ()) -> str:
         return f"Upgrade command exited with status {code}; your previous install is intact."
     extra_flags = "".join(f" --extra {extra}" for extra in sorted(extras))
     return (
-        f"Upgrade command exited with status {code}, and omnigent is no longer "
+        f"Upgrade command exited with status {code}, and agentnexus is no longer "
         "installed: the installer replaced the old environment before the new "
         "build failed. Your agents, history and credentials are untouched; "
         "reinstall the CLI to get back:\n\n"
-        f"    curl -fsSL https://omnigent.ai/install.sh | sh -s --{extra_flags}\n"
-        "    omnigent login <SERVER-URL>\n\n"
+        "    curl -fsSL https://raw.githubusercontent.com/K4y2020/AgentNexus/main/"
+        f"scripts/install_oss.sh | sh -s --{extra_flags}\n"
+        "    agentnexus login <SERVER-URL>\n\n"
         "If the web UI build was what failed, install Node 22 LTS and pnpm "
         "first, or set AGENTNEXUS_SKIP_WEB_UI=true to install without it."
     )

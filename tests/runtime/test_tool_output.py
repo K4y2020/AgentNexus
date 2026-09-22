@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from agentnexus.runtime.tool_output import MAX_TOOL_OUTPUT_BYTES, cap_tool_output
 
-_TRUNCATION_MARKER = "[output truncated by omnigent:"
+_TRUNCATION_MARKER = "[output truncated by AgentNexus:"
 
 
 def test_cap_tool_output_passes_through_when_within_cap() -> None:

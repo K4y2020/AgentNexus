@@ -9,7 +9,7 @@ launch fails clearly instead of dying inside the executor).
 can reliably determine locally is whether a harness's wrapped CLI binary
 is on ``PATH``. That gates the native CLI harnesses (Claude Code / Codex
 via ``claude`` / ``codex``) and ``pi`` — the common "I picked Claude Code
-but never ran ``omnigent setup`` to install it" case.
+but never ran ``agentnexus setup`` to install it" case.
 
 In-process SDK harnesses (``claude-sdk``, ``openai-agents``) run without
 any CLI and resolve their model credentials at runtime from sources the
@@ -236,7 +236,7 @@ def _harness_availability_core(harness: str) -> HarnessAvailability:
         # Cursor runs in-process via ``cursor-sdk`` and authenticates with a
         # ``CURSOR_API_KEY`` (a ``cursor-agent login`` does not apply). So,
         # unlike the CLI-wrapping harnesses, there is no binary to gate on:
-        # readiness is whether a key is resolvable — stored by ``omnigent setup``
+        # readiness is whether a key is resolvable — stored by ``agentnexus setup``
         # (the ``cursor:`` block — see :mod:`omnigent.onboarding.cursor_auth`)
         # or inherited from the env. A bad key surfaces at run time.
         #
@@ -254,7 +254,7 @@ def _harness_availability_core(harness: str) -> HarnessAvailability:
         # SDK bundles the CLI binary it drives, so there is no separate binary to
         # gate on) and authenticates against GitHub's Copilot backend with a
         # GitHub token. So, like cursor, readiness is whether a token is
-        # resolvable — one stored by ``omnigent setup`` (the ``copilot:`` config
+        # resolvable — one stored by ``agentnexus setup`` (the ``copilot:`` config
         # block — see :mod:`omnigent.onboarding.copilot_auth`) or inherited from
         # the environment. A bad / Copilot-less token surfaces at run time.
         from agentnexus.onboarding.copilot_auth import (
@@ -326,7 +326,7 @@ _AUTH_AWARE_NATIVE_HARNESSES: dict[str, str] = {
 def _family_provider_configured(harness: str) -> bool:
     """Whether a non-subscription default provider ENTRY serves *harness*'s family.
 
-    Reads the local ``providers:`` config the same way the ``omnigent setup``
+    Reads the local ``providers:`` config the same way the ``agentnexus setup``
     overview does (:func:`surface_default_provider` / :func:`default_provider_for_harness`,
     which resolve the harness's family and — for ``pi`` — its cross-family
     fallback). A ``subscription``-kind default is NOT counted here: it lives in
@@ -337,7 +337,7 @@ def _family_provider_configured(harness: str) -> bool:
     This checks that a default provider *entry* exists — not that its secret
     actually resolves. An entry whose ``api_key_ref`` points at an unset
     ``env:``/``$VAR`` or a missing keychain secret still reads configured here
-    (matching the secret-blind ``omnigent setup`` overview), so a harness can
+    (matching the secret-blind ``agentnexus setup`` overview), so a harness can
     report ready while a launch would still fail auth; that surfaces as the
     executor's first-turn error. The launch gate stays binary-only regardless,
     and the signal only moves toward green (no configured harness regresses).

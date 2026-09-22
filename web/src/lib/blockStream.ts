@@ -510,7 +510,7 @@ function* processEvent(state: ReducerState, event: StreamEvent): Generator<AnyBl
       // the SDK's `tool_use_id` through both so they share a callId;
       // this block keeps the first occurrence (the inline render)
       // and drops the second so the renderer doesn't draw the call
-      // line twice. See designs/RUN_OMNIGENT_REPL_PARITY.md.
+      // line twice. See designs/RUN_AGENTNEXUS_REPL_PARITY.md.
       //
       // Non-MCP paths emit exactly one ToolCall per callId, so the
       // second-arrival branch never fires for them.

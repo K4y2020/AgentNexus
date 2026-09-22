@@ -255,7 +255,7 @@ def test_sync_developer_instructions_skips_invalid_config(tmp_path: Path) -> Non
 
 
 _CWD = "/home/user/repo"
-_OUR_COMMAND = "/venv/bin/python -m omnigent.codex_native_hook evaluate-policy --bridge-dir /b"
+_OUR_COMMAND = "/venv/bin/python -m agentnexus.codex_native_hook evaluate-policy --bridge-dir /b"
 _USER_COMMAND = "bash /home/user/.config/llm-cli/hooks/guard.sh"
 
 
@@ -1837,7 +1837,7 @@ class TestPinCodexConfigModel:
 # and would leave them untrusted (a silent fail-open on the spawn gate).
 
 _ROUTER_GATE_COMMAND = (
-    "/venv/bin/python -m omnigent.inner.hook_scripts.codex_router_hook "
+    "/venv/bin/python -m agentnexus.inner.hook_scripts.codex_router_hook "
     "route-subagent --bridge-dir /b --harness codex-native"
 )
 
@@ -2007,7 +2007,7 @@ def test_routed_spawn_note_appends_then_restores_the_user_base(tmp_path: Path) -
     assert active == f"Keep user guidance.\n\n{note}"
     assert "sys_session_create" in active
     # Codex takes bare MCP names plus a namespace, never a prefixed spelling.
-    assert "mcp__omnigent__" not in active
+    assert "mcp__agentnexus__" not in active
 
     _sync_codex_developer_instructions(codex_home, None)
 

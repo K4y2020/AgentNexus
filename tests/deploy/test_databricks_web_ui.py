@@ -213,9 +213,9 @@ def test_build_sh_archives_the_spa_and_opts_out_when_run_for_real(tmp_path: Path
         "#!/usr/bin/env bash\n"
         'printf "pnpm|%s\\n" "$*" >> "$COMMAND_LOG"\n'
         'if [[ "$*" == *"run build"* ]]; then\n'
-        "  mkdir -p omnigent/server/static/web-ui/assets\n"
-        '  echo "<html></html>" > omnigent/server/static/web-ui/index.html\n'
-        '  echo "chunk" > omnigent/server/static/web-ui/assets/index-abc.js\n'
+        "  mkdir -p agentnexus/server/static/web-ui/assets\n"
+        '  echo "<html></html>" > agentnexus/server/static/web-ui/index.html\n'
+        '  echo "chunk" > agentnexus/server/static/web-ui/assets/index-abc.js\n'
         "fi\n",
     )
     _write_executable(
@@ -279,8 +279,8 @@ def test_build_sh_leaves_the_spa_in_the_wheel_without_externalize(tmp_path: Path
         fake_bin / "pnpm",
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"run build"* ]]; then\n'
-        "  mkdir -p omnigent/server/static/web-ui\n"
-        '  echo "<html></html>" > omnigent/server/static/web-ui/index.html\n'
+        "  mkdir -p agentnexus/server/static/web-ui\n"
+        '  echo "<html></html>" > agentnexus/server/static/web-ui/index.html\n'
         "fi\n",
     )
     _write_executable(

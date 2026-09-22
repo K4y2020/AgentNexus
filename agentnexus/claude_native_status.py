@@ -140,7 +140,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     :param argv: CLI argv excluding program name.
     :returns: Parsed namespace with ``bridge_dir`` and optional ``chain``.
     """
-    parser = argparse.ArgumentParser(prog="python -m omnigent.claude_native_status")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_status")
     parser.add_argument("--bridge-dir", required=True)
     # The user's original statusLine command (as a shell string). When
     # set we exec it with the same stdin so claude-hud / their custom

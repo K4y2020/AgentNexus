@@ -41,12 +41,12 @@ WHATS_NEXT = """## What's Next
 Install or upgrade AgentNexus:
 
 ```bash
-uv tool install --python 3.12 omnigent   # or: pip install "agentnexus"
+uv tool install --python 3.12 agentnexus   # or: pip install "agentnexus"
 ```
 
 - Star the project and file issues on [GitHub](https://github.com/K4y2020/AgentNexus).
-- Join the conversation on our [Discord](https://discord.gg/omnigent).
-- Browse the [docs](https://omnigent.ai/docs) to go deeper."""
+- Join the conversation on [GitHub Discussions](https://github.com/K4y2020/AgentNexus/discussions).
+- Browse the [docs](https://github.com/K4y2020/AgentNexus/tree/main/docs) to go deeper."""
 
 
 def mdx_escape(text: str) -> str:

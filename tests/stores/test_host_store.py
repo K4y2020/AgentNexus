@@ -140,7 +140,7 @@ def test_upsert_reconnect_overwrites_and_nulls_configured_harnesses(
         user_id="alice@example.com",
         configured_harnesses={"codex": False},
     )
-    # Reconnect with fresh values — the user ran `omnigent setup`.
+    # Reconnect with fresh values — the user ran `agentnexus setup`.
     host_store.upsert_on_connect(
         host_id="54e092213a38acc19cfd13ffb160a2b7",
         name="laptop2",

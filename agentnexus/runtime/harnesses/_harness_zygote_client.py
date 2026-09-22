@@ -2,7 +2,7 @@
 
 A runner spawned by the zygote inherits a control socket back to it (fd in
 ``AGENTNEXUS_RUNNER_ZYGOTE_HARNESS_FD``). Instead of ``create_subprocess_exec``-ing
-a fresh ``python -m omnigent.runtime.harnesses._runner`` per conversation — which
+a fresh ``python -m agentnexus.runtime.harnesses._runner`` per conversation — which
 re-pays the harness import floor — the runner asks the zygote to ``os.fork()`` a
 harness child that shares that graph copy-on-write.
 

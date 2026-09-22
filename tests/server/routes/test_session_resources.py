@@ -1398,7 +1398,7 @@ async def test_create_terminal_native_bootstrap_exempt_from_gate(
 ) -> None:
     """``ensure_native_terminal`` requests bypass the declared-name gate.
 
-    The ``omnigent claude`` / ``codex`` wrappers launch the session's
+    The ``agentnexus claude`` / ``codex`` wrappers launch the session's
     own CLI terminal under undeclared names (``"claude"`` /
     ``"codex"``); gating them would break every native session boot.
     No spec resolves here (stub agent store), so a recorded proxy call

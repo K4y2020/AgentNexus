@@ -1,19 +1,19 @@
 """The AgentNexus brand wordmark and Otto lockup for CLI output.
 
-A bold "ANSI-Shadow" block-letter ``omnigent`` wordmark — the canonical
+A bold "ANSI-Shadow" block-letter ``agentnexus`` wordmark — the canonical
 figlet font with one duplicate body row dropped (5 rows), so every letter
 stays legible and it sits exactly as tall as the Otto-the-starfish mascot
-from :mod:`omnigent.inner.mascots`, which it pairs with 1:1.
+from :mod:`agentnexus.inner.mascots`, which it pairs with 1:1.
 
 This module owns the *art* and its rendering onto a caller-supplied
 :class:`rich.console.Console`. The decision of *whether* to draw the
 banner (TTY gating, ``AGENTNEXUS_NO_BANNER``) lives one layer up in
-:mod:`omnigent.inner.ui`, which is the only module that should be imported
+:mod:`agentnexus.inner.ui`, which is the only module that should be imported
 by command code. Keeping the gate out of here avoids a circular import
 (``ui`` imports ``wordmark``) and keeps the art unit-testable in isolation.
 
 The brand color is Otto's magenta-pink ``#F43BA6`` (see
-:data:`omnigent.inner.mascots.MASCOT_ART_COLOR`); the optional gradient
+:data:`agentnexus.inner.mascots.MASCOT_ART_COLOR`); the optional gradient
 fades it toward a lighter pink across the wordmark columns.
 """
 
@@ -83,7 +83,7 @@ def _build_wordmark(word: str) -> tuple[str, ...]:
     return tuple(rows)
 
 
-#: The rows of the ``omnigent`` wordmark, as plain (uncolored) text.
+#: The rows of the ``agentnexus`` wordmark, as plain (uncolored) text.
 WORDMARK_LINES: tuple[str, ...] = _build_wordmark(_WORDMARK_TEXT)
 
 # Which Otto row each wordmark row sits on. Otto and the wordmark are both

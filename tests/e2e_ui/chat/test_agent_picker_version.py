@@ -5,7 +5,7 @@ report:
 
 * Agent A exists as a user-registered template (``builtin: false`` in
   ``GET /v1/agents``) — e.g. created via ``omnigent server --agent``.
-* A newer ``omnigent run`` minted a session-scoped Agent A with a DISTINCT
+* A newer ``agentnexus run`` minted a session-scoped Agent A with a DISTINCT
   agent_id (discovered via ``GET /v1/sessions?kind=any``), created after the
   template.
 

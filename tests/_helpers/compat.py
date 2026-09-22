@@ -77,7 +77,7 @@ def _compat_cwd(env_var: str, label: str) -> str | None:
     """
     A neutral working directory for a redirected subprocess, or ``None``.
 
-    ``python -m omnigent...`` puts the CWD on ``sys.path[0]``, so a subprocess
+    ``python -m agentnexus...`` puts the CWD on ``sys.path[0]``, so a subprocess
     launched from the repo checkout would import the worktree's ``omnigent/``
     package — shadowing the pinned older install exactly like a ``PYTHONPATH``
     prepend would. A stable empty directory forces the pinned venv's installed

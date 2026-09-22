@@ -10,7 +10,7 @@ can be listed and the module probed without it.
 
 Supports both server-managed hosts (``host_type="managed"`` sessions —
 ``prepare`` / ``provision`` / ``run`` / ``terminate``) and the CLI
-bootstrap flow (``omnigent sandbox create`` / ``connect`` — file
+bootstrap flow (``agentnexus sandbox create`` / ``connect`` — file
 shipping via the SDK's filesystem API, foreground attach via a PTY
 session). The one unimplemented primitive is ``stream_exec``: its only
 consumer is the in-sandbox App OAuth login, which requires

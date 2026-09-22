@@ -32,7 +32,7 @@ fn spec_default_has_databricks_extra_and_main() {
     let c = InstallConfig::default();
     assert_eq!(
         c.spec(),
-        "omnigent[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main"
+        "agentnexus[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main"
     );
 }
 
@@ -58,7 +58,7 @@ fn spec_reflects_custom_ref_and_extras() {
     };
     assert_eq!(
         c.spec(),
-        "omnigent[databricks,kubernetes] @ git+https://example.com/x.git@dev"
+        "agentnexus[databricks,kubernetes] @ git+https://example.com/x.git@dev"
     );
 }
 

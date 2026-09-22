@@ -6,7 +6,7 @@ TARGET_AGENTNEXUS_MCP_TOOL = "sys_session_list"
 _TARGET_TOOL_NAMES = frozenset(
     {
         TARGET_AGENTNEXUS_MCP_TOOL,
-        f"mcp__omnigent__{TARGET_AGENTNEXUS_MCP_TOOL}",
+        f"mcp__agentnexus__{TARGET_AGENTNEXUS_MCP_TOOL}",
     }
 )
 

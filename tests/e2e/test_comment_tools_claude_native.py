@@ -9,7 +9,7 @@ confirms the server reflects the expected ``"addressed"`` status on
 all comments.
 
 The test uses the same ``claude-native-ui`` agent spec that
-``omnigent claude`` materialises at runtime — not a custom yaml.
+``agentnexus claude`` materialises at runtime — not a custom yaml.
 This ensures comment-relay behaviour is tested against the exact agent
 configuration end users encounter.
 
@@ -59,7 +59,7 @@ from tests.e2e.conftest import (
     upload_agent,
 )
 
-# Agent name written into the spec by ``omnigent claude``.
+# Agent name written into the spec by ``agentnexus claude``.
 _CLAUDE_NATIVE_UI_AGENT_NAME = "claude-native-ui"
 
 # How long to wait for the MCP bridge's serve-mcp process to start
@@ -91,14 +91,14 @@ def claude_native_ui_agent(
     """
     Upload the ``claude-native-ui`` agent spec and return its name.
 
-    The spec is identical to what ``omnigent claude`` materialises via
+    The spec is identical to what ``agentnexus claude`` materialises via
     ``_materialize_claude_agent_spec`` at runtime: harness
     ``claude-native``, no model rewriting (Claude CLI picks its own
     model), and ``os_env.type: caller_process`` with no sandbox.
 
     Using this spec — rather than a custom test-only yaml — ensures the
     test exercises the exact agent configuration that end users get when
-    they run ``omnigent claude``.
+    they run ``agentnexus claude``.
 
     :param http_client: HTTP client pointed at the live server.
     :returns: The agent name, ``"claude-native-ui"``.
@@ -152,7 +152,7 @@ def _claude_code_session(
     messages via ``inject_user_message``, and waits for the MCP bridge
     subprocess (``serve-mcp``) to write ``server.json`` before yielding.
 
-    This mirrors what ``omnigent claude`` does when a user runs it,
+    This mirrors what ``agentnexus claude`` does when a user runs it,
     so the relay feature is tested against the real code path.
 
     :param session_id: AgentNexus session id, e.g. ``"conv_abc123"``.
@@ -183,7 +183,7 @@ def _claude_code_session(
     base_args: tuple[str, ...] = (
         "--dangerously-skip-permissions",
         "--allowedTools",
-        "mcp__omnigent__list_comments,mcp__omnigent__update_comment",
+        "mcp__agentnexus__list_comments,mcp__agentnexus__update_comment",
     )
     # Pin the model so the Databricks Anthropic gateway receives a served model
     # id rather than a canonical Anthropic name it would reject.
@@ -214,7 +214,7 @@ def _claude_code_session(
     # ANTHROPIC_API_KEY: its mere presence makes Claude Code's interactive
     # "use this API key?" gate block TUI startup (so serve-mcp never spawns).
     # ANTHROPIC_AUTH_TOKEN provides auth without tripping that gate. Mirrors
-    # how ``omnigent claude`` unsets ANTHROPIC_API_KEY on launch.
+    # how ``agentnexus claude`` unsets ANTHROPIC_API_KEY on launch.
     if "ANTHROPIC_AUTH_TOKEN" in launch_env:
         tmux_env.pop("ANTHROPIC_API_KEY", None)
     tmux_env.update(launch_env)
@@ -328,7 +328,7 @@ def test_claude_native_agent_addresses_comments_without_tool_guidance(
        the ``claude`` / ``tmux`` binaries are available.
     2. Create a runner-bound session with the ``claude-native-ui`` agent.
     3. Start Claude Code in a private tmux window with the AgentNexus
-       MCP bridge (same as ``omnigent claude`` does).
+       MCP bridge (same as ``agentnexus claude`` does).
     4. POST two draft comments on ``app.py`` via the REST API.
     5. Pre-configure the mock LLM with tool-call responses that call
        ``list_comments`` then ``update_comment`` for both comment IDs so the

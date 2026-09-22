@@ -65,7 +65,8 @@ def test_post_tool_use_maps_to_phase_tool_result() -> None:
 
 
 @pytest.mark.parametrize("hook_event", ["PreToolUse", "PostToolUse"])
-def test_omnigent_mcp_tools_are_skipped(hook_event: str) -> None:
+@pytest.mark.parametrize("prefix", ["mcp__agentnexus__", "mcp__omnigent__"])
+def test_omnigent_mcp_tools_are_skipped(hook_event: str, prefix: str) -> None:
     """
     AgentNexus MCP tools return None and are never sent to /policies/evaluate.
 
@@ -76,7 +77,7 @@ def test_omnigent_mcp_tools_are_skipped(hook_event: str) -> None:
     """
     result = hook_payload_to_evaluation_request(
         hook_event,
-        {"tool_name": "mcp__omnigent__list_comments", "tool_input": {}, "tool_output": "x"},
+        {"tool_name": f"{prefix}list_comments", "tool_input": {}, "tool_output": "x"},
     )
     # None signals the caller to skip the POST entirely.
     assert result is None

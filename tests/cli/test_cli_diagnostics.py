@@ -427,7 +427,7 @@ def test_main_logs_click_exceptions(
     from agentnexus import cli as cli_module
 
     # An unsupported --harness is a deterministic ClickException trigger that
-    # raises before any daemon/network work. (A bare `omnigent run` no longer
+    # raises before any daemon/network work. (A bare `agentnexus run` no longer
     # errors — it drops into first-run `configure harnesses` — so it can't be
     # the trigger here.)
     monkeypatch.setattr(sys, "argv", ["agentnexus", "run", "--harness", "not-a-real-harness"])
@@ -524,7 +524,7 @@ def test_safe_mtime_returns_zero_for_vanished_file(tmp_path: Path) -> None:
 def test_prune_old_logs_survives_file_vanishing_mid_sort(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Concurrent ``omnigent run`` launches race to prune the same logs; a file
+    """Concurrent ``agentnexus run`` launches race to prune the same logs; a file
     globbed by one but deleted by the other must not crash the sort (previously a
     FileNotFoundError in the stat sort key aborted CLI startup)."""
     real = [tmp_path / f"cli-{i:03d}.log" for i in range(cli_diagnostics.MAX_LOG_FILES + 3)]

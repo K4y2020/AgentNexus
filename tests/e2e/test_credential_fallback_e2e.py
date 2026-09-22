@@ -4,7 +4,7 @@ End-to-end: the runner's first-available credential fallback (server → runner)
 A web-UI / remote-host launch resolves credentials in the RUNNER, not the CLI or
 the server. This proves that path end-to-end: with NO ambient OpenAI credential
 and an openai provider that is configured but NOT marked ``default``, a real
-``omnigent run`` (server → runner → openai-agents harness) credentials the head
+``agentnexus run`` (server → runner → openai-agents harness) credentials the head
 via :func:`first_available_provider` and completes a turn. Before the fix the
 head launched with no credential and failed with codex/openai's "Invalid API
 key" — so a completed turn here is the regression guard for the runner fallback.
@@ -127,7 +127,7 @@ def local_server(tmp_path: Path, mock_llm_server_url: str) -> Iterator[str]:
 
 def _fallback_run_env(mock_llm_server_url: str, config_home: Path) -> dict[str, str]:
     """
-    Build the ``omnigent run`` env: no ambient credentials, and an isolated
+    Build the ``agentnexus run`` env: no ambient credentials, and an isolated
     config whose only openai-family credential is a provider that is configured
     but NOT marked default.
 
@@ -190,7 +190,7 @@ def test_runner_fallback_credentials_head_with_nondefault_provider(
 ) -> None:
     """
     The runner credentials an unpinned head from a configured-but-not-default
-    provider, with no ambient credential — end-to-end via ``omnigent run``
+    provider, with no ambient credential — end-to-end via ``agentnexus run``
     (server → runner → openai-agents harness).
 
     The completed turn proves the first-available fallback fired in the real

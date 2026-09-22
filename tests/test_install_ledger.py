@@ -3,7 +3,29 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from agentnexus import install_ledger
+
+
+@pytest.mark.parametrize("brand", ["AgentNexus", "Omnigent"])
+def test_profile_marker_backfill_preserves_actual_marker(tmp_path, monkeypatch, brand):
+    profile = tmp_path / ".profile"
+    begin, end = f"# >>> {brand} installer >>>", f"# <<< {brand} installer <<<"
+    profile.write_text(f"keep\n{begin}\nexport PATH=/example/bin:$PATH\n{end}\nkeep\n")
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(tmp_path / "state"))
+    monkeypatch.setattr(install_ledger, "profile_candidates", lambda: [profile])
+    ledger = install_ledger.new_ledger(source="backfill", strategy="test", deep=False)
+    entry = ledger.entries.profiles[0]
+    assert (entry.marker_begin, entry.marker_end) == (begin, end)
+    assert entry.line_range == [2, 4]
+    assert profile.read_text().startswith("keep\n")
+
+
+def test_profile_blocks_do_not_mix_old_and_new_markers(tmp_path):
+    profile = tmp_path / ".profile"
+    profile.write_text("# >>> Omnigent installer >>>\nkeep\n# <<< AgentNexus installer <<<\n")
+    assert install_ledger.find_profile_blocks(profile) == []
 
 
 def test_install_ledger_round_trip_and_mode(tmp_path: Path, monkeypatch) -> None:

@@ -3,7 +3,7 @@
 Provides ``/auth/login``, ``/auth/callback``, ``/auth/logout``,
 ``/auth/cli-login``, and ``/auth/cli-poll`` endpoints that implement
 the full OIDC authorization code flow with PKCE. The ``cli-login``
-/ ``cli-poll`` pair supports the ``omnigent login`` CLI command.
+/ ``cli-poll`` pair supports the ``agentnexus login`` CLI command.
 
 See ``designs/OIDC_AUTH.md`` for the complete design.
 
@@ -112,7 +112,7 @@ def create_auth_router(
         a refresh grant (see
         :func:`omnigent.server.routes.device_auth.issue_login_grant`)
         so hosts and CLIs can renew without a human re-running
-        ``omnigent login``. ``None`` keeps the legacy
+        ``agentnexus login``. ``None`` keeps the legacy
         session-JWT-only response.
     :returns: A FastAPI router with ``/login``, ``/callback``,
         ``/logout`` (and ``/invite`` when invites are enabled).

@@ -27,7 +27,7 @@ import { modalHostId } from "@/lib/sessionHost";
  * unaffected either way. It's a LOAD-BALANCING lever: without a key, the default
  * route hashes a whole tenant onto one replica, so a busy tenant's mic takes all
  * pile onto a single replica — bad for a CPU-bound engine with a per-replica
- * concurrent-take cap ({@link DictationBusyError} / `OMNIGENT_DICTATION_MAX_STREAMS`).
+ * concurrent-take cap ({@link DictationBusyError} / `AGENTNEXUS_DICTATION_MAX_STREAMS`).
  * {@link modalHostId} is per-user (the host backing most of THIS user's
  * sessions), so keying by it spreads a tenant's takes across many replicas —
  * finer-grained than per-tenant. Omitted on an unsharded server and until the

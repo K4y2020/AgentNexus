@@ -37,6 +37,8 @@ def _set_env(monkeypatch: pytest.MonkeyPatch, **overrides: str) -> None:
         "DATABRICKS_HOST",
     ):
         monkeypatch.delenv(key, raising=False)
+        for prefix in ("OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"):
+            monkeypatch.delenv(key.replace("AGENTNEXUS_", prefix, 1), raising=False)
     # DATABRICKS_HOST is injected by the platform at runtime (a bare workspace
     # host); simulate that so databricks-mode Settings construct. Not a user
     # knob — the bot never lets it be overridden.
@@ -299,3 +301,52 @@ def test_webauth_port_defaults_to_8000(monkeypatch: pytest.MonkeyPatch) -> None:
     # Laptop run without the platform var: fall back to the 8000 convention.
     _set_env(monkeypatch)
     assert _load().databricks_webauth_port == 8000
+
+
+@pytest.mark.parametrize("prefix", ["OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"])
+def test_legacy_env_required_settings(monkeypatch: pytest.MonkeyPatch, prefix: str) -> None:
+    _set_env(monkeypatch)
+    for name, value in _REQUIRED.items():
+        monkeypatch.delenv(name)
+        monkeypatch.setenv(name.replace("AGENTNEXUS_", prefix, 1), value)
+    assert _load().server_url == _REQUIRED["AGENTNEXUS_SERVER_URL"]
+
+
+def test_current_empty_secret_overrides_legacy(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_env(monkeypatch, AGENTNEXUS_DEVICE_CLIENT_SECRET="")
+    monkeypatch.setenv("OMNIGENT_DEVICE_CLIENT_SECRET", "old-secret")
+    assert _load().device_client_secret in (None, "")
+
+
+def test_current_empty_required_url_does_not_fall_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_env(monkeypatch, AGENTNEXUS_SERVER_URL="")
+    monkeypatch.setenv("OMNIGENT_SERVER_URL", "https://old.example.com")
+    with pytest.raises(ValidationError):
+        _load()
+
+
+def test_existing_legacy_database_is_used_after_config_directory_created(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _set_env(monkeypatch)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    (tmp_path / ".agentnexus").mkdir()
+    legacy = tmp_path / ".omnigent" / "omnigent_slack.sqlite3"
+    legacy.parent.mkdir()
+    legacy.touch()
+    assert _load().database_path == legacy
+    current = tmp_path / ".agentnexus" / "agentnexus_slack.sqlite3"
+    current.touch()
+    assert _load().database_path == current
+
+
+def test_empty_current_data_dir_opts_out_of_legacy_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _set_env(monkeypatch, AGENTNEXUS_DATA_DIR="")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    legacy = tmp_path / "old-data"
+    legacy.mkdir()
+    (legacy / "omnigent_slack.sqlite3").touch()
+    monkeypatch.setenv("OMNIGENT_DATA_DIR", str(legacy))
+    assert _load().database_path == tmp_path / ".agentnexus" / "agentnexus_slack.sqlite3"

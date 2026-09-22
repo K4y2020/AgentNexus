@@ -1,9 +1,9 @@
-"""Sync ``omnigent/version.py``'s ``VERSION`` to the canonical pyproject version.
+"""Sync ``agentnexus/version.py``'s ``VERSION`` to the canonical pyproject version.
 
 The root ``pyproject.toml``'s ``[project].version`` is the single source of
 truth for the release version (stamped in lockstep with the SDK packages by
 ``scripts/update_versions.py``). The runtime, however, reads
-``omnigent.version.VERSION`` — a plain constant it can import without touching
+``agentnexus.version.VERSION`` — a plain constant it can import without touching
 package metadata. This script keeps that constant equal to the canonical
 pyproject version so the two never drift.
 
@@ -37,7 +37,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
 _VERSION_PY = _REPO_ROOT / "agentnexus" / "version.py"
 
-# The ``VERSION = "..."`` assignment (its own line) in omnigent/version.py.
+# The ``VERSION = "..."`` assignment (its own line) in agentnexus/version.py.
 _VERSION_ASSIGN = re.compile(r'^VERSION = "[^"]*"$', re.MULTILINE)
 
 
@@ -49,7 +49,7 @@ def _canonical_version() -> str:
 def _current_constant(text: str) -> str:
     """Return the ``VERSION`` literal currently in *text*.
 
-    :param text: Contents of ``omnigent/version.py``.
+    :param text: Contents of ``agentnexus/version.py``.
     :returns: The quoted value of the ``VERSION`` assignment.
     :raises ValueError: If the assignment is missing or not unique.
     """

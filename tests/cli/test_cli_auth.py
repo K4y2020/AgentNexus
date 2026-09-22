@@ -1,7 +1,7 @@
 """Unit tests for CLI OIDC token storage (omnigent/cli_auth.py).
 
 Tests the store/load/clear lifecycle for session tokens persisted
-by ``omnigent login``.
+by ``agentnexus login``.
 """
 
 from __future__ import annotations
@@ -35,8 +35,8 @@ def token_dir(tmp_path, monkeypatch):
 def test_store_and_load_token(token_dir) -> None:
     """A stored token can be loaded back by server URL.
 
-    This is the happy path: ``omnigent login`` stores a token,
-    ``omnigent run --server`` loads it.
+    This is the happy path: ``agentnexus login`` stores a token,
+    ``agentnexus run --server`` loads it.
     """
     from agentnexus.cli_auth import load_token, store_token
 
@@ -55,8 +55,8 @@ def test_store_and_load_token(token_dir) -> None:
 def test_load_returns_none_when_no_file(token_dir) -> None:
     """load_token returns None when no token file exists.
 
-    The first time a user runs ``omnigent run --server`` without
-    having run ``omnigent login``, there should be no crash.
+    The first time a user runs ``agentnexus run --server`` without
+    having run ``agentnexus login``, there should be no crash.
     """
     from agentnexus.cli_auth import load_token
 
@@ -84,7 +84,7 @@ def test_load_returns_none_for_expired_token(token_dir) -> None:
     """load_token returns None when the stored token has expired.
 
     Expired tokens must not be used — the user needs to re-run
-    ``omnigent login``.
+    ``agentnexus login``.
     """
     from agentnexus.cli_auth import load_token, store_token
 
@@ -162,7 +162,7 @@ def test_file_permissions(token_dir) -> None:
 def test_store_overwrites_existing(token_dir) -> None:
     """Storing a token for the same server overwrites the old one.
 
-    Re-running ``omnigent login`` should update the token, not
+    Re-running ``agentnexus login`` should update the token, not
     append.
     """
     from agentnexus.cli_auth import load_token, store_token
@@ -213,7 +213,7 @@ def test_multiple_servers(token_dir) -> None:
 def test_store_and_load_databricks_record(token_dir) -> None:
     """A stored Databricks pointer record resolves back to its workspace.
 
-    ``omnigent login <apps-url>`` stores the record; the server-auth
+    ``agentnexus login <apps-url>`` stores the record; the server-auth
     chain looks up the workspace host to mint fresh tokens.
     """
     from agentnexus.cli_auth import load_databricks_workspace_host, store_databricks_auth

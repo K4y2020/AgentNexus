@@ -520,7 +520,7 @@ def test_dispatch_by_runtime_non_wrapper_local_raises_with_hint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    Local non-wrapper conv surfaces the ``omnigent run --resume`` hint.
+    Local non-wrapper conv surfaces the ``agentnexus run --resume`` hint.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :returns: None.
@@ -580,7 +580,7 @@ def test_dispatch_by_runtime_non_claude_native_remote_raises_with_hint(
 ) -> None:
     """
     Remote non-claude-native conv ⇒ ``ClickException`` with a
-    copy-pasteable ``omnigent run --resume`` hint.
+    copy-pasteable ``agentnexus run --resume`` hint.
 
     The hint MUST include both the conv id and the original
     ``--server`` URL so the user's next attempt works without

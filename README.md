@@ -185,13 +185,13 @@ When a newer release is on PyPI, AgentNexus shows a one-line notice (once per
 release) pointing here. To update:
 
 ```bash
-omni upgrade            # detects how you installed, drains & stops the local
+agentnexus upgrade            # detects how you installed, drains & stops the local
                         # server, then runs the matching upgrade command
-omni upgrade --check    # just report whether a newer release is available
+agentnexus upgrade --check    # just report whether a newer release is available
 ```
 
-`omni upgrade` waits for in-flight agent sessions to finish before stopping the
-local server (pass `--force` to stop them immediately); the next `omni` command
+`agentnexus upgrade` waits for in-flight agent sessions to finish before stopping the
+local server (pass `--force` to stop them immediately); the next `agentnexus` command
 brings the server back up on the new version. Source checkouts update with
 `git pull` instead. Silence the notice with `AGENTNEXUS_NO_UPDATE_CHECK=1`.
 
@@ -246,8 +246,8 @@ in a native window and adds OS notifications (with a configurable sound) and a d
 [download it for macOS](https://agentnexus.ai/download/mac).
 
 > [!NOTE]
-> The install puts two names for the same CLI on your PATH: `agentnexus` and
-> the shorter `omni`. They're interchangeable.
+> The primary CLI names are `agentnexus` and the shorter `nexus`.
+> Legacy `omnigent` and `omni` aliases remain available until 2.0; see [Migration](MIGRATION.md).
 
 > [!TIP]
 > On first run, AgentNexus picks up model credentials already in your

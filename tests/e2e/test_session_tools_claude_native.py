@@ -69,7 +69,7 @@ def claude_native_ui_agent(
     """
     Upload the ``claude-native-ui`` agent spec and return its name.
 
-    Mirrors what ``omnigent claude`` materialises at runtime (harness
+    Mirrors what ``agentnexus claude`` materialises at runtime (harness
     ``claude-native``, ``os_env.type: caller_process`` with no sandbox)
     EXCEPT that it deliberately omits the wrapper's ``spawn: true``
     opt-in — this module's relay test pins the no-opt-in gate (spawn
@@ -140,10 +140,10 @@ def _claude_code_session(
         "--dangerously-skip-permissions",
         "--allowedTools",
         (
-            "mcp__omnigent__list_comments,"
-            "mcp__omnigent__update_comment,"
-            "mcp__omnigent__sys_session_list,"
-            "mcp__omnigent__sys_session_get_history"
+            "mcp__agentnexus__list_comments,"
+            "mcp__agentnexus__update_comment,"
+            "mcp__agentnexus__sys_session_list,"
+            "mcp__agentnexus__sys_session_get_history"
         ),
     )
     if model:

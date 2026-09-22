@@ -456,7 +456,7 @@ def register_events_routes(
           the normal message-dispatch relaunch path.
         - ``"retry_session"`` reconnects or relaunches the existing
           session runner without persisting or replaying user input.
-        - ``"message"`` on an ``omnigent claude`` terminal session
+        - ``"message"`` on an ``agentnexus claude`` terminal session
           is forwarded to the bound runner for tmux injection only;
           the accepted prompt is persisted later when Claude records
           it in the terminal transcript.
@@ -1698,7 +1698,7 @@ def register_events_routes(
                         # configured there. This message was the real
                         # runner-start attempt, so consume it and record a
                         # transcript error (the host's message names the
-                        # fix, `omnigent setup`) the web renders as a
+                        # fix, `agentnexus setup`) the web renders as a
                         # banner — instead of timing out into a generic
                         # RUNNER_UNAVAILABLE. The binding stays so a later
                         # message relaunches once setup is done.

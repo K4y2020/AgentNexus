@@ -573,7 +573,7 @@ def register_core_routes(
                 if launch_result.get("status") == "failed":
                     # Lenient on every create-time launch failure, including
                     # an unconfigured harness: the picker's readiness data
-                    # can be stale (the user may have run `omnigent setup`
+                    # can be stale (the user may have run `agentnexus setup`
                     # since the host last connected), so we never block the
                     # create. The session opens with the binding intact; the
                     # first message drives the real runner start, and if the
@@ -1663,7 +1663,7 @@ def register_core_routes(
             ):
                 raise AgentNexusError(
                     f"Only the session owner can attach a runner to session {session_id!r}. "
-                    f"To fork this session instead, run: omnigent run --fork {session_id}",
+                    f"To fork this session instead, run: agentnexus run --fork {session_id}",
                     code=ErrorCode.FORBIDDEN,
                 )
         if body.labels:

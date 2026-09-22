@@ -1272,7 +1272,7 @@ def test_render_startup_banner_uses_mascot_accent_color() -> None:
 
 def test_run_banner_uses_magenta_mascot_color() -> None:
     """
-    The ``omnigent run`` banner renders in the starfish
+    The ``agentnexus run`` banner renders in the starfish
     magenta-pink brand accent
     (``MASCOT_ART_COLOR = "#F43BA6"`` → ``38;2;244;59;166``).
     The default ``art_color`` and the explicit ``--omnigent`` override
@@ -1285,7 +1285,7 @@ def test_run_banner_uses_magenta_mascot_color() -> None:
 
     assert MASCOT_ART_COLOR == "#F43BA6", (
         f"MASCOT_ART_COLOR must be the starfish magenta-pink brand "
-        f"accent (#F43BA6) for the ``omnigent run`` welcome "
+        f"accent (#F43BA6) for the ``agentnexus run`` welcome "
         f"banner; got {MASCOT_ART_COLOR!r}."
     )
 
@@ -1336,7 +1336,7 @@ def test_render_startup_banner_shows_remote_server_url() -> None:
 
     What this proves: a user connected with ``--server <url>``
     sees which workspace they're talking to in the welcome
-    banner. A user running ``omnigent run`` against a freshly
+    banner. A user running ``agentnexus run`` against a freshly
     spawned local server doesn't get the noise.
     """
     remote = "https://example.databricks.com"

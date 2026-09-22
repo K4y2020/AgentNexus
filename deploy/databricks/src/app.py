@@ -1,6 +1,6 @@
-"""Databricks Apps entry point for omnigent.
+"""Databricks Apps entry point for agentnexus.
 
-Starts omnigent with Lakebase (managed PostgreSQL) as the
+Starts agentnexus with Lakebase (managed PostgreSQL) as the
 database and UC Volumes as the artifact store.
 """
 
@@ -22,7 +22,7 @@ logger = logging.getLogger("agentnexus-app")
 # ── Web UI location ────────────────────────────────────────
 #
 # The deploy ships the SPA outside the wheel as one archive beside this entry
-# point. Extract it before importing omnigent.server.app, which binds the
+# point. Extract it before importing agentnexus.server.app, which binds the
 # static-file directory at module import time. A loose directory is supported
 # for compatibility with deployments made by the earlier packaging scheme.
 
@@ -158,7 +158,7 @@ try:
         cparams["password"] = _get_cached_token(LAKEBASE_ENDPOINT)
         cparams["sslmode"] = PGSSLMODE
 
-    # ── Start omnigent ─────────────────────────────────────
+    # ── Start agentnexus ─────────────────────────────────────
 
     import tempfile
 
@@ -272,11 +272,11 @@ try:
     )
 
     if __name__ == "__main__":
-        logger.info("Starting omnigent on 0.0.0.0:%d", PORT)
+        logger.info("Starting AgentNexus on 0.0.0.0:%d", PORT)
         uvicorn.run(app, host="0.0.0.0", port=PORT)
 
 except Exception:  # noqa: BLE001 — startup catch-all; we want every failure logged
-    logger.error("FATAL: omnigent failed to start:\n%s", traceback.format_exc())
+    logger.error("FATAL: AgentNexus failed to start:\n%s", traceback.format_exc())
     # Keep the process alive briefly so logs can be captured
     import time
 

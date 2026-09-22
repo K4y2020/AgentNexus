@@ -207,7 +207,7 @@ export function LoginPage() {
           auto-generated. A brand-new instance shows a Create-admin form instead of this one; the
           password can also be pre-seeded with{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono">
-            OMNIGENT_ACCOUNTS_INIT_ADMIN_PASSWORD
+            AGENTNEXUS_ACCOUNTS_INIT_ADMIN_PASSWORD
           </code>
           .
         </p>

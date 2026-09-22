@@ -1,6 +1,6 @@
 """Interactive harness & credential configuration for the CLI.
 
-Everything behind ``omnigent config`` / ``omnigent setup`` and the first-run
+Everything behind ``omnigent config`` / ``agentnexus setup`` and the first-run
 ``configure harnesses`` picker: detecting installed provider CLIs, prompting for
 API keys, installing SDK harnesses, and writing the results to global config.
 Extracted from :mod:`omnigent.cli` to keep that module under the repo's
@@ -306,7 +306,7 @@ def _warn_missing_harness_dependencies() -> None:
     wrapper needs it (Node when a harness CLI runs, tmux when ``omnigent
     claude`` launches). This *warns* rather than aborts on purpose: the
     pure-Python ``openai-agents`` harness runs without either tool, so a
-    hard failure would block a valid flow — but ``omnigent claude`` /
+    hard failure would block a valid flow — but ``agentnexus claude`` /
     ``codex`` do need both, hence the prominent notice.
 
     :returns: None. Side effect: writes a yellow warning block to stderr
@@ -1091,13 +1091,13 @@ def _adopt_detected_providers() -> list[str]:
 def _promote_global_auth_to_provider() -> str | None:
     """Backfill a databricks providers entry from an existing global ``auth:`` block.
 
-    Older ``omnigent setup`` runs configured Databricks only via the top-level
+    Older ``agentnexus setup`` runs configured Databricks only via the top-level
     ``auth: {type: databricks}`` block — which ``configure harnesses`` does not
     read — so the readout showed no Databricks provider (and an ambient CLI
     login as the default) even though routing used Databricks. This promotes
     that block into a first-class ``kind: databricks`` providers entry the next
     time ``configure harnesses`` opens, so existing configs self-heal without
-    re-running ``omnigent setup``.
+    re-running ``agentnexus setup``.
 
     Becomes the default only for families with no existing **provider** default —
     mirroring routing precedence (explicit provider default > ``auth:`` block),
@@ -1229,14 +1229,14 @@ def _announce_auto_configured_credentials(adopted: list[str]) -> None:
         return
     console.print(
         "\n[dim]Found existing credentials on your machine, "
-        f"auto-configured for omnigent: {', '.join(labels)}[/dim]"
+        f"auto-configured for AgentNexus: {', '.join(labels)}[/dim]"
     )
 
 
 def _adopt_ambient_credentials(progress: RunnerStartupProgress | None = None) -> list[str]:
     """Self-heal config, adopt ambient credentials, and announce what was added.
 
-    The shared front half of both a bare ``omnigent run``'s first-run path
+    The shared front half of both a bare ``agentnexus run``'s first-run path
     (:func:`_resolve_first_run_plan`) and the ``configure harnesses`` picker
     (:func:`_run_configure_harnesses_interactive`): it (1) backfills a legacy
     databricks ``auth:`` block into a real provider, (2) adopts any
@@ -3472,7 +3472,7 @@ def _manage_opencode_harness() -> None:
 def _run_configure_harnesses_interactive() -> None:
     """Run the interactive model/credential three-level picker.
 
-    Invoked by ``omnigent setup --no-internal-beta`` and the bare-``run``
+    Invoked by ``agentnexus setup --no-internal-beta`` and the bare-``run``
     first-run path, so both drive the identical flow.
     Opening it backfills a legacy databricks ``auth:`` block into a real
     provider and adopts any ambient-detected credential — announcing the

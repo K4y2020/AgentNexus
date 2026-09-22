@@ -88,7 +88,7 @@ def _stop_host_daemon(home: Path) -> None:
     """
     Stop the connect daemon recorded under an isolated test HOME.
 
-    ``omnigent run --server`` leaves the daemon alive after the REPL exits
+    ``agentnexus run --server`` leaves the daemon alive after the REPL exits
     by design. E2E tests use per-test HOME directories so they clean
     those daemon processes up explicitly.
 
@@ -207,7 +207,7 @@ def _spawn_run(
     no_session: bool = True,
 ) -> pexpect.spawn:
     """
-    Spawn ``omnigent run`` under a real PTY.
+    Spawn ``agentnexus run`` under a real PTY.
 
     :param omnigent_python: Python interpreter with AgentNexus installed.
     :param repo_root: Checkout root used as subprocess cwd.

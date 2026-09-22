@@ -1,12 +1,12 @@
-//! `omnidev omnigent …` — run an arbitrary omnigent command against this
-//! checkout's pod via `uv run --python <pinned> omnigent …`.
+//! `omnidev agentnexus …` — run an arbitrary agentnexus command against this
+//! checkout's pod via `uv run --python <pinned> agentnexus …`.
 //!
 //! Unlike the supervised `process::ProcSpec`s, this runs in the foreground
 //! (inheriting the user's stdio) and does *not* inject the log-mirror env
-//! (`OMNIGENT_LOG_TTY_FD` / `OMNIGENT_LOG_FORCE_COLOR`): the user has a real
-//! TTY, so omnigent's own terminal detection should win. The pod's isolation
-//! env (`OMNIGENT_DATA_DIR`, `OMNIGENT_DATABASE_URI`, `OMNIGENT_CONFIG_HOME`,
-//! `OMNIGENT_URL`) is applied on top of the inherited parent env, so a command
+//! (`AGENTNEXUS_LOG_TTY_FD` / `AGENTNEXUS_LOG_FORCE_COLOR`): the user has a real
+//! TTY, so agentnexus's own terminal detection should win. The pod's isolation
+//! env (`AGENTNEXUS_DATA_DIR`, `AGENTNEXUS_DATABASE_URI`, `AGENTNEXUS_CONFIG_HOME`,
+//! `AGENTNEXUS_URL`) is applied on top of the inherited parent env, so a command
 //! talks to the same pod the supervisor runs.
 
 use std::path::PathBuf;
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use crate::install::PYTHON_VERSION;
 use crate::pod::Pod;
 
-/// A resolved `uv run --python <pinned> omnigent …` invocation for the passthrough subcommand.
+/// A resolved `uv run --python <pinned> agentnexus …` invocation for the passthrough subcommand.
 pub struct OmnigentCmd {
     pub program: String,
     pub args: Vec<String>,
@@ -22,14 +22,14 @@ pub struct OmnigentCmd {
     pub cwd: PathBuf,
 }
 
-/// Build the command line + env for `uv run --python <pinned> omnigent <passthrough…>` rooted at
-/// the pod's repo, with the pod's `OMNIGENT_*` overrides applied.
+/// Build the command line + env for `uv run --python <pinned> agentnexus <passthrough…>` rooted at
+/// the pod's repo, with the pod's `AGENTNEXUS_*` overrides applied.
 pub fn build(pod: &Pod, passthrough: &[String]) -> OmnigentCmd {
     let mut args = vec![
         "run".to_string(),
         "--python".to_string(),
         PYTHON_VERSION.to_string(),
-        "omnigent".to_string(),
+        "agentnexus".to_string(),
     ];
     args.extend_from_slice(passthrough);
     OmnigentCmd {
@@ -96,7 +96,7 @@ mod tests {
                 "run",
                 "--python",
                 PYTHON_VERSION,
-                "omnigent",
+                "agentnexus",
                 "agent",
                 "run",
                 "fix tests"
@@ -111,7 +111,7 @@ mod tests {
         let cmd = build(&pod, &[]);
         assert_eq!(
             cmd.args.iter().map(String::as_str).collect::<Vec<_>>(),
-            vec!["run", "--python", PYTHON_VERSION, "omnigent"]
+            vec!["run", "--python", PYTHON_VERSION, "agentnexus"]
         );
     }
 
@@ -123,7 +123,7 @@ mod tests {
         let data_dir = cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_DATA_DIR")
+            .find(|(k, _)| k == "AGENTNEXUS_DATA_DIR")
             .map(|(_, v)| v.clone());
         assert_eq!(
             data_dir,
@@ -133,21 +133,21 @@ mod tests {
         let url = cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_URL")
+            .find(|(k, _)| k == "AGENTNEXUS_URL")
             .map(|(_, v)| v.clone());
         assert_eq!(url, Some(pod.server_url()));
 
         let db = cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_DATABASE_URI")
+            .find(|(k, _)| k == "AGENTNEXUS_DATABASE_URI")
             .map(|(_, v)| v.clone());
         assert_eq!(db, Some(pod.db_uri()));
 
         let config_home = cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_CONFIG_HOME")
+            .find(|(k, _)| k == "AGENTNEXUS_CONFIG_HOME")
             .map(|(_, v)| v.clone());
         assert_eq!(config_home, Some(pod.config_dir().display().to_string()));
 
@@ -162,12 +162,12 @@ mod tests {
         assert!(cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_LOG_TTY_FD")
+            .find(|(k, _)| k == "AGENTNEXUS_LOG_TTY_FD")
             .is_none());
         assert!(cmd
             .env
             .iter()
-            .find(|(k, _)| k == "OMNIGENT_LOG_FORCE_COLOR")
+            .find(|(k, _)| k == "AGENTNEXUS_LOG_FORCE_COLOR")
             .is_none());
     }
 }

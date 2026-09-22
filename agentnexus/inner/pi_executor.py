@@ -76,7 +76,7 @@ from agentnexus.reasoning_effort import (
     to_pi_thinking_level,
     validate_effort,
 )
-from agentnexus.runner.identity import AGENTNEXUS_SESSION_ENV_VAR
+from agentnexus.runner.identity import AGENTNEXUS_SESSION_ENV_VARS
 from agentnexus.spec.types import RetryPolicy
 
 from ._subprocess_lifecycle import close_subprocess_transport
@@ -631,7 +631,7 @@ _PI_ENV_ALLOW_EXACT: frozenset[str] = frozenset(
         "LOGNAME",
         "SHELL",
         "TZ",
-        AGENTNEXUS_SESSION_ENV_VAR,  # "inside AgentNexus" marker (CLAUDE_CODE/CODEX analog)
+        *AGENTNEXUS_SESSION_ENV_VARS,  # Session markers, including the pre-2.0 alias.
     }
 )
 _STREAM_READ_CHUNK_SIZE = 65536

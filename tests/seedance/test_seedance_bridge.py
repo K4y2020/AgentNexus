@@ -309,6 +309,41 @@ async def test_execute_seedance_canvas_edit_update_and_verification():
 
 
 @pytest.mark.asyncio
+async def test_disconnect_normalizes_legacy_prefixed_edge_id():
+    from unittest.mock import AsyncMock
+
+    conv_id = "conv_disconnect_legacy"
+    edge_id = "edge_f041e8a93cbe497aa76b9ca3621e1e98"
+    legacy_id = f"edge_ref_C03_E01-04_{edge_id.removeprefix('edge_')}"
+    server = AsyncMock()
+    server.get.return_value = httpx.Response(
+        200,
+        json={"id": conv_id, "labels": {SEEDANCE_PROJECT_LABEL: "proj_disconnect"}},
+    )
+    v3 = AsyncMock()
+    v3.get_snapshot.side_effect = [
+        {"revision": 3, "edges": [{"id": edge_id, "from": "char", "to": "video", "kind": "references"}]},
+        {"revision": 4, "edges": []},
+    ]
+    v3.submit_command.return_value = {"accepted": True}
+
+    result = await execute_seedance_canvas_edit(
+        server_client=server,
+        conversation_id=conv_id,
+        action="disconnect",
+        edge_id=legacy_id,
+        seedance_client=v3,
+    )
+
+    assert result["status"] == "completed"
+    assert result["verified"] is True
+    assert result["edge_id"] == edge_id
+    assert result["requested_edge_id"] == legacy_id
+    command = v3.submit_command.call_args.args[1]
+    assert command["edgeId"] == edge_id
+
+
+@pytest.mark.asyncio
 @respx.mock
 async def test_execute_seedance_canvas_edit_safety_gates():
     conv_id = "conv_canvas_safe"

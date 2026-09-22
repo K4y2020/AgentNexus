@@ -292,7 +292,7 @@ def test_global_databricks_auth_beats_ambient_key(
 ) -> None:
     """An explicit global ``auth:`` block wins over an ambient-detected key.
 
-    Regression guard for the databricks/ucode user: ``omnigent setup``
+    Regression guard for the databricks/ucode user: ``agentnexus setup``
     writes a global ``auth: {type: databricks, profile: oss}`` block (not a
     providers: entry). A spec with NO executor.auth must route through that
     explicit databricks auth, NOT through a stray ``ANTHROPIC_API_KEY`` that
@@ -342,7 +342,7 @@ def test_codex_falls_back_to_first_available_openai_credential(
     A configured-but-not-default openai credential routes the codex head at spawn.
 
     The headline fix: a user who configured an openai-family credential via
-    ``omnigent setup`` (a Databricks workspace, or any key/gateway) but never
+    ``agentnexus setup`` (a Databricks workspace, or any key/gateway) but never
     marked it ``default`` would otherwise launch Debby's GPT (codex) head with NO
     credential — codex's own "Invalid API key". The spawn-env builder now falls
     back to the first credential that can serve the head's family, so the head

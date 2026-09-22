@@ -20,7 +20,7 @@ const authorClosed = () =>
 const maintainerClosed = (author) =>
   `${MARKER}\n@${author} this PR was closed by a maintainer. If you think that was a mistake, ` +
   `reply here and ask them to reopen it. \`/reopen\` only undoes automated closes. ` +
-  `See [CONTRIBUTING.md](https://github.com/agentnexus-ai/agentnexus/blob/main/CONTRIBUTING.md#reopening-a-closed-pr).`;
+  `See [CONTRIBUTING.md](https://github.com/K4y2020/AgentNexus/blob/main/CONTRIBUTING.md#reopening-a-closed-pr).`;
 
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;

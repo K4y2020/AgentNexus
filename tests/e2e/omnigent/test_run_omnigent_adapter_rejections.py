@@ -15,7 +15,7 @@ concepts it cannot faithfully translate into an omnigent
 Silent translation of these would give the user an agent that
 LOOKS configured (no error at boot) but lacks the policies /
 tools the YAML promised — a foot-gun. The right behavior is
-``omnigent run <yaml>`` exits non-zero with an error
+``agentnexus run <yaml>`` exits non-zero with an error
 message naming the specific field.
 
 This test parametrizes over every example YAML that trips at
@@ -84,7 +84,7 @@ def test_run_omnigent_rejects_unsupported_yaml(
     expected_error: str,
 ) -> None:
     """
-    ``omnigent run <yaml> -p ...`` exits non-zero and
+    ``agentnexus run <yaml> -p ...`` exits non-zero and
     mentions *expected_error* when the YAML trips a spec-load
     rejection.
 

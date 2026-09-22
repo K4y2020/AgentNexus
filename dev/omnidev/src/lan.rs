@@ -4,12 +4,12 @@
 //! the same network loads the UI at `http://<lan-ip>:<vite-port>`. Its browser
 //! stamps that non-loopback address as the `Origin` on every request. The
 //! backend runs in local single-user mode, where the origin guard
-//! (`omnigent.server.ws_origin.origin_allowed`) admits only loopback origins —
+//! (`agentnexus.server.ws_origin.origin_allowed`) admits only loopback origins —
 //! so multipart uploads get a 403 and the WebSocket stream is refused.
 //!
 //! `--trust-lan-origins` closes that gap by enumerating this machine's LAN
 //! IPv4 addresses and handing the server the matching `http://<ip>:<port>`
-//! origins via `OMNIGENT_WS_ALLOWED_ORIGINS` — the server's own exact-match
+//! origins via `AGENTNEXUS_WS_ALLOWED_ORIGINS` — the server's own exact-match
 //! allowlist. It stays exact-match (no security disable): only the origins we
 //! name are trusted.
 

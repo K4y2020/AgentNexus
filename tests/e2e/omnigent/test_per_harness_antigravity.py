@@ -1,6 +1,6 @@
 """Per-harness live characterization test — antigravity (Gemini) SDK harness.
 
-Runs ``omnigent run <spec> --harness antigravity ...`` as a real subprocess and
+Runs ``agentnexus run <spec> --harness antigravity ...`` as a real subprocess and
 asserts structural invariants over the persisted **conversation transcript**
 (not stdout): a non-empty, non-error assistant reply; a pinned + default Gemini
 model both complete; multi-turn history is retained across a ``--continue``
@@ -106,14 +106,14 @@ _ERROR_MARKERS: tuple[str, ...] = (
     "traceback (most recent call last)",
 )
 
-# Subprocess timeout per ``omnigent run`` invocation. The antigravity SDK boots
+# Subprocess timeout per ``agentnexus run`` invocation. The antigravity SDK boots
 # a native subprocess and round-trips to the Gemini backend, so cold turns take
 # ~10-60s; 200s keeps headroom on a contended CI host without letting a hung run
 # pin the suite forever.
 _RUN_TIMEOUT_SEC = 200
 
 # Minimal antigravity-native agent spec. Single-file legacy form (``name`` /
-# ``prompt`` / ``executor``) — the form ``omnigent run <file>`` accepts without a
+# ``prompt`` / ``executor``) — the form ``agentnexus run <file>`` accepts without a
 # spec directory. No ``executor.auth`` block: the key resolves from the stored
 # ``antigravity:`` config / ambient ``GEMINI_API_KEY`` via
 # ``_build_antigravity_spawn_env``. The model is pinned per-test via ``--model``
@@ -278,7 +278,7 @@ def _run_one_shot(
     prompt: str,
     model: str | None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a one-shot ``omnigent run <spec> --harness antigravity -p <prompt>``.
+    """Run a one-shot ``agentnexus run <spec> --harness antigravity -p <prompt>``.
 
     Session-backed (no ``--no-session``) so the turn is persisted to
     ``$HOME/.agentnexus/chat.db`` for transcript inspection and so a later
@@ -329,7 +329,7 @@ def _assert_clean_assistant_reply(
     a ``failed`` session + an error item, never a silent empty success).
 
     :param db_path: The session store the run wrote.
-    :param result: The completed ``omnigent run`` process.
+    :param result: The completed ``agentnexus run`` process.
     :param label: Short label for failure messages, e.g. ``"smoke"``.
     :returns: The joined assistant transcript text (for callers that assert more).
     """
@@ -363,7 +363,7 @@ def test_per_harness_antigravity_smoke(
 ) -> None:
     """A real antigravity turn returns a non-empty, non-error assistant reply.
 
-    The end-to-end smoke gate: one ``omnigent run --harness antigravity -p``
+    The end-to-end smoke gate: one ``agentnexus run --harness antigravity -p``
     against the harness default model. Asserts over the persisted transcript
     (not stdout) that the assistant reply is >= ~10 chars and not an error
     string, and that the process exited 0.

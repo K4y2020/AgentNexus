@@ -7,6 +7,13 @@ exclude: ^agentnexus/server/static/web-ui/
 repos:
   - repo: local
     hooks:
+      - id: agentnexus-rename-wiring
+        name: AgentNexus cross-component naming consistency
+        language: system
+        entry: .venv/bin/python scripts/check_agentnexus_rename.py
+        pass_filenames: false
+        files: ^(agentnexus/|web/|editors/|deploy/docker/|scripts/check_agentnexus_rename\.py|tests/harness_bench/native_tui_driver\.py|pyproject\.toml|justfile)
+
       - id: ruff-format
         name: ruff format
         language: system

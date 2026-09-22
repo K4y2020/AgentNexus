@@ -67,7 +67,7 @@ jobs:
     # the nightly schedule (rebuild of main HEAD), and bump_latest dispatches.
     # Skipped on reconcile_floating dispatches — that only drives the
     # reconcile-floating retag job.
-    if: github.repository == 'agentnexus-ai/agentnexus' && !inputs.reconcile_floating
+    if: github.repository == 'K4y2020/AgentNexus' && !inputs.reconcile_floating
     runs-on: ubuntu-latest
     # Multi-arch: the linux/arm64 leg cross-builds under QEMU emulation on this
     # amd64 runner, which roughly doubles the host-image build time (emulated
@@ -361,7 +361,7 @@ jobs:
     # from the tag list with PEP 440 ordering. Retags with `crane tag`
     # (digest-preserving). Idempotent — also a "fix the floating tags if they drift"
     # button, and the way to backfill them for releases cut before this scheme.
-    if: github.repository == 'agentnexus-ai/agentnexus' && inputs.reconcile_floating
+    if: github.repository == 'K4y2020/AgentNexus' && inputs.reconcile_floating
     permissions:
       contents: read
       packages: write # retag within GHCR via GITHUB_TOKEN

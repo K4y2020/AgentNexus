@@ -8,16 +8,16 @@ Automatically migrates:
 Runs automatically on first launch of AgentNexus CLI.
 """
 
-import os
-import shutil
-import warnings
 from pathlib import Path
-from typing import Optional
+
+from agentnexus._env_compat import get_env_var as _get_env_var
 
 
 def get_old_config_dir() -> Path:
-    """Get the old Omnigent config directory."""
-    return Path.home() / ".omnigent"
+    """Return the first historical state directory; supported until 2.0."""
+    from agentnexus.cli import _LEGACY_STATE_DIRS
+
+    return next((path for path in _LEGACY_STATE_DIRS if path.exists()), _LEGACY_STATE_DIRS[0])
 
 
 def get_new_config_dir() -> Path:
@@ -26,7 +26,9 @@ def get_new_config_dir() -> Path:
 
 
 def should_migrate() -> bool:
-    """Check if migration is needed."""
+    """Check for old state without an explicit config/data override."""
+    if get_env_var("CONFIG_HOME") or get_env_var("DATA_DIR"):
+        return False
     old_dir = get_old_config_dir()
     new_dir = get_new_config_dir()
 
@@ -35,69 +37,17 @@ def should_migrate() -> bool:
 
 
 def migrate_config_directory() -> bool:
-    """Migrate ~/.omnigent/ to ~/.agentnexus/.
+    """Use the CLI's guarded, one-time migration (legacy inputs removed in 2.0)."""
+    from agentnexus.cli import _STATE_DIR, _migrate_legacy_state_dir
 
-    Returns:
-        True if migration was performed, False otherwise.
-    """
-    if not should_migrate():
-        return False
-
-    old_dir = get_old_config_dir()
-    new_dir = get_new_config_dir()
-
-    try:
-        print(f"🔄 Migrating configuration from {old_dir} to {new_dir}...")
-
-        # Copy entire directory tree
-        shutil.copytree(old_dir, new_dir, symlinks=True, dirs_exist_ok=False)
-
-        print(f"✅ Configuration migrated successfully!")
-        print(f"   Old config preserved at: {old_dir}")
-        print(f"   New config location: {new_dir}")
-        print()
-        print("   You can safely delete the old directory after verifying everything works:")
-        print(f"   rm -rf {old_dir}")
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Migration failed: {e}")
-        print(f"   Please manually copy {old_dir} to {new_dir}")
-        return False
+    existed = _STATE_DIR.exists()
+    _migrate_legacy_state_dir()
+    return not existed and _STATE_DIR.exists()
 
 
-def get_env_var(key: str, compat: bool = True) -> Optional[str]:
-    """Get environment variable with backward compatibility.
-
-    Args:
-        key: Variable name without prefix (e.g., "CONFIG_HOME")
-        compat: If True, fall back to OMNIGENT_* variables
-
-    Returns:
-        Value from AGENTNEXUS_* or OMNIGENT_* (with deprecation warning)
-    """
-    new_var = f"AGENTNEXUS_{key}"
-    old_var = f"OMNIGENT_{key}"
-
-    # Try new variable first
-    value = os.getenv(new_var)
-    if value is not None:
-        return value
-
-    # Fall back to old variable with warning
-    if compat:
-        value = os.getenv(old_var)
-        if value is not None:
-            warnings.warn(
-                f"{old_var} is deprecated and will be removed in AgentNexus 2.0. "
-                f"Please use {new_var} instead.",
-                DeprecationWarning,
-                stacklevel=2
-            )
-            return value
-
-    return None
+def get_env_var(key: str, compat: bool = True) -> str | None:
+    """Use the same prefix precedence as package startup; legacy support ends in 2.0."""
+    return _get_env_var(key, compat=compat)
 
 
 def get_config_home() -> Path:
@@ -117,7 +67,8 @@ def get_data_dir() -> Path:
     if data_dir:
         return Path(data_dir)
 
-    return get_config_home() / "data"
+    # CONFIG_HOME only moves config.yaml; runtime state has its own override.
+    return get_new_config_dir()
 
 
 # Environment variable compatibility layer
@@ -125,7 +76,7 @@ class EnvCompat:
     """Backward-compatible environment variable access."""
 
     @staticmethod
-    def get(key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(key: str, default: str | None = None) -> str | None:
         """Get env var with OMNIGENT_* → AGENTNEXUS_* compat."""
         value = get_env_var(key, compat=True)
         return value if value is not None else default
@@ -151,7 +102,7 @@ class EnvCompat:
 
 
 # Common environment variables
-def get_server_url() -> Optional[str]:
+def get_server_url() -> str | None:
     """Get AGENTNEXUS_SERVER_URL (or deprecated OMNIGENT_SERVER_URL)."""
     return get_env_var("SERVER_URL")
 
@@ -166,7 +117,7 @@ def get_log_level() -> str:
     return EnvCompat.get("LOG_LEVEL", default="INFO")
 
 
-def get_model_default() -> Optional[str]:
+def get_model_default() -> str | None:
     """Get AGENTNEXUS_MODEL_DEFAULT (or deprecated OMNIGENT_MODEL_DEFAULT)."""
     return get_env_var("MODEL_DEFAULT")
 

@@ -857,7 +857,7 @@ async def _call_execute_off_loop(
     ``execute`` once. Without the thread bounce, a single
     sync body with ``time.sleep(5)`` would serialize every
     concurrent tool call AND freeze any render loop (like the
-    ``omnigent chat`` TUI) sharing the event loop.
+    ``agentnexus chat`` TUI) sharing the event loop.
 
     :param tool_handler: Handler whose ``execute`` will run.
     :param call_info: Call context passed through to the handler.

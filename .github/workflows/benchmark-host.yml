@@ -9,7 +9,7 @@ name: Benchmark (host sessions)
 # trend numbers stay with the nightly benchmark.yml; this workflow's value is
 # a fresh matrix on the PRs that actually move these numbers.
 #
-# Uses dev/benchmarks/agentnexus (real server + real `omni host` daemon +
+# Uses dev/benchmarks/agentnexus (real server + real `agentnexus host` daemon +
 # runner against a zero-latency mock LLM — no agent CLI or credentials).
 
 on:
@@ -63,7 +63,7 @@ concurrency:
 jobs:
   benchmark-host:
     name: Host session benchmark (sqlite)
-    if: github.repository == 'agentnexus-ai/agentnexus' && !github.event.pull_request.draft
+    if: github.repository == 'K4y2020/AgentNexus' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

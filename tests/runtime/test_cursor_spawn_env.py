@@ -171,7 +171,7 @@ def _write_cursor_config(tmp_path: Path, ref: str) -> None:
 def test_stored_cursor_key_used_when_spec_has_no_auth(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A CURSOR_API_KEY registered via ``omnigent setup`` flows when the spec
+    """A CURSOR_API_KEY registered via ``agentnexus setup`` flows when the spec
     declares no auth — so a user need not export it in every shell."""
     monkeypatch.setenv("CURSOR_KEY_SRC", "crsr_stored_123")
     _write_cursor_config(tmp_path, "env:CURSOR_KEY_SRC")

@@ -3,7 +3,7 @@
 // from open-url / second-instance / argv, the queue, and the orchestrator
 // that acts on these decisions); see README "Deep links".
 //
-// An `agentnexus://` or legacy `agentnexus://<hostname>/c/<session_id>` URL names
+// An `agentnexus://` or legacy `omnigent://<hostname>/c/<session_id>` URL names
 // a server by host (with
 // port if non-default) and a conversation by the SPA's own `/c/:id` route.
 // The link carries no http/https scheme — we infer it with the SAME rule the
@@ -27,7 +27,7 @@ const { defaultSchemeFor } = require("./url");
 const DEEP_LINK_PATH_RE = /^\/c\/[^/]+\/?$/;
 
 /**
- * Parse an `agentnexus://` (or legacy `agentnexus://`) deep link into a server
+ * Parse an `agentnexus://` (or legacy `omnigent://` until 2.0) link into a server
  * origin + an in-app path.
  *
  * The origin is the http(s) origin inferred from the link's host (loopback →
@@ -48,7 +48,7 @@ function parseOmnigentDeepLink(raw) {
   } catch {
     return null;
   }
-  if (url.protocol !== "agentnexus:" && url.protocol !== "agentnexus:") return null;
+  if (url.protocol !== "agentnexus:" && url.protocol !== "omnigent:") return null;
   // No host → a bare scheme URL; nothing to connect to.
   if (url.host === "") return null;
   const path = url.pathname;

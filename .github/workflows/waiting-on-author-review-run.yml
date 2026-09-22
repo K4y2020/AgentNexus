@@ -19,7 +19,7 @@ concurrency:
 jobs:
   hygiene:
     if: >-
-      github.repository == 'agentnexus-ai/agentnexus'
+      github.repository == 'K4y2020/AgentNexus'
       && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10

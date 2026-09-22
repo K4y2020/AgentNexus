@@ -1,9 +1,10 @@
+import pytest
+from agentnexus_slack.agentnexus import OutputFile
 from agentnexus_slack.notifications import (
     format_output_file,
     format_policy_denied,
     format_todos,
 )
-from agentnexus_slack.agentnexus import OutputFile
 
 
 def test_format_todos_renders_marks_and_active_form() -> None:
@@ -50,8 +51,9 @@ def test_session_web_link_plain_server() -> None:
     assert notifier._session_web_link("conv_abc") == "http://localhost:6767/c/conv_abc"
 
 
-def test_session_web_link_maps_workspace_api_mount_to_ui() -> None:
-    """A workspace-hosted API mount links to the /omnigent web UI, keeping ?o=.
+@pytest.mark.parametrize("mount", ["agentnexus", "omnigent"])
+def test_session_web_link_maps_workspace_api_mount_to_ui(mount: str) -> None:
+    """A workspace API mount links to its matching web UI, keeping ?o=.
 
     The bot is configured with the API proxy mount
     (``https://<ws>/api/2.0/omnigent``), but that mount answers JSON — the
@@ -63,10 +65,10 @@ def test_session_web_link_maps_workspace_api_mount_to_ui() -> None:
     from agentnexus_slack.notifications import SlackNotifier
 
     notifier = SlackNotifier(
-        server_url="https://ws.databricks.com/api/2.0/omnigent?o=123",
+        server_url=f"https://ws.databricks.com/api/2.0/{mount}?o=123",
         logger=logging.getLogger("test"),
     )
     assert (
         notifier._session_web_link("conv_abc")
-        == "https://ws.databricks.com/agentnexus/c/conv_abc?o=123"
+        == f"https://ws.databricks.com/{mount}/c/conv_abc?o=123"
     )

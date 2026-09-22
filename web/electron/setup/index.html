@@ -414,13 +414,18 @@
 
     <!-- AgentNexus server CLI settings, opened from the gear. Hidden by default. -->
     <div class="modal-overlay" id="cli-modal" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-label="AgentNexus server CLI settings">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AgentNexus server CLI settings"
+      >
         <p class="modal-title">AgentNexus Server CLI</p>
         <p class="cli-note" id="cli-status"></p>
         <div id="cli-install" hidden>
           <p>
             <a
-              href="https://omnigent.ai/quickstart/install#install-omnigent"
+              href="https://github.com/K4y2020/AgentNexus#quick-start"
               target="_blank"
               rel="noreferrer"
               >Install the AgentNexus Server CLI ↗</a
@@ -446,11 +451,11 @@
     </div>
     <script src="../src/url.js"></script>
     <script>
-      // Shared URL helpers (electron/src/url.js), exposed as window.omnigentUrl
+      // Shared URL helpers (electron/src/url.js), exposed as window.agentnexusUrl
       // — the same module the main process uses, so the two never drift.
-      const { isPlainHttpRemote, serverDisplayLabel } = window.omnigentUrl;
+      const { isPlainHttpRemote, serverDisplayLabel } = window.agentnexusUrl;
       // Uses the Electron preload bridge (electron/src/preload.js).
-      const setup = window.omnigentSetup;
+      const setup = window.agentnexusSetup;
       const input = document.getElementById("url");
       const button = document.getElementById("connect");
       const err = document.getElementById("err");

@@ -677,7 +677,7 @@ def routed_spawn_instruction(
     (``spawn: True`` grants it) — with parameters that exist on its schema,
     spelled the way *requesting_harness* advertises it. The previous wording
     named the bare tool at every harness, so a Claude session (which sees
-    ``mcp__omnigent__sys_session_create``) reported the tool as nonexistent
+    ``mcp__agentnexus__sys_session_create``) reported the tool as nonexistent
     and dropped the sub-task.
 
     :param model: Model Smart Routing selected, e.g. ``"databricks-glm-5-2"``.

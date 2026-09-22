@@ -199,7 +199,7 @@ _SUBAGENT_SELECT_SENTINEL: str = "\x00__agentnexus_ui_sdk.subagent_select__\x00"
 # Braille-dot spinner frames for the "thinking…" indicator and
 # the bottom-toolbar state badge. Eight frames give a smooth
 # rotation at the default 10 Hz tick; matches the frame set
-# that omnigent' cli.py uses so the two REPLs look identical
+# that agentnexus' cli.py uses so the two REPLs look identical
 # while a turn is in flight.
 _SPINNER_FRAMES: tuple[str, ...] = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 # Spinner tick interval while streaming — 100 ms is fast enough
@@ -251,7 +251,7 @@ class _SubagentNode:
     # web-parity ``Failed`` label (outranks a stale ``completed`` status).
     last_task_error: bool = False
     # Whether the child session is closed to new user input — derived from its
-    # labels / title via :func:`omnigent.session_lifecycle.is_session_closed`.
+    # labels / title via :func:`agentnexus.session_lifecycle.is_session_closed`.
     # Sticky (a closed session never reopens); gates interactive chat: a closed
     # child is view-only because a ``message`` to it returns 409 CONFLICT.
     closed: bool = False
@@ -416,7 +416,7 @@ class Overlay:
                 ]
                 return Group(*(Text.from_markup(line) for line in lines))
 
-        See ``omnigent/repl/_repl.py::_build_debug_overview``
+        See ``agentnexus/repl/_repl.py::_build_debug_overview``
         for the full reference implementation.
     :param title: Optional header rendered at the top of the
         pane, e.g. ``"Conversation history"``. ``None``
@@ -439,7 +439,7 @@ class Overlay:
         falling back to single-pane mode.
     :param sidebar_width: Column width (in characters) for the
         sidebar when *targets_builder* is provided. Default 24
-        — matches the omnigent debug panel and fits the
+        — matches the agentnexus debug panel and fits the
         ``"type:name"`` labels the sub-agent spawn tool
         produces.
     :param actions: Per-target keybindings that act on the
@@ -714,7 +714,7 @@ def _install_csi_u_sequences() -> None:
     sequence).
 
     Ported from the legacy non-AP mode CLI's
-    ``omnigent/inner/cli.py:1186-1239`` so behavior is
+    ``agentnexus/inner/cli.py:1186-1239`` so behavior is
     consistent across paths. Three groups:
 
     1. Control characters (``Ctrl+C``, ``Ctrl+D``, etc.) by
@@ -850,11 +850,11 @@ class TerminalHost:
     :param accent_color: Color for prompt bars and marker.
     :param history_file: Path for persistent input history.
         Defaults to ``"~/.agentnexus_history"`` to match the
-        legacy ``omnigent run`` CLI's location
-        (``omnigent/inner/cli.py:_cli_history_file_path``) so
+        legacy ``agentnexus run`` CLI's location
+        (``agentnexus/inner/cli.py:_cli_history_file_path``) so
         users who flip between legacy and AgentNexus mode see the same
         ↑ / Ctrl+R recall in both. SDK consumers outside
-        omnigent can override.
+        agentnexus can override.
     :param model_name: Shown in the bottom toolbar.
     :param toolbar_hints: Right-side hint segment of the
         bottom toolbar — same shape ``welcome()`` accepts so
@@ -1496,7 +1496,7 @@ class TerminalHost:
         a terminal that doesn't honor ``OSC 0`` (or an ``Output``
         backend without title support) shouldn't take the host
         down. The legacy CLI's ``_set_terminal_title``
-        (``omnigent/inner/cli.py:2717-2723``) swallows the same
+        (``agentnexus/inner/cli.py:2717-2723``) swallows the same
         way for the same reason; mirroring keeps behavior
         identical so a session that boots green on legacy boots
         green on AgentNexus mode regardless of terminal quirks.
@@ -2037,11 +2037,11 @@ class TerminalHost:
             500 ms cadence — tight enough that users see turn
             updates land without manual intervention, loose enough
             that each tick's HTTP ``list_items`` round-trip doesn't
-            hammer the server. Matches omnigent' overview polling
-            strategy (see ``omnigent/cli.py::_refresh_loop``),
+            hammer the server. Matches agentnexus' overview polling
+            strategy (see ``agentnexus/cli.py::_refresh_loop``),
             with the interval bumped from 50 ms → 500 ms because
             AgentNexus' builder crosses a real HTTP boundary
-            while omnigent' builder just reads in-process state.
+            while agentnexus' builder just reads in-process state.
             """
             try:
                 while True:
@@ -2250,7 +2250,7 @@ class TerminalHost:
             The selected row gets a ``▸`` prefix + bold style; the
             rest use a muted color. Each row is left-padded/truncated
             to *sidebar_width* so the separator column stays aligned
-            even with variable-length labels. Matches the omnigent
+            even with variable-length labels. Matches the agentnexus
             debug panel's visual layout.
 
             Slices the target list by ``sidebar_scroll_offset``
@@ -3168,7 +3168,7 @@ class TerminalHost:
         # back to open. Derive it from the same labels/title the server uses so
         # the selector knows the child is view-only (a ``message`` to a closed
         # session 409s). Imported lazily to keep this UI SDK importable without
-        # the ``omnigent`` server package on the path.
+        # the ``agentnexus`` server package on the path.
         if not node.closed:
             from agentnexus.session_lifecycle import is_session_closed
 
@@ -3664,7 +3664,7 @@ class TerminalHost:
         badge reads ``state: running ⠹`` (with animated Braille
         spinner) while a handler task is running, and
         ``state: sleeping`` while idle — matching the format
-        omnigent' main REPL shows at the bottom-right. A
+        agentnexus' main REPL shows at the bottom-right. A
         running stream also shows elapsed seconds in the model
         segment. The hints stay on the right.
 

@@ -226,14 +226,14 @@ def test_redirect_denies_with_mcp_prefixed_session_create_instruction(
     reason = _redirect_reason(tmp_path, monkeypatch)
 
     # The instruction must name the tool the way Claude advertises it. Claude
-    # exposes AgentNexus's MCP tools as ``mcp__omnigent__<tool>``, so the bare
+    # exposes AgentNexus's MCP tools as ``mcp__agentnexus__<tool>``, so the bare
     # name it used to quote made the model report the tool as nonexistent and
     # abandon the sub-task (live: session e26d94b2).
-    assert "mcp__omnigent__sys_session_create" in reason
-    assert "mcp__omnigent__sys_agent_list" in reason
+    assert "mcp__agentnexus__sys_session_create" in reason
+    assert "mcp__agentnexus__sys_agent_list" in reason
     # No bare occurrence outside the prefixed spelling.
-    assert "sys_session_create" not in reason.replace("mcp__omnigent__sys_session_create", "")
-    assert "sys_agent_list" not in reason.replace("mcp__omnigent__sys_agent_list", "")
+    assert "sys_session_create" not in reason.replace("mcp__agentnexus__sys_session_create", "")
+    assert "sys_agent_list" not in reason.replace("mcp__agentnexus__sys_agent_list", "")
     assert "sys_session_send" not in reason
     assert "other-model" in reason
     assert "codex" in reason
@@ -275,7 +275,7 @@ def test_redirect_without_a_relay_file_keeps_the_actionable_instruction(
 
     reason = _redirect_reason(tmp_path, monkeypatch)
 
-    assert "mcp__omnigent__sys_session_create" in reason
+    assert "mcp__agentnexus__sys_session_create" in reason
     assert "yourself" not in reason
 
 

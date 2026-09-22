@@ -18,8 +18,8 @@ const {
   stripAnsi,
 } = require("../src/loginShellPath");
 
-const START = "__OMNIGENT_PATH_START__";
-const END = "__OMNIGENT_PATH_END__";
+const START = "__AGENTNEXUS_PATH_START__";
+const END = "__AGENTNEXUS_PATH_END__";
 const ESC = String.fromCharCode(27);
 
 // A stripped launchd-style PATH (the input state this whole module exists to fix).

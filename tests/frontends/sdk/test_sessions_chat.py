@@ -956,7 +956,7 @@ async def test_query_uses_final_message_item_when_deltas_absent() -> None:
     """
     Some harnesses produce no ``response.output_text.delta`` events
     but do include assistant text in ``response.output_item.done``.
-    ``query()`` must surface that text so headless ``omnigent run
+    ``query()`` must surface that text so headless ``agentnexus run
     -p`` prints the answer instead of returning an empty string.
     """
     session = _make_session()

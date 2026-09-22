@@ -1,7 +1,7 @@
 """
 End-to-end: every example YAML the AgentNexus adapter is
 *expected* to accept can actually boot and execute under
-``omnigent run -p <prompt>``.
+``agentnexus run -p <prompt>``.
 
 One parametrized case per YAML. Each case:
 
@@ -132,7 +132,7 @@ def test_run_omnigent_example_yaml(
     extra_args: tuple[str, ...],
 ) -> None:
     """
-    Drive one example YAML under ``omnigent run -p <prompt>``
+    Drive one example YAML under ``agentnexus run -p <prompt>``
     and assert the agent exercised the declared capability.
 
     :param omnigent_python: Shared interpreter fixture.

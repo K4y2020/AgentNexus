@@ -1073,7 +1073,7 @@ async def test_single_user_local_can_access_own_session(
     The single-user app (``local_single_user=True``) resolves a
     missing ``X-Forwarded-Email`` to the reserved ``"local"``
     identity, which gets an owner auto-grant on sessions it creates
-    — the bare `omnigent run` / local web UI flow.
+    — the bare `agentnexus run` / local web UI flow.
     """
     agent = await create_test_agent(local_auth_client, user="bryan")
 

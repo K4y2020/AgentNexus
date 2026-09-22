@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Generate the `omnigent` Homebrew formula for a released PyPI version.
+"""Generate the `agentnexus` Homebrew formula for a released PyPI version.
 
-Splices the volatile parts of `Formula/omnigent.rb` — the stable `url`/`sha256`
+Splices the volatile parts of `Formula/agentnexus.rb` — the stable `url`/`sha256`
 and every dependency `resource` stanza — into the hand-tuned template
-(`omnigent.rb.template`). The structural parts (desc, depends_on, install, test)
+(`agentnexus.rb.template`). The structural parts (desc, depends_on, install, test)
 are owned by the template; this script owns the bits that change every release.
 
 Resolution: `uv pip compile` computes the exact transitive closure of
-`omnigent[<extras>]==<version>` for each target platform (macOS arm + intel by
+`agentnexus[<extras>]==<version>` for each target platform (macOS arm + intel by
 default — the brew tap's `brew test-bot` matrix). The per-platform closures are
 unioned; for each package we then fetch the sdist URL + sha256 from the PyPI JSON
 API and emit a `resource` stanza. Every package in the closure must publish an
@@ -15,13 +15,13 @@ sdist: the formula builds each resource from source, so one dropped for lack of
 an sdist ships a venv missing that dependency, which surfaces as an ImportError
 (or a silently disabled feature) at runtime rather than a red build. A missing
 sdist is therefore a hard error; `--allow-no-sdist NAME` waives it for a package
-omnigent genuinely works without.
+agentnexus genuinely works without.
 
 Excluded from `resource` generation (provided by the brewed Python environment,
 NOT built as virtualenv resources — keep in sync with the template's
 `depends_on ... => :no_linkage` and the brewed packages' transitive build deps
 like cffi/pycparser, which need libffi that this formula doesn't depend on):
-``omnigent`` (the stable url itself) and ``certifi, cryptography, pydantic,
+``agentnexus`` (the stable url itself) and ``certifi, cryptography, pydantic,
 pydantic-core, rpds-py, cffi, pycparser``.
 
 Run by `.github/workflows/homebrew-tap-pr.yml` on `release: published`.
@@ -49,7 +49,7 @@ DEFAULT_PLATFORMS = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 # Extras bundled as resources. The base install already pulls the Claude and
 # OpenAI Agents harnesses; this adds the opt-in `cursor` harness (pure-Python
 # sdist). antigravity is NOT bundled — no sdist (platform wheels only), no
-# Intel-macOS build; `pip install omnigent[antigravity]` instead.
+# Intel-macOS build; `pip install agentnexus[antigravity]` instead.
 DEFAULT_EXTRAS = ["cursor"]
 # Resolve for the brewed Python so `requires-python` markers match the formula's
 # `python@3.14` (and the `virtualenv_create(libexec, "python3.14")` in install).
@@ -77,7 +77,7 @@ BREWED_EXCLUSIONS = {
     "cffi",
     "pycparser",
 }
-# omnigent is the stable `url` itself, so it's never a resource.
+# agentnexus is the stable `url` itself, so it's never a resource.
 SELF_EXCLUSIONS = {"agentnexus"}
 
 # Packages pinned to an upstream platform wheel instead of the sdist, emitted as
@@ -102,7 +102,7 @@ WHEEL_REQUIRED = {"google-re2"}
 #
 # jiter, tiktoken and watchfiles are deliberately NOT here: their wheels are
 # maturin-built with no install-name padding, so relocation dies with "Failed
-# changing dylib ID" (omnigent issue #866). They are built from source with
+# changing dylib ID" (agentnexus issue #866). They are built from source with
 # -headerpad_max_install_names instead, which is how every bottled release up to
 # 0.6.0 shipped them. Verify with:
 #   install_name_tool -id <long Cellar path> <extracted .so>
@@ -345,9 +345,9 @@ def resolve_closure(
     be a distribution published minutes ago, even though the same dependency graph
     in uv.lock has to wait out the window.
 
-    The cooldown cannot simply be left on: at release time `omnigent` and its two
+    The cooldown cannot simply be left on: at release time `agentnexus` and its two
     lockstep SDKs are minutes old, and uv would filter out the very version being
-    packaged ("no version of omnigent==X.Y.Z"). So the window applies to everything
+    packaged ("no version of agentnexus==X.Y.Z"). So the window applies to everything
     except those three, via `--exclude-newer-package`.
 
     If a package resolves to different versions across platforms, the highest
@@ -477,7 +477,7 @@ def generate(
 
     extras_spec = f"[{','.join(extras)}]" if extras else ""
     print(
-        f"Resolving omnigent{extras_spec}=={version} for {', '.join(platforms)} "
+        f"Resolving agentnexus{extras_spec}=={version} for {', '.join(platforms)} "
         f"(python {python_version})…",
         file=sys.stderr,
     )
@@ -488,9 +488,9 @@ def generate(
     if rewrites:
         print(f"URL rewrites: {rewrites}", file=sys.stderr)
 
-    # Stable sdist for omnigent itself.
-    omnigent_files = pypi_release_files("agentnexus", version, api_base)
-    sdist = pick_sdist(omnigent_files)
+    # Stable sdist for agentnexus itself.
+    agentnexus_files = pypi_release_files("agentnexus", version, api_base)
+    sdist = pick_sdist(agentnexus_files)
     if not sdist:
         raise RuntimeError(
             f"agentnexus=={version} has no sdist on PyPI — cannot set the stable url."
@@ -499,7 +499,7 @@ def generate(
     stable_url = rewrite_url(stable_url, rewrites)
     print(f"agentnexus {version}: {stable_url}", file=sys.stderr)
 
-    # Every resolved package (other than omnigent itself and the brewed set) ->
+    # Every resolved package (other than agentnexus itself and the brewed set) ->
     # a sdist resource stanza. `exclude` is the caller-supplied set (CLI --exclude);
     # it augments the built-in brewed set and the always-excluded self package.
     excluded = BREWED_EXCLUSIONS | exclude | SELF_EXCLUSIONS
@@ -588,7 +588,7 @@ def generate(
             + "\nHomebrew builds every resource from source, so these would be "
             "absent from the installed venv. Drop the dependency, move it to an "
             "extra that isn't bundled (see DEFAULT_EXTRAS), or pass "
-            "--allow-no-sdist <name> if omnigent works without it."
+            "--allow-no-sdist <name> if AgentNexus works without it."
         )
 
     # No trailing newline: the template's blank lines frame the resource block.
@@ -613,7 +613,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument(
         "--out",
         type=Path,
-        default=Path("Formula/omnigent.rb"),
+        default=Path("Formula/agentnexus.rb"),
         help="Where to write the rendered formula.",
     )
     ap.add_argument(
@@ -682,7 +682,7 @@ def main(argv: list[str]) -> int:
         type=int,
         default=None,
         help="Supply-chain cooldown in days: ignore distributions uploaded more "
-        "recently than this, except the lockstep omnigent packages. Defaults to "
+        "recently than this, except the lockstep AgentNexus packages. Defaults to "
         "the repo uv.toml `exclude-newer` span. 0 disables it (not recommended).",
     )
     ap.add_argument("--uv", default="uv", help="uv binary path.")

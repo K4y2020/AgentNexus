@@ -22,8 +22,17 @@ def current_ledger(workspace, session_id):
     if not workspace or not session_id or not re.fullmatch(r"[A-Za-z0-9_-]+", session_id):
         raise ValueError("CINE_BINDING_REQUIRED: current session and workspace are required")
     root = Path(workspace).resolve()
-    binding = _read(_inside(root, root / ".cine" / "sessions" / f"{session_id}.json"))
-    if binding.get("session_id") != session_id:
+    binding_path = root / ".cine" / "sessions" / f"{session_id}.json"
+    expected_binding_id = session_id
+    if not binding_path.is_file() and root.parent.name.casefold() == "topics":
+        # The runner session id and the Bot Topic id can differ. A canonical
+        # topics/<topic-id> workspace is still owned by its one topic binding.
+        topic_id = root.name
+        if re.fullmatch(r"[A-Za-z0-9_-]+", topic_id):
+            binding_path = root / ".cine" / "sessions" / f"{topic_id}.json"
+            expected_binding_id = topic_id
+    binding = _read(_inside(root, binding_path))
+    if binding.get("session_id") != expected_binding_id:
         raise ValueError("CINE_OWNER_MISMATCH")
     project = _inside(root, Path(binding["project_path"]))
     manifest = _read(_inside(project, project / "project.json"))

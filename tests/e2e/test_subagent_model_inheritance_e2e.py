@@ -1,7 +1,7 @@
 """Mock-LLM e2e for user-selected-model propagation to sub-agents.
 
 Reproduces the reported journey: a user launches the polly orchestrator with
-an explicitly selected model (``omnigent run <polly> --model
+an explicitly selected model (``agentnexus run <polly> --model
 claude-sonnet-4-6``), polly's brain dispatches a sub-agent WITHOUT an explicit
 ``args.model`` (polly's worker configs pin no model), and the user then finds
 the sub-agent running on a *different* model than the one they selected — in
@@ -60,11 +60,11 @@ _SELECTED_MODEL = "claude-sonnet-4-6"
 
 def _run_env(mock_llm_server_url: str) -> dict[str, str]:
     """
-    Build the env for the ``omnigent run`` client process.
+    Build the env for the ``agentnexus run`` client process.
 
     Extends :func:`_mock_env` with a ``PYTHONPATH`` pointing at this working
     tree (plus the in-repo SDKs), so the local runner the CLI spawns — which
-    executes ``python -m omnigent.runner._entry`` from outside the repo cwd —
+    executes ``python -m agentnexus.runner._entry`` from outside the repo cwd —
     imports the code under test even when the active venv installed omnigent
     from a different checkout (worktree/CI layouts).
 
@@ -93,7 +93,7 @@ def _run_polly_with_selected_model(
     """
     Run one headless polly turn with the user's ``--model`` selection.
 
-    This is the reported user journey verbatim: ``omnigent run <polly>
+    This is the reported user journey verbatim: ``agentnexus run <polly>
     --model claude-sonnet-4-6 -p <task>`` (the CLI spelling of picking the
     model in the UI/YAML).
 
@@ -101,7 +101,7 @@ def _run_polly_with_selected_model(
     :param prompt: The ``-p`` one-shot prompt.
     :param mock_llm_server_url: Mock LLM server base URL for env injection.
     :param polly_dir: The polly bundle to run.
-    :returns: The completed ``omnigent run`` process.
+    :returns: The completed ``agentnexus run`` process.
     """
     return subprocess.run(
         [

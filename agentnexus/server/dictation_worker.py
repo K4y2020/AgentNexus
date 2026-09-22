@@ -10,9 +10,9 @@ browser never talks to the worker directly.
 
 Run it wherever the models live::
 
-    pip install omnigent[dictation]
+    pip install agentnexus[dictation]
     scripts/fetch-dictation-models.sh
-    python -m omnigent.server.dictation_worker --host 0.0.0.0 --port 8100
+    python -m agentnexus.server.dictation_worker --host 0.0.0.0 --port 8100
 
 Then start the main server pointed at it::
 

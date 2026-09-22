@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deploy the AgentNexus Slack bot to a Databricks App via Asset Bundles.
 
-Builds a wheel for the ``omnigent-slack`` package, generates an app-level
+Builds a wheel for the ``agentnexus-slack`` package, generates an app-level
 ``pyproject.toml`` that depends on that wheel (with the bot's runtime deps
 inlined from the source ``pyproject.toml``), copies the wheel into ``src/``,
 then wraps ``databricks bundle deploy`` + ``databricks bundle run``.
@@ -19,8 +19,8 @@ Runs unchanged from a laptop or CI. Re-runnable; every step is idempotent.
 
 Usage:
     uv run python integrations/slack/deploy/databricks/deploy.py \\
-        --app-name omnigent-slack --profile <your-profile> \\
-        --secret-scope omnigent-slack \\
+        --app-name agentnexus-slack --profile <your-profile> \\
+        --secret-scope agentnexus-slack \\
         --server-url https://<server-app>.databricksapps.com
 
 See ``README.md`` in this directory for the full guide (secret scope
@@ -111,7 +111,7 @@ def _stamp_version(new_version: str) -> str:
 
 
 def _build_wheel() -> Path:
-    """Build the omnigent-slack wheel into the package's dist/, return its path."""
+    """Build the agentnexus-slack wheel into the package's dist/, return its path."""
     root = _slack_root()
     dist = root / "dist"
     # Sweep stale wheels so we pick exactly the one we just built.

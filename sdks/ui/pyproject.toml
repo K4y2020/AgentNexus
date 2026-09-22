@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     # Version-locked (==) with the sibling client SDK; released together
-    # at one version (release-agentnexus.yml verifies the pin). A `>=`
+    # at one version (release-omnigent.yml verifies the pin). A `>=`
     # floor would also reject pre-releases (e.g. 0.1.0rc1 < 0.1.0 in
     # PEP 440).
     "agentnexus-client==0.12.0.dev0",

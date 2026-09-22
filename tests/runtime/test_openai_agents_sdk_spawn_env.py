@@ -364,7 +364,7 @@ def test_global_config_auth_used_when_spec_auth_absent(
 
     Failure means users must declare auth in every agent YAML and
     cannot rely on the once-configured global default from
-    ``omnigent setup``.
+    ``agentnexus setup``.
     """
     with tempfile.TemporaryDirectory() as td:
         cfg_path = Path(td) / "config.yaml"

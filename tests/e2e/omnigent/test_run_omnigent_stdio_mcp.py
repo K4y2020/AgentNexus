@@ -1,4 +1,4 @@
-"""Live E2E: ``omnigent run`` calls a stdio MCP tool.
+"""Live E2E: ``agentnexus run`` calls a stdio MCP tool.
 
 Proves the full path landed by the stdio-MCP work:
 
@@ -169,7 +169,7 @@ def _write_stdio_mcp_yaml(tmp_path: Path, repo_root: Path) -> Path:
 
 def test_omnigent_stdio_mcp_tool_roundtrip(tmp_path: Path) -> None:
     """
-    Run ``omnigent run <yaml>`` with a stdio MCP; the
+    Run ``agentnexus run <yaml>`` with a stdio MCP; the
     LLM must invoke the tool and the echoed string must appear
     in the agent's final reply.
 

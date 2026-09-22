@@ -897,10 +897,7 @@ export function Sidebar({
                     className="h-[15px] w-auto shrink-0 translate-y-px dark:invert"
                   />
                 ) : (
-                  <span
-                    className="text-base font-semibold"
-                    data-testid="sidebar-brand-name"
-                  >
+                  <span className="text-base font-semibold" data-testid="sidebar-brand-name">
                     {appName}
                   </span>
                 )}
@@ -1514,10 +1511,9 @@ function ConversationList({
       }
       if (creatingBots.current.has(teammate.bot.id)) return;
       const targetWorkspace = `${teammate.bot.homePath.replace(/[\\/]+$/, "")}/scratch`;
-      const targetHost =
-        teammate.bot.hostId ? hosts.find(
-          (host) => host.host_id === teammate.bot.hostId && host.status === "online",
-        ) : onlineHost;
+      const targetHost = teammate.bot.hostId
+        ? hosts.find((host) => host.host_id === teammate.bot.hostId && host.status === "online")
+        : onlineHost;
 
       if (!targetHost) {
         showToast(`Cannot create a topic: ${teammate.bot.name}'s host is offline or unavailable.`);
@@ -1540,13 +1536,23 @@ function ConversationList({
         onTeammateNavigate();
         navigate(`/c/${session.id}`);
       } catch (error) {
-        showToast(`Couldn't create topic: ${error instanceof Error ? error.message : "Please try again."}`);
+        showToast(
+          `Couldn't create topic: ${error instanceof Error ? error.message : "Please try again."}`,
+        );
       } finally {
         creatingBots.current.delete(teammate.bot.id);
         setCreatingBotIds(new Set(creatingBots.current));
       }
     },
-    [hosts, onlineHost, addRecentWorkspace, refetchTeammates, queryClient, navigate, onTeammateNavigate],
+    [
+      hosts,
+      onlineHost,
+      addRecentWorkspace,
+      refetchTeammates,
+      queryClient,
+      navigate,
+      onTeammateNavigate,
+    ],
   );
 
   // Project folders ({ id, name }) for grouping sessions — first-class id
@@ -1716,21 +1722,14 @@ function ConversationList({
       return {
         teammate,
         primaryConversation,
-        topics: sortByUpdatedAtDesc(
-          topicList,
-          activeOverride,
-          frozenKeys,
-        ),
+        topics: sortByUpdatedAtDesc(topicList, activeOverride, frozenKeys),
       };
     });
 
     // Sessions: the remainder — not pinned, not filed, not any teammate session.
     const sessions = sortByUpdatedAtDesc(
       tabScoped.filter(
-        (c) =>
-          !pinnedIdSet.has(c.id) &&
-          !filedIds.has(c.id) &&
-          !allTeammateConvIds.has(c.id),
+        (c) => !pinnedIdSet.has(c.id) && !filedIds.has(c.id) && !allTeammateConvIds.has(c.id),
       ),
       activeOverride,
       frozenKeys,
@@ -3003,7 +3002,7 @@ function ConversationMenuItems({
   isPinned: boolean;
   isArchived: boolean;
   isOwner: boolean;
-  // Server-wide sharing kill switch (OMNIGENT_SHARING_MODE=off): disables the
+  // Server-wide sharing kill switch (AGENTNEXUS_SHARING_MODE=off): disables the
   // Share item for everyone, independent of the per-user ownership check.
   sharingOff: boolean;
   // Single-user mode: hide the Share item entirely (no other users to share
@@ -3581,7 +3580,7 @@ function ConversationRow({
   // `isOwner` below is derived from it.
   const viewerId = useViewerId();
   const isOwner = isOwnedByViewer(conversation, viewerId);
-  // Server-wide sharing kill switch (OMNIGENT_SHARING_MODE=off) reported by
+  // Server-wide sharing kill switch (AGENTNEXUS_SHARING_MODE=off) reported by
   // /v1/info — disables the row's Share item even for managers. Fail open
   // (share enabled) while the capability probe is still loading.
   const serverInfo = useServerInfo();

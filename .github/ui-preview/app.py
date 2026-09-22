@@ -6,12 +6,12 @@ and self-contained* so a fresh app can be created and torn down per PR with no
 external state: a SQLite database + local-disk artifact store under a temp dir.
 
 There is no bundled LLM or runner. AgentNexus executes agent turns on a runner
-that the user connects from their own machine/sandbox (``omnigent host --server
+that the user connects from their own machine/sandbox (``agentnexus host --server
 <url>``), so the preview only needs to serve the web UI + API. A reviewer browses
 the UI as-is, and can connect their own host to drive a real session.
 
 The prebuilt web SPA is shipped separately as ``build.tar.gz`` (keeping the
-wheel small) and extracted into the installed ``omnigent`` package so the server
+wheel small) and extracted into the installed ``agentnexus`` package so the server
 mounts it at ``/``.
 """
 
@@ -30,16 +30,22 @@ HERE = Path(__file__).parent.resolve()
 # Databricks Apps expects the app to listen on DATABRICKS_APP_PORT (8000 by
 # convention); fall back to 8000 for local runs of this script.
 PORT = int(os.environ.get("DATABRICKS_APP_PORT", "8000"))
-WORK_DIR = Path(os.environ.get("AGENTNEXUS_PREVIEW_WORKDIR", "/tmp/omnigent-preview"))
+# Legacy environment spelling is supported until 2.0.
+WORK_DIR = Path(
+    os.environ.get(
+        "AGENTNEXUS_PREVIEW_WORKDIR",
+        os.environ.get("OMNIGENT_PREVIEW_WORKDIR", "/tmp/agentnexus-preview"),
+    )
+)
 DB_PATH = WORK_DIR / "agentnexus.db"
 ARTIFACT_DIR = WORK_DIR / "artifacts"
 
 
 def _extract_spa() -> None:
-    """Extract the prebuilt SPA into the installed omnigent package.
+    """Extract the prebuilt SPA into the installed agentnexus package.
 
     The build job ships ``build.tar.gz`` (containing a ``web-ui`` dir) next to
-    this file; the server serves ``omnigent/server/static/web-ui`` at ``/``.
+    this file; the server serves ``agentnexus/server/static/web-ui`` at ``/``.
     """
     tar_path = HERE / "build.tar.gz"
     if not tar_path.is_file():
@@ -47,7 +53,7 @@ def _extract_spa() -> None:
         return
     import agentnexus.server
 
-    target = Path(omnigent.server.__file__).parent / "static"
+    target = Path(agentnexus.server.__file__).parent / "static"
     target.mkdir(parents=True, exist_ok=True)
     logger.info("Extracting SPA from %s into %s", tar_path, target)
     with tarfile.open(tar_path) as tar:

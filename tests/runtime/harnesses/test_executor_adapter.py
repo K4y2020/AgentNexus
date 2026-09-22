@@ -1011,10 +1011,10 @@ def test_translate_event_mcp_tool_call_request_emits_observed_with_bare_name() -
     """
     A ``ToolCallRequest`` carrying an MCP-prefixed name emits
     an observed ``function_call`` event with the BARE tool
-    name (no ``mcp__omnigent__`` prefix), inline.
+    name (no ``mcp__agentnexus__`` prefix), inline.
 
     What this proves: the user sees ``⏵ sys_terminal_launch`` in
-    the REPL, not ``⏵ mcp__omnigent__sys_terminal_launch`` — the
+    the REPL, not ``⏵ mcp__agentnexus__sys_terminal_launch`` — the
     AgentNexus wire shape and persisted store items carry the bare name
     (per ``omnigent/runtime/workflow.py``'s
     ``_observed_tool_call_sse_dicts``); a regression that
@@ -1030,7 +1030,7 @@ def test_translate_event_mcp_tool_call_request_emits_observed_with_bare_name() -
     ctx = _RecordingTurnContext(response_id="resp_test")
 
     event = ToolCallRequest(
-        name="mcp__omnigent__sys_terminal_launch",
+        name="mcp__agentnexus__sys_terminal_launch",
         args={"terminal": "shell", "session": "probe"},
         metadata={"call_id": "tool_use_abc123"},
     )
@@ -1055,9 +1055,9 @@ def test_translate_event_mcp_tool_call_request_emits_observed_with_bare_name() -
     )
     assert item["name"] == "sys_terminal_launch", (
         f"Tool name in the observed emit must be bare (no "
-        f"``mcp__omnigent__`` prefix); got {item['name']!r}. "
+        f"``mcp__agentnexus__`` prefix); got {item['name']!r}. "
         f"If the prefix leaked through, the REPL would render "
-        f"``⏵ mcp__omnigent__sys_terminal_launch`` instead of "
+        f"``⏵ mcp__agentnexus__sys_terminal_launch`` instead of "
         f"``⏵ sys_terminal_launch``."
     )
     assert item["call_id"] == "tool_use_abc123", (
@@ -1261,7 +1261,7 @@ def test_translate_event_mcp_request_queues_tool_use_id_for_dispatch() -> None:
     for tool_use_id in ("id_1", "id_2", "id_3"):
         adapter._translate_event(  # type: ignore[arg-type]
             ToolCallRequest(
-                name="mcp__omnigent__sys_terminal_launch",
+                name="mcp__agentnexus__sys_terminal_launch",
                 args={"x": tool_use_id},
                 metadata={"call_id": tool_use_id},
             ),
@@ -1446,10 +1446,10 @@ async def test_stable_tool_executor_pops_queue_for_bare_tool_name() -> None:
     form.
 
     What this proves and why it matters: the Claude SDK's MCP
-    server wrapper strips the ``mcp__omnigent__`` prefix
+    server wrapper strips the ``mcp__agentnexus__`` prefix
     before invoking the tool callback. So
     ``_stable_tool_executor`` receives ``"sys_terminal_launch"``,
-    NOT ``"mcp__omnigent__sys_terminal_launch"``. An earlier
+    NOT ``"mcp__agentnexus__sys_terminal_launch"``. An earlier
     iteration of this fix gated the queue pop on
     ``tool_name.startswith("mcp__")`` — that guard NEVER fired
     in production because the prefix was already stripped, the

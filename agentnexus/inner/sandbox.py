@@ -1035,7 +1035,7 @@ def run_launcher(encoded_sandbox: str, target_path: str, argv: list[str]) -> int
             )
             os.environ[_LAUNCHER_WRAPPED_ENV] = "1"
             logger.info(
-                "[omnigent-sandbox] spawn-time wrap re-exec backend=%s wrap_head=%s",
+                "[agentnexus-sandbox] spawn-time wrap re-exec backend=%s wrap_head=%s",
                 sandbox.backend_type,
                 wrapped[:3],
             )
@@ -1067,7 +1067,7 @@ def run_launcher(encoded_sandbox: str, target_path: str, argv: list[str]) -> int
     # Checkpoints around activate + spawn so a hang in either step is
     # visible in the wrapper's stderr (the wrapper template enables INFO).
     logger.info(
-        "[omnigent-sandbox] activating backend=%s active=%s target=%s",
+        "[agentnexus-sandbox] activating backend=%s active=%s target=%s",
         sandbox.backend_type,
         sandbox.active,
         target_path,
@@ -1094,14 +1094,14 @@ def run_launcher(encoded_sandbox: str, target_path: str, argv: list[str]) -> int
                 *target_argv,
             ]
             logger.warning(
-                "[omnigent-sandbox] strace active; wrapping target with %s",
+                "[agentnexus-sandbox] strace active; wrapping target with %s",
                 strace_bin,
             )
     try:
         activate_sandbox(sandbox)
-        logger.info("[omnigent-sandbox] activated; spawning target=%s", target_path)
+        logger.info("[agentnexus-sandbox] activated; spawning target=%s", target_path)
         completed = subprocess.run(target_argv)
-        logger.info("[omnigent-sandbox] target exited rc=%s", completed.returncode)
+        logger.info("[agentnexus-sandbox] target exited rc=%s", completed.returncode)
         return int(completed.returncode)
     finally:
         cleanup_private_tmpdir(tmpdir)

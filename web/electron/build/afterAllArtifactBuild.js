@@ -1,4 +1,5 @@
 const { spawnSync } = require("child_process");
+const { readAgentNexusEnv } = require("../src/envCompat");
 
 function getNotarytoolAuthArgs(env = process.env) {
   const apiKeyValues = [env.APPLE_API_KEY, env.APPLE_API_KEY_ID, env.APPLE_API_ISSUER];
@@ -77,7 +78,7 @@ function notarizeDmg(dmgPath, authArgs, run = runXcrun) {
 }
 
 module.exports = async function afterAllArtifactBuild(context) {
-  if (process.env.OMNIGENT_NOTARIZE_DMG !== "true") return [];
+  if (readAgentNexusEnv("NOTARIZE_DMG") !== "true") return [];
 
   const dmgPaths = context.artifactPaths.filter((artifactPath) => artifactPath.endsWith(".dmg"));
   if (dmgPaths.length === 0) {

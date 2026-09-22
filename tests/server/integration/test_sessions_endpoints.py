@@ -3198,7 +3198,7 @@ async def test_post_external_assistant_message_persists_and_streams(
     """
     External assistant output appends history without starting a task.
 
-    This is the path used by ``omnigent claude`` to mirror real
+    This is the path used by ``agentnexus claude`` to mirror real
     Claude terminal transcript text into the web UI. It must publish
     a completed output item so connected clients render the text
     immediately without a duplicate synthetic text delta, while
@@ -3446,7 +3446,7 @@ async def test_post_external_function_call_output_caps_oversized_output(
     assert snap.status_code == 200
     persisted = snap.json()["items"][0]
     assert persisted["type"] == "function_call_output"
-    assert "[output truncated by omnigent:" in persisted["data"]["output"]
+    assert "[output truncated by AgentNexus:" in persisted["data"]["output"]
     assert len(persisted["data"]["output"].encode("utf-8")) <= MAX_TOOL_OUTPUT_BYTES + 200
     assert len(persisted["data"]["output"].encode("utf-8")) < len(big_output)
 
@@ -3461,7 +3461,7 @@ async def test_post_external_function_call_output_caps_oversized_output(
     assert len(fco_events) == 1, (
         f"expected one broadcast function_call_output; got {len(fco_events)}"
     )
-    assert "[output truncated by omnigent:" in fco_events[0]
+    assert "[output truncated by AgentNexus:" in fco_events[0]
     assert len(fco_events[0].encode("utf-8")) < len(big_output)
 
 
@@ -3566,7 +3566,7 @@ async def test_post_external_session_status_publishes_session_status(
     StopFailure hooks fire so the web UI's idle/running indicator
     updates without going through the AgentNexus task lifecycle.
     A regression here would break the idle indicator for
-    ``omnigent claude`` sessions: AgentNexus would never learn Claude
+    ``agentnexus claude`` sessions: AgentNexus would never learn Claude
     finished and the UI would stay stuck on whatever transient
     state it last saw.
     """
@@ -7565,7 +7565,7 @@ async def test_patch_model_override_records_note_for_terminal_view_sdk_session(
     note.
 
     This is the polly / debby case: when such an agent is launched via
-    ``omnigent run``, the runner stamps ``omnigent.ui: terminal`` to enable
+    ``agentnexus run``, the runner stamps ``omnigent.ui: terminal`` to enable
     the web Chat/Terminal toggle (runner ``app.py``), but the brain is an
     in-process claude-sdk agent whose history AgentNexus writes — so a web
     ``/model`` switch should land a durable ``[System: ...]`` note. Gating on
@@ -7590,7 +7590,7 @@ async def test_patch_model_override_records_note_for_terminal_view_sdk_session(
         client,
         agent["id"],
         # Terminal VIEW only — no native wrapper. Mirrors a polly/debby
-        # session launched via `omnigent run`.
+        # session launched via `agentnexus run`.
         labels={"agentnexus.ui": "terminal"},
     )
 
@@ -7661,7 +7661,7 @@ async def test_post_external_session_todos_publishes_session_todos(
 
     The claude-native forwarder posts this on every PostToolUse / TodoWrite
     hook so the web todo panel updates in real time. A regression here
-    would break the panel for ``omnigent claude`` sessions: the UI would
+    would break the panel for ``agentnexus claude`` sessions: the UI would
     never receive a ``session.todos`` broadcast and the panel would stay
     blank even when Claude has active tasks.
     """
@@ -8094,7 +8094,7 @@ async def test_external_user_message_seeds_title_on_claude_native_session(
     """
     First forwarded user message seeds the title on a claude-native session.
 
-    With the placeholder carve-out removed, ``omnigent claude``
+    With the placeholder carve-out removed, ``agentnexus claude``
     creates sessions without a title — same shape as every other
     untitled session. The transcript forwarder's first
     ``external_conversation_item`` user-message POST must trigger

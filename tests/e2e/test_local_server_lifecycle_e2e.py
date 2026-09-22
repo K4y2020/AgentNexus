@@ -2,7 +2,7 @@
 
 A foreground ``omnigent server`` registers itself in the machine-global
 pidfile AND must stamp the config-signature sidecar, so a later
-``omnigent host`` / ``omnigent run`` reuses it instead of stopping
+``omnigent host`` / ``agentnexus run`` reuses it instead of stopping
 and respawning it. These tests spawn the REAL CLI subprocesses and assert
 process survival across the three scenarios the bug report describes:
 
@@ -337,7 +337,7 @@ class _Procs:
     ) -> subprocess.Popen[bytes]:
         """Spawn a CLI subprocess with output captured to ``log``.
 
-        :param args: CLI args after the ``python -m omnigent.cli`` prefix.
+        :param args: CLI args after the ``python -m agentnexus.cli`` prefix.
         :param env: Subprocess environment.
         :param cwd: Working directory (an isolated home).
         :param log: File to capture combined stdout/stderr.

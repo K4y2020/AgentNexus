@@ -828,7 +828,7 @@ def _cli_config_pi_provider(entry: ProviderEntry, *, model: str | None) -> PiPro
 
     The common enterprise setup: ``isaac configure codex`` writes a custom
     ``[model_providers.X]`` table (base_url + token-printing ``auth`` command)
-    into ``~/.codex/config.toml`` and ``omnigent setup`` adopts it as a
+    into ``~/.codex/config.toml`` and ``agentnexus setup`` adopts it as a
     ``cli-config`` provider. Codex-native routes through that table; pi-native
     used to return ``None`` here — silently falling back to Pi's own
     ``/login`` (often stale creds) — which is the bug this fixes.
@@ -1109,7 +1109,7 @@ def resolve_pi_native_provider(
     model: str | None = None,
     config_loader: Callable[[], dict[str, object]] = load_config,
 ) -> PiProviderConfig | None:
-    """Resolve the omnigent-configured provider for a native Pi session.
+    """Resolve the AgentNexus-configured provider for a native Pi session.
 
     Reads the default provider for the Pi surface from
     ``~/.agentnexus/config.yaml`` and translates it into Pi ``models.json``
@@ -1129,7 +1129,7 @@ def resolve_pi_native_provider(
         _, model = selection
     try:
         config = config_loader()
-        # Pi is multi-family; ``omnigent setup`` marks defaults per family, not
+        # Pi is multi-family; ``agentnexus setup`` marks defaults per family, not
         # for ``pi``. Use the shared house-pattern selection so pi resolves its
         # default exactly like the rest of the codebase — an explicit pi default
         # wins, else the anthropic (Pi's native surface) then openai family
@@ -1140,7 +1140,7 @@ def resolve_pi_native_provider(
         entry = default_provider_for_harness(config, PI_SURFACE)
         if entry is None:
             _LOGGER.info(
-                "pi-native: no omnigent-configured provider for the pi/anthropic/openai "
+                "pi-native: no AgentNexus-configured provider for the pi/anthropic/openai "
                 "surface; Pi will use its own login."
             )
             return None
@@ -1199,7 +1199,7 @@ def resolve_pi_native_provider(
         # unresolved ``api_key: $VAR``) falls back to Pi's own login rather than
         # failing the terminal launch.
         _LOGGER.warning(
-            "pi-native: failed to resolve the omnigent-configured provider; Pi will "
+            "pi-native: failed to resolve the AgentNexus-configured provider; Pi will "
             "use its own login.",
             exc_info=True,
         )

@@ -9,7 +9,7 @@ bundle, optionally
 the server intentionally does not buffer past events.
 
 The SDK-side ``Session`` dataclass in this module mirrors
-:class:`omnigent.server.schemas.SessionResponse`. Note that the
+:class:`agentnexus.server.schemas.SessionResponse`. Note that the
 ``Session`` class exported from :mod:`agentnexus_client._session` is
 an unrelated higher-level ``/v1/responses`` chat helper; the two
 concepts share a name because the server route is ``/v1/sessions``
@@ -47,7 +47,7 @@ _DEFAULT_SUBTREE_DEPTH = 3
 # caches the validator. ``ServerStreamEvent`` is a Pydantic-discriminated
 # union, so the result of ``validate_python`` is one of the concrete
 # event subclasses (CreatedEvent, OutputTextDeltaEvent, …) — see
-# :mod:`omnigent.server.schemas`.
+# :mod:`agentnexus.server.schemas`.
 _SERVER_STREAM_EVENT_ADAPTER: TypeAdapter[ServerStreamEvent] = TypeAdapter(ServerStreamEvent)
 
 # ── Module-level constants (rule 34) ─────────────────────────────────
@@ -55,7 +55,7 @@ _SERVER_STREAM_EVENT_ADAPTER: TypeAdapter[ServerStreamEvent] = TypeAdapter(Serve
 _log = logging.getLogger("agentnexus_client.sessions")
 
 # Wire literal for the interrupt event ``type`` discriminator. Mirrors
-# ``_INTERRUPT_TYPE`` in ``omnigent/server/routes/sessions.py``;
+# ``_INTERRUPT_TYPE`` in ``agentnexus/server/routes/sessions.py``;
 # kept as a module-level constant so :meth:`SessionsNamespace.interrupt`
 # matches a single named symbol rather than an inline string.
 _INTERRUPT_TYPE: str = "interrupt"
@@ -64,7 +64,7 @@ _INTERRUPT_TYPE: str = "interrupt"
 @dataclass(frozen=True)
 class SessionEventInput:
     """
-    Client-side mirror of :class:`omnigent.server.schemas.SessionEventInput`.
+    Client-side mirror of :class:`agentnexus.server.schemas.SessionEventInput`.
 
     Used as the body of ``POST /v1/sessions/{id}/events``. Frozen
     because the dataclass is
@@ -109,7 +109,7 @@ class SessionEventInput:
 @dataclass(frozen=True)
 class Session:
     """
-    Client-side mirror of :class:`omnigent.server.schemas.SessionResponse`.
+    Client-side mirror of :class:`agentnexus.server.schemas.SessionResponse`.
 
     Returned by :meth:`SessionsNamespace.create` and
     :meth:`SessionsNamespace.get`. Frozen because the dataclass models
@@ -175,7 +175,7 @@ class Session:
         ``None`` when no task has failed.
     :param external_session_id: Runtime-native session id this
         conversation wraps (e.g. Claude Code's session uuid for
-        ``omnigent claude`` sessions). ``None`` for regular AP-only
+        ``agentnexus claude`` sessions). ``None`` for regular AP-only
         conversations.
     :param archived: Whether the session is archived. Archived
         sessions are hidden from the default ``list`` listing and
@@ -262,7 +262,7 @@ class SessionListItem:
     :param owner: User ID of the session owner.
     :param external_session_id: Runtime-native session id this
         conversation wraps (e.g. Claude Code's session uuid for
-        ``omnigent claude`` sessions). ``None`` for regular AP-only
+        ``agentnexus claude`` sessions). ``None`` for regular AP-only
         conversations.
     :param pending_elicitations_count: Number of approval prompts
         currently waiting on this session. Powers the web sidebar's
@@ -1188,7 +1188,7 @@ class SessionsNamespace:
         :param session_id: Session/conversation identifier, e.g.
             ``"conv_abc123"``.
         :yields: :class:`ServerStreamEvent` envelopes whose ``type`` is a
-            :class:`omnigent.server.schemas.ServerStreamEvent`
+            :class:`agentnexus.server.schemas.ServerStreamEvent`
             member and whose ``data`` is the event-specific payload
             dict.
         :raises AgentNexusError: If the server returns a non-2xx
@@ -1288,7 +1288,7 @@ def _try_parse_envelope(raw: str) -> ServerStreamEvent | None:
 
     The server emits each event with a flat shape carrying the
     fields documented on the matching subclass in
-    :mod:`omnigent.server.schemas` (e.g. ``{"type":
+    :mod:`agentnexus.server.schemas` (e.g. ``{"type":
     "response.output_text.delta", "delta": "Hello",
     "sequence_number": 5}``). The
     :data:`_SERVER_STREAM_EVENT_ADAPTER` dispatches on ``type`` to

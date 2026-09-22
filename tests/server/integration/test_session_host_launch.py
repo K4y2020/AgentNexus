@@ -582,7 +582,7 @@ async def test_inline_launch_failure_still_returns_bound_session(
 
 
 _HARNESS_REFUSAL = (
-    "harness 'codex' is not configured on host 'laptop' — run `omnigent setup` on that machine"
+    "harness 'codex' is not configured on host 'laptop' — run `agentnexus setup` on that machine"
 )
 _WORKSPACE_MISSING_ERROR = "workspace path does not exist: /deleted/worktree"
 
@@ -595,7 +595,7 @@ async def test_inline_create_harness_not_configured_stays_lenient(
     """A ``harness_not_configured`` refusal at CREATE is fully lenient.
 
     The picker's readiness data can be stale (the user may have run
-    ``omnigent setup`` since the host last connected), so create never
+    ``agentnexus setup`` since the host last connected), so create never
     gates on it: the session opens (201), the binding is kept, and —
     unlike the earlier design — NO transcript item is written at create
     time. The error is deferred to the first-message relaunch (the real
@@ -657,7 +657,7 @@ async def test_message_relaunch_harness_not_configured_persists_error_turn(
     The first message is the real runner-start attempt. When the host
     refuses the relaunch with ``harness_not_configured``, the server
     consumes the user message AND records a sibling ``type="error"`` item
-    carrying the host's `omnigent setup` message (the web renders it as
+    carrying the host's `agentnexus setup` message (the web renders it as
     an error banner) — instead of timing out into a generic
     ``RUNNER_UNAVAILABLE``. The binding is left intact so a later message
     relaunches once the user has run setup.

@@ -36,6 +36,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { execFile } = require("node:child_process");
+const { readAgentNexusEnv } = require("./envCompat");
 const { registerLocalhostCors } = require("./localhost_cors");
 const {
   normalizeUrl,
@@ -66,14 +67,11 @@ const {
 const agentnexusCli = require("./agentnexus_cli");
 const serverManager = require("./server_manager");
 const { createPreUpgradeBackup } = require("./update_backup");
-const {
-  reconcileUpgradeState,
-  recordUpgradeStart,
-} = require("./upgrade_guard");
+const { reconcileUpgradeState, recordUpgradeStart } = require("./upgrade_guard");
 const { createCrashReporter } = require("./crash_reporter");
 
 /** OS deep-link prefixes: branded scheme first, legacy second. */
-const DEEP_LINK_PREFIXES = ["agentnexus://", "agentnexus://"];
+const DEEP_LINK_PREFIXES = ["agentnexus://", "omnigent://"];
 
 function isDeepLinkArg(value) {
   return typeof value === "string" && DEEP_LINK_PREFIXES.some((prefix) => value.startsWith(prefix));
@@ -725,7 +723,7 @@ function activeWindow() {
  */
 function configureDesktopVersion() {
   const override = !app.isPackaged
-    ? process.env.OMNIGENT_DESKTOP_VERSION_OVERRIDE?.trim()
+    ? readAgentNexusEnv("DESKTOP_VERSION_OVERRIDE", process.env)?.trim()
     : undefined;
   if (!override) return app.getVersion();
 
@@ -738,7 +736,7 @@ function configureDesktopVersion() {
     return version.version;
   } catch (err) {
     throw new Error(
-      `OMNIGENT_DESKTOP_VERSION_OVERRIDE must be a valid semantic version (received ${JSON.stringify(override)})`,
+      `AGENTNEXUS_DESKTOP_VERSION_OVERRIDE must be a valid semantic version (received ${JSON.stringify(override)})`,
       { cause: err },
     );
   }
@@ -3236,7 +3234,8 @@ if (!gotLock) {
     // registration for installs that predate the rename. No-op when another
     // app already owns the scheme.
     app.setAsDefaultProtocolClient("agentnexus");
-    app.setAsDefaultProtocolClient("agentnexus");
+    // Legacy deep links remain supported until 2.0.
+    app.setAsDefaultProtocolClient("omnigent");
     // If a deep link arrived before ready (macOS open-url, or Windows/Linux
     // argv), open it instead of the default launch window; the drain's
     // fallback opens a default window if a consent is cancelled. Otherwise

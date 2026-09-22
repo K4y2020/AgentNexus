@@ -38,9 +38,9 @@ def test_onboarding_agent_has_expected_skills(
     skill_names = sorted(s.name for s in spec.skills)
     # These are the three skills defined in the design doc, in sorted order.
     assert skill_names == [
-        "build-omnigent",
-        "detect-framework",
         "agentnexus-knowledge",
+        "build-agentnexus",
+        "detect-framework",
     ], f"Expected exactly the three designed skills, got {skill_names}."
 
 

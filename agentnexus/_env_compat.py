@@ -1,39 +1,57 @@
 """Backward-compatibility shim for the env-var prefix renames -> ``AGENTNEXUS_*``.
 
-The project's env-var prefix has changed twice as the name evolved:
-``OMNIAGENTS_`` (original) -> ``OMNIGENTS_`` -> ``AGENTNEXUS_`` (current). All
-current code reads the new ``AGENTNEXUS_`` names. To keep existing deployments,
-CI configs, and shell profiles that still export either older prefix working,
+Current code reads ``AGENTNEXUS_`` names. Until version 2.0, the legacy
+``OMNIGENT_``, ``OMNIGENTS_`` and ``OMNIAGENTS_`` prefixes remain supported.
+To keep existing deployments, CI configs, and shell profiles working,
 this shim mirrors every legacy variable onto its ``AGENTNEXUS_`` equivalent at
 process startup -- but only when the new name is unset, so an explicitly-set
 ``AGENTNEXUS_`` value always wins.
 
 The mirror is installed once, as early as possible, from
-``omnigent/__init__.py`` so it runs before any submodule reads the
+``agentnexus/__init__.py`` so it runs before any submodule reads the
 environment. Out-of-package entry points that read env *before* importing the
-``omnigent`` package (the Docker / Databricks deploy entrypoints) call
+``agentnexus`` package (the Docker / Databricks deploy entrypoints) call
 :func:`mirror_legacy_env` directly.
 """
 
 from __future__ import annotations
 
 import os
+import warnings
 
 # The current prefix, and every legacy prefix that maps onto it. Ordered
 # newest-first so that when more than one legacy prefix is set for the same
 # variable, the newer one wins (``setdefault`` keeps the first mirrored value).
-# A variable named ``OMNIGENTS_FOO`` or ``OMNIAGENTS_FOO`` is mirrored to
-# ``AGENTNEXUS_FOO``.
+# Legacy reads are deprecated and will be removed in 2.0.
 _NEW_PREFIX = "AGENTNEXUS_"
-_LEGACY_PREFIXES = ("OMNIGENTS_", "OMNIAGENTS_")
+_LEGACY_PREFIXES = ("OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_")
 
 # Module-level guard so repeated imports/calls don't rescan the environment.
 _mirrored = False
 
 
+def get_env_var(key: str, *, compat: bool = True) -> str | None:
+    """Read a suffix such as DATA_DIR; an explicit new value, even empty, wins."""
+    name = _NEW_PREFIX + key
+    if name in os.environ:
+        return os.environ[name]
+    if compat:
+        for prefix in _LEGACY_PREFIXES:
+            legacy_name = prefix + key
+            if legacy_name in os.environ:
+                warnings.warn(
+                    f"{legacy_name} is deprecated and will be removed in AgentNexus 2.0. "
+                    f"Use {name} instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return os.environ[legacy_name]
+    return None
+
+
 def mirror_legacy_env() -> None:
     """
-    Mirror legacy ``OMNIGENTS_*`` / ``OMNIAGENTS_*`` env vars onto ``AGENTNEXUS_*``.
+    Mirror legacy prefixes onto ``AGENTNEXUS_*`` until their removal in 2.0.
 
     For every environment variable whose name starts with one of the legacy
     prefixes in :data:`_LEGACY_PREFIXES`, set the corresponding ``AGENTNEXUS_``
@@ -54,5 +72,12 @@ def mirror_legacy_env() -> None:
         for name, value in list(os.environ.items()):
             if name.startswith(legacy_prefix):
                 new_name = _NEW_PREFIX + name[len(legacy_prefix) :]
-                os.environ.setdefault(new_name, value)
+                if new_name not in os.environ:
+                    warnings.warn(
+                        f"{name} is deprecated and will be removed in AgentNexus 2.0. "
+                        f"Use {new_name} instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    os.environ[new_name] = value
     _mirrored = True

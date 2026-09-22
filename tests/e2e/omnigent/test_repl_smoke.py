@@ -1,6 +1,6 @@
 """Phase 0 characterization test — REPL smoke under pexpect.
 
-Spawns ``omnigent run <yaml>`` under a PTY, waits for the
+Spawns ``agentnexus run <yaml>`` under a PTY, waits for the
 REPL's ``❯`` input prompt, types a prompt, awaits the turn
 completion, then exits cleanly via Ctrl+D. Proves the REPL's
 basic input/output pipeline works end-to-end. The full

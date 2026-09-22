@@ -182,7 +182,7 @@ def _databrickscfg_path() -> Path:
     """Return the active Databricks config file path.
 
     Honors ``DATABRICKS_CONFIG_FILE`` so callers that want to operate on
-    a temporary copy (e.g. during ``omnigent setup``) can redirect all
+    a temporary copy (e.g. during ``agentnexus setup``) can redirect all
     direct configparser writes without touching the user's real file.
     """
     env = os.environ.get("DATABRICKS_CONFIG_FILE")
@@ -529,7 +529,7 @@ def login_databricks_workspace(workspace_url: str, *, console: Console | None = 
     persist a ``kind: databricks`` provider keyed on it. This is the only
     place AgentNexus triggers a Databricks CLI login: it fires solely when
     a user explicitly adds a Databricks provider in
-    ``omnigent setup --no-internal-beta``, never on a bare ``omnigent run``.
+    ``agentnexus setup --no-internal-beta``, never on a bare ``agentnexus run``.
 
     Idempotent: when a profile already points at this host (the OAuth token
     cache is host-keyed, so the login is still valid), it is reused without
@@ -595,7 +595,7 @@ def login_databricks_workspace(workspace_url: str, *, console: Console | None = 
 
 def maybe_run_onboarding() -> None:
     """
-    Pre-flight onboarding for ``omnigent run``.
+    Pre-flight onboarding for ``agentnexus run``.
 
     Fast path on every call: read ``~/.databrickscfg``, classify
     profiles, and:

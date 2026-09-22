@@ -3090,7 +3090,7 @@ def test_create_session_with_agent_top_level_unchanged(
     Verify the no-parent path still creates a top-level default row.
 
     The parent support must not disturb the existing multipart create
-    contract (CLI ``omnigent run`` sessions): kind stays "default",
+    contract (CLI ``agentnexus run`` sessions): kind stays "default",
     no parent link, and the row roots its own tree.
     """
     created = conversation_store.create_session_with_agent(

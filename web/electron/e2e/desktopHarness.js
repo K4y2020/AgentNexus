@@ -44,7 +44,7 @@ const MOCK_LLM_SERVER = path.join(
 );
 
 /** The Python interpreter used to run the server + mock (override for venvs). */
-const PYTHON = process.env.OMNIGENT_PYTHON || "python3";
+const PYTHON = (process.env.AGENTNEXUS_PYTHON ?? process.env.OMNIGENT_PYTHON) || "python3";
 
 /** A minimal agent spec, mirroring conftest's _TEST_AGENT_YAML. The
  * ``executor.harness`` is required (the spec loader rejects the spec without
@@ -203,7 +203,7 @@ async function spawnServer(tmpDir) {
   // (rather than deleting keys) to keep the object shape static.
   const cleanEnv = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([key]) => !key.startsWith("OMNIGENT_RUNNER_") && !key.startsWith("OMNIGENT_HOST_"),
+      ([key]) => !/^(?:AGENTNEXUS|OMNIGENT|OMNIGENTS|OMNIAGENTS)_(?:RUNNER|HOST)_/.test(key),
     ),
   );
   const serverProc = spawn(
@@ -230,7 +230,7 @@ async function spawnServer(tmpDir) {
         OPENAI_BASE_URL: `${mockUrl}/v1`,
         OPENAI_API_KEY: "mock-key",
         ANTHROPIC_API_KEY: "",
-        OMNIGENT_WEB_UI_DIST: WEB_UI_DIST,
+        AGENTNEXUS_WEB_UI_DIST: WEB_UI_DIST,
       },
       stdio: ["ignore", serverOut, serverOut],
     },
@@ -304,7 +304,7 @@ async function launchDesktop(opts) {
   // as root or in a container — Electron's Chromium refuses to start without
   // --no-sandbox, and --disable-dev-shm-usage avoids the tiny /dev/shm a
   // container gives it. Off by default so local (macOS/dev) runs are unchanged.
-  if (process.env.OMNIGENT_PW_NO_SANDBOX) {
+  if (process.env.AGENTNEXUS_PW_NO_SANDBOX ?? process.env.OMNIGENT_PW_NO_SANDBOX) {
     args.push("--no-sandbox", "--disable-dev-shm-usage");
   }
 
@@ -313,7 +313,7 @@ async function launchDesktop(opts) {
     recordVideo: { dir: opts.recordDir },
     // Dev builds read dev-app-update.yml and would try to reach the update
     // endpoint; a version override keeps the app off the update path.
-    env: { ...process.env, OMNIGENT_DESKTOP_VERSION_OVERRIDE: "999.0.0" },
+    env: { ...process.env, AGENTNEXUS_DESKTOP_VERSION_OVERRIDE: "999.0.0" },
   });
   // If firstWindow() throws after launch() succeeded, close the app here so the
   // Electron process isn't orphaned (the caller never got a handle to close).

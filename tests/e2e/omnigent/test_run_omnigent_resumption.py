@@ -1,4 +1,4 @@
-"""End-to-end tests for ``omnigent run`` conversation resumption.
+"""End-to-end tests for ``agentnexus run`` conversation resumption.
 
 Covers ``--continue`` (latest conversation) and ``--resume <id>``
 (specific conversation) across two independent subprocess
@@ -55,7 +55,7 @@ from tests.e2e.agentnexus.conftest import configure_mock_llm
 _MODEL = "mock-model"
 _HARNESS = "openai-agents"
 
-# Subprocess timeout per ``omnigent run`` invocation.
+# Subprocess timeout per ``agentnexus run`` invocation.
 # 180s matches the existing run_omnigent tests' headroom for DBOS
 # sqlite migrations + cold imports + one openai-agents turn.
 _RUN_TIMEOUT_SEC = 180
@@ -99,7 +99,7 @@ def _argv_run_omnigent(
     extra_flags: list[str],
 ) -> list[str]:
     """
-    Build the ``omnigent run`` argv for a one-shot ``-p`` invocation.
+    Build the ``agentnexus run`` argv for a one-shot ``-p`` invocation.
 
     Use for plant steps (no resumption flags). Resume steps need
     :func:`_argv_run_omnigent_interactive` instead, since the CLI rejects
@@ -138,7 +138,7 @@ def _argv_run_omnigent_interactive(
     extra_flags: list[str],
 ) -> list[str]:
     """
-    Build the ``omnigent run`` argv for the interactive REPL.
+    Build the ``agentnexus run`` argv for the interactive REPL.
 
     The CLI rejects ``--continue`` / ``--resume`` combined with
     ``-p/--prompt``, so resume tests pipe the prompt through stdin
@@ -170,7 +170,7 @@ def _daemon_log_tails(home: Path, *, tail_chars: int = 3000) -> str:
     """
     Collect the tails of every daemon-side log under the fake ``$HOME``.
 
-    Each ``omnigent run`` subprocess spawns its own local server, host
+    Each ``agentnexus run`` subprocess spawns its own local server, host
     daemon, and runner whose logs land under ``$HOME/.agentnexus/logs/``
     (``server/``, ``runner/``, ``host-runner/``). When the CLI exits
     nonzero those logs are the only record of WHY — e.g. the local

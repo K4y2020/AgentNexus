@@ -346,14 +346,14 @@ def test_tool_turn_skips_vendor_without_tool_mapping() -> None:
 
 
 def test_mcp_tool_turn_observes_prefixed_omnigent_tool() -> None:
-    client = _FakeClient(items=[_function_call_item("mcp__omnigent__sys_session_list")])
+    client = _FakeClient(items=[_function_call_item("mcp__agentnexus__sys_session_list")])
     driver = _driver_with_fake("claude-native", client)
 
     result = driver._drive_mcp_tool_turn()
 
     assert result.completed
-    assert [call["name"] for call in result.tool_calls] == ["mcp__omnigent__sys_session_list"]
-    assert "mcp__omnigent__sys_session_list" in str(client.posted_events[-1])
+    assert [call["name"] for call in result.tool_calls] == ["mcp__agentnexus__sys_session_list"]
+    assert "mcp__agentnexus__sys_session_list" in str(client.posted_events[-1])
 
 
 def test_mcp_tool_turn_rejects_unrelated_suffix_match() -> None:
@@ -387,7 +387,7 @@ def test_mcp_tool_turn_advances_baseline_after_wrong_tool(
 
     def _poll(baseline: int, result: TurnResult, timeout: float) -> None:
         baselines.append(baseline)
-        name = "Bash" if len(baselines) == 1 else "mcp__omnigent__sys_session_list"
+        name = "Bash" if len(baselines) == 1 else "mcp__agentnexus__sys_session_list"
         result.tool_calls.append({"name": name})
 
     monkeypatch.setattr(driver, "_poll_new_tool_calls", _poll)
@@ -469,7 +469,7 @@ async def test_probes_read_native_tool_result_as_supported() -> None:
         async def run_mcp_tool_turn(self) -> TurnResult:
             return TurnResult(
                 completed=True,
-                tool_calls=[{"name": "mcp__omnigent__sys_session_list"}],
+                tool_calls=[{"name": "mcp__agentnexus__sys_session_list"}],
             )
 
     tool_result = await ToolCallingProbe().run(_Driver(), profile)

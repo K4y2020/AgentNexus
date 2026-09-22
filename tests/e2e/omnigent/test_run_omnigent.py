@@ -1,4 +1,4 @@
-"""Phase 5 integration-code tests -- ``omnigent run`` shim (mock LLM).
+"""Phase 5 integration-code tests -- ``agentnexus run`` shim (mock LLM).
 
 Migrated to mock LLM: uses canned responses so the tests are
 deterministic and need no real credentials.
@@ -39,7 +39,7 @@ def _run_omnigent_run_omnigent(
     mock_credentials_env: dict[str, str],
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Execute ``omnigent run <hello_world.yaml> ... -p <prompt>``."""
+    """Execute ``agentnexus run <hello_world.yaml> ... -p <prompt>``."""
     yaml_path = omnigent_repo_root / "tests" / "resources" / "examples" / "hello_world.yaml"
     argv: list[str] = [
         str(omnigent_python),
@@ -72,7 +72,7 @@ def _run_omnigent_run_omnigent(
 def _structural_observations(
     result: subprocess.CompletedProcess[str],
 ) -> dict[str, Any]:
-    """Distill structural properties of an ``omnigent run`` result."""
+    """Distill structural properties of an ``agentnexus run`` result."""
     text = result.stdout.strip()
     return {
         "exit_code": result.returncode,
@@ -88,7 +88,7 @@ def test_run_omnigent_smoke(
     mock_llm_server_url: str,
 ) -> None:
     """
-    ``omnigent run hello_world.yaml -p <prompt>`` exits 0,
+    ``agentnexus run hello_world.yaml -p <prompt>`` exits 0,
     prints non-trivial assistant text, and does not re-emit the
     pre-phase-5 hard-error on stderr.
     """

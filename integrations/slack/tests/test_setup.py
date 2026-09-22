@@ -186,8 +186,8 @@ async def test_setup_shows_no_host_guidance_when_no_online_host(tmp_path: Path) 
     view = _last_update(client)
     assert not any(b.get("block_id") == WORKSPACE_BLOCK for b in view["blocks"])
     body = view["blocks"][0]["text"]["text"]
-    assert f"omni host --server {_SERVER}" in body
-    assert "/omnigent" in body
+    assert f"agentnexus host --server {_SERVER}" in body
+    assert "/agentnexus" in body
 
 
 @respx.mock
@@ -715,7 +715,7 @@ def test_no_host_modal_shows_guidance() -> None:
     assert view["callback_id"] == CALLBACK_SETUP_INFO
     body = view["blocks"][0]["text"]["text"]
     assert body == host_unavailable_text(_SERVER)
-    assert f"omni host --server {_SERVER}" in body
+    assert f"agentnexus host --server {_SERVER}" in body
 
 
 def test_no_agents_modal_shows_guidance() -> None:

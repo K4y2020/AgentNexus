@@ -414,7 +414,7 @@ def test_managed_runner_survives_mint_403_after_token_expiry(
     try:
         # Host-launched posture: the runner starts with an injected bearer and
         # the delegated-mint marker, and everything it sends goes through the
-        # Apps edge. The machine also holds a stored `omnigent login` token —
+        # Apps edge. The machine also holds a stored `agentnexus login` token —
         # the recovery credential the pre-fix code never consulted.
         owner_cookie = mint_session_cookie(
             _OWNER, bytes.fromhex(_COOKIE_SECRET_HEX), 8, "accounts"

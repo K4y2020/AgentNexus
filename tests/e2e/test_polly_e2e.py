@@ -4,12 +4,12 @@ Mock mode: boots a throwaway LOCAL server from this working tree (which carries
 the in-tree ``omnigent.inner.nessie.policies`` module that polly's guardrails
 resolve server-side), rewrites the polly bundle's executor to use
 ``openai-agents`` harness wired to the mock LLM server, and runs a one-shot
-``omnigent run`` subprocess against it. This exercises the parts a structural
+``agentnexus run`` subprocess against it. This exercises the parts a structural
 spec-load test can't — bundle load, server-side guardrail policy resolution,
 and a turn streaming back through the run path — without requiring real OAuth
 credentials or proprietary model access.
 
-Why a local server (not bare ``omnigent run``): polly's guardrail policies
+Why a local server (not bare ``agentnexus run``): polly's guardrail policies
 (``omnigent.inner.nessie.policies`` — the package keeps its historical
 name) are resolved SERVER-SIDE when the workflow executes. Bare ``omnigent
 run`` routes to the developer's configured default server (the shared
@@ -336,7 +336,7 @@ def test_polly_orchestrator_boots_and_responds(
     tmp_path: Path,
 ) -> None:
     """
-    ``omnigent run <mock-polly> --server <local> -p <prompt>``
+    ``agentnexus run <mock-polly> --server <local> -p <prompt>``
     exits 0 and emits a non-trivial reply via the mock LLM server.
 
     Proves the bundle loads end-to-end against a server that carries polly's

@@ -30,7 +30,7 @@ describe("renderResolvingHtml", () => {
   it("is a self-contained placeholder with a CSP and no scripts", () => {
     const html = renderResolvingHtml();
     expect(html).toContain("Content-Security-Policy");
-    expect(html).toContain("Resolving Omnigent server");
+    expect(html).toContain("Resolving AgentNexus server");
     expect(html).not.toContain("<script");
   });
 });

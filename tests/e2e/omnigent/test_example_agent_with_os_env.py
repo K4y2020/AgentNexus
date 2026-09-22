@@ -30,7 +30,7 @@ def test_agent_with_os_env_one_shot(
     mock_llm_server_url: str,
 ) -> None:
     """
-    ``omnigent run agent_with_os_env -p <prompt>`` completes
+    ``agentnexus run agent_with_os_env -p <prompt>`` completes
     cleanly and streams a reply.
 
     Uses the mock LLM server for deterministic responses.

@@ -2,7 +2,7 @@
 The ``@tool`` decorator and its metadata.
 
 A ``@tool``-decorated module-level function is the authoring
-contract for custom Python tools in omnigent. The decorator:
+contract for custom Python tools in agentnexus. The decorator:
 
 1. Validates that the target is a module-level ``def`` or
    ``async def`` (rejects class methods, lambdas, and nested
@@ -34,9 +34,8 @@ from typing import Any, ParamSpec, TypeVar, overload
 
 from ._schema import build_function_schema
 
-# Marker attribute name. The framework's loader scans
-# ``module.__dict__`` for objects carrying this attribute to
-# enumerate the tools a Python file exports.
+# Stable marker shared with framework loaders and previously exported tools.
+# Keep the attribute name unchanged across the product rename.
 TOOL_MARKER_ATTR = "_omnigent_tool_metadata"
 
 
@@ -96,7 +95,7 @@ def tool(
     strict: bool = True,
 ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
     """
-    Mark a module-level function as an omnigent tool.
+    Mark a module-level function as an agentnexus tool.
 
     The decorator infers the LLM-facing schema from the function's
     type hints and Google-style docstring, then attaches the
@@ -108,7 +107,7 @@ def tool(
     perspective. Authors who want a tool dispatched as background
     work do not annotate the tool — the LLM picks per call site
     via ``sys_call_async(tool=..., args=...)`` (see
-    ``omnigent/tools/builtins/async_inbox.py``). The author-time
+    ``agentnexus/tools/builtins/async_inbox.py``). The author-time
     ``@tool(synchronous=False)`` decoration was removed once
     ``sys_call_async`` shipped — keeping both surfaces would double
     the dispatch paths without adding capability.

@@ -63,7 +63,7 @@ jobs:
   # write access, so gate on the dispatcher's actual repo role instead of a
   # hand-kept list. `github.actor` on a dispatch is the dispatcher.
   authorize:
-    if: github.repository == 'agentnexus-ai/agentnexus'
+    if: github.repository == 'K4y2020/AgentNexus'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -422,7 +422,7 @@ jobs:
       # Pre-migrate explicitly so the server boots against an already-current DB.
       - name: Migrate corpus to release-base schema
         run: |
-          uv run --no-sync omni debug db-upgrade "sqlite:///bench.db"
+          uv run --no-sync agentnexus debug db-upgrade "sqlite:///bench.db"
           echo "Corpus migrated to release-base schema head." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Run candidate benchmark

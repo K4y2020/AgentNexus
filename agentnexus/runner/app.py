@@ -3744,7 +3744,7 @@ def create_runner_app(
                         )
                     except Exception:
                         _logger.exception(
-                            "Failed to auto-create omnigent REPL terminal for %s",
+                            "Failed to auto-create AgentNexus REPL terminal for %s",
                             session_id,
                         )
                     finally:
@@ -8936,7 +8936,7 @@ def create_runner_app(
                     )
                 except Exception:
                     _logger.exception(
-                        "Failed to recreate omnigent REPL terminal for %s",
+                        "Failed to recreate AgentNexus REPL terminal for %s",
                         session_id,
                     )
                     return None
@@ -8963,7 +8963,7 @@ def create_runner_app(
                     )
                 except Exception:
                     _logger.exception(
-                        "Failed to recreate omnigent qwen terminal for %s",
+                        "Failed to recreate AgentNexus qwen terminal for %s",
                         session_id,
                     )
                     return None

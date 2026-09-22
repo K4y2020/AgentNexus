@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import type { Plugin, ProxyOptions } from "vite";
 import { defineConfig } from "vitest/config";
+import { readAgentNexusEnv } from "./electron/src/envCompat";
 import { shikiManualChunk } from "./vite.shiki";
 
 // Databricks workspace-hosted agentnexus is mounted behind the api-proxy at this
@@ -16,7 +17,7 @@ function isWorkspaceHost(hostname: string): boolean {
   return hostname.endsWith(".databricks.com") || hostname.endsWith(".azuredatabricks.net");
 }
 
-// Resolve the proxy target. Point OMNIGENT_URL at a bare workspace origin
+// Resolve the proxy target. Point AGENTNEXUS_URL at a bare workspace origin
 // (https://<ws>.databricks.com) and the api-proxy mount is filled in
 // automatically, so the browser's relative /v1/... paths reach the
 // workspace-hosted server without hand-typing the /api/2.0/agentnexus prefix. An
@@ -29,15 +30,16 @@ function resolveTarget(raw: string): string {
   return url.toString().replace(/\/$/, "");
 }
 
-const OMNIGENT_URL = resolveTarget(process.env.OMNIGENT_URL ?? "http://localhost:6767");
+const AGENTNEXUS_URL = resolveTarget(readAgentNexusEnv("URL") || "http://localhost:6767");
+const AGENTNEXUS_AUTH_TOKEN = readAgentNexusEnv("AUTH_TOKEN");
 
 let cachedToken: string | null | undefined;
 
 function resolveToken(host: string): string | null {
   if (cachedToken !== undefined) return cachedToken;
 
-  if (process.env.OMNIGENT_AUTH_TOKEN) {
-    cachedToken = process.env.OMNIGENT_AUTH_TOKEN;
+  if (AGENTNEXUS_AUTH_TOKEN) {
+    cachedToken = AGENTNEXUS_AUTH_TOKEN;
     return cachedToken;
   }
 
@@ -63,7 +65,7 @@ function configureProxy(target: string, useAuth: boolean): NonNullable<ProxyOpti
   const parsed = new URL(target);
   const host = parsed.origin;
   // The URL pathname becomes a prefix prepended to every proxied request.
-  // e.g. OMNIGENT_URL=https://host.com/api/2.0/agentnexus means the browser's
+  // e.g. AGENTNEXUS_URL=https://host.com/api/2.0/agentnexus means the browser's
   // /v1/sessions is rewritten to /api/2.0/agentnexus/v1/sessions before forwarding.
   const basePath = parsed.pathname.replace(/\/$/, "");
 
@@ -134,8 +136,8 @@ function createProxyConfig(target: string, useAuth: boolean): Record<string, Pro
   };
 }
 
-const parsed = new URL(OMNIGENT_URL);
-const useAuth = !!process.env.OMNIGENT_AUTH_TOKEN || isWorkspaceHost(parsed.hostname);
+const parsed = new URL(AGENTNEXUS_URL);
+const useAuth = !!AGENTNEXUS_AUTH_TOKEN || isWorkspaceHost(parsed.hostname);
 
 // A Databricks workspace-hosted server sits behind the multi-replica sharding
 // layer, so the dev bundle must emit the host_id slice key on host-scoped
@@ -145,27 +147,32 @@ const useAuth = !!process.env.OMNIGENT_AUTH_TOKEN || isWorkspaceHost(parsed.host
 // the embed path keys off its host fetcher instead (see isDatabricksWorkspace in
 // host.ts). Keyed off the resolved mount so pointing at a bare workspace origin
 // turns it on.
-const isDatabricksWorkspaceEnv = parsed.pathname.replace(/\/$/, "") === WORKSPACE_API_PATH;
+// Keep explicit legacy workspace mounts usable until 2.0.
+const isDatabricksWorkspaceEnv = [
+  WORKSPACE_API_PATH,
+  "/api/2.0/omnigent",
+  "/api/2.0/omnigents",
+].includes(parsed.pathname.replace(/\/$/, ""));
 if (isDatabricksWorkspaceEnv) process.env.VITE_DATABRICKS_WORKSPACE = "true";
 
 if (useAuth) {
   const token = resolveToken(parsed.origin);
   if (token) {
     console.log(
-      `[dev-proxy] target=${OMNIGENT_URL} (authenticated${isDatabricksWorkspaceEnv ? ", databricks-workspace" : ""})`,
+      `[dev-proxy] target=${AGENTNEXUS_URL} (authenticated${isDatabricksWorkspaceEnv ? ", databricks-workspace" : ""})`,
     );
   } else {
     console.error(
       `\n[dev-proxy] ERROR: No auth token for ${parsed.origin}.\n` +
-        `  Set OMNIGENT_AUTH_TOKEN or run:  databricks auth login --host ${parsed.origin}\n`,
+        `  Set AGENTNEXUS_AUTH_TOKEN or run:  databricks auth login --host ${parsed.origin}\n`,
     );
     process.exit(1);
   }
 } else {
-  console.log(`[dev-proxy] target=${OMNIGENT_URL}`);
+  console.log(`[dev-proxy] target=${AGENTNEXUS_URL}`);
 }
 
-const proxyConfig = createProxyConfig(OMNIGENT_URL, useAuth);
+const proxyConfig = createProxyConfig(AGENTNEXUS_URL, useAuth);
 
 // Safari < 16.4 cannot parse regex lookbehind; these dependency regexes would
 // otherwise throw there, at module scope during boot or on the first rendered

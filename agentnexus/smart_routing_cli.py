@@ -1,6 +1,6 @@
 """CLI-side Smart Routing: arm a session so its harness routes what you type.
 
-``omnigent claude --smart-routing`` and ``omnigent codex --smart-routing`` are
+``agentnexus claude --smart-routing`` and ``omnigent codex --smart-routing`` are
 the only CLI entry points. Neither routes anything before the TUI starts: the
 CLI creates the session through the standard JSON ``POST /v1/sessions`` with
 ``cost_control_mode_override="on"`` and no ``smart_routing_message``, then

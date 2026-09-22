@@ -375,7 +375,7 @@ async def _publish_and_wait_for_harness_elicitation(
     """
     Publish one harness-originated elicitation and wait for web verdict.
 
-    Mirrors the ``omnigent claude`` permission hook contract: the
+    Mirrors the ``agentnexus claude`` permission hook contract: the
     hook parks a server-side Future, publishes the standard
     ``response.elicitation_request`` event, waits until the session
     ``approval`` event resolves the Future, and always publishes
@@ -4045,7 +4045,7 @@ async def _persist_host_launch_failure_turn(
     boot (:func:`_persist_native_terminal_failure`) — the server records
     the user's message (so the input is consumed, not silently dropped)
     and a sibling ``type="error"`` item carrying the host's message
-    (which names the fix, ``omnigent setup``), then publishes the same
+    (which names the fix, ``agentnexus setup``), then publishes the same
     live error/status events the web renders as an error banner. The host
     binding is left intact so a later message relaunches once the user has
     run setup.
@@ -4057,8 +4057,8 @@ async def _persist_host_launch_failure_turn(
     :param conversation_store: Store used for the durable append.
     :param host_error: The host's human-readable refusal, e.g.
         ``"harness 'codex' is not configured on host 'laptop' — run
-        `omnigent setup` ..."``. ``None`` falls back to a generic
-        ``omnigent setup`` pointer so the banner is never empty.
+        `agentnexus setup` ..."``. ``None`` falls back to a generic
+        ``agentnexus setup`` pointer so the banner is never empty.
     :param runner_router: Router used to resolve a sub-agent's runner for
         the parent-wake forward, or ``None`` in in-process / test setups.
     :param created_by: Authenticated posting actor, e.g.
@@ -8888,7 +8888,10 @@ async def _create_session_from_existing_agent(
             if user_id is not None:
                 _salt = f"{_install_id}:{user_id}" if _install_id else user_id
                 _anon_uid = _hashlib.sha256(_salt.encode()).hexdigest()[:16]
-            _client_header = request.headers.get("x-omnigent-client")
+            # Keep older clients readable until 2.0.
+            _client_header = request.headers.get(
+                "x-agentnexus-client", request.headers.get("x-omnigent-client")
+            )
             _surface = (
                 _client_header
                 if _client_header in ("web", "desktop", "ios", "android", "cli")
@@ -9012,7 +9015,7 @@ def _create_session_from_bundle(
     Each upload creates a session-scoped agent row, even when a
     template agent with the same spec name already exists. Agent
     names are user-authored labels, not global content identities:
-    reusing a template by name would make a fresh ``omnigent run
+    reusing a template by name would make a fresh ``agentnexus run
     <yaml>`` session execute whatever bundle that template currently
     points at, silently discarding the uploaded bundle and coupling
     unrelated users who chose the same name.
@@ -9038,7 +9041,7 @@ def _create_session_from_bundle(
     """
     # Enforce the policy-handler allowlist only on a shared /
     # multi-user server. On a trusted single-user/local server,
-    # ``omnigent run`` uploads the operator's own bundle through this same
+    # ``agentnexus run`` uploads the operator's own bundle through this same
     # path, so custom handlers must keep working (the operator already has
     # code execution — the restriction would add no security there).
     spec = validate_agent_bundle(
@@ -9384,7 +9387,12 @@ async def _handle_mcp_tools_call(
     # ── Server-side sys_advise_models intercept ──────────────────────────
     # After policy evaluation (DENY/ASK handled above); arguments may have
     # been transformed. The advisor runs server-side where routing_client lives.
-    if namespaced_name in ("sys_advise_models", "mcp__omnigent__sys_advise_models"):
+    # Legacy stored tool names remain readable until 2.0.
+    if namespaced_name in (
+        "sys_advise_models",
+        "mcp__agentnexus__sys_advise_models",
+        "mcp__omnigent__sys_advise_models",
+    ):
         return await _handle_advise_models_mcp(
             rpc_id,
             conv,

@@ -43,7 +43,7 @@ def test_session_start_hook_records_transcript_state_without_output(
     """
     SessionStart records Claude state without printing hook output.
 
-    This fails if the ``omnigent claude`` hook reintroduces
+    This fails if the ``agentnexus claude`` hook reintroduces
     ``systemMessage`` output, which Claude renders with the noisy
     ``SessionStart:startup says:`` prefix.
     """
@@ -78,7 +78,7 @@ def test_session_start_hook_emits_conversation_url_system_message(
     """
     SessionStart emits Claude hook output when a conversation URL exists.
 
-    This fails if ``omnigent claude`` stops routing the web URL
+    This fails if ``agentnexus claude`` stops routing the web URL
     through Claude's hook output path, leaving users with no startup
     pointer back to the AgentNexus conversation.
     """
@@ -113,10 +113,12 @@ def test_session_start_hook_emits_conversation_url_system_message(
     assert read_transcript_path(bridge_dir) == transcript_path
 
 
+@pytest.mark.parametrize("mount", ["agentnexus", "omnigent"])
 def test_session_start_hook_maps_workspace_hosted_server_to_ui_mount(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    mount: str,
 ) -> None:
     """
     SessionStart links to the SPA mount for workspace-hosted servers.
@@ -135,7 +137,7 @@ def test_session_start_hook_maps_workspace_hosted_server_to_ui_mount(
         "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
-    server = "https://example.databricks.com/api/2.0/omnigent"
+    server = f"https://example.databricks.com/api/2.0/{mount}"
     store_databricks_auth(
         server,
         "https://example.databricks.com",
@@ -160,7 +162,7 @@ def test_session_start_hook_maps_workspace_hosted_server_to_ui_mount(
     assert json.loads(captured.out) == {
         "systemMessage": (
             "Open this session in AgentNexus: "
-            "https://example.databricks.com/agentnexus/c/conv_abc?o=2850744067564480"
+            f"https://example.databricks.com/{mount}/c/conv_abc?o=2850744067564480"
         )
     }
 
@@ -2825,7 +2827,7 @@ def test_build_hook_settings_registers_the_route_turn_hook(
     """
     ``UserPromptSubmit`` carries the ``route-turn`` command.
 
-    Without it a bare ``omnigent claude --smart-routing`` launch never routes:
+    Without it a bare ``agentnexus claude --smart-routing`` launch never routes:
     nothing else can see a prompt typed straight into the TUI. It must ride
     the same bridge dir the runner advertises into, name the harness, and
     carry the timeout ladder's outermost budget.

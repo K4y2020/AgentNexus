@@ -1,6 +1,6 @@
 """CUJ 3 — claude-native in-harness routing of the first message TYPED into the TUI.
 
-A bare ``omnigent claude`` / bare web session starts with no prompt, so there is
+A bare ``agentnexus claude`` / bare web session starts with no prompt, so there is
 nothing to route at create time. The first real user message triggers exactly
 one routing call from inside the harness — a ``UserPromptSubmit`` hook — and the
 routed model is applied *before* that message runs.

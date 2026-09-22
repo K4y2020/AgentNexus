@@ -1857,7 +1857,7 @@ def _pi_args_have_provider(args: list[str]) -> bool:
     """Return whether user Pi args already pin a provider/model/key.
 
     When the user passes their own ``--provider`` / ``--model`` / ``--api-key``,
-    AgentNexus must not inject the ``omnigent setup`` provider on top — the
+    AgentNexus must not inject the ``agentnexus setup`` provider on top — the
     explicit choice wins.
 
     :param args: User pass-through Pi CLI args.
@@ -2179,7 +2179,7 @@ async def _auto_create_pi_terminal(
         "AGENTNEXUS_PI_NATIVE_BRIDGE_DIR": str(bridge_dir),
     }
     # Route the runner-owned Pi process through the provider configured by
-    # ``omnigent setup`` (Databricks gateway / API key), so a separate
+    # ``agentnexus setup`` (Databricks gateway / API key), so a separate
     # ``pi /login`` isn't required — the parity codex-native/claude-native
     # already have. Skipped when the user pinned their own provider/model via
     # terminal_launch_args, or when no usable provider is configured (Pi then
@@ -4431,7 +4431,7 @@ async def _codex_discover_thread_and_forward(
             "harness, so the Codex TUI is parked on its sign-in screen and "
             f"cannot run this turn. Launch routing: {routing_summary}. "
             "Sign in from the session terminal, or configure a provider "
-            "(`omnigent setup`), then send the message again.",
+            "(`agentnexus setup`), then send the message again.",
         )
 
     try:
@@ -5393,7 +5393,7 @@ async def _codex_session_needs_runner_terminal(
       so the runner must create it regardless of whether the *parent* was
       host- or CLI-spawned. (Gating on the parent's ``host_id`` was a
       regression: codex-native sub-agents under a CLI-driven parent —
-      e.g. polly run via ``omnigent run --server`` — silently never got
+      e.g. polly run via ``agentnexus run --server`` — silently never got
       a terminal and the dispatch no-op'd.)
 
     - **CLI top-level sessions** have neither ``host_id`` nor
@@ -5988,11 +5988,11 @@ def _ensure_orchestrator_skills_in_bundle(
     agent_spec: object,
 ) -> None:
     """
-    Link the ``build-omnigent`` skill into a bundle's ``skills/`` dir.
+    Link the ``build-agentnexus`` skill into a bundle's ``skills/`` dir.
 
     Called before native bridge launches so ``--plugin-dir`` (claude) or
     ``CODEX_HOME/skills/`` (codex) picks up the skill. Injects
-    unconditionally for every agent — every ``omnigent claude`` /
+    unconditionally for every agent — every ``agentnexus claude`` /
     ``omnigent codex`` user should be able to author new agents. The
     skill isn't already present guard is idempotent. Best-effort: a
     failure to link is logged but does not abort the terminal launch.
@@ -6003,7 +6003,7 @@ def _ensure_orchestrator_skills_in_bundle(
         removal; retained for call-site compat).
     """
     del agent_spec  # no longer gated; inject unconditionally
-    skill_name = "build-omnigent"
+    skill_name = "build-agentnexus"
     target_dir = bundle_dir / "skills" / skill_name
     if target_dir.exists():
         return
@@ -6034,14 +6034,14 @@ def _ensure_orchestrator_skills_in_bundle(
 #: without an interactive prompt: the two the cross-harness redirect names, the
 #: one that delivers the sub-task, and the one that collects its result. The
 #: native path passes no allowlist otherwise, so Claude Code's "don't ask mode"
-#: denies them outright ("Permission to use mcp__omnigent__sys_read_inbox has
+#: denies them outright ("Permission to use mcp__agentnexus__sys_read_inbox has
 #: been denied"). Narrower than the SDK arm, which pre-approves every AgentNexus
 #: tool in ``auto`` / ``bypassPermissions``.
 _ROUTED_SPAWN_ALLOWED_TOOLS: tuple[str, ...] = (
-    "mcp__omnigent__sys_session_create",
-    "mcp__omnigent__sys_agent_list",
-    "mcp__omnigent__sys_session_send",
-    "mcp__omnigent__sys_read_inbox",
+    "mcp__agentnexus__sys_session_create",
+    "mcp__agentnexus__sys_agent_list",
+    "mcp__agentnexus__sys_session_send",
+    "mcp__agentnexus__sys_read_inbox",
 )
 
 
@@ -6648,7 +6648,7 @@ async def _auto_create_claude_terminal(
             "native-claude: could not derive a provider/ucode launch config "
             "— FALLING BACK to Claude Code's own login; "
             "your configured provider will NOT be used. Check "
-            "`omnigent setup --no-internal-beta` "
+            "`agentnexus setup --no-internal-beta` "
             "and that the secret resolves in this process.",
             exc_info=True,
             extra={"session_id": session_id},
@@ -7048,7 +7048,7 @@ async def _auto_create_repl_terminal(
     Auth parity with the native terminals: the spawned ``omnigent
     attach`` resolves credentials for ``--server`` the same way a
     user-launched CLI does (``AGENTNEXUS_REMOTE_AUTH_TOKEN`` env → stored
-    OIDC token from ``omnigent login`` → ``~/.databrickscfg``), which
+    OIDC token from ``agentnexus login`` → ``~/.databrickscfg``), which
     holds because the runner lives on the user's machine.
 
     :param session_id: Session/conversation identifier,
@@ -7082,7 +7082,7 @@ async def _auto_create_repl_terminal(
             sandbox=(agent_os_env.sandbox if agent_os_env is not None else None),
         ),
         # The runner's interpreter is the venv with omnigent installed;
-        # ``python -m omnigent`` avoids depending on the console script
+        # ``python -m agentnexus`` avoids depending on the console script
         # being on the tmux pane's PATH.
         command=sys.executable,
         args=["-m", "agentnexus", "attach", session_id, "--server", server_url],
@@ -7136,7 +7136,7 @@ async def _auto_create_repl_terminal(
         },
     )
     _logger.info(
-        "Auto-created omnigent REPL terminal for session %s: terminal_id=%s "
+        "Auto-created AgentNexus REPL terminal for session %s: terminal_id=%s "
         "server_url=%s elapsed_ms=%.0f",
         session_id,
         terminal_payload.get("id"),

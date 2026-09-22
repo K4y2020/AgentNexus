@@ -20,7 +20,7 @@ Excluded from default ``pytest`` runs via
     pytest tests/e2e/test_async_tools_e2e.py -v
 
 **TUI verification** (mandatory per CLAUDE.md before merge):
-``omnigent run tests/_fixtures/agents/async-tools-test/``
+``agentnexus run tests/_fixtures/agents/async-tools-test/``
 then ask "dispatch delayed_echo with label='alpha' via
 sys_call_async". The auto-delivered result must render as a dim
 ``... [System: task ...]`` line.

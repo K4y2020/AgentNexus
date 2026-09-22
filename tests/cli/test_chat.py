@@ -319,7 +319,7 @@ def test_raise_server_failed_truncates_log_to_tail(tmp_path: Path) -> None:
         f"truncation didn't drop the head; banner-line-0 leaked into message:\n{msg}"
     )
     # The cmd display and log path are still in the message.
-    assert "python -m omnigent server" in msg
+    assert "python -m agentnexus server" in msg
     assert str(log) in msg
 
 
@@ -341,7 +341,7 @@ def test_raise_server_failed_handles_unreadable_log(tmp_path: Path) -> None:
     assert "could not read log file" in msg
     # Path and cmd display still surface so the user can investigate.
     assert str(missing) in msg
-    assert "python -m omnigent server" in msg
+    assert "python -m agentnexus server" in msg
 
 
 def test_wait_for_server_waits_for_runner_tunnel_status(
@@ -1001,7 +1001,7 @@ def test_run_local_headless_prompt_uses_directory_bundle_for_root_config_yaml(
 ) -> None:
     """One-shot local prompt mode also preserves directory-agent siblings.
 
-    This covers ``omnigent run bundle/config.yaml -p ...``. Without the
+    This covers ``agentnexus run bundle/config.yaml -p ...``. Without the
     canonicalization in the headless helper, interactive runs would upload the
     full bundle while one-shot runs would silently upload only ``config.yaml``.
     """
@@ -1407,7 +1407,7 @@ def test_prepare_chat_session_via_daemon_binds_runner_to_clear_stopped_marker(
 
     # The launched runner is re-bound to the resumed session through the
     # PATCH chokepoint that clears omnigent.stopped — same pattern as
-    # ``omnigent claude`` (claude_native.py's bind_session_runner call).
+    # ``agentnexus claude`` (claude_native.py's bind_session_runner call).
     assert captured["bind"] == {"session_id": "conv_resume", "runner_id": "runner_daemon"}
 
 
@@ -1574,7 +1574,7 @@ def test_pick_agent_reports_unreachable_server_as_click_error(
     """An unreachable server in ``_pick_agent`` is a ``ClickException``.
 
     ``_pick_agent`` runs the session-listing ``httpx.get`` on the direct
-    server-URL chat path (``omnigent run --server <url>`` and headless
+    server-URL chat path (``agentnexus run --server <url>`` and headless
     prompts). Without a transport-error guard, a stale/unreachable server
     URL escaped as a raw ``httpx.ConnectError`` all the way to the crash
     handler — a crash screen and a file-an-issue prompt for what is an
@@ -1751,7 +1751,7 @@ def test_apply_overrides_writes_nested_config_harness_for_spec_version_bundle() 
     ``executor.config.harness`` — the ONLY harness location that
     format's parser reads.
 
-    Regression guard for the polly no-op: ``omnigent run
+    Regression guard for the polly no-op: ``agentnexus run
     examples/polly --harness pi`` used to write the flat
     ``executor.harness`` key, which ``_parse_executor`` ignores for
     spec_version specs — the brain silently stayed on claude-sdk.
@@ -1861,7 +1861,7 @@ def test_apply_overrides_harness_and_model_together_for_spec_version_bundle() ->
     parser-read locations: nested ``config.harness`` and flat
     ``executor.model``.
 
-    This is the polly-on-GPT invocation shape: ``omnigent run
+    This is the polly-on-GPT invocation shape: ``agentnexus run
     examples/polly --harness openai-agents --model <gpt>``.
     """
     raw: dict[str, object] = {
@@ -2202,7 +2202,7 @@ def test_materialize_bundle_overrides_brain_harness(
 
     End-to-end through the production pipeline: ``copytree`` →
     ``_apply_overrides_to_raw`` → ``yaml.safe_dump`` → ``omnigent.spec.load``
-    → ``validate``. This is the exact path ``omnigent run examples/polly
+    → ``validate``. This is the exact path ``agentnexus run examples/polly
     --harness pi`` (or ``examples/debby``) takes before the bundle reaches
     a server.
 
@@ -3180,7 +3180,7 @@ def test_spec_used_families_multi_vendor_directory_agent(tmp_path) -> None:
 
     # Both the orchestrator (anthropic) and its sub-agent (openai) count,
     # whether the caller passes the config.yaml or the directory itself
-    # (the latter is what `omnigent run <dir>` threads through).
+    # (the latter is what `agentnexus run <dir>` threads through).
     assert _spec_used_families(root / "config.yaml") == ["anthropic", "openai"]
     assert _spec_used_families(root) == ["anthropic", "openai"]
 
@@ -3712,7 +3712,7 @@ async def test_query_sessions_once_reconciles_persisted_text_on_failed_status(
 ) -> None:
     """A spurious ``failed`` after a completed turn returns the persisted text.
 
-    This is the exact reported bug: ``omnigent run -p`` printed
+    This is the exact reported bug: ``agentnexus run -p`` printed
     "Error: turn failed" while the remote session held the response. If
     this fails, the ``-p`` path is again raising on a transport-induced
     ``session.status: failed`` instead of recovering the saved answer.
@@ -4047,7 +4047,7 @@ def test_env_auth_injection_skipped_when_global_auth_configured(
 ) -> None:
     """An ambient OPENAI_API_KEY must not be baked over configured auth.
 
-    With a global ``auth:`` block (written by ``omnigent setup``), the
+    With a global ``auth:`` block (written by ``agentnexus setup``), the
     user's configured Databricks routing is the explicit choice; baking
     the shell's env key into the materialized spec as ``executor.auth``
     would silently hijack it — the exact failure mode that produced

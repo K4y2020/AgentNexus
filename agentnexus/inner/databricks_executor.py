@@ -603,7 +603,7 @@ def _resolve_databricks_auth(
         exclusive with ``host``.
     :param host: Workspace host to authenticate against, e.g.
         ``"https://example.databricks.com"``. Used by the
-        ``omnigent login <apps-url>`` pointer records, which name a
+        ``agentnexus login <apps-url>`` pointer records, which name a
         workspace rather than a profile; resolution is delegated to
         :func:`_resolve_databricks_auth_for_host`. The ambient
         profile/env fallback is NOT attempted in this mode — the

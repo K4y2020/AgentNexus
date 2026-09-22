@@ -16,7 +16,7 @@ The dispatch contract:
 
 Terminal-native conversations are dispatched in-process today.
 Everything else surfaces a copy-pasteable hint to the existing
-``omnigent run --resume`` invocation — the agentless ``run
+``agentnexus run --resume`` invocation — the agentless ``run
 --resume`` shape is tracked separately.
 """
 
@@ -207,7 +207,7 @@ def _dispatch_by_runtime(
     Terminal-native sessions route into their wrapper entry point
     carrying ``--server`` through. Non-wrapper
     conversations surface a clear ``ClickException`` pointing at
-    the existing ``omnigent run --resume`` invocation — the
+    the existing ``agentnexus run --resume`` invocation — the
     agentless ``run --resume`` (drops the ``AGENT`` requirement
     via server-side agent lookup) is tracked separately and not in
     this PR's scope.

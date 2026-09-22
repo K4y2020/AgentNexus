@@ -608,7 +608,7 @@ async def test_no_ack_when_session_cannot_start_host_unavailable(tmp_path: Path)
     assert slack.acks == []
     # The only durable post is the guidance.
     assert len(slack.posts) == 1
-    assert "omni host --server http://omnigent.test" in slack.posts[-1]["text"]
+    assert "agentnexus host --server http://omnigent.test" in slack.posts[-1]["text"]
 
 
 async def test_channel_stream_passes_recipient_ids(tmp_path: Path) -> None:
@@ -1784,7 +1784,7 @@ async def test_unreachable_server_prompts_config_command(tmp_path: Path) -> None
     # No session persisted; the user is told to reconfigure.
     assert await store.get_session(ThreadKey("T1", "C1", "100.1")) is None
     text = slack.posts[-1]["text"]
-    assert "/omnigent" in text
+    assert "/agentnexus" in text
     assert "couldn't reach" in text.lower()
 
 
@@ -1956,8 +1956,8 @@ async def test_no_online_host_prompts_omni_host_command(tmp_path: Path) -> None:
 
     assert await store.get_session(ThreadKey("T1", "C1", "100.1")) is None
     text = slack.posts[-1]["text"]
-    assert "omni host --server http://omnigent.test" in text
-    assert "/omnigent" in text
+    assert "agentnexus host --server http://omnigent.test" in text
+    assert "/agentnexus" in text
 
 
 class HarnessNotConfiguredClient(FakeAgentNexusClient):

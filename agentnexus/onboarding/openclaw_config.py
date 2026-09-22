@@ -1,4 +1,4 @@
-"""OpenClaw/acpx config bridge for ``omnigent setup``.
+"""OpenClaw/acpx config bridge for ``agentnexus setup``.
 
 Reads a user's acpx/OpenClaw agent registry and converts it into AgentNexus's
 generic ``acp:`` agent entries. The bridge stores only launch commands; each

@@ -1,6 +1,6 @@
 """
 End-to-end test for OSC 8 hyperlink rendering under
-``omnigent run``.
+``agentnexus run``.
 
 Drives a real REPL session: the agent calls ``sys_os_shell`` to
 print a URL through bash, the REPL renders the tool-result
@@ -118,7 +118,7 @@ def test_run_omnigent_url_linkify_emits_osc_8_in_pty(
 
     Strategy:
 
-    1. Spawn ``omnigent run --omnigent`` via pexpect.
+    1. Spawn ``agentnexus run --omnigent`` via pexpect.
     2. Configure mock LLM to call ``sys_os_shell`` with the
        echo command, then acknowledge with DONE.
     3. Capture all PTY output via ``logfile_read`` (a

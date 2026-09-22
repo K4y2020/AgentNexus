@@ -1,10 +1,10 @@
-"""Tests for ``build-omnigent`` skill injection into native agent bundles.
+"""Tests for ``build-agentnexus`` skill injection into native agent bundles.
 
 The injector resolved its source path by counting ``.parent``s off its own
 module file. Moving the module one package deeper left the count stale, so
 the source directory did not exist and the ``not source.is_dir()`` guard
 returned on every call — silently injecting nothing for every
-``omnigent claude`` / ``omnigent codex`` user.
+``agentnexus claude`` / ``omnigent codex`` user.
 
 These tests pin the observable outcome (the skill lands in the bundle and
 the Codex consumer resolves it) rather than the path expression, so the
@@ -21,17 +21,17 @@ from agentnexus.runner.native.orchestration import (
     _ensure_orchestrator_skills_in_bundle,
 )
 
-SKILL_NAME = "build-omnigent"
+SKILL_NAME = "build-agentnexus"
 
 
 def test_skill_source_lives_in_the_installed_package() -> None:
     """The canonical source directory ships inside the package."""
-    source = Path(omnigent.__file__).resolve().parent / "onboarding" / "agent" / "skills"
+    source = Path(agentnexus.__file__).resolve().parent / "onboarding" / "agent" / "skills"
     assert (source / SKILL_NAME / "SKILL.md").is_file()
 
 
 def test_injects_skill_into_empty_bundle(tmp_path: Path) -> None:
-    """A bare bundle gets a usable ``skills/build-omnigent`` with content."""
+    """A bare bundle gets a usable ``skills/build-agentnexus`` with content."""
     _ensure_orchestrator_skills_in_bundle(tmp_path, None)
 
     target = tmp_path / "skills" / SKILL_NAME

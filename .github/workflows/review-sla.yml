@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   sweep:
-    if: github.repository == 'agentnexus-ai/agentnexus'
+    if: github.repository == 'K4y2020/AgentNexus'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

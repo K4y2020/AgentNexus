@@ -21,7 +21,12 @@ LEDGER_NAME = "install_ledger.json"
 BACKFILL_LEDGER_NAME = "install_ledger.backfill.json"
 PROFILE_MARKER_BEGIN = "# >>> AgentNexus installer >>>"
 PROFILE_MARKER_END = "# <<< AgentNexus installer <<<"
-CONSOLE_SCRIPTS = ["agentnexus", "omni"]
+CONSOLE_SCRIPTS = ["agentnexus", "nexus", "omnigent", "omni"]
+# Exact legacy installer markers remain recognized until 2.0.
+_PROFILE_MARKERS = {
+    PROFILE_MARKER_BEGIN: PROFILE_MARKER_END,
+    "# >>> Omnigent installer >>>": "# <<< Omnigent installer <<<",
+}
 
 
 def utc_now() -> str:
@@ -349,19 +354,31 @@ def profile_candidates() -> list[Path]:
     return candidates
 
 
-def find_profile_block(path: Path) -> tuple[int, int, str] | None:
+def find_profile_blocks(path: Path) -> list[tuple[int, int, str]]:
+    """Read exact owned blocks, including historical markers until 2.0."""
     try:
         lines = path.read_text().splitlines(keepends=True)
     except OSError:
-        return None
+        return []
+    blocks: list[tuple[int, int, str]] = []
     begin: int | None = None
+    end_marker: str | None = None
     for index, line in enumerate(lines):
-        if line.rstrip("\n") == PROFILE_MARKER_BEGIN:
+        text = line.rstrip("\r\n")
+        if text in _PROFILE_MARKERS:
             begin = index
-        elif begin is not None and line.rstrip("\n") == PROFILE_MARKER_END:
+            end_marker = _PROFILE_MARKERS[text]
+        elif begin is not None and text == end_marker:
             block = "".join(lines[begin : index + 1])
-            return begin + 1, index + 1, block
-    return None
+            blocks.append((begin + 1, index + 1, block))
+            begin = None
+            end_marker = None
+    return blocks
+
+
+def find_profile_block(path: Path) -> tuple[int, int, str] | None:
+    """Return the first owned block for callers that only need an anchor."""
+    return next(iter(find_profile_blocks(path)), None)
 
 
 def _cmd_output(*args: str) -> str | None:
@@ -430,7 +447,11 @@ def desktop_data_paths() -> list[str]:
         xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
         xdg_cache = Path(os.environ.get("XDG_CACHE_HOME", home / ".cache"))
         xdg_state = Path(os.environ.get("XDG_STATE_HOME", home / ".local" / "state"))
-        candidates = [xdg_config / "AgentNexus", xdg_cache / "AgentNexus", xdg_state / "AgentNexus"]
+        candidates = [
+            xdg_config / "AgentNexus",
+            xdg_cache / "AgentNexus",
+            xdg_state / "AgentNexus",
+        ]
     return [str(path) for path in candidates if path.exists()]
 
 
@@ -490,7 +511,9 @@ def observed_launch_agents(*, deep: bool) -> list[LaunchAgentEntry]:
     entries: list[LaunchAgentEntry] = []
     launchd_dir = Path.home() / "Library" / "LaunchAgents"
     if launchd_dir.is_dir():
-        for path in sorted(launchd_dir.glob("*omnigent*.plist")):
+        for path in sorted(
+            set(launchd_dir.glob("*agentnexus*.plist")) | set(launchd_dir.glob("*omnigent*.plist"))
+        ):
             entries.append(
                 LaunchAgentEntry(
                     kind="launchd",
@@ -503,7 +526,10 @@ def observed_launch_agents(*, deep: bool) -> list[LaunchAgentEntry]:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     systemd_dir = config_home / "systemd" / "user"
     if systemd_dir.is_dir():
-        for path in sorted(systemd_dir.glob("*omnigent*.service")):
+        for path in sorted(
+            set(systemd_dir.glob("*agentnexus*.service"))
+            | set(systemd_dir.glob("*omnigent*.service"))
+        ):
             entries.append(
                 LaunchAgentEntry(
                     kind="systemd_user",
@@ -520,19 +546,18 @@ def new_ledger(*, source: str, strategy: str, deep: bool) -> InstallLedger:
     now = utc_now()
     profiles: list[ProfileEntry] = []
     for path in profile_candidates():
-        found = find_profile_block(path)
-        if found is None:
-            continue
-        start, end, block = found
-        profiles.append(
-            ProfileEntry(
-                path=str(path),
-                line_range=[start, end],
-                block_sha256=sha256_text(block),
-                source="observed" if source == "backfill" else "recorded",
-                confidence="certain",
+        for start, end, block in find_profile_blocks(path):
+            profiles.append(
+                ProfileEntry(
+                    path=str(path),
+                    marker_begin=block.splitlines()[0],
+                    marker_end=block.splitlines()[-1],
+                    line_range=[start, end],
+                    block_sha256=sha256_text(block),
+                    source="observed" if source == "backfill" else "recorded",
+                    confidence="certain",
+                )
             )
-        )
     entries = LedgerEntries(
         profiles=profiles,
         injected_external_config=observed_external_configs(deep=deep),
@@ -626,13 +651,13 @@ def write_install_ledger_from_env() -> InstallLedger:
     profile_env = os.environ.get("AGENTNEXUS_LEDGER_PROFILE")
     if profile_env:
         path = Path(profile_env).expanduser()
-        found = find_profile_block(path)
         ledger.entries.profiles = []
-        if found is not None:
-            start, end, block = found
+        for start, end, block in find_profile_blocks(path):
             ledger.entries.profiles.append(
                 ProfileEntry(
                     path=str(path),
+                    marker_begin=block.splitlines()[0],
+                    marker_end=block.splitlines()[-1],
                     line_range=[start, end],
                     block_sha256=sha256_text(block),
                     source="recorded",

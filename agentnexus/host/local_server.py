@@ -64,7 +64,7 @@ def _local_data_dir() -> Path:
     daemon-backed local server fails to boot ("schema is out of date").
 
     Must stay in lock-step with :func:`omnigent.chat._omnigent_persistent_dir`:
-    the local server's DB lives here and ``omnigent run`` resolves the
+    the local server's DB lives here and ``agentnexus run`` resolves the
     resume DB there, so the two MUST agree. ``AGENTNEXUS_CONFIG_HOME`` is
     deliberately NOT consulted — it isolates *config* (``config.yaml``) only;
     overloading it to move the DB breaks HOME-based data isolation (e.g. the
@@ -647,7 +647,7 @@ def _spawn_local_server(port: int) -> _SpawnedLocalServer:
     # cookie secret + base URL. Persisted via
     # load_or_generate_cookie_secret so daemon restarts don't
     # invalidate every existing browser session. From the user's
-    # POV, `omnigent run` (no --server) in accounts mode gets
+    # POV, `agentnexus run` (no --server) in accounts mode gets
     # "browser auto-opens signed in + TUI auto-signed in" once
     # the spawned server's bootstrap fires.
     child_env = {**os.environ, PROCESS_LOG_FILE_ENV_VAR: str(log_path)}
@@ -839,7 +839,7 @@ def register_local_server(port: int) -> None:
     """Record THIS process as the canonical local server in the pidfile.
 
     Lets a foreground ``omnigent server`` advertise itself in the same
-    ``local_server.pid`` the daemon reads, so ``omnigent run`` /
+    ``local_server.pid`` the daemon reads, so ``agentnexus run`` /
     ``connect`` reuse it instead of spawning a competitor.
 
     Stamps the config-signature sidecar alongside the pidfile (same writer

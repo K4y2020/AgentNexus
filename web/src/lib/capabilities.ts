@@ -67,7 +67,7 @@ export interface ServerInfo {
   accounts_enabled: boolean;
   /**
    * True only on an explicit single-user local runtime
-   * (``OMNIGENT_LOCAL_SINGLE_USER=1``). This is the sole signal that
+   * (``AGENTNEXUS_LOCAL_SINGLE_USER=1``). This is the sole signal that
    * separates a genuine one-user server from a multi-user header-auth
    * deploy (e.g. an SSO proxy injecting ``X-Forwarded-Email``) — both
    * report ``accounts_enabled: false`` / ``login_url: null``. Gates
@@ -158,7 +158,7 @@ export interface ServerInfo {
    * New consumers should use :func:`isFeatureEnabled`.
    *
    * True when the server accepts UI-driven harness installs
-   * (``harness_install`` in ``OMNIGENT_FEATURES``). Gates the New Chat dialog's
+   * (``harness_install`` in ``AGENTNEXUS_FEATURES``). Gates the New Chat dialog's
    * one-click "Install" action for a missing harness. Fails to ``false`` so a
    * failed probe never offers an install the server would reject.
    */
@@ -353,7 +353,7 @@ export function getCachedServerInfo(): ServerInfo | null {
 
 /**
  * Whether the server is an explicit single-user local runtime, per the
- * server's ``single_user`` signal (``OMNIGENT_LOCAL_SINGLE_USER=1``). This
+ * server's ``single_user`` signal (``AGENTNEXUS_LOCAL_SINGLE_USER=1``). This
  * is NOT the same as "no accounts / no login" — a multi-user header-auth
  * deploy (SSO proxy injecting ``X-Forwarded-Email``) also reports
  * ``accounts_enabled: false`` / ``login_url: null`` but is genuinely

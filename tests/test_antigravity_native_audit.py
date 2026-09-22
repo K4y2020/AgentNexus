@@ -131,14 +131,14 @@ def test_audit_request_omits_model_when_none() -> None:
 
 
 def test_audit_request_skips_omnigent_mcp_tools() -> None:
-    """``mcp__omnigent__*`` tools are relay-enforced; the audit returns None.
+    """``mcp__agentnexus__*`` tools are relay-enforced; the audit returns None.
 
     Only the AgentNexus MCP tools are double-counted by the relay path, so
     :func:`build_audit_evaluation_request` (delegating to
     ``hook_payload_to_evaluation_request``) skips exactly those.
     """
     request = build_audit_evaluation_request(
-        tool_name="mcp__omnigent__sys_call", tool_input={}, model=None
+        tool_name="mcp__agentnexus__sys_call", tool_input={}, model=None
     )
     assert request is None
 
@@ -146,7 +146,7 @@ def test_audit_request_skips_omnigent_mcp_tools() -> None:
 def test_audit_request_evaluates_connector_mcp_tools() -> None:
     """Connector-native MCP tools (e.g. ``mcp__github__*``) still need the gate.
 
-    Unlike ``mcp__omnigent__*`` (relay-enforced), connector MCP tools are not
+    Unlike ``mcp__agentnexus__*`` (relay-enforced), connector MCP tools are not
     policy-checked elsewhere, so the audit must produce a request for them.
     """
     request = build_audit_evaluation_request(

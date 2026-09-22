@@ -342,7 +342,7 @@ def test_native_tui_harnesses_declare_shell_tool_provocation() -> None:
     """Native-TUI harnesses the bench tool-probes declare a shell-tool prompt.
 
     The bench derives its provocation from these fields (was a hardcoded table);
-    a prompt must carry the ``omnigent-bench-ok`` placeholder the probe
+    a prompt must carry the ``agentnexus-bench-ok`` placeholder the probe
     token-swaps. cursor-native is intentionally probe-skipped (no shell tool),
     matching its prior absence from the table.
     """

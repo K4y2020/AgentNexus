@@ -598,7 +598,7 @@ export async function describeCreateError(res: Response): Promise<string> {
  * composer when the UI-driven setup feature is OFF.
  *
  * The ``needs-auth`` / ``binary-missing`` copy is Codex-specific ("run codex
- * login" / "set OMNIGENT_CODEX_PATH"), so it's gated on {@link isCodexHarness}.
+ * login" / "set AGENTNEXUS_CODEX_PATH"), so it's gated on {@link isCodexHarness}.
  * Other harnesses that report those structured reasons (claude-native /
  * opencode-native now do) fall through to the generic "run omni setup"
  * message — matching the pre-feature behavior, where only Codex ever produced
@@ -1917,57 +1917,66 @@ function HarnessConfigModal({
           {/* Stays rendered while Smart Routing is the pick: it is the control
           that selected it, so hiding it would strand the choice with no way to
           read it back or switch away without cancelling. */}
-          {!hasPermission && !hasApproval && !hasCursor && !hasAgySkip && !isCodebuddy && brainDefault && (
-            <ConfigRow label="Agent Harness" description="Underlying coding harness">
-              <Select
-                value={draftHarness ?? brainDefault}
-                onValueChange={setDraftHarness}
-                componentId="new_chat.config.harness"
-                valueHasNoPii
-              >
-                <SelectTrigger
-                  className="w-full cursor-pointer"
-                  data-testid="new-chat-landing-config-harness"
-                  aria-label="Agent Harness"
+          {!hasPermission &&
+            !hasApproval &&
+            !hasCursor &&
+            !hasAgySkip &&
+            !isCodebuddy &&
+            brainDefault && (
+              <ConfigRow label="Agent Harness" description="Underlying coding harness">
+                <Select
+                  value={draftHarness ?? brainDefault}
+                  onValueChange={setDraftHarness}
+                  componentId="new_chat.config.harness"
+                  valueHasNoPii
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  align="start"
-                  className="[&_[data-slot=select-item]]:pl-2.5"
-                >
-                  {brainEntries.map(([id, label]) => (
-                    <SelectItem key={id} value={id} data-testid={`new-chat-landing-harness-${id}`}>
-                      <span className="flex items-center gap-2">
-                        {label}
-                        {/* Only the auto row carries a blurb: "Auto" alone
+                  <SelectTrigger
+                    className="w-full cursor-pointer"
+                    data-testid="new-chat-landing-config-harness"
+                    aria-label="Agent Harness"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    align="start"
+                    className="[&_[data-slot=select-item]]:pl-2.5"
+                  >
+                    {brainEntries.map(([id, label]) => (
+                      <SelectItem
+                        key={id}
+                        value={id}
+                        data-testid={`new-chat-landing-harness-${id}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {label}
+                          {/* Only the auto row carries a blurb: "Auto" alone
                         doesn't say what gets picked. Same muted style the agent
                         picker uses for its row descriptions. */}
-                        {id === AUTO_HARNESS_ID && (
-                          <span className="truncate text-[11px] text-muted-foreground/70">
-                            {AUTO_HARNESS_DESCRIPTION}
-                          </span>
-                        )}
-                        {harnessUnconfiguredOnHost(id, host) && (
-                          <Badge
-                            variant="outline"
-                            className="border-amber-300 bg-amber-50 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
-                            data-testid={`new-chat-landing-harness-warning-${id}`}
-                          >
-                            {harnessWarningBadgeText(
-                              harnessUnavailableReasonOnHost(id, host),
-                              collapsedBadge,
-                            )}
-                          </Badge>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </ConfigRow>
-          )}
+                          {id === AUTO_HARNESS_ID && (
+                            <span className="truncate text-[11px] text-muted-foreground/70">
+                              {AUTO_HARNESS_DESCRIPTION}
+                            </span>
+                          )}
+                          {harnessUnconfiguredOnHost(id, host) && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-300 bg-amber-50 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
+                              data-testid={`new-chat-landing-harness-warning-${id}`}
+                            >
+                              {harnessWarningBadgeText(
+                                harnessUnavailableReasonOnHost(id, host),
+                                collapsedBadge,
+                              )}
+                            </Badge>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ConfigRow>
+            )}
 
           {/* Model pinning for a brain harness whose CLI takes a model flag
           (e.g. CodeBuddy's ``--model``). Free text on purpose: the valid ids
@@ -2451,9 +2460,7 @@ export function NewChatLandingScreen() {
   );
   const codebuddyModelOptions = useMemo(
     () =>
-      hostCodebuddyModelOptions.length > 0
-        ? hostCodebuddyModelOptions
-        : CODEBUDDY_DEFAULT_MODELS,
+      hostCodebuddyModelOptions.length > 0 ? hostCodebuddyModelOptions : CODEBUDDY_DEFAULT_MODELS,
     [hostCodebuddyModelOptions],
   );
   const claudeModelOptions = useMemo(
@@ -3179,10 +3186,19 @@ export function NewChatLandingScreen() {
         AGY_NATIVE_SKIP_MODES.find((m) => m.value === agySkipMode)?.label ?? agySkipMode;
       return [{ label: "Permissions", value: skipValue }, ...routingRow];
     }
-    if (selectedAgent?.harness === "codebuddy" || selectedAgent?.name?.toLowerCase() === "codebuddy") {
+    if (
+      selectedAgent?.harness === "codebuddy" ||
+      selectedAgent?.name?.toLowerCase() === "codebuddy"
+    ) {
       const activeModel = pickedModel || "hy4-preview";
       const matched = codebuddyModelOptions.find((m) => m.id === activeModel);
-      return [{ label: "Model", value: matched ? (matched as any).displayName ?? matched.id : activeModel }, ...routingRow];
+      return [
+        {
+          label: "Model",
+          value: matched ? ((matched as any).displayName ?? matched.id) : activeModel,
+        },
+        ...routingRow,
+      ];
     }
     if (selectedAgent?.harness != null && selectedAgent.harness in brainHarnessLabelsAll) {
       const active = pickedHarness ?? selectedAgent.harness;
@@ -4232,7 +4248,8 @@ export function NewChatLandingScreen() {
             model_override:
               !smartRoutingHarnessSelected &&
               !routingOwnsModel &&
-              ((agentSupportsModelPicker || nativeAgent?.harness === "codex-native") ||
+              (agentSupportsModelPicker ||
+                nativeAgent?.harness === "codex-native" ||
                 (!nativeAgent &&
                   !!pickedModel &&
                   (pickedHarness ?? selectedAgent?.harness) != null &&
@@ -4256,9 +4273,10 @@ export function NewChatLandingScreen() {
             // delivers the real message after navigation.
             harness_override: smartRoutingHarnessSelected
               ? AUTO_HARNESS_ID
-              : (selectedAgent?.harness === "codebuddy" || selectedAgent?.name?.toLowerCase() === "codebuddy"
+              : selectedAgent?.harness === "codebuddy" ||
+                  selectedAgent?.name?.toLowerCase() === "codebuddy"
                 ? undefined
-                : (pickedHarness ?? undefined)),
+                : (pickedHarness ?? undefined),
             smart_routing_message:
               smartRoutingHarnessSelected || pinnedNativeRoutes ? initialPrompt : undefined,
           }),

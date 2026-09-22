@@ -169,14 +169,14 @@ def spawn_omnigent_run(
     no_session: bool = True,
 ) -> pexpect.spawn:
     """
-    Spawn ``omnigent run`` under a PTY for REPL tests.
+    Spawn ``agentnexus run`` under a PTY for REPL tests.
 
     :param omnigent_python: Python interpreter with omnigent
         installed, e.g.
         ``Path("/Users/.../agentnexus/.venv/bin/python")``.
     :param yaml_path: Absolute path to the agent YAML, e.g.
         ``examples/hello_world.yaml``. Pass ``None`` to exercise
-        ``omnigent run --harness ...`` without an explicit
+        ``agentnexus run --harness ...`` without an explicit
         agent argument.
     :param model: Model override passed via ``--model``, e.g.
         ``"databricks-gpt-5-mini"``.
@@ -209,7 +209,7 @@ def spawn_omnigent_run(
     """
     if yaml_path is None:
         # Exercise the public console-script entry point instead of
-        # ``python -m omnigent``. The package ``__main__`` module
+        # ``python -m agentnexus``. The package ``__main__`` module
         # intentionally routes through the legacy argparse quick-chat
         # CLI, while the installed ``omnigent`` script invokes the
         # unified Click CLI where the no-AGENT ``run --harness``

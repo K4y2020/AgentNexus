@@ -355,7 +355,7 @@ class WaitingForReviewTest(unittest.TestCase):
 
         class OneBadReviewerAPI(waiting_on_author.GitHubAPI):
             def __init__(self) -> None:
-                super().__init__("token", "agentnexus-ai/omnigent")
+                super().__init__("token", "K4y2020/AgentNexus")
 
             def request(self, method: str, path: str, body: dict[str, Any] | None = None):
                 assert method == "POST"

@@ -1,4 +1,4 @@
-//! Optional process profile for supervising a non-OSS Omnigent integration.
+//! Optional process profile for supervising a non-OSS AgentNexus integration.
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,6 +1,6 @@
 # agentnexus-client
 
-Python client SDK for the [agentnexus](https://github.com/agentnexus-ai/agentnexus)
+Python client SDK for the [agentnexus](https://github.com/K4y2020/AgentNexus)
 server API.
 
 `agentnexus-client` is a typed client for driving agentnexus sessions over the
@@ -16,5 +16,5 @@ version:
 pip install agentnexus-client
 ```
 
-See the [agentnexus repository](https://github.com/agentnexus-ai/agentnexus) for full
+See the [agentnexus repository](https://github.com/K4y2020/AgentNexus) for full
 documentation.

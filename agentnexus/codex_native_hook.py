@@ -93,7 +93,7 @@ def _main_evaluate_policy(argv: list[str]) -> int:
     native tools), while ``UserPromptSubmit`` and ``PostToolUse`` fail
     OPEN. Conditions that mean the session simply is not governed — no
     bridge state, no ``ap_server_url``, an unparseable payload, or an
-    ``mcp__omnigent__*`` tool already gated on the relay path — still
+    ``mcp__agentnexus__*`` tool already gated on the relay path — still
     return exit 0 with no output ("no opinion") so non-AgentNexus tool calls
     are never blocked. The complementary fail-loud guard — asserting the
     hook is actually registered and trusted — lives at session startup in
@@ -124,7 +124,7 @@ def _main_evaluate_policy(argv: list[str]) -> int:
     hook_event = payload.get("hook_event_name", "")
     eval_request = hook_payload_to_evaluation_request(hook_event, payload)
     if eval_request is None:
-        # Unrecognized hook event or an mcp__omnigent__* tool (relay-enforced).
+        # Unrecognized hook event or an mcp__agentnexus__* tool (relay-enforced).
         return 0
 
     # Stamp the live model from this session's config.toml (what an in-TUI
@@ -205,7 +205,7 @@ def _parse_evaluate_policy_args(argv: list[str]) -> argparse.Namespace:
         ``["--bridge-dir", "/tmp/x"]``.
     :returns: Parsed namespace with a ``bridge_dir`` attribute.
     """
-    parser = argparse.ArgumentParser(prog="python -m omnigent.codex_native_hook evaluate-policy")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.codex_native_hook evaluate-policy")
     parser.add_argument("--bridge-dir", required=True)
     return parser.parse_args(argv)
 
@@ -253,7 +253,7 @@ def _main_route_turn(argv: list[str]) -> int:
         turn_routing_marker_present,
     )
 
-    parser = argparse.ArgumentParser(prog="python -m omnigent.codex_native_hook route-turn")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.codex_native_hook route-turn")
     parser.add_argument("--bridge-dir", required=True)
     parser.add_argument("--harness", default="codex-native")
     args = parser.parse_args(argv)

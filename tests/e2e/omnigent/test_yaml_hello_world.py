@@ -119,7 +119,7 @@ def test_yaml_agent_with_tools(
     model: str,
 ) -> None:
     """
-    Running ``omnigent run agent_with_tools.yaml --harness
+    Running ``agentnexus run agent_with_tools.yaml --harness
     <harness> -p <calc-prompt>`` completes cleanly and the
     ``calculate`` tool appears in stdout.
 
@@ -250,7 +250,7 @@ def _strip_tool_chatter(stdout: str) -> str:
     assertion we want to measure only the natural-language reply,
     not those markers.
 
-    :param stdout: Raw stdout from ``omnigent run``.
+    :param stdout: Raw stdout from ``agentnexus run``.
     :returns: The stdout with tool lifecycle lines removed,
         trimmed of leading/trailing whitespace.
     """

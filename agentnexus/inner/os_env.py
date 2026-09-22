@@ -24,7 +24,7 @@ from urllib.parse import urlparse, urlunparse
 from agentnexus._platform import IS_WINDOWS, WINDOWS_ENV_PASSTHROUGH
 from agentnexus.json_types import JsonValue
 from agentnexus.runner.identity import (
-    AGENTNEXUS_SESSION_ENV_VAR,
+    AGENTNEXUS_SESSION_ENV_VARS,
     strip_runner_auth_secrets,
 )
 
@@ -146,7 +146,7 @@ _DEFAULT_ENV_PASSTHROUGH: tuple[str, ...] = (
     # through so an agent's sandboxed shell can detect the session, the
     # way CLAUDE_CODE / CODEX are visible in their agents' shells. Set on
     # the runner via runner.identity.AGENTNEXUS_SESSION_ENV_VAR.
-    AGENTNEXUS_SESSION_ENV_VAR,
+    *AGENTNEXUS_SESSION_ENV_VARS,
     # Windows system / profile constants (SYSTEMROOT is mandatory for Winsock,
     # USERPROFILE for Path.home(), etc.); a no-op on POSIX. See _platform.
     *WINDOWS_ENV_PASSTHROUGH,
@@ -1795,7 +1795,7 @@ def _run_helper(config: JsonValue) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = argv or sys.argv[1:]
     if not args:
-        raise SystemExit("usage: python -m omnigent.inner.os_env <helper|launch> ...")
+        raise SystemExit("usage: python -m agentnexus.inner.os_env <helper|launch> ...")
 
     command = args[0]
     if command == "helper":
@@ -1807,7 +1807,7 @@ def main(argv: list[str] | None = None) -> int:
         # launcher script doesn't silently boot a helper with no config.
         if len(args) != 3 or args[1] not in ("--config-fd", "--config-file"):
             raise SystemExit(
-                "usage: python -m omnigent.inner.os_env helper "
+                "usage: python -m agentnexus.inner.os_env helper "
                 "(--config-fd <fd> | --config-file <path>)"
             )
         if args[1] == "--config-fd":
@@ -1823,7 +1823,7 @@ def main(argv: list[str] | None = None) -> int:
     if command == "launch":
         if len(args) < 3:
             raise SystemExit(
-                "usage: python -m omnigent.inner.os_env launch <sandbox> <target> [args...]"
+                "usage: python -m agentnexus.inner.os_env launch <sandbox> <target> [args...]"
             )
         return _run_launcher(args[1], args[2], args[3:])
 

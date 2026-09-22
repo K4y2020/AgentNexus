@@ -99,7 +99,7 @@ def load_agent_def(
         factories at parse time, so an uploaded
         ``handler: subprocess.Popen`` would otherwise run during
         validation. Defaults to ``False`` so trusted callers (local
-        ``omnigent run``, operator specs, the CLI) keep working with
+        ``agentnexus run``, operator specs, the CLI) keep working with
         custom handlers — the operator already has code execution, so
         the restriction would add no security there.
     """

@@ -216,7 +216,7 @@ No issue exists for this yet? Open one first, then reference it. That's how we t
 
 The only exceptions are changes with no user-visible behaviour: pure **Refactor / chore**, **Docs**, or **Test / CI** work. If that's genuinely what this is, check that box under *Type of change*. Anything that fixes a bug, adds a feature, or changes the UI needs an issue, even when it also touches docs or tests.
 
-See [CONTRIBUTING.md](https://github.com/agentnexus-ai/agentnexus/blob/main/CONTRIBUTING.md#every-pr-needs-an-issue) for the full policy.
+See [CONTRIBUTING.md](https://github.com/K4y2020/AgentNexus/blob/main/CONTRIBUTING.md#every-pr-needs-an-issue) for the full policy.
 
 This PR is now labeled \`${NEEDS_ISSUE_LABEL}\`. **If no issue is referenced within ${CLOSE_AFTER_DAYS} days, it will be closed automatically** to keep the review queue readable. That is not a judgement on the change, and it is reversible: comment \`/reopen\` and the PR comes back. Referencing an issue clears the label, and the countdown with it.`;
 
@@ -227,7 +227,7 @@ The label was applied on ${labeledAt}. This isn't a judgement on the merit of th
 
 To continue: add \`Closes #123\` or \`Part of #123\` to the description, then comment \`/reopen\` and this PR comes back, as long as its source branch still exists. If the branch is gone, push it again and open a fresh PR referencing this one.
 
-See [CONTRIBUTING.md](https://github.com/agentnexus-ai/agentnexus/blob/main/CONTRIBUTING.md#every-pr-needs-an-issue) for the full policy.`;
+See [CONTRIBUTING.md](https://github.com/K4y2020/AgentNexus/blob/main/CONTRIBUTING.md#every-pr-needs-an-issue) for the full policy.`;
 
 module.exports = async ({ context, github, core }) => {
   const { owner, repo } = context.repo;

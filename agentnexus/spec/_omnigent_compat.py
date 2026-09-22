@@ -351,8 +351,8 @@ def load_omnigent_yaml(
         # instead of a bare ``ModuleNotFoundError``.
         raise AgentNexusError(
             "loading omnigent-format YAMLs requires the "
-            "``omnigent`` package to be importable. Install it "
-            "(``pip install -e <omnigent-root>`` from the "
+            "``agentnexus`` package to be importable. Install it "
+            "(``pip install -e <agentnexus-root>`` from the "
             "repo, or add the root to PYTHONPATH) and retry. The "
             "failing import was: "
             f"{exc}",

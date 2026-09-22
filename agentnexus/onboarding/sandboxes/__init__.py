@@ -1,6 +1,6 @@
 """Sandbox launchers: run AgentNexus hosts in remote sandboxes.
 
-Public API for the ``omnigent sandbox`` CLI and anything else that
+Public API for the ``agentnexus sandbox`` CLI and anything else that
 bootstraps a sandbox-backed host. Core AgentNexus contributes built-in
 providers directly; third-party packages can contribute providers through
 the ``omnigent.sandbox_providers`` entry point group.

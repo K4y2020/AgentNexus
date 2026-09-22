@@ -104,6 +104,16 @@ def test_strip_runner_auth_secrets_does_not_mutate_input() -> None:
     assert result is not source
 
 
+@pytest.mark.parametrize("prefix", ["AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"])
+def test_legacy_aliases_cannot_restore_runner_secrets_in_a_child(prefix: str) -> None:
+    source = {
+        prefix + "RUNNER_INITIAL_AUTH_TOKEN": "test-only-initial",
+        prefix + "RUNNER_TUNNEL_BINDING_TOKEN": "test-only-binding",
+        prefix + "MODEL": "keep-model",
+    }
+    assert strip_runner_auth_secrets(source) == {prefix + "MODEL": "keep-model"}
+
+
 def test_importing_identity_does_not_pull_in_fastapi() -> None:
     """``import agentnexus.runner.identity`` stays free of the FastAPI stack.
 

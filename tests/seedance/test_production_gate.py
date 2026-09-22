@@ -26,16 +26,16 @@ def bundle(tmp_path):
     directory = tmp_path / "production"
     directory.mkdir()
     for stage, skill in {
-        "outline": "novel-outline",
-        "cast": "novel-characters",
-        "art": "novel-art",
-        "script": "novel-script",
-        "storyboard": "novel-storyboard",
+        "outline": "cine-outline",
+        "cast": "cine-characters",
+        "art": "cine-art",
+        "script": "cine-script",
+        "storyboard": "cine-storyboard",
     }.items():
         example = next((SKILLS / skill / "examples").glob(f"*-{stage}.json"))
         shutil.copyfile(example, directory / f"{stage}.json")
     shutil.copyfile(
-        next((SKILLS / "novel-characters/examples").glob("*.txt")), tmp_path / "source.txt"
+        next((SKILLS / "cine-characters/examples").glob("*.txt")), tmp_path / "source.txt"
     )
     return directory
 

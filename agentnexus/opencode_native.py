@@ -12,7 +12,7 @@ it ensures a local daemon + runner, creates-or-resumes the ``opencode-native-ui`
 session (whose runner auto-creates the ``opencode serve`` + ``opencode attach``
 terminal), and attaches this TTY directly to that runner-owned tmux pane — the
 same web-UI takeover path, driven from the CLI. The provider/gateway comes from
-the runner's ambient env / ``omnigent setup`` config (a profile-bound spec routes
+the runner's ambient env / ``agentnexus setup`` config (a profile-bound spec routes
 through the Databricks gateway; otherwise OpenAI-/Anthropic-compatible env vars).
 """
 
@@ -266,7 +266,7 @@ def _run_with_remote_server(  # pragma: no cover
         asyncio.run(_drive())
     except httpx.ConnectError as exc:
         raise click.ClickException(
-            f"Could not reach the omnigent server at {base_url}. "
+            f"Could not reach the AgentNexus server at {base_url}. "
             "Confirm the server is running and reachable from here "
             f"(e.g. `curl {base_url}/health`), and that --server is correct."
         ) from exc

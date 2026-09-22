@@ -1,8 +1,8 @@
 /**
- * Iframe host HTML for the Omnigent editor panel.
+ * Iframe host HTML for the AgentNexus editor panel.
  *
  * The webview hosts a single static <iframe> pointed at the running LOCAL
- * Omnigent server — a local server needs no auth, so no token ever appears in
+ * AgentNexus server — a local server needs no auth, so no token ever appears in
  * the iframe URL (see csp.ts). buildIframeHtml() is a PURE function (no vscode
  * API) so it is unit-testable. The page carries:
  *  1. A strict nonce-based CSP whose `frame-src` allows the server origin.
@@ -35,7 +35,7 @@ export function buildIframeHtml(opts: BuildIframeHtmlOptions): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}" />
-  <title>Omnigent</title>
+  <title>AgentNexus</title>
   <style nonce="${nonce}">
     html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
     body { background: var(--vscode-editor-background, #1e1e1e); }

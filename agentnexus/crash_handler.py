@@ -63,7 +63,7 @@ class _CrashConfig(TypedDict):
 
 _CONFIG: _CrashConfig = {
     "app_name": "agentnexus",
-    "repo": "agentnexus-ai/omnigent",
+    "repo": "K4y2020/AgentNexus",
     "version": "unknown",
     "crashes_dir": None,
     "keep_reports": 10,

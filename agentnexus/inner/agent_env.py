@@ -24,7 +24,7 @@ import os
 from collections.abc import Iterable, Mapping
 
 from agentnexus._platform import WINDOWS_ENV_PASSTHROUGH
-from agentnexus.runner.identity import AGENTNEXUS_SESSION_ENV_VAR
+from agentnexus.runner.identity import AGENTNEXUS_SESSION_ENV_VARS
 
 # Categories every POSIX CLI needs regardless of vendor: where the user's
 # config lives, how to reach the network, how to format output, where to put
@@ -64,7 +64,7 @@ BASE_ALLOW_EXACT: frozenset[str] = frozenset(
         # running and to hold the key. Shared here because every harness runs
         # git, not just the one whose bug surfaced it.
         "SSH_AUTH_SOCK",
-        AGENTNEXUS_SESSION_ENV_VAR,
+        *AGENTNEXUS_SESSION_ENV_VARS,
         # Windows system / profile constants (SYSTEMROOT is mandatory for
         # Winsock init, USERPROFILE for Path.home(), etc.); no-ops on POSIX
         # because these names don't exist there. See omnigent._platform.

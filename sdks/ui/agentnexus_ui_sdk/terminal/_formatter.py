@@ -196,8 +196,8 @@ def _find_stable_markdown_boundary(text: str) -> int:
     offset may still be mid-paragraph or inside an unclosed code fence, so
     it should be kept in a live buffer for re-rendering.
 
-    Copied from ``omnigent/inner/cli.py`` — the SDK cannot import from
-    ``omnigent.inner``.
+    Copied from ``agentnexus/inner/cli.py`` — the SDK cannot import from
+    ``agentnexus.inner``.
 
     :param text: The accumulated paragraph buffer text.
     :returns: 0 if no safe boundary is found; otherwise the char-offset

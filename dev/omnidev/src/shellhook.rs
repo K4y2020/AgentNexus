@@ -9,7 +9,7 @@
 /// rc (a static no-op when omnidev is absent) rather than run via
 /// `eval "$(omnidev shell-hook)"`, which would invoke omnidev on every shell
 /// startup and error when it isn't on PATH.
-const HOOK: &str = r#"# omnidev: daily omnigent update check
+const HOOK: &str = r#"# omnidev: daily agentnexus update check
 if [ -n "${PS1:-}" ] && command -v omnidev >/dev/null 2>&1; then
   omnidev check --quiet || true
 fi"#;

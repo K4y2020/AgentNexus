@@ -271,7 +271,7 @@ class AgentObject(BaseModel):
         operator/user-registered template (random id, e.g. via
         ``omnigent server --agent``) or a session-scoped upload.
         The Web UI's new-session picker uses this to decide
-        whether a same-named ``omnigent run`` upload may shadow
+        whether a same-named ``agentnexus run`` upload may shadow
         the catalog entry: seeded built-ins are protected, while
         a user-registered template is superseded by a newer
         same-named upload. Always ``False`` for session-scoped
@@ -768,7 +768,7 @@ class ConversationObject(BaseModel):
         the runtime ``Conversation.labels`` dict. Empty dict when
         the PolicyEngine hasn't written any labels yet. Exposed so
         the REPL's Ctrl+O debug overlay can render them at parity
-        with the legacy ``omnigent run`` Ctrl+G overview.
+        with the legacy ``agentnexus run`` Ctrl+G overview.
     """
 
     id: str
@@ -1691,7 +1691,7 @@ class SessionCreateMetadata(BaseModel):
         creates a top-level session.
     :param host_type: How the session's host is obtained — ``"external"``
         (the default: the caller manages the runner, e.g. a local
-        ``omnigent run``) or ``"managed"`` (the server provisions a
+        ``agentnexus run``) or ``"managed"`` (the server provisions a
         sandbox host). The uploaded bundle's session-scoped agent runs
         on the provisioned sandbox; its spec is fetched by the managed
         runner over its tunnel, same as any session-scoped agent.
@@ -2057,7 +2057,7 @@ class SessionResponse(BaseModel):
         ``None`` in all other cases.
     :param external_session_id: Runtime-native session id this
         conversation wraps, e.g. a Claude Code session uuid for
-        ``omnigent claude`` sessions. ``None`` for regular
+        ``agentnexus claude`` sessions. ``None`` for regular
         AP-only conversations. Populated by the wrapper bridge.
     :param terminal_launch_args: Pass-through CLI args the native
         terminal wrapper (claude / codex) was launched with, e.g.
@@ -2100,7 +2100,7 @@ class SessionResponse(BaseModel):
         surface only behind the "Show archived" toggle. ``False``
         for normal sessions. Toggled via ``PATCH /v1/sessions/{id}``.
     :param todos: Current Claude Code todo list items for
-        ``omnigent claude`` sessions, as raw dicts from Claude's
+        ``agentnexus claude`` sessions, as raw dicts from Claude's
         todo JSON file. Each dict has ``content``, ``status``,
         and ``activeForm`` keys. Empty list for non-claude-native
         sessions or when no todos have been reported yet. Sourced
@@ -2277,7 +2277,7 @@ class UpdateSessionRequest(BaseModel):
         it can be changed at any point in a session.
     :param external_session_id: Runtime-native session id captured
         by a wrapper bridge (e.g. Claude Code's session uuid for
-        ``omnigent claude`` sessions). Idempotent on same-value
+        ``agentnexus claude`` sessions). Idempotent on same-value
         writes; the server rejects attempts to overwrite an
         already-set different value with ``invalid_input`` to
         surface programmer errors. ``None`` leaves unchanged.
@@ -2610,7 +2610,7 @@ class SessionListItem(BaseModel):
         can display the owner without a separate API call.
     :param external_session_id: Runtime-native session id this
         conversation wraps, e.g. a Claude Code session uuid for
-        ``omnigent claude`` sessions. ``None`` for regular
+        ``agentnexus claude`` sessions. ``None`` for regular
         AP-only conversations. Lets the sidebar / picker render
         a runtime badge without a follow-up GET.
     :param pending_elicitations_count: Number of approval prompts
@@ -3011,7 +3011,7 @@ class SessionUsageEvent(_SSEEventBase):
     Token-usage update from a terminal-backed integration.
 
     Emitted after an ``external_session_usage`` POST from an
-    out-of-AP runtime (e.g. the ``omnigent claude`` transcript
+    out-of-AP runtime (e.g. the ``agentnexus claude`` transcript
     forwarder). Either field may be absent; clients should leave
     cached values untouched for missing fields.
 
@@ -3083,7 +3083,7 @@ class SessionTitleEvent(_SSEEventBase):
     Session-title update from a terminal-backed integration.
 
     Emitted after an ``external_session_title`` POST from the
-    ``omnigent claude`` transcript forwarder when the operator renames
+    ``agentnexus claude`` transcript forwarder when the operator renames
     the session inside the Claude Code pane (``/rename``). Lets the web
     session list show the new name without a reload.
 
@@ -3209,7 +3209,7 @@ class SessionTodosEvent(_SSEEventBase):
     Todo-list update from a Claude Code terminal-backed session.
 
     Emitted after an ``external_session_todos`` POST from the
-    ``omnigent claude`` transcript forwarder, which captures todo
+    ``agentnexus claude`` transcript forwarder, which captures todo
     updates via ``PostToolUse``/``TodoWrite`` hook events from Claude
     Code and forwards them to the AgentNexus server. Lets web render a
     live todo panel in the right column without polling.

@@ -281,7 +281,7 @@ def hook_payload_to_evaluation_request(
     to a ``PHASE_TOOL_RESULT`` event, and ``UserPromptSubmit`` to a
     ``PHASE_REQUEST`` event (the prompt text from the payload's
     ``prompt`` field becomes the request content). AgentNexus MCP tools
-    (``mcp__omnigent__*``) are skipped because they are already
+    (``mcp__agentnexus__*``) are skipped because they are already
     policy-checked by the relay path (``ProxyMcpManager`` → AgentNexus
     ``/mcp`` endpoint → ``_evaluate_tool_call_policy``); evaluating
     them here would double-count. Connector-native MCP tools
@@ -295,7 +295,7 @@ def hook_payload_to_evaluation_request(
         "tool_input": {"command": "rm -rf /"}}``.
     :returns: An ``EvaluationRequest`` dict suitable for POSTing to
         ``/policies/evaluate``, or ``None`` when the event is not
-        policy-relevant (unknown event or an ``mcp__omnigent__*`` tool).
+        policy-relevant (unknown event or an ``mcp__agentnexus__*`` tool).
     """
     if hook_event == _USER_PROMPT_SUBMIT:
         # Request-phase gate for native sessions. The server reads REQUEST
@@ -316,7 +316,8 @@ def hook_payload_to_evaluation_request(
     # (ProxyMcpManager → AgentNexus /mcp endpoint → _evaluate_tool_call_policy).
     # Skip only those here to avoid double evaluation; connector-native MCP
     # tools such as mcp__github__* must still go through this hook.
-    if isinstance(tool_name, str) and tool_name.startswith("mcp__omnigent__"):
+    # Retain the old relay spelling for resumed sessions until 2.0.
+    if isinstance(tool_name, str) and tool_name.startswith(("mcp__agentnexus__", "mcp__omnigent__")):
         return None
     tool_input = payload.get("tool_input") or {}
     if hook_event == _PRE_TOOL_USE:

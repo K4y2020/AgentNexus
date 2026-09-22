@@ -159,7 +159,7 @@ def _resolve_omnigent_argv() -> list[str]:
     3. Fallback — ``[sys.executable, "-m", "agentnexus.cli"]``.
        Always works because if Python is running this code, the
        ``omnigent.cli`` module is importable. Trades aesthetics
-       (the binding shows ``python -m omnigent.cli``) for
+       (the binding shows ``python -m agentnexus.cli``) for
        reliability across exotic launch shapes.
 
     :returns: A list of one or two argv elements. Length-1 means
@@ -169,7 +169,7 @@ def _resolve_omnigent_argv() -> list[str]:
         ...]``) to this prefix.
     """
     argv0 = sys.argv[0] if sys.argv else ""
-    # When the process was launched via ``python -m omnigent.cli``
+    # When the process was launched via ``python -m agentnexus.cli``
     # (the chooser's fallback path), ``sys.argv[0]`` is the path to
     # ``cli.py`` itself — not a directly callable executable. Don't
     # try to exec it as a binary; round-trip through python -m again
@@ -194,7 +194,7 @@ def _resolve_omnigent_argv() -> list[str]:
 # User-facing click subcommand names that mark the start of the
 # user's args inside a ``launch_argv``. Anything BEFORE the first
 # match is the launcher prefix (the omnigent binary, ``python
-# -m omnigent.cli``, etc.) and gets stripped during
+# -m agentnexus.cli``, etc.) and gets stripped during
 # normalization. Keep in sync with ``cli.py:_CLICK_SUBCOMMANDS``;
 # duplicating the set here avoids importing ``cli`` from this
 # module (which would create an import cycle through ``run_repl``).
@@ -559,11 +559,11 @@ def register_pane(
         return
     pane_id = _tmux_pane_id()
     if pane_id is None:
-        _LOGGER.warning("$TMUX is set but $TMUX_PANE is not — skipping omnigent pane integration")
+        _LOGGER.warning("$TMUX is set but $TMUX_PANE is not — skipping AgentNexus pane integration")
         return
     if not _tmux_version_ok():
         _LOGGER.warning(
-            "tmux >= %s required for omnigent pane integration; skipping",
+            "tmux >= %s required for AgentNexus pane integration; skipping",
             ".".join(str(n) for n in _MIN_TMUX_VERSION),
         )
         return

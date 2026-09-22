@@ -1,7 +1,7 @@
 """Databricks Apps entry point for the AgentNexus Slack bot.
 
 Runs the Socket-Mode bot and, in Databricks web-auth mode, the enrollment web
-server. The ``omnigent_slack`` package is installed from the wheel ``deploy.py``
+server. The ``agentnexus_slack`` package is installed from the wheel ``deploy.py``
 copies next to this file; the app's ``uv run`` command resolves it (and the
 inlined runtime deps) from the generated ``pyproject.toml`` in-container at boot.
 Startup failures are logged and the process is held open briefly so the platform

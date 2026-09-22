@@ -1801,7 +1801,7 @@ def resume_test_server(
 
     Used by the native-CLI resume e2e tests
     (``test_claude_native_cli_resume_e2e`` / ``test_codex_native_cli_resume_e2e``),
-    which drive the real ``omnigent claude/codex --server`` CLI. It differs
+    which drive the real ``agentnexus claude/codex --server`` CLI. It differs
     from :func:`live_server` in two ways, both required for that:
 
     * **No tunnel-token allow-list.** ``AGENTNEXUS_RUNNER_TUNNEL_TOKEN``

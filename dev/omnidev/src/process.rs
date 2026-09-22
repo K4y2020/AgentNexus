@@ -34,15 +34,15 @@ impl ProcSpec {
 
     fn omnigent_log_env() -> Vec<(String, String)> {
         // Child stderr is a pipe that omnidev reads into its process panes.
-        // Let Omnigent's process logger mirror to that pipe despite it not
+        // Let AgentNexus's process logger mirror to that pipe despite it not
         // being a terminal, and force ANSI colors because omnidev parses them.
         vec![
-            ("OMNIGENT_LOG_TTY_FD".into(), "2".into()),
-            ("OMNIGENT_LOG_FORCE_COLOR".into(), "1".into()),
+            ("AGENTNEXUS_LOG_TTY_FD".into(), "2".into()),
+            ("AGENTNEXUS_LOG_FORCE_COLOR".into(), "1".into()),
         ]
     }
 
-    /// `uv run --python <pinned> omnigent --log-to-stderr server --host 127.0.0.1 --port <p>
+    /// `uv run --python <pinned> agentnexus --log-to-stderr server --host 127.0.0.1 --port <p>
     /// --database-uri <db> --artifact-location <dir>`, from the repo root.
     pub fn server(pod: &Pod) -> ProcSpec {
         if let Some(profile) = &pod.profile {
@@ -54,7 +54,7 @@ impl ProcSpec {
                 "run".into(),
                 "--python".into(),
                 PYTHON_VERSION.into(),
-                "omnigent".into(),
+                "agentnexus".into(),
                 "--log-to-stderr".into(),
                 "server".into(),
                 "--host".into(),
@@ -71,7 +71,7 @@ impl ProcSpec {
         }
     }
 
-    /// `uv run --python <pinned> omnigent --log-to-stderr host --server http://127.0.0.1:<p>`,
+    /// `uv run --python <pinned> agentnexus --log-to-stderr host --server http://127.0.0.1:<p>`,
     /// from the repo root.
     pub fn host(pod: &Pod) -> ProcSpec {
         if let Some(profile) = &pod.profile {
@@ -89,7 +89,7 @@ impl ProcSpec {
                 "run".into(),
                 "--python".into(),
                 PYTHON_VERSION.into(),
-                "omnigent".into(),
+                "agentnexus".into(),
                 "--log-to-stderr".into(),
                 "host".into(),
                 "--server".into(),
@@ -121,7 +121,7 @@ impl ProcSpec {
     }
 
     /// `pnpm run dev --host <host> --port <p> --strictPort`, from `web/`.
-    /// `OMNIGENT_URL` (in the pod env) points Vite's proxy at this pod's backend.
+    /// `AGENTNEXUS_URL` (in the pod env) points Vite's proxy at this pod's backend.
     pub fn vite(pod: &Pod) -> ProcSpec {
         if let Some(profile) = &pod.profile {
             return Self::from_profile(pod, &profile.vite);
@@ -205,7 +205,7 @@ mod tests {
                     .take(4)
                     .map(String::as_str)
                     .collect::<Vec<_>>(),
-                vec!["run", "--python", PYTHON_VERSION, "omnigent"]
+                vec!["run", "--python", PYTHON_VERSION, "agentnexus"]
             );
             assert!(
                 spec.args.iter().any(|arg| arg == "--log-to-stderr"),
@@ -215,14 +215,14 @@ mod tests {
             assert_eq!(
                 spec.extra_env
                     .iter()
-                    .find(|(key, _)| key == "OMNIGENT_LOG_TTY_FD")
+                    .find(|(key, _)| key == "AGENTNEXUS_LOG_TTY_FD")
                     .map(|(_, value)| value.as_str()),
                 Some("2")
             );
             assert_eq!(
                 spec.extra_env
                     .iter()
-                    .find(|(key, _)| key == "OMNIGENT_LOG_FORCE_COLOR")
+                    .find(|(key, _)| key == "AGENTNEXUS_LOG_FORCE_COLOR")
                     .map(|(_, value)| value.as_str()),
                 Some("1")
             );

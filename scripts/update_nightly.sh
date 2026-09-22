@@ -17,11 +17,12 @@
 
 set -euo pipefail
 
-REPO="${AGENTNEXUS_REPO:-https://github.com/agentnexus-ai/agentnexus}"
+# Legacy environment spellings are supported until 2.0; explicit empty values win.
+REPO="${AGENTNEXUS_REPO-${OMNIGENT_REPO-https://github.com/K4y2020/AgentNexus}}"
 # Match install.sh: pinning the interpreter keeps uv reusing the existing
 # tool environment instead of recreating it (which removes the working
 # install before the new wheel is built, so a build failure leaves none).
-PYTHON_VERSION="${AGENTNEXUS_PYTHON_VERSION:-3.12}"
+PYTHON_VERSION="${AGENTNEXUS_PYTHON_VERSION-${OMNIGENT_PYTHON_VERSION-3.12}}"
 
 # Newest nightly tag: strictly vX.Y.Z.devYYYYMMDD (the 8-digit date also
 # screens out legacy .dev0-style tags). Version sorts before date, so the

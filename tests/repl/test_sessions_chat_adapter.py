@@ -1,7 +1,7 @@
 """Unit tests for the sessions-API REPL adapter event translator.
 
 Three CUJs caught these regressions during manual testing of
-``omnigent run`` in sessions mode:
+``agentnexus run`` in sessions mode:
 
 1. ``ResponseCreated`` was imported from the public ``agentnexus_client``
    re-export, which doesn't include it. ImportError on first turn.

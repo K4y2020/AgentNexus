@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Omnigent installer.
+# AgentNexus installer.
 #
 # Installs the published `agentnexus` wheel from PyPI with uv, wires up PATH,
 # and points you at first-run. The wheel bundles the prebuilt web UI, so the
@@ -71,11 +71,11 @@ init_style() {
 print_banner() {
   use_terminal_ui || return 0
   printf '\n'
-  printf '%s  ⠀⠀⠀⢠⣿⡄⠀⠀⠀   ██████╗ ███╗   ███╗███╗   ██╗██╗ ██████╗ ███████╗███╗   ██╗████████╗%s\n' "$MAGENTA" "$RESET"
-  printf '%s  ⢴⣶⣶⠉⣿⠉⣶⣶⡦  ██╔═══██╗████╗ ████║████╗  ██║██║██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝%s\n' "$MAGENTA" "$RESET"
-  printf '%s  ⠀⠙⣿⣶⣿⣶⣿⠋⠀  ██║   ██║██╔████╔██║██╔██╗ ██║██║██║  ███╗█████╗  ██╔██╗ ██║   ██║%s\n' "$MAGENTA" "$RESET"
-  printf '%s  ⠀⢠⣿⡿⠿⢿⣿⡄⠀  ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║╚██████╔╝███████╗██║ ╚████║   ██║%s\n' "$MAGENTA" "$RESET"
-  printf '%s  ⠀⠈⠁⠀⠀⠀⠈⠁⠀   ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝%s\n' "$MAGENTA" "$RESET"
+  printf '%s  ⠀⠀⠀⢠⣿⡄⠀⠀⠀%s\n' "$MAGENTA" "$RESET"
+  printf '%s  ⢴⣶⣶⠉⣿⠉⣶⣶⡦%s\n' "$MAGENTA" "$RESET"
+  printf '%s  ⠀⠙⣿⣶⣿⣶⣿⠋⠀   AgentNexus%s\n' "$MAGENTA" "$RESET"
+  printf '%s  ⠀⢠⣿⡿⠿⢿⣿⡄⠀%s\n' "$MAGENTA" "$RESET"
+  printf '%s  ⠀⠈⠁⠀⠀⠀⠈⠁⠀%s\n' "$MAGENTA" "$RESET"
   printf '%s  all your agents, one cli%s\n\n' "$DIM" "$RESET"
 }
 
@@ -504,13 +504,13 @@ install_agentnexus() {
     else
       target="$INSTALL_URL"
     fi
-    step "Installing Omnigent from source${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
+    step "Installing AgentNexus from source${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
   elif [ -n "$VERSION" ]; then
     target="${PACKAGE_NAME}${extras_suffix}==${VERSION}"
-    step "Installing Omnigent $VERSION${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
+    step "Installing AgentNexus $VERSION${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
   else
     target="${PACKAGE_NAME}${extras_suffix}"
-    step "Installing Omnigent${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
+    step "Installing AgentNexus${extras_suffix:+ $extras_suffix} (Python $PYTHON_VERSION)"
   fi
   # --force so re-running upgrades instead of no-op'ing; -q hides uv's
   # "Installed N executables" summary (the package also ships an `omni` alias).
@@ -564,8 +564,10 @@ maybe_add_bin_to_path() {
 
   path_line="export PATH=\"$bin_dir:\$PATH\""
   profile="$(pick_profile)"
-  begin_marker="# >>> Omnigent installer >>>"
-  end_marker="# <<< Omnigent installer <<<"
+  begin_marker="# >>> AgentNexus installer >>>"
+  end_marker="# <<< AgentNexus installer <<<"
+  # Existing installer blocks remain recognized until 2.0.
+  legacy_begin_marker="# >>> Omnigent installer >>>"
 
   warn "$bin_dir is not on PATH."
   if [ "$NON_INTERACTIVE" = true ]; then
@@ -573,13 +575,13 @@ maybe_add_bin_to_path() {
     return
   fi
 
-  if [ -f "$profile" ] && grep -F "$begin_marker" "$profile" >/dev/null 2>&1; then
-    if grep -F "$path_line" "$profile" >/dev/null 2>&1; then
+  if [ -f "$profile" ] && grep -Fx -e "$begin_marker" -e "$legacy_begin_marker" "$profile" >/dev/null 2>&1; then
+    if grep -Fx "$path_line" "$profile" >/dev/null 2>&1; then
       LEDGER_PROFILE="$profile"
       step "PATH is already configured in $profile"
       return
     fi
-    fail "$profile already has an Omnigent installer block. Update it manually to: $path_line"
+    fail "$profile already has an AgentNexus installer block. Update it manually to: $path_line"
   fi
 
   if ! prompt_yes_no "Add $bin_dir to PATH in $profile?"; then
@@ -627,15 +629,14 @@ verify_agentnexus() {
   fi
 
   if [ -z "$cli_path" ]; then
-    fail "Omnigent installed, but the agentnexus command was not found."
+    fail "AgentNexus installed, but the agentnexus command was not found."
   fi
 
   "$cli_path" --help >/dev/null
   step "Verified $cli_path"
 
-  # `omni` is a shorthand alias installed alongside `agentnexus`; check it so a
-  # packaging regression that drops it surfaces here rather than later.
-  for alias_cmd in omni; do
+  # Legacy `omnigent` / `omni` aliases remain supported until 2.0.
+  for alias_cmd in nexus omnigent omni; do
     if [ ! -x "$bin_dir/$alias_cmd" ] && ! command -v "$alias_cmd" >/dev/null 2>&1; then
       warn "the $alias_cmd alias was not installed (expected a console-script entry point alongside agentnexus)."
     fi
@@ -652,7 +653,7 @@ print_next_steps() {
     command_prefix="PATH=\"$bin_dir:\$PATH\" "
   fi
 
-  printf '\n%sOmnigent installed successfully.%s\n\n' "$BOLD" "$RESET"
+  printf '\n%sAgentNexus installed successfully.%s\n\n' "$BOLD" "$RESET"
   printf 'Start chatting — first run sets up a model and a local web UI:\n'
   printf '  %s%sagentnexus%s\n\n' "$command_prefix" "$MAGENTA" "$RESET"
   printf 'Or launch a specific coding harness:\n'

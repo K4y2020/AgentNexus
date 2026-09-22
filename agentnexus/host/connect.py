@@ -489,7 +489,7 @@ _RUNNER_ENV_ALLOWLIST: frozenset[str] = frozenset(
         # Multi-user opt-in switch (create_auth_provider): AGENTNEXUS_AUTH_ENABLED
         # turns the env-unset header/local default into accounts (or oidc, when
         # AGENTNEXUS_OIDC_* is set); =0 opts back out. Must propagate down the
-        # CLI → daemon → local-server chain or `omnigent run`/`connect` would
+        # CLI → daemon → local-server chain or `agentnexus run`/`connect` would
         # spawn the wrong auth mode while the operator set the switch on the CLI.
         # Not a secret.
         "AGENTNEXUS_AUTH_ENABLED",
@@ -1265,11 +1265,11 @@ class HostProcess:
         return f"{scheme}://{host_part}/v1/hosts/{self._identity.host_id}/tunnel"
 
     def _login_hint_url(self) -> str:
-        """The server URL to show in ``omnigent login`` remedy hints.
+        """The server URL to show in ``agentnexus login`` remedy hints.
 
         The display form (the workspace ``/omnigent`` URL with ``?o=``
         when known) rather than the internal API mount — it reads right
-        and round-trips through ``omnigent login`` to the same server.
+        and round-trips through ``agentnexus login`` to the same server.
 
         :returns: The display URL, e.g.
             ``"https://ws.databricks.com/omnigent?o=123"``.
@@ -1284,7 +1284,7 @@ class HostProcess:
         Shared by the login-redirect and HTTP 401 messages.
 
         :returns: An actionable remedy sentence naming the exact
-            command, e.g. ``"Run `omnigent login <url>` ..."``.
+            command, e.g. ``"Run `agentnexus login <url>` ..."``.
         """
         return (
             f"Run `{cli_invocation()} login {self._login_hint_url()}` to authenticate (it "
@@ -1293,7 +1293,7 @@ class HostProcess:
         )
 
     def _login_fix_hint(self) -> str:
-        """Suggest ``omnigent login`` as a remedy for an auth rejection.
+        """Suggest ``agentnexus login`` as a remedy for an auth rejection.
 
         The host tunnel's bearer is resolved from a stored ``omnigent
         login`` record first, then ambient Databricks credentials (see
@@ -1305,7 +1305,7 @@ class HostProcess:
 
         :returns: A one-sentence remedy naming the exact command, e.g.
             ``"If this server uses AgentNexus accounts or OIDC login, run
-            `omnigent login http://localhost:6767` to authenticate."``.
+            `agentnexus login http://localhost:6767` to authenticate."``.
         """
         return (
             "If this server uses AgentNexus accounts or OIDC login, run "
@@ -1463,7 +1463,7 @@ class HostProcess:
                 return HostConnectError(
                     "Connection refused (HTTP 403): your stored login "
                     f"session for {login_url} has EXPIRED, so the "
-                    "tunnel was dialed without credentials. Run `omnigent "
+                    "tunnel was dialed without credentials. Run `agentnexus "
                     f"login {login_url}` to re-authenticate, then "
                     "restart the host."
                 )
@@ -2366,7 +2366,7 @@ class HostProcess:
         """Handle a ``host.install_harness`` request from the server.
 
         Runs the same installer :func:`try_install_harness_cli` (hence
-        ``omnigent setup``) uses, then recomputes readiness so the result frame
+        ``agentnexus setup``) uses, then recomputes readiness so the result frame
         carries a fresh ``configured_harnesses`` map. The ``ui_install_key``
         guard re-checks the allowlist as defence in depth against a spoofed
         frame. Idempotent: an already-installed CLI skips the install. Runs off
@@ -2414,7 +2414,7 @@ class HostProcess:
 
         Writes a harness provider credential on THIS host via the same
         non-interactive core (:func:`store_harness_credential` /
-        :func:`adopt_env_credential`) the ``omnigent setup`` wizard's
+        :func:`adopt_env_credential`) the ``agentnexus setup`` wizard's
         "add a key / gateway" path uses — the secret goes to the OS keychain
         (else ``~/.agentnexus/secrets.json``) and ``config.yaml`` gets a
         ``providers:`` entry referencing it, never the raw secret. Then it

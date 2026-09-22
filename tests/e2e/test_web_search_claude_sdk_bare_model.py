@@ -198,10 +198,10 @@ def test_web_search_advertised_with_bare_model_on_claude_sdk(
     names = _advertised_tool_names(reqs)
     # Guard the guard: the AgentNexus MCP relay must be alive, otherwise a
     # missing web_search would prove nothing about provider inference.
-    assert any(n.startswith("mcp__omnigent__") for n in names), (
+    assert any(n.startswith("mcp__agentnexus__") for n in names), (
         f"no AgentNexus MCP tools advertised at all — relay broken? tools: {sorted(names)}"
     )
-    assert "mcp__omnigent__web_search" in names, (
+    assert "mcp__agentnexus__web_search" in names, (
         "web_search builtin (search_provider: duckduckgo) is absent from the "
         "claude-sdk session's tool surface when executor.model is a bare "
         "string — parse_model_string inferred provider 'openai', the "
@@ -236,7 +236,7 @@ def test_prefixed_model_not_forwarded_verbatim_to_anthropic(
     # With the prefix the provider inference is correct, so web_search must
     # be present on this path already (guards the facet-1 mechanism).
     names = _advertised_tool_names(reqs)
-    assert "mcp__omnigent__web_search" in names, (
+    assert "mcp__agentnexus__web_search" in names, (
         f"web_search missing even with anthropic/ prefix; tools: {sorted(names)}"
     )
     wire_models = {req.get("model") for req in reqs}

@@ -182,7 +182,7 @@ def load(
         connection blocks, MCP headers, and MCP ``env`` against the
         current process environment. ``True`` (the default) is for
         operator-authored specs whose author is the process owner
-        (local ``omnigent run``, ``--agent`` preregistration). It
+        (local ``agentnexus run``, ``--agent`` preregistration). It
         MUST be ``False`` for tenant-supplied / HTTP-uploaded
         bundles: expanding their ``${VAR}`` against the server or
         runner process environment leaks server-side secrets into a
@@ -197,7 +197,7 @@ def load(
         path (before the inner loader resolves/calls the handler at
         parse time) and the ``config.yaml`` path (post-parse, since
         that parser does not resolve handlers). Defaults to ``False``
-        so trusted spec loading (local ``omnigent run``, operator
+        so trusted spec loading (local ``agentnexus run``, operator
         configs) keeps supporting custom handlers.
     :param prune_invalid_sub_agents: When ``True``, a sub-agent that
         fails validation is **dropped** from the spec (removed from
@@ -215,7 +215,7 @@ def load(
         sub-agent lets the parent agent launch with the capabilities
         this client *does* support, rather than the whole agent failing
         to start. Defaults to ``False`` so authoring/upload paths
-        (``omnigent run``,
+        (``agentnexus run``,
         :func:`omnigent.server.bundles.validate_agent_bundle`) stay
         strict and surface real authoring mistakes to the author.
     :returns: A validated :class:`AgentSpec`.

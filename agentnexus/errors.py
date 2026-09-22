@@ -53,7 +53,7 @@ class ErrorCode:
         the ``harness_not_configured`` error code). HTTP 412
         rather than 400 (the request is valid against a configured
         host) or 503 (retrying cannot succeed without user action —
-        running ``omnigent setup`` on the host machine).
+        running ``agentnexus setup`` on the host machine).
     :cvar WORKSPACE_MISSING: The session's bound workspace no longer
         exists on the selected host (HTTP 410). Retrying cannot recreate
         deleted workspace state; the user must start a session in a valid
@@ -101,7 +101,7 @@ _CODE_TO_HTTP_STATUS: dict[str, int] = {
     ErrorCode.WRONG_REPLICA: 400,
     ErrorCode.RUNNER_CAPABILITY_MISMATCH: 503,
     # 412 Precondition Failed: the request is well-formed but the host
-    # can't satisfy it until the user runs `omnigent setup` there —
+    # can't satisfy it until the user runs `agentnexus setup` there —
     # neither a 400 (input is fine) nor a 503 (a retry won't help).
     ErrorCode.HARNESS_NOT_CONFIGURED: 412,
     ErrorCode.WORKSPACE_MISSING: 410,

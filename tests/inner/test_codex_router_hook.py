@@ -347,7 +347,7 @@ def test_redirect_denies_with_bare_session_create_instruction(
     # namespace, never a prefixed spelling.
     assert "sys_session_create" in reason
     assert "sys_agent_list" in reason
-    assert "mcp__omnigent__" not in reason
+    assert "mcp__agentnexus__" not in reason
     assert "agentnexussys_session_create" not in reason
     assert "agentnexus" in reason
     assert "sys_session_send" not in reason

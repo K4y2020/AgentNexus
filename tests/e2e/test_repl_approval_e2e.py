@@ -61,7 +61,7 @@ _OUTPUT_GATE_DIR = _FIXTURES_DIR / "e2e-output-gate"
 _TOOL_RESULT_GATE_DIR = _FIXTURES_DIR / "e2e-tool-result-gate"
 _SUBAGENT_TOOL_GATE_DIR = _FIXTURES_DIR / "e2e-subagent-tool-gate"
 
-# Seconds to wait for ``omnigent run`` to reach an input-ready REPL —
+# Seconds to wait for ``agentnexus run`` to reach an input-ready REPL —
 # the LAUNCH phase only (daemon spawn, local-server boot, agent upload,
 # runner bring-up, session attach, wrapper-redirect probe).
 #

@@ -13,7 +13,7 @@ This module ships:
 Together they let the server speak the harness contract to a runner
 process via real bytes on the wire — no in-memory shortcut.
 
-The CLI integration that wires `omnigent run` to spawn both a
+The CLI integration that wires `agentnexus run` to spawn both a
 server subprocess AND a runner subprocess on a per-process UDS
 (per RUNNER.md §7 Phase 2 "CLI integration") is a separate piece in
 the CLI module and not implemented in this session — see RUNNER.md
@@ -62,7 +62,7 @@ def _is_socket_listening(socket_path: str) -> bool:
 class RunnerSubprocess:
     """Context manager spawning uvicorn against a runner app on a UDS.
 
-    Used by tests + Phase 2's `omnigent run` to ship the runner as
+    Used by tests + Phase 2's `agentnexus run` to ship the runner as
     a separate process while keeping the server↔runner wire local.
 
     :param app_factory_path: Module-and-attribute path uvicorn will

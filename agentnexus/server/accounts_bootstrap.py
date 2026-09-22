@@ -29,7 +29,7 @@ action — Account menu → Change password, or admin Members → Reset.
 **Loopback CLI handoff.** On a loopback boot, once an admin exists,
 bootstrap writes a session JWT to ``~/.agentnexus/auth_tokens.json``
 (via :mod:`omnigent.cli_auth`) keyed to this spawn's URL, so the next
-``omnigent run`` is signed in without a prompt. Skipped for
+``agentnexus run`` is signed in without a prompt. Skipped for
 non-loopback (remote) deploys where the server's machine ≠ the
 operator's.
 """
@@ -134,7 +134,7 @@ class BootstrapResult:
         boot so the browser lands on the Create-admin form.
     :param tui_token_written: ``True`` when a CLI session JWT was
         written to ``~/.agentnexus/auth_tokens.json`` (loopback only),
-        so the next ``omnigent run`` is signed in without a prompt.
+        so the next ``agentnexus run`` is signed in without a prompt.
     """
 
     fresh_boot: bool
@@ -196,7 +196,7 @@ def _mint_loopback_cli_token(
     every time, so a token minted at first-boot (and keyed to that
     boot's port) won't match a later spawn — and on a returning boot
     the first-boot handoff never re-fires at all. Without re-minting
-    per spawn, ``omnigent run`` 401s against its own loopback
+    per spawn, ``agentnexus run`` 401s against its own loopback
     server once an admin already exists. This mints a token for
     ``base_url`` (the current spawn's URL) on every boot, so the
     local CLI always has a valid credential. Loopback + single-user,
@@ -234,7 +234,7 @@ def _mint_loopback_cli_token(
     except Exception as exc:  # noqa: BLE001 — best-effort, must not block boot
         logger.warning(
             "accounts: failed to write loopback CLI token (%s) — "
-            "`omnigent run` may need `omnigent login`",
+            "`agentnexus run` may need `agentnexus login`",
             exc,
         )
         return False
@@ -314,7 +314,7 @@ def bootstrap_admin(
         # Bootstrap is a no-op here, but the loopback CLI still needs a
         # fresh token for THIS spawn's port — the daemon picks a new port
         # each spawn and the first-boot handoff token is port-keyed +
-        # one-time. Without this, `omnigent run` 401s against its own
+        # one-time. Without this, `agentnexus run` 401s against its own
         # local server once an admin exists.
         refreshed = False
         if base_url is not None and cookie_secret is not None and _is_loopback_base_url(base_url):
@@ -373,7 +373,7 @@ def bootstrap_admin(
         )
     logger.info("accounts: created %r admin from supplied password", admin_username)
 
-    # Loopback CLI handoff so `omnigent run` is signed in without a
+    # Loopback CLI handoff so `agentnexus run` is signed in without a
     # prompt (keyed to this spawn's URL; see _mint_loopback_cli_token).
     tui_token_written = False
     if base_url is not None and cookie_secret is not None and _is_loopback_base_url(base_url):

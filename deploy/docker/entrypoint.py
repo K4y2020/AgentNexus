@@ -7,7 +7,7 @@ artifact store. Intended to run inside the image built by
 
 Execution mode: external runners only. The server accepts runner
 WebSocket connections at ``/v1/runner/tunnel`` and never spawns
-harness subprocesses on its own. Users run ``omnigent run … --server
+harness subprocesses on its own. Users run ``agentnexus run … --server
 <url>`` on their own machine; that runner dials in.
 
 Importing this module has **no side effects**: configuration loading,
@@ -122,7 +122,7 @@ def _resolve_config() -> _ResolvedConfig:
     # Non-secret settings come from a YAML config file (default
     # <data_dir>/config.yaml, e.g. /data/config.yaml on the volume, or
     # AGENTNEXUS_CONFIG) — the same experience a laptop gets from
-    # `omnigent server -c`. Secrets stay in the environment:
+    # `agentnexus server -c`. Secrets stay in the environment:
     # DATABASE_URL (carries the password) and the cookie / OIDC secrets.
     cfg = load_server_config()
 
@@ -133,7 +133,7 @@ def _resolve_config() -> _ResolvedConfig:
         raise RuntimeError(
             "DATABASE_URL is required (env), or set `database_uri:` in the server config. "
             "Accepted forms: "
-            "'postgresql+psycopg://user:pw@host:5432/omnigent' (explicit psycopg3), "
+            "'postgresql+psycopg://user:pw@host:5432/agentnexus' (explicit psycopg3), "
             "or the 'postgres://' / 'postgresql://' URLs emitted by Railway, Render, etc."
         )
     # Normalize PaaS-style URLs (postgres:// or postgresql://) to the
@@ -171,7 +171,7 @@ def _resolve_config() -> _ResolvedConfig:
     )
 
     # Containerized / remote deploys default to authenticated auth.
-    # The framework-wide default (a bare local `omnigent server`) is
+    # The framework-wide default (a bare local `agentnexus server`) is
     # single-user header mode with no login, but a Docker / HF / PaaS
     # instance is typically network-exposed, so we opt it into the
     # multi-user login flow here — accounts by default, or OIDC if the
@@ -243,14 +243,14 @@ def _select_artifact_store(resolved_config: _ResolvedConfig) -> ArtifactStore:
     Pick the artifact store implementation from the resolved config.
 
     An ``s3://bucket[/prefix]`` ``artifact_store_uri`` selects the remote,
-    durable :class:`~omnigent.stores.artifact_store.s3.S3ArtifactStore` (AWS S3,
+    durable :class:`~agentnexus.stores.artifact_store.s3.S3ArtifactStore` (AWS S3,
     Cloudflare R2, MinIO, …), which survives an ephemeral or multi-replica
     deploy. Otherwise the local-filesystem store at ``artifact_dir`` is used.
     Mirrors how ``DATABASE_URL`` selects the database backend.
 
     :param resolved_config: The resolved startup configuration.
     :returns: The selected
-        :class:`~omnigent.stores.artifact_store.ArtifactStore`.
+        :class:`~agentnexus.stores.artifact_store.ArtifactStore`.
     """
     from agentnexus.stores.artifact_store.local import LocalArtifactStore
 
@@ -463,7 +463,7 @@ def main() -> None:
             RUNNER_TUNNEL_MAX_MESSAGE_BYTES,
         )
 
-        logger.info("Starting omnigent server on %s:%d", resolved.host, resolved.port)
+        logger.info("Starting AgentNexus server on %s:%d", resolved.host, resolved.port)
         uvicorn.run(
             resolved.app,
             host=resolved.host,
@@ -471,7 +471,7 @@ def main() -> None:
             ws_max_size=RUNNER_TUNNEL_MAX_MESSAGE_BYTES,
         )
     except Exception:  # noqa: BLE001 — startup catch-all so failures land in logs
-        logger.error("FATAL: omnigent server failed to start:\n%s", traceback.format_exc())
+        logger.error("FATAL: AgentNexus server failed to start:\n%s", traceback.format_exc())
         # Keep the process alive briefly so the container log capture has time
         # to flush before the orchestrator restarts us.
         import time  # deferred — keeps module inert

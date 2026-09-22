@@ -96,7 +96,7 @@ _PI_FALLBACK_FAMILIES = (ANTHROPIC_FAMILY, OPENAI_FAMILY)
 # too (a Databricks AI Gateway is pi-consumable — Pi speaks its Anthropic
 # surface), with the actual gateway capability validated at resolution time.
 # A ``subscription`` (CLI login, unusable outside its own CLI) and ``bedrock``
-# (native-``omnigent claude`` only) can never drive pi — EXCEPT for a pi
+# (native-``agentnexus claude`` only) can never drive pi — EXCEPT for a pi
 # subscription (``kind="subscription", cli="pi"``), which explicitly opts into
 # Pi's own native auth and may default the pi surface. Resolution: an explicit
 # pi default wins; otherwise pi falls back to the anthropic then openai family
@@ -511,7 +511,7 @@ def resolve_secret(ref: str) -> str:
       :func:`os.path.expandvars` with an unresolved-variable check.
     - ``"keychain:<name>"`` — read ``<name>`` from the omnigent secret
       store (OS keychain, else a ``0600`` JSON file). The store is
-      populated by ``omnigent setup --no-internal-beta`` — see
+      populated by ``agentnexus setup --no-internal-beta`` — see
       :mod:`omnigent.onboarding.secrets`.
 
     :param ref: The secret reference, e.g. ``"env:OPENROUTER_API_KEY"``,
@@ -1231,7 +1231,7 @@ def provider_families(entry: ProviderEntry) -> frozenset[str]:
         profile.
     """
     if entry.kind == BEDROCK_KIND:
-        # Bedrock mode is native-``omnigent claude`` only — the in-process /
+        # Bedrock mode is native-``agentnexus claude`` only — the in-process /
         # gateway harnesses (incl. pi) reject it (see
         # configure_agent_harness_with_provider). Surface only its real
         # family (anthropic), never the pi scope.
@@ -1386,7 +1386,7 @@ def default_provider_for_harness(config: dict[str, object], harness: str) -> Pro
             continue
         # Subscription logins live in the claude/codex CLI's own login, which
         # an unmapped harness doesn't wrap; a bedrock provider is
-        # native-``omnigent claude`` only (configure_agent_harness_with_provider
+        # native-``agentnexus claude`` only (configure_agent_harness_with_provider
         # raises for it). Neither can serve pi, so skip them and fall through —
         # otherwise a bedrock Claude default would turn a working pi run (own
         # login) into a hard error.

@@ -541,7 +541,7 @@ def configure_agent_harness_with_provider(
       provider's profile, reusing :func:`configure_agent_harness_with_ucode`
       so the ``polly`` / Databricks coding-agent flow is unchanged.
     - ``bedrock`` — rejected (raises): AWS Bedrock mode is wired only into
-      the native ``omnigent claude`` launch, not the in-process / gateway
+      the native ``agentnexus claude`` launch, not the in-process / gateway
       harnesses.
 
     :param env: Mutable spawn-env dict, modified in place.
@@ -566,7 +566,7 @@ def configure_agent_harness_with_provider(
             code=ErrorCode.INVALID_INPUT,
         )
     if entry.kind == BEDROCK_KIND:
-        # Bedrock mode is wired only into the native ``omnigent claude`` launch
+        # Bedrock mode is wired only into the native ``agentnexus claude`` launch
         # (:func:`omnigent.claude_native._bedrock_config_for_native_claude`),
         # which sets CLAUDE_CODE_USE_BEDROCK + AWS_BEARER_TOKEN_BEDROCK directly.
         # The in-process / gateway harnesses have no Bedrock path, so emitting
@@ -912,7 +912,7 @@ def _apply_provider_to_pi(env: dict[str, str], entry: ProviderEntry) -> None:
 def _apply_cli_config_databricks_to_pi(env: dict[str, str], entry: ProviderEntry) -> None:
     """Apply a cli-config Databricks AI Gateway to the pi (gateway-harness) path.
 
-    The gateway-harness pi launch (``omnigent run`` / agents) and pi-native
+    The gateway-harness pi launch (``agentnexus run`` / agents) and pi-native
     (the terminal) both resolve the same default provider
     (:func:`default_provider_for_harness`), so when that default is a
     ``cli-config`` Databricks AI Gateway, this path must route it rather than
@@ -1649,9 +1649,10 @@ def _build_acp_spawn_env(
             isinstance(name, str) and name.strip() and isinstance(command, str) and command.strip()
         ):
             raise ValueError("executor acp_agent requires non-empty string name and command")
-        omnigent_mcp = embedded.get("agentnexus_mcp", True)
+        # Read legacy embedded specs until 2.0; new keys take precedence.
+        omnigent_mcp = embedded.get("agentnexus_mcp", embedded.get("omnigent_mcp", True))
         if not isinstance(omnigent_mcp, bool):
-            raise ValueError("executor acp_agent omnigent_mcp must be a boolean")
+            raise ValueError("executor acp_agent agentnexus_mcp must be a boolean")
         inject_system_prompt = embedded.get("inject_system_prompt", True)
         if not isinstance(inject_system_prompt, bool):
             raise ValueError("executor acp_agent inject_system_prompt must be a boolean")
@@ -1703,7 +1704,7 @@ def _build_acp_spawn_env(
         elif agent.model:
             env["HARNESS_ACP_MODEL"] = agent.model
     # else: no agent configured — leave HARNESS_ACP_COMMAND unset so the wrap
-    # raises a clear request-time error pointing the user at `omnigent setup`.
+    # raises a clear request-time error pointing the user at `agentnexus setup`.
 
     # Session workspace (selected working folder). ``None`` lets the acp
     # harness fall back to AGENTNEXUS_RUNNER_WORKSPACE — see HARNESS_ACP_CWD.
@@ -1733,7 +1734,7 @@ def _load_global_auth() -> ApiKeyAuth | DatabricksAuth | None:
 
     This provides a user-level auth default: agents that do not declare
     ``executor.auth`` in their own spec inherit credentials from here,
-    so the user only configures auth once during ``omnigent setup``
+    so the user only configures auth once during ``agentnexus setup``
     rather than in every agent YAML.
 
     :returns: A :class:`ApiKeyAuth` or :class:`DatabricksAuth`, or
@@ -1890,7 +1891,7 @@ def _build_openai_agents_sdk_spawn_env(spec: AgentSpec) -> dict[str, str]:
             # OPENAI_API_KEY short-circuit) via the SDK's DEFAULT profile. The
             # ambient DATABRICKS_CONFIG_PROFILE env var is deliberately NOT
             # consulted — credentials are controlled by the spec or by
-            # `omnigent setup` provider config, never by shell environment.
+            # `agentnexus setup` provider config, never by shell environment.
             profile = "DEFAULT"
         if profile:
             # Single canonical env var: ``DATABRICKS_PROFILE``. No
@@ -1942,7 +1943,7 @@ def _build_cursor_spawn_env(
     Auth: an explicit ``executor.auth: {type: api_key, api_key: ...}`` is
     forwarded as ``HARNESS_CURSOR_API_KEY`` (the cursor harness passes it to the
     Cursor SDK as its ``api_key``). When the spec declares no auth at all, a
-    ``CURSOR_API_KEY`` registered once via ``omnigent setup`` (the dedicated
+    ``CURSOR_API_KEY`` registered once via ``agentnexus setup`` (the dedicated
     ``cursor:`` config block — see :mod:`omnigent.onboarding.cursor_auth`) is
     used instead, so a user need not export it in every shell. With neither, the
     harness falls back to an inherited ``CURSOR_API_KEY`` — a ``DatabricksAuth``
@@ -1965,7 +1966,7 @@ def _build_cursor_spawn_env(
         env["HARNESS_CURSOR_CWD"] = str(cwd)
     # Auth precedence: an explicit api-key auth on the spec wins; with NO spec
     # auth at all, fall back to a CURSOR_API_KEY registered once via
-    # ``omnigent setup`` (the dedicated ``cursor:`` config block), else an
+    # ``agentnexus setup`` (the dedicated ``cursor:`` config block), else an
     # ambient CURSOR_API_KEY (an exported key / a host launched with one). A
     # Databricks / provider auth has no cursor equivalent and never silently
     # adopts a stored or ambient cursor key.
@@ -2118,7 +2119,7 @@ def _build_antigravity_spawn_env(spec: AgentSpec) -> dict[str, str]:
     Antigravity is Gemini-native with no OpenAI-compatible ``base_url``, so there
     is no gateway / ucode / Databricks path — only a direct API key or Vertex AI.
     API-key resolution (first wins): (1) spec ``executor.auth`` api_key; (2) the
-    dedicated ``antigravity:`` config block from ``omnigent setup``; (3) an
+    dedicated ``antigravity:`` config block from ``agentnexus setup``; (3) an
     ambient ``GEMINI_API_KEY`` / ``ANTIGRAVITY_API_KEY``. The legacy global
     ``auth:`` block is deliberately NOT consulted: it carries the OpenAI/gateway
     key the other SDK harnesses inherit (an ``sk-…`` key), which the Gemini-native
@@ -2206,7 +2207,7 @@ def _build_copilot_spawn_env(
     Auth: an explicit ``executor.auth: {type: api_key, api_key: ...}`` carries
     the GitHub token, forwarded as ``HARNESS_COPILOT_GITHUB_TOKEN`` (the copilot
     harness passes it to the SDK as its ``github_token``). When the spec declares
-    no auth at all, a GitHub token registered once via ``omnigent setup`` (the
+    no auth at all, a GitHub token registered once via ``agentnexus setup`` (the
     dedicated ``copilot:`` config block — see
     :mod:`omnigent.onboarding.copilot_auth`) is used instead, so a user need not
     export it in every shell. With neither, the harness falls back to an
@@ -2230,7 +2231,7 @@ def _build_copilot_spawn_env(
         env["HARNESS_COPILOT_CWD"] = str(cwd)
     # Auth precedence: an explicit api-key auth on the spec wins (its ``api_key``
     # is the GitHub token); with NO spec auth at all, fall back to a token
-    # registered once via ``omnigent setup`` (the dedicated ``copilot:`` config
+    # registered once via ``agentnexus setup`` (the dedicated ``copilot:`` config
     # block), else an ambient ``COPILOT_GITHUB_TOKEN`` / ``GH_TOKEN`` /
     # ``GITHUB_TOKEN``. A Databricks / provider auth has no copilot equivalent
     # and never silently adopts a stored or ambient copilot token.

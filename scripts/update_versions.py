@@ -1,17 +1,17 @@
 """
-Bump the omnigent project version across all packages in lockstep.
+Bump the agentnexus project version across all packages in lockstep.
 
 The four distributions in this repo release together at a single
 version:
 
-- ``omnigent``         — root ``pyproject.toml``
-- ``omnigent-client``  — ``sdks/python-client/pyproject.toml``
-- ``omnigent-ui-sdk``  — ``sdks/ui/pyproject.toml``
-- ``omnigent-slack``   — ``integrations/slack/pyproject.toml``
+- ``agentnexus``         — root ``pyproject.toml``
+- ``agentnexus-client``  — ``sdks/python-client/pyproject.toml``
+- ``agentnexus-ui-sdk``  — ``sdks/ui/pyproject.toml``
+- ``agentnexus-slack``   — ``integrations/slack/pyproject.toml``
 
 Each declares its own ``[project].version``. The first three ``==``-pin
-their siblings in ``[project].dependencies``; the root ``omnigent``
-package also ``==``-pins ``omnigent-slack`` in the ``slack`` optional
+their siblings in ``[project].dependencies``; the root ``agentnexus``
+package also ``==``-pins ``agentnexus-slack`` in the ``slack`` optional
 dependency extra — the lockstep contract that
 ``.github/workflows/release-omnigent.yml`` verifies at tag time. This
 script rewrites every one of those locations at once so they never
@@ -109,9 +109,9 @@ def packages(root: Path) -> list[Package]:
             root / "sdks" / "ui" / "pyproject.toml",
             ("agentnexus-client",),
         ),
-        # omnigent-slack is deliberately decoupled from agentnexus core (it
-        # drives the server over HTTP, never imports ``omnigent``), so it
-        # pins no siblings. The root ``omnigent`` package ``==``-pins it in
+        # agentnexus-slack is deliberately decoupled from agentnexus core (it
+        # drives the server over HTTP, never imports ``agentnexus``), so it
+        # pins no siblings. The root ``agentnexus`` package ``==``-pins it in
         # the ``slack`` optional-dependency extra; the pin lives in
         # [project.optional-dependencies] rather than [project.dependencies],
         # so check() scans both sections for it.
@@ -127,7 +127,7 @@ def packages(root: Path) -> list[Package]:
 _VERSION_LINE = re.compile(r'^version = "[^"]*"$', re.MULTILINE)
 
 # ``VERSION = "..."`` on its own line — the runtime constant in
-# ``omnigent/version.py`` that mirrors the canonical [project].version.
+# ``agentnexus/version.py`` that mirrors the canonical [project].version.
 _VERSION_CONSTANT = re.compile(r'^VERSION = "[^"]*"$', re.MULTILINE)
 
 # ``"version": "..."`` in ``web/electron/package.json`` (the desktop app).
@@ -222,7 +222,7 @@ def set_version(root: Path, new_version: str) -> list[Path]:
     """
     Rewrite every package's version + sibling pins to *new_version*.
 
-    Also rewrites the runtime ``VERSION`` constant in ``omnigent/version.py``
+    Also rewrites the runtime ``VERSION`` constant in ``agentnexus/version.py``
     so the value the runtime imports stays equal to ``[project].version`` —
     the automated bump path must keep both in lockstep (the ``sync-version-py``
     pre-commit fixer only fires in the local dev flow).
@@ -293,7 +293,7 @@ def next_dev_version(released: str) -> str:
 
 def _read_version_constant(root: Path) -> str:
     """
-    Return the ``VERSION`` literal from ``omnigent/version.py``.
+    Return the ``VERSION`` literal from ``agentnexus/version.py``.
 
     :param root: Repo root.
     :returns: The quoted value of the ``VERSION`` assignment.
@@ -312,7 +312,7 @@ def check(root: Path, expect: str | None = None) -> str:
     """
     Verify every package agrees on the version and pins its siblings.
 
-    Also checks the runtime ``VERSION`` constant in ``omnigent/version.py``
+    Also checks the runtime ``VERSION`` constant in ``agentnexus/version.py``
     against the resolved version, so a bump that forgets it fails here rather
     than in the ``test_version_matches_pyproject`` backstop on the bot PR.
 
@@ -330,7 +330,7 @@ def check(root: Path, expect: str | None = None) -> str:
         versions[pkg.name] = project["version"]
         # Sibling == pins may live in [project.dependencies] (the three
         # SDK packages) or in [project.optional-dependencies] extras (the
-        # root ``omnigent`` package pins ``omnigent-slack`` in the ``slack``
+        # root ``agentnexus`` package pins ``agentnexus-slack`` in the ``slack``
         # extra). Collect both so the check covers every pin location.
         deps = list(project.get("dependencies", []))
         for extra_deps in project.get("optional-dependencies", {}).values():
@@ -412,7 +412,7 @@ def main(argv: list[str] | None = None) -> None:
 
     :param argv: Argument list (defaults to ``sys.argv[1:]``).
     """
-    parser = argparse.ArgumentParser(description="Bump omnigent package versions in lockstep")
+    parser = argparse.ArgumentParser(description="Bump AgentNexus package versions in lockstep")
     sub = parser.add_subparsers(dest="command", required=True)
 
     pre = sub.add_parser("pre-release", help="Stamp an exact version across all packages")

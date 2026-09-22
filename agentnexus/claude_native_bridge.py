@@ -1816,7 +1816,7 @@ def augment_claude_args(
         session's agent ships a ``skills/`` directory. Triggers
         ``--plugin-dir <bundle>`` so Claude Code discovers bundled
         skills natively — the CLI mirror of the SDK executor's plugin
-        wiring. ``None`` (e.g. the ``omnigent claude`` CLI's minimal
+        wiring. ``None`` (e.g. the ``agentnexus claude`` CLI's minimal
         spec) adds no plugin args.
     :param agent_name: Agent display name for the bundle's plugin
         manifest, e.g. ``"researcher"``. ``None`` falls back to the
@@ -4377,7 +4377,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         ``["serve-mcp", "--bridge-dir", "/tmp/x"]``.
     :returns: Parsed argparse namespace.
     """
-    parser = argparse.ArgumentParser(prog="python -m omnigent.claude_native_bridge")
+    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_bridge")
     sub = parser.add_subparsers(dest="command", required=True)
     serve = sub.add_parser("serve-mcp")
     serve.add_argument("--bridge-dir", required=True)

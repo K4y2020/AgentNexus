@@ -11,7 +11,7 @@ the real problem is the exhausted API key).
 
 This test drives the real user command: a fake ``$HOME`` seeded with an
 apikey-mode ``auth.json`` (exactly what the codex CLI writes for that mode),
-then ``python -m omnigent config list`` as a subprocess, asserting on the
+then ``python -m agentnexus config list`` as a subprocess, asserting on the
 console text the user reads.
 
 Before the fix: the Codex credential row reads ``subscription codex via

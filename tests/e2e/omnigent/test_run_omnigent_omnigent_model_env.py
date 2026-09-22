@@ -1,4 +1,4 @@
-"""E2E coverage for the ``AGENTNEXUS_MODEL`` env-var fallback on ``omnigent run``.
+"""E2E coverage for the ``AGENTNEXUS_MODEL`` env-var fallback on ``agentnexus run``.
 
 The fallback fires in ``omnigent/chat.py:_apply_overrides_to_raw`` when the
 spec has no ``executor.model`` / ``executor.harness`` and no ``--model`` /
@@ -32,7 +32,7 @@ _VALID_MODEL = "mock-model"
 _BOGUS_MODEL = "databricks-gpt-this-model-does-not-exist-omnigent-env-test-9f3a"
 
 _PROMPT = "say hi in 5 words"
-# Wall-clock budget for the subprocess. ``omnigent run`` spawns the
+# Wall-clock budget for the subprocess. ``agentnexus run`` spawns the
 # AP server + runner as grandchildren, so a plain ``subprocess.run``
 # timeout could not reap them — the grandchildren kept the captured
 # pipe open and ``communicate()`` wedged the shard ~15+ min past the
@@ -65,14 +65,14 @@ def _run_omnigent_with_model_env(
     harness: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Run ``omnigent run <minimal>.yaml -p "..."`` with ``AGENTNEXUS_MODEL`` set.
+    Run ``agentnexus run <minimal>.yaml -p "..."`` with ``AGENTNEXUS_MODEL`` set.
 
     Writes a minimal no-``executor`` YAML to *tmp_path*; reusing the shared
     ``hello_world.yaml`` would defeat the test because that file declares
     ``executor.model``, which short-circuits the env-var fallback gate.
 
     Uses :func:`run_with_group_timeout` rather than ``subprocess.run``
-    because ``omnigent run`` spawns the AP server + runner as
+    because ``agentnexus run`` spawns the AP server + runner as
     grandchildren in the same process group; a stock ``subprocess.run``
     timeout only kills the immediate child, leaving the grandchildren to
     hold the captured pipe open and wedge ``communicate()`` long past the

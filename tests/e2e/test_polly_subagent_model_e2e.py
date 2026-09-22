@@ -163,7 +163,7 @@ def _run_polly_turn(
     :param prompt: The ``-p`` one-shot prompt.
     :param mock_llm_server_url: Mock LLM server base URL for env injection.
     :param polly_dir: The polly bundle to run.
-    :returns: The completed ``omnigent run`` process.
+    :returns: The completed ``agentnexus run`` process.
     """
     return subprocess.run(
         [

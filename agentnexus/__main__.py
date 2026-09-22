@@ -1,4 +1,4 @@
-"""Allow running AgentNexus as ``python -m omnigent``."""
+"""Allow running AgentNexus as ``python -m agentnexus``."""
 
 from agentnexus.cli import main
 

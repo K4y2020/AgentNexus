@@ -59,7 +59,9 @@ RUNNER_ISOLATE_SESSION_ENV_VAR = "AGENTNEXUS_RUNNER_ISOLATE_SESSION"
 # deny-by-default env scrubbers (os_env sandbox, codex CLI, pi CLI) name
 # it in their passthrough allowlists so this one marker survives the
 # scrub.
-AGENTNEXUS_SESSION_ENV_VAR = "OMNIGENT"
+AGENTNEXUS_SESSION_ENV_VAR = "AGENTNEXUS"
+# Existing agent scripts keep detecting the legacy marker until 2.0.
+AGENTNEXUS_SESSION_ENV_VARS = (AGENTNEXUS_SESSION_ENV_VAR, "OMNIGENT")
 AGENTNEXUS_SESSION_ENV_VALUE = "1"
 
 # Env vars carrying the runner's control-plane auth secret. The tunnel
@@ -69,10 +71,13 @@ AGENTNEXUS_SESSION_ENV_VALUE = "1"
 # runner. Stripped at every runner→child spawn boundary via
 # :func:`strip_runner_auth_secrets`.
 RUNNER_AUTH_SECRET_ENV_VARS: frozenset[str] = frozenset(
-    {
+    prefix + name.removeprefix("AGENTNEXUS_")
+    for name in (
         RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR,
         RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR,
-    }
+    )
+    # A child must not reconstruct stripped secrets via pre-2.0 env aliases.
+    for prefix in ("AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_")
 )
 
 

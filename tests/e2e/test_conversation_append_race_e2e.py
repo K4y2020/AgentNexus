@@ -11,7 +11,7 @@ goal is to prove the position-race fix (lock escalation in
 when:
 
 1. The store is constructed in a separate process from the
-   test (matches the user's ``omnigent run`` setup
+   test (matches the user's ``agentnexus run`` setup
    where the AgentNexus server is a subprocess of the REPL).
 2. The store's session factory + busy_timeout pragmas come
    from the production code path

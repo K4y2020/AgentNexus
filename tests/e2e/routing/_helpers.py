@@ -330,7 +330,7 @@ def wait_for_pane_identifier(
 ) -> str:
     """Wait until *identifier* shows up in the pane, ignoring line wrapping.
 
-    A long MCP tool name (``mcp__omnigent__sys_session_create``) is routinely
+    A long MCP tool name (``mcp__agentnexus__sys_session_create``) is routinely
     broken across pane lines, so the comparison drops all whitespace on both
     sides. Anything shorter would be a false red on a narrow pane.
 

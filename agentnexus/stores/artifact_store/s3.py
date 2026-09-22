@@ -43,7 +43,7 @@ def _ensure_boto3() -> None:
     except ImportError as exc:
         raise ImportError(
             "S3ArtifactStore requires 'boto3'. Install with: pip install boto3 "
-            "(or 'pip install omnigent[s3]')."
+            "(or 'pip install agentnexus[s3]')."
         ) from exc
 
 

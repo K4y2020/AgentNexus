@@ -77,7 +77,7 @@ def _wait_for(predicate, *, timeout_s: float = 30.0, interval_s: float = 0.5) ->
 def _permission_hook_payload(elicitation_id: str) -> dict:
     """Build a Claude PermissionRequest hook body that pins a stable id.
 
-    Mirrors the ``omnigent claude`` wrapper's hook subprocess: the
+    Mirrors the ``agentnexus claude`` wrapper's hook subprocess: the
     ``_omnigent_elicitation_id`` is minted once per prompt and re-sent on
     every retry POST, so the server re-parks the SAME elicitation. A plain
     tool name (``Bash``) with no ``requestedSchema`` renders the binary

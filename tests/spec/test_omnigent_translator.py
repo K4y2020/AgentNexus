@@ -639,7 +639,7 @@ def test_acp_slug_survives_reverse_translation(harness: str, expected: str) -> N
     making the slug unrecoverable — so every ``acp:<slug>`` launch silently
     spawned the *first* configured ACP agent instead of the requested one.
 
-    **What breaks if this fails**: ``omnigent run --harness acp:devin`` runs
+    **What breaks if this fails**: ``agentnexus run --harness acp:devin`` runs
     somebody else's agent (whichever is first in the ``acp:`` config block)
     while the UI still reports the one that was asked for.
     """

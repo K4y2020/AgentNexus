@@ -68,7 +68,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_REPO: agentnexus-ai/agentnexus
+  SOURCE_REPO: K4y2020/AgentNexus
   AGENTNEXUS_SKIP_WEB_UI: "true"
   UV_INDEX_URL: https://pypi.org/simple
   PIP_INDEX_URL: https://pypi.org/simple
@@ -77,7 +77,7 @@ jobs:
   draft:
     name: Scout features and draft blogs
     if: >-
-      github.repository == 'agentnexus-ai/agentnexus' &&
+      github.repository == 'K4y2020/AgentNexus' &&
       (github.event_name == 'workflow_dispatch' ||
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
@@ -512,7 +512,7 @@ jobs:
             fi
 
             if [ -n "$post" ]; then
-              printf '\n---\n\n**Enjoying AgentNexus?** If this is useful to you, [give us a star on GitHub ⭐](https://github.com/agentnexus-ai/agentnexus). Come say hi on [Discord](https://discord.gg/agentnexus), or [check the latest release](https://agentnexus.ai/releases).\n' \
+              printf '\n---\n\n**Enjoying AgentNexus?** If this is useful to you, [give us a star on GitHub ⭐](https://github.com/K4y2020/AgentNexus). Come say hi on [Discord](https://discord.gg/agentnexus), or [check the latest release](https://agentnexus.ai/releases).\n' \
                 >> "${SITE}/${post}"
             fi
 

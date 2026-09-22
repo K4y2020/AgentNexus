@@ -1,4 +1,4 @@
-"""End-to-end regression test: ``omnigent claude --resume`` restores history.
+"""End-to-end regression test: ``agentnexus claude --resume`` restores history.
 
 Reproduces the user-reported bug: running
 
@@ -70,9 +70,9 @@ def test_claude_native_cli_resume_restores_history(
     request: pytest.FixtureRequest,
 ) -> None:
     """
-    Cross-context ``omnigent claude --resume`` restores conversation history.
+    Cross-context ``agentnexus claude --resume`` restores conversation history.
 
-    Drives the real ``omnigent claude --server …`` CLI (gateway routing
+    Drives the real ``agentnexus claude --server …`` CLI (gateway routing
     via the config-home auth block from the pytest ``--profile``) to teach
     Claude a passphrase, **deletes Claude's local transcript** for that session,
     then resumes — so the resume cannot reuse Claude's own on-disk transcript

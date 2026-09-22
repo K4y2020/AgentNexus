@@ -20,7 +20,7 @@ from ._tool_handler import StreamHooks, ToolHandler
 
 
 class AgentNexusClient:
-    """Typed Python client for the omnigent server API.
+    """Typed Python client for the agentnexus server API.
 
     One-shot::
 

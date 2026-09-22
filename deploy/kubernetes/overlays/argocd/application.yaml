@@ -33,7 +33,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/agentnexus-ai/agentnexus.git
+    repoURL: https://github.com/K4y2020/AgentNexus.git
     targetRevision: HEAD
     path: deploy/kubernetes/overlays/argocd
   destination:

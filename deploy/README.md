@@ -15,7 +15,7 @@ AgentNexus server is live with HTTPS in a few minutes.
 
 | Platform | Button | Docs |
 |---|---|---|
-| **Render** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/agentnexus-ai/agentnexus) | [`render/README.md`](render/README.md) |
+| **Render** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/K4y2020/AgentNexus) | [`render/README.md`](render/README.md) |
 | **Railway** | *(button pending; see below)* | [`railway/README.md`](railway/README.md) |
 
 <!-- TODO(oss-release): publish the Railway template at railway.com/new/template

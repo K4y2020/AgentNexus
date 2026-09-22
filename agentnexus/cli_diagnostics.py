@@ -590,7 +590,7 @@ def _update_latest_symlink(log_dir: Path, log_path: Path) -> None:
 def _safe_mtime(path: Path) -> float:
     """Return *path*'s mtime, or ``0.0`` if it has vanished.
 
-    ``_prune_old_logs`` runs at the start of every ``omnigent run``, so two
+    ``_prune_old_logs`` runs at the start of every ``agentnexus run``, so two
     concurrent launches can glob the same log set then race to delete it. A
     plain ``p.stat()`` in the sort key would then hit a just-removed file and
     raise ``FileNotFoundError``, aborting the whole prune and crashing CLI

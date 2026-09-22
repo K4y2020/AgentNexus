@@ -82,7 +82,7 @@ def delegated_path_allowed(path: str) -> bool:
 
 
 # Explicit single-user marker. Set by the managed local-server spawn
-# paths (`omnigent run` in chat.py, the daemon's
+# paths (`agentnexus run` in chat.py, the daemon's
 # host/local_server.py) and by the canonical bare loopback
 # `omnigent server` (cli.py) — never by deployed multi-user servers.
 # Gates the header-mode "local" fallback (see
@@ -554,7 +554,7 @@ class UnifiedAuthProvider(AuthProvider):
 
         Checks the session cookie first (browser clients), then
         falls back to ``Authorization: Bearer <jwt>`` (CLI clients
-        authenticated via ``omnigent login``). Both carry the same
+        authenticated via ``agentnexus login``). Both carry the same
         HS256-signed JWT.
 
         Uses a TTL credential cache keyed by HMAC-SHA256 digest of

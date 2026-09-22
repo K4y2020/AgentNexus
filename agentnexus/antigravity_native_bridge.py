@@ -410,7 +410,7 @@ def build_mcp_config(
     ``env`` keys plus ``enabledTools``, agy's auto-approve allowlist — verified
     against agy 1.0.12's config struct) under the top-level ``mcpServers`` key.
     The server command is the SAME shared relay claude/codex/cursor use:
-    ``<python> -I -m omnigent.claude_native_bridge serve-mcp --bridge-dir <dir>``.
+    ``<python> -I -m agentnexus.claude_native_bridge serve-mcp --bridge-dir <dir>``.
 
     **HOME pinning.** agy spawns this relay as a child. The relay validates its
     ``--bridge-dir`` against ``bridge_root()`` (``$HOME/.agentnexus/antigravity-native``),

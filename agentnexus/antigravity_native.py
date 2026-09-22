@@ -1,7 +1,7 @@
 """Native Antigravity (agy) TUI wrapper for the AgentNexus CLI.
 
 ``omnigent antigravity`` treats the Antigravity ``agy`` CLI as a
-terminal-first program, mirroring ``omnigent codex`` / ``omnigent claude``.
+terminal-first program, mirroring ``omnigent codex`` / ``agentnexus claude``.
 It creates or binds an AgentNexus session, launches ``agy`` in a runner-owned
 tmux terminal resource, then attaches the local TTY (directly to the
 runner's tmux when same-machine, else over the WebSocket terminal bridge).
@@ -552,7 +552,7 @@ def _run_with_remote_server(
         asyncio.run(_drive())
     except httpx.ConnectError as exc:
         raise click.ClickException(
-            f"Could not reach the omnigent server at {base_url}. "
+            f"Could not reach the AgentNexus server at {base_url}. "
             "Confirm the server is running and reachable from here "
             f"(e.g. `curl {base_url}/health`), and that --server is correct."
         ) from exc

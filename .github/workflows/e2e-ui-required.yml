@@ -73,7 +73,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.LLM_API_KEY }}
           E2E_UI_JUDGE_MODEL: ${{ vars.AGENTNEXUS_CI_E2E_JUDGE_MODEL }}
         run: |
-          if [ -z "${E2E_UI_JUDGE_MODEL:-}" ] || [ "${REPO:-}" != "agentnexus-ai/agentnexus" ]; then
+          if [ -z "${E2E_UI_JUDGE_MODEL:-}" ] || [ "${REPO:-}" != "K4y2020/AgentNexus" ]; then
             echo "::warning::E2E UI judge not configured for $REPO; skipping check."
             exit 0
           fi

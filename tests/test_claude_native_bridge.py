@@ -108,7 +108,7 @@ def subprocess_bridge_root() -> Iterator[Path]:
 
     :yields: Temporary directory path under the production trusted
         Claude bridge root, so a child
-        ``python -m omnigent.claude_native_bridge`` accepts bridge
+        ``python -m agentnexus.claude_native_bridge`` accepts bridge
         writes without inheriting pytest monkeypatches.
     """
     production_root = (
@@ -246,7 +246,7 @@ def test_prepare_bridge_dir_preserves_token_and_updates_runtime(
     """
     Bridge setup is stable across wrapper re-runs for one session.
 
-    If this regresses, reattaching ``omnigent claude`` can rotate the
+    If this regresses, reattaching ``agentnexus claude`` can rotate the
     bearer token while the already-running MCP server still expects the
     old token.
     """
@@ -437,7 +437,7 @@ def test_prepare_bridge_dir_without_sandbox_builds_unsandboxed_tools(
     """
     No resolved sandbox preserves the prior unsandboxed default.
 
-    Sessions with nothing to carry (e.g. the ``omnigent claude`` CLI's own
+    Sessions with nothing to carry (e.g. the ``agentnexus claude`` CLI's own
     synthesized wrapper spec, which intentionally declares
     ``os_env.sandbox.type: none``) must keep working exactly as before —
     this is the fallback the fix above must not disturb.
@@ -2875,7 +2875,7 @@ def test_augment_claude_args_merges_caller_allowed_tools(tmp_path: Path) -> None
         ("--allowedTools", "Bash,mcp__user__tool"),
         bridge_dir=tmp_path,
         python_executable="/venv/bin/python",
-        allowed_tools=("mcp__omnigent__sys_session_rename", "Bash"),
+        allowed_tools=("mcp__agentnexus__sys_session_rename", "Bash"),
     )
 
     assert args.count("--allowedTools") == 1
@@ -2883,7 +2883,7 @@ def test_augment_claude_args_merges_caller_allowed_tools(tmp_path: Path) -> None
     assert args[index + 1].split(",") == [
         "Bash",
         "mcp__user__tool",
-        "mcp__omnigent__sys_session_rename",
+        "mcp__agentnexus__sys_session_rename",
     ]
 
 

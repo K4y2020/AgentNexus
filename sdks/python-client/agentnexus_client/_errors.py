@@ -1,4 +1,4 @@
-"""Typed exceptions for the omnigent client."""
+"""Typed exceptions for the agentnexus client."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ _BODY_PREVIEW_CHARS = 200
 
 
 class AgentNexusError(Exception):
-    """Base exception for all omnigent client errors."""
+    """Base exception for all agentnexus client errors."""
 
     def __init__(self, message: str, status_code: int | None = None, code: str | None = None):
         super().__init__(message)

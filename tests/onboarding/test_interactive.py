@@ -407,7 +407,7 @@ def test_render_menu_without_max_visible_renders_all_rows() -> None:
 def test_render_menu_compact_uses_top_level_footer_and_no_title_gap() -> None:
     """Compact menus hug the title to the list and say Esc exits.
 
-    ``omnigent setup`` uses this for the top-level harness overview: there is
+    ``agentnexus setup`` uses this for the top-level harness overview: there is
     no blank spacer below the title, and the footer must read as a compact
     top-level action (``Esc exit``), not the nested-menu ``Esc back`` copy.
     """

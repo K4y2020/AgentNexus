@@ -34,7 +34,7 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      AGENTNEXUS_DOMAIN: ${AGENTNEXUS_DOMAIN:?set AGENTNEXUS_DOMAIN in .env}
+      AGENTNEXUS_DOMAIN: ${AGENTNEXUS_DOMAIN-${OMNIGENT_DOMAIN:?set AGENTNEXUS_DOMAIN in .env}}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

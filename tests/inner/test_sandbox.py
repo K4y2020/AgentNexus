@@ -58,13 +58,13 @@ def test_run_launcher_emits_logger_checkpoints(caplog) -> None:
 
     messages = [record.getMessage() for record in caplog.records]
     # Absent: wrapper never entered the body.
-    assert any("[omnigent-sandbox] activating backend=none active=False" in m for m in messages), (
+    assert any("[agentnexus-sandbox] activating backend=none active=False" in m for m in messages), (
         messages
     )
     # Absent on an active policy: activation hung.
-    assert any("[omnigent-sandbox] activated; spawning target=" in m for m in messages), messages
+    assert any("[agentnexus-sandbox] activated; spawning target=" in m for m in messages), messages
     # Absent: spawned target hung (the claude-sdk symptom).
-    assert any("[omnigent-sandbox] target exited rc=0" in m for m in messages), messages
+    assert any("[agentnexus-sandbox] target exited rc=0" in m for m in messages), messages
 
 
 def test_run_launcher_strips_runner_binding_token_from_target_env(monkeypatch) -> None:
@@ -107,7 +107,7 @@ def test_run_launcher_propagates_target_returncode(caplog) -> None:
         )
     assert rc == 7
     messages = [record.getMessage() for record in caplog.records]
-    assert any("[omnigent-sandbox] target exited rc=7" in m for m in messages), messages
+    assert any("[agentnexus-sandbox] target exited rc=7" in m for m in messages), messages
 
 
 def test_exec_launcher_wrapper_subprocess_emits_markers_to_stderr() -> None:
@@ -130,11 +130,11 @@ def test_exec_launcher_wrapper_subprocess_emits_markers_to_stderr() -> None:
             os.unlink(wrapper_path)
 
     assert result.returncode == 0, result
-    assert "[omnigent-sandbox] activating backend=none active=False" in result.stderr, (
+    assert "[agentnexus-sandbox] activating backend=none active=False" in result.stderr, (
         result.stderr
     )
-    assert "[omnigent-sandbox] activated; spawning target=" in result.stderr, result.stderr
-    assert "[omnigent-sandbox] target exited rc=0" in result.stderr, result.stderr
+    assert "[agentnexus-sandbox] activated; spawning target=" in result.stderr, result.stderr
+    assert "[agentnexus-sandbox] target exited rc=0" in result.stderr, result.stderr
 
 
 def test_run_launcher_wraps_target_with_strace_when_env_set(monkeypatch, caplog) -> None:

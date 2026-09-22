@@ -818,7 +818,7 @@ def _modal_launcher_factory(
     """
     Build the launcher factory for the YAML ``provider: modal`` path.
 
-    :param image: Registry image reference with omnigent pre-installed,
+    :param image: Registry image reference with AgentNexus pre-installed,
         e.g. ``"docker.io/me/omnigent-host:latest"``, or ``None`` to
         use the official prebaked host image (env-overridable; see
         :func:`omnigent.onboarding.sandboxes.modal._build_sandbox_image`).
@@ -1340,7 +1340,7 @@ def _parse_modal_image(raw: dict[str, object]) -> str | None:
     if not isinstance(image, str) or not image.strip():
         raise ValueError(
             "server config 'sandbox.modal.image' must be a registry image "
-            "reference with omnigent pre-installed, e.g. "
+            "reference with AgentNexus pre-installed, e.g. "
             "'docker.io/me/omnigent-host:latest' (omit it to use the "
             "official image)"
         )
@@ -1390,7 +1390,7 @@ def _daytona_launcher_factory(
     """
     Build the launcher factory for the YAML ``provider: daytona`` path.
 
-    :param image: Registry image reference with omnigent pre-installed,
+    :param image: Registry image reference with AgentNexus pre-installed,
         e.g. ``"docker.io/me/omnigent-host:latest"``, or ``None`` to
         use the official prebaked host image (env-overridable; see
         :class:`omnigent.onboarding.sandboxes.daytona.DaytonaSandboxLauncher`).
@@ -1482,7 +1482,7 @@ def _parse_daytona_image(raw: dict[str, object]) -> str | None:
     if not isinstance(image, str) or not image.strip():
         raise ValueError(
             "server config 'sandbox.daytona.image' must be a registry image "
-            "reference with omnigent pre-installed, e.g. "
+            "reference with AgentNexus pre-installed, e.g. "
             "'docker.io/me/omnigent-host:latest' (omit it to use the "
             "official image)"
         )
@@ -1543,7 +1543,7 @@ def _boxlite_launcher_factory(
     :param endpoint: Remote ``boxlite serve`` URL (cloud mode), or ``None`` for
         LOCAL mode — boxes run on the omnigent-server host as embedded micro-VMs
         (no daemon, no ``boxlite serve``).
-    :param image: Registry image reference with omnigent pre-installed, or
+    :param image: Registry image reference with AgentNexus pre-installed, or
         ``None`` to use the official prebaked host image (env-overridable; see
         :class:`omnigent.onboarding.sandboxes.boxlite.BoxliteSandboxLauncher`).
     :param env: Names of server-process environment variables (harness LLM
@@ -1670,7 +1670,7 @@ def _parse_boxlite_image(section: dict[str, object]) -> str | None:
     if not isinstance(image, str) or not image.strip():
         raise ValueError(
             "server config 'sandbox.boxlite.image' must be a registry image "
-            "reference with omnigent pre-installed, e.g. "
+            "reference with AgentNexus pre-installed, e.g. "
             "'docker.io/me/omnigent-host:latest' (omit it to use the official image)"
         )
     return image.strip()
@@ -1797,7 +1797,7 @@ def _parse_cwsandbox_image(raw: dict[str, object]) -> str | None:
     if not isinstance(image, str) or not image.strip():
         raise ValueError(
             "server config 'sandbox.cwsandbox.image' must be a registry image "
-            "reference with omnigent pre-installed (omit it to use the official image)"
+            "reference with AgentNexus pre-installed (omit it to use the official image)"
         )
     return image.strip()
 
@@ -1926,7 +1926,7 @@ def _islo_launcher_factory(
     """
     Build the launcher factory for the YAML ``provider: islo`` path.
 
-    :param image: Registry image reference with omnigent pre-installed,
+    :param image: Registry image reference with AgentNexus pre-installed,
         e.g. ``"docker.io/me/omnigent-host:latest"``, or ``None`` to
         use the official prebaked host image (env-overridable; see
         :class:`omnigent.onboarding.sandboxes.islo.IsloSandboxLauncher`).
@@ -1976,7 +1976,7 @@ def _openshell_launcher_factory(
     """
     Build the launcher factory for the YAML ``provider: openshell`` path.
 
-    :param image: Registry image reference with omnigent pre-installed,
+    :param image: Registry image reference with AgentNexus pre-installed,
         e.g. ``"docker.io/me/omnigent-host:latest"``, or ``None`` to use
         the official prebaked host image (env-overridable).
     :param env: Names of server-process environment variables injected
@@ -2037,7 +2037,7 @@ def _parse_provider_image(raw: dict[str, object], provider: str) -> str | None:
     if not isinstance(image, str) or not image.strip():
         raise ValueError(
             f"server config 'sandbox.{provider}.image' must be a registry image "
-            "reference with omnigent pre-installed, e.g. "
+            "reference with AgentNexus pre-installed, e.g. "
             "'docker.io/me/omnigent-host:latest' (omit it to use the "
             "official image)"
         )
@@ -2548,7 +2548,7 @@ def _kubernetes_launcher_factory(
     """
     Build the launcher factory for the YAML ``provider: kubernetes`` path.
 
-    :param image: Registry image with omnigent pre-installed, or ``None`` for
+    :param image: Registry image with AgentNexus pre-installed, or ``None`` for
         the official prebaked host image (env-overridable).
     :param env: Names of server-process environment variables injected into
         every Pod as literal ``env``, or ``None``. Prefer *secret_name* for

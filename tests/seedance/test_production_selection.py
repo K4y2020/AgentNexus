@@ -72,7 +72,7 @@ def test_manifest_requires_binding_for_requested_stage(native, tmp_path):
 
 @pytest.mark.skipif(not shutil.which("node"), reason="requires native Node seeder")
 def test_seed_uses_the_same_legacy_upstream_resolver(native, tmp_path):
-    original = next((SKILLS / "novel-outline/examples").glob("*-outline.json"))
+    original = next((SKILLS / "cine-outline/examples").glob("*-outline.json"))
     legacy = tmp_path / "selected-outline.json"
     shutil.copyfile(original, legacy)
     before = legacy.read_bytes()

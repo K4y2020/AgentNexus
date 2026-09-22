@@ -60,7 +60,7 @@ async function run({
           closingIssuesReferences: {
             nodes: linkedIssues.map((li) => ({
               number: li.number,
-              repository: { nameWithOwner: li.repo || "agentnexus-ai/agentnexus" },
+              repository: { nameWithOwner: li.repo || "K4y2020/AgentNexus" },
               assignees: { nodes: (li.assignees || []).map((login) => ({ login })) },
             })),
           },
@@ -83,13 +83,13 @@ async function run({
     },
   };
   const context = {
-    repo: { owner: "agentnexus-ai", repo: "agentnexus" },
+    repo: { owner: "K4y2020", repo: "AgentNexus" },
     payload: { action, pull_request: {
       number: PR_NUMBER, draft: false,
       user: { login: author },
       // precise fork detection compares head vs base full_name
-      head: { repo: { full_name: fork ? "external-contributor/agentnexus" : "agentnexus-ai/agentnexus" } },
-      base: { repo: { full_name: "agentnexus-ai/agentnexus" } },
+      head: { repo: { full_name: fork ? "external-contributor/agentnexus" : "K4y2020/AgentNexus" } },
+      base: { repo: { full_name: "K4y2020/AgentNexus" } },
       requested_reviewers: current.map((l) => ({ login: l })),
       assignees: currentAssignees.map((l) => ({ login: l })),
     } },

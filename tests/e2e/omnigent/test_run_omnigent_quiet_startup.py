@@ -1,4 +1,4 @@
-"""End-to-end: ``omnigent run`` starts the REPL without leaking
+"""End-to-end: ``agentnexus run`` starts the REPL without leaking
 server boot chatter onto the terminal (mock LLM).
 
 Migrated to mock LLM: the test only checks boot output, not LLM
@@ -75,7 +75,7 @@ def test_run_omnigent_startup_does_not_leak_server_logs(
 
     leaked = [marker for marker in _FORBIDDEN_BOOT_MARKERS if marker in combined_stripped]
     assert not leaked, (
-        f"``omnigent run`` leaked server boot output onto "
+        f"``agentnexus run`` leaked server boot output onto "
         f"the terminal. Leaked markers: {leaked}. "
         f"Combined stripped output (last 4000 chars):\n"
         f"{combined_stripped[-4000:]}"

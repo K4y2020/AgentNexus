@@ -1,4 +1,4 @@
-"""CLI entry point for omnigent."""
+"""CLI entry point for agentnexus."""
 
 from __future__ import annotations
 
@@ -528,7 +528,7 @@ def _server_uvicorn_log_config(
 _CONFIG_HOME_ENV_VAR = "AGENTNEXUS_CONFIG_HOME"
 _GLOBAL_CONFIG_PATH: Path = Path.home() / ".agentnexus" / "config.yaml"
 
-# Per-user state directories before / after the omniagents -> omnigent rename.
+# Per-user state directories before and after the AgentNexus rename.
 # All per-user state (config, registered agents, auth tokens, the host daemon
 # pidfile, runner identity, native session state, logs) lives under
 # :data:`_STATE_DIR`; :func:`_migrate_legacy_state_dir` relocates the old
@@ -536,11 +536,10 @@ _GLOBAL_CONFIG_PATH: Path = Path.home() / ".agentnexus" / "config.yaml"
 # a worktree / test sets; when present the user manages their own state and
 # migration is skipped.
 _STATE_DIR: Path = Path.home() / ".agentnexus"
-# Pre-rename state directories, newest first. The name evolved
-# ``~/.omniagents`` -> ``~/.agentnexuss`` -> ``~/.agentnexus``; migrate from the
-# newest legacy directory that still exists.
+# Historical paths are migration inputs, retained until 2.0. Newest first.
 _LEGACY_STATE_DIRS: tuple[Path, ...] = (
-    Path.home() / ".agentnexuss",
+    Path.home() / ".omnigent",
+    Path.home() / ".omnigents",
     Path.home() / ".omniagents",
 )
 _DATA_DIR_ENV_VAR = "AGENTNEXUS_DATA_DIR"
@@ -550,8 +549,8 @@ def _migrate_legacy_state_dir() -> None:
     """
     One-time relocation of a pre-rename state directory to ``~/.agentnexus``.
 
-    Earlier releases stored all per-user state under ``~/.omniagents`` and then
-    ``~/.agentnexuss`` as the name evolved. To avoid silently losing that state,
+    Earlier releases used ``~/.omnigent``, ``~/.omnigents`` or ``~/.omniagents``.
+    These migration inputs remain supported until 2.0. To preserve that state,
     move the newest surviving legacy directory to ``~/.agentnexus`` on first run,
     but only when **all** of the following hold:
 
@@ -612,7 +611,7 @@ def _migrate_legacy_state_dir() -> None:
 # Resolved at call time so tests can control cwd.
 _LOCAL_CONFIG_RELPATH: Path = Path(".agentnexus") / "config.yaml"
 
-# User-facing keys that ``omnigent config`` accepts. Most mirror ``run``
+# User-facing keys that ``agentnexus config`` accepts. Most mirror ``run``
 # options; session-title guidance configures server-owned metadata generation.
 _AUTO_OPEN_CONVERSATION_CONFIG_KEY = "auto_open_conversation"
 _GLOBAL_CONFIG_KEYS: frozenset[str] = frozenset(
@@ -788,7 +787,7 @@ def _display_config_path(path: Path) -> str:
 
 def _load_global_config() -> dict[str, Any]:  # type: ignore[explicit-any]
     """
-    Load the global omnigent config from ``~/.agentnexus/config.yaml``.
+    Load the global agentnexus config from ``~/.agentnexus/config.yaml``.
 
     Returns an empty dict when the file does not exist or is empty.
     Top-level default keys (``default_agent``, ``server``,
@@ -797,7 +796,7 @@ def _load_global_config() -> dict[str, Any]:  # type: ignore[explicit-any]
     ``auth:`` key holds a nested mapping —
     ``{"type": "databricks", "profile": "oss"}`` or
     ``{"type": "api_key", "api_key": "…"}`` — written by
-    ``omnigent setup`` and used by the runtime to supply executor
+    ``agentnexus setup`` and used by the runtime to supply executor
     credentials when an agent spec does not declare ``executor.auth``.
 
     :returns: Parsed YAML as a dict, e.g.
@@ -943,7 +942,7 @@ def _pick_first_run_harness() -> _FirstRunPlan | None:
 
 
 def _resolve_first_run_plan() -> _FirstRunPlan | None:
-    """Resolve the harness + default agent for a bare ``omnigent run``.
+    """Resolve the harness + default agent for a bare ``agentnexus run``.
 
     Adopts ambient-detected credentials, then picks a harness from what's
     configured (Claude→polly / Codex / Pi). When nothing is configured,
@@ -1024,7 +1023,7 @@ def _resolve_default_agent_target(
 
 def _parse_config_bool(key: str, value: _ConfigValue) -> bool:
     """
-    Parse a boolean value from YAML or ``omnigent config KEY=VALUE``.
+    Parse a boolean value from YAML or ``agentnexus config KEY=VALUE``.
 
     :param key: Config key being parsed, e.g.
         ``"auto_open_conversation"``.
@@ -1051,7 +1050,7 @@ def _resolve_auto_open_conversation_setting(cfg: dict[str, Any]) -> bool | None:
 
     Tri-state on purpose so callers can distinguish "the user has not
     expressed a preference" (``None``) from an explicit opt-in/opt-out.
-    ``omnigent run`` uses this to default the browser-open ON for
+    ``agentnexus run`` uses this to default the browser-open ON for
     interactive launches while still honoring an explicit
     ``auto_open_conversation: false``; see :func:`run`.
 
@@ -1073,7 +1072,7 @@ def _resolve_auto_open_conversation_from_config(cfg: dict[str, Any]) -> bool:  #
     Resolve whether CLI launches should open conversation URLs.
 
     Defaults to ``False`` when the user has not configured the key.
-    ``omnigent run`` does not use this resolver — it defaults the
+    ``agentnexus run`` does not use this resolver — it defaults the
     browser-open ON for interactive launches via
     :func:`_resolve_auto_open_conversation_setting`.
 
@@ -1134,8 +1133,8 @@ def _save_global_config(  # type: ignore[explicit-any]
 
     Creates the ``~/.agentnexus/`` directory if it does not exist.
     Values may be plain strings, booleans, or nested mappings (the
-    ``auth:`` block written by ``omnigent setup``, or a ``providers:``
-    block written by ``omnigent setup --no-internal-beta``).
+    ``auth:`` block written by ``agentnexus setup``, or a ``providers:``
+    block written by ``agentnexus setup --no-internal-beta``).
 
     By default every key in *settings* **replaces** the existing value
     wholesale (a shallow ``dict.update``). For keys listed in
@@ -1265,10 +1264,10 @@ def _save_local_config(
 
 
 def _default_db_uri() -> str:
-    """Default DB URI for ``omnigent server`` — the machine-global
+    """Default DB URI for ``agentnexus server`` — the machine-global
     ``<data_dir>/chat.db``.
 
-    Resolves to the same path the ``omnigent run`` daemon spawns its
+    Resolves to the same path the ``agentnexus run`` daemon spawns its
     local server against (``_local_data_dir()``, honoring
     ``AGENTNEXUS_DATA_DIR`` → else ``~/.agentnexus``). Pinning ``server``
     to the same DB as ``run`` means there is **one local DB — and so one
@@ -1284,10 +1283,10 @@ def _default_db_uri() -> str:
 
 
 def _default_artifact_location() -> str:
-    """Default artifact dir for ``omnigent server`` — ``<data_dir>/artifacts``.
+    """Default artifact dir for ``agentnexus server`` — ``<data_dir>/artifacts``.
 
     Kept in lock-step with :func:`_default_db_uri` so a default-config
-    ``omnigent server`` and ``omnigent run`` share one coherent
+    ``agentnexus server`` and ``agentnexus run`` share one coherent
     machine-global instance (same DB *and* same artifacts) — otherwise a
     conversation created by one would reference files the other can't
     resolve. ``--artifact-location`` / the config file still override.
@@ -1309,7 +1308,7 @@ def _ensure_sqlite_parent_dir(db_uri: str) -> None:
     so a first-ever run — or any run after the data dir was cleared — must
     create that dir before the stores connect. The daemon-spawned server
     handles this in ``ensure_local_omnigent_server``; this is the equivalent for
-    the foreground ``omnigent server`` command.
+    the foreground ``agentnexus server`` command.
 
     No-op for non-SQLite URIs (Postgres etc.) and for in-memory SQLite.
 
@@ -1344,7 +1343,7 @@ def _apply_bind_auth_defaults(host: str) -> None:
     - **Loopback** (``127.0.0.1`` / ``localhost`` / ``::1``) + header
       default → set ``AGENTNEXUS_LOCAL_SINGLE_USER=1``: the no-login
       header-mode ``"local"`` fallback. The user's own machine, no proxy
-      to inject identity — same posture as the daemon / ``omnigent run``
+      to inject identity — same posture as the daemon / ``agentnexus run``
       spawn paths.
     - **Non-loopback** (``0.0.0.0``, a network-exposed deploy) + no
       explicit auth → set ``AGENTNEXUS_AUTH_ENABLED=1``: accounts (login)
@@ -1685,7 +1684,7 @@ class _AgentNexusCLI(click.Group):
     TTY-gated by :func:`omnigent.inner.ui.show_banner`, so ``omnigent
     --help`` shows the banner interactively while piped/CI help stays
     clean. Only the top-level group overrides help; subcommand help
-    (``omnigent run --help``) is untouched.
+    (``agentnexus run --help``) is untouched.
     """
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -2122,7 +2121,7 @@ def main() -> None:
     # dispatch, imports — are all caught. See omnigent/crash_handler.py.
     from agentnexus.crash_handler import install_crash_handler
 
-    install_crash_handler(app_name="agentnexus", repo="agentnexus-ai/omnigent")
+    install_crash_handler(app_name="agentnexus", repo="K4y2020/AgentNexus")
 
     # Operators can force all use through a wrapper (e.g. `isaac omni`) by
     # setting AGENTNEXUS_REQUIRE_WRAPPER; the wrapper sets AGENTNEXUS_WRAPPER_BYPASS
@@ -2143,7 +2142,7 @@ def main() -> None:
     if log_to_stderr:
         os.environ[LOG_TO_STDERR_ENV_VAR] = "1"
 
-    # Bare ``omnigent`` with no args behaves like ``omnigent run`` on an
+    # Bare ``omnigent`` with no args behaves like ``agentnexus run`` on an
     # interactive terminal: ``run`` resolves the configured default agent /
     # first-run plan and drops into ``setup`` when nothing is configured. In
     # a non-interactive context (pipe, CI, no TTY) fall back to ``--help`` so
@@ -2170,7 +2169,7 @@ def main() -> None:
         argv = ["run", *argv]
 
     # Shorthand: ``omnigent myagent.yaml [opts]`` → ``run myagent.yaml [opts]``.
-    # Allows ``omnigent`` to act as a transparent alias for ``omnigent run``
+    # Allows ``omnigent`` to act as a transparent alias for ``agentnexus run``
     # when the first positional argument is an agent path.
     if _is_run_shorthand(argv):
         argv = ["run", *argv]
@@ -2274,7 +2273,7 @@ def _is_run_shorthand(argv: list[str]) -> bool:
 
     Used by :func:`main` to transparently redirect
     ``omnigent myagent.yaml --model m`` to
-    ``omnigent run myagent.yaml --model m``.
+    ``agentnexus run myagent.yaml --model m``.
 
     :param argv: CLI arguments without the program name, e.g.
         ``["myagent.yaml", "--model", "m"]``.
@@ -2317,7 +2316,7 @@ def _is_removed_ad_hoc_invocation(argv: list[str]) -> bool:
       the removed top-level ad-hoc chat accepted.
 
     False when the first non-flag token matches a known
-    subcommand (``omnigent run ...``, ``omnigent attach ...``),
+    subcommand (``agentnexus run ...``, ``agentnexus attach ...``),
     when the user asks for top-level help/version
     (``omnigent --help``, ``omnigent --version``), or when the
     token is a single command-shaped word (e.g. ``omnigent blah``)
@@ -3198,7 +3197,7 @@ def _load_or_create_host_id() -> str | None:
     except (OSError, ValueError):
         # OSError: identity file unwritable. ValueError: a malformed persisted /
         # env host_id — a foreground host has nothing to key on, so degrade to
-        # None; the loud fail-fast is on the `omnigent host` connect path.
+        # None; the loud fail-fast is on the `agentnexus host` connect path.
         return None
 
 
@@ -3335,7 +3334,7 @@ def _ensure_databricks_server_auth(server: str, *, non_interactive: bool = False
     the run would otherwise die much later with an opaque "non-JSON
     response (status=302)" traceback from the session-create call. First,
     it asks the SDK for a fresh workspace token; only then does a TTY run
-    the same flow ``omnigent login`` would, while headless invocations get
+    the same flow ``agentnexus login`` would, while headless invocations get
     the exact command to run instead.
 
     Non-Databricks postures are deliberately left alone: local accounts
@@ -3346,7 +3345,7 @@ def _ensure_databricks_server_auth(server: str, *, non_interactive: bool = False
         e.g. ``"https://myapp-123.aws.databricksapps.com"``.
     :param non_interactive: When ``True``, never run the browser login —
         emit the same fail-loud hint a headless invocation gets, even on a
-        TTY. Lets callers (e.g. ``omnigent host --non-interactive``) keep
+        TTY. Lets callers (e.g. ``agentnexus host --non-interactive``) keep
         their scripted, no-prompt behavior.
     :raises click.ClickException: When the server is Databricks-fronted,
         no credentials resolve, and the login flow is suppressed (stdin is
@@ -3386,7 +3385,7 @@ def _ensure_databricks_server_auth(server: str, *, non_interactive: bool = False
             return
     # User-facing: show the display form (the workspace /omnigent URL, with
     # ?o= when known), not the internal API mount; it round-trips through
-    # `omnigent login` back to the same API base.
+    # `agentnexus login` back to the same API base.
     display = ServerUrl(api_base=server, org_id=org_id).display
     login_cmd = f"agentnexus login {display}"
     if non_interactive or not sys.stdin.isatty():
@@ -3477,7 +3476,7 @@ def _exit_for_auth_mode_change(base_url: str) -> None:
     via :func:`_ensure_host_daemon`. Continuing the *same* command across
     that restart is brittle — the in-flight session/credential/terminal
     bring-up straddles two server identities. Instead we stop here with a
-    clear, actionable message and exit 0, so the next ``omnigent run`` is
+    clear, actionable message and exit 0, so the next ``agentnexus run`` is
     a clean single-mode start. When the new mode is accounts and no admin
     exists yet, point the user at the one-time setup URL.
 
@@ -3544,7 +3543,7 @@ def _discover_local_server_url(
 
 @dataclass
 class _CliRunnerProcess:
-    """Runner subprocess metadata for the ``omnigent server`` command.
+    """Runner subprocess metadata for the ``agentnexus server`` command.
 
     :param proc: Runner subprocess handle.
     :param runner_id: Runner id used for the WS tunnel, e.g.
@@ -3574,11 +3573,11 @@ def _start_cli_runner_process(
     """Start the out-of-process runner used by CLI server flows.
 
     The runner always connects back over the WebSocket tunnel. Local
-    ``omnigent server`` passes its loopback URL; ``run --server``
+    ``agentnexus server`` passes its loopback URL; ``run --server``
     passes the remote AgentNexus server URL.
 
     For remote Databricks-fronted servers, the runner subprocess
-    authenticates via the stored ``omnigent login`` record (or
+    authenticates via the stored ``agentnexus login`` record (or
     ambient Databricks SDK credentials). Tokens are refreshed
     transparently on each WebSocket reconnect and HTTP callback —
     no static token is passed via environment variable.
@@ -3883,7 +3882,7 @@ def server(
 ) -> None:
     """Start the AgentNexus server, or manage the background server.
 
-    Bare ``omnigent server`` runs the server in the FOREGROUND (Ctrl-C to
+    Bare ``agentnexus server`` runs the server in the FOREGROUND (Ctrl-C to
     stop) — for deploys / Docker. Pass ``--background`` to spawn it as a
     detached background process instead (the managed local server that
     ``run`` / ``claude`` / ``codex`` reuse). Subcommands manage that
@@ -3923,7 +3922,7 @@ def server(
         return
 
     if background:
-        # `omnigent server --background` is the canonical spelling for the
+        # `agentnexus server --background` is the canonical spelling for the
         # detached server; the deprecated ``server start`` alias routes to the
         # same helper so both spellings can never drift.
         _run_background_server()
@@ -3946,12 +3945,12 @@ def server(
     # Translate --no-open into the env var the lifespan hook reads.
     # We use an env var rather than threading the flag through
     # create_app so the same toggle works for callers (Docker
-    # entrypoint, future `omnigent run`) that build the app
+    # entrypoint, future `agentnexus run`) that build the app
     # outside this CLI command.
     os.environ["AGENTNEXUS_ACCOUNTS_AUTO_OPEN"] = "1" if auto_open else "0"
 
     # Unified local-server lifecycle — applies ONLY to a *bare* loopback
-    # `omnigent server` (default port + default DB + artifacts), i.e.
+    # `agentnexus server` (default port + default DB + artifacts), i.e.
     # THE canonical machine-global local server recorded in
     # ~/.agentnexus/local_server.pid:
     #   - If a healthy one is already running (started here OR spawned by
@@ -4224,7 +4223,7 @@ def server(
         server_config=title_server_config,
     )
 
-    click.echo(f"Starting omnigent server on {host}:{port}")
+    click.echo(f"Starting agentnexus server on {host}:{port}")
     click.echo(f"  database:  {db_uri}")
     click.echo(f"  artifacts: {art_loc}")
     click.echo(f"  log:       {_display_path(server_log_path)}")
@@ -4365,8 +4364,8 @@ def _stop_local_server_and_daemon(*, force: bool) -> bool:
 def _run_background_server() -> None:
     """Ensure (or reuse) the managed detached local server and report it.
 
-    The shared body of ``omnigent server --background`` and its deprecated
-    ``omnigent server start`` alias: spawn the detached managed server (or
+    The shared body of ``agentnexus server --background`` and its deprecated
+    ``agentnexus server start`` alias: spawn the detached managed server (or
     adopt a healthy one that is already up) and return immediately instead of
     running uvicorn in-process.
 
@@ -4382,7 +4381,7 @@ def _run_background_server() -> None:
     # Surface the exact log file so a detached server isn't a black box —
     # this is otherwise the only signal the detached path ever emits.
     # Known for a spawned server and (via the log-path sidecar) for a
-    # reused one too; absent only for a foreground `omnigent server` whose
+    # reused one too; absent only for a foreground `agentnexus server` whose
     # logs stream to its own terminal.
     if startup.log_path is not None:
         click.echo(f"  log: {_display_path(startup.log_path)}")
@@ -4390,7 +4389,7 @@ def _run_background_server() -> None:
 
 @server.command("start", hidden=True)
 def server_start() -> None:
-    """Deprecated alias for ``omnigent server --background``.
+    """Deprecated alias for ``agentnexus server --background``.
 
     Removed in v0.7.0 by #3105 and restored here for compatibility: the
     desktop app ships on its own update channel, so a client built before
@@ -4421,7 +4420,7 @@ def server_stop(force: bool) -> None:
     Stops the local host daemon first, then the detached server recorded
     in ``~/.agentnexus/local_server.pid`` — its web UI and sessions become
     unreachable. To stop hosting but KEEP the server up, use
-    ``omnigent host stop``; to stop everything, use ``omnigent stop``.
+    ``agentnexus host stop``; to stop everything, use ``omnigent stop``.
 
     :param force: SIGKILL the local host daemon after the grace period if it
         does not exit on SIGTERM.
@@ -4502,16 +4501,16 @@ def start(server: str | None, non_interactive: bool) -> None:
     returns. With a configured or explicit ``--server`` it hosts on that server
     instead, and no local server is started.
 
-    An alias of ``omnigent host --background`` — reach for that spelling when
-    a script wants the host lifecycle by name (``omnigent host status`` /
-    ``omnigent host stop``). Sign-in happens here, in your terminal, before the
+    An alias of ``agentnexus host --background`` — reach for that spelling when
+    a script wants the host lifecycle by name (``agentnexus host status`` /
+    ``agentnexus host stop``). Sign-in happens here, in your terminal, before the
     daemon detaches.
 
     :param server: AgentNexus server URL to host on, e.g.
         ``"https://example.databricksapps.com"``. ``None`` falls back to
         config; empty string forces local mode.
     :param non_interactive: When ``True``, never launch the browser login for
-        an un-authed remote server — fail with the ``omnigent login`` hint
+        an un-authed remote server — fail with the ``agentnexus login`` hint
         instead.
     :returns: None.
     """
@@ -4534,7 +4533,7 @@ def stop(force: bool) -> None:
     The off switch, and the counterpart of ``omnigent start``: stops every host
     daemon (local and remote-targeted) and the detached background server.
     Runners are reaped when their daemon exits. To stop only hosting while
-    keeping the local server (web UI / history) up, use ``omnigent host stop``
+    keeping the local server (web UI / history) up, use ``agentnexus host stop``
     instead.
 
     :param force: Continue past individual failures and SIGKILL daemons that
@@ -4755,7 +4754,7 @@ def doctor(
     type=click.Choice(["cli", "state", "desktop-data", "all"]),
 )
 @click.option("--purge", is_flag=True, help="Remove state data after writing a backup.")
-@click.option("--purge-workspace", is_flag=True, help="Also remove ~/omnigent with --purge.")
+@click.option("--purge-workspace", is_flag=True, help="Also remove ~/agentnexus with --purge.")
 @click.option("--dry-run", is_flag=True, help="Print planned actions only.")
 @click.option("--yes", is_flag=True, help="Run non-interactively for auto-removable artifacts.")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON.")
@@ -5119,7 +5118,7 @@ def _upgrade_to_nightly(
                 "cannot preserve them safely, so install the nightly manually:\n\n"
                 f"    pip install --force-reinstall '{manual}'\n"
                 "    # or, if you need extras:\n"
-                f"    pip install --force-reinstall '{manual}#egg=omnigent[your,extras,here]'"
+                f"    pip install --force-reinstall '{manual}#egg=agentnexus[your,extras,here]'"
             )
             raise SystemExit(0)
         if info.detected_installer == "uv" and _uv_tool_receipt_path() is None:
@@ -5130,7 +5129,7 @@ def _upgrade_to_nightly(
                 "safely. Install the nightly manually:\n\n"
                 f"    uv pip install --force-reinstall '{manual}'\n"
                 "    # or, if you need extras:\n"
-                f"    uv pip install --force-reinstall '{manual}#egg=omnigent[your,extras,here]'"
+                f"    uv pip install --force-reinstall '{manual}#egg=agentnexus[your,extras,here]'"
             )
             raise SystemExit(0)
 
@@ -5174,7 +5173,7 @@ def _upgrade_to_nightly(
         )
         return
     raise click.ClickException(
-        f"The upgrade command ran but omnigent is still v{new_version} (expected "
+        f"The upgrade command ran but agentnexus is still v{new_version} (expected "
         f"v{target}). Try the command directly: {suggestion.command}"
     )
 
@@ -5234,7 +5233,7 @@ def upgrade(
 ) -> None:
     """Upgrade AgentNexus to the latest release.
 
-    Detects how omnigent was installed (uv tool / pipx), checks the
+    Detects how agentnexus was installed (uv tool / pipx), checks the
     configured index for a newer release and — unless ``--check`` — drains
     and stops the local background server and host daemon, then runs the
     matching upgrade command. The next ``omni`` invocation starts a fresh
@@ -5300,7 +5299,7 @@ def upgrade(
     info = _read_installed_wheel_info()
     if info is None:
         raise click.ClickException(
-            "Couldn't determine how omnigent is installed; upgrade it manually."
+            "Couldn't determine how agentnexus is installed; upgrade it manually."
         )
     if info.is_editable:
         raise click.ClickException(
@@ -5349,7 +5348,7 @@ def upgrade(
                 "agentnexus was installed with pip, and pip does not record which extras "
                 f"were requested. `{cli_invocation(name='omni')} upgrade` cannot preserve them "
                 "safely, so you should upgrade manually:\n\n"
-                "    pip install -U omnigent\n"
+                "    pip install -U agentnexus\n"
                 "    # or, if you need extras:\n"
                 "    pip install -U 'agentnexus[your,extras,here]'"
             )
@@ -5360,7 +5359,7 @@ def upgrade(
                 "`uv pip` does not record which extras were requested, so "
                 f"`{cli_invocation(name='omni')} upgrade` cannot preserve them safely. "
                 "Upgrade manually:\n\n"
-                "    uv pip install -U omnigent\n"
+                "    uv pip install -U agentnexus\n"
                 "    # or, if you need extras:\n"
                 "    uv pip install -U 'agentnexus[your,extras,here]'"
             )
@@ -5450,10 +5449,10 @@ def upgrade(
         )
         return
     raise click.ClickException(
-        f"The upgrade command ran but omnigent is still v{new_version} (expected "
+        f"The upgrade command ran but agentnexus is still v{new_version} (expected "
         f"v{expected_version}). The install is likely version-pinned, a cooldown / "
         "exclude-newer is excluding the new release, or the index cache is stale. "
-        "Reinstall it explicitly — e.g. `uv tool upgrade --reinstall omnigent` or "
+        "Reinstall it explicitly — e.g. `uv tool upgrade --reinstall agentnexus` or "
         f"`pip install --force-reinstall 'agentnexus=={expected_version}'`."
     )
 
@@ -5796,15 +5795,15 @@ def polly(run_args: tuple[str, ...]) -> None:
     # :param run_args: Pass-through args for ``run``.
     """Launch polly, the bundled multi-agent coding orchestrator.
 
-    Shorthand for ``omnigent run`` on the packaged polly agent — the same
+    Shorthand for ``agentnexus run`` on the packaged polly agent — the same
     agent a bare ``omnigent`` launches when a Claude credential is
     configured. All ``run`` options are accepted and forwarded.
 
     \b
     Examples:
-      omnigent polly
-      omnigent polly -p "review the last commit"
-      omnigent polly --server https://<app>.databricksapps.com
+      agentnexus polly
+      agentnexus polly -p "review the last commit"
+      agentnexus polly --server https://<app>.databricksapps.com
     """
     _run_bundled_agent("polly", run_args)
 
@@ -5821,15 +5820,15 @@ def debby(run_args: tuple[str, ...]) -> None:
     # :param run_args: Pass-through args for ``run``.
     """Launch debby, the bundled two-headed brainstorming agent.
 
-    Shorthand for ``omnigent run`` on the packaged debby agent. Debby fans
+    Shorthand for ``agentnexus run`` on the packaged debby agent. Debby fans
     every question out to both a Claude and a GPT sub-agent, so a Claude
     and an OpenAI provider must both be configured. All ``run`` options are
     accepted and forwarded.
 
     \b
     Examples:
-      omnigent debby
-      omnigent debby -p "name ideas for a CLI that runs agents"
+      agentnexus debby
+      agentnexus debby -p "name ideas for a CLI that runs agents"
     """
     _run_bundled_agent("debby", run_args)
 
@@ -5840,9 +5839,9 @@ def debby(run_args: tuple[str, ...]) -> None:
     "--server",
     default=None,
     help=(
-        "Remote omnigent URL. When set, the picker / lookup queries "
+        "Remote agentnexus URL. When set, the picker / lookup queries "
         "this server instead of starting a local one. Required when "
-        "running ``omnigent resume`` without a conversation id."
+        "running ``agentnexus resume`` without a conversation id."
     ),
 )
 def resume(
@@ -5861,8 +5860,8 @@ def resume(
     \b
     With CONV_ID: looks up the conversation and dispatches to the
     matching wrapper. claude-native sessions land in
-    ``omnigent claude``; everything else surfaces a clear hint to
-    use ``omnigent run --resume <id> <agent.yaml>``.
+    ``agentnexus claude``; everything else surfaces a clear hint to
+    use ``agentnexus run --resume <id> <agent.yaml>``.
 
     \b
     Without CONV_ID: opens a cross-agent picker over your prior
@@ -5871,9 +5870,9 @@ def resume(
 
     \b
     Examples:
-      omnigent resume conv_abc123
-      omnigent resume conv_abc123 --server https://<app>.databricksapps.com
-      omnigent resume --server https://<app>.databricksapps.com
+      agentnexus resume conv_abc123
+      agentnexus resume conv_abc123 --server https://<app>.databricksapps.com
+      agentnexus resume --server https://<app>.databricksapps.com
     """
     from agentnexus.resume_dispatch import run_resume
 
@@ -5959,12 +5958,12 @@ def import_session_command(
 
     \b
     Examples:
-      omnigent import --harness claude --session <session-id>
-      omnigent import --harness codex --session <session-id>
-      omnigent import --harness opencode --session <session-id>
-      omnigent import --harness qwen --session <session-id>
-      omnigent import --harness claude --last 10
-      omnigent import --harness claude --session <session-id> --force
+      agentnexus import --harness claude --session <session-id>
+      agentnexus import --harness codex --session <session-id>
+      agentnexus import --harness opencode --session <session-id>
+      agentnexus import --harness qwen --session <session-id>
+      agentnexus import --harness claude --last 10
+      agentnexus import --harness claude --session <session-id> --force
     """
     import httpx
 
@@ -6278,9 +6277,9 @@ def usage(limit: int, server: str | None, as_json: bool) -> None:
 
     \b
     Examples:
-      omnigent usage
-      omnigent usage --limit 25
-      omnigent usage --json
+      agentnexus usage
+      agentnexus usage --limit 25
+      agentnexus usage --json
     """
     import httpx
 
@@ -6317,9 +6316,9 @@ def session(ctx: click.Context) -> None:
 
     \b
     Examples:
-      omnigent session export --id conv_abc123
-      omnigent session export --id conv_abc123 --output transcript.jsonl
-      omnigent session export --id conv_abc123 --server https://myserver.com
+      agentnexus session export --id conv_abc123
+      agentnexus session export --id conv_abc123 --output transcript.jsonl
+      agentnexus session export --id conv_abc123 --server https://myserver.com
     """
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
@@ -6356,13 +6355,13 @@ def session_export(session_id: str, output: str | None, server: str | None) -> N
     the session metadata (``"record_type": "session_meta"``); every
     subsequent line is one conversation item
     (``"record_type": "item"``).  The file preserves full turn order
-    and is independent of ``omnigent import``, which reads native harness history.
+    and is independent of ``agentnexus import``, which reads native harness history.
 
     \b
     Examples:
-      omnigent session export --id conv_abc123
-      omnigent session export --id conv_abc123 --output my_session.jsonl
-      omnigent session export --id conv_abc123 --server https://myserver.com
+      agentnexus session export --id conv_abc123
+      agentnexus session export --id conv_abc123 --output my_session.jsonl
+      agentnexus session export --id conv_abc123 --server https://myserver.com
     """
     import httpx
 
@@ -6510,7 +6509,7 @@ def _import_item_payload(item: Mapping[str, object]) -> dict[str, object]:
 def session_import(input_path: str, title: str | None, server: str | None) -> None:
     """Import a session transcript from a portable JSONL file.
 
-    The inverse of ``omnigent session export``: reads the ``session_meta`` +
+    The inverse of ``agentnexus session export``: reads the ``session_meta`` +
     ``item`` lines and recreates the conversation on the target server as a new
     session (a fresh conversation id each time). Distinct from ``omnigent
     import``, which reads native harness history rather than an export file.
@@ -6523,9 +6522,9 @@ def session_import(input_path: str, title: str | None, server: str | None) -> No
 
     \b
     Examples:
-      omnigent session import -i my_session.jsonl
-      omnigent session import -i my_session.jsonl --title "Repro of ES-2065116"
-      omnigent session import -i my_session.jsonl --server https://myserver.com
+      agentnexus session import -i my_session.jsonl
+      agentnexus session import -i my_session.jsonl --title "Repro of ES-2065116"
+      agentnexus session import -i my_session.jsonl --server https://myserver.com
     """
     import httpx
 
@@ -6803,7 +6802,7 @@ def _materialize_harness_launcher_file(
     The generated file uses the single-file AgentNexus YAML shape
     (``name`` / ``prompt`` / ``executor``), not native AP
     ``config.yaml``. Passing this file to ``run_chat`` exercises the
-    same compat adapter as ``omnigent run examples/foo.yaml``.
+    same compat adapter as ``agentnexus run examples/foo.yaml``.
 
     Harnesses listed in :data:`_OS_ENV_HARNESSES` get an ``os_env``
     block so the workflow injects ``sys_os_*`` tools into the
@@ -6881,10 +6880,10 @@ def _missing_run_agent_message() -> str:
         "Provide an AGENT path, pass --server to connect to a server, "
         "or pass --harness to launch a built-in "
         "harness directly:\n"
-        "  omnigent run examples/hello_world.yaml\n"
-        "  omnigent run --server http://localhost:6767\n"
-        "  omnigent run --harness claude-sdk\n"
-        "  omnigent run --harness codex"
+        "  agentnexus run examples/hello_world.yaml\n"
+        "  agentnexus run --server http://localhost:6767\n"
+        "  agentnexus run --harness claude-sdk\n"
+        "  agentnexus run --harness codex"
     )
 
 
@@ -7092,7 +7091,7 @@ def _dispatch_native_terminal_harness(
     transcript, recording every user message twice. These harnesses are
     terminal-mirror sessions whose turns originate in the TUI, so dispatch
     straight to the native wrapper (the same code ``omnigent cursor`` /
-    ``omnigent claude`` / etc. run), keeping the TUI the single source of
+    ``agentnexus claude`` / etc. run), keeping the TUI the single source of
     turns. A top-level ``--model`` is forwarded in the shape each wrapper
     expects; wrappers with their own config receive it only when explicitly
     provided on the command line.
@@ -7343,11 +7342,11 @@ def _dispatch_run(
     acp_agent: AcpAgentEntry | None = None,
 ) -> None:
     """
-    Route ``omnigent run`` to the right impl.
+    Route ``agentnexus run`` to the right impl.
 
     The click path always drives the AgentNexus server-backed REPL. With
     ``--server <url>``, use that server URL instead of starting a
-    local server. (``omnigent attach`` is a separate attach-only
+    local server. (``agentnexus attach`` is a separate attach-only
     client and does NOT route through here.)
 
     :param target: Agent YAML/directory path, or ``None`` for
@@ -7726,13 +7725,13 @@ def attach(
     on a server and streams its I/O. It never spawns a server, runner, or
     harness, applies no model/harness defaults, and errors loudly when
     there is nothing live to attach to. To START a session use
-    ``omnigent run``; to reopen/restart a stored one use
-    ``omnigent resume``.
+    ``agentnexus run``; to reopen/restart a stored one use
+    ``agentnexus resume``.
 
     \b
     Examples:
-      omnigent attach conv_abc123
-      omnigent attach conv_abc123 --server https://<app>.databricksapps.com
+      agentnexus attach conv_abc123
+      agentnexus attach conv_abc123 --server https://<app>.databricksapps.com
     """
     cfg = _load_effective_config()
     base_url = _resolve_attach_server(server, cfg.get("server"))
@@ -7769,7 +7768,7 @@ def attach(
     )
 
 
-# `run` absorbs the legacy ``omnigent run`` subcommand. With an AGENT
+# `run` absorbs the legacy ``agentnexus run`` subcommand. With an AGENT
 # argument it opens the interactive REPL on a freshly started session;
 # without AGENT it can launch a built-in harness directly via ``--harness``.
 # Both paths route through the same AgentNexus server+REPL dispatcher.
@@ -7818,7 +7817,7 @@ def attach(
     "--server",
     default=None,
     help=(
-        "Remote omnigent URL. Uploads the local YAML as an ephemeral "
+        "Remote agentnexus URL. Uploads the local YAML as an ephemeral "
         "agent, spawns a LOCAL runner that tunnels to this server (so "
         "terminals/MCPs run on your laptop), and connects the REPL to it. "
         "Pass --server local to auto-spawn a persistent local server in the "
@@ -7885,7 +7884,7 @@ def run(
     pass ``--server`` to connect directly to a server, or pass
     ``--harness`` to launch a built-in harness directly.
 
-    Default: omnigent server+REPL architecture (spawns a local
+    Default: agentnexus server+REPL architecture (spawns a local
     server, REPL connects as an HTTP client). With ``--server <url>`` and
     no AGENT, connect directly to that server; with AGENT, use local
     runner + remote server topology (RUNNER.md §6 Flow 1) - laptop hosts
@@ -7893,20 +7892,20 @@ def run(
 
     \b
     Examples:
-      omnigent run --harness claude-sdk
-      omnigent run --harness codex -p "review the last commit"
-      omnigent run --from-openclaw "Gemini CLI" -p "review the last commit"
-      omnigent run examples/hello_world.yaml
-      omnigent run examples/hello_world.yaml --harness codex --model gpt-5.4-mini
-      omnigent run --server http://localhost:6767
-      omnigent run --server local  # local server, ignoring any configured default
-      omnigent run examples/databricks_coding_agent.yaml --server https://<app>.databricksapps.com
-      omnigent run --server https://<app>.databricksapps.com --profile my-sp -p "hi"
+      agentnexus run --harness claude-sdk
+      agentnexus run --harness codex -p "review the last commit"
+      agentnexus run --from-openclaw "Gemini CLI" -p "review the last commit"
+      agentnexus run examples/hello_world.yaml
+      agentnexus run examples/hello_world.yaml --harness codex --model gpt-5.4-mini
+      agentnexus run --server http://localhost:6767
+      agentnexus run --server local  # local server, ignoring any configured default
+      agentnexus run examples/databricks_coding_agent.yaml --server https://<app>.databricksapps.com
+      agentnexus run --server https://<app>.databricksapps.com --profile my-sp -p "hi"
     """
     # A remote --server authenticated via a named Databricks profile: point the
     # SDK credential chain (used by every remote-auth path in this process) at
     # that profile. Explicit here so the profile resolves without a prior
-    # `omnigent login` — the headless service-principal path. Only mutates this
+    # `agentnexus login` — the headless service-principal path. Only mutates this
     # CLI process's env, not the shell. An explicit --profile wins over any
     # ambient DATABRICKS_CONFIG_PROFILE.
     if databricks_profile:
@@ -7993,7 +7992,7 @@ def run(
         harness = plan.harness
         target = plan.agent  # polly path for Claude; None (bare harness) for codex/pi
 
-    # Interactive ``omnigent run`` opens the live conversation in the
+    # Interactive ``agentnexus run`` opens the live conversation in the
     # browser by default so users discover the web UI once the server is up
     # (the accounts-mode magic-redeem auto-open used to surface this, but
     # accounts is no longer the default auth). An explicit
@@ -8039,7 +8038,7 @@ class _HostGroup(click.Group):
     """
     ``host`` group that accepts a server URL as a positional argument.
 
-    ``omnigent host <url>`` is shorthand for ``omnigent host
+    ``agentnexus host <url>`` is shorthand for ``agentnexus host
     --server <url>`` when ``<url>`` is URL-like or the empty local-mode
     marker. A leading positional token that matches a registered
     management subcommand (``enable``, ``disable``, ``status``, ``stop``,
@@ -8051,7 +8050,7 @@ class _HostGroup(click.Group):
         """
         Redirect a leading URL-like positional into ``--server``.
 
-        ``omnigent host <url>`` is shorthand for ``omnigent host --server
+        ``agentnexus host <url>`` is shorthand for ``agentnexus host --server
         <url>``. We detect a leading URL-like positional with a throwaway
         option parse and, when present, rewrite the argument list to inject
         ``--server <url>`` *before* Click parses it -- so Click sees a normal
@@ -8274,7 +8273,7 @@ def _run_background_host(
 ) -> None:
     """Spawn (or reuse) the detached host daemon and report it.
 
-    The background counterpart of the foreground ``omnigent host`` body,
+    The background counterpart of the foreground ``agentnexus host`` body,
     selected by ``--background`` (and the whole of ``omnigent start``): the
     same daemon loop runs detached (see :func:`_ensure_host_daemon`) so the
     command returns instead of blocking.
@@ -8291,7 +8290,7 @@ def _run_background_host(
         ``"agentnexus stop"`` — each entry point suggests the teardown that
         matches how it was invoked.
     :param non_interactive: When ``True``, never launch the browser login —
-        fail with the ``omnigent login`` hint instead.
+        fail with the ``agentnexus login`` hint instead.
     :raises click.ClickException: If the daemon cannot be spawned, exits
         immediately, fails to register, or (local mode) never serves its local
         AgentNexus server.
@@ -8383,7 +8382,7 @@ def _host_stop_command(explicit_server: str | None) -> str:
 
 
 @cli.group("host", cls=_HostGroup, invoke_without_command=True)
-@click.option("--server", default=None, help="Remote omnigent server URL.")
+@click.option("--server", default=None, help="Remote agentnexus server URL.")
 @click.option(
     "--background",
     "background",
@@ -8419,20 +8418,20 @@ def host(
 
     \b
     Examples:
-      omnigent host https://omnigent-app.databricksapps.com
-      omnigent host --server https://omnigent-app.databricksapps.com
-      omnigent host ""   # spawn + connect to a local server
-      omnigent host --background   # spawn detached, return immediately
-      omnigent host enable   # install and start a per-user system service
-      omnigent host disable  # stop and remove the per-user system service
+      agentnexus host https://omnigent-app.databricksapps.com
+      agentnexus host --server https://omnigent-app.databricksapps.com
+      agentnexus host ""   # spawn + connect to a local server
+      agentnexus host --background   # spawn detached, return immediately
+      agentnexus host enable   # install and start a per-user system service
+      agentnexus host disable  # stop and remove the per-user system service
 
-    The server URL may be given positionally (``omnigent host
+    The server URL may be given positionally (``agentnexus host
     <url>``) or via ``--server <url>``. A leading ``status``, ``stop``,
     ``enable``, ``disable``, or ``stop-session`` token still runs that
     management subcommand.
 
     When the target server is Databricks-fronted and you are not signed
-    in, ``host`` runs the same flow ``omnigent login`` would before
+    in, ``host`` runs the same flow ``agentnexus login`` would before
     connecting (an interactive browser flow). Pass ``--non-interactive``
     to keep the old scripted behavior: fail with the login command to run
     instead of prompting. This holds for ``--background`` too: the login
@@ -8446,7 +8445,7 @@ def host(
     :param background: When ``True``, spawn the daemon detached and return
         instead of running the daemon loop in the foreground.
     :param non_interactive: When ``True``, never launch the browser login
-        for an un-authed remote server — fail with the ``omnigent login``
+        for an un-authed remote server — fail with the ``agentnexus login``
         hint instead.
     """
     ctx.ensure_object(dict)
@@ -8483,7 +8482,7 @@ def host(
     # spawn a second daemon via ``_ensure_host_daemon``.
     target = _normalize_daemon_target(server)
     # Only true when THIS invocation started the local server (vs reusing one
-    # already started by `omnigent server` or a prior host/run daemon) —
+    # already started by `agentnexus server` or a prior host/run daemon) —
     # gates the Ctrl-C stop-server prompt so we never offer to stop a server
     # we didn't bring up.
     spawned_local_server = False
@@ -8521,7 +8520,7 @@ def host(
         _restore_replaced_daemon_record(record, previous)
         # Offer to stop the local server only when WE spawned it this run.
         # Not in --server mode (someone else's server), and not when we reused
-        # a server started by `omnigent server` or another daemon — killing
+        # a server started by `agentnexus server` or another daemon — killing
         # that would surprise the user who brought it up independently. Users
         # expect Ctrl-C to stop "everything" they started, so the server we
         # spawned is fair game.
@@ -8531,7 +8530,7 @@ def host(
 
 def _host_group_option(ctx: click.Context, key: str) -> str | None:
     """
-    Read a group-level ``omnigent host`` option for a subcommand.
+    Read a group-level ``agentnexus host`` option for a subcommand.
 
     :param ctx: Click context passed to a host subcommand.
     :param key: Group option key, e.g. ``"server"``.
@@ -9827,7 +9826,7 @@ def _parse_config_settings(
         if "=" not in item:
             raise click.ClickException(
                 f"Expected KEY=VALUE, got: {item!r}. "
-                "Example: omnigent config set --global default_agent=myagent.yaml"
+                "Example: agentnexus config set --global default_agent=myagent.yaml"
             )
         key, _, value = item.partition("=")
         if key not in _GLOBAL_CONFIG_KEYS:
@@ -9978,7 +9977,7 @@ def _print_config_defaults() -> None:
 
     The ``KEY=VALUE`` defaults from ``~/.agentnexus/config.yaml`` (user) and
     ``.agentnexus/config.yaml`` in the cwd (project, takes precedence).
-    Used by ``omnigent config list``.
+    Used by ``agentnexus config list``.
 
     :returns: None. Side effect: writes to stdout.
     """
@@ -10083,8 +10082,8 @@ class _ConfigGroup(click.Group):
 # as a subprocess and never imports it.
 _SLACK_PACKAGE = "agentnexus_slack"
 _SLACK_INSTALL_HINT = (
-    "The Slack integration (omnigent-slack) isn't installed in this "
-    "environment. Install it alongside omnigent with the `slack` extra:\n"
+    "The Slack integration (agentnexus-slack) isn't installed in this "
+    "environment. Install it alongside AgentNexus with the `slack` extra:\n"
     '  uv pip install "agentnexus[slack]"\n'
     "or, from a source checkout:\n"
     "  uv sync --extra slack"
@@ -10273,7 +10272,7 @@ def config_grp() -> None:
     """Get, set, and view AgentNexus defaults and credentials.
 
     Defaults (auto_open_conversation, default_agent, harness, model,
-    server) are used by ``omnigent run``. Project-level config
+    server) are used by ``agentnexus run``. Project-level config
     (``.agentnexus/config.yaml`` in the cwd, like ``.git/config``) overrides
     user-level config (``~/.agentnexus/config.yaml``, like ``~/.gitconfig``).
 
@@ -10291,7 +10290,7 @@ def config_list() -> None:
 
     Prints the defaults (user + project), then the configured model
     credentials grouped by harness with each harness's default marked — the
-    merged view of everything ``omnigent run`` will use (including
+    merged view of everything ``agentnexus run`` will use (including
     ambient-detected credentials).
 
     :returns: None.
@@ -10330,8 +10329,8 @@ def config_set(is_global: bool, settings: tuple[str, ...]) -> None:
 
     \b
     Examples:
-      omnigent config set default_agent=examples/hello_world.yaml
-      omnigent config set --global server=https://<app>.databricksapps.com
+      agentnexus config set default_agent=examples/hello_world.yaml
+      agentnexus config set --global server=https://<app>.databricksapps.com
     """
     parsed = _parse_config_settings(settings, resolve_paths=is_global)
     _validate_config_set_scope(parsed, is_global=is_global)
@@ -10385,8 +10384,8 @@ def setup(internal_beta: bool) -> None:
 
     By default this runs the standard model/credential picker — choose a
     provider for each harness and set your defaults, then start a session
-    with ``omnigent run``. (List configured credentials with
-    ``omnigent config list``.) Pass ``--internal-beta`` to configure
+    with ``agentnexus run``. (List configured credentials with
+    ``agentnexus config list``.) Pass ``--internal-beta`` to configure
     Databricks internal-beta defaults and authentication instead.
     """
     from agentnexus.inner import ui
@@ -10458,13 +10457,13 @@ def setup(internal_beta: bool) -> None:
         )
         click.echo(f"Set default_agent={agent_path} in {_GLOBAL_CONFIG_PATH}")
         click.echo(
-            f"Type `{cli_invocation()} claude` to get started with Claude Code on omnigent."
+            f"Type `{cli_invocation()} claude` to get started with Claude Code on AgentNexus."
         )
         return
 
     # --no-internal-beta: the standard model/credential picker. It warns
     # about missing Node/tmux itself, configures providers/defaults, and
-    # returns; the user then starts a session with ``omnigent run``.
+    # returns; the user then starts a session with ``agentnexus run``.
     _run_configure_harnesses_interactive()
 
 
@@ -10472,7 +10471,7 @@ def setup(internal_beta: bool) -> None:
 # The provider-agnostic sandbox CLI lives in omnigent/cli_sandbox.py.
 # Provider launcher modules are optional and may be absent from a given
 # distribution; hide the group when none are available.
-# `omnigent lakebox` is kept as an alias for `omnigent sandbox …
+# `omnigent lakebox` is kept as an alias for `agentnexus sandbox …
 # --provider lakebox`, registered only when the lakebox provider ships.
 if _sandbox_providers():
     cli.add_command(_sandbox_group)
@@ -10925,11 +10924,11 @@ def _with_default_scheme(server_url: str) -> str:
     return f"{scheme}://{server_url}"
 
 
-def _workspace_api_server_url(server: str) -> str:
+def _workspace_api_server_url(server: str, *, _api_path: str | None = None) -> str:
     """Expand a bare Databricks workspace URL to its omnigent API base.
 
     ``https://<workspace>`` hosts serve the workspace web app at the
-    root; workspace-hosted omnigent lives at ``/api/2.0/omnigent``.
+    root; workspace-hosted AgentNexus lives at ``/api/2.0/omnigent``.
     Users naturally paste the bare host, so when a path-less server URL
     answers like a Databricks workspace web app (a non-omnigent reply
     carrying the ``server: databricks`` header) AND the
@@ -10961,7 +10960,7 @@ def _workspace_api_server_url(server: str) -> str:
 
     from agentnexus.server_url import (
         WORKSPACE_API_PATH,
-        WORKSPACE_UI_PATH,
+        WORKSPACE_MOUNTS,
         display_server_url,
     )
 
@@ -10981,9 +10980,12 @@ def _workspace_api_server_url(server: str) -> str:
     # not answer as a Databricks workspace leaves the pasted URL
     # untouched, so a non-workspace server served under ``/omnigent``
     # still works.
-    if parsed.scheme == "https" and parsed.path == WORKSPACE_UI_PATH:
+    ui_to_api = {}
+    for api, ui in WORKSPACE_MOUNTS.items():
+        ui_to_api.setdefault(ui, api)
+    if parsed.scheme == "https" and parsed.path in ui_to_api:
         root = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
-        expanded = _workspace_api_server_url(root)
+        expanded = _workspace_api_server_url(root, _api_path=ui_to_api[parsed.path])
         return expanded if expanded != root else server
     if parsed.path not in ("", "/") or parsed.scheme != "https":
         return server
@@ -10991,7 +10993,7 @@ def _workspace_api_server_url(server: str) -> str:
         probe = _httpx.get(f"{server}/v1/me", timeout=10.0)
     except _httpx.HTTPError:
         return server
-    # Already something we understand at the root: an omnigent server
+    # Already something we understand at the root: an agentnexus server
     # (200 / 401-with-login_url JSON) or a Databricks Apps edge /
     # API proxy (the login-target detector recognizes both).
     if probe.status_code == 200:
@@ -11001,14 +11003,14 @@ def _workspace_api_server_url(server: str) -> str:
     server_header = probe.headers.get("server")
     if server_header is None or server_header.lower() != "databricks":
         return server
-    candidate = urlunsplit((parsed.scheme, parsed.netloc, WORKSPACE_API_PATH, "", ""))
+    candidate = urlunsplit((parsed.scheme, parsed.netloc, _api_path or WORKSPACE_API_PATH, "", ""))
     try:
         api_probe = _httpx.get(f"{candidate}/v1/me", timeout=10.0)
     except _httpx.HTTPError:
         return server
     if _workspace_mount_probe_matches(candidate, api_probe):
         click.echo(
-            f"Using {display_server_url(candidate)} (Databricks workspace-hosted omnigent)."
+            f"Using {display_server_url(candidate)} (Databricks workspace-hosted AgentNexus)."
         )
         return candidate
     # The anonymous probe came back inconclusive (404 on Azure even
@@ -11028,14 +11030,14 @@ def _workspace_api_server_url(server: str) -> str:
             authed_probe = None
         if authed_probe is not None and _workspace_mount_probe_matches(candidate, authed_probe):
             click.echo(
-                f"Using {display_server_url(candidate)} (Databricks workspace-hosted omnigent)."
+                f"Using {display_server_url(candidate)} (Databricks workspace-hosted AgentNexus)."
             )
             return candidate
         click.echo(
             f"Note: {server} answers like a Databricks workspace, but "
-            f"{candidate} did not answer as an omnigent server even with "
+            f"{candidate} did not answer as an agentnexus server even with "
             f"the cached workspace credentials. Connecting to {server} as "
-            "given; if omnigent is hosted on this workspace, refresh the "
+            "given; if AgentNexus is hosted on this workspace, refresh the "
             f"login with `databricks auth login --host {server}` or pass "
             "the full mount URL."
         )
@@ -11044,7 +11046,7 @@ def _workspace_api_server_url(server: str) -> str:
         f"Note: {server} answers like a Databricks workspace, but "
         f"{candidate} did not answer the anonymous probe "
         f"(HTTP {api_probe.status_code}). Some edges hide the mount from "
-        "unauthenticated requests — if omnigent is hosted on this "
+        "unauthenticated requests — if AgentNexus is hosted on this "
         f"workspace, run `databricks auth login --host {server}` and "
         "retry, or pass the full mount URL."
     )
@@ -11119,7 +11121,7 @@ def _databricks_root_is_usable(server: str) -> bool:
 
     :param server: A scheme-bearing server URL; its query/fragment is dropped
         before probing, as ``_workspace_api_server_url`` does.
-    :returns: True when the host answers as an omnigent server or a recognized
+    :returns: True when the host answers as an agentnexus server or a recognized
         Databricks login target.
     """
     import httpx as _httpx
@@ -11148,7 +11150,7 @@ def _resolve_server_url(server: str) -> ServerUrl:
     The ``?o=`` workspace selector is captured off the raw input (the
     expansion strips it before probing) and rides on the returned value;
     when the input carries none, the selector recorded by a previous
-    ``omnigent login`` for the resolved base is used instead.
+    ``agentnexus login`` for the resolved base is used instead.
 
     The URL is always tried as the user gave it first. Only when that fails
     to resolve, and only for an Azure custom (vanity) workspace URL, is the
@@ -11384,7 +11386,7 @@ def _databricks_login(server: str, workspace_host: str, org_id: str | None = Non
     if not databricks_sdk_installed():
         raise click.ClickException(
             "Logging in to a Databricks-fronted server (a Databricks App or "
-            "workspace-hosted omnigent) requires the `databricks` extra "
+            "workspace-hosted AgentNexus) requires the `databricks` extra "
             f"(databricks-sdk is not installed). Reinstall with:\n  "
             f"{DATABRICKS_EXTRA_INSTALL_HINT}"
         )
@@ -11627,10 +11629,10 @@ def _remember_default_server(server: str) -> None:
     """
     Persist *server* as the user-level default after a successful login.
 
-    A bare ``omnigent`` (and ``omnigent host``) fall back to the
+    A bare ``omnigent`` (and ``agentnexus host``) fall back to the
     configured ``server`` key when no ``--server`` is passed (see
     :func:`run` and :func:`host`). Without this, a user who runs
-    ``omnigent login <server>`` and then bare ``omnigent`` is still routed
+    ``agentnexus login <server>`` and then bare ``omnigent`` is still routed
     at whatever default ``setup`` baked in — the confusing "I just logged
     in, yet I'm asked to log in again to a different server" path.
     Recording the just-logged-in server as the default closes that gap.
@@ -11664,14 +11666,14 @@ def login(server_url: str) -> None:
       stores the session JWT when the browser flow completes.
     - header mode: no login needed (proxy injects identity); we
       print a hint and exit successfully.
-    - Databricks-fronted (a Databricks App, or omnigent hosted on
+    - Databricks-fronted (a Databricks App, or agentnexus hosted on
       a workspace API path): detected from the probe response — we
       log in to the workspace via ``databricks auth login --host
       <workspace>`` (browser) and store a pointer record so later
       commands mint fresh workspace tokens automatically. Requires
       the ``databricks`` extra.
 
-    Subsequent ``omnigent run --server <url>`` commands then
+    Subsequent ``agentnexus run --server <url>`` commands then
     use the stored token via the runner / host-tunnel auth chain. A
     successful login also records the server as the user-level default
     (the ``server`` key in ``~/.agentnexus/config.yaml``), so a bare
@@ -11831,7 +11833,7 @@ def _accounts_login(server: str) -> None:
     On success, the session JWT goes to
     ``~/.agentnexus/auth_tokens.json`` via the existing
     :func:`omnigent.cli_auth.store_token`. From there both
-    ``omnigent run`` and ``omnigent host`` pick it up
+    ``agentnexus run`` and ``agentnexus host`` pick it up
     automatically when they call ``--server <url>``.
     """
     import httpx as _httpx
@@ -11901,12 +11903,12 @@ _PANE_SPLIT_DIRECTIONS = ("v", "h", "w")
     "--parent-pane",
     "parent_pane",
     required=True,
-    help="Tmux pane id of the parent omnigent pane (e.g. '%0'). "
+    help="Tmux pane id of the parent AgentNexus pane (e.g. '%0'). "
     "Forwarded by the wrapped key-binding via #{pane_id}.",
 )
 def pane_split(direction: str | None, parent_pane: str) -> None:
     """
-    Split the parent omnigent pane and run the chooser in the new pane.
+    Split the parent AgentNexus pane and run the chooser in the new pane.
 
     Internal subcommand invoked by the tmux key-binding wrappers
     installed by ``omnigent.repl._tmux_pane``. The wrapper fires
@@ -11973,7 +11975,7 @@ def pane_split(direction: str | None, parent_pane: str) -> None:
     "--parent-pane",
     "parent_pane",
     required=True,
-    help="Tmux pane id of the parent omnigent pane (e.g. '%0'). "
+    help="Tmux pane id of the parent AgentNexus pane (e.g. '%0'). "
     "Used to read launch context (agent name, launch argv, server URL) "
     "from custom pane options the parent set via "
     "``omnigent.repl._tmux_pane.register_pane``.",
@@ -11985,7 +11987,7 @@ def pane_picker(parent_pane: str) -> None:
     Internal subcommand. The new tmux pane (created by
     ``omnigent pane-split``) execs this command, which:
 
-    1. Reads the parent omnigent pane's ``@omnigent-launch-argv``
+    1. Reads the parent AgentNexus pane's ``@omnigent-launch-argv``
        and friends.
     2. ``os.execvp``\\s the parent's launch argv to spawn a new
        REPL against the same agent in this pane.
@@ -11996,7 +11998,7 @@ def pane_picker(parent_pane: str) -> None:
     ``designs/REPL_TMUX_PANE_SPLIT.md``. With only one option,
     a chooser is friction; we just exec.
 
-    :param parent_pane: The parent omnigent pane id, e.g. ``%0``.
+    :param parent_pane: The parent AgentNexus pane id, e.g. ``%0``.
     """
     import json
 
@@ -12008,7 +12010,7 @@ def pane_picker(parent_pane: str) -> None:
     launch_argv_json = read_pane_option(parent_pane, OPT_LAUNCH_ARGV)
     if not launch_argv_json:
         click.echo(
-            f"error: parent pane {parent_pane} has no omnigent context "
+            f"error: parent pane {parent_pane} has no AgentNexus context "
             f"(missing {OPT_LAUNCH_ARGV} option). Cannot launch sibling REPL.",
             err=True,
         )
@@ -12240,13 +12242,13 @@ def _ensure_bundled_agent_brain_credential(name: str) -> None:
                 f"No default {family_name} credential set — "
                 f"using {credential_name} "
                 f"({len(candidates)} {family_name} credentials found; "
-                "pick another with: omnigent /model) and saving it as the default."
+                "pick another with: agentnexus /model) and saving it as the default."
             )
         else:
             message = (
                 f"No default {family_name} credential set — "
                 f"using {credential_name} and saving it as the default "
-                "(change anytime with: omnigent /model)."
+                "(change anytime with: agentnexus /model)."
             )
         click.echo(
             message,
@@ -12292,7 +12294,7 @@ def _build_kiro_launch_args(
 def _run_bundled_agent(name: str, run_args: tuple[str, ...]) -> None:
     """Forward a bundled-agent subcommand to ``run`` on its packaged path.
 
-    Implements ``omnigent polly`` / ``omnigent debby``: resolves the bundled
+    Implements ``agentnexus polly`` / ``agentnexus debby``: resolves the bundled
     example directory and re-dispatches through the ``run`` command's own
     parser, so every ``run`` flag (``--server``, ``-p``, ``--resume``, ...)
     works unchanged on the agent shorthands without duplicating ``run``'s
@@ -12300,7 +12302,7 @@ def _run_bundled_agent(name: str, run_args: tuple[str, ...]) -> None:
 
     ``prog_name`` is pinned to ``"agentnexus run"`` so context-derived output —
     usage errors and the :func:`_build_resume_parts` replay prefix — renders
-    as the canonical ``omnigent run <path>`` form, which stays valid when
+    as the canonical ``agentnexus run <path>`` form, which stays valid when
     replayed.
 
     :param name: Bundled example directory name, e.g. ``"polly"``.

@@ -12,7 +12,7 @@ clears).
 The process is launched by the runner-side popup helper (e.g.
 :func:`omnigent.claude_native_bridge.display_cost_approval_popup`) as::
 
-    python -I -m omnigent.native_cost_popup \
+    python -I -m agentnexus.native_cost_popup \
         --config-file <bridge_dir>/cost_popup.json \
         --session-id conv_abc123 \
         --elicitation-id elicit_deadbeef \

@@ -421,7 +421,7 @@ def test_wrap_binding_supports_python_m_fallback_argv(
     # All three prefix tokens must appear, joined by spaces, BEFORE
     # the ``pane-split`` subcommand. If only the python path
     # appears, the fallback path was truncated.
-    assert "/usr/bin/python3 -m omnigent.cli pane-split -v" in chooser, (
+    assert "/usr/bin/python3 -m agentnexus.cli pane-split -v" in chooser, (
         f"python-m fallback prefix not propagated; got chooser={chooser!r}. "
         f"If ``-m omnigent.cli`` is missing, the wrapper would invoke "
         f"the bare python interpreter without telling it what to run."
@@ -578,9 +578,9 @@ def test_register_pane_strips_existing_python_m_prefix_idempotently(
     launch_argv that ALREADY starts with
     ``[<python>, -m, omnigent.cli, ...]`` (because the first
     invocation normalized it and the user's REPL is now running
-    via ``python -m omnigent.cli``). The second invocation must
+    via ``python -m agentnexus.cli``). The second invocation must
     NOT re-prepend, which would produce a doubled
-    ``-m omnigent.cli -m omnigent.cli`` and break the picker
+    ``-m omnigent.cli -m agentnexus.cli`` and break the picker
     when it tries to ``os.execvp`` the duplicated argv.
 
     Claim: after a second ``register_pane`` call, the stored

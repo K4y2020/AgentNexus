@@ -1,6 +1,6 @@
 """Phase 0 characterization test — qwen harness, one-shot prompt.
 
-Runs ``omnigent run hello_world.yaml --harness qwen --model
+Runs ``agentnexus run hello_world.yaml --harness qwen --model
 <model> -p "..."`` as a real subprocess and snapshots structural
 observations (exit code, stderr cleanliness, assistant text
 length). Captured against current AgentNexus; re-run unchanged
@@ -62,7 +62,7 @@ def test_per_harness_qwen_one_shot(
     omnigent_credentials_env: dict[str, str],
 ) -> None:
     """
-    ``omnigent run hello_world.yaml --harness qwen -p <prompt>``
+    ``agentnexus run hello_world.yaml --harness qwen -p <prompt>``
     exits 0 and emits a non-trivial assistant reply.
 
     :param omnigent_python: Interpreter with omnigent

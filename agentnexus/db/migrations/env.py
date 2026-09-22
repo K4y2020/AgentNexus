@@ -21,7 +21,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name, disable_existing_loggers=False)
     # alembic.ini sets ``[logger_alembic] level = INFO`` for verbose
     # debugging during migration authoring. End-user runs of
-    # ``omnigent run -p`` would otherwise dump 3 INFO lines
+    # ``agentnexus run -p`` would otherwise dump 3 INFO lines
     # per fresh DB to stderr. Honor the CLI's ``--verbose`` toggle
     # by checking the root logger: when the root is not at DEBUG
     # (i.e. ``--verbose`` was NOT passed), pull alembic back to

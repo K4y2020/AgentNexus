@@ -4,7 +4,7 @@ Gateway mode sets ``PI_CODING_AGENT_DIR`` to a per-session temp directory for
 ``models.json``. Without seeding that dir from ``~/.pi/agent``, extensions
 installed via ``pi install`` (or listed in global settings) never load (#1423).
 
-This test drives a real ``omnigent run --harness pi`` subprocess with:
+This test drives a real ``agentnexus run --harness pi`` subprocess with:
 
 - an isolated ``HOME`` carrying ``~/.pi/agent/settings.json`` + a marker
   extension;
@@ -92,7 +92,7 @@ def test_pi_gateway_run_loads_global_extensions(
     tmp_path: Path,
 ) -> None:
     """
-    ``omnigent run --harness pi`` in gateway mode loads extensions from the
+    ``agentnexus run --harness pi`` in gateway mode loads extensions from the
     user's global Pi agent settings.
 
     The marker extension writes ``~/omnigent-pi-ext-marker`` on

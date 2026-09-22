@@ -184,7 +184,7 @@ function loadMainHarness({
       platform,
       env: {
         ...process.env,
-        OMNIGENT_DESKTOP_VERSION_OVERRIDE: desktopVersionOverride,
+        AGENTNEXUS_DESKTOP_VERSION_OVERRIDE: desktopVersionOverride,
         // No OMNIGENT_FORCE_DEV_UPDATE_CONFIG injection: main.js now derives
         // forceDevUpdateConfig from !app.isPackaged (always true in this
         // harness), not an env var. The harness still controls the
@@ -267,7 +267,9 @@ describe("in-app navigation menu actions", () => {
     const newWindowItem = findMenuItem(menu, "new_window");
 
     settingsItem.click();
-    assert.deepEqual(harness.calls.sent, [{ channel: "agentnexus:open-path", payload: "/settings" }]);
+    assert.deepEqual(harness.calls.sent, [
+      { channel: "agentnexus:open-path", payload: "/settings" },
+    ]);
 
     assert.equal(newSessionItem.label, "New Session");
     assert.equal(newSessionItem.accelerator, "CmdOrCtrl+N");

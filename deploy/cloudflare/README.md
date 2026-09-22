@@ -19,6 +19,13 @@ URL (or your domain), and the container sleeps when idle.
 
 ## How it works
 
+The Worker name (`omnigent`), Durable Object class/binding
+(`OmnigentServer` / `OMNIGENT`) and default bucket (`omnigent-artifacts`) are
+deployment identities retained across the rename. Reuse them for upgrades.
+New deployments can customize the Worker and bucket names consistently.
+Legacy `OMNIGENT_*` secret inputs remain readable until version 2.0;
+`AGENTNEXUS_*` values take precedence, including explicitly empty values.
+
 ```
         HTTPS / WebSocket
 browser ───────────────►  Worker (src/index.js)
@@ -29,7 +36,7 @@ browser ───────────────►  Worker (src/index.js)
                           DATABASE_URL ───────┘            │  S3 API (boto3)
                           cloudflare_d1://…                ▼
                                  │                  AGENTNEXUS_ARTIFACT_URI
-                                 ▼                  s3://agentnexus-artifacts
+                                 ▼                  s3://omnigent-artifacts
                           Cloudflare D1                    │
                           (SQLite, the DB)                 ▼
                                                     Cloudflare R2
@@ -84,7 +91,7 @@ npx wrangler d1 create agentnexus
 ### 2. Create the R2 bucket
 
 ```bash
-npx wrangler r2 bucket create agentnexus-artifacts
+npx wrangler r2 bucket create omnigent-artifacts
 ```
 
 ### 3. A D1 API token (for `DATABASE_URL`)
@@ -137,13 +144,13 @@ npx wrangler secret put AWS_SECRET_ACCESS_KEY
 
 ```bash
 npx wrangler deploy
-# -> https://agentnexus.<your-subdomain>.workers.dev
+# -> https://omnigent.<your-subdomain>.workers.dev
 ```
 
 The container cold-starts on the first request (~10s), then stays warm:
 
 ```bash
-curl https://agentnexus.<your-subdomain>.workers.dev/health   # {"status":"ok"}
+curl https://omnigent.<your-subdomain>.workers.dev/health   # {"status":"ok"}
 ```
 
 On a brand-new D1, the **first** boot runs all migrations before the server
@@ -157,8 +164,8 @@ Then connect a machine to actually run agents (the server is just the control
 plane):
 
 ```bash
-agentnexus login https://agentnexus.<your-subdomain>.workers.dev
-agentnexus host  --server https://agentnexus.<your-subdomain>.workers.dev
+agentnexus login https://omnigent.<your-subdomain>.workers.dev
+agentnexus host  --server https://omnigent.<your-subdomain>.workers.dev
 ```
 
 ## Verifying durability

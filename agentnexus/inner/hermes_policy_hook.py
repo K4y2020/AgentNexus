@@ -57,7 +57,8 @@ def main() -> None:
     # AgentNexus relay tools are already gated when the relay dispatches them back
     # through the server's tool path; gating them here too parks a duplicate approval
     # card whose long-poll hangs. Hermes' own tools lack the prefix and stay gated.
-    if tool_name.startswith(("mcp_omnigent_", "mcp__omnigent__")):
+    # Legacy relay spellings remain readable until 2.0.
+    if tool_name.startswith(("mcp_agentnexus_", "mcp__agentnexus__", "mcp_omnigent_", "mcp__omnigent__")):
         json.dump({}, sys.stdout)
         return
 

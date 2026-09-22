@@ -15,17 +15,17 @@ use tokio::sync::mpsc;
 use crate::state::Shared;
 use crate::supervisor::Cmd;
 
-/// Start watching `omnigent_dir` for `*.py` changes. Coalesced bursts become a
+/// Start watching `agentnexus_dir` for `*.py` changes. Coalesced bursts become a
 /// single `Cmd::Reload(n)` on `cmd_tx`. The returned debouncer must be kept
 /// alive for the watch to persist.
 ///
-/// Gitignored files (e.g. the build-time `omnigent/_build_info.py`) are skipped
+/// Gitignored files (e.g. the build-time `agentnexus/_build_info.py`) are skipped
 /// so churn from generated files doesn't trigger reloads. With `debug` on, every
 /// observed change is logged with whether it triggered a reload or why it was
 /// skipped.
 pub fn spawn(
     repo_root: &Path,
-    omnigent_dir: &Path,
+    agentnexus_dir: &Path,
     shared: Arc<Mutex<Shared>>,
     debug: bool,
     cmd_tx: mpsc::UnboundedSender<Cmd>,
@@ -72,8 +72,8 @@ pub fn spawn(
     .context("creating file watcher")?;
 
     debouncer
-        .watch(omnigent_dir, RecursiveMode::Recursive)
-        .with_context(|| format!("watching {}", omnigent_dir.display()))?;
+        .watch(agentnexus_dir, RecursiveMode::Recursive)
+        .with_context(|| format!("watching {}", agentnexus_dir.display()))?;
 
     Ok(debouncer)
 }
@@ -87,7 +87,7 @@ fn is_mutating(kind: &EventKind) -> bool {
 
 /// Build a gitignore matcher from the repo's root `.gitignore` and
 /// `.git/info/exclude`. Both are best-effort — a missing or malformed file just
-/// contributes no rules. Nested `.gitignore` files under `omnigent/` are not
+/// contributes no rules. Nested `.gitignore` files under `agentnexus/` are not
 /// consulted (the repo has none today); add them here if that changes.
 fn build_ignore(repo_root: &Path) -> Gitignore {
     let mut b = GitignoreBuilder::new(repo_root);
@@ -137,8 +137,8 @@ mod tests {
 
     #[test]
     fn plain_python_file_triggers_reload() {
-        let ig = ignore_with("omnigent/_build_info.py");
-        assert_eq!(classify(Path::new("/repo/omnigent/cli.py"), &ig), Ok(()));
+        let ig = ignore_with("agentnexus/_build_info.py");
+        assert_eq!(classify(Path::new("/repo/agentnexus/cli.py"), &ig), Ok(()));
     }
 
     #[test]
@@ -155,9 +155,9 @@ mod tests {
 
     #[test]
     fn gitignored_python_file_is_skipped() {
-        let ig = ignore_with("omnigent/_build_info.py");
+        let ig = ignore_with("agentnexus/_build_info.py");
         assert_eq!(
-            classify(Path::new("/repo/omnigent/_build_info.py"), &ig),
+            classify(Path::new("/repo/agentnexus/_build_info.py"), &ig),
             Err("gitignored")
         );
     }
@@ -167,25 +167,25 @@ mod tests {
         // A directory rule must ignore everything beneath it, like git does.
         let ig = ignore_with("build/");
         assert_eq!(
-            classify(Path::new("/repo/omnigent/build/foo.py"), &ig),
+            classify(Path::new("/repo/agentnexus/build/foo.py"), &ig),
             Err("gitignored")
         );
     }
 
     #[test]
     fn non_python_file_is_skipped() {
-        let ig = ignore_with("omnigent/_build_info.py");
+        let ig = ignore_with("agentnexus/_build_info.py");
         assert_eq!(
-            classify(Path::new("/repo/omnigent/notes.txt"), &ig),
+            classify(Path::new("/repo/agentnexus/notes.txt"), &ig),
             Err("non-.py")
         );
     }
 
     #[test]
     fn pycache_file_is_skipped() {
-        let ig = ignore_with("omnigent/_build_info.py");
+        let ig = ignore_with("agentnexus/_build_info.py");
         assert_eq!(
-            classify(Path::new("/repo/omnigent/__pycache__/cli.py"), &ig),
+            classify(Path::new("/repo/agentnexus/__pycache__/cli.py"), &ig),
             Err("__pycache__")
         );
     }

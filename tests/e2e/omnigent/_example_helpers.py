@@ -2,7 +2,7 @@
 
 Each example under ``examples/`` has its own test file that
 exercises that example's intended functionality through the real
-``omnigent run`` subprocess. The helpers in this module keep the
+``agentnexus run`` subprocess. The helpers in this module keep the
 per-file boilerplate minimal: resolve the YAML path, build argv,
 run subprocess, assert common invariants.
 
@@ -141,7 +141,7 @@ def run_one_shot(
     model: str | None = DEFAULT_MODEL,
 ) -> subprocess.CompletedProcess[str]:
     """
-    Invoke ``omnigent run <yaml> -p <prompt>`` one-shot.
+    Invoke ``agentnexus run <yaml> -p <prompt>`` one-shot.
 
     :param omnigent_python: Interpreter with omnigent + required
         SDKs installed. Provided by the ``omnigent_python`` fixture.
@@ -395,7 +395,7 @@ def assert_completed_one_shot(
     example_name: str,
 ) -> None:
     """
-    Assert a one-shot ``omnigent run`` finished cleanly.
+    Assert a one-shot ``agentnexus run`` finished cleanly.
 
     :param result: The completed subprocess, as returned by
         :func:`run_one_shot`.
@@ -540,7 +540,7 @@ def materialize_yaml_with_mcp_auth(
     Copy *source* into *dest_dir* and rewrite every MCP
     subprocess's auth args to match *override*.
 
-    Returns the path to pass to ``omnigent run``:
+    Returns the path to pass to ``agentnexus run``:
     - For a single-file YAML source, the rewritten single-file
       YAML at ``<dest_dir>/<name>``.
     - For a directory source (AGENTSPEC), a new AGENTSPEC

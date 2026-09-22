@@ -60,7 +60,7 @@ class SandboxCapabilities:
     Providers advertise which primitives they support so callers can fail
     fast and surface actionable messages.
 
-    :param cli_bootstrap: Provider supports ``omnigent sandbox create`` /
+    :param cli_bootstrap: Provider supports ``agentnexus sandbox create`` /
         ``connect`` (``put`` / ``stream_exec`` / ``exec_foreground`` /
         ``wheel_install_command``).
     :param managed_launch: Provider supports server-managed

@@ -263,11 +263,11 @@ for (const tracked of ["Bug fix", "Feature", "UI / frontend change"]) {
   assert.deepStrictEqual(refs("blah\nRelated to #5\nblah"), [5], "Related to #N");
   assert.deepStrictEqual(refs("Towards #9"), [9], "Towards #N");
   assert.deepStrictEqual(
-    refs("Part of https://github.com/agentnexus-ai/agentnexus/issues/321"),
+    refs("Part of https://github.com/K4y2020/AgentNexus/issues/321"),
     [321],
     "full issue URL"
   );
-  assert.deepStrictEqual(refs("Refs agentnexus-ai/agentnexus#77"), [77], "cross-repo ref");
+  assert.deepStrictEqual(refs("Refs K4y2020/AgentNexus#77"), [77], "cross-repo ref");
   assert.deepStrictEqual(refs("Part of #7 and refs #7"), [7], "dedupes");
   // A bare mention is a cross-reference, not a statement about this PR.
   assert.deepStrictEqual(refs("similar to #77 maybe"), [], "bare #N does not count");

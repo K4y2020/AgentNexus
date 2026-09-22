@@ -32,7 +32,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         }
 
         self.assertEqual(
-            extract_issue_references(issue, "agentnexus-ai/omnigent"),
+            extract_issue_references(issue, "K4y2020/AgentNexus"),
             [3101, 2386, 3085],
         )
 
@@ -52,7 +52,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                 {"number": 21, "title": "newer", "state": "open"},
                 {"number": 17, "title": "Host cwd", "state": "closed"},
             ],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         self.assertEqual([candidate["number"] for candidate in candidates], [17, 18])
@@ -589,7 +589,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                     "state": "open",
                 },
             ],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         self.assertEqual(candidates[0]["number"], 2304)
@@ -613,7 +613,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                     "state": "open",
                 },
             ],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         self.assertEqual(candidates[0]["number"], 1464)
@@ -627,7 +627,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         candidates = rank_candidates(
             issue,
             [{"number": 17, "title": "Unrelated phrasing entirely", "state": "closed"}],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         self.assertEqual([candidate["number"] for candidate in candidates], [17])
@@ -642,7 +642,7 @@ class IssueDuplicatesTest(unittest.TestCase):
         candidates = rank_candidates(
             issue,
             [{"number": 2888, "title": "Unrelated local issue", "state": "open"}],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         self.assertEqual(candidates, [])
@@ -700,7 +700,7 @@ class IssueDuplicatesTest(unittest.TestCase):
                 crash(2993, "ModuleNotFoundError: No module named 'termios'"),
                 crash(3261, "AttributeError: module 'os' has no attribute 'WNOHANG'"),
             ],
-            repository="agentnexus-ai/omnigent",
+            repository="K4y2020/AgentNexus",
         )
 
         for candidate in candidates:

@@ -15,7 +15,7 @@ dependencies = [
     # the relative path below so the SDK can be installed
     # editable alongside the root ``agentnexus`` package. Version-locked
     # (==) so a published SDK always pairs with the server release it
-    # shipped with (release-agentnexus.yml verifies the pin).
+    # shipped with (release-omnigent.yml verifies the pin).
     "agentnexus==0.12.0.dev0",
     "httpx>=0.27",
     "pydantic>=2.0,<3",

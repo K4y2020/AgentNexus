@@ -13,4 +13,4 @@ def cap_tool_output(output: str) -> str:
     omitted = len(encoded) - MAX_TOOL_OUTPUT_BYTES
     # Drop a partial trailing multibyte char left by slicing on a byte boundary.
     kept = encoded[:MAX_TOOL_OUTPUT_BYTES].decode("utf-8", errors="ignore")
-    return f"{kept}\n\n[output truncated by omnigent: {omitted} of {len(encoded)} bytes omitted]"
+    return f"{kept}\n\n[output truncated by AgentNexus: {omitted} of {len(encoded)} bytes omitted]"

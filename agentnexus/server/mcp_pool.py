@@ -57,6 +57,12 @@ class _McpServerEntry:
     connection: McpServerConnection | None = None
     tools: list[McpToolDef] = field(default_factory=list)
     error: str | None = None
+    active_calls: int = 0
+    calls_drained: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
+
+    def __post_init__(self) -> None:
+        """Start in the drained state so eviction can close immediately."""
+        self.calls_drained.set()
 
 
 @dataclass
@@ -222,22 +228,32 @@ class ServerMcpPool:
 
         async with self._lock:
             entry = self._entries.get(agent_id)
-        if entry is None:
-            raise RuntimeError(f"failed to initialize MCP pool for agent {agent_id!r}")
+            if entry is None:
+                raise RuntimeError(f"failed to initialize MCP pool for agent {agent_id!r}")
 
-        server = entry.servers.get(server_name)
-        if server is None:
-            raise RuntimeError(f"agent {agent_id!r} has no MCP server named {server_name!r}")
-        if server.error is not None:
-            raise RuntimeError(
-                f"MCP server {server_name!r} (agent {agent_id!r}) is unhealthy: {server.error}"
-            )
-        if server.connection is None:
-            raise RuntimeError(
-                f"MCP server {server_name!r} (agent {agent_id!r}) has no live "
-                "connection — connect() may have been skipped"
-            )
-        return await server.connection.call_tool(tool_name, arguments)
+            server = entry.servers.get(server_name)
+            if server is None:
+                raise RuntimeError(f"agent {agent_id!r} has no MCP server named {server_name!r}")
+            if server.error is not None:
+                raise RuntimeError(
+                    f"MCP server {server_name!r} (agent {agent_id!r}) is unhealthy: {server.error}"
+                )
+            connection = server.connection
+            if connection is None:
+                raise RuntimeError(
+                    f"MCP server {server_name!r} (agent {agent_id!r}) has no live "
+                    "connection — connect() may have been skipped"
+                )
+            server.active_calls += 1
+            server.calls_drained.clear()
+
+        try:
+            return await connection.call_tool(tool_name, arguments)
+        finally:
+            async with self._lock:
+                server.active_calls -= 1
+                if server.active_calls == 0:
+                    server.calls_drained.set()
 
     async def shutdown_for(self, agent_id: str) -> None:
         """Close all connections for an agent and remove its pool entry.
@@ -266,6 +282,19 @@ class ServerMcpPool:
             self._lru.clear()
         for entry in entries:
             await self._close_entry(entry)
+        # Capacity/spec invalidations close entries in background tasks so the
+        # request path stays responsive. Server shutdown must wait for those
+        # tasks, otherwise an in-flight MCP call can outlive the server.
+        while True:
+            async with self._lock:
+                evictions = tuple(self._evict_tasks)
+            if not evictions:
+                break
+            await asyncio.gather(*evictions, return_exceptions=True)
+            async with self._lock:
+                # The done callbacks normally discard these references, but
+                # shutdown must not depend on the callback scheduling turn.
+                self._evict_tasks.difference_update(evictions)
 
     async def _ensure_warm(
         self,
@@ -373,6 +402,8 @@ class ServerMcpPool:
         if entry.prewarm_task is not None and not entry.prewarm_task.done():
             entry.prewarm_task.cancel()
         for server in entry.servers.values():
+            if server.active_calls:
+                await server.calls_drained.wait()
             if server.connection is not None:
                 try:
                     await server.connection.close()

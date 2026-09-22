@@ -67,7 +67,7 @@ DEFAULT_BUILD_LOG: str = "/tmp/lakebox-build.log"
 """Default ``uv build`` log location."""
 
 DEFAULT_SANDBOX_NAME: str = "agentnexus-host"
-"""Default label used when ``omnigent sandbox create`` provisions a
+"""Default label used when ``agentnexus sandbox create`` provisions a
 new sandbox."""
 
 _REMOTE_WHEELS_TGZ: str = "/tmp/oa-wheels.tgz"
@@ -293,7 +293,7 @@ def _read_login_url(stream: Iterable[str]) -> str | None:
         tests).
     :returns: The authorize URL, or ``None`` when the stream ends
         without printing one — which is NOT necessarily an error:
-        ``omnigent login`` reuses a cached workspace OAuth grant when
+        ``agentnexus login`` reuses a cached workspace OAuth grant when
         one verifies against the server, completing without a browser
         step. The caller distinguishes success from failure by the
         process's exit code.
@@ -389,7 +389,7 @@ def derive_workspace(server_url: str) -> DerivedWorkspace | None:
     """
     Return the Databricks workspace fronting *server_url*, if any.
 
-    Runs the same unauthenticated detection ``omnigent login``
+    Runs the same unauthenticated detection ``agentnexus login``
     performs — but from the LOCAL machine. Two consumers: the in-sandbox
     login step seeds the sandbox's ``~/.databrickscfg`` with the result,
     and the sandbox CLI commands pin their local ``databricks lakebox``
@@ -425,7 +425,7 @@ def login_app_oauth_in_sandbox(
     skip: bool = False,
 ) -> None:
     """
-    Log the sandbox in to *server_url* by running ``omnigent login``
+    Log the sandbox in to *server_url* by running ``agentnexus login``
     **inside the sandbox**, driving the browser step from the local
     machine.
 
@@ -442,7 +442,7 @@ def login_app_oauth_in_sandbox(
 
     The sandbox is headless, so when the login needs a browser this:
 
-    1. runs ``omnigent login <server_url>`` inside the sandbox over a
+    1. runs ``agentnexus login <server_url>`` inside the sandbox over a
        PTY;
     2. reads the dynamically-chosen loopback callback port back from the
        printed authorize URL;
@@ -546,7 +546,7 @@ def _complete_browser_login(
     login: RemoteProcess,
 ) -> None:
     """
-    Drive the browser half of an in-sandbox ``omnigent login``.
+    Drive the browser half of an in-sandbox ``agentnexus login``.
 
     Reads the authorize URL off the login process's output, bridges the
     URL's dynamically-chosen loopback callback port into the sandbox,
@@ -565,7 +565,7 @@ def _complete_browser_login(
     """
     url = _read_login_url(login.lines)
     if url is None:
-        # No browser needed: `omnigent login` verified a cached
+        # No browser needed: `agentnexus login` verified a cached
         # workspace grant against the server (or failed before the
         # browser step — the exit code tells which).
         returncode = login.wait()
@@ -653,7 +653,7 @@ def connect_sandbox_host(
     The remote command is always the bare ``omnigent host --server
     <url>``: ``omnigent host`` no longer takes a ``--profile`` flag
     — it resolves credentials itself, via a stored
-    ``omnigent login`` token or the sandbox's ambient Databricks
+    ``agentnexus login`` token or the sandbox's ambient Databricks
     credentials (e.g. the Lakebox image's baked workspace PAT, which
     authenticates to servers in the sandbox's own workspace).
 
@@ -707,7 +707,7 @@ def bootstrap_sandbox_host(
     Run the full sandbox-host bootstrap end-to-end.
 
     Six steps: provider preflight → provision or attach sandbox →
-    keep-alive → build wheels → ship wheels → ``omnigent login``
+    keep-alive → build wheels → ship wheels → ``agentnexus login``
     inside the sandbox.
 
     :param launcher: The provider's launcher.

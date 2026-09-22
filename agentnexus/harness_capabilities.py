@@ -133,7 +133,7 @@ class HarnessCapabilities:
         provokes to verify tool-calling (e.g. ``"Bash"``, ``"shell"``). ``None``
         skips the bench's tool/policy probe for this harness.
     :param shell_tool_prompt: The prompt the bench sends to provoke that tool.
-        Must contain the ``omnigent-bench-ok`` placeholder the probe token-swaps.
+        Must contain the ``agentnexus-bench-ok`` placeholder the probe token-swaps.
         ``None`` skips the probe.
     :param instruction_delivery: Whether and how ``AgentSpec.instructions``
         reach the vendor agent. Defaults to ``UNKNOWN`` for undeclared/

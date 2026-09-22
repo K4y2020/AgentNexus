@@ -174,8 +174,10 @@ async def test_send_agent_message_not_found_404():
         return_value=httpx.Response(404, json={"code": "SESSION_NOT_FOUND"})
     )
     async with SeedanceClient(base_url=_BASE, api_key="test-key") as client:
-        with pytest.raises(SeedanceNotFoundError):
+        with pytest.raises(SeedanceNotFoundError) as exc_info:
             await client.send_agent_message("sess_missing", "Hello")
+        assert exc_info.value.code == "SESSION_NOT_FOUND"
+        assert "SESSION_NOT_FOUND" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

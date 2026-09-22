@@ -318,8 +318,8 @@ _ID = InstructionDelivery
 # _NATIVE_TOOL_PROVOCATION table): the generic variant, and a Bash-specific one
 # for harnesses whose exec tool is literally "Bash". Both keep the
 # "agentnexus-bench-ok" placeholder the bench token-swaps per allow/deny probe.
-_SHELL_PROMPT = "Use your shell/terminal tool to run this exact command: echo omnigent-bench-ok"
-_BASH_PROMPT = "Use the Bash tool to run this exact command: echo omnigent-bench-ok"
+_SHELL_PROMPT = "Use your shell/terminal tool to run this exact command: echo agentnexus-bench-ok"
+_BASH_PROMPT = "Use the Bash tool to run this exact command: echo agentnexus-bench-ok"
 
 # Trailing two bools are (interrupt, streaming). Only the four P0 SDK harnesses
 # (claude-sdk, codex, pi, openai-agents) have these verified live by the harness
@@ -1169,7 +1169,7 @@ def harness_catalog() -> list[dict[str, object]]:
     :meth:`HarnessCapabilities.as_dict`). ``setup_steps`` lists the ordered
     requirements to get the harness ready on a host (install + auth), so the
     web UI can render a "set up this agent" checklist that mirrors
-    ``omnigent setup``; the host reports each step's status in its readiness map.
+    ``agentnexus setup``; the host reports each step's status in its readiness map.
     """
     labels = harness_labels()
     capabilities = harness_capabilities()

@@ -104,7 +104,7 @@ def test_conversation_link_for_id_maps_workspace_hosted_server_to_ui_mount(
     (``/api/2.0/omnigent``) — into the registry. A naive
     ``{base}/c/<id>`` would put the JSON API path in the tmux status
     bar; the link must instead land on the ``/omnigent`` SPA mount and
-    carry the ``?o=<org>`` selector ``omnigent login`` recorded, exactly
+    carry the ``?o=<org>`` selector ``agentnexus login`` recorded, exactly
     like the CLI's ``Web UI:`` line. Pins parity with
     :func:`omnigent.conversation_browser.conversation_url`.
 

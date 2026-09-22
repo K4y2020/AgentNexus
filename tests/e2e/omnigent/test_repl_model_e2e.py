@@ -1,6 +1,6 @@
 """E2E: /model command in the AgentNexus REPL under pexpect.
 
-Migrated to mock LLM: drives ``/model`` against a mock ``omnigent run``
+Migrated to mock LLM: drives ``/model`` against a mock ``agentnexus run``
 REPL and asserts the slash-command surface — show / set / show-after-set
 / reset — matches the design's contract end-to-end. No real Databricks
 credentials required.

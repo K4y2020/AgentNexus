@@ -1,6 +1,6 @@
-//! Daily update check for a git-installed omnigent.
+//! Daily update check for a git-installed agentnexus.
 //!
-//! Fills a real gap: omnigent's own update notice only works for PyPI-wheel
+//! Fills a real gap: agentnexus's own update notice only works for PyPI-wheel
 //! installs and bails on VCS installs. The hot path (`check`) never blocks on
 //! the network — it reads a cache and spawns a detached `refresh` when stale.
 
@@ -165,7 +165,7 @@ pub fn check(quiet: bool) -> Result<()> {
     let installed = installed_commit(&cache);
     if !update_available(&cache, installed.as_deref()) {
         if !quiet {
-            println!("omnigent is up to date.");
+            println!("agentnexus is up to date.");
         }
         return Ok(());
     }
@@ -177,7 +177,7 @@ pub fn check(quiet: bool) -> Result<()> {
         .map(short)
         .unwrap_or_else(|| "unknown".to_string());
     eprintln!(
-        "omnigent update available: {} → {} (git)",
+        "agentnexus update available: {} → {} (git)",
         installed_desc,
         short(&remote),
     );
@@ -187,7 +187,7 @@ pub fn check(quiet: bool) -> Result<()> {
         return Ok(());
     }
 
-    if prompt_yes_no("Update omnigent now? [y/N] ") {
+    if prompt_yes_no("Update agentnexus now? [y/N] ") {
         install::update()?;
     } else {
         // Don't re-nag for this same commit.

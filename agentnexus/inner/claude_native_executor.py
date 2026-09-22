@@ -41,7 +41,7 @@ _logger = logging.getLogger(__name__)
 
 class ClaudeNativeExecutor(Executor):
     """
-    Harness-side executor for ``omnigent claude`` web UI turns.
+    Harness-side executor for ``agentnexus claude`` web UI turns.
 
     It does not launch Claude itself. The native wrapper has already
     launched Claude Code in the session terminal with the AgentNexus

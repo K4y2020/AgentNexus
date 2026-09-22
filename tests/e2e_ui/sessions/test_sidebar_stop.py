@@ -5,7 +5,7 @@ runner tunnel drops, the open chat flips to ``local_stranded`` liveness
 (not host-bound → no host to relaunch it), and the composer area swaps in
 the "Agent disconnected — click to reconnect" banner
 (``data-testid="disconnected-indicator"``). Clicking it opens the
-reconnect dialog with the exact ``omnigent run … --resume <id>`` command
+reconnect dialog with the exact ``agentnexus run … --resume <id>`` command
 to bring the session back from the user's own machine.
 
 The e2e harness binds a tunneled, non-host runner, so the sidebar kebab's

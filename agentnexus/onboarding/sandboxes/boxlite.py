@@ -226,7 +226,7 @@ class BoxliteSandboxLauncher(SandboxLauncher):
             In cloud mode the API key is read from ``BOXLITE_API_KEY`` in the
             server environment (12-factor; never in the config file) via
             ``ApiKeyCredential.from_env()``.
-        :param image: Registry image reference with omnigent pre-installed, e.g.
+        :param image: Registry image reference with AgentNexus pre-installed, e.g.
             ``"docker.io/me/omnigent-host:latest"`` — the server's
             ``sandbox.boxlite.image`` config. ``None`` resolves
             :data:`HOST_IMAGE_ENV_VAR` and falls back to

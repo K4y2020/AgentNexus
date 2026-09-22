@@ -92,7 +92,7 @@ def test_from_api_base_prefers_url_selector_over_store(tmp_path, monkeypatch) ->
 
 
 def test_from_api_base_falls_back_to_login_record(tmp_path, monkeypatch) -> None:
-    """Without a URL selector, the ``omnigent login`` record supplies it."""
+    """Without a URL selector, the ``agentnexus login`` record supplies it."""
     from agentnexus.cli_auth import store_databricks_auth
 
     monkeypatch.setattr(
@@ -108,7 +108,7 @@ def test_from_api_base_falls_back_to_login_record(tmp_path, monkeypatch) -> None
 
 
 def test_display_round_trips_through_login_resolution(monkeypatch) -> None:
-    """The display URL, pasted into ``omnigent login``, resolves back.
+    """The display URL, pasted into ``agentnexus login``, resolves back.
 
     The whole point of showing ``https://<ws>/omnigent?o=<org>`` in
     messages and login hints is that copy-pasting it reaches the same
@@ -170,7 +170,7 @@ def test_org_id_from_url(url: str, expected: str | None) -> None:
         # Trailing slash on the API mount still maps cleanly.
         (
             "https://ws.databricks.com/api/2.0/agentnexus/",
-            "https://ws.databricks.com/omnigent",
+            "https://ws.databricks.com/agentnexus",
         ),
         # Non-Databricks URLs pass through unchanged (sans trailing slash).
         ("http://127.0.0.1:6767", "http://127.0.0.1:6767"),

@@ -211,7 +211,7 @@ def test_claude_terminal_request_injects_claude_config(tmp_path, monkeypatch) ->
     """
     Ucode config reaches the terminal env, settings, and model argv.
 
-    This test pins the native ``omnigent claude`` launch boundary:
+    This test pins the native ``agentnexus claude`` launch boundary:
     a regression that reads ucode but forgets to pass the resulting
     Databricks gateway values to the terminal resource would leave
     Claude Code on its default provider path.
@@ -1422,7 +1422,7 @@ def test_local_run_persists_launch_state_on_fresh_session(
     )
     captured = capsys.readouterr()
     web_ui = "Web UI: http://127.0.0.1:12345/c/conv_local_fresh"
-    resume_hint = "Resume with: omnigent claude --resume conv_local_fresh"
+    resume_hint = "Resume with: agentnexus claude --resume conv_local_fresh"
     assert web_ui in captured.err
     assert resume_hint in captured.err
     assert captured.err.index(web_ui) < captured.err.index(resume_hint)
@@ -1609,7 +1609,7 @@ def test_local_resume_does_not_print_redundant_resume_hint(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """
-    ``omnigent claude --resume`` does not echo another resume prompt.
+    ``agentnexus claude --resume`` does not echo another resume prompt.
 
     The final hint is useful when a fresh launch creates a new
     conversation id. On an explicit resume, the user already supplied
@@ -1696,7 +1696,7 @@ def test_remote_daemon_run_attaches_without_cli_forwarder(
     tmp_path: Path,
 ) -> None:
     """
-    Daemon-routed ``omnigent claude`` leaves forwarding to the runner.
+    Daemon-routed ``agentnexus claude`` leaves forwarding to the runner.
 
     The daemon path launches a runner, the runner auto-creates the
     Claude terminal, and that auto-create starts the transcript
@@ -2342,7 +2342,7 @@ async def test_prepare_reattaches_existing_claude_terminal(
     """
     Existing running ``claude/main`` terminals are reused before bind.
 
-    If this regresses, a second ``omnigent claude --session`` can
+    If this regresses, a second ``agentnexus claude --session`` can
     rebind the session to a new local runner and launch a duplicate
     terminal instead of attaching to the live one.
     """
@@ -3056,7 +3056,7 @@ async def test_create_claude_session_omits_title_for_generic_seed_path() -> None
 # ---------------------------------------------------------------------------
 # Reconnect tests
 #
-# These tests cover the reconnect loop that lets ``omnigent claude``
+# These tests cover the reconnect loop that lets ``agentnexus claude``
 # survive a remote-server bounce. The bug they guard against:
 # previously, a single transient WebSocket close took down the entire
 # TUI session — the user had to relaunch and lost their live Claude
@@ -3176,7 +3176,7 @@ async def test_attach_with_reconnect_passes_terminal_gone_probe_to_attach(
     """
     Reconnect wiring enables the client-side terminal-gone watcher.
 
-    The production ``omnigent claude`` path passes
+    The production ``agentnexus claude`` path passes
     :func:`attach_local_terminal` through ``_attach_with_reconnect``.
     This test pins the handoff: when client-side close-on-gone is
     enabled, the attach callable receives a probe that checks the
@@ -4031,7 +4031,7 @@ async def test_attach_reconnects_through_real_websocket_bounce(
     server closes its WebSocket mid-session.
 
     This is the regression test for the reconnect loop. The bug:
-    ``omnigent claude`` exited after the first WebSocket close, so
+    ``agentnexus claude`` exited after the first WebSocket close, so
     a server redeploy ended the user's Claude session. The fix wraps
     the attach in a reconnect loop guarded by a recovery callback;
     this test drives that loop against a real websockets server that
@@ -5130,7 +5130,7 @@ async def test_resolve_cold_resume_args_warns_when_external_session_id_missing(
 async def test_resolve_cold_resume_args_rejects_non_claude_native_conv() -> None:
     """
     A conv whose wrapper label is NOT claude-native is an
-    ``omnigent claude --resume <run-conv-id>`` programmer error.
+    ``agentnexus claude --resume <run-conv-id>`` programmer error.
     Fail loud with a redirect hint rather than silently launching
     claude over a chat session whose state the wrapper doesn't
     own.
@@ -5487,7 +5487,7 @@ async def test_prepare_claude_terminal_fresh_session_is_not_cold_resumed(
 
 
 def test_wrapper_spec_raw_instructions_resolves_prompt(tmp_path: Path) -> None:
-    """The ``omnigent claude`` wrapper's own materialized spec is resolvable.
+    """The ``agentnexus claude`` wrapper's own materialized spec is resolvable.
 
     Its ``prompt`` field is real ``AgentSpec.instructions`` content (the
     bridge-behavior description), not framework-composed text, so it must
@@ -6020,7 +6020,7 @@ def test_align_working_directory_switch_action_chdirs(
     Mismatched cwd, recorded path exists, user chooses switch → chdir.
 
     This is the happy-path fix for the bug the user reported:
-    ``omnigent claude --resume`` invoked from a different
+    ``agentnexus claude --resume`` invoked from a different
     directory than the session was started in must offer to
     switch, and on switch must actually mutate the process cwd so
     subsequent ``Path.cwd()`` reads in the launch flow see the
@@ -7895,8 +7895,8 @@ def test_resolve_native_claude_config_global_databricks_auth_uses_ucode(
 
     Preserves the Databricks behavior after the ``--profile`` flag removal:
     a databricks user (no OSS provider configured) who set up a global
-    ``auth:`` block via ``omnigent setup`` still routes a bare
-    ``omnigent claude`` launch through ucode, keyed on the auth block's
+    ``auth:`` block via ``agentnexus setup`` still routes a bare
+    ``agentnexus claude`` launch through ucode, keyed on the auth block's
     own profile. We assert the resolver delegates to
     `_ucode_config_for_profile` with that profile.
     """
@@ -7954,7 +7954,7 @@ def test_resolve_native_claude_config_ambient_key(
 ) -> None:
     """Spec-less with only an ambient ANTHROPIC_API_KEY → provider config.
 
-    First run without configure: a native `omnigent claude` launch still
+    First run without configure: a native `agentnexus claude` launch still
     routes through the detected env key. Failure means a fresh machine's
     native Claude would ignore the ambient credential.
     """

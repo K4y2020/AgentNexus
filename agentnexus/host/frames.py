@@ -632,7 +632,7 @@ class HostInstallHarnessFrame:
     the Web UI's New Chat dialog so a user can install a missing,
     npm-installable harness onto a connected host without dropping to a
     terminal. The host runs the same :func:`install_harness_cli` the
-    ``omnigent setup`` wizard uses. Only allowlisted, npm-installable
+    ``agentnexus setup`` wizard uses. Only allowlisted, npm-installable
     harnesses reach this frame — the server rejects curl/brew and
     interactive-auth harnesses before sending it.
 
@@ -688,7 +688,7 @@ class HostStoreSecretFrame:
     Web UI's setup dialog so a user can configure a Claude / Codex / Pi
     credential on a connected host without a terminal. The host writes it with
     the same non-interactive core (:func:`store_harness_credential`) the
-    ``omnigent setup`` wizard's "add a key / gateway" path uses: the secret goes
+    ``agentnexus setup`` wizard's "add a key / gateway" path uses: the secret goes
     to the OS keychain (else ``~/.agentnexus/secrets.json``), and ``config.yaml``
     gets a ``providers:`` entry referencing it by ``keychain:<name>`` — never
     the raw secret.

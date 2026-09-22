@@ -177,11 +177,13 @@ describe("normalizeSavedServerUrl", () => {
     );
   });
 
-  it("maps the legacy plural API mount to the current UI mount", () => {
-    assert.equal(
-      normalizeSavedServerUrl("https://ws.azuredatabricks.net/api/2.0/agentnexuss"),
-      "https://ws.azuredatabricks.net/agentnexus",
-    );
+  it("preserves the UI mount of legacy deployments", () => {
+    for (const mount of ["omnigent", "omnigents"]) {
+      assert.equal(
+        normalizeSavedServerUrl(`https://ws.azuredatabricks.net/api/2.0/${mount}?o=123`),
+        "https://ws.azuredatabricks.net/omnigent?o=123",
+      );
+    }
   });
 
   it("handles trailing slashes while preserving port, query, and fragment", () => {

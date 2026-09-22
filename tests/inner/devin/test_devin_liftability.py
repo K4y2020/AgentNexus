@@ -17,7 +17,7 @@ import pathlib
 
 import agentnexus
 
-_AGENTNEXUS_ROOT = pathlib.Path(omnigent.__file__).parent
+_AGENTNEXUS_ROOT = pathlib.Path(agentnexus.__file__).parent
 _DEVIN_PKG = _AGENTNEXUS_ROOT / "inner" / "devin"
 
 # What a lifted ``omnigent-devin`` package could still import from core. The ACP

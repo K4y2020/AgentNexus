@@ -1379,7 +1379,7 @@ def run_claude_native(
     startup_profiler.mark("claude args normalized")
     # Resolve the launch config across all offerings: a configured provider
     # (configure harnesses), the Databricks ucode profile, or Claude's own
-    # login — so `omnigent claude` honors the provider selection just like
+    # login — so `agentnexus claude` honors the provider selection just like
     # the in-process claude-sdk harness. ``use_claude_config`` forces the
     # CLI's own ~/.claude config (skips all of it).
     startup_profiler.mark("resolving claude config")
@@ -1472,7 +1472,7 @@ def _align_working_directory_with_session(
     original session. If they differ, Claude exits immediately on
     launch. The wrapper records the launch cwd in client-side
     persistent state at session creation (see
-    :mod:`omnigent.claude_native_state`); this helper reads it back
+    :mod:`agentnexus.claude_native_state`); this helper reads it back
     on resume and asks the user whether to switch cwd, move Claude's
     transcript into the current cwd, or leave without resuming.
 
@@ -2464,7 +2464,7 @@ def _strip_resume_from_claude_args(args: tuple[str, ...]) -> tuple[str, ...]:
     Strip any stray ``--resume`` / ``-r`` (and value) from raw args.
 
     Defense in depth: a user routing ``--resume`` past Click (e.g.
-    ``omnigent claude -- --resume <id>``) must not have it reach
+    ``agentnexus claude -- --resume <id>``) must not have it reach
     upstream Claude, which would apply it to its own session-id
     namespace.
 
@@ -2485,7 +2485,7 @@ def _strip_resume_from_claude_args(args: tuple[str, ...]) -> tuple[str, ...]:
             continue
         if arg in ("--resume", "-r"):
             _logger.warning(
-                "Stripped stray %s from claude args; use `omnigent claude --resume`.", arg
+                "Stripped stray %s from claude args; use `agentnexus claude --resume`.", arg
             )
             consume_value = True
             continue
@@ -2722,7 +2722,7 @@ def _provider_config_for_native_claude(entry: ProviderEntry) -> ClaudeNativeUcod
     ``ANTHROPIC_BASE_URL`` plus a token ``apiKeyHelper`` and the default
     model — so a Claude Code terminal launched by ``omnigent`` routes
     through the configured provider exactly like the in-process claude-sdk
-    harness does (:func:`omnigent.runtime.workflow.configure_agent_harness_with_provider`).
+    harness does (:func:`agentnexus.runtime.workflow.configure_agent_harness_with_provider`).
 
     :param entry: A resolved provider entry. Only ``key`` / ``gateway`` /
         ``local`` kinds serving the ``anthropic`` family produce a config.
@@ -2972,21 +2972,21 @@ def resolve_native_claude_config(
     """Resolve the native Claude Code launch config across all offerings.
 
     The single entry point both native-claude launch paths use (the CLI
-    ``omnigent claude`` and the runner's host-spawned auto-create), so the
-    native harness honors ``omnigent setup`` exactly like the in-process
+    ``agentnexus claude`` and the runner's host-spawned auto-create), so the
+    native harness honors ``agentnexus setup`` exactly like the in-process
     claude-sdk harness. Precedence mirrors
-    :func:`omnigent.runtime.workflow._resolve_provider_for_build`:
+    :func:`agentnexus.runtime.workflow._resolve_provider_for_build`:
 
     1. when a *spec* is given, its resolved provider (spec ``executor.auth``
        → explicit per-family default → global ``auth:`` → ``databricks-*``
        model → ambient detection), falling back to the spec's own
        ``executor.profile`` (ucode) when it routed to legacy databricks;
-    2. when spec-less (``omnigent claude``): an explicit per-family default
+    2. when spec-less (``agentnexus claude``): an explicit per-family default
        → global ``auth:`` (→ ucode) → ambient detection;
     3. otherwise ``None`` (Claude's own login).
 
     Credentials are controlled exclusively by the spec or by
-    ``omnigent setup`` provider config — there is no CLI/env profile
+    ``agentnexus setup`` provider config — there is no CLI/env profile
     override.
 
     :param spec: The agent spec, or ``None`` for the bare ``omnigent
@@ -3035,7 +3035,7 @@ def resolve_native_claude_config(
     log_info_once(
         _logger,
         "native-claude routing: Claude CLI login (no provider configured for the Claude "
-        "harness, no Databricks profile). Run `omnigent setup --no-internal-beta` to route "
+        "harness, no Databricks profile). Run `agentnexus setup --no-internal-beta` to route "
         "through a provider.",
     )
     return None
@@ -3043,7 +3043,7 @@ def resolve_native_claude_config(
 
 def _materialize_claude_agent_spec(tmpdir: Path) -> Path:
     """
-    Write the terminal-first session agent spec used by ``omnigent claude``.
+    Write the terminal-first session agent spec used by ``agentnexus claude``.
 
     :param tmpdir: Temporary directory for the generated YAML file.
     :returns: Path to a generated YAML spec.
@@ -3071,7 +3071,7 @@ def _materialize_claude_agent_spec(tmpdir: Path) -> Path:
         # Without an ``os_env`` block, the runner's filesystem APIs
         # (``/resources/environments/default/filesystem`` and siblings)
         # return 404 — see ``_require_os_env`` in
-        # ``omnigent/runner/app.py``. Claude Code already operates
+        # ``agentnexus/runner/app.py``. Claude Code already operates
         # on the user's workspace with full filesystem access, so the
         # caller process / no sandbox combination matches reality and
         # enables the web UI's files panel.
@@ -3095,8 +3095,8 @@ def _materialize_claude_agent_spec(tmpdir: Path) -> Path:
 def _wrapper_spec_raw_instructions(spec_path: Path) -> str | None:
     """Resolve raw author instructions from the wrapper's agent spec.
 
-    Reuses :func:`omnigent.spec.load` (the same loader
-    :func:`~omnigent.cli._bundle` and the server use for both an agent-image
+    Reuses :func:`agentnexus.spec.load` (the same loader
+    :func:`~agentnexus.cli._bundle` and the server use for both an agent-image
     directory and a standalone single-file YAML) so the value matches exactly
     what ``AgentSpec.instructions`` resolves to — including the
     ``instructions:`` file precedence over ``prompt:`` — rather than
@@ -3317,7 +3317,7 @@ def _can_attach_direct_tmux(prepared: PreparedClaudeTerminal) -> bool:
     every keystroke over the WebSocket terminal bridge. A remote runner's
     socket won't exist locally, so this returns ``False`` and the caller
     falls back to the WebSocket attach. Mirrors the Codex wrapper's
-    :func:`omnigent.codex_native._can_attach_direct_tmux`.
+    :func:`agentnexus.codex_native._can_attach_direct_tmux`.
 
     :param prepared: Prepared terminal details.
     :returns: ``True`` when a direct local tmux attach is possible.
@@ -3342,7 +3342,7 @@ async def _attach_direct_tmux(
     Lower latency than the WebSocket PTY relay because there is no
     server round-trip — the local TTY drives the runner's private tmux
     server over its Unix socket. ``TMUX`` is dropped from the child
-    environment so a user who runs ``omnigent claude`` from inside
+    environment so a user who runs ``agentnexus claude`` from inside
     their own tmux can still attach to AgentNexus' server. After the
     ``tmux attach`` child exits, a ``has-session`` probe distinguishes a
     user *detach* (session still alive → keep the AgentNexus terminal resource
@@ -4341,7 +4341,7 @@ def _run_with_remote_server(
                 # TCP connection — the AgentNexus server at this URL isn't reachable.
                 # Fail loud with the URL instead of a raw httpx traceback.
                 raise click.ClickException(
-                    f"Could not reach the omnigent server at {base_url}. "
+                    f"Could not reach the AgentNexus server at {base_url}. "
                     "Confirm the server is running and reachable from here "
                     f"(e.g. `curl {base_url}/health`), and that --server is correct."
                 ) from exc
@@ -5445,7 +5445,7 @@ async def _create_claude_session(
     populates it from the first forwarded user message — the same
     path every other session type takes. The sidebar renders a
     ``"Claude Code"`` default label off the
-    ``omnigent.wrapper = claude-code-native-ui`` label until the
+    ``agentnexus.wrapper = claude-code-native-ui`` label until the
     real title lands, so no server-side placeholder is needed.
 
     :param client: HTTP client pointed at the AgentNexus server.
@@ -5703,7 +5703,7 @@ def _claude_terminal_request(
     )
     # Let a registered launcher plugin (e.g. Databricks' isaac) rewrite the
     # command/args to wrap the same fully-augmented Claude launch. Identity by
-    # default. See omnigent.claude_launcher.
+    # default. See agentnexus.claude_launcher.
     command, args = resolve_claude_launch(command, args)
     spec: _JsonObject = {
         "command": command,
@@ -5721,7 +5721,7 @@ def _claude_terminal_request(
         # ``-c <that-missing-dir>`` and silently falls back to
         # ``$HOME``, so ``claude`` starts in the wrong directory.
         # The per-session isolation is meaningful for shared
-        # deployments; ``omnigent claude`` is a local-only
+        # deployments; ``agentnexus claude`` is a local-only
         # single-user wrapper, so taking the explicit-cwd path
         # short-circuits it safely.
         "cwd": str(Path.cwd().resolve()),
@@ -5915,7 +5915,7 @@ def _websocket_connect(
     # A remote (https) workspace yields a wss:// attach URL; build a verifying
     # SSL context from a real CA bundle so verification works on interpreters
     # whose OpenSSL default cert path is empty. ws:// passes ssl=None (the
-    # library default — no TLS). See omnigent/tls.py and issue #1730.
+    # library default — no TLS). See agentnexus/tls.py and issue #1730.
     ssl_ctx = client_ssl_context() if attach_url.startswith("wss://") else None
     try:
         return cast(
@@ -6152,7 +6152,7 @@ def _install_attach_signal_handlers(
 
 def claude_terminal_resource_id() -> str:
     """
-    Return the deterministic terminal id used by ``omnigent claude``.
+    Return the deterministic terminal id used by ``agentnexus claude``.
 
     :returns: Terminal resource id, e.g. ``"terminal_claude_main"``.
     """

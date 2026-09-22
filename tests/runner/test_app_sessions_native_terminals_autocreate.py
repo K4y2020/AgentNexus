@@ -1056,7 +1056,7 @@ async def test_auto_create_claude_terminal_injects_ucode_gateway_config(
     monkeypatch.setattr(claude_native_bridge, "_BRIDGE_ROOT", tmp_path / "root")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
     # The supported credential source for a host-spawned runner: the
-    # global config's ``auth:`` block (written by ``omnigent setup``),
+    # global config's ``auth:`` block (written by ``agentnexus setup``),
     # isolated to a temp config home so the developer's real config
     # can't leak in.
     config_home = tmp_path / "config-home"
@@ -3352,7 +3352,7 @@ async def test_an_auto_harness_launch_without_a_cost_control_stamp_is_still_rout
     # And the auto-harness extras, which only make sense alongside the router.
     assert "--append-system-prompt" in spec.args
     allowed = spec.args[spec.args.index("--allowedTools") + 1]
-    assert "mcp__omnigent__sys_session_create" in allowed
+    assert "mcp__agentnexus__sys_session_create" in allowed
 
 
 def test_routed_spawn_launch_args_need_a_router() -> None:

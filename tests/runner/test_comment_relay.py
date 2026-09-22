@@ -294,7 +294,7 @@ async def relay_env(tmp_path: Path, client: httpx.AsyncClient) -> AsyncIterator[
     Prepare a bridge directory for a unique session and clean it up.
 
     ``start_tool_relay`` writes ``tool_relay.json`` into the bridge dir but
-    does not create it, so this mirrors what ``omnigent claude`` does on
+    does not create it, so this mirrors what ``agentnexus claude`` does on
     the client (``prepare_bridge_dir``) before the terminal launches. On
     teardown it deletes the session (closing any relay and unbinding its
     localhost socket) and removes the bridge dir so tests do not leak.
@@ -321,7 +321,7 @@ async def _launch_terminal(
     bridge_inject_dir: bool,
 ) -> httpx.Response:
     """
-    POST the claude terminal-launch request used by ``omnigent claude``.
+    POST the claude terminal-launch request used by ``agentnexus claude``.
 
     :param client: HTTP client bound to the runner app.
     :param session_id: Session/conversation identifier.

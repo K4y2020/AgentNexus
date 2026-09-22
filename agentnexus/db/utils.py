@@ -569,7 +569,7 @@ def _initialize_or_verify_schema(engine: Engine, db_uri: str) -> None:
                 f"(found revision {current!r}, expected {head!r}) "
                 f"and automatic migration failed. Take a backup of your database, then run\n"
                 f"\n"
-                f"    omnigent debug db-upgrade {db_uri!r}\n"
+                f"    agentnexus debug db-upgrade {db_uri!r}\n"
                 f"\n"
                 f"to inspect or retry the migration manually."
             ) from exc
@@ -581,7 +581,7 @@ def _initialize_or_verify_schema(engine: Engine, db_uri: str) -> None:
                 f"(started at {current!r}, now at {migrated!r}, expected {head!r}). "
                 f"Take a backup of your database, then run\n"
                 f"\n"
-                f"    omnigent debug db-upgrade {db_uri!r}\n"
+                f"    agentnexus debug db-upgrade {db_uri!r}\n"
                 f"\n"
                 f"to inspect or retry the migration manually."
             )

@@ -51,7 +51,7 @@ def ensure_bundle_plugin_manifest(
         json.dumps(
             {
                 "name": name,
-                "description": f"Bundled skills for omnigent agent {name!r}",
+                "description": f"Bundled skills for AgentNexus agent {name!r}",
             },
             indent=2,
         )
@@ -90,11 +90,11 @@ def claude_native_skill_args(
 
     ``--plugin-dir`` is emitted only when ``bundle_dir`` actually
     contains a ``skills/`` directory, so agents that ship no bundled
-    skills add no plugin args (and ``omnigent claude``'s minimal
+    skills add no plugin args (and ``agentnexus claude``'s minimal
     spec, which has no bundle, passes ``bundle_dir=None``).
 
     :param bundle_dir: Materialized agent-bundle root, or ``None`` when
-        the launch has no bundle (e.g. the ``omnigent claude`` CLI
+        the launch has no bundle (e.g. the ``agentnexus claude`` CLI
         running against the user's own ``~/.claude`` config).
     :param agent_name: Agent display name for the plugin manifest, e.g.
         ``"researcher"``. ``None`` falls back to the bundle basename.

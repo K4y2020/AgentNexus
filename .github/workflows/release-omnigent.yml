@@ -14,8 +14,8 @@
 #      the identical version to PyPI, behind the protected `pypi` env.
 #
 # One-time setup (per index, pypi.org AND test.pypi.org): Trusted Publishers
-# for all three project names pointing at agentnexus-ai/agentnexus +
-# release-agentnexus.yml + the test-pypi/pypi environment (unclaimed names
+# for all three project names pointing at K4y2020/AgentNexus +
+# release-omnigent.yml + the test-pypi/pypi environment (unclaimed names
 # reserved via a pending publisher); GitHub envs test-pypi (unprotected)
 # and pypi (required reviewer). Actions are SHA-pinned per repo convention.
 name: Release agentnexus (PyPI)
@@ -39,7 +39,7 @@ on:
   # steps are condition-gated off PR events.
   pull_request:
     paths:
-      - ".github/workflows/release-agentnexus.yml"
+      - ".github/workflows/release-omnigent.yml"
 
 permissions:
   contents: read
@@ -53,7 +53,7 @@ concurrency:
 jobs:
   build-and-publish:
     # Gated to this repository; inert in forks and mirrors.
-    if: github.repository == 'agentnexus-ai/agentnexus'
+    if: github.repository == 'K4y2020/AgentNexus'
     runs-on: ubuntu-latest
     # Bound a hung run under GitHub's 6-hour default (real work takes minutes).
     timeout-minutes: 30

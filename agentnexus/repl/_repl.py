@@ -345,7 +345,7 @@ def _header_glyph(kind: str) -> str:
 
     The header drops the subscription ADMISSION TICKETS glyph — its red
     rendering is too loud for the banner box — while every other kind
-    keeps its :func:`kind_glyph`. CLI surfaces (``omnigent setup``, the
+    keeps its :func:`kind_glyph`. CLI surfaces (``agentnexus setup``, the
     ``/model`` readout) keep the ticket.
 
     :param kind: The provider kind, e.g. ``"subscription"`` or ``"key"``.
@@ -623,7 +623,7 @@ async def _fetch_server_version(client: AgentNexusClient) -> str | None:
 def _is_remote_server_url(url: str | None) -> bool:
     """True if *url* points at a host other than loopback.
 
-    A local ``omnigent run`` spawns its own AgentNexus server on
+    A local ``agentnexus run`` spawns its own AgentNexus server on
     ``http://127.0.0.1:<port>``; surfacing that URL in the
     welcome banner adds noise without information. A user
     running with ``--server <url>`` is talking to a different
@@ -4967,7 +4967,7 @@ def _build_model_readout_lines(
     configured:`` line lists them (friendly names + glyphs) with honest
     guidance: ``/model`` only changes the model within the active
     provider — switching the active provider mid-session is not wired, so
-    it goes through ``omnigent setup --no-internal-beta`` + a restart. Falls
+    it goes through ``agentnexus setup --no-internal-beta`` + a restart. Falls
     back to the legacy ``(agent default)`` line when nothing is configured
     for the harness's surface.
 
@@ -5077,7 +5077,7 @@ def _build_model_readout_lines(
         # provider; switching the active provider mid-session is not wired,
         # so it goes through `configure harnesses` + a restart.
         lines.append(
-            "  /model <name> changes the model. To switch provider: omnigent setup (then restart)."
+            "  /model <name> changes the model. To switch provider: agentnexus setup (then restart)."
         )
     return lines
 
@@ -5193,7 +5193,7 @@ async def _cmd_model(
     a bare ``/model <active-provider>`` resolves that provider's default
     model. A value naming a **different** configured provider fails loud
     with guidance — switching the active provider mid-session is not wired
-    (it goes through ``omnigent setup --no-internal-beta`` + a restart).
+    (it goes through ``agentnexus setup --no-internal-beta`` + a restart).
     ``/model default|off|reset`` clears the override.
     """
     from rich.text import Text
@@ -5558,7 +5558,7 @@ async def _attach_to_conversation(
             break
     if last_response_id is None:
         # An empty conversation (no response items yet). On a fresh
-        # `omnigent run` the daemon hands the REPL a freshly-created session
+        # `agentnexus run` the daemon hands the REPL a freshly-created session
         # as the resume target, so this is the normal new-session case — the
         # old "Empty conversation." line was misleading noise at the top of
         # every new run. Render nothing extra on the startup path (the welcome
@@ -7452,7 +7452,7 @@ async def _build_debug_overview(
     """
     Assemble the Ctrl+O debug overview for the REPL.
 
-    The overview intentionally mirrors the ``omnigent run``
+    The overview intentionally mirrors the ``agentnexus run``
     debug panel: a "Session: main" header with session id /
     agent / response / conversation metadata, followed by an
     indexed event stream where every conversation item is

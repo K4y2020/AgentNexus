@@ -155,12 +155,12 @@ def test_global_profiling_writes_summary_and_timestamped_stats(tmp_path: Path) -
 
 def test_python_module_entrypoint_uses_unified_click_cli() -> None:
     """
-    ``python -m omnigent`` must dispatch through the same click CLI
+    ``python -m agentnexus`` must dispatch through the same click CLI
     as the installed ``omnigent`` console script.
 
     This catches ``omnigent/__main__.py`` pointing at the legacy
     argparse CLI, which bypasses the AgentNexus REPL path. In that broken
-    state ``python -m omnigent run ...`` opens the old ``>``
+    state ``python -m agentnexus run ...`` opens the old ``>``
     prompt and loses AP-only input features such as slash-command
     autocomplete and bracketed-paste abstraction.
     """
@@ -172,7 +172,7 @@ def test_python_module_entrypoint_uses_unified_click_cli() -> None:
         timeout=20,
     )
 
-    assert "Usage: python -m omnigent [OPTIONS] COMMAND [ARGS]..." in result.stdout
+    assert "Usage: python -m agentnexus [OPTIONS] COMMAND [ARGS]..." in result.stdout
     assert "Commands:" in result.stdout
     assert "run" in result.stdout and "Attach the REPL to a live session" in result.stdout
     assert "AgentNexus quick chat" not in result.stdout
@@ -200,7 +200,7 @@ def test_wrapper_guard_blocks_naked_call_end_to_end() -> None:
     assert "running `omnigent` directly is disabled" in result.stderr
     assert "`isaac omni`" in result.stderr
     # The block short-circuits before click renders help.
-    assert "Usage: python -m omnigent" not in result.stdout
+    assert "Usage: python -m agentnexus" not in result.stdout
 
 
 def test_wrapper_guard_bypass_reaches_cli_end_to_end() -> None:
@@ -215,7 +215,7 @@ def test_wrapper_guard_bypass_reaches_cli_end_to_end() -> None:
     )
 
     assert result.returncode == 0
-    assert "Usage: python -m omnigent [OPTIONS] COMMAND [ARGS]..." in result.stdout
+    assert "Usage: python -m agentnexus [OPTIONS] COMMAND [ARGS]..." in result.stdout
 
 
 @pytest.mark.parametrize(
@@ -452,7 +452,7 @@ def _fake_run_claude_native_capture(
     """
     Build a ``run_claude_native`` stub that records its kwargs.
 
-    Shared by the ``omnigent claude`` CLI parsing tests below so a
+    Shared by the ``agentnexus claude`` CLI parsing tests below so a
     signature change to ``run_claude_native`` (new kwarg, renamed
     kwarg) updates one place instead of every test.
 
@@ -514,7 +514,7 @@ def test_claude_command_resume_binds_session_and_passes_unknown_args(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``omnigent claude --resume <conv_id>`` binds the AgentNexus
+    ``agentnexus claude --resume <conv_id>`` binds the AgentNexus
     session; unknown args after ``--`` reach ``run_claude_native``
     as raw passthrough.
 
@@ -567,7 +567,7 @@ def test_claude_command_short_r_binds_omnigent_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``omnigent claude -r <conv_id>`` is the AgentNexus resume shortcut.
+    ``agentnexus claude -r <conv_id>`` is the AgentNexus resume shortcut.
 
     With the unified ``--resume`` UX, ``-r`` is the AgentNexus alias
     (not Claude's own short flag). Users who need Claude's own
@@ -596,7 +596,7 @@ def test_claude_command_bare_resume_requests_picker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    ``omnigent claude --resume`` (no value) requests the picker.
+    ``agentnexus claude --resume`` (no value) requests the picker.
 
     Bare ``--resume`` sets the picker sentinel, which the CLI
     translates into ``resume_picker=True`` for ``run_claude_native``.
@@ -676,7 +676,7 @@ def test_claude_command_profile_startup_threads_profiler(
     ``--profile-startup`` starts timing before backend setup.
 
     This covers the slow-start diagnostic path users need for
-    ``omnigent claude``: the profiler must be created in the Click
+    ``agentnexus claude``: the profiler must be created in the Click
     command, emit early marks, and be passed to ``run_claude_native``
     so native launch marks share the same timer.
 
@@ -734,7 +734,7 @@ def test_claude_command_use_native_config_bypasses_databricks_auth(
 def test_claude_command_flag_is_deprecated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``omnigent claude --command`` emits a DeprecationWarning pointing to env/config."""
+    """``agentnexus claude --command`` emits a DeprecationWarning pointing to env/config."""
     monkeypatch.setattr("agentnexus.cli._load_effective_config", dict)
     monkeypatch.setattr("agentnexus.cli._ensure_backend", lambda *_: "http://localhost:0")
     monkeypatch.setattr(
@@ -1473,7 +1473,7 @@ def test_bundled_agent_launches_with_first_available_credential(
     # The silent config mutation is announced (mirrors setup / /model).
     assert (
         "No default Claude credential set — using Anthropic Key API Key and saving "
-        "it as the default (change anytime with: omnigent /model)." in result.output
+        "it as the default (change anytime with: agentnexus /model)." in result.output
     )
     assert "credentials found" not in result.output
     # And the launch proceeded (the brain credential resolved).
@@ -1531,7 +1531,7 @@ def test_bundled_agent_multiple_credentials_notice_preserves_first_pick(
     assert "default" not in providers["anthropic_second"]
     assert (
         "No default Claude credential set — using Anthropic First API Key "
-        "(2 Claude credentials found; pick another with: omnigent /model) "
+        "(2 Claude credentials found; pick another with: agentnexus /model) "
         "and saving it as the default." in result.output
     )
     dispatch.assert_called_once()
@@ -2399,7 +2399,7 @@ def test_expand_config_expands_executor_connection(
 
     The server no longer expands uploaded
     bundles, so the client must resolve ``executor.connection`` (not
-    just ``llm.connection``) or local ``omnigent run`` specs using the
+    just ``llm.connection``) or local ``agentnexus run`` specs using the
     consolidated executor block would ship unresolved ``${VAR}``.
     """
     monkeypatch.setenv("EXEC_API_KEY", "sk-exec-999")
@@ -2813,7 +2813,7 @@ def test_bundle_materializes_standalone_omnigent_yaml(tmp_path: Path) -> None:
     """
     ``_bundle`` wraps a standalone omnigent YAML file in a tarball.
 
-    ``omnigent run <yaml> --server`` uploads the returned bytes
+    ``agentnexus run <yaml> --server`` uploads the returned bytes
     directly to ``POST /api/agents``. If the YAML bytes are passed
     through unchanged, the remote server rejects them as an invalid
     tarball before the runner tunnel can start.
@@ -4346,7 +4346,7 @@ def test_run_server_resume_native_redirects_before_attach_preflight(
     """Terminal-native ``run --server --resume`` redirects before attach checks.
 
     The pre-attach liveness check is for AgentNexus REPL co-drive. Native-wrapper
-    sessions need to hand off to ``omnigent claude`` / ``omnigent codex``
+    sessions need to hand off to ``agentnexus claude`` / ``omnigent codex``
     even when their old runner is gone, otherwise a cold native resume fails
     before the wrapper can relaunch its terminal.
     """
@@ -5114,7 +5114,7 @@ def test_config_set_local_writes_project_config(
 
 
 # ---------------------------------------------------------------------------
-# `omnigent run` picks up global config defaults
+# `agentnexus run` picks up global config defaults
 # ---------------------------------------------------------------------------
 
 
@@ -5123,7 +5123,7 @@ def test_run_applies_global_config_agent_default(
     tmp_path: Path,
 ) -> None:
     """
-    ``omnigent run`` (no AGENT arg) uses the ``default_agent`` key from
+    ``agentnexus run`` (no AGENT arg) uses the ``default_agent`` key from
     global config as the target when no explicit target is given.
 
     :param monkeypatch: Pytest monkeypatch fixture.
@@ -5158,7 +5158,7 @@ def test_run_cli_arg_overrides_global_config(
     tmp_path: Path,
 ) -> None:
     """
-    An explicit CLI arg on ``omnigent run`` takes precedence over the
+    An explicit CLI arg on ``agentnexus run`` takes precedence over the
     corresponding key in global config.
 
     :param monkeypatch: Pytest monkeypatch fixture.
@@ -5195,7 +5195,7 @@ def test_run_applies_auto_open_conversation_config(
     tmp_path: Path,
 ) -> None:
     """
-    ``omnigent run`` forwards the persisted browser-open setting.
+    ``agentnexus run`` forwards the persisted browser-open setting.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Temporary directory standing in for ~/.agentnexus.
@@ -5228,7 +5228,7 @@ def _capture_run_dispatch(
     tmp_path: Path,
 ) -> dict[str, object]:
     """
-    Wire ``omnigent run`` to capture dispatch kwargs without launching.
+    Wire ``agentnexus run`` to capture dispatch kwargs without launching.
 
     Points the global config at an empty *tmp_path* file (so the test is
     isolated from the developer's real ``~/.agentnexus/config.yaml``) and
@@ -5266,7 +5266,7 @@ def test_run_interactive_defaults_browser_open_on(
     tmp_path: Path,
 ) -> None:
     """
-    Interactive ``omnigent run`` opens the browser by default.
+    Interactive ``agentnexus run`` opens the browser by default.
 
     With no ``auto_open_conversation`` configured, a bare interactive
     ``run`` (no ``-p``) defaults the browser-open ON so users discover
@@ -5288,7 +5288,7 @@ def test_run_headless_prompt_defaults_browser_open_off(
     tmp_path: Path,
 ) -> None:
     """
-    Headless ``omnigent run -p`` stays quiet by default.
+    Headless ``agentnexus run -p`` stays quiet by default.
 
     A one-shot ``-p`` invocation with no configured preference must NOT
     open the browser — the user is scripting, not exploring the UI.
@@ -5390,7 +5390,7 @@ def test_claude_applies_auto_open_conversation_config(
     tmp_path: Path,
 ) -> None:
     """
-    ``omnigent claude`` forwards the persisted browser-open setting.
+    ``agentnexus claude`` forwards the persisted browser-open setting.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Temporary directory standing in for ~/.agentnexus.
@@ -5479,7 +5479,7 @@ def test_run_bare_omnigent_with_harness_only_config(
 def test_bare_omnigent_harness_flag_dispatches_to_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``omnigent --harness ...`` is shorthand for ``omnigent run --harness ...``."""
+    """``omnigent --harness ...`` is shorthand for ``agentnexus run --harness ...``."""
     from agentnexus.cli import main
 
     dispatched: dict[str, object] = {}
@@ -5529,7 +5529,7 @@ def test_bare_omnigent_non_tty_shows_help(
 def test_bare_omnigent_tty_dispatches_to_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Bare ``omnigent`` on an interactive terminal behaves like ``omnigent run``.
+    """Bare ``omnigent`` on an interactive terminal behaves like ``agentnexus run``.
 
     ``run`` then resolves the configured default / first-run plan. We assert
     only that the bare invocation is rewritten to ``run`` before dispatch.
@@ -5595,7 +5595,7 @@ def test_unknown_command_reports_no_such_command(
 
 
 def test_setup_command_replaces_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``omnigent setup`` is the visible standard setup flow command."""
+    """``agentnexus setup`` is the visible standard setup flow command."""
     configure_flow = Mock()
     configure_databricks = Mock()
     run_onboarding = Mock(return_value=True)

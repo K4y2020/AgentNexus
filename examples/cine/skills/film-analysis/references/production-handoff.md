@@ -74,7 +74,9 @@ Seeds retain upstream IDs through existing Node scripts and never overwrite
 an existing canonical, named or explicitly bound output. With a manifest, declare
 the target path before seeding; seeding does not update hashes or approval pins.
 Use a new production revision directory for replacement seeds.
-Use `check --stage outline|cast|art|script|storyboard` for a focused check.
+Use `check --stage outline|cast|art|script|storyboard` for a focused check. Add
+`--require-jev` when the stage is entering production; this runs the matching
+TypeSafe semantic gate after the native validator.
 
 `check` executes native validators with relevant upstream inputs. `finalize` is
 the only routine path that refreshes artifact hashes and dependency pins: it
@@ -89,9 +91,71 @@ not invented original-film dialogue. Never manufacture `inputs/source.txt` from 
 story draft or sparse screenshots and label it a transcript. Store machine speech
 recognition as `inputs/source-transcript.txt` with `dialogue_provenance.status=asr`;
 store a newly written adaptation treatment under a clearly different name and label.
-`native_validated` does not authorize generation
+`--require-jev` writes a receipt under `.cine-validation/jev/` with the actual
+JEV model version, input hashes, typed answers and thresholds. Missing
+credentials, provider errors, incomplete answers, low-confidence answers and
+failed judgments block the selected stage. JEV receives structured text only;
+it does not replace image/audio/video inspection. `native_validated` does not authorize generation
 or establish visual quality/provider compatibility. Reports are not authorization
 tokens: every check re-executes the tools rather than reusing an old report.
+
+Pass `--source-text` alongside `--require-jev` so the script gate judges the
+adaptation against the original rather than on its own internal coherence. With
+a source supplied, the script stage also runs source-comparison questions
+(speaker attribution, reaction order, setup/payoff, overall order fidelity) and
+records `source_compared: true` in the receipt. Without it, a script can
+reshuffle or reassign the source's lines and still read as coherent, because
+nothing in the state contradicts it.
+
+The source-comparison questions are only meaningful if the baseline is
+trustworthy, so the gate first asks whether each bracketed speaker label covers
+exactly one character. When that check fails the stage reports
+`baseline_unusable` with `repair_scope: upstream` and does not issue a fidelity
+verdict — a script must not be marked unfaithful for declining to reproduce a
+transcription error. That verdict means re-run the ASR refinement
+(`transcribe.py --llm-refine`) before re-checking; a segment mashing several
+speakers into one label will otherwise mislead every downstream stage.
+
+ASR speaker labels are unreliable in a second way: the same character appears as
+`[女儿]`, `[大姐]` and `[主角]` in different lines, and a line can be credited to
+the person being addressed rather than the person speaking. Run the attribution
+stage before the script so the labels are resolved against the cast:
+
+```powershell
+python <film-analysis>/pipeline/production.py attribute <output>
+```
+
+It reads `source-transcript.json` and `cast.json`, optionally taking scene
+descriptions from `scene-notes.json` (a map of exchange index to one line of
+setup), and writes `source-transcript-attributed.json` with a cast id, a
+calibrated confidence, and a `needs_review` flag per line. Supply scene notes
+whenever an exchange contains an address term: without them a line like
+「这位姐姐……哟，这不是姐姐，是妹妹」 is attributed to the person addressed.
+
+Segments are grouped into exchanges by silence (or by an explicit `scene`
+field). Judging the whole episode as one block measurably degrades accuracy,
+because each line is then weighed against neighbours from a different exchange.
+Treat any `needs_review` line as unresolved: it means JEV was not confident, or
+could not tell, and a human or a stronger model should decide it.
+
+The script stage then reads that file automatically — `check_stage` appends
+`--source <output>/source-transcript-attributed.json` when it exists — so the
+script validator can compare line order, speaker and delivery against the
+original instead of judging the document only on its own internal coherence.
+Two gates depend on it:
+
+- `speaker` / `source-fidelity` order check: a matched line that appears out of
+  the source's order is reported as swapped. A script can reshuffle the
+  original's beats and still read as internally coherent, which is exactly the
+  failure this catches.
+- `dialogue-causality` ghost check: a character named in an *action* beat must
+  be declared in that scene's cast list. It deliberately ignores names in
+  dialogue, since a line may address or discuss someone who is not present
+  (「听见没？老周哥这一嗓子」 does not put 老周 in the scene).
+
+Lines the script invents are not failures — adaptation may add connective
+material. Only matched lines are checked, and unmatched source lines are
+reported without blocking.
 The native report fingerprints production.json, including its absence. Changing
 or adding bindings during validation invalidates the submission proof. Path
 selection does not authenticate the manifest's upstream pins: use the stage
@@ -132,12 +196,12 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    cannot be replaced by an older revision. Exported story content stays unverified;
    cine_verify_report(scope="adaptation") is still required for readiness claims.
    Extracted images or indexed_unreviewed alone never mean the film was understood.
-3. `novel-outline`: use reviewed material plus approved creative decisions.
-   `novel-characters` and `novel-art` consume that outline, retaining its IDs.
-4. `novel-script`: consume outline, cast and art; changed cast/scene/light/prop
+3. `cine-outline`: use reviewed material plus approved creative decisions.
+   `cine-characters` and `cine-art` consume that outline, retaining its IDs.
+4. `cine-script`: consume outline, cast and art; changed cast/scene/light/prop
    requirements go back upstream. Standalone drafts may omit inputs, production
    handoff cannot silently skip them.
-5. `novel-storyboard`: consume the current script and asset definitions. Write
+5. `cine-storyboard`: consume the current script and asset definitions. Write
    `shot-mapping.json`: original narrative function -> adapted script beat range
    -> new cut. Allow split/merge/new cuts; do not mechanically replace nouns in
    the original shot list. A new cut has no fabricated source correspondence.
@@ -224,7 +288,7 @@ Runtime source-shot receipt checks still apply; this sidecar cannot bypass them.
 ## Provider and completion boundary
 
 Preserve narrative rhythm; configure supported duration parameters rather than
-forcing every cut to 2-5 seconds. The existing `novel-storyboard export` is an H3
+forcing every cut to 2-5 seconds. The existing `cine-storyboard export` is an H3
 exporter; it does not certify Seedance compatibility. Do not forge H3 fields to
 make a Seedance-only draft pass. Report the missing provider adapter separately.
 Still deliver a provider-neutral plan: duration, continuous/cut structure,

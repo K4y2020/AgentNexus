@@ -150,26 +150,30 @@ class SeedanceClient:
         return headers
 
     def _handle_response_error(self, resp: httpx.Response) -> None:
+        try:
+            err_data = resp.json()
+            code = err_data.get("code") if isinstance(err_data, dict) else None
+            msg = err_data.get("message") if isinstance(err_data, dict) else None
+        except Exception:
+            code = None
+            msg = None
+        code = code or ("UNAUTHORIZED" if resp.status_code in (401, 403) else None)
+        msg = msg or resp.text or resp.request.url.path
         if resp.status_code in (401, 403):
             raise SeedanceAuthError(
-                f"Authentication failed with Seedance API: {resp.status_code}",
-                code="UNAUTHORIZED",
+                f"Authentication failed with Seedance API: {code} ({msg})",
+                code=code,
                 status_code=resp.status_code,
             )
         if resp.status_code == 404:
             raise SeedanceNotFoundError(
-                f"Seedance resource not found: {resp.request.url.path}",
-                code="NOT_FOUND",
+                f"Seedance API 404 [{code or 'NOT_FOUND'}]: {msg}",
+                code=code or "NOT_FOUND",
                 status_code=resp.status_code,
             )
         if resp.status_code == 409:
-            try:
-                err_data = resp.json()
-                code = err_data.get("code", "CONFLICT")
-                msg = err_data.get("message", "Resource conflict")
-            except Exception:
-                code = "CONFLICT"
-                msg = resp.text
+            code = code or "CONFLICT"
+            msg = msg or "Resource conflict"
             if "BUSY" in code or "busy" in msg.lower():
                 raise SeedanceSessionBusyError(
                     f"Seedance agent session is busy: {msg}",
@@ -184,13 +188,6 @@ class SeedanceClient:
                 status_code=504,
             )
         if resp.status_code >= 400:
-            try:
-                err_data = resp.json()
-                code = err_data.get("code")
-                msg = err_data.get("message", resp.text)
-            except Exception:
-                code = None
-                msg = resp.text
             raise SeedanceError(
                 f"Seedance API error ({resp.status_code}): {msg}",
                 code=code,

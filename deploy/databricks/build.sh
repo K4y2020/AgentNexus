@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the wheels and optional web UI assets needed for a Databricks Apps
-# deployment of Omnigent.
+# deployment of AgentNexus.
 #
 # Inputs:
 #   SKIP_WEB_UI=1         Skip the web SPA build for API-only deployments.

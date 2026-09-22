@@ -313,7 +313,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         attributes.
     """
     parser = argparse.ArgumentParser(
-        prog="python -m omnigent.runtime.harnesses._runner",
+        prog="python -m agentnexus.runtime.harnesses._runner",
         description=(
             "Per-conversation harness subprocess entrypoint. "
             "Imports the given module, calls create_app(), "

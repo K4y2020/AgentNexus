@@ -10,7 +10,7 @@ A coding harness is "ready" along two independent axes:
   npm packages it installs.
 
 ``omni setup --no-internal-beta`` uses this to mark an uninstalled harness and
-offer to ``npm install`` it; the first-run ``omnigent run`` flow uses the
+offer to ``npm install`` it; the first-run ``agentnexus run`` flow uses the
 same map so the two surfaces never disagree about what the machine can launch.
 
 This module also owns the per-harness **CLI binary name**, so it is the natural

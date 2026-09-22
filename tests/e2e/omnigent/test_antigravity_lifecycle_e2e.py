@@ -6,13 +6,13 @@ pure-Python: ``Agent.__aenter__`` opens a local connection that spawns a
 bundled **native ``localharness`` binary** (~111 MB ELF) which talks to
 Google's Gemini backend. This test file is the lifecycle/concurrency counterpart
 to the one-shot per-harness gates (``test_per_harness_claude_sdk.py`` /
-``test_per_harness_cursor.py``): it drives real ``omnigent run`` subprocesses
+``test_per_harness_cursor.py``): it drives real ``agentnexus run`` subprocesses
 and asserts invariants about *concurrent* turns and the *native subprocess
 lifecycle* rather than a single assistant reply.
 
 Three properties are covered, all against STABLE-on-main behavior:
 
-1. **Parallel turns / no state bleed** — two concurrent ``omnigent run``
+1. **Parallel turns / no state bleed** — two concurrent ``agentnexus run``
    invocations, each a distinct ephemeral session (``--no-session``) carrying a
    distinct sentinel token in its prompt. Each session's transcript must contain
    ONLY its own sentinel — proving the per-session SDK ``Agent``/``Conversation``
@@ -33,7 +33,7 @@ Three properties are covered, all against STABLE-on-main behavior:
 - ``google-antigravity`` importable in the *omnigent* venv (the test shells
   out, so the subprocess interpreter is what matters, not the test's own).
 - A Gemini API key resolvable — either a configured ``antigravity:`` block
-  (``omnigent setup``) or an ambient ``GEMINI_API_KEY`` / ``ANTIGRAVITY_API_KEY``.
+  (``agentnexus setup``) or an ambient ``GEMINI_API_KEY`` / ``ANTIGRAVITY_API_KEY``.
   Antigravity is Gemini-native (no Databricks gateway / ``base_url`` path), so
   unlike the gateway harnesses this test does NOT use ``patched_databrickscfg``
   / ``omnigent_credentials_env`` — a missing key is a clean SKIP so the e2e
@@ -68,7 +68,7 @@ is absent.
 - The SDK ``Agent`` teardown (``close_session`` / ``close`` →
   ``_close_agent`` → ``Agent.__aexit__``) stops reaping the native
   ``localharness`` subprocess, leaking a process per turn (assertions 2, 3).
-- The ``omnigent run`` one-shot path stops tearing down its local server /
+- The ``agentnexus run`` one-shot path stops tearing down its local server /
   runner / harness process tree on exit.
 """
 
@@ -103,7 +103,7 @@ _LOCALHARNESS_PGREP_PATTERN = "antigravity/bin/localharness"
 # extra room for the binary launch.
 _RUN_TIMEOUT_SEC = 180
 
-# After a clean ``omnigent run`` exit, the local server/runner shutdown that
+# After a clean ``agentnexus run`` exit, the local server/runner shutdown that
 # reaps the native subprocess is asynchronous. Poll the PID set up to this many
 # seconds for the post-turn count to return to baseline before asserting a leak,
 # so a slow-but-correct teardown is not mis-reported as an orphan.
@@ -129,7 +129,7 @@ def _antigravity_prereqs_missing(omnigent_python: Path) -> str | None:
 
     Probes the *omnigent* venv (the interpreter the subprocess uses), not the
     test's own interpreter: the SDK import and the key resolution both have to
-    hold for the spawned ``omnigent run`` to do anything. Booleans only — the
+    hold for the spawned ``agentnexus run`` to do anything. Booleans only — the
     key is never printed.
 
     :param omnigent_python: Interpreter with omnigent installed, from the
@@ -201,7 +201,7 @@ def _write_antigravity_bundle(bundle_dir: Path, *, name: str) -> Path:
     :param bundle_dir: Directory to write the bundle into (created if absent).
     :param name: The agent ``name`` field; also makes each parallel bundle a
         distinct on-disk path so its session is independent.
-    :returns: The bundle directory path (the argument ``omnigent run`` takes).
+    :returns: The bundle directory path (the argument ``agentnexus run`` takes).
     """
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "config.yaml").write_text(
@@ -222,7 +222,7 @@ def _write_antigravity_bundle(bundle_dir: Path, *, name: str) -> Path:
 
 
 def _antigravity_env() -> dict[str, str]:
-    """Build the subprocess env for an antigravity ``omnigent run``.
+    """Build the subprocess env for an antigravity ``agentnexus run``.
 
     Starts from ``os.environ`` (so HOME / PATH / the ambient Gemini key and any
     dev-only ``ANTIGRAVITY_HARNESS_PATH`` shim propagate) and suppresses the
@@ -245,7 +245,7 @@ def _run_antigravity_turn(
     bundle_dir: Path,
     prompt: str,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one ``omnigent run <bundle> --harness antigravity -p <prompt>``.
+    """Run one ``agentnexus run <bundle> --harness antigravity -p <prompt>``.
 
     ``--no-session`` gives the run a fresh ephemeral store so concurrent runs
     don't share a persistent conversation. ``--no-log`` keeps the JSON dump off
@@ -320,7 +320,7 @@ def _looks_like_infra_failure(result: subprocess.CompletedProcess[str]) -> bool:
     no-state-bleed test can self-skip instead of mis-reporting an environment
     gap as a regression.
 
-    :param result: The completed ``omnigent run`` process.
+    :param result: The completed ``agentnexus run`` process.
     :returns: ``True`` when stdout+stderr carry a known infra-failure marker.
     """
     blob = f"{result.stdout}\n{result.stderr}"
@@ -505,7 +505,7 @@ def test_antigravity_session_cleanup_reaps_runner(
 ) -> None:
     """After a turn's process tree exits, its native subprocess is reaped.
 
-    A single ``omnigent run`` turn owns a self-contained process tree (local
+    A single ``agentnexus run`` turn owns a self-contained process tree (local
     server → runner → native ``localharness``). Once the CLI process exits, that
     tree must be torn down: no ``localharness`` PID this run created may survive.
     Asserts on the before/after PID set difference (robust to unrelated host

@@ -29,7 +29,7 @@ class StaticModelFallback:
 #: listing are simply not ranked by it.
 _CODEX_ARM_PREFERENCE = StaticModelFallback(
     model_ids=("gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.5"),
-    owner="Databricks model discovery (omnigent.databricks_model_discovery)",
+    owner="Databricks model discovery (agentnexus.databricks_model_discovery)",
     provenance="AgentNexus's release-curated Codex arm ordering",
     discovery_gap="a workspace listing ranks models by neither recency nor capability",
 )
@@ -51,7 +51,7 @@ def static_model_fallback(provider_kind: str, cli: str) -> StaticModelFallback |
 #: form 400s against codex's own backend.
 _CODEX_LAUNCH_DEFAULT = StaticModelFallback(
     model_ids=("gpt-5.6-sol",),
-    owner="Codex native launch (omnigent.inner.codex_executor)",
+    owner="Codex native launch (agentnexus.inner.codex_executor)",
     provenance="codex's own catalog slug for the cheapest current arm",
     discovery_gap=(
         "the launch default is resolved before any app-server probe can "
@@ -78,7 +78,7 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
             "databricks-claude-sonnet-5",
             "databricks-claude-opus-4-8",
         ),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="AI Gateway Claude serving endpoints, cheapest → most powerful",
         discovery_gap=(
             "the router picks before a session's live model catalog is reachable, "
@@ -92,7 +92,7 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
             "databricks-gpt-5-4",
             "databricks-gpt-5-5",
         ),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="AI Gateway GPT serving endpoints, cheapest → most powerful",
         discovery_gap=(
             "the router picks before a session's live model catalog is reachable, "
@@ -110,7 +110,7 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
             "databricks-gpt-5-5",
             "databricks-claude-opus-4-8",
         ),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="the Claude and GPT ladders interleaved by cost, for multi-model pi",
         discovery_gap=(
             "the router picks before a session's live model catalog is reachable, "
@@ -123,7 +123,7 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
             "databricks-gpt-5-6-luna",
             "databricks-gpt-5-6-sol",
         ),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="the external router's own current arms, offered so a pick keeps its endpoint",
         discovery_gap=(
             "the router picks before a session's live model catalog is reachable, "
@@ -132,19 +132,19 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
     ),
     "task_v1_claude_arms": StaticModelFallback(
         model_ids=("claude-opus-4-8", "claude-sonnet-5"),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="the task_v1 router's Claude arm menu, which it requires in full",
         discovery_gap="the router's arm menu is part of its request contract, not a catalog",
     ),
     "task_v1_codex_arms": StaticModelFallback(
         model_ids=("glm-5-2", "gpt-5-6-sol", "gpt-5-6-luna"),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="the task_v1 router's codex arm menu, which it requires in full",
         discovery_gap="the router's arm menu is part of its request contract, not a catalog",
     ),
     "family_fallbacks": StaticModelFallback(
         model_ids=("claude-sonnet-5", "gpt-5-6-luna"),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="one arm per family (claude, gpt), both frozen members of the task_v1 menus",
         discovery_gap="a workspace that serves no endpoint for the picked arm needs a pinned one",
     ),
@@ -157,13 +157,13 @@ _SMART_ROUTING_FALLBACKS: dict[str, StaticModelFallback] = {
             "databricks-gpt-5-6-terra",
             "databricks-gpt-5-6-sol",
         ),
-        owner="Smart Routing (omnigent.server.smart_routing)",
+        owner="Smart Routing (agentnexus.server.smart_routing)",
         provenance="probed: pi's own gateway 400s on each of these",
         discovery_gap="a gateway listing advertises these without pi's request-shape limits",
     ),
     "codex_catalog_clone_source": StaticModelFallback(
         model_ids=("gpt-5.6-luna",),
-        owner="Codex extended catalog (omnigent.inner.codex_executor)",
+        owner="Codex extended catalog (agentnexus.inner.codex_executor)",
         provenance="codex's own bundled catalog slug for the cheapest current arm",
         discovery_gap="codex's bundled catalog carries no entry for a gateway-only arm to clone",
     ),

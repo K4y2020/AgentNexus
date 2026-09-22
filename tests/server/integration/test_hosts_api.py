@@ -636,7 +636,7 @@ async def test_launch_runner_harness_not_configured_returns_412(
     the runner bind.
 
     If this degrades to the generic 502, the client loses the
-    machine-readable code (and the `omnigent setup` hint) on the
+    machine-readable code (and the `agentnexus setup` hint) on the
     fork-resume relaunch path.
     """
     from agentnexus.errors import AgentNexusError
@@ -680,7 +680,7 @@ async def test_launch_runner_harness_not_configured_returns_412(
                             HostLaunchRunnerResultFrame(
                                 request_id=frame.request_id,
                                 status="failed",
-                                error=("harness 'codex' is not configured — run `omnigent setup`"),
+                                error=("harness 'codex' is not configured — run `agentnexus setup`"),
                                 error_code="harness_not_configured",
                             )
                         ),
@@ -704,7 +704,7 @@ async def test_launch_runner_harness_not_configured_returns_412(
     assert "agentnexus setup" in body["error"]["message"]
 
     # _rollback_failed_launch ran: the session is fully unbound so a
-    # retry after `omnigent setup` starts clean.
+    # retry after `agentnexus setup` starts clean.
     updated = conv_store.get_conversation(conv.id)
     assert updated is not None
     assert updated.runner_id is None, "failed launch must unbind runner_id"

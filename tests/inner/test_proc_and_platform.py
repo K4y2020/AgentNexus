@@ -293,7 +293,7 @@ def test_posix_default_sandbox_is_not_jobobject() -> None:
 @pytest.mark.windows_only
 def test_helper_env_keeps_systemroot_so_child_can_import_asyncio() -> None:
     # Regression: a filtered (active-sandbox) helper env that drops SYSTEMROOT
-    # makes any spawned `python -m omnigent...` die at `import asyncio` with
+    # makes any spawned `python -m agentnexus...` die at `import asyncio` with
     # WinError 10106 (Winsock loads providers from %SystemRoot%). The os_env
     # allowlist must carry the Windows system vars.
     from agentnexus.inner.os_env import build_helper_env

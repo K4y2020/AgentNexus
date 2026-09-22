@@ -26,7 +26,7 @@ class _Driver:
 
 async def test_supported_for_prefixed_omnigent_tool_call() -> None:
     result = await AgentNexusMcpProbe().run(
-        _Driver(TurnResult(tool_calls=[{"name": "mcp__omnigent__sys_session_list"}])),
+        _Driver(TurnResult(tool_calls=[{"name": "mcp__agentnexus__sys_session_list"}])),
         _PROFILE,
     )
 

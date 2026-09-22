@@ -49,14 +49,14 @@ def _wire_type(cls: type) -> str:
     """
     Extract the wire ``type`` literal from a server event class.
 
-    Each :mod:`omnigent.server.schemas` event class pins its
+    Each :mod:`agentnexus.server.schemas` event class pins its
     ``type`` field as ``Literal["..."]``; this helper unwraps that
     to a plain string so the SDK's ``str == str`` dispatch table
     stays a ``str`` comparison rather than introducing a class-side
     isinstance check.
 
     :param cls: A subclass of the server's ``_SSEEventBase``,
-        e.g. :class:`omnigent.server.schemas.OutputTextDeltaEvent`.
+        e.g. :class:`agentnexus.server.schemas.OutputTextDeltaEvent`.
     :returns: The wire ``type`` literal, e.g.
         ``"response.output_text.delta"``.
     """
@@ -154,7 +154,7 @@ def _parse_event(event_type: str, data: dict[str, Any]) -> StreamEvent | None:
     :param event_type: Wire name of the SSE ``event:`` field, e.g.
         ``"response.output_text.delta"``. Compared against the
         ``_T_RESPONSE_*`` wire-type constants (sourced from
-        :mod:`omnigent.server.schemas`) to dispatch.
+        :mod:`agentnexus.server.schemas`) to dispatch.
     :param data: Decoded JSON payload from the SSE ``data:`` field.
     :returns: A typed :class:`StreamEvent` for known event names, or
         ``None`` when the payload is missing required fields or the

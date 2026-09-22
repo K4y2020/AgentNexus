@@ -222,6 +222,11 @@ class AcpAgentConfig:
     permission_mode: str = "auto"
     inject_system_prompt: bool = True
 
+    @property
+    def agentnexus_mcp(self) -> bool:
+        """Canonical accessor; the old constructor spelling is retained until 2.0."""
+        return self.omnigent_mcp
+
 
 class _AcpRequestError(Exception):
     """A handler failure to return as a JSON-RPC error on a server request.

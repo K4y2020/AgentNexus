@@ -42,7 +42,7 @@ const fs = require("fs");
 const SLA_DAYS = 5; // working days
 const LABEL = "review-sla-escalated";
 const MARKER = "<!-- review-sla-bot -->"; // idempotency fallback if the label write fails
-const CANONICAL_REPO = "agentnexus-ai/agentnexus";
+const CANONICAL_REPO = "K4y2020/AgentNexus";
 // Max escalations per sweep. Bounds the day-one blast against an existing stale
 // backlog (and any future surge): the backlog drains a chunk per weekday instead
 // of nudging everything at once. PRs are processed before issues.

@@ -146,7 +146,7 @@ def test_fork_runner_nonzero_exit_is_reported(manager: ZygoteManager, tmp_path) 
 def test_child_systemexit_code_is_preserved(manager: ZygoteManager, tmp_path) -> None:
     """A child raising SystemExit(N) reports code N, not a flattened 1.
 
-    Mirrors ``python -m omnigent.runner._entry`` semantics: main() raises
+    Mirrors ``python -m agentnexus.runner._entry`` semantics: main() raises
     SystemExit on a tunnel rejection, and the fork guard must preserve the code
     rather than turning it into a traceback + exit 1.
 
@@ -504,7 +504,7 @@ def test_disk_build_stamp_resolves_package_dir_without_top_level_file(monkeypatc
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     probed: list[Path] = []
-    monkeypatch.setattr(omnigent, "__file__", None)
+    monkeypatch.setattr(agentnexus, "__file__", None)
     monkeypatch.setattr(
         importlib.util,
         "spec_from_file_location",

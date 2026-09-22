@@ -146,7 +146,7 @@ jobs:
           echo "duplicate=true" >> "$GITHUB_OUTPUT"
           {
             echo "<!-- polly-skipped-sha: ${head_sha} -->"
-            echo "## <img src=\"https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review skipped"
+            echo "## <img src=\"https://raw.githubusercontent.com/K4y2020/AgentNexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review skipped"
             echo ""
             echo "\`${head_sha:0:7}\` already has a [review](${prior}), so there is nothing new to look at."
             echo ""
@@ -572,7 +572,7 @@ jobs:
           {
             echo "<!-- polly-review-bot -->"
             echo "<!-- polly-reviewed-sha: ${HEAD_SHA} -->"
-            echo "## <img src=\"https://raw.githubusercontent.com/agentnexus-ai/agentnexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review"
+            echo "## <img src=\"https://raw.githubusercontent.com/K4y2020/AgentNexus/main/docs/images/agentnexus-logo.svg\" alt=\"\" height=\"20\" valign=\"middle\" /> Polly AI Review"
             echo ""
             echo "$REVIEW_TEXT"
             echo ""

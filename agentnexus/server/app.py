@@ -2103,7 +2103,9 @@ def create_app(
         """
         return {"version": _server_version()}
 
-    @app.get("/.well-known/omnigent.json")
+    # Keep older desktop clients working until the 2.0 compatibility removal.
+    @app.get("/.well-known/omnigent.json", include_in_schema=False)
+    @app.get("/.well-known/agentnexus.json")
     async def well_known_manifest() -> dict[str, object]:
         """Version manifest for NON-BROWSER clients — chiefly the desktop shell.
 
@@ -3000,7 +3002,7 @@ def create_app(
         # to promote listed identities — the only admin path for OIDC, and an
         # additive convenience for accounts.
         # Login-issued refresh grants: both server-mintable providers
-        # (accounts, oidc) get a grant store so `omnigent login` can hand
+        # (accounts, oidc) get a grant store so `agentnexus login` can hand
         # the CLI refresh material — without it, an unattended host dies
         # permanently at session-JWT expiry (default 8 h). The store also
         # backs the opt-in RFC 8628 device flow below.

@@ -1,6 +1,6 @@
 """Phase 0 characterization test — claude-sdk harness, one-shot prompt.
 
-Runs ``omnigent run hello_world.yaml --harness claude-sdk -p
+Runs ``agentnexus run hello_world.yaml --harness claude-sdk -p
 "..."`` as a real subprocess against the mock LLM server and
 snapshots the structural observations (exit code, stderr absence,
 assistant text length).
@@ -95,7 +95,7 @@ def test_per_harness_claude_sdk_one_shot(
     claude_sdk_available: bool,
 ) -> None:
     """
-    ``omnigent run hello_world.yaml --harness claude-sdk -p
+    ``agentnexus run hello_world.yaml --harness claude-sdk -p
     <prompt>`` exits 0 and emits a non-trivial assistant reply.
 
     Uses the mock LLM server via ``ANTHROPIC_BASE_URL`` so the

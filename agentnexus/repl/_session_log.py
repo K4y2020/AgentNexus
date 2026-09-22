@@ -423,7 +423,7 @@ def write_session_log_from_store(
     :class:`omnigent.stores.conversation_store.ConversationStore`
     directly instead of the SDK.
 
-    Used by the one-shot ``omnigent run <yaml> -p "…" --log`` path
+    Used by the one-shot ``agentnexus run <yaml> -p "…" --log`` path
     where the in-process ASGI app doesn't have a connected
     :class:`AgentNexusClient` — the run goes through raw httpx +
     ``httpx.ASGITransport`` and tearing all that down to construct

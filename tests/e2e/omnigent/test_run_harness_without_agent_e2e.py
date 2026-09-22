@@ -1,4 +1,4 @@
-"""Live REPL e2e for ``omnigent run --harness`` without AGENT.
+"""Live REPL e2e for ``agentnexus run --harness`` without AGENT.
 
 Migrated to use the mock LLM server. This test drives the user-facing
 launcher shape::
@@ -54,7 +54,7 @@ def test_run_harness_without_agent_live_repl_round_trip(
     mock_llm_server_url: str,
     tmp_path: Path,
 ) -> None:
-    """``omnigent run --harness`` boots and answers via each wrapped harness.
+    """``agentnexus run --harness`` boots and answers via each wrapped harness.
 
     Uses the mock LLM server for deterministic responses. The no-AGENT
     launcher should behave like a first-class agent: it should render the
@@ -143,7 +143,7 @@ def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
     ``opencode-native`` are excluded because their inner executors require
     bridge directories plus runner-managed terminal panes to inject keys
     into — both set up by their native launchers, not by
-    ``omnigent run --harness <native>``. (``opencode-native`` is a
+    ``agentnexus run --harness <native>``. (``opencode-native`` is a
     terminal-takeover ``native-server`` harness, the same shape as the
     other natives.) Running them through this matrix would hang or crash.
     Their e2e coverage is via native launcher smoke tests (tracked
@@ -186,23 +186,23 @@ def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
 
     ``goose-native`` is excluded for the same reason as ``claude-native`` /
     ``cursor-native``: it is a terminal-first TUI launched via ``omni goose``
-    (tmux pane + bridge dir), not ``omnigent run --harness goose-native``.
+    (tmux pane + bridge dir), not ``agentnexus run --harness goose-native``.
 
     ``antigravity-native`` is excluded for the union of both reasons above: it
     is a terminal-first TUI launched via ``omnigent antigravity`` (runner-owned
-    agy tmux pane + bridge dir), not ``omnigent run --harness antigravity-native``,
+    agy tmux pane + bridge dir), not ``agentnexus run --harness antigravity-native``,
     AND it is Gemini-native (agy authenticates via Google OAuth, not the shared
     Databricks gateway/profile probe wiring this matrix drives).
 
     ``qwen-native`` is excluded for the same reason as ``goose-native`` /
     ``cursor-native``: it is a terminal-first TUI launched via ``omni qwen``
     (tmux pane + bridge dir, driving qwen's ``--input-file`` / ``--json-file``),
-    not ``omnigent run --harness qwen-native``. Its coverage is the dedicated
+    not ``agentnexus run --harness qwen-native``. Its coverage is the dedicated
     qwen-native bridge/executor/forwarder unit tests.
 
     ``kiro-native`` is excluded for the same reason as ``goose-native`` /
     ``qwen-native`` / ``cursor-native``: it is a terminal-first TUI launched via
-    ``omni kiro`` (tmux pane + bridge dir), not ``omnigent run --harness
+    ``omni kiro`` (tmux pane + bridge dir), not ``agentnexus run --harness
     kiro-native``. Its coverage is the dedicated kiro-native bridge/executor/
     forwarder unit tests plus the ``test_native_kiro_render_parity`` e2e_ui suite.
 
@@ -213,7 +213,7 @@ def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
 
     ``kimi-native`` is excluded for the same reason as ``goose-native`` /
     ``qwen-native`` / ``kiro-native``: it is a terminal-first TUI launched via
-    ``omni kimi`` (tmux pane + bridge dir), not ``omnigent run --harness
+    ``omni kimi`` (tmux pane + bridge dir), not ``agentnexus run --harness
     kimi-native``. Its coverage is the dedicated kimi-native bridge/executor/
     forwarder/approval unit tests plus the Kimi picker e2e_ui suite.
 
@@ -224,7 +224,7 @@ def test_run_harness_live_matrix_covers_registered_coding_harnesses() -> None:
 
     ``hermes-native`` is excluded for the union of both reasons: it is a
     terminal-first TUI launched via ``omni hermes`` (tmux pane + bridge dir), not
-    ``omnigent run --harness hermes-native``, AND it wraps the ``hermes`` CLI
+    ``agentnexus run --harness hermes-native``, AND it wraps the ``hermes`` CLI
     binary. Its coverage is the dedicated hermes-native bridge/executor/forwarder/
     approval-mirror unit tests.
 

@@ -1,4 +1,4 @@
-"""Persistent client-side state for ``omnigent claude`` sessions.
+"""Persistent client-side state for ``agentnexus claude`` sessions.
 
 The wrapper records a small amount of per-conversation state at session
 creation time and reads it back on resume. Today the only recorded fact

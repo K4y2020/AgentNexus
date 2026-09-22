@@ -27,11 +27,20 @@ from dataclasses import dataclass
 # unsharded / single-replica server mounts elsewhere (usually the root).
 # This is the routing-relevant shape of a server URL (see
 # ``omnigent.cli_auth.databricks_request_headers``, which keys off it).
-WORKSPACE_API_PATH = "/api/2.0/omnigent"
+WORKSPACE_API_PATH = "/api/2.0/agentnexus"
 
 # The workspace SPA mount the web UI lives on — the URL shape users
 # recognize for a workspace-hosted deployment.
-WORKSPACE_UI_PATH = "/omnigent"
+WORKSPACE_UI_PATH = "/agentnexus"
+
+# Preserve explicitly configured legacy deployment mounts until 2.0.
+LEGACY_WORKSPACE_API_PATH = "/api/2.0/omnigent"
+LEGACY_WORKSPACE_UI_PATH = "/omnigent"
+WORKSPACE_MOUNTS = {
+    WORKSPACE_API_PATH: WORKSPACE_UI_PATH,
+    LEGACY_WORKSPACE_API_PATH: LEGACY_WORKSPACE_UI_PATH,
+    "/api/2.0/omnigents": LEGACY_WORKSPACE_UI_PATH,
+}
 
 
 def is_workspace_hosted_url(base_url: str) -> bool:
@@ -46,7 +55,7 @@ def is_workspace_hosted_url(base_url: str) -> bool:
         ``"https://example.databricks.com/api/2.0/omnigent"``.
     :returns: ``True`` when the URL path is the workspace API mount.
     """
-    return urllib.parse.urlsplit(base_url.rstrip("/")).path == WORKSPACE_API_PATH
+    return urllib.parse.urlsplit(base_url.rstrip("/")).path in WORKSPACE_MOUNTS
 
 
 def org_id_from_url(url: str) -> str | None:
@@ -105,7 +114,7 @@ class ServerUrl:
 
         The org id is taken from the URL's own ``?o=`` query when present
         (and the query is stripped off the stored base), else from the
-        ``omnigent login`` record for the base, else left unset.
+        ``agentnexus login`` record for the base, else left unset.
 
         :param api_base: The API base URL, possibly carrying ``?o=``, e.g.
             ``"https://ws.databricks.com/api/2.0/omnigent?o=123"``.
@@ -130,6 +139,11 @@ class ServerUrl:
         return is_workspace_hosted_url(self.api_base)
 
     @property
+    def workspace_ui_path(self) -> str | None:
+        """Match the UI mount to the API base, including pre-2.0 legacy URLs."""
+        return WORKSPACE_MOUNTS.get(urllib.parse.urlsplit(self.api_base).path)
+
+    @property
     def workspace_host(self) -> str | None:
         """The fronting workspace origin for a workspace-hosted server.
 
@@ -149,7 +163,7 @@ class ServerUrl:
         (``https://<ws>/omnigent``) instead of the internal API proxy
         path, with ``?o=<org>`` appended when the selector is known — so
         the URL both reads right and, when copy-pasted (into a browser or
-        ``omnigent login``), still routes to the right workspace. Every
+        ``agentnexus login``), still routes to the right workspace. Every
         other URL is shown as-is.
 
         :returns: e.g. ``"https://ws.databricks.com/omnigent?o=123"`` or
@@ -160,7 +174,7 @@ class ServerUrl:
         parsed = urllib.parse.urlsplit(self.api_base)
         query = urllib.parse.urlencode({"o": self.org_id}) if self.org_id else ""
         return urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, WORKSPACE_UI_PATH, query, "")
+            (parsed.scheme, parsed.netloc, self.workspace_ui_path or WORKSPACE_UI_PATH, query, "")
         )
 
 
@@ -169,7 +183,7 @@ def display_server_url(base_url: str) -> str:
 
     Convenience wrapper over :attr:`ServerUrl.display` for call sites that
     hold a plain API-base string: the org id is resolved from the URL's
-    own ``?o=`` query or the stored ``omnigent login`` record (see
+    own ``?o=`` query or the stored ``agentnexus login`` record (see
     :meth:`ServerUrl.from_api_base`).
 
     :param base_url: AgentNexus server base URL, e.g.

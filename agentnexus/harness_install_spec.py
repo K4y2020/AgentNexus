@@ -36,7 +36,7 @@ class SetupStep:
 
     Serialized into the ``GET /v1/harnesses`` catalog (``setup_steps``) so the
     web UI can render a "set up this agent" checklist that mirrors what
-    ``omnigent setup`` walks a user through — one row per requirement, in order.
+    ``agentnexus setup`` walks a user through — one row per requirement, in order.
 
     :param kind: Machine id for the requirement, ``"install"`` or ``"auth"``.
     :param title: Human row label (e.g. ``"Install Codex"``,

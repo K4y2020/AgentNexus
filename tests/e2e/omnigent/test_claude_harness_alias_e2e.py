@@ -1,6 +1,6 @@
 """E2E test — ``--harness claude-sdk`` alias works end-to-end.
 
-Runs ``omnigent run hello_world.yaml --harness claude-sdk -p <prompt>``
+Runs ``agentnexus run hello_world.yaml --harness claude-sdk -p <prompt>``
 as a real subprocess and verifies it exits 0 with non-trivial assistant output.
 This proves the "claude" alias is canonicalized to "claude-sdk" through the
 full CLI → harness → LLM path.
@@ -102,7 +102,7 @@ def _clean_env(profile: str) -> dict[str, str]:
 def test_run_with_claude_alias_produces_output(
     request: pytest.FixtureRequest,
 ) -> None:
-    """``omnigent run --harness claude-sdk`` exits 0 with assistant text.
+    """``agentnexus run --harness claude-sdk`` exits 0 with assistant text.
 
     Proves the "claude" alias is canonicalized through the full
     CLI → AgentNexus server → harness spawn → LLM call → output path.

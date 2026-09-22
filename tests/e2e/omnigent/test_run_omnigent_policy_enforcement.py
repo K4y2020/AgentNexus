@@ -131,7 +131,7 @@ def test_policy_denies_input_containing_sentinel(
     model: str,
 ) -> None:
     """
-    ``omnigent run <yaml> -p "<sentinel>..."`` produces
+    ``agentnexus run <yaml> -p "<sentinel>..."`` produces
     the DENY-by-policy sentinel in output — proof that the
     translator lifted the YAML's ``policies:`` into
     ``AgentSpec.guardrails.policies`` AND the omnigent
@@ -297,7 +297,7 @@ def test_policy_denies_tool_call_by_name(
     model: str,
 ) -> None:
     """
-    ``omnigent run <yaml> -p "<arithmetic prompt>"``
+    ``agentnexus run <yaml> -p "<arithmetic prompt>"``
     intercepts the LLM's ``calculate`` tool call, returns the
     DENY sentinel as tool output, and the final assistant reply
     reflects that — proving end-to-end that:

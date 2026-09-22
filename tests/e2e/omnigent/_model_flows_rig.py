@@ -6,7 +6,7 @@ against unmodified main (the red-on-main matrix) and against this branch — wit
 the developer's real ``$HOME`` (the claude/codex logins cannot be relocated) but
 an isolated ``AGENTNEXUS_CONFIG_HOME`` / ``AGENTNEXUS_DATA_DIR``. Provider *shapes*
 (which provider entry is the default for each model family) are rewritten into
-the sandbox config per test group, mirroring how ``omnigent setup`` flips the
+the sandbox config per test group, mirroring how ``agentnexus setup`` flips the
 ``default:`` claims.
 
 Every test drives the product the way a person uses it: the browser drives the

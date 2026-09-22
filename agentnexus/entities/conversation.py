@@ -72,7 +72,7 @@ class Conversation:
     :param host_id: Host that launched (or should launch) the
         runner for this session. Set when a session is created
         from the Web UI targeting a specific host. ``None`` for
-        sessions started via ``omnigent run`` (the CLI
+        sessions started via ``agentnexus run`` (the CLI
         orchestrates runner spawning directly). Used for
         retry-on-reconnect: if the server restarts before the
         runner connects, the server re-sends the launch request
@@ -165,7 +165,7 @@ class Conversation:
         (RUNNER_SUBAGENT_DISPATCH.md).
     :param external_session_id: Runtime-native session id this
         conversation wraps, e.g. Claude Code's session uuid for
-        ``omnigent claude`` sessions. ``None`` for regular
+        ``agentnexus claude`` sessions. ``None`` for regular
         AP-only conversations. Populated by the wrapper bridge
         from the underlying runtime and used by ``--resume`` to
         recover the external session's prior transcript on a

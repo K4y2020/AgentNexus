@@ -100,7 +100,7 @@ jobs:
     if: >-
       needs.resolve.outputs.is_final == 'true' &&
       (needs.resolve.outputs.dry_run == 'true' ||
-       (github.repository == 'agentnexus-ai/agentnexus' &&
+       (github.repository == 'K4y2020/AgentNexus' &&
         vars.AGENTNEXUS_BOT_APP_ID != ''))
     env:
       TAG: ${{ needs.resolve.outputs.tag }}

@@ -1,6 +1,6 @@
-"""Generate and post-process the omnigent OpenAPI 3.2 document.
+"""Generate and post-process the agentnexus OpenAPI 3.2 document.
 
-The omnigent server runs on FastAPI 0.135.x, which emits OpenAPI
+The agentnexus server runs on FastAPI 0.135.x, which emits OpenAPI
 3.1. OpenAPI 3.2 (released September 2025) introduced first-class
 support for sequential media types — specifically, the
 ``itemSchema`` keyword for describing each item in a streaming
@@ -10,7 +10,7 @@ correctly to consuming SDK / docs tooling.
 
 This script:
 
-1. Imports :func:`omnigent.server.app.create_app` and instantiates
+1. Imports :func:`agentnexus.server.app.create_app` and instantiates
    it against in-memory store stubs (no DB needed).
 2. Calls ``app.openapi()`` to get the FastAPI-generated 3.1 dict.
 3. Bumps the top-level ``openapi`` field to ``"3.2.0"``.
@@ -93,15 +93,15 @@ _SSE_ROUTES: list[tuple[str, str]] = [
 # document-level metadata an integrator needs: no ``servers``, no auth
 # description, no ``info.description``, and only bare snake_case tags.
 # We inject that connective tissue here so the published reference
-# (rendered by Scalar on the omnigent website) is usable for building
+# (rendered by Scalar on the agentnexus website) is usable for building
 # an integration. Keeping it in this script — rather than scattering it
 # across the route decorators — confines presentation concerns to the
 # spec-generation layer, and the drift test
 # (``tests/server/test_openapi_drift.py``) guards the result.
 
-# Self-hosted base URL. ``omnigent server`` binds 127.0.0.1:6767 by
+# Self-hosted base URL. ``agentnexus server`` binds 127.0.0.1:6767 by
 # default (see ``_DEFAULT_LOCAL_PORT`` in
-# ``omnigent/host/local_server.py``).
+# ``agentnexus/host/local_server.py``).
 _SERVERS: list[dict[str, str]] = [
     {
         "url": "http://127.0.0.1:6767",
@@ -112,7 +112,7 @@ _SERVERS: list[dict[str, str]] = [
 # Markdown prose shown at the top of the rendered reference. Covers
 # what the API is, the self-hosted base URL, and the deployment-driven
 # auth model (there is no bearer/API-key scheme — see
-# ``omnigent/server/auth.py``).
+# ``agentnexus/server/auth.py``).
 _INFO_DESCRIPTION: str = """\
 AgentNexus is an open-source meta-harness for building and running AI \
 agents. This is the REST API exposed by the AgentNexus server: use it to \
@@ -124,7 +124,7 @@ environments.
 ## Base URL
 
 AgentNexus is self-hosted. The server binds `http://127.0.0.1:6767` by \
-default (`omnigent server`); point the base URL at your own deployment.
+default (`agentnexus server`); point the base URL at your own deployment.
 
 ## Authentication
 

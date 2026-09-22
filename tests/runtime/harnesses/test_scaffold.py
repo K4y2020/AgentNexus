@@ -38,7 +38,7 @@ from typing import Any
 import httpx
 import pytest
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime.harnesses import _HARNESS_MODULES
 from agentnexus.runtime.harnesses import _scaffold as scaffold_module
 from agentnexus.runtime.harnesses._scaffold import HarnessApp, TurnContext
@@ -52,7 +52,7 @@ _TEST_HARNESS_MODULE = "tests.runtime.harnesses._test_scaffold_harnesses"
 # Unit tests for cap_tool_output itself live in tests/runtime/test_tool_output.py
 # (mirroring its source module). The integration test below proves the cap is
 # wired into the scaffold's dispatch_tool emit path.
-_TRUNCATION_MARKER = "[output truncated by omnigent:"
+_TRUNCATION_MARKER = "[output truncated by AgentNexus:"
 
 
 @dataclass
@@ -136,6 +136,27 @@ async def test_stale_continuation_without_model_is_rejected() -> None:
 
     with pytest.raises(AgentNexusError, match="model is required"):
         await HarnessApp()._start_or_inject_turn(request)
+
+
+@pytest.mark.asyncio
+async def test_stale_previous_response_id_cannot_start_competing_turn() -> None:
+    """An active turn rejects a continuation carrying an unrelated response id."""
+    app = HarnessApp()
+    ctx = TurnContext("resp_live", asyncio.Queue(), asyncio.Event())
+    app._in_flight[ctx.response_id] = ctx
+    app._active_turn_ctx = ctx
+    request = CreateResponseRequest(
+        input="continue",
+        model="test-agent",
+        previous_response_id="resp_stale",
+    )
+
+    with pytest.raises(AgentNexusError) as exc_info:
+        await app._start_or_inject_turn(request)
+
+    assert exc_info.value.code == ErrorCode.CONFLICT
+    assert app._in_flight == {ctx.response_id: ctx}
+    assert app._active_turn_ctx is ctx
 
 
 @pytest.mark.asyncio

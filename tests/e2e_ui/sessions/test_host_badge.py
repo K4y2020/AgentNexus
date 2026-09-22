@@ -332,7 +332,7 @@ def test_host_badge_click_shows_host_reconnect_instructions(
 
     Driven from the runner-still-up case: liveness reads ``online`` there, so
     the dialog's state must come from the session's host binding — otherwise it
-    would hand out the local ``omnigent run --resume`` command for a session
+    would hand out the local ``agentnexus run --resume`` command for a session
     whose host is what actually needs restarting.
 
     :param page: Playwright page fixture.

@@ -28,11 +28,11 @@ def test_cine_uses_gateway_neutral_harness_for_configurable_models():
     "name",
     [
         "film-analysis",
-        "novel-outline",
-        "novel-script",
-        "novel-storyboard",
-        "novel-characters",
-        "novel-art",
+        "cine-outline",
+        "cine-script",
+        "cine-storyboard",
+        "cine-characters",
+        "cine-art",
     ],
 )
 def test_cine_exposes_guidance_but_not_tool_implementations(name):
@@ -56,7 +56,7 @@ def test_cine_exposes_guidance_but_not_tool_implementations(name):
     )
 
 
-@pytest.mark.parametrize("name", ["novel-script", "novel-storyboard"])
+@pytest.mark.parametrize("name", ["cine-script", "cine-storyboard"])
 @pytest.mark.parametrize("surface", ["load", "slash", "body_only"])
 def test_cine_core_is_delivered_without_reference_reads(name, surface):
     root = Path(__file__).resolve().parents[3] / "examples" / "cine" / "skills"
@@ -80,7 +80,7 @@ def test_cine_core_is_delivered_without_reference_reads(name, surface):
     assert not core.startswith("Error:")
 
 
-@pytest.mark.parametrize("name", ["novel-script", "novel-storyboard"])
+@pytest.mark.parametrize("name", ["cine-script", "cine-storyboard"])
 @pytest.mark.parametrize("surface", ["responses", "nullable", "startup"])
 def test_cine_core_is_preloaded_without_any_skill_tool(name, surface):
     root = Path(__file__).resolve().parents[3] / "examples" / "cine"

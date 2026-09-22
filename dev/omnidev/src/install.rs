@@ -1,4 +1,4 @@
-//! Manage the user's git-based omnigent installation via `uv tool install`.
+//! Manage the user's git-based agentnexus installation via `uv tool install`.
 //!
 //! None of this needs a local checkout: it drives `uv` and reads the installed
 //! tool's metadata, and any git call targets the remote.
@@ -16,7 +16,7 @@ pub const DEFAULT_REF: &str = "main";
 pub const DEFAULT_EXTRA: &str = "databricks";
 pub const PYTHON_VERSION: &str = "3.12";
 
-/// Durable record of how the user wants omnigent installed. Persisted so
+/// Durable record of how the user wants agentnexus installed. Persisted so
 /// `update` reinstalls the same repo/ref/extras without re-specifying them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallConfig {
@@ -60,14 +60,14 @@ impl InstallConfig {
     }
 
     /// The PEP 508 install spec, e.g.
-    /// `omnigent[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main`.
+    /// `agentnexus[databricks] @ git+https://github.com/K4y2020/AgentNexus.git@main`.
     /// With no extras it collapses to the bare `git+<repo>@<ref>` URL.
     pub fn spec(&self) -> String {
         let source = format!("git+{}@{}", self.repo, self.git_ref);
         if self.extras.is_empty() {
             source
         } else {
-            format!("omnigent[{}] @ {}", self.extras.join(","), source)
+            format!("agentnexus[{}] @ {}", self.extras.join(","), source)
         }
     }
 }
@@ -81,7 +81,7 @@ fn preflight() -> Result<()> {
     }
     if which("pnpm").is_none() {
         bail!(
-            "`pnpm` is not on PATH. Installing omnigent from git builds the web UI \
+            "`pnpm` is not on PATH. Installing AgentNexus from git builds the web UI \
              from source and needs Node 22+/pnpm. Install Node (pnpm is \
              available via `corepack enable` or `npm install -g pnpm`), then retry."
         );
@@ -89,7 +89,7 @@ fn preflight() -> Result<()> {
     Ok(())
 }
 
-/// Install omnigent from git per `config`. `reinstall` forces uv past its cache
+/// Install agentnexus from git per `config`. `reinstall` forces uv past its cache
 /// so a moving ref (e.g. `main`) actually re-resolves.
 pub fn run_uv_install(config: &InstallConfig, reinstall: bool) -> Result<()> {
     preflight()?;
@@ -117,7 +117,7 @@ pub fn install(config: &InstallConfig) -> Result<()> {
     config.save()?;
     run_uv_install(config, false)?;
     record_installed_sha(config);
-    println!("omnidev: installed omnigent ({})", config.spec());
+    println!("omnidev: installed AgentNexus ({})", config.spec());
     Ok(())
 }
 
@@ -128,7 +128,7 @@ pub fn update() -> Result<()> {
     config.save()?;
     run_uv_install(&config, true)?;
     record_installed_sha(&config);
-    println!("omnidev: updated omnigent ({})", config.spec());
+    println!("omnidev: updated AgentNexus ({})", config.spec());
     Ok(())
 }
 
@@ -141,14 +141,23 @@ fn record_installed_sha(config: &InstallConfig) {
     }
 }
 
-/// Read the commit the installed omnigent tool was built from, via its PEP 610
+/// Read the commit the installed agentnexus tool was built from, via its PEP 610
 /// `direct_url.json`. Returns `None` for a non-VCS install or when uv/metadata
 /// can't be read. Never touches the working directory.
 pub fn installed_commit() -> Option<String> {
     let dir = uv_tool_dir()?;
-    // …/omnigent/**/omnigent-*.dist-info/direct_url.json
-    let omnigent_root = dir.join("omnigent");
-    let dist_info = find_dist_info(&omnigent_root)?;
+    installed_commit_in(&dir)
+}
+
+fn installed_commit_in(dir: &std::path::Path) -> Option<String> {
+    // Legacy tool metadata remains readable until 2.0; a current install wins.
+    let current = dir.join("agentnexus");
+    let root = if current.is_dir() {
+        current
+    } else {
+        dir.join("omnigent")
+    };
+    let dist_info = find_dist_info(&root)?;
     let text = std::fs::read_to_string(dist_info.join("direct_url.json")).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     value
@@ -172,11 +181,12 @@ fn uv_tool_dir() -> Option<PathBuf> {
     }
 }
 
-/// Find the `omnigent-*.dist-info` dir under a uv tool's environment. uv lays
+/// Find the `agentnexus-*.dist-info` dir under a uv tool's environment. uv lays
 /// tools out as `<tool>/lib/pythonX.Y/site-packages/<pkg>-<ver>.dist-info`, so
 /// we walk rather than hardcode the python version.
 fn find_dist_info(root: &std::path::Path) -> Option<PathBuf> {
     let mut stack = vec![root.to_path_buf()];
+    let mut legacy = None;
     while let Some(dir) = stack.pop() {
         let Ok(entries) = std::fs::read_dir(&dir) else {
             continue;
@@ -188,13 +198,18 @@ fn find_dist_info(root: &std::path::Path) -> Option<PathBuf> {
             }
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name.starts_with("omnigent-") && name.ends_with(".dist-info") {
+            if name.starts_with("agentnexus-") && name.ends_with(".dist-info") {
                 return Some(path);
+            }
+            // Legacy distribution metadata remains supported until 2.0.
+            if name.starts_with("omnigent-") && name.ends_with(".dist-info") {
+                legacy = Some(path);
+                continue;
             }
             stack.push(path);
         }
     }
-    None
+    legacy
 }
 
 /// Locate an executable on PATH (portable `which`, no external dep).
@@ -207,4 +222,40 @@ fn which(program: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installed_metadata_prefers_current_tool_and_reads_legacy() {
+        let root = std::env::temp_dir().join(format!(
+            "omnidev-metadata-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let legacy = root.join("omnigent/lib/python3.12/site-packages/omnigent-0.1.dist-info");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(
+            legacy.join("direct_url.json"),
+            r#"{"vcs_info":{"commit_id":"old"}}"#,
+        )
+        .unwrap();
+        assert_eq!(installed_commit_in(&root).as_deref(), Some("old"));
+        let current = root.join("agentnexus/lib/python3.12/site-packages/agentnexus-0.2.dist-info");
+        std::fs::create_dir_all(&current).unwrap();
+        std::fs::write(
+            current.join("direct_url.json"),
+            r#"{"vcs_info":{"commit_id":"new"}}"#,
+        )
+        .unwrap();
+        assert_eq!(installed_commit_in(&root).as_deref(), Some("new"));
+        std::fs::write(current.join("direct_url.json"), "{}").unwrap();
+        assert_eq!(installed_commit_in(&root), None);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }

@@ -4,7 +4,7 @@ Deploy AgentNexus to Render in one click. Render provisions the app and a
 managed Postgres database, assigns an HTTPS URL on `*.onrender.com`, and
 handles SSL automatically. No local tooling required.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/agentnexus-ai/agentnexus)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/K4y2020/AgentNexus)
 
 > **Note:** The button points at the public repo `github.com/agentnexus-ai/agentnexus`.
 > It goes live once that repo **and** the `ghcr.io/agentnexus-ai/agentnexus-server`

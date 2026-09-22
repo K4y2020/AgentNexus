@@ -10,23 +10,23 @@ def test_cine_bundle_loads():
     spec = load(BUNDLE)
     assert spec.name == "cine"
     assert [s.name for s in spec.skills] == [
+        "cine-art",
+        "cine-characters",
+        "cine-outline",
+        "cine-script",
+        "cine-storyboard",
         "film-analysis",
-        "novel-art",
-        "novel-characters",
-        "novel-outline",
-        "novel-script",
-        "novel-storyboard",
     ]
-    assert spec.executor.config["harness"] == "claude-sdk"
+    assert spec.executor.config["harness"] == "openai-agents"
     skill_paths = [
         BUNDLE / "skills" / name / "SKILL.md"
         for name in [
             "film-analysis",
-            "novel-outline",
-            "novel-script",
-            "novel-storyboard",
-            "novel-characters",
-            "novel-art",
+            "cine-outline",
+            "cine-script",
+            "cine-storyboard",
+            "cine-characters",
+            "cine-art",
         ]
     ]
     for path in (BUNDLE / "config.yaml", *skill_paths):

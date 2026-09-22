@@ -1,11 +1,11 @@
-"""Hermes readiness + config reporting for ``omnigent setup``.
+"""Hermes readiness + config reporting for ``agentnexus setup``.
 
 Like :mod:`omnigent.onboarding.goose_auth`, AgentNexus manages **no** Hermes
 credentials: Hermes owns its own auth via ``hermes model`` (an interactive
 provider/model picker) which writes the chosen provider + model into
 ``~/.hermes/config.yaml``. This module is a thin, read-only reporter — it
 confirms the ``hermes`` binary is installed and surfaces the configured
-provider/model so ``omnigent setup`` can show Hermes as ready (and which model
+provider/model so ``agentnexus setup`` can show Hermes as ready (and which model
 it will drive) instead of always reading "Not configured" on an installed
 binary.
 

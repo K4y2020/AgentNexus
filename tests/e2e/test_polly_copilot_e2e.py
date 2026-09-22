@@ -4,7 +4,7 @@ Unlike the mock-LLM smoke in ``test_polly_e2e.py`` (which swaps polly's brain to
 ``openai-agents`` against a fake server), the Copilot SDK talks only to GitHub's
 Copilot backend, so this exercises the REAL harness. It is **skipped** unless a
 Copilot-capable GitHub token is resolvable — the ``copilot:`` config block
-written by ``omnigent setup``, or an ambient ``COPILOT_GITHUB_TOKEN`` /
+written by ``agentnexus setup``, or an ambient ``COPILOT_GITHUB_TOKEN`` /
 ``GH_TOKEN`` / ``GITHUB_TOKEN`` — so CI without a token skips it, mirroring how
 the harness probes skip when a CLI binary is absent from ``PATH``.
 

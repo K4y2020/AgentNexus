@@ -12,6 +12,34 @@ from agentnexus.tools.base import ToolContext
 from agentnexus.tools.builtins import LoadSkillTool
 
 
+@pytest.mark.parametrize(
+    "legacy,current",
+    [("build-omnigent", "build-agentnexus"), ("omnigent-knowledge", "agentnexus-knowledge")],
+)
+def test_platform_skill_rename_keeps_old_calls_readable(tmp_path, tool_ctx, legacy, current):
+    from agentnexus.tools.builtins.load_skill import find_skill_by_name
+    from agentnexus.tools.builtins.read_skill_file import ReadSkillFileTool
+
+    (tmp_path / "guide.md").write_text("existing resource", encoding="utf-8")
+    skill = SkillSpec(
+        name=current, description="platform skill", content="current content", skill_dir=tmp_path
+    )
+    loader = LoadSkillTool([skill], agent_root=tmp_path, skills_filter="none")
+    assert "current content" in loader.invoke(json.dumps({"name": legacy}), tool_ctx)
+    assert legacy not in loader.get_schema()["function"]["description"]
+    assert find_skill_by_name([skill], legacy) is skill
+    reader = ReadSkillFileTool([skill])
+    result = reader.invoke(json.dumps({"skill_name": legacy, "path": "guide.md"}), tool_ctx)
+    assert "existing resource" in result
+
+
+def test_explicit_skill_named_with_legacy_name_is_not_shadowed(tmp_path, tool_ctx):
+    old = SkillSpec(name="build-omnigent", description="custom", content="custom old name")
+    new = SkillSpec(name="build-agentnexus", description="platform", content="platform")
+    tool = LoadSkillTool([old, new], agent_root=tmp_path, skills_filter="none")
+    assert tool.invoke('{"name":"build-omnigent"}', tool_ctx) == "custom old name"
+
+
 @pytest.fixture()
 def skill_with_resources(tmp_path: Path) -> SkillSpec:
     """

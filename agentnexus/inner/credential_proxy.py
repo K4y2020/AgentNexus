@@ -384,7 +384,7 @@ def _databricks_config(profile: str) -> object:
         raise AgentNexusError(
             "os_env.sandbox.credential_proxy type 'databricks_cli' requires the "
             "Databricks SDK. Install the 'databricks' extra (e.g. "
-            "`pip install omnigent[databricks]`).",
+            "`pip install agentnexus[databricks]`).",
             code=ErrorCode.INVALID_INPUT,
         ) from exc
     try:

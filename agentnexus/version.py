@@ -1,4 +1,4 @@
-"""Runtime source of truth for the omnigent version.
+"""Runtime source of truth for the AgentNexus version.
 
 ``VERSION`` is the version string the runtime imports directly — the CLI
 (``--version``), the server's ``/api/version`` endpoint, and the

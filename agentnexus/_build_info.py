@@ -9,5 +9,5 @@ not have it on disk.
 """
 from __future__ import annotations
 
-BUILD_TIME_EPOCH: int = 1789781504
-COMMIT_SHA: str = '742195af26e2400d7cc961412d3bcd2c76dcde5f'
+BUILD_TIME_EPOCH: int = 1790003244
+COMMIT_SHA: str = '451c8d30cedcf58b449ac315cefa024fd1afd290'

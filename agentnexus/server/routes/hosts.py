@@ -1006,7 +1006,7 @@ def create_hosts_router(
             if result.get("error_code") == HARNESS_NOT_CONFIGURED_ERROR_CODE:
                 # Categorical refusal: the harness isn't configured on
                 # the host, so a retry can't succeed without user action
-                # (`omnigent setup` on the host machine). Surface the
+                # (`agentnexus setup` on the host machine). Surface the
                 # specific code (412) instead of the generic 502.
                 raise AgentNexusError(
                     f"host failed to launch runner: {result.get('error')}",
@@ -1401,7 +1401,7 @@ def create_hosts_router(
         terminal. Owner-scoped, allowlisted, and gated behind
         ``harness_install`` release feature exactly like the install route
         (404 when disabled). The host daemon does the write with the same
-        non-interactive core the ``omnigent setup`` wizard uses.
+        non-interactive core the ``agentnexus setup`` wizard uses.
 
         Security: the server is an authz'd pass-through — it validates
         ownership + the allowlist and forwards the secret over the (TLS) tunnel;

@@ -154,7 +154,7 @@ def test_absent_named_profile_raises_not_falls_back_to_default(
 def test_databricks_config_profile_env_var_typo_raises_not_falls_back_to_default(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    # Simulates: `omnigent run foo.yaml --profile typo-profile --model databricks/m`
+    # Simulates: `agentnexus run foo.yaml --profile typo-profile --model databricks/m`
     # _propagate_profile_to_environment sets DATABRICKS_CONFIG_PROFILE="typo-profile".
     # DatabricksAdapter calls resolve_databricks_workspace(None).
     # Without the effective_profile fix, the configparser path receives profile=None,

@@ -1,4 +1,4 @@
-"""Tool-authoring primitives for omnigent.
+"""Tool-authoring primitives for agentnexus.
 
 Use the :func:`tool` decorator to mark a module-level Python function
 as a tool the agent can call. The decorator derives the LLM-facing
@@ -15,7 +15,7 @@ the caller just writes Python::
 Pass decorated functions as the ``tools=`` argument to
 :meth:`AgentNexusClient.query` or :meth:`Session.query`.
 
-Server-side runtime (``omnigent.tools.local``) also consumes this
+Server-side runtime (``agentnexus.tools.local``) also consumes this
 decorator to load ``@tool``-decorated functions bundled inside agent
 images, so the same decorator powers both authoring and runtime.
 """
