@@ -103,6 +103,11 @@ web/package-lock.json
 # Runtime outputs / eval results — regenerated each run, never committed.
 outputs/
 
+# Cine skill run artifacts (index projects, frame evidence, ASR transcripts,
+# test productions). Regenerated from the source video each run.
+examples/cine/output/
+examples/cine/camera-evidence/
+
 # Gate-run log — local dev artifact.
 .gates.jsonl
 
