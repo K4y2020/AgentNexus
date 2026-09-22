@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -120,6 +121,7 @@ def index_media(
     )
     result["analysis_status"] = "indexed_unreviewed" if ready else "blocked"
     result["reviewed_shot_count"] = 0
+    result["semantic_reviewed_shot_count"] = 0
     result["profile"] = profile
     result["next_step"] = (
         "Read story_plan_path, inspect each temporal batch and save to story_draft_path; "
@@ -127,45 +129,72 @@ def index_media(
         if profile == "adaptation"
         else "Review source shots with image receipts."
     )
-    if result["analysis_status"] == "indexed_unreviewed":
-        reviews = output / "reviews" / f"{result['revision_id']}.json"
-        if not reviews.exists():
-            _atomic_write(reviews, [])
-        if result.get("story_plan_path"):
-            plan = json.loads(Path(result["story_plan_path"]).read_text(encoding="utf-8"))
-            draft = output / "story" / f"{result['revision_id']}.json"
-            if not draft.exists():
-                _atomic_write(
-                    draft,
-                    {
-                        "schema_version": 1,
-                        "source_id": result["source_id"],
-                        "revision_id": result["revision_id"],
-                        "dialogue_provenance": {
-                            "status": "unverified",
-                            "source_path": None,
-                        },
-                        "characters": [],
-                        "summary": {
-                            "premise": "",
-                            "conflict": "",
-                            "turning_points": [],
-                            "ending": "",
-                        },
-                        "sections": [
-                            {
-                                "batch_id": b["batch_id"],
-                                "events": [],
-                                "connection": "",
-                                "image_receipt_ids": [],
-                                "uncertainties": [],
-                            }
-                            for b in plan["batches"]
-                        ],
+    # Source-shot JEV review is opt-in and semantic only.  It must not silently
+    # turn a text/optical-flow judgment into visual evidence review.
+    reviews = output / "reviews" / f"{result['revision_id']}.json"
+    if result["analysis_status"] == "indexed_unreviewed" and os.environ.get("CINE_AUTO_JEV") == "1":
+        # Auto-review shots with JEV (TypeSafe System One) when configured
+        try:
+            from .jev_review import has_jev_configured, review_shots_with_jev
+
+            if has_jev_configured():
+                jev_res = review_shots_with_jev(output, result["revision_id"])
+                if jev_res.get("status") == "ok" and jev_res.get("reviewed_count", 0) > 0:
+                    result["analysis_status"] = "indexed_semantic_reviewed"
+                    result["semantic_reviewed_shot_count"] = jev_res["reviewed_count"]
+                    result["jev_review_path"] = jev_res["review_path"]
+                    result["next_step"] = (
+                        "JEV semantic metadata review complete; inspect evidence images before making visual claims."
+                    )
+                    try:
+                        from .render import refresh_report
+
+                        refresh_report(output, workspace, with_receipt=True)
+                    except Exception as exc:
+                        result["jev_report_warning"] = f"report refresh failed: {type(exc).__name__}: {exc}"
+        except Exception as exc:
+            result["jev_error"] = f"{type(exc).__name__}: {exc}"
+            result["next_step"] = (
+                "JEV semantic review failed; inspect the recorded jev_error before proceeding."
+            )
+
+    if not reviews.exists():
+        _atomic_write(reviews, [])
+    if result.get("story_plan_path"):
+        plan = json.loads(Path(result["story_plan_path"]).read_text(encoding="utf-8"))
+        draft = output / "story" / f"{result['revision_id']}.json"
+        if not draft.exists():
+            _atomic_write(
+                draft,
+                {
+                    "schema_version": 1,
+                    "source_id": result["source_id"],
+                    "revision_id": result["revision_id"],
+                    "dialogue_provenance": {
+                        "status": "unverified",
+                        "source_path": None,
                     },
-                )
-            result["story_draft_path"] = str(draft)
-    if binding and result["analysis_status"] == "indexed_unreviewed":
+                    "characters": [],
+                    "summary": {
+                        "premise": "",
+                        "conflict": "",
+                        "turning_points": [],
+                        "ending": "",
+                    },
+                    "sections": [
+                        {
+                            "batch_id": b["batch_id"],
+                            "events": [],
+                            "connection": "",
+                            "image_receipt_ids": [],
+                            "uncertainties": [],
+                        }
+                        for b in plan["batches"]
+                    ],
+                },
+            )
+        result["story_draft_path"] = str(draft)
+    if binding and result["analysis_status"] in {"indexed_unreviewed", "indexed_semantic_reviewed"}:
         binding.parent.mkdir(parents=True, exist_ok=True)
         with ProjectLock(binding.with_suffix(".lock"), timeout=5):
             if binding.exists() and json.loads(binding.read_text(encoding="utf-8")).get(

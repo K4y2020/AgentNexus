@@ -1,0 +1,7 @@
+name: cine-film-analysis
+transport: stdio
+command: python
+# `args` are literal (no ${VAR} expansion), so the server locates its own
+# sibling modules from __file__ rather than taking a configured root.
+args:
+  - tools/mcp/film_analysis_server.py

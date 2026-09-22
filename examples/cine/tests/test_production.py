@@ -61,7 +61,7 @@ def test_storyboard_seed_can_replace_only_untouched_empty_seed(tmp_path):
 def test_full_native_fixture_executes_five_validators(tmp_path):
     for stage in production.STAGES:
         example(tmp_path, stage)
-    source = next((production.SKILLS / "novel-characters/examples").glob("*.txt"))
+    source = next((production.SKILLS / "cine-characters/examples").glob("*.txt"))
     result = production.check(tmp_path, source_text=source)
     assert result["status"] == "native_validated", result
     assert len(result["stages"]) == 5

@@ -53,10 +53,57 @@ rather than inventing facts. A supplied full video is not an invitation to stop 
 
 ## Default: adaptation readiness
 
+### JEV semantic production gates
+
+Jev is TypeSafe's text-only System One model. It may judge compact structured
+creative state, but it cannot see evidence images, video, or audio. Never write
+JEV rows into the visual `reviews/{revision_id}.json` sidecar and never invent
+image receipts from evidence paths. Visual claims still require Cine image
+inspection and real receipts.
+
+After each native artifact is written and its own validator passes, block the
+next stage until the corresponding gate passes:
+
+```powershell
+python <film-analysis>/pipeline/production.py check <production> --stage outline --require-jev
+python <film-analysis>/pipeline/production.py check <production> --stage cast --require-jev
+python <film-analysis>/pipeline/production.py check <production> --stage art --require-jev
+python <film-analysis>/pipeline/production.py check <production> --stage script --require-jev --source-text <production>/source-transcript.txt
+python <film-analysis>/pipeline/production.py check <production> --stage storyboard --require-jev
+```
+
+Always pass `--source-text` on the script stage when adapting existing material.
+Without it the gate can only ask whether the script is internally coherent,
+which a script that reorders or reassigns the source's lines satisfies while
+still getting the original story wrong. With it, the stage additionally judges
+speaker attribution, reaction order, setup/payoff and overall order fidelity
+against the original, and records `source_compared` in the receipt. If the
+baseline's own speaker labels are unreliable the stage returns
+`baseline_unusable` with `repair_scope: upstream` instead of scoring the
+script against a corrupt baseline; re-run the ASR refinement and check again.
+
+These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
+actual model version, input hashes, typed answers, thresholds, decision and a
+typed scheduler route (`advance_to_*`, `repair_*`, `human_review_*`, or
+`blocked_*`). The local production controller validates that route against the
+legal stage graph before exposing it to Cine. Cine must consume `next_action`
+from the receipt: advance only on `advance_to_*`, repair only the named current
+stage on `repair_*`, and stop for `human_review_*` or `blocked_*`; do not invent
+another stage transition from prose.
+`failed`, `needs_review`, provider errors, missing keys, and incomplete answer
+sets block handoff when `--require-jev` is used. The gate reviews story causality,
+role and asset readiness, dialogue/action readability, beat coverage, continuity
+and generation feasibility. Deterministic native validators remain authoritative
+for schema and exact contracts; JEV is the semantic decision layer.
+
+For optional source-shot metadata, set `CINE_AUTO_JEV=1`. Its output is stored
+under `jev_reviews/` and is explicitly semantic; it never upgrades a source shot
+to visually `model_reviewed`.
+
 Use the directory returned by load_skill; do not recursively search for scripts.
 
 ```powershell
-uv run --with "scenedetect[opencv]>=0.6.4" --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
+uv run --with "scenedetect[opencv]>=0.6.4" --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" --with "typesafe-sdk>=0.7.0" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
 ```
 
 Omitting --end covers the source duration. An explicit --end selects a narrower
@@ -83,15 +130,26 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    disagreements remain visible for Cine to review. ASR output remains qualified;
    without audio tools, do not claim listening or invent quotes.
    If a key event is unclear, inspect extra frames/short clips locally around it.
-   When the source has speech but no trusted subtitles, create a reusable local ASR
-   transcript instead of improvising dialogue from stills:
-   `uv run --with "faster-whisper>=1.2,<2" python <skill>/pipeline/transcribe.py
-   --media <source> --output <workspace>/inputs/source-transcript --workspace <workspace>
-   --model large-v3-turbo --language zh`. For heavy BGM, singing or music-masked dialogue, add
-   `--separate-vocals` (uses Demucs) and `--initial-prompt "<context-summary-and-character-names>"`.
-   Add `--llm-refine` to enable automatic LLM contextual proofreading, typo correction (fixing homophones
-   and Whisper BPE artifacts), and speaker attribution via the AgentNexus gateway.
-   This automatically generates `.json`, `.txt` and `.srt` in the workspace. Never create `inputs/source.txt` from visual guesses.
+   When the source has speech but no trusted subtitles, call the
+   `cine-film-analysis` MCP tool `film_analyze` (or `film_transcribe` if the
+   index already exists). It runs the whole transcription chain in fixed code:
+   Whisper, then text repair, then JEV speaker attribution. Do not assemble a
+   `transcribe.py` command line by hand — the arguments that matter are
+   constructed inside the tool, and a hand-built invocation is how a bare name
+   list once reached the attribution context and labelled a character who never
+   appears in the episode.
+
+   The tool writes `inputs/source-transcript.{json,txt,srt}` and reports
+   `needs_review`, the count of lines JEV could not settle. Attribution comes
+   from the dialogue's own address terms, so it works before any cast document
+   exists. Later, once `cast.json` exists, re-running
+   `production.py attribute <production>` re-attributes against the cast's
+   stated relationships and is markedly more accurate — prefer it before
+   handing the script to production.
+
+Never create `inputs/source.txt` from visual guesses.
+   After transcription, run `production.py attribute <workspace>` to resolve any remaining speaker
+   labels against the cast with JEV, and treat its `needs_review` lines as unresolved.
 
    Voiceover & Off-screen dialogue handling:
    - When speech is heard without matching lip movement on screen (e.g. cold-open narration,

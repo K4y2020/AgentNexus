@@ -15,11 +15,11 @@ from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parents[2]
 STAGES = {
-    "outline": "novel-outline",
-    "cast": "novel-characters",
-    "art": "novel-art",
-    "script": "novel-script",
-    "storyboard": "novel-storyboard",
+    "outline": "cine-outline",
+    "cast": "cine-characters",
+    "art": "cine-art",
+    "script": "cine-script",
+    "storyboard": "cine-storyboard",
 }
 INPUTS = {
     "outline": (),
@@ -28,6 +28,10 @@ INPUTS = {
     "script": ("outline", "art", "cast"),
     "storyboard": ("script", "outline", "cast", "art"),
 }
+# Stage whose artifact is a JEV speaker attribution rather than a skill document,
+# so it has no node validator and its inputs are the cast plus the ASR rows.
+ATTRIBUTION_STAGE = "attribution"
+ATTRIBUTION_INPUTS = ("cast",)
 
 
 def digest(path):
@@ -97,6 +101,59 @@ def atomic_json(path, value):
         os.replace(temp, path)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def run_attribution(directory, *, model="jev-latest"):
+    """Assign each ASR utterance to a cast character using JEV.
+
+    The ASR transcript's own speaker labels are unreliable — one segment can
+    merge several people under a single label. The video pass identifies the
+    characters correctly, so this stage uses those features to decide who
+    speaks each line, and writes the result for the script stage to consume.
+    """
+    try:
+        from .attribute_speakers import attribute_speakers
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from attribute_speakers import attribute_speakers
+
+    cast_path = stage_path(directory, "cast")
+    rows_candidates = (
+        directory / "source-transcript.json",
+        directory / "inputs" / "source-transcript.json",
+    )
+    rows_path = next((p for p in rows_candidates if p.is_file()), None)
+    if rows_path is None:
+        return {
+            "status": "blocked",
+            "reason": "source-transcript.json not found",
+            "looked_in": [str(p) for p in rows_candidates],
+        }
+    payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
+    segments = payload.get("segments") if isinstance(payload, dict) else payload
+    scenes = payload.get("scenes") if isinstance(payload, dict) else None
+    cast = json.loads(Path(cast_path).read_text(encoding="utf-8"))
+
+    # Scene descriptions let the attribution weigh who is present and what just
+    # happened; without them an address line can be credited to the addressee.
+    if not scenes:
+        scene_source = directory / "scene-notes.json"
+        if scene_source.is_file():
+            notes = json.loads(scene_source.read_text(encoding="utf-8-sig"))
+            scenes = {int(k): v for k, v in notes.items()} if isinstance(notes, dict) else None
+
+    result = attribute_speakers(segments, cast, scenes=scenes, model=model)
+    if "error" in result:
+        return {"status": "error", **result}
+    target = directory / "source-transcript-attributed.json"
+    atomic_json(target, result)
+    needs_review = [a["id"] for a in result["attributions"] if a["needs_review"]]
+    return {
+        "status": "attributed",
+        "path": str(target),
+        "model": result["model"],
+        "segments": len(result["attributions"]),
+        "needs_review": needs_review,
+    }
 
 
 def script_path(stage):
@@ -235,7 +292,7 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     }
 
 
-def check_stage(directory, stage, source_text=None, timeout=30):
+def check_stage(directory, stage, source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
     tool = script_path(stage)
     row = {
         "stage": stage,
@@ -276,6 +333,22 @@ def check_stage(directory, stage, source_text=None, timeout=30):
             command.append(str(source_text))
         for key in INPUTS[stage]:
             command.extend([f"--{key}", str(paths[key])])
+        if stage == "script":
+            # The attributed transcript is what lets the script validator check
+            # line order and speaker against the original instead of judging the
+            # document only on its own internal coherence.
+            attributed = directory / "source-transcript-attributed.json"
+            cast_file = stage_path(directory, "cast", must_exist=False)
+            if cast_file and cast_file.is_file():
+                if not attributed.is_file() or cast_file.stat().st_mtime > attributed.stat().st_mtime:
+                    try:
+                        run_attribution(directory, model=jev_model)
+                    except Exception:
+                        pass
+            if attributed.is_file():
+                command.extend(["--source", str(attributed)])
+                files.append(attributed)
+                row["input_hashes"][str(attributed)] = fingerprint(attributed)
         if stage == "storyboard":
             command.append("--no-log")
         row["command"] = command
@@ -294,6 +367,17 @@ def check_stage(directory, stage, source_text=None, timeout=30):
             stderr=result.stderr,
             status="passed" if result.returncode == 0 else "failed",
         )
+        if row["status"] == "passed" and require_jev:
+            try:
+                from .jev_gates import run_stage_gate, write_receipt
+            except ImportError:  # Direct CLI execution from the pipeline directory.
+                from jev_gates import run_stage_gate, write_receipt
+            receipt = run_stage_gate(stage, paths, model=jev_model, source_text=source_text)
+            receipt["receipt_path"] = str(write_receipt(directory, receipt))
+            row["jev"] = receipt
+            row["next_action"] = (receipt.get("scheduler") or {}).get("next_action")
+            if receipt["status"] != "passed":
+                row["status"] = f"jev_{receipt['status']}"
         if (
             any(fingerprint(Path(p)) != h for p, h in row["input_hashes"].items())
             or digest(tool) != row["validator_sha256"]
@@ -313,13 +397,23 @@ def check_stage(directory, stage, source_text=None, timeout=30):
     return row
 
 
-def check(directory, stage="all", source_text=None, timeout=30):
+def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
     report_dir = directory / ".cine-validation"
     report_dir.mkdir(exist_ok=True)
     if not report_dir.resolve().is_relative_to(directory.resolve()):
         raise ValueError("validation report directory must stay inside the production directory")
     stages = list(STAGES) if stage == "all" else [stage]
-    rows = [check_stage(directory, s, source_text, timeout) for s in stages]
+    rows = [
+        check_stage(
+            directory,
+            s,
+            source_text,
+            timeout,
+            require_jev=require_jev,
+            jev_model=jev_model,
+        )
+        for s in stages
+    ]
     for row in rows:
         if row["status"] == "passed":
             try:
@@ -340,6 +434,14 @@ def check(directory, stage="all", source_text=None, timeout=30):
         else "failed",
         "stages": rows,
         "production_authorized": False,
+        "jev_required": require_jev,
+        "jev_status": (
+            "passed"
+            if require_jev and all(row.get("jev", {}).get("status") == "passed" for row in rows)
+            else "failed"
+            if require_jev
+            else "not_required"
+        ),
         "unverified": [
             "source_readiness",
             "upstream_pins",
@@ -356,9 +458,16 @@ def check(directory, stage="all", source_text=None, timeout=30):
     return {**report, "report_path": str(target)}
 
 
-def finalize(directory, source_text=None, timeout=30):
+def finalize(directory, source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
     """Revalidate native artifacts, refresh the manifest graph, then hand off."""
-    report = check(directory, "all", source_text, timeout)
+    report = check(
+        directory,
+        "all",
+        source_text,
+        timeout,
+        require_jev=require_jev,
+        jev_model=jev_model,
+    )
     if report["status"] != "native_validated":
         raise ValueError("native validation must pass before finalizing production pins")
     manifest_path = directory / "production.json"
@@ -416,6 +525,12 @@ def main(argv=None):
     init.add_argument("--seconds", type=float, required=True)
     init.add_argument("--genre", required=True)
     init.add_argument("--adapt-mode", choices=["忠实", "抽核", "借壳"], required=True)
+    attribute = sub.add_parser(
+        "attribute",
+        help="Assign ASR utterances to cast characters with JEV.",
+    )
+    attribute.add_argument("directory", type=Path)
+    attribute.add_argument("--jev-model", default="jev-latest")
     for action in ("seed", "check"):
         parser = sub.add_parser(action)
         parser.add_argument("directory", type=Path)
@@ -433,9 +548,21 @@ def main(argv=None):
             )
         if action == "check":
             parser.add_argument("--source-text", type=Path)
+            parser.add_argument(
+                "--require-jev",
+                action="store_true",
+                help="Require a passing TypeSafe JEV semantic gate for every checked stage.",
+            )
+            parser.add_argument("--jev-model", default="jev-latest")
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
+    final.add_argument(
+        "--require-jev",
+        action="store_true",
+        help="Require a passing TypeSafe JEV semantic gate before refreshing pins.",
+    )
+    final.add_argument("--jev-model", default="jev-latest")
     args = p.parse_args(argv)
     try:
         directory = args.directory.resolve()
@@ -445,12 +572,23 @@ def main(argv=None):
             )
         elif args.action == "seed":
             result = seed(directory, args.stage, replace_empty=args.replace_empty)
+        elif args.action == "attribute":
+            result = run_attribution(directory, model=args.jev_model)
         elif args.action == "check":
             result = check(
-                directory, args.stage, args.source_text.resolve() if args.source_text else None
+                directory,
+                args.stage,
+                args.source_text.resolve() if args.source_text else None,
+                require_jev=args.require_jev,
+                jev_model=args.jev_model,
             )
         else:
-            result = finalize(directory, args.source_text.resolve() if args.source_text else None)
+            result = finalize(
+                directory,
+                args.source_text.resolve() if args.source_text else None,
+                require_jev=args.require_jev,
+                jev_model=args.jev_model,
+            )
         print(json.dumps(result, ensure_ascii=False))
         return int(
             (args.action == "check" and result["status"] != "native_validated")
