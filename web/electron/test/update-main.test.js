@@ -185,7 +185,7 @@ function loadMainHarness({
       env: {
         ...process.env,
         AGENTNEXUS_DESKTOP_VERSION_OVERRIDE: desktopVersionOverride,
-        // No OMNIGENT_FORCE_DEV_UPDATE_CONFIG injection: main.js now derives
+        // No AGENTNEXUS_FORCE_DEV_UPDATE_CONFIG injection: main.js now derives
         // forceDevUpdateConfig from !app.isPackaged (always true in this
         // harness), not an env var. The harness still controls the
         // autoUpdater.forceDevUpdateConfig property directly (above) for tests

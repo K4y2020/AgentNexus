@@ -12,8 +12,6 @@
     removeAgentNexusData:
       RMDir /r "$APPDATA\AgentNexus"
       RMDir /r "$PROFILE\.agentnexus"
-      ; Historical state is included in explicit cleanup until 2.0.
-      RMDir /r "$PROFILE\.omnigent"
       DetailPrint "AgentNexus local user data was removed."
       Goto agentNexusDataCleanupDone
     keepAgentNexusData:

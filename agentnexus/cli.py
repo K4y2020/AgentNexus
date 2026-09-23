@@ -528,85 +528,6 @@ def _server_uvicorn_log_config(
 _CONFIG_HOME_ENV_VAR = "AGENTNEXUS_CONFIG_HOME"
 _GLOBAL_CONFIG_PATH: Path = Path.home() / ".agentnexus" / "config.yaml"
 
-# Per-user state directories before and after the AgentNexus rename.
-# All per-user state (config, registered agents, auth tokens, the host daemon
-# pidfile, runner identity, native session state, logs) lives under
-# :data:`_STATE_DIR`; :func:`_migrate_legacy_state_dir` relocates the old
-# directory on first run. ``AGENTNEXUS_DATA_DIR`` is the data-isolation override
-# a worktree / test sets; when present the user manages their own state and
-# migration is skipped.
-_STATE_DIR: Path = Path.home() / ".agentnexus"
-# Historical paths are migration inputs, retained until 2.0. Newest first.
-_LEGACY_STATE_DIRS: tuple[Path, ...] = (
-    Path.home() / ".omnigent",
-    Path.home() / ".omnigents",
-    Path.home() / ".omniagents",
-)
-_DATA_DIR_ENV_VAR = "AGENTNEXUS_DATA_DIR"
-
-
-def _migrate_legacy_state_dir() -> None:
-    """
-    One-time relocation of a pre-rename state directory to ``~/.agentnexus``.
-
-    Earlier releases used ``~/.omnigent``, ``~/.omnigents`` or ``~/.omniagents``.
-    These migration inputs remain supported until 2.0. To preserve that state,
-    move the newest surviving legacy directory to ``~/.agentnexus`` on first run,
-    but only when **all** of the following hold:
-
-    - the new ``~/.agentnexus`` does not yet exist (never clobber new state),
-    - at least one directory in :data:`_LEGACY_STATE_DIRS` exists,
-    - neither :data:`_CONFIG_HOME_ENV_VAR` nor :data:`_DATA_DIR_ENV_VAR` is set
-      (an operator who redirects state elsewhere manages it themselves), and
-    - no live host daemon is running out of that legacy directory -- moving its
-      pidfile / socket dir out from under a running daemon would wedge it.
-
-    On failure the migration is skipped with a warning rather than crashing the
-    CLI; a fresh ``~/.agentnexus`` is then created normally and the legacy
-    directory is left untouched for the user to migrate by hand. Idempotent:
-    once ``~/.agentnexus`` exists this is a no-op.
-
-    :returns: ``None``.
-    """
-    if _STATE_DIR.exists():
-        return
-    if os.environ.get(_CONFIG_HOME_ENV_VAR) or os.environ.get(_DATA_DIR_ENV_VAR):
-        return
-    legacy_src = next((d for d in _LEGACY_STATE_DIRS if d.exists()), None)
-    if legacy_src is None:
-        return
-
-    # Guard: a daemon spawned by the old release may still be running with its
-    # pidfile + unix socket under the legacy dir. Relocating those would leave
-    # the daemon orphaned and the CLI unable to find it.
-    legacy_pid_file = legacy_src / "host.pid"
-    if legacy_pid_file.exists():
-        try:
-            first_line = legacy_pid_file.read_text().strip().splitlines()[0]
-            legacy_pid = int(first_line)
-        except (ValueError, OSError, IndexError):
-            legacy_pid = None
-        if legacy_pid is not None and _pid_alive(legacy_pid):
-            click.echo(
-                f"Note: found pre-rename state at {legacy_src} but a host daemon "
-                f"is still running from it; skipping migration. Run `{cli_invocation()} stop` "
-                "and re-run to migrate, or move it manually to ~/.agentnexus.",
-                err=True,
-            )
-            return
-
-    try:
-        shutil.move(str(legacy_src), str(_STATE_DIR))
-    except OSError as exc:
-        click.echo(
-            f"Note: could not migrate {legacy_src} to ~/.agentnexus ({exc}); "
-            f"starting with fresh state. Your old data is untouched at {legacy_src}.",
-            err=True,
-        )
-        return
-    click.echo(f"Migrated per-user state from {legacy_src} to ~/.agentnexus.", err=True)
-
-
 # Project-level config relative to cwd, analogous to .git/config.
 # Resolved at call time so tests can control cwd.
 _LOCAL_CONFIG_RELPATH: Path = Path(".agentnexus") / "config.yaml"
@@ -2131,10 +2052,6 @@ def main() -> None:
     cwd = os.getcwd()
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
-
-    # Relocate pre-rename ~/.omniagents state before anything reads ~/.agentnexus
-    # (update-check cache, diagnostics logs, config). No-op once migrated.
-    _migrate_legacy_state_dir()
 
     argv, debug_logging, log_to_stderr = _extract_global_logging_flags(sys.argv[1:])
     if debug_logging:

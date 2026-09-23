@@ -522,6 +522,8 @@ export function seedFromOutline(outline) {
 /* ------------------------------------------------------------------ */
 
 const IMPORTANCE = ['protagonist', 'major', 'supporting', 'minor'];
+/** 角色实体形态；hologram/virtual 没有碰撞体积，剧本的虚像物理门只查这两类。缺省为 physical。 */
+const EMBODIMENT = ['physical', 'hologram', 'virtual'];
 /** 中日韩表意文字与假名、谚文——图像/TTS 提示词里出现就说明串语言了。 */
 const CJK = /[㐀-鿿぀-ヿ가-힯]/;
 /** 假名单独一条：用来把日文和中文区分开。 */
@@ -618,6 +620,9 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
     if (!Array.isArray(c?.aliases)) at(name, 'aliases 必须是数组');
     if (!IMPORTANCE.includes(c?.importance)) {
       at(name, `importance 必须是 ${IMPORTANCE.join('/')}，实际是 ${JSON.stringify(c?.importance)}`);
+    }
+    if (c?.embodiment !== undefined && !EMBODIMENT.includes(c.embodiment)) {
+      at(name, `embodiment 只能是 ${EMBODIMENT.join('/')}（省略即 physical），实际是 ${JSON.stringify(c.embodiment)}`);
     }
     if (typeof c?.oneLiner !== 'string' || !c.oneLiner.trim()) at(name, '缺少 oneLiner');
 

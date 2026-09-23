@@ -1,7 +1,5 @@
 # Pulls the server image configured in oss-publish-images.yml instead of
 # building from source. Override the image with --build-arg AGENTNEXUS_IMAGE=...
 
-# Legacy build argument is supported until 2.0; an explicit new value wins.
-ARG OMNIGENT_IMAGE=ghcr.io/agentnexus-ai/agentnexus-server:latest
-ARG AGENTNEXUS_IMAGE=${OMNIGENT_IMAGE}
+ARG AGENTNEXUS_IMAGE=ghcr.io/agentnexus-ai/agentnexus-server:latest
 FROM ${AGENTNEXUS_IMAGE}

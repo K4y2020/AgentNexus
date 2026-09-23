@@ -23,8 +23,7 @@ The Worker name (`omnigent`), Durable Object class/binding
 (`OmnigentServer` / `OMNIGENT`) and default bucket (`omnigent-artifacts`) are
 deployment identities retained across the rename. Reuse them for upgrades.
 New deployments can customize the Worker and bucket names consistently.
-Legacy `OMNIGENT_*` secret inputs remain readable until version 2.0;
-`AGENTNEXUS_*` values take precedence, including explicitly empty values.
+Secrets are read only from `AGENTNEXUS_*` names.
 
 ```
         HTTPS / WebSocket

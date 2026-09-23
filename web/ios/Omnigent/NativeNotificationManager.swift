@@ -106,7 +106,7 @@ final class NativeNotificationManager: NSObject, UNUserNotificationCenterDelegat
 #if DEBUG
   extension ProcessInfo {
     fileprivate var isOmnigentScreenshotRun: Bool {
-      environment["OMNIGENT_SCREENSHOT_APP_URL"] != nil
+      environment["AGENTNEXUS_SCREENSHOT_APP_URL"] != nil
         || arguments.contains("-FASTLANE_SNAPSHOT")
     }
   }

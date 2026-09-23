@@ -28,7 +28,7 @@ fun signingValue(
     envKey: String,
 ): String? = keystoreProps.getProperty(propKey) ?: System.getenv(envKey)
 
-val storeFilePath = signingValue("storeFile", "OMNIGENT_KEYSTORE_FILE")
+val storeFilePath = signingValue("storeFile", "AGENTNEXUS_KEYSTORE_FILE")
 
 // Version is overridable at build time so release builds can be stamped without
 // editing this file: ./gradlew bundleRelease -PversionCode=10 -PversionName=0.2.0
@@ -59,9 +59,9 @@ android {
         if (storeFilePath != null) {
             create("release") {
                 storeFile = file(storeFilePath)
-                storePassword = signingValue("storePassword", "OMNIGENT_KEYSTORE_PASSWORD")
-                keyAlias = signingValue("keyAlias", "OMNIGENT_KEY_ALIAS")
-                keyPassword = signingValue("keyPassword", "OMNIGENT_KEY_PASSWORD")
+                storePassword = signingValue("storePassword", "AGENTNEXUS_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "AGENTNEXUS_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "AGENTNEXUS_KEY_PASSWORD")
             }
         }
     }
@@ -237,7 +237,7 @@ private val webDir = rootProject.projectDir.parentFile
  *  `pnpm`, whose grandchild vite process is hard to kill reliably). */
 private val viteEntry = File(webDir, "node_modules/vite/bin/vite.js")
 
-/** Backend (omnigent server) port — Vite proxies /v1 here (OMNIGENT_URL default
+/** Backend (omnigent server) port — Vite proxies /v1 here (AGENTNEXUS_URL default
  *  is http://localhost:6767 per web/vite.config.ts). Override with -PbackendPort=. */
 private val screenshotBackendPort =
     (project.findProperty("backendPort") as? String)?.toIntOrNull() ?: 6767
@@ -391,10 +391,10 @@ tasks.register("stopWebDevServer") {
 // ---------------------------------------------------------------------------
 // Backend (omnigent server) — isolated, in a temp dir, no auth.
 //
-// `startBackendServer` launches `omnigent server` with OMNIGENT_DATA_DIR /
-// OMNIGENT_CONFIG_HOME pointed at a throwaway mktemp dir so it never touches
-// the user's real ~/.omnigent. On loopback it's single-user (no login wall).
-// Vite proxies /v1 to this backend (OMNIGENT_URL default = localhost:6767),
+// `startBackendServer` launches `omnigent server` with AGENTNEXUS_DATA_DIR /
+// AGENTNEXUS_CONFIG_HOME pointed at a throwaway mktemp dir so it never touches
+// the user's real ~/.agentnexus. On loopback it's single-user (no login wall).
+// Vite proxies /v1 to this backend (AGENTNEXUS_URL default = localhost:6767),
 // so the SPA in the WebView gets real data — populated session list + a
 // session page with content. `seedDemoSession` creates a session with a user
 // message via POST /v1/sessions; `stopBackendServer` tears it down + cleans
@@ -444,9 +444,9 @@ tasks.register("startBackendServer") {
                 *agentArg.toTypedArray(),
             ).directory(rootProject.projectDir.parentFile)
                 .redirectErrorStream(true)
-        pb.environment()["OMNIGENT_DATA_DIR"] = dataDir.absolutePath
-        pb.environment()["OMNIGENT_CONFIG_HOME"] = configDir.absolutePath
-        pb.environment()["OMNIGENT_DATABASE_URI"] = dbUri
+        pb.environment()["AGENTNEXUS_DATA_DIR"] = dataDir.absolutePath
+        pb.environment()["AGENTNEXUS_CONFIG_HOME"] = configDir.absolutePath
+        pb.environment()["AGENTNEXUS_DATABASE_URI"] = dbUri
         backendProcess = pb.start()
         logger.lifecycle(
             "recordScreenshots: starting backend on 127.0.0.1:$screenshotBackendPort (data dir: $backendTempDir) ...",

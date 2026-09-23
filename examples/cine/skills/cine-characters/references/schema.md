@@ -87,6 +87,7 @@
 | `name` | string | 原文 | 原文里用得最多的称呼 |
 | `aliases` | string[] | 原文 | 其他称谓；职业名词（如「货郎」）归 `identity`，不进这里 |
 | `importance` | enum | — | `protagonist` / `major` / `supporting` / `minor`，**只能这四个** |
+| `embodiment` | enum | — | 可省略，省略即 `physical`。`hologram`（全息投影）/ `virtual`（AI、屏幕或纯声音形态）表示角色没有实体、不能碰实物；剧本的 `hologram-physics` 门只检查这两类角色 |
 | `oneLiner` | string | **本地语言** | 一句话抓住角色的故事位置与核心矛盾，不只罗列职业外貌 |
 | `persona.personality` | string[] | **本地语言** | 3–5 个检索标签；不能替代行为小传 |
 | `persona.temperament` | string | **本地语言** | 惯常行为、掩饰方式、受压换招与说话习惯 |

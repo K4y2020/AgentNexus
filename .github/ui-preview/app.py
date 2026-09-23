@@ -30,13 +30,7 @@ HERE = Path(__file__).parent.resolve()
 # Databricks Apps expects the app to listen on DATABRICKS_APP_PORT (8000 by
 # convention); fall back to 8000 for local runs of this script.
 PORT = int(os.environ.get("DATABRICKS_APP_PORT", "8000"))
-# Legacy environment spelling is supported until 2.0.
-WORK_DIR = Path(
-    os.environ.get(
-        "AGENTNEXUS_PREVIEW_WORKDIR",
-        os.environ.get("OMNIGENT_PREVIEW_WORKDIR", "/tmp/agentnexus-preview"),
-    )
-)
+WORK_DIR = Path(os.environ.get("AGENTNEXUS_PREVIEW_WORKDIR", "/tmp/agentnexus-preview"))
 DB_PATH = WORK_DIR / "agentnexus.db"
 ARTIFACT_DIR = WORK_DIR / "artifacts"
 

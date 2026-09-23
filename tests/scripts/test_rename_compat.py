@@ -122,23 +122,17 @@ class InstallerRenameTests(unittest.TestCase):
         self.assertEqual(match.returncode, 0, match.stderr)
         self.assertEqual(self.profile.read_text(), "")
 
-    def test_data_dir_precedence(self) -> None:
-        legacy = self.directory / "legacy-data"
+    def test_data_dir_resolution(self) -> None:
+        custom = self.directory / "custom-data"
         for overrides, expected in (
-            ({"OMNIGENT_DATA_DIR": str(legacy)}, legacy),
-            ({"OMNIGENT_DATA_DIR": str(legacy), "AGENTNEXUS_DATA_DIR": ""}, self.directory / ".agentnexus"),
-            ({"OMNIGENT_DATA_DIR": str(legacy), "AGENTNEXUS_DATA_DIR": str(self.directory)}, self.directory),
+            ({}, self.directory / ".agentnexus"),
+            ({"AGENTNEXUS_DATA_DIR": ""}, self.directory / ".agentnexus"),
+            ({"AGENTNEXUS_DATA_DIR": str(custom)}, custom),
         ):
             with self.subTest(overrides=overrides):
                 result = self.shell(self.uninstaller, "state_home", **overrides)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout.strip(), str(expected))
-
-    def test_existing_default_legacy_data_remains_discoverable(self) -> None:
-        (self.directory / ".omnigent").mkdir()
-        result = self.shell(self.uninstaller, "state_home")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), str(self.directory / ".omnigent"))
 
     def test_nightly_uses_canonical_source_and_env_precedence(self) -> None:
         text = (ROOT / "scripts/update_nightly.sh").read_text(encoding="utf-8")
@@ -146,8 +140,8 @@ class InstallerRenameTests(unittest.TestCase):
         library.write_text(text.split("# Newest nightly tag:", 1)[0].replace("set -euo pipefail", "set -eu"))
         for overrides, expected in (
             ({}, "https://github.com/K4y2020/AgentNexus|3.12"),
-            ({"OMNIGENT_REPO": "old", "OMNIGENT_PYTHON_VERSION": "3.13"}, "old|3.13"),
-            ({"OMNIGENT_REPO": "old", "AGENTNEXUS_REPO": "", "AGENTNEXUS_PYTHON_VERSION": ""}, "|"),
+            ({"AGENTNEXUS_REPO": "custom", "AGENTNEXUS_PYTHON_VERSION": "3.13"}, "custom|3.13"),
+            ({"AGENTNEXUS_REPO": "", "AGENTNEXUS_PYTHON_VERSION": ""}, "|"),
         ):
             with self.subTest(overrides=overrides):
                 result = self.shell(library, 'printf "%s|%s" "$REPO" "$PYTHON_VERSION"', **overrides)

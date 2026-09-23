@@ -82,10 +82,8 @@ inside a pod (via the UI or `agentnexus config`) don't touch your real config.
 
 Existing pod state remains in `<pod>/data/omnigent/`, and the `omnidev` cache
 and `install.toml` locations retain their established names. This preserves
-conversation history and saved install preferences. Config reads accept the
-legacy `OMNIGENT_*`, `OMNIGENTS_*`, and `OMNIAGENTS_*` prefixes and
-`~/.omnigent/config.yaml` until AgentNexus 2.0. An explicit `AGENTNEXUS_*` value,
-including an empty value, takes precedence over legacy environment inputs.
+conversation history and saved install preferences. Config reads use only
+`AGENTNEXUS_*` environment variables and `~/.agentnexus/config.yaml`.
 
 The OSS pod also imports the curated JSONL transcripts under
 `dev/omnidev/fixtures/conversations/` through `agentnexus session import` once the

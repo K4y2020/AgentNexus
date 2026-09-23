@@ -10,9 +10,7 @@
 # i.e. the ``deploy/docker/entrypoint.py`` change that ships alongside this
 # directory. (Until that lands in the published image, build a server image
 # from this branch.)
-ARG OMNIGENT_IMAGE=ghcr.io/agentnexus-ai/agentnexus-server:latest
-# Legacy build argument is supported until 2.0.
-ARG AGENTNEXUS_IMAGE=${OMNIGENT_IMAGE}
+ARG AGENTNEXUS_IMAGE=ghcr.io/agentnexus-ai/agentnexus-server:latest
 FROM ${AGENTNEXUS_IMAGE}
 
 ARG SITE=/opt/venv/lib/python3.12/site-packages

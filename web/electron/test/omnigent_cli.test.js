@@ -258,7 +258,7 @@ describe("daemonServerUrl", () => {
 describe("getHostConnectionFast — probe destination & token handling (S1)", () => {
   afterEach(() => {
     mock.restoreAll();
-    delete process.env.OMNIGENT_REMOTE_AUTH_TOKEN;
+    delete process.env.AGENTNEXUS_REMOTE_AUTH_TOKEN;
   });
 
   it("probes the window's serverUrl, never a server_url re-derived from the daemon record", async () => {
@@ -291,11 +291,11 @@ describe("getHostConnectionFast — probe destination & token handling (S1)", ()
     assert.equal(res.connected, true);
   });
 
-  it("never attaches OMNIGENT_REMOTE_AUTH_TOKEN to a probe", async () => {
+  it("never attaches AGENTNEXUS_REMOTE_AUTH_TOKEN to a probe", async () => {
     // The env token is destination-independent, so the desktop no longer reads
     // it. Even on a loopback probe (which would attach any available bearer),
     // the Authorization header stays absent when only the env var is set.
-    process.env.OMNIGENT_REMOTE_AUTH_TOKEN = "secret-token";
+    process.env.AGENTNEXUS_REMOTE_AUTH_TOKEN = "secret-token";
     const record = {
       pid: process.pid,
       target: "http://localhost:6767",

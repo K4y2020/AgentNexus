@@ -111,7 +111,7 @@ struct AppRootView: View {
   private var shouldAutoOpenSavedServer: Bool {
     #if DEBUG
       let processInfo = ProcessInfo.processInfo
-      return processInfo.environment["OMNIGENT_SCREENSHOT_APP_URL"] == nil
+      return processInfo.environment["AGENTNEXUS_SCREENSHOT_APP_URL"] == nil
         && !processInfo.arguments.contains("-FASTLANE_SNAPSHOT")
     #else
       true
@@ -150,14 +150,14 @@ extension AppRootView {
   private func handleDeepLink(_ url: URL) {
     guard let deepLink = DeepLink.parse(url) else {
       #if DEBUG
-        if ProcessInfo.processInfo.environment["OMNIGENT_DEEPLINK_TRACE"] != nil {
+        if ProcessInfo.processInfo.environment["AGENTNEXUS_DEEPLINK_TRACE"] != nil {
           NSLog("[DeepLink] REJECTED \(url.absoluteString)")
         }
       #endif
       return
     }
     #if DEBUG
-      if ProcessInfo.processInfo.environment["OMNIGENT_DEEPLINK_TRACE"] != nil {
+      if ProcessInfo.processInfo.environment["AGENTNEXUS_DEEPLINK_TRACE"] != nil {
         NSLog("[DeepLink] ACCEPTED origin=\(deepLink.origin) path=\(deepLink.path)")
       }
     #endif

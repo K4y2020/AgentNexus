@@ -6,11 +6,10 @@ bot talks to **one** AgentNexus server, set by the operator via
 issues requests to that fixed host. Each user still authenticates as their own
 AgentNexus identity against it.
 
-Existing `/omnigent` Slack commands, legacy `OMNIGENT_*` environment variables,
-and prior `omnigent_slack.sqlite3` databases remain supported until AgentNexus
-2.0. Canonical `AGENTNEXUS_*` values win, including explicitly empty values.
-Existing SQLite column names are preserved so thread mappings and tokens survive
-the package rename.
+Existing `/omnigent` Slack commands remain supported until AgentNexus 2.0.
+Configuration is read only from `AGENTNEXUS_*` environment variables, and the
+default database is `agentnexus_slack.sqlite3` under the data directory; rename
+or copy a pre-rename database there to keep thread mappings and tokens.
 
 > This README is the operator/user guide (setup, scopes, running, auth). For the
 > user-facing behaviour contract (setup, DM, channels, error handling), see

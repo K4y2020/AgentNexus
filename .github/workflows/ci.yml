@@ -154,6 +154,12 @@ jobs:
           - group: slack
             paths: integrations/slack/tests
             extra: slack
+          # Cine example agent (examples/cine). Its pipeline tests and the five
+          # skill self-tests live outside tests/ and need the `cine` extra; node
+          # runs the native validators and ffmpeg backs the media-probe tests.
+          - group: cine
+            paths: examples/cine/tests
+            extra: cine
 
     steps:
       - name: Check out repo
@@ -178,6 +184,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ripgrep bubblewrap tmux
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Install ffmpeg (cine)
+        if: matrix.group == 'cine'
+        run: sudo apt-get install -y ffmpeg
 
       - name: Cache virtualenv
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v4

@@ -323,6 +323,14 @@ eq(validateCast(CAST, SOURCE).length, 0, '自带样例通过全部校验');
   ok(validateCast(stateful, SOURCE).some((x) => x.includes('image.sheet')), '状态变体缺独立 sheet 会被拦截');
 }
 ok(validateCast([], SOURCE).length > 0, '空 cast 报错');
+{
+  const typed = clone();
+  typed[0].embodiment = 'hologram';
+  typed[1].embodiment = 'physical';
+  eq(validateCast(typed, SOURCE).length, 0, '合法 embodiment 取值通过');
+  typed[0].embodiment = 'ghost';
+  ok(hits(typed, 'embodiment') === 1, '非法 embodiment 取值被拦截');
+}
 
 // 这四类是模型真实犯过的错，每一类都必须抓住
 let bad = clone();

@@ -40,19 +40,9 @@ before the replacement has been built successfully.
 
 ## Environment variables
 
-Use the `AGENTNEXUS_` prefix. Python startup and the desktop/development helpers
-read historical prefixes in this order:
-
-1. `AGENTNEXUS_`
-2. `OMNIGENT_`
-3. `OMNIGENTS_`
-4. `OMNIAGENTS_`
-
-An explicitly present new variable wins **even when empty**. Empty values retain
-the semantics of the consuming setting; they never reactivate a legacy value.
-Legacy-prefix compatibility is scheduled for removal in **2.0**. Python emits
-`DeprecationWarning` when it uses a legacy prefix; Python may hide that warning
-unless warnings are enabled.
+Only the `AGENTNEXUS_` prefix is read. Environment variables that use a
+pre-rename prefix are ignored, so rename them in shell profiles, `.env` files,
+CI secrets and deployment configs before upgrading.
 
 For a Windows development shell:
 
@@ -64,10 +54,9 @@ $env:AGENTNEXUS_URL = 'http://127.0.0.1:6767'
 The Vite proxy uses `AGENTNEXUS_URL` and `AGENTNEXUS_AUTH_TOKEN`. The desktop shell
 uses `AGENTNEXUS_CONFIG_HOME`, `AGENTNEXUS_DATA_DIR` and, in development only,
 `AGENTNEXUS_DESKTOP_VERSION_OVERRIDE`. DMG release builds use
-`AGENTNEXUS_NOTARIZE_DMG`. Existing legacy settings remain readable during the
-transition. Runner children receive the canonical `AGENTNEXUS=1` session marker
-and the deprecated `OMNIGENT=1` marker until 2.0. Control-plane secrets are stripped
-from child environments under both new and legacy spellings.
+`AGENTNEXUS_NOTARIZE_DMG`. Runner children receive the canonical `AGENTNEXUS=1`
+session marker and the deprecated `OMNIGENT=1` marker until 2.0. Control-plane
+secrets are stripped from child environments.
 
 ## Configuration and existing sessions
 
@@ -76,19 +65,11 @@ and state live directly under `~/.agentnexus`, including `chat.db`.
 `AGENTNEXUS_CONFIG_HOME` moves the config-file location; `AGENTNEXUS_DATA_DIR` moves
 the local data/state location. They are separate settings.
 
-On CLI startup, the migration looks for these historical directories, in order:
-`~/.omnigent`, `~/.omnigents`, `~/.omniagents`. It **moves** the first existing one
-to `~/.agentnexus` only when the new directory does not exist, neither explicit
-config/data override is set, and no live host daemon is recorded in the old
-directory. This is a one-time operation, not an ongoing merge or a copy-on-every-run.
-The historical paths must keep their old spellings so old data can be found.
-
-Back up your state before upgrading. When both old and new directories already
-exist, the CLI preserves both and uses the new directory. Review and migrate old
-data deliberately; do not merge databases by copying files over a running server.
-An override or a running old host causes automatic migration to be skipped.
-Migration failure is reported rather than silently treated as success. Directory
-compatibility is scheduled for removal in 2.0.
+Pre-rename state directories are neither read nor migrated automatically. To
+keep existing config, sessions and tokens, stop any running host or server,
+back up your previous state directory, and copy or move it to `~/.agentnexus`
+yourself before the first AgentNexus run. Do not merge databases by copying
+files over a running server.
 
 ## Stored references and integration boundaries
 
@@ -126,7 +107,7 @@ The VS Code workspace package is `agentnexus-vscode`.
 
 ```bash
 python scripts/check_agentnexus_rename.py
-uv run --no-sync pytest -q tests/cli/test_rename_migration.py tests/cli/test_update_check.py tests/cli/test_upgrade_command.py
+uv run --no-sync pytest -q tests/cli/test_update_check.py tests/cli/test_upgrade_command.py
 pnpm --filter web run type-check
 pnpm --filter agentnexus-vscode run type-check
 pnpm --filter web run build
@@ -141,6 +122,4 @@ docker build -f deploy/docker/Dockerfile -t agentnexus-server:local .
 
 After starting the server, check `/.well-known/agentnexus.json`, open the desktop
 connection page, and confirm its connection controls, Find window and return
-banner work. A saved legacy link should still open the intended deployment. Test
-migration with disposable directories or the isolated regression tests, not by
-moving a production home directory as a smoke test.
+banner work. A saved legacy link should still open the intended deployment.

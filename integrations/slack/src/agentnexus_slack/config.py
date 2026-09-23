@@ -78,14 +78,6 @@ def _normalize_oauth_scopes(raw: str) -> str:
     return " ".join(scopes)
 
 
-def _env_alias(name: str) -> AliasChoices:
-    """Read the legacy environment spelling until 2.0; canonical values win."""
-    suffix = name.removeprefix("AGENTNEXUS_")
-    return AliasChoices(
-        name, *(prefix + suffix for prefix in ("OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"))
-    )
-
-
 def _local_data_dir() -> Path:
     """Return the local runtime data dir for the bot's SQLite store.
 
@@ -96,43 +88,14 @@ def _local_data_dir() -> Path:
 
     :returns: The data directory path (callers create it lazily).
     """
-    value = next(
-        (
-            os.environ[name]
-            for name in _env_alias("AGENTNEXUS_DATA_DIR").choices
-            if isinstance(name, str) and name in os.environ
-        ),
-        None,
-    )
+    value = os.environ.get("AGENTNEXUS_DATA_DIR")
     if value:
         return Path(value).expanduser()
-    canonical = Path.home() / ".agentnexus"
-    legacy = Path.home() / ".omnigent"
-    # Existing state is readable until 2.0 unless an explicit env value opts out.
-    if value is None and not canonical.exists() and legacy.exists():
-        return legacy
-    return canonical
+    return Path.home() / ".agentnexus"
 
 
 def _default_database_path() -> Path:
-    directory = _local_data_dir()
-    canonical = directory / "agentnexus_slack.sqlite3"
-    legacy = directory / "omnigent_slack.sqlite3"
-    # Keep existing thread mappings and encrypted tokens accessible until 2.0.
-    if canonical.exists():
-        return canonical
-    if legacy.exists():
-        return legacy
-    if not any(
-        isinstance(name, str) and name in os.environ
-        for name in _env_alias("AGENTNEXUS_DATA_DIR").choices
-    ):
-        old_home = Path.home() / ".omnigent"
-        for name in ("agentnexus_slack.sqlite3", "omnigent_slack.sqlite3"):
-            candidate = old_home / name
-            if candidate.exists():
-                return candidate
-    return canonical
+    return _local_data_dir() / "agentnexus_slack.sqlite3"
 
 
 class Settings(BaseSettings):
@@ -147,14 +110,14 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    slack_bot_token: str = Field(validation_alias=_env_alias("AGENTNEXUS_SLACK_BOT_TOKEN"))
-    slack_app_token: str = Field(validation_alias=_env_alias("AGENTNEXUS_SLACK_APP_TOKEN"))
+    slack_bot_token: str = Field(validation_alias="AGENTNEXUS_SLACK_BOT_TOKEN")
+    slack_app_token: str = Field(validation_alias="AGENTNEXUS_SLACK_APP_TOKEN")
 
     # The one AgentNexus server this bot talks to. Set by the operator, never
     # by a Slack user — so the bot only ever issues requests to this fixed
     # host (closes the SSRF vector a user-supplied URL would open). Every
     # user still authenticates as their own identity against it.
-    server_url: str = Field(validation_alias=_env_alias("AGENTNEXUS_SERVER_URL"))
+    server_url: str = Field(validation_alias="AGENTNEXUS_SERVER_URL")
 
     # Optional shared secret proving this socket server is an authorized
     # device-grant client. When the AgentNexus server has
@@ -163,7 +126,7 @@ class Settings(BaseSettings):
     # revoke. Leave unset when the server doesn't require it.
     device_client_secret: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_DEVICE_CLIENT_SECRET"),
+        validation_alias="AGENTNEXUS_DEVICE_CLIENT_SECRET",
     )
 
     # Bot SQLite store (thread→session map, user configs, encrypted tokens).
@@ -172,7 +135,7 @@ class Settings(BaseSettings):
     # AGENTNEXUS_SLACK_DATABASE_PATH to override.
     database_path: Path = Field(
         default_factory=_default_database_path,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABASE_PATH"),
+        validation_alias="AGENTNEXUS_SLACK_DATABASE_PATH",
     )
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
@@ -186,7 +149,7 @@ class Settings(BaseSettings):
     # re-authenticate; the integration still works either way.
     token_encryption_key: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY"),
+        validation_alias="AGENTNEXUS_SLACK_TOKEN_ENCRYPTION_KEY",
     )
 
     # ── Databricks Apps web-auth (header/proxy-mode servers) ──────────────
@@ -200,7 +163,7 @@ class Settings(BaseSettings):
     # docs/DATABRICKS_APP_WEBAUTH_DESIGN.md.
     server_auth_mode: ServerAuthMode = Field(
         default="auto",
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_SERVER_AUTH"),
+        validation_alias="AGENTNEXUS_SLACK_SERVER_AUTH",
     )
 
     # Custom U2M OAuth app credentials (client id + secret) registered in the
@@ -208,11 +171,11 @@ class Settings(BaseSettings):
     # token/refresh calls. Both required in databricks mode.
     databricks_oauth_client_id: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID"),
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_CLIENT_ID",
     )
     databricks_oauth_client_secret: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET"),
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_CLIENT_SECRET",
     )
 
     # HMAC key (any long random string) that signs the enrollment ``state``.
@@ -222,7 +185,7 @@ class Settings(BaseSettings):
     # radius. Required in databricks mode.
     databricks_state_secret: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET"),
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_STATE_SECRET",
     )
 
     # Space-separated OAuth scopes to request. ``openid`` and ``offline_access``
@@ -234,7 +197,7 @@ class Settings(BaseSettings):
     # only to the exact scope the server app declares once that's known.
     databricks_oauth_scopes: str = Field(
         default="all-apis",
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABRICKS_SCOPES"),
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_SCOPES",
     )
 
     # Public base URL of this bot's own Databricks App (where the enrollment
@@ -243,7 +206,7 @@ class Settings(BaseSettings):
     # app-URL env var, and the app's URL only exists after its first deploy.
     databricks_app_url: str | None = Field(
         default=None,
-        validation_alias=_env_alias("AGENTNEXUS_SLACK_DATABRICKS_APP_URL"),
+        validation_alias="AGENTNEXUS_SLACK_DATABRICKS_APP_URL",
     )
 
     @field_validator("server_url")
@@ -438,4 +401,4 @@ def _env_alias_for(field_name: str) -> str:
         return str(alias.choices[0])
     if isinstance(alias, str):
         return alias
-    return field_name.upper().replace("OMNIGENT_", "AGENTNEXUS_", 1)
+    return field_name.upper()

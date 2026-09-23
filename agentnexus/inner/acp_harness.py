@@ -142,13 +142,7 @@ def _build_acp_executor(extension: AcpExtension = NO_ACP_EXTENSION) -> Executor:
     model = os.environ.get(_ENV_MODEL, "").strip() or None
     session_id_mode = os.environ.get(_ENV_SESSION_ID_MODE, "").strip() or "server"
     send_model = _env_enabled(_ENV_SEND_MODEL, default=False)
-    # Older launchers use the legacy spelling until 2.0.
-    mcp_env_key = (
-        _ENV_AGENTNEXUS_MCP
-        if _ENV_AGENTNEXUS_MCP in os.environ
-        else "HARNESS_ACP_OMNIGENT_MCP"
-    )
-    omnigent_mcp = _env_enabled(mcp_env_key, default=True)
+    omnigent_mcp = _env_enabled(_ENV_AGENTNEXUS_MCP, default=True)
     inject_system_prompt = _env_enabled(_ENV_INJECT_SYSTEM_PROMPT, default=True)
     cwd = os.environ.get(_ENV_CWD) or os.environ.get("AGENTNEXUS_RUNNER_WORKSPACE") or None
     permission_mode = os.environ.get(_ENV_PERMISSION_MODE, "").strip() or _DEFAULT_PERMISSION_MODE

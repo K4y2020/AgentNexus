@@ -6,6 +6,7 @@ import logging
 import uuid
 from pathlib import Path
 
+from .client import SeedanceError
 from .production_gate import ProductionRejected, inside
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def build_structured_shots(segment: dict, script: dict, episode_number: int) -> 
         first, last = beats
         if not isinstance(first, int) or not isinstance(last, int) or first < 1 or last < first:
             continue
-        cut_flow = flow[first - 1:last]
+        cut_flow = flow[first - 1 : last]
         dialogue_beats = [
             {
                 "sourceRef": f"script:{episode_number}:{scene_index}:{first + offset}",
@@ -60,25 +61,26 @@ def build_structured_shots(segment: dict, script: dict, episode_number: int) -> 
         ]
         description = "\n".join(
             str(
-                beat.get("action")
-                or f"{beat.get('speaker') or 'VO'}: {beat.get('line') or ''}"
+                beat.get("action") or f"{beat.get('speaker') or 'VO'}: {beat.get('line') or ''}"
             ).strip()
             for beat in cut_flow
             if isinstance(beat, dict)
         ).strip()
-        shots.append({
-            "id": f"{segment.get('id', 'segment')}-f{cut_index}",
-            "durationSec": cut.get("seconds"),
-            "description": description or str(cut.get("frame") or "").strip(),
-            "shotSize": cut.get("size"),
-            "composition": cut.get("frame") or "",
-            "camera": {"motion": cut.get("camera")} if cut.get("camera") else None,
-            "lightingIntent": scene.get("lighting", "") if isinstance(scene, dict) else "",
-            "actionBeats": action_beats,
-            "dialogueBeats": dialogue_beats,
-            "visibleSubjects": cut.get("characters") or [],
-            "referenceNeeds": cut.get("props") or [],
-        })
+        shots.append(
+            {
+                "id": f"{segment.get('id', 'segment')}-f{cut_index}",
+                "durationSec": cut.get("seconds"),
+                "description": description or str(cut.get("frame") or "").strip(),
+                "shotSize": cut.get("size"),
+                "composition": cut.get("frame") or "",
+                "camera": {"motion": cut.get("camera")} if cut.get("camera") else None,
+                "lightingIntent": scene.get("lighting", "") if isinstance(scene, dict) else "",
+                "actionBeats": action_beats,
+                "dialogueBeats": dialogue_beats,
+                "visibleSubjects": cut.get("characters") or [],
+                "referenceNeeds": cut.get("props") or [],
+            }
+        )
     return shots
 
 
@@ -98,10 +100,213 @@ async def _create_target(client, project_id, *, node_type, title, data):
     if not result.get("accepted"):
         raise ProductionRejected("CINE_IMPORT_TARGET_CREATE_FAILED", result)
     snapshot = await client.get_snapshot(project_id)
-    matches = [node for node in snapshot.get("nodes", []) if (node.get("title") or "").strip() == clean_title]
+    matches = [
+        node
+        for node in snapshot.get("nodes", [])
+        if (node.get("title") or "").strip() == clean_title
+    ]
     if len(matches) != 1:
         raise ProductionRejected("CINE_IMPORT_TARGET_CREATE_UNVERIFIED", result)
     return matches[0], snapshot
+
+
+# Hash of the prompt the importer last wrote to a video card. A card whose current
+# prompt no longer matches was edited on the canvas (by hand or by the prompt
+# optimizer) and must not be overwritten by a re-import.
+IMPORTED_PROMPT_KEY = "importedPromptSha256"
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _stage_document(prod_dir: Path, stage: str) -> tuple[Path | None, dict]:
+    """Read cast/art like production.py: an explicit binding, else one unambiguous file."""
+    selected = None
+    manifest = prod_dir / "production.json"
+    if manifest.is_file():
+        try:
+            document = json.loads(manifest.read_text(encoding="utf-8-sig"))
+        except ValueError as exc:
+            raise ProductionRejected(
+                "CINE_IMPORT_FILE_INVALID", {"file": manifest.name, "error": str(exc)}
+            ) from exc
+        artifacts = document.get("artifacts") if isinstance(document, dict) else None
+        entry = artifacts.get(stage) if isinstance(artifacts, dict) else None
+        relative = entry.get("path") if isinstance(entry, dict) else None
+        if isinstance(relative, str) and relative.strip():
+            selected = (prod_dir / relative).resolve()
+            if not selected.is_relative_to(prod_dir):
+                raise ProductionRejected("CINE_PRODUCTION_PATH_ESCAPE", {"stage": stage})
+    if selected is None:
+        candidates = [
+            path
+            for path in (prod_dir / f"{stage}.json", *sorted(prod_dir.glob(f"*-{stage}.json")))
+            if path.is_file()
+        ]
+        if len(candidates) > 1:
+            raise ProductionRejected(
+                "CINE_IMPORT_STAGE_AMBIGUOUS",
+                {"stage": stage, "files": [path.name for path in candidates]},
+            )
+        selected = candidates[0] if candidates else None
+    if selected is None or not selected.is_file():
+        return None, {}
+    try:
+        document = json.loads(selected.read_text(encoding="utf-8-sig"))
+    except ValueError as exc:
+        raise ProductionRejected(
+            "CINE_IMPORT_FILE_INVALID", {"file": selected.name, "error": str(exc)}
+        ) from exc
+    return selected, document if isinstance(document, dict) else {}
+
+
+def _character_entry(cast_doc: dict, cid: str) -> dict | None:
+    return next(
+        (c for c in cast_doc.get("characters", []) if isinstance(c, dict) and c.get("id") == cid),
+        None,
+    )
+
+
+def _character_sheet(entry: dict) -> str:
+    image = entry.get("image") if isinstance(entry.get("image"), dict) else {}
+    return str(image.get("sheet") or image.get("prompt") or "").strip()
+
+
+def _scene_entry(art_doc: dict, scene_index) -> dict | None:
+    try:
+        scene_id = f"S{int(scene_index):02d}"
+    except (TypeError, ValueError):
+        scene_id = None
+    return next(
+        (
+            s
+            for s in art_doc.get("scenes", [])
+            if isinstance(s, dict)
+            and (s.get("sceneIndex") == scene_index or (scene_id and s.get("id") == scene_id))
+        ),
+        None,
+    )
+
+
+def _scene_prompt(entry: dict) -> str:
+    image = entry.get("image") if isinstance(entry.get("image"), dict) else {}
+    return str(image.get("prompt") or "").strip()
+
+
+def _asset_nodes(nodes: list[dict], key: str) -> dict:
+    """Existing image_prompt cards keyed by their characterId/sceneIndex."""
+    return {
+        (n.get("data") or {}).get(key): n
+        for n in nodes
+        if n.get("type") == "image_prompt" and (n.get("data") or {}).get(key)
+    }
+
+
+def _referenced_characters(segments) -> list[str]:
+    return sorted(
+        {
+            cid
+            for _, seg in segments
+            for cut in seg.get("cuts") or []
+            for cid in cut.get("characters") or []
+            if cid
+        }
+    )
+
+
+def _referenced_scenes(segments) -> list:
+    return sorted({seg.get("sceneIndex") for _, seg in segments if seg.get("sceneIndex")}, key=str)
+
+
+def _missing_visual_assets(segments, nodes, cast, art) -> list[str]:
+    """List every character/scene that is neither on the canvas nor fully defined in cast/art."""
+    (cast_path, cast_doc), (art_path, art_doc) = cast, art
+    cast_name = cast_path.name if cast_path else "cast.json (not found)"
+    art_name = art_path.name if art_path else "art.json (not found)"
+    on_canvas_characters = _asset_nodes(nodes, "characterId")
+    on_canvas_scenes = _asset_nodes(nodes, "sceneIndex")
+    problems = []
+    for cid in _referenced_characters(segments):
+        if cid in on_canvas_characters:
+            continue
+        entry = _character_entry(cast_doc, cid)
+        if entry is None:
+            problems.append(
+                f"Character {cid} is used in the storyboard but not defined in {cast_name}."
+            )
+        elif not _character_sheet(entry):
+            problems.append(
+                f"Character {cid} ({entry.get('name', '')}) has no image.sheet in {cast_name}."
+            )
+    for scene_index in _referenced_scenes(segments):
+        if scene_index in on_canvas_scenes:
+            continue
+        entry = _scene_entry(art_doc, scene_index)
+        if entry is None:
+            problems.append(
+                f"Scene {scene_index} is used in the storyboard but not defined in {art_name}."
+            )
+        elif not _scene_prompt(entry):
+            problems.append(
+                f"Scene {scene_index} ({entry.get('name', '')}) has no image.prompt in {art_name}."
+            )
+    return problems
+
+
+def _prompt_edited_on_canvas(data: dict) -> bool:
+    recorded = data.get(IMPORTED_PROMPT_KEY)
+    if isinstance(recorded, str):
+        return _sha256_text(str(data.get("prompt") or "")) != recorded
+    # Cards imported before the hash was recorded: the importer always cleared
+    # promptProvenance, so a value now means the optimizer rewrote the prompt.
+    return data.get("promptProvenance") is not None
+
+
+async def _update_existing_card(client, project_id, card_id, title, card_data, prompt) -> str:
+    """Refresh an imported card; leave it alone if its prompt was edited on the canvas."""
+    latest = await client.get_snapshot(project_id)
+    node = next((n for n in latest.get("nodes", []) if n.get("id") == card_id), None)
+    if node is None:
+        return "missing"
+    data = node.get("data") or {}
+    if _prompt_edited_on_canvas(data):
+        return "preserved"
+    patch_data = {**data, **card_data, IMPORTED_PROMPT_KEY: _sha256_text(prompt)}
+    if patch_data == data and node.get("title") == title:
+        return "unchanged"
+    command = {
+        "type": "canvas.update_node",
+        "nodeId": card_id,
+        "patch": {"title": title, "data": patch_data},
+        "commandId": f"cine-sync-vp-{uuid.uuid4().hex}",
+    }
+    if latest.get("revision") is not None:
+        command["expectedRevision"] = latest["revision"]
+    try:
+        result = await client.submit_command(project_id, command)
+    except SeedanceError as exc:
+        if exc.code != "REVISION_CONFLICT":
+            raise
+        return "conflict"
+    return "updated" if result.get("accepted") else "conflict"
+
+
+async def _connect_once(client, project_id, edges: set, source, target, kind, tag) -> None:
+    """Connect two cards unless that edge already exists (re-imports must not duplicate edges)."""
+    if (source, target, kind) in edges or (source, target, None) in edges:
+        return
+    await client.submit_command(
+        project_id,
+        {
+            "type": "canvas.connect",
+            "from": source,
+            "to": target,
+            "kind": kind,
+            "commandId": f"cine-conn-{tag}-{uuid.uuid4().hex[:8]}",
+        },
+    )
+    edges.add((source, target, kind))
 
 
 async def import_storyboard(
@@ -122,20 +327,51 @@ async def import_storyboard(
     if not bound or (project_id and project_id != bound):
         raise ProductionRejected("CINE_PROJECT_BINDING_MISMATCH")
     root = Path(session["workspace"]).resolve(strict=True)
+    storyboard_path = inside(root, storyboard_file)
+    script_path = inside(root, script_file)
     documents = []
     hashes = {}
-    for value in (storyboard_file, script_file):
-        path = inside(root, value)
+    for path in (storyboard_path, script_path):
         if not path.is_file() or path.stat().st_size > 8 * 1024 * 1024:
             raise ProductionRejected("CINE_IMPORT_FILE_INVALID")
         raw = path.read_bytes()
         hashes[path] = hashlib.sha256(raw).hexdigest()
         documents.append(json.loads(raw.decode("utf-8-sig")))
+    storyboard, script = documents
+    # One production directory holds storyboard, script, cast and art; importing
+    # across directories would link visual assets from a different production.
+    prod_dir = storyboard_path.parent
+    if script_path.parent != prod_dir:
+        raise ProductionRejected(
+            "CINE_IMPORT_SPLIT_PRODUCTION_DIR",
+            {
+                "storyboard_file": str(storyboard_path),
+                "script_file": str(script_path),
+                "error": "storyboard.json and script.json must share one production directory.",
+            },
+        )
     snapshot = await client.get_snapshot(bound)
     nodes_list = snapshot.get("nodes", [])
-    episode_numbers = [str(ep.get("ep")) for ep in documents[0].get("episodes", [])]
+    episode_numbers = [str(ep.get("ep")) for ep in storyboard.get("episodes", [])]
     if not episode_numbers or any(value == "None" for value in episode_numbers):
         raise ProductionRejected("CINE_IMPORT_EPISODES_REQUIRED")
+    segments = [
+        (ep, seg)
+        for ep in storyboard.get("episodes", [])
+        for seg in ep.get("segments", [])
+        if seg.get("id")
+    ]
+    # Validate every visual asset before the first canvas command, so a missing
+    # character or scene can never leave the canvas half-imported.
+    cast = _stage_document(prod_dir, "cast") if segments else (None, {})
+    art = _stage_document(prod_dir, "art") if segments else (None, {})
+    problems = _missing_visual_assets(segments, nodes_list, cast, art)
+    if problems:
+        raise ProductionRejected(
+            "CINE_IMPORT_ASSETS_MISSING",
+            {"production_dir": str(prod_dir), "problems": problems},
+        )
+    cast_doc, art_doc = cast[1], art[1]
     if not summary_node_id:
         title = "Cine 分镜同步总卡"
         matches = [
@@ -197,8 +433,8 @@ async def import_storyboard(
         {
             "type": "storyboard.import",
             "commandId": f"cine-import-{uuid.uuid4().hex}",
-            "document": documents[0],
-            "script": documents[1],
+            "document": storyboard,
+            "script": script,
             "summaryNodeId": summary_node_id,
             "episodeNodes": episode_nodes,
             "nodeRevisions": {key: nodes[key]["revision"] for key in target_ids},
@@ -212,79 +448,56 @@ async def import_storyboard(
     ):
         raise ProductionRejected("CINE_IMPORT_SOURCE_CHANGED", {"receipt": receipt})
 
-    # Auto-project all segments in the storyboard to video_prompt cards on the canvas,
-    # ensuring 100% strict alignment between storyboard cuts, durations, and video prompts.
-    segments_to_project = [
-        (ep, seg)
-        for ep in documents[0].get("episodes", [])
-        for seg in ep.get("segments", [])
-        if seg.get("id")
-    ]
+    # Project every storyboard segment to a video_prompt card, keeping cuts,
+    # durations and prompts aligned with the storyboard.
+    if not segments:
+        return {
+            "status": "synced",
+            "outcome": "succeeded",
+            "verified": True,
+            "generation_submitted": False,
+            "receipt": receipt,
+            "next_step": (
+                "Storyboard data is synced, not generated or visually approved. "
+                "Do not repeat import unless the source changes."
+            ),
+        }
+    preserved: list[str] = []
+    conflicts: list[str] = []
     try:
-        if not segments_to_project:
-            return {
-                "status": "synced",
-                "outcome": "succeeded",
-                "verified": True,
-                "generation_submitted": False,
-                "receipt": receipt,
-                "next_step": (
-                    "Storyboard data is synced, not generated or visually approved. "
-                    "Do not repeat import unless the source changes."
-                ),
-            }
         fresh_snap = await client.get_snapshot(bound)
         curr_nodes = {n["id"]: n for n in fresh_snap.get("nodes", [])}
+        edges = {
+            (e.get("from"), e.get("to"), e.get("kind"))
+            for e in fresh_snap.get("edges") or []
+            if isinstance(e, dict)
+        }
         video_cards = {
-            n.get("data", {}).get("segmentId"): n
+            (n.get("data") or {}).get("segmentId"): n
             for n in curr_nodes.values()
-            if n.get("type") == "video_prompt" and n.get("data", {}).get("segmentId")
+            if n.get("type") == "video_prompt" and (n.get("data") or {}).get("segmentId")
         }
-        sb_node_id = episode_nodes.get(episode_numbers[0])
-        prev_card_id = None
+        char_nodes = _asset_nodes(list(curr_nodes.values()), "characterId")
+        scene_nodes = _asset_nodes(list(curr_nodes.values()), "sceneIndex")
 
-        prod_dir = path.parent
-        cast_file = prod_dir / "cast.json"
-        cast_doc = json.loads(cast_file.read_text(encoding="utf-8-sig")) if cast_file.is_file() else {}
-        art_file = prod_dir / "art.json"
-        art_doc = json.loads(art_file.read_text(encoding="utf-8-sig")) if art_file.is_file() else {}
-
-        # Discover all referenced characters across all cuts in this storyboard
-        referenced_cids = {
-            cid
-            for ep, seg in segments_to_project
-            for cut in seg.get("cuts", [])
-            for cid in cut.get("characters", [])
-            if cid
-        }
-        char_nodes = {
-            n.get("data", {}).get("characterId"): n
-            for n in curr_nodes.values()
-            if n.get("type") == "image_prompt" and n.get("data", {}).get("characterId")
-        }
-
-        # Auto-provision missing character turnaround cards (16:9 sheet)
-        for cid in sorted(referenced_cids):
+        # Provision character turnaround cards (16:9 sheet) missing from the canvas.
+        for cid in _referenced_characters(segments):
             if cid in char_nodes:
                 continue
-            char_def = next((c for c in cast_doc.get("characters", []) if c.get("id") == cid), None)
-            if not char_def:
-                raise ProductionRejected(
-                    "CINE_IMPORT_CHARACTER_UNSET",
-                    {"error": f"Storyboard cut references character {cid}, but it is not defined in {cast_file.name}."},
-                )
-            sheet_prompt = (
-                char_def.get("image", {}).get("sheet")
-                or char_def.get("image", {}).get("prompt")
-                or ""
-            ).strip()
+            char_def = _character_entry(cast_doc, cid)
+            sheet_prompt = _character_sheet(char_def) if char_def else ""
             if not sheet_prompt:
+                # Validated above; only reachable if the canvas changed meanwhile.
                 raise ProductionRejected(
-                    "CINE_IMPORT_CHARACTER_SHEET_MISSING",
-                    {"error": f"Character {cid} ({char_def.get('name', '')}) has no image.sheet in {cast_file.name}. Visual assets must be specified before deploying video cards."},
+                    "CINE_IMPORT_ASSETS_MISSING",
+                    {
+                        "problems": [
+                            f"Character {cid} left the canvas during import and has no sheet."
+                        ]
+                    },
                 )
             cname = char_def.get("name") or cid
-            new_cnode, fresh_snap = await _create_target(
+            new_cnode, _ = await _create_target(
                 client,
                 bound,
                 node_type="image_prompt",
@@ -300,170 +513,162 @@ async def import_storyboard(
                 },
             )
             char_nodes[cid] = new_cnode
-            curr_nodes[new_cnode["id"]] = new_cnode
 
-        # Discover all referenced scenes and auto-provision scene concept cards
-        scene_nodes = {
-            n.get("data", {}).get("sceneIndex"): n
-            for n in curr_nodes.values()
-            if n.get("type") == "image_prompt" and n.get("data", {}).get("sceneIndex")
-        }
-        referenced_scenes = {
-            seg.get("sceneIndex")
-            for ep, seg in segments_to_project
-            if seg.get("sceneIndex")
-        }
-        for s_idx in sorted(referenced_scenes):
+        # Provision scene concept cards missing from the canvas.
+        for s_idx in _referenced_scenes(segments):
             if s_idx in scene_nodes:
                 continue
-            sid = f"S{int(s_idx):02d}"
-            scene_def = next((s for s in art_doc.get("scenes", []) if s.get("sceneIndex") == s_idx or s.get("id") == sid), None)
-            if scene_def:
-                sprompt = (scene_def.get("image", {}).get("prompt") or "").strip()
-                if sprompt:
-                    sname = scene_def.get("name") or sid
-                    new_snode, fresh_snap = await _create_target(
+            scene_def = _scene_entry(art_doc, s_idx)
+            sprompt = _scene_prompt(scene_def) if scene_def else ""
+            if not sprompt:
+                raise ProductionRejected(
+                    "CINE_IMPORT_ASSETS_MISSING",
+                    {
+                        "problems": [
+                            f"Scene {s_idx} left the canvas during import and has no prompt."
+                        ]
+                    },
+                )
+            try:
+                sid = f"S{int(s_idx):02d}"
+            except (TypeError, ValueError):
+                sid = str(scene_def.get("id") or s_idx)
+            sname = scene_def.get("name") or sid
+            new_snode, _ = await _create_target(
+                client,
+                bound,
+                node_type="image_prompt",
+                title=f"{sname} · 场景概念图",
+                data={
+                    "sceneId": sid,
+                    "sceneIndex": s_idx,
+                    "prompt": sprompt,
+                    "brief": scene_def.get("brief", ""),
+                    "aspectRatio": "16:9",
+                    "generationKind": "image",
+                    "productionStage": "art",
+                    "role": "scene_art",
+                },
+            )
+            scene_nodes[s_idx] = new_snode
+
+        for ep in storyboard.get("episodes", []):
+            # Each episode's cards derive from its own storyboard node and form
+            # their own sequence; nothing chains across episode boundaries.
+            sb_node_id = episode_nodes.get(str(ep.get("ep")))
+            prev_card_id = None
+            for seg in ep.get("segments", []):
+                seg_id = seg.get("id")
+                if not seg_id:
+                    continue
+                cuts = seg.get("cuts", [])
+                dur_sec = round(sum(c.get("seconds", 0) for c in cuts), 1)
+                h3_prompt = seg.get("h3Prompt", "")
+                structured_shots = build_structured_shots(seg, script, ep.get("ep"))
+                brief = (
+                    seg.get("brief")
+                    or (
+                        cuts[0].get("description") or cuts[0].get("frame") or f"{seg_id} 生成段"
+                        if cuts
+                        else f"{seg_id} 生成段"
+                    )
+                ).strip()
+                clean_title = f"{seg_id} · {brief[:20]}".strip()
+                card_data = {
+                    "segmentId": seg_id,
+                    "shot": seg_id,
+                    "shotMode": (
+                        "multi-shot-container" if len(structured_shots) > 1 else "single-take"
+                    ),
+                    "shotCount": len(structured_shots),
+                    "durationSec": dur_sec,
+                    "prompt": h3_prompt,
+                    "brief": brief,
+                    "shots": structured_shots,
+                    "promptProvenance": None,
+                }
+
+                existing = video_cards.get(seg_id)
+                if existing:
+                    card_id = existing["id"]
+                    outcome = await _update_existing_card(
+                        client, bound, card_id, clean_title, card_data, h3_prompt
+                    )
+                    if outcome == "preserved":
+                        preserved.append(seg_id)
+                    elif outcome in ("conflict", "missing"):
+                        conflicts.append(seg_id)
+                    if outcome == "missing":
+                        continue
+                else:
+                    new_card, _ = await _create_target(
                         client,
                         bound,
-                        node_type="image_prompt",
-                        title=f"{sname} · 场景概念图",
+                        node_type="video_prompt",
+                        title=clean_title,
                         data={
-                            "sceneId": sid,
-                            "sceneIndex": s_idx,
-                            "prompt": sprompt,
-                            "brief": scene_def.get("brief", ""),
+                            **card_data,
+                            IMPORTED_PROMPT_KEY: _sha256_text(h3_prompt),
                             "aspectRatio": "16:9",
-                            "generationKind": "image",
-                            "productionStage": "art",
-                            "role": "scene_art",
+                            "model": "minimax-h3-autodl-lightx2v-v5-15s",
+                            "submissionModel": "minimax_h3_lightx2v_v5_15s",
+                            "provider": "autodl-comfy",
+                            "size": "768p",
                         },
                     )
-                    scene_nodes[s_idx] = new_snode
-                    curr_nodes[new_snode["id"]] = new_snode
+                    card_id = new_card["id"]
 
-        for ep, seg in segments_to_project:
-            seg_id = seg["id"]
-            cuts = seg.get("cuts", [])
-            dur_sec = round(sum(c.get("seconds", 0) for c in cuts), 1)
-            h3_prompt = seg.get("h3Prompt", "")
-            structured_shots = build_structured_shots(seg, documents[1], ep.get("ep"))
-            brief = (
-                seg.get("brief")
-                or (cuts[0].get("description") or cuts[0].get("frame") or f"{seg_id} 生成段" if cuts else f"{seg_id} 生成段")
-            ).strip()
-            clean_title = f"{seg_id} · {brief[:20]}".strip()
-            card_data = {
-                "segmentId": seg_id,
-                "shot": seg_id,
-                "shotMode": (
-                    "multi-shot-container" if len(structured_shots) > 1 else "single-take"
-                ),
-                "shotCount": len(structured_shots),
-                "durationSec": dur_sec,
-                "prompt": h3_prompt,
-                "brief": brief,
-                "shots": structured_shots,
-                "promptProvenance": None,
-            }
-
-            existing = video_cards.get(seg_id)
-            if existing:
-                existing_data = existing.get("data", {})
-                await client.submit_command(
-                    bound,
-                    {
-                        "type": "canvas.update_node",
-                        "nodeId": existing["id"],
-                        "patch": {
-                            "title": clean_title,
-                            "data": {**existing_data, **card_data},
-                        },
-                        "commandId": f"cine-sync-vp-{uuid.uuid4().hex}",
-                    },
-                )
-                card_id = existing["id"]
-            else:
-                new_card, snapshot = await _create_target(
-                    client,
-                    bound,
-                    node_type="video_prompt",
-                    title=clean_title,
-                    data={
-                        **card_data,
-                        "aspectRatio": "16:9",
-                        "model": "minimax-h3-autodl-lightx2v-v5-15s",
-                        "submissionModel": "minimax_h3_lightx2v_v5_15s",
-                        "provider": "autodl-comfy",
-                        "size": "768p",
-                    },
-                )
-                card_id = new_card["id"]
                 if sb_node_id:
-                    await client.submit_command(
-                        bound,
-                        {
-                            "type": "canvas.connect",
-                            "from": sb_node_id,
-                            "to": card_id,
-                            "kind": "derives",
-                            "commandId": f"cine-conn-vp-{uuid.uuid4().hex}",
-                        },
-                    )
-
-            # Connect character references (for both new and existing cards)
-            connected_cids = set()
-            for cut in cuts:
-                for cid in cut.get("characters", []):
-                    if cid in connected_cids:
-                        continue
+                    await _connect_once(client, bound, edges, sb_node_id, card_id, "derives", "vp")
+                segment_characters = dict.fromkeys(
+                    name for cut in cuts for name in cut.get("characters") or [] if name
+                )
+                for cid in segment_characters:
                     cnode = char_nodes.get(cid)
                     if cnode:
-                        await client.submit_command(
-                            bound,
-                            {
-                                "type": "canvas.connect",
-                                "from": cnode["id"],
-                                "to": card_id,
-                                "kind": "references",
-                                "commandId": f"cine-conn-c-{cid}-{card_id[:8]}-{uuid.uuid4().hex[:4]}",
-                            },
+                        await _connect_once(
+                            client, bound, edges, cnode["id"], card_id, "references", f"c-{cid}"
                         )
-                        connected_cids.add(cid)
-
-            # Connect scene concept reference (for both new and existing cards)
-            s_idx = seg.get("sceneIndex")
-            if s_idx in scene_nodes:
-                snode = scene_nodes[s_idx]
-                await client.submit_command(
-                    bound,
-                    {
-                        "type": "canvas.connect",
-                        "from": snode["id"],
-                        "to": card_id,
-                        "kind": "references",
-                        "commandId": f"cine-conn-s-{s_idx}-{card_id[:8]}-{uuid.uuid4().hex[:4]}",
-                    },
-                )
-
-            if prev_card_id:
-                await client.submit_command(
-                    bound,
-                    {
-                        "type": "canvas.connect",
-                        "from": prev_card_id,
-                        "to": card_id,
-                        "kind": "sequence",
-                        "commandId": f"cine-conn-seq-{seg_id}-{uuid.uuid4().hex[:6]}",
-                    },
-                )
-            prev_card_id = card_id
+                s_idx = seg.get("sceneIndex")
+                if s_idx in scene_nodes:
+                    await _connect_once(
+                        client,
+                        bound,
+                        edges,
+                        scene_nodes[s_idx]["id"],
+                        card_id,
+                        "references",
+                        f"s-{s_idx}",
+                    )
+                if prev_card_id:
+                    await _connect_once(
+                        client, bound, edges, prev_card_id, card_id, "sequence", f"seq-{seg_id}"
+                    )
+                prev_card_id = card_id
     except (ProductionRejected, KeyError, TypeError, ValueError) as exc:
         logger.exception("Failed to auto-project video prompt nodes during storyboard import")
-        raise ProductionRejected(
-            "CINE_IMPORT_VIDEO_CARD_PROJECTION_FAILED",
-            {"error": str(exc)},
-        ) from exc
+        detail = {"error": str(exc)}
+        if isinstance(exc, ProductionRejected) and exc.detail:
+            detail["detail"] = exc.detail
+        raise ProductionRejected("CINE_IMPORT_VIDEO_CARD_PROJECTION_FAILED", detail) from exc
 
+    next_step = (
+        "Storyboard data and visual asset cards are synced on canvas "
+        f"({len(char_nodes)} character sheets, {len(scene_nodes)} scene concept cards "
+        "linked as references). Visual character sheets must be reviewed before submitting "
+        "video generation to ensure character consistency across cuts."
+    )
+    if preserved:
+        next_step += (
+            " Left unchanged because their prompts were edited on the canvas after the last "
+            f"import: {', '.join(preserved)}. Compare them with the new storyboard "
+            "before generation."
+        )
+    if conflicts:
+        next_step += (
+            f" Not updated because the canvas changed during import: {', '.join(conflicts)}. "
+            "Re-run the import once the canvas is idle."
+        )
     return {
         "status": "synced",
         "outcome": "succeeded",
@@ -473,9 +678,8 @@ async def import_storyboard(
             **receipt,
             "character_assets_linked": len(char_nodes),
             "scene_assets_linked": len(scene_nodes),
+            "preserved_edited_cards": preserved,
+            "update_conflicts": conflicts,
         },
-        "next_step": (
-            f"Storyboard data and visual asset cards are synced on canvas ({len(char_nodes)} character sheets, {len(scene_nodes)} scene concept cards linked as references). "
-            "Visual character sheets must be reviewed before submitting video generation to ensure character consistency across cuts."
-        ),
+        "next_step": next_step,
     }

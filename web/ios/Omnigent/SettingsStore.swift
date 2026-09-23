@@ -26,7 +26,7 @@ final class SettingsStore: ObservableObject {
       }
       serverURL =
         ProcessInfo.processInfo.omnigentArgumentValue(after: "--omnigent-server-url")
-        ?? ProcessInfo.processInfo.environment["OMNIGENT_SCREENSHOT_APP_URL"]
+        ?? ProcessInfo.processInfo.environment["AGENTNEXUS_SCREENSHOT_APP_URL"]
         ?? defaults.string(forKey: Keys.serverURL)
     #else
       serverURL = defaults.string(forKey: Keys.serverURL)

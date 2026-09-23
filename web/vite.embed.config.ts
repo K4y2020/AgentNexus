@@ -16,7 +16,7 @@
 // BARE externals (not bundled, not shimmed). rspack resolves these bare
 // specifiers to the host monolith's own copies (React 18 / react-router 6.4.1,
 // matching web), so there is a single React instance and a single
-// react-router instance shared with the host — no `__OMNIGENT_SHARED__`, no MF.
+// react-router instance shared with the host — no `__AGENTNEXUS_SHARED__`, no MF.
 // @tanstack/react-query is BUNDLED (the embed owns its own QueryClient now; see
 // `embed.tsx`). Standalone (`main.tsx` / `vite.config.ts`) is unaffected.
 //

@@ -142,8 +142,39 @@ export function computeStats(doc) {
 const thText = (s) => typeof s === 'string' && s.trim();
 /** 动作描述必须是叙述体——台词只能进 dialogue 字段，混进 action 就没法计秒。 */
 const QUOTE_RE = /「|」|『|』|“|”/;
-/** 全息与虚拟角色实体物理力学穿帮拦截：全息体无碰撞体积，严禁擦拭/端杯/碰触等物理施力动词。 */
-const HOLO_PHYSICAL_VIOLATION_RE = /(?:全息|AI|虚拟|虚影).*(?:擦[干净拭]|端[着起出]|接[过住]|递[给过来]|抱[住紧]|拿[起着]|夹[起出]|摸[着到]|擦水渍|擦干)|(?:擦[干净拭]|端[着起出]|接[过住]|递[给过来]|抱[住紧]|拿[起着]|夹[起出]|摸[着到]|擦水渍|擦干).*(?:全息|AI|虚拟|虚影)|(?:替你擦|帮你擦|替你端|帮你端|双手托着|托起|接过水杯|端着水杯|递过水杯|接过杯子|端着杯子|递来水杯|递来杯子)/;
+/**
+ * 无实体角色（cast.json 的 embodiment 为 hologram/virtual）没有碰撞体积，不能与实物接触。
+ * 只查这些角色：动作里同一分句先点名它、后出现接触动词；或它自己的台词承诺替人擦、端、递。
+ * 没有声明无实体角色的剧本不受这道门影响。
+ */
+const INTANGIBLE_EMBODIMENTS = new Set(['hologram', 'virtual']);
+const CONTACT_VERB_RE = /擦[干净拭]|擦水渍|端[着起出]|接[过住]|递[给过来]|抱[住紧]|拿[起着]|夹[起出]|摸[着到]|托[起着]/;
+const CONTACT_OFFER_RE = /(?:[替帮]你|我来)(?:擦|端|拿|接|递|抱|托)/;
+const INTANGIBLE_GENERIC_WORDS = ['全息', '虚影'];
+const CLAUSE_SPLIT_RE = /[，。；！？、,.;!?…\s]+/;
+
+/** cast.json 标为无实体的角色：outline 编号 → 点名它的词（名字与别名）。没有编号时按名字对 outline。 */
+function intangibleCharacters(ctx) {
+  const idByName = new Map((ctx.outline?.characters ?? []).map((c) => [c?.name, c?.id]));
+  const out = new Map();
+  for (const c of ctx.cast?.characters ?? []) {
+    if (!INTANGIBLE_EMBODIMENTS.has(c?.embodiment)) continue;
+    const id = c.id ?? idByName.get(c.name);
+    if (!id) continue;
+    const aliases = Array.isArray(c.aliases) ? c.aliases : [];
+    out.set(id, [c.name, ...aliases].filter((w) => typeof w === 'string' && w.trim()));
+  }
+  return out;
+}
+
+/** 同一分句里先点名无实体角色、后出现接触动词，才算它在碰实物；跨分句的人类动作不算。 */
+const touchesMatter = (text, words) => text.split(CLAUSE_SPLIT_RE).some((clause) => {
+  const verbAt = clause.search(CONTACT_VERB_RE);
+  return verbAt >= 0 && words.some((w) => {
+    const at = clause.indexOf(w);
+    return at >= 0 && at < verbAt;
+  });
+});
 
 export function gateReport(doc, ctx = {}) {
   const gates = [];
@@ -156,6 +187,7 @@ export function gateReport(doc, ctx = {}) {
     c.id,
     new Set(['default', ...(c.states ?? []).map((s) => s?.id).filter(Boolean)]),
   ]));
+  const intangible = intangibleCharacters(ctx);
 
   for (const [i, ep] of eps.entries()) {
     const st = stats.episodes[i];
@@ -211,13 +243,17 @@ export function gateReport(doc, ctx = {}) {
           }
         }
       }
+      const bodiless = [...cast].filter((id) => intangible.has(id));
+      const bodilessWords = bodiless.length
+        ? [...bodiless.flatMap((id) => intangible.get(id)), ...INTANGIBLE_GENERIC_WORDS]
+        : [];
       let hasAction = false;
       for (const b of sc?.flow ?? []) {
         if (typeof b?.action === 'string') {
           hasAction = true;
           if (QUOTE_RE.test(b.action)) bad.prose.push(`${label} ${sc?.sceneId ?? '?'}`);
-          if (HOLO_PHYSICAL_VIOLATION_RE.test(b.action)) {
-            bad.physics.push(`${label} ${sc?.sceneId ?? '?'} 动作出现物理实体穿帮：「${b.action.slice(0, 25)}…」（全息/虚拟角色无碰撞体积，严禁擦拭/端杯/碰触，改用“虚拢/悬停/穿透/联动底座”）`);
+          if (bodilessWords.length && touchesMatter(b.action, bodilessWords)) {
+            bad.physics.push(`${label} ${sc?.sceneId ?? '?'} 动作出现物理实体穿帮：「${b.action.slice(0, 25)}…」（无实体角色没有碰撞体积，不写擦拭/端杯/接递，改用“虚拢/悬停/穿透/联动底座”）`);
           }
         }
         if (typeof b?.line === 'string') {
@@ -227,8 +263,8 @@ export function gateReport(doc, ctx = {}) {
           if (b.speaker !== 'VO' && !cast.has(b.speaker)) {
             bad.speaker.push(`${label} ${sc?.sceneId ?? '?'} 的「${b.speaker}」不在本场人物里`);
           }
-          if (HOLO_PHYSICAL_VIOLATION_RE.test(b.line)) {
-            bad.physics.push(`${label} ${sc?.sceneId ?? '?'} 台词出现物理实体穿帮：「${b.line.slice(0, 25)}…」（全息体无实体，严禁声称替人擦水渍/端水杯）`);
+          if (intangible.has(b.speaker) && CONTACT_OFFER_RE.test(b.line)) {
+            bad.physics.push(`${label} ${sc?.sceneId ?? '?'} 台词出现物理实体穿帮：「${b.line.slice(0, 25)}…」（${b.speaker} 是无实体角色，不能承诺替人擦、端、递）`);
           }
         }
       }
@@ -321,6 +357,7 @@ export function gateReport(doc, ctx = {}) {
   const SKIP_OUTLINE = '未提供 outline.json，本门跳过（视为通过）';
   const SKIP_ART = '未提供 art.json，本门跳过（视为通过）';
   const SKIP_SOURCE = '未提供 source-transcript-attributed.json，本门跳过（视为通过）';
+const SKIP_CAST = '未提供 cast.json，无法识别无实体角色，本门跳过（视为通过）';
 
   const fidelity = ctx.source
     ? sourceFidelity(ctx.source, eps)
@@ -339,7 +376,7 @@ export function gateReport(doc, ctx = {}) {
   add('refs-characters', '角色引用对账大纲', bad.chars.length === 0, outline ? bad.chars.join('；') : SKIP_OUTLINE);
   add('refs-scenes', '场景／光照／道具对账美术设定', bad.scenes.length === 0, art ? bad.scenes.join('；') : SKIP_ART);
   add('character-states', '每场角色状态完整，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
-  add('hologram-physics', '虚像物理法则：全息/虚拟角色严禁擦拭/端杯/碰触等实体力学穿帮', bad.physics.length === 0, bad.physics.join('；'));
+  add('hologram-physics', '虚像物理：cast.json 标为 hologram/virtual 的角色不与实物接触', bad.physics.length === 0, ctx.cast ? bad.physics.join('；') : SKIP_CAST);
   add('dialogue-causality', '人物在场声明完整且对白动作具备前后因果', bad.causality.length === 0, bad.causality.join('；'));
   add('source-fidelity', `台词顺序与说话人对照源片转写（已匹配 ${fidelity.matched}/${fidelity.total} 句）`, fidelityDetail.length === 0, ctx.source ? fidelityDetail : SKIP_SOURCE);
 

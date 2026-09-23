@@ -50,15 +50,6 @@ class UserConfig:
 DEFAULT_USER_CONFIG = UserConfig()
 
 
-def _env_value(name: str) -> str | None:
-    """Read legacy prefixes until 2.0; an explicitly empty new value wins."""
-    for prefix in ("AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"):
-        key = prefix + name.removeprefix("AGENTNEXUS_")
-        if key in os.environ:
-            return os.environ[key]
-    return None
-
-
 def state_dir() -> pathlib.Path:
     """Return the shared AgentNexus per-user state directory.
 
@@ -70,15 +61,10 @@ def state_dir() -> pathlib.Path:
         ``Path.home() / ".agentnexus"``.
     """
 
-    value = _env_value(_DATA_DIR_ENV_VAR)
+    value = os.environ.get(_DATA_DIR_ENV_VAR)
     if value:
         return pathlib.Path(value).expanduser()
-    canonical = pathlib.Path.home() / _STATE_DIRNAME
-    legacy = pathlib.Path.home() / ".omnigent"
-    # Existing runtime state remains usable until 2.0.
-    if value is None and not canonical.exists() and legacy.exists():
-        return legacy
-    return canonical
+    return pathlib.Path.home() / _STATE_DIRNAME
 
 
 def user_config_path(root: str | pathlib.Path | None = None) -> pathlib.Path:
@@ -94,7 +80,7 @@ def user_config_path(root: str | pathlib.Path | None = None) -> pathlib.Path:
 
     if root is not None:
         base = pathlib.Path(root).expanduser()
-    elif value := _env_value(_CONFIG_HOME_ENV_VAR):
+    elif value := os.environ.get(_CONFIG_HOME_ENV_VAR):
         base = pathlib.Path(value).expanduser()
     else:
         base = pathlib.Path.home() / _STATE_DIRNAME
@@ -116,7 +102,7 @@ def load_user_config(path: str | pathlib.Path | None = None) -> UserConfig:
     """
 
     config_path = user_config_path() if path is None else pathlib.Path(path).expanduser()
-    raw = _read_compatible_config(config_path, allow_legacy=path is None)
+    raw = _read_raw(config_path)
     if raw is None:
         return DEFAULT_USER_CONFIG
     return _parse_user_config(raw, config_path=config_path)
@@ -144,7 +130,7 @@ def save_user_config(
     """
 
     config_path = user_config_path() if path is None else pathlib.Path(path).expanduser()
-    merged = dict(_read_compatible_config(config_path, allow_legacy=path is None) or {})
+    merged = dict(_read_raw(config_path) or {})
     if config.theme is None:
         merged.pop(_TUI_KEY, None)
     else:
@@ -199,15 +185,6 @@ def update_user_config(
         updated = replace(updated, theme=normalized)
     save_user_config(updated, path)
     return updated
-
-
-def _read_compatible_config(
-    config_path: pathlib.Path, *, allow_legacy: bool
-) -> Mapping[str, Any] | None:
-    # Legacy config is read until 2.0; default writes always use the canonical path.
-    if allow_legacy and _env_value(_CONFIG_HOME_ENV_VAR) is None and not config_path.exists():
-        return _read_raw(pathlib.Path.home() / ".omnigent" / _CONFIG_FILENAME)
-    return _read_raw(config_path)
 
 
 def _read_raw(config_path: pathlib.Path) -> Mapping[str, Any] | None:

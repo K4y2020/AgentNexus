@@ -61,16 +61,6 @@ current_value() {
   grep -E "^${key}=" .env | head -n 1 | cut -d= -f2- || true
 }
 
-cookie_value() {
-  local key="$1" legacy="${1/AGENTNEXUS_/OMNIGENT_}"
-  # Existing secrets remain valid until 2.0; an explicit new value wins.
-  if grep -qE "^${key}=" .env; then
-    current_value "$key"
-  else
-    current_value "$legacy"
-  fi
-}
-
 pg_current=$(current_value POSTGRES_PASSWORD)
 if [[ -z "$pg_current" || "$pg_current" == "change-me-please" ]]; then
   set_or_replace_kv POSTGRES_PASSWORD "$(openssl rand -hex 16)"
@@ -79,7 +69,7 @@ else
   echo "→ POSTGRES_PASSWORD already set, leaving alone"
 fi
 
-cookie_current=$(cookie_value AGENTNEXUS_OIDC_COOKIE_SECRET)
+cookie_current=$(current_value AGENTNEXUS_OIDC_COOKIE_SECRET)
 if [[ -z "$cookie_current" || "$cookie_current" == "<64-hex-chars>" ]]; then
   set_or_replace_kv AGENTNEXUS_OIDC_COOKIE_SECRET "$(openssl rand -hex 32)"
   echo "→ generated AGENTNEXUS_OIDC_COOKIE_SECRET"
@@ -92,7 +82,7 @@ fi
 # exclusive in a single deploy, but having both pre-minted means
 # the operator can switch modes by editing AGENTNEXUS_AUTH_PROVIDER
 # without re-running bootstrap.
-accounts_cookie_current=$(cookie_value AGENTNEXUS_ACCOUNTS_COOKIE_SECRET)
+accounts_cookie_current=$(current_value AGENTNEXUS_ACCOUNTS_COOKIE_SECRET)
 if [[ -z "$accounts_cookie_current" || "$accounts_cookie_current" == "<64-hex-chars>" ]]; then
   set_or_replace_kv AGENTNEXUS_ACCOUNTS_COOKIE_SECRET "$(openssl rand -hex 32)"
   echo "→ generated AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"

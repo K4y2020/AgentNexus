@@ -1,12 +1,8 @@
 "use strict";
 
-/** New names win, including empty values. Legacy prefixes are removed in 2.0. */
+/** Read an `AGENTNEXUS_<key>` variable; an explicitly empty value is returned as-is. */
 function readAgentNexusEnv(key, env = process.env) {
-  for (const prefix of ["AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"]) {
-    const value = env[prefix + key];
-    if (value !== undefined) return value;
-  }
-  return undefined;
+  return env[`AGENTNEXUS_${key}`];
 }
 
 module.exports = { readAgentNexusEnv };

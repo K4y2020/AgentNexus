@@ -229,3 +229,16 @@ def test_production_report_records_jev_requirement(monkeypatch, tmp_path):
     assert result["status"] == "failed"
     assert result["jev_required"] is True
     assert result["stages"][0]["status"] == "jev_unavailable"
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
+def test_advisory_jev_is_reported_without_blocking(monkeypatch, tmp_path):
+    source = next((production.SKILLS / "cine-outline/examples").glob("*-outline.json"))
+    shutil.copyfile(source, tmp_path / "outline.json")
+    monkeypatch.setattr(jev_gates, "_find_api_key", lambda: "")
+    result = production.check(tmp_path, "outline", advise_jev=True)
+    assert result["status"] == "native_validated"
+    assert result["jev_mode"] == "advisory"
+    assert result["jev_status"] == "advisory_findings"
+    assert result["stages"][0]["status"] == "passed"
+    assert result["stages"][0]["jev"]["status"] == "unavailable"

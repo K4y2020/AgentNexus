@@ -157,9 +157,7 @@ RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} 'psycopg[binary]
 # the provider SDK — e.g. the kubernetes client for `sandbox.provider:
 # kubernetes`). Off by default; the runner host image needs none of these. Build
 # with `--build-arg AGENTNEXUS_EXTRAS=kubernetes` (comma-separate for several).
-# Legacy build argument is supported until 2.0; an explicit new value wins.
-ARG OMNIGENT_EXTRAS=
-ARG AGENTNEXUS_EXTRAS=${OMNIGENT_EXTRAS}
+ARG AGENTNEXUS_EXTRAS=
 RUN if [ -n "${AGENTNEXUS_EXTRAS}" ]; then \
         uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} -e ".[${AGENTNEXUS_EXTRAS}]"; \
     fi

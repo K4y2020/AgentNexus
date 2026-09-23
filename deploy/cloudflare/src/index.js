@@ -17,9 +17,7 @@ export class OmnigentServer extends Container {
     // vars in wrangler.jsonc.
     this.envVars = {
       DATABASE_URL: env.DATABASE_URL,
-      // Legacy secret inputs remain supported until 2.0; explicit empty wins.
-      AGENTNEXUS_ACCOUNTS_COOKIE_SECRET:
-        env.AGENTNEXUS_ACCOUNTS_COOKIE_SECRET ?? env.OMNIGENT_ACCOUNTS_COOKIE_SECRET,
+      AGENTNEXUS_ACCOUNTS_COOKIE_SECRET: env.AGENTNEXUS_ACCOUNTS_COOKIE_SECRET,
       AGENTNEXUS_AUTH_ENABLED: "1",
       AGENTNEXUS_AUTH_PROVIDER: "accounts",
       AGENTNEXUS_ACCOUNTS_AUTO_OPEN: "0",
@@ -27,7 +25,7 @@ export class OmnigentServer extends Container {
       PORT: "8000",
       // Artifact store -> R2 over the S3 API (agentnexus's native S3 backend).
       // AGENTNEXUS_ARTIFACT_URI selects it; AWS_* point boto3 at R2.
-      AGENTNEXUS_ARTIFACT_URI: env.AGENTNEXUS_ARTIFACT_URI ?? env.OMNIGENT_ARTIFACT_URI,
+      AGENTNEXUS_ARTIFACT_URI: env.AGENTNEXUS_ARTIFACT_URI,
       AWS_ENDPOINT_URL_S3: env.AWS_ENDPOINT_URL_S3,
       AWS_DEFAULT_REGION: "auto",
       AWS_ACCESS_KEY_ID: env.AWS_ACCESS_KEY_ID,

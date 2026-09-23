@@ -12,7 +12,7 @@ import XCTest
 @MainActor
 final class ManagedServersUITests: XCTestCase {
   func testPresetServerIsOfferedAndConnects() throws {
-    let marker = "OMNIGENT_MANAGED_SERVER_OK"
+    let marker = "AGENTNEXUS_MANAGED_SERVER_OK"
     let server = try MockHTTPServer { _, _ in
       (
         200, ["content-type": "text/html"],

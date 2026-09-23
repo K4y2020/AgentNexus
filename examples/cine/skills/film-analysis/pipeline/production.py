@@ -292,7 +292,16 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     }
 
 
-def check_stage(directory, stage, source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
+def check_stage(
+    directory,
+    stage,
+    source_text=None,
+    timeout=30,
+    *,
+    require_jev=False,
+    advise_jev=False,
+    jev_model="jev-latest",
+):
     tool = script_path(stage)
     row = {
         "stage": stage,
@@ -367,7 +376,7 @@ def check_stage(directory, stage, source_text=None, timeout=30, *, require_jev=F
             stderr=result.stderr,
             status="passed" if result.returncode == 0 else "failed",
         )
-        if row["status"] == "passed" and require_jev:
+        if row["status"] == "passed" and (require_jev or advise_jev):
             try:
                 from .jev_gates import run_stage_gate, write_receipt
             except ImportError:  # Direct CLI execution from the pipeline directory.
@@ -376,7 +385,8 @@ def check_stage(directory, stage, source_text=None, timeout=30, *, require_jev=F
             receipt["receipt_path"] = str(write_receipt(directory, receipt))
             row["jev"] = receipt
             row["next_action"] = (receipt.get("scheduler") or {}).get("next_action")
-            if receipt["status"] != "passed":
+            # Advisory JEV only reports; the native validator alone decides the stage status.
+            if receipt["status"] != "passed" and require_jev:
                 row["status"] = f"jev_{receipt['status']}"
         if (
             any(fingerprint(Path(p)) != h for p, h in row["input_hashes"].items())
@@ -397,7 +407,16 @@ def check_stage(directory, stage, source_text=None, timeout=30, *, require_jev=F
     return row
 
 
-def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
+def check(
+    directory,
+    stage="all",
+    source_text=None,
+    timeout=30,
+    *,
+    require_jev=False,
+    advise_jev=False,
+    jev_model="jev-latest",
+):
     report_dir = directory / ".cine-validation"
     report_dir.mkdir(exist_ok=True)
     if not report_dir.resolve().is_relative_to(directory.resolve()):
@@ -410,6 +429,7 @@ def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=F
             source_text,
             timeout,
             require_jev=require_jev,
+            advise_jev=advise_jev,
             jev_model=jev_model,
         )
         for s in stages
@@ -423,6 +443,8 @@ def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=F
                 row["status"] = "inputs_changed"
     passed = all(r["status"] == "passed" for r in rows)
     skipped = any(r["skipped_checks"] for r in rows)
+    jev_ran = require_jev or advise_jev
+    jev_all_passed = all(row.get("jev", {}).get("status") == "passed" for row in rows)
     report = {
         "schema_version": 1,
         "run_id": uuid.uuid4().hex,
@@ -435,11 +457,16 @@ def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=F
         "stages": rows,
         "production_authorized": False,
         "jev_required": require_jev,
+        "jev_mode": "required" if require_jev else "advisory" if advise_jev else "off",
+        # "advisory_findings": JEV ran without blocking and some stage did not pass it;
+        # the stage rows carry each receipt for the report.
         "jev_status": (
             "passed"
-            if require_jev and all(row.get("jev", {}).get("status") == "passed" for row in rows)
+            if jev_ran and jev_all_passed
             else "failed"
             if require_jev
+            else "advisory_findings"
+            if advise_jev
             else "not_required"
         ),
         "unverified": [
@@ -458,7 +485,15 @@ def check(directory, stage="all", source_text=None, timeout=30, *, require_jev=F
     return {**report, "report_path": str(target)}
 
 
-def finalize(directory, source_text=None, timeout=30, *, require_jev=False, jev_model="jev-latest"):
+def finalize(
+    directory,
+    source_text=None,
+    timeout=30,
+    *,
+    require_jev=False,
+    advise_jev=False,
+    jev_model="jev-latest",
+):
     """Revalidate native artifacts, refresh the manifest graph, then hand off."""
     report = check(
         directory,
@@ -466,6 +501,7 @@ def finalize(directory, source_text=None, timeout=30, *, require_jev=False, jev_
         source_text,
         timeout,
         require_jev=require_jev,
+        advise_jev=advise_jev,
         jev_model=jev_model,
     )
     if report["status"] != "native_validated":
@@ -549,6 +585,11 @@ def main(argv=None):
         if action == "check":
             parser.add_argument("--source-text", type=Path)
             parser.add_argument(
+                "--jev-advisory",
+                action="store_true",
+                help="Run the TypeSafe JEV semantic review and report it without blocking any stage.",
+            )
+            parser.add_argument(
                 "--require-jev",
                 action="store_true",
                 help="Require a passing TypeSafe JEV semantic gate for every checked stage.",
@@ -557,6 +598,11 @@ def main(argv=None):
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
+    final.add_argument(
+        "--jev-advisory",
+        action="store_true",
+        help="Run the TypeSafe JEV semantic review and report it without blocking finalization.",
+    )
     final.add_argument(
         "--require-jev",
         action="store_true",
@@ -580,6 +626,7 @@ def main(argv=None):
                 args.stage,
                 args.source_text.resolve() if args.source_text else None,
                 require_jev=args.require_jev,
+                advise_jev=args.jev_advisory,
                 jev_model=args.jev_model,
             )
         else:
@@ -587,6 +634,7 @@ def main(argv=None):
                 directory,
                 args.source_text.resolve() if args.source_text else None,
                 require_jev=args.require_jev,
+                advise_jev=args.jev_advisory,
                 jev_model=args.jev_model,
             )
         print(json.dumps(result, ensure_ascii=False))

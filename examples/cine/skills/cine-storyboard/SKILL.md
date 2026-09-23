@@ -45,8 +45,9 @@ metadata:
 生成图片取回：任务 succeeded 后调用 `seedance_edit_canvas(action="export_image", job_id="<真实任务ID>", output_path="outputs/h3-package/E01-01/f1.png")`，用返回的精确 path 调用 `sys_os_view_image`。`local://hash` 是 V3 存储标识，不是文件路径；禁止递归搜盘、猜端口或用临时脚本下载。导出只取回已有图片，不触发生成；已有不同内容的文件不会被覆盖。
 
 分镜创作完成后，用固定工具导入，不现场编写转换或同步脚本：
-`seedance_edit_canvas(action="import_storyboard", storyboard_file="outputs/storyboard.json", script_file="outputs/script.json", node_id="<已有文字总卡ID>", episode_nodes={"1":"<EP01分镜表卡ID>"})`。
-缺少目标卡时先创建对应空卡，再导入；已有空卡必须复用。工具负责映射 `outline` 和 `shots`、逐镜对齐剧本节拍，并保存原生段与 H3 提示词。
+`seedance_edit_canvas(action="import_storyboard", storyboard_file="production/storyboard.json", script_file="production/script.json", node_id="<已有文字总卡ID>", episode_nodes={"1":"<EP01分镜表卡ID>"})`。
+五份原生 JSON（outline/cast/art/script/storyboard）与 `production.json` 同在一个制作目录（默认 `production/`）；`outputs/` 只放导出的图片和制作包。导入前工具会核对分镜引用的角色与场景：画布上还没有的，必须在同目录 cast.json 有 `image.sheet`、art.json 有 `image.prompt`，缺项一次列全并拒绝，不写画布。
+缺少目标卡时先创建对应空卡，再导入；已有空卡必须复用。工具负责映射 `outline` 和 `shots`、逐镜对齐剧本节拍，并保存原生段与 H3 提示词。画布上改过提示词的视频卡（手改或经提示词优化）重新导入时保持不变，并在回执 `preserved_edited_cards` 中列出。
 `brief` 是摘要，不是分镜表。只有返回 `verified=true`、镜头/段数对账后才能说“已同步”。导入不是生图或视频生成，也不代表视觉质量验收通过。
 
 ### 跨 skill 交接与适用范围
@@ -140,10 +141,10 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 
 #### 分段与切镜
 
-- 严禁1节拍1镜头流水账切分：禁止把剧本每个单节拍机械切成一镜。一个镜头应自然容纳 2–3 个连贯微节拍（动作发起 + 过程 + 结果），让画面有因果与呼吸感；仅突发重音或关键动作重折才用单拍切镜。
-- 严禁同主体同景别死寂跳切（Jump-cut Redline）：相邻镜头对准同一主体时，严禁连续使用相同景别（如中景接中景、特写接特写）；对话必须使用正反打过肩（Shot/Reverse Shot）或双人同框（Two-shot）交替推进，禁止同机位自说自话切脸抽搐。
-- 空间建立与视线匹配（Establishing & POV）：场次开端必须先有全景或中全景（Establishing Shot）交代人物在空间中的起始位置与环境，严禁在未交代空间前直接突兀贴脸切特写；人物看向画外时，下一镜必须无缝承接其视线落点（POV）。
-- 动作匹配剪辑（Match on Action）：上一镜发起的伸手、转头、起伏等动作，下一镜必须在动作运动过程中无缝切入，保持运动矢量守恒，禁止前一镜动作未完、下一镜凭空位移。
+- 不做 1 节拍 1 镜头的流水账切分：一个镜头通常自然容纳 2–3 个连贯微节拍（动作发起 + 过程 + 结果），让画面有因果与呼吸感；突发重音或关键动作才单拍切镜。
+- 避免无动机的同景别跳切：相邻镜头对准同一主体时，不连续使用相同景别与机位（中景接中景、特写接特写）；有意的跳切在交接说明写明用途。对话用正反打、过肩、双人同框或听者反应推进，不在同一机位来回切脸。
+- 空间建立与视线匹配（Establishing & POV）：场次开端通常先用全景或中全景交代人物的起始位置与环境；为前三秒钩子或悬念有意先给特写时，在连续性账本写 `establishingReason`，并在随后几镜补足空间关系。人物看向画外时，下一镜承接其视线落点（POV）。
+- 动作匹配剪辑（Match on Action）：在动作进行中切镜时，下一镜从同一动作的运动过程接上，保持方向与落点一致，不让动作未完就凭空位移。
 - 戏剧节拍、镜头、生成段不一一对应：一镜可容纳多个节拍，一段可包含多镜；五秒事件段落不自动变成五秒切镜。先决定观众需要看见什么变化，再决定是否切。
 - 镜内按动机、因果、先后和起止状态写连续表演，不把剧本估时展开为每次眼神/伸手的绝对区间。默认只为实际切点、总时长和必要同步事件保留时间锚点，不能删除用户指定的踩点或口型要求。
 - 段是一次生成调用，不是强制的戏剧段落。按剧情单元与实际模型能力分段；当前 H3 合同每段不跨场且不超过15秒。

@@ -45,5 +45,5 @@
 
 ## 5. 虚拟全息的视听表现 (Hologram Visual Grammar)
 
-- 全息 AI 必须通过半透明流光（Translucent blue-violet light）、像素微噪点（Pixel artifacts）、光粒飞散（Particles）与实物形成鲜明视听反差；
-- 人类与全息交互时，必须使用**特写捕捉“穿透虚光（Phasing through）”**的瞬间，强化触觉落差。
+- 无实体角色（cast.json 的 `embodiment` 为 `hologram` 或 `virtual`）的质感、颜色与光效遵循已确认的美术设定，与实物保持可辨的视听反差（如半透明、像素噪点、光粒）；
+- 人物与其互动时表现穿透（phasing through）或悬停，而不是抓握；是否用特写强调这一刻，由整场的观看重点决定。

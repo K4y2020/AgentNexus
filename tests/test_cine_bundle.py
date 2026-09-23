@@ -11,6 +11,7 @@ def test_cine_bundle_loads():
     assert spec.name == "cine"
     assert [s.name for s in spec.skills] == [
         "cine-art",
+        "cine-camera-evidence",
         "cine-characters",
         "cine-outline",
         "cine-script",
@@ -27,6 +28,7 @@ def test_cine_bundle_loads():
             "cine-storyboard",
             "cine-characters",
             "cine-art",
+            "cine-camera-evidence",
         ]
     ]
     for path in (BUNDLE / "config.yaml", *skill_paths):

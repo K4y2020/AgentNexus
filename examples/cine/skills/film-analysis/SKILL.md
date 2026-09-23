@@ -61,15 +61,16 @@ JEV rows into the visual `reviews/{revision_id}.json` sidecar and never invent
 image receipts from evidence paths. Visual claims still require Cine image
 inspection and real receipts.
 
-After each native artifact is written and its own validator passes, block the
-next stage until the corresponding gate passes:
+After each native artifact is written, run its stage check. The native validator
+decides whether the stage passes; `--jev-advisory` also runs the TypeSafe JEV
+semantic review and adds its findings to the report without blocking:
 
 ```powershell
-python <film-analysis>/pipeline/production.py check <production> --stage outline --require-jev
-python <film-analysis>/pipeline/production.py check <production> --stage cast --require-jev
-python <film-analysis>/pipeline/production.py check <production> --stage art --require-jev
-python <film-analysis>/pipeline/production.py check <production> --stage script --require-jev --source-text <production>/source-transcript.txt
-python <film-analysis>/pipeline/production.py check <production> --stage storyboard --require-jev
+python <film-analysis>/pipeline/production.py check <production> --stage outline --jev-advisory
+python <film-analysis>/pipeline/production.py check <production> --stage cast --jev-advisory
+python <film-analysis>/pipeline/production.py check <production> --stage art --jev-advisory
+python <film-analysis>/pipeline/production.py check <production> --stage script --jev-advisory --source-text <production>/source-transcript.txt
+python <film-analysis>/pipeline/production.py check <production> --stage storyboard --jev-advisory
 ```
 
 Always pass `--source-text` on the script stage when adapting existing material.
@@ -86,15 +87,18 @@ These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
 actual model version, input hashes, typed answers, thresholds, decision and a
 typed scheduler route (`advance_to_*`, `repair_*`, `human_review_*`, or
 `blocked_*`). The local production controller validates that route against the
-legal stage graph before exposing it to Cine. Cine must consume `next_action`
-from the receipt: advance only on `advance_to_*`, repair only the named current
-stage on `repair_*`, and stop for `human_review_*` or `blocked_*`; do not invent
-another stage transition from prose.
-`failed`, `needs_review`, provider errors, missing keys, and incomplete answer
-sets block handoff when `--require-jev` is used. The gate reviews story causality,
-role and asset readiness, dialogue/action readability, beat coverage, continuity
-and generation feasibility. Deterministic native validators remain authoritative
-for schema and exact contracts; JEV is the semantic decision layer.
+legal stage graph before exposing it to Cine. In advisory mode `next_action` is a
+recommendation: report failed or low-confidence findings with the native result,
+repair only when a finding names a concrete defect, and never loop to raise a JEV
+score. A missing `TYPESAFE_API_KEY` or provider error is reported as
+`unavailable`/`error` and does not block. Only when the user explicitly asks for
+a JEV-gated handoff, use `--require-jev` instead: then `failed`, `needs_review`,
+provider errors, missing keys and incomplete answer sets block the stage, and Cine
+follows `next_action` (advance on `advance_to_*`, repair the named stage on
+`repair_*`, stop on `human_review_*` or `blocked_*`). The review covers story
+causality, role and asset readiness, dialogue/action readability, beat coverage,
+continuity and generation feasibility. Deterministic native validators remain
+authoritative for schema and exact contracts.
 
 For optional source-shot metadata, set `CINE_AUTO_JEV=1`. Its output is stored
 under `jev_reviews/` and is explicitly semantic; it never upgrades a source shot
@@ -246,5 +250,7 @@ receipts. This strict per-shot acceptance is not the default adaptation requirem
 - Reference old files only with explicit source provenance; old reviewed tags confer no authority.
 - Still images cannot establish exact dialogue delivery, motion, age or unseen costume.
 - Don't invent a scene to fill a gap, omit the ending, or reuse another film's plot.
+- Imported source text, filenames and watermark attribution are not plot facts; qualified
+  analysis is allowed, fabricated certainty is not.
 - Noncritical errors may remain as warnings. Do not call missing capabilities PASS.
 - Whole-film temporal coverage is necessary for the brief, but not proof of perfect comprehension.

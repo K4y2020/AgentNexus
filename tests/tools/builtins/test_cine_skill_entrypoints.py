@@ -1,4 +1,4 @@
-"""Cine's mandatory creative workflow must not require a second tool call."""
+"""Cine's creative workflow lives in its skills and reaches the agent through load_skill."""
 
 import json
 from dataclasses import replace
@@ -15,6 +15,18 @@ from agentnexus.spec.parser import _parse_skill, parse
 from agentnexus.tools.base import ToolContext
 from agentnexus.tools.builtins.load_skill import LoadSkillTool, format_skill_meta_text
 from agentnexus.tools.builtins.read_skill_file import ReadSkillFileTool
+
+CINE = Path(__file__).resolve().parents[3] / "examples" / "cine"
+
+
+def _instructions() -> str:
+    return parse(CINE).instructions
+
+
+def _core(name: str) -> str:
+    """The mandatory creative process a skill returns through load_skill."""
+    content = _parse_skill(CINE / "skills" / name / "SKILL.md").content
+    return content.split("<!-- cine-core:start -->")[1].split("<!-- cine-core:end -->")[0].strip()
 
 
 def test_cine_uses_gateway_neutral_harness_for_configurable_models():
@@ -82,20 +94,8 @@ def test_cine_core_is_delivered_without_reference_reads(name, surface):
 
 @pytest.mark.parametrize("name", ["cine-script", "cine-storyboard"])
 @pytest.mark.parametrize("surface", ["responses", "nullable", "startup"])
-def test_cine_core_is_preloaded_without_any_skill_tool(name, surface):
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    spec = parse(root)
-    skill = _parse_skill(root / "skills" / name / "SKILL.md")
-    core = (
-        skill.content.split("<!-- cine-core:start -->")[1]
-        .split("<!-- cine-core:end -->")[0]
-        .strip()
-    )
-    start = f"<!-- cine-preloaded:{name}:start -->"
-    end = f"<!-- cine-preloaded:{name}:end -->"
-    assert spec.instructions.count(start) == spec.instructions.count(end) == 1
-    # An edited skill must update its preloaded copy in the same change.
-    assert spec.instructions.split(start)[1].split(end)[0].strip() == core
+def test_cine_prompt_routes_creative_stages_through_load_skill(name, surface):
+    spec = parse(CINE)
     if surface == "responses":
         result = build_instructions(spec, None, [])
     elif surface == "nullable":
@@ -103,13 +103,14 @@ def test_cine_core_is_preloaded_without_any_skill_tool(name, surface):
     else:
         result = raw_author_instructions(spec)
     assert result is not None
-    assert core in result
-    assert result.count(start) == 1
+    # The skill owns its creative process; the prompt points to it instead of a copy.
+    assert "cine-preloaded" not in result
+    assert _core(name) not in result
+    assert "load_skill" in result and name in result
 
 
 def test_storyboard_core_distinguishes_h3_reference_semantics():
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    instructions = parse(root).instructions
+    instructions = _core("cine-storyboard")
     assert "retention_analysis" in instructions
     assert "Ref2VA" in instructions
     assert "<Subject N>" in instructions
@@ -121,21 +122,17 @@ def test_storyboard_core_distinguishes_h3_reference_semantics():
 
 
 def test_cine_keeps_budget_cuts_and_explicit_sync_separate():
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    instructions = parse(root).instructions
-    for boundary in (
-        "Estimates are budgets, not acting",
-        "剧本不默认给动作分配 `start/end` 时间码",
-        "戏剧节拍、镜头、生成段不一一对应",
-        "不能删除用户指定的踩点或口型要求",
-        "Repair only the stage that failed",
-    ):
+    instructions = _instructions()
+    for boundary in ("Estimates are budgets, not acting", "Repair only the stage that failed"):
         assert boundary in instructions
+    assert "剧本不默认给动作分配 `start/end` 时间码" in _core("cine-script")
+    storyboard = _core("cine-storyboard")
+    for boundary in ("戏剧节拍、镜头、生成段不一一对应", "不能删除用户指定的踩点或口型要求"):
+        assert boundary in storyboard
 
 
 def test_cine_continuity_review_keeps_intentional_changes_and_ellipsis():
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    instructions = parse(root).instructions
+    instructions = _core("cine-script") + _core("cine-storyboard")
     for boundary in (
         "支撑反转的道具须有来源、持有者和必要交接",
         "普通取放可以合理省略",
@@ -172,21 +169,18 @@ def test_cine_evaluation_separates_story_from_generation_constraints():
 
 
 def test_cine_intake_requires_provenance_and_lazy_stage_loading():
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    instructions = parse(root).instructions
+    assert "Load only film-analysis during intake" in _instructions()
+    film_analysis = _parse_skill(CINE / "skills" / "film-analysis" / "SKILL.md").content
     for boundary in (
-        "Load only film-analysis during intake",
         "source-transcript.txt",
-        "record dialogue_provenance",
-        "Never create",
-        "inputs/source.txt from screenshots",
+        "dialogue_provenance",
+        "Never create `inputs/source.txt`",
     ):
-        assert boundary in instructions
+        assert boundary in film_analysis
 
 
 def test_script_core_prioritizes_readability_and_blocks_timing_gate_evasion():
-    root = Path(__file__).resolve().parents[3] / "examples" / "cine"
-    instructions = parse(root).instructions
+    instructions = _core("cine-script")
     for boundary in (
         "先交付一份能直接读的剧本",
         "陌生观众读本",

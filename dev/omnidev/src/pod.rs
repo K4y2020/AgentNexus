@@ -228,26 +228,18 @@ pub fn clean(dir: &Path) -> Result<()> {
 
 /// The developer's real agentnexus `config.yaml` to seed a fresh pod from.
 ///
-/// Uses the configured home or the default config path, with legacy reads until 2.0.
+/// Uses the configured home or the default config path.
 fn real_config_path() -> Option<PathBuf> {
     resolve_config_path(env_value("CONFIG_HOME"), std::env::var_os("HOME"))
 }
 
 fn resolve_config_path(config_home: Option<OsString>, user_home: Option<OsString>) -> Option<PathBuf> {
-    let explicit = config_home.is_some();
     let home = match config_home {
         Some(h) if !h.is_empty() => PathBuf::from(h),
-        _ => PathBuf::from(user_home.as_ref()?).join(".agentnexus"),
+        _ => PathBuf::from(user_home?).join(".agentnexus"),
     };
     let path = home.join("config.yaml");
-    if path.exists() {
-        return Some(path);
-    }
-    if !explicit {
-        let legacy = PathBuf::from(user_home?).join(".omnigent/config.yaml");
-        return legacy.exists().then_some(legacy);
-    }
-    None
+    path.exists().then_some(path)
 }
 
 fn env_value(suffix: &str) -> Option<OsString> {
@@ -255,10 +247,7 @@ fn env_value(suffix: &str) -> Option<OsString> {
 }
 
 fn env_value_from(suffix: &str, mut read: impl FnMut(&str) -> Option<OsString>) -> Option<OsString> {
-    // Legacy prefixes are supported until 2.0; an explicitly empty new value wins.
-    ["AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_"]
-        .iter()
-        .find_map(|prefix| read(&format!("{prefix}{suffix}")))
+    read(&format!("AGENTNEXUS_{suffix}"))
 }
 
 /// Copy `src` to `dest`, but only when `dest` does not already exist — a normal
@@ -386,29 +375,26 @@ mod tests {
     }
 
     #[test]
-    fn real_config_path_preserves_legacy_and_prefers_canonical_config() {
+    fn real_config_path_uses_canonical_config() {
         let home = tempdir();
-        std::fs::create_dir_all(home.join(".omnigent")).unwrap();
-        std::fs::write(home.join(".omnigent/config.yaml"), "y: 2\n").unwrap();
         let resolve = |override_home| resolve_config_path(override_home, Some(home.clone().into()));
-        assert_eq!(resolve(None), Some(home.join(".omnigent/config.yaml")));
-        assert_eq!(resolve(Some(OsString::new())), None);
+        assert_eq!(resolve(None), None);
         std::fs::create_dir_all(home.join(".agentnexus")).unwrap();
         std::fs::write(home.join(".agentnexus/config.yaml"), "").unwrap();
         assert_eq!(resolve(None), Some(home.join(".agentnexus/config.yaml")));
+        assert_eq!(resolve(Some(OsString::new())), Some(home.join(".agentnexus/config.yaml")));
     }
 
     #[test]
-    fn env_prefix_precedence_preserves_explicit_empty_values() {
-        let mut env = std::collections::HashMap::new();
+    fn env_value_reads_agentnexus_prefix_and_preserves_explicit_empty_values() {
+        let mut env: std::collections::HashMap<String, OsString> = std::collections::HashMap::new();
         let suffix = "WS_ALLOWED_ORIGINS";
-        for prefix in ["OMNIAGENTS_", "OMNIGENTS_", "OMNIGENT_", "AGENTNEXUS_"] {
-            env.insert(format!("{prefix}{suffix}"), OsString::from(prefix));
-            assert_eq!(
-                env_value_from(suffix, |key| env.get(key).cloned()),
-                Some(prefix.into())
-            );
-        }
+        assert_eq!(env_value_from(suffix, |key| env.get(key).cloned()), None);
+        env.insert("AGENTNEXUS_WS_ALLOWED_ORIGINS".to_string(), OsString::from("x"));
+        assert_eq!(
+            env_value_from(suffix, |key| env.get(key).cloned()),
+            Some(OsString::from("x"))
+        );
         env.insert("AGENTNEXUS_WS_ALLOWED_ORIGINS".into(), OsString::new());
         assert_eq!(
             env_value_from(suffix, |key| env.get(key).cloned()),

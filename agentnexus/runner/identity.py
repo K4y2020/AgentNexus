@@ -71,13 +71,10 @@ AGENTNEXUS_SESSION_ENV_VALUE = "1"
 # runner. Stripped at every runner→child spawn boundary via
 # :func:`strip_runner_auth_secrets`.
 RUNNER_AUTH_SECRET_ENV_VARS: frozenset[str] = frozenset(
-    prefix + name.removeprefix("AGENTNEXUS_")
-    for name in (
+    {
         RUNNER_INITIAL_AUTH_TOKEN_ENV_VAR,
         RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR,
-    )
-    # A child must not reconstruct stripped secrets via pre-2.0 env aliases.
-    for prefix in ("AGENTNEXUS_", "OMNIGENT_", "OMNIGENTS_", "OMNIAGENTS_")
+    }
 )
 
 

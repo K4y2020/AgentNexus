@@ -87,7 +87,7 @@ function sameLoopbackServer(a, b) {
 }
 
 /**
- * The Omnigent local runtime data dir — `$OMNIGENT_DATA_DIR` (with `~`
+ * The Omnigent local runtime data dir — `$AGENTNEXUS_DATA_DIR` (with `~`
  * expanded) or `~/.agentnexus`. Mirrors `_local_data_dir()` in
  * agentnexus/host/local_server.py. The local-server pidfile lives here.
  *
@@ -103,7 +103,7 @@ function localDataDir() {
 }
 
 /**
- * The Omnigent config dir — `$OMNIGENT_CONFIG_HOME` (with `~` expanded) or
+ * The Omnigent config dir — `$AGENTNEXUS_CONFIG_HOME` (with `~` expanded) or
  * `~/.agentnexus`. config.yaml (machine identity) lives here; it can differ from
  * the data dir under test env overrides, but is the same by default.
  *
@@ -120,11 +120,11 @@ function localConfigDir() {
 
 /**
  * The shared Omnigent state dir, ALWAYS `~/.agentnexus` — it ignores
- * `$OMNIGENT_DATA_DIR`, mirroring `state_dir()` in
+ * `$AGENTNEXUS_DATA_DIR`, mirroring `state_dir()` in
  * sdks/ui/agentnexus_ui_sdk/terminal/_config.py and `_HOST_PID_PATH` in
  * agentnexus/cli.py (both hardcode `Path.home()/".agentnexus"`). The auth-token
  * store and the daemon registry live here — NOT under the data dir. Only the
- * local-server pidfile honors `$OMNIGENT_DATA_DIR` (see {@link localDataDir}).
+ * local-server pidfile honors `$AGENTNEXUS_DATA_DIR` (see {@link localDataDir}).
  *
  * @returns {string}
  */
@@ -720,7 +720,7 @@ function daemonServerUrl(record) {
  * for this URL.
  *
  * Unlike `_remote_headers()` (agentnexus/chat.py), this deliberately does NOT
- * honor `OMNIGENT_REMOTE_AUTH_TOKEN`. That token is destination-independent — it
+ * honor `AGENTNEXUS_REMOTE_AUTH_TOKEN`. That token is destination-independent — it
  * authenticates to whatever URL it's sent to — and this function's only caller
  * (the status probe) targets a URL adjacent to an on-disk daemon record, so a
  * destination-blind token there could be sent to an attacker URL planted in

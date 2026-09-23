@@ -24,13 +24,13 @@
 - [x] setup.py 包名更新
 
 ### Phase 3: 环境变量
-- [x] 全局替换：`OMNIGENT_*` → `AGENTNEXUS_*`
+- [x] 全局替换为 `AGENTNEXUS_*`（旧前缀不再兼容，兼容层已移除）
 - [x] 配置文件中的环境变量
 - [x] Shell 脚本中的环境变量
 - [x] 文档中的环境变量示例
 
 ### Phase 4: 配置路径
-- [x] 默认配置目录引用：`.omnigent/` → `.agentnexus/`
+- [x] 默认配置目录：`~/.agentnexus/`（不再读取或自动迁移旧目录）
 - [x] Python 代码中的路径
 - [x] 文档中的路径示例
 
@@ -78,19 +78,19 @@ e18ceb9b Phase 1-2: Rename omnigent → agentnexus (package, imports)
 
 ## 向后兼容性保证
 
-✅ **完全向后兼容** - 旧用户无需立即迁移
+⚠️ **环境变量和配置目录不再向后兼容** - 旧用户升级前需要手动迁移
 
 1. **CLI 命令别名**
    - `omnigent` 和 `omni` 命令仍然可用
    - 标记为 deprecated，将在 v2.0 移除
 
 2. **环境变量**
-   - `OMNIGENT_*` 变量仍然有效
-   - 新变量 `AGENTNEXUS_*` 优先级更高
+   - 只读取 `AGENTNEXUS_*`，旧前缀变量会被忽略
+   - 升级前需在 shell、`.env`、CI 和部署配置中改名
 
 3. **配置目录**
-   - `~/.omnigent/` 仍然可用
-   - 新安装默认使用 `~/.agentnexus/`
+   - 只使用 `~/.agentnexus/`，旧目录不再读取或自动迁移
+   - 需要保留旧数据时，升级前手动复制到 `~/.agentnexus/`
 
 4. **Python 导入**
    - 包名已完全重命名为 `agentnexus`
@@ -121,19 +121,18 @@ e18ceb9b Phase 1-2: Rename omnigent → agentnexus (package, imports)
 
 ### 推荐的迁移步骤
 
-1. **立即可做（无风险）**
+1. **升级前必须完成**
+   - 把所有旧前缀环境变量改名为 `AGENTNEXUS_*`
+   - 把旧的状态目录手动复制到 `~/.agentnexus/`（先停止旧的 host/server）
+   - 更新 CI/CD 配置
+
+2. **建议完成**
    - 更新文档引用
    - 使用新命令 `agentnexus` / `nexus`
-   - 设置新环境变量 `AGENTNEXUS_*`
-
-2. **可选迁移**
-   - 复制配置：`~/.omnigent/` → `~/.agentnexus/`
    - 更新脚本中的命令
-   - 更新 CI/CD 配置
 
 3. **v2.0 之前必须完成**
    - 移除对 `omnigent` / `omni` 命令的依赖
-   - 移除对 `OMNIGENT_*` 环境变量的依赖
 
 ## 验证清单
 
@@ -152,8 +151,6 @@ e18ceb9b Phase 1-2: Rename omnigent → agentnexus (package, imports)
 ### 兼容性验证
 - [ ] `omnigent` 命令仍可用
 - [ ] `omni` 命令仍可用
-- [ ] 旧环境变量仍有效
-- [ ] 旧配置目录仍有效
 
 ## 风险评估
 

@@ -5,11 +5,19 @@ Unit tests for Cine Camera Evidence RAG tool and engine.
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 import pytest
 
 from agentnexus.tools.builtins.cine_camera_evidence import CineCameraEvidenceTool
 from agentnexus.tools.base import ToolContext
+
+CLI = Path(__file__).resolve().parents[1] / "camera-evidence" / "cli" / "query.mjs"
+# The retrieval CLI and its corpus are not in the repository; query tests need both.
+requires_cli = pytest.mark.skipif(
+    not CLI.is_file() or shutil.which("node") is None,
+    reason="camera-evidence CLI (examples/cine/camera-evidence/cli/query.mjs) or node is missing",
+)
 
 
 def test_cine_camera_evidence_tool_schema():
@@ -24,6 +32,15 @@ def test_cine_camera_evidence_tool_schema():
     assert "limit" in params
 
 
+@pytest.mark.skipif(CLI.is_file(), reason="only meaningful while the CLI is absent")
+def test_cine_camera_evidence_reports_missing_cli():
+    tool = CineCameraEvidenceTool()
+    ctx = ToolContext("test-task-0", "test-agent-0")
+    data = json.loads(tool.invoke(json.dumps({"query": "慢推"}), ctx))
+    assert data == {"error": "Cine camera evidence CLI not found."}
+
+
+@requires_cli
 def test_cine_camera_evidence_invoke_query():
     tool = CineCameraEvidenceTool()
     ctx = ToolContext("test-task-1", "test-agent-1")
@@ -34,6 +51,7 @@ def test_cine_camera_evidence_invoke_query():
     assert len(data.get("occurrences", [])) <= 2
 
 
+@requires_cli
 def test_cine_camera_evidence_invoke_brief_with_atoms():
     tool = CineCameraEvidenceTool()
     ctx = ToolContext("test-task-2", "test-agent-2")

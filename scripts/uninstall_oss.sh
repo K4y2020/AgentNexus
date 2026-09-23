@@ -10,8 +10,8 @@ MARKER_END="# <<< AgentNexus installer <<<"
 # Legacy markers and env inputs are supported until 2.0.
 LEGACY_MARKER_BEGIN="# >>> Omnigent installer >>>"
 LEGACY_MARKER_END="# <<< Omnigent installer <<<"
-AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST="${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST-${OMNIGENT_UNINSTALL_LEDGER_MANIFEST-}}"
-AGENTNEXUS_UNINSTALL_LEDGER_SOURCE="${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE-${OMNIGENT_UNINSTALL_LEDGER_SOURCE-}}"
+AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST="${AGENTNEXUS_UNINSTALL_LEDGER_MANIFEST-}"
+AGENTNEXUS_UNINSTALL_LEDGER_SOURCE="${AGENTNEXUS_UNINSTALL_LEDGER_SOURCE-}"
 TAB=$(printf '\t')
 TARGETS=""
 DRY_RUN=false
@@ -137,15 +137,9 @@ if [ "$DESTRUCTIVE_FLAG" != true ]; then
 fi
 
 state_home() {
-  value="${AGENTNEXUS_DATA_DIR-${OMNIGENT_DATA_DIR-}}"
+  value="${AGENTNEXUS_DATA_DIR-}"
   if [ -n "$value" ]; then
     printf '%s\n' "$value"
-    return
-  fi
-  # Existing state paths remain discoverable until 2.0; explicit empty opts out.
-  if [ "${AGENTNEXUS_DATA_DIR+x}${OMNIGENT_DATA_DIR+x}" = "" ] && \
-    [ ! -d "$HOME/.agentnexus" ] && [ -d "$HOME/.omnigent" ]; then
-    printf '%s/.omnigent\n' "$HOME"
     return
   fi
   printf '%s/.agentnexus\n' "$HOME"

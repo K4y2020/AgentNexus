@@ -75,8 +75,9 @@ an existing canonical, named or explicitly bound output. With a manifest, declar
 the target path before seeding; seeding does not update hashes or approval pins.
 Use a new production revision directory for replacement seeds.
 Use `check --stage outline|cast|art|script|storyboard` for a focused check. Add
-`--require-jev` when the stage is entering production; this runs the matching
-TypeSafe semantic gate after the native validator.
+`--jev-advisory` to run the matching TypeSafe semantic review after the native
+validator and report it without blocking; `--require-jev` makes that review a
+blocking gate and is used only when the user asks for a JEV-gated handoff.
 
 `check` executes native validators with relevant upstream inputs. `finalize` is
 the only routine path that refreshes artifact hashes and dependency pins: it
@@ -91,15 +92,17 @@ not invented original-film dialogue. Never manufacture `inputs/source.txt` from 
 story draft or sparse screenshots and label it a transcript. Store machine speech
 recognition as `inputs/source-transcript.txt` with `dialogue_provenance.status=asr`;
 store a newly written adaptation treatment under a clearly different name and label.
-`--require-jev` writes a receipt under `.cine-validation/jev/` with the actual
-JEV model version, input hashes, typed answers and thresholds. Missing
-credentials, provider errors, incomplete answers, low-confidence answers and
-failed judgments block the selected stage. JEV receives structured text only;
+`--jev-advisory` and `--require-jev` write a receipt under `.cine-validation/jev/`
+with the actual JEV model version, input hashes, typed answers and thresholds.
+In advisory mode the report's `jev_status` is `passed` or `advisory_findings` and
+the stage status comes from the native validator alone. With `--require-jev`,
+missing credentials, provider errors, incomplete answers, low-confidence answers
+and failed judgments block the selected stage. JEV receives structured text only;
 it does not replace image/audio/video inspection. `native_validated` does not authorize generation
 or establish visual quality/provider compatibility. Reports are not authorization
 tokens: every check re-executes the tools rather than reusing an old report.
 
-Pass `--source-text` alongside `--require-jev` so the script gate judges the
+Pass `--source-text` alongside the JEV flag so the script review judges the
 adaptation against the original rather than on its own internal coherence. With
 a source supplied, the script stage also runs source-comparison questions
 (speaker attribution, reaction order, setup/payoff, overall order fidelity) and

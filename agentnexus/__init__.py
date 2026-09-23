@@ -22,13 +22,6 @@ def _fips_safe_md5(*args, **kwargs):  # type: ignore[no-untyped-def]
 
 _fips_safe_hashlib.md5 = _fips_safe_md5
 
-# Mirror legacy env prefixes onto their new ``AGENTNEXUS_*`` names
-# before any submodule below reads the environment, so the dual-read
-# backward-compat fallback is in effect for the entire package.
-from agentnexus._env_compat import mirror_legacy_env as _mirror_legacy_env  # noqa: E402
-
-_mirror_legacy_env()
-
 # The public names below re-export lazily (PEP 562). This package init is on
 # the hot path of every ``python -m agentnexus.<hook>`` subprocess Claude Code
 # spawns — once per streamed text chunk (the TUI blocks on the MessageDisplay

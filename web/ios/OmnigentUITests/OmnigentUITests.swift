@@ -11,14 +11,14 @@ final class OmnigentUITests: XCTestCase {
     setupSnapshot(app)
     let serverURL = try XCTUnwrap(
       ScreenshotConfiguration.serverURL(from: app),
-      "Pass --omnigent-server-url or OMNIGENT_SCREENSHOT_APP_URL for screenshot tests."
+      "Pass --omnigent-server-url or AGENTNEXUS_SCREENSHOT_APP_URL for screenshot tests."
     )
     app.launchArguments += [
       "--omnigent-server-url",
       serverURL,
     ]
     NSLog("Omnigent screenshot server URL: \(serverURL)")
-    app.launchEnvironment["OMNIGENT_SCREENSHOT_APP_URL"] = serverURL
+    app.launchEnvironment["AGENTNEXUS_SCREENSHOT_APP_URL"] = serverURL
     app.launch()
 
     XCTAssertTrue(
@@ -201,7 +201,7 @@ final class OmnigentUITests: XCTestCase {
 
 private enum ScreenshotConfiguration {
   static func serverURL(from app: XCUIApplication) -> String? {
-    ProcessInfo.processInfo.environment["OMNIGENT_SCREENSHOT_APP_URL"]?.nonEmpty
+    ProcessInfo.processInfo.environment["AGENTNEXUS_SCREENSHOT_APP_URL"]?.nonEmpty
       ?? app.launchArguments.omnigentServerURL
       ?? fastlaneLaunchArguments().omnigentServerURL
   }

@@ -42,7 +42,7 @@ function makeHarness({ captureEvents = false, existingTools = [] } = {}) {
     ? { inboxDir, serverUrl: "http://mock", sessionId: "conv_test" }
     : { inboxDir };
   fs.writeFileSync(configPath, JSON.stringify(config));
-  process.env.OMNIGENT_PI_NATIVE_CONFIG = configPath;
+  process.env.AGENTNEXUS_PI_NATIVE_CONFIG = configPath;
 
   // Capture posted event bodies (status edges etc.) instead of hitting network.
   const postedEvents = [];

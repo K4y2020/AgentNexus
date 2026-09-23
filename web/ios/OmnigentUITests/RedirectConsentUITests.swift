@@ -19,7 +19,7 @@ import XCTest
 @MainActor
 final class RedirectConsentUITests: XCTestCase {
   func testDeepLinkConsentOpensApprovedServer() throws {
-    let marker = "OMNIGENT_DEEPLINK_CONSENT_OK"
+    let marker = "AGENTNEXUS_DEEPLINK_CONSENT_OK"
     let server = try MockHTTPServer { method, _ in
       (
         200, ["content-type": "text/html"],

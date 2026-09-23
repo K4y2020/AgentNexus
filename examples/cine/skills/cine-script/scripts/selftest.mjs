@@ -261,17 +261,38 @@ eq(gateReport(FIXTURE).length, 15, '十五道门');
   ok(gate(doc, 'refs-scenes').ok, '没给美术设定时本门跳过');
 }
 {
-  const doc = clone(FIXTURE);
-  doc.episodes[0].scenes[0].flow.push({ action: '全息AI双手端着水杯递过来。' });
-  const g = gate(doc, 'hologram-physics', CTX);
-  ok(!g.ok, '全息端水杯被物理门禁拦截');
-  ok(g.detail.includes('物理实体穿帮'), '物理穿帮点得出名');
-}
-{
-  const doc = clone(FIXTURE);
-  doc.episodes[0].scenes[0].flow.push({ speaker: 'C01', line: '我也替你擦干净了水渍。' });
-  const g = gate(doc, 'hologram-physics', CTX);
-  ok(!g.ok, '替人擦水渍被物理门禁拦截');
+  // 虚像物理门只约束 cast.json 标为无实体（hologram/virtual）的角色；老周（C03）在第一场
+  const holo = OUTLINE.characters.find((c) => c.id === 'C03');
+  const holoCtx = { ...CTX, cast: { characters: [{ name: holo.name, embodiment: 'hologram' }] } };
+  const bodyCtx = { ...CTX, cast: { characters: [{ name: holo.name, embodiment: 'physical' }] } };
+  ok(gate(clone(FIXTURE), 'hologram-physics', holoCtx).ok, '样例本身不触发虚像物理门');
+  {
+    const doc = clone(FIXTURE);
+    doc.episodes[0].scenes[0].flow.push({ action: `${holo.name}双手端着水杯递过来。` });
+    const g = gate(doc, 'hologram-physics', holoCtx);
+    ok(!g.ok, '无实体角色端水杯被物理门禁拦截');
+    ok(g.detail.includes('物理实体穿帮'), '物理穿帮点得出名');
+    ok(gate(doc, 'hologram-physics', bodyCtx).ok, '同一动作由有实体角色来做不拦');
+    ok(gate(doc, 'hologram-physics', CTX).ok, '没给 cast.json 时本门跳过');
+  }
+  {
+    const doc = clone(FIXTURE);
+    doc.episodes[0].scenes[0].flow.push({ action: '全息投影伸手接过杯子。' });
+    ok(!gate(doc, 'hologram-physics', holoCtx).ok, '场内有无实体角色时，“全息”泛称加接触动词也拦');
+  }
+  {
+    const doc = clone(FIXTURE);
+    for (const action of ['她接过杯子，低头喝了一口。', '母亲端着水杯走进来。', '他托起孩子，举过头顶。', '林默关掉AI助手，拿起手机。']) {
+      doc.episodes[0].scenes[0].flow.push({ action });
+    }
+    ok(gate(doc, 'hologram-physics', holoCtx).ok, '人类的日常接触动作不被误拦');
+  }
+  {
+    const doc = clone(FIXTURE);
+    doc.episodes[0].scenes[0].flow.push({ speaker: 'C03', line: '我也替你擦干净了水渍。' });
+    ok(!gate(doc, 'hologram-physics', holoCtx).ok, '无实体角色承诺替人擦水渍被拦');
+    ok(gate(doc, 'hologram-physics', bodyCtx).ok, '有实体角色说同一句台词不拦');
+  }
 }
 
 /* ---------------- validateScript 结构检查 ---------------- */

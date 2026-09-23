@@ -76,7 +76,7 @@ function sleep(ms) {
 }
 
 function readConfig() {
-  const configPath = process.env.OMNIGENT_PI_NATIVE_CONFIG;
+  const configPath = process.env.AGENTNEXUS_PI_NATIVE_CONFIG;
   if (!configPath) return null;
   try {
     return JSON.parse(fs.readFileSync(configPath, "utf8"));
