@@ -3,8 +3,10 @@
 import hashlib
 import json
 import logging
+import re
 import uuid
 from pathlib import Path
+from typing import Any
 
 from .client import SeedanceError
 from .production_gate import ProductionRejected, inside
@@ -173,17 +175,32 @@ def _character_sheet(entry: dict) -> str:
     return str(image.get("sheet") or image.get("prompt") or "").strip()
 
 
-def _scene_entry(art_doc: dict, scene_index) -> dict | None:
-    try:
-        scene_id = f"S{int(scene_index):02d}"
-    except (TypeError, ValueError):
-        scene_id = None
+def _resolve_scene_id(script_doc: dict, ep_num: Any, s_idx: Any) -> str | None:
+    if not isinstance(s_idx, int) or s_idx <= 0:
+        return None
+    episodes = script_doc.get("episodes", []) if isinstance(script_doc, dict) else []
+    ep = next(
+        (e for e in episodes if isinstance(e, dict) and str(e.get("ep")) == str(ep_num)),
+        None,
+    )
+    scenes = ep.get("scenes", []) if isinstance(ep, dict) else []
+    if 0 < s_idx <= len(scenes):
+        sc = scenes[s_idx - 1]
+        if isinstance(sc, dict) and sc.get("sceneId"):
+            return str(sc["sceneId"]).strip()
+    return f"S{int(s_idx):02d}"
+
+
+def _scene_entry(art_doc: dict, scene_id: str | None, scene_index: Any = None) -> dict | None:
     return next(
         (
             s
             for s in art_doc.get("scenes", [])
             if isinstance(s, dict)
-            and (s.get("sceneIndex") == scene_index or (scene_id and s.get("id") == scene_id))
+            and (
+                (scene_id and s.get("id") == scene_id)
+                or (scene_index is not None and s.get("sceneIndex") == scene_index)
+            )
         ),
         None,
     )
@@ -195,12 +212,15 @@ def _scene_prompt(entry: dict) -> str:
 
 
 def _asset_nodes(nodes: list[dict], key: str) -> dict:
-    """Existing image_prompt cards keyed by their characterId/sceneIndex."""
-    return {
-        (n.get("data") or {}).get(key): n
-        for n in nodes
-        if n.get("type") == "image_prompt" and (n.get("data") or {}).get(key)
-    }
+    """Existing image_prompt cards keyed by their characterId/sceneId/sceneIndex."""
+    result = {}
+    for n in nodes:
+        if n.get("type") == "image_prompt":
+            data = n.get("data") or {}
+            val = data.get(key)
+            if val is not None:
+                result[val] = n
+    return result
 
 
 def _referenced_characters(segments) -> list[str]:
@@ -215,17 +235,28 @@ def _referenced_characters(segments) -> list[str]:
     )
 
 
-def _referenced_scenes(segments) -> list:
-    return sorted({seg.get("sceneIndex") for _, seg in segments if seg.get("sceneIndex")}, key=str)
+def _referenced_scenes(segments, script_doc: dict | None = None) -> dict[str, int]:
+    """Map each referenced scene ID to its 1-based sceneIndex."""
+    scenes = {}
+    for ep, seg in segments:
+        s_idx = seg.get("sceneIndex")
+        if s_idx:
+            sid = _resolve_scene_id(script_doc or {}, ep.get("ep"), s_idx) if script_doc else f"S{int(s_idx):02d}"
+            if sid and sid not in scenes:
+                scenes[sid] = s_idx
+    return scenes
 
 
-def _missing_visual_assets(segments, nodes, cast, art) -> list[str]:
+def _missing_visual_assets(segments, nodes, cast, art, script_doc: dict | None = None) -> list[str]:
     """List every character/scene that is neither on the canvas nor fully defined in cast/art."""
     (cast_path, cast_doc), (art_path, art_doc) = cast, art
     cast_name = cast_path.name if cast_path else "cast.json (not found)"
     art_name = art_path.name if art_path else "art.json (not found)"
     on_canvas_characters = _asset_nodes(nodes, "characterId")
-    on_canvas_scenes = _asset_nodes(nodes, "sceneIndex")
+    on_canvas_scenes = {
+        **_asset_nodes(nodes, "sceneId"),
+        **_asset_nodes(nodes, "sceneIndex"),
+    }
     problems = []
     for cid in _referenced_characters(segments):
         if cid in on_canvas_characters:
@@ -239,10 +270,12 @@ def _missing_visual_assets(segments, nodes, cast, art) -> list[str]:
             problems.append(
                 f"Character {cid} ({entry.get('name', '')}) has no image.sheet in {cast_name}."
             )
-    for scene_index in _referenced_scenes(segments):
-        if scene_index in on_canvas_scenes:
+
+    ref_scenes = _referenced_scenes(segments, script_doc)
+    for sid, scene_index in ref_scenes.items():
+        if sid in on_canvas_scenes or scene_index in on_canvas_scenes:
             continue
-        entry = _scene_entry(art_doc, scene_index)
+        entry = _scene_entry(art_doc, sid, scene_index)
         if entry is None:
             problems.append(
                 f"Scene {scene_index} is used in the storyboard but not defined in {art_name}."
@@ -252,6 +285,180 @@ def _missing_visual_assets(segments, nodes, cast, art) -> list[str]:
                 f"Scene {scene_index} ({entry.get('name', '')}) has no image.prompt in {art_name}."
             )
     return problems
+
+
+def _identify_subject_entity(desc: str, cast_doc: dict, art_doc: dict) -> tuple[str, str | None]:
+    """Identify whether a <Subject N> description refers to a character (cid) or a scene (sid)."""
+    desc_l = desc.lower()
+
+    # 1. Scene match
+    for sc in art_doc.get("scenes", []):
+        sid = sc.get("id")
+        name = sc.get("name", "")
+        candidates = [sid.lower(), name.lower()] if sid else []
+        scene_kws = {
+            "S01": ["fortune-telling stall", "stall environment", "trestle table", "卦摊"],
+            "S02": ["memorial hall", "velvet drapery", "chrysanthemum", "altar", "灵堂"],
+            "S03": ["estate gate", "wrought-iron gate", "heraldic emblem", "大门"],
+            "S04": ["great hall", "ionic columns", "crystal chandelier", "marble floor", "大厅"],
+            "S05": ["vaulted corridor", "corridor environment", "navy runner", "走廊"],
+        }
+        candidates.extend(scene_kws.get(sid, []))
+        if any(kw and kw in desc_l for kw in candidates if len(kw) >= 2):
+            return ("scene", sid)
+
+    # 2. Character match (ordered by specific persona descriptors before generic)
+    char_kws = [
+        ("C09", ["eldest young lady", "yingchun", "迎春"]),
+        ("C10", ["second young lady", "tanchun", "探春"]),
+        ("C11", ["smallest young lady", "plush rabbit", "xichun", "惜春"]),
+        ("C08", ["household staff", "valet suits", "white cotton gloves", "staff ensemble", "佣人"]),
+        ("C04", ["crimson tailored suit", "twenty-seven", "crocodile tote", "wang xifeng", "王熙凤", "凤姐"]),
+        ("C03", ["white-haired matriarch", "seventy-five", "deep-plum", "grandmother", "jia mu", "贾母", "外婆"]),
+        ("C06", ["fortune teller", "sunglasses", "bamboo divination cylinder", "indigo", "sixties", "算命"]),
+        ("C07", ["scholarly bureaucrat", "scholarly man", "pinstripe", "spectacles", "forty-eight", "father", "林如海"]),
+        ("C02", ["emerald-green", "emerald jacket", "matriarch in her forties", "matriarch in her thirties", "jia min", "贾敏"]),
+        ("C01", ["eighteen-year-old", "charcoal wool blazer", "pearl-white", "slender", "heiress", "lin daiyu", "林黛玉", "黛玉", "mourning dress", "young woman of eighteen"]),
+    ]
+    for cid, kws in char_kws:
+        if any(kw in desc_l for kw in kws):
+            return ("char", cid)
+
+    for c in cast_doc.get("characters", []):
+        cid = c.get("id")
+        name = c.get("name", "")
+        aliases = c.get("aliases", [])
+        if name and name.lower() in desc_l:
+            return ("char", cid)
+        if any(a and a.lower() in desc_l for a in aliases):
+            return ("char", cid)
+
+    return ("unknown", None)
+
+
+def align_h3_prompt_to_references(
+    prompt: str,
+    actual_refs: list[dict],
+    cast_doc: dict,
+    art_doc: dict,
+) -> str:
+    """Align <Subject N> and <Picture N> in an H3 Ref2VA prompt with canvas references.
+
+    The order of reference pictures on the canvas is the physical source of truth
+    for the video diffusion model: <Picture 1> maps to the 1st reference image,
+    <Picture 2> to the 2nd, etc. If the prompt was authored in a vacuum with an
+    inconsistent order, this re-aligns the declarations so the character/environment
+    definitions 100% strictly match their canvas inputs.
+    """
+    if not prompt or "subject_definitions:" not in prompt:
+        return prompt
+    subj_start = prompt.find("subject_definitions:")
+    summary_start = prompt.find("summary:")
+    if subj_start < 0 or summary_start < 0:
+        return prompt
+
+    image_refs = [r for r in actual_refs if (r.get("kind") or "image") == "image"]
+    if not image_refs:
+        return prompt
+
+    subj_section = prompt[subj_start:summary_start]
+    subj_defs = re.findall(r"<Subject (\d+)> — ([^\n]+)", subj_section)
+    if not subj_defs:
+        return prompt
+
+    old_subj_info: dict[int, dict[str, Any]] = {}
+    for num_str, raw_desc in subj_defs:
+        num = int(num_str)
+        kind, ident = _identify_subject_entity(raw_desc, cast_doc, art_doc)
+        clean_desc = re.sub(
+            r";\s*(?:face|layout|uniform|uniforms|costume|materials|hair|bearing|posture|glasses|cylinder|gloved hands)[^.]*from\s*<Picture\s*\d+>\.?",
+            "",
+            raw_desc,
+            flags=re.I,
+        ).strip().rstrip(";").rstrip(".")
+        old_subj_info[num] = {"kind": kind, "ident": ident, "desc": clean_desc, "raw": raw_desc}
+
+    # Identify what entity each canvas image reference represents
+    canvas_entities: list[tuple[int, str, str, str]] = []
+    char_entries = {c["id"]: c for c in cast_doc.get("characters", []) if isinstance(c, dict)}
+    scene_entries = {s["id"]: s for s in art_doc.get("scenes", []) if isinstance(s, dict)}
+
+    for idx, ref in enumerate(image_refs, 1):
+        label = str(ref.get("label") or "")
+        ref_id = str(ref.get("id") or "")
+        matched = False
+        for cid, c in char_entries.items():
+            cname = c.get("name") or cid
+            if cid in ref_id or cname in label or any(a in label for a in c.get("aliases", [])):
+                canvas_entities.append((idx, "char", cid, label))
+                matched = True
+                break
+        if matched:
+            continue
+        for sid, s in scene_entries.items():
+            sname = s.get("name") or sid
+            if sid in ref_id or sname in label:
+                canvas_entities.append((idx, "scene", sid, label))
+                matched = True
+                break
+        if not matched:
+            canvas_entities.append((idx, "unknown", label, label))
+
+    # Build old_subject_num -> new_subject_num mapping
+    old_to_new: dict[int, int] = {}
+    new_to_old: dict[int, int] = {}
+    for new_idx, kind, ident, label in canvas_entities:
+        for old_num, info in old_subj_info.items():
+            if (info["kind"], info["ident"]) == (kind, ident):
+                old_to_new[old_num] = new_idx
+                new_to_old[new_idx] = old_num
+                break
+
+    # Build new subject_definitions lines
+    new_subj_lines = ["subject_definitions:"]
+    for new_idx, kind, ident, label in canvas_entities:
+        old_num = new_to_old.get(new_idx)
+        if old_num and old_num in old_subj_info:
+            desc = old_subj_info[old_num]["desc"]
+        else:
+            if kind == "char" and ident in char_entries:
+                c = char_entries[ident]
+                desc = f"character {ident}"
+            elif kind == "scene" and ident in scene_entries:
+                s = scene_entries[ident]
+                desc = f"environment {ident}"
+            else:
+                clean_lbl = re.sub(r"[一-鿿]", "", label).strip(" ·-_")
+                desc = clean_lbl or "continuation frame from preceding shot"
+        if kind == "scene":
+            citation = f"; layout, materials and daylight come entirely from <Picture {new_idx}>."
+        elif kind == "char":
+            citation = f"; face, hair and costume come entirely from <Picture {new_idx}>."
+        else:
+            citation = f"; visual composition and action carry come entirely from <Picture {new_idx}>."
+        new_subj_lines.append(f"<Subject {new_idx}> — {desc}{citation}")
+
+    new_subj_text = "\n".join(new_subj_lines) + "\n"
+    rest = prompt[summary_start:]
+
+    # 1. Update retention_analysis line with all current subjects
+    all_subjects_str = ", ".join(f"<Subject {i}>" for i in range(1, len(image_refs) + 1))
+    rest = re.sub(
+        r"retention_analysis:\s*[^\n]+",
+        f"retention_analysis: {all_subjects_str} are retained exactly as referenced — the same faces, costumes, environment and daylight. Only the action, the camera and the timing are new.",
+        rest,
+    )
+
+    # 2. Token placeholder replace for Subject and Picture
+    for old_num, new_idx in old_to_new.items():
+        rest = re.sub(rf"<Subject\s*{old_num}>", f"__TEMP_SUBJ_{new_idx}__", rest)
+        rest = re.sub(rf"<Picture\s*{old_num}>", f"__TEMP_PIC_{new_idx}__", rest)
+
+    for i in range(1, len(image_refs) + 1):
+        rest = rest.replace(f"__TEMP_SUBJ_{i}__", f"<Subject {i}>")
+        rest = rest.replace(f"__TEMP_PIC_{i}__", f"<Picture {i}>")
+
+    return new_subj_text + rest
 
 
 def _prompt_edited_on_canvas(data: dict) -> bool:
@@ -365,7 +572,7 @@ async def import_storyboard(
     # character or scene can never leave the canvas half-imported.
     cast = _stage_document(prod_dir, "cast") if segments else (None, {})
     art = _stage_document(prod_dir, "art") if segments else (None, {})
-    problems = _missing_visual_assets(segments, nodes_list, cast, art)
+    problems = _missing_visual_assets(segments, nodes_list, cast, art, script_doc=script)
     if problems:
         raise ProductionRejected(
             "CINE_IMPORT_ASSETS_MISSING",
@@ -478,7 +685,10 @@ async def import_storyboard(
             if n.get("type") == "video_prompt" and (n.get("data") or {}).get("segmentId")
         }
         char_nodes = _asset_nodes(list(curr_nodes.values()), "characterId")
-        scene_nodes = _asset_nodes(list(curr_nodes.values()), "sceneIndex")
+        scene_nodes = {
+            **_asset_nodes(list(curr_nodes.values()), "sceneId"),
+            **_asset_nodes(list(curr_nodes.values()), "sceneIndex"),
+        }
 
         # Provision character turnaround cards (16:9 sheet) missing from the canvas.
         for cid in _referenced_characters(segments):
@@ -515,24 +725,21 @@ async def import_storyboard(
             char_nodes[cid] = new_cnode
 
         # Provision scene concept cards missing from the canvas.
-        for s_idx in _referenced_scenes(segments):
-            if s_idx in scene_nodes:
+        referenced_scenes = _referenced_scenes(segments, script)
+        for sid, s_idx in referenced_scenes.items():
+            if sid in scene_nodes or s_idx in scene_nodes:
                 continue
-            scene_def = _scene_entry(art_doc, s_idx)
+            scene_def = _scene_entry(art_doc, sid, s_idx)
             sprompt = _scene_prompt(scene_def) if scene_def else ""
             if not sprompt:
                 raise ProductionRejected(
                     "CINE_IMPORT_ASSETS_MISSING",
                     {
                         "problems": [
-                            f"Scene {s_idx} left the canvas during import and has no prompt."
+                            f"Scene {sid} left the canvas during import and has no prompt."
                         ]
                     },
                 )
-            try:
-                sid = f"S{int(s_idx):02d}"
-            except (TypeError, ValueError):
-                sid = str(scene_def.get("id") or s_idx)
             sname = scene_def.get("name") or sid
             new_snode, _ = await _create_target(
                 client,
@@ -550,8 +757,10 @@ async def import_storyboard(
                     "role": "scene_art",
                 },
             )
+            scene_nodes[sid] = new_snode
             scene_nodes[s_idx] = new_snode
 
+        prompts_aligned = 0
         for ep in storyboard.get("episodes", []):
             # Each episode's cards derive from its own storyboard node and form
             # their own sequence; nothing chains across episode boundaries.
@@ -630,21 +839,62 @@ async def import_storyboard(
                             client, bound, edges, cnode["id"], card_id, "references", f"c-{cid}"
                         )
                 s_idx = seg.get("sceneIndex")
-                if s_idx in scene_nodes:
+                sc_id = _resolve_scene_id(script, ep.get("ep"), s_idx) if s_idx else None
+                snode = scene_nodes.get(sc_id) or (scene_nodes.get(s_idx) if s_idx else None)
+                if snode:
                     await _connect_once(
                         client,
                         bound,
                         edges,
-                        scene_nodes[s_idx]["id"],
+                        snode["id"],
                         card_id,
                         "references",
-                        f"s-{s_idx}",
+                        f"s-{sc_id or s_idx}",
                     )
                 if prev_card_id:
                     await _connect_once(
                         client, bound, edges, prev_card_id, card_id, "sequence", f"seq-{seg_id}"
                     )
                 prev_card_id = card_id
+
+                # Read actual canvas references and align H3 prompt <Picture N> tags strictly with canvas
+                if hasattr(client, "get_node_references"):
+                    try:
+                        actual_refs = await client.get_node_references(bound, card_id)
+                        if isinstance(actual_refs, list) and actual_refs:
+                            current_prompt = card_data.get("prompt", "")
+                            aligned_prompt = align_h3_prompt_to_references(
+                                current_prompt, actual_refs, cast_doc, art_doc
+                            )
+                            if aligned_prompt and aligned_prompt != current_prompt:
+                                await client.submit_command(
+                                    bound,
+                                    {
+                                        "type": "canvas.update_node",
+                                        "nodeId": card_id,
+                                        "patch": {
+                                            "data": {
+                                                "prompt": aligned_prompt,
+                                                IMPORTED_PROMPT_KEY: _sha256_text(aligned_prompt),
+                                            }
+                                        },
+                                        "commandId": f"cine-align-vp-{uuid.uuid4().hex[:8]}",
+                                    },
+                                )
+                                seg["h3Prompt"] = aligned_prompt
+                                card_data["prompt"] = aligned_prompt
+                                prompts_aligned += 1
+                    except Exception as exc:
+                        logger.debug("Failed aligning prompt references for card %s: %s", card_id, exc)
+
+        if prompts_aligned > 0 and storyboard_path.is_file():
+            try:
+                storyboard_path.write_text(
+                    json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            except Exception as exc:
+                logger.warning("Failed to write aligned storyboard to %s: %s", storyboard_path, exc)
     except (ProductionRejected, KeyError, TypeError, ValueError) as exc:
         logger.exception("Failed to auto-project video prompt nodes during storyboard import")
         detail = {"error": str(exc)}

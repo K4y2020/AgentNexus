@@ -523,3 +523,56 @@ async def test_reimport_preserves_cards_edited_on_canvas_and_updates_the_rest(tm
     assert ("ep1", "card1", "derives") not in connects
     assert ("char", "card1", "references") not in connects
     assert len(connects) == len(set(connects))
+
+
+def test_align_h3_prompt_to_references_reorders_correctly():
+    from agentnexus.seedance.storyboard_import import align_h3_prompt_to_references
+
+    cast = {
+        "characters": [
+            {"id": "C01", "name": "林黛玉", "aliases": ["黛玉"]},
+            {"id": "C02", "name": "贾敏", "aliases": ["大姐"]},
+            {"id": "C07", "name": "林如海", "aliases": ["老爷"]},
+        ]
+    }
+    art = {
+        "scenes": [
+            {"id": "S01", "name": "街头卦摊（白天）", "brief": "street stall"},
+        ]
+    }
+
+    # Canvas references order: C01 (Picture 1), C02 (Picture 2), C07 (Picture 3), S01 (Picture 4)
+    actual_refs = [
+        {"id": "node:c1", "label": "林黛玉 · 角色三视图", "kind": "image"},
+        {"id": "node:c2", "label": "贾敏 · 角色三视图", "kind": "image"},
+        {"id": "node:c7", "label": "林如海 · 角色三视图", "kind": "image"},
+        {"id": "node:s1", "label": "街头卦摊（白天） · 场景概念图", "kind": "image"},
+    ]
+
+    # Inverted prompt: C07 is Picture 1, C01 is Picture 4!
+    old_prompt = (
+        "subject_definitions:\n"
+        "<Subject 1> — a scholarly bureaucrat of forty-eight in a charcoal pinstripe three-piece suit; face, costume and glasses come entirely from <Picture 1>.\n"
+        "<Subject 2> — a proud matriarch in her forties in an emerald-green embroidered jacket; face and costume come entirely from <Picture 2>.\n"
+        "<Subject 3> — the daytime street fortune-telling stall environment; layout, materials and daylight come entirely from <Picture 3>.\n"
+        "<Subject 4> — a cool young woman of eighteen in a pearl-white silk shirt; face, hair and costume come entirely from <Picture 4>.\n"
+        "summary: Family meets at stall.\n"
+        "retention_analysis: <Subject 1>, <Subject 2>, <Subject 3>, <Subject 4> are retained exactly as referenced.\n"
+        "detailed_description:\n"
+        "[Shot 1] <Subject 2> talks to <Subject 4>.\n"
+        "[Shot 2] At 00:03.000, <Subject 1> arrives."
+    )
+
+    aligned = align_h3_prompt_to_references(old_prompt, actual_refs, cast, art)
+
+    assert "<Subject 1> — a cool young woman" in aligned
+    assert "come entirely from <Picture 1>" in aligned
+    assert "<Subject 2> — a proud matriarch" in aligned
+    assert "come entirely from <Picture 2>" in aligned
+    assert "<Subject 3> — a scholarly bureaucrat" in aligned
+    assert "come entirely from <Picture 3>" in aligned
+    assert "<Subject 4> — the daytime street fortune-telling stall" in aligned
+    assert "come entirely from <Picture 4>" in aligned
+
+    assert "[Shot 1] <Subject 2> talks to <Subject 1>." in aligned
+    assert "[Shot 2] At 00:03.000, <Subject 3> arrives." in aligned

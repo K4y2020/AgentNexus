@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -274,6 +275,21 @@ async def read_seedance_canvas_snapshot(
                     filtered_nodes.append(n)
             raw_nodes = filtered_nodes
 
+        # Resolve canvas references for video_prompt cards so agents can read their exact Picture order
+        vid_nodes = [n for n in raw_nodes if n.get("type") == "video_prompt"]
+        refs_by_node: dict[str, list[dict[str, Any]]] = {}
+        if vid_nodes and hasattr(client, "get_node_references"):
+            try:
+                results = await asyncio.gather(
+                    *[client.get_node_references(resolved_project_id, n["id"]) for n in vid_nodes],
+                    return_exceptions=True,
+                )
+                for n, res in zip(vid_nodes, results):
+                    if isinstance(res, list):
+                        refs_by_node[n["id"]] = res
+            except Exception as exc:
+                logger.debug("Failed resolving node references: %s", exc)
+
         # Format nodes
         formatted_nodes: list[dict[str, Any]] = []
         for n in raw_nodes:
@@ -305,6 +321,27 @@ async def read_seedance_canvas_snapshot(
                 else:
                     node_dict["media_state"] = "unknown"  # Older V3: absence is not failure.
                     node_dict["next_action"] = "read_exact_job"
+
+            if ntype == "video_prompt":
+                node_refs = refs_by_node.get(nid, [])
+                ref_list = []
+                img_idx = 0
+                for r in node_refs:
+                    kind = r.get("kind") or "image"
+                    if kind == "image":
+                        img_idx += 1
+                        tag = f"<Picture {img_idx}>"
+                    elif kind == "video":
+                        tag = "<Video>"
+                    else:
+                        tag = "<Audio>"
+                    ref_list.append({
+                        "tag": tag,
+                        "label": r.get("label", ""),
+                        "role": r.get("role", "reference_image"),
+                        "id": r.get("id", ""),
+                    })
+                node_dict["references"] = ref_list
 
             if detail_level == "summary":
                 if ntype == "video_prompt":
@@ -417,6 +454,16 @@ async def read_seedance_canvas_snapshot(
                 md_lines.append(f"- **{ctitle}** {status_badge} `{cid}` ({dur}s){cam_desc}")
                 if brief_preview:
                     md_lines.append(f"  > 镜头要求: {brief_preview}")
+                node_refs = refs_by_node.get(cid, [])
+                if node_refs:
+                    img_idx = 0
+                    md_lines.append("  > 画布参考素材顺序 (References - 视频提示词引用序号以此为唯一基准):")
+                    for r in node_refs:
+                        kind = r.get("kind") or "image"
+                        tag = f"<Picture {img_idx + 1}>" if kind == "image" else f"<{kind.capitalize()}>"
+                        if kind == "image":
+                            img_idx += 1
+                        md_lines.append(f"    - **{tag}**: {r.get('label', '')} (`{r.get('id', '')}`)")
             md_lines.append("")
 
         if script_cards:
