@@ -26,11 +26,12 @@
 name: Nightly Release
 
 on:
-  schedule:
-    # 04:30 UTC: after the 00:00 UTC scheduled suites drain, well before the
-    # 07:00 UTC image rebuild (its concurrency is per-SHA, so a tag build
-    # racing it would cold-race the layer cache).
-    - cron: "30 4 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   # 04:30 UTC: after the 00:00 UTC scheduled suites drain, well before the
+  #   # 07:00 UTC image rebuild (its concurrency is per-SHA, so a tag build
+  #   # racing it would cold-race the layer cache).
+  #   - cron: "30 4 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

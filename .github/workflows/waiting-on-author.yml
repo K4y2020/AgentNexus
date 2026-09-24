@@ -14,8 +14,9 @@ on:
     types: [synchronize, labeled]
   issue_comment:
     types: [created]
-  schedule:
-    - cron: "0 */12 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "0 */12 * * *"
   workflow_dispatch:
 
 permissions:

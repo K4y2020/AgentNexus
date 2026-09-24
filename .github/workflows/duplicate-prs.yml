@@ -9,8 +9,9 @@ name: Duplicate PRs
 # the API using only the default-branch script. See duplicate-prs.js.
 
 on:
-  schedule:
-    - cron: "0 */4 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "0 */4 * * *"
   workflow_dispatch:
 
 defaults:
