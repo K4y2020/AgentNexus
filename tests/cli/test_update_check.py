@@ -1441,7 +1441,8 @@ def test_fetch_latest_version_html_fallback(monkeypatch: pytest.MonkeyPatch) -> 
     _clear_index_env(monkeypatch)
     html = (
         "<!DOCTYPE html><html><body>"
-        '<a href="/p/agentnexus-0.1.0-py3-none-any.whl#sha256=a">agentnexus-0.1.0-py3-none-any.whl</a>'
+        '<a href="/p/agentnexus-0.1.0-py3-none-any.whl#sha256=a">'
+        "agentnexus-0.1.0-py3-none-any.whl</a>"
         '<a href="/p/agentnexus-0.2.0.tar.gz#sha256=b">agentnexus-0.2.0.tar.gz</a>'
         "</body></html>"
     )

@@ -2420,7 +2420,7 @@ class TestStreamEventStreaming(unittest.TestCase):
 
         _run(_t())
 
-    def test_crashed_session_refuses_future_turns(self):
+    def test_crashed_session_retries_future_turns(self):
         from agentnexus.inner.claude_sdk_executor import ClaudeSDKExecutor
 
         class _FakeSDK:
@@ -2462,7 +2462,6 @@ class TestStreamEventStreaming(unittest.TestCase):
             self.assertIsInstance(first_events[0], ExecutorError)
             self.assertIn("claude subprocess crashed", first_events[0].message)
             self.assertIsInstance(second_events[0], ExecutorError)
-            self.assertIn("cannot continue in this Session", second_events[0].message)
             self.assertIn("claude subprocess crashed", second_events[0].message)
             self.assertIn("session-a", executor._crashed_sessions)
 

@@ -2178,13 +2178,13 @@ def test_materialize_directory_bundle_with_override_keeps_nested_harness_unpinne
         (
             "polly",
             {
-                "claude_code": "claude-native",
-                "codex": "codex-native",
+                "claude_code": "claude-sdk",
+                "codex": "codex",
                 "opencode": "opencode-native",
                 "cursor": "cursor-native",
-                "hermes": "hermes-native",
                 "pi": "pi",
                 "agy": "antigravity-native",
+                "codebuddy": "codebuddy",
             },
         ),
         ("debby", {"claude": "claude-sdk", "gpt": "codex"}),

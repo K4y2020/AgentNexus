@@ -123,7 +123,8 @@ def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
         # each owned by "local"; the other 20 stay unfiled (project_id IS NULL).
         filed = conn.execute(
             text(
-                "SELECT COUNT(*) FROM agentnexus_conversation_metadata WHERE project_id IS NOT NULL"
+                "SELECT COUNT(*) FROM agentnexus_conversation_metadata "
+                "WHERE project_id IS NOT NULL"
             )
         ).scalar_one()
         assert filed == 30

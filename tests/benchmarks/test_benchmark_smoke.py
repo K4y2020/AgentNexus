@@ -16,6 +16,7 @@ from typing import cast
 
 import httpx
 import pytest
+
 from dev.benchmarks.agentnexus import run as bench_run
 from dev.benchmarks.agentnexus.environment import BenchEnvironment, _sse_session_status
 from dev.benchmarks.agentnexus.journeys import ALL_JOURNEYS, Journey, run_latency, run_throughput
@@ -592,13 +593,12 @@ async def test_benchmark_smoke_a2a_delivery_journey() -> None:
 
 def test_seed_creates_listable_corpus(tmp_path: Path) -> None:
     """Seed a tiny corpus and confirm it is listable as "local" with history."""
-    from dev.benchmarks.agentnexus import seed as seed_mod
-
     from agentnexus.server.auth import RESERVED_USER_LOCAL
     from agentnexus.stores.conversation_store.sqlalchemy_store import (
         SqlAlchemyConversationStore,
     )
     from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
+    from dev.benchmarks.agentnexus import seed as seed_mod
 
     db_uri = f"sqlite:///{tmp_path / 'seed.db'}"
 

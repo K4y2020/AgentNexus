@@ -122,6 +122,15 @@ def test_builtin_names_size_matches_registry() -> None:
                 "download_file",
                 "search_conversations",
                 "export_agent",
+                # Canvas, review, and teammate tools are reserved framework names.
+                "seedance_agent_message",
+                "seedance_read_canvas",
+                "seedance_edit_canvas",
+                "cine_camera_evidence",
+                "cine_jev_judge",
+                "sys_os_view_image",
+                "save_teammate_memory",
+                "send_to_teammate",
                 # Hindsight long-term memory tools (optional `hindsight`
                 # extra; factories probe for hindsight-client).
                 "hindsight_retain",

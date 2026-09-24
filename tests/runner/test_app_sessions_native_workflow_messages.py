@@ -1118,13 +1118,16 @@ class _FakeServerClient:
 
         # Session snapshot GET (e.g. /v1/sessions/{id}, no /items suffix).
         if "/items" not in url:
-            snapshot = dict(self._session_snapshot)
+            snapshot = {"model_override": None, **self._session_snapshot}
 
             class _SnapshotResp:
                 status_code = 200
 
                 def json(self) -> dict[str, Any]:
                     return snapshot
+
+                def raise_for_status(self) -> None:
+                    return None
 
             return _SnapshotResp()
 
@@ -1146,6 +1149,9 @@ class _FakeServerClient:
 
             def json(self) -> dict[str, Any]:
                 return {"data": page, "has_more": has_more}
+
+            def raise_for_status(self) -> None:
+                return None
 
         return _Resp()
 

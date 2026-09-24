@@ -61,7 +61,7 @@ def _task(
 async def test_poller_delivers_fresh_routine_to_bound_channel(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = RecordingSlackClient()
-    omnigent = FakeAgentNexus([_task(run_at=time.time())])
+    omnigent = FakeAgentNexus([])
     pool = FakePool(omnigent)
     poller = RoutineCompletionPoller(
         store=store,
@@ -72,6 +72,8 @@ async def test_poller_delivers_fresh_routine_to_bound_channel(tmp_path: Path) ->
     )
 
     await poller.start()
+    omnigent.tasks.append(_task(run_at=time.time()))
+    await poller.deliver_once()
     await poller.stop()
 
     assert len(slack.posts) == 1
@@ -80,13 +82,13 @@ async def test_poller_delivers_fresh_routine_to_bound_channel(tmp_path: Path) ->
     assert "Daily standup" in post["text"]
     assert "Routine result summary." in post["text"]
     # Polling authenticated as the binding owner, not a blank identity.
-    assert pool.requested == ["T1:U1"]
+    assert pool.requested == ["T1:U1", "T1:U1"]
 
 
 async def test_poller_dedupes_a_delivered_run(tmp_path: Path) -> None:
     store = await _store(tmp_path)
     slack = RecordingSlackClient()
-    omnigent = FakeAgentNexus([_task(run_at=time.time())])
+    omnigent = FakeAgentNexus([])
     pool = FakePool(omnigent)
     poller = RoutineCompletionPoller(
         store=store,
@@ -97,6 +99,7 @@ async def test_poller_dedupes_a_delivered_run(tmp_path: Path) -> None:
     )
 
     await poller.start()
+    omnigent.tasks.append(_task(run_at=time.time()))
     await poller.deliver_once()
     await poller.stop()
 

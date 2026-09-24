@@ -10,7 +10,7 @@ from agentnexus.inner.terminal import TerminalInstance
 
 
 class NullServerClient:
-    """Minimal fake AgentNexus server client for tests that do not exercise AgentNexus interactions.
+    """Minimal fake client for tests that do not exercise AgentNexus interactions.
 
     Returns empty/204 responses to all requests so the runner's AgentNexus calls
     (session fetch, label patch, history load, etc.) succeed silently.

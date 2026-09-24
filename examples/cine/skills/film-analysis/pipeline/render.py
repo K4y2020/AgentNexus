@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from .project import validate_identifier
 from .review_data import build_review_data, read_json_inside, relative_media_url
@@ -72,11 +72,12 @@ def render_report(
         for candidate in candidates
     ]
     media_path = Path(source.path)
+    source_name = PureWindowsPath(source.path).name if "\\" in source.path else media_path.name
     cross_drive = False
     try:
         media_rel_path = relative_media_url(media_path, report_dir)
     except ValueError:
-        media_rel_path = media_path.name
+        media_rel_path = source_name
         cross_drive = True
 
     review = build_review_data(revision_dir, source, revision_id, shots, evidence, workspace)
@@ -87,7 +88,7 @@ def render_report(
     # These includes are packaged code; all source content stays escaped or tojson-encoded.
     env.autoescape = lambda name: name is None or name.endswith(".html")
     html = env.get_template("review.html").render(
-        source_name=media_path.name,
+        source_name=source_name,
         duration_s=f"{source.duration_seconds:.3f}s" if source.duration_seconds else "unknown",
         revision_id=revision_id,
         media_rel_path=media_rel_path,

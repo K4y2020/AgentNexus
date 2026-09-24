@@ -780,8 +780,12 @@ class _FakeReapProc:
 
     def __init__(self) -> None:
         self.returncode: int | None = None
+        self.pid: int | None = None
         self.killed = False
         self._done = asyncio.Event()
+
+    def terminate(self) -> None:
+        self.send_signal(signal.SIGTERM)
 
     def send_signal(self, sig: int) -> None:
         self.killed = True

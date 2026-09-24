@@ -12,11 +12,14 @@ This is a unit test — no subprocess spawn, no real claude CLI.
 
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
 import yaml as _yaml
 
+from agentnexus.claude_api_key_helper import CLAUDE_API_KEY_HELPER_TOKEN_ENV
 from agentnexus.runtime.workflow import _build_claude_sdk_spawn_env
 from agentnexus.spec.types import (
     AgentSpec,
@@ -118,7 +121,7 @@ def test_bare_model_is_passed_through_unchanged() -> None:
 def test_api_key_auth_sets_helper_env_var() -> None:
     """
     ``executor.auth: {type: api_key, api_key: …}`` sets
-    ``HARNESS_CLAUDE_SDK_API_KEY_HELPER`` to a printf shell command.
+    ``HARNESS_CLAUDE_SDK_API_KEY_HELPER`` to a credential-free command.
 
     Failure means the API key never reaches the Claude CLI's
     ``settings.apiKeyHelper`` and the agent falls back to subscription
@@ -128,16 +131,16 @@ def test_api_key_auth_sets_helper_env_var() -> None:
     env = _build_claude_sdk_spawn_env(spec, workdir=None)
 
     assert "HARNESS_CLAUDE_SDK_API_KEY_HELPER" in env
-    # The helper command must echo the literal key (shlex-quoted for safety).
-    assert "sk-ant-test-123" in env["HARNESS_CLAUDE_SDK_API_KEY_HELPER"]
+    assert env[CLAUDE_API_KEY_HELPER_TOKEN_ENV] == "sk-ant-test-123"
+    assert "sk-ant-test-123" not in env["HARNESS_CLAUDE_SDK_API_KEY_HELPER"]
     # api_key auth does not trigger Databricks routing.
     assert "HARNESS_CLAUDE_SDK_GATEWAY" not in env
 
 
 def test_api_key_auth_with_special_chars_is_shell_safe() -> None:
     """
-    API keys containing shell-special characters (spaces, quotes, ``$``)
-    are safely quoted in the helper command via ``shlex.quote``.
+    API keys containing shell-special characters remain out of the command
+    and survive the platform shell's invocation of the helper.
 
     Failure means a key like ``sk-$weird`` could be misinterpreted by
     the shell when the Claude CLI invokes the helper command.
@@ -146,10 +149,16 @@ def test_api_key_auth_with_special_chars_is_shell_safe() -> None:
     env = _build_claude_sdk_spawn_env(spec, workdir=None)
 
     helper = env["HARNESS_CLAUDE_SDK_API_KEY_HELPER"]
-    # The raw key must NOT appear unquoted.
     assert "sk-$weird 'key'" not in helper
-    # shlex-quoted form must be present.
-    assert "sk-" in helper
+    result = subprocess.run(
+        helper,
+        shell=True,
+        check=True,
+        capture_output=True,
+        text=True,
+        env={**os.environ, **env},
+    )
+    assert result.stdout == "sk-$weird 'key'"
 
 
 def test_global_config_databricks_auth_applied_when_spec_has_no_auth(

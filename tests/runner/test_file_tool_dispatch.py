@@ -265,6 +265,8 @@ def _spawn_server_handler(
 
     async def _handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if request.method == "GET" and path == f"/v1/sessions/{_PARENT_ID}/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "GET" and path == f"/v1/sessions/{_PARENT_ID}/child_sessions":
             return httpx.Response(
                 200,

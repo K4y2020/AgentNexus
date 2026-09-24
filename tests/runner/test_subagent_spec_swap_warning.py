@@ -115,6 +115,8 @@ class _SubAgentSnapshotServer(NullServerClient):
     async def get(self, url: str, **kwargs: Any) -> Any:
         del kwargs
         u = url.rstrip("/")
+        if u.endswith("/labels"):
+            return self._Resp({"labels": {}})
         if u.endswith(CHILD_SESSION_ID):
             return self._Resp(
                 {
@@ -123,6 +125,7 @@ class _SubAgentSnapshotServer(NullServerClient):
                     "parent_session_id": "conv_parent_polly",
                     "created_at": 0,
                     "workspace": None,
+                    "model_override": None,
                 }
             )
         if u.endswith("/items"):
@@ -273,6 +276,8 @@ class _ShadowedSnapshotServer(_SubAgentSnapshotServer):
     async def get(self, url: str, **kwargs: Any) -> Any:
         del kwargs
         u = url.rstrip("/")
+        if u.endswith("/labels"):
+            return self._Resp({"labels": {}})
         if u.endswith(SHADOWED_SESSION_ID):
             return self._Resp(
                 {
@@ -281,6 +286,7 @@ class _ShadowedSnapshotServer(_SubAgentSnapshotServer):
                     "parent_session_id": "conv_parent_polly",
                     "created_at": 0,
                     "workspace": None,
+                    "model_override": None,
                 }
             )
         if u.endswith("/items"):

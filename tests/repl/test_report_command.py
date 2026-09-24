@@ -67,7 +67,7 @@ def test_build_github_issue_url_base_structure() -> None:
     meaning users file issues in the wrong place.
     """
     url = _build_github_issue_url("sess_abc", "my-agent", "")
-    assert url.startswith("https://github.com/K4y2020/agentnexus/issues/new")
+    assert url.startswith("https://github.com/K4y2020/AgentNexus/issues/new")
 
 
 def test_build_github_issue_url_title_and_labels() -> None:

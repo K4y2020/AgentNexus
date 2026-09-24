@@ -636,7 +636,8 @@ def test_codex_native_builtin_session_can_be_created(
 @pytest.mark.skipif(
     os.environ.get("AGENTNEXUS_E2E_CODEX_NATIVE") != "1" or shutil.which("codex") is None,
     reason=(
-        "codex-native round-trip e2e needs `codex` on PATH and AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
+        "codex-native round-trip e2e needs `codex` on PATH and "
+        "AGENTNEXUS_E2E_CODEX_NATIVE=1 to run"
     ),
 )
 def test_codex_native_builtin_session_round_trip(
