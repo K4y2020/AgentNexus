@@ -1,7 +1,7 @@
 """Upgrade must not crash when task_summary column pre-exists its Alembic migration.
 
 Revision ``za2b3c4d5e6f`` runs an unconditional ``ALTER TABLE
-omnigent_conversation_metadata ADD COLUMN task_summary``.  On a real database
+agentnexus_conversation_metadata ADD COLUMN task_summary``.  On a real database
 that sits at ``d5e9f1a2b3c4`` (one step before that revision) but already carries
 a ``task_summary`` column — e.g. a database that was patched outside of Alembic
 during a hotfix — the automatic startup upgrade to head (``za4b2c4d5e6f``) aborts

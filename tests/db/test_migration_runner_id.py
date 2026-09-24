@@ -1,11 +1,11 @@
-"""Tests for the ``omnigent_conversation_metadata.runner_id`` column.
+"""Tests for the ``agentnexus_conversation_metadata.runner_id`` column.
 
 Per ``designs/RUNNER.md`` Phase 0: the column is nullable, no FK
 (runner records aren't persisted in v1), and is the load-bearing
 column for hard conversation affinity.
 
 After the schema split (aa1b2c3d4e5f), ``runner_id`` lives on
-``omnigent_conversation_metadata`` rather than ``conversations``.
+``agentnexus_conversation_metadata`` rather than ``conversations``.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def db_engine(tmp_path: Path) -> Iterator[Engine]:
 
 
 def test_migration_adds_runner_id_column_nullable(db_engine: Engine) -> None:
-    """The migration creates ``omnigent_conversation_metadata.runner_id`` as nullable VARCHAR(64).
+    """The migration creates ``agentnexus_conversation_metadata.runner_id`` as nullable VARCHAR(64).
 
     Three properties matter:
     1. The column exists at all (proves the migration includes it).
@@ -49,7 +49,7 @@ def test_migration_adds_runner_id_column_nullable(db_engine: Engine) -> None:
     cols = sa.inspect(db_engine).get_columns("agentnexus_conversation_metadata")
     runner_id_cols = [c for c in cols if c["name"] == "runner_id"]
     assert len(runner_id_cols) == 1, (
-        f"Expected exactly one 'runner_id' column on omnigent_conversation_metadata, "
+        f"Expected exactly one 'runner_id' column on agentnexus_conversation_metadata, "
         f"got {len(runner_id_cols)}. "
         f"If 0, the migration didn't include the column."
     )
@@ -81,11 +81,11 @@ def test_runner_id_round_trip_null_and_value(db_engine: Engine) -> None:
             {"id": "0d42a93a625e91d8b607d375fbd860ad", "ts": 1700000000},
         )
         conn.execute(
-            sa.text("INSERT INTO omnigent_conversation_metadata (id, kind) VALUES (:id, 1)"),
+            sa.text("INSERT INTO agentnexus_conversation_metadata (id, kind) VALUES (:id, 1)"),
             {"id": "0d42a93a625e91d8b607d375fbd860ad"},
         )
         result = conn.execute(
-            sa.text("SELECT runner_id FROM omnigent_conversation_metadata WHERE id = :id"),
+            sa.text("SELECT runner_id FROM agentnexus_conversation_metadata WHERE id = :id"),
             {"id": "0d42a93a625e91d8b607d375fbd860ad"},
         ).scalar_one()
         assert result is None, f"Expected NULL on default-insert; got {result!r}"
@@ -101,13 +101,13 @@ def test_runner_id_round_trip_null_and_value(db_engine: Engine) -> None:
         )
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata (id, kind, runner_id) "
+                "INSERT INTO agentnexus_conversation_metadata (id, kind, runner_id) "
                 "VALUES (:id, 1, :rid)"
             ),
             {"id": "ee91e92728c76ca2647ad5459b008754", "rid": "runner-uuid-abc"},
         )
         result = conn.execute(
-            sa.text("SELECT runner_id FROM omnigent_conversation_metadata WHERE id = :id"),
+            sa.text("SELECT runner_id FROM agentnexus_conversation_metadata WHERE id = :id"),
             {"id": "ee91e92728c76ca2647ad5459b008754"},
         ).scalar_one()
         assert result == "runner-uuid-abc", (
@@ -119,7 +119,7 @@ def test_runner_id_round_trip_null_and_value(db_engine: Engine) -> None:
 
 
 def test_no_foreign_key_constraint_on_runner_id(db_engine: Engine) -> None:
-    """``omnigent_conversation_metadata.runner_id`` MUST NOT have a foreign key constraint.
+    """``agentnexus_conversation_metadata.runner_id`` MUST NOT have a foreign key constraint.
 
     Per RUNNER.md §5 "Persistence" the runner registry is in-memory
     only — there's no ``runners`` table for the column to reference.

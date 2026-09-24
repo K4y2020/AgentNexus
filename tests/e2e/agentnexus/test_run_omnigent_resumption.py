@@ -594,7 +594,7 @@ def test_run_omnigent_session_id_pins_the_specific_conversation(
     with sqlite3.connect(str(persistent_db)) as conn:
         rows = conn.execute(
             "SELECT c.id FROM conversations c "
-            "JOIN omnigent_conversation_metadata m "
+            "JOIN agentnexus_conversation_metadata m "
             "  ON m.workspace_id = c.workspace_id AND m.id = c.id "
             "WHERE m.kind = 1 "
             "ORDER BY c.updated_at DESC, c.id DESC"
@@ -641,7 +641,7 @@ def test_run_omnigent_session_id_pins_the_specific_conversation(
     with sqlite3.connect(str(persistent_db)) as conn:
         rows = conn.execute(
             "SELECT c.id FROM conversations c "
-            "JOIN omnigent_conversation_metadata m "
+            "JOIN agentnexus_conversation_metadata m "
             "  ON m.workspace_id = c.workspace_id AND m.id = c.id "
             "WHERE m.kind = 1 "
             "ORDER BY c.updated_at DESC, c.id DESC"

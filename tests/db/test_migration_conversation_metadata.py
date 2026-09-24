@@ -53,7 +53,7 @@ def test_metadata_split_round_trip_with_host_bound_row(tmp_path: Path) -> None:
             )
         )
 
-    # Upgrade: operational columns move to omnigent_conversation_metadata.
+    # Upgrade: operational columns move to agentnexus_conversation_metadata.
     _upgrade(uri, raw_engine, "aa1b2c3d4e5f")
     with raw_engine.begin() as conn:
         rows = {
@@ -61,7 +61,7 @@ def test_metadata_split_round_trip_with_host_bound_row(tmp_path: Path) -> None:
             for r in conn.execute(
                 sa.text(
                     "SELECT id, kind, archived, host_id, workspace, git_branch, runner_id"
-                    " FROM omnigent_conversation_metadata ORDER BY id"
+                    " FROM agentnexus_conversation_metadata ORDER BY id"
                 )
             )
         }

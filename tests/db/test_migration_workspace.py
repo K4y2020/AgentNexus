@@ -1,4 +1,4 @@
-"""Tests for the ``omnigent_conversation_metadata.workspace`` column and its check constraint.
+"""Tests for the ``agentnexus_conversation_metadata.workspace`` column and its check constraint.
 
 Per ``designs/SESSION_WORKSPACE_SELECTION.md``: column is nullable so
 existing rows pre-dating the feature stay valid; CLI sessions can populate
@@ -7,7 +7,7 @@ it without setting ``host_id``; but a ``host_id`` row without a
 host-launched sessions could land in a permanently-broken state where
 the launch frame has no path to send.
 
-These columns now live on ``omnigent_conversation_metadata`` rather than
+These columns now live on ``agentnexus_conversation_metadata`` rather than
 ``conversations`` following the schema split migration (aa1b2c3d4e5f).
 """
 
@@ -43,7 +43,7 @@ def db_engine(tmp_path: Path) -> Iterator[Engine]:
 
 def test_workspace_column_present_and_nullable(db_engine: Engine) -> None:
     """
-    Verify the migration creates ``omnigent_conversation_metadata.workspace``
+    Verify the migration creates ``agentnexus_conversation_metadata.workspace``
     as a nullable VARCHAR(2048).
 
     Three properties matter:
@@ -62,7 +62,7 @@ def test_workspace_column_present_and_nullable(db_engine: Engine) -> None:
     cols = sa.inspect(db_engine).get_columns("agentnexus_conversation_metadata")
     workspace_cols = [c for c in cols if c["name"] == "workspace"]
     assert len(workspace_cols) == 1, (
-        f"Expected exactly one 'workspace' column on omnigent_conversation_metadata, "
+        f"Expected exactly one 'workspace' column on agentnexus_conversation_metadata, "
         f"got {len(workspace_cols)}. If 0, the migration didn't apply."
     )
     workspace_col = workspace_cols[0]
@@ -96,11 +96,11 @@ def test_workspace_round_trip_null_and_value(db_engine: Engine) -> None:
             {"id": "5221a3ae03d21ff063a9255347dde591", "ts": 1700000000},
         )
         conn.execute(
-            sa.text("INSERT INTO omnigent_conversation_metadata (id, kind) VALUES (:id, 1)"),
+            sa.text("INSERT INTO agentnexus_conversation_metadata (id, kind) VALUES (:id, 1)"),
             {"id": "5221a3ae03d21ff063a9255347dde591"},
         )
         result = conn.execute(
-            sa.text("SELECT workspace FROM omnigent_conversation_metadata WHERE id = :id"),
+            sa.text("SELECT workspace FROM agentnexus_conversation_metadata WHERE id = :id"),
             {"id": "5221a3ae03d21ff063a9255347dde591"},
         ).scalar_one()
         assert result is None, f"Expected NULL workspace on default insert; got {result!r}."
@@ -116,7 +116,7 @@ def test_workspace_round_trip_null_and_value(db_engine: Engine) -> None:
         )
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata "
+                "INSERT INTO agentnexus_conversation_metadata "
                 "(id, kind, workspace) "
                 "VALUES (:id, 1, :ws)"
             ),
@@ -126,7 +126,7 @@ def test_workspace_round_trip_null_and_value(db_engine: Engine) -> None:
             },
         )
         result = conn.execute(
-            sa.text("SELECT workspace FROM omnigent_conversation_metadata WHERE id = :id"),
+            sa.text("SELECT workspace FROM agentnexus_conversation_metadata WHERE id = :id"),
             {"id": "36d62d2d69c0f58390b4d2c17633053e"},
         ).scalar_one()
         assert result == "/Users/corey/projects/myapp", (
@@ -140,7 +140,7 @@ def test_check_constraint_blocks_host_id_without_workspace(
 ) -> None:
     """
     Verify ``ck_conversation_metadata_workspace_required_for_host`` blocks
-    ``(host_id NOT NULL, workspace NULL)`` on omnigent_conversation_metadata.
+    ``(host_id NOT NULL, workspace NULL)`` on agentnexus_conversation_metadata.
 
     Without this constraint, a host-launched session row could be
     written with no workspace path, causing every subsequent launch to
@@ -160,7 +160,7 @@ def test_check_constraint_blocks_host_id_without_workspace(
         with pytest.raises(IntegrityError) as exc_info:
             conn.execute(
                 sa.text(
-                    "INSERT INTO omnigent_conversation_metadata "
+                    "INSERT INTO agentnexus_conversation_metadata "
                     "(id, kind, host_id) "
                     "VALUES (:id, 1, :hid)"
                 ),
@@ -214,7 +214,7 @@ def test_check_constraint_allows_host_id_with_workspace(
         )
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata "
+                "INSERT INTO agentnexus_conversation_metadata "
                 "(id, kind, host_id, workspace) "
                 "VALUES (:id, 1, :hid, :ws)"
             ),
@@ -228,7 +228,7 @@ def test_check_constraint_allows_host_id_with_workspace(
 
         result = conn.execute(
             sa.text(
-                "SELECT host_id, workspace FROM omnigent_conversation_metadata WHERE id = :id"
+                "SELECT host_id, workspace FROM agentnexus_conversation_metadata WHERE id = :id"
             ),
             {"id": "8ebb129f4017d3388ddf25bd4d2d731c"},
         ).one()
@@ -254,7 +254,7 @@ def test_host_id_index_dropped(db_engine: Engine) -> None:
 def test_runner_id_is_indexed(db_engine: Engine) -> None:
     """
     Verify ``ix_conversation_metadata_runner_id`` exists on
-    omnigent_conversation_metadata at head.
+    agentnexus_conversation_metadata at head.
 
     Reconnect/relaunch reconciliation queries conversations by
     ``runner_id`` on every runner reconnect; without the index that's a
@@ -264,7 +264,7 @@ def test_runner_id_is_indexed(db_engine: Engine) -> None:
         ix["name"] for ix in sa.inspect(db_engine).get_indexes("agentnexus_conversation_metadata")
     }
     assert "ix_conversation_metadata_runner_id" in index_names, (
-        f"Expected ix_conversation_metadata_runner_id on omnigent_conversation_metadata; "
+        f"Expected ix_conversation_metadata_runner_id on agentnexus_conversation_metadata; "
         f"got {sorted(n for n in index_names if n is not None)}."
     )
 
@@ -300,7 +300,7 @@ def test_host_id_fk_sets_null_when_host_deleted(db_engine: Engine) -> None:
         )
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata "
+                "INSERT INTO agentnexus_conversation_metadata "
                 "(id, kind, host_id, workspace) "
                 "VALUES (:id, 1, :hid, :ws)"
             ),
@@ -320,7 +320,7 @@ def test_host_id_fk_sets_null_when_host_deleted(db_engine: Engine) -> None:
 
         row = conn.execute(
             sa.text(
-                "SELECT host_id, workspace FROM omnigent_conversation_metadata WHERE id = :id"
+                "SELECT host_id, workspace FROM agentnexus_conversation_metadata WHERE id = :id"
             ),
             {"id": "d6d79856e6b3f398cfd001d84952622e"},
         ).one()
@@ -356,7 +356,7 @@ def test_check_constraint_allows_cli_session_workspace_no_host(
         )
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata "
+                "INSERT INTO agentnexus_conversation_metadata "
                 "(id, kind, workspace) "
                 "VALUES (:id, 1, :ws)"
             ),
@@ -370,7 +370,7 @@ def test_check_constraint_allows_cli_session_workspace_no_host(
         # catch a regression that introduced an implicit default.
         result = conn.execute(
             sa.text(
-                "SELECT host_id, workspace FROM omnigent_conversation_metadata WHERE id = :id"
+                "SELECT host_id, workspace FROM agentnexus_conversation_metadata WHERE id = :id"
             ),
             {"id": "77049ba7474822eaa4e24c45c2c24999"},
         ).one()
@@ -388,7 +388,7 @@ def test_compressed_columns_are_binary_at_head(db_engine: Engine) -> None:
     (PostgreSQL) the moment a compressed payload contained a NUL byte.
 
     After the schema split (aa1b2c3d4e5f), the session-level binary columns
-    live on ``omnigent_conversation_metadata``.
+    live on ``agentnexus_conversation_metadata``.
     """
     inspector = sa.inspect(db_engine)
     expected = {

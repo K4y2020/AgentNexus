@@ -358,12 +358,12 @@ def test_agents_session_id_downgrade_round_trip(tmp_path: Path) -> None:
                 " '372d0296768feff7262c605c5553d1da')"
             )
         )
-        # kind lives on omnigent_conversation_metadata at head; insert a
+        # kind lives on agentnexus_conversation_metadata at head; insert a
         # matching row so the aa1b2c3d4e5f downgrade can restore kind to
         # conversations without leaving a NULL (which would break u1 downgrade).
         conn.execute(
             sa.text(
-                "INSERT INTO omnigent_conversation_metadata"
+                "INSERT INTO agentnexus_conversation_metadata"
                 " (workspace_id, id, kind)"
                 " VALUES (0, '8e32600337d08f59ad381caf96a90659', 1)"
             )

@@ -183,7 +183,7 @@ def test_kind_derived_from_parent_nullness_not_metadata(
 
     # Drop the child's metadata row to mimic a crashed create (orphaned AP row).
     with sqlite3.connect(str(omnigent_db)) as conn:
-        conn.execute("DELETE FROM omnigent_conversation_metadata WHERE id = ?", (child.id,))
+        conn.execute("DELETE FROM agentnexus_conversation_metadata WHERE id = ?", (child.id,))
 
     fetched = store.get_conversation(child.id)
     assert fetched is not None
@@ -567,7 +567,7 @@ def test_update_conversation_archives_without_metadata_row(
     # Simulate the creation crash: drop both metadata rows directly.
     with sqlite3.connect(str(omnigent_db)) as conn:
         conn.execute(
-            "DELETE FROM omnigent_conversation_metadata WHERE id IN (?, ?)",
+            "DELETE FROM agentnexus_conversation_metadata WHERE id IN (?, ?)",
             (bytes.fromhex(parent.id), bytes.fromhex(child.id)),
         )
         conn.commit()

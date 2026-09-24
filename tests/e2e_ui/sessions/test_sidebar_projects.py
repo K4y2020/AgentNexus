@@ -2,7 +2,7 @@
 
 Projects group conversations under named, collapsible folders inside a
 "Projects" sidebar group. Membership is the first-class
-``omnigent_conversation_metadata.project_id`` (see ``projects`` table / the
+``agentnexus_conversation_metadata.project_id`` (see ``projects`` table / the
 ``project`` filter on ``list_conversations``, which dual-reads it alongside the
 legacy ``omni_project`` label). The web UI moves a session via the row kebab's
 submenu (``data-testid="move-to-project"``), which calls

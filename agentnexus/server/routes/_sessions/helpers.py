@@ -1182,7 +1182,7 @@ def _session_status_from_cache(
     ``"waiting"``, ``"failed"``, ``"idle"``); the list-item shape
     collapses ``"running"``/``"waiting"`` to ``"running"``. A cache
     miss falls back to *db_status* — the row value the tunnel-holding
-    replica persisted (``omnigent_conversation_metadata.live_status``) — so a replica
+    replica persisted (``agentnexus_conversation_metadata.live_status``) — so a replica
     that does NOT hold this session's runner tunnel still serves the
     real status. No cache entry and no row value presents as ``"idle"``.
 

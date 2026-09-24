@@ -232,7 +232,7 @@ class SessionConnectivity:
     runner_last_seen: int | None = None
 
 
-# Freshness window for ``omnigent_conversation_metadata.runner_last_seen``. The tunnel
+# Freshness window for ``agentnexus_conversation_metadata.runner_last_seen``. The tunnel
 # replica refreshes live runners every ~30s (the tunnel ping interval),
 # so 3 missed refreshes = offline — the same budget the tunnel's own
 # keepalive uses and the same shape as ``host_store.HOST_LIVENESS_TTL_S``.
@@ -1074,7 +1074,7 @@ class ConversationStore(ABC):
         """
         File a conversation into a first-class project (or unfile it).
 
-        Sets ``omnigent_conversation_metadata.project_id``; ``None`` unfiles
+        Sets ``agentnexus_conversation_metadata.project_id``; ``None`` unfiles
         the session. The first-class counterpart to moving a session between
         ``omni_project`` labels (see ``designs/PROJECTS_PRD.md``).
 
