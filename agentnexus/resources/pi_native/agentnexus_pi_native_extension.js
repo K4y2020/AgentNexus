@@ -15,7 +15,7 @@ const crypto = require("crypto");
 // a long human wait would sever the park mid-flight. We therefore bound
 // each attempt with an AbortController well under that cap and, on the
 // resulting abort (or a transient 5xx / connect error), re-POST the SAME
-// _agentnexus_elicitation_id so the server RE-ATTACHES to the existing
+// _omnigent_elicitation_id so the server RE-ATTACHES to the existing
 // parked elicitation instead of publishing a second approval card. This
 // mirrors the re-attach idiom in post_evaluate_with_retry while staying
 // resilient to undici's header timeout.
@@ -133,7 +133,7 @@ function relayCredentials() {
  *       hard ALLOW/DENY — so a writable session never observes a raw ASK here.
  *       The park is realized by a generous client read budget plus re-attach
  *       retries (see the _PARK_* tuning above): if undici severs a long park
- *       (headersTimeout) we re-POST the SAME _agentnexus_elicitation_id so the
+ *       (headersTimeout) we re-POST the SAME _omnigent_elicitation_id so the
  *       server re-attaches to the existing elicitation instead of opening a
  *       second approval card. A LEGITIMATE long-poll re-attach (the server is
  *       reachable and still holding the connection) is the only case that may
@@ -186,7 +186,7 @@ async function evalNativePolicyHttp(config, toolName, args) {
       data: { name: toolName, arguments: args },
       context: {},
     },
-    _agentnexus_elicitation_id: elicitationId,
+    _omnigent_elicitation_id: elicitationId,
   });
   const reqHeaders = relay
     ? {
