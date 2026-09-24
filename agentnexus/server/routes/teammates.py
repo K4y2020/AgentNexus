@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -45,9 +45,9 @@ def _bot_object(bot: Bot, binding: BotComputerBinding) -> BotObject:
         agent_id=bot.agent_id,
         name=bot.name,
         description=bot.description,
-        status=bot.status,
+        status=cast(Literal["active", "archived"], bot.status),
         default_model=bot.default_model,
-        behavior_mode=bot.behavior_mode,
+        behavior_mode=cast(Literal["off", "advisory", "lean", "strict"], bot.behavior_mode),
         home_path=binding.home_path,
         host_id=binding.host_id,
         created_at=bot.created_at,

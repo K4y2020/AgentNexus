@@ -31,10 +31,10 @@ import re
 import tempfile
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from agentnexus.json_types import JsonObject as _JsonObject
 
@@ -1512,8 +1512,8 @@ async def _inherited_parent_model(
     - a sub-agent spec that pins its own ``executor.model`` keeps it — the
       worker's author chose that model deliberately;
     - a child harness without model-override plumbing runs its default;
-    - a parent model outside the child harness's family (e.g. a Claude
-      selection dispatched to a codex worker) is not forced across vendors.
+    - a parent model outside the child harness's family (e.g. a GPT
+      selection dispatched to a native Claude worker) is not forced across vendors.
 
     :param server_client: HTTP client pointed at the AgentNexus server.
     :param conversation_id: The parent session id.
@@ -2611,17 +2611,18 @@ async def _execute_subagent_tool(
         # Create child session on the server (no initial items —
         # those go via a separate POST so the server forwards them
         # to the runner and triggers a turn).
+        labels: _JsonObject = {
+            BEHAVIOR_MODE_LABEL_KEY: _subagent_behavior_mode_from_args(args),
+        }
         create_body: _JsonObject = {
             "agent_id": parent_agent_id,
             "parent_session_id": conversation_id,
             "title": f"{sub_agent_name}:{session_name}",
             "sub_agent_name": sub_agent_name,
-            "labels": {
-                BEHAVIOR_MODE_LABEL_KEY: _subagent_behavior_mode_from_args(args),
-            },
+            "labels": labels,
         }
         if new_task_reason is not None:
-            create_body["labels"]["agentnexus.subagent.new_task_reason"] = new_task_reason
+            labels["agentnexus.subagent.new_task_reason"] = new_task_reason
         if harness_override_canonical is not None:
             create_body["harness_override"] = harness_override_canonical
         if model is not None:
@@ -5686,7 +5687,7 @@ async def _collect_sub_agents(
                     # Exclude the caller itself from its own sibling list.
                     if entry["conversation_id"] != conversation_id:
                         result.append(entry)
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.debug(
                 "sys_session_list sibling enrichment failed for parent %s",
                 parent_id,
@@ -6288,7 +6289,7 @@ async def _execute_send_to_teammate_tool(
     intent = str(args.get("intent") or "task.request").strip()
     should_wait = bool(args.get("wait", False))
     try:
-        timeout_s = max(0, min(int(args.get("timeout_seconds", 30)), 300))
+        timeout_s = max(0, min(int(cast(str | int | float, args.get("timeout_seconds", 30))), 300))
     except (ValueError, TypeError, OverflowError):
         return json.dumps({"error": "timeout_seconds must be an integer"})
     explicit_target_session_id = _optional_string(args.get("target_session_id"))
@@ -6307,7 +6308,7 @@ async def _execute_send_to_teammate_tool(
             }
         )
 
-    sender_name = agent_spec.name if agent_spec else "teammate"
+    sender_name = (agent_spec.name or "teammate") if agent_spec else "teammate"
     if sender_name.lower() == teammate_name.lower():
         return json.dumps(
             {
@@ -6399,7 +6400,11 @@ async def _execute_send_to_teammate_tool(
             if channel_source
             else None
         ),
-        labels=(channel_source.get("labels") if channel_source else None),
+        labels=(
+            channel_source.get("labels")
+            if channel_source and isinstance(channel_source.get("labels"), dict)
+            else None
+        ),
     )
     target_session_id: str | None = explicit_target_session_id
     parent: _JsonObject | None = None
@@ -6456,6 +6461,8 @@ async def _execute_send_to_teammate_tool(
                         if candidate is None:
                             continue
                         candidate_labels = candidate.get("labels") or s_labels
+                        if not isinstance(candidate_labels, dict):
+                            continue
                         candidate_scope = _optional_string(
                             candidate_labels.get(A2A_CHANNEL_SCOPE_LABEL)
                         )
@@ -6767,7 +6774,7 @@ async def _execute_send_to_teammate_tool(
     )
 
 
-def _jev_http_client_kwargs():
+def _jev_http_client_kwargs() -> Iterator[dict[str, Any]]:
     """Yield httpx.AsyncClient kwargs for the TypeSafe call, best option first.
 
     A loopback proxy configured with an ``https://`` scheme (common on Windows,
@@ -6793,7 +6800,7 @@ def _jev_http_client_kwargs():
     ]
     try:
         detected = urllib.request.getproxies()
-    except Exception:
+    except Exception:  # noqa: BLE001 - proxy discovery is optional
         detected = {}
     candidates.extend(detected.get(scheme, "") for scheme in ("https", "http"))
     for value in candidates:
@@ -7042,14 +7049,14 @@ async def _execute_seedance_tool(
         prompt = _optional_string(args.get("prompt"))
         brief = _optional_string(args.get("brief"))
         raw_dur = args.get("duration_seconds")
-        duration_seconds = int(raw_dur) if raw_dur is not None else None
+        duration_seconds = int(cast(str | int | float, raw_dur)) if raw_dur is not None else None
         camera = args.get("camera") if isinstance(args.get("camera"), dict) else None
         aspect_ratio = _optional_string(args.get("aspect_ratio"))
         data = args.get("data") if isinstance(args.get("data"), dict) else None
         patch = args.get("patch") if isinstance(args.get("patch"), dict) else None
         parent_id = _optional_string(args.get("parent_id"))
         raw_rev = args.get("expected_revision")
-        expected_revision = int(raw_rev) if raw_rev is not None else None
+        expected_revision = int(cast(str | int | float, raw_rev)) if raw_rev is not None else None
         confirm = bool(args.get("confirm", False))
         from_node_id = _optional_string(args.get("from_node_id"))
         to_node_id = _optional_string(args.get("to_node_id"))
@@ -7104,10 +7111,18 @@ async def _execute_seedance_tool(
                 production_pointer=_optional_string(args.get("production_pointer")),
                 storyboard_file=_optional_string(args.get("storyboard_file")),
                 script_file=_optional_string(args.get("script_file")),
-                episode_nodes=args.get("episode_nodes"),
+                episode_nodes=(
+                    cast(dict[str, str], args["episode_nodes"])
+                    if isinstance(args.get("episode_nodes"), dict)
+                    else None
+                ),
                 job_id=_optional_string(args.get("job_id")),
                 output_path=_optional_string(args.get("output_path")),
-                output_index=args.get("output_index", 0),
+                output_index=(
+                    cast(int, args.get("output_index", 0))
+                    if isinstance(args.get("output_index", 0), int)
+                    else 0
+                ),
                 trusted_skills_dir=trusted_skills_dir,
                 model=model,
             )
@@ -7137,7 +7152,9 @@ async def _execute_seedance_tool(
     model = _optional_string(args.get("model"))
     wait = bool(args.get("wait", True))
     try:
-        timeout_seconds = max(10, min(int(args.get("timeout_seconds", 60)), 300))
+        timeout_seconds = max(
+            10, min(int(cast(str | int | float, args.get("timeout_seconds", 60))), 300)
+        )
     except (ValueError, TypeError, OverflowError):
         return json.dumps({"error": "timeout_seconds must be an integer between 10 and 300"})
 
@@ -7322,7 +7339,6 @@ async def execute_tool(
                 server_client,
                 conversation_id=conversation_id,
                 agent_spec=agent_spec,
-                task_id=task_id,
                 runner_workspace=runner_workspace,
             )
         elif tool_name in _TERMINAL_TOOLS:
@@ -9009,7 +9025,7 @@ async def _evaluate_async_tool_call_policy(
             evaluation_id,
             extra={"session_id": conversation_id},
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         _logger.warning(
             "async PHASE_TOOL_CALL policy evaluate failed for %s; denying",
             evaluation_id,

@@ -4,7 +4,7 @@ project-includes = [
     "sdks/python-client/**/*.py",
 ]
 
-project-excludes = []
+project-excludes = ["agentnexus/resources/examples/**"]
 
 # Editable workspace packages are project sources, not third-party site packages.
 disable-project-excludes-heuristics = true

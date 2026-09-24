@@ -1477,7 +1477,7 @@ async def _run_tunnel_from_env() -> None:
         from agentnexus.runtime import telemetry
 
         telemetry.init("omni-runner")
-    except Exception:  # noqa: BLE001 — best-effort; tracing failure must not crash the runner
+    except Exception:
         _logger.debug(
             "telemetry init failed in runner",
             exc_info=True,
@@ -1603,7 +1603,7 @@ async def _run_tunnel_from_env() -> None:
                         allowed_origins=frozenset({allowed_origin}),
                     )
                 )
-        except Exception:  # noqa: BLE001 — optimization only; never block the tunnel
+        except Exception:
             _logger.warning(
                 "direct-attach listener setup failed",
                 exc_info=True,

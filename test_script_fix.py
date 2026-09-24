@@ -38,16 +38,6 @@ async def test_fixed_script_creation():
 
         # Test 1: Create script node (should use content field)
         print("Test 1: Creating script node with prompt parameter...")
-        command = {
-            "type": "canvas.create_node",
-            "nodeType": "script",
-            "title": "[FIX TEST] Script with prompt param",
-            "data": {},
-            "prompt": "这是通过 prompt 参数传入的剧本内容，应该被映射到 data.content",
-            "brief": "修复测试：验证 prompt 参数正确映射到 content",
-            "commandId": "fix_test_001",
-        }
-
         # Note: This simulates what cinebot does - passing script content via prompt
         print("[SEND] Command with prompt parameter for script node")
 

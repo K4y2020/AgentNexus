@@ -239,7 +239,7 @@ def _outputs_packages(
                 scene_cuts = {}
                 for seg in segments:
                     sc = seg.get("sceneIndex", 1)
-                    for c_idx, cut in enumerate(seg.get("cuts", []), 1):
+                    for c_idx, _cut in enumerate(seg.get("cuts", []), 1):
                         scene_cuts.setdefault(sc, []).append((seg.get("id"), c_idx))
 
                 for sc, cuts in scene_cuts.items():
@@ -368,7 +368,7 @@ def read_review(workspace: Path, session_id: str, params: dict) -> dict:
             if source_shots_path.is_file():
                 try:
                     source_shots = json.loads(source_shots_path.read_text(encoding="utf-8"))
-                except Exception:
+                except (OSError, ValueError):
                     source_shots = []
 
             production_packages = _production_packages(workspace.resolve()) + _outputs_packages(

@@ -61,7 +61,7 @@ async def export_job_image(
     width = height = None
     if kind == "image":
         with Image.open(io.BytesIO(raw)) as image:
-            extension = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp"}.get(image.format)
+            extension = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp"}.get(image.format or "")
             if (
                 not extension
                 or getattr(image, "n_frames", 1) != 1

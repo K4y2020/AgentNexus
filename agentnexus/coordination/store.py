@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from typing import cast
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -24,8 +25,13 @@ from agentnexus.coordination.types import (
     CoordinationRun,
     CoordinationTask,
     DeliveryAttempt,
+    DeliveryState,
+    MessageKind,
+    MessageState,
     OutboxItem,
     OutboxReclaim,
+    RunStatus,
+    TaskStatus,
     WorkspaceMergeOperation,
     generate_coordination_id,
 )
@@ -93,7 +99,7 @@ def _row_to_run(row: SqlCoordinationRun) -> CoordinationRun:
         title=row.title,
         root_session_id=row.root_session_id,
         template=row.template,
-        status=row.status,
+        status=cast(RunStatus, row.status),
         budget=json.loads(row.budget_json),
         metadata=json.loads(row.metadata_json),
         created_at=row.created_at,
@@ -106,7 +112,7 @@ def _row_to_task(row: SqlCoordinationTask) -> CoordinationTask:
         task_id=row.task_id,
         run_id=row.run_id,
         title=row.title,
-        status=row.status,
+        status=cast(TaskStatus, row.status),
         assignee_session_id=row.assignee_session_id,
         assignee_role=row.assignee_role,
         dependencies=json.loads(row.dependencies_json),
@@ -129,7 +135,7 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
         sender_role=row.sender_role,
         recipient_session_id=row.recipient_session_id,
         recipient_role=row.recipient_role,
-        kind=row.kind,
+        kind=cast(MessageKind, row.kind),
         intent=row.intent,
         payload=json.loads(row.payload_json),
         artifacts=json.loads(row.artifacts_json),
@@ -139,7 +145,7 @@ def _row_to_message(row: SqlAgentMessage) -> AgentMessage:
         hop_count=row.hop_count,
         max_hops=row.max_hops,
         ttl_seconds=row.ttl_seconds,
-        message_state=row.message_state,
+        message_state=cast(MessageState, row.message_state),
         consumption_state=row.consumption_state,  # type: ignore[arg-type]
         consumption_receipt=(
             json.loads(row.consumption_receipt_json) if row.consumption_receipt_json else None
@@ -157,7 +163,7 @@ def _row_to_outbox(row: SqlCoordinationOutbox) -> OutboxItem:
         message_id=row.message_id,
         target_session_id=row.target_session_id,
         target_sequence=row.target_sequence,
-        status=row.status,
+        status=cast(DeliveryState, row.status),
         payload_json=row.payload_json,
         retry_count=row.retry_count,
         next_retry_at=row.next_retry_at,

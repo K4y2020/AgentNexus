@@ -132,7 +132,8 @@ class AccountsConfig:
         base_url = _require("AGENTNEXUS_ACCOUNTS_BASE_URL").rstrip("/")
         if not base_url.startswith(("http://", "https://")):
             raise RuntimeError(
-                f"AGENTNEXUS_ACCOUNTS_BASE_URL must start with http:// or https://; got {base_url!r}"
+                "AGENTNEXUS_ACCOUNTS_BASE_URL must start with http:// or https://; "
+                f"got {base_url!r}"
             )
 
         session_ttl_hours = int(os.environ.get("AGENTNEXUS_ACCOUNTS_SESSION_TTL_HOURS", "8"))

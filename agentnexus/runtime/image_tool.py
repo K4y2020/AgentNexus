@@ -46,7 +46,9 @@ async def read_image(
             raise ValueError("Not a supported binary image")
         raw = base64.b64decode(result["content"], validate=True)
         with Image.open(io.BytesIO(raw)) as img:
-            mime = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(img.format)
+            mime = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(
+                img.format or ""
+            )
             if mime is None or getattr(img, "n_frames", 1) != 1:
                 raise ValueError("Use a single-frame JPEG, PNG or WebP")
             width, height = img.size

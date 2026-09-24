@@ -586,7 +586,7 @@ async def _evaluate_policy_via_omnigent(
                 _default_action,
                 extra={"session_id": conversation_id},
             )
-    except Exception:  # noqa: BLE001 — fail-open (LLM phases) / fail-closed (tool phases)
+    except Exception:
         _logger.warning(
             "AP policy evaluate failed for %s; defaulting to %s",
             evaluation_id,
@@ -624,7 +624,7 @@ async def _evaluate_policy_via_omnigent(
                 extra={"session_id": conversation_id},
             )
             continue
-        except Exception:  # noqa: BLE001 — non-transport: no retry, but still signal
+        except Exception:
             _logger.warning(
                 "Failed to deliver policy verdict %s to harness (unexpected error)",
                 evaluation_id,
@@ -3002,7 +3002,7 @@ def create_runner_app(
                     f"{mem_rules}"
                     "</teammate_memories>"
                 )
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.debug("Failed to load teammate memories for %s: %s", agent_id, exc_info=True)
 
         _session_memories_instructions_cache[agent_id] = (time.monotonic(), instruction)
@@ -4668,7 +4668,7 @@ def create_runner_app(
                     **settings,
                 },
             )
-        except Exception as exc:  # noqa: BLE001 - surface app-server settings failures.
+        except Exception as exc:
             _logger.warning(
                 "Codex-native thread/settings/update failed for session=%s thread=%s settings=%s",
                 conv_id,
@@ -4857,7 +4857,7 @@ def create_runner_app(
             await asyncio.to_thread(
                 model_catalog_store.write_catalog, "codex-native", fingerprint, shaped
             )
-        except Exception:  # noqa: BLE001 — write-back is best-effort
+        except Exception:
             _logger.debug(
                 "codex model-catalog write-back skipped",
                 exc_info=True,
@@ -5077,7 +5077,7 @@ def create_runner_app(
                 await asyncio.to_thread(
                     confirm_dialog_if_open, bridge_dir, hint=SWITCH_MODEL_DIALOG_HINT
                 )
-            except Exception:  # noqa: BLE001 — best-effort; the report reconciles
+            except Exception:
                 _logger.debug(
                     "late model-dialog watch errored for session=%s",
                     conv_id,
@@ -5984,7 +5984,7 @@ def create_runner_app(
                 conv_id,
                 extra={"session_id": conv_id},
             )
-        except Exception:  # noqa: BLE001 — best-effort: harness may have exited
+        except Exception:
             _logger.warning(
                 "Interrupt forward to harness failed for %s",
                 conv_id,
@@ -8759,7 +8759,7 @@ def create_runner_app(
                     await terminal_registry.close(conv_id, terminal_name, "main")
                 except asyncio.CancelledError:
                     raise
-                except Exception:  # noqa: BLE001 — cleanup is best-effort
+                except Exception:
                     _logger.warning(
                         "failed to close stale native pane for conv=%s; proceeding to re-create",
                         conv_id,
@@ -9662,7 +9662,7 @@ def create_runner_app(
                     "detail": "Codex-native model options are not ready yet.",
                 },
             )
-        except Exception as exc:  # noqa: BLE001 - surface Codex app-server failures to AP.
+        except Exception as exc:
             _logger.warning(
                 "Codex-native model/list failed for session=%s",
                 session_id,
@@ -9685,7 +9685,7 @@ def create_runner_app(
 
         try:
             models = await asyncio.to_thread(list_kiro_cli_model_options)
-        except Exception as exc:  # noqa: BLE001 - picker failures are retryable.
+        except Exception as exc:
             _logger.warning(
                 "Kiro-native model discovery failed for session=%s",
                 session_id,
@@ -9709,7 +9709,7 @@ def create_runner_app(
 
         try:
             models = await asyncio.to_thread(list_cursor_cli_model_options)
-        except Exception as exc:  # noqa: BLE001 - picker failures are retryable.
+        except Exception as exc:
             _logger.warning(
                 "Cursor-native model discovery failed for session=%s",
                 session_id,
@@ -9765,7 +9765,7 @@ def create_runner_app(
                     "detail": exc.message,
                 },
             )
-        except Exception as exc:  # noqa: BLE001 — retryable model-options failure
+        except Exception as exc:
             _logger.warning(
                 "Claude-native model discovery failed for session=%s",
                 session_id,
@@ -10439,7 +10439,7 @@ def create_runner_app(
             if family.base_url:
                 conn["base_url"] = family.base_url
             return conn or None
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "/v1/summarize: failed to resolve provider %r",
                 provider_name,
@@ -10581,7 +10581,7 @@ def create_runner_app(
         if resource_registry is not None:
             try:
                 resource_registry.resync_session_statuses()
-            except Exception:  # noqa: BLE001 — best-effort; never block catch-up.
+            except Exception:
                 _logger.warning(
                     "Session status resync failed after reconnect",
                     exc_info=True,

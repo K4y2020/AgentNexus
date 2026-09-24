@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from abc import ABC, abstractmethod
 
 from agentnexus.entities import Bot, BotComputerBinding, BotProjectBinding, ComputerExecutionLease
@@ -83,7 +84,7 @@ class BotStore(ABC):
     ) -> BotProjectBinding | None: ...
 
     @abstractmethod
-    def list_project_bindings(self, bot_id: str) -> list[BotProjectBinding]: ...
+    def list_project_bindings(self, bot_id: str) -> builtins.list[BotProjectBinding]: ...
 
     @abstractmethod
     def unbind_project(self, *, bot_id: str, project_id: str) -> bool: ...

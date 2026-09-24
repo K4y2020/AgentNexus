@@ -141,7 +141,8 @@ class AgentNexusAcpMcp:
             return self._acp_servers
         except Exception as exc:  # noqa: BLE001 — MCP is additive; never break a turn
             logger.warning(
-                "acp[%s] AgentNexus MCP bridge setup failed; agent runs without AgentNexus tools: %s",
+                "acp[%s] AgentNexus MCP bridge setup failed; "
+                "agent runs without AgentNexus tools: %s",
                 self._label,
                 exc,
             )

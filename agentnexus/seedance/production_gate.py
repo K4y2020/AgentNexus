@@ -34,6 +34,8 @@ def native_checker(skills_dir):
     if not path.is_file():
         raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
     spec = importlib.util.spec_from_file_location("_cine_production_gate", path)
+    if spec is None or spec.loader is None:
+        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

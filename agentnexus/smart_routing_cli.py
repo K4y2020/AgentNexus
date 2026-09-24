@@ -257,7 +257,8 @@ def _unavailable(reason: str) -> ArmedSession:
     return ArmedSession(
         session_id=None,
         notice=(
-            f"agentnexus: Smart Routing was unavailable ({reason}); launching on the default model."
+            f"agentnexus: Smart Routing was unavailable ({reason}); "
+            "launching on the default model."
         ),
     )
 

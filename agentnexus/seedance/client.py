@@ -59,11 +59,11 @@ def validate_seedance_base_url(url_str: str) -> str:
     if not hostname:
         raise SeedanceSecurityError("Seedance base URL must have a valid hostname")
 
-    allowed_hosts = set(
+    allowed_hosts = {
         h.strip().lower()
         for h in os.environ.get("SEEDANCE_ALLOWED_HOSTS", "").split(",")
         if h.strip()
-    )
+    }
     allowed_hosts.update({"localhost", "127.0.0.1", "::1"})
 
     if hostname in allowed_hosts:
@@ -83,7 +83,8 @@ def validate_seedance_base_url(url_str: str) -> str:
 
     raise SeedanceSecurityError(
         f"Seedance base URL hostname {hostname!r} is not an allowed local/loopback address. "
-        "For security, only loopback addresses (127.0.0.1, localhost) or explicit SEEDANCE_ALLOWED_HOSTS are permitted."
+        "For security, only loopback addresses (127.0.0.1, localhost) or explicit "
+        "SEEDANCE_ALLOWED_HOSTS are permitted."
     )
 
 
@@ -106,7 +107,7 @@ def get_seedance_api_key() -> str | None:
                             val = line.split("=", 1)[1].strip().strip("\"'")
                             if val:
                                 return val
-            except Exception:
+            except Exception:  # noqa: BLE001 - probe optional credential sources
                 pass
     return None
 
@@ -153,7 +154,7 @@ class SeedanceClient:
             err_data = resp.json()
             code = err_data.get("code") if isinstance(err_data, dict) else None
             msg = err_data.get("message") if isinstance(err_data, dict) else None
-        except Exception:
+        except Exception:  # noqa: BLE001 - preserve response error as fallback
             code = None
             msg = None
         code = code or ("UNAUTHORIZED" if resp.status_code in (401, 403) else None)
@@ -201,7 +202,7 @@ class SeedanceClient:
             if resp.status_code == 200:
                 try:
                     data = resp.json()
-                except Exception:
+                except Exception:  # noqa: BLE001 - health response may not be JSON
                     data = {"status": "ok"}
                 return {"status": "ok", "base_url": self.base_url, "details": data}
             self._handle_response_error(resp)

@@ -447,7 +447,8 @@ def align_h3_prompt_to_references(
         kind, ident = _identify_subject_entity(raw_desc, cast_doc, art_doc)
         clean_desc = (
             re.sub(
-                r";\s*(?:face|layout|uniform|uniforms|costume|materials|hair|bearing|posture|glasses|cylinder|gloved hands)[^.]*from\s*<Picture\s*\d+>\.?",
+                r";\s*(?:face|layout|uniform|uniforms|costume|materials|hair|bearing|posture|"
+                r"glasses|cylinder|gloved hands)[^.]*from\s*<Picture\s*\d+>\.?",
                 "",
                 raw_desc,
                 flags=re.I,
@@ -487,7 +488,7 @@ def align_h3_prompt_to_references(
     # Build old_subject_num -> new_subject_num mapping
     old_to_new: dict[int, int] = {}
     new_to_old: dict[int, int] = {}
-    for new_idx, kind, ident, label in canvas_entities:
+    for new_idx, kind, ident, _label in canvas_entities:
         for old_num, info in old_subj_info.items():
             if (info["kind"], info["ident"]) == (kind, ident):
                 old_to_new[old_num] = new_idx
@@ -527,7 +528,9 @@ def align_h3_prompt_to_references(
     all_subjects_str = ", ".join(f"<Subject {i}>" for i in range(1, len(image_refs) + 1))
     rest = re.sub(
         r"retention_analysis:\s*[^\n]+",
-        f"retention_analysis: {all_subjects_str} are retained exactly as referenced — the same faces, costumes, environment and daylight. Only the action, the camera and the timing are new.",
+        f"retention_analysis: {all_subjects_str} are retained exactly as referenced — "
+        "the same faces, costumes, environment and daylight. Only the action, the camera "
+        "and the timing are new.",
         rest,
     )
 
@@ -788,7 +791,7 @@ async def import_storyboard(
                         ]
                     },
                 )
-            cname = char_def.get("name") or cid
+            cname = (char_def or {}).get("name") or cid
             new_cnode, _ = await _create_target(
                 client,
                 bound,
@@ -797,7 +800,7 @@ async def import_storyboard(
                 data={
                     "characterId": cid,
                     "prompt": sheet_prompt,
-                    "brief": char_def.get("oneLiner", ""),
+                    "brief": (char_def or {}).get("oneLiner", ""),
                     "aspectRatio": "16:9",
                     "generationKind": "image",
                     "productionStage": "cast",
@@ -822,7 +825,7 @@ async def import_storyboard(
                         ]
                     },
                 )
-            sname = scene_def.get("name") or sid
+            sname = (scene_def or {}).get("name") or sid
             new_snode, _ = await _create_target(
                 client,
                 bound,
@@ -832,7 +835,7 @@ async def import_storyboard(
                     "sceneId": sid,
                     "sceneIndex": s_idx,
                     "prompt": sprompt,
-                    "brief": scene_def.get("brief", ""),
+                    "brief": (scene_def or {}).get("brief", ""),
                     "aspectRatio": "16:9",
                     "generationKind": "image",
                     "productionStage": "art",
@@ -939,7 +942,7 @@ async def import_storyboard(
                     )
                 prev_card_id = card_id
 
-                # Read actual canvas references and align H3 prompt <Picture N> tags strictly with canvas
+                # Align H3 prompt <Picture N> tags with the actual canvas references.
                 if hasattr(client, "get_node_references"):
                     try:
                         actual_refs = await client.get_node_references(bound, card_id)
@@ -966,7 +969,7 @@ async def import_storyboard(
                                 seg["h3Prompt"] = aligned_prompt
                                 card_data["prompt"] = aligned_prompt
                                 prompts_aligned += 1
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - alignment is best effort
                         logger.debug(
                             "Failed aligning prompt references for card %s: %s", card_id, exc
                         )
@@ -977,7 +980,7 @@ async def import_storyboard(
                     json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - writing a copy is best effort
                 logger.warning(
                     "Failed to write aligned storyboard to %s: %s", storyboard_path, exc
                 )

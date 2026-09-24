@@ -102,4 +102,4 @@ class SqlAlchemyAgentMemoryStore(AgentMemoryStore):
                     SqlAgentMemory.agent_id == agent_id,
                 )
             )
-            return (result.rowcount or 0) > 0
+            return (getattr(result, "rowcount", 0) or 0) > 0

@@ -20,6 +20,7 @@ from agentnexus.seedance.client import (
     SeedanceError,
     SeedanceNotFoundError,
 )
+from agentnexus.seedance.production_gate import ProductionRejected
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ async def resolve_or_create_topic_project_and_session(
         if resp.status_code == 200:
             session_data = resp.json()
             labels = session_data.get("labels") or {}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - session lookup is best effort
         logger.debug("Failed to fetch session %s: %s", conversation_id, exc)
 
     channel_binding = binding_for_session(
@@ -116,7 +117,7 @@ async def resolve_or_create_topic_project_and_session(
             logger.info("Bound Seedance project %s no longer exists; re-creating.", project_id)
             project_id = None
             agent_session_id = None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - project lookup is best effort
             logger.warning("Error verifying Seedance project %s: %s", project_id, exc)
 
     if not project_id:
@@ -141,7 +142,7 @@ async def resolve_or_create_topic_project_and_session(
             json={"labels": labels_to_save},
             timeout=10.0,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - label update is best effort
         logger.warning("Failed updating session %s labels: %s", conversation_id, exc)
 
     return project_id, agent_session_id, channel_scope
@@ -217,7 +218,7 @@ async def read_seedance_canvas_snapshot(
                     resolved_project_id = (
                         str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - label lookup is best effort
                 logger.debug(
                     "Failed resolving project label for session %s: %s", conversation_id, exc
                 )
@@ -282,10 +283,10 @@ async def read_seedance_canvas_snapshot(
                     *[client.get_node_references(resolved_project_id, n["id"]) for n in vid_nodes],
                     return_exceptions=True,
                 )
-                for n, res in zip(vid_nodes, results):
+                for n, res in zip(vid_nodes, results, strict=False):
                     if isinstance(res, list):
                         refs_by_node[n["id"]] = res
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - references are optional
                 logger.debug("Failed resolving node references: %s", exc)
 
         # Format nodes
@@ -659,7 +660,7 @@ async def execute_seedance_canvas_edit(
                     resolved_project_id = (
                         str(labels.get(SEEDANCE_PROJECT_LABEL) or "").strip() or None
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - label lookup is best effort
                 logger.debug(
                     "Failed resolving project label for session %s: %s", conversation_id, exc
                 )
@@ -672,6 +673,9 @@ async def execute_seedance_canvas_edit(
                 "error": "当前 Topic 尚未绑定 Seedance 画布项目，无法执行画布修改。请先初始化或指定 project_id。",
             }
 
+        proof: dict[str, Any] = {}
+        generation_command: dict[str, Any] = {}
+        prompt_optimized = False
         if action in ("validate_generation", "submit_generation"):
             from agentnexus.seedance.production_gate import validate_submission
 
@@ -710,7 +714,8 @@ async def execute_seedance_canvas_edit(
                 missing = [
                     row
                     for row in state_requirements
-                    if f"node:{row['asset_node_id']}" not in reference_ids
+                    if isinstance(row, dict)
+                    and f"node:{row['asset_node_id']}" not in reference_ids
                 ]
                 if missing:
                     raise ProductionRejected(
@@ -774,7 +779,6 @@ async def execute_seedance_canvas_edit(
                     "validation_reports": proof["report_paths"],
                     "next_step": "Submit with the same inputs only within existing generation authorization.",
                 }
-            prompt_optimized = False
             try:
                 await client.validate_generation(resolved_project_id, generation_command)
             except SeedanceError as exc:
@@ -818,7 +822,7 @@ async def execute_seedance_canvas_edit(
                     raise SeedanceError(
                         "V3 Prompt Agent did not return a valid final prompt",
                         code="PROMPT_OPTIMIZATION_FAILED",
-                    )
+                    ) from exc
                 update = await client.submit_command(
                     resolved_project_id,
                     {
@@ -839,7 +843,7 @@ async def execute_seedance_canvas_edit(
                     raise SeedanceError(
                         "V3 rejected the optimized prompt update",
                         code="PROMPT_OPTIMIZATION_UPDATE_FAILED",
-                    )
+                    ) from exc
                 gen_input["prompt"] = final_prompt
                 generation_command["expectedPrompt"] = final_prompt
                 await client.validate_generation(resolved_project_id, generation_command)
@@ -881,7 +885,7 @@ async def execute_seedance_canvas_edit(
             if aspect_ratio is not None:
                 node_data["aspectRatio"] = aspect_ratio
 
-            cmd = {
+            cmd: dict[str, Any] = {
                 "type": "canvas.create_node",
                 "nodeType": actual_node_type,
                 "title": title or "新卡片",
@@ -960,7 +964,7 @@ async def execute_seedance_canvas_edit(
             if patch_data:
                 node_patch["data"] = patch_data
 
-            cmd = {
+            cmd: dict[str, Any] = {
                 "type": "canvas.update_node",
                 "nodeId": node_id,
                 "patch": node_patch,
@@ -1024,7 +1028,7 @@ async def execute_seedance_canvas_edit(
                     }
                 project_revision = snap_pre.get("revision")
 
-            cmd = {
+            cmd: dict[str, Any] = {
                 "type": "canvas.delete_node",
                 "nodeId": node_id,
                 "commandId": cmd_id,
@@ -1118,9 +1122,8 @@ async def execute_seedance_canvas_edit(
                     for edge in current_edges
                     if isinstance(edge.get("id"), str)
                     and (
-                        edge_id.endswith(edge["id"])
+                        edge_id.endswith((edge["id"], edge["id"].removeprefix("edge_")))
                         or edge["id"].endswith(edge_id)
-                        or edge_id.endswith(edge["id"].removeprefix("edge_"))
                     )
                     and len(edge["id"]) >= 16
                 ]
@@ -1224,8 +1227,6 @@ async def execute_seedance_canvas_edit(
         return {"status": "failed", "outcome": "failed", "error": f"未知的 action: {action}"}
 
     except Exception as exc:
-        from agentnexus.seedance.production_gate import ProductionRejected
-
         if isinstance(exc, SeedanceError):
             return {
                 "status": "rejected",

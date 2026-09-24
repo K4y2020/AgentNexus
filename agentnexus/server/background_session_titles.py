@@ -291,7 +291,7 @@ class BackgroundSessionTitleCoordinator:
             )
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 - background metadata must never fail the user turn
+        except Exception:
             _logger.warning(
                 "background session title failed session=%s elapsed_ms=%.1f",
                 request.session_id,
@@ -341,7 +341,7 @@ class BackgroundSessionTitleCoordinator:
             )
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.warning(
                 "background task summary failed session=%s elapsed_ms=%.1f",
                 request.session_id,

@@ -85,7 +85,7 @@ async def migrate_script_nodes():
                         fixed_count += 1
                     else:
                         print(f"      [FAIL] {result}")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - report each failed migration attempt
                     print(f"      [ERROR] {e}")
 
                 print()

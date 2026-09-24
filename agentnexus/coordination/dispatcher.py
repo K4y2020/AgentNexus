@@ -148,10 +148,9 @@ class CoordinationDispatcher:
                     message,
                 )
             self._result_scan_cursor = requests[-1].message_id if len(requests) == 100 else ""
-        kwargs: dict[str, object] = {}
         if grace_s is not None:
-            kwargs["grace_s"] = grace_s
-        return await asyncio.to_thread(reconcile_effect_unknown, self.store, **kwargs)
+            return await asyncio.to_thread(reconcile_effect_unknown, self.store, grace_s=grace_s)
+        return await asyncio.to_thread(reconcile_effect_unknown, self.store)
 
     async def reclaim_stale_leases_once(
         self, *, lease_timeout_s: float | None = None
@@ -162,10 +161,12 @@ class CoordinationDispatcher:
         which has to ask the runner — runs on the event loop while the store
         writes stay on threads.
         """
-        kwargs: dict[str, object] = {}
         if lease_timeout_s is not None:
-            kwargs["lease_timeout_s"] = lease_timeout_s
-        stale = await asyncio.to_thread(self.store.list_stale_outbox_leases, **kwargs)
+            stale = await asyncio.to_thread(
+                self.store.list_stale_outbox_leases, lease_timeout_s=lease_timeout_s
+            )
+        else:
+            stale = await asyncio.to_thread(self.store.list_stale_outbox_leases)
         if not stale:
             return []
         result: list[OutboxReclaim] = []
@@ -405,7 +406,7 @@ class CoordinationDispatcher:
                 if isinstance(filename, str) and filename:
                     block["filename"] = filename
                 content.append(block)
-            event_payload = {
+            event_payload: dict[str, Any] = {
                 "type": "message",
                 "role": "user",
                 "content": content,
