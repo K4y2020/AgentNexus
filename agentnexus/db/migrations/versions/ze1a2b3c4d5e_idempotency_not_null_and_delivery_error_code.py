@@ -70,7 +70,7 @@ def upgrade() -> None:
                         .decompress(err[2:])
                         .decode("utf-8", errors="ignore")
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - malformed historical payloads need fallback
                     err_text = str(err)
             elif isinstance(err, str):
                 err_text = err
@@ -97,7 +97,7 @@ def upgrade() -> None:
                 ),
                 {"code": code, "attempt_id": d_row["attempt_id"]},
             )
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional backfill must not block migration
         # Non-fatal if backfill fails in environments without zstandard
         pass
 

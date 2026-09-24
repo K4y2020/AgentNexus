@@ -47,7 +47,12 @@ def upgrade() -> None:
             nullable=False,
             server_default="published",
         ),
-        sa.Column("metadata_json", sa.Text(), nullable=False, server_default="{}"),
+        sa.Column(
+            "metadata_json",
+            sa.Text(),
+            nullable=False,
+            server_default=None if op.get_bind().dialect.name == "mysql" else "{}",
+        ),
         sa.Column("created_at", sa.Float(), nullable=False),
         sa.Column("updated_at", sa.Float(), nullable=False),
         sa.Index(

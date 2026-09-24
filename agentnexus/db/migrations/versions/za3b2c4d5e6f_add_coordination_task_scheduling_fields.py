@@ -27,10 +27,24 @@ def upgrade() -> None:
     """Add scheduling fields to coordination_tasks (idempotent)."""
     existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("coordination_tasks")}
     if "acceptance_json" not in existing:
+        mysql = op.get_bind().dialect.name == "mysql"
         op.add_column(
             "coordination_tasks",
-            sa.Column("acceptance_json", sa.Text(), nullable=False, server_default="[]"),
+            sa.Column(
+                "acceptance_json",
+                sa.Text(),
+                nullable=mysql,
+                server_default=None if mysql else "[]",
+            ),
         )
+        if mysql:
+            op.execute(sa.text("UPDATE coordination_tasks SET acceptance_json = '[]'"))
+            op.alter_column(
+                "coordination_tasks",
+                "acceptance_json",
+                existing_type=sa.Text(),
+                nullable=False,
+            )
     if "deadline" not in existing:
         op.add_column(
             "coordination_tasks",

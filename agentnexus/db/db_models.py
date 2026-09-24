@@ -1764,8 +1764,8 @@ class SqlCoordinationRun(AgentNexusBase):
     root_session_id: Mapped[str] = mapped_column(String(128), nullable=False)
     template: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    budget_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
-    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    budget_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
+    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
@@ -1792,15 +1792,9 @@ class SqlCoordinationTask(AgentNexusBase):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     assignee_session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     assignee_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    dependencies_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="[]"
-    )
-    artifacts_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="[]"
-    )
-    acceptance_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="[]"
-    )
+    dependencies_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="[]")
+    artifacts_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="[]")
+    acceptance_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="[]")
     deadline: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
@@ -1831,10 +1825,8 @@ class SqlAgentMessage(AgentNexusBase):
     recipient_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     intent: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
-    artifacts_json: Mapped[str] = mapped_column(
-        CompressedText, nullable=False, server_default="[]"
-    )
+    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
+    artifacts_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="[]")
     correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     in_reply_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -1948,7 +1940,7 @@ class SqlCoordinationEvent(AgentNexusBase):
     task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     actor_session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    payload_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
 
     __table_args__ = (
@@ -2006,7 +1998,7 @@ class SqlWorkspaceMergeOperation(AgentNexusBase):
     dirty_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     fencing_token: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="preview")
-    preview_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    preview_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
     result_json: Mapped[str | None] = mapped_column(CompressedText, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
@@ -2042,7 +2034,7 @@ class SqlCoordinationArtifact(AgentNexusBase):
     digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     uri: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="published")
-    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, server_default="{}")
+    metadata_json: Mapped[str] = mapped_column(CompressedText, nullable=False, default="{}")
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
