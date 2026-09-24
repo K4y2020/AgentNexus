@@ -173,7 +173,7 @@ def _probe_agent_dir(tmp_path: Path) -> Path:
         "spec_version: 1\n"
         "name: fallback-probe\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: openai-agents\n"
         'prompt: "You are a terse test agent. Reply concisely."\n',

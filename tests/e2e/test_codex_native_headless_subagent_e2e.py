@@ -55,7 +55,7 @@ name: codex
 description: Codex coding sub-agent (Polly cross-vendor reviewer shape).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: codex-native
     yolo: true

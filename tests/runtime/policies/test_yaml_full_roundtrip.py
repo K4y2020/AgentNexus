@@ -111,7 +111,7 @@ guardrails:
       type: function
       on: [request]
       function:
-        path: omnigent.policies.function.make_fixed_action_callable
+        path: agentnexus.policies.function.make_fixed_action_callable
         arguments:
           action: allow
           set_labels:
@@ -155,7 +155,7 @@ guardrails:
       type: function
       on: [request]
       function:
-        path: omnigent.policies.function.make_fixed_action_callable
+        path: agentnexus.policies.function.make_fixed_action_callable
         arguments:
           action: deny
           reason: "nope"
@@ -243,7 +243,7 @@ guardrails:
       type: function
       on: [request]
       function:
-        path: omnigent.policies.builtins.prompt.prompt_policy
+        path: agentnexus.policies.builtins.prompt.prompt_policy
         arguments:
           prompt: "Deny if mentions Canada."
 """,
@@ -287,7 +287,7 @@ guardrails:
       type: function
       on: [request]
       function:
-        path: omnigent.policies.function.make_fixed_action_callable
+        path: agentnexus.policies.function.make_fixed_action_callable
         arguments:
           action: deny
 """,
@@ -324,7 +324,7 @@ guardrails:
       type: function
       on: [tool_call:web]
       function:
-        path: omnigent.policies.function.make_fixed_action_callable
+        path: agentnexus.policies.function.make_fixed_action_callable
         arguments:
           action: allow
           set_labels:
@@ -338,7 +338,7 @@ guardrails:
       type: function
       on: [request]
       function:
-        path: omnigent.policies.builtins.prompt.prompt_policy
+        path: agentnexus.policies.builtins.prompt.prompt_policy
         arguments:
           prompt: "check"
 """,

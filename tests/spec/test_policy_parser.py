@@ -306,21 +306,21 @@ policies:
     type: function
     on: [request]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
   second:
     type: function
     on: [request]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
   third:
     type: function
     on: [request]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
 """)
@@ -372,7 +372,7 @@ policies:
     type: function
     on: [response]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
     ask_timeout: 300
@@ -394,7 +394,7 @@ policies:
     type: function
     on: [request]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
     ask_timeout: 0
@@ -480,7 +480,7 @@ policies:
     type: function
     on: [request, response]
     function:
-      path: omnigent.policies.builtins.prompt.prompt_policy
+      path: agentnexus.policies.builtins.prompt.prompt_policy
       arguments:
         prompt: "Test."
 """)

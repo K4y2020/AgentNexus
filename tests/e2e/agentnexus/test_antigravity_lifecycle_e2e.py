@@ -209,7 +209,7 @@ def _write_antigravity_bundle(bundle_dir: Path, *, name: str) -> Path:
         f"name: {name}\n"
         "description: Antigravity lifecycle/concurrency e2e agent.\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         f"    harness: {_HARNESS}\n"
         f"    model: {_MODEL}\n"

@@ -29,7 +29,7 @@ guardrails:
     loop_guard:
       type: function
       function:
-        path: omnigent.policies.builtins.safety.detect_loop
+        path: agentnexus.policies.builtins.safety.detect_loop
         arguments:
           window: 5
           threshold: 3

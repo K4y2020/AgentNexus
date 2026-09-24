@@ -70,7 +70,7 @@ description: >-
 # delegates; the substantive command-running work is done by the native
 # sub-agents, which run in their own terminal and prompt for approval.
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 
@@ -116,7 +116,7 @@ name: claude_code
 description: Claude Code coding sub-agent in PROMPTING mode (asks before running commands).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-native
     # PROMPTING (not bypass): the server translates this into
@@ -144,7 +144,7 @@ name: codex
 description: Codex coding sub-agent in PROMPTING mode (asks before running commands).
 
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: codex-native
     # PROMPTING (not yolo): with ``yolo`` omitted the server adds NO

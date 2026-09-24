@@ -920,7 +920,7 @@ def test_oidc_redirect_uri_derived_from_domain(monkeypatch: pytest.MonkeyPatch) 
 
     config = OIDCConfig.from_env()
 
-    assert config.redirect_uri == "https://omnigent.example.com/auth/callback"
+    assert config.redirect_uri == "https://agentnexus.example.com/auth/callback"
     # Derived URI is https → secure cookies + __Host- prefix.
     assert config.secure_cookies is True
 

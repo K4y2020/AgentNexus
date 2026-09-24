@@ -937,7 +937,7 @@ def test_chat_via_daemon_uses_directory_bundle_for_root_config_yaml(
         "name: orchestrator\n"
         "prompt: orchestrate\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: claude-sdk\n"
     )
@@ -946,7 +946,7 @@ def test_chat_via_daemon_uses_directory_bundle_for_root_config_yaml(
         "name: worker\n"
         "prompt: work\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: codex-native\n"
     )
@@ -1013,7 +1013,7 @@ def test_run_local_headless_prompt_uses_directory_bundle_for_root_config_yaml(
         "name: orchestrator\n"
         "prompt: orchestrate\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: claude-sdk\n"
     )
@@ -1099,7 +1099,7 @@ def test_chat_local_uses_directory_bundle_for_root_config_yaml(
         "name: orchestrator\n"
         "prompt: orchestrate\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: claude-sdk\n"
     )
@@ -2040,7 +2040,7 @@ def test_nested_config_harness_skips_ad_hoc_model_fallback(
     src = tmp_path / "config.yaml"
     src.write_text(
         "spec_version: 1\nname: nested-harness\nprompt: hi\n"
-        "executor:\n  type: omnigent\n  config:\n    harness: claude-sdk\n"
+        "executor:\n  type: agentnexus\n  config:\n    harness: claude-sdk\n"
     )
 
     materialized = _materialize_override_bundle(src, ChatOverrides())
@@ -2142,7 +2142,7 @@ def test_materialize_directory_bundle_with_override_keeps_nested_harness_unpinne
         "name: debby\n"
         "prompt: hi\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: claude-sdk\n"
     )
@@ -3167,7 +3167,7 @@ def test_spec_used_families_multi_vendor_directory_agent(tmp_path) -> None:
         "name: orchestrator\n"
         "prompt: orchestrate\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: claude-sdk\n"
         "tools:\n"
@@ -3179,7 +3179,7 @@ def test_spec_used_families_multi_vendor_directory_agent(tmp_path) -> None:
         "name: worker\n"
         "prompt: work\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: codex-native\n"
     )
@@ -4026,7 +4026,7 @@ def test_spec_used_families_pi_brain_agent_contributes_pi_surface(tmp_path) -> N
         "name: polly-like\n"
         "prompt: orchestrate\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: pi\n"
         "tools:\n"
@@ -4038,7 +4038,7 @@ def test_spec_used_families_pi_brain_agent_contributes_pi_surface(tmp_path) -> N
         "name: worker\n"
         "prompt: work\n"
         "executor:\n"
-        "  type: omnigent\n"
+        "  type: agentnexus\n"
         "  config:\n"
         "    harness: codex-native\n"
     )
