@@ -60,21 +60,21 @@ def _make_exc(msg: str = "boom") -> ValueError:
 # Report building + redaction
 # --------------------------------------------------------------------------- #
 def test_build_report_contains_required_fields(data_dir: Path) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     exc = _make_exc("the frobnicator failed")
     report = ch._build_report(
         exc, "Traceback...\nValueError: the frobnicator failed\n", source="uncaught"
     )
-    assert "# Crash Report — omnigent" in report
+    assert "# Crash Report — agentnexus" in report
     assert "ValueError" in report
     assert f"agentnexus {VERSION}" in report or "agentnexus unknown" in report  # version line
-    assert "https://github.com/K4y2020/omnigent" in report
+    assert "https://github.com/K4y2020/AgentNexus" in report
     assert "Source:** uncaught" in report
     assert "the frobnicator failed" in report
 
 
 def test_redact_strips_common_tokens(data_dir: Path) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     assert ch._redact("sk-abc123def456ghi789jkl") == "sk-a***"
     assert "sk-" not in ch._redact("sk-abc123def456ghi789jkl").replace("sk-a***", "")
     # Use the redaction regex directly to avoid putting a PAT-shaped
@@ -101,7 +101,7 @@ def test_command_line_redacts_tokens_in_argv(
 # Save + rotation
 # --------------------------------------------------------------------------- #
 def test_save_report_writes_and_rotates(data_dir: Path) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent", keep_reports=2)
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus", keep_reports=2)
     paths = [ch._save_report(f"report {i}\n") for i in range(5)]
     # The newest report always survives its own rotation pass. Earlier paths
     # may legitimately be gone: rotation prunes between saves, which also frees
@@ -124,7 +124,7 @@ def test_save_report_keeps_every_same_second_report(data_dir: Path) -> None:
     report but the last was silently destroyed. Rotation is held wide here so
     only overwriting could lose a report.
     """
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent", keep_reports=10)
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus", keep_reports=10)
     paths = [ch._save_report(f"report {i}\n") for i in range(5)]
 
     assert len(set(paths)) == 5
@@ -134,7 +134,7 @@ def test_save_report_keeps_every_same_second_report(data_dir: Path) -> None:
 
 
 def test_save_report_collision_disambiguates(data_dir: Path) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     a = ch._save_report("x\n")
     b = ch._save_report("y\n")  # same second → pid-suffixed
     assert a != b
@@ -295,7 +295,7 @@ def test_first_party_sdk_shown_even_in_site_packages(data_dir: Path, tmp_path: P
 def test_interactive_yes_copies_and_opens_browser(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     calls: dict = {}
 
     def fake_copy(text: str) -> bool:
@@ -313,7 +313,7 @@ def test_interactive_yes_copies_and_opens_browser(
 
     out = _strip_ansi(stream.getvalue())
     assert "copied" in calls and "yes-branch" in calls["copied"]
-    assert calls["url"].startswith("https://github.com/K4y2020/agentnexus/issues/new?")
+    assert calls["url"].startswith("https://github.com/K4y2020/AgentNexus/issues/new?")
     assert "template=bug_report.yml" in calls["url"]
     assert "review and submit" in out
 
@@ -321,7 +321,7 @@ def test_interactive_yes_copies_and_opens_browser(
 def test_interactive_no_saves_path_and_link(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     monkeypatch.setattr(ch, "_copy_to_clipboard", lambda text: True)
     monkeypatch.setattr(ch, "_open_browser", lambda url: True)
 
@@ -335,7 +335,7 @@ def test_interactive_no_saves_path_and_link(
 
 
 def test_interactive_default_enter_is_yes(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     calls: dict = {}
 
     def fake_copy(text: str) -> bool:
@@ -354,7 +354,7 @@ def test_interactive_default_enter_is_yes(data_dir: Path, monkeypatch: pytest.Mo
 def test_noninteractive_falls_back_to_link(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
     ch.handle_crash(
         _make_exc("ci-mode"),
@@ -370,14 +370,14 @@ def test_noninteractive_falls_back_to_link(
 # KeyboardInterrupt defers; issue URL encoding
 # --------------------------------------------------------------------------- #
 def test_issue_url_is_prefilled_title(data_dir: Path) -> None:
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     exc = _make_exc("oops: bad [brackets] & spaces")
     url, body_included = ch._issue_url(
         exc, ch._issue_body(exc, "Traceback...\nValueError: oops\n")
     )
     # Uses the repo's bug-report template.
     assert "template=bug_report.yml" in url
-    assert url.startswith("https://github.com/K4y2020/agentnexus/issues/new?")
+    assert url.startswith("https://github.com/K4y2020/AgentNexus/issues/new?")
     # Title is URL-encoded and prefilled.
     assert "%5BCrash%5D" in url
     # Version and OS fields prefilled from the crash context.
@@ -397,7 +397,7 @@ def test_excepthook_defers_keyboard_interrupt(
     data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """KeyboardInterrupt must not render the crash screen — it defers."""
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     fired: list = []
     monkeypatch.setattr(ch, "handle_crash", lambda *a, **k: fired.append(1))
     try:
@@ -412,7 +412,7 @@ def test_excepthook_defers_keyboard_interrupt(
 # --------------------------------------------------------------------------- #
 def test_issue_url_drops_body_when_too_long(data_dir: Path) -> None:
     """A traceback so large it would blow the URL limit drops the body."""
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     huge_tb = "X" * 30000  # would produce a ~30KB URL
     url, body_included = ch._issue_url(
         _make_exc("big crash"), ch._issue_body(_make_exc("big crash"), huge_tb)
@@ -424,7 +424,7 @@ def test_issue_url_drops_body_when_too_long(data_dir: Path) -> None:
 
 def test_issue_url_drops_non_ascii_body_when_too_long(data_dir: Path) -> None:
     """Non-ASCII content expands 6x under URL-encoding — body must be dropped."""
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     huge_non_ascii = "é" * 30000
     url, body_included = ch._issue_url(
         _make_exc("crash"), ch._issue_body(_make_exc("crash"), huge_non_ascii)
@@ -435,7 +435,7 @@ def test_issue_url_drops_non_ascii_body_when_too_long(data_dir: Path) -> None:
 
 def test_issue_url_keeps_short_body_intact(data_dir: Path) -> None:
     """A normal-sized traceback is kept in the URL."""
-    ch.install_crash_handler("agentnexus", "agentnexus-ai/omnigent")
+    ch.install_crash_handler("agentnexus", "K4y2020/AgentNexus")
     short_tb = 'Traceback (most recent call last):\n  File "app.py", line 10\nValueError: boom\n'
     url, body_included = ch._issue_url(
         _make_exc("boom"), ch._issue_body(_make_exc("boom"), short_tb)

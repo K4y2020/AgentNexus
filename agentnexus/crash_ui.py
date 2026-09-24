@@ -319,8 +319,14 @@ def format_traceback(
     return "\n".join(out)
 
 
+# Brand spellings that simple first-letter capitalization would get wrong.
+_BRAND_NAMES = {"agentnexus": "AgentNexus"}
+
+
 def _title(name: str) -> str:
-    """Capitalize the app name for sentence display (``omnigent`` → ``AgentNexus``)."""
+    """Capitalize the app name for sentence display (``agentnexus`` → ``AgentNexus``)."""
+    if name in _BRAND_NAMES:
+        return _BRAND_NAMES[name]
     return name[:1].upper() + name[1:] if name else name
 
 
