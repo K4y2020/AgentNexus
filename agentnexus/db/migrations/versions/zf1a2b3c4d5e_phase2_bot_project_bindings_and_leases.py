@@ -12,7 +12,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from agentnexus.db.db_models import CompressedText, Uuid16
+from agentnexus.db.db_models import Uuid16
 
 revision: str = "zf1a2b3c4d5e"
 down_revision: str | None = "ze1a2b3c4d5e"

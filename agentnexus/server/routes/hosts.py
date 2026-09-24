@@ -27,7 +27,7 @@ from pydantic import BaseModel
 
 from agentnexus.db.utils import now_epoch
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import canonicalize_harness
 from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE,

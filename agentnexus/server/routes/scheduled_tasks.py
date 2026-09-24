@@ -23,7 +23,7 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agentnexus.entities import ScheduledTask, ScheduledTaskRun
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import RESERVED_USER_LOCAL, AuthProvider
 from agentnexus.server.routes._auth_helpers import require_user
 from agentnexus.server.routes._host_launch import resolve_host_owner

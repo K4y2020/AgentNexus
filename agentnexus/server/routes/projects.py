@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from agentnexus.entities import Project
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import AuthProvider
 from agentnexus.server.routes._auth_helpers import require_user
 from agentnexus.server.schemas import (

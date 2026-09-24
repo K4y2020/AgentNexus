@@ -79,6 +79,8 @@ from .tools import ToolMetadata, ToolState, tool
 __all__ = [
     "MCP_ELICITATION_METHOD",
     "TERMINAL_TASK_STATUSES",
+    "AgentNexusClient",
+    "AgentNexusError",
     "AnyBlock",
     "BlockContext",
     "BlockStream",
@@ -90,8 +92,6 @@ __all__ = [
     "FileBlock",
     "LocalServer",
     "NativeToolBlock",
-    "AgentNexusClient",
-    "AgentNexusError",
     "QueryResult",
     "QueryStream",
     "ReasoningBlock",

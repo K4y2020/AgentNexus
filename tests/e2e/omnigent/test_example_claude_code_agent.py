@@ -22,12 +22,12 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 from tests.e2e.agentnexus._example_helpers import (
     assert_completed_one_shot,
     require_claude_sdk,
     run_one_shot,
 )
+from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 
 
 def test_claude_code_agent_one_shot(

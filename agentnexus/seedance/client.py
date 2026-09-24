@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ipaddress
-import json
 import logging
 import os
 from typing import Any
@@ -100,7 +99,7 @@ def get_seedance_api_key() -> str | None:
     for p in candidate_paths:
         if os.path.isfile(p):
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if line.startswith("SEEDANCE_API_KEY=") and not line.startswith("#"):

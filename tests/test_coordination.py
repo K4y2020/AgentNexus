@@ -32,7 +32,7 @@ from agentnexus.coordination.workflow_engine import (
 from agentnexus.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from agentnexus.db.db_models import InvalidUuidError
 from agentnexus.debug_logging import current_user_id_scope
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.policies.types import PolicyResult
 from agentnexus.server.routes.coordination import (
     _authorized_runs,

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import canonicalize_harness
 from agentnexus.runner.transports.ws_tunnel.transport import WSTunnelTransport
 from agentnexus.runtime import telemetry

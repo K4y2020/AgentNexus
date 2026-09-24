@@ -25,7 +25,7 @@ import cachetools
 
 from agentnexus.entities import Conversation
 from agentnexus.entities import Policy as StoredPolicy
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.llms.context_window import fetch_model_pricing_with_provider
 from agentnexus.policies.base import Policy
 from agentnexus.policies.function import resolve_function_policy

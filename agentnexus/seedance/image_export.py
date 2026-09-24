@@ -13,7 +13,6 @@ from agentnexus.runtime.image_tool import MAX_IMAGE_BYTES
 
 from .production_gate import ProductionRejected
 
-
 MAX_VIDEO_BYTES = 512 * 1024 * 1024
 
 

@@ -35,7 +35,7 @@ import importlib
 from collections.abc import Callable
 from typing import Any, TypeAlias, cast
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import canonicalize_harness
 from agentnexus.inner.datamodel import AgentDef, OSEnvSpec, TerminalEnvSpec
 from agentnexus.inner.datamodel import ExecutorSpec as OmniExecutorSpec

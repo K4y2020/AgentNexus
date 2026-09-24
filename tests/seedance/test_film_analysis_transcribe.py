@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import pytest
 
-
 MODULE_PATH = (
     Path(__file__).resolve().parents[2]
     / "examples/cine/skills/film-analysis/pipeline/transcribe.py"

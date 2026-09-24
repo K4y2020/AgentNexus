@@ -12,7 +12,7 @@ from typing import Literal, TypedDict, cast
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.inner.datamodel import (
     DEFAULT_BASIC_USERNAME,
     CredentialProxyEntry,

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Stdlib-only regression tests for core.py / design_system.py (unittest, not
 pytest -- this project ships with zero external dependencies and the tests
@@ -11,20 +10,20 @@ or directly:
     python scripts/tests/test_core.py
 """
 
-import os
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import core
-from core import BM25, detect_domain, search, search_stack, CSV_CONFIG, AVAILABLE_STACKS
+from core import AVAILABLE_STACKS, BM25, CSV_CONFIG, detect_domain, search, search_stack
 from design_system import DesignSystemGenerator, generate_design_system
 
 

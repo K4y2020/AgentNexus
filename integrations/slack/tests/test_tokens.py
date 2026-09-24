@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cryptography.fernet import Fernet
 from agentnexus_slack.tokens import EncryptedTokenStore, TokenStore
+from cryptography.fernet import Fernet
 
 
 async def _store(tmp_path: Path) -> TokenStore:

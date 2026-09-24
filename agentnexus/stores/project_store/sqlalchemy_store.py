@@ -15,7 +15,7 @@ from agentnexus.db.utils import (
     now_epoch,
 )
 from agentnexus.entities import Project
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.stores.project_store import ProjectStore
 
 # Max serialized length of a project's config blob. The value is persisted

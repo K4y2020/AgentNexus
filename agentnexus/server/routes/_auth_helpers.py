@@ -25,7 +25,7 @@ from fastapi import Request
 
 from agentnexus.db.utils import shared_read_scope
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import (
     LEVEL_OWNER,
     RESERVED_USER_LOCAL,

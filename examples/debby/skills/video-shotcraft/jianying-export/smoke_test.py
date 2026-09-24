@@ -17,10 +17,9 @@ import os
 import subprocess
 import sys
 
+import mac_draft
 import pyJianYingDraft as draft
 from pyJianYingDraft import trange
-
-import mac_draft
 
 DRAFT_NAME = "vs-smoke-test"
 HERE = os.path.dirname(os.path.abspath(__file__))

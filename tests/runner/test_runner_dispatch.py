@@ -1804,7 +1804,7 @@ async def test_runner_background_turn_emits_failed_when_spawn_env_build_raises(
     :param monkeypatch: pytest fixture used to force the spawn-env build to
         raise the same error class the no-model provider path produces.
     """
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
 
     conv = "conv_spawn_env_build_raises"
 
@@ -1904,7 +1904,7 @@ async def test_runner_failed_status_carries_setup_error_message(
     :param monkeypatch: pytest fixture used to force the spawn-env build to
         raise the no-model provider error.
     """
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
 
     conv = "conv_failed_status_carries_error"
     raised_message = "No model resolved for the 'claude-sdk' harness on a generic provider."

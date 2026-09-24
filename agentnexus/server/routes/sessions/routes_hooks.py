@@ -16,7 +16,7 @@ from fastapi.responses import Response
 
 from agentnexus.codex_native_elicitation import codex_elicitation_id
 from agentnexus.entities import Conversation
-from agentnexus.errors import ElicitationDeclinedError, ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ElicitationDeclinedError, ErrorCode
 from agentnexus.runner.routing import RunnerRouter
 from agentnexus.runtime import (
     get_agent_cache,

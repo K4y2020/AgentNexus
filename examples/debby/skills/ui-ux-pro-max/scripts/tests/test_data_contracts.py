@@ -15,10 +15,10 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SCRIPTS_DIR.parent / "data"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+import validate_data  # noqa: E402
 from core import AVAILABLE_STACKS, STACK_CONFIG  # noqa: E402
 from design_system import DesignSystemGenerator  # noqa: E402
 from reasoning_contract import apply_decision_rules, parse_decision_rules  # noqa: E402
-import validate_data  # noqa: E402
 from validate_data import _check_reasoning_contract  # noqa: E402
 
 

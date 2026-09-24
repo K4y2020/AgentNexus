@@ -420,7 +420,7 @@ def _run_migrations(engine: Engine, db_uri: str) -> None:
     """
     from alembic import command
 
-    from agentnexus.db.db_models import ConversationBase, AgentNexusBase
+    from agentnexus.db.db_models import AgentNexusBase, ConversationBase
 
     current = _get_current_db_revision(engine)
     head = _get_head_db_revision(db_uri)

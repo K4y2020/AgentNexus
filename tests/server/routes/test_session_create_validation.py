@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import RESERVED_USER_LOCAL
 from agentnexus.server.routes._session_create_validation import validate_session_agent
 from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore

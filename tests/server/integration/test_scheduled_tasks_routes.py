@@ -38,7 +38,7 @@ def _stub_host_workspace_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _validate_workspace(**kwargs: object) -> str:
         workspace = kwargs["workspace"]
         if not isinstance(workspace, str) or not workspace.startswith("/"):
-            from agentnexus.errors import ErrorCode, AgentNexusError
+            from agentnexus.errors import AgentNexusError, ErrorCode
 
             raise AgentNexusError(
                 "workspace must be an absolute path starting with /",

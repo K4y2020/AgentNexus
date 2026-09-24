@@ -21,8 +21,8 @@ from agentnexus.runner.app import (
     _auto_create_repl_terminal,
 )
 from agentnexus.runner.resource_registry import (
-    CODEX_NATIVE_TERMINAL_ROLE,
     AGENTNEXUS_REPL_TERMINAL_ROLE,
+    CODEX_NATIVE_TERMINAL_ROLE,
     SessionResourceRegistry,
 )
 from agentnexus.spec.types import AgentSpec, ExecutorSpec

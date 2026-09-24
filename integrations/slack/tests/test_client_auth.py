@@ -4,7 +4,7 @@ import asyncio
 
 import httpx
 import respx
-from agentnexus_slack.agentnexus import ClientAuth, AgentNexusClient, AgentNexusClientPool
+from agentnexus_slack.agentnexus import AgentNexusClient, AgentNexusClientPool, ClientAuth
 
 _BASE = "http://omnigent.test"
 

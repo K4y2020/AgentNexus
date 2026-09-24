@@ -58,6 +58,7 @@ from agentnexus.native_coding_agents import (
 from agentnexus.native_dispatch import resolve_hook
 from agentnexus.process_logging import process_log_reference
 from agentnexus.runner.resource_registry import (
+    AGENTNEXUS_REPL_TERMINAL_ROLE,
     ANTIGRAVITY_NATIVE_TERMINAL_ROLE,
     CLAUDE_NATIVE_TERMINAL_ROLE,
     CODEX_NATIVE_TERMINAL_ROLE,
@@ -66,7 +67,6 @@ from agentnexus.runner.resource_registry import (
     HERMES_NATIVE_TERMINAL_ROLE,
     KIMI_NATIVE_TERMINAL_ROLE,
     KIRO_NATIVE_TERMINAL_ROLE,
-    AGENTNEXUS_REPL_TERMINAL_ROLE,
     OPENCODE_NATIVE_TERMINAL_ROLE,
     PI_NATIVE_TERMINAL_ROLE,
     QWEN_NATIVE_TERMINAL_ROLE,

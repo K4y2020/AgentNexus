@@ -46,7 +46,7 @@ from agentnexus.entities.conversation import (
     parse_item_data,
 )
 from agentnexus.entities.permission import SessionPermission
-from agentnexus.errors import ElicitationDeclinedError, ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ElicitationDeclinedError, ErrorCode
 from agentnexus.harness_availability import (
     HARNESS_BINARY_MISSING,
     HARNESS_NEEDS_AUTH,

@@ -16,10 +16,10 @@ import httpx
 # and pool here build on them. Re-exported below so existing
 # ``from agentnexus_slack.agentnexus import extract_delta`` sites keep working.
 from agentnexus_slack.events import (
+    AgentNexusError,
     ElicitationOption,
     ElicitationQuestion,
     ElicitationRequest,
-    AgentNexusError,
     OutputFile,
     SessionActivity,
     SessionInfo,
@@ -42,6 +42,9 @@ from agentnexus_slack.events import (
 )
 
 __all__ = [
+    "AgentNexusClient",
+    "AgentNexusClientPool",
+    "AgentNexusError",
     "AuthRequiredError",
     "AuthResolver",
     "ClientAuth",
@@ -50,9 +53,6 @@ __all__ = [
     "ElicitationRequest",
     "HarnessNotConfiguredError",
     "HostUnavailableError",
-    "AgentNexusClient",
-    "AgentNexusClientPool",
-    "AgentNexusError",
     "OutputFile",
     "RunnerUnavailableError",
     "ServerUnreachableError",

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 UI/UX Pro Max Core - BM25 search engine for UI/UX style guides
 """
@@ -7,9 +6,9 @@ UI/UX Pro Max Core - BM25 search engine for UI/UX style guides
 import csv
 import difflib
 import re
-from pathlib import Path
-from math import log
 from collections import defaultdict
+from math import log
+from pathlib import Path
 
 # ============ CONFIGURATION ============
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -433,9 +432,8 @@ _NO_THRESHOLD = {"min_score": 0.0, "min_margin": 0.0, "min_coverage": 0.0}
 _STYLE_IDENTITY_FIELDS = ("Style ID", "Style Category", "Aliases")
 _LANDING_IDENTITY_FIELDS = ("Pattern ID", "Pattern Name", "Aliases")
 _DOMAIN_QUERY_REWRITES = {
-    "color": {
-        term: None
-        for term in (
+    "color": dict.fromkeys(
+        (
             "color",
             "palette",
             "hex",
@@ -446,7 +444,7 @@ _DOMAIN_QUERY_REWRITES = {
             "muted",
             "foreground",
         )
-    },
+    ),
     "landing": {"testimonial": "testimonials"},
     "style": {
         "css": None,
@@ -634,7 +632,7 @@ def _load_csv_snapshot(filepath, attempts=3):
 
     for _ in range(attempts):
         before = _file_signature(filepath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
         after = _file_signature(filepath)
         if before == after:
@@ -873,7 +871,7 @@ def _domain_keywords():
     global _DOMAIN_KEYWORDS, _DOMAIN_KEYWORDS_SIGNATURE
     product_path = DATA_DIR / CSV_CONFIG["product"]["file"]
     signature = _file_signature(product_path) if product_path.exists() else None
-    if _DOMAIN_KEYWORDS is not None and _DOMAIN_KEYWORDS_SIGNATURE == signature:
+    if _DOMAIN_KEYWORDS is not None and signature == _DOMAIN_KEYWORDS_SIGNATURE:
         return _DOMAIN_KEYWORDS
 
     _DOMAIN_KEYWORDS = {

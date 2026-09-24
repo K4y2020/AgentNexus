@@ -2779,8 +2779,8 @@ class HostProcess:
             # If provider declares custom alias mappings, include them
             try:
                 from agentnexus.onboarding.provider_config import (
-                    load_config,
                     default_provider_for_harness,
+                    load_config,
                 )
 
                 prov = default_provider_for_harness(load_config(), worker_harness)
@@ -2912,8 +2912,8 @@ class HostProcess:
             # If provider declares custom alias mappings, include them
             try:
                 from agentnexus.onboarding.provider_config import (
-                    load_config,
                     default_provider_for_harness,
+                    load_config,
                 )
 
                 prov = default_provider_for_harness(load_config(), "claude-sdk")

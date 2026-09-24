@@ -1,17 +1,17 @@
 import asyncio
 from collections.abc import AsyncIterator
 
-import httpx
 import agentnexus_slack.agentnexus as omnigent_module
+import httpx
 import pytest
 import respx
 from agentnexus_slack.agentnexus import (
-    AuthRequiredError,
-    HarnessNotConfiguredError,
-    HostUnavailableError,
     AgentNexusClient,
     AgentNexusClientPool,
     AgentNexusError,
+    AuthRequiredError,
+    HarnessNotConfiguredError,
+    HostUnavailableError,
     RunnerUnavailableError,
     ServerUnreachableError,
     StreamInterruptedError,

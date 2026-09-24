@@ -22,7 +22,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import AuthProvider, SharingMode
 from agentnexus.server.routes._auth_helpers import get_user_id
 from agentnexus.server.sharing_settings import (

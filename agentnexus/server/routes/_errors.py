@@ -13,7 +13,7 @@ across all route modules.  Import the factory and raise it directly::
 
 from __future__ import annotations
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 
 _SESSION_NOT_FOUND: str = "Session not found"
 

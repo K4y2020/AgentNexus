@@ -9,17 +9,17 @@ from typing import Any
 
 from slack_bolt.async_app import AsyncApp
 
+from agentnexus_slack.agentnexus import (
+    AgentNexusClient,
+    AgentNexusClientPool,
+    AgentNexusError,
+    AuthRequiredError,
+    ValidatedServer,
+)
 from agentnexus_slack.auth_manager import AuthManager, pack_user_key, slack_client_id
 from agentnexus_slack.events import host_id_of
 from agentnexus_slack.models import UserConfig
 from agentnexus_slack.oauth import DeviceGrantUnavailableError, OAuthError
-from agentnexus_slack.agentnexus import (
-    AuthRequiredError,
-    AgentNexusClient,
-    AgentNexusClientPool,
-    AgentNexusError,
-    ValidatedServer,
-)
 from agentnexus_slack.store import SQLiteStore
 from agentnexus_slack.text import truncate_option
 

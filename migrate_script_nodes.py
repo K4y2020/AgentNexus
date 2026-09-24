@@ -2,7 +2,6 @@
 """Migrate existing script nodes: move content from prompt to content field."""
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -82,7 +81,7 @@ async def migrate_script_nodes():
 
                     result = resp.json()
                     if result.get("accepted"):
-                        print(f"      [OK] Migration successful")
+                        print("      [OK] Migration successful")
                         fixed_count += 1
                     else:
                         print(f"      [FAIL] {result}")

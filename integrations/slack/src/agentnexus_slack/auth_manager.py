@@ -18,6 +18,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
+from agentnexus_slack.agentnexus import ClientAuth, TokenRefreshTransientError
 from agentnexus_slack.oauth import (
     AuthorizationDeniedError,
     AuthorizationExpiredError,
@@ -26,7 +27,6 @@ from agentnexus_slack.oauth import (
     PendingLogin,
     start_login,
 )
-from agentnexus_slack.agentnexus import ClientAuth, TokenRefreshTransientError
 from agentnexus_slack.tokens import TokenStore
 
 _logger = logging.getLogger(__name__)

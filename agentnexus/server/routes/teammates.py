@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from agentnexus.bots import bot_owner_id, ensure_bot_for_agent
 from agentnexus.entities import Bot, BotComputerBinding
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.model_override import validate_model_override
 from agentnexus.native_coding_agents import is_execution_harness_agent_name
 from agentnexus.runtime.agent_cache import AgentCache

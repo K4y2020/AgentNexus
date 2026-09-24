@@ -11,7 +11,7 @@ from agentnexus.computers.provider import (
     ComputerProvider,
     ResolvedRunWorkspace,
 )
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.stores.bot_store import BotStore
 
 _logger = logging.getLogger(__name__)

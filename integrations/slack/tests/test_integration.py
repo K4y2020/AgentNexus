@@ -20,15 +20,15 @@ import asyncio
 from pathlib import Path
 
 import respx
-from cryptography.fernet import Fernet
-from fakes import FakeAgentNexusServer, RecordingSlackClient, sse_delta, sse_status
+from agentnexus_slack.agentnexus import AgentNexusClientPool
 from agentnexus_slack.auth_manager import AuthManager
 from agentnexus_slack.models import UserConfig
-from agentnexus_slack.agentnexus import AgentNexusClientPool
 from agentnexus_slack.service import SlackAgentNexusService
 from agentnexus_slack.setup import SetupFlow
 from agentnexus_slack.store import SQLiteStore
 from agentnexus_slack.tokens import EncryptedTokenStore
+from cryptography.fernet import Fernet
+from fakes import FakeAgentNexusServer, RecordingSlackClient, sse_delta, sse_status
 
 _SERVER = "http://omnigent.test"
 

@@ -18,10 +18,11 @@ def load_definitions(path: Path, names: set[str]) -> dict:
     tree.body = [
         node
         for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name in names
-        or isinstance(node, ast.Assign)
-        and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)
+        if (isinstance(node, ast.FunctionDef) and node.name in names)
+        or (
+            isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)
+        )
     ]
     namespace = {"re": re, "Path": Path}
     exec(compile(tree, str(path), "exec"), namespace)

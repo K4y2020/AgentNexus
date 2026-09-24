@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentnexus.errors import _CODE_TO_HTTP_STATUS, ErrorCode, AgentNexusError
+from agentnexus.errors import _CODE_TO_HTTP_STATUS, AgentNexusError, ErrorCode
 
 
 def test_harness_protocol_violation_string_value() -> None:

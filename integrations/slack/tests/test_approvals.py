@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any
 
+from agentnexus_slack.agentnexus import ElicitationOption, ElicitationQuestion, ElicitationRequest
 from agentnexus_slack.approvals import (
     ACTION_APPROVE,
     ACTION_DENY,
@@ -17,7 +18,6 @@ from agentnexus_slack.approvals import (
     resolved_card_blocks,
     route_elicitation_click,
 )
-from agentnexus_slack.agentnexus import ElicitationOption, ElicitationQuestion, ElicitationRequest
 
 # Thread owner used across click tests; the value carried on every control is
 # "<owner> <session_id> <elicitation_id>" so a non-owner click can be rejected.

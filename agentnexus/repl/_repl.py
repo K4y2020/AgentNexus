@@ -21,10 +21,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, TextIO, TypeAlias
 
 from agentnexus_client import (
-    BlockContext,
-    ElicitationRequestCtx,
     AgentNexusClient,
     AgentNexusError,
+    BlockContext,
+    ElicitationRequestCtx,
     ReasoningBlock,
     RegisteredAgent,
     ResponseEndBlock,

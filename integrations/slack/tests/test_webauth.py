@@ -5,12 +5,12 @@ from collections.abc import AsyncIterator
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from aiohttp.test_utils import TestClient, TestServer
 from agentnexus_slack.config import Settings
 from agentnexus_slack.databricks_oauth import DatabricksOAuthError, DatabricksTokens
 from agentnexus_slack.enrollment_state import verify_state
 from agentnexus_slack.tokens import InMemoryTokenStore
 from agentnexus_slack.webauth import WebAuthServer
+from aiohttp.test_utils import TestClient, TestServer
 
 _EMAIL = "user@example.com"
 _WORKSPACE = "https://ws.cloud.databricks.com"

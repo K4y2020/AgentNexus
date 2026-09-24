@@ -28,7 +28,7 @@ from agentnexus.entities import (
     StoredFile,
 )
 from agentnexus.entities.session_resources import session_resource_view_to_dict
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.native_coding_agents import (
     native_coding_agent_for_terminal_name,
 )

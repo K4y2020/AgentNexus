@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 AgentNexus 模型目录诊断工具
 
@@ -7,7 +6,6 @@ AgentNexus 模型目录诊断工具
 """
 
 import sys
-import os
 from pathlib import Path
 
 # 设置输出编码为 UTF-8
@@ -25,7 +23,7 @@ def diagnose_mlflow_catalog():
     print("=" * 80)
 
     try:
-        from agentnexus.onboarding.providers import get_chat_models, default_chat_model
+        from agentnexus.onboarding.providers import default_chat_model, get_chat_models
 
         providers = ["anthropic", "openai", "databricks"]
 
@@ -41,7 +39,7 @@ def diagnose_mlflow_catalog():
                 print(f"✅ 默认模型: {default or 'None'}")
 
                 if models:
-                    print(f"\n前 10 个模型:")
+                    print("\n前 10 个模型:")
                     for i, model in enumerate(models[:10], 1):
                         capabilities = []
                         if model.supports_function_calling:
@@ -74,9 +72,10 @@ def diagnose_model_catalog():
     print("=" * 80)
 
     try:
-        from agentnexus.model_catalog import clear_model_catalog_cache
         import os
         from pathlib import Path
+
+        from agentnexus.model_catalog import clear_model_catalog_cache
 
         config_home = Path(os.environ.get("AGENTNEXUS_CONFIG_HOME", Path.home() / ".agentnexus"))
         cache_dir = config_home / "cache" / "model_catalog"
@@ -151,7 +150,7 @@ def diagnose_executors():
                     print(f"Note: {listing.note}")
 
                 if listing.models:
-                    print(f"前 5 个模型:")
+                    print("前 5 个模型:")
                     for m in listing.models[:5]:
                         print(f"  - {m.id} (family: {m.family})")
 

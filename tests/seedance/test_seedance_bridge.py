@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import httpx
 import pytest
@@ -17,10 +16,10 @@ from agentnexus.seedance.bridge import (
     execute_seedance_agent_message,
     execute_seedance_canvas_edit,
     format_shot_contract_message,
-    read_seedance_canvas_snapshot,
     read_matching_shots,
-    resolve_or_create_topic_project_and_session,
+    read_seedance_canvas_snapshot,
     read_seedance_generation,
+    resolve_or_create_topic_project_and_session,
 )
 from agentnexus.seedance.client import SeedanceClient
 

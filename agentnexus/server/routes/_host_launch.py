@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import LEVEL_OWNER
 from agentnexus.server.host_registry import HostConnection, HostRegistry
 from agentnexus.server.permissions import check_session_access

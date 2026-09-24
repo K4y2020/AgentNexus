@@ -23,7 +23,7 @@ from ipaddress import ip_address
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runner.identity import RUNNER_TUNNEL_TOKEN_HEADER, token_bound_runner_id
 from agentnexus.runner.transports.ws_tunnel.frames import (
     HelloFrame,

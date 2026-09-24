@@ -57,7 +57,7 @@ from agentnexus.env_credentials import (
     getenv_with_omnigent_prefix,
     omnigent_prefixed_env_name,
 )
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import canonicalize_harness
 from agentnexus.spec.parser import check_unresolved_env_vars
 

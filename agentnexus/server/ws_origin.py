@@ -51,8 +51,8 @@ _logger = logging.getLogger(__name__)
 # ``omnigent.runner.identity`` and re-exported here for the server-side
 # policy. See :data:`AGENTNEXUS_INTERNAL_WS_ORIGIN` there for rationale.
 __all__ = [
-    "FORBIDDEN_ORIGIN_CLOSE_CODE",
     "AGENTNEXUS_INTERNAL_WS_ORIGIN",
+    "FORBIDDEN_ORIGIN_CLOSE_CODE",
     "WebSocketOriginMiddleware",
     "origin_allowed",
     "origin_hostname_is_loopback",

@@ -45,7 +45,7 @@ from agentnexus.coordination.types import (
 )
 from agentnexus.coordination.workflow_engine import CoordinationWorkflowEngine, WorkflowDagTaskSpec
 from agentnexus.debug_logging import current_user_id
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime import get_agent_cache, get_caps, get_policy_store
 from agentnexus.runtime.policies.builder import (
     build_default_policy_engine,

@@ -15,7 +15,7 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.llms.adapters.openai import OpenAICompatibleAdapter
 from agentnexus.runtime.credentials.databricks import resolve_databricks_workspace
 

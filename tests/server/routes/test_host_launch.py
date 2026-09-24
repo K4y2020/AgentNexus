@@ -12,7 +12,7 @@ import pytest
 from fastapi import HTTPException
 
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.routes._host_launch import (
     resolve_host_launch,
     resolve_host_owner,

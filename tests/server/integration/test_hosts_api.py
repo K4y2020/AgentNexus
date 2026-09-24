@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.host.frames import (
     HostHelloFrame,
     HostLaunchRunnerResultFrame,

@@ -6,8 +6,8 @@ import logging
 import time
 from typing import Any
 
-from agentnexus_slack.auth_manager import pack_user_key
 from agentnexus_slack.agentnexus import AgentNexusClientPool
+from agentnexus_slack.auth_manager import pack_user_key
 from agentnexus_slack.store import SQLiteStore
 
 # Run states the scheduler treats as finished work. ``running``/``scheduled``
