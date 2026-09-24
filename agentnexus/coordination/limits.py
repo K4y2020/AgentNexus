@@ -31,13 +31,9 @@ class CoordinationLimitError(ValueError):
 def validate_hop_budget(*, hop_count: int, max_hops: int) -> None:
     """Reject envelopes past the hop budget or outside server bounds."""
     if max_hops < 1 or max_hops > DEFAULT_MAX_HOPS:
-        raise CoordinationLimitError(
-            f"max_hops must be between 1 and {DEFAULT_MAX_HOPS}"
-        )
+        raise CoordinationLimitError(f"max_hops must be between 1 and {DEFAULT_MAX_HOPS}")
     if hop_count < 0 or hop_count >= max_hops:
-        raise CoordinationLimitError(
-            f"hop_count {hop_count} must be below max_hops {max_hops}"
-        )
+        raise CoordinationLimitError(f"hop_count {hop_count} must be below max_hops {max_hops}")
 
 
 def validate_ttl(*, ttl_seconds: float | None) -> None:
@@ -45,9 +41,7 @@ def validate_ttl(*, ttl_seconds: float | None) -> None:
     if ttl_seconds is None:
         return
     if not 0 < ttl_seconds <= DEFAULT_MAX_TTL_SECONDS:
-        raise CoordinationLimitError(
-            f"ttl_seconds must be in (0, {DEFAULT_MAX_TTL_SECONDS}]"
-        )
+        raise CoordinationLimitError(f"ttl_seconds must be in (0, {DEFAULT_MAX_TTL_SECONDS}]")
 
 
 def validate_payload_and_artifacts(
@@ -63,14 +57,11 @@ def validate_payload_and_artifacts(
     """
     if len(artifacts) > DEFAULT_MAX_ARTIFACT_REFERENCES:
         raise CoordinationLimitError(
-            f"message carries more than {DEFAULT_MAX_ARTIFACT_REFERENCES} "
-            "artifact references"
+            f"message carries more than {DEFAULT_MAX_ARTIFACT_REFERENCES} artifact references"
         )
     for ref in artifacts:
         if not isinstance(ref, dict) or not (ref.get("artifact_id") or ref.get("uri")):
-            raise CoordinationLimitError(
-                "each artifact reference must include artifact_id or uri"
-            )
+            raise CoordinationLimitError("each artifact reference must include artifact_id or uri")
     size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
     if size > DEFAULT_MAX_PAYLOAD_BYTES:
         raise CoordinationLimitError(

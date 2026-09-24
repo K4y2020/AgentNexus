@@ -200,7 +200,9 @@ describe("browserIpc — overlay suppression (#3980)", () => {
 
   it("rejects an unpinned sender", async () => {
     const { ipcMain, event } = setup({ pinned: false });
-    const r = await ipcMain.invoke("agentnexus:browser-set-suppressed", event, { suppressed: true });
+    const r = await ipcMain.invoke("agentnexus:browser-set-suppressed", event, {
+      suppressed: true,
+    });
     assert.equal(r.ok, false);
     assert.match(r.error, /connected server's page/);
   });
@@ -210,7 +212,9 @@ describe("browserIpc — history navigation", () => {
   it("go-back issues goBack only when canGoBack is true", async () => {
     const wc = makeWebContents({ canBack: true });
     const { ipcMain, event } = setup({ webContents: wc });
-    const r = await ipcMain.invoke("agentnexus:browser-go-back", event, { conversationId: "conv_1" });
+    const r = await ipcMain.invoke("agentnexus:browser-go-back", event, {
+      conversationId: "conv_1",
+    });
     assert.equal(r.ok, true);
     assert.ok(wc.calls.includes("goBack"));
   });
@@ -218,7 +222,9 @@ describe("browserIpc — history navigation", () => {
   it("go-back is a no-op when canGoBack is false", async () => {
     const wc = makeWebContents({ canBack: false });
     const { ipcMain, event } = setup({ webContents: wc });
-    const r = await ipcMain.invoke("agentnexus:browser-go-back", event, { conversationId: "conv_1" });
+    const r = await ipcMain.invoke("agentnexus:browser-go-back", event, {
+      conversationId: "conv_1",
+    });
     assert.equal(r.ok, true);
     assert.ok(!wc.calls.includes("goBack"));
   });

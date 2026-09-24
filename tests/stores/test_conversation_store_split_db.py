@@ -336,7 +336,9 @@ def test_set_conversation_project_lands_in_omnigent_db(
     filed = store.set_conversation_project(conv.id, project_id)
     assert filed is True
 
-    stored = _col(omnigent_db, "agentnexus_conversation_metadata", "project_id", f"id=X'{conv.id}'")
+    stored = _col(
+        omnigent_db, "agentnexus_conversation_metadata", "project_id", f"id=X'{conv.id}'"
+    )
     assert stored == [project_id]
     # Reads back through the entity (which merges both DBs).
     assert store.get_conversation(conv.id).project_id == project_id

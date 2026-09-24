@@ -2868,7 +2868,10 @@ def test_route_turn_ignores_a_marker_another_session_left_in_the_dir(
     therefore stopped every later conversation in the pane from routing its
     first message.
     """
-    from agentnexus.runner.turn_routing import turn_routing_marker_session, write_turn_routing_marker
+    from agentnexus.runner.turn_routing import (
+        turn_routing_marker_session,
+        write_turn_routing_marker,
+    )
 
     bridge_dir = _turn_routing_bridge_dir(tmp_path)
     _advertise_turn_router(bridge_dir)
@@ -2932,7 +2935,10 @@ def test_route_turn_follows_a_clear_rotation_onto_the_new_session(
     conversation. The bridge's active session is the live source, exactly as
     the permission hook reads it.
     """
-    from agentnexus.runner.turn_routing import turn_routing_marker_session, write_turn_routing_marker
+    from agentnexus.runner.turn_routing import (
+        turn_routing_marker_session,
+        write_turn_routing_marker,
+    )
 
     bridge_dir = _turn_routing_bridge_dir(tmp_path)
     _advertise_turn_router(bridge_dir, session_id="conv_active")

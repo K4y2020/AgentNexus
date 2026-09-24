@@ -797,7 +797,9 @@ def _patch_background_host_spawn(
     monkeypatch.setattr("agentnexus.cli._pid_alive", lambda checked: checked == pid)
     monkeypatch.setattr("agentnexus.cli._daemon_host_online", lambda record, **kwargs: True)
     # Local mode waits for the server the daemon owns; no real server here.
-    monkeypatch.setattr("agentnexus.cli._discover_local_server_url", lambda: "http://127.0.0.1:6767")
+    monkeypatch.setattr(
+        "agentnexus.cli._discover_local_server_url", lambda: "http://127.0.0.1:6767"
+    )
     log_path = tmp_path / "host-test.log"
     log_path.write_text("")
     spawned_args: list[list[str]] = []

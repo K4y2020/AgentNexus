@@ -362,6 +362,7 @@ class SqlBotComputerBinding(AgentNexusBase):
         UniqueConstraint("workspace_id", "bot_id", name="uq_bot_computer_bindings_bot"),
     )
 
+
 class SqlBotProjectBinding(AgentNexusBase):
     """Binds a Bot to a specific Project repository checkout."""
 
@@ -385,7 +386,9 @@ class SqlBotProjectBinding(AgentNexusBase):
     updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("workspace_id", "bot_id", "project_id", name="uq_bot_project_bindings_bot_project"),
+        UniqueConstraint(
+            "workspace_id", "bot_id", "project_id", name="uq_bot_project_bindings_bot_project"
+        ),
         Index("ix_bot_project_bindings_bot", "workspace_id", "bot_id", "id"),
     )
 

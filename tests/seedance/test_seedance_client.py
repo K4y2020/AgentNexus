@@ -53,7 +53,9 @@ async def test_image_download_rejects_redirect_and_size_limit():
     from agentnexus.seedance.client import SeedanceError
 
     ref = "local://" + "a" * 64
-    route = respx.get(f"{_BASE}/v3/storage/" + "a" * 64).respond(302, headers={"Location": "https://example.com/private"})
+    route = respx.get(f"{_BASE}/v3/storage/" + "a" * 64).respond(
+        302, headers={"Location": "https://example.com/private"}
+    )
     async with SeedanceClient(base_url=_BASE, api_key="test") as client:
         with pytest.raises(SeedanceError, match="download failed"):
             await client.get_local_image(ref, 2)
@@ -123,7 +125,9 @@ async def test_create_project_success():
 @respx.mock
 async def test_create_agent_session_success():
     respx.post(f"{_BASE}/v3/projects/proj_123/agent-sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "sess_456", "projectId": "proj_123"}})
+        return_value=httpx.Response(
+            201, json={"session": {"id": "sess_456", "projectId": "proj_123"}}
+        )
     )
     async with SeedanceClient(base_url=_BASE, api_key="test-key") as client:
         sess = await client.create_agent_session("proj_123", model="gemini-3.7-flash-high")

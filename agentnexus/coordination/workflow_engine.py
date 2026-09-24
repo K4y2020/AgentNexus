@@ -918,9 +918,7 @@ class CoordinationWorkflowEngine:
         Idempotent — harvested tasks leave the active status set.
         """
         check = time.time() if now is None else now
-        tasks = await asyncio.to_thread(
-            self.store.list_expired_active_tasks, now=check
-        )
+        tasks = await asyncio.to_thread(self.store.list_expired_active_tasks, now=check)
         harvested = 0
         for task in tasks:
             run = await asyncio.to_thread(self.store.get_run, task.run_id)

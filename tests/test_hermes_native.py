@@ -115,7 +115,9 @@ def test_materialize_agent_spec_is_terminal_first_hermes_native(tmp_path, monkey
 
 def test_configured_hermes_command_default_and_override() -> None:
     assert hn._configured_hermes_command({}) == "hermes"
-    assert hn._configured_hermes_command({"AGENTNEXUS_HERMES_PATH": "/opt/hermes"}) == "/opt/hermes"
+    assert (
+        hn._configured_hermes_command({"AGENTNEXUS_HERMES_PATH": "/opt/hermes"}) == "/opt/hermes"
+    )
 
 
 def test_launched_terminal_from_payload_decodes_tmux_metadata() -> None:

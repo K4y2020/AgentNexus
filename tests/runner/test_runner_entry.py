@@ -627,7 +627,9 @@ def test_managed_mint_factory_declines_at_request_time_and_auth_sends_bare(
             "no auth provider", request=request, response=httpx.Response(400, request=request)
         )
 
-    monkeypatch.setattr("agentnexus.runner._entry._mint_managed_owner_token", _boot_blip_then_refuse)
+    monkeypatch.setattr(
+        "agentnexus.runner._entry._mint_managed_owner_token", _boot_blip_then_refuse
+    )
 
     factory = _make_managed_mint_factory("https://s.example.com", "btok")
     assert factory is not None  # boot blip is transient → installed

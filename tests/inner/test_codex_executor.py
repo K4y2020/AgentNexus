@@ -191,7 +191,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_with_profile(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch(
                 "agentnexus.inner.codex_executor._databricks_gateway_host",
                 return_value="https://example.cloud.databricks.com",
@@ -205,11 +207,15 @@ class TestCodexExecutor(unittest.TestCase):
         )
         self.assertNotIn("DATABRICKS_TOKEN", executor._env)
         self.assertIn("model=", executor._codex_config_overrides[0])
-        self.assertIn('model_provider="agentnexus_databricks"', executor._codex_config_overrides[1])
+        self.assertIn(
+            'model_provider="agentnexus_databricks"', executor._codex_config_overrides[1]
+        )
 
     def test_constructor_does_not_force_codex_debug_env_by_default(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
         ):
             executor = CodexExecutor()
@@ -219,7 +225,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_with_profile_uses_profile_credentials(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
             patch(
                 "agentnexus.inner.codex_executor._databricks_gateway_host",
@@ -266,7 +274,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_with_host_override_skips_profile_lookup(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
             patch("agentnexus.inner.codex_executor._databricks_gateway_host") as gateway_host,
         ):
@@ -296,7 +306,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_with_host_override_requires_base_url(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
             self.assertRaisesRegex(OSError, "GATEWAY_BASE_URL"),
         ):
@@ -308,7 +320,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_with_host_override_requires_auth_command(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
             self.assertRaisesRegex(OSError, "GATEWAY_AUTH_COMMAND"),
         ):
@@ -320,7 +334,9 @@ class TestCodexExecutor(unittest.TestCase):
 
     def test_constructor_databricks_flag_no_creds_raises(self):
         with (
-            patch("agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"),
+            patch(
+                "agentnexus.inner.codex_executor._find_codex_cli", return_value="/usr/bin/codex"
+            ),
             patch.dict("os.environ", {}, clear=True),
             patch("agentnexus.inner.codex_executor._databricks_gateway_host", return_value=None),
         ):
@@ -977,7 +993,9 @@ class TestCodexExecutor(unittest.TestCase):
             session._proc = _FakeProcess()
             session._started = True
 
-            with patch("agentnexus.inner.codex_executor._terminate_process_tree") as terminate_tree:
+            with patch(
+                "agentnexus.inner.codex_executor._terminate_process_tree"
+            ) as terminate_tree:
                 await session.close()
 
             terminate_tree.assert_called_once()
@@ -3639,7 +3657,9 @@ async def test_codex_cli_version_times_out_and_kills_proc(
         return proc
 
     # Shrink the probe budget so the test does not actually wait the full 5s.
-    monkeypatch.setattr("agentnexus.inner.codex_executor._CODEX_VERSION_PROBE_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(
+        "agentnexus.inner.codex_executor._CODEX_VERSION_PROBE_TIMEOUT_SECONDS", 0.05
+    )
     monkeypatch.setattr("agentnexus.inner.codex_executor._create_subprocess_exec", _fake_exec)
 
     assert await _codex_cli_version("/usr/local/bin/codex") is None

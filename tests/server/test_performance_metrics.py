@@ -757,21 +757,25 @@ def test_otel_publisher_emits_snapshot_values_and_counter_deltas() -> None:
     publisher.publish(second)
 
     assert [
-        record.amount for record in meter.counters["agentnexus.server.http.requests.started"].records
+        record.amount
+        for record in meter.counters["agentnexus.server.http.requests.started"].records
     ] == [9, 2]
     assert [
         record.amount
         for record in meter.counters["agentnexus.server.http.requests.completed"].records
     ] == [7, 3]
     assert [
-        record.amount for record in meter.counters["agentnexus.server.http.requests.failed"].records
+        record.amount
+        for record in meter.counters["agentnexus.server.http.requests.failed"].records
     ] == [1]
     assert meter.gauges["agentnexus.server.http.requests.in_flight"].records[-1].amount == 1
     assert meter.gauges["agentnexus.server.http.requests.last_1s"].records[-1].amount == 2
     assert meter.gauges["agentnexus.server.http.requests.last_10s"].records[-1].amount == 4
     assert meter.gauges["agentnexus.server.http.requests.last_30s"].records[-1].amount == 6
     assert meter.gauges["agentnexus.server.websocket.connections.active"].records[-1].amount == 3
-    assert meter.gauges["agentnexus.server.http.request.processing.avg"].records[-1].amount == 222.0
+    assert (
+        meter.gauges["agentnexus.server.http.request.processing.avg"].records[-1].amount == 222.0
+    )
     assert meter.gauges["agentnexus.server.process.cpu.percent"].records[-1].amount == 50.0
     assert meter.gauges["agentnexus.server.system.load_average.1m"].records[-1].amount == 1.25
     assert meter.gauges["agentnexus.server.process.memory.rss"].records[-1].amount == (
@@ -845,7 +849,8 @@ async def test_publish_server_metrics_periodically_exports_until_cancelled() -> 
             await task
 
     assert [
-        record.amount for record in meter.counters["agentnexus.server.http.requests.started"].records
+        record.amount
+        for record in meter.counters["agentnexus.server.http.requests.started"].records
     ] == [1]
     assert meter.gauges["agentnexus.server.http.requests.in_flight"].records[-1].amount == 1
 

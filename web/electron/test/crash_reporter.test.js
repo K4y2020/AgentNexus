@@ -53,7 +53,10 @@ describe("crash_reporter", () => {
         normal: "keep me",
       },
     );
-    assert.equal(redact("token sk-abcdefghijklmnopqrstuvwxyz1234567890 end"), "token s***redacted*** end");
+    assert.equal(
+      redact("token sk-abcdefghijklmnopqrstuvwxyz1234567890 end"),
+      "token s***redacted*** end",
+    );
   });
 
   it("sanitizes URLs and strips query, hash, and credentials", () => {
@@ -112,7 +115,9 @@ describe("crash_reporter", () => {
     for (let i = 0; i < 25; i += 1) {
       reporter.writeReport({ kind: "render-process-gone", details: { i } });
     }
-    const files = fs.readdirSync(path.join(root, DIAGNOSTICS_DIR)).filter((f) => /^crash-.*\.json$/.test(f));
+    const files = fs
+      .readdirSync(path.join(root, DIAGNOSTICS_DIR))
+      .filter((f) => /^crash-.*\.json$/.test(f));
     assert.ok(files.length <= MAX_DIAGNOSTIC_FILES);
   });
 

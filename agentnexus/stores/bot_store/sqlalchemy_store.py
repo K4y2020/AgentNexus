@@ -45,6 +45,7 @@ def _binding_entity(row: SqlBotComputerBinding) -> BotComputerBinding:
         updated_at=row.updated_at,
     )
 
+
 class LeaseConflictError(ValueError):
     """Raised when an exclusive execution lease cannot be acquired."""
 
@@ -73,7 +74,6 @@ def _lease_entity(row: SqlComputerExecutionLease) -> ComputerExecutionLease:
         expires_at=row.expires_at,
         created_at=row.created_at,
     )
-
 
 
 def _stable_id(kind: str, *parts: object) -> str:
@@ -302,10 +302,14 @@ class SqlAlchemyBotStore(BotStore):
 
     def list_project_bindings(self, bot_id: str) -> list[BotProjectBinding]:
         with self._session("list_project_bindings") as session:
-            stmt = select(SqlBotProjectBinding).where(
-                SqlBotProjectBinding.workspace_id == current_workspace_id(),
-                SqlBotProjectBinding.bot_id == bot_id,
-            ).order_by(asc(SqlBotProjectBinding.created_at))
+            stmt = (
+                select(SqlBotProjectBinding)
+                .where(
+                    SqlBotProjectBinding.workspace_id == current_workspace_id(),
+                    SqlBotProjectBinding.bot_id == bot_id,
+                )
+                .order_by(asc(SqlBotProjectBinding.created_at))
+            )
             return [_project_binding_entity(r) for r in session.execute(stmt).scalars()]
 
     def unbind_project(self, *, bot_id: str, project_id: str) -> bool:

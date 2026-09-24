@@ -1651,7 +1651,9 @@ def set_default_provider(
         )
     target_raw = providers[name]
     if not isinstance(target_raw, dict):
-        raise AgentNexusError(f"provider {name!r} must be a mapping.", code=ErrorCode.INVALID_INPUT)
+        raise AgentNexusError(
+            f"provider {name!r} must be a mapping.", code=ErrorCode.INVALID_INPUT
+        )
     target_served = provider_families(_parse_provider(name, target_raw))
     # The families to (re)assign to *name*: a single scoped family, or all
     # it serves when unscoped.

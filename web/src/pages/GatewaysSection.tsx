@@ -113,7 +113,8 @@ export function GatewaysSection() {
       if (res.status === "ok" && res.models && res.models.length > 0 && !formDefaultModel) {
         const preferred =
           formFamily === "anthropic"
-            ? res.models.find((m) => m.includes("claude-sonnet") || m.includes("claude")) || res.models[0]
+            ? res.models.find((m) => m.includes("claude-sonnet") || m.includes("claude")) ||
+              res.models[0]
             : res.models.find((m) => m.includes("gpt-5") || m.includes("gpt")) || res.models[0];
         setFormDefaultModel(preferred);
       }
@@ -182,7 +183,8 @@ export function GatewaysSection() {
             </Badge>
           </div>
           <p className="mt-1 text-ui text-muted-foreground">
-            Manage local and LAN model gateways for Claude SDK, Codex, and OpenAI agents. Connect directly to CLI Proxy API without CC-Switch.
+            Manage local and LAN model gateways for Claude SDK, Codex, and OpenAI agents. Connect
+            directly to CLI Proxy API without CC-Switch.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -195,11 +197,7 @@ export function GatewaysSection() {
             <RefreshCwIcon className="h-3.5 w-3.5" />
             Refresh
           </Button>
-          <Button
-            size="sm"
-            onClick={() => openCreateDialog()}
-            className="gap-1.5 text-xs h-8"
-          >
+          <Button size="sm" onClick={() => openCreateDialog()} className="gap-1.5 text-xs h-8">
             <PlusIcon className="h-3.5 w-3.5" />
             Add Gateway
           </Button>
@@ -225,10 +223,13 @@ export function GatewaysSection() {
                   http://192.168.1.250:8317
                 </div>
               </div>
-              <Badge variant="outline" className="text-[10px] uppercase">Anthropic</Badge>
+              <Badge variant="outline" className="text-[10px] uppercase">
+                Anthropic
+              </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              直连局域网 CLI Proxy API，为 Claude SDK 提供原生 Messages 接口，无需启动本地 CC-Switch。
+              直连局域网 CLI Proxy API，为 Claude SDK 提供原生 Messages 接口，无需启动本地
+              CC-Switch。
             </p>
             <Button
               size="sm"
@@ -262,7 +263,9 @@ export function GatewaysSection() {
                   http://127.0.0.1:15721
                 </div>
               </div>
-              <Badge variant="outline" className="text-[10px] uppercase">Relay</Badge>
+              <Badge variant="outline" className="text-[10px] uppercase">
+                Relay
+              </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
               本地运行的 CC-Switch 客户端中转，自动映射 claude-haiku-4-5 等自定义别名。
@@ -299,7 +302,8 @@ export function GatewaysSection() {
           </div>
         ) : gateways.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No gateways configured. Use a preset above or click &quot;Add Gateway&quot; to configure one.
+            No gateways configured. Use a preset above or click &quot;Add Gateway&quot; to configure
+            one.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
@@ -470,7 +474,8 @@ export function GatewaysSection() {
               {editingGateway ? `Edit Gateway (${editingGateway.id})` : "Add Model Gateway"}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Configure connection parameters for an Anthropic or OpenAI compatible gateway endpoint.
+              Configure connection parameters for an Anthropic or OpenAI compatible gateway
+              endpoint.
             </DialogDescription>
           </DialogHeader>
 
@@ -553,7 +558,9 @@ export function GatewaysSection() {
               </label>
               <Input
                 type="password"
-                placeholder={editingGateway?.has_api_key ? "••••••••" : "56ff37d904ed90b4 or env:VAR"}
+                placeholder={
+                  editingGateway?.has_api_key ? "••••••••" : "56ff37d904ed90b4 or env:VAR"
+                }
                 value={formApiKey}
                 onChange={(e) => setFormApiKey(e.target.value)}
                 className="h-8 text-xs font-mono"
@@ -579,16 +586,15 @@ export function GatewaysSection() {
                   Use this gateway as the primary handler for {formFamily} model execution.
                 </span>
               </div>
-              <Switch
-                checked={formIsDefault}
-                onCheckedChange={setFormIsDefault}
-              />
+              <Switch checked={formIsDefault} onCheckedChange={setFormIsDefault} />
             </div>
 
             {/* Test Connection Button & Result */}
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground">Endpoint Verification</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Endpoint Verification
+                </span>
                 <Button
                   type="button"
                   variant="outline"

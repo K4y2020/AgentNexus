@@ -256,11 +256,11 @@ describe("Seedance V3 integration in A2ACollaborationCard", () => {
     render(
       <MemoryRouter>
         <SeedanceCanvasContext.Provider value={enabled}>
-        <A2ACollaborationCard
-          arguments={{ teammate: "seedance", task: "Sync shot S01-03 to canvas" }}
-          output={payload}
-          state="output-available"
-        />
+          <A2ACollaborationCard
+            arguments={{ teammate: "seedance", task: "Sync shot S01-03 to canvas" }}
+            output={payload}
+            state="output-available"
+          />
         </SeedanceCanvasContext.Provider>
       </MemoryRouter>,
     );

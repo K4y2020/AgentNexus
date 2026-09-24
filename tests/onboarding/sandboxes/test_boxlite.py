@@ -341,7 +341,9 @@ def test_prepare_local_passes_on_macos(
     fake_boxlite: _FakeBoxliteState, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """macOS always has Hypervisor.framework → no KVM probe, preflight passes."""
-    monkeypatch.setattr("agentnexus.onboarding.sandboxes.boxlite.platform.system", lambda: "Darwin")
+    monkeypatch.setattr(
+        "agentnexus.onboarding.sandboxes.boxlite.platform.system", lambda: "Darwin"
+    )
     BoxliteSandboxLauncher().prepare()
 
 

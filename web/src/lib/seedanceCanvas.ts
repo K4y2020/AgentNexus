@@ -4,7 +4,11 @@ import { agentRootName } from "./forkHarness";
 
 export const SeedanceCanvasContext = createContext(false);
 export function isCineAgent(name: string | null | undefined): boolean {
-  return agentRootName(name ?? "").trim().toLowerCase() === "cine";
+  return (
+    agentRootName(name ?? "")
+      .trim()
+      .toLowerCase() === "cine"
+  );
 }
 
 const listeners = new Set<(url: string) => void>();

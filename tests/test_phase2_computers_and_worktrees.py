@@ -47,6 +47,7 @@ def sample_bot(bot_store: SqlAlchemyBotStore, tmp_path: Path) -> Bot:
 
 # ── 1. Bot Project Binding Store Operations ──────────────────────
 
+
 def test_bot_project_binding_crud(
     bot_store: SqlAlchemyBotStore, sample_bot: Bot, tmp_path: Path
 ) -> None:
@@ -93,6 +94,7 @@ def test_bot_project_binding_crud(
 
 # ── 2. Local Host Provider Scratch Resolution ───────────────────
 
+
 def test_local_host_provider_scratch_without_project(
     bot_store: SqlAlchemyBotStore, sample_bot: Bot
 ) -> None:
@@ -110,6 +112,7 @@ def test_local_host_provider_scratch_without_project(
 
 
 # ── 3. Git Worktree Isolation & Concurrent Safety (Zero index.lock) ─
+
 
 def test_git_worktree_concurrent_isolation_zero_lock(
     bot_store: SqlAlchemyBotStore,
@@ -181,6 +184,7 @@ def test_git_worktree_concurrent_isolation_zero_lock(
 
 
 # ── 4. Non-Git Exclusive Execution Lease ─────────────────────────
+
 
 def test_non_git_execution_lease_exclusivity(
     bot_store: SqlAlchemyBotStore,

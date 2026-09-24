@@ -342,7 +342,9 @@ class SetupFlow:
                 channel=channel,
                 user=user_id,
                 thread_ts=thread_ts,
-                text=("Your AgentNexus login has expired — check your DM with me to sign in again."),
+                text=(
+                    "Your AgentNexus login has expired — check your DM with me to sign in again."
+                ),
             )
         return True
 
@@ -445,9 +447,7 @@ class SetupFlow:
             )
             return
 
-        await self._advance_to_select(
-            ack, omnigent, server_url, validated, channel_id=channel_id
-        )
+        await self._advance_to_select(ack, omnigent, server_url, validated, channel_id=channel_id)
 
     async def _advance_to_select(
         self,

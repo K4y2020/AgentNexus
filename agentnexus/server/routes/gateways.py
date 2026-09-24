@@ -1,4 +1,4 @@
-﻿"""Gateway and Model Provider management routes (/v1/gateways).
+"""Gateway and Model Provider management routes (/v1/gateways).
 
 Allows viewing, adding, updating, testing, and switching default API gateways
 directly from the Web UI.
@@ -27,9 +27,15 @@ class GatewayPayload(BaseModel):
     family: str = Field(default="anthropic", description="Protocol family: anthropic or openai")
     base_url: str = Field(..., min_length=1, description="Base URL of the gateway")
     api_key: str | None = Field(default=None, description="API Key or bearer token")
-    is_default: bool = Field(default=False, description="Whether this is the default provider for its family")
-    default_model: str | None = Field(default=None, description="Default model ID for this gateway")
-    wire_api: str | None = Field(default=None, description="Wire API: responses or chat (OpenAI only)")
+    is_default: bool = Field(
+        default=False, description="Whether this is the default provider for its family"
+    )
+    default_model: str | None = Field(
+        default=None, description="Default model ID for this gateway"
+    )
+    wire_api: str | None = Field(
+        default=None, description="Wire API: responses or chat (OpenAI only)"
+    )
 
 
 class GatewayTestPayload(BaseModel):
@@ -65,7 +71,9 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         for pid, p in providers.items():
             if not isinstance(p, dict):
                 continue
-            found_families = [f for f in ("anthropic", "openai") if f in p and isinstance(p[f], dict)]
+            found_families = [
+                f for f in ("anthropic", "openai") if f in p and isinstance(p[f], dict)
+            ]
             if not found_families:
                 found_families = ["other"]
             for family in found_families:
@@ -76,23 +84,27 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                 default_model = models_dict.get("default", "")
 
                 card_id = f"{pid}-{family}" if len(found_families) > 1 else pid
-                gateways.append({
-                    "id": card_id,
-                    "name": f"{pid} ({family})" if len(found_families) > 1 else pid,
-                    "kind": p.get("kind", "gateway"),
-                    "family": family,
-                    "base_url": base_url,
-                    "has_api_key": bool(raw_key),
-                    "api_key_masked": _mask_api_key(str(raw_key) if raw_key else None),
-                    "is_default": bool(p.get("default")),
-                    "default_model": default_model,
-                    "wire_api": sub.get("wire_api", ""),
-                })
+                gateways.append(
+                    {
+                        "id": card_id,
+                        "name": f"{pid} ({family})" if len(found_families) > 1 else pid,
+                        "kind": p.get("kind", "gateway"),
+                        "family": family,
+                        "base_url": base_url,
+                        "has_api_key": bool(raw_key),
+                        "api_key_masked": _mask_api_key(str(raw_key) if raw_key else None),
+                        "is_default": bool(p.get("default")),
+                        "default_model": default_model,
+                        "wire_api": sub.get("wire_api", ""),
+                    }
+                )
 
         return {"gateways": gateways}
 
     @router.post("/gateways")
-    async def create_or_update_gateway(payload: GatewayPayload, request: Request) -> dict[str, Any]:
+    async def create_or_update_gateway(
+        payload: GatewayPayload, request: Request
+    ) -> dict[str, Any]:
         """Create or update a gateway entry in ~/.agentnexus/config.yaml."""
         require_user(request, auth_provider)
         cfg = _load_global_config()
@@ -103,7 +115,7 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         norm_id = payload.id.strip().replace(" ", "-")
         for suffix in ("-anthropic", "-openai"):
             if norm_id.endswith(suffix):
-                norm_id = norm_id[:-len(suffix)]
+                norm_id = norm_id[: -len(suffix)]
                 break
         base_url = payload.base_url.strip().rstrip("/")
         clean_key = payload.api_key.strip() if payload.api_key else None
@@ -181,7 +193,7 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         target_id = gateway_id
         for suffix in ("-anthropic", "-openai"):
             if target_id.endswith(suffix) and target_id not in providers:
-                stripped = target_id[:-len(suffix)]
+                stripped = target_id[: -len(suffix)]
                 if stripped in providers:
                     target_id = stripped
                     break
@@ -207,7 +219,7 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         for suffix in ("-anthropic", "-openai"):
             if target_id.endswith(suffix) and target_id not in providers:
                 forced_family = suffix[1:]
-                stripped = target_id[:-len(suffix)]
+                stripped = target_id[: -len(suffix)]
                 if stripped in providers:
                     target_id = stripped
                     break
@@ -219,13 +231,17 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         if not isinstance(target, dict):
             raise HTTPException(status_code=400, detail="Invalid gateway entry")
 
-        target_fam = forced_family or ("anthropic" if "anthropic" in target else ("openai" if "openai" in target else None))
+        target_fam = forced_family or (
+            "anthropic" if "anthropic" in target else ("openai" if "openai" in target else None)
+        )
         if not target_fam:
-            raise HTTPException(status_code=400, detail="Gateway has no anthropic or openai family")
+            raise HTTPException(
+                status_code=400, detail="Gateway has no anthropic or openai family"
+            )
 
         for other_id, other_p in providers.items():
             if isinstance(other_p, dict) and target_fam in other_p:
-                other_p["default"] = (other_id == target_id)
+                other_p["default"] = other_id == target_id
 
         _save_global_config({"providers": providers})
         return {"status": "ok", "default_gateway": target_id, "family": target_fam}
@@ -251,7 +267,9 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                             sub = p.get(fam, {})
                             if isinstance(sub, dict):
                                 b = str(sub.get("base_url", "")).rstrip("/")
-                                if b and (b == base_url or b == base_clean or b == f"{base_clean}/v1"):
+                                if b and (
+                                    b == base_url or b == base_clean or b == f"{base_clean}/v1"
+                                ):
                                     k = sub.get("api_key")
                                     if isinstance(k, str) and k:
                                         key = k
@@ -310,7 +328,11 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                             }
                     elif resp.status_code in (401, 403):
                         last_error = f"HTTP {resp.status_code}: Authentication failed. Please check API Key."
-                    elif not last_error or last_error.startswith("HTTP 404") or last_error == "Unknown error":
+                    elif (
+                        not last_error
+                        or last_error.startswith("HTTP 404")
+                        or last_error == "Unknown error"
+                    ):
                         last_error = f"HTTP {resp.status_code}: {resp.text[:120]}"
                 except httpx.ConnectError:
                     last_error = f"Cannot connect to {base_url} (Connection refused)"

@@ -273,8 +273,8 @@ export function ResumeWithDirectoryDialog({
         ) : noOnlineHosts ? (
           <p className="text-sm text-muted-foreground" data-testid="resume-dir-no-hosts">
             None of your machines are online. Start one with{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono">agentnexus host</code> from your
-            terminal, then reopen this dialog.
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">agentnexus host</code> from
+            your terminal, then reopen this dialog.
           </p>
         ) : showCliFallback ? (
           <div className="flex flex-col gap-2" data-testid="resume-dir-cli-fallback">

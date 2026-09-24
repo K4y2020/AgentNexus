@@ -429,7 +429,9 @@ async def test_session_snapshot_unresolvable_sub_agent_warns_and_reports_parent(
     monkeypatch.setattr("agentnexus.runtime.get_runner_client", lambda: None)
     monkeypatch.setattr("agentnexus.runtime.get_runner_router", lambda: None)
 
-    with caplog.at_level(logging.WARNING, logger="agentnexus.server.routes._sessions.orchestration"):
+    with caplog.at_level(
+        logging.WARNING, logger="agentnexus.server.routes._sessions.orchestration"
+    ):
         child = await _get_session_snapshot(
             conv_store,  # type: ignore[arg-type]
             "conv_child",

@@ -168,7 +168,10 @@ describe("TeammatesPage actions", () => {
     fireEvent.click(screen.getByTestId("settings-polly"));
 
     expect(screen.getByTestId("settings-dialog-open")).toHaveAttribute("data-agent-id", "ag_polly");
-    expect(screen.getByTestId("settings-dialog-open")).toHaveAttribute("data-initial-tab", "profile");
+    expect(screen.getByTestId("settings-dialog-open")).toHaveAttribute(
+      "data-initial-tab",
+      "profile",
+    );
   });
 
   it("opens the memory dialog for the row's bot", () => {

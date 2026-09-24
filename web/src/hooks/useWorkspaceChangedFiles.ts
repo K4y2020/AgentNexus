@@ -346,14 +346,14 @@ function mapFilesystemEntries(
   // prefix attached and the lazy tree later requests `apps/apps/worker`.
   const normalizedTarget = target.replaceAll("\\", "/");
   const normalizedPrefix = prefix.replaceAll("\\", "/");
-  const echoed = normalizedTarget && !browseLocationBase(normalizedTarget)
-    ? `${normalizedTarget}/`
-    : "";
+  const echoed =
+    normalizedTarget && !browseLocationBase(normalizedTarget) ? `${normalizedTarget}/` : "";
   return json.data.map((e) => {
     const normalizedPath = e.path.replaceAll("\\", "/");
-    const relative = echoed && normalizedPath.startsWith(echoed)
-      ? normalizedPath.slice(echoed.length)
-      : normalizedPath;
+    const relative =
+      echoed && normalizedPath.startsWith(echoed)
+        ? normalizedPath.slice(echoed.length)
+        : normalizedPath;
     return {
       path: joinBrowseLocation(normalizedPrefix, relative),
       name: e.name,

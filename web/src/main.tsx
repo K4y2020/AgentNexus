@@ -37,10 +37,7 @@ initBrowserTelemetry();
 // (e.g. Web Vitals / Tampermonkey scripts reading undefined startTime)
 if (typeof window !== "undefined") {
   window.addEventListener("error", (event) => {
-    if (
-      typeof event.message === "string" &&
-      event.message.includes("startTime")
-    ) {
+    if (typeof event.message === "string" && event.message.includes("startTime")) {
       event.preventDefault();
     }
   });

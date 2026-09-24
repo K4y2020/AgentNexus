@@ -275,4 +275,3 @@ def test_conditions_generalizes_mother_and_wife_exclusions():
 
     cond_wife = attribute_speakers._conditions({"text": "老婆，我升官了！"}, roster)
     assert "她是被称呼为老婆的那个人" in cond_wife["R01"]
-

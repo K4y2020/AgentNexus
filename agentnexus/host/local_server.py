@@ -671,7 +671,9 @@ def _spawn_local_server(port: int) -> _SpawnedLocalServer:
                 load_or_generate_cookie_secret,
             )
 
-            child_env["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"] = load_or_generate_cookie_secret(data_dir)
+            child_env["AGENTNEXUS_ACCOUNTS_COOKIE_SECRET"] = load_or_generate_cookie_secret(
+                data_dir
+            )
         # Always override BASE_URL — the parent's value (if any)
         # almost certainly points at a different port than the
         # freshly picked one.

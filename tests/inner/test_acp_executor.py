@@ -489,7 +489,10 @@ def test_claimed_completion_frame_emits_no_spurious_parent_card() -> None:
             True,
         ),
         (
-            {"title": "Session info", "rawInput": {"tool": "mcp__agentnexus__sys_session_get_info"}},
+            {
+                "title": "Session info",
+                "rawInput": {"tool": "mcp__agentnexus__sys_session_get_info"},
+            },
             True,
         ),
         (

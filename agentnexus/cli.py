@@ -1805,7 +1805,9 @@ def _start_cli_profile(
     microseconds = time.time_ns() // 1_000 % 1_000_000
     profile_dir = data_dir() / "profiles"
     profile_dir.mkdir(parents=True, exist_ok=True)
-    output_path = profile_dir / (f"agentnexus-cli-{timestamp}-{microseconds:06d}-{os.getpid()}.prof")
+    output_path = profile_dir / (
+        f"agentnexus-cli-{timestamp}-{microseconds:06d}-{os.getpid()}.prof"
+    )
     profiler = cProfile.Profile()
     profiler.enable()
     ctx.call_on_close(lambda: _finish_cli_profile(profiler, output_path))

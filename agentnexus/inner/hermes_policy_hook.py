@@ -58,7 +58,9 @@ def main() -> None:
     # through the server's tool path; gating them here too parks a duplicate approval
     # card whose long-poll hangs. Hermes' own tools lack the prefix and stay gated.
     # Legacy relay spellings remain readable until 2.0.
-    if tool_name.startswith(("mcp_agentnexus_", "mcp__agentnexus__", "mcp_omnigent_", "mcp__omnigent__")):
+    if tool_name.startswith(
+        ("mcp_agentnexus_", "mcp__agentnexus__", "mcp_omnigent_", "mcp__omnigent__")
+    ):
         json.dump({}, sys.stdout)
         return
 

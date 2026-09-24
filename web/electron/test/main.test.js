@@ -850,7 +850,12 @@ describe("HTTP error status fallback (src/main.js)", () => {
     const harness = loadNavigationHarness();
     t.after(harness.cleanup);
 
-    harness.emit("did-navigate", "https://host.example/ml/agentnexuss/", 503, "Service Unavailable");
+    harness.emit(
+      "did-navigate",
+      "https://host.example/ml/agentnexuss/",
+      503,
+      "Service Unavailable",
+    );
 
     assert.equal(harness.calls.loadFile.length, 1);
     const params = new URLSearchParams(harness.calls.loadFile[0][1].search);

@@ -119,8 +119,7 @@ def test_strip_claude_sdk_internal_system_blocks_preserves_agent_prompt() -> Non
                 {
                     "type": "text",
                     "text": (
-                        "x-anthropic-billing-header: "
-                        "cc_version=2.1.251; cc_entrypoint=sdk-py;"
+                        "x-anthropic-billing-header: cc_version=2.1.251; cc_entrypoint=sdk-py;"
                     ),
                 },
                 {

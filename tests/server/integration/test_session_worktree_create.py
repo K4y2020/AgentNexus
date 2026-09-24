@@ -321,12 +321,8 @@ async def test_two_parallel_implementer_sessions_use_distinct_worktrees(
     cap = register_worktree_host()
     agent = await create_test_agent(client, name="wt-parallel-agent")
 
-    first = await _create_git_session(
-        client, agent["id"], {"branch_name": "implementer/one"}
-    )
-    second = await _create_git_session(
-        client, agent["id"], {"branch_name": "implementer/two"}
-    )
+    first = await _create_git_session(client, agent["id"], {"branch_name": "implementer/one"})
+    second = await _create_git_session(client, agent["id"], {"branch_name": "implementer/two"})
     assert first.status_code == 201, first.text
     assert second.status_code == 201, second.text
 

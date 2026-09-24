@@ -175,4 +175,3 @@ jobs:
           name: control-plane-soak-windows-${{ github.sha }}
           path: .reliability-results/soak/**
           if-no-files-found: ignore
-

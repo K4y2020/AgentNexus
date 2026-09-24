@@ -39,9 +39,7 @@ _LINK = '[data-streamdown="link"]'
 _SHORT_LINK_TEXT = "#3090"
 
 # Rendered as its own link text, and too long to fit one line in a cell.
-_LONG_URL = (
-    "https://github.com/K4y2020/agentnexus/pull/3350/files#diff-markdown-table-link-column"
-)
+_LONG_URL = "https://github.com/K4y2020/agentnexus/pull/3350/files#diff-markdown-table-link-column"
 
 
 def _row(num: str, title: str, author: str, waiting: str) -> str:

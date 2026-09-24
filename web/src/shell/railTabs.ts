@@ -5,7 +5,8 @@
  */
 
 /** The selectable tabs in the right workspace rail, in display order. */
-export type RightRailTab = "files" | "changes" | "subagents" | "coordination" | "browser" | "canvas" | "cine-review";
+export type RightRailTab =
+  "files" | "changes" | "subagents" | "coordination" | "browser" | "canvas" | "cine-review";
 
 /**
  * Count/status badge geometry. Fixed height with min-width == height keeps a

@@ -5014,7 +5014,9 @@ async def test_resolve_cold_resume_args_replaces_existing_local_claude_transcrip
         args = await claude_native._resolve_cold_resume_args(client, "conv_abc")
 
     assert args == ("--resume", "claude-uuid-abc")
-    assert item_requests == 1, "cold resume must fetch AgentNexus items even when local JSONL exists"
+    assert item_requests == 1, (
+        "cold resume must fetch AgentNexus items even when local JSONL exists"
+    )
     records = [
         json.loads(line)
         for line in transcript_path.read_text(encoding="utf-8").splitlines()

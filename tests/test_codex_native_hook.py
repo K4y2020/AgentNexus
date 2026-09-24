@@ -1180,7 +1180,10 @@ def test_route_turn_ignores_a_marker_another_session_left_in_the_dir(
     never route its first message, and the routing it never got would be
     attributed to the superseded session id.
     """
-    from agentnexus.runner.turn_routing import turn_routing_marker_session, write_turn_routing_marker
+    from agentnexus.runner.turn_routing import (
+        turn_routing_marker_session,
+        write_turn_routing_marker,
+    )
 
     _advertise_turn_router(bridge_dir)
     write_turn_routing_marker(bridge_dir, session_id="conv_superseded", decision_id="d0")

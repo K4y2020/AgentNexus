@@ -7254,7 +7254,9 @@ async def test_ambiguous_boundary_post_marks_persisted(tmp_path: Path) -> None:
 
     with (
         patch("agentnexus.claude_native_forwarder._persist_native_compaction_item", ambiguous),
-        patch("agentnexus.claude_native_forwarder.post_may_have_been_delivered", return_value=True),
+        patch(
+            "agentnexus.claude_native_forwarder.post_may_have_been_delivered", return_value=True
+        ),
     ):
         handled = await _handle_compact_summary_item(
             AsyncMock(),

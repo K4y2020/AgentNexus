@@ -1049,11 +1049,7 @@ describe("NewChatLandingScreen", () => {
     renderLanding();
 
     const composer = screen.getByTestId("new-chat-landing-composer");
-    expect(composer).toHaveClass(
-      "has-[textarea:focus]:border-ring",
-      "rounded-lg",
-      "border-input",
-    );
+    expect(composer).toHaveClass("has-[textarea:focus]:border-ring", "rounded-lg", "border-input");
     expect(composer).not.toHaveClass("shadow-[var(--composer-shadow)]");
   });
 
@@ -3272,7 +3268,9 @@ describe("NewChatLandingScreen @-file-mention", () => {
     // the "/Users/corey/repo/…" absolute path the host filesystem returned.
     await waitFor(() => expect(setPendingInitialPromptMock).toHaveBeenCalled());
     const [, payload] = setPendingInitialPromptMock.mock.calls[0]!;
-    expect((payload as { text: string }).text).toBe("[Attached: agentnexus/cli.py]\n\nexplain this");
+    expect((payload as { text: string }).text).toBe(
+      "[Attached: agentnexus/cli.py]\n\nexplain this",
+    );
   });
 
   it("suppresses stale parent rows while a drilled directory is still loading", async () => {

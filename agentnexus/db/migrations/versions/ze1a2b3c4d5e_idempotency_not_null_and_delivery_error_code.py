@@ -24,8 +24,7 @@ def upgrade() -> None:
     # 1. Backfill any remaining null idempotency keys just in case
     rows = bind.execute(
         sa.text(
-            "SELECT workspace_id, message_id FROM agent_messages "
-            "WHERE idempotency_key IS NULL"
+            "SELECT workspace_id, message_id FROM agent_messages WHERE idempotency_key IS NULL"
         )
     ).mappings()
     for row in rows:
@@ -52,13 +51,12 @@ def upgrade() -> None:
 
     # 3. Add error_code column to delivery_attempts
     with op.batch_alter_table("delivery_attempts") as batch_op:
-        batch_op.add_column(
-            sa.Column("error_code", sa.String(64), nullable=True)
-        )
+        batch_op.add_column(sa.Column("error_code", sa.String(64), nullable=True))
 
     # 4. Backfill existing delivery_attempts error_code from error blob
     try:
         import zstandard
+
         d_rows = bind.execute(
             sa.text("SELECT attempt_id, error FROM delivery_attempts WHERE error IS NOT NULL")
         ).mappings()
@@ -67,18 +65,25 @@ def upgrade() -> None:
             err_text = ""
             if isinstance(err, bytes):
                 try:
-                    err_text = zstandard.ZstdDecompressor().decompress(err[2:]).decode("utf-8", errors="ignore")
+                    err_text = (
+                        zstandard.ZstdDecompressor()
+                        .decompress(err[2:])
+                        .decode("utf-8", errors="ignore")
+                    )
                 except Exception:
                     err_text = str(err)
             elif isinstance(err, str):
                 err_text = err
-            
+
             code = "UNKNOWN_ERROR"
             if "not found" in err_text.lower():
                 code = "CONVERSATION_NOT_FOUND"
             elif "not bound to a runner" in err_text.lower() or "unbound" in err_text.lower():
                 code = "RUNNER_UNBOUND"
-            elif "is offline for conversation" in err_text.lower() or "runner offline" in err_text.lower():
+            elif (
+                "is offline for conversation" in err_text.lower()
+                or "runner offline" in err_text.lower()
+            ):
                 code = "RUNNER_OFFLINE"
             elif "rejected" in err_text.lower():
                 code = "RUNNER_REJECTED"

@@ -125,7 +125,9 @@ def _provider_block() -> dict[str, Any]:
     :raises pytest.skip.Exception: When no provider config can be found.
     """
     override = os.environ.get(_PROVIDER_CONFIG_ENV)
-    candidates = [Path(override)] if override else [_REPO_ROOT / ".agentnexus-local" / "config.yaml"]
+    candidates = (
+        [Path(override)] if override else [_REPO_ROOT / ".agentnexus-local" / "config.yaml"]
+    )
     for path in candidates:
         if not path.is_file():
             continue

@@ -401,7 +401,13 @@ class NativeTuiDriver:
         # Keep the real HOME so the vendor login remains available.
         log = (self._tmp / "host-daemon.log").open("wb")
         return subprocess.Popen(
-            [runner_executable(), "-m", "agentnexus.host._daemon_entry", "--server", self._base_url],
+            [
+                runner_executable(),
+                "-m",
+                "agentnexus.host._daemon_entry",
+                "--server",
+                self._base_url,
+            ],
             env=apply_runner_env(base_env),
             cwd=compat_runner_cwd(),
             stdout=subprocess.DEVNULL,
@@ -620,7 +626,9 @@ class NativeTuiDriver:
 
         # Avoid satisfying the second probe from reused-session history.
         token = "deny" if deny else "allow"
-        prompt = self._vendor.tool_prompt.replace("agentnexus-bench-ok", f"agentnexus-bench-{token}")
+        prompt = self._vendor.tool_prompt.replace(
+            "agentnexus-bench-ok", f"agentnexus-bench-{token}"
+        )
 
         reader = threading.Thread(target=_read)
         try:

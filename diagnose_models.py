@@ -11,11 +11,12 @@ import os
 from pathlib import Path
 
 # 设置输出编码为 UTF-8
-if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent))
+
 
 def diagnose_mlflow_catalog():
     """诊断 MLflow 在线目录"""
@@ -51,7 +52,9 @@ def diagnose_mlflow_catalog():
                             capabilities.append("reasoning")
 
                         cap_str = f" [{', '.join(capabilities)}]" if capabilities else ""
-                        ctx = f"ctx={model.max_input_tokens}" if model.max_input_tokens else "ctx=?"
+                        ctx = (
+                            f"ctx={model.max_input_tokens}" if model.max_input_tokens else "ctx=?"
+                        )
 
                         print(f"  {i:2d}. {model.name:<40s} {ctx:>12s}{cap_str}")
                 else:
@@ -170,10 +173,10 @@ def diagnose_code_references():
 
     # 过时的模型引用模式
     old_patterns = [
-        (r'gpt-5[.\d-]*', "GPT-5 系列 (不存在)"),
-        (r'claude-opus-4-8', "Claude Opus 4-8 (应为 4.8)"),
-        (r'claude-sonnet-4-6', "Claude Sonnet 4-6 (应为 4.6)"),
-        (r'databricks-gpt-5', "Databricks GPT-5 (不存在)"),
+        (r"gpt-5[.\d-]*", "GPT-5 系列 (不存在)"),
+        (r"claude-opus-4-8", "Claude Opus 4-8 (应为 4.8)"),
+        (r"claude-sonnet-4-6", "Claude Sonnet 4-6 (应为 4.6)"),
+        (r"databricks-gpt-5", "Databricks GPT-5 (不存在)"),
     ]
 
     agentnexus_dir = Path(__file__).parent / "agentnexus"

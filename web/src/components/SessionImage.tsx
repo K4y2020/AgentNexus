@@ -49,7 +49,10 @@ const PREVIEW_PLACEHOLDER_BOX = "flex h-64 w-40 shrink-0 items-center justify-ce
 export function SessionImage({ path, alt, className }: SessionImageProps) {
   // Host config is installed once at embed startup and never changes, so it's
   // safe to branch on it before any hooks. Hooks live in the embedded child.
-  if (/^data:image\/(png|jpeg|webp);base64,/i.test(path ?? "") || !getOmnigentHostConfig().fetcher) {
+  if (
+    /^data:image\/(png|jpeg|webp);base64,/i.test(path ?? "") ||
+    !getOmnigentHostConfig().fetcher
+  ) {
     return (
       <div className={PREVIEW_BOX}>
         <ZoomableImage

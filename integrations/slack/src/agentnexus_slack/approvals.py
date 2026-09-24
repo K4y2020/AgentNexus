@@ -317,7 +317,9 @@ def resolved_card_blocks(
     elif outcome is ElicitationOutcome.DELIVERY_FAILED:
         # The click never reached the server, so it's still parked on this request
         # — the turn can't continue. Re-sending starts a fresh attempt.
-        text += "\n_I couldn't deliver your answer to AgentNexus. Send your message again to retry._"
+        text += (
+            "\n_I couldn't deliver your answer to AgentNexus. Send your message again to retry._"
+        )
     elif outcome is ElicitationOutcome.ABANDONED:
         # The turn ended before this was answered; declined server-side to free
         # the session. Re-sending starts a fresh attempt.

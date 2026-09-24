@@ -104,10 +104,12 @@ def _production_payload(workspace: Path, package: Path) -> dict:
             data, _ = _json(path)
             artifacts[stage] = data
             actual = hashlib.sha256(path.read_bytes()).hexdigest()
-            hash_status.append({
-                "stage": stage,
-                "match": actual == entry.get("sha256"),
-            })
+            hash_status.append(
+                {
+                    "stage": stage,
+                    "match": actual == entry.get("sha256"),
+                }
+            )
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             hash_status.append({"stage": stage, "match": False, "reason": str(exc)})
 
@@ -249,47 +251,51 @@ def _outputs_packages(
                         s_from = int(i * num_shots / max(1, num_cuts))
                         s_to = max(s_from + 1, int((i + 1) * num_shots / max(1, num_cuts)))
                         matched = [s["shot_id"] for s in sub_shots[s_from:s_to]]
-                        mappings.append({
-                            "ep": 1,
-                            "segment_id": seg_id,
-                            "cut": c_idx,
-                            "kind": "adapted",
-                            "source_shot_ids": matched,
-                        })
+                        mappings.append(
+                            {
+                                "ep": 1,
+                                "segment_id": seg_id,
+                                "cut": c_idx,
+                                "kind": "adapted",
+                                "source_shot_ids": matched,
+                            }
+                        )
 
             manifest_token = hashlib.sha256(sb_raw.encode("utf-8")).hexdigest()
             target_sec = ep.get("targetSeconds") or sum(
                 sum(c.get("seconds", 0) for c in s.get("cuts", [])) for s in segments
             )
-            packages.append({
-                "id": sb_file.relative_to(workspace).as_posix(),
-                "name": f"分镜表 · {title} ({total_cuts} 镜)",
-                "mode": "改编分镜",
-                "scope": f"{total_cuts} 镜 · {len(segments)} 段",
-                "targetSeconds": round(target_sec, 1) if target_sec else None,
-                "stages": ["script", "storyboard"] if script_data else ["storyboard"],
-                "hashStatus": [{"stage": "storyboard", "match": True}],
-                "hashesMatch": True,
-                "mappingCount": len(mappings),
-                "validation": {
-                    "status": "draft",
-                    "runId": None,
-                    "productionAuthorized": False,
-                    "unverified": [],
-                    "stageStatuses": {"storyboard": "ready"},
-                },
-                "blockers": [],
-                "manifestToken": manifest_token,
-                "artifacts": {
-                    "storyboard": sb_data,
-                    "script": script_data,
-                    "mapping": mappings,
-                    "source_material": {
-                        "source_id": source_id or "",
-                        "revision_id": revision_id or "",
+            packages.append(
+                {
+                    "id": sb_file.relative_to(workspace).as_posix(),
+                    "name": f"分镜表 · {title} ({total_cuts} 镜)",
+                    "mode": "改编分镜",
+                    "scope": f"{total_cuts} 镜 · {len(segments)} 段",
+                    "targetSeconds": round(target_sec, 1) if target_sec else None,
+                    "stages": ["script", "storyboard"] if script_data else ["storyboard"],
+                    "hashStatus": [{"stage": "storyboard", "match": True}],
+                    "hashesMatch": True,
+                    "mappingCount": len(mappings),
+                    "validation": {
+                        "status": "draft",
+                        "runId": None,
+                        "productionAuthorized": False,
+                        "unverified": [],
+                        "stageStatuses": {"storyboard": "ready"},
                     },
-                },
-            })
+                    "blockers": [],
+                    "manifestToken": manifest_token,
+                    "artifacts": {
+                        "storyboard": sb_data,
+                        "script": script_data,
+                        "mapping": mappings,
+                        "source_material": {
+                            "source_id": source_id or "",
+                            "revision_id": revision_id or "",
+                        },
+                    },
+                }
+            )
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             continue
 
@@ -308,33 +314,35 @@ def _outputs_packages(
             target_sec = ep.get("targetSeconds")
             scenes = ep.get("scenes") or []
             manifest_token = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-            packages.append({
-                "id": script_file.relative_to(workspace).as_posix(),
-                "name": f"剧本 · {title} ({len(scenes)} 场)",
-                "mode": "改编剧本",
-                "scope": f"{len(scenes)} 场戏",
-                "targetSeconds": target_sec,
-                "stages": ["script"],
-                "hashStatus": [{"stage": "script", "match": True}],
-                "hashesMatch": True,
-                "mappingCount": 0,
-                "validation": {
-                    "status": "draft",
-                    "runId": None,
-                    "productionAuthorized": False,
-                    "unverified": [],
-                    "stageStatuses": {"script": "ready"},
-                },
-                "blockers": [],
-                "manifestToken": manifest_token,
-                "artifacts": {
-                    "script": sdata,
-                    "source_material": {
-                        "source_id": source_id or "",
-                        "revision_id": revision_id or "",
+            packages.append(
+                {
+                    "id": script_file.relative_to(workspace).as_posix(),
+                    "name": f"剧本 · {title} ({len(scenes)} 场)",
+                    "mode": "改编剧本",
+                    "scope": f"{len(scenes)} 场戏",
+                    "targetSeconds": target_sec,
+                    "stages": ["script"],
+                    "hashStatus": [{"stage": "script", "match": True}],
+                    "hashesMatch": True,
+                    "mappingCount": 0,
+                    "validation": {
+                        "status": "draft",
+                        "runId": None,
+                        "productionAuthorized": False,
+                        "unverified": [],
+                        "stageStatuses": {"script": "ready"},
                     },
-                },
-            })
+                    "blockers": [],
+                    "manifestToken": manifest_token,
+                    "artifacts": {
+                        "script": sdata,
+                        "source_material": {
+                            "source_id": source_id or "",
+                            "revision_id": revision_id or "",
+                        },
+                    },
+                }
+            )
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             continue
     return packages

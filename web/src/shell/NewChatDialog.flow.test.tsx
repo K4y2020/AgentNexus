@@ -1264,7 +1264,8 @@ describe("NewChatLandingScreen create flow", () => {
     expect(body.reasoning_effort).toBeUndefined();
     expect(body.labels?.["agentnexus.wrapper"]).toBe("pi-native-ui");
     expect(
-      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["pi-native"]?.model,
+      JSON.parse(localStorage.getItem("agentnexus:last-mode-by-harness") ?? "{}")["pi-native"]
+        ?.model,
     ).toBe("agentnexus-openai/system.ai.gpt-5-6-sol");
   });
 

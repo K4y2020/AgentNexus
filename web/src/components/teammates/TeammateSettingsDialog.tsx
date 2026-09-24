@@ -22,7 +22,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,9 +74,11 @@ export function TeammateSettingsDialog({
   const queryClient = useQueryClient();
 
   // Memories hooks
-  const { data: memories, isLoading: memoriesLoading, isError: memoriesError } = useTeammateMemories(
-    agentId || null,
-  );
+  const {
+    data: memories,
+    isLoading: memoriesLoading,
+    isError: memoriesError,
+  } = useTeammateMemories(agentId || null);
   const createMemoryMutation = useCreateTeammateMemory(agentId);
   const updateMemoryMutation = useUpdateTeammateMemory(agentId);
   const deleteMemoryMutation = useDeleteTeammateMemory(agentId);
@@ -136,7 +144,8 @@ export function TeammateSettingsDialog({
 
   useEffect(() => {
     if (open) {
-      const current = teammate?.bot.defaultModel || session?.modelOverride || (session?.llmModel ?? "default");
+      const current =
+        teammate?.bot.defaultModel || session?.modelOverride || (session?.llmModel ?? "default");
       setSelectedBotModel(current || "default");
       setModelSaved(false);
     }
@@ -159,7 +168,6 @@ export function TeammateSettingsDialog({
     setModelSaved(true);
     setTimeout(() => setModelSaved(false), 2500);
   }
-
 
   // Polly subagent routing state
   const subagentRoutingOverride = useChatStore((s) => s.subagentRoutingOverride);
@@ -260,9 +268,7 @@ export function TeammateSettingsDialog({
         setPollyCodebuddyModel(savedCodebuddy || "default");
         setPollySubagentsSaved(false);
       }
-      const savedBehavior =
-        teammate?.bot.behaviorMode || sessionBehaviorMode ||
-        "off";
+      const savedBehavior = teammate?.bot.behaviorMode || sessionBehaviorMode || "off";
       setBehaviorMode(savedBehavior);
       setBehaviorSaved(false);
       const ws = teammate?.bot.homePath ?? "";
@@ -280,7 +286,6 @@ export function TeammateSettingsDialog({
     teammate?.bot.behaviorMode,
     teammate?.bot.homePath,
   ]);
-
 
   async function handleSaveDebbyPartners() {
     if (typeof localStorage !== "undefined") {
@@ -337,7 +342,8 @@ export function TeammateSettingsDialog({
           labels: {
             "subagent.model.claude_code": pollyClaudeModel === "default" ? "" : pollyClaudeModel,
             "subagent.model.codex": pollyCodexModel === "default" ? "" : pollyCodexModel,
-            "subagent.model.codebuddy": pollyCodebuddyModel === "default" ? "" : pollyCodebuddyModel,
+            "subagent.model.codebuddy":
+              pollyCodebuddyModel === "default" ? "" : pollyCodebuddyModel,
           },
           silent: true,
         });
@@ -430,7 +436,11 @@ export function TeammateSettingsDialog({
                 <CpuIcon className="size-3.5" />
                 Model & Engine
               </TabsTrigger>
-              <TabsTrigger value="memories" className="gap-1.5 py-1.5 text-xs" data-testid="settings-tab-memories">
+              <TabsTrigger
+                value="memories"
+                className="gap-1.5 py-1.5 text-xs"
+                data-testid="settings-tab-memories"
+              >
                 <BrainIcon className="size-3.5" />
                 Memories
                 {(memories ?? []).length > 0 && (
@@ -439,7 +449,11 @@ export function TeammateSettingsDialog({
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="routines" className="gap-1.5 py-1.5 text-xs" data-testid="settings-tab-routines">
+              <TabsTrigger
+                value="routines"
+                className="gap-1.5 py-1.5 text-xs"
+                data-testid="settings-tab-routines"
+              >
                 <ClockIcon className="size-3.5" />
                 Routines
                 {teammate.routineCount > 0 && (
@@ -479,11 +493,15 @@ export function TeammateSettingsDialog({
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Runtime Engine:</span>
-                    <span className="font-medium text-foreground">{agent.harness ?? "default"}</span>
+                    <span className="font-medium text-foreground">
+                      {agent.harness ?? "default"}
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Builtin Status:</span>
-                    <span className="text-foreground">{agent.builtin ? "System template" : "Custom bot"}</span>
+                    <span className="text-foreground">
+                      {agent.builtin ? "System template" : "Custom bot"}
+                    </span>
                   </div>
                 </div>
 
@@ -523,7 +541,9 @@ export function TeammateSettingsDialog({
 
                 {agent.description && (
                   <div className="border-t border-border/40 pt-2.5">
-                    <span className="text-xs text-muted-foreground block mb-1">Role Description:</span>
+                    <span className="text-xs text-muted-foreground block mb-1">
+                      Role Description:
+                    </span>
                     <p className="text-xs leading-relaxed text-foreground bg-background rounded p-2 border border-border/40">
                       {agent.description}
                     </p>
@@ -554,7 +574,8 @@ export function TeammateSettingsDialog({
                     <div className="space-y-1.5 text-xs">
                       <p className="font-medium text-foreground">Two-Headed Debate Architecture:</p>
                       <p className="text-muted-foreground text-xs leading-relaxed">
-                        Debby runs two parallel sub-agents (Claude partner & GPT partner) that critique and synthesize perspectives before responding.
+                        Debby runs two parallel sub-agents (Claude partner & GPT partner) that
+                        critique and synthesize perspectives before responding.
                       </p>
                     </div>
 
@@ -572,7 +593,8 @@ export function TeammateSettingsDialog({
                         )}
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        配置辩论所调用的两个子 Agent 具体大模型。选择后将自动应用至当前及后续对话中：
+                        配置辩论所调用的两个子 Agent
+                        具体大模型。选择后将自动应用至当前及后续对话中：
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -588,7 +610,10 @@ export function TeammateSettingsDialog({
                               setDebbySaved(false);
                             }}
                           >
-                            <SelectTrigger className="w-full text-xs h-8" data-testid="select-claude-partner">
+                            <SelectTrigger
+                              className="w-full text-xs h-8"
+                              data-testid="select-claude-partner"
+                            >
                               <SelectValue placeholder="Provider Default" />
                             </SelectTrigger>
                             <SelectContent position="popper">
@@ -597,13 +622,22 @@ export function TeammateSettingsDialog({
                               </SelectItem>
                               {claudePartnerModel &&
                                 claudePartnerModel !== "default" &&
-                                !claudePartnerOptions.some((opt) => opt.id === claudePartnerModel) && (
-                                  <SelectItem value={claudePartnerModel} className="text-xs font-mono">
+                                !claudePartnerOptions.some(
+                                  (opt) => opt.id === claudePartnerModel,
+                                ) && (
+                                  <SelectItem
+                                    value={claudePartnerModel}
+                                    className="text-xs font-mono"
+                                  >
                                     {claudePartnerModel} (Current)
                                   </SelectItem>
                                 )}
                               {claudePartnerOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                <SelectItem
+                                  key={opt.id}
+                                  value={opt.id}
+                                  className="text-xs font-mono"
+                                >
                                   {opt.displayName ?? opt.id}
                                 </SelectItem>
                               ))}
@@ -626,7 +660,10 @@ export function TeammateSettingsDialog({
                               setDebbySaved(false);
                             }}
                           >
-                            <SelectTrigger className="w-full text-xs h-8" data-testid="select-gpt-partner">
+                            <SelectTrigger
+                              className="w-full text-xs h-8"
+                              data-testid="select-gpt-partner"
+                            >
                               <SelectValue placeholder="Provider Default" />
                             </SelectTrigger>
                             <SelectContent position="popper">
@@ -641,7 +678,11 @@ export function TeammateSettingsDialog({
                                   </SelectItem>
                                 )}
                               {gptPartnerOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                <SelectItem
+                                  key={opt.id}
+                                  value={opt.id}
+                                  className="text-xs font-mono"
+                                >
                                   {opt.displayName ?? opt.id}
                                 </SelectItem>
                               ))}
@@ -666,59 +707,63 @@ export function TeammateSettingsDialog({
                       </div>
                     </div>
 
-                      {/* Primary LLM Model for Debby */}
-                      <div className="space-y-1.5 pt-2 border-t border-border/40">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-medium text-foreground block">
-                            Primary Orchestrator Model (主编排模型):
-                          </label>
-                          {modelSaved && (
-                            <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
-                              <CheckIcon className="size-3" />
-                              Applied
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={selectedBotModel}
-                            onValueChange={(val) => {
-                              setSelectedBotModel(val);
-                              setModelSaved(false);
-                            }}
-                          >
-                            <SelectTrigger className="w-full text-xs h-8" data-testid="select-debby-model">
-                              <SelectValue placeholder="Provider Default" />
-                            </SelectTrigger>
-                            <SelectContent position="popper">
-                              <SelectItem value="default" className="text-xs">
-                                Provider Default
-                              </SelectItem>
-                              {modelOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
-                                  {opt.displayName ?? opt.id}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            onClick={() => void handleSaveBotModel()}
-                            data-testid="save-debby-model"
-                            className="h-8 text-xs shrink-0"
-                          >
-                            <SaveIcon className="size-3 mr-1" />
-                            Set Model
-                          </Button>
-                        </div>
+                    {/* Primary LLM Model for Debby */}
+                    <div className="space-y-1.5 pt-2 border-t border-border/40">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-foreground block">
+                          Primary Orchestrator Model (主编排模型):
+                        </label>
+                        {modelSaved && (
+                          <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+                            <CheckIcon className="size-3" />
+                            Applied
+                          </span>
+                        )}
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedBotModel}
+                          onValueChange={(val) => {
+                            setSelectedBotModel(val);
+                            setModelSaved(false);
+                          }}
+                        >
+                          <SelectTrigger
+                            className="w-full text-xs h-8"
+                            data-testid="select-debby-model"
+                          >
+                            <SelectValue placeholder="Provider Default" />
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            <SelectItem value="default" className="text-xs">
+                              Provider Default
+                            </SelectItem>
+                            {modelOptions.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                {opt.displayName ?? opt.id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          onClick={() => void handleSaveBotModel()}
+                          data-testid="save-debby-model"
+                          className="h-8 text-xs shrink-0"
+                        >
+                          <SaveIcon className="size-3 mr-1" />
+                          Set Model
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 ) : isPolly ? (
                   <div className="space-y-3">
                     <div className="space-y-1.5 text-xs">
                       <p className="font-medium text-foreground">Multi-Agent Orchestrator:</p>
                       <p className="text-muted-foreground text-xs leading-relaxed">
-                        Polly breaks high-level goals into sub-agent worktrees and coordinates planning, implementation, and cross-verification.
+                        Polly breaks high-level goals into sub-agent worktrees and coordinates
+                        planning, implementation, and cross-verification.
                       </p>
                     </div>
 
@@ -779,7 +824,10 @@ export function TeammateSettingsDialog({
                                 setPollySubagentsSaved(false);
                               }}
                             >
-                              <SelectTrigger className="w-full text-xs h-8" data-testid="select-polly-claude">
+                              <SelectTrigger
+                                className="w-full text-xs h-8"
+                                data-testid="select-polly-claude"
+                              >
                                 <SelectValue placeholder="Default (claude-sonnet-4-6)" />
                               </SelectTrigger>
                               <SelectContent position="popper">
@@ -788,13 +836,22 @@ export function TeammateSettingsDialog({
                                 </SelectItem>
                                 {pollyClaudeModel &&
                                   pollyClaudeModel !== "default" &&
-                                  !claudePartnerOptions.some((opt) => opt.id === pollyClaudeModel) && (
-                                    <SelectItem value={pollyClaudeModel} className="text-xs font-mono">
+                                  !claudePartnerOptions.some(
+                                    (opt) => opt.id === pollyClaudeModel,
+                                  ) && (
+                                    <SelectItem
+                                      value={pollyClaudeModel}
+                                      className="text-xs font-mono"
+                                    >
                                       {pollyClaudeModel} (Current)
                                     </SelectItem>
                                   )}
                                 {claudePartnerOptions.map((opt) => (
-                                  <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                  <SelectItem
+                                    key={opt.id}
+                                    value={opt.id}
+                                    className="text-xs font-mono"
+                                  >
                                     {opt.displayName ?? opt.id}
                                   </SelectItem>
                                 ))}
@@ -814,7 +871,10 @@ export function TeammateSettingsDialog({
                                 setPollySubagentsSaved(false);
                               }}
                             >
-                              <SelectTrigger className="w-full text-xs h-8" data-testid="select-polly-codex">
+                              <SelectTrigger
+                                className="w-full text-xs h-8"
+                                data-testid="select-polly-codex"
+                              >
                                 <SelectValue placeholder="Default (gpt-5.4)" />
                               </SelectTrigger>
                               <SelectContent position="popper">
@@ -824,12 +884,19 @@ export function TeammateSettingsDialog({
                                 {pollyCodexModel &&
                                   pollyCodexModel !== "default" &&
                                   !gptPartnerOptions.some((opt) => opt.id === pollyCodexModel) && (
-                                    <SelectItem value={pollyCodexModel} className="text-xs font-mono">
+                                    <SelectItem
+                                      value={pollyCodexModel}
+                                      className="text-xs font-mono"
+                                    >
                                       {pollyCodexModel} (Current)
                                     </SelectItem>
                                   )}
                                 {gptPartnerOptions.map((opt) => (
-                                  <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                  <SelectItem
+                                    key={opt.id}
+                                    value={opt.id}
+                                    className="text-xs font-mono"
+                                  >
                                     {opt.displayName ?? opt.id}
                                   </SelectItem>
                                 ))}
@@ -849,7 +916,10 @@ export function TeammateSettingsDialog({
                                 setPollySubagentsSaved(false);
                               }}
                             >
-                              <SelectTrigger className="w-full text-xs h-8" data-testid="select-polly-codebuddy">
+                              <SelectTrigger
+                                className="w-full text-xs h-8"
+                                data-testid="select-polly-codebuddy"
+                              >
                                 <SelectValue placeholder="Default (hy4-preview)" />
                               </SelectTrigger>
                               <SelectContent position="popper">
@@ -857,7 +927,11 @@ export function TeammateSettingsDialog({
                                   Default (hy4-preview)
                                 </SelectItem>
                                 {codebuddyOptions.map((opt) => (
-                                  <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                  <SelectItem
+                                    key={opt.id}
+                                    value={opt.id}
+                                    className="text-xs font-mono"
+                                  >
                                     {opt.displayName ?? opt.id}
                                   </SelectItem>
                                 ))}
@@ -880,19 +954,27 @@ export function TeammateSettingsDialog({
                       </div>
 
                       <div className="space-y-1.5 pt-1">
-                        <span className="text-[11px] font-medium text-foreground block">Active Sub-Agent Roles:</span>
+                        <span className="text-[11px] font-medium text-foreground block">
+                          Active Sub-Agent Roles:
+                        </span>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div className="rounded bg-muted/30 p-2 border border-border/40 text-[11px]">
                             <span className="font-medium text-foreground block">Investigate</span>
-                            <span className="text-[10px] text-muted-foreground">只读代码诊断与探查</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              只读代码诊断与探查
+                            </span>
                           </div>
                           <div className="rounded bg-muted/30 p-2 border border-border/40 text-[11px]">
                             <span className="font-medium text-foreground block">Implement</span>
-                            <span className="text-[10px] text-muted-foreground">工作区分支代码改动</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              工作区分支代码改动
+                            </span>
                           </div>
                           <div className="rounded bg-muted/30 p-2 border border-border/40 text-[11px]">
                             <span className="font-medium text-foreground block">Cross-Review</span>
-                            <span className="text-[10px] text-muted-foreground">跨模型多维度独立审计</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              跨模型多维度独立审计
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -918,7 +1000,10 @@ export function TeammateSettingsDialog({
                               setModelSaved(false);
                             }}
                           >
-                            <SelectTrigger className="w-full text-xs h-8" data-testid="select-polly-model">
+                            <SelectTrigger
+                              className="w-full text-xs h-8"
+                              data-testid="select-polly-model"
+                            >
                               <SelectValue placeholder="Provider Default" />
                             </SelectTrigger>
                             <SelectContent position="popper">
@@ -926,7 +1011,11 @@ export function TeammateSettingsDialog({
                                 Provider Default
                               </SelectItem>
                               {modelOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id} className="text-xs font-mono">
+                                <SelectItem
+                                  key={opt.id}
+                                  value={opt.id}
+                                  className="text-xs font-mono"
+                                >
                                   {opt.displayName ?? opt.id}
                                 </SelectItem>
                               ))}
@@ -1014,7 +1103,8 @@ export function TeammateSettingsDialog({
                     )}
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    控制该 Bot 的工程自律阶梯。Lean / Strict 模式可大幅精简代码 diff，避免投机性抽象与过度重构：
+                    控制该 Bot 的工程自律阶梯。Lean / Strict 模式可大幅精简代码
+                    diff，避免投机性抽象与过度重构：
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -1026,7 +1116,10 @@ export function TeammateSettingsDialog({
                         value={behaviorMode}
                         onValueChange={(val) => void handleSaveBehaviorMode(val)}
                       >
-                        <SelectTrigger className="w-full text-xs h-8" data-testid="select-behavior-mode">
+                        <SelectTrigger
+                          className="w-full text-xs h-8"
+                          data-testid="select-behavior-mode"
+                        >
                           <SelectValue placeholder="Off (默认原生)" />
                         </SelectTrigger>
                         <SelectContent position="popper">
@@ -1051,10 +1144,10 @@ export function TeammateSettingsDialog({
                         {behaviorMode === "lean"
                           ? "Lean: 最小正确实施阶梯，优先复用现有库，杜绝过度设计。"
                           : behaviorMode === "strict"
-                          ? "Strict: 严控重构与文件修改范围，只做经授权的最小变更。"
-                          : behaviorMode === "advisory"
-                          ? "Advisory: 保持方案完整性，并在完成后提示更轻量的替代路径。"
-                          : "Off: 遵循模型原生自由发挥，不附加自律指令。"}
+                            ? "Strict: 严控重构与文件修改范围，只做经授权的最小变更。"
+                            : behaviorMode === "advisory"
+                              ? "Advisory: 保持方案完整性，并在完成后提示更轻量的替代路径。"
+                              : "Off: 遵循模型原生自由发挥，不附加自律指令。"}
                       </span>
                       <span>已联动至会话每轮 Prompt Composer 动态生效。</span>
                     </div>
@@ -1063,7 +1156,9 @@ export function TeammateSettingsDialog({
 
                 {modelOptions.length > 0 && (
                   <div className="border-t border-border/40 pt-2.5 space-y-1.5">
-                    <span className="text-xs font-medium text-foreground block">Available Host Models:</span>
+                    <span className="text-xs font-medium text-foreground block">
+                      Available Host Models:
+                    </span>
                     <div className="flex flex-wrap gap-1.5">
                       {modelOptions.slice(0, 8).map((opt) => (
                         <span
@@ -1085,7 +1180,8 @@ export function TeammateSettingsDialog({
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-medium">Long-Term Memory (Supermemory)</h3>
                   <p className="text-xs text-muted-foreground">
-                    Persistent preferences and project facts automatically loaded into this bot's context.
+                    Persistent preferences and project facts automatically loaded into this bot's
+                    context.
                   </p>
                 </div>
               </div>
@@ -1105,7 +1201,8 @@ export function TeammateSettingsDialog({
                   </div>
                 ) : (memories ?? []).length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border/60 py-8 text-center text-xs text-muted-foreground">
-                    No memories recorded yet. Add memories below to guide this bot across conversations.
+                    No memories recorded yet. Add memories below to guide this bot across
+                    conversations.
                   </div>
                 ) : (
                   (memories ?? []).map((memory) => (
@@ -1140,7 +1237,9 @@ export function TeammateSettingsDialog({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => void handleSaveMemory()}
-                                disabled={updateMemoryMutation.isPending || memoryDraft.trim() === ""}
+                                disabled={
+                                  updateMemoryMutation.isPending || memoryDraft.trim() === ""
+                                }
                               >
                                 <SaveIcon className="size-3" />
                                 Save
@@ -1244,17 +1343,24 @@ export function TeammateSettingsDialog({
                           <span className="font-medium text-foreground">{routine.name}</span>
                           <span
                             className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
-                              routine.state === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"
+                              routine.state === "active"
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-muted text-muted-foreground"
                             }`}
                           >
                             {routine.state}
                           </span>
                         </div>
-                        <p className="font-mono text-[11px] text-muted-foreground">{routine.rrule}</p>
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {routine.rrule}
+                        </p>
                         {routine.lastRunAt && (
                           <p className="text-[11px] text-muted-foreground">
                             Last run: {new Date(routine.lastRunAt * 1000).toLocaleString()} (
-                            <span className="font-medium text-foreground">{routine.lastRunStatus ?? "unknown"}</span>)
+                            <span className="font-medium text-foreground">
+                              {routine.lastRunStatus ?? "unknown"}
+                            </span>
+                            )
                           </p>
                         )}
                       </div>
@@ -1302,9 +1408,16 @@ export function TeammateSettingsDialog({
                   ) : (
                     <div className="grid grid-cols-1 gap-1.5 pt-1">
                       {agent.skills.map((skill) => (
-                        <div key={skill.name} className="rounded bg-background p-2 border border-border/40 text-xs">
-                          <span className="font-mono font-medium text-foreground">{skill.name}</span>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{skill.description}</p>
+                        <div
+                          key={skill.name}
+                          className="rounded bg-background p-2 border border-border/40 text-xs"
+                        >
+                          <span className="font-mono font-medium text-foreground">
+                            {skill.name}
+                          </span>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {skill.description}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -1321,7 +1434,10 @@ export function TeammateSettingsDialog({
                       <span className="text-xs text-muted-foreground">None (SDK pure-chat)</span>
                     ) : (
                       agent.terminals.map((term) => (
-                        <span key={term} className="text-[11px] font-mono bg-background px-2 py-0.5 rounded border border-border/40 text-foreground">
+                        <span
+                          key={term}
+                          className="text-[11px] font-mono bg-background px-2 py-0.5 rounded border border-border/40 text-foreground"
+                        >
                           {term}
                         </span>
                       ))

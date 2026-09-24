@@ -169,10 +169,12 @@ describe("shouldShowCodexPlanModeControl", () => {
 
 describe("shouldShowGoalControl", () => {
   it("keeps the goal control Codex-only until a generic capability exists", () => {
-    expect(shouldShowGoalControl({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(true);
-    expect(shouldShowGoalControl({ labels: { "agentnexus.wrapper": "claude-code-native-ui" } })).toBe(
-      false,
+    expect(shouldShowGoalControl({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(
+      true,
     );
+    expect(
+      shouldShowGoalControl({ labels: { "agentnexus.wrapper": "claude-code-native-ui" } }),
+    ).toBe(false);
     expect(shouldShowGoalControl({ labels: {} })).toBe(false);
     expect(shouldShowGoalControl(null)).toBe(false);
   });

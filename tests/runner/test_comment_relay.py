@@ -596,7 +596,9 @@ async def test_relay_executor_routes_through_omnigent_in_omnigent_mode(
             f"AP /mcp request URL {mcp_call['url']!r} does not contain session_id {session_id!r}."
         )
         # The AgentNexus response's text content must be parsed back to a dict.
-        assert result == {"items": []}, f"Expected parsed AgentNexus response dict, got {result!r}."
+        assert result == {"items": []}, (
+            f"Expected parsed AgentNexus response dict, got {result!r}."
+        )
     finally:
         shutil.rmtree(bridge_dir, ignore_errors=True)
 

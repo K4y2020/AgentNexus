@@ -395,7 +395,9 @@ async def test_send_guard_refuses_closed_view_but_allows_interactive() -> None:
 async def test_interactive_send_runner_unavailable_surfaces_not_hangs() -> None:
     """A ``RUNNER_UNAVAILABLE`` POST raises out of ``send`` promptly (the REPL
     renders it as an inline error) rather than hanging on the turn-done wait."""
-    client = _ChatClient(post_error=AgentNexusError("runner unavailable", code="runner_unavailable"))
+    client = _ChatClient(
+        post_error=AgentNexusError("runner unavailable", code="runner_unavailable")
+    )
     session = _make_chat_adapter(client)
     try:
         await session.view_session("conv_child", read_only=True, interactive=True)

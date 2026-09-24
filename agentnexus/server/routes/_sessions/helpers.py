@@ -5531,7 +5531,8 @@ async def _reset_runner_resources_after_switch_impl(session_id: str) -> None:
 
 def _native_coding_agent_for_session(conv: Conversation) -> NativeCodingAgent | None:
     from agentnexus._platform import IS_WINDOWS
-    if IS_WINDOWS and getattr(conv, 'harness_override', None) in ('codex', 'claude-sdk'):
+
+    if IS_WINDOWS and getattr(conv, "harness_override", None) in ("codex", "claude-sdk"):
         return None
     """
     Resolve native terminal metadata for a session, by wrapper label OR harness.
@@ -6981,13 +6982,9 @@ def _model_fact_item_from_turn(
             else (requested_unknown_reason or "no_explicit_selection")
         ),
         "resolved_model": resolved,
-        "resolved_unknown_reason": (
-            None if resolved is not None else "harness_reported_no_model"
-        ),
+        "resolved_unknown_reason": (None if resolved is not None else "harness_reported_no_model"),
         "upstream_model": upstream,
-        "upstream_unknown_reason": (
-            None if upstream is not None else "gateway_model_unavailable"
-        ),
+        "upstream_unknown_reason": (None if upstream is not None else "gateway_model_unavailable"),
         "harness": harness,
         "status": turn_status,
         "source": source,

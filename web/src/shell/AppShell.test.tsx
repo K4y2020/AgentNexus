@@ -698,7 +698,10 @@ describe("AppShell header", () => {
       isLoading: false,
       error: null,
     });
-    sessionStorage.setItem("agentnexus.web.panel-key:conv_terminal", "terminal:terminal_claude_main");
+    sessionStorage.setItem(
+      "agentnexus.web.panel-key:conv_terminal",
+      "terminal:terminal_claude_main",
+    );
 
     renderShell("/c/conv_terminal?view=chat");
 

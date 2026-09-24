@@ -938,7 +938,9 @@ async def test_external_acp_subagent_start_mints_child_without_a_vendor_wrapper(
     assert child["session_name"] == "a0ac9364"
     # The ACP id + task are preserved for downstream surfaces...
     assert child["labels"]["agentnexus.acp.subagent_id"] == "a0ac9364"
-    assert child["labels"]["agentnexus.acp.subagent_description"] == "create mathutils.py plus tests"
+    assert (
+        child["labels"]["agentnexus.acp.subagent_description"] == "create mathutils.py plus tests"
+    )
     # ...and crucially NO vendor wrapper label is stamped.
     assert "agentnexus.wrapper" not in child["labels"], (
         f"an ACP sub-agent must not claim a vendor wrapper identity: {child['labels']!r}"
@@ -965,7 +967,9 @@ async def test_external_acp_subagent_start_is_idempotent_on_subagent_id(
     assert first.json()["child_session_id"] == second.json()["child_session_id"]
 
     children = (await client.get(f"/v1/sessions/{parent['id']}/child_sessions")).json()["data"]
-    assert len([c for c in children if c["labels"].get("agentnexus.acp.subagent_id") == "dup1"]) == 1
+    assert (
+        len([c for c in children if c["labels"].get("agentnexus.acp.subagent_id") == "dup1"]) == 1
+    )
 
 
 async def test_external_acp_subagent_start_allows_duplicate_titles(
@@ -9748,7 +9752,9 @@ async def test_external_antigravity_subagent_start_title_survives_a_colon_in_the
         f"Expected the colon folded out of the role; got {child['tool']!r}"
     )
     # The unmangled role is still available for any surface that wants it.
-    assert child["labels"]["agentnexus.antigravity_native.agent_role"] == "Review: routing and auth"
+    assert (
+        child["labels"]["agentnexus.antigravity_native.agent_role"] == "Review: routing and auth"
+    )
 
 
 async def test_external_codex_subagent_start_adopts_unlabeled_title_collision(

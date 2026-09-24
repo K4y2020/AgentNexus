@@ -64,9 +64,8 @@ export function CineAdaptationView({
   const [selectedPackage, setSelectedPackage] = useState("");
   const packages = report.productionPackages;
   const preferredPackageId =
-    packages.find(
-      (item) => item.stages?.includes("storyboard") || item.id.includes("storyboard"),
-    )?.id ?? packages[0]?.id;
+    packages.find((item) => item.stages?.includes("storyboard") || item.id.includes("storyboard"))
+      ?.id ?? packages[0]?.id;
   const productionId =
     packages.find((item) => item.id === selectedPackage)?.id ?? preferredPackageId;
   const query = useQuery({
@@ -241,7 +240,8 @@ export function CineAdaptationView({
                     <div className="rounded-md border bg-muted/50 p-2.5 text-xs space-y-1.5">
                       {targetSec && (
                         <p className="font-medium text-foreground">
-                          预估时长：<span className="font-mono text-primary">{reviewTime(targetSec)}</span>
+                          预估时长：
+                          <span className="font-mono text-primary">{reviewTime(targetSec)}</span>
                         </p>
                       )}
                       {hook && (
@@ -260,8 +260,7 @@ export function CineAdaptationView({
                   )}
 
                   {rows(ep.scenes).map((scene, scIdx) => {
-                    const sceneId =
-                      text(scene.sceneId) || `S${String(scIdx + 1).padStart(2, "0")}`;
+                    const sceneId = text(scene.sceneId) || `S${String(scIdx + 1).padStart(2, "0")}`;
                     const lighting = text(scene.lighting);
                     const flowItems = rows(scene.flow);
                     return (
@@ -391,12 +390,15 @@ export function CineAdaptationView({
                 const cueImage =
                   report.data.images.find((img) => cue.imageIds.includes(img.id)) ??
                   report.data.images.find((img) => img.start <= cue.end && img.end >= cue.start) ??
-                  report.data.images.reduce((closest, img) => {
-                    if (!closest) return img;
-                    return Math.abs(img.start - cue.start) < Math.abs(closest.start - cue.start)
-                      ? img
-                      : closest;
-                  }, null as (typeof report.data.images)[0] | null);
+                  report.data.images.reduce(
+                    (closest, img) => {
+                      if (!closest) return img;
+                      return Math.abs(img.start - cue.start) < Math.abs(closest.start - cue.start)
+                        ? img
+                        : closest;
+                    },
+                    null as (typeof report.data.images)[0] | null,
+                  );
                 return (
                   <div
                     key={cue.id}

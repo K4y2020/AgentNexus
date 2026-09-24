@@ -46,7 +46,7 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
     let cancelled = false;
     setLoadingReply(true);
     authenticatedFetch(
-      `/v1/sessions/${encodeURIComponent(message.recipient_session_id)}/items?order=desc&limit=5`
+      `/v1/sessions/${encodeURIComponent(message.recipient_session_id)}/items?order=desc&limit=5`,
     )
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -80,7 +80,7 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
   }, [expanded, message.recipient_session_id, replyText]);
 
   const taskText = String(
-    message.payload?.prompt || message.payload?.instruction || JSON.stringify(message.payload)
+    message.payload?.prompt || message.payload?.instruction || JSON.stringify(message.payload),
   );
 
   return (
@@ -88,7 +88,7 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
       size="sm"
       className={cn(
         "border-border transition-colors cursor-pointer hover:border-primary/40",
-        expanded && "border-primary/60 bg-muted/10 shadow-xs"
+        expanded && "border-primary/60 bg-muted/10 shadow-xs",
       )}
       onClick={() => setExpanded((v) => !v)}
       data-testid={`a2a-message-${message.message_id}`}
@@ -98,7 +98,7 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
           <ChevronRightIcon
             className={cn(
               "size-3.5 text-muted-foreground transition-transform duration-150 shrink-0",
-              expanded && "rotate-90"
+              expanded && "rotate-90",
             )}
           />
           <Badge variant="secondary" className="text-[10px] font-mono capitalize px-1.5 py-0">
@@ -110,7 +110,10 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
           </Badge>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <Badge variant="default" className="text-[9px] bg-primary/15 text-primary border-primary/30">
+          <Badge
+            variant="default"
+            className="text-[9px] bg-primary/15 text-primary border-primary/30"
+          >
             {message.intent}
           </Badge>
           <span className="text-[10px] text-muted-foreground font-mono">
@@ -121,9 +124,7 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
 
       <CardContent className="p-2 pt-0.5 space-y-2">
         {!expanded ? (
-          <p className="text-muted-foreground text-xs font-sans line-clamp-2 pl-5">
-            {taskText}
-          </p>
+          <p className="text-muted-foreground text-xs font-sans line-clamp-2 pl-5">{taskText}</p>
         ) : (
           <div className="space-y-2.5 pl-5 pt-1 text-xs" onClick={(e) => e.stopPropagation()}>
             <div className="space-y-1">
@@ -187,7 +188,9 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
             )}
 
             <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[10px] text-muted-foreground font-mono">
-              <span>状态: {message.message_state} / 消费: {message.consumption_state ?? "unconsumed"}</span>
+              <span>
+                状态: {message.message_state} / 消费: {message.consumption_state ?? "unconsumed"}
+              </span>
               <span className="truncate max-w-40" title={message.message_id}>
                 ID: {message.message_id}
               </span>
@@ -213,7 +216,7 @@ export function CommunicationPanel({
   const fetchMessages = useCallback(async () => {
     try {
       const res = await authenticatedFetch(
-        `/v1/coordination/messages?root_session_id=${encodeURIComponent(rootSessionId)}`
+        `/v1/coordination/messages?root_session_id=${encodeURIComponent(rootSessionId)}`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -283,7 +286,7 @@ export function CommunicationPanel({
                 <ChevronRightIcon
                   className={cn(
                     "size-3.5 text-muted-foreground transition-transform duration-150 shrink-0",
-                    timelineOpen && "rotate-90"
+                    timelineOpen && "rotate-90",
                   )}
                 />
                 <MessageSquareShareIcon className="size-3.5 text-primary" />
@@ -299,7 +302,8 @@ export function CommunicationPanel({
 
           <CollapsibleContent className="p-2.5 pt-2 space-y-2.5 border-t border-border/60 bg-muted/5">
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              A2A 协同已在聊天主窗口以小窗就地呈现。此处为底层协调总线原始报文流水，供对账与排障审计使用。
+              A2A
+              协同已在聊天主窗口以小窗就地呈现。此处为底层协调总线原始报文流水，供对账与排障审计使用。
             </p>
 
             {messages.length === 0 ? (
@@ -315,7 +319,10 @@ export function CommunicationPanel({
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="pt-2 flex gap-1.5 border-t border-border/40">
+            <form
+              onSubmit={handleSendMessage}
+              className="pt-2 flex gap-1.5 border-t border-border/40"
+            >
               <Input
                 placeholder="发送手动调度指令..."
                 value={draftText}

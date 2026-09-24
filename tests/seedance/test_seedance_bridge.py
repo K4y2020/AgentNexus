@@ -40,7 +40,9 @@ async def test_job_read_is_scoped_to_bound_project():
     async with httpx.AsyncClient(base_url=_SERVER) as client:
         result = await read_seedance_generation(client, "topic", action="job", job_id="job")
         assert result["error_code"] == "CINE_PROJECT_BINDING_MISMATCH"
-        route.respond(200, json={"job": {"id": "job", "projectId": "project", "status": "succeeded"}})
+        route.respond(
+            200, json={"job": {"id": "job", "projectId": "project", "status": "succeeded"}}
+        )
         result = await read_seedance_generation(client, "topic", action="job", job_id="job")
     assert result["job"]["id"] == "job"
     assert result["poll_after_seconds"] == 0
@@ -57,19 +59,35 @@ async def test_summary_preserves_existing_image_and_revision():
     v3 = AsyncMock()
     v3.get_snapshot.return_value = {
         "nodes": [
-            {"id": "portrait", "type": "image_prompt", "title": "Character",
-             "status": "draft", "revision": 4,
-             "data": {"prompt": "Portrait", "activeOutputRef": "local://existing"}},
+            {
+                "id": "portrait",
+                "type": "image_prompt",
+                "title": "Character",
+                "status": "draft",
+                "revision": 4,
+                "data": {"prompt": "Portrait", "activeOutputRef": "local://existing"},
+            },
             {"id": "empty", "type": "image_prompt", "data": {}},
         ],
         "edges": [],
-        "node_media": [{"nodeId": "portrait", "mediaState": "output_available_unreviewed",
-                        "outputUrl": "/v3/storage/existing", "latestJob": {"id": "job", "status": "succeeded"},
-                        "pendingJobCount": 0, "nextAction": "review_once_then_report"}],
+        "node_media": [
+            {
+                "nodeId": "portrait",
+                "mediaState": "output_available_unreviewed",
+                "outputUrl": "/v3/storage/existing",
+                "latestJob": {"id": "job", "status": "succeeded"},
+                "pendingJobCount": 0,
+                "nextAction": "review_once_then_report",
+            }
+        ],
     }
     async with httpx.AsyncClient() as client:
         result = await read_seedance_canvas_snapshot(
-            client, "topic", project_id="project", detail_level="summary", seedance_client=v3,
+            client,
+            "topic",
+            project_id="project",
+            detail_level="summary",
+            seedance_client=v3,
         )
     nodes = {node["id"]: node for node in result["nodes"]}
     assert nodes["portrait"]["active_output_ref"] == "local://existing"
@@ -116,10 +134,14 @@ async def test_resolve_new_topic_creates_project_and_session():
 
     # Seedance API mocks
     respx.post(f"{_BASE}/v3/projects").mock(
-        return_value=httpx.Response(201, json={"project": {"id": "proj_seed_1", "name": "Cine: Film Analysis Topic"}})
+        return_value=httpx.Response(
+            201, json={"project": {"id": "proj_seed_1", "name": "Cine: Film Analysis Topic"}}
+        )
     )
     respx.post(f"{_BASE}/v3/projects/proj_seed_1/agent-sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "sess_seed_1", "projectId": "proj_seed_1"}})
+        return_value=httpx.Response(
+            201, json={"session": {"id": "sess_seed_1", "projectId": "proj_seed_1"}}
+        )
     )
 
     async with httpx.AsyncClient(base_url=_SERVER) as s_client:
@@ -178,7 +200,9 @@ async def test_resolve_existing_topic_reuses_project_and_session():
 async def test_legacy_agent_delegation_cannot_bypass_direct_gate(allowed):
     async with httpx.AsyncClient(base_url=_SERVER) as client:
         result = await execute_seedance_agent_message(
-            server_client=client, conversation_id="topic", task="Generate or draft",
+            server_client=client,
+            conversation_id="topic",
+            task="Generate or draft",
             generation_allowed=allowed,
         )
     assert result["error_code"] == "CINE_AGENT_DELEGATION_DISABLED"
@@ -222,9 +246,7 @@ async def test_read_seedance_canvas_snapshot_flow():
                             "data": {"brief": "Opening wide shot", "durationSec": 8},
                         },
                     ],
-                    "edges": [
-                        {"id": "e1", "from": "n_ch1", "to": "n_s01", "kind": "references"}
-                    ],
+                    "edges": [{"id": "e1", "from": "n_ch1", "to": "n_s01", "kind": "references"}],
                 }
             },
         )
@@ -267,7 +289,12 @@ async def test_execute_seedance_canvas_edit_update_and_verification():
                 json={
                     "snapshot": {
                         "nodes": [
-                            {"id": "node_s03", "title": "S03", "revision": 1, "data": {"prompt": "Old prompt"}}
+                            {
+                                "id": "node_s03",
+                                "title": "S03",
+                                "revision": 1,
+                                "data": {"prompt": "Old prompt"},
+                            }
                         ],
                     }
                 },
@@ -278,7 +305,12 @@ async def test_execute_seedance_canvas_edit_update_and_verification():
                 json={
                     "snapshot": {
                         "nodes": [
-                            {"id": "node_s03", "title": "S03 Updated", "revision": 2, "data": {"prompt": "New cinematic prompt"}}
+                            {
+                                "id": "node_s03",
+                                "title": "S03 Updated",
+                                "revision": 2,
+                                "data": {"prompt": "New cinematic prompt"},
+                            }
                         ],
                     }
                 },
@@ -322,7 +354,10 @@ async def test_disconnect_normalizes_legacy_prefixed_edge_id():
     )
     v3 = AsyncMock()
     v3.get_snapshot.side_effect = [
-        {"revision": 3, "edges": [{"id": edge_id, "from": "char", "to": "video", "kind": "references"}]},
+        {
+            "revision": 3,
+            "edges": [{"id": edge_id, "from": "char", "to": "video", "kind": "references"}],
+        },
         {"revision": 4, "edges": []},
     ]
     v3.submit_command.return_value = {"accepted": True}

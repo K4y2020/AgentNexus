@@ -87,9 +87,7 @@ _PROVIDER_VOCABULARY_CODEX_HARNESSES: frozenset[str] = frozenset({"codex"})
 # vocabulary and can serve mapped non-Claude models (e.g. gemini-3.8-flash-high).
 # Native Claude Code keeps the conservative family guard because its own live CLI
 # catalog, not the provider endpoint, is authoritative.
-_PROVIDER_VOCABULARY_CLAUDE_HARNESSES: frozenset[str] = frozenset(
-    {"claude-sdk", "claude_sdk"}
-)
+_PROVIDER_VOCABULARY_CLAUDE_HARNESSES: frozenset[str] = frozenset({"claude-sdk", "claude_sdk"})
 # CODEX_CANONICAL_HARNESSES is restricted to the codex-compatible families
 # (see is_codex_compatible_model): the gateway serves codex over the
 # Anthropic-incompatible Responses wire, and codex >= 0.137 dropped the
@@ -367,7 +365,4 @@ def harness_supports_model_override(harness: str | None) -> bool:
     acp_row = ACP_CLI_HARNESSES.get(canonical)
     if acp_row is not None and acp_row.model_arg is not None:
         return True
-    return (
-        is_native_harness(harness)
-        or canonical in _SDK_MODEL_OVERRIDE_HARNESSES
-    )
+    return is_native_harness(harness) or canonical in _SDK_MODEL_OVERRIDE_HARNESSES

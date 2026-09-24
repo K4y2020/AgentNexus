@@ -44,9 +44,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_bots_owner", "bots", ["workspace_id", "owner_id", "status", "created_at", "id"]
     )
-    op.create_index(
-        "ix_bots_agent", "bots", ["workspace_id", "owner_id", "agent_id", "id"]
-    )
+    op.create_index("ix_bots_agent", "bots", ["workspace_id", "owner_id", "agent_id", "id"])
     op.create_table(
         "bot_computer_bindings",
         sa.Column("workspace_id", sa.BigInteger(), nullable=False, server_default="0"),
@@ -57,9 +55,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.Integer(), nullable=False),
         sa.Column("updated_at", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("workspace_id", "id"),
-        sa.UniqueConstraint(
-            "workspace_id", "bot_id", name="uq_bot_computer_bindings_bot"
-        ),
+        sa.UniqueConstraint("workspace_id", "bot_id", name="uq_bot_computer_bindings_bot"),
     )
 
     with op.batch_alter_table("agentnexus_conversation_metadata") as batch:
@@ -87,9 +83,7 @@ def upgrade() -> None:
             ["workspace_id", "bot_id", "singleton_slot"],
         )
 
-    op.execute(
-        "UPDATE agentnexus_conversation_metadata SET purpose = 'subagent' WHERE kind = 2"
-    )
+    op.execute("UPDATE agentnexus_conversation_metadata SET purpose = 'subagent' WHERE kind = 2")
 
 
 def downgrade() -> None:

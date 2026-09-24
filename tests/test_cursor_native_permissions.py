@@ -238,7 +238,9 @@ def test_iter_embedded_json_recovers_from_enclosing_garbage() -> None:
     jump past the whole failed span (which dropped genuinely-pending tool calls,
     e.g. MCP, in big frames).
     """
-    inner = _json.dumps(_pending_tool_call_obj("call_mcp\nfc", "agentnexus-list_comments", {"x": 1}))
+    inner = _json.dumps(
+        _pending_tool_call_obj("call_mcp\nfc", "agentnexus-list_comments", {"x": 1})
+    )
     # Leading "{"k": … <inner> … bad}" balances at the trailing brace but fails
     # to parse; the genuine object is nested inside it.
     raw = b'{"k": ' + inner.encode("utf-8") + b" trailing-bad}"

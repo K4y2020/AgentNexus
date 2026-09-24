@@ -62,10 +62,10 @@ class InstallerRenameTests(unittest.TestCase):
     def install_path(self) -> subprocess.CompletedProcess[str]:
         return self.shell(
             self.installer,
-            'init_style\n'
+            "init_style\n"
             'pick_profile() { printf "%s\\n" "$TEST_PROFILE"; }\n'
-            'prompt_yes_no() { return 0; }\n'
-            'maybe_add_bin_to_path /test/bin\n',
+            "prompt_yes_no() { return 0; }\n"
+            "maybe_add_bin_to_path /test/bin\n",
         )
 
     def test_installer_writes_current_markers(self) -> None:
@@ -90,7 +90,13 @@ class InstallerRenameTests(unittest.TestCase):
         self.assertEqual(self.profile.read_text(), original)
 
     def test_uninstaller_removes_both_blocks_and_preserves_user_content(self) -> None:
-        original = "before\n" + self.block("Omnigent") + "between\n" + self.block("AgentNexus") + "after\n"
+        original = (
+            "before\n"
+            + self.block("Omnigent")
+            + "between\n"
+            + self.block("AgentNexus")
+            + "after\n"
+        )
         self.profile.write_text(original)
         result = self.shell(self.uninstaller, "DRY_RUN=false\ncleanup_profiles\n")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -137,14 +143,18 @@ class InstallerRenameTests(unittest.TestCase):
     def test_nightly_uses_canonical_source_and_env_precedence(self) -> None:
         text = (ROOT / "scripts/update_nightly.sh").read_text(encoding="utf-8")
         library = self.directory / "nightly.sh"
-        library.write_text(text.split("# Newest nightly tag:", 1)[0].replace("set -euo pipefail", "set -eu"))
+        library.write_text(
+            text.split("# Newest nightly tag:", 1)[0].replace("set -euo pipefail", "set -eu")
+        )
         for overrides, expected in (
             ({}, "https://github.com/K4y2020/AgentNexus|3.12"),
             ({"AGENTNEXUS_REPO": "custom", "AGENTNEXUS_PYTHON_VERSION": "3.13"}, "custom|3.13"),
             ({"AGENTNEXUS_REPO": "", "AGENTNEXUS_PYTHON_VERSION": ""}, "|"),
         ):
             with self.subTest(overrides=overrides):
-                result = self.shell(library, 'printf "%s|%s" "$REPO" "$PYTHON_VERSION"', **overrides)
+                result = self.shell(
+                    library, 'printf "%s|%s" "$REPO" "$PYTHON_VERSION"', **overrides
+                )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, expected)
 

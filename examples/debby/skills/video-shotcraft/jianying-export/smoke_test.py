@@ -34,27 +34,44 @@ TEST_CLIP = os.path.join(STAGING, "smoke-clip.mp4")
 def make_clip() -> None:
     os.makedirs(STAGING, exist_ok=True)
     subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
-         "-i", "testsrc2=duration=6:size=1920x1080:rate=30",
-         "-pix_fmt", "yuv420p", TEST_CLIP], check=True)
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=duration=6:size=1920x1080:rate=30",
+            "-pix_fmt",
+            "yuv420p",
+            TEST_CLIP,
+        ],
+        check=True,
+    )
 
 
 def build() -> str:
     folder = draft.DraftFolder(STAGING)
-    script = folder.create_draft(DRAFT_NAME, 1920, 1080, fps=30,
-                                 allow_replace=True)
+    script = folder.create_draft(DRAFT_NAME, 1920, 1080, fps=30, allow_replace=True)
     script.append_track(draft.TrackSpec(draft.TrackType.video))
     script.append_track(draft.TrackSpec(draft.TrackType.audio))
     script.append_track(draft.TrackSpec(draft.TrackType.text))
 
     script.add_segment(draft.VideoSegment(TEST_CLIP, trange("0s", "6s")))
     mat = draft.AudioMaterial(AUDIO)
-    script.add_segment(draft.AudioSegment(
-        mat, draft.Timerange(1_000_000, min(mat.duration, 1_500_000)),
-        volume=0.6))
-    script.add_segment(draft.TextSegment(
-        "SMOKE TEST 烟雾测试", trange("0s", "4s"),
-        style=draft.TextStyle(size=6.0, color=(0.9, 0.6, 0.2), align=1)))
+    script.add_segment(
+        draft.AudioSegment(
+            mat, draft.Timerange(1_000_000, min(mat.duration, 1_500_000)), volume=0.6
+        )
+    )
+    script.add_segment(
+        draft.TextSegment(
+            "SMOKE TEST 烟雾测试",
+            trange("0s", "4s"),
+            style=draft.TextStyle(size=6.0, color=(0.9, 0.6, 0.2), align=1),
+        )
+    )
     script.save()
     return os.path.join(STAGING, DRAFT_NAME)
 

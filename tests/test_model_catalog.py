@@ -1448,7 +1448,9 @@ def test_bundled_catalog_entries_normalize_capabilities_context_and_cost(
             output_price=6.0,
         ),
     ]
-    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.providers.get_chat_models", lambda _provider: models
+    )
 
     entries = catalog_model_entries("provider")
 
@@ -1483,7 +1485,9 @@ def test_resolve_catalog_model_uses_intent_and_configured_precedence(
             output_price=30.0,
         ),
     ]
-    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.providers.get_chat_models", lambda _provider: models
+    )
 
     powerful = resolve_catalog_model("provider", intent=ModelIntent.POWERFUL)
     configured = resolve_catalog_model(
@@ -1553,7 +1557,9 @@ def test_resolve_databricks_default_requires_gateway_routable_id(
         ModelInfo(name="databricks-claude-general", provider="databricks", mode="chat"),
         ModelInfo(name="databricks-gpt-general", provider="databricks", mode="chat"),
     ]
-    monkeypatch.setattr("agentnexus.onboarding.providers.get_chat_models", lambda _provider: models)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.providers.get_chat_models", lambda _provider: models
+    )
 
     resolution = resolve_catalog_model("databricks", family=family)
 

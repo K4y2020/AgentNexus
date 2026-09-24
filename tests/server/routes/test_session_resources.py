@@ -3707,9 +3707,9 @@ async def test_relay_persists_model_fact_on_completed_turn() -> None:
     from agentnexus.server.routes.sessions import _relay_runner_stream
 
     store = _ConversationStore()
-    store._conversations["79b22ebd2309e48fdeb450c65611d51b"].model_override = (
-        "databricks-claude-opus-4-8"
-    )
+    store._conversations[
+        "79b22ebd2309e48fdeb450c65611d51b"
+    ].model_override = "databricks-claude-opus-4-8"
     client = _FakeStreamingRunnerClient(
         [
             _sse_frame({"type": "response.in_progress", "response": {"id": "resp_turn"}}),
@@ -5465,7 +5465,9 @@ class _OfflineRunnerClient:
 
     async def get(self, url: str, *, params: Any = None, timeout: float | None = None) -> Any:
         del params, timeout
-        raise AgentNexusError(f"runner is not connected ({url})", code=ErrorCode.RUNNER_UNAVAILABLE)
+        raise AgentNexusError(
+            f"runner is not connected ({url})", code=ErrorCode.RUNNER_UNAVAILABLE
+        )
 
 
 @pytest.fixture

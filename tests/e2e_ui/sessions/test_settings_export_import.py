@@ -64,7 +64,9 @@ def test_settings_persist_to_localstorage(page: Page, seeded_session: tuple[str,
 
     # Verify settings were persisted to localStorage (these are what export reads).
     font_size = page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')")
-    terminal_theme = page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')")
+    terminal_theme = page.evaluate(
+        "() => window.localStorage.getItem('agentnexus:terminal-theme')"
+    )
     assert font_size == "16"
     assert terminal_theme == "dark"  # Stored as plain string
 
@@ -88,7 +90,9 @@ def test_import_restores_localstorage_settings(
 
     # Capture the localStorage state (what export would collect).
     saved_font = page.evaluate("() => window.localStorage.getItem('agentnexus:ui-font-size')")
-    saved_terminal = page.evaluate("() => window.localStorage.getItem('agentnexus:terminal-theme')")
+    saved_terminal = page.evaluate(
+        "() => window.localStorage.getItem('agentnexus:terminal-theme')"
+    )
 
     # Step 2: Change settings to something different.
     font_size_dec = page.get_by_test_id("ui-font-size-dec")

@@ -196,7 +196,9 @@ function createUpdateOverlay({
 
     // The parent SPA reads the current value on mount so an overlay that became
     // visible before its listener attached still reserves the correct space.
-    ipcMain.handle("agentnexus:get-update-overlay-height", (event) => overlayHeightForSender(event));
+    ipcMain.handle("agentnexus:get-update-overlay-height", (event) =>
+      overlayHeightForSender(event),
+    );
 
     // Trusted updater controls for the overlay page only.
     const guard = (event) => {

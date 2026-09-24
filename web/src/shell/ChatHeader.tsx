@@ -381,8 +381,10 @@ export function ChatHeader({
       ? agentRootName(actionConversation.agent_name ?? boundAgent?.name ?? "Bot")
       : null;
   const botState = botName ? getSessionState(actionConversation) : null;
-  const seedanceProjectId = (actionConversation?.labels?.["seedance.project_id"] as string | undefined) || undefined;
-  const isCineSession = !isChildSession && isCineAgent(actionConversation?.agent_name ?? boundAgent?.name);
+  const seedanceProjectId =
+    (actionConversation?.labels?.["seedance.project_id"] as string | undefined) || undefined;
+  const isCineSession =
+    !isChildSession && isCineAgent(actionConversation?.agent_name ?? boundAgent?.name);
   const seedanceCanvasUrl = seedanceProjectId
     ? `http://127.0.0.1:5173/?project=${encodeURIComponent(seedanceProjectId)}`
     : "http://127.0.0.1:5173";
@@ -509,12 +511,24 @@ export function ChatHeader({
         {/* Chat/Terminal switcher for terminal-first sessions — self-gates to
             null otherwise (and in the iOS shell, where it's the native bar). */}
         {conversationId && <ViewModeToggle />}
-        {conversationId && isCineSession && isOwnerLevel(actionConversation?.permission_level ?? null) && (
-          <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm"
-            aria-label="打开原片复核" onClick={() => openCineReview(conversationId)}>
-            <FilmIcon /><span className="hidden sm:inline">原片复核</span>
-          </Button></TooltipTrigger><TooltipContent>打开原片复核</TooltipContent></Tooltip>
-        )}
+        {conversationId &&
+          isCineSession &&
+          isOwnerLevel(actionConversation?.permission_level ?? null) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="打开原片复核"
+                  onClick={() => openCineReview(conversationId)}
+                >
+                  <FilmIcon />
+                  <span className="hidden sm:inline">原片复核</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>打开原片复核</TooltipContent>
+            </Tooltip>
+          )}
         {conversationId && isCineSession && (
           <Button
             asChild
@@ -522,9 +536,7 @@ export function ChatHeader({
             size="sm"
             className={cn(
               "shrink-0",
-              isCineSession
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground",
+              isCineSession ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
             data-testid="header-open-canvas-button"
           >
@@ -541,7 +553,9 @@ export function ChatHeader({
               }
             >
               <PaletteIcon className="size-3.5" />
-              <span className="hidden sm:inline">{seedanceProjectId ? "项目画布" : "Seedance 画布"}</span>
+              <span className="hidden sm:inline">
+                {seedanceProjectId ? "项目画布" : "Seedance 画布"}
+              </span>
             </a>
           </Button>
         )}
@@ -563,19 +577,21 @@ export function ChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className={cn("min-w-44", MOBILE_GLASS_SURFACE)}>
-              {isCineSession && <DropdownMenuItem asChild>
-                <a
-                  href={seedanceCanvasUrl}
-                  onClick={openSeedanceCanvas}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2"
-                >
-                  <PaletteIcon className="size-4" />
-                  <span>打开 Seedance 画布</span>
-                  <PanelRightOpenIcon className="ml-auto size-3 text-muted-foreground" />
-                </a>
-              </DropdownMenuItem>}
+              {isCineSession && (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={seedanceCanvasUrl}
+                    onClick={openSeedanceCanvas}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    <PaletteIcon className="size-4" />
+                    <span>打开 Seedance 画布</span>
+                    <PanelRightOpenIcon className="ml-auto size-3 text-muted-foreground" />
+                  </a>
+                </DropdownMenuItem>
+              )}
               {canShare && (
                 <DropdownMenuItem
                   onSelect={

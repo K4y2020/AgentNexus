@@ -667,7 +667,9 @@ def _build_native_bundle(provider: NativeHarnessProvider) -> bytes:
 
     materialize = resolve_hook(provider, "materialize_agent_spec")
     if materialize is None:
-        raise AgentNexusError(f"native provider {provider.key!r} has no materialize_agent_spec hook")
+        raise AgentNexusError(
+            f"native provider {provider.key!r} has no materialize_agent_spec hook"
+        )
     with tempfile.TemporaryDirectory() as tmpdir:
         # The bridge understands only the ``model`` axis: pass ``model=None`` iff
         # the materializer declares that parameter, else call it bare. A future
@@ -949,6 +951,7 @@ def _ensure_default_polly_agent(
         bundle_bytes=_build_polly_bundle(),
     )
 
+
 def _build_cine_bundle() -> bytes:
     """
     Build a gzipped tarball of the ``examples/cine`` agent bundle.
@@ -986,7 +989,6 @@ def _ensure_default_cine_agent(
         name=_CINE_AGENT_NAME,
         bundle_bytes=_build_cine_bundle(),
     )
-
 
 
 def create_app(
@@ -2489,9 +2491,7 @@ def create_app(
         SqlAlchemyAgentMemoryStore,
     )
 
-    memory_store: AgentMemoryStore = SqlAlchemyAgentMemoryStore(
-        agent_store.storage_location
-    )
+    memory_store: AgentMemoryStore = SqlAlchemyAgentMemoryStore(agent_store.storage_location)
     app.include_router(
         create_teammate_memories_router(
             agent_store,

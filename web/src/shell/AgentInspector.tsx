@@ -14,7 +14,10 @@ import { useSession } from "@/hooks/useSession";
 import { isModelFactItem, type ModelFactItem } from "@/lib/conversationItems";
 import { authenticatedFetch } from "@/lib/identity";
 import { fetchSessionItemsPage } from "@/lib/sessionsApi";
-import { claudePermissionModeFromSession, claudePermissionModeLabel } from "@/lib/claudePermissionMode";
+import {
+  claudePermissionModeFromSession,
+  claudePermissionModeLabel,
+} from "@/lib/claudePermissionMode";
 
 export interface AgentInspectorProps {
   conversationId: string;
@@ -75,10 +78,7 @@ function ModelFactBadge({
   );
 }
 
-export function AgentInspector({
-  conversationId,
-  rootSessionId,
-}: AgentInspectorProps) {
+export function AgentInspector({ conversationId, rootSessionId }: AgentInspectorProps) {
   const queryClient = useQueryClient();
   const [behaviorSaving, setBehaviorSaving] = useState(false);
   const [behaviorSaveError, setBehaviorSaveError] = useState<string | null>(null);
@@ -101,7 +101,7 @@ export function AgentInspector({
     queryKey: ["behaviorFacts", conversationId, rootSessionId],
     queryFn: async () => {
       const res = await authenticatedFetch(
-        `/v1/coordination/behavior/${encodeURIComponent(conversationId)}?root_session_id=${encodeURIComponent(rootSessionId)}`
+        `/v1/coordination/behavior/${encodeURIComponent(conversationId)}?root_session_id=${encodeURIComponent(rootSessionId)}`,
       );
       if (!res.ok) throw new Error(`behavior facts returned ${res.status}`);
       return (await res.json()) as BehaviorFactDTO;
@@ -113,9 +113,7 @@ export function AgentInspector({
 
   if (!session) {
     return (
-      <div className="p-4 text-xs text-muted-foreground">
-        Loading agent inspection details...
-      </div>
+      <div className="p-4 text-xs text-muted-foreground">Loading agent inspection details...</div>
     );
   }
 
@@ -144,9 +142,10 @@ export function AgentInspector({
   const role = session.labels?.["agentnexus.role"] ?? "Unknown";
   const branch = session.gitBranch ?? "Unknown";
   const permissionMode = claudePermissionModeFromSession(session);
-  const binding = behaviorError ? null : behaviorFacts?.binding ?? null;
-  const sessionModeMode =
-    behaviorError ? null : (behaviorFacts?.session_mode?.binding?.mode ?? null);
+  const binding = behaviorError ? null : (behaviorFacts?.binding ?? null);
+  const sessionModeMode = behaviorError
+    ? null
+    : (behaviorFacts?.session_mode?.binding?.mode ?? null);
   const resolvedBinding = binding?.resolved?.binding;
   const mode = resolvedBinding?.mode ?? binding?.requested_mode ?? "unknown";
   const injectionState = behaviorFacts?.delivery_state ?? "unknown";
@@ -155,14 +154,11 @@ export function AgentInspector({
     setBehaviorSaving(true);
     setBehaviorSaveError(null);
     try {
-      const res = await authenticatedFetch(
-        `/v1/sessions/${encodeURIComponent(conversationId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ labels: { [BEHAVIOR_MODE_LABEL_KEY]: value } }),
-        },
-      );
+      const res = await authenticatedFetch(`/v1/sessions/${encodeURIComponent(conversationId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ labels: { [BEHAVIOR_MODE_LABEL_KEY]: value } }),
+      });
       if (!res.ok) {
         setBehaviorSaveError(`Failed to save session mode (${res.status})`);
       }
@@ -170,9 +166,7 @@ export function AgentInspector({
         queryKey: ["behaviorFacts", conversationId, rootSessionId],
       });
     } catch (err) {
-      setBehaviorSaveError(
-        err instanceof Error ? err.message : "Failed to save session mode",
-      );
+      setBehaviorSaveError(err instanceof Error ? err.message : "Failed to save session mode");
     } finally {
       setBehaviorSaving(false);
     }
@@ -224,9 +218,7 @@ export function AgentInspector({
         </CardHeader>
         <CardContent className="flex flex-col gap-2 pt-0">
           {behaviorError ? (
-            <span className="text-muted-foreground">
-              Behavior facts unavailable
-            </span>
+            <span className="text-muted-foreground">Behavior facts unavailable</span>
           ) : behaviorLoading ? (
             <span className="text-muted-foreground">Loading behavior facts...</span>
           ) : !binding ? (
@@ -282,9 +274,7 @@ export function AgentInspector({
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Pack:</span>
                 <span className="font-mono text-foreground">
-                  {resolvedBinding?.digest
-                    ? `${resolvedBinding.digest.slice(0, 16)}…`
-                    : "off"}
+                  {resolvedBinding?.digest ? `${resolvedBinding.digest.slice(0, 16)}…` : "off"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -301,9 +291,7 @@ export function AgentInspector({
               </div>
               <div
                 className={`flex items-center justify-between ${
-                  injectionState === "confirmed"
-                    ? "text-success"
-                    : "text-foreground"
+                  injectionState === "confirmed" ? "text-success" : "text-foreground"
                 }`}
               >
                 <span className="text-muted-foreground">Injection:</span>

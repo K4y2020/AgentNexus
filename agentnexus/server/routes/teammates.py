@@ -104,23 +104,31 @@ async def _backfill_local_bot_sessions(
         existing_a2a = await asyncio.to_thread(
             conversation_store.get_bot_singleton_session, bot.id, "a2a"
         )
-        a2a_id = existing_a2a.id if existing_a2a else next(
-            (
-                conv.id
-                for conv in conversations
-                if conv.labels.get("agentnexus.teammate.channel") == "a2a"
-            ),
-            None,
+        a2a_id = (
+            existing_a2a.id
+            if existing_a2a
+            else next(
+                (
+                    conv.id
+                    for conv in conversations
+                    if conv.labels.get("agentnexus.teammate.channel") == "a2a"
+                ),
+                None,
+            )
         )
-        primary_id = existing_primary.id if existing_primary else next(
-            (
-                conv.id
-                for conv in conversations
-                if conv.parent_conversation_id is None
-                and conv.id != a2a_id
-                and conv.labels.get("agentnexus.teammate.primary") == "true"
-            ),
-            None,
+        primary_id = (
+            existing_primary.id
+            if existing_primary
+            else next(
+                (
+                    conv.id
+                    for conv in conversations
+                    if conv.parent_conversation_id is None
+                    and conv.id != a2a_id
+                    and conv.labels.get("agentnexus.teammate.primary") == "true"
+                ),
+                None,
+            )
         )
         if primary_id is None:
             primary_id = next(
@@ -337,12 +345,15 @@ def create_teammates_router(
                 )
             home = home.resolve()
             (home / "scratch").mkdir(parents=True, exist_ok=True)
-            binding = await asyncio.to_thread(
-                resolved_bot_store.update_binding,
-                bot_id,
-                host_id=binding.host_id,
-                home_path=str(home),
-            ) or binding
+            binding = (
+                await asyncio.to_thread(
+                    resolved_bot_store.update_binding,
+                    bot_id,
+                    host_id=binding.host_id,
+                    home_path=str(home),
+                )
+                or binding
+            )
 
         if updated.status == "archived" and scheduled_task_store is not None:
             routine_owner_id = None if owner_id == RESERVED_USER_LOCAL else owner_id
@@ -362,7 +373,6 @@ def create_teammates_router(
                 if scheduler is not None and paused is not None:
                     scheduler.update(paused)
         return {"bot": _bot_object(updated, binding).model_dump(mode="json")}
-
 
     @router.get("/bots/{bot_id}/projects")
     async def list_bot_projects(bot_id: str, request: Request) -> dict[str, Any]:
@@ -449,6 +459,7 @@ def create_teammates_router(
     @router.get("/computers/local")
     async def get_local_computer(_request: Request) -> dict[str, Any]:
         from agentnexus.computers.local_host import LocalHostComputerProvider
+
         provider = LocalHostComputerProvider(resolved_bot_store) if resolved_bot_store else None
         caps = provider.capabilities() if provider else None
         return {

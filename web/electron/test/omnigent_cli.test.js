@@ -30,7 +30,10 @@ describe("normalizeServerUrl", () => {
   it("strips trailing slashes and trims", () => {
     assert.equal(normalizeServerUrl("https://x.com/"), "https://x.com");
     assert.equal(normalizeServerUrl("  http://localhost:6767//  "), "http://localhost:6767");
-    assert.equal(normalizeServerUrl("https://x.com/ml/agentnexuss"), "https://x.com/ml/agentnexuss");
+    assert.equal(
+      normalizeServerUrl("https://x.com/ml/agentnexuss"),
+      "https://x.com/ml/agentnexuss",
+    );
   });
 
   it("returns empty string for non-strings", () => {
@@ -87,9 +90,7 @@ describe("candidatePaths", () => {
   it("probes both the agentnexus name and the omni alias in each location", () => {
     const paths = candidatePaths();
     // Every well-known dir contributes an `agentnexus` and an `omni` entry.
-    assert.ok(
-      paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "agentnexus")),
-    );
+    assert.ok(paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "agentnexus")));
     assert.ok(paths.some((p) => p === path.join(os.homedir(), ".local", "bin", "omni")));
     assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "agentnexus")));
     assert.ok(paths.includes(path.join("/opt", "homebrew", "bin", "omni")));

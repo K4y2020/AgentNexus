@@ -2,22 +2,22 @@
 
 ## Distribution channels
 
-| Channel | Status |
-| --- | --- |
-| Source checkout (`uv run python -m agentnexus.server`) + web UI | Supported for developers |
-| Windows portable zip | Internal/signed beta; portable user data kept per-user |
-| Windows NSIS installer | Signed internal beta path |
-| macOS DMG/zip | Buildable; notarization requires Apple credentials |
-| Linux AppImage/deb | Buildable Tier 2 |
+| Channel                                                         | Status                                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------ |
+| Source checkout (`uv run python -m agentnexus.server`) + web UI | Supported for developers                               |
+| Windows portable zip                                            | Internal/signed beta; portable user data kept per-user |
+| Windows NSIS installer                                          | Signed internal beta path                              |
+| macOS DMG/zip                                                   | Buildable; notarization requires Apple credentials     |
+| Linux AppImage/deb                                              | Buildable Tier 2                                       |
 
 ## Platform matrix
 
-| Platform | Level | Required coverage |
-| --- | --- | --- |
-| Windows 11 x64 | Tier 1 | Server/Host/SDK harness, paths, installer/upgrade/backup/uninstall |
-| macOS ARM64/x64 | Tier 2 | Web/Desktop, SDK/native, keychain, worktree |
-| Ubuntu x64 | Tier 2 | Server/Host, bwrap, tmux, headless |
-| WSL2 | Tier 3 | Documented compatibility, not an alternative Windows promise |
+| Platform        | Level  | Required coverage                                                  |
+| --------------- | ------ | ------------------------------------------------------------------ |
+| Windows 11 x64  | Tier 1 | Server/Host/SDK harness, paths, installer/upgrade/backup/uninstall |
+| macOS ARM64/x64 | Tier 2 | Web/Desktop, SDK/native, keychain, worktree                        |
+| Ubuntu x64      | Tier 2 | Server/Host, bwrap, tmux, headless                                 |
+| WSL2            | Tier 3 | Documented compatibility, not an alternative Windows promise       |
 
 Tier 1 means an automated and manual gate before a public Windows beta. Tier 2
 means tested but outside the first public beta commitment. Tier 3 means

@@ -35,7 +35,8 @@ def upgrade() -> None:
     ``duplicate column name: task_summary``.
     """
     existing = {
-        c["name"] for c in sa.inspect(op.get_bind()).get_columns("agentnexus_conversation_metadata")
+        c["name"]
+        for c in sa.inspect(op.get_bind()).get_columns("agentnexus_conversation_metadata")
     }
     if "task_summary" not in existing:
         op.add_column(

@@ -2800,7 +2800,9 @@ async def test_route_turn_never_offers_pi_a_model_its_gateway_bars() -> None:
             offered.update(available_models)
             return None
 
-    with patch("agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=_CapturingClient())):
+    with patch(
+        "agentnexus.runtime._globals._caps", new=FakeCaps(routing_client=_CapturingClient())
+    ):
         await route_turn("pi", "hello")
     assert offered, "pi should still have candidates"
     for model in offered["pi"]:

@@ -696,16 +696,12 @@ async def _measure_session_cold_restart(env: BenchEnvironment, ctx: JourneyConte
     await env.cold_restart_first_delta(session_id, _TURN_PROMPT)
 
 
-async def _prepare_host_tunnel_reconnect(
-    env: BenchEnvironment, _ctx: JourneyContext
-) -> None:
+async def _prepare_host_tunnel_reconnect(env: BenchEnvironment, _ctx: JourneyContext) -> None:
     """Ensure the host daemon is online before the sample drops its tunnel."""
     await asyncio.to_thread(env._wait_host_online)
 
 
-async def _measure_host_tunnel_reconnect(
-    env: BenchEnvironment, _ctx: JourneyContext
-) -> None:
+async def _measure_host_tunnel_reconnect(env: BenchEnvironment, _ctx: JourneyContext) -> None:
     """Restart the server and time until the host daemon's tunnel is back online.
 
     The daemon's WebSocket is closed by the server process exit; the timed
@@ -778,9 +774,7 @@ async def _setup_a2a_delivery_tree(env: BenchEnvironment) -> _A2ADeliveryContext
     )
 
 
-async def _measure_a2a_message_delivery(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _measure_a2a_message_delivery(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Post one peer message and await its harness consumption receipt.
 
     The measured span is POST /v1/coordination/messages -> durable outbox ->
@@ -817,11 +811,7 @@ async def _measure_a2a_message_delivery(
         )
         listing.raise_for_status()
         message = next(
-            (
-                m
-                for m in listing.json()["messages"]
-                if m.get("message_id") == message_id
-            ),
+            (m for m in listing.json()["messages"] if m.get("message_id") == message_id),
             None,
         )
         last_message = message
@@ -857,9 +847,7 @@ async def _setup_stream_reconnect_session(env: BenchEnvironment) -> _StreamRecon
     return _StreamReconnectContext(session_id=session_id)
 
 
-async def _prepare_stream_reconnect(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _prepare_stream_reconnect(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Settle the prior turn and arm one gated, streaming mock response."""
     context = cast(_StreamReconnectContext, ctx)
     await env._wait_idle(context.session_id, timeout=_A2A_TIMEOUT_S)
@@ -868,14 +856,10 @@ async def _prepare_stream_reconnect(
     await env.configure_mock([], key="default")
     with contextlib.suppress(httpx.HTTPError):
         await env._mock_post("/gate/release", {})
-    await env.configure_mock(
-        [{"text": _RECONNECT_REPLY, "block": True, "stream": True}]
-    )
+    await env.configure_mock([{"text": _RECONNECT_REPLY, "block": True, "stream": True}])
 
 
-async def _measure_server_stream_reconnect(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _measure_server_stream_reconnect(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Drop a live UI stream, reconnect mid-turn, and await the first delta.
 
     Mirrors the web client's reconnect loop: an existing stream is open and
@@ -994,9 +978,7 @@ async def _setup_ui_event_session(env: BenchEnvironment) -> _UIEventContext:
     return _UIEventContext(session_id=session_id)
 
 
-async def _prepare_ui_event_running(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _prepare_ui_event_running(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Settle the prior turn, clear queue pollution, and reuse the attached stream.
 
     The stream is attached once and kept open for the whole journey, so each
@@ -1037,9 +1019,7 @@ async def _prepare_ui_event_running(
         await asyncio.wait_for(ui.connected.wait(), timeout=_UI_EVENT_TIMEOUT_S)
 
 
-async def _measure_ui_event_running(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _measure_ui_event_running(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Time a user message to the first running/waiting SSE event on the live stream."""
     assert env.client is not None
     ui = cast(_UIEventContext, ctx)
@@ -1064,9 +1044,7 @@ async def _measure_ui_event_running(
         raise RuntimeError(f"ui turn failed before running: {ui.outcome['failed']}")
 
 
-async def _teardown_ui_event_running(
-    _env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _teardown_ui_event_running(_env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Cancel the journey's long-lived stream reader."""
     ui = cast(_UIEventContext, ctx)
     if ui.reader is not None:
@@ -1081,9 +1059,7 @@ async def _setup_tool_call_running_session(
     return _ToolCallRunningContext(session_id=session_id)
 
 
-async def _prepare_tool_call_running(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _prepare_tool_call_running(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Settle the prior turn, arm one tool-call response, and reuse the stream."""
     ui = cast(_ToolCallRunningContext, ctx)
     await env._wait_idle(ui.session_id, timeout=_TOOL_CALL_TIMEOUT_S)
@@ -1153,9 +1129,7 @@ async def _prepare_tool_call_running(
         await asyncio.wait_for(ui.connected.wait(), timeout=_TOOL_CALL_TIMEOUT_S)
 
 
-async def _measure_tool_call_running(
-    env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _measure_tool_call_running(env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Time a user message to the first live tool-call event on the UI stream."""
     assert env.client is not None
     ui = cast(_ToolCallRunningContext, ctx)
@@ -1182,18 +1156,14 @@ async def _measure_tool_call_running(
         raise RuntimeError(f"unexpected tool-call status: {ui.status!r}")
 
 
-async def _teardown_tool_call_running(
-    _env: BenchEnvironment, ctx: JourneyContext
-) -> None:
+async def _teardown_tool_call_running(_env: BenchEnvironment, ctx: JourneyContext) -> None:
     """Cancel the journey's long-lived stream reader."""
     ui = cast(_ToolCallRunningContext, ctx)
     if ui.reader is not None:
         ui.reader.cancel()
 
 
-async def _a2a_recipient_snapshot(
-    env: BenchEnvironment, session_id: str
-) -> str:
+async def _a2a_recipient_snapshot(env: BenchEnvironment, session_id: str) -> str:
     """Fetch a short diagnostic snapshot for a stuck recipient session."""
     assert env.client is not None
     try:
@@ -1364,7 +1334,9 @@ async def _measure_cli_startup(env: BenchEnvironment, _ctx: JourneyContext) -> N
 
     omnigent_bin = os.environ.get("AGENTNEXUS_BIN") or shutil.which("agentnexus")
     if omnigent_bin is None:
-        raise RuntimeError("agentnexus binary not found. Set AGENTNEXUS_BIN or add omnigent to PATH.")
+        raise RuntimeError(
+            "agentnexus binary not found. Set AGENTNEXUS_BIN or add omnigent to PATH."
+        )
 
     child = pexpect.spawn(
         omnigent_bin,

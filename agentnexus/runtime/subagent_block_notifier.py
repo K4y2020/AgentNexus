@@ -181,7 +181,8 @@ class SubagentBlockNotifier:
             return
         params = event.get("params")
         if isinstance(params, dict) and params.get("target_session_id") not in (
-            None, conversation_id,
+            None,
+            conversation_id,
         ):
             return  # Ancestor UI mirrors do not own the parked question.
         with self._lock:

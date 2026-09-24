@@ -1909,9 +1909,9 @@ describe("Sidebar auto-expand Pinned on pin", () => {
     // The Pinned section auto-expands so the freshly-pinned session is visible,
     // and the expansion is persisted (dropped from the collapsed list).
     expect(screen.getByRole("button", { name: /Pinned/ })).toHaveAttribute("aria-expanded", "true");
-    expect(JSON.parse(localStorage.getItem("agentnexus:collapsed-sidebar-sections")!)).not.toContain(
-      "Pinned",
-    );
+    expect(
+      JSON.parse(localStorage.getItem("agentnexus:collapsed-sidebar-sections")!),
+    ).not.toContain("Pinned");
   });
 });
 

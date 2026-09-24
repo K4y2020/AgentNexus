@@ -67,9 +67,15 @@ export interface ParsedTeammateOutput {
 interface CoordinationSnapshot {
   message?: { message_state?: string };
   result?: {
-    payload?: { summary?: string; prompt?: string; outcome?: string } & Pick<ParsedTeammateOutput,
-      "seedance_project_id" | "seedance_agent_session_id" | "seedance_canvas_url" |
-      "seedance_job_ids" | "seedance_asset_ids" | "seedance_status">;
+    payload?: { summary?: string; prompt?: string; outcome?: string } & Pick<
+      ParsedTeammateOutput,
+      | "seedance_project_id"
+      | "seedance_agent_session_id"
+      | "seedance_canvas_url"
+      | "seedance_job_ids"
+      | "seedance_asset_ids"
+      | "seedance_status"
+    >;
   } | null;
   delivery_state?: string;
 }
@@ -184,8 +190,7 @@ export function parseTeammateOutput(output: string | null): ParsedTeammateOutput
       seedance_asset_ids: Array.isArray(obj.seedance_asset_ids)
         ? (obj.seedance_asset_ids.filter((id) => typeof id === "string") as string[])
         : undefined,
-      seedance_status:
-        typeof obj.seedance_status === "string" ? obj.seedance_status : undefined,
+      seedance_status: typeof obj.seedance_status === "string" ? obj.seedance_status : undefined,
     };
   }
 
@@ -243,8 +248,9 @@ export function A2ACollaborationCard({
     : [];
 
   const parsed = useMemo(() => parseTeammateOutput(output), [output]);
-  const [coordinationSnapshot, setCoordinationSnapshot] =
-    useState<CoordinationSnapshot | null>(null);
+  const [coordinationSnapshot, setCoordinationSnapshot] = useState<CoordinationSnapshot | null>(
+    null,
+  );
   const coordinationMessageId = parsed?.coordination_message_id;
 
   useEffect(() => {
@@ -266,9 +272,9 @@ export function A2ACollaborationCard({
         setCoordinationSnapshot(snapshot);
         const terminal = Boolean(
           snapshot.result ||
-            snapshot.delivery_state === "failed" ||
-            snapshot.message?.message_state === "cancelled" ||
-            snapshot.message?.message_state === "expired",
+          snapshot.delivery_state === "failed" ||
+          snapshot.message?.message_state === "cancelled" ||
+          snapshot.message?.message_state === "expired",
         );
         if (!terminal) {
           delay = Math.min(delay * 1.5, 10000);
@@ -310,7 +316,8 @@ export function A2ACollaborationCard({
     displayedParsed?.status === "failed" ||
     state === "output-error" ||
     state === "cancelled";
-  const errorMessage = displayedParsed?.error || (state === "cancelled" ? "协同任务已取消" : undefined);
+  const errorMessage =
+    displayedParsed?.error || (state === "cancelled" ? "协同任务已取消" : undefined);
   const isDispatchedOnly = displayedParsed?.status === "dispatched" && !displayedParsed.response;
   const isCompleted = !hasError && displayedParsed?.status === "completed";
 
@@ -348,8 +355,12 @@ export function A2ACollaborationCard({
                 {displayedParsed.channel_kind === "topic" ? "当前 Topic" : "当前 Chat"}
               </Badge>
             )}
-            {(displayedParsed?.seedance_project_id || displayedParsed?.target_teammate?.toLowerCase() === "seedance") && (
-              <Badge variant="outline" className="hidden sm:inline-flex border-violet-500/40 text-violet-600 dark:text-violet-400">
+            {(displayedParsed?.seedance_project_id ||
+              displayedParsed?.target_teammate?.toLowerCase() === "seedance") && (
+              <Badge
+                variant="outline"
+                className="hidden sm:inline-flex border-violet-500/40 text-violet-600 dark:text-violet-400"
+              >
                 Seedance 画布联动
               </Badge>
             )}
@@ -515,27 +526,31 @@ export function A2ACollaborationCard({
                 </Badge>
               )}
             </div>
-            {cineCanvasEnabled && <Button asChild variant="outline" size="xs">
-              <a
-                href={
-                  displayedParsed.seedance_canvas_url ||
-                  `http://127.0.0.1:5173/?project=${encodeURIComponent(displayedParsed.seedance_project_id!)}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5"
-                data-testid="open-seedance-canvas-link"
-                onClick={openSeedanceCanvas}
-              >
-                <span>打开 Seedance 画布</span>
-                <PanelRightOpenIcon className="size-3" />
-              </a>
-            </Button>}
+            {cineCanvasEnabled && (
+              <Button asChild variant="outline" size="xs">
+                <a
+                  href={
+                    displayedParsed.seedance_canvas_url ||
+                    `http://127.0.0.1:5173/?project=${encodeURIComponent(displayedParsed.seedance_project_id!)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5"
+                  data-testid="open-seedance-canvas-link"
+                  onClick={openSeedanceCanvas}
+                >
+                  <span>打开 Seedance 画布</span>
+                  <PanelRightOpenIcon className="size-3" />
+                </a>
+              </Button>
+            )}
           </div>
 
           {displayedParsed.seedance_job_ids && displayedParsed.seedance_job_ids.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="font-medium">生成任务 ({displayedParsed.seedance_job_ids.length}):</span>
+              <span className="font-medium">
+                生成任务 ({displayedParsed.seedance_job_ids.length}):
+              </span>
               {displayedParsed.seedance_job_ids.map((jid) => (
                 <Badge key={jid} variant="secondary" className="font-mono text-[11px]">
                   {jid}
@@ -546,7 +561,9 @@ export function A2ACollaborationCard({
 
           {displayedParsed.seedance_asset_ids && displayedParsed.seedance_asset_ids.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="font-medium">产物资产 ({displayedParsed.seedance_asset_ids.length}):</span>
+              <span className="font-medium">
+                产物资产 ({displayedParsed.seedance_asset_ids.length}):
+              </span>
               {displayedParsed.seedance_asset_ids.map((aid) => (
                 <Badge key={aid} variant="outline" className="font-mono text-[11px]">
                   {aid}

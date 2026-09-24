@@ -33,7 +33,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.Integer(), nullable=False),
         sa.Column("updated_at", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("workspace_id", "id"),
-        sa.UniqueConstraint("workspace_id", "bot_id", "project_id", name="uq_bot_project_bindings_bot_project"),
+        sa.UniqueConstraint(
+            "workspace_id", "bot_id", "project_id", name="uq_bot_project_bindings_bot_project"
+        ),
     )
     op.create_index(
         "ix_bot_project_bindings_bot",

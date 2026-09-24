@@ -146,11 +146,7 @@ function clearUpgradeState({ userDataDir }) {
  *   error?: string,
  * }}
  */
-function reconcileUpgradeState({
-  userDataDir,
-  currentVersion,
-  restore = restoreFromBackup,
-}) {
+function reconcileUpgradeState({ userDataDir, currentVersion, restore = restoreFromBackup }) {
   const state = readUpgradeState({ userDataDir });
   if (!state) return { action: "none", state: null };
   if (currentVersion === state.pendingVersion) {

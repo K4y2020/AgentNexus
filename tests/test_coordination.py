@@ -458,9 +458,7 @@ async def test_dispatcher_confirms_only_after_runner_2xx(
         recipient_role="implementer",
         intent="review.request",
         payload={"diff_url": "artifact://diff_001"},
-        artifacts=[
-            {"type": "input_file", "file_id": "file_target", "filename": "plan.md"}
-        ],
+        artifacts=[{"type": "input_file", "file_id": "file_target", "filename": "plan.md"}],
     )
     memory_store.save_message_and_outbox(msg)
 
@@ -1530,6 +1528,7 @@ async def test_workflow_reconcile_cancels_run_with_missing_root(
     assert stored is not None and stored.status == "cancelled"
     assert {task.status for task in memory_store.list_tasks(run.run_id)} == {"cancelled"}
     assert memory_store.list_messages(run.root_session_id)[0].message_state == "cancelled"
+
 
 @pytest.mark.asyncio
 async def test_workflow_cancel_run_marks_messages_and_tasks(
@@ -2772,9 +2771,7 @@ def test_coordination_send_message_rejects_over_limit_envelopes(
     )
     assert exhausted_hop.status_code == 400
 
-    bad_ttl = client.post(
-        "/v1/coordination/messages", json={**base, "ttl_seconds": 0}
-    )
+    bad_ttl = client.post("/v1/coordination/messages", json={**base, "ttl_seconds": 0})
     assert bad_ttl.status_code == 400
 
     oversized = client.post(
