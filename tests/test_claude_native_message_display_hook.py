@@ -289,11 +289,11 @@ def test_package_lazy_exports_resolve_on_access() -> None:
         (
             "import agentnexus",
             "from agentnexus import AgentDef, Executor, load_agent_def",
-            "assert omnigent.TurnComplete is not None",
+            "assert agentnexus.TurnComplete is not None",
             "assert 'agentnexus.inner.executor' in sys.modules",
-            "_ = omnigent.DatabricksExecutor  # optional: a class or None, never a raise",
-            "assert omnigent.inner is not None",
-            "assert 'TurnComplete' in dir(omnigent)",
+            "_ = agentnexus.DatabricksExecutor  # optional: a class or None, never a raise",
+            "assert agentnexus.inner is not None",
+            "assert 'TurnComplete' in dir(agentnexus)",
         )
     )
     _heavy_imports_after(statements)  # the child's asserts are the test

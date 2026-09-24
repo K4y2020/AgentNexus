@@ -488,7 +488,7 @@ def test_exec_foreground_echoes_and_returns_exit_code(
     assert "line-1" in capsys.readouterr().out
     # TERM is forced and the command is exec'd inside the login shell.
     foreground_cmd = sdk.run_calls[-1]["cmd"]
-    assert "TERM=xterm-256color exec omnigent host" in foreground_cmd
+    assert "TERM=xterm-256color exec agentnexus host" in foreground_cmd
 
 
 def test_stream_exec_disables_per_command_timeout(sdk: _State) -> None:

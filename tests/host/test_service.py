@@ -96,7 +96,7 @@ def test_enable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.MonkeyP
     )
 
     unit = installed.path.read_text()
-    assert installed.path == tmp_path / "xdg/systemd/user/omnigent-host.service"
+    assert installed.path == tmp_path / "xdg/systemd/user/agentnexus-host.service"
     assert 'Environment="HOME=' in unit
     assert (
         'ExecStart="/opt/agentnexus/bin/python" "-m" "agentnexus.host.service_entry" "--local"'
@@ -125,7 +125,7 @@ def test_disable_systemd_user_service(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.setattr(service.platform, "system", lambda: "Linux")
-    path = tmp_path / ".config/systemd/user/omnigent-host.service"
+    path = tmp_path / ".config/systemd/user/agentnexus-host.service"
     path.parent.mkdir(parents=True)
     path.write_text("old")
     calls = _capture_runs(monkeypatch)

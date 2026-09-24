@@ -367,7 +367,7 @@ async def test_harness_not_configured_surfaces_curated_message(tmp_path: Path) -
     """A 412 harness_not_configured carries curated, actionable guidance the bot is
     allowed to surface verbatim (unlike a raw server body)."""
     server = FakeAgentNexusServer(_SERVER)
-    server.harness_not_configured_message = "Run `omnigent setup` on host h1 to install claude."
+    server.harness_not_configured_message = "Run `agentnexus setup` on host h1 to install claude."
     server.install(respx.mock)
 
     store = await _store(tmp_path)

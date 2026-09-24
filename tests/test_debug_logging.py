@@ -11,9 +11,9 @@ from agentnexus import debug_logging as dl
 
 _INSERT_URL = (
     "https://3272836215725701.zerobus.us-west-2.cloud.databricks.com"
-    "/zerobus/v1/tables/omnigents.agentnexus_daniel.agentnexus_debug_logs/insert"
+    "/zerobus/v1/tables/agentnexus.agentnexus_daniel.agentnexus_debug_logs/insert"
 )
-_TABLE = "agentnexuss.agentnexus_daniel.agentnexus_debug_logs"
+_TABLE = "agentnexus.agentnexus_daniel.agentnexus_debug_logs"
 
 
 @pytest.fixture
@@ -69,8 +69,8 @@ def test_authorization_details_splits_catalog_schema_table(_configured_env: None
         for entry in json.loads(source._authorization_details())
     }
     assert by_type == {
-        "CATALOG": "agentnexuss",
-        "SCHEMA": "agentnexuss.agentnexus_daniel",
+        "CATALOG": "agentnexus",
+        "SCHEMA": "agentnexus.agentnexus_daniel",
         "TABLE": _TABLE,
     }
 
@@ -353,8 +353,8 @@ def test_attach_suppresses_handler_init_failure(
 
 def test_parse_app_host_basic() -> None:
     assert dl._parse_databricks_app_host(
-        "https://omnigents-3272836215725701.aws.databricksapps.com/c/abc123"
-    ) == ("agentnexuss", "3272836215725701")
+        "https://agentnexus-3272836215725701.aws.databricksapps.com/c/abc123"
+    ) == ("agentnexus", "3272836215725701")
 
 
 def test_parse_app_host_hyphenated_app_name() -> None:
@@ -393,16 +393,16 @@ def test_parse_app_host_rejects_malformed_labels() -> None:
 def test_process_identity_from_databricks_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # Databricks App: the platform-injected env is authoritative.
     monkeypatch.setenv(dl.ORIGIN_WORKSPACE_ID_ENV_VAR, "111222333")
-    monkeypatch.setenv(dl.APP_NAME_ENV_VAR, "agentnexuss")
-    assert dl._process_identity() == ("111222333", "agentnexuss")
+    monkeypatch.setenv(dl.APP_NAME_ENV_VAR, "agentnexus")
+    assert dl._process_identity() == ("111222333", "agentnexus")
 
 
 def test_process_identity_from_server_url(monkeypatch: pytest.MonkeyPatch) -> None:
     # Runner/host connected to a Databricks App: both parsed from the server URL.
     monkeypatch.setenv(
-        dl.SERVER_URL_ENV_VAR, "https://omnigents-3272836215725701.aws.databricksapps.com"
+        dl.SERVER_URL_ENV_VAR, "https://agentnexus-3272836215725701.aws.databricksapps.com"
     )
-    assert dl._process_identity() == ("3272836215725701", "agentnexuss")
+    assert dl._process_identity() == ("3272836215725701", "agentnexus")
 
 
 def test_process_identity_env_beats_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -451,11 +451,11 @@ def test_record_to_row_origin_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # Databricks App: both columns come from the process constant when the record
     # carries none.
     monkeypatch.setenv(dl.ORIGIN_WORKSPACE_ID_ENV_VAR, "3272836215725701")
-    monkeypatch.setenv(dl.APP_NAME_ENV_VAR, "agentnexuss")
+    monkeypatch.setenv(dl.APP_NAME_ENV_VAR, "agentnexus")
     record = logging.LogRecord("agentnexus.server", logging.INFO, __file__, 1, "hi", (), None)
     row = dl.record_to_row(record, source="server")
     assert row["workspace_id"] == "3272836215725701"
-    assert row["app_name"] == "agentnexuss"
+    assert row["app_name"] == "agentnexus"
 
 
 def test_record_to_row_app_name_null_on_managed() -> None:

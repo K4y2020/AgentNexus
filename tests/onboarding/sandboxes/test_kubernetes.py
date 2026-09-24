@@ -154,7 +154,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
     init_env = spec["initContainers"][0]["env"]
     host_env = spec["containers"][0]["env"]
     assert init_env == [
-        {"name": "HOME", "value": "/home/omnigent"},
+        {"name": "HOME", "value": "/home/agentnexus"},
         {
             "name": "AGENTNEXUS_CONFIG_HOME",
             "value": "/home/agentnexus/custom-config",
@@ -168,7 +168,7 @@ def test_build_job_manifest_forwards_config_home_to_init_container() -> None:
 
 @pytest.mark.parametrize(
     "config_home",
-    ["/tmp/elsewhere", "/home/omnigent-other", "/home/agentnexus/../tmp", "../etc"],
+    ["/tmp/elsewhere", "/home/agentnexus-other", "/home/agentnexus/../tmp", "../etc"],
 )
 def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: str) -> None:
     """
@@ -185,7 +185,7 @@ def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: st
 @pytest.mark.parametrize(
     "config_home",
     [
-        "/home/omnigent",
+        "/home/agentnexus",
         "/home/agentnexus/",
         "/home/agentnexus/cfg",
         "cfg",
@@ -310,7 +310,7 @@ def test_build_job_manifest_pvc_mounts_land_on_host_container_only() -> None:
     }
     assert host_mounts["pvc-1"] == {"name": "pvc-1", "mountPath": "/mnt/scratch"}
     assert spec["initContainers"][0]["volumeMounts"] == [
-        {"name": "home", "mountPath": "/home/omnigent"}
+        {"name": "home", "mountPath": "/home/agentnexus"}
     ]
 
 
@@ -320,7 +320,7 @@ def test_build_job_manifest_without_pvc_mounts_is_unchanged() -> None:
     spec = _pod_spec(manifest)
     assert spec["volumes"] == [{"name": "home", "emptyDir": {}}]
     assert spec["containers"][0]["volumeMounts"] == [
-        {"name": "home", "mountPath": "/home/omnigent"}
+        {"name": "home", "mountPath": "/home/agentnexus"}
     ]
 
 
@@ -358,7 +358,7 @@ def test_build_job_manifest_secret_mounts_land_on_host_container_only() -> None:
         "readOnly": True,
     }
     assert spec["initContainers"][0]["volumeMounts"] == [
-        {"name": "home", "mountPath": "/home/omnigent"}
+        {"name": "home", "mountPath": "/home/agentnexus"}
     ]
 
 
@@ -382,7 +382,7 @@ def test_build_job_manifest_without_secret_mounts_is_unchanged() -> None:
     spec = _pod_spec(manifest)
     assert spec["volumes"] == [{"name": "home", "emptyDir": {}}]
     assert spec["containers"][0]["volumeMounts"] == [
-        {"name": "home", "mountPath": "/home/omnigent"}
+        {"name": "home", "mountPath": "/home/agentnexus"}
     ]
 
 
@@ -1072,7 +1072,7 @@ def test_find_job_pod_sends_correct_label_selector(
         host_name="managed-sel",
         server_url="http://srv.example.com",
     )
-    assert core.last_label_selector == "job-name=omnigent-job-sel"
+    assert core.last_label_selector == "job-name=agentnexus-job-sel"
 
 
 def test_wait_rediscovers_pod_on_404(

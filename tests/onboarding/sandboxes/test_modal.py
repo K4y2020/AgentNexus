@@ -626,7 +626,7 @@ def test_exec_foreground_records_pid_and_streams_output(
     assert "echo $$ > /tmp/oa-foreground-" in remote and "/pid" in remote
     assert "TERM=xterm-256color" in remote
     # `exec` keeps the recorded pid across the swap to the real command.
-    assert "exec omnigent host --server u" in remote
+    assert "exec agentnexus host --server u" in remote
     # Output reached the local terminal.
     assert "host-output" in capsys.readouterr().out
     # A normal exit cleans up the run dir so it isn't orphaned in /tmp.

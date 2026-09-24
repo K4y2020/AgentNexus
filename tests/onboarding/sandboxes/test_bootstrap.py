@@ -370,7 +370,7 @@ def test_login_runs_in_sandbox_and_forwards_callback_port(
     ]
     # The seed lands before the login spawn (the login reads the cfg).
     assert launcher.log.index(f"run:{launcher.run_commands[0]}") < launcher.log.index(
-        "stream:omnigent login https://app.example.com"
+        "stream:agentnexus login https://app.example.com"
     )
 
 

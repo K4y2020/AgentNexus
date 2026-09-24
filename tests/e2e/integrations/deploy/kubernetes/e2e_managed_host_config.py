@@ -31,7 +31,7 @@ import httpx
 # Constants pinned by the kubernetes launcher (see
 # omnigent/onboarding/sandboxes/kubernetes.py): the Pod's fixed HOME, the
 # main container and host-id env names, and the labels stamped on every runner Pod.
-POD_HOME = "/home/omnigent"
+POD_HOME = "/home/agentnexus"
 HOST_CONTAINER = "host"
 HOST_ID_ENV_VAR = "AGENTNEXUS_HOST_ID"
 POD_SELECTOR = "app.kubernetes.io/managed-by=omnigent,omnigent.ai/role=sandbox-host"

@@ -175,7 +175,7 @@ def test_open_conversation_link_warns_when_opener_raises_oserror(
 def test_conversation_url_maps_workspace_hosted_server_to_ui_mount(tmp_path, monkeypatch) -> None:
     """Workspace-hosted servers link to the SPA mount with the org selector.
 
-    The server base is the API proxy (``/api/2.0/omnigent``) — linking
+    The server base is the API proxy (``/api/2.0/agentnexus``) — linking
     there returns JSON, not the web UI. The browser URL must land on
     ``/omnigent`` and carry ``?o=<org>`` recorded by ``omnigent
     login`` so multi-org workspaces open in the right one.
@@ -187,7 +187,7 @@ def test_conversation_url_maps_workspace_hosted_server_to_ui_mount(tmp_path, mon
         "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
-    server = "https://example.databricks.com/api/2.0/omnigent"
+    server = "https://example.databricks.com/api/2.0/agentnexus"
     store_databricks_auth(
         server,
         "https://example.databricks.com",
@@ -212,7 +212,7 @@ def test_conversation_url_workspace_hosted_without_org_record(tmp_path, monkeypa
         lambda: tmp_path / "auth_tokens.json",
     )
 
-    url = conversation_url("https://example.databricks.com/api/2.0/omnigent", "conv_abc123")
+    url = conversation_url("https://example.databricks.com/api/2.0/agentnexus", "conv_abc123")
 
     assert url == "https://example.databricks.com/agentnexus/c/conv_abc123"
 
@@ -243,7 +243,10 @@ def test_conversation_url_plain_server_unchanged(tmp_path, monkeypatch) -> None:
         ("https://app.databricksapps.com/c/conv_abc/", "https://app.databricksapps.com"),
         ("http://127.0.0.1:6767/c/conv_abc", "http://127.0.0.1:6767"),
         # Workspace web-UI mount keeps its prefix; only the route is trimmed.
-        ("https://ws.databricks.com/agentnexus/c/conv_abc", "https://ws.databricks.com/omnigent"),
+        (
+            "https://ws.databricks.com/agentnexus/c/conv_abc",
+            "https://ws.databricks.com/agentnexus",
+        ),
         # Real server bases must survive untouched.
         (
             "https://ws.databricks.com/api/2.0/omnigent",

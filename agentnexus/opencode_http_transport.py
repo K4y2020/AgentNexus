@@ -203,7 +203,7 @@ class OpenCodeHttpTransport:
                 if existing is not None:
                     return existing.id
             created = await client.create_session(
-                {"title": f"agentnexus:{launch.agentnexus_session_id}"}
+                {"title": f"agentnexus:{launch.omnigent_session_id}"}
             )
             return created.id
         finally:
