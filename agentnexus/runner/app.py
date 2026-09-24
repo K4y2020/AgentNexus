@@ -2986,9 +2986,7 @@ def create_runner_app(
                     if isinstance(m, dict) and m.get("content", "").strip()
                 ]
                 fallback_line = "- (No persistent memories recorded yet)"
-                formatted = (
-                    "\n".join(f"- {line}" for line in lines) if lines else fallback_line
-                )
+                formatted = "\n".join(f"- {line}" for line in lines) if lines else fallback_line
                 mem_rules = (
                     "AUTOMATIC MEMORY RECORDING:\n"
                     "You have the `save_teammate_memory` tool. Actively record memories when:\n"
@@ -7265,7 +7263,9 @@ def create_runner_app(
             # background path pre-composes).
             _instr_body = body
             if dispatch is None:
-                with contextlib.suppress(AgentNexusError, httpx.HTTPError, RuntimeError, ValueError):
+                with contextlib.suppress(
+                    AgentNexusError, httpx.HTTPError, RuntimeError, ValueError
+                ):
                     _instr_entry_ds = await _resolve_session_spec_entry(conv_id)
                     _instr_spec_ds = _unwrap_resolved_spec(_instr_entry_ds)
                     if _instr_spec_ds is not None:

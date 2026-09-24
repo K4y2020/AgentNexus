@@ -317,7 +317,9 @@ def hook_payload_to_evaluation_request(
     # Skip only those here to avoid double evaluation; connector-native MCP
     # tools such as mcp__github__* must still go through this hook.
     # Retain the old relay spelling for resumed sessions until 2.0.
-    if isinstance(tool_name, str) and tool_name.startswith(("mcp__agentnexus__", "mcp__omnigent__")):
+    if isinstance(tool_name, str) and tool_name.startswith(
+        ("mcp__agentnexus__", "mcp__omnigent__")
+    ):
         return None
     tool_input = payload.get("tool_input") or {}
     if hook_event == _PRE_TOOL_USE:

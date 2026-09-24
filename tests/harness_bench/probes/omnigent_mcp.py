@@ -45,11 +45,15 @@ class AgentNexusMcpProbe(CapabilityProbe):
         if result.timed_out:
             return ProbeResult(
                 Verdict.SKIPPED,
-                note=(f"timed out before calling {TARGET_AGENTNEXUS_MCP_TOOL} through AgentNexus MCP"),
+                note=(
+                    f"timed out before calling {TARGET_AGENTNEXUS_MCP_TOOL} through AgentNexus MCP"
+                ),
                 detail=detail,
             )
         return ProbeResult(
             Verdict.SKIPPED,
-            note=(f"model did not call {TARGET_AGENTNEXUS_MCP_TOOL} through the AgentNexus MCP relay"),
+            note=(
+                f"model did not call {TARGET_AGENTNEXUS_MCP_TOOL} through the AgentNexus MCP relay"
+            ),
             detail=detail,
         )

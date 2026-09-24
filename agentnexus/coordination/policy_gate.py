@@ -118,9 +118,7 @@ class CoordinationPolicyGate:
                     stage=stage,
                     reason=result.reason or "policy denied coordination operation",
                     deciding_policies=(
-                        tuple(result.deciding_policies)
-                        if result.deciding_policies
-                        else None
+                        tuple(result.deciding_policies) if result.deciding_policies else None
                     ),
                 )
             if result.action == PolicyAction.ASK:
@@ -128,8 +126,7 @@ class CoordinationPolicyGate:
 
         if asks:
             reasons = [
-                f"{stage}: {result.reason or 'approval required'}"
-                for stage, result in asks
+                f"{stage}: {result.reason or 'approval required'}" for stage, result in asks
             ]
             deciding: list[str] = []
             for _, result in asks:

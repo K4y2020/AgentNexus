@@ -994,7 +994,9 @@ async def test_named_worker_child_of_an_auto_parent_stays_on_its_own_harness(
             "type": "agentnexus",
             "config": {"harness": "claude-sdk", "smart_routing_harness": "auto"},
         },
-        sub_agents=[{"name": "pi", "executor": {"type": "agentnexus", "config": {"harness": "pi"}}}],
+        sub_agents=[
+            {"name": "pi", "executor": {"type": "agentnexus", "config": {"harness": "pi"}}}
+        ],
     )
     parent = await client.post(
         "/v1/sessions",

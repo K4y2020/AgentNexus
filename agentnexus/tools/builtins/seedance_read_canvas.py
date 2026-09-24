@@ -42,10 +42,14 @@ class SeedanceReadCanvasTool(Tool):
                     "type": "object",
                     "properties": {
                         "action": {
-                            "type": "string", "enum": ["canvas", "models", "job"],
+                            "type": "string",
+                            "enum": ["canvas", "models", "job"],
                             "description": "Default canvas. models reads the generation catalog (not chat models); job reads a returned job_id. Never search source code or guess API endpoints.",
                         },
-                        "job_id": {"type": "string", "description": "Exact job ID returned by submit_generation, for action=job."},
+                        "job_id": {
+                            "type": "string",
+                            "description": "Exact job ID returned by submit_generation, for action=job.",
+                        },
                         "project_id": {
                             "type": "string",
                             "description": (
@@ -63,9 +67,7 @@ class SeedanceReadCanvasTool(Tool):
                         "shot_ids": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": (
-                                "Optional filter by shot IDs, e.g. ['S01', 'S02']."
-                            ),
+                            "description": ("Optional filter by shot IDs, e.g. ['S01', 'S02']."),
                         },
                         "include_edges": {
                             "type": "boolean",

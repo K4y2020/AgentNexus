@@ -1309,7 +1309,9 @@ def _patch_daemon_launch(monkeypatch: pytest.MonkeyPatch, captured: dict[str, ob
         captured["bind"] = {"session_id": session_id, "runner_id": runner_id}
 
     monkeypatch.setattr("agentnexus.host.daemon_launch.wait_for_host_online", _no_host_wait)
-    monkeypatch.setattr("agentnexus.host.daemon_launch.launch_or_reuse_daemon_runner", _fake_launch)
+    monkeypatch.setattr(
+        "agentnexus.host.daemon_launch.launch_or_reuse_daemon_runner", _fake_launch
+    )
     monkeypatch.setattr("agentnexus.host.daemon_launch.wait_for_runner_online", _no_runner_wait)
     monkeypatch.setattr("agentnexus.native_terminal.bind_session_runner", _fake_bind)
 
@@ -2581,7 +2583,9 @@ def test_remote_headers_keys_by_host_id_on_workspace_mount(
         == "host_abc"
     )
     # No host_id → no slice-key header on the same mount.
-    assert "X-Databricks-AgentNexus-Slice-Key" not in _remote_headers(server_url=mount, host_id=None)
+    assert "X-Databricks-AgentNexus-Slice-Key" not in _remote_headers(
+        server_url=mount, host_id=None
+    )
     # Unsharded server → no slice-key header even with a host_id.
     assert "X-Databricks-AgentNexus-Slice-Key" not in _remote_headers(
         server_url="http://127.0.0.1:6767", host_id="host_abc"
@@ -2761,7 +2765,9 @@ def _make_run_context(**params: object) -> click.Context:
     # Start with the declared defaults, then overlay the caller's overrides.
     merged = {p.name: p.default for p in run_cmd.params}
     merged.update(params)
-    ctx = click.Context(run_cmd, info_name="run", parent=click.Context(cli, info_name="agentnexus"))
+    ctx = click.Context(
+        run_cmd, info_name="run", parent=click.Context(cli, info_name="agentnexus")
+    )
     ctx.params = merged
     return ctx
 

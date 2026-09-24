@@ -1051,7 +1051,9 @@ async def test_message_relaunches_dead_managed_sandbox(
     monkeypatch.setattr(
         "agentnexus.server.routes.sessions._HOST_RELAUNCH_RUNNER_CONNECT_TIMEOUT_S", 0.2
     )
-    monkeypatch.setattr("agentnexus.server.routes.sessions._HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.1)
+    monkeypatch.setattr(
+        "agentnexus.server.routes.sessions._HOST_BOUND_RUNNER_CONNECT_GRACE_S", 0.1
+    )
     loop = asyncio.get_running_loop()
     host_futures: list[asyncio.Future[ApplicationCommunicator]] = []
 

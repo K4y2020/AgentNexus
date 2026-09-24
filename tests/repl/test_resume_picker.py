@@ -1118,7 +1118,8 @@ def test_render_workspace_cell_matching_cwd_no_flag(
     monkeypatch.chdir(tmp_path)
     write_launch_state("d27bd0e48c10689c10e6ae23e869877a", str(tmp_path.resolve()))
     row = _BadgeRow(
-        id="d27bd0e48c10689c10e6ae23e869877a", labels={"agentnexus.wrapper": "claude-code-native-ui"}
+        id="d27bd0e48c10689c10e6ae23e869877a",
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     cell = _render_workspace_cell(row, current_cwd=tmp_path.resolve())
@@ -1153,7 +1154,8 @@ def test_render_workspace_cell_mismatched_cwd_shows_cd_flag(
     current.mkdir()
     write_launch_state("3d86a9c5a27d38d42e1ff818058816e3", str(recorded.resolve()))
     row = _BadgeRow(
-        id="3d86a9c5a27d38d42e1ff818058816e3", labels={"agentnexus.wrapper": "claude-code-native-ui"}
+        id="3d86a9c5a27d38d42e1ff818058816e3",
+        labels={"agentnexus.wrapper": "claude-code-native-ui"},
     )
 
     cell = _render_workspace_cell(row, current_cwd=current.resolve())

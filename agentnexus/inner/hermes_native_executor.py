@@ -17,7 +17,11 @@ import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from agentnexus.hermes_native_bridge import BRIDGE_DIR_ENV_VAR, inject_interrupt, inject_user_message
+from agentnexus.hermes_native_bridge import (
+    BRIDGE_DIR_ENV_VAR,
+    inject_interrupt,
+    inject_user_message,
+)
 from agentnexus.inner.executor import (
     EnqueuedContent,
     Executor,

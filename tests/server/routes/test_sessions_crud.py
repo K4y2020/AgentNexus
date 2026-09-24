@@ -769,6 +769,7 @@ async def test_windows_native_codex_adapts_to_sdk(
     from agentnexus._platform import IS_WINDOWS
     from agentnexus.db.utils import generate_agent_id
     from agentnexus.stores.agent_store.sqlalchemy_store import SqlAlchemyAgentStore
+
     if not IS_WINDOWS:
         pytest.skip("Windows adaptation test only runs on Windows")
     agent_store = SqlAlchemyAgentStore(db_uri)

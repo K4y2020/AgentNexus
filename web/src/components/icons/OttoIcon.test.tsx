@@ -50,7 +50,9 @@ describe("OttoIcon", () => {
   });
 
   it("lets callers override aria-hidden for the new-chat hero render", () => {
-    const { container } = render(<OttoIcon role="img" aria-label="AgentNexus" aria-hidden={false} />);
+    const { container } = render(
+      <OttoIcon role="img" aria-label="AgentNexus" aria-hidden={false} />,
+    );
     const svg = container.querySelector("svg");
     // NewChatDialog renders the mascot as a meaningful image; the override
     // only works while the spread stays after the aria-hidden default.

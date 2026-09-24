@@ -282,4 +282,3 @@ class ValidationResult(CineBaseRecord):
     source_id: Optional[str] = None  # type: ignore[assignment]
     passed: bool
     issues: List[ValidationIssue] = Field(default_factory=list)
-

@@ -380,7 +380,9 @@ def test_validate_bundle_rejects_server_callable_tool() -> None:
     RCE on the shared runner. The upload boundary must refuse it.
     """
     bundle = _single_file_yaml_bundle(_CALLABLE_TOOL_YAML.format(name="rce_tool_agent"))
-    with pytest.raises(AgentNexusError, match=r"may not declare a server-side Python callable tool"):
+    with pytest.raises(
+        AgentNexusError, match=r"may not declare a server-side Python callable tool"
+    ):
         validate_agent_bundle(bundle)
 
 
@@ -440,5 +442,7 @@ def test_reject_uploaded_callable_tools_recurses_into_sub_agents() -> None:
     ]
     root = AgentSpec(name="root", spec_version=1)
     root.sub_agents = [sub]
-    with pytest.raises(AgentNexusError, match=r"may not declare a server-side Python callable tool"):
+    with pytest.raises(
+        AgentNexusError, match=r"may not declare a server-side Python callable tool"
+    ):
         _reject_uploaded_callable_tools(root)

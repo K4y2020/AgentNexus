@@ -849,7 +849,9 @@ def test_read_wheel_info_handles_corrupt_direct_url(
     install_time = time.time() - 86400 - 60  # just over 1 day
     dist_info = tmp_path / "agentnexus-0.1.0.dist-info"
     dist_info.mkdir()
-    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: agentnexus\nVersion: 0.1.0\n")
+    (dist_info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: agentnexus\nVersion: 0.1.0\n"
+    )
     (dist_info / "INSTALLER").write_text("uv\n")
     (dist_info / "direct_url.json").write_text("{not valid json")
     import os
@@ -1754,7 +1756,9 @@ def test_resolve_index_url_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _resolve_index_url() == "https://override.example/simple"
 
     # Multiple whitespace/comma-separated URLs → the first (primary) index.
-    monkeypatch.setenv("AGENTNEXUS_INDEX_URL", "https://a.example/simple, https://b.example/simple")
+    monkeypatch.setenv(
+        "AGENTNEXUS_INDEX_URL", "https://a.example/simple, https://b.example/simple"
+    )
     assert _resolve_index_url() == "https://a.example/simple"
 
 

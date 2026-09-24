@@ -15,7 +15,8 @@ import unittest
 from pathlib import Path
 
 REPO = next(
-    parent for parent in Path(__file__).resolve().parents
+    parent
+    for parent in Path(__file__).resolve().parents
     if (parent / "scripts" / "generate-catalog-summary.py").is_file()
 )
 DATA = REPO / "src/ui-ux-pro-max/data"
@@ -44,7 +45,8 @@ class CatalogSummaryLineEndingsTest(unittest.TestCase):
             lf.write_bytes(b"id,name\n1,alpha\n2,beta\n")
             crlf.write_bytes(b"id,name\r\n1,alpha\r\n2,beta\r\n")
             self.assertEqual(
-                digest(lf), digest(crlf),
+                digest(lf),
+                digest(crlf),
                 "snapshot hashes must not change with the checkout's line endings",
             )
 
@@ -55,7 +57,8 @@ class CatalogSummaryLineEndingsTest(unittest.TestCase):
                 (DATA / name).read_bytes().replace(b"\r\n", b"\n")
             ).hexdigest()
             self.assertEqual(
-                summary["snapshots"][name]["sha256"], expected,
+                summary["snapshots"][name]["sha256"],
+                expected,
                 f"{name}: committed snapshot hash does not match the LF-normalized source",
             )
 
@@ -69,7 +72,8 @@ class CatalogSummaryLineEndingsTest(unittest.TestCase):
                 raw = (DATA / name).read_bytes().replace(b"\r\n", b"\n")
                 crlf_copy.write_bytes(raw.replace(b"\n", b"\r\n"))
                 self.assertEqual(
-                    digest(crlf_copy), summary["snapshots"][name]["sha256"],
+                    digest(crlf_copy),
+                    summary["snapshots"][name]["sha256"],
                     f"{name}: a CRLF checkout would record a different hash",
                 )
 

@@ -71,7 +71,9 @@ describe("UpdateBanner", () => {
     );
 
     emit({ state: "downloading", progress: { percent: 42 } });
-    expect(await screen.findByText("Downloading AgentNexus Desktop update… 42%")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Downloading AgentNexus Desktop update… 42%"),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Update now" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Skip this version" })).toBeNull();
 

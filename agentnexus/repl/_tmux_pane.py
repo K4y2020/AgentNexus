@@ -559,7 +559,9 @@ def register_pane(
         return
     pane_id = _tmux_pane_id()
     if pane_id is None:
-        _LOGGER.warning("$TMUX is set but $TMUX_PANE is not — skipping AgentNexus pane integration")
+        _LOGGER.warning(
+            "$TMUX is set but $TMUX_PANE is not — skipping AgentNexus pane integration"
+        )
         return
     if not _tmux_version_ok():
         _LOGGER.warning(

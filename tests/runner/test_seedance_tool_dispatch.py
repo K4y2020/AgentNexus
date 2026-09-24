@@ -93,11 +93,13 @@ async def test_seedance_dispatch_success_payload():
         async with httpx.AsyncClient() as client:
             res = await execute_tool(
                 tool_name="seedance_agent_message",
-                arguments=json.dumps({
-                    "task": "Sync shot S01-01 to canvas",
-                    "shot_ids": ["S01-01"],
-                    "generation_allowed": False,
-                }),
+                arguments=json.dumps(
+                    {
+                        "task": "Sync shot S01-01 to canvas",
+                        "shot_ids": ["S01-01"],
+                        "generation_allowed": False,
+                    }
+                ),
                 conversation_id="conv_123",
                 server_client=client,
             )
@@ -169,10 +171,12 @@ async def test_seedance_read_canvas_dispatch_success():
         async with httpx.AsyncClient() as client:
             res = await execute_tool(
                 tool_name="seedance_read_canvas",
-                arguments=json.dumps({
-                    "detail_level": "summary",
-                    "include_edges": True,
-                }),
+                arguments=json.dumps(
+                    {
+                        "detail_level": "summary",
+                        "include_edges": True,
+                    }
+                ),
                 conversation_id="conv_123",
                 server_client=client,
             )
@@ -238,12 +242,14 @@ async def test_seedance_edit_canvas_update_success():
         async with httpx.AsyncClient() as client:
             res = await execute_tool(
                 tool_name="seedance_edit_canvas",
-                arguments=json.dumps({
-                    "action": "update_node",
-                    "node_id": "node_s03",
-                    "prompt": "New prompt for shot 3",
-                    "expected_revision": 1,
-                }),
+                arguments=json.dumps(
+                    {
+                        "action": "update_node",
+                        "node_id": "node_s03",
+                        "prompt": "New prompt for shot 3",
+                        "expected_revision": 1,
+                    }
+                ),
                 conversation_id="conv_123",
                 server_client=client,
             )
@@ -262,11 +268,13 @@ async def test_cast_validation_does_not_default_to_video():
         async with httpx.AsyncClient() as client:
             await execute_tool(
                 tool_name="seedance_edit_canvas",
-                arguments=json.dumps({
-                    "action": "validate_generation",
-                    "production_stage": "cast",
-                    "production_pointer": "/characters/0/image/sheet",
-                }),
+                arguments=json.dumps(
+                    {
+                        "action": "validate_generation",
+                        "production_stage": "cast",
+                        "production_pointer": "/characters/0/image/sheet",
+                    }
+                ),
                 conversation_id="conv_123",
                 server_client=client,
             )
@@ -276,13 +284,16 @@ async def test_cast_validation_does_not_default_to_video():
 
 @pytest.mark.asyncio
 async def test_generation_catalog_dispatch_is_read_only():
-    with patch("agentnexus.seedance.bridge.read_seedance_generation", new=AsyncMock(
-        return_value={"status": "completed", "models": [{"value": "test-image"}]}
-    )) as read:
+    with patch(
+        "agentnexus.seedance.bridge.read_seedance_generation",
+        new=AsyncMock(return_value={"status": "completed", "models": [{"value": "test-image"}]}),
+    ) as read:
         async with httpx.AsyncClient() as client:
             result = await execute_tool(
-                tool_name="seedance_read_canvas", arguments=json.dumps({"action": "models"}),
-                conversation_id="topic", server_client=client,
+                tool_name="seedance_read_canvas",
+                arguments=json.dumps({"action": "models"}),
+                conversation_id="topic",
+                server_client=client,
             )
     assert json.loads(result)["models"][0]["value"] == "test-image"
     assert read.call_args.kwargs["action"] == "models"

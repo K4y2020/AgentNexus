@@ -135,7 +135,9 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         ``["--bridge-dir", "/tmp/bridge"]``.
     :returns: Parsed argparse namespace with a ``bridge_dir`` attribute.
     """
-    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_message_display_hook")
+    parser = argparse.ArgumentParser(
+        prog="python -m agentnexus.claude_native_message_display_hook"
+    )
     parser.add_argument("--bridge-dir", required=True)
     return parser.parse_args(argv)
 

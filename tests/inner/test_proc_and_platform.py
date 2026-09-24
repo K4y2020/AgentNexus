@@ -369,7 +369,9 @@ def test_resolve_cli_binary_prefers_path(monkeypatch):
         _platform.shutil, "which", lambda name: "/usr/bin/tool" if name == "tool" else None
     )
     monkeypatch.setattr(_platform, "_cli_fallback_dirs", lambda: ())
-    assert _platform.resolve_cli_binary("tool", env_var="AGENTNEXUS_TESTCLI_PATH") == "/usr/bin/tool"
+    assert (
+        _platform.resolve_cli_binary("tool", env_var="AGENTNEXUS_TESTCLI_PATH") == "/usr/bin/tool"
+    )
 
 
 def test_resolve_cli_binary_env_override_wins(monkeypatch, tmp_path):

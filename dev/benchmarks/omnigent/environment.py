@@ -588,9 +588,7 @@ class BenchEnvironment:
         while time.monotonic() < deadline:
             try:
                 health = httpx.get(f"{self.base_url}/health", timeout=2)
-                if health.status_code == 200 and (
-                    not require_runner or self._runner_ready()
-                ):
+                if health.status_code == 200 and (not require_runner or self._runner_ready()):
                     return
             except httpx.HTTPError:
                 pass
@@ -638,18 +636,14 @@ class BenchEnvironment:
         status = httpx.get(f"{self.base_url}/v1/runners/{self.runner_id}/status", timeout=2)
         return status.status_code == 200 and status.json().get("online") is True
 
-    def _wait_host_online(
-        self, host_online_timeout: float | None = None
-    ) -> None:
+    def _wait_host_online(self, host_online_timeout: float | None = None) -> None:
         """Block until the host daemon's row reads ``status=online``.
 
         Polls ``GET /v1/hosts`` (the single-user owner is ``local``) until the
         daemon we spawned has connected its tunnel and been upserted online, so
         a host-bound session-create has a live launch target.
         """
-        deadline = time.monotonic() + (
-            host_online_timeout or _HOST_ONLINE_TIMEOUT_S
-        )
+        deadline = time.monotonic() + (host_online_timeout or _HOST_ONLINE_TIMEOUT_S)
         while time.monotonic() < deadline:
             if self._host_proc is not None and self._host_proc.poll() is not None:
                 raise RuntimeError(

@@ -1085,15 +1085,14 @@ def register_events_routes(
             # Non-native sessions (claude-sdk, polly, debby, etc.):
             # Perform server-side compaction checkpoint
             import uuid as _uuid
+
             items = await asyncio.to_thread(
                 lambda: conversation_store.list_items(session_id, limit=500, order="asc").data
             )
             if not items or len(items) < 3:
                 return {"queued": False, "message": "Conversation is already compact"}
             last_msg = next((it for it in reversed(items) if it.type == "message"), items[-1])
-            summary_text = (
-                f"[Conversation context automatically compacted across {len(items)} items to preserve token budget]"
-            )
+            summary_text = f"[Conversation context automatically compacted across {len(items)} items to preserve token budget]"
             compaction_item = NewConversationItem(
                 type="compaction",
                 response_id=f"compact_{_uuid.uuid4().hex}",

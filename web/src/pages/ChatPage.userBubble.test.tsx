@@ -53,26 +53,33 @@ function renderBubble(bubble: Bubble) {
 describe("UserBubble markdown rendering", () => {
   it("renders an inline image_url without requiring a file_id", () => {
     const src = "data:image/png;base64,iVBORw0KGgo=";
-    renderBubble(userBubble("image probe", { content: [
-      { type: "input_text", text: "image probe" },
-      { type: "input_image", image_url: src },
-    ] }));
+    renderBubble(
+      userBubble("image probe", {
+        content: [
+          { type: "input_text", text: "image probe" },
+          { type: "input_image", image_url: src },
+        ],
+      }),
+    );
     expect(screen.getByAltText("Attached image")).toHaveAttribute("src", src);
     expect(screen.getByText("image probe")).toBeInTheDocument();
   });
 
   it("keeps the conversation visible when an image source is missing", () => {
-    renderBubble(userBubble("still readable", { content: [
-      { type: "input_text", text: "still readable" },
-      { type: "input_image" },
-    ] }));
+    renderBubble(
+      userBubble("still readable", {
+        content: [{ type: "input_text", text: "still readable" }, { type: "input_image" }],
+      }),
+    );
     expect(screen.getByText("still readable")).toBeInTheDocument();
   });
 
   it("does not load arbitrary external image_url values", () => {
-    const { container } = renderBubble(userBubble("remote", { content: [
-      { type: "input_image", image_url: "https://example.com/tracker.png" },
-    ] }));
+    const { container } = renderBubble(
+      userBubble("remote", {
+        content: [{ type: "input_image", image_url: "https://example.com/tracker.png" }],
+      }),
+    );
     expect(container.querySelector('img[src="https://example.com/tracker.png"]')).toBeNull();
   });
   it("renders **bold** markdown as a strong node, not literal asterisks", () => {

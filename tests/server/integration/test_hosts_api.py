@@ -680,7 +680,9 @@ async def test_launch_runner_harness_not_configured_returns_412(
                             HostLaunchRunnerResultFrame(
                                 request_id=frame.request_id,
                                 status="failed",
-                                error=("harness 'codex' is not configured — run `agentnexus setup`"),
+                                error=(
+                                    "harness 'codex' is not configured — run `agentnexus setup`"
+                                ),
                                 error_code="harness_not_configured",
                             )
                         ),

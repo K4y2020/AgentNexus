@@ -2675,7 +2675,8 @@ def test_augment_claude_args_injects_mcp_and_hooks(tmp_path: Path) -> None:
         f"PreCompact hook must be registered; got hooks {sorted(settings['hooks'])!r}."
     )
     assert (
-        "agentnexus.claude_native_hook" in settings["hooks"]["PreCompact"][0]["hooks"][0]["command"]
+        "agentnexus.claude_native_hook"
+        in settings["hooks"]["PreCompact"][0]["hooks"][0]["command"]
     )
     # No built-in tools are disabled anymore: ``AskUserQuestion``
     # routes through its dedicated PreToolUse hook (answers injected
@@ -7023,7 +7024,9 @@ def test_compute_transcript_cumulative_cost_dedupes_by_request_id(
     from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr(
+        "agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing
+    )
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "transcript.jsonl"
     _write_transcript_jsonl(
@@ -7055,7 +7058,9 @@ def test_compute_transcript_cumulative_cost_sums_priced_messages(
     from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr(
+        "agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing
+    )
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "transcript.jsonl"
     _write_transcript_jsonl(
@@ -7129,7 +7134,9 @@ def test_compute_transcript_cumulative_cost_excludes_parent_sidechains(
     from agentnexus.llms.context_window import ModelPricing
 
     pricing = ModelPricing(input_per_token=10.0, output_per_token=0.0)
-    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr(
+        "agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing
+    )
     claude_native_bridge._TRANSCRIPT_PRICING_CACHE.clear()
     path = tmp_path / "parent.jsonl"
     _write_transcript_jsonl(
@@ -7171,7 +7178,9 @@ def test_compute_transcript_cumulative_cost_none_when_nothing_priceable(
     )
     # File with no assistant usage.
     pricing = ModelPricing(input_per_token=10.0, output_per_token=20.0)
-    monkeypatch.setattr("agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing)
+    monkeypatch.setattr(
+        "agentnexus.llms.context_window.fetch_model_pricing", lambda model: pricing
+    )
     no_usage = tmp_path / "no_usage.jsonl"
     _write_transcript_jsonl(no_usage, [{"message": {"role": "user", "content": "hi"}}])
     assert (

@@ -32,8 +32,7 @@ async def migrate_script_nodes():
 
         # Get snapshot
         resp = await client.get(
-            f"{seedance_base}/v3/projects/{project_id}/snapshot",
-            headers=headers
+            f"{seedance_base}/v3/projects/{project_id}/snapshot", headers=headers
         )
 
         snapshot = resp.json().get("snapshot", resp.json())
@@ -68,17 +67,17 @@ async def migrate_script_nodes():
                             "content": prompt,
                             "brief": brief,
                             # Clear prompt field for script nodes
-                            "prompt": ""
+                            "prompt": "",
                         }
                     },
-                    "commandId": f"migrate_{node_id}"
+                    "commandId": f"migrate_{node_id}",
                 }
 
                 try:
                     resp = await client.post(
                         f"{seedance_base}/v3/projects/{project_id}/commands",
                         json={"command": command},
-                        headers=headers
+                        headers=headers,
                     )
 
                     result = resp.json()
@@ -109,7 +108,7 @@ if __name__ == "__main__":
     print()
 
     response = input("Continue? [y/N]: ")
-    if response.lower() == 'y':
+    if response.lower() == "y":
         asyncio.run(migrate_script_nodes())
     else:
         print("Cancelled.")

@@ -383,11 +383,13 @@ def test_live_declared_a2a_result_returns_to_origin(
             match=f"Final result for request {request_id}",
         )
         set_fallback_mock_llm(
-            mock_llm_server_url, complete_token,
+            mock_llm_server_url,
+            complete_token,
             f"Final verified verdict.\n[A2A_RESULT:{request_id}:succeeded]",
         )
         set_fallback_mock_llm(
-            mock_llm_server_url, f"Final result for request {request_id}",
+            mock_llm_server_url,
+            f"Final result for request {request_id}",
             f"The final verdict for {request_id} is ready for the user.",
         )
         response = client.post(

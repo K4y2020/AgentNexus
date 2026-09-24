@@ -1275,7 +1275,9 @@ async def _run_auto_create_cursor_terminal(
     workspace.mkdir()
     monkeypatch.setattr(cursor_native_bridge, "_BRIDGE_ROOT", tmp_path / "cursor-bridge")
     monkeypatch.setenv("RUNNER_SERVER_URL", "http://127.0.0.1:8000")
-    monkeypatch.setattr("agentnexus.cursor_native.resolve_cursor_executable", lambda: "cursor-agent")
+    monkeypatch.setattr(
+        "agentnexus.cursor_native.resolve_cursor_executable", lambda: "cursor-agent"
+    )
 
     async def _no_op_forwarder(**kwargs: Any) -> None:
         del kwargs
@@ -2450,7 +2452,8 @@ async def test_create_session_auto_create_guard_skips_rotation_targets(
         created.append(session_id)
 
     monkeypatch.setattr(
-        "agentnexus.runner.native.orchestration._auto_create_claude_terminal", _recording_auto_create
+        "agentnexus.runner.native.orchestration._auto_create_claude_terminal",
+        _recording_auto_create,
     )
 
     native_spec = AgentSpec(
@@ -3520,7 +3523,9 @@ async def test_auto_create_claude_terminal_default_pin_requires_a_fresh_catalog(
     )
     # The real store-backed resolver, against the conftest-isolated store
     # dir; the background re-probe is stubbed so no real CLI ever runs.
-    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG)
+    monkeypatch.setattr(
+        "agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG
+    )
     refreshed = [{"id": "sonnet", "model": "claude-sonnet-5", "isDefault": True}]
 
     async def _fake_probe_catalog(config: object) -> list[dict[str, object]]:

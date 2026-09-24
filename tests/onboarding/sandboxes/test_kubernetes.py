@@ -184,7 +184,15 @@ def test_build_job_manifest_rejects_config_home_outside_home_dir(config_home: st
 
 @pytest.mark.parametrize(
     "config_home",
-    ["/home/omnigent", "/home/agentnexus/", "/home/agentnexus/cfg", "cfg", "relative/dir", ".", ""],
+    [
+        "/home/omnigent",
+        "/home/agentnexus/",
+        "/home/agentnexus/cfg",
+        "cfg",
+        "relative/dir",
+        ".",
+        "",
+    ],
 )
 def test_build_job_manifest_accepts_config_home_at_or_under_home_dir(config_home: str) -> None:
     """A dir at or under HOME is on the shared volume — allowed."""
@@ -278,7 +286,11 @@ def test_build_job_manifest_pvc_mounts_land_on_host_container_only() -> None:
     manifest = build_job_manifest(
         **_MANIFEST_KW,
         pvc_mounts=[
-            {"claim_name": "agentnexus-datasets", "mount_path": "/mnt/datasets", "read_only": True},
+            {
+                "claim_name": "agentnexus-datasets",
+                "mount_path": "/mnt/datasets",
+                "read_only": True,
+            },
             {"claim_name": "scratch", "mount_path": "/mnt/scratch", "read_only": False},
         ],
     )
@@ -1075,7 +1087,9 @@ def test_wait_rediscovers_pod_on_404(
     # First discovery returns original, which 404s on read.
     # Second discovery returns the replacement, which is Running.
     original_pod = _pod(phase="Pending")
-    original_pod.metadata = SimpleNamespace(name="agentnexus-job-repl-xyz", deletion_timestamp=None)
+    original_pod.metadata = SimpleNamespace(
+        name="agentnexus-job-repl-xyz", deletion_timestamp=None
+    )
     core.pod_list_items = [original_pod]
     core.read_queue = [
         _FakeApiException(status=404, reason="Not Found"),

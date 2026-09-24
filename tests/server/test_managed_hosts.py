@@ -25,7 +25,9 @@ from agentnexus.onboarding.sandboxes.base import (
     SandboxHostLauncher,
     render_host_config_write_command,
 )
-from agentnexus.onboarding.sandboxes.blaxel import managed_token_ttl_s as blaxel_managed_token_ttl_s
+from agentnexus.onboarding.sandboxes.blaxel import (
+    managed_token_ttl_s as blaxel_managed_token_ttl_s,
+)
 from agentnexus.onboarding.sandboxes.e2b import managed_token_ttl_s as e2b_managed_token_ttl_s
 from agentnexus.onboarding.sandboxes.registry import (
     COMMUNITY_MODULE_PREFIX,
@@ -1913,7 +1915,9 @@ async def test_launch_materializes_host_config_before_host_start(db_uri: str) ->
     )
 
     write_index = fake.commands.index(render_host_config_write_command(host_config))
-    host_index = next(i for i, cmd in enumerate(fake.commands) if "agentnexus host --server" in cmd)
+    host_index = next(
+        i for i, cmd in enumerate(fake.commands) if "agentnexus host --server" in cmd
+    )
     assert write_index < host_index
 
 
@@ -2315,7 +2319,11 @@ class _EntrypointFakeLauncher(FakeSandboxLauncher):
         )
         # Simulate the host's entrypoint dialing back over the tunnel.
         self._host_store.upsert_on_connect(host_id=host_id, name=host_name, user_id=_OWNER)
-        return f"/home/agentnexus/workspace/{repo_name}" if repo_name else "/home/agentnexus/workspace"
+        return (
+            f"/home/agentnexus/workspace/{repo_name}"
+            if repo_name
+            else "/home/agentnexus/workspace"
+        )
 
 
 async def test_launch_entrypoint_provider_arms_token_before_launch_host(db_uri: str) -> None:

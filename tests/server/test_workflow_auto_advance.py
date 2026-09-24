@@ -393,7 +393,4 @@ async def test_planner_plan_artifact_flows_to_implementer_payload(tmp_path: obje
     assert impl_msgs, "implementer stage message was not dispatched"
     prior = impl_msgs[0].payload.get("prior_artifacts")
     assert prior, "implementer payload must carry prior stage artifacts"
-    assert any(
-        a.get("kind") == "plan" and a.get("content") == "THE PLAN BODY" for a in prior
-    )
-
+    assert any(a.get("kind") == "plan" and a.get("content") == "THE PLAN BODY" for a in prior)

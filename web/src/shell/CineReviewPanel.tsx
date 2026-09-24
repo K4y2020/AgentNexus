@@ -386,10 +386,7 @@ function ReviewContent({
                 tabIndex={0}
                 aria-label="时间线轨道滚动区"
               >
-                <div
-                  className="relative min-w-full space-y-1"
-                  style={{ width: `${zoom * 100}%` }}
-                >
+                <div className="relative min-w-full space-y-1" style={{ width: `${zoom * 100}%` }}>
                   <div
                     className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-20 pointer-events-none transition-[left] duration-75"
                     style={{ left: `${(current / Math.max(1, data.duration)) * 100}%` }}
@@ -459,7 +456,9 @@ function ReviewContent({
                             }}
                           >
                             <span className="truncate block w-full text-[11px] leading-tight select-none pointer-events-none">
-                              {type === "story" && cue.sourceId && !cue.title.startsWith(cue.sourceId)
+                              {type === "story" &&
+                              cue.sourceId &&
+                              !cue.title.startsWith(cue.sourceId)
                                 ? `${cue.sourceId} ${cue.title}`
                                 : cue.title}
                             </span>

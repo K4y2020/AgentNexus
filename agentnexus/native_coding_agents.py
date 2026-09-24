@@ -51,6 +51,7 @@ def native_coding_agent_for_agent_name(name: str | None) -> NativeCodingAgent | 
     """Return the native coding-agent metadata for *name*, if any."""
     return _BY_AGENT_NAME.get(name or "")
 
+
 def is_execution_harness_agent_name(name: str | None) -> bool:
     """Return True if *name* identifies an execution tool/CLI harness rather than a teammate bot.
 

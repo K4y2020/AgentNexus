@@ -199,6 +199,7 @@ async def test_teammates_resolves_primary_conversation(
     teammate = next(t for t in body["teammates"] if t["agent"]["id"] == agent_id)
     assert teammate["primary_conversation_id"] == primary_conv_id
 
+
 async def test_teammates_excludes_acp_cli_harness_agents(
     stores: dict[str, object],
 ) -> None:

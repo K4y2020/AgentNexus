@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  CheckCircle2Icon,
-  GitBranchIcon,
-  NetworkIcon,
-  PlayIcon,
-  XCircleIcon,
-} from "lucide-react";
+import { CheckCircle2Icon, GitBranchIcon, NetworkIcon, PlayIcon, XCircleIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,20 +90,20 @@ export function WorkflowPanel({
   const fetchWorkflow = useCallback(async () => {
     try {
       const listRes = await authenticatedFetch(
-        `/v1/coordination/runs?root_session_id=${encodeURIComponent(rootSessionId)}`
+        `/v1/coordination/runs?root_session_id=${encodeURIComponent(rootSessionId)}`,
       );
       if (!listRes.ok) return;
       const listData = (await listRes.json()) as { runs?: WorkflowRunDTO[] };
-      const active = (listData.runs || []).find(
-        (run) =>
-          !["succeeded", "failed", "cancelled", "needs_attention"].includes(run.status)
-      ) ?? listData.runs?.[0];
+      const active =
+        (listData.runs || []).find(
+          (run) => !["succeeded", "failed", "cancelled", "needs_attention"].includes(run.status),
+        ) ?? listData.runs?.[0];
       if (!active) {
         setDetail(null);
         return;
       }
       const detailRes = await authenticatedFetch(
-        `/v1/coordination/runs/${encodeURIComponent(active.run_id)}`
+        `/v1/coordination/runs/${encodeURIComponent(active.run_id)}`,
       );
       if (!detailRes.ok) return;
       setDetail((await detailRes.json()) as WorkflowDetailDTO);
@@ -124,10 +118,7 @@ export function WorkflowPanel({
     return () => window.clearInterval(interval);
   }, [fetchWorkflow]);
 
-  const reportTask = async (
-    task: WorkflowTaskDTO,
-    outcome: "succeeded" | "failed",
-  ) => {
+  const reportTask = async (task: WorkflowTaskDTO, outcome: "succeeded" | "failed") => {
     if (!detail || postingTask) return;
     setPostingTask(task.task_id);
     try {
@@ -144,7 +135,7 @@ export function WorkflowPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-        }
+        },
       );
       if (!res.ok) {
         console.warn("Workflow task report refused:", res.status, await res.text());
@@ -168,22 +159,19 @@ export function WorkflowPanel({
     }
     setStarting(true);
     try {
-      const res = await authenticatedFetch(
-        "/v1/coordination/workflows/plan-implement-review",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "Plan -> Implement -> Review Workflow",
-            root_session_id: rootSessionId,
-            planner_session_id: selectedIds.planner,
-            implementer_session_id: selectedIds.implementer,
-            reviewer_session_id: selectedIds.reviewer,
-            user_prompt: prompt.trim(),
-            workspace_path: ".",
-          }),
-        }
-      );
+      const res = await authenticatedFetch("/v1/coordination/workflows/plan-implement-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Plan -> Implement -> Review Workflow",
+          root_session_id: rootSessionId,
+          planner_session_id: selectedIds.planner,
+          implementer_session_id: selectedIds.implementer,
+          reviewer_session_id: selectedIds.reviewer,
+          user_prompt: prompt.trim(),
+          workspace_path: ".",
+        }),
+      });
       if (!res.ok) {
         console.warn("Workflow start refused:", res.status, await res.text());
       } else {
@@ -255,9 +243,7 @@ export function WorkflowPanel({
                 </Badge>
                 <Select
                   value={selectedIds[role] ?? ""}
-                  onValueChange={(value) =>
-                    setSelectedIds((prev) => ({ ...prev, [role]: value }))
-                  }
+                  onValueChange={(value) => setSelectedIds((prev) => ({ ...prev, [role]: value }))}
                 >
                   <SelectTrigger size="sm" className="w-full h-7 text-[11px]">
                     <SelectValue />
@@ -278,7 +264,12 @@ export function WorkflowPanel({
             size="sm"
             className="w-full h-7"
             loading={starting}
-            disabled={!prompt.trim() || !selectedIds.planner || !selectedIds.implementer || !selectedIds.reviewer}
+            disabled={
+              !prompt.trim() ||
+              !selectedIds.planner ||
+              !selectedIds.implementer ||
+              !selectedIds.reviewer
+            }
             onClick={() => void startWorkflow()}
           >
             <PlayIcon className="size-3.5" />
@@ -318,7 +309,7 @@ export function WorkflowPanel({
                     },
                   ],
                   null,
-                  2
+                  2,
                 )}
                 className="h-48 w-full resize-y rounded border border-border bg-background p-2 font-mono text-[10px] text-foreground focus:outline-none"
               />

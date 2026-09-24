@@ -68,7 +68,9 @@ async def _configure_user(
 _WAIT_TIMEOUT_S = 10.0
 
 
-async def _wait_for_turns(service: SlackAgentNexusService, timeout: float = _WAIT_TIMEOUT_S) -> None:
+async def _wait_for_turns(
+    service: SlackAgentNexusService, timeout: float = _WAIT_TIMEOUT_S
+) -> None:
     """Wait until the service's spawned turn tasks have finished.
 
     A turn runs as a background task; ``shutdown`` would CANCEL it, so tests that
@@ -193,7 +195,9 @@ async def test_app_mention_runs_full_turn_and_streams_answer(tmp_path: Path) -> 
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:
@@ -288,7 +292,9 @@ async def test_runner_unavailable_triggers_launch_and_retry(tmp_path: Path) -> N
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:
@@ -324,7 +330,9 @@ async def test_host_unavailable_on_launch_shows_guidance(tmp_path: Path) -> None
     store = await _store(tmp_path)
     await _configure_user(store, "T1", "U1")
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:
@@ -371,7 +379,9 @@ async def test_harness_not_configured_surfaces_curated_message(tmp_path: Path) -
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:
@@ -422,7 +432,9 @@ async def test_mid_stream_drop_reconnects_without_double_render(tmp_path: Path) 
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:
@@ -475,7 +487,9 @@ async def test_no_delta_turn_recovers_committed_answer(tmp_path: Path) -> None:
         key, "conv_1", "t", owner_user_id="U1", host_id="h1", workspace="/home/bot/work"
     )
     pool = AgentNexusClientPool()
-    service = SlackAgentNexusService(store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER)
+    service = SlackAgentNexusService(
+        store=store, pool=pool, setup=_NoopSetup(), server_url=_SERVER
+    )
     client = RecordingSlackClient()
 
     try:

@@ -1921,7 +1921,9 @@ async def test_trust_step_covers_router_hooks_when_routing_armed(
     monkeypatch.setattr(
         "agentnexus.codex_native_app_server.CodexAppServerClient.connect", _fake_connect
     )
-    monkeypatch.setattr("agentnexus.codex_native_app_server.CodexAppServerClient.close", _fake_close)
+    monkeypatch.setattr(
+        "agentnexus.codex_native_app_server.CodexAppServerClient.close", _fake_close
+    )
     monkeypatch.setattr(
         "agentnexus.codex_native_app_server.CodexAppServerClient.request",
         lambda self, method, params: client.request(method, params),

@@ -47,7 +47,9 @@ describe("update_backup — source collection", () => {
     const userData = path.join(root, "userData");
     fs.mkdirSync(userData, { recursive: true });
 
-    const sources = collectBackupSources(userData, [{ name: "state", dir: path.join(root, "none") }]);
+    const sources = collectBackupSources(userData, [
+      { name: "state", dir: path.join(root, "none") },
+    ]);
 
     assert.deepEqual(sources, []);
   });
@@ -66,10 +68,7 @@ describe("update_backup — source collection", () => {
       { name: "state", dir: runtime },
     ]);
 
-    assert.deepEqual(
-      sources.map((s) => s.target).sort(),
-      [path.join("data", "chat.db")].sort(),
-    );
+    assert.deepEqual(sources.map((s) => s.target).sort(), [path.join("data", "chat.db")].sort());
     assert.equal(sources.length, 1);
   });
 });
@@ -83,7 +82,10 @@ describe("update_backup — pre-upgrade snapshot", () => {
     fs.mkdirSync(userData, { recursive: true });
     fs.mkdirSync(runtime, { recursive: true });
     fs.mkdirSync(config, { recursive: true });
-    fs.writeFileSync(path.join(userData, "settings.json"), '{"server_url":"http://localhost:8000/"}');
+    fs.writeFileSync(
+      path.join(userData, "settings.json"),
+      '{"server_url":"http://localhost:8000/"}',
+    );
     fs.writeFileSync(path.join(runtime, "chat.db"), "chat-data-v1");
     fs.writeFileSync(path.join(config, "config.yaml"), "host:\n  host_id: abc123\n");
 

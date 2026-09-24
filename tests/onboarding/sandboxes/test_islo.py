@@ -11,7 +11,10 @@ import click
 import pytest
 
 import agentnexus.onboarding.sandboxes.islo as islo_mod
-from agentnexus.onboarding.sandboxes.base import DEFAULT_HOST_IMAGE, render_host_config_write_command
+from agentnexus.onboarding.sandboxes.base import (
+    DEFAULT_HOST_IMAGE,
+    render_host_config_write_command,
+)
 from agentnexus.onboarding.sandboxes.islo import (
     API_KEY_ENV_VAR,
     HOST_IMAGE_ENV_VAR,

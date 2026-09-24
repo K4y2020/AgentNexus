@@ -1187,7 +1187,12 @@ describe("browse-location listings normalize to paths relative to the location",
 
     render(
       <Wrap>
-        <DirectoryPathsProbe id="conv_windows_dir" path="worker" location="apps" onPaths={onPaths} />
+        <DirectoryPathsProbe
+          id="conv_windows_dir"
+          path="worker"
+          location="apps"
+          onPaths={onPaths}
+        />
       </Wrap>,
     );
     await waitFor(() => expect(onPaths).toHaveBeenCalled());

@@ -4737,7 +4737,9 @@ def _tool_relay_handler_factory(
             # the fixed prefix is prepended.
             if len(detail) > _POLICY_PROXY_ERROR_DETAIL_MAX:
                 detail = detail[: _POLICY_PROXY_ERROR_DETAIL_MAX - 3] + "..."
-            message = f"agentnexus policy-eval proxy could not reach the AgentNexus server: {detail}"
+            message = (
+                f"agentnexus policy-eval proxy could not reach the AgentNexus server: {detail}"
+            )
             # Keep the full exception (with traceback) in the runner log; the
             # user-facing body is capped and can drop a diagnostically useful tail.
             _logger.warning("policy-eval proxy forward failed: %s", detail, exc_info=exc)

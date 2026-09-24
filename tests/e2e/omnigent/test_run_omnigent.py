@@ -238,7 +238,9 @@ def test_version_omnigent_matches_version(
     )
     version_text = baseline.stdout.strip()
     assert version_text, "agentnexus version printed no stdout"
-    assert version_text.startswith("agentnexus "), f"unexpected version output: {baseline.stdout!r}"
+    assert version_text.startswith("agentnexus "), (
+        f"unexpected version output: {baseline.stdout!r}"
+    )
     after_prefix = version_text[len("agentnexus ") :]
     assert after_prefix and after_prefix[0].isdigit(), (
         f"unexpected version output: {baseline.stdout!r}"

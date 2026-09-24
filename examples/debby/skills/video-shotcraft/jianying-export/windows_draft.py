@@ -27,20 +27,18 @@ def default_draft_root() -> str:
     """剪映专业版 Windows 默认草稿根目录；用户改过草稿位置时以剪映
     `全局设置-草稿位置` 里的实际路径为准，作为参数传入 install()。"""
     for candidate in (
-        os.path.expandvars(
-            r"%LOCALAPPDATA%\JianyingPro\User Data\Projects\com.lveditor.draft"),
+        os.path.expandvars(r"%LOCALAPPDATA%\JianyingPro\User Data\Projects\com.lveditor.draft"),
         os.path.expanduser(r"~\JianyingPro Drafts"),
     ):
         if os.path.isdir(candidate):
             return candidate
-    raise FileNotFoundError(
-        "未找到剪映草稿根目录，请在剪映`全局设置-草稿位置`查询后显式传入")
+    raise FileNotFoundError("未找到剪映草稿根目录，请在剪映`全局设置-草稿位置`查询后显式传入")
 
 
 def jianying_running() -> bool:
     out = subprocess.run(
-        ["tasklist", "/FI", "IMAGENAME eq JianyingPro.exe", "/NH"],
-        capture_output=True, text=True).stdout
+        ["tasklist", "/FI", "IMAGENAME eq JianyingPro.exe", "/NH"], capture_output=True, text=True
+    ).stdout
     return "JianyingPro" in out
 
 
@@ -50,11 +48,15 @@ def _validate_draft_name(draft_name: str, root: str) -> str:
     install/uninstall 会对目标路径 rmtree/rename，草稿名含路径分隔符、
     盘符或 `..` 时会逃逸草稿根目录（任意目录删除），必须拒绝。
     """
-    if (not draft_name or draft_name in (".", "..")
-            or "/" in draft_name or "\\" in draft_name or ":" in draft_name
-            or os.path.isabs(draft_name)):
-        raise ValueError(
-            f"非法草稿名 {draft_name!r}：不能为空、含路径分隔符或为绝对路径")
+    if (
+        not draft_name
+        or draft_name in (".", "..")
+        or "/" in draft_name
+        or "\\" in draft_name
+        or ":" in draft_name
+        or os.path.isabs(draft_name)
+    ):
+        raise ValueError(f"非法草稿名 {draft_name!r}：不能为空、含路径分隔符或为绝对路径")
     target = os.path.realpath(os.path.join(root, draft_name))
     if os.path.dirname(target) != os.path.realpath(root):
         raise ValueError(f"草稿名 {draft_name!r} 解析后逃逸草稿根目录：{target}")
@@ -112,8 +114,7 @@ def bundle_media(draft_dir: str, draft_name: str, draft_root: str) -> None:
                 # 重试场景：路径已是最终位置——暂存副本还在就视为已打包
                 local = os.path.join(res_dir, os.path.basename(src))
                 if not os.path.exists(local):
-                    raise FileNotFoundError(
-                        f"素材指向未安装的最终位置且暂存副本缺失：{src}")
+                    raise FileNotFoundError(f"素材指向未安装的最终位置且暂存副本缺失：{src}")
                 used_keys.add(_name_key(os.path.basename(src)))
                 continue
             if src not in mapping:
@@ -126,8 +127,9 @@ def bundle_media(draft_dir: str, draft_name: str, draft_root: str) -> None:
     _write_json_atomic(content_path, content)
 
 
-def install(draft_dir: str, draft_name: str, draft_root: str | None = None,
-            bundle: bool = True) -> str:
+def install(
+    draft_dir: str, draft_name: str, draft_root: str | None = None, bundle: bool = True
+) -> str:
     """把 pyJianYingDraft 生成的草稿目录装进 Windows 剪映草稿库。
 
     旧草稿先移入回收目录保留，安装成功后才清理；失败时旧草稿复位、
@@ -142,8 +144,8 @@ def install(draft_dir: str, draft_name: str, draft_root: str | None = None,
     old = None
     if os.path.exists(target):
         old = os.path.join(
-            _trash_dir(root),
-            f"{draft_name}.replaced-{time.strftime('%Y%m%d-%H%M%S')}")
+            _trash_dir(root), f"{draft_name}.replaced-{time.strftime('%Y%m%d-%H%M%S')}"
+        )
         os.rename(target, old)
     try:
         shutil.move(draft_dir, target)
@@ -162,8 +164,10 @@ def install(draft_dir: str, draft_name: str, draft_root: str | None = None,
         try:
             shutil.rmtree(old)
         except OSError as e:
-            print(f"[warn] 旧草稿副本删除失败（位于回收目录，不会被剪映"
-                  f"扫描到），请手动清理：{old}（{e}）")
+            print(
+                f"[warn] 旧草稿副本删除失败（位于回收目录，不会被剪映"
+                f"扫描到），请手动清理：{old}（{e}）"
+            )
     return target
 
 
@@ -177,11 +181,10 @@ def uninstall(draft_name: str, draft_root: str | None = None) -> None:
     if not os.path.exists(target):
         return
     tmp = os.path.join(
-        _trash_dir(root),
-        f"{draft_name}.uninstall-{time.strftime('%Y%m%d-%H%M%S')}")
+        _trash_dir(root), f"{draft_name}.uninstall-{time.strftime('%Y%m%d-%H%M%S')}"
+    )
     os.rename(target, tmp)
     try:
         shutil.rmtree(tmp)
     except OSError as e:
-        print(f"[warn] 残留在回收目录（不会被剪映扫描到），"
-              f"请手动清理：{tmp}（{e}）")
+        print(f"[warn] 残留在回收目录（不会被剪映扫描到），请手动清理：{tmp}（{e}）")

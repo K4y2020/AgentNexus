@@ -470,9 +470,7 @@ class SlackAgentNexusService:
             # personal config: mentioning the bot in that channel routes to the
             # resident bot, while DMs keep per-user routing.
             if not key.is_dm:
-                binding = await self._store.get_channel_binding(
-                    key.team_id, key.channel_id
-                )
+                binding = await self._store.get_channel_binding(key.team_id, key.channel_id)
                 if binding is not None:
                     self._spawn_turn(
                         SlackTurn(

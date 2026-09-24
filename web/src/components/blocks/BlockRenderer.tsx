@@ -710,7 +710,9 @@ const TEAMMATE_SEND_NAMES = new Set(["send_to_teammate", "mcp__agentnexus__send_
 function isPersistentToolCard(item: RenderItem): boolean {
   return (
     item.kind === "tool" &&
-    (ADVISE_MODELS_NAMES.has(item.execution.name) || SESSION_SEND_NAMES.has(item.execution.name) || TEAMMATE_SEND_NAMES.has(item.execution.name))
+    (ADVISE_MODELS_NAMES.has(item.execution.name) ||
+      SESSION_SEND_NAMES.has(item.execution.name) ||
+      TEAMMATE_SEND_NAMES.has(item.execution.name))
   );
 }
 

@@ -124,14 +124,28 @@ afterEach(() => {
 });
 
 describe("ChatHeader — shared Share presentation", () => {
-  it.each(["cine", "debby", "polly", "cine-helper"])("limits the canvas entry to Cine: %s", (name) => {
-    renderHeader({ sidebarOpen: true, conversationId: "bot-chat", actionConversation: {
-      id: "bot-chat", object: "conversation", title: "Test", created_at: 0, updated_at: 0,
-      labels: { "seedance.project_id": "old-project" }, permission_level: 40,
-      agent_name: name, bot_id: `bot-${name}`, purpose: "primary",
-    } });
-    expect(screen.queryByTestId("header-open-canvas-button") !== null).toBe(name === "cine");
-  });
+  it.each(["cine", "debby", "polly", "cine-helper"])(
+    "limits the canvas entry to Cine: %s",
+    (name) => {
+      renderHeader({
+        sidebarOpen: true,
+        conversationId: "bot-chat",
+        actionConversation: {
+          id: "bot-chat",
+          object: "conversation",
+          title: "Test",
+          created_at: 0,
+          updated_at: 0,
+          labels: { "seedance.project_id": "old-project" },
+          permission_level: 40,
+          agent_name: name,
+          bot_id: `bot-${name}`,
+          purpose: "primary",
+        },
+      });
+      expect(screen.queryByTestId("header-open-canvas-button") !== null).toBe(name === "cine");
+    },
+  );
   it("uses the shared outline action", () => {
     renderHeader({ sidebarOpen: true, canShare: true });
 

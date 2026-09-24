@@ -651,7 +651,9 @@ def test_run_timeout_kills_remote_process(monkeypatch: pytest.MonkeyPatch) -> No
     sandbox.process.stream_done = False
     state.sandboxes["sb"] = sandbox
     ticks = iter([0.0, 2.0])
-    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
+    monkeypatch.setattr(
+        "agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks)
+    )
     monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
 
     with pytest.raises(click.ClickException, match="timed out"):
@@ -667,7 +669,9 @@ def test_run_timeout_reports_remote_kill_failure(monkeypatch: pytest.MonkeyPatch
     sandbox.process.kill_error = RuntimeError("kill unavailable")
     state.sandboxes["sb"] = sandbox
     ticks = iter([0.0, 2.0])
-    monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks))
+    monkeypatch.setattr(
+        "agentnexus.onboarding.sandboxes.blaxel.time.monotonic", lambda: next(ticks)
+    )
     monkeypatch.setattr("agentnexus.onboarding.sandboxes.blaxel._COMMAND_TIMEOUT_S", 1)
 
     with pytest.raises(click.ClickException, match="Remote kill also failed: kill unavailable"):

@@ -46,7 +46,7 @@ async def test_fixed_script_creation():
             "data": {},
             "prompt": "这是通过 prompt 参数传入的剧本内容，应该被映射到 data.content",
             "brief": "修复测试：验证 prompt 参数正确映射到 content",
-            "commandId": "fix_test_001"
+            "commandId": "fix_test_001",
         }
 
         # Note: This simulates what cinebot does - passing script content via prompt
@@ -63,7 +63,7 @@ async def test_fixed_script_creation():
         print("Test 2: Checking existing script nodes...")
         resp = await client.get(
             f"{seedance_base}/v3/projects/proj_99541a8a1b3d4c94b22bc6d2fe471448/snapshot",
-            headers=headers
+            headers=headers,
         )
 
         snapshot = resp.json().get("snapshot", resp.json())

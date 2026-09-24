@@ -335,12 +335,14 @@ async def read_seedance_canvas_snapshot(
                         tag = "<Video>"
                     else:
                         tag = "<Audio>"
-                    ref_list.append({
-                        "tag": tag,
-                        "label": r.get("label", ""),
-                        "role": r.get("role", "reference_image"),
-                        "id": r.get("id", ""),
-                    })
+                    ref_list.append(
+                        {
+                            "tag": tag,
+                            "label": r.get("label", ""),
+                            "role": r.get("role", "reference_image"),
+                            "id": r.get("id", ""),
+                        }
+                    )
                 node_dict["references"] = ref_list
 
             if detail_level == "summary":
@@ -457,13 +459,21 @@ async def read_seedance_canvas_snapshot(
                 node_refs = refs_by_node.get(cid, [])
                 if node_refs:
                     img_idx = 0
-                    md_lines.append("  > 画布参考素材顺序 (References - 视频提示词引用序号以此为唯一基准):")
+                    md_lines.append(
+                        "  > 画布参考素材顺序 (References - 视频提示词引用序号以此为唯一基准):"
+                    )
                     for r in node_refs:
                         kind = r.get("kind") or "image"
-                        tag = f"<Picture {img_idx + 1}>" if kind == "image" else f"<{kind.capitalize()}>"
+                        tag = (
+                            f"<Picture {img_idx + 1}>"
+                            if kind == "image"
+                            else f"<{kind.capitalize()}>"
+                        )
                         if kind == "image":
                             img_idx += 1
-                        md_lines.append(f"    - **{tag}**: {r.get('label', '')} (`{r.get('id', '')}`)")
+                        md_lines.append(
+                            f"    - **{tag}**: {r.get('label', '')} (`{r.get('id', '')}`)"
+                        )
             md_lines.append("")
 
         if script_cards:
@@ -1134,7 +1144,9 @@ async def execute_seedance_canvas_edit(
                 snap_missing = await client.get_snapshot(resolved_project_id)
                 edge_still_visible = any(
                     edge.get("id") == edge_id
-                    for edge in (snap_missing.get("edges", []) if isinstance(snap_missing, dict) else [])
+                    for edge in (
+                        snap_missing.get("edges", []) if isinstance(snap_missing, dict) else []
+                    )
                 )
                 if edge_still_visible:
                     return {

@@ -132,6 +132,7 @@ async def test_memory_update_and_delete_are_agent_scoped(
         resp = await client.delete(f"/v1/teammates/{other_id}/memories/{memory.id}")
         assert resp.status_code == 404
 
+
 async def test_memory_routes_reject_acp_cli_harness_agents(
     stores: dict[str, object],
 ) -> None:

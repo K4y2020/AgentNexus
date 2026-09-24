@@ -160,11 +160,13 @@ class CineCameraEvidenceTool(Tool):
             )
             if proc.returncode != 0:
                 logger.warning("Cine camera evidence CLI failed: %s", proc.stderr)
-                return json.dumps({
-                    "error": f"Retrieval failed: {proc.stderr.strip()}",
-                    "totalMatched": 0,
-                    "snippets": [],
-                })
+                return json.dumps(
+                    {
+                        "error": f"Retrieval failed: {proc.stderr.strip()}",
+                        "totalMatched": 0,
+                        "snippets": [],
+                    }
+                )
             return proc.stdout.strip()
         except Exception as e:
             logger.exception("Error executing cine camera evidence CLI")

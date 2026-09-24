@@ -1087,8 +1087,8 @@ def _build_session_response(
     # the snapshot never carries another user's pin key (see _labels_for_viewer).
     labels = labels_with_closed_status(_labels_for_viewer(conv.labels, viewer_id), conv.title)
     if agent_name in (_CLAUDE_NATIVE_MODEL, _CODEX_NATIVE_MODEL):
-        if IS_WINDOWS and getattr(conv, 'harness_override', None) in ('codex', 'claude-sdk'):
-            labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: 'chat'}
+        if IS_WINDOWS and getattr(conv, "harness_override", None) in ("codex", "claude-sdk"):
+            labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: "chat"}
         else:
             labels = {**labels, _CLAUDE_NATIVE_UI_LABEL_KEY: _CLAUDE_NATIVE_UI_LABEL_VALUE}
     return SessionResponse(
@@ -8547,9 +8547,9 @@ async def _create_session_from_existing_agent(
             canonical_workspace = await asyncio.to_thread(
                 ensure_bot_task_workspace, _bot_binding.home_path, target_sid
             )
-            body = body.model_copy(update={
-                "labels": {**body.labels, WORKSPACE_LAYOUT_LABEL: "topic-v1"}
-            })
+            body = body.model_copy(
+                update={"labels": {**body.labels, WORKSPACE_LAYOUT_LABEL: "topic-v1"}}
+            )
     else:
         canonical_workspace = body.workspace
 

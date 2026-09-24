@@ -8,7 +8,10 @@ export function SeedanceCanvasPanel({ url }: { url: string }) {
   const externalUrl = new URL(url);
   externalUrl.searchParams.delete("embed");
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" aria-label="Seedance canvas">
+    <section
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      aria-label="Seedance canvas"
+    >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <span className="min-w-0 flex-1 truncate text-ui font-medium">Seedance V3</span>
         <Tooltip>

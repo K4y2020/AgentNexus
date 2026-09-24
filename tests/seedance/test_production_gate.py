@@ -66,9 +66,20 @@ def args():
 def test_storyboard_state_requirements_resolve_asset_nodes():
     board = {
         "stateContractVersion": 1,
-        "episodes": [{"segments": [{"cuts": [{"characterStates": {"C01": "home_morning", "C02": "default"}}]}]}],
+        "episodes": [
+            {
+                "segments": [
+                    {"cuts": [{"characterStates": {"C01": "home_morning", "C02": "default"}}]}
+                ]
+            }
+        ],
     }
-    cast = {"characters": [{"id": "C01", "states": [{"id": "home_morning", "assetNodeId": "node_home"}]}, {"id": "C02"}]}
+    cast = {
+        "characters": [
+            {"id": "C01", "states": [{"id": "home_morning", "assetNodeId": "node_home"}]},
+            {"id": "C02"},
+        ]
+    }
     assert storyboard_state_requirements(board, cast, "/episodes/0/segments/0/h3Prompt") == [
         {"character": "C01", "state": "home_morning", "asset_node_id": "node_home"}
     ]

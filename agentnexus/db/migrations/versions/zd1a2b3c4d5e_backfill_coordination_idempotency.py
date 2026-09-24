@@ -23,8 +23,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     rows = bind.execute(
         sa.text(
-            "SELECT workspace_id, message_id FROM agent_messages "
-            "WHERE idempotency_key IS NULL"
+            "SELECT workspace_id, message_id FROM agent_messages WHERE idempotency_key IS NULL"
         )
     ).mappings()
     for row in rows:

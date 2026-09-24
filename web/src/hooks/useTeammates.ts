@@ -12,8 +12,11 @@ export function useTeammates() {
       refetchInterval: 60_000,
     });
   } catch {
-    return { data: [], isLoading: false, isError: false, refetch: async () => {} } as unknown as ReturnType<
-      typeof useQuery<Teammate[]>
-    >;
+    return {
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: async () => {},
+    } as unknown as ReturnType<typeof useQuery<Teammate[]>>;
   }
 }

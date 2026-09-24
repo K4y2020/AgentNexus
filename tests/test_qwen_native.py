@@ -295,7 +295,9 @@ async def test_prepare_reattaches_running_terminal(monkeypatch: pytest.MonkeyPat
 
 async def test_prepare_rejects_non_qwen_session(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        qn, "_fetch_qwen_session", _aret({"labels": {"agentnexus.wrapper": "claude-code-native-ui"}})
+        qn,
+        "_fetch_qwen_session",
+        _aret({"labels": {"agentnexus.wrapper": "claude-code-native-ui"}}),
     )
     with pytest.raises(click.ClickException, match="not a qwen-native session"):
         await qn._prepare_qwen_terminal_via_daemon(

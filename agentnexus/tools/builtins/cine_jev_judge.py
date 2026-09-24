@@ -79,7 +79,10 @@ class CineJevJudgeTool(Tool):
                             "additionalProperties": {
                                 "type": "object",
                                 "properties": {
-                                    "type": {"type": "string", "enum": ["choice", "noul", "score"]},
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["choice", "noul", "score"],
+                                    },
                                     "instructions": {"type": "string"},
                                     "criteria": {},
                                 },

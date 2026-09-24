@@ -836,14 +836,16 @@ export function WorkspacePanel({
             {showCineReview && (
               <WorkspaceTabTooltip label="原片复核">
                 <TabsTrigger value="cine-review" aria-label="原片复核">
-                  <FilmIcon /><span className="sr-only">原片复核</span>
+                  <FilmIcon />
+                  <span className="sr-only">原片复核</span>
                 </TabsTrigger>
               </WorkspaceTabTooltip>
             )}
             {canvasUrl && (
               <WorkspaceTabTooltip label="Seedance canvas">
                 <TabsTrigger value="canvas" aria-label="Seedance canvas">
-                  <GlobeIcon /><span className="sr-only">Seedance canvas</span>
+                  <GlobeIcon />
+                  <span className="sr-only">Seedance canvas</span>
                 </TabsTrigger>
               </WorkspaceTabTooltip>
             )}
@@ -967,8 +969,13 @@ export function WorkspacePanel({
             sort={filesPanelSort}
           />
         ) : rightRailTab === "cine-review" && showCineReview ? (
-          <CineReviewPanel key={conversationId} conversationId={conversationId}
-            onFeedback={() => { if (maximized) onToggleMaximized(); }} />
+          <CineReviewPanel
+            key={conversationId}
+            conversationId={conversationId}
+            onFeedback={() => {
+              if (maximized) onToggleMaximized();
+            }}
+          />
         ) : rightRailTab === "canvas" && canvasUrl ? (
           <SeedanceCanvasPanel url={canvasUrl} />
         ) : rightRailTab === "browser" && showBrowserTab ? (

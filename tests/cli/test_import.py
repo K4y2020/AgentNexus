@@ -417,7 +417,9 @@ def test_import_command_all_harnesses_spans_sources() -> None:
 
     with (
         patch("agentnexus.cli._resolve_attach_server", return_value=_BASE),
-        patch("agentnexus.session_import.local.list_recent_sessions_across_harnesses", fake_across),
+        patch(
+            "agentnexus.session_import.local.list_recent_sessions_across_harnesses", fake_across
+        ),
         patch("agentnexus.session_import.local.load_local_session", fake_load),
     ):
         result = CliRunner().invoke(cli, ["import", "--harness", "all", "--last", "5"])

@@ -142,10 +142,22 @@ function renderWorkspace(
 
 describe("WorkspacePanel surface presentation", () => {
   it("embeds the requested project even outside Electron", () => {
-    renderWorkspace({ rightRailTab: "canvas", canvasUrl: "http://127.0.0.1:5173/?project=topic-a&embed=1" });
-    expect(screen.getByTitle("Seedance V3 canvas")).toHaveAttribute("src", "http://127.0.0.1:5173/?project=topic-a&embed=1");
-    expect(screen.getByRole("tab", { name: "Seedance canvas" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("link", { name: "Open canvas in new window" })).toHaveAttribute("href", "http://127.0.0.1:5173/?project=topic-a");
+    renderWorkspace({
+      rightRailTab: "canvas",
+      canvasUrl: "http://127.0.0.1:5173/?project=topic-a&embed=1",
+    });
+    expect(screen.getByTitle("Seedance V3 canvas")).toHaveAttribute(
+      "src",
+      "http://127.0.0.1:5173/?project=topic-a&embed=1",
+    );
+    expect(screen.getByRole("tab", { name: "Seedance canvas" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "Open canvas in new window" })).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:5173/?project=topic-a",
+    );
   });
   it("sits flush to the window edge with a left divider, no floating card frame", () => {
     renderWorkspace();

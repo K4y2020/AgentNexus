@@ -241,13 +241,19 @@ def _referenced_scenes(segments, script_doc: dict | None = None) -> dict[str, in
     for ep, seg in segments:
         s_idx = seg.get("sceneIndex")
         if s_idx:
-            sid = _resolve_scene_id(script_doc or {}, ep.get("ep"), s_idx) if script_doc else f"S{int(s_idx):02d}"
+            sid = (
+                _resolve_scene_id(script_doc or {}, ep.get("ep"), s_idx)
+                if script_doc
+                else f"S{int(s_idx):02d}"
+            )
             if sid and sid not in scenes:
                 scenes[sid] = s_idx
     return scenes
 
 
-def _missing_visual_assets(segments, nodes, cast, art, script_doc: dict | None = None) -> list[str]:
+def _missing_visual_assets(
+    segments, nodes, cast, art, script_doc: dict | None = None
+) -> list[str]:
     """List every character/scene that is neither on the canvas nor fully defined in cast/art."""
     (cast_path, cast_doc), (art_path, art_doc) = cast, art
     cast_name = cast_path.name if cast_path else "cast.json (not found)"
@@ -312,13 +318,82 @@ def _identify_subject_entity(desc: str, cast_doc: dict, art_doc: dict) -> tuple[
         ("C09", ["eldest young lady", "yingchun", "迎春"]),
         ("C10", ["second young lady", "tanchun", "探春"]),
         ("C11", ["smallest young lady", "plush rabbit", "xichun", "惜春"]),
-        ("C08", ["household staff", "valet suits", "white cotton gloves", "staff ensemble", "佣人"]),
-        ("C04", ["crimson tailored suit", "twenty-seven", "crocodile tote", "wang xifeng", "王熙凤", "凤姐"]),
-        ("C03", ["white-haired matriarch", "seventy-five", "deep-plum", "grandmother", "jia mu", "贾母", "外婆"]),
-        ("C06", ["fortune teller", "sunglasses", "bamboo divination cylinder", "indigo", "sixties", "算命"]),
-        ("C07", ["scholarly bureaucrat", "scholarly man", "pinstripe", "spectacles", "forty-eight", "father", "林如海"]),
-        ("C02", ["emerald-green", "emerald jacket", "matriarch in her forties", "matriarch in her thirties", "jia min", "贾敏"]),
-        ("C01", ["eighteen-year-old", "charcoal wool blazer", "pearl-white", "slender", "heiress", "lin daiyu", "林黛玉", "黛玉", "mourning dress", "young woman of eighteen"]),
+        (
+            "C08",
+            ["household staff", "valet suits", "white cotton gloves", "staff ensemble", "佣人"],
+        ),
+        (
+            "C04",
+            [
+                "crimson tailored suit",
+                "twenty-seven",
+                "crocodile tote",
+                "wang xifeng",
+                "王熙凤",
+                "凤姐",
+            ],
+        ),
+        (
+            "C03",
+            [
+                "white-haired matriarch",
+                "seventy-five",
+                "deep-plum",
+                "grandmother",
+                "jia mu",
+                "贾母",
+                "外婆",
+            ],
+        ),
+        (
+            "C06",
+            [
+                "fortune teller",
+                "sunglasses",
+                "bamboo divination cylinder",
+                "indigo",
+                "sixties",
+                "算命",
+            ],
+        ),
+        (
+            "C07",
+            [
+                "scholarly bureaucrat",
+                "scholarly man",
+                "pinstripe",
+                "spectacles",
+                "forty-eight",
+                "father",
+                "林如海",
+            ],
+        ),
+        (
+            "C02",
+            [
+                "emerald-green",
+                "emerald jacket",
+                "matriarch in her forties",
+                "matriarch in her thirties",
+                "jia min",
+                "贾敏",
+            ],
+        ),
+        (
+            "C01",
+            [
+                "eighteen-year-old",
+                "charcoal wool blazer",
+                "pearl-white",
+                "slender",
+                "heiress",
+                "lin daiyu",
+                "林黛玉",
+                "黛玉",
+                "mourning dress",
+                "young woman of eighteen",
+            ],
+        ),
     ]
     for cid, kws in char_kws:
         if any(kw in desc_l for kw in kws):
@@ -370,12 +445,17 @@ def align_h3_prompt_to_references(
     for num_str, raw_desc in subj_defs:
         num = int(num_str)
         kind, ident = _identify_subject_entity(raw_desc, cast_doc, art_doc)
-        clean_desc = re.sub(
-            r";\s*(?:face|layout|uniform|uniforms|costume|materials|hair|bearing|posture|glasses|cylinder|gloved hands)[^.]*from\s*<Picture\s*\d+>\.?",
-            "",
-            raw_desc,
-            flags=re.I,
-        ).strip().rstrip(";").rstrip(".")
+        clean_desc = (
+            re.sub(
+                r";\s*(?:face|layout|uniform|uniforms|costume|materials|hair|bearing|posture|glasses|cylinder|gloved hands)[^.]*from\s*<Picture\s*\d+>\.?",
+                "",
+                raw_desc,
+                flags=re.I,
+            )
+            .strip()
+            .rstrip(";")
+            .rstrip(".")
+        )
         old_subj_info[num] = {"kind": kind, "ident": ident, "desc": clean_desc, "raw": raw_desc}
 
     # Identify what entity each canvas image reference represents
@@ -435,7 +515,9 @@ def align_h3_prompt_to_references(
         elif kind == "char":
             citation = f"; face, hair and costume come entirely from <Picture {new_idx}>."
         else:
-            citation = f"; visual composition and action carry come entirely from <Picture {new_idx}>."
+            citation = (
+                f"; visual composition and action carry come entirely from <Picture {new_idx}>."
+            )
         new_subj_lines.append(f"<Subject {new_idx}> — {desc}{citation}")
 
     new_subj_text = "\n".join(new_subj_lines) + "\n"
@@ -885,7 +967,9 @@ async def import_storyboard(
                                 card_data["prompt"] = aligned_prompt
                                 prompts_aligned += 1
                     except Exception as exc:
-                        logger.debug("Failed aligning prompt references for card %s: %s", card_id, exc)
+                        logger.debug(
+                            "Failed aligning prompt references for card %s: %s", card_id, exc
+                        )
 
         if prompts_aligned > 0 and storyboard_path.is_file():
             try:
@@ -894,7 +978,9 @@ async def import_storyboard(
                     encoding="utf-8",
                 )
             except Exception as exc:
-                logger.warning("Failed to write aligned storyboard to %s: %s", storyboard_path, exc)
+                logger.warning(
+                    "Failed to write aligned storyboard to %s: %s", storyboard_path, exc
+                )
     except (ProductionRejected, KeyError, TypeError, ValueError) as exc:
         logger.exception("Failed to auto-project video prompt nodes during storyboard import")
         detail = {"error": str(exc)}

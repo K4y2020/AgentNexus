@@ -99,9 +99,12 @@ export function useSetDefaultGateway() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (gatewayId: string) => {
-      const res = await authenticatedFetch(`/v1/gateways/${encodeURIComponent(gatewayId)}/set-default`, {
-        method: "POST",
-      });
+      const res = await authenticatedFetch(
+        `/v1/gateways/${encodeURIComponent(gatewayId)}/set-default`,
+        {
+          method: "POST",
+        },
+      );
       if (!res.ok) {
         throw new Error(`Failed to set default gateway: HTTP ${res.status}`);
       }
@@ -114,7 +117,9 @@ export function useSetDefaultGateway() {
   });
 }
 
-export async function testGatewayConnection(payload: GatewayTestPayload): Promise<GatewayTestResult> {
+export async function testGatewayConnection(
+  payload: GatewayTestPayload,
+): Promise<GatewayTestResult> {
   const res = await authenticatedFetch("/v1/gateways/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

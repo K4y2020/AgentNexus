@@ -83,9 +83,8 @@ export function TeammatesPage() {
     }
     const targetWorkspace = `${teammate.bot.homePath.replace(/[\\/]+$/, "")}/scratch`;
     const targetHost =
-      hosts?.find(
-        (host) => host.host_id === teammate.bot.hostId && host.status === "online",
-      ) ?? chatHost;
+      hosts?.find((host) => host.host_id === teammate.bot.hostId && host.status === "online") ??
+      chatHost;
 
     if (!targetHost) {
       setChatError("No host is online. Connect one with `agentnexus host`, then try again.");

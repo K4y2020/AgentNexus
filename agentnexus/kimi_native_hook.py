@@ -173,7 +173,9 @@ def _main_evaluate_policy(argv: list[str]) -> int:
     try:
         eval_response = resp.json()
     except json.JSONDecodeError:
-        print("agentnexus kimi evaluate-policy hook: malformed AgentNexus response", file=sys.stderr)
+        print(
+            "agentnexus kimi evaluate-policy hook: malformed AgentNexus response", file=sys.stderr
+        )
         return _fail_closed()
 
     hook_output = evaluation_response_to_hook_output(hook_event, eval_response)

@@ -199,7 +199,14 @@ def codex_mcp_config_overrides(
     # sys.path or a workspace that is an omnigent checkout shadows the installed
     # package. Matches every other bridge's serve-mcp invocation.
     args_toml = json.dumps(
-        ["-I", "-m", "agentnexus.claude_native_bridge", "serve-mcp", "--bridge-dir", str(bridge_dir)]
+        [
+            "-I",
+            "-m",
+            "agentnexus.claude_native_bridge",
+            "serve-mcp",
+            "--bridge-dir",
+            str(bridge_dir),
+        ]
     )
     return [
         f'mcp_servers.agentnexus.command="{python}"',

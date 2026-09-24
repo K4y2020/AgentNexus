@@ -8,6 +8,7 @@ SFX）。底片是 plate 渲染（无字幕无 SFX）：
   .venv/bin/python aifl_promo.py           # 只建到 staging/
   .venv/bin/python aifl_promo.py install   # 建 + macify + 装进剪映草稿库
 """
+
 import os
 import sys
 
@@ -110,8 +111,7 @@ def sfx_cap_frames(from_f: int, src: str) -> int:
 # CSS 22px ÷ 10.8 ≈ size 2.0；颜色 oklch(45% 0.006 82) ≈ #575552；
 # 垂直位置 bottom:72 → 文字中心 y≈995 → transform_y = 1 − 995/540 ≈ −0.84
 CAPTION_STYLE = dict(
-    style=draft.TextStyle(size=2.0, color=(0.341, 0.333, 0.322),
-                          align=1, letter_spacing=14),
+    style=draft.TextStyle(size=2.0, color=(0.341, 0.333, 0.322), align=1, letter_spacing=14),
     clip_settings=draft.ClipSettings(transform_y=-0.84),
 )
 
@@ -127,8 +127,7 @@ def build() -> str:
     plate = draft.VideoMaterial(PLATE)
     for _name, f0, f1 in SHOTS:
         rng = draft.Timerange(f2us(f0), f2us(f1) - f2us(f0))
-        script.add_segment(draft.VideoSegment(plate, rng, source_timerange=rng),
-                           "底片")
+        script.add_segment(draft.VideoSegment(plate, rng, source_timerange=rng), "底片")
 
     for text, f0, f1 in CAPTIONS:
         rng = draft.Timerange(f2us(f0), f2us(f1) - f2us(f0))
@@ -139,8 +138,9 @@ def build() -> str:
     for from_f, src, volume in SFX:
         mat = draft.AudioMaterial(os.path.join(AUDIO_DIR, src))
         start_f = from_f + AUDIO_LAG_F
-        dur_us = min(f2us(sfx_cap_frames(from_f, src)), mat.duration,
-                     f2us(TOTAL_F) - f2us(start_f))
+        dur_us = min(
+            f2us(sfx_cap_frames(from_f, src)), mat.duration, f2us(TOTAL_F) - f2us(start_f)
+        )
         sfx_segs.append((f2us(start_f), dur_us, mat, volume))
     lanes, placed = [], []
     for start, dur, mat, volume in sorted(sfx_segs, key=lambda s: s[0]):
@@ -153,14 +153,16 @@ def build() -> str:
         script.append_track(draft.TrackSpec(draft.TrackType.audio, name=f"SFX{i + 1}"))
     for lane, start, dur, mat, volume in placed:
         script.add_segment(
-            draft.AudioSegment(mat, draft.Timerange(start, dur), volume=volume),
-            f"SFX{lane + 1}")
+            draft.AudioSegment(mat, draft.Timerange(start, dur), volume=volume), f"SFX{lane + 1}"
+        )
 
     script.save()
     n_segs = len(SHOTS) + len(CAPTIONS) + len(placed)
     print(f"staging 草稿已建：{os.path.join(STAGING, NAME)}")
-    print(f"  轨道：底片1 + 字幕1 + SFX{len(lanes)}；段：{n_segs}"
-          f"（镜头{len(SHOTS)} 字幕{len(CAPTIONS)} SFX{len(placed)}）")
+    print(
+        f"  轨道：底片1 + 字幕1 + SFX{len(lanes)}；段：{n_segs}"
+        f"（镜头{len(SHOTS)} 字幕{len(CAPTIONS)} SFX{len(placed)}）"
+    )
     return os.path.join(STAGING, NAME)
 
 

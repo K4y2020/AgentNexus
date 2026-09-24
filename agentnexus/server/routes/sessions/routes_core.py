@@ -407,6 +407,7 @@ def register_core_routes(
         if project_store is not None and body.workspace:
             try:
                 from pathlib import Path
+
                 workspace_name = Path(body.workspace.strip()).name
                 if workspace_name:
                     owned_projects = await asyncio.to_thread(project_store.list, user_id=user_id)
@@ -422,7 +423,11 @@ def register_core_routes(
                         )
                         resp.project_id = matched.id
             except Exception:
-                _logger.debug("Project auto-association skipped for workspace %s", body.workspace, exc_info=True)
+                _logger.debug(
+                    "Project auto-association skipped for workspace %s",
+                    body.workspace,
+                    exc_info=True,
+                )
         # Notify the runner about the new session so it can resolve
         # the spec and cache sub_agent_name before the first turn.
         # Without this, the runner doesn't know this session exists

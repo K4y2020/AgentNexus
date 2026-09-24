@@ -496,7 +496,9 @@ def test_configured_harness_map_all_true_with_clis(
     )
     # The generic ACP harness is config-gated (≥1 registered agent), not
     # CLI-gated — satisfy it so it isn't the lone unconfigured entry here.
-    monkeypatch.setattr("agentnexus.onboarding.acp_auth.acp_agents", lambda config=None: [object()])
+    monkeypatch.setattr(
+        "agentnexus.onboarding.acp_auth.acp_agents", lambda config=None: [object()]
+    )
     result = configured_harness_map()
     assert all(result.values())
 

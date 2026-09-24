@@ -2778,32 +2778,40 @@ class HostProcess:
 
             # If provider declares custom alias mappings, include them
             try:
-                from agentnexus.onboarding.provider_config import load_config, default_provider_for_harness
+                from agentnexus.onboarding.provider_config import (
+                    load_config,
+                    default_provider_for_harness,
+                )
+
                 prov = default_provider_for_harness(load_config(), worker_harness)
                 if prov and prov.families.get("openai") and prov.families["openai"].models:
                     for alias, target in prov.families["openai"].models.items():
                         if alias != "default" and alias not in models_dict:
-                            models_dict[alias] = {"id": alias, "displayName": f"{alias} ({target})"}
+                            models_dict[alias] = {
+                                "id": alias,
+                                "displayName": f"{alias} ({target})",
+                            }
             except Exception:
                 pass
 
             if not models_dict:
                 probed = await self._probed_codex_model_options()
                 if probed is not None:
-                    for row in (probed.models or []):
+                    for row in probed.models or []:
                         rid = str(row.get("id") or row.get("model") or "")
                         if rid and rid not in models_dict:
                             models_dict[rid] = {
                                 "id": rid,
                                 "displayName": str(row.get("displayName") or rid),
                             }
-                    for rid in (probed.routable_models or []):
+                    for rid in probed.routable_models or []:
                         if rid and rid not in models_dict:
                             models_dict[rid] = {"id": rid, "displayName": rid}
 
             if not models_dict:
                 try:
                     from agentnexus.onboarding.providers import get_chat_models
+
                     catalog_models = await asyncio.to_thread(get_chat_models, "openai")
                     for m in catalog_models[:20]:
                         if m.name not in models_dict:
@@ -2825,6 +2833,7 @@ class HostProcess:
             cursor_models: list[dict[str, Any]] = []
             try:
                 from agentnexus.cursor_native import list_cursor_cli_model_options
+
                 options = await asyncio.to_thread(list_cursor_cli_model_options)
                 cursor_models = [
                     {"id": str(opt["id"]), "displayName": str(opt.get("displayName") or opt["id"])}
@@ -2846,7 +2855,13 @@ class HostProcess:
                 routable_models=[m["id"] for m in cursor_models],
             )
 
-        if harness in ("antigravity", "antigravity-native", "agy", "agy-native", "google-antigravity"):
+        if harness in (
+            "antigravity",
+            "antigravity-native",
+            "agy",
+            "agy-native",
+            "google-antigravity",
+        ):
             gemini_models = [
                 {"id": "gemini-2.5-pro", "displayName": "Gemini 2.5 Pro"},
                 {"id": "gemini-2.5-flash", "displayName": "Gemini 2.5 Flash"},
@@ -2882,38 +2897,47 @@ class HostProcess:
                 _logger.exception("Failed to resolve pre-launch Claude SDK model options")
 
             claude_models = [
-                m for m in ((listing.models if listing else None) or [])
+                m
+                for m in ((listing.models if listing else None) or [])
                 if m.family == "claude" or "claude" in m.id.lower()
             ]
-            candidates = claude_models if claude_models else ((listing.models if listing else None) or [])
+            candidates = (
+                claude_models if claude_models else ((listing.models if listing else None) or [])
+            )
 
             models_dict: dict[str, dict[str, Any]] = {
-                model.id: {"id": model.id, "displayName": model.id}
-                for model in candidates
+                model.id: {"id": model.id, "displayName": model.id} for model in candidates
             }
 
             # If provider declares custom alias mappings, include them
             try:
-                from agentnexus.onboarding.provider_config import load_config, default_provider_for_harness
+                from agentnexus.onboarding.provider_config import (
+                    load_config,
+                    default_provider_for_harness,
+                )
+
                 prov = default_provider_for_harness(load_config(), "claude-sdk")
                 if prov and prov.families.get("anthropic") and prov.families["anthropic"].models:
                     for alias, target in prov.families["anthropic"].models.items():
                         if alias != "default" and alias not in models_dict:
-                            models_dict[alias] = {"id": alias, "displayName": f"{alias} ({target})"}
+                            models_dict[alias] = {
+                                "id": alias,
+                                "displayName": f"{alias} ({target})",
+                            }
             except Exception:
                 pass
 
             if not models_dict:
                 probed = await self._probed_claude_model_options()
                 if probed is not None:
-                    for row in (probed.models or []):
+                    for row in probed.models or []:
                         rid = str(row.get("id") or row.get("model") or "")
                         if rid and rid not in models_dict:
                             models_dict[rid] = {
                                 "id": rid,
                                 "displayName": str(row.get("displayName") or rid),
                             }
-                    for rid in (probed.routable_models or []):
+                    for rid in probed.routable_models or []:
                         if rid and rid not in models_dict:
                             models_dict[rid] = {"id": rid, "displayName": rid}
 

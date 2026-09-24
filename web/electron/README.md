@@ -759,7 +759,6 @@ The decision logic (parse + window selection) is pure and unit-tested in
 > It was removed in favor of shipping Electron only; `nativeBridge.ts` no
 > longer carries a Tauri code path.
 
-
 ## Windows build verification (2026-09-02)
 
 `pnpm run build:win` on Windows (Node 24, pnpm 11) produced, from

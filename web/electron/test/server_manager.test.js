@@ -103,7 +103,8 @@ describe("ensureServerAuth", () => {
 
 describe("isHostConnectedMarker", () => {
   it("matches real CLI connected output line", () => {
-    const line = "Connected as 'DESKTOP-NQTAH8K' (b437d4563fce4d8b9331f9419af26810), 0 live runner(s). Listening for sessions — Ctrl-C to disconnect.";
+    const line =
+      "Connected as 'DESKTOP-NQTAH8K' (b437d4563fce4d8b9331f9419af26810), 0 live runner(s). Listening for sessions — Ctrl-C to disconnect.";
     assert.equal(isHostConnectedMarker(line), true);
   });
 

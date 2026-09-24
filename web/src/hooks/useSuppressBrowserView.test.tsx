@@ -6,7 +6,9 @@ import { resyncBrowserSuppression, SuppressBrowserView } from "./useSuppressBrow
 /** Install a `window.agentnexusDesktop` with a spied browserSetSuppressed. */
 function installBridge() {
   const browserSetSuppressed = vi.fn().mockResolvedValue({ ok: true });
-  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = { browserSetSuppressed };
+  (window as unknown as { agentnexusDesktop?: unknown }).agentnexusDesktop = {
+    browserSetSuppressed,
+  };
   return browserSetSuppressed;
 }
 

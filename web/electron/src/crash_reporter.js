@@ -34,13 +34,7 @@ const SECRET_VALUE_RE =
 const MASKED = "***redacted***";
 
 /** Fields allowed to survive from a server manifest in a crash bundle. */
-const MANIFEST_ALLOWLIST = new Set([
-  "apiVersion",
-  "name",
-  "product",
-  "version",
-  "serverVersion",
-]);
+const MANIFEST_ALLOWLIST = new Set(["apiVersion", "name", "product", "version", "serverVersion"]);
 
 function maskSecretValue(value) {
   if (typeof value !== "string") return value;
@@ -241,7 +235,8 @@ function createCrashReporter({
     const origin = ctx.origin ?? null;
     const serverUrl = ctx.serverUrl ?? null;
     const manifestAt = () => {
-      const value = typeof ctx.serverManifest === "function" ? ctx.serverManifest() : ctx.serverManifest;
+      const value =
+        typeof ctx.serverManifest === "function" ? ctx.serverManifest() : ctx.serverManifest;
       return value ?? null;
     };
 

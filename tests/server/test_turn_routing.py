@@ -1077,7 +1077,9 @@ async def test_replay_still_delivers_when_the_claude_switch_fails(
         del command, auto_confirm, confirm_hint
         raise RuntimeError("tmux target is not advertised")
 
-    monkeypatch.setattr("agentnexus.claude_native_bridge.inject_slash_command", _boom, raising=False)
+    monkeypatch.setattr(
+        "agentnexus.claude_native_bridge.inject_slash_command", _boom, raising=False
+    )
     monkeypatch.setattr(
         "agentnexus.claude_native_bridge.read_model_env",
         lambda _dir: {"ANTHROPIC_DEFAULT_SONNET_MODEL": "databricks-claude-sonnet-5"},

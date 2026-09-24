@@ -23,7 +23,8 @@ import unittest
 from pathlib import Path
 
 REPO = next(
-    parent for parent in Path(__file__).resolve().parents
+    parent
+    for parent in Path(__file__).resolve().parents
     if (parent / "scripts" / "generate-catalog-summary.py").is_file()
 )
 SKILL_TREES = ("cli/assets/skills", ".claude/skills")
@@ -31,7 +32,9 @@ SKILL_TREES = ("cli/assets/skills", ".claude/skills")
 # and not shipped by the CLI (sync-assets.mjs mirrors data/ and scripts/, never SKILL.md).
 # (Built from segments: the path contract in check-asset-sync.yml scans this file too.)
 PLUGIN_ONLY_FILE = Path(".claude") / "skills" / "ui-ux-pro-max" / "SKILL.md"
-INVOCATION = re.compile(r'(?<![\w/.-])(?:python3?|node|bash)\s+"?([^\s"`\']+\.(?:py|cjs|js|mjs|sh))')
+INVOCATION = re.compile(
+    r'(?<![\w/.-])(?:python3?|node|bash)\s+"?([^\s"`\']+\.(?:py|cjs|js|mjs|sh))'
+)
 PLUGIN_ROOT = "${CLAUDE_PLUGIN_ROOT}/"
 
 
@@ -50,15 +53,21 @@ def resolve(skill_dir, md, path):
     """Return (target, None) for a skill-relative path, or (None, reason)."""
     if path.startswith(PLUGIN_ROOT):
         if md.relative_to(REPO) != PLUGIN_ONLY_FILE:
-            return None, "the ${CLAUDE_PLUGIN_ROOT} form is only valid in the plugin-only core SKILL.md"
-        return REPO / path[len(PLUGIN_ROOT):], None
+            return (
+                None,
+                "the ${CLAUDE_PLUGIN_ROOT} form is only valid in the plugin-only core SKILL.md",
+            )
+        return REPO / path[len(PLUGIN_ROOT) :], None
     if path.startswith("scripts/"):
         return skill_dir / path, None
     if path.startswith("../"):
         parts = path.split("/")
         if len(parts) > 3 and parts[2] == "scripts" and (skill_dir.parent / parts[1]).is_dir():
             return skill_dir.parent / parts[1] / "/".join(parts[2:]), None
-        return None, "a sibling invocation must be ../<skill>/scripts/<file> and the sibling must ship"
+        return (
+            None,
+            "a sibling invocation must be ../<skill>/scripts/<file> and the sibling must ship",
+        )
     return None, "not skill-relative (expected scripts/<file> or ../<skill>/scripts/<file>)"
 
 

@@ -3,7 +3,12 @@
 from agentnexus.entities.account import Account, AccountToken
 from agentnexus.entities.agent import Agent, LoadedAgent
 from agentnexus.entities.agent_memory import AgentMemory
-from agentnexus.entities.bot import Bot, BotComputerBinding, BotProjectBinding, ComputerExecutionLease
+from agentnexus.entities.bot import (
+    Bot,
+    BotComputerBinding,
+    BotProjectBinding,
+    ComputerExecutionLease,
+)
 from agentnexus.entities.comment import Comment, CommentsFingerprint
 from agentnexus.entities.conversation import (
     DEFAULT_GENERATED_TITLE_MAX_CHARS,

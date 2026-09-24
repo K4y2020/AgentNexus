@@ -58,9 +58,9 @@ def test_run_launcher_emits_logger_checkpoints(caplog) -> None:
 
     messages = [record.getMessage() for record in caplog.records]
     # Absent: wrapper never entered the body.
-    assert any("[agentnexus-sandbox] activating backend=none active=False" in m for m in messages), (
-        messages
-    )
+    assert any(
+        "[agentnexus-sandbox] activating backend=none active=False" in m for m in messages
+    ), messages
     # Absent on an active policy: activation hung.
     assert any("[agentnexus-sandbox] activated; spawning target=" in m for m in messages), messages
     # Absent: spawned target hung (the claude-sdk symptom).

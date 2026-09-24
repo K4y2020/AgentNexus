@@ -1026,7 +1026,9 @@ async def test_claude_native_model_options_use_session_launch_catalog(
     from agentnexus.claude_native import ClaudeModelProbe, ClaudeNativeUcodeConfig
     from tests.runner.conftest import REAL_CLAUDE_LAUNCH_CATALOG
 
-    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG)
+    monkeypatch.setattr(
+        "agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG
+    )
     conv_id = "6a416804870ed618cc8908f5cebab937"
     claude_spec = AgentSpec(
         spec_version=1,
@@ -1155,7 +1157,9 @@ async def test_claude_native_model_options_serves_probe_rows_after_pending(
     from agentnexus.runner import app as runner_app_module
     from tests.runner.conftest import REAL_CLAUDE_LAUNCH_CATALOG
 
-    monkeypatch.setattr("agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG)
+    monkeypatch.setattr(
+        "agentnexus.claude_native.claude_launch_catalog", REAL_CLAUDE_LAUNCH_CATALOG
+    )
 
     conv_id = "9c527915981fe729dd9a19a6dfcbca49"
     claude_spec = AgentSpec(

@@ -2409,7 +2409,9 @@ def _import_openclaw_agents() -> None:
                 f"    • [bold]{escape(entry.name)}[/bold] → "
                 f"[dim]{escape(entry.command)}[/dim]{suffix}"
             )
-        console.print("  [dim]AgentNexus stores only these launch commands, not credentials.[/dim]")
+        console.print(
+            "  [dim]AgentNexus stores only these launch commands, not credentials.[/dim]"
+        )
 
         if not click.confirm("Import coding agents from OpenClaw?", default=True):
             console.print("  [yellow]Skipped OpenClaw import.[/yellow]")

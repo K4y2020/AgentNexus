@@ -88,6 +88,7 @@ class LocalHostComputerProvider(ComputerProvider):
             # Git write run: automatically allocate an isolated worktree
             # to guarantee index.lock conflict count = 0 across concurrent runs.
             import re
+
             worktree_dir = home / "worktrees" / project_id / run_id
             worktree_dir.parent.mkdir(parents=True, exist_ok=True)
             sanitized_run = re.sub(r"[^a-zA-Z0-9_.-]", "_", run_id)

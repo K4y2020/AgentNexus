@@ -136,7 +136,9 @@ class AccountsConfig:
             )
 
         session_ttl_hours = int(os.environ.get("AGENTNEXUS_ACCOUNTS_SESSION_TTL_HOURS", "8"))
-        invite_ttl_seconds = int(os.environ.get("AGENTNEXUS_ACCOUNTS_INVITE_TTL_HOURS", "72")) * 3600
+        invite_ttl_seconds = (
+            int(os.environ.get("AGENTNEXUS_ACCOUNTS_INVITE_TTL_HOURS", "72")) * 3600
+        )
         magic_ttl_seconds = int(os.environ.get("AGENTNEXUS_ACCOUNTS_MAGIC_TTL_MINUTES", "10")) * 60
 
         # INIT_ADMIN_PASSWORD: explicit empty string ("") is treated as

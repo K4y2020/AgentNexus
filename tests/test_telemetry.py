@@ -329,7 +329,8 @@ def test_get_installation_id_creates_uuid(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path",
+            return_value=telemetry_file,
         ),
     ):
         result = _mod.get_installation_id()
@@ -357,7 +358,8 @@ def test_get_installation_id_reads_existing(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path",
+            return_value=telemetry_file,
         ),
     ):
         result = _mod.get_installation_id()
@@ -376,7 +378,8 @@ def test_get_installation_id_cache(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path",
+            return_value=telemetry_file,
         ),
     ):
         first = _mod.get_installation_id()
@@ -398,7 +401,8 @@ def test_get_installation_id_corrupted_file(tmp_path: Path) -> None:
         patch.object(_mod, "_cache", None),
         patch.object(_mod, "_CACHE_LOCK", threading.RLock()),
         patch(
-            "agentnexus.telemetry.installation_id._telemetry_file_path", return_value=telemetry_file
+            "agentnexus.telemetry.installation_id._telemetry_file_path",
+            return_value=telemetry_file,
         ),
         # Make _write_to_disk fail so we get None back rather than a fresh ID.
         patch(

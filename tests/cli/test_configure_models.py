@@ -820,7 +820,9 @@ def test_add_subscription_aborts_when_login_fails(isolated_config, monkeypatch) 
     must not persist a subscription entry — otherwise routing would later strand
     the user at the harness's own login screen, exactly what we're fixing.
     """
-    monkeypatch.setattr("agentnexus.onboarding.harness_install.harness_login", lambda family: False)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.harness_install.harness_login", lambda family: False
+    )
     stdin = "\n".join(["1", "1", "2", "q", "q"]) + "\n"  # Claude → +Add → subscription
     result = CliRunner().invoke(cli, ["setup", "--no-internal-beta"], input=stdin)
     assert result.exit_code == 0, result.output
@@ -1576,7 +1578,9 @@ def test_configure_harnesses_add_databricks_under_codex_scopes_to_codex(
         "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace",
         lambda url, *, agents=None: ucode_calls.append((url, agents)),
     )
-    monkeypatch.setattr("agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True
+    )
 
     # Databricks position within the Codex (openai) add menu, computed live.
     codex_opts = add_menu_options_for_family(OPENAI_FAMILY)
@@ -2534,7 +2538,9 @@ def test_configure_harnesses_add_databricks_under_pi_scopes_to_pi(
         "agentnexus.onboarding.ucode_setup.configure_ucode_for_workspace",
         lambda url, *, agents=None: ucode_calls.append((url, agents)),
     )
-    monkeypatch.setattr("agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True)
+    monkeypatch.setattr(
+        "agentnexus.onboarding.ucode_setup.ucode_workspace_exists", lambda url: True
+    )
 
     # Databricks position within the Pi add menu, computed live.
     pi_opts = add_menu_options_for_family(PI_SURFACE)

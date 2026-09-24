@@ -1165,7 +1165,9 @@ def _parse_evaluate_policy_args(argv: list[str]) -> argparse.Namespace:
     :param argv: CLI argv excluding program name and subcommand.
     :returns: Parsed argparse namespace.
     """
-    parser = argparse.ArgumentParser(prog="python -m agentnexus.claude_native_hook evaluate-policy")
+    parser = argparse.ArgumentParser(
+        prog="python -m agentnexus.claude_native_hook evaluate-policy"
+    )
     parser.add_argument("--bridge-dir", required=True)
     return parser.parse_args(argv)
 

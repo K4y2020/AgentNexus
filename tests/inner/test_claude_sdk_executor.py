@@ -1058,7 +1058,9 @@ class TestConstructor(unittest.TestCase):
             home = Path(td)
             config_path = home / ".claude.json"
             self.assertFalse(config_path.exists())
-            with patch("agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home):
+            with patch(
+                "agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home
+            ):
                 paths = _claude_internal_write_files()
 
             self.assertEqual(paths, [])
@@ -1071,7 +1073,9 @@ class TestConstructor(unittest.TestCase):
             home = Path(td)
             config_path = home / ".claude.json"
             config_path.write_text("{}\n", encoding="utf-8")
-            with patch("agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home):
+            with patch(
+                "agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home
+            ):
                 paths = _claude_internal_write_files()
 
             self.assertEqual(paths, [config_path])
@@ -1086,7 +1090,9 @@ class TestConstructor(unittest.TestCase):
             credentials_path = home / ".claude" / ".credentials.json"
             credentials_path.parent.mkdir(parents=True, exist_ok=True)
             credentials_path.write_text("{}\n", encoding="utf-8")
-            with patch("agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home):
+            with patch(
+                "agentnexus.inner.claude_sdk_executor.pathlib.Path.home", return_value=home
+            ):
                 paths = _claude_internal_write_files()
 
             self.assertEqual(paths, [config_path, credentials_path])
@@ -3485,7 +3491,9 @@ def test_prepare_claude_cli_path_degrades_when_resolve_sandbox_fails(monkeypatch
     def _fail_if_called(*args, **kwargs) -> str:
         raise AssertionError("create_exec_launcher must not run when resolve failed")
 
-    monkeypatch.setattr("agentnexus.inner.claude_sdk_executor.create_exec_launcher", _fail_if_called)
+    monkeypatch.setattr(
+        "agentnexus.inner.claude_sdk_executor.create_exec_launcher", _fail_if_called
+    )
 
     with caplog.at_level(logging.WARNING, logger="agentnexus.inner.claude_sdk_executor"):
         prepared = prepare_claude_cli_path("/usr/bin/claude", _wrap_probe_spec())
@@ -3525,7 +3533,9 @@ def test_prepare_claude_cli_path_degrades_when_wrap_probe_fails(monkeypatch, cap
     def _fail_if_called(*args, **kwargs) -> str:
         raise AssertionError("create_exec_launcher must not run when the wrap probe failed")
 
-    monkeypatch.setattr("agentnexus.inner.claude_sdk_executor.create_exec_launcher", _fail_if_called)
+    monkeypatch.setattr(
+        "agentnexus.inner.claude_sdk_executor.create_exec_launcher", _fail_if_called
+    )
 
     with caplog.at_level(logging.WARNING, logger="agentnexus.inner.claude_sdk_executor"):
         prepared = prepare_claude_cli_path("/usr/bin/claude", _wrap_probe_spec())

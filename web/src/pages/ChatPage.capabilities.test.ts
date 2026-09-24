@@ -47,7 +47,9 @@ describe("shouldShowModelPicker", () => {
     // --model at launch; claude, codex, and cursor native wrappers all honor
     // it, so the gate is keyed on those exact labels.
     expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": NATIVE } })).toBe(true);
-    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "codex-native-ui" } })).toBe(
+      true,
+    );
     expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "cursor-native-ui" } })).toBe(
       true,
     );
@@ -57,7 +59,9 @@ describe("shouldShowModelPicker", () => {
       true,
     );
     // kiro applies the picked model as --model at launch (no in-session mirror).
-    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "kiro-native-ui" } })).toBe(true);
+    expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "kiro-native-ui" } })).toBe(
+      true,
+    );
     // pi injects a live model switch into the running Pi process (via the bridge
     // inbox → setModel) and mirrors in-TUI /model picks back to model_override.
     expect(shouldShowModelPicker({ labels: { "agentnexus.wrapper": "pi-native-ui" } })).toBe(true);
@@ -82,7 +86,9 @@ describe("shouldShowEffortPicker", () => {
 
   it("hides effort controls for other wrappers and missing labels", () => {
     // WHY: fail-closed — no label / non-native wrapper means no dial.
-    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "codex-native" } })).toBe(false);
+    expect(shouldShowEffortPicker({ labels: { "agentnexus.wrapper": "codex-native" } })).toBe(
+      false,
+    );
     expect(shouldShowEffortPicker(null)).toBe(false);
     expect(shouldShowEffortPicker(undefined)).toBe(false);
   });

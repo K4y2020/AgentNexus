@@ -213,7 +213,9 @@ def test_is_registered_handler_false_for_unregistered_first_party() -> None:
     user-facing write APIs.
     """
     load_registry()
-    assert is_registered_handler("agentnexus.policies.function.make_fixed_action_callable") is False
+    assert (
+        is_registered_handler("agentnexus.policies.function.make_fixed_action_callable") is False
+    )
 
 
 def test_is_registered_handler_includes_extra_modules() -> None:

@@ -596,7 +596,9 @@ def test_an_explicit_model_survives_arming(
     _mock_create(harness="codex-native")
     captured: dict[str, Any] = {}
     monkeypatch.setattr("agentnexus.cli._load_effective_config", dict)
-    monkeypatch.setattr("agentnexus.codex_native.run_codex_native", lambda **kw: captured.update(kw))
+    monkeypatch.setattr(
+        "agentnexus.codex_native.run_codex_native", lambda **kw: captured.update(kw)
+    )
 
     result = CliRunner().invoke(cli, ["codex", "--smart-routing", "--model", "gpt-5.4"])
 

@@ -358,7 +358,14 @@ _NIMBLE_EXTRACT_TOOLS = frozenset({"nimble_extract"})
 _TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
 
 # Seedance V3 canvas / agent message tool. Runner-local bridge to Seedance V3.
-_SEEDANCE_TOOLS = frozenset({"seedance_agent_message", "seedance_read_canvas", "seedance_edit_canvas", "cine_verify_report"})
+_SEEDANCE_TOOLS = frozenset(
+    {
+        "seedance_agent_message",
+        "seedance_read_canvas",
+        "seedance_edit_canvas",
+        "cine_verify_report",
+    }
+)
 
 # TypeSafe JEV System One judgment tool — local HTTP call, no server client needed.
 _JEV_TOOLS = frozenset({"cine_jev_judge"})
@@ -6379,7 +6386,9 @@ async def _execute_send_to_teammate_tool(
         if target_workspace is None and sender is not None:
             target_workspace = _optional_string(sender.get("workspace"))
     if target_workspace is None:
-        target_workspace = str(Path.home() / ".agentnexus" / "workspaces" / target_bot_name.lower())
+        target_workspace = str(
+            Path.home() / ".agentnexus" / "workspaces" / target_bot_name.lower()
+        )
 
     # 2. Dedicated A2A channel resolution:
     channel = binding_for_session(
@@ -6773,7 +6782,14 @@ def _jev_http_client_kwargs():
     proxy = ""
     candidates = [
         os.environ.get(var, "")
-        for var in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy")
+        for var in (
+            "HTTPS_PROXY",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+            "HTTP_PROXY",
+            "http_proxy",
+        )
     ]
     try:
         detected = urllib.request.getproxies()
@@ -6818,13 +6834,16 @@ async def _execute_jev_tool(args: _JsonObject) -> str:
         criteria = spec.get("criteria")
         if qtype == "choice":
             wire_questions[str(qid)] = {
-                "type": "choice", "instructions": instructions, "criteria": criteria or {},
+                "type": "choice",
+                "instructions": instructions,
+                "criteria": criteria or {},
             }
         elif qtype == "noul":
             wire_questions[str(qid)] = {"type": "noul", "instructions": instructions}
         elif qtype == "score":
             wire_questions[str(qid)] = {
-                "type": "score", "instructions": instructions,
+                "type": "score",
+                "instructions": instructions,
                 "criteria": criteria if isinstance(criteria, list) else [],
             }
         else:
@@ -6863,7 +6882,10 @@ async def _execute_jev_tool(args: _JsonObject) -> str:
                 async with httpx.AsyncClient(**client_kwargs) as client:
                     resp = await client.post(
                         "https://api.typesafe.ai/v1/systemone",
-                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
                         json=payload,
                     )
                     resp.raise_for_status()
@@ -6890,7 +6912,9 @@ async def _execute_jev_tool(args: _JsonObject) -> str:
                 ensure_ascii=False,
             )
     except httpx.HTTPStatusError as exc:
-        return json.dumps({"error": f"typesafe api {exc.response.status_code}: {exc.response.text[:200]}"})
+        return json.dumps(
+            {"error": f"typesafe api {exc.response.status_code}: {exc.response.text[:200]}"}
+        )
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         return json.dumps({"error": f"jev call failed: {exc}"})
 
@@ -6942,8 +6966,11 @@ async def _execute_seedance_tool(
 
         try:
             result = await verify_report(
-                server_client, conversation_id, scope=args.get("scope", "full"),
-                start_seconds=args.get("start_seconds"), end_seconds=args.get("end_seconds"),
+                server_client,
+                conversation_id,
+                scope=args.get("scope", "full"),
+                start_seconds=args.get("start_seconds"),
+                end_seconds=args.get("end_seconds"),
                 ledger_path=args.get("ledger_path"),
             )
             return json.dumps(result, ensure_ascii=False)
@@ -6976,7 +7003,9 @@ async def _execute_seedance_tool(
                 from agentnexus.seedance.bridge import read_seedance_generation
 
                 result = await read_seedance_generation(
-                    server_client, conversation_id, action=args["action"],
+                    server_client,
+                    conversation_id,
+                    action=args["action"],
                     job_id=_optional_string(args.get("job_id")),
                 )
                 return json.dumps(result, ensure_ascii=False)
@@ -7036,8 +7065,11 @@ async def _execute_seedance_tool(
             return json.dumps({"error": "generation_allowed must be a boolean"})
         model = _optional_string(args.get("model"))
         trusted_skills_dir = next(
-            (skill.skill_dir.parent for skill in getattr(agent_spec, "skills", [])
-             if skill.name == "film-analysis" and skill.skill_dir is not None),
+            (
+                skill.skill_dir.parent
+                for skill in getattr(agent_spec, "skills", [])
+                if skill.name == "film-analysis" and skill.skill_dir is not None
+            ),
             None,
         )
 
@@ -7889,7 +7921,8 @@ async def _execute_os_env_tool(
             from agentnexus.runtime.image_tool import read_image
 
             result = await read_image(
-                os_env, cast("str", args.get("path", "")),
+                os_env,
+                cast("str", args.get("path", "")),
                 evidence_index=cast("str | None", args.get("evidence_index")),
                 evidence_id=cast("str | None", args.get("evidence_id")),
             )

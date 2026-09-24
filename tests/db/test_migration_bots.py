@@ -53,8 +53,7 @@ def test_migration_downgrade_and_reupgrade(tmp_path: Path) -> None:
         inspector = inspect(engine)
         assert "bots" not in inspector.get_table_names()
         columns = {
-            column["name"]
-            for column in inspector.get_columns("agentnexus_conversation_metadata")
+            column["name"] for column in inspector.get_columns("agentnexus_conversation_metadata")
         }
         assert "bot_id" not in columns
     finally:

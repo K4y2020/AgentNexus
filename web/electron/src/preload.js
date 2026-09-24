@@ -195,7 +195,12 @@ contextBridge.exposeInMainWorld("agentnexusDesktop", {
    * @param {{force?: boolean, agent?: boolean}} [opts]
    */
   browserOpenOrNavigate: (conversationId, url, bounds, opts) =>
-    ipcRenderer.invoke("agentnexus:browser-open-or-navigate", { conversationId, url, bounds, opts }),
+    ipcRenderer.invoke("agentnexus:browser-open-or-navigate", {
+      conversationId,
+      url,
+      bounds,
+      opts,
+    }),
   /**
    * Attach a conversation's view to the host window (detaching the previous
    * active one). Pass null to detach everything (no pane mounted).
