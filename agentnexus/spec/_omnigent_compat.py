@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import canonicalize_harness
 from agentnexus.harness_plugins import (
     accepted_harnesses,

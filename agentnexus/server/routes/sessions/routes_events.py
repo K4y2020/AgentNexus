@@ -23,7 +23,7 @@ from agentnexus.entities import (
 from agentnexus.entities.conversation import (
     parse_item_data,
 )
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE as _HARNESS_NOT_CONFIGURED_ERROR_CODE,
 )

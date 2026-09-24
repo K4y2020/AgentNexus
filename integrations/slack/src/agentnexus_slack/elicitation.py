@@ -21,6 +21,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from agentnexus_slack.agentnexus import AgentNexusClient, ElicitationRequest
 from agentnexus_slack.approvals import (
     RESOLVED_EXTERNALLY,
     ClickTarget,
@@ -32,7 +33,6 @@ from agentnexus_slack.approvals import (
     resolved_card_blocks,
 )
 from agentnexus_slack.models import SlackTurn, ThreadKey
-from agentnexus_slack.agentnexus import ElicitationRequest, AgentNexusClient
 
 if TYPE_CHECKING:
     from agentnexus_slack.streaming import SlackClientProtocol

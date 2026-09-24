@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from agentnexus.codex_native_elicitation import is_codex_request_id
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.schemas import ElicitationRequestParams, ElicitationResult
 
 _CODEX_MCP_ELICITATION_REQUEST_METHOD = "mcpServer/elicitation/request"

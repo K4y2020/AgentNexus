@@ -8,6 +8,7 @@ from slack_bolt.adapter.socket_mode.aiohttp import AsyncSocketModeHandler
 from slack_bolt.async_app import AsyncApp
 from slack_sdk.web.async_client import AsyncWebClient
 
+from agentnexus_slack.agentnexus import AgentNexusClientPool
 from agentnexus_slack.approvals import (
     ACTION_APPROVE,
     ACTION_DENY,
@@ -19,7 +20,6 @@ from agentnexus_slack.approvals import (
 from agentnexus_slack.auth_manager import AuthManager, pack_user_key
 from agentnexus_slack.config import ConfigError, load_settings
 from agentnexus_slack.databricks_oauth import DatabricksOAuthClient
-from agentnexus_slack.agentnexus import AgentNexusClientPool
 from agentnexus_slack.routines import RoutineCompletionPoller
 from agentnexus_slack.service import SlackAgentNexusService
 from agentnexus_slack.setup import SetupFlow

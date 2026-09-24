@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Data integrity guardrail for ui-ux-pro-max. Stdlib-only, no pytest dependency,
 so it can run as a standalone pre-publish/CI check:
@@ -25,10 +24,9 @@ import re
 import statistics
 import sys
 from datetime import date
-from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, urlsplit
 
-from core import CSV_CONFIG, STACK_CONFIG, STACK_CURRENT_APPLICABILITY, _STACK_COLS, DATA_DIR
+from core import _STACK_COLS, CSV_CONFIG, DATA_DIR, STACK_CONFIG, STACK_CURRENT_APPLICABILITY
 from reasoning_contract import parse_decision_rules
 
 # REASONING_FILE lives in design_system.py, not core.py -- redeclared here to
@@ -187,7 +185,7 @@ def contrast_ratio(foreground, background):
 
 
 def _read_rows(filepath):
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return reader.fieldnames or [], list(reader)
 
@@ -195,13 +193,13 @@ def _read_rows(filepath):
 def _check_file(label, filepath, search_cols, output_cols, problems):
     if not filepath.exists():
         problems.append(f"[{label}] missing file: {filepath}")
-        return
+        return None
 
     try:
         headers, rows = _read_rows(filepath)
     except (csv.Error, UnicodeDecodeError, OSError) as e:
         problems.append(f"[{label}] failed to parse {filepath.name}: {e}")
-        return
+        return None
 
     header_set = set(headers)
     for col in set(search_cols) | set(output_cols):

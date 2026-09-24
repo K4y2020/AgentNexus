@@ -179,8 +179,8 @@ def test_build_routing_carries_the_configured_settings() -> None:
 
 
 def test_build_routing_defaults_without_a_routing_block() -> None:
-    from deploy.docker.entrypoint import _build_routing
     from agentnexus.server.smart_routing import RoutingSettings
+    from deploy.docker.entrypoint import _build_routing
 
     client, settings = _build_routing({}, None)
     assert client is None

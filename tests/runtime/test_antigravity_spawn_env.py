@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime import workflow as wf
 from agentnexus.runtime.workflow import (
     _build_antigravity_spawn_env,

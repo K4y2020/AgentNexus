@@ -9,7 +9,6 @@ from agentnexus.spec.types import SkillSpec
 from agentnexus.tools.base import Tool, ToolContext
 from agentnexus.tools.builtins._arguments import parse_json_object_arguments
 
-
 # Legacy platform skill names remain readable until 2.0; advertise only new names.
 LEGACY_SKILL_NAMES = {
     "build-omnigent": "build-agentnexus",

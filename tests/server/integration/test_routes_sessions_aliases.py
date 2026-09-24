@@ -237,7 +237,7 @@ async def test_delete_session_when_runner_offline(client: httpx.AsyncClient) -> 
     server-owned state (tasks, files, the conversation row) so the
     chat actually disappears from the UI.
     """
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
     from agentnexus.runtime import _globals, set_runner_router
 
     snapshot = await create_test_session(client)

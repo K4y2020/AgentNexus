@@ -91,8 +91,8 @@ from agentnexus.tools.builtins.list_comments import ListCommentsTool
 from agentnexus.tools.builtins.os_env import (
     SysOsEditTool,
     SysOsReadTool,
-    SysOsViewImageTool,
     SysOsShellTool,
+    SysOsViewImageTool,
     SysOsWriteTool,
 )
 from agentnexus.tools.builtins.session_rename import SysSessionRenameTool
@@ -6871,8 +6871,6 @@ async def _execute_jev_tool(args: _JsonObject) -> str:
                 break
     if not api_key:
         return json.dumps({"error": "TYPESAFE_API_KEY is not configured on this host"})
-
-    import httpx
 
     payload = {"state": state, "model": model, "questions": wire_questions}
     body: dict = {}

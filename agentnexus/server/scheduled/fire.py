@@ -54,7 +54,7 @@ from typing import Any
 
 from agentnexus.db.db_models import workspace_scope
 from agentnexus.entities import Conversation, ScheduledTask
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import LEVEL_OWNER, RESERVED_USER_LOCAL
 from agentnexus.server.routes._session_create_validation import (
     validate_existing_host_workspace,

@@ -37,7 +37,7 @@ from agentnexus.entities import (
     synthesize_conversation_title,
 )
 from agentnexus.entities.permission import SessionPermission
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.model_override import validate_model_override
 from agentnexus.reasoning_effort import (
     EFFORT_CLEAR_VALUES,

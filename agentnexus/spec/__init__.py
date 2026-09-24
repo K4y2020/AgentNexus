@@ -6,7 +6,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 
 # AgentNexus compat: imported surgically from a dedicated module so
 # the integration's tech debt is removable in one shot. See

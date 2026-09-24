@@ -18,7 +18,7 @@ import yaml
 from fastapi import APIRouter, Request, Response, status
 
 from agentnexus.entities import Agent
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime import session_stream
 from agentnexus.runtime.agent_cache import AgentCache
 from agentnexus.server.auth import LEVEL_EDIT, LEVEL_READ, AuthProvider, local_single_user_enabled

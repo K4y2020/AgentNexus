@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.inner.os_env import OSEnvironment
 from agentnexus.runtime import get_caps
 from agentnexus.spec import AgentSpec
@@ -566,11 +566,11 @@ class ToolManager:
         Framework-owned and always available so any bot can dispatch tasks
         or send peer messages to other teammate bots in the workspace.
         """
-        from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
-        from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
         from agentnexus.tools.builtins.cine_camera_evidence import CineCameraEvidenceTool
-        from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
+        from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
+        from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
         from agentnexus.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
+        from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
         from agentnexus.tools.builtins.send_to_teammate import SendToTeammateTool
         from agentnexus.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 

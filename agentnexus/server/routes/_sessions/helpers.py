@@ -62,7 +62,7 @@ from agentnexus.entities.conversation import (
 )
 from agentnexus.entities.permission import SessionPermission
 from agentnexus.error_layers import ERROR_LAYERS, ErrorLayer
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_plugins import (
     NativeCodingAgent,
 )

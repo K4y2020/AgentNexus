@@ -7,12 +7,11 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 
 from agentnexus.coordination.channels import (
-    A2A_CHANNEL_SCOPE_KEY,
     binding_for_session,
 )
 from agentnexus.seedance.client import (
@@ -20,7 +19,6 @@ from agentnexus.seedance.client import (
     SeedanceClient,
     SeedanceError,
     SeedanceNotFoundError,
-    SeedanceSecurityError,
 )
 
 logger = logging.getLogger(__name__)
@@ -916,7 +914,7 @@ async def execute_seedance_canvas_edit(
             }
 
         # ACTION: update_node
-        elif action == "update_node":
+        if action == "update_node":
             if not node_id:
                 return {
                     "status": "failed",
@@ -998,7 +996,7 @@ async def execute_seedance_canvas_edit(
             }
 
         # ACTION: delete_node
-        elif action == "delete_node":
+        if action == "delete_node":
             if not node_id:
                 return {
                     "status": "failed",
@@ -1058,7 +1056,7 @@ async def execute_seedance_canvas_edit(
             }
 
         # ACTION: connect
-        elif action == "connect":
+        if action == "connect":
             if not from_node_id or not to_node_id:
                 return {
                     "status": "failed",
@@ -1099,7 +1097,7 @@ async def execute_seedance_canvas_edit(
             }
 
         # ACTION: disconnect
-        elif action == "disconnect":
+        if action == "disconnect":
             if not edge_id:
                 return {
                     "status": "failed",
@@ -1193,7 +1191,7 @@ async def execute_seedance_canvas_edit(
             }
 
         # ACTION: submit_generation
-        elif action == "submit_generation":
+        if action == "submit_generation":
             from agentnexus.seedance.production_gate import assert_current
 
             assert_current(proof)
@@ -1223,8 +1221,7 @@ async def execute_seedance_canvas_edit(
                 "summary": f"已成功提交 {cmd['kind']} 生成任务 (Job: {latest_job.get('id', 'queued')})，读后验证任务已在队列中。",
             }
 
-        else:
-            return {"status": "failed", "outcome": "failed", "error": f"未知的 action: {action}"}
+        return {"status": "failed", "outcome": "failed", "error": f"未知的 action: {action}"}
 
     except Exception as exc:
         from agentnexus.seedance.production_gate import ProductionRejected

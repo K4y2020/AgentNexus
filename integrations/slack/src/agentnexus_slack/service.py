@@ -6,6 +6,23 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from agentnexus_slack.agentnexus import (
+    AgentNexusClient,
+    AgentNexusClientPool,
+    AuthRequiredError,
+    HarnessNotConfiguredError,
+    HostUnavailableError,
+    ServerUnreachableError,
+    StreamInterruptedError,
+    extract_assistant_text,
+    extract_delta,
+    extract_elicitation_request,
+    extract_elicitation_resolved,
+    extract_error_text,
+    extract_output_file,
+    extract_policy_denied,
+    extract_todos,
+)
 from agentnexus_slack.approvals import (
     ClickTarget,
     ElicitationCoordinator,
@@ -19,23 +36,6 @@ from agentnexus_slack.notifications import (
     format_output_file,
     format_policy_denied,
     format_todos,
-)
-from agentnexus_slack.agentnexus import (
-    AuthRequiredError,
-    HarnessNotConfiguredError,
-    HostUnavailableError,
-    AgentNexusClient,
-    AgentNexusClientPool,
-    ServerUnreachableError,
-    StreamInterruptedError,
-    extract_assistant_text,
-    extract_delta,
-    extract_elicitation_request,
-    extract_elicitation_resolved,
-    extract_error_text,
-    extract_output_file,
-    extract_policy_denied,
-    extract_todos,
 )
 from agentnexus_slack.setup import SetupFlow, host_unavailable_text
 from agentnexus_slack.store import SQLiteStore

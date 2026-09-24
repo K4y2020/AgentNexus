@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runner.routing import RunnerRouter, runner_dispatch_harness
 from agentnexus.runner.transports.ws_tunnel.frames import HelloFrame
 from agentnexus.runner.transports.ws_tunnel.registry import TunnelRegistry

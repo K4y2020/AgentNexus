@@ -9,7 +9,6 @@ so `verify:data` failed on every LF platform, including CI.
 import hashlib
 import importlib.util
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path

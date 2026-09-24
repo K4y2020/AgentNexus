@@ -33,10 +33,9 @@ import asyncio
 import contextlib
 import json
 import logging
+import uuid
 from collections.abc import Awaitable, Callable, Iterator, MutableMapping
 from typing import Any, TypeAlias
-
-import uuid
 
 import httpx
 import uvicorn

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from agentnexus.db.utils import builtin_agent_id
 from agentnexus.entities import NewConversationItem, parse_item_data
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.host.frames import HostImportLocalFrame, encode_host_frame
 from agentnexus.native_coding_agents import native_coding_agent_for_harness
 from agentnexus.server.auth import LEVEL_OWNER, AuthProvider

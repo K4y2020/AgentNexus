@@ -26,8 +26,8 @@ from tests.e2e._harness_probes import (
     HARNESS_IDS,
     skip_if_harness_cli_missing,
 )
-from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 from tests.e2e.agentnexus._snapshot import compare_snapshot
+from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 
 _PROMPT = "say hi in 5 words"
 

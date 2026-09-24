@@ -5,16 +5,16 @@ from typing import Any
 
 import agentnexus_slack.service as service_module
 import pytest
-from agentnexus_slack.approvals import Verdict, parse_action_value
-from agentnexus_slack.models import ThreadKey, UserConfig
 from agentnexus_slack.agentnexus import (
+    AgentNexusError,
     AuthRequiredError,
     HarnessNotConfiguredError,
     HostUnavailableError,
-    AgentNexusError,
     ServerUnreachableError,
     StreamInterruptedError,
 )
+from agentnexus_slack.approvals import Verdict, parse_action_value
+from agentnexus_slack.models import ThreadKey, UserConfig
 from agentnexus_slack.service import (
     _ACK_TEXT,
     _SERVER_UNREACHABLE_TEXT,

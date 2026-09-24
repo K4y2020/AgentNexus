@@ -8,7 +8,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import Connection, engine_from_config, pool
 
-from agentnexus.db import ConversationBase, AgentNexusBase
+from agentnexus.db import AgentNexusBase, ConversationBase
 from agentnexus.db.utils import _set_alembic_database_url
 
 config = context.config

@@ -2,8 +2,8 @@
 
 from agentnexus.db.db_models import (
     DEFAULT_WORKSPACE_ID,
-    ConversationBase,
     AgentNexusBase,
+    ConversationBase,
     SqlAgent,
     SqlConversation,
     SqlConversationItem,
@@ -17,8 +17,8 @@ from agentnexus.db.query_context import current_query_name, query_name_scope
 
 __all__ = [
     "DEFAULT_WORKSPACE_ID",
-    "ConversationBase",
     "AgentNexusBase",
+    "ConversationBase",
     "SqlAgent",
     "SqlConversation",
     "SqlConversationItem",

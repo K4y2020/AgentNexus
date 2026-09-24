@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import (
     LEVEL_EDIT,
     LEVEL_OWNER,

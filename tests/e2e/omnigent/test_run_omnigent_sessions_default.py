@@ -16,8 +16,8 @@ from pathlib import Path
 import pexpect
 import pytest
 
-from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 from tests.e2e.agentnexus._pexpect_harness import ensure_repl_test_theme_env, submit_prompt
+from tests.e2e.conftest import configure_mock_llm, reset_mock_llm
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _MODEL = "mock-sessions-default-model"

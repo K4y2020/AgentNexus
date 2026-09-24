@@ -432,7 +432,7 @@ def test_researcher_build_fails_loud_when_parent_has_no_harness() -> None:
     """
     import pytest
 
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
 
     parent = AgentSpec(
         spec_version=1,

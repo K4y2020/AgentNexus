@@ -1794,7 +1794,7 @@ async def test_offline_runner_serves_file_content_and_changes_from_host(
     (ws / "hello.txt").write_text("changed on disk\n")
     (ws / "new.txt").write_text("brand new\n")
 
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
     from agentnexus.runtime import _globals, set_runner_router
 
     comm = await _connect_host(app)
@@ -1862,7 +1862,7 @@ async def test_offline_runner_no_host_still_returns_503(
     client shows its reconnect affordance rather than a blank success.
     Guards against the fallback masking a genuinely unreachable workspace.
     """
-    from agentnexus.errors import ErrorCode, AgentNexusError
+    from agentnexus.errors import AgentNexusError, ErrorCode
     from agentnexus.runtime import _globals, set_runner_router
 
     comm = await _connect_host(app)

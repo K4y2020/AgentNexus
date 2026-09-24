@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from agentnexus.entities import (
     Agent,
 )
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime.agent_cache import AgentCache
 from agentnexus.runtime.policies.approval import _ELICITATION_MODE
 from agentnexus.server._elicitation_registry import (

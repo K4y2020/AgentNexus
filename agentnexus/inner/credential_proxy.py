@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.inner.datamodel import (
     CredentialProxySpec,
     CredentialSourceSpec,

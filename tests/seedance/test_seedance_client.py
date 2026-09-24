@@ -7,7 +7,6 @@ import pytest
 import respx
 
 from agentnexus.seedance.client import (
-    DEFAULT_SEEDANCE_BASE_URL,
     SeedanceAuthError,
     SeedanceClient,
     SeedanceConnectionError,

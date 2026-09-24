@@ -37,7 +37,7 @@ from agentnexus.entities import (
     NewConversationItem,
 )
 from agentnexus.env_credentials import expand_envvars_with_omnigent_prefix
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.llms import Client as LLMClient
 from agentnexus.model_catalog import resolve_catalog_model
 from agentnexus.model_resolver import ModelResolutionError

@@ -26,7 +26,7 @@ import sys
 # has heterogeneous values.
 from typing import Any
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.spec.types import (
     AgentSpec,
     ExecutorSpec,

@@ -33,7 +33,7 @@ from agentnexus.coordination.workflow_engine import CoordinationWorkflowEngine
 from agentnexus.coordination.workflow_scheduler import CoordinationWorkflowScheduler
 from agentnexus.db.db_models import InvalidUuidError
 from agentnexus.debug_logging import set_current_user_id
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_plugins import (
     NativeHarnessProvider,
     native_provider_for_key,

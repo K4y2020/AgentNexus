@@ -38,7 +38,7 @@ from pathlib import Path
 import tomlkit
 import tomlkit.exceptions
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 
 # Fixed names ucode uses for its codex wiring (``CODEX_PROFILE_NAME`` /
 # ``CODEX_MODEL_PROVIDER_NAME`` in ucode's ``agents/codex.py``). These are

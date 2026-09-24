@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.llms.adapters.base import BaseAdapter
 
 # Lazy-initialized adapter cache. Each provider gets at most one

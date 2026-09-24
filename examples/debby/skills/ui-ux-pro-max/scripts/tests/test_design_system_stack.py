@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Regression tests for the dropped --stack flag in --design-system mode (issue #484).
 

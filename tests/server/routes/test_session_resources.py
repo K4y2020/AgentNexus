@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from agentnexus.entities import DEFAULT_ENVIRONMENT_ID, Conversation, ConversationItem, PagedList
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.runtime import (
     _globals,
     session_stream,

@@ -4,9 +4,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fakes import RecordingSlackClient
 from agentnexus_slack.routines import RoutineCompletionPoller
 from agentnexus_slack.store import SQLiteStore
+from fakes import RecordingSlackClient
 
 
 class FakeAgentNexus:

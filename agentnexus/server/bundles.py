@@ -6,7 +6,7 @@ import hashlib
 import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.spec import AgentSpec, ExtractionError, ToolRuntime, load
 
 

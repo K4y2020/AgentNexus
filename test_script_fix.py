@@ -2,7 +2,6 @@
 """Test the fixed script node creation."""
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -50,13 +49,13 @@ async def test_fixed_script_creation():
         }
 
         # Note: This simulates what cinebot does - passing script content via prompt
-        print(f"[SEND] Command with prompt parameter for script node")
+        print("[SEND] Command with prompt parameter for script node")
 
         # Instead of direct API call, show what the bridge should do
-        print(f"[*] Expected behavior:")
-        print(f"    - Input: prompt='剧本内容...'")
-        print(f"    - Node type: script")
-        print(f"    - Bridge should map: prompt -> data.content")
+        print("[*] Expected behavior:")
+        print("    - Input: prompt='剧本内容...'")
+        print("    - Node type: script")
+        print("    - Bridge should map: prompt -> data.content")
         print()
 
         # Test 2: Verify existing broken nodes
@@ -76,14 +75,14 @@ async def test_fixed_script_creation():
                 prompt_len = len(data.get("prompt", ""))
 
                 print(f"[*] Node: {node.get('title')[:50]}")
-                print(f"    Type: script")
+                print("    Type: script")
                 print(f"    content length: {content_len} chars")
                 print(f"    prompt length: {prompt_len} chars")
 
                 if prompt_len > 0 and content_len == 0:
-                    print(f"    [ISSUE] Content in wrong field (prompt)")
+                    print("    [ISSUE] Content in wrong field (prompt)")
                 elif content_len > 0:
-                    print(f"    [OK] Content in correct field")
+                    print("    [OK] Content in correct field")
                 print()
 
 

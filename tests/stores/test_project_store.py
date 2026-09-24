@@ -11,7 +11,7 @@ import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.stores.project_store.sqlalchemy_store import SqlAlchemyProjectStore
 
 

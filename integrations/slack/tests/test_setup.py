@@ -4,8 +4,8 @@ from typing import Any
 
 import httpx
 import respx
-from agentnexus_slack.models import ThreadKey, UserConfig
 from agentnexus_slack.agentnexus import AgentNexusClientPool
+from agentnexus_slack.models import ThreadKey, UserConfig
 from agentnexus_slack.setup import (
     ACTION_SETUP_START,
     AGENT_BLOCK,
@@ -269,9 +269,9 @@ async def test_setup_shows_login_in_modal_and_advances_on_approval(tmp_path: Pat
             200, json={"access_token": "at", "refresh_token": "rt", "expires_in": 3600}
         )
     )
-    from cryptography.fernet import Fernet
     from agentnexus_slack.auth_manager import AuthManager
     from agentnexus_slack.tokens import EncryptedTokenStore
+    from cryptography.fernet import Fernet
 
     token_store = EncryptedTokenStore(tmp_path / "tok.sqlite3", Fernet.generate_key().decode())
     await token_store.initialize()
@@ -333,9 +333,9 @@ async def test_setup_auth_required_but_login_disabled(tmp_path: Path) -> None:
 async def test_setup_reports_device_grant_disabled(tmp_path: Path) -> None:
     """Accounts server with the device grant OFF (/oauth/* unmounted → 405):
     the modal must tell the user to contact the admin, not "try again shortly"."""
-    from cryptography.fernet import Fernet
     from agentnexus_slack.auth_manager import AuthManager
     from agentnexus_slack.tokens import EncryptedTokenStore
+    from cryptography.fernet import Fernet
 
     respx.get(_SERVER + "/health").mock(return_value=httpx.Response(200, json={"status": "ok"}))
     # /v1/me → accounts mode; the pre-login agents probe 401s so login starts.

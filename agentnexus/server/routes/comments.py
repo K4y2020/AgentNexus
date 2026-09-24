@@ -15,7 +15,7 @@ from pydantic import BaseModel, model_validator
 
 from agentnexus.db.enum_codecs import COMMENT_STATUS
 from agentnexus.entities import Comment
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.server.auth import LEVEL_EDIT, LEVEL_READ, AuthProvider
 from agentnexus.server.routes._auth_helpers import (
     attribution_user,

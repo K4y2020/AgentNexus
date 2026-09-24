@@ -17,7 +17,6 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from agentnexus.native_coding_agents import (
     is_execution_harness_agent_name,
-    native_coding_agent_for_agent_name,
 )
 from agentnexus.server.auth import AuthProvider
 from agentnexus.server.routes._auth_helpers import require_user as _require_user

@@ -22,7 +22,7 @@ from urllib.parse import quote
 import httpx
 from cachetools import TTLCache
 
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.llms.adapters._content import parse_data_uri
 from agentnexus.llms.adapters.base import BaseAdapter
 from agentnexus.llms.anthropic_model_metadata import parse_anthropic_model_metadata

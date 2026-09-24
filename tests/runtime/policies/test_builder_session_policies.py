@@ -14,7 +14,7 @@ from __future__ import annotations
 import pytest
 
 from agentnexus.entities import Policy as StoredPolicy
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.policies.function import FunctionPolicy
 from agentnexus.runtime.policies.builder import (
     _DEFAULT_POLICY_SPECS_CACHE,

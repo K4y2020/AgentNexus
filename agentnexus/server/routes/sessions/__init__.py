@@ -69,7 +69,7 @@ from agentnexus.entities.conversation import (
 )
 from agentnexus.entities.permission import SessionPermission
 from agentnexus.entities.session_resources import session_resource_view_to_dict
-from agentnexus.errors import ElicitationDeclinedError, ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ElicitationDeclinedError, ErrorCode
 from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE as _HARNESS_NOT_CONFIGURED_ERROR_CODE,
 )

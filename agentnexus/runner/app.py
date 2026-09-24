@@ -54,7 +54,7 @@ from agentnexus.entities.session_resources import (
     session_resource_view_to_dict,
     terminal_resource_id,
 )
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_aliases import (
     canonicalize_harness,
     is_native_harness,
@@ -141,8 +141,8 @@ from agentnexus.runner.native import orchestration as _native_runtime
 from agentnexus.runner.native.interrupt import NativeInterruptRunner
 from agentnexus.runner.proxy_mcp_manager import ProxyMcpManager
 from agentnexus.runner.resource_registry import (
-    CLAUDE_NATIVE_TERMINAL_ROLE,
     AGENTNEXUS_REPL_TERMINAL_ROLE,
+    CLAUDE_NATIVE_TERMINAL_ROLE,
     QWEN_NATIVE_TERMINAL_ROLE,
     SessionResourceRegistry,
     TerminalExitEvent,

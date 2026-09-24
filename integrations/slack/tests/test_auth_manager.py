@@ -6,9 +6,9 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
-from cryptography.fernet import Fernet
 from agentnexus_slack.auth_manager import AuthManager, slack_client_id
 from agentnexus_slack.tokens import EncryptedTokenStore, TokenStore
+from cryptography.fernet import Fernet
 
 _BASE = "http://omnigent.test"
 

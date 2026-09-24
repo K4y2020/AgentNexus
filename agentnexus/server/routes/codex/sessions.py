@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import State
 
 from agentnexus.entities import Conversation
-from agentnexus.errors import ErrorCode, AgentNexusError
+from agentnexus.errors import AgentNexusError, ErrorCode
 from agentnexus.harness_plugins import CODEX_NATIVE_CODING_AGENT
 from agentnexus.host.frames import (
     HARNESS_NOT_CONFIGURED_ERROR_CODE as _HARNESS_NOT_CONFIGURED_ERROR_CODE,

@@ -46,11 +46,11 @@ import httpx
 import pytest
 import pytest_asyncio
 import yaml
-from asgiref.testing import ApplicationCommunicator
-from fastapi import FastAPI
 from agentnexus_client._events import ResponseCompleted, ResponseFailed
 from agentnexus_client._files import FilesNamespace
 from agentnexus_client._sessions import SessionsNamespace
+from asgiref.testing import ApplicationCommunicator
+from fastapi import FastAPI
 
 from agentnexus.repl._repl import _SessionsChatReplAdapter
 from agentnexus.runner.app import create_runner_app

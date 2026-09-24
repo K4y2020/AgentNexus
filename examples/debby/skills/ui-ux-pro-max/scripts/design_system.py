@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Design System Generator - Aggregates search results and applies reasoning
 to generate comprehensive design system recommendations.
@@ -16,15 +15,15 @@ Usage:
 """
 
 import csv
-import json
+import io
 import os
 import re
 import sys
-import io
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from core import search, DATA_DIR
+
+from core import DATA_DIR, search
 from reasoning_contract import apply_decision_rules, parse_decision_rules
 
 # Force UTF-8 for stdout/stderr to handle emojis/box-drawing chars on Windows (cp1252 default)
@@ -352,21 +351,21 @@ class DesignSystemGenerator:
         filepath = DATA_DIR / REASONING_FILE
         if not filepath.exists():
             return []
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return list(csv.DictReader(f))
 
     def _load_styles(self) -> list:
         filepath = DATA_DIR / "styles.csv"
         if not filepath.exists():
             return []
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return list(csv.DictReader(f))
 
     def _load_landing_patterns(self) -> dict:
         filepath = DATA_DIR / "landing.csv"
         if not filepath.exists():
             return {}
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             lookup = {}
             for row in csv.DictReader(f):
                 identities = [row.get("Pattern ID", ""), row.get("Pattern Name", "")]
@@ -996,10 +995,10 @@ def format_markdown(design_system: dict) -> str:
     if typography.get("google_fonts_url"):
         lines.append(f"- **Google Fonts:** {typography.get('google_fonts_url', '')}")
     if typography.get("css_import"):
-        lines.append(f"- **CSS Import:**")
-        lines.append(f"```css")
+        lines.append("- **CSS Import:**")
+        lines.append("```css")
         lines.append(f"{typography.get('css_import', '')}")
-        lines.append(f"```")
+        lines.append("```")
     lines.append("")
 
     # Key Effects section
@@ -1381,7 +1380,7 @@ def format_master_md(design_system: dict) -> str:
     lines.append("")
     lines.append("/* Secondary Button */")
     lines.append(".btn-secondary {")
-    lines.append(f"  background: transparent;")
+    lines.append("  background: transparent;")
     lines.append(f"  color: {colors.get('primary', '#2563EB')};")
     lines.append(f"  border: 2px solid {colors.get('primary', '#2563EB')};")
     lines.append("  padding: 12px 24px;")
@@ -1805,7 +1804,7 @@ def _detect_page_type(context: str, style_results: list) -> str:
 
         if "dashboard" in best_for or "data" in best_for:
             return "Dashboard / Data View"
-        elif "landing" in best_for or "marketing" in best_for:
+        if "landing" in best_for or "marketing" in best_for:
             return "Landing / Marketing"
 
     return "General"

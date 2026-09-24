@@ -15,8 +15,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-import pyJianYingDraft as draft
 import mac_draft
+import pyJianYingDraft as draft
 
 FPS = 30
 TOTAL_F = 1085
