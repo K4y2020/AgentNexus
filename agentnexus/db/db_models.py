@@ -716,7 +716,7 @@ class SqlSessionPermission(AgentNexusBase):
 
 class SqlConversationMetadata(AgentNexusBase):
     """
-    SQLAlchemy model for the ``omnigent_conversation_metadata`` table.
+    SQLAlchemy model for the ``agentnexus_conversation_metadata`` table.
 
     AgentNexus-side operational state for a conversation: runner/host
     bindings, native-session linkage, policy accumulators, and launch
@@ -815,7 +815,7 @@ class SqlProject(AgentNexusBase):
     ``designs/PROJECTS_PRD.md``). A project row exists independently of its
     member sessions, so it can be empty, renamed, and carry its own config —
     the things the implicit ``omni_project`` label could not. Session
-    membership lives on ``omnigent_conversation_metadata.project_id``, not
+    membership lives on ``agentnexus_conversation_metadata.project_id``, not
     here; there is no DB foreign key (Rule R032).
 
     Ownership is stamped on the row via ``user_id`` (like ``scheduled_tasks``),

@@ -175,7 +175,7 @@ def _run_extension_scenario(
                 throw new Error(`unknown scenario: ${scenario}`);
               }
             } finally {
-              if (pi.__omnigentInboxPoller) clearInterval(pi.__omnigentInboxPoller);
+              if (pi.__agentnexusInboxPoller) clearInterval(pi.__agentnexusInboxPoller);
             }
             """
         ),

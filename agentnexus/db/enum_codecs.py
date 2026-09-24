@@ -66,7 +66,7 @@ COMMENT_STATUS: dict[str, int] = {
 }
 
 # Last relay-observed turn status persisted on the conversation's metadata
-# row (``omnigent_conversation_metadata.live_status``) so any server replica
+# row (``agentnexus_conversation_metadata.live_status``) so any server replica
 # can serve the sidebar's activity state, not just the pod holding the
 # runner tunnel.
 SESSION_LIVE_STATUS: dict[str, int] = {
@@ -242,12 +242,12 @@ def decode_comment_status(code: int) -> str:
 
 
 def encode_session_live_status(name: str) -> int:
-    """Encode an ``omnigent_conversation_metadata.live_status`` name to its int code."""
+    """Encode an ``agentnexus_conversation_metadata.live_status`` name to its int code."""
     return _encode(SESSION_LIVE_STATUS, name, field="agentnexus_conversation_metadata.live_status")
 
 
 def decode_session_live_status(code: int) -> str:
-    """Decode an ``omnigent_conversation_metadata.live_status`` int code to its name."""
+    """Decode an ``agentnexus_conversation_metadata.live_status`` int code to its name."""
     return _decode(SESSION_LIVE_STATUS, code, field="agentnexus_conversation_metadata.live_status")
 
 

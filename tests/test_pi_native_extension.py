@@ -2726,7 +2726,7 @@ function errorItems() {
 }
 
 function finish() {
-  if (pi.__omnigentInboxPoller) clearInterval(pi.__omnigentInboxPoller);
+  if (pi.__agentnexusInboxPoller) clearInterval(pi.__agentnexusInboxPoller);
   try { fs.rmSync(inboxDir, { recursive: true, force: true }); } catch (_err) {}
 }
 """

@@ -86,7 +86,7 @@ def _membership_counts(engine):
         s_by_cid = {cid: _s_of(t) for cid, t in convs}
         rows = conn.execute(
             text(
-                "SELECT id, project_id FROM omnigent_conversation_metadata "
+                "SELECT id, project_id FROM agentnexus_conversation_metadata "
                 "WHERE project_id IS NOT NULL"
             )
         ).all()
@@ -123,7 +123,7 @@ def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
         # each owned by "local"; the other 20 stay unfiled (project_id IS NULL).
         filed = conn.execute(
             text(
-                "SELECT COUNT(*) FROM omnigent_conversation_metadata WHERE project_id IS NOT NULL"
+                "SELECT COUNT(*) FROM agentnexus_conversation_metadata WHERE project_id IS NOT NULL"
             )
         ).scalar_one()
         assert filed == 30
@@ -132,7 +132,7 @@ def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
         # Round-robin: each of the 5 projects holds 30/5 = 6 sessions.
         per_project = conn.execute(
             text(
-                "SELECT project_id, COUNT(*) FROM omnigent_conversation_metadata "
+                "SELECT project_id, COUNT(*) FROM agentnexus_conversation_metadata "
                 "WHERE project_id IS NOT NULL GROUP BY project_id"
             )
         ).all()
@@ -152,7 +152,7 @@ def test_seed_fast_path_row_counts_and_read_path(tmp_path: Path) -> None:
         assert {r[0] for r in conn.execute(text("SELECT kind FROM agents")).all()} == {2}
         assert {
             r[0]
-            for r in conn.execute(text("SELECT kind FROM omnigent_conversation_metadata")).all()
+            for r in conn.execute(text("SELECT kind FROM agentnexus_conversation_metadata")).all()
         } == {1}
         assert {r[0] for r in conn.execute(text("SELECT archived FROM conversations")).all()} == {
             0
