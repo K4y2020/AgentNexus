@@ -197,7 +197,7 @@ def test_wrapper_guard_blocks_naked_call_end_to_end() -> None:
     )
 
     assert result.returncode == 2
-    assert "running `omnigent` directly is disabled" in result.stderr
+    assert "running `agentnexus` directly is disabled" in result.stderr
     assert "`isaac omni`" in result.stderr
     # The block short-circuits before click renders help.
     assert "Usage: python -m agentnexus" not in result.stdout
@@ -2189,7 +2189,7 @@ def test_server_with_explicit_port_does_not_check_canonical_server(
     assert result.exit_code == 0, result.output
     assert "already running" not in result.output
     assert captured["uvicorn_kwargs"]["port"] == 44770
-    assert "Starting omnigent server on 127.0.0.1:44770" in result.output
+    assert "Starting agentnexus server on 127.0.0.1:44770" in result.output
 
 
 def test_server_command_explicit_occupied_port_fails() -> None:
@@ -2225,7 +2225,7 @@ def test_server_command_explicit_occupied_port_fails() -> None:
     assert f"Cannot start server on 127.0.0.1:{port}" in result.output
     assert "port is unavailable" in result.output
     assert "using" not in result.output
-    assert "Starting omnigent server" not in result.output
+    assert "Starting agentnexus server" not in result.output
 
 
 def test_server_command_explicit_port_uses_bind_probe_not_connect_probe(
@@ -2290,7 +2290,7 @@ def test_server_command_explicit_port_uses_bind_probe_not_connect_probe(
 
     assert result.exit_code == 0, result.output
     assert captured["uvicorn_kwargs"]["port"] == port
-    assert f"Starting omnigent server on 127.0.0.1:{port}" in result.output
+    assert f"Starting agentnexus server on 127.0.0.1:{port}" in result.output
     assert "port is unavailable" not in result.output
 
 

@@ -339,7 +339,7 @@ class TestBridge:
         config_path = tmp_path / ".cursor" / "cli-config.json"
         config_path.parent.mkdir(parents=True)
         config_path.write_text(
-            '{"permissions": {"allow": ["Shell(ls)", "Mcp(omnigent:sys_os_read)"]}}\n',
+            '{"permissions": {"allow": ["Shell(ls)", "Mcp(agentnexus:sys_os_read)"]}}\n',
             encoding="utf-8",
         )
 
@@ -347,8 +347,8 @@ class TestBridge:
 
         allow = json.loads(config_path.read_text(encoding="utf-8"))["permissions"]["allow"]
         assert "Shell(ls)" in allow
-        assert allow.count("Mcp(omnigent:sys_os_read)") == 1
-        assert "Mcp(omnigent:sys_session_send)" in allow
+        assert allow.count("Mcp(agentnexus:sys_os_read)") == 1
+        assert "Mcp(agentnexus:sys_session_send)" in allow
 
     def test_approve_mcp_server_for_workspace_uses_cursor_cli(
         self, tmp_path: Path, monkeypatch

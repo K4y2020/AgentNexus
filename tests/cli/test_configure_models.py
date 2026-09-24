@@ -1867,7 +1867,7 @@ def test_setup_reports_invalid_acp_omnigent_mcp(isolated_config) -> None:
 
     assert result.exit_code != 0
     assert (
-        "Invalid acp.agents configuration: acp agent omnigent_mcp must be a boolean"
+        "Invalid acp.agents configuration: acp agent agentnexus_mcp must be a boolean"
         in result.output
     )
 

@@ -241,7 +241,7 @@ def test_build_pricing_uses_effective_session_harness(
 spec_version: 1
 name: custom-pricing-harness
 executor:
-  type: omnigent
+  type: agentnexus
   config:
     harness: claude-sdk
 llm:

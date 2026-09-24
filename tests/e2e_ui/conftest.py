@@ -189,7 +189,7 @@ def _build_hello_world_bundle() -> bytes:
     Uses a non-``config.yaml`` archive name so the bundle routes
     through the omnigent compat adapter (which translates
     ``executor.harness`` → ``executor.config.harness`` and sets
-    ``executor.type: omnigent``). Using ``config.yaml`` would
+    ``executor.type: agentnexus``). Using ``config.yaml`` would
     go through the strict ``spec_version: 1`` parser which doesn't
     accept the shorthand.
 
@@ -1892,7 +1892,7 @@ guardrails:
     blast_radius:
       type: function
       function:
-        path: omnigent.inner.nessie.policies.blast_radius
+        path: agentnexus.inner.nessie.policies.blast_radius
         arguments:
           # A plain `git push` is recoverable-but-outward → ASK (vs the
           # always-DENY catastrophic set). This is the prompt the UI renders.

@@ -79,7 +79,7 @@ guardrails:
       type: function
       on: [tool_call:web_search]
       function:
-        path: omnigent.policies.function.make_fixed_action_callable
+        path: agentnexus.policies.function.make_fixed_action_callable
         arguments:
           action: allow
           set_labels:
@@ -88,7 +88,7 @@ guardrails:
     block_canada:
       type: function
       function:
-        path: omnigent.policies.builtins.prompt.prompt_policy
+        path: agentnexus.policies.builtins.prompt.prompt_policy
         arguments:
           prompt: Deny if user mentions Canada.
     rate_limit:

@@ -69,7 +69,7 @@ _MIN_CONFIG = (
     "spec_version: 1\n"
     "name: {name}\n"
     "executor:\n"
-    "  type: omnigent\n"
+    "  type: agentnexus\n"
     "  config:\n"
     "    harness: claude-sdk\n"
     "prompt: hi\n"
@@ -179,7 +179,7 @@ def test_validate_bundle_accepts_registered_policy_handler() -> None:
             "policies:\n"
             "  ask_os:\n"
             "    type: function\n"
-            "    handler: omnigent.policies.builtins.safety.ask_on_os_tools\n"
+            "    handler: agentnexus.policies.builtins.safety.ask_on_os_tools\n"
         ),
     )
     assert spec.name == "gated_agent"
@@ -280,7 +280,7 @@ def test_validate_bundle_accepts_registered_handler_in_sub_agent() -> None:
                 + "  policies:\n"
                 + "    ask_os:\n"
                 + "      type: function\n"
-                + "      function: omnigent.policies.builtins.safety.ask_on_os_tools\n"
+                + "      function: agentnexus.policies.builtins.safety.ask_on_os_tools\n"
             ),
         }
     )
