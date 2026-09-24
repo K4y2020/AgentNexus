@@ -146,6 +146,8 @@ jobs:
         env:
           SKIP_WEB_UI: "1"
           AGENTNEXUS_SKIP_WEB_UI: "true"
+          # Preview serves the UI/API; example agents run on connected hosts.
+          AGENTNEXUS_SKIP_BUNDLED_EXAMPLES: "true"
         run: bash deploy/databricks/build.sh
 
       - name: Build UI

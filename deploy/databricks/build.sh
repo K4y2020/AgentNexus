@@ -6,6 +6,8 @@
 #   SKIP_WEB_UI=1         Skip the web SPA build for API-only deployments.
 #   EXTERNALIZE_WEB_UI=1  Build the SPA, then archive it outside the wheel so
 #                         the Databricks Apps source sync uploads one file.
+#   AGENTNEXUS_SKIP_BUNDLED_EXAMPLES=true  Omit local example agents from the
+#                         wheel for server-only deployments such as UI preview.
 #
 # Outputs:
 #   dist/agentnexus-<version>-py3-none-any.whl
