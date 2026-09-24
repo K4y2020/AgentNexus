@@ -326,8 +326,8 @@ def model_family_token(model_id: str) -> str:
     Shares the token rule with
     :func:`omnigent.model_override.model_family_mismatch`: Claude ids
     contain ``"claude"``; the ``"openai"`` token covers every
-    codex-compatible id (gpt/codex plus the GLM and Kimi families, which
-    serve on the same Responses wire).
+    codex-compatible id (gpt/codex plus the gateway families, such as GLM,
+    Kimi, and Qwen, that serve on the same Responses wire).
 
     :param model_id: Model id, e.g. ``"databricks-claude-opus-4-8"``.
     :returns: ``"claude"``, ``"openai"``, or ``"other"``.
@@ -513,7 +513,7 @@ def resolve_model_provider(spec: object, harness: str | None) -> ResolvedModelPr
     """
     try:
         return _resolve_model_provider_unsafe(spec, harness)
-    except Exception as exc:  # noqa: BLE001 — total-function boundary: config/spec failures → "none"
+    except Exception as exc:
         from agentnexus.errors import AgentNexusError
 
         _logger.debug("model provider resolution failed for harness %r", harness, exc_info=True)
@@ -903,7 +903,7 @@ def _worker_row(
     harness = spec_harness(spec)
     try:
         listing = list_models_for_worker(spec, harness, transport=transport)
-    except Exception as exc:  # noqa: BLE001 — per-worker isolation: fail informative, never crash the tool
+    except Exception as exc:
         _logger.debug("worker model enumeration failed", exc_info=True)
         listing = ModelListing(
             source=NONE_KIND,

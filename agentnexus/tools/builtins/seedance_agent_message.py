@@ -47,33 +47,36 @@ class SeedanceAgentMessageTool(Tool):
                             "type": "array",
                             "items": {"type": "string"},
                             "description": (
-                                "Optional list of Cine shot IDs (e.g. ['S01-03']) to bind or process."
+                                "Optional Cine shot IDs (e.g. ['S01-03']) to bind or process."
                             ),
                         },
                         "generation_allowed": {
                             "type": "boolean",
                             "description": (
                                 "Whether image/video generation submission is allowed. "
-                                "Defaults to false. When false, only cards and plans can be created."
+                                "Defaults to false. When false, only cards and plans "
+                                "can be created."
                             ),
                         },
                         "model": {
                             "type": "string",
                             "description": (
-                                "Optional model override for Seedance Agent Session "
-                                "(e.g. 'gemini-3.7-flash-high' or 'deepseek-v4-flash')."
+                                "Optional model override for Seedance Agent Session. "
+                                "Use a model ID from the configured provider catalog."
                             ),
                         },
                         "wait": {
                             "type": "boolean",
                             "description": (
-                                "Optional short wait for Seedance Agent response. Defaults to true."
+                                "Optional short wait for Seedance Agent response. "
+                                "Defaults to true."
                             ),
                         },
                         "timeout_seconds": {
                             "type": "integer",
                             "description": (
-                                "Maximum seconds to wait for initial response (10-300). Defaults to 60."
+                                "Maximum seconds to wait for initial response (10-300). "
+                                "Defaults to 60."
                             ),
                         },
                     },

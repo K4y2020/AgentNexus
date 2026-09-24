@@ -1087,7 +1087,7 @@ class HostProcess:
                 self._reap_orphans_once()
             except asyncio.CancelledError:
                 raise
-            except Exception:  # noqa: BLE001 — a reaper must never die on a stray error
+            except Exception:
                 _logger.debug("orphan reaper sweep failed", exc_info=True)
 
     def _reap_orphans_once(self) -> int:
@@ -1872,7 +1872,7 @@ class HostProcess:
                     runner_id,
                     session_id,
                 )
-            except Exception:  # noqa: BLE001 — must never die unobserved
+            except Exception:
                 _logger.warning(
                     "Failed to stop superseded runner %s for session %s; "
                     "the process may linger until it exits on its own",
@@ -2003,7 +2003,7 @@ class HostProcess:
             try:
                 await ws.send(frame)
                 return
-            except Exception:  # noqa: BLE001 — any send failure parks the report
+            except Exception:
                 _logger.debug(
                     "Could not send runner_exited for %s; queueing for reconnect",
                     runner_id,
@@ -2655,7 +2655,7 @@ class HostProcess:
 
         try:
             rows = await codex_launch_catalog()
-        except Exception:  # noqa: BLE001 — no catalog, never a crash
+        except Exception:
             _logger.warning("Codex model catalog unavailable", exc_info=True)
             return None
         if rows is None:
@@ -2679,7 +2679,7 @@ class HostProcess:
         try:
             config = await asyncio.to_thread(resolve_native_claude_config, spec=None)
             rows = await claude_launch_catalog(config)
-        except Exception:  # noqa: BLE001 — no catalog, never a crash
+        except Exception:
             _logger.warning("Claude model catalog unavailable", exc_info=True)
             return None
         if rows is None:
@@ -2729,10 +2729,15 @@ class HostProcess:
             except Exception:
                 _logger.exception("Failed to resolve pre-launch Pi model options")
             if not pi_models:
+                from agentnexus.model_fallbacks import PI_PICKER_MODELS
+
                 pi_models = [
-                    {"id": "auto", "displayName": "Auto"},
-                    {"id": "claude-sonnet-5", "displayName": "Claude Sonnet 5"},
-                    {"id": "gpt-5.6-sol", "displayName": "GPT-5.6-Sol"},
+                    {"id": model_id, "displayName": display_name}
+                    for model_id, display_name in zip(
+                        PI_PICKER_MODELS,
+                        ("Auto", "Claude Sonnet 5", "GPT-5.6-Sol"),
+                        strict=True,
+                    )
                 ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
@@ -2791,7 +2796,7 @@ class HostProcess:
                                 "id": alias,
                                 "displayName": f"{alias} ({target})",
                             }
-            except Exception:
+            except Exception:  # noqa: BLE001 — optional provider aliases
                 pass
 
             if not models_dict:
@@ -2816,7 +2821,7 @@ class HostProcess:
                     for m in catalog_models[:20]:
                         if m.name not in models_dict:
                             models_dict[m.name] = {"id": m.name, "displayName": m.name}
-                except Exception:
+                except Exception:  # noqa: BLE001 — optional catalog fallback
                     pass
 
             models = list(models_dict.values())
@@ -2840,13 +2845,17 @@ class HostProcess:
                     for opt in options
                 ]
             except Exception:
-                pass
+                _logger.debug("cursor-agent model listing failed", exc_info=True)
             if not cursor_models:
+                from agentnexus.model_fallbacks import CURSOR_PICKER_MODELS
+
                 cursor_models = [
-                    {"id": "auto-smart", "displayName": "Auto (Smart)"},
-                    {"id": "composer-2.5", "displayName": "Composer 2.5"},
-                    {"id": "gpt-5.6-sol", "displayName": "GPT-5.6-Sol"},
-                    {"id": "claude-sonnet-5", "displayName": "Claude Sonnet 5"},
+                    {"id": model_id, "displayName": display_name}
+                    for model_id, display_name in zip(
+                        CURSOR_PICKER_MODELS,
+                        ("Auto (Smart)", "Composer 2.5", "GPT-5.6-Sol", "Claude Sonnet 5"),
+                        strict=True,
+                    )
                 ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
@@ -2862,17 +2871,21 @@ class HostProcess:
             "agy-native",
             "google-antigravity",
         ):
-            gemini_models = [
-                {"id": "gemini-2.5-pro", "displayName": "Gemini 2.5 Pro"},
-                {"id": "gemini-2.5-flash", "displayName": "Gemini 2.5 Flash"},
-                {"id": "gemini-2.0-flash", "displayName": "Gemini 2.0 Flash"},
-                {"id": "gemini-1.5-pro", "displayName": "Gemini 1.5 Pro"},
+            from agentnexus.model_fallbacks import ANTIGRAVITY_PICKER_MODELS
+
+            gemini_models: list[dict[str, object]] = [
+                {"id": model_id, "displayName": display_name}
+                for model_id, display_name in zip(
+                    ANTIGRAVITY_PICKER_MODELS,
+                    ("Gemini 2.5 Pro", "Gemini 2.5 Flash", "Gemini 2.0 Flash", "Gemini 1.5 Pro"),
+                    strict=True,
+                )
             ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
                 models=gemini_models,
-                routable_models=[m["id"] for m in gemini_models],
+                routable_models=list(ANTIGRAVITY_PICKER_MODELS),
             )
 
         if is_claude_sdk_harness_name(harness):
@@ -2924,16 +2937,19 @@ class HostProcess:
                                 "id": alias,
                                 "displayName": f"{alias} ({target})",
                             }
-            except Exception:
+            except Exception:  # noqa: BLE001 — optional provider aliases
                 pass
 
+            probed_routable: list[str] | None = None
             if not models_dict:
                 probed = await self._probed_claude_model_options()
                 if probed is not None:
+                    probed_routable = list(probed.routable_models or [])
                     for row in probed.models or []:
                         rid = str(row.get("id") or row.get("model") or "")
                         if rid and rid not in models_dict:
                             models_dict[rid] = {
+                                **row,
                                 "id": rid,
                                 "displayName": str(row.get("displayName") or rid),
                             }
@@ -2942,7 +2958,7 @@ class HostProcess:
                             models_dict[rid] = {"id": rid, "displayName": rid}
 
             models = list(models_dict.values())
-            routable = list(models_dict.keys())
+            routable = probed_routable if probed_routable is not None else list(models_dict.keys())
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
@@ -2950,29 +2966,38 @@ class HostProcess:
                 routable_models=routable,
             )
         if harness in ("codebuddy", "codebuddy-native", "codebuddy-acp"):
-            codebuddy_models = [
-                {"id": "auto", "displayName": "Auto (自动路由)"},
-                {"id": "hy4-preview", "displayName": "Hunyuan 4 Preview (腾讯混元4)"},
-                {"id": "hy3-x", "displayName": "Hunyuan 3-X"},
-                {"id": "hy3", "displayName": "Hunyuan 3"},
-                {"id": "deepseek-v4-pro", "displayName": "DeepSeek V4 Pro"},
-                {"id": "deepseek-v4-flash", "displayName": "DeepSeek V4 Flash"},
-                {"id": "glm-5.3", "displayName": "GLM 5.3"},
-                {"id": "glm-5.3-flash", "displayName": "GLM 5.3 Flash"},
-                {"id": "glm-5.2", "displayName": "GLM 5.2"},
-                {"id": "glm-5.1", "displayName": "GLM 5.1"},
-                {"id": "glm-5v-turbo", "displayName": "GLM 5V Turbo"},
-                {"id": "kimi-k3-2", "displayName": "Kimi K3.2"},
-                {"id": "kimi-k2.7", "displayName": "Kimi K2.7"},
-                {"id": "kimi-k2.6", "displayName": "Kimi K2.6"},
-                {"id": "kimi-k2.5", "displayName": "Kimi K2.5"},
-                {"id": "minimax-m3-pay", "displayName": "MiniMax M3"},
+            from agentnexus.model_fallbacks import CODEBUDDY_PICKER_MODELS
+
+            codebuddy_models: list[dict[str, object]] = [
+                {"id": model_id, "displayName": display_name}
+                for model_id, display_name in zip(
+                    CODEBUDDY_PICKER_MODELS,
+                    (
+                        "Auto (自动路由)",
+                        "Hunyuan 4 Preview (腾讯混元4)",
+                        "Hunyuan 3-X",
+                        "Hunyuan 3",
+                        "DeepSeek V4 Pro",
+                        "DeepSeek V4 Flash",
+                        "GLM 5.3",
+                        "GLM 5.3 Flash",
+                        "GLM 5.2",
+                        "GLM 5.1",
+                        "GLM 5V Turbo",
+                        "Kimi K3.2",
+                        "Kimi K2.7",
+                        "Kimi K2.6",
+                        "Kimi K2.5",
+                        "MiniMax M3",
+                    ),
+                    strict=True,
+                )
             ]
             return HostModelOptionsResultFrame(
                 request_id=frame.request_id,
                 status="ok",
                 models=codebuddy_models,
-                routable_models=[m["id"] for m in codebuddy_models],
+                routable_models=list(CODEBUDDY_PICKER_MODELS),
             )
 
         if harness != "claude-native":
@@ -2983,7 +3008,7 @@ class HostProcess:
             )
         probed = await self._probed_claude_model_options()
         if probed is not None:
-            models = probed.models
+            models: list[dict[str, object]] = probed.models
             if not models and probed.routable_models:
                 models = [
                     {"id": model_id, "displayName": model_id}
@@ -3751,7 +3776,7 @@ class HostProcess:
                     self._auth_token_factory_resolved = True
             if self._auth_token_factory is not None:
                 return self._auth_token_factory()
-        except Exception:  # noqa: BLE001
+        except Exception:
             _logger.debug("Could not obtain auth token", exc_info=True)
         return None
 

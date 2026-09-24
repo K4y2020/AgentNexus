@@ -585,7 +585,7 @@ def test_databricks_listing_filters_to_llm_wire_surfaces(
     }
     assert by_id["system.ai.claude-sonnet-4-6"].family == "claude"
     assert by_id["system.ai.gpt-5-4"].family == "openai"
-    assert by_id["system.ai.meta-llama-3-3-70b-instruct"].family == "other"
+    assert by_id["system.ai.meta-llama-3-3-70b-instruct"].family == "openai"
     assert by_id["system.ai.claude-sonnet-4-6"].metadata.wire_apis == frozenset(
         {ModelWireAPI.ANTHROPIC_MESSAGES}
     )
@@ -640,16 +640,45 @@ def test_databricks_listing_skips_explicitly_non_ready_endpoints(
     ("harness", "expected_ids"),
     [
         pytest.param("claude-native", {"databricks-claude-sonnet-4-6"}, id="claude-family-only"),
-        pytest.param("codex-native", {"databricks-gpt-5-4"}, id="openai-family-only"),
-        # The executor-type spelling spec_harness() yields when a spec
-        # declares no config harness must filter like its canonical
-        # sibling — an unrecognized spelling silently disables the
-        # filter and lists wrong-family models.
+        # Native codex also runs the third-party gateway families.
         pytest.param(
-            "claude_sdk", {"databricks-claude-sonnet-4-6"}, id="claude-sdk-executor-type"
+            "codex-native",
+            {
+                "databricks-claude-sonnet-4-6",
+                "databricks-gpt-5-4",
+                "databricks-meta-llama-3-3-70b-instruct",
+            },
+            id="codex-gateway-families",
         ),
-        pytest.param("claude-sdk", {"databricks-claude-sonnet-4-6"}, id="claude-sdk-spelling"),
-        pytest.param("codex", {"databricks-gpt-5-4"}, id="codex-spelling"),
+        # Gateway-backed SDK harnesses accept the provider's model vocabulary,
+        # including IDs outside their namesake vendor family.
+        pytest.param(
+            "claude_sdk",
+            {
+                "databricks-claude-sonnet-4-6",
+                "databricks-gpt-5-4",
+                "databricks-meta-llama-3-3-70b-instruct",
+            },
+            id="claude-sdk-executor-type",
+        ),
+        pytest.param(
+            "claude-sdk",
+            {
+                "databricks-claude-sonnet-4-6",
+                "databricks-gpt-5-4",
+                "databricks-meta-llama-3-3-70b-instruct",
+            },
+            id="claude-sdk-spelling",
+        ),
+        pytest.param(
+            "codex",
+            {
+                "databricks-claude-sonnet-4-6",
+                "databricks-gpt-5-4",
+                "databricks-meta-llama-3-3-70b-instruct",
+            },
+            id="codex-spelling",
+        ),
         # openai-agents / openai-agents-sdk / agents_sdk outcomes are
         # deliberately NOT pinned here: a later change relaxes that harness to
         # multi-model (any validated id), flipping the expected set.
@@ -709,11 +738,15 @@ def test_family_filter_per_harness(
         ("databricks-kimi-k2-6", "openai"),
         ("system.ai.kimi-k2-instruct", "openai"),
         ("kimi-for-coding", "openai"),
-        ("databricks-meta-llama-3.3-70b-instruct", "other"),
-        ("gemini-3.5-flash", "other"),
+        # Custom gateways serve these third-party families to codex as well.
+        ("databricks-meta-llama-3.3-70b-instruct", "openai"),
+        ("gemini-3.5-flash", "openai"),
+        ("qwen/qwen3.7-plus", "openai"),
+        ("deepseek-v4-pro", "openai"),
         # Segment matching, not substring: an unrelated endpoint name that
         # happens to contain the letters is not the GLM family.
         ("glmqlfit-eval", "other"),
+        ("bge-large-en", "other"),
     ],
 )
 def test_model_family_token_tags_codex_compatible_families(model_id: str, expected: str) -> None:
@@ -728,11 +761,11 @@ def test_model_family_token_tags_codex_compatible_families(model_id: str, expect
 def test_codex_worker_listing_keeps_glm_and_kimi_endpoints(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A codex worker's list keeps the GLM/Kimi endpoints it can serve.
+    """A codex worker's list keeps the gateway-family endpoints it can serve.
 
-    The workspace serves these over the same Responses wire codex speaks,
-    so filtering them out would hide runnable models from the router while
-    the dispatch gate would have accepted them.
+    GLM, Kimi, and the other gateway families are served over the same
+    Responses wire codex speaks, so filtering them out would hide runnable
+    models from the router while the dispatch gate would have accepted them.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     :param tmp_path: Per-test temp dir.
@@ -769,6 +802,8 @@ def test_codex_worker_listing_keeps_glm_and_kimi_endpoints(
         "databricks-gpt-5-5",
         "databricks-glm-5-2",
         "databricks-kimi-k2-6",
+        "databricks-claude-sonnet-4-6",
+        "databricks-meta-llama-3-3-70b-instruct",
     }
 
 
@@ -1173,8 +1208,8 @@ def test_listing_failure_reported_and_not_cached(
     )
     # Recovery proves the failure was NOT cached for the TTL window.
     assert recovered.source == "gateway"
-    # codex-native filters to openai-family only → 1 model from _SERVING_ENDPOINTS_PAGE
-    assert len(recovered.models) == 1
+    # codex-native keeps the three chat endpoints of _SERVING_ENDPOINTS_PAGE.
+    assert len(recovered.models) == 3
 
 
 def test_listing_cache_is_keyed_by_credential_identity(

@@ -64,10 +64,17 @@ async def _dispatch_without_model(
     create_bodies: list[dict[str, Any]] = []
     monkeypatch.setattr(runner_app, "get_session_agent_id", lambda _sid: "ag_parent")
     monkeypatch.setattr(runner_app, "register_child_session", lambda *a, **k: None)
+    # Worker CLIs (e.g. ``codex`` for codex-native) are absent on hermetic CI runners.
+    monkeypatch.setattr(
+        "agentnexus.onboarding.harness_install.missing_harness_cli",
+        lambda harness: None,
+    )
     session_inbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
     async def _server_handler(request: httpx.Request) -> httpx.Response:
         """Serve the parent snapshot, child lookup, create, and message POSTs."""
+        if request.method == "GET" and request.url.path == f"/v1/sessions/{conv_id}/labels":
+            return httpx.Response(200, json={"labels": {}})
         if request.method == "GET" and request.url.path == f"/v1/sessions/{conv_id}":
             if parent_snapshot is None:
                 return httpx.Response(404, json={"error": "not found"})
@@ -214,22 +221,22 @@ async def test_family_mismatch_blocks_inheritance_quietly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    A Claude parent selection is not forced onto a native codex worker: the
+    A GPT parent selection is not forced onto a native Claude worker: the
     dispatch still succeeds, with no ``model_override`` on the child. The
-    wrapped ``codex`` executor is intentionally excluded here: its configured
-    gateway owns the model vocabulary, so a Claude id selected from that
-    gateway is a valid inherit.
+    wrapped ``claude-sdk`` executor is intentionally excluded here: its
+    configured gateway owns the model vocabulary, so a GPT id selected from
+    that gateway is a valid inherit.
 
     :param monkeypatch: Pytest monkeypatch fixture.
     """
     bodies = await _dispatch_without_model(
         monkeypatch,
-        agent_spec=_spec_with_worker("codex-native"),
+        agent_spec=_spec_with_worker("claude-native"),
         conv_id="conv_parent_family_mismatch_native",
         parent_snapshot={
             "id": "conv_parent_family_mismatch_native",
             "agent_id": "ag_parent",
-            "model_override": "databricks-claude-sonnet-4-6",
+            "model_override": "databricks-gpt-5-5",
             "llm_model": None,
         },
     )

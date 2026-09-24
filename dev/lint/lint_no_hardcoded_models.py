@@ -173,7 +173,7 @@ def _docstring_nodes(tree: ast.Module) -> set[ast.Constant]:
 def _scan_python(path: Path) -> list[Hit]:
     """Scan every non-docstring Python string literal."""
     try:
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, UnicodeDecodeError):
         return []
 
@@ -196,7 +196,7 @@ def _scan_python(path: Path) -> list[Hit]:
 def _scan_text(path: Path) -> list[Hit]:
     """Scan non-comment config and shell lines for model-looking ids."""
     try:
-        lines = path.read_text().splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()
     except UnicodeDecodeError:
         return []
 

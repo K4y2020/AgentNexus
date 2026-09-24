@@ -131,27 +131,13 @@ _DATABRICKS_GATEWAY_PREFIX = "databricks-"
 _CODEX_SUBSTRING_TOKENS: tuple[str, ...] = (
     "gpt",
     "codex",
-    "qwen",
-    "deepseek",
-    "grok",
-    "gemini",
-    "claude",
-    "glm",
-    "kimi",
-    "minimax",
-    "moonshot",
-    "hunyuan",
-    "doubao",
-    "mistral",
-    "llama",
-    "omen",
 )
 
 # Tokens matched per segment (``-``/``_``/``.``/``/`` separated) with an
 # optional trailing generation number, so ``system.ai.glm-5-2`` and
 # ``kimi-k2-instruct`` match while an unrelated endpoint name that merely
-# contains the letters (``glmqlfit-eval``) does not. Extended to cover
-# third-party and custom gateway provider models.
+# contains the letters (``glmqlfit-eval``) does not. Beyond GLM and Kimi, the
+# third-party families custom gateways serve to codex are accepted too.
 _CODEX_COMPATIBLE_SEGMENT_TOKENS: tuple[str, ...] = (
     "glm",
     "kimi",
@@ -175,11 +161,11 @@ _ID_SEGMENT_SPLIT = re.compile(r"[^a-z0-9]+")
 def is_codex_compatible_model(model: str) -> bool:
     """Report whether *model* can run on a codex harness.
 
-    GPT/codex ids are matched as substrings and GLM/Kimi ids per segment —
-    see the token tables above for why the two families are read differently.
+    GPT/codex ids are matched as substrings and the other families per
+    segment — see the token tables above for why they are read differently.
 
     :param model: Model id in any vocabulary, e.g. ``"databricks-glm-5-2"``.
-    :returns: ``True`` for the GPT/codex, GLM, and Kimi families.
+    :returns: ``True`` for GPT/codex and the gateway families listed above.
     """
     lower = model.lower()
     if any(token in lower for token in _CODEX_SUBSTRING_TOKENS):
@@ -197,8 +183,8 @@ def model_family_mismatch(harness: str, model: str) -> str | None:
     Return a rejection reason when *model*'s family cannot run on *harness*.
 
     Family is detected by vendor token: Claude ids contain ``"claude"``
-    (``databricks-claude-opus-4-8``); codex-compatible ids name gpt,
-    codex, glm, or kimi (``databricks-gpt-5-4``, ``system.ai.glm-5-2``).
+    (``databricks-claude-opus-4-8``); codex-compatible ids name gpt, codex,
+    or a gateway family such as glm, kimi, or qwen (``system.ai.glm-5-2``).
     Single-vendor harnesses reject the other family and ids whose family
     cannot be determined — failing loud at dispatch beats an opaque
     harness/gateway error after spawn.
@@ -237,9 +223,8 @@ def model_family_mismatch(harness: str, model: str) -> str | None:
     ):
         return (
             f"harness {canon!r} only runs codex-compatible models (id naming "
-            f"'gpt', 'codex', 'glm', or 'kimi'); got {model!r}. Use the "
-            "claude_code worker for Claude models or the pi / openai-agents "
-            "worker for any other gateway model."
+            f"'gpt', 'codex', or a known gateway family); got {model!r}. Use "
+            "the pi / openai-agents worker for any other gateway model."
         )
     if canon in _ANTIGRAVITY_FAMILY_HARNESSES and (
         is_claude or is_gpt or lower.startswith(_DATABRICKS_GATEWAY_PREFIX)

@@ -332,8 +332,8 @@ def test_discover_codex_models_filters_non_codex_and_ranks_curated_first() -> No
 
     The listing says what a workspace *can* serve, not which to launch on:
     the owned curated codex catalog leads (in its declared order), then
-    versioned GPT ids newest-first, then the rest — and non-codex families
-    (Claude) are dropped entirely.
+    versioned GPT ids newest-first, then the rest — and ids outside every
+    codex-compatible family (an embedding model) are dropped entirely.
     """
     servable = _discover_codex(
         [
@@ -343,6 +343,7 @@ def test_discover_codex_models_filters_non_codex_and_ranks_curated_first() -> No
             {"name": "model-services/system.ai.gpt-6-1"},
             {"name": "model-services/system.ai.kimi-k2"},
             {"name": "model-services/system.ai.claude-opus-5"},
+            {"name": "model-services/system.ai.bge-large-en"},
         ]
     )
 
@@ -353,14 +354,15 @@ def test_discover_codex_models_filters_non_codex_and_ranks_curated_first() -> No
         "system.ai.gpt-5-5",
         # Non-curated GPT, newest generation next.
         "system.ai.gpt-6-1",
-        # Codex-compatible but unversioned, last.
+        # Codex-compatible but unversioned, last (by name).
         "system.ai.kimi-k2",
+        "system.ai.claude-opus-5",
     )
 
 
 def test_discover_codex_models_empty_listing_is_authoritative() -> None:
     """A listing that serves no codex model returns an empty tuple, not an error."""
-    assert _discover_codex([{"name": "model-services/system.ai.claude-opus-5"}]) == ()
+    assert _discover_codex([{"name": "model-services/system.ai.bge-large-en"}]) == ()
 
 
 def test_select_servable_model_matches_legacy_spelling() -> None:

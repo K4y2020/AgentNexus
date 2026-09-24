@@ -3856,9 +3856,9 @@ async def test_sys_session_send_model_rejected_for_unplumbed_harness(
         ),
         pytest.param(
             "codex-native",
-            "databricks-claude-sonnet-4-6",
+            "databricks-bge-large-en",
             "only runs codex-compatible models",
-            id="claude-on-codex",
+            id="unknown-family-on-codex",
         ),
         pytest.param(
             "claude-native",
@@ -10734,12 +10734,16 @@ async def _contract_run_background(
     )
     assert resp.status_code == 202, resp.text
     await _await_bg_turn_task(conv)
+    instructions = (
+        recording.posted_bodies[-1].get("instructions") if recording.posted_bodies else None
+    )
+    if isinstance(instructions, str):
+        # The background turn appends teammate memory after the resolved spec prompt.
+        instructions = instructions.split("\n\n<teammate_memories>", 1)[0]
     return {
         "status": resp.status_code,
         "terminal_status": None,  # populated by the caller with app.state access
-        "instructions": (
-            recording.posted_bodies[-1].get("instructions") if recording.posted_bodies else None
-        ),
+        "instructions": instructions,
     }
 
 

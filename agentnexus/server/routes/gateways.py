@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from agentnexus.cli import _load_global_config, _save_global_config
+from agentnexus.model_fallbacks import ANTHROPIC_GATEWAY_DEFAULT_ALIASES
 from agentnexus.server.auth import AuthProvider
 from agentnexus.server.routes._auth_helpers import require_user
 
@@ -141,13 +142,8 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
         if payload.default_model:
             models["default"] = payload.default_model
         if payload.family == "anthropic" and len(models) <= 1:
-            models.setdefault("sonnet", "claude-sonnet-5")
-            models.setdefault("opus", "claude-opus-5")
-            models.setdefault("haiku", "claude-haiku-4-5")
-            models.setdefault("fable", "claude-fable-5")
-            models.setdefault("claude-opus-4-8", "claude-opus-4-6-thinking")
-            models.setdefault("claude-haiku-4-5", "gpt-5.6-terra")
-            models.setdefault("claude-fable-5", "gpt-5.6-sol")
+            for alias, target in ANTHROPIC_GATEWAY_DEFAULT_ALIASES:
+                models.setdefault(alias, target)
 
         sub_config: dict[str, Any] = {
             "base_url": base_url,
@@ -267,9 +263,7 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                             sub = p.get(fam, {})
                             if isinstance(sub, dict):
                                 b = str(sub.get("base_url", "")).rstrip("/")
-                                if b and (
-                                    b == base_url or b == base_clean or b == f"{base_clean}/v1"
-                                ):
+                                if b and (b in (base_url, base_clean) or b == f"{base_clean}/v1"):
                                     k = sub.get("api_key")
                                     if isinstance(k, str) and k:
                                         key = k
@@ -315,9 +309,12 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                                 "status_code": 200,
                                 "models_count": len(model_list),
                                 "models": model_list,
-                                "message": f"Connected successfully! Found {len(model_list)} models ({latency_ms}ms).",
+                                "message": (
+                                    f"Connected successfully! Found {len(model_list)} "
+                                    f"models ({latency_ms}ms)."
+                                ),
                             }
-                        except Exception:
+                        except Exception:  # noqa: BLE001 — status 200 is still connected
                             return {
                                 "status": "ok",
                                 "latency_ms": latency_ms,
@@ -327,7 +324,10 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                                 "message": f"Connected successfully (HTTP 200, {latency_ms}ms).",
                             }
                     elif resp.status_code in (401, 403):
-                        last_error = f"HTTP {resp.status_code}: Authentication failed. Please check API Key."
+                        last_error = (
+                            f"HTTP {resp.status_code}: Authentication failed. "
+                            "Please check API Key."
+                        )
                     elif (
                         not last_error
                         or last_error.startswith("HTTP 404")
@@ -338,7 +338,7 @@ def create_gateways_router(*, auth_provider: AuthProvider | None = None) -> APIR
                     last_error = f"Cannot connect to {base_url} (Connection refused)"
                 except httpx.TimeoutException:
                     last_error = f"Timeout connecting to {base_url} (exceeded 6s)"
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — show probe failure
                     last_error = str(exc)
 
         latency_ms = int((time.perf_counter() - t0) * 1000)
