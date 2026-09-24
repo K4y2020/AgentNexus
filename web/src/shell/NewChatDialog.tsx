@@ -1500,7 +1500,7 @@ function HarnessConfigModal({
       (codebuddyModelOptions && codebuddyModelOptions.length > 0
         ? codebuddyModelOptions
         : CODEBUDDY_DEFAULT_MODELS
-      ).map((m) => ({ id: m.id, label: (m as any).displayName ?? m.id })),
+      ).map((m) => ({ id: m.id, label: m.displayName ?? m.id })),
     [codebuddyModelOptions],
   );
   // A brain harness whose CLI takes a model flag (e.g. codebuddy's ``--model``)
@@ -1541,7 +1541,19 @@ function HarnessConfigModal({
     setDraftAgySkip(agySkipMode);
     setDraftBypass(bypassSandbox);
     setDraftRouting(costControlMode);
-  }, [open, isCodebuddy, pickedModel, pickedHarness]);
+  }, [
+    open,
+    isCodebuddy,
+    pickedModel,
+    pickedHarness,
+    pickedEffort,
+    permissionMode,
+    approvalMode,
+    cursorExecMode,
+    agySkipMode,
+    bypassSandbox,
+    costControlMode,
+  ]);
 
   // Only treat routing as "on" when it's actually offered for this agent —
   // otherwise a stale costControlMode="on" (e.g. server later disabled the
@@ -3195,7 +3207,7 @@ export function NewChatLandingScreen() {
       return [
         {
           label: "Model",
-          value: matched ? ((matched as any).displayName ?? matched.id) : activeModel,
+          value: matched ? (matched.displayName ?? matched.id) : activeModel,
         },
         ...routingRow,
       ];
@@ -3221,6 +3233,7 @@ export function NewChatLandingScreen() {
     pickedModel,
     claudeModelOptions,
     codexModelOptions,
+    codebuddyModelOptions,
     piModelOptions,
     pickedEffort,
     permissionMode,

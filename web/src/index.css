@@ -187,14 +187,16 @@
    * tracked here for symmetry/introspection but is intentionally NOT added to
    * the content top inset to avoid double-counting the header band. */
   --omnigent-header-height: 3.5rem; /* web ChatHeader (h-14) */
-  --omnigent-safe-top: max(
+  --agentnexus-safe-top: max(
     env(safe-area-inset-top, 0px),
     var(--omnigent-android-safe-area-top, 0px)
   );
-  --omnigent-safe-bottom: max(
+  --agentnexus-safe-bottom: max(
     env(safe-area-inset-bottom, 0px),
     var(--omnigent-android-safe-area-bottom, 0px)
   );
+  --omnigent-safe-top: var(--agentnexus-safe-top);
+  --omnigent-safe-bottom: var(--agentnexus-safe-bottom);
   --omnigent-native-top-bar: 0px; /* set by native bridge (px) */
   --omnigent-native-bottom-bar: 0px; /* set by native bridge (px) */
   --omnigent-top-bar-visible: 0; /* web-owned 0|1 */
@@ -204,9 +206,9 @@
      bottom. Set once; if the pill size changes, update both values. */
   --omnigent-android-switcher-margin: 8px;
   --omnigent-android-switcher-height: 25px;
-  --omnigent-inset-top: var(--omnigent-safe-top);
+  --omnigent-inset-top: var(--agentnexus-safe-top);
   --omnigent-inset-bottom: calc(
-    var(--omnigent-safe-bottom) + var(--omnigent-native-bottom-bar) *
+    var(--agentnexus-safe-bottom) + var(--omnigent-native-bottom-bar) *
       var(--omnigent-bottom-bar-visible)
   );
 
@@ -346,7 +348,7 @@
   :root:not(.dark)[data-theme] .conversations-sidebar,
   .dark:not([data-theme]) .conversations-sidebar,
   .dark[data-theme] .conversations-sidebar {
-    background-color: var(--sidebar);
+    background-color: var(--card-solid);
   }
 }
 
@@ -710,13 +712,13 @@ aside[aria-label="Workspace"][data-maximized] {
     font-size: 16px;
   }
 
-  /* `--omnigent-safe-top` (not raw env()) so this works on Android too, where
+  /* `--agentnexus-safe-top` (not raw env()) works on Android too, where
      env(safe-area-inset-top) is 0 in the WebView and the OS inset arrives via
      the native-injected `--omnigent-android-safe-area-top`. On iOS the var folds
      down to env(), so the iOS result is unchanged. */
   [data-ios-native] .chat-header,
   [data-android-native] .chat-header {
-    top: max(0px, calc(var(--omnigent-safe-top) - 0.5rem));
+    top: max(0px, calc(var(--agentnexus-safe-top) - 0.5rem));
   }
 
   [data-ios-native] .chat-conversation-content,
@@ -753,7 +755,7 @@ aside[aria-label="Workspace"][data-maximized] {
      smoothly into view below it. */
   [data-android-native] .chat-scroll-fade {
     --fade-start: calc(
-      var(--omnigent-safe-top) + var(--omnigent-android-switcher-margin) +
+      var(--agentnexus-safe-top) + var(--omnigent-android-switcher-margin) +
         var(--omnigent-android-switcher-height)
     );
     mask-image: linear-gradient(
@@ -770,7 +772,7 @@ aside[aria-label="Workspace"][data-maximized] {
 
   [data-ios-native] .chat-composer-form,
   [data-android-native] .chat-composer-form {
-    padding-bottom: calc(0.75rem + var(--omnigent-safe-bottom));
+    padding-bottom: calc(0.75rem + var(--agentnexus-safe-bottom));
   }
 
   [data-ios-native] .chat-composer-form.terminal-first-composer-form {
@@ -798,8 +800,8 @@ aside[aria-label="Workspace"][data-maximized] {
       [data-testid="terminals-panel"],
       .mobile-panel-drawer
     ) {
-    padding-top: var(--omnigent-safe-top);
-    padding-bottom: var(--omnigent-safe-bottom);
+    padding-top: var(--agentnexus-safe-top);
+    padding-bottom: var(--agentnexus-safe-bottom);
   }
 }
 

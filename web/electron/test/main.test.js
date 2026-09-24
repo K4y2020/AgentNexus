@@ -194,8 +194,8 @@ function loadNavigationHarness({
       ensureHostConnected: async () => ({ ok: true }),
       restartHost: async () => ({ ok: true }),
       disconnectHost: async () => ({ ok: true }),
-      startLocalServer: async (path) => {
-        calls.startLocalServer.push(path);
+      startLocalServer: async (workspacePath) => {
+        calls.startLocalServer.push(workspacePath);
         return startLocalResult;
       },
     },

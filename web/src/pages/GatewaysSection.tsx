@@ -118,11 +118,11 @@ export function GatewaysSection() {
             : res.models.find((m) => m.includes("gpt-5") || m.includes("gpt")) || res.models[0];
         setFormDefaultModel(preferred);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setDialogTestResult({
         status: "error",
         latency_ms: 0,
-        message: e?.message || "Test failed",
+        message: e instanceof Error ? e.message : "Test failed",
       });
     } finally {
       setDialogTesting(false);
@@ -151,13 +151,13 @@ export function GatewaysSection() {
         family: gw.family,
       });
       setTestResults((prev) => ({ ...prev, [gw.id]: res }));
-    } catch (e: any) {
+    } catch (e: unknown) {
       setTestResults((prev) => ({
         ...prev,
         [gw.id]: {
           status: "error",
           latency_ms: 0,
-          message: e?.message || "Test failed",
+          message: e instanceof Error ? e.message : "Test failed",
         },
       }));
     } finally {

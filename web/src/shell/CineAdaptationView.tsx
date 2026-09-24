@@ -84,7 +84,10 @@ export function CineAdaptationView({
     sourceMaterial.source_id === report.data.sourceId &&
     sourceMaterial.revision_id === report.data.revisionId;
   const [selection, setSelection] = useState<{ packageId: string; key: string } | null>(null);
-  const scriptEpisodes = rows(record(production?.artifacts.script).episodes);
+  const scriptEpisodes = useMemo(
+    () => rows(record(production?.artifacts.script).episodes),
+    [production],
+  );
   const shots = useMemo(() => {
     const sourceCues = new Map(
       report.data.cues.filter((cue) => cue.type === "shot").map((cue) => [cue.sourceId, cue]),
@@ -179,7 +182,7 @@ export function CineAdaptationView({
         });
       });
     });
-  }, [production, report.data.cues, sourceMatches, current]);
+  }, [production, report.data.cues, sourceMatches, current, scriptEpisodes]);
   const selectedKey = selection && selection.packageId === productionId ? selection.key : null;
 
   return (
@@ -230,12 +233,12 @@ export function CineAdaptationView({
         )}
         {production && !shots.length && scriptEpisodes.length > 0 && (
           <div className="space-y-4">
-            {scriptEpisodes.map((ep, epIdx) => {
+            {scriptEpisodes.map((ep) => {
               const hook = text(ep.hook);
               const cliff = text(ep.cliff);
               const targetSec = typeof ep.targetSeconds === "number" ? ep.targetSeconds : null;
               return (
-                <div key={epIdx} className="space-y-3">
+                <div key={`episode-${text(ep.ep)}`} className="space-y-3">
                   {(hook || cliff || targetSec) && (
                     <div className="rounded-md border bg-muted/50 p-2.5 text-xs space-y-1.5">
                       {targetSec && (
@@ -278,7 +281,7 @@ export function CineAdaptationView({
                         </div>
 
                         <div className="space-y-2">
-                          {flowItems.map((item, fIdx) => {
+                          {flowItems.map((item) => {
                             const action = text(item.action);
                             const line = text(item.line);
                             const speaker = text(item.speaker);
@@ -286,7 +289,7 @@ export function CineAdaptationView({
                             if (action) {
                               return (
                                 <p
-                                  key={fIdx}
+                                  key={`action-${sceneId}-${text(item.beat)}-${action}`}
                                   className="text-muted-foreground leading-relaxed pl-2 border-l-2 border-muted-foreground/30 py-0.5"
                                 >
                                   {action}
@@ -296,7 +299,7 @@ export function CineAdaptationView({
                             if (line) {
                               return (
                                 <div
-                                  key={fIdx}
+                                  key={`line-${sceneId}-${text(item.beat)}-${line}`}
                                   className="rounded bg-muted/50 p-2 text-xs space-y-0.5 border"
                                 >
                                   <div className="flex items-center gap-1.5">

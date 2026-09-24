@@ -1,3 +1,4 @@
+// oxlint-disable react/iframe-missing-sandbox -- The separate canvas app needs scripts and its own origin for API calls.
 import { useState } from "react";
 import { ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
