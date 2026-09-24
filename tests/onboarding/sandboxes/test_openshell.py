@@ -223,7 +223,7 @@ def test_run_background_uses_exec_background(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(launcher, "_openshell", lambda: fake)
 
     result = launcher.run_background(
-        "sb-1", "ENV=val omnigent host --server https://s", log_path="/tmp/host.log"
+        "sb-1", "ENV=val agentnexus host --server https://s", log_path="/tmp/host.log"
     )
 
     assert result.returncode == 0
@@ -316,7 +316,7 @@ def test_exec_foreground_returns_exit_code(monkeypatch: pytest.MonkeyPatch) -> N
     # (fails closed if it already exists) so /tmp can't be pre-seeded.
     assert command[2].startswith("mkdir -m 700 /tmp/oa-foreground-")
     assert "echo $$ > /tmp/oa-foreground-" in command[2] and "/pid" in command[2]
-    assert "exec omnigent host --server https://s" in command[2]
+    assert "exec agentnexus host --server https://s" in command[2]
     # A normal exit cleans up the run dir so it isn't orphaned in /tmp.
     assert len(fake.exec_calls) == 1
     cleanup = fake.exec_calls[0][1]

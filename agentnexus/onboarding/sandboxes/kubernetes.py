@@ -161,7 +161,7 @@ _RUN_AS_GID: int = 1000660000
 # Writable HOME for the uid-1000 Pod (the image's /root is unwritable to it).
 # A constant the launcher controls, so the workspace path is known without
 # asking the sandbox. Mounted as an emptyDir shared by both containers.
-_HOME_DIR: str = "/home/omnigent"
+_HOME_DIR: str = "/home/agentnexus"
 
 # Container names. The init container prepares the workspace; the main container
 # runs the host. Single-sourced so the manifest and the log/diagnostic lookups

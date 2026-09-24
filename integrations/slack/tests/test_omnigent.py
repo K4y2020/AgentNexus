@@ -827,7 +827,7 @@ async def test_launch_runner_412_propagates_harness_not_configured_message() -> 
             json={
                 "error": {
                     "code": "harness_not_configured",
-                    "message": "launch failed: claude CLI missing; run omnigent setup",
+                    "message": "launch failed: claude CLI missing; run agentnexus setup",
                 }
             },
         )

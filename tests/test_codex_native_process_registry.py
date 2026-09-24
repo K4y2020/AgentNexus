@@ -69,7 +69,7 @@ def test_reconciliation_reaps_alive_tagged_process(tmp_path: Path, monkeypatch) 
     monkeypatch.setattr(
         registry,
         "_process_cmdline",
-        lambda _pid: "codex omnigent_crash_teardown_tag=tag-123 app-server",
+        lambda _pid: "codex agentnexus_crash_teardown_tag=tag-123 app-server",
     )
     monkeypatch.setattr(registry.os, "killpg", lambda pgid, sig: killed.append((pgid, sig)))
 
@@ -119,7 +119,7 @@ def test_reconciliation_skips_live_sibling_when_owner_lock_is_held(
     monkeypatch.setattr(
         registry,
         "_process_cmdline",
-        lambda _pid: "codex omnigent_crash_teardown_tag=tag-123 app-server",
+        lambda _pid: "codex agentnexus_crash_teardown_tag=tag-123 app-server",
     )
     monkeypatch.setattr(registry.os, "killpg", lambda pgid, sig: killed.append((pgid, sig)))
 
@@ -154,7 +154,7 @@ def test_reconciliation_reaps_when_owner_lock_is_not_held(tmp_path: Path, monkey
     monkeypatch.setattr(
         registry,
         "_process_cmdline",
-        lambda _pid: "codex omnigent_crash_teardown_tag=tag-123 app-server",
+        lambda _pid: "codex agentnexus_crash_teardown_tag=tag-123 app-server",
     )
     monkeypatch.setattr(registry.os, "killpg", lambda pgid, sig: killed.append((pgid, sig)))
 

@@ -101,7 +101,7 @@ def test_conversation_link_for_id_maps_workspace_hosted_server_to_ui_mount(
     Workspace-hosted runners link to the SPA mount, not the API mount.
 
     The runner threads ``RUNNER_SERVER_URL`` — the API proxy base
-    (``/api/2.0/omnigent``) — into the registry. A naive
+    (``/api/2.0/agentnexus``) — into the registry. A naive
     ``{base}/c/<id>`` would put the JSON API path in the tmux status
     bar; the link must instead land on the ``/omnigent`` SPA mount and
     carry the ``?o=<org>`` selector ``agentnexus login`` recorded, exactly
@@ -117,7 +117,7 @@ def test_conversation_link_for_id_maps_workspace_hosted_server_to_ui_mount(
         "agentnexus.cli_auth._token_file_path",
         lambda: tmp_path / "auth_tokens.json",
     )
-    server = "https://example.databricks.com/api/2.0/omnigent"
+    server = "https://example.databricks.com/api/2.0/agentnexus"
     store_databricks_auth(
         server,
         "https://example.databricks.com",

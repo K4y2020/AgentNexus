@@ -949,14 +949,14 @@ def test_parse_kubernetes_without_pvc_mounts_is_none(monkeypatch: pytest.MonkeyP
         ([{"claim_name": "c", "mount_path": "/home//omnigent"}], "normalized"),
         ([{"claim_name": "c", "mount_path": "/home/./omnigent"}], "normalized"),
         # Exactly two leading slashes survive posixpath.normpath (POSIX) but
-        # the kernel collapses them, so '//home/omnigent' would shadow HOME.
-        ([{"claim_name": "c", "mount_path": "//home/omnigent"}], "normalized"),
+        # the kernel collapses them, so '//home/agentnexus' would shadow HOME.
+        ([{"claim_name": "c", "mount_path": "//home/agentnexus"}], "normalized"),
         ([{"claim_name": "c", "mount_path": "//mnt/x"}], "normalized"),
         ([{"claim_name": "c", "mount_path": "/"}], "reserved"),
         ([{"claim_name": "c", "mount_path": "/home/agentnexus/data"}], "reserved"),
         ([{"claim_name": "c", "mount_path": "/var/run/secrets/x"}], "reserved"),
         # Ancestors of reserved paths: a PVC at /home would mount over the
-        # HOME emptyDir's /home/omnigent mountpoint (likewise /var, /var/run
+        # HOME emptyDir's /home/agentnexus mountpoint (likewise /var, /var/run
         # over the Secret projections).
         ([{"claim_name": "c", "mount_path": "/home"}], "reserved"),
         ([{"claim_name": "c", "mount_path": "/var"}], "reserved"),
@@ -1009,7 +1009,7 @@ def test_parse_kubernetes_pvc_mounts_invalid_fails_loud(
 
 
 @pytest.mark.parametrize(
-    "mount_path", ["/home/other", "/home/omnigent-data", "/var/lib", "/runway"]
+    "mount_path", ["/home/other", "/home/agentnexus-data", "/var/lib", "/runway"]
 )
 def test_parse_kubernetes_pvc_mounts_reserved_check_is_segment_aware(mount_path: str) -> None:
     """Siblings sharing a string prefix with a reserved path (or its parent) are allowed."""

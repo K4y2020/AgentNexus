@@ -410,7 +410,7 @@ def test_prepare_reports_missing_optional_sdk(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(
         islo_mod,
         "_load_islo_sdk",
-        lambda: (_ for _ in ()).throw(click.ClickException("install omnigent[islo]")),
+        lambda: (_ for _ in ()).throw(click.ClickException("install agentnexus[islo]")),
     )
 
     with pytest.raises(click.ClickException, match=r"agentnexus\[islo\]"):

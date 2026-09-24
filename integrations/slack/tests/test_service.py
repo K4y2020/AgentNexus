@@ -1965,13 +1965,13 @@ class HarnessNotConfiguredClient(FakeAgentNexusClient):
         self, session_id: str, *, workspace: str, host_id: str | None = None
     ) -> str:
         raise HarnessNotConfiguredError(
-            "host failed to launch runner: claude CLI not found; run omnigent setup"
+            "host failed to launch runner: claude CLI not found; run agentnexus setup"
         )
 
 
 async def test_harness_not_configured_412_surfaces_server_message(tmp_path: Path) -> None:
     # A 412 on runner launch (harness not set up on the host) is actionable — the
-    # server's message must reach the user so they know to run `omnigent setup`,
+    # server's message must reach the user so they know to run `agentnexus setup`,
     # not a generic "request failed".
     store = await _store(tmp_path)
     slack = FakeSlackClient()

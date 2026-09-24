@@ -41,7 +41,7 @@ def test_platform_flags_are_mutually_consistent() -> None:
 
 
 def test_default_shell_argv_runs_an_echo() -> None:
-    argv = _platform.default_shell_argv("echo omnigent-shell-ok")
+    argv = _platform.default_shell_argv("echo agentnexus-shell-ok")
     out = subprocess.run(argv, capture_output=True, text=True, check=True)
     assert "agentnexus-shell-ok" in out.stdout
 

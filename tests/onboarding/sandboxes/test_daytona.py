@@ -836,7 +836,7 @@ def test_exec_foreground_runs_command_over_pty(
     # command's own exit code; TERM is required for tmux-spawning
     # harnesses downstream.
     assert process.pty_handle.sent_inputs == [
-        "TERM=xterm-256color exec omnigent host --server u\n"
+        "TERM=xterm-256color exec agentnexus host --server u\n"
     ]
     # Remote output reached the local terminal — a silent foreground
     # attach would hide the host's registration banner and errors.
