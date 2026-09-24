@@ -9,8 +9,9 @@ name: Integration Tests
 # workflow_dispatch.
 
 on:
-  schedule:
-    - cron: "30 9 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "30 9 * * *"
   pull_request:
     # No labeled/unlabeled: a skip-security-scan waiver re-runs this workflow's
     # Security Gate via rerun-security-gate.yml, so label churn need not re-run

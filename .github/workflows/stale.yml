@@ -1,8 +1,9 @@
 name: Close stale issues
 
 on:
-  schedule:
-    - cron: "0 0 * * *" # Run daily at midnight UTC
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch:
 
 permissions:

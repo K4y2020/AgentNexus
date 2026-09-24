@@ -13,8 +13,9 @@ name: Benchmark
 # it reads no PR-authored code. Also dispatchable for an ad-hoc run.
 
 on:
-  schedule:
-    - cron: "37 7 * * *" # 07:37 UTC nightly (off-peak, off the :00 mark)
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "37 7 * * *" # 07:37 UTC nightly (off-peak, off the :00 mark)
   workflow_dispatch:
     inputs:
       checkout_sha:

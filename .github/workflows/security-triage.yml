@@ -28,8 +28,9 @@ name: Security Alert Triage
 # the schedule/dispatch input to false once the behaviour has been reviewed.
 
 on:
-  schedule:
-    - cron: "17 7 * * *" # daily, 07:17 UTC
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "17 7 * * *" # daily, 07:17 UTC
   workflow_dispatch:
     inputs:
       dry_run:

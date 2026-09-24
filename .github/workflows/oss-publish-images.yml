@@ -34,8 +34,9 @@ on:
   # Nightly rebuild of main HEAD (07:00 UTC): the build-and-push job publishes
   # :sha-<short> + :latest-nightly. This is what keeps bleeding-edge ~1 day
   # fresh now that main commits no longer each trigger a build.
-  schedule:
-    - cron: '0 7 * * *'
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: '0 7 * * *'
   workflow_dispatch:
     inputs:
       bump_latest:

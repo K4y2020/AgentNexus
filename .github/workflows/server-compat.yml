@@ -27,9 +27,10 @@ on:
         description: "Comma-separated version set for BOTH axes (e.g. 'main,v0.2.0'). Empty = main + all final (non-prerelease) tags."
         required: false
         default: ""
-  schedule:
-    # Every 12 hours (00:00 and 12:00 UTC).
-    - cron: "0 */12 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   # Every 12 hours (00:00 and 12:00 UTC).
+  #   - cron: "0 */12 * * *"
   # Fast smoke on PRs that touch the server↔runner contract surface.
   # Runs both Config 1 (new server, old runner) and Config 2 (new runner,
   # old server) against the latest stable release so protocol regressions

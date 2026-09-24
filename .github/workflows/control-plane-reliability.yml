@@ -7,9 +7,10 @@ name: Control-Plane Reliability
 # runner, or harness plumbing rather than paid provider flakiness.
 
 on:
-  schedule:
-    - cron: "0 2 * * 1"
-    - cron: "15 2 * * *"
+  # Scheduled runs are off to save Actions minutes; uncomment to re-enable.
+  # schedule:
+  #   - cron: "0 2 * * 1"
+  #   - cron: "15 2 * * *"
   workflow_dispatch:
     inputs:
       runs:
