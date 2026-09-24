@@ -264,7 +264,7 @@ def test_stale_host_hint_recommends_generic_stop_command(
     hint = terminal_stderr.getvalue()
     assert "runner tunnel rejection (HTTP 401)" in hint
     assert "stale host processes" in hint
-    assert "`omnigent stop`" in hint
+    assert "`agentnexus stop`" in hint
     assert "existing AgentNexus host instances" in hint
     assert "agentnexus setup" not in hint
 
@@ -282,7 +282,7 @@ def test_stale_host_hint_names_configured_wrapper(
     hint = terminal_stderr.getvalue()
     assert "`isaac omni stop`" in hint
     # The naked binary token must not be suggested when it would be refused.
-    assert "`omnigent stop`" not in hint
+    assert "`agentnexus stop`" not in hint
 
 
 def test_redirect_stderr_to_log_retargets_existing_logging_stderr_handlers(
