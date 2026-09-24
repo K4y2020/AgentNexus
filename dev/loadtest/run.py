@@ -7,7 +7,7 @@ the LLM is **mocked**, this test owns its target: it boots a local ``omnigent
 server`` + a zero-latency mock LLM (reusing the benchmark harness's
 ``BenchEnvironment``), registers one agent, then runs Locust where **each user
 is a real ``omnigent host``** that creates host-bound sessions and drives real
-multi-turn conversations (see ``omnigent_load_test.py``).
+multi-turn conversations (see ``agentnexus_load_test.py``).
 
 There is no ``--server`` to point at — mocking the LLM requires a stack we
 control. ``-u N`` scales the number of hosts; each host spawns real runner
@@ -86,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out-dir",
         default=None,
-        help="Result directory. Default: dev/loadtest/results/omnigent_load_test-<timestamp>.",
+        help="Result directory. Default: dev/loadtest/results/agentnexus_load_test-<timestamp>.",
     )
     return parser
 
@@ -201,7 +201,7 @@ def _write_summary(
 ) -> None:
     """Write the human-readable ``summary.md`` from parsed locust stats."""
     lines: list[str] = []
-    lines.append("# Load test results — omnigent_load_test (real host turns, mocked LLM)")
+    lines.append("# Load test results — agentnexus_load_test (real host turns, mocked LLM)")
     lines.append("")
     lines.append(
         f"- **Load:** {args.users} concurrent hosts, each driving "
