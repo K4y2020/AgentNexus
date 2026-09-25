@@ -160,7 +160,7 @@ class CodexGoalRunner:
             )
         except ValueError as exc:
             return self._malformed_response(action, str(exc))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - surface app-server goal failures to AP.
             if action == "read":
                 return {"result": {"goal": None}}
             self._logger.warning(

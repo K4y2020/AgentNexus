@@ -123,7 +123,7 @@ class WorkflowAutoAdvancer:
         for message in messages:
             try:
                 self._maybe_advance(session_id, response_id, message)
-            except Exception:
+            except Exception:  # noqa: BLE001 - bridge is best-effort
                 _logger.warning(
                     "workflow auto-advance failed for message %s in %s",
                     message.message_id,

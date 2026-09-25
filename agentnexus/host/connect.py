@@ -1087,7 +1087,7 @@ class HostProcess:
                 self._reap_orphans_once()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception:  # noqa: BLE001 — a reaper must never die on a stray error
                 _logger.debug("orphan reaper sweep failed", exc_info=True)
 
     def _reap_orphans_once(self) -> int:
@@ -1872,7 +1872,7 @@ class HostProcess:
                     runner_id,
                     session_id,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — must never die unobserved
                 _logger.warning(
                     "Failed to stop superseded runner %s for session %s; "
                     "the process may linger until it exits on its own",
@@ -2003,7 +2003,7 @@ class HostProcess:
             try:
                 await ws.send(frame)
                 return
-            except Exception:
+            except Exception:  # noqa: BLE001 — any send failure parks the report
                 _logger.debug(
                     "Could not send runner_exited for %s; queueing for reconnect",
                     runner_id,
@@ -2655,7 +2655,7 @@ class HostProcess:
 
         try:
             rows = await codex_launch_catalog()
-        except Exception:
+        except Exception:  # noqa: BLE001 — no catalog, never a crash
             _logger.warning("Codex model catalog unavailable", exc_info=True)
             return None
         if rows is None:
@@ -2679,7 +2679,7 @@ class HostProcess:
         try:
             config = await asyncio.to_thread(resolve_native_claude_config, spec=None)
             rows = await claude_launch_catalog(config)
-        except Exception:
+        except Exception:  # noqa: BLE001 — no catalog, never a crash
             _logger.warning("Claude model catalog unavailable", exc_info=True)
             return None
         if rows is None:
@@ -2844,7 +2844,7 @@ class HostProcess:
                     {"id": str(opt["id"]), "displayName": str(opt.get("displayName") or opt["id"])}
                     for opt in options
                 ]
-            except Exception:
+            except Exception:  # noqa: BLE001 — the curated picker covers any listing failure
                 _logger.debug("cursor-agent model listing failed", exc_info=True)
             if not cursor_models:
                 from agentnexus.model_fallbacks import CURSOR_PICKER_MODELS
@@ -3776,7 +3776,7 @@ class HostProcess:
                     self._auth_token_factory_resolved = True
             if self._auth_token_factory is not None:
                 return self._auth_token_factory()
-        except Exception:
+        except Exception:  # noqa: BLE001
             _logger.debug("Could not obtain auth token", exc_info=True)
         return None
 
