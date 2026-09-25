@@ -58,7 +58,7 @@ def diagnose_mlflow_catalog():
                 else:
                     print("⚠️  模型列表为空")
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — diagnostic tool reports every error
                 print(f"❌ 错误: {e}")
 
     except ImportError as e:
@@ -101,7 +101,7 @@ def diagnose_model_catalog():
         clear_model_catalog_cache()
         print("✅ 内存缓存已清除")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — diagnostic tool reports every error
         print(f"❌ 错误: {e}")
 
 
@@ -121,9 +121,7 @@ def diagnose_executors():
         # 测试不同的执行器
         test_cases = [
             ("claude-sdk", None, "Claude SDK (无指定模型)"),
-            ("claude-sdk", "claude-opus-4.8", "Claude SDK (指定 Opus)"),
             ("codex", None, "Codex (无指定模型)"),
-            ("codex", "gpt-4o", "Codex (指定 GPT-4o)"),
             ("cursor", None, "Cursor (无指定模型)"),
             ("pi", None, "Pi (无指定模型)"),
         ]
@@ -154,62 +152,11 @@ def diagnose_executors():
                     for m in listing.models[:5]:
                         print(f"  - {m.id} (family: {m.family})")
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — diagnostic tool reports every error
                 print(f"❌ 错误: {e}")
 
     except ImportError as e:
         print(f"❌ 无法导入模块: {e}")
-
-
-def diagnose_code_references():
-    """检查代码中的模型引用"""
-    print("\n" + "=" * 80)
-    print("4. 检查代码中的过时模型引用")
-    print("=" * 80)
-
-    import re
-    from pathlib import Path
-
-    # 过时的模型引用模式
-    old_patterns = [
-        (r"gpt-5[.\d-]*", "GPT-5 系列 (不存在)"),
-        (r"claude-opus-4-8", "Claude Opus 4-8 (应为 4.8)"),
-        (r"claude-sonnet-4-6", "Claude Sonnet 4-6 (应为 4.6)"),
-        (r"databricks-gpt-5", "Databricks GPT-5 (不存在)"),
-    ]
-
-    agentnexus_dir = Path(__file__).parent / "agentnexus"
-
-    if not agentnexus_dir.exists():
-        print("⚠️  agentnexus 目录不存在")
-        return
-
-    findings = []
-
-    for pattern, description in old_patterns:
-        regex = re.compile(pattern)
-
-        for py_file in agentnexus_dir.rglob("*.py"):
-            try:
-                content = py_file.read_text(encoding="utf-8")
-                matches = regex.findall(content)
-
-                if matches:
-                    unique_matches = set(matches)
-                    findings.append((py_file, description, unique_matches))
-
-            except Exception:
-                continue
-
-    if findings:
-        print(f"\n⚠️  发现 {len(findings)} 个文件包含过时的模型引用:\n")
-
-        for file_path, description, matches in findings[:20]:  # 只显示前 20 个
-            rel_path = file_path.relative_to(Path(__file__).parent)
-            print(f"  📄 {rel_path}")
-            print(f"     {description}: {', '.join(sorted(matches))}")
-    else:
-        print("✅ 未发现过时的模型引用")
 
 
 def main():
@@ -222,15 +169,13 @@ def main():
     diagnose_mlflow_catalog()
     diagnose_model_catalog()
     diagnose_executors()
-    diagnose_code_references()
 
     print("\n" + "=" * 80)
     print("诊断完成")
     print("=" * 80)
     print("\n💡 建议:")
     print("  1. 如果模型列表为空，检查网络连接到 github.com")
-    print("  2. 如果看到过时的模型引用，运行批量替换脚本")
-    print("  3. 如果缓存有问题，删除 ~/.agentnexus/cache/model_catalog/")
+    print("  2. 如果缓存有问题，删除 ~/.agentnexus/cache/model_catalog/")
     print()
 
 

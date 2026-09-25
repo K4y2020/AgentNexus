@@ -2811,7 +2811,7 @@ def _provider_config_for_native_claude(entry: ProviderEntry) -> ClaudeNativeUcod
                     *pin_env.values(),
                     *[
                         k
-                        for k in family.models.keys()
+                        for k in family.models
                         if isinstance(k, str)
                         and k not in ("default", "sonnet", "opus", "haiku", "fable")
                     ],

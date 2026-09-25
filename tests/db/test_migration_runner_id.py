@@ -33,7 +33,7 @@ def db_engine(tmp_path: Path) -> Iterator[Engine]:
 
 
 def test_migration_adds_runner_id_column_nullable(db_engine: Engine) -> None:
-    """The migration creates ``agentnexus_conversation_metadata.runner_id`` as nullable VARCHAR(64).
+    """The migration creates a nullable VARCHAR(64) conversation metadata runner_id.
 
     Three properties matter:
     1. The column exists at all (proves the migration includes it).

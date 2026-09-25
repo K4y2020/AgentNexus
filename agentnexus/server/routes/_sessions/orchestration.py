@@ -904,7 +904,10 @@ def _build_session_list_item(
         parent_session_id=conv.parent_conversation_id,
         project_id=conv.project_id,
         bot_id=conv.bot_id,
-        purpose=conv.purpose,
+        purpose=cast(
+            Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"],
+            conv.purpose,
+        ),
     )
 
 
@@ -1187,7 +1190,10 @@ def _build_session_response(
         active_response_id=_session_active_response_cache.get(conv.id),
         project_id=conv.project_id,
         bot_id=conv.bot_id,
-        purpose=conv.purpose,
+        purpose=cast(
+            Literal["primary", "topic", "routine", "a2a", "subagent", "standalone"],
+            conv.purpose,
+        ),
     )
 
 

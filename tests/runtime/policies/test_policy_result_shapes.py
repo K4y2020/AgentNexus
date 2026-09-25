@@ -127,11 +127,7 @@ def test_phase_values_stable() -> None:
 
 
 def test_phase_iteration_order() -> None:
-    """Iteration order follows the agent loop: REQUEST →
-    TOOL_CALL → TOOL_RESULT → RESPONSE, then the LLM phases
-    (LLM_REQUEST → LLM_RESPONSE). Stable order matters for
-    observability dashboards and debug output that iterate phases
-    in a natural sequence."""
+    """Loop phases precede the coordination control-plane phases."""
     assert list(Phase) == [
         Phase.REQUEST,
         Phase.TOOL_CALL,
@@ -139,6 +135,9 @@ def test_phase_iteration_order() -> None:
         Phase.RESPONSE,
         Phase.LLM_REQUEST,
         Phase.LLM_RESPONSE,
+        Phase.COORDINATION_MESSAGE,
+        Phase.WORKSPACE_OPERATION,
+        Phase.GIT_MERGE,
     ]
 
 

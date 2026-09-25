@@ -326,8 +326,8 @@ def model_family_token(model_id: str) -> str:
     Shares the token rule with
     :func:`omnigent.model_override.model_family_mismatch`: Claude ids
     contain ``"claude"``; the ``"openai"`` token covers every
-    codex-compatible id (gpt/codex plus the GLM and Kimi families, which
-    serve on the same Responses wire).
+    codex-compatible id (gpt/codex plus the gateway families, such as GLM,
+    Kimi, and Qwen, that serve on the same Responses wire).
 
     :param model_id: Model id, e.g. ``"databricks-claude-opus-4-8"``.
     :returns: ``"claude"``, ``"openai"``, or ``"other"``.

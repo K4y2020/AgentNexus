@@ -165,7 +165,7 @@ class CoordinationWorkflowEngine:
         task_deadline: float | None = None
         if task_deadline_s:
             try:
-                task_deadline = time.time() + float(task_deadline_s)
+                task_deadline = time.time() + float(str(task_deadline_s))
             except (TypeError, ValueError):
                 task_deadline = None
 
@@ -327,7 +327,7 @@ class CoordinationWorkflowEngine:
         task_deadline: float | None = None
         if task_deadline_s:
             try:
-                task_deadline = time.time() + float(task_deadline_s)
+                task_deadline = time.time() + float(str(task_deadline_s))
             except (TypeError, ValueError):
                 task_deadline = None
 

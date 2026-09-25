@@ -257,16 +257,13 @@ describe("index.css sidebar canvas", () => {
   const omniDarkRule = cssSource.match(
     /\.dark:not\(\[data-theme\]\) \.conversations-sidebar \{[^}]*\}/,
   )?.[0];
-  const lightEdgeRule = cssSource.match(
-    /html:not\(\.dark\) \.conversations-sidebar(?::not\(\.is-peek\))? \{[^}]*\}/,
-  )?.[0];
-  const darkEdgeRule = cssSource.match(/\.dark \.conversations-sidebar \{[^}]*\}/)?.[0];
+  const edgeRule = cssSource.match(/\.conversations-sidebar:not\(\.is-peek\) \{[^}]*\}/)?.[0];
   const peekBackgroundRule = cssSource.match(
     /:root:not\(\.dark\):not\(\[data-theme\]\) \.conversations-sidebar\.is-peek,[\s\S]*?\.dark\[data-theme\] \.conversations-sidebar\.is-peek \{[^}]*\}/,
   )?.[0];
 
-  it("uses the specified left-to-right gradient for Omnigent light", () => {
-    expect(omniLightRule).toContain("background: linear-gradient(90deg, #fffefe, #fcf6fa)");
+  it("uses the palette sidebar surface for the default light theme", () => {
+    expect(omniLightRule).toContain("background: var(--sidebar)");
   });
 
   it("removes the dot-grid layer from both modes", () => {
@@ -275,12 +272,8 @@ describe("index.css sidebar canvas", () => {
     expect(omniDarkRule).not.toContain("radial-gradient");
   });
 
-  it("uses the shared inset shadow with a dark-only right border", () => {
-    const shadow = "inset -8px 0 12px -8px rgb(0 0 0 / 5%)";
-    expect(lightEdgeRule).toContain(`box-shadow: ${shadow}`);
-    expect(darkEdgeRule).toContain(`box-shadow: ${shadow}`);
-    expect(lightEdgeRule).toContain("border-right: none");
-    expect(darkEdgeRule).toContain("border-right: 1px solid rgb(255 255 255 / 2%)");
+  it("uses the palette border on the docked sidebar", () => {
+    expect(edgeRule).toContain("border-right: 1px solid var(--sidebar-border)");
   });
 
   it("backs floating peek cards with the opaque card color in every theme", () => {

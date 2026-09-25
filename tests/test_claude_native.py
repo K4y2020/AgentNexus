@@ -7667,8 +7667,9 @@ def test_provider_config_for_native_claude_uses_auth_command_verbatim(
     cfg = claude_native._provider_config_for_native_claude(entry)
     assert cfg is not None
     assert cfg.api_key_helper == "my-cli print-token"
+    # Claude Code appends ``/v1/messages`` itself, so a trailing ``/v1`` is dropped.
     assert cfg.env == {
-        "ANTHROPIC_BASE_URL": "https://gw.example/v1",
+        "ANTHROPIC_BASE_URL": "https://gw.example",
         "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
     }
 
@@ -7702,7 +7703,7 @@ def test_provider_config_for_native_claude_keeps_betas_under_use_gateway(
 
     cfg = claude_native._provider_config_for_native_claude(entry)
     assert cfg is not None
-    assert cfg.env == {"ANTHROPIC_BASE_URL": "https://gw.example/v1"}
+    assert cfg.env == {"ANTHROPIC_BASE_URL": "https://gw.example"}
     assert "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS" not in cfg.env
 
 

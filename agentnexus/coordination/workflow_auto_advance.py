@@ -15,7 +15,7 @@ import re
 from typing import Any
 
 from agentnexus.coordination.types import AgentMessage
-from agentnexus.coordination.workflow_engine import CoordinationWorkflowEngine
+from agentnexus.coordination.workflow_engine import CoordinationWorkflowEngine, WorkflowOutcome
 from agentnexus.stores import ConversationStore
 
 _logger = logging.getLogger(__name__)
@@ -66,12 +66,14 @@ def declared_outcome(
     text: str,
     role: str | None,
     intent: str | None,
-) -> tuple[str | None, str | None]:
+) -> tuple[WorkflowOutcome | None, str | None]:
     """Extract a controlled stage outcome and optional review decision."""
     result = _RESULT_RE.search(text or "")
     decision = _DECISION_RE.search(text or "")
     review_decision = decision.group(1).lower() if decision else None
-    outcome = result.group(1).lower() if result else None
+    outcome: WorkflowOutcome | None = None
+    if result:
+        outcome = "succeeded" if result.group(1).lower() == "succeeded" else "failed"
     if outcome:
         return outcome, review_decision
     if (

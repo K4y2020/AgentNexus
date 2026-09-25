@@ -104,7 +104,9 @@ def main() -> None:
         json.dump(
             {
                 "permission": "deny",
-                "agent_message": f"Tool '{tool_name}' blocked: malformed AgentNexus policy response",
+                "agent_message": (
+                    f"Tool '{tool_name}' blocked: malformed AgentNexus policy response"
+                ),
             },
             sys.stdout,
         )

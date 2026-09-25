@@ -6956,6 +6956,8 @@ function ComposerModelEffortLabel({
   const selectedEffort = useSessionEffort();
   const costControlModeOverride = useChatStore((s) => s.costControlModeOverride);
   const pendingModelChange = useChatStore((s) => s.pendingModelChange);
+  const conversationId = useChatStore((s) => s.conversationId);
+  const { session } = useSession(conversationId);
   const { modelLabel } = useResolvedComposerModel(modelPickerKind, codexModelOptions);
   const routingOn = costRoutingEligible && costControlModeOverride === "on";
   // An asked-but-unconfirmed switch on a reported-model session: the chip
@@ -6982,8 +6984,6 @@ function ComposerModelEffortLabel({
     );
   }
 
-  const conversationId = useChatStore((s) => s.conversationId);
-  const { session } = useSession(conversationId);
   const isDebby = agentRootName(session?.agentName ?? "").toLowerCase() === "debby";
   if (isDebby) {
     const claudePartner = session?.labels?.[CLAUDE_PARTNER_MODEL_LABEL] || "default";

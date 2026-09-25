@@ -248,7 +248,7 @@ def _windows_pid_alive(pid: int) -> bool:
     ERROR_INVALID_PARAMETER = 87
     STILL_ACTIVE = 259
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # pyrefly: ignore[missing-attribute]
     kernel32.OpenProcess.restype = wintypes.HANDLE
     kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel32.GetExitCodeProcess.restype = wintypes.BOOL
@@ -260,7 +260,7 @@ def _windows_pid_alive(pid: int) -> bool:
 
     handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not handle:
-        err = ctypes.get_last_error()
+        err = ctypes.get_last_error()  # pyrefly: ignore[missing-attribute]
         if err == ERROR_ACCESS_DENIED:
             # Live but owned by a higher-integrity caller; token still gates it.
             return True

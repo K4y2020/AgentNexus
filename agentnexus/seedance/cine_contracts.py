@@ -212,12 +212,14 @@ async def session_image_receipts(client, session_id):
             else:
                 meta = output.get("metadata", {})
                 image = output.get("image", {})
+            source = image.get("source")
             if (
                 meta.get("receipt_id")
                 and image.get("type") == "image"
-                and image.get("source", {}).get("data")
+                and isinstance(source, dict)
+                and source.get("data")
             ):
-                decoded = base64.b64decode(image["source"]["data"], validate=True)
+                decoded = base64.b64decode(source["data"], validate=True)
                 if hashlib.sha256(decoded).hexdigest() != meta.get("sha256"):
                     continue
                 receipts[meta["receipt_id"]] = {

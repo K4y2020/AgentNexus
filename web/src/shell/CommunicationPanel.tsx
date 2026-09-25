@@ -29,7 +29,7 @@ export interface AgentMessageDTO {
   kind: string;
   intent: string;
   payload: Record<string, unknown>;
-  artifacts: unknown[];
+  artifacts: { file_id?: string; filename?: string }[];
   message_state: string;
   consumption_state?: string;
   created_at: number;
@@ -174,9 +174,9 @@ function A2AMessageRow({ message }: { message: AgentMessageDTO }) {
                   携带附件 ({message.artifacts.length})
                 </span>
                 <div className="flex flex-wrap gap-1">
-                  {message.artifacts.map((a: any, idx) => (
+                  {message.artifacts.map((a, idx) => (
                     <span
-                      key={idx}
+                      key={a.file_id ?? a.filename ?? JSON.stringify(a)}
                       className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-foreground"
                     >
                       <FileTextIcon className="size-2.5 text-muted-foreground" />

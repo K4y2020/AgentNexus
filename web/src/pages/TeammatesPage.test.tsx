@@ -52,7 +52,7 @@ vi.mock("@/components/teammates/TeammateMemoryDialog", () => ({
 vi.mock("@/components/teammates/TeammateSettingsDialog", () => ({
   TeammateSettingsDialog: ({
     open,
-    teammate,
+    teammate: settingsTeammate,
     initialTab,
   }: {
     open: boolean;
@@ -62,7 +62,7 @@ vi.mock("@/components/teammates/TeammateSettingsDialog", () => ({
     open ? (
       <div
         data-testid="settings-dialog-open"
-        data-agent-id={teammate?.agent.id ?? ""}
+        data-agent-id={settingsTeammate?.agent.id ?? ""}
         data-initial-tab={initialTab ?? "profile"}
       />
     ) : null,

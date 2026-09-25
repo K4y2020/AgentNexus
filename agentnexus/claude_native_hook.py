@@ -795,7 +795,8 @@ def _post_hook_with_reattach(
                 else ("flapping" if is_hard_failure else "held-poll severed")
             )
             print(
-                f"agentnexus {hook_label} hook: AgentNexus request failed ({kind}); retrying: {exc}",
+                f"agentnexus {hook_label} hook: AgentNexus request failed ({kind}); "
+                f"retrying: {exc}",
                 file=sys.stderr,
             )
         if is_hard_failure:

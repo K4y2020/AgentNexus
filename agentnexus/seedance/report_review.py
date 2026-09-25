@@ -3,6 +3,7 @@
 import math
 from fractions import Fraction
 from pathlib import Path
+from typing import cast
 
 from agentnexus.seedance.cine_contracts import (
     _inside,
@@ -64,7 +65,7 @@ async def verify_report(
         start, end = Fraction(0), total
     elif scope == "sample":
         if any(
-            type(v) not in (int, float) or not math.isfinite(v)
+            type(v) not in (int, float) or not math.isfinite(cast(float, v))
             for v in (start_seconds, end_seconds)
         ):
             raise ValueError("CINE_SAMPLE_RANGE_REQUIRED")

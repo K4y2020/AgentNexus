@@ -246,6 +246,7 @@ async def test_handle_model_options_uses_host_pi_configuration(
                 "displayName": "agentnexus-openai/GPT 5.6 Sol",
             }
         ],
+        routable_models=["agentnexus-openai/system.ai.gpt-5-6-sol"],
     )
 
 
@@ -287,14 +288,81 @@ async def test_handle_model_options_rejects_unsupported_harness() -> None:
     host = _make_host_process()
 
     result = await host._handle_model_options(
-        HostModelOptionsFrame(request_id="req_models", harness="cursor-native"),
+        HostModelOptionsFrame(request_id="req_models", harness="opencode-native"),
     )
 
     assert result == HostModelOptionsResultFrame(
         request_id="req_models",
         status="failed",
-        error="model options are unsupported for harness 'cursor-native'",
+        error="model options are unsupported for harness 'opencode-native'",
     )
+
+
+async def test_handle_model_options_lists_cursor_cli_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cursor's launch picker comes from the installed ``cursor-agent`` listing."""
+    from agentnexus import cursor_native
+
+    monkeypatch.setattr(
+        cursor_native,
+        "list_cursor_cli_model_options",
+        lambda: [{"id": "composer-2.5", "displayName": "Composer 2.5"}],
+    )
+    host = _make_host_process()
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_cursor", harness="cursor-native"),
+    )
+
+    assert result == HostModelOptionsResultFrame(
+        request_id="req_cursor",
+        status="ok",
+        models=[{"id": "composer-2.5", "displayName": "Composer 2.5"}],
+        routable_models=["composer-2.5"],
+    )
+    _cleanup_host(host)
+
+
+async def test_handle_model_options_cursor_falls_back_to_curated_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed ``cursor-agent models`` still serves the owned curated picker."""
+    from agentnexus import cursor_native
+    from agentnexus.model_fallbacks import CURSOR_PICKER_MODELS
+
+    def _missing_cli() -> list[dict[str, str]]:
+        raise FileNotFoundError("cursor-agent")
+
+    monkeypatch.setattr(cursor_native, "list_cursor_cli_model_options", _missing_cli)
+    host = _make_host_process()
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_cursor", harness="cursor-native"),
+    )
+
+    assert result.status == "ok"
+    assert result.routable_models == list(CURSOR_PICKER_MODELS)
+    _cleanup_host(host)
+
+
+async def test_handle_model_options_pi_falls_back_to_curated_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A host with no Pi provider configured still serves the owned curated picker."""
+    from agentnexus import pi_native_credentials
+    from agentnexus.model_fallbacks import PI_PICKER_MODELS
+
+    monkeypatch.setattr(pi_native_credentials, "pi_native_model_options", list)
+    host = _make_host_process()
+
+    result = await host._handle_model_options(
+        HostModelOptionsFrame(request_id="req_pi_models", harness="pi-native"),
+    )
+
+    assert result.status == "ok"
+    assert result.routable_models == list(PI_PICKER_MODELS)
+    _cleanup_host(host)
 
 
 async def test_handle_model_options_reports_the_endpoints_wider_catalog(

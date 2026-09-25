@@ -1222,7 +1222,7 @@ export function AppShell() {
           setRightPanelOpen(true);
         }
       }),
-    [conversationId, boundCanvasProject, clearFileViewerUrl, cineCanvasEnabled],
+    [conversationId, boundCanvasProject, clearFileViewerUrl, cineCanvasEnabled, setPanelInitialKey],
   );
 
   useEffect(
@@ -1242,7 +1242,7 @@ export function AppShell() {
           setRightPanelOpen(true);
         }
       }),
-    [conversationId, cineReviewEnabled, clearFileViewerUrl],
+    [conversationId, cineReviewEnabled, clearFileViewerUrl, setPanelInitialKey],
   );
 
   // Toggle the right (Workspace) sidebar — shared by the header's collapse

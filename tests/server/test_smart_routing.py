@@ -266,7 +266,9 @@ def test_substitute_model_declines_when_no_fallback_is_servable() -> None:
         ("databricks-glm-5-2", "gpt"),
         ("system.ai.glm-5-2", "gpt"),
         ("databricks-kimi-k2-6", "gpt"),
-        ("databricks-meta-llama-3.3-70b-instruct", "other"),
+        # Custom gateways serve the third-party families to codex as well.
+        ("databricks-meta-llama-3.3-70b-instruct", "gpt"),
+        ("databricks-bge-large-en", "other"),
     ],
 )
 def test_model_family_agrees_with_the_shared_token_rule(model: str, expected: str) -> None:

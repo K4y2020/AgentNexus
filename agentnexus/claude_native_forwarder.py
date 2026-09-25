@@ -2539,7 +2539,8 @@ async def _maybe_mirror_external_session_id(
             )
             return True
         _logger.warning(
-            "Transient AgentNexus error PATCHing external_session_id (%s); session=%s — will retry",
+            "Transient AgentNexus error PATCHing external_session_id (%s); "
+            "session=%s — will retry",
             exc.response.status_code,
             session_id,
             extra={"session_id": session_id},

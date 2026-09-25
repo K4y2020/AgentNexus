@@ -537,6 +537,9 @@ extend-exclude = [
     # Cine is a self-contained example skill with its own pipeline tests;
     # keep the repository-wide production lint policy scoped to agentnexus.
     "examples/cine",
+    # Bundled example skill scripts have their own checks and predate the
+    # repository-wide production lint policy.
+    "examples/debby",
     # Deliberately broken notebook fixture; Ruff must not parse it as JSON.
     "web/src/shell/__fixtures__/03_broken.ipynb",
     # Protobuf-generated code (DO NOT EDIT); not ours to restyle.
@@ -591,6 +594,11 @@ ignore = [
 known-first-party = ["agentnexus"]
 
 [tool.ruff.lint.per-file-ignores]
+# Tool schemas contain user-facing prompts and examples whose literal text
+# should remain readable as one sentence.
+"agentnexus/tools/builtins/seedance_edit_canvas.py" = ["E501"]
+"agentnexus/tools/builtins/seedance_read_canvas.py" = ["E501"]
+"agentnexus/seedance/bridge.py" = ["E501"]
 # Tests legitimately accept parameters they don't use (pytest fixtures,
 # mock callback signatures) and intercept broad exceptions to assert on
 # error paths. Cleaning these up is a separate cleanup pass.

@@ -1066,6 +1066,7 @@ class ConversationStore(ABC):
         """Update a conversation's working directory on the metadata row."""
         raise NotImplementedError
 
+    @abstractmethod
     def set_conversation_project(
         self,
         conversation_id: str,
@@ -1083,6 +1084,7 @@ class ConversationStore(ABC):
         :returns: ``True`` if a metadata row was updated; ``False`` if the
             conversation has no metadata row.
         """
+        raise NotImplementedError
 
     @abstractmethod
     def increment_session_usage(

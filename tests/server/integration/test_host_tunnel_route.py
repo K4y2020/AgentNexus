@@ -20,6 +20,7 @@ from agentnexus.host.frames import (
     decode_host_frame,
     encode_host_frame,
 )
+from agentnexus.host.identity import MANAGED_HOST_TOKEN_HEADER
 from agentnexus.server.auth import AuthProvider
 from agentnexus.server.host_registry import HostRegistry
 from agentnexus.server.routes.host_tunnel import create_host_tunnel_router
@@ -740,7 +741,7 @@ def _managed_scope(path: str, token: str) -> dict[str, object]:
     :returns: ASGI WebSocket scope with the token header set.
     """
     scope = _websocket_scope(path)
-    scope["headers"] = [(b"x-omnigent-host-token", token.encode("ascii"))]
+    scope["headers"] = [(MANAGED_HOST_TOKEN_HEADER.lower().encode(), token.encode("ascii"))]
     return scope
 
 

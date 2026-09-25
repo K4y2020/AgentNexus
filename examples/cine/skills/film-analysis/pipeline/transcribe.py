@@ -29,7 +29,7 @@ def format_srt_time(sec: float) -> str:
     h = int(sec // 3600)
     m = int((sec % 3600) // 60)
     s = int(sec % 60)
-    ms = int(round((sec - int(sec)) * 1000))
+    ms = round((sec - int(sec)) * 1000)
     if ms >= 1000:
         ms = 999
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
@@ -162,8 +162,9 @@ def llm_refine_transcript(
     config_path = Path.home() / ".agentnexus/config.yaml"
     base_url = os.environ.get("AGENTNEXUS_GATEWAY_URL") or os.environ.get("OPENAI_BASE_URL")
     api_key = os.environ.get("AGENTNEXUS_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    model_id = os.environ.get("AGENTNEXUS_TRANSCRIBE_MODEL")
 
-    if config_path.is_file() and (not base_url or not api_key):
+    if config_path.is_file() and (not base_url or not api_key or not model_id):
         try:
             import yaml
 
@@ -175,10 +176,13 @@ def llm_refine_transcript(
                     if isinstance(oa, dict):
                         base_url = base_url or oa.get("base_url")
                         api_key = api_key or oa.get("api_key")
-        except Exception:
+                        models = oa.get("models")
+                        if isinstance(models, dict):
+                            model_id = model_id or models.get("default")
+        except Exception:  # noqa: BLE001 — optional local config
             pass
 
-    if not base_url or not api_key:
+    if not base_url or not api_key or not model_id:
         return rows
 
     endpoint = base_url.rstrip("/") + "/chat/completions"
@@ -208,16 +212,23 @@ def llm_refine_transcript(
         "你是一位专业影视拉片对白台词校对专家。以下是由语音识别（ASR）初步生成的台词片段与时间轴。\n"
         f"人物关系与剧情线索：{_usable_context(context_summary)}\n\n"
         "任务要求：\n"
-        "1. 修复台词中的所有错别字、同音字误识（例如复课->复刻、出世那碗->出事那晚、储物隔->储物格、他/她指代错误）。\n"
+        "1. 修复台词中的错别字、同音字误识（例如复课->复刻、出世那碗->出事那晚、"
+        "储物隔->储物格、他/她指代错误）。\n"
         "2. 清理 BPE 乱码（如英文名后的全角字母）与无效停顿碎片，补全标准汉语标点符号。\n"
         + attribution_rules
     )
 
     body = {
-        "model": "gemini-3.5-flash-lite",
+        "model": model_id,
         "messages": [
-            {"role": "system", "content": "You are a professional film dialogue proofreader and subtitle editor."},
-            {"role": "user", "content": f"{prompt}\n\n输入数据：\n{json.dumps(rows, ensure_ascii=False)}"},
+            {
+                "role": "system",
+                "content": "You are a professional film dialogue proofreader and subtitle editor.",
+            },
+            {
+                "role": "user",
+                "content": f"{prompt}\n\n输入数据：\n{json.dumps(rows, ensure_ascii=False)}",
+            },
         ],
         "temperature": 0.1,
     }
@@ -227,7 +238,9 @@ def llm_refine_transcript(
     }
 
     try:
-        req = urllib.request.Request(endpoint, data=json.dumps(body).encode("utf-8"), headers=headers)
+        req = urllib.request.Request(
+            endpoint, data=json.dumps(body).encode("utf-8"), headers=headers
+        )
         with urllib.request.urlopen(req, timeout=30) as resp:
             resp_data = json.loads(resp.read().decode("utf-8"))
             content = resp_data["choices"][0]["message"]["content"]
@@ -238,7 +251,7 @@ def llm_refine_transcript(
             refined = json.loads(content)
             if isinstance(refined, list) and len(refined) > 0 and "text" in refined[0]:
                 return refined
-    except Exception:
+    except Exception:  # noqa: BLE001 — failed optional refinement keeps ASR rows
         pass
     return rows
 
@@ -324,7 +337,11 @@ def serialize_transcript(
     ]
     srt_blocks = [
         f"{idx}\n{format_srt_time(row['start'])} --> {format_srt_time(row['end'])}\n"
-        + (f"[{row['speaker']}] " if row.get("speaker") and row.get("speaker") != "说话人未标注" else "")
+        + (
+            f"[{row['speaker']}] "
+            if row.get("speaker") and row.get("speaker") != "说话人未标注"
+            else ""
+        )
         + f"{row['text']}\n"
         for idx, row in enumerate(rows, 1)
     ]
@@ -363,15 +380,39 @@ def transcribe(
             # Extract audio first
             tmp_audio = workspace / "inputs/audio.wav"
             subprocess.run(
-                ["ffmpeg", "-i", str(media), "-vn", "-ar", "44100", "-ac", "2", str(tmp_audio), "-y"],
+                [
+                    "ffmpeg",
+                    "-i",
+                    str(media),
+                    "-vn",
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "2",
+                    str(tmp_audio),
+                    "-y",
+                ],
                 check=True,
                 capture_output=True,
             )
             subprocess.run(
                 [
-                    "uv", "run", "--with", "demucs", "--with", "torch", "--with", "numpy<2",
-                    "demucs", "--two-stems", "vocals", "-n", "htdemucs",
-                    "-o", str(workspace / "inputs/separated"), str(tmp_audio),
+                    "uv",
+                    "run",
+                    "--with",
+                    "demucs",
+                    "--with",
+                    "torch",
+                    "--with",
+                    "numpy<2",
+                    "demucs",
+                    "--two-stems",
+                    "vocals",
+                    "-n",
+                    "htdemucs",
+                    "-o",
+                    str(workspace / "inputs/separated"),
+                    str(tmp_audio),
                 ],
                 check=True,
                 capture_output=True,

@@ -44,11 +44,16 @@ class CineCameraEvidenceTool(Tool):
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Free-text search terms (e.g. '慢推', '环绕', '低机位').",
+                            "description": (
+                                "Free-text search terms (e.g. '慢推', '环绕', '低机位')."
+                            ),
                         },
                         "brief": {
                             "type": "string",
-                            "description": "Natural language scene/shot description. Automatically parses camera intent, motions, and action seeds.",
+                            "description": (
+                                "Natural language scene/shot description. Automatically parses "
+                                "camera intent, motions, and action seeds."
+                            ),
                         },
                         "motion": {
                             "type": "string",
@@ -104,7 +109,10 @@ class CineCameraEvidenceTool(Tool):
                         },
                         "include_atoms": {
                             "type": "boolean",
-                            "description": "Whether to return matched physical action atoms (e.g. CQC, wuxia, chase).",
+                            "description": (
+                                "Whether to return matched physical action atoms "
+                                "(e.g. CQC, wuxia, chase)."
+                            ),
                         },
                     },
                 },

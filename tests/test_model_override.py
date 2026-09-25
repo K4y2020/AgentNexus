@@ -151,6 +151,11 @@ class TestModelFamilyMismatch:
             ("native-codex", "system.ai.glm-5-2"),
             ("codex-native", "databricks-kimi-k2-6"),
             ("codex", "kimi-for-coding"),
+            # Native codex also runs the third-party families custom gateways serve.
+            ("codex-native", "databricks-claude-sonnet-4-6"),
+            ("native-codex", "claude-opus-4-8"),
+            ("codex-native", "qwen/qwen3.7-plus"),
+            ("native-codex", "deepseek-v4-pro"),
             # Wrapped codex speaks the configured gateway's Responses API; the
             # gateway vocabulary is authoritative even when an id does not
             # carry a GPT/GLM/Kimi token.
@@ -206,12 +211,8 @@ class TestModelFamilyMismatch:
             ("claude-native", "databricks-glm-5-2", "only runs Claude models"),
             ("native-claude", "system.ai.glm-5-2", "only runs Claude models"),
             ("claude-native", "databricks-kimi-k2-6", "only runs Claude models"),
-            (
-                "codex-native",
-                "databricks-claude-sonnet-4-6",
-                "only runs codex-compatible models",
-            ),
-            ("native-codex", "claude-opus-4-8", "only runs codex-compatible models"),
+            ("codex-native", "databricks-bge-large-en", "only runs codex-compatible models"),
+            ("native-codex", "glmqlfit-eval", "only runs codex-compatible models"),
             # antigravity is Gemini-native: syntactically valid non-Gemini ids
             # must fail loud at the dispatch gate rather than be persisted as
             # model_override and land in HARNESS_ANTIGRAVITY_MODEL only to fail
@@ -244,7 +245,7 @@ class TestModelFamilyMismatch:
     def test_rejection_names_both_multi_model_fallbacks(self) -> None:
         """Both single-vendor rejections name pi and openai-agents as multi-model fallbacks."""
         claude_msg = model_family_mismatch("claude-native", "databricks-gpt-5-4")
-        codex_msg = model_family_mismatch("codex-native", "databricks-claude-sonnet-4-6")
+        codex_msg = model_family_mismatch("codex-native", "databricks-bge-large-en")
         for msg in (claude_msg, codex_msg):
             assert msg is not None
             assert "pi" in msg

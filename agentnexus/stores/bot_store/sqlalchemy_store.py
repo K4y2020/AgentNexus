@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import time
 import uuid
 
@@ -300,7 +301,7 @@ class SqlAlchemyBotStore(BotStore):
             row = session.execute(stmt).scalar_one_or_none()
             return _project_binding_entity(row) if row is not None else None
 
-    def list_project_bindings(self, bot_id: str) -> list[BotProjectBinding]:
+    def list_project_bindings(self, bot_id: str) -> builtins.list[BotProjectBinding]:
         with self._session("list_project_bindings") as session:
             stmt = (
                 select(SqlBotProjectBinding)

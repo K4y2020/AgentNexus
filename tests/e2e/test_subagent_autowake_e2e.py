@@ -132,12 +132,16 @@ def _sys_session_send_tool_call(
     child_args: str,
     *,
     call_id: str = "call_1",
+    new_task_reason: str | None = None,
 ) -> dict:
     """Build a tool_calls response entry for ``sys_session_send``."""
+    arguments = {"agent": agent, "title": title, "args": child_args}
+    if new_task_reason is not None:
+        arguments["new_task_reason"] = new_task_reason
     return {
         "call_id": call_id,
         "name": "sys_session_send",
-        "arguments": json.dumps({"agent": agent, "title": title, "args": child_args}),
+        "arguments": json.dumps(arguments),
     }
 
 
@@ -287,10 +291,16 @@ def test_subagent_completion_auto_wakes_parent_on_a_second_round(
             {"text": "Dispatched, waiting."},
             # Round 1: parent auto-wake continuation
             {"text": f"Round 1 result: {_RESEARCHER_MARKER}"},
-            # Round 2: dispatch
+            # Round 2: dispatch. A second child of the same agent is independent
+            # work, which the send gate requires the parent to declare.
             {
                 "tool_calls": [
-                    _sys_session_send_tool_call("researcher", "round2", "Research round 2"),
+                    _sys_session_send_tool_call(
+                        "researcher",
+                        "round2",
+                        "Research round 2",
+                        new_task_reason="Round 2 is a separate research task.",
+                    ),
                 ],
             },
             {"text": "Re-dispatched, waiting."},

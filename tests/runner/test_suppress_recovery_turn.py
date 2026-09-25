@@ -79,7 +79,7 @@ class _HistoryServerClient:
         del kwargs
         if url.rstrip("/").endswith("/items"):
             return self._Resp(_ITEMS_PAGE)
-        return self._Resp({})
+        return self._Resp({"model_override": None})
 
     async def post(self, url: str, **kwargs: Any) -> _Resp:
         del url, kwargs

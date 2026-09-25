@@ -15,7 +15,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 def test_serialized_transcript_is_explicitly_qualified(tmp_path):
-    json_text, plain_text = MODULE.serialize_transcript(
+    json_text, plain_text, srt_text = MODULE.serialize_transcript(
         [SimpleNamespace(start=1.25, end=2.5, text=" 你好 ")],
         media=tmp_path / "source.mp4",
         model="small",
@@ -24,6 +24,7 @@ def test_serialized_transcript_is_explicitly_qualified(tmp_path):
     assert '"verbatim_certified": false' in json_text
     assert "qualified, not manually verified verbatim" in plain_text
     assert "[0001.250-0002.500] 你好" in plain_text
+    assert "00:00:01,250 --> 00:00:02,500" in srt_text
 
 
 def test_asr_rejects_paths_outside_topic(tmp_path):

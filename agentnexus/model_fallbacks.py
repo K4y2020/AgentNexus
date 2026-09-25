@@ -1,9 +1,8 @@
 """Owned static model tables for Smart Routing.
 
-Pre-launch picker listings carry no static stand-ins anymore — the live
-harness probes (see ``omnigent.host.connect``) are their source of truth.
-What remains here is the router's operational data: rankings, arm menus,
-and probed exclusions that no discovery API can provide.
+Most pre-launch picker listings use live harness probes. Native CLIs without
+model discovery retain release-curated stand-ins here, with ownership and
+discovery gaps recorded beside the router's rankings and arm menus.
 """
 
 from __future__ import annotations
@@ -21,6 +20,97 @@ class StaticModelFallback:
     owner: str
     provenance: str
     discovery_gap: str
+
+
+# These native CLIs do not expose a model discovery command to the host.
+# Keep their picker stand-ins here with explicit ownership until a live probe
+# is available; the host must never infer them from an unrelated provider.
+_ANTIGRAVITY_PICKER = StaticModelFallback(
+    model_ids=(
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+    ),
+    owner="Antigravity native launch picker (agentnexus.host.connect)",
+    provenance="release-curated Antigravity CLI model choices",
+    discovery_gap="the Antigravity CLI has no host-side model listing command",
+)
+ANTIGRAVITY_PICKER_MODELS = _ANTIGRAVITY_PICKER.model_ids
+
+_CODEBUDDY_PICKER = StaticModelFallback(
+    model_ids=(
+        "auto",
+        "hy4-preview",
+        "hy3-x",
+        "hy3",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash",
+        "glm-5.3",
+        "glm-5.3-flash",
+        "glm-5.2",
+        "glm-5.1",
+        "glm-5v-turbo",
+        "kimi-k3-2",
+        "kimi-k2.7",
+        "kimi-k2.6",
+        "kimi-k2.5",
+        "minimax-m3-pay",
+    ),
+    owner="Codebuddy native launch picker (agentnexus.host.connect)",
+    provenance="release-curated Codebuddy CLI model choices",
+    discovery_gap="the Codebuddy CLI has no host-side model listing command",
+)
+CODEBUDDY_PICKER_MODELS = _CODEBUDDY_PICKER.model_ids
+
+# Stand-ins served only when the live listing comes back empty, so the picker
+# still offers launchable choices.
+_PI_PICKER = StaticModelFallback(
+    model_ids=("auto", "claude-sonnet-5", "gpt-5.6-sol"),
+    owner="Pi native launch picker (agentnexus.host.connect)",
+    provenance="release-curated Pi model choices",
+    discovery_gap="Pi lists models only after a provider is configured on the host",
+)
+PI_PICKER_MODELS = _PI_PICKER.model_ids
+
+_CURSOR_PICKER = StaticModelFallback(
+    model_ids=("auto-smart", "composer-2.5", "gpt-5.6-sol", "claude-sonnet-5"),
+    owner="Cursor native launch picker (agentnexus.host.connect)",
+    provenance="release-curated cursor-agent model choices",
+    discovery_gap="`cursor-agent models` fails when the CLI is missing or signed out",
+)
+CURSOR_PICKER_MODELS = _CURSOR_PICKER.model_ids
+
+# Alias defaults for an Anthropic gateway added from the web UI with at most one
+# model: the tier aliases first, then Claude ids the proxy serves via other models.
+_ANTHROPIC_GATEWAY_ALIAS_TARGETS = StaticModelFallback(
+    model_ids=(
+        "claude-sonnet-5",
+        "claude-opus-5",
+        "claude-haiku-4-5",
+        "claude-fable-5",
+        "claude-opus-4-6-thinking",
+        "gpt-5.6-terra",
+        "gpt-5.6-sol",
+    ),
+    owner="Anthropic gateway creation (agentnexus.server.routes.gateways)",
+    provenance="release-curated alias targets for Anthropic-compatible proxy gateways",
+    discovery_gap="a gateway's /v1/models listing does not say which id backs each alias",
+)
+_ANTHROPIC_GATEWAY_REMAPPED_IDS = StaticModelFallback(
+    model_ids=("claude-opus-4-8", "claude-haiku-4-5", "claude-fable-5"),
+    owner="Anthropic gateway creation (agentnexus.server.routes.gateways)",
+    provenance="Claude Code model ids the proxy serves through other backing models",
+    discovery_gap="a gateway's /v1/models listing does not say which id backs each alias",
+)
+#: ``(alias, target)`` pairs in the order the gateway form applies them.
+ANTHROPIC_GATEWAY_DEFAULT_ALIASES: tuple[tuple[str, str], ...] = tuple(
+    zip(
+        ("sonnet", "opus", "haiku", "fable", *_ANTHROPIC_GATEWAY_REMAPPED_IDS.model_ids),
+        _ANTHROPIC_GATEWAY_ALIAS_TARGETS.model_ids,
+        strict=True,
+    )
+)
 
 
 #: Curated preference ORDER for codex's current arms — a ranking hint only

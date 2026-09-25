@@ -49,7 +49,8 @@ class CineJevJudgeTool(Tool):
             "yes/no probabilities (noul), and rubric scores. Use for film-language judgments: "
             "script dialogue quality gates, storyboard-script alignment checks, and video prompt "
             "conflict detection. State is text or structured JSON only: JEV cannot see images, "
-            "audio, or video, so do not use it as a visual evidence receipt. Questions are evaluated in parallel "
+            "audio, or video, so do not use it as a visual evidence receipt. Questions are "
+            "evaluated in parallel "
             "(~150ms); adding questions does not add latency. NOT for generating prose — "
             "use the main model for writing."
         )

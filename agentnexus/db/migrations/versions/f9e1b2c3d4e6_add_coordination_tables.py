@@ -43,6 +43,12 @@ def _workspace_id() -> sa.Column:
     )
 
 
+def _json_text(name: str, default: str) -> sa.Column:
+    """MySQL cannot assign a literal default to a TEXT column."""
+    mysql = op.get_bind().dialect.name == "mysql"
+    return sa.Column(name, sa.Text(), nullable=False, server_default=None if mysql else default)
+
+
 def _table_exists(name: str) -> bool:
     return sa.inspect(op.get_bind()).has_table(name)
 
@@ -193,6 +199,7 @@ def _ensure_table(
     unique: bool = False,
     sqlite_where: sa.TextClause | None = None,
     postgresql_where: sa.TextClause | None = None,
+    mysql_length: dict[str, int] | None = None,
 ) -> None:
     """Create ``name`` if absent, otherwise migrate a legacy equivalent."""
     if not _table_exists(name):
@@ -220,6 +227,8 @@ def _ensure_table(
             kwargs["sqlite_where"] = sqlite_where
         if postgresql_where is not None:
             kwargs["postgresql_where"] = postgresql_where
+        if mysql_length is not None:
+            kwargs["mysql_length"] = mysql_length
         op.create_index(index_name, name, index_columns, **kwargs)
 
 
@@ -233,8 +242,8 @@ def _coordination_tables() -> None:
             sa.Column("root_session_id", sa.String(length=128), nullable=False),
             sa.Column("template", sa.String(length=64), nullable=False),
             sa.Column("status", sa.String(length=32), nullable=False),
-            sa.Column("budget_json", sa.Text(), nullable=False, server_default="{}"),
-            sa.Column("metadata_json", sa.Text(), nullable=False, server_default="{}"),
+            _json_text("budget_json", "{}"),
+            _json_text("metadata_json", "{}"),
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
         ],
@@ -251,8 +260,8 @@ def _coordination_tables() -> None:
             sa.Column("status", sa.String(length=32), nullable=False),
             sa.Column("assignee_session_id", sa.String(length=128), nullable=True),
             sa.Column("assignee_role", sa.String(length=64), nullable=True),
-            sa.Column("dependencies_json", sa.Text(), nullable=False, server_default="[]"),
-            sa.Column("artifacts_json", sa.Text(), nullable=False, server_default="[]"),
+            _json_text("dependencies_json", "[]"),
+            _json_text("artifacts_json", "[]"),
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
         ],
@@ -274,8 +283,8 @@ def _coordination_tables() -> None:
             sa.Column("recipient_role", sa.String(length=64), nullable=True),
             sa.Column("kind", sa.String(length=16), nullable=False),
             sa.Column("intent", sa.String(length=64), nullable=False),
-            sa.Column("payload_json", sa.Text(), nullable=False, server_default="{}"),
-            sa.Column("artifacts_json", sa.Text(), nullable=False, server_default="[]"),
+            _json_text("payload_json", "{}"),
+            _json_text("artifacts_json", "[]"),
             sa.Column("correlation_id", sa.String(length=128), nullable=True),
             sa.Column("in_reply_to", sa.String(length=128), nullable=True),
             sa.Column("idempotency_key", sa.String(length=128), nullable=True),
@@ -355,7 +364,7 @@ def _coordination_tables() -> None:
             sa.Column("task_id", sa.String(length=64), nullable=True),
             sa.Column("actor_session_id", sa.String(length=128), nullable=True),
             sa.Column("event_type", sa.String(length=64), nullable=False),
-            sa.Column("payload_json", sa.Text(), nullable=False, server_default="{}"),
+            _json_text("payload_json", "{}"),
             sa.Column("created_at", sa.Float(), nullable=False),
         ],
         [("idx_coord_events_root", ["workspace_id", "root_session_id", "created_at"])],
@@ -376,6 +385,8 @@ def _coordination_tables() -> None:
             sa.Column("updated_at", sa.Float(), nullable=False),
         ],
         [("ix_workspace_leases_path", ["workspace_id", "workspace_path", "status"])],
+        # A full 2048-char utf8mb4 path exceeds MySQL's 3072-byte index key limit.
+        mysql_length={"workspace_path": 512},
     )
 
 

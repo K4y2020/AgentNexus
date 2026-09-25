@@ -42,7 +42,9 @@ def register_cine_review_routes(router, validate_session, read_host):
             {"production": production} if production else {},
         )
 
-    @router.api_route("/sessions/{session_id}/cine-review/assets/{asset}", methods=["GET", "HEAD"])
+    # Separate routes give GET and HEAD distinct, stable OpenAPI operation ids.
+    @router.get("/sessions/{session_id}/cine-review/assets/{asset}")
+    @router.head("/sessions/{session_id}/cine-review/assets/{asset}")
     async def media(request: Request, session_id: str, asset: str, token: str):
         params = {"asset": asset, "token": token}
         info = await read(request, session_id, params)

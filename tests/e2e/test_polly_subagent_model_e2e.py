@@ -13,7 +13,8 @@ Four scenarios:
    in one turn, each with a different explicit ``args.model``; the server
    persists exactly the requested ``model_override`` on every child row.
 2. **Cross-family reject**: a deliberate GPT-model dispatch to ``claude_code``
-   must fail loud at the tool boundary and create no child.
+   (pinned to the Claude-only ``claude-native`` harness) must fail loud at the
+   tool boundary and create no child.
 3. **List then dispatch**: the mock brain calls ``sys_list_models``, receives
    the runtime catalog, then dispatches pi on a Claude-family id from the list.
 4. **Canonical ID localization**: a canonical vendor id (``claude-opus-4-8``)
@@ -43,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from tests.e2e.test_polly_e2e import (
     _MOCK_BRAIN_MODEL,
@@ -93,6 +95,20 @@ def _api(base_url: str, path: str) -> dict[str, Any]:
     """
     with urllib.request.urlopen(f"{base_url}{path}", timeout=15) as resp:
         return json.load(resp)
+
+
+def _set_worker_harness(polly_dir: Path, worker: str, harness: str) -> None:
+    """
+    Pin one sub-agent of the copied polly bundle to *harness*.
+
+    :param polly_dir: The copied polly bundle.
+    :param worker: Sub-agent directory name, e.g. ``"claude_code"``.
+    :param harness: Harness id to write, e.g. ``"claude-native"``.
+    """
+    config_path = polly_dir / "agents" / worker / "config.yaml"
+    spec = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    spec.setdefault("executor", {}).setdefault("config", {})["harness"] = harness
+    config_path.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
 
 
 @pytest.fixture
@@ -338,6 +354,10 @@ def test_polly_rejects_cross_family_model_dispatch(
     error string as the tool result), and the mock brain echoes that error in
     its final text reply. The test confirms no child session was created.
 
+    The shipped worker runs on ``claude-sdk``, whose configured gateway owns the
+    model vocabulary, so the test pins it to ``claude-native``, which keeps the
+    Claude-only guard.
+
     :param local_polly_server: Base URL of the in-tree local server fixture.
     :param mock_llm_server_url: Mock LLM server base URL.
     :param tmp_path: Per-test temp dir for the mock polly spec copy.
@@ -346,6 +366,7 @@ def test_polly_rejects_cross_family_model_dispatch(
 
     reset_mock_llm(mock_llm_server_url)
     polly_dir = _mock_polly_spec_dir(tmp_path, mock_llm_server_url)
+    _set_worker_harness(polly_dir, "claude_code", "claude-native")
     tag = uuid.uuid4().hex[:8]
 
     # First response: a GPT model dispatched to claude_code (family violation).
@@ -392,9 +413,11 @@ def test_polly_rejects_cross_family_model_dispatch(
     parent = _polly_parent_id(local_polly_server)
     items = _api(local_polly_server, f"/v1/sessions/{parent}/items").get("data", [])
     transcript = json.dumps(items)
-    # The fail-loud rule text must surface in the turn (tool output).
-    assert "only runs Claude models" in transcript, (
-        "family-guard rejection text not found in the parent transcript; "
+    # The fail-loud rule text must come from the tool output, not the brain's
+    # scripted echo.
+    tool_outputs = json.dumps([i for i in items if i.get("type") == "function_call_output"])
+    assert "only runs Claude models" in tool_outputs, (
+        "family-guard rejection text not found in the parent's tool output; "
         f"last items: {transcript[-600:]!r}"
     )
 

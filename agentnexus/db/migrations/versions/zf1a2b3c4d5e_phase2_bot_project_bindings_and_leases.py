@@ -64,6 +64,8 @@ def upgrade() -> None:
         "computer_execution_leases",
         ["workspace_id", "path", "expires_at"],
         unique=False,
+        # A full 2048-char utf8mb4 path exceeds MySQL's 3072-byte index key limit.
+        mysql_length={"path": 512},
     )
     op.create_index(
         "ix_computer_execution_leases_run",

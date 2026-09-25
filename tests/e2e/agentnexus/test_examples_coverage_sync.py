@@ -109,6 +109,9 @@ _ALT_COVERED: frozenset[str] = frozenset(
         "deep-research",
         # Covered by tests/e2e/agentnexus/test_repl_overview_terminal_visibility.py.
         "terminal_workers",
+        # Covered by tests/test_cine_bundle.py (spec load) and the bundle's
+        # own examples/cine/tests suite.
+        "cine",
         # Pre-existing coverage gaps — ``chat_model`` is exercised
         # by ``web/``'s integration flow (``web/README.md`` leads
         # the dev-server README with it) and ``coding_supervisor_openai``

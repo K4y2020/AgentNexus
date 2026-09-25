@@ -171,7 +171,7 @@ def test_scan_ignores_tests(tmp_path: Path) -> None:
 
 
 def test_precommit_trigger_matches_scan_surface() -> None:
-    config = yaml.safe_load(Path(".pre-commit-config.yaml").read_text())
+    config = yaml.safe_load(Path(".pre-commit-config.yaml").read_text(encoding="utf-8"))
     hook = next(
         hook
         for repo in config["repos"]
@@ -182,7 +182,9 @@ def test_precommit_trigger_matches_scan_surface() -> None:
     global_exclude_pattern = re.compile(config["exclude"])
     hook_exclude_pattern = re.compile(hook["exclude"])
     tracked_paths = {
-        Path(path) for path in subprocess.check_output(["git", "ls-files"]).decode().splitlines()
+        Path(path)
+        for path in subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
+        if path
     }
     triggered_paths = {
         path

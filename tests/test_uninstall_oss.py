@@ -309,7 +309,8 @@ def test_uninstall_script_toml_config_and_launch_agent_reporting(tmp_path: Path)
     home.mkdir()
     config = tmp_path / "config.toml"
     config.write_text(
-        '[mcp_servers.agentnexus]\ncommand = "agentnexus"\n\n[mcp_servers.other]\ncommand = "other"\n'
+        '[mcp_servers.agentnexus]\ncommand = "agentnexus"\n\n'
+        '[mcp_servers.other]\ncommand = "other"\n'
     )
     launch_agent = tmp_path / "ai.agentnexus.plist"
     launch_agent.write_text("plist\n")

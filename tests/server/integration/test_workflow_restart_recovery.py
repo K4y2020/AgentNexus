@@ -94,21 +94,26 @@ def _build_app(db_uri: str, tmp_path: Path, suffix: str) -> FastAPI:
 
 def _seed_coordination_tree(app: FastAPI) -> tuple[object, object, object, object]:
     store = app.state.conversation_store
-    root = store.create_conversation(title="restart-root")
+    # The dispatcher only delivers to runner-bound sessions; the fake router serves them.
+    runner_id = "runner_restart_recovery"
+    root = store.create_conversation(title="restart-root", runner_id=runner_id)
     planner = store.create_conversation(
         parent_conversation_id=root.id,
         kind="sub_agent",
         title="planner:restart",
+        runner_id=runner_id,
     )
     implementer = store.create_conversation(
         parent_conversation_id=root.id,
         kind="sub_agent",
         title="implementer:restart",
+        runner_id=runner_id,
     )
     reviewer = store.create_conversation(
         parent_conversation_id=root.id,
         kind="sub_agent",
         title="reviewer:restart",
+        runner_id=runner_id,
     )
     return root, planner, implementer, reviewer
 
@@ -167,6 +172,15 @@ async def test_server_restart_recovers_torn_dispatch_and_never_replays_consumed(
     monkeypatch.setattr(
         "agentnexus.server.routes._sessions.common.get_server_runner_router",
         lambda: fake_router,
+    )
+
+    async def _relay_ready(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    # The fake runner serves no SSE relay; delivery waits on one before posting.
+    monkeypatch.setattr(
+        "agentnexus.server.routes._sessions.orchestration._ensure_runner_relay_ready",
+        _relay_ready,
     )
 
     second_app = _build_app(db_uri, tmp_path, "second")

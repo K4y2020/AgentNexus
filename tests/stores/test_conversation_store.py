@@ -743,6 +743,7 @@ def test_append_error_item_round_trips_for_history(
         "source": "execution",
         "code": "native_terminal_start_failed",
         "message": "Native Codex requires the 'codex' CLI on PATH.",
+        "layer": "harness",
     }
 
 

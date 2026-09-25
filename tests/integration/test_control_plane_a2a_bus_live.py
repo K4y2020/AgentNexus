@@ -9,6 +9,7 @@ path is wired beyond the server unit boundary.
 
 from __future__ import annotations
 
+import shutil
 import time
 import uuid
 from typing import Any
@@ -510,6 +511,9 @@ def test_live_a2a_workflow_crosses_harness_families(
     """
     if mock_llm_server_url is None:
         pytest.skip("cross-harness A2A requires the mock LLM server")
+    # The wrapped codex implementer runs ``codex app-server``; CI does not install it.
+    if shutil.which("codex") is None:
+        pytest.skip("cross-harness A2A needs the codex CLI for the implementer stage")
     planner_model = f"claude-planner-{uuid.uuid4().hex[:8]}"
     implementer_model = "gpt-5.6-sol"
     reviewer_model = f"claude-reviewer-{uuid.uuid4().hex[:8]}"

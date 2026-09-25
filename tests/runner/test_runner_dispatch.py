@@ -3856,9 +3856,9 @@ async def test_sys_session_send_model_rejected_for_unplumbed_harness(
         ),
         pytest.param(
             "codex-native",
-            "databricks-claude-sonnet-4-6",
+            "databricks-bge-large-en",
             "only runs codex-compatible models",
-            id="claude-on-codex",
+            id="unknown-family-on-codex",
         ),
         pytest.param(
             "claude-native",
@@ -5942,6 +5942,67 @@ async def test_session_peek_returns_chronological_projected_items() -> None:
         ("user", "where is the bug"),
         ("assistant", "found it"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_session_peek_pages_past_per_turn_metadata_items() -> None:
+    """
+    ``model_fact`` / ``routing_decision`` items carry no content, so the peek
+    pages past them: ``tail_items=1`` still returns the child's final message.
+    """
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
+
+    newest_first: list[dict[str, object]] = [
+        {"id": "i4", "type": "model_fact", "harness": "openai-agents"},
+        {
+            "id": "i3",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": "found it"}],
+        },
+        {"id": "i2", "type": "routing_decision"},
+        {
+            "id": "i1",
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": "where is the bug"}],
+        },
+    ]
+    ids = [item["id"] for item in newest_first]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/sessions/conv_target/items":
+            after = request.url.params.get("after")
+            start = 0 if after is None else ids.index(after) + 1
+            end = start + int(request.url.params["limit"])
+            page = newest_first[start:end]
+            return httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": page,
+                    "last_id": page[-1]["id"] if page else None,
+                    "has_more": end < len(newest_first),
+                },
+            )
+        if request.url.path == "/v1/sessions/conv_target":
+            return httpx.Response(200, json={"id": "conv_target", "title": "researcher:auth"})
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    async def peek(tail_items: int) -> list[tuple[object, object]]:
+        async with _session_query_client(handler) as client:
+            out = json.loads(
+                await _execute_session_query_tool(
+                    "sys_session_get_history",
+                    json.dumps({"conversation_id": "conv_target", "tail_items": tail_items}),
+                    conversation_id="conv_caller",
+                    server_client=client,
+                )
+            )
+        return [(i["role"], i["text"]) for i in out["items"]]
+
+    assert await peek(1) == [("assistant", "found it")]
+    assert await peek(2) == [("user", "where is the bug"), ("assistant", "found it")]
 
 
 _REST_HISTORY_CONTENT_SCENARIOS = [
@@ -10734,12 +10795,16 @@ async def _contract_run_background(
     )
     assert resp.status_code == 202, resp.text
     await _await_bg_turn_task(conv)
+    instructions = (
+        recording.posted_bodies[-1].get("instructions") if recording.posted_bodies else None
+    )
+    if isinstance(instructions, str):
+        # The background turn appends teammate memory after the resolved spec prompt.
+        instructions = instructions.split("\n\n<teammate_memories>", 1)[0]
     return {
         "status": resp.status_code,
         "terminal_status": None,  # populated by the caller with app.state access
-        "instructions": (
-            recording.posted_bodies[-1].get("instructions") if recording.posted_bodies else None
-        ),
+        "instructions": instructions,
     }
 
 

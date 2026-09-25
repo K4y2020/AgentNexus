@@ -127,7 +127,7 @@ class TelemetryConfig:
 class _TelemetryData(TypedDict):
     event_name: str
     session_id: str
-    omnigent_version: str
+    agentnexus_version: str
     schema_version: int
     python_version: str
     operating_system: str

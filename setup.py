@@ -78,10 +78,19 @@ class _GenerateBuildInfo(build_py):
         an installed wheel. Editable installs (``uv sync``) resolve the
         in-checkout symlink directly and don't need this.
         """
+        import os
         import shutil
 
         root = Path(__file__).resolve().parent
         dest_root = Path(self.build_lib) / "agentnexus" / "resources" / "examples"
+        if os.environ.get("AGENTNEXUS_SKIP_BUNDLED_EXAMPLES") == "true":
+            for name in ("debby", "polly"):
+                dst = dest_root / name
+                if dst.is_symlink() or dst.is_file():
+                    dst.unlink()
+                elif dst.is_dir():
+                    shutil.rmtree(dst)
+            return
         for name in ("debby", "polly"):
             src = root / "examples" / name
             if not src.is_dir():

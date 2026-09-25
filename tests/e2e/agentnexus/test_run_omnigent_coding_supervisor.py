@@ -349,7 +349,7 @@ def test_run_omnigent_coding_supervisor_spawns_codex_worker_to_list_files(
     reset_mock_llm(mock_llm_server_url)
     configure_mock_llm(
         mock_llm_server_url,
-        [{"text": "openapi.json omnigent pyproject.toml"}],
+        [{"text": "openapi.json agentnexus pyproject.toml"}],
     )
 
     yaml_path = omnigent_repo_root / _YAML_PATH_REL
