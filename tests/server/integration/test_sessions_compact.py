@@ -138,16 +138,16 @@ async def test_compact_skips_omnigent_compaction_when_runner_handles_it(
     )
 
 
-async def test_compact_returns_error_when_runner_noops(
+async def test_compact_falls_back_to_server_checkpoint_when_runner_noops(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    A 204 from the runner (SDK harness) surfaces a clear 400 error.
+    A 204 from the runner (SDK harness) falls through to the server checkpoint.
 
-    SDK harnesses own their own context; the server cannot compact on their
-    behalf. The 204 no-op signals "not handled here" and the server must
-    reject the request rather than attempting AP-side compaction.
+    The runner still sees the forwarded control first. A conversation too
+    short to compact is reported as already compact, never run through the
+    in-process LLM compaction.
     """
     from agentnexus.runtime import set_runner_client
 
@@ -172,21 +172,18 @@ async def test_compact_returns_error_when_runner_noops(
         await runner.aclose()
         set_runner_client(None)
 
-    assert resp.status_code == 400, resp.text
-    assert "/compact is not available" in resp.text
-    # Control was still forwarded before the error.
+    assert resp.status_code == 202, resp.text
+    assert resp.json() == {"queued": False, "message": "Conversation is already compact"}
     assert captured == [{"type": "compact"}], (
-        f"AP server must forward compact to the runner before returning the error; "
-        f"got {captured!r}."
+        f"AP server must forward compact to the runner before checkpointing; got {captured!r}."
     )
 
 
-async def test_compact_sdk_harness_no_runner_returns_not_available(
+async def test_compact_sdk_harness_no_runner_checkpoints_on_the_server(
     client: httpx.AsyncClient,
 ) -> None:
     """
-    A compact request for an SDK-harness session with no runner returns a
-    clear 400 "not available for this session type" error.
+    An SDK-harness session with no runner is compacted by the server checkpoint.
     """
     agent = await create_test_agent(
         client,
@@ -201,8 +198,8 @@ async def test_compact_sdk_harness_no_runner_returns_not_available(
         json={"type": "compact", "data": {}},
     )
 
-    assert resp.status_code == 400, resp.text
-    assert "/compact is not available" in resp.text
+    assert resp.status_code == 202, resp.text
+    assert resp.json() == {"queued": False, "message": "Conversation is already compact"}
 
 
 async def test_compact_errors_when_runner_injection_fails(

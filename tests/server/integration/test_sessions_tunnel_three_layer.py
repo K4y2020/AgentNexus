@@ -1268,6 +1268,7 @@ async def test_on_runner_connect_clears_disconnect_failure_on_idle_reconnect(
     assert sessions_module._last_task_error_from_labels(conv.labels) == {
         "code": "runner_disconnected",
         "message": "Runner disconnected unexpectedly.",
+        "layer": "runner",
     }
     assert sessions_module._session_status_cache.get(session_id) == "failed"
 
@@ -1325,6 +1326,7 @@ async def test_on_runner_connect_preserves_genuine_failure_on_reconnect(
             assert sessions_module._last_task_error_from_labels(survived.labels) == {
                 "code": "runner_error",
                 "message": "Turn failed: agent raised.",
+                "layer": "runner",
             }
     finally:
         sessions_module._session_status_cache.pop(session_id, None)
@@ -1609,6 +1611,7 @@ async def test_on_runner_disconnect_spares_idle_sessions_and_labels_interrupted_
         assert sessions_module._last_task_error_from_labels(running_conv.labels) == {
             "code": "runner_disconnected",
             "message": "Runner disconnected unexpectedly.",
+            "layer": "runner",
         }
 
         # The idle session had no turn to fail: status and labels untouched.

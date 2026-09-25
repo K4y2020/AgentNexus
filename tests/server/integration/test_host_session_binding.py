@@ -25,6 +25,7 @@ from agentnexus.host.frames import (
     decode_host_frame,
     encode_host_frame,
 )
+from agentnexus.host.identity import MANAGED_HOST_TOKEN_HEADER
 from agentnexus.runtime.agent_cache import AgentCache
 from agentnexus.server.app import create_app
 from agentnexus.server.auth import RESERVED_USER_LOCAL
@@ -337,7 +338,7 @@ async def _fake_sandbox_host(
     from agentnexus.runner.identity import token_bound_runner_id
 
     scope = _websocket_scope(f"/v1/hosts/{host_id}/tunnel")
-    scope["headers"] = [(b"x-omnigent-host-token", token.encode("ascii"))]
+    scope["headers"] = [(MANAGED_HOST_TOKEN_HEADER.lower().encode(), token.encode("ascii"))]
     comm = ApplicationCommunicator(app, scope)
     await comm.send_input({"type": "websocket.connect"})
     accepted = await comm.receive_output(timeout=5.0)
