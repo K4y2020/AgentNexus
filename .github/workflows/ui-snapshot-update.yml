@@ -126,11 +126,15 @@ jobs:
         # updates only drifting/missing PNGs in place. The first run may therefore
         # fail by design. The second must pass, distinguishing expected baseline
         # updates from Storybook/index/server/render failures.
+        # --ignore-size-diff on the first run only: without it the plugin raises
+        # on a resized render before the in-place update, so resized baselines
+        # could never regenerate. The strict second run still verifies them.
         run: |
           uv run pytest tests/e2e_ui/visual -m visual \
             -v --tb=long --log-level=INFO -r a \
             -p no:rerunfailures \
-            --ui-skip-build || true
+            --ui-skip-build \
+            --ignore-size-diff || true
           uv run pytest tests/e2e_ui/visual -m visual \
             -v --tb=long --log-level=INFO -r a \
             -p no:rerunfailures \
