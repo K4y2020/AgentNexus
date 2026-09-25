@@ -199,6 +199,7 @@ def _ensure_table(
     unique: bool = False,
     sqlite_where: sa.TextClause | None = None,
     postgresql_where: sa.TextClause | None = None,
+    mysql_length: dict[str, int] | None = None,
 ) -> None:
     """Create ``name`` if absent, otherwise migrate a legacy equivalent."""
     if not _table_exists(name):
@@ -226,6 +227,8 @@ def _ensure_table(
             kwargs["sqlite_where"] = sqlite_where
         if postgresql_where is not None:
             kwargs["postgresql_where"] = postgresql_where
+        if mysql_length is not None:
+            kwargs["mysql_length"] = mysql_length
         op.create_index(index_name, name, index_columns, **kwargs)
 
 
@@ -382,6 +385,8 @@ def _coordination_tables() -> None:
             sa.Column("updated_at", sa.Float(), nullable=False),
         ],
         [("ix_workspace_leases_path", ["workspace_id", "workspace_path", "status"])],
+        # A full 2048-char utf8mb4 path exceeds MySQL's 3072-byte index key limit.
+        mysql_length={"workspace_path": 512},
     )
 
 

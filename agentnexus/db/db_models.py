@@ -416,7 +416,14 @@ class SqlComputerExecutionLease(AgentNexusBase):
     created_at: Mapped[float] = mapped_column(Float, nullable=False)
 
     __table_args__ = (
-        Index("ix_computer_execution_leases_path", "workspace_id", "path", "expires_at"),
+        # MySQL caps index keys at 3072 bytes, so index a prefix of the long path there.
+        Index(
+            "ix_computer_execution_leases_path",
+            "workspace_id",
+            "path",
+            "expires_at",
+            mysql_length={"path": 512},
+        ),
         Index("ix_computer_execution_leases_run", "workspace_id", "run_id"),
     )
 
@@ -1971,7 +1978,14 @@ class SqlWorkspaceLease(AgentNexusBase):
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
     __table_args__ = (
-        Index("ix_workspace_leases_path", "workspace_id", "workspace_path", "status"),
+        # MySQL caps index keys at 3072 bytes, so index a prefix of the long path there.
+        Index(
+            "ix_workspace_leases_path",
+            "workspace_id",
+            "workspace_path",
+            "status",
+            mysql_length={"workspace_path": 512},
+        ),
     )
 
 

@@ -39,12 +39,12 @@ def upgrade() -> None:
         )
         if mysql:
             op.execute(sa.text("UPDATE coordination_tasks SET acceptance_json = '[]'"))
-            op.alter_column(
-                "coordination_tasks",
-                "acceptance_json",
-                existing_type=sa.Text(),
-                nullable=False,
-            )
+            with op.batch_alter_table("coordination_tasks") as batch_op:
+                batch_op.alter_column(
+                    "acceptance_json",
+                    existing_type=sa.Text(),
+                    nullable=False,
+                )
     if "deadline" not in existing:
         op.add_column(
             "coordination_tasks",
