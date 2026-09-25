@@ -141,16 +141,17 @@ def test_build_helper_env_appends_tool_paths(
     :returns: None.
     """
     parent = {"PATH": os.pathsep.join(["/usr/bin", "/opt/tools"])}
+    # Drive-letter paths would split on ``:`` (os.pathsep) when this runs on POSIX.
     monkeypatch.setattr(
         "agentnexus.inner.os_env._windows_tool_paths",
-        lambda: ["C:\\tools\\uv", "C:\\tools\\ffmpeg", "/opt/tools"],
+        lambda: ["/tools/uv", "/tools/ffmpeg", "/opt/tools"],
     )
     env = build_helper_env(parent, _inactive_policy())
     entries = env["PATH"].split(os.pathsep)
     assert "/usr/bin" in entries
     assert "/opt/tools" in entries
-    assert "C:\\tools\\uv" in entries
-    assert "C:\\tools\\ffmpeg" in entries
+    assert "/tools/uv" in entries
+    assert "/tools/ffmpeg" in entries
     assert entries.count("/opt/tools") == 1
 
 

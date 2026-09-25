@@ -68,7 +68,9 @@ def _assert_static_key_auth(joined: str, key: str) -> None:
         assert f"printf %s {key}" in joined
 
 
-def test_provider_codex_overrides_coerce_chat_wire_to_responses() -> None:
+def test_provider_codex_overrides_coerce_chat_wire_to_responses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A ``chat`` provider wire is coerced to ``responses`` in the override.
 
     codex >= 0.137 hard-fails config load on ``wire_api="chat"``
@@ -78,6 +80,8 @@ def test_provider_codex_overrides_coerce_chat_wire_to_responses() -> None:
     provider. Failure (a literal ``wire_api="chat"`` line) means a native Codex
     launch would refuse to start.
     """
+    # The static-key helper below is the Windows branch; POSIX keeps ``sh -c``.
+    monkeypatch.setattr(codex_executor.os, "name", "nt")
     overrides = _provider_codex_config_overrides(
         model="qwen/qwen3.7-plus",
         base_url="https://openrouter.ai/api/v1",
