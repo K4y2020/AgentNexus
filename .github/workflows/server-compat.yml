@@ -81,9 +81,10 @@ jobs:
         id: tag
         shell: bash
         run: |
-          # Latest final (non-prerelease) tag by version sort.
+          # Latest final (non-prerelease) tag by version sort. grep exits 1 when
+          # the repo has no tags; `|| true` keeps pipefail from skipping the check below.
           tag=$(git tag --sort=-v:refname \
-            | grep -viE '(^|[^a-z])(rc|dev|pre)[0-9]' \
+            | { grep -viE '(^|[^a-z])(rc|dev|pre)[0-9]' || true; } \
             | head -1)
           if [ -z "$tag" ]; then
             echo "No stable release tag found; skipping compat smoke." >&2
