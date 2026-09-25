@@ -167,6 +167,118 @@ function intangibleCharacters(ctx) {
   return out;
 }
 
+const aliasesOf = (c) => (Array.isArray(c?.aliases) ? c.aliases : []);
+const wordOf = (w) => (typeof w === 'string' ? w.trim() : '');
+
+/**
+ * cast.json 的卡对应哪个大纲编号。cast 的 id 本身就是大纲编号时直接用；否则先按名字、
+ * 再按名字与别名唯一对上一个大纲角色——cast 的 id 可以是另一套编号（如 R01），也可以省略。
+ * 对不上或对上多个时不猜，记 null。没给大纲时，cast 自己的 id 就是编号。
+ */
+function castOutlineLinks(ctx) {
+  const outlineChars = (ctx.outline?.characters ?? []).filter((c) => c?.id);
+  const outlineIds = new Set(outlineChars.map((c) => c.id));
+  const byName = new Map();
+  const byWord = new Map();
+  const note = (map, word, id) => {
+    const w = wordOf(word);
+    if (!w) return;
+    if (!map.has(w)) map.set(w, new Set());
+    map.get(w).add(id);
+  };
+  for (const c of outlineChars) {
+    note(byName, c.name, c.id);
+    for (const w of [c.name, ...aliasesOf(c)]) note(byWord, w, c.id);
+  }
+  const lookup = (map, words) => new Set(words.flatMap((w) => [...(map.get(wordOf(w)) ?? [])]));
+  const links = new Map();
+  for (const c of ctx.cast?.characters ?? []) {
+    if (!c || typeof c !== 'object') continue;
+    if (!outlineChars.length) {
+      links.set(c, c.id ?? null);
+    } else if (c.id && outlineIds.has(c.id)) {
+      links.set(c, c.id);
+    } else {
+      const byCardName = lookup(byName, [c.name]);
+      const hits = byCardName.size ? byCardName : lookup(byWord, [c.name, ...aliasesOf(c)]);
+      links.set(c, hits.size === 1 ? [...hits][0] : null);
+    }
+  }
+  return links;
+}
+
+/**
+ * 点名角色用的词表：大纲与 cast.json 里的名字、别名 → 大纲角色编号。
+ * cast 卡经 castOutlineLinks 对回大纲编号；对不上的卡不进词表。
+ * 同一个词指向两个角色时它认不出任何一个，不进词表。长词在前，供最长匹配。
+ */
+function characterNameIndex(ctx, { minLength = 2 } = {}) {
+  const owners = new Map();
+  const claim = (word, id) => {
+    const w = wordOf(word);
+    if (!id || w.length < minLength) return;
+    if (!owners.has(w)) owners.set(w, new Set());
+    owners.get(w).add(id);
+  };
+  for (const c of ctx.outline?.characters ?? []) {
+    for (const w of [c?.name, ...aliasesOf(c)]) claim(w, c?.id);
+  }
+  for (const [c, id] of castOutlineLinks(ctx)) {
+    for (const w of [c.name, ...aliasesOf(c)]) claim(w, id);
+  }
+  return [...owners.entries()]
+    .filter(([, ids]) => ids.size === 1)
+    .map(([name, ids]) => ({ name, id: [...ids][0] }))
+    .sort((a, b) => b.name.length - a.name.length);
+}
+
+/** 文本里点到的角色。长名先匹配并挖掉，「小明妈」不会顺带算成「小明」在场。 */
+function namesMentioned(text, index) {
+  let rest = String(text ?? '');
+  const found = [];
+  for (const entry of index) {
+    if (!rest.includes(entry.name)) continue;
+    found.push(entry);
+    rest = rest.split(entry.name).join('\u0000');
+  }
+  return found;
+}
+
+const AMBIGUOUS = Symbol('ambiguous');
+
+/**
+ * 说话人对账用：剧本写大纲编号，源归属可能是 cast.json 的编号（可以是另一套，如 R01）、
+ * 名字或别名。都归到同一个大纲编号再比。一个 cast 编号、名字或别名对不上唯一的大纲角色时
+ * 标 ambiguous——这句不能拿来判错，只能待复核；完全认不出的值原样比。
+ */
+function speakerResolver(ctx) {
+  const outlineIds = new Set((ctx.outline?.characters ?? []).map((c) => c?.id).filter(Boolean));
+  const claims = new Map();
+  const claim = (word, target) => {
+    const w = wordOf(word);
+    if (!w) return;
+    if (!claims.has(w)) claims.set(w, new Set());
+    claims.get(w).add(target);
+  };
+  for (const c of ctx.outline?.characters ?? []) {
+    if (!c?.id) continue;
+    for (const w of [c.name, ...aliasesOf(c)]) claim(w, c.id);
+  }
+  for (const [c, id] of castOutlineLinks(ctx)) {
+    // 没给大纲、卡也没 id 时，归属按名字记，名字就是它的编号。
+    const target = id ?? (outlineIds.size ? AMBIGUOUS : wordOf(c.name) || AMBIGUOUS);
+    for (const w of [c.id, c.name, ...aliasesOf(c)]) claim(w, target);
+  }
+  return (value) => {
+    const key = wordOf(String(value ?? ''));
+    if (outlineIds.has(key)) return { id: key, ambiguous: false };
+    const targets = claims.get(key);
+    if (!targets) return { id: key, ambiguous: false };
+    if (targets.size === 1 && !targets.has(AMBIGUOUS)) return { id: [...targets][0], ambiguous: false };
+    return { id: key, ambiguous: true };
+  };
+}
+
 /** 同一分句里先点名无实体角色、后出现接触动词，才算它在碰实物；跨分句的人类动作不算。 */
 const touchesMatter = (text, words) => text.split(CLAUSE_SPLIT_RE).some((clause) => {
   const verbAt = clause.search(CONTACT_VERB_RE);
@@ -310,17 +422,10 @@ export function gateReport(doc, ctx = {}) {
     }
   }
 
-  // ---- 对白因果与人物在场逻辑检查 (dialogue-causality) ----
-  const charactersPool = ctx.cast?.characters ?? ctx.outline?.characters ?? [];
-  const charNameMap = new Map();
-  for (const c of charactersPool) {
-    if (c?.id && c?.name) {
-      charNameMap.set(c.name, c.id);
-      for (const a of c.aliases ?? []) {
-        if (typeof a === 'string' && a.length >= 2) charNameMap.set(a, c.id);
-      }
-    }
-  }
+  // ---- 人物在场逻辑检查 (dialogue-causality) ----
+  // 只做确定性的在场对账。台词之间的因果是否成立是语义判断，归 JEV 剧本门
+  // （causal_continuity）——按某个故事的台词关键词写死的规则，换一个故事就误拦或漏拦。
+  const nameIndex = characterNameIndex(ctx);
 
   for (const ep of eps) {
     const label = `第 ${ep?.ep} 集`;
@@ -328,26 +433,14 @@ export function gateReport(doc, ctx = {}) {
       const sLabel = `${label}第 ${sIdx + 1} 场 (${sc?.sceneId ?? '?'})`;
       const sceneCast = new Set(sc?.characters ?? []);
 
-      // 1. 动作节拍里提到的角色必须在场声明里（防止幽灵出场）。
+      // 动作节拍里提到的角色必须在场声明里（防止幽灵出场）。
       // 只看动作不看台词：台词里出现名字往往是在称呼或谈论一个不在场的人
-      // （「听见没？老周哥这一嗓子」——老周本人并不在这场里）。
+      // （「听见没？<某人>这一嗓子」——被点到名的那个人并不在这场里）。
       for (const b of sc?.flow ?? []) {
         if (typeof b?.action !== 'string') continue;
-        for (const [name, id] of charNameMap.entries()) {
-          if (name.length >= 2 && b.action.includes(name) && !sceneCast.has(id)) {
+        for (const { name, id } of namesMentioned(b.action, nameIndex)) {
+          if (!sceneCast.has(id)) {
             bad.causality.push(`${sLabel} 动作出现角色「${name}」，但其 ID「${id}」未声明在本场 characters 列表中`);
-          }
-        }
-      }
-
-      // 2. 检查对白连续因果断裂（如庆祝/邀功后毫无铺垫转折直接出现绝交/指责型否定台词）
-      const flow = sc?.flow ?? [];
-      for (let i = 0; i < flow.length - 1; i++) {
-        const b1 = flow[i];
-        const b2 = flow[i + 1];
-        if (typeof b1?.line === 'string' && typeof b2?.line === 'string') {
-          if (/升官|大赚|发财|立功|中奖/.test(b1.line) && /靠不住|死骗子|绝交|去死/.test(b2.line)) {
-            bad.causality.push(`${sLabel} 对白前后因果异常：[${b1.speaker}]「${b1.line}」后紧接 [${b2.speaker}]「${b2.line}」，因果动机断裂，缺少转折铺垫或拆台桥梁`);
           }
         }
       }
@@ -357,12 +450,13 @@ export function gateReport(doc, ctx = {}) {
   const SKIP_OUTLINE = '未提供 outline.json，本门跳过（视为通过）';
   const SKIP_ART = '未提供 art.json，本门跳过（视为通过）';
   const SKIP_SOURCE = '未提供 source-transcript-attributed.json，本门跳过（视为通过）';
-const SKIP_CAST = '未提供 cast.json，无法识别无实体角色，本门跳过（视为通过）';
+  const SKIP_CAST = '未提供 cast.json，无法识别无实体角色，本门跳过（视为通过）';
 
   const fidelity = ctx.source
-    ? sourceFidelity(ctx.source, eps)
-    : { bad: { order: [], speaker: [], delivery: [], missing: [] }, matched: 0, total: 0 };
+    ? sourceFidelity(ctx.source, eps, ctx)
+    : { bad: { order: [], speaker: [], delivery: [], missing: [], review: [] }, matched: 0, total: 0 };
   const fidelityDetail = [...fidelity.bad.order, ...fidelity.bad.speaker, ...fidelity.bad.delivery].join('；');
+  const unsettled = fidelity.bad.review.length ? `；${fidelity.bad.review.length} 句源归属待复核，未作比对` : '';
 
   add('params-conservative', '时长与质量参数只能保持默认值或收紧', bad.params.length === 0, bad.params.join('；'));
   add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, bad.duration.join('；'));
@@ -377,8 +471,8 @@ const SKIP_CAST = '未提供 cast.json，无法识别无实体角色，本门跳
   add('refs-scenes', '场景／光照／道具对账美术设定', bad.scenes.length === 0, art ? bad.scenes.join('；') : SKIP_ART);
   add('character-states', '每场角色状态完整，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
   add('hologram-physics', '虚像物理：cast.json 标为 hologram/virtual 的角色不与实物接触', bad.physics.length === 0, ctx.cast ? bad.physics.join('；') : SKIP_CAST);
-  add('dialogue-causality', '人物在场声明完整且对白动作具备前后因果', bad.causality.length === 0, bad.causality.join('；'));
-  add('source-fidelity', `台词顺序与说话人对照源片转写（已匹配 ${fidelity.matched}/${fidelity.total} 句）`, fidelityDetail.length === 0, ctx.source ? fidelityDetail : SKIP_SOURCE);
+  add('dialogue-causality', '动作里点名的角色都已声明在场（台词因果由 JEV 剧本门判断）', bad.causality.length === 0, bad.causality.join('；'));
+  add('source-fidelity', `台词顺序与说话人对照源片转写（已匹配 ${fidelity.matched}/${fidelity.total} 句${unsettled}）`, fidelityDetail.length === 0, ctx.source ? fidelityDetail : SKIP_SOURCE);
 
   return gates;
 }
@@ -398,10 +492,22 @@ const isVoDelivery = (b) =>
   String(b?.speaker ?? '').trim().toUpperCase() === 'VO' ||
   /VO|画外音|内心|独白|旁白|心声/i.test(String(b?.delivery ?? ''));
 
-function sourceFidelity(source, eps) {
-  const bad = { order: [], speaker: [], delivery: [], missing: [] };
+// JEV 标了待复核的归属不是答案：拿它去拦剧本，等于把猜测当成源片事实。
+// 这些句子不比对，只计数报出来，由人工确认。旧归属文件没有分项标记时退回整体 needs_review。
+const UNSETTLED = new Set(['', 'unclear']);
+const speakerUnsettled = (a) =>
+  (a?.speaker_needs_review ?? a?.needs_review) === true || UNSETTLED.has(String(a?.speaker ?? '').trim());
+// 没有 delivery 字段的旧归属没有画外音判断可比，不算待复核。
+const deliveryUnsettled = (a) =>
+  a?.delivery != null &&
+  ((a?.delivery_needs_review ?? a?.needs_review) === true || UNSETTLED.has(String(a.delivery).trim()));
+
+function sourceFidelity(source, eps, ctx = {}) {
+  const bad = { order: [], speaker: [], delivery: [], missing: [], review: [] };
   const attributions = Array.isArray(source?.attributions) ? source.attributions : [];
   if (!attributions.length) return { bad, matched: 0, total: 0 };
+  const resolveSpeaker = speakerResolver(ctx);
+  const unsettled = new Map();
 
   const normSource = attributions.map((a) => ({ ...a, n: normLine(a.text) })).filter((a) => a.n);
 
@@ -450,7 +556,18 @@ function sourceFidelity(source, eps) {
   // 归属是否被尊重由下面第 3 条按 delivery 判定。
   for (const p of pairs) {
     const scripted = String(p.script.beat.speaker ?? '').trim();
-    if (scripted && scripted !== 'VO' && scripted !== p.source.speaker) {
+    if (!scripted || scripted === 'VO') continue;
+    if (speakerUnsettled(p.source)) {
+      unsettled.set(p.sourceIndex, { p, reason: 'JEV 归属待复核' });
+      continue;
+    }
+    const scriptedId = resolveSpeaker(scripted);
+    const sourceId = resolveSpeaker(p.source.speaker);
+    if (scriptedId.ambiguous || sourceId.ambiguous) {
+      unsettled.set(p.sourceIndex, { p, reason: '说话人对不上唯一的大纲角色' });
+      continue;
+    }
+    if (scriptedId.id !== sourceId.id) {
       bad.speaker.push(
         `${p.script.scene}「${p.script.beat.line.slice(0, 14)}」剧本标 ${scripted}，源片归属为 ${p.source.speaker}`
       );
@@ -460,6 +577,10 @@ function sourceFidelity(source, eps) {
   // 3. 画外音保真：源片判定为画外音的台词，剧本不能当成场对话
   for (const p of pairs) {
     const voiced = isVoDelivery(p.script.beat);
+    if (deliveryUnsettled(p.source)) {
+      if (!unsettled.has(p.sourceIndex)) unsettled.set(p.sourceIndex, { p, reason: 'JEV 画外音判断待复核' });
+      continue;
+    }
     if (p.source.delivery === 'voice_over' && !voiced) {
       bad.delivery.push(
         `${p.script.scene}「${p.script.beat.line.slice(0, 14)}」源片是画外音/内心独白，剧本当成说出口的台词`
@@ -474,6 +595,9 @@ function sourceFidelity(source, eps) {
   // 4. 漏句：源片里被丢弃的台词（改编删减属正常，这里只报不拦，供人工过目）
   for (const [i, a] of normSource.entries()) {
     if (!usedSource.has(i)) bad.missing.push(`源片「${a.text.slice(0, 18)}」(${a.speaker}) 未出现在剧本里`);
+  }
+  for (const { p, reason } of unsettled.values()) {
+    bad.review.push(`${p.script.scene}「${p.script.beat.line.slice(0, 14)}」源片归属待复核：${reason}（${p.source.speaker ?? '?'} / ${p.source.delivery ?? '?'}）`);
   }
 
   return { bad, matched: pairs.length, total: normSource.length };

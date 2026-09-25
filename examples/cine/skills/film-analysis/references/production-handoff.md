@@ -130,10 +130,15 @@ python <film-analysis>/pipeline/production.py attribute <output>
 
 It reads `source-transcript.json` and `cast.json`, optionally taking scene
 descriptions from `scene-notes.json` (a map of exchange index to one line of
-setup), and writes `source-transcript-attributed.json` with a cast id, a
-calibrated confidence, and a `needs_review` flag per line. Supply scene notes
-whenever an exchange contains an address term: without them a line like
-「这位姐姐……哟，这不是姐姐，是妹妹」 is attributed to the person addressed.
+setup), and writes `source-transcript-attributed.json` with a cast id (or the
+character's name, for a cast card without an `id`), a calibrated confidence, and
+`needs_review` / `speaker_needs_review` / `delivery_needs_review` flags per line.
+JEV is asked twice: first who each line is addressed to, then who speaks it,
+with a confident addressee written into that character's option as an
+exclusion. A line that opens by calling a cast name or alias (「老伯，……」) is
+treated the same way. Supply scene notes whenever an exchange contains an
+address term the cast does not list: without them such a line can still be
+attributed to the person addressed.
 
 Segments are grouped into exchanges by silence (or by an explicit `scene`
 field). Judging the whole episode as one block measurably degrades accuracy,
@@ -150,11 +155,16 @@ Two gates depend on it:
 - `speaker` / `source-fidelity` order check: a matched line that appears out of
   the source's order is reported as swapped. A script can reshuffle the
   original's beats and still read as internally coherent, which is exactly the
-  failure this catches.
+  failure this catches. Speakers are compared after resolving cast ids, names
+  and aliases to the outline id. A source line whose speaker or delivery is
+  flagged for review is not compared — a guess is not source fact — and the
+  gate label counts those lines instead.
 - `dialogue-causality` ghost check: a character named in an *action* beat must
   be declared in that scene's cast list. It deliberately ignores names in
   dialogue, since a line may address or discuss someone who is not present
-  (「听见没？老周哥这一嗓子」 does not put 老周 in the scene).
+  (「听见没？老周哥这一嗓子」 does not put 老周 in the scene). Whether one line
+  follows causally from the last is a semantic question left to the JEV script
+  gate (`causal_continuity`), not to keyword rules.
 
 Lines the script invents are not failures — adaptation may add connective
 material. Only matched lines are checked, and unmatched source lines are
@@ -258,11 +268,41 @@ and every cut is `new`. `analysis` uses the canonical pipeline, not this checker
 
 `source-material.json`:
 ```json
-{"source_id":"<canonical source>","revision_id":"<committed revision>","shots":[
+{"source_id":"<canonical source>","revision_id":"<committed revision>",
+ "source_fingerprint":{"size_bytes":734003200,"sha256_head":"<from source.json>","sha256_tail":"<from source.json>"},
+ "shots":[
   {"shot_id":"S001","review_status":"model_reviewed","observations":["visible observation"],"image_receipt_ids":["<actual receipt>"],"unknowns":["identity","motion"]},
   {"shot_id":"S002","review_status":"unverified","observations":[],"image_receipt_ids":[],"unknowns":["image not inspected"]}
 ]}
 ```
+
+`source_fingerprint` is copied by `handoff.py --source-project` from the analysis
+project's `source.json`; never write it by hand. It is how `production.py
+attribute` and `check --stage script` confirm that the ASR transcript they find
+belongs to this film. While a faithful/adaptation production's material cannot
+identify the film — an export from before fingerprints were recorded
+(`material_without_fingerprint`) or a file whose bytes no longer match its pin
+(`material_pin_mismatch`) — no transcript reaches JEV or the script validator.
+Original productions and productions without `source_material` are unaffected.
+
+### Recovering a film binding
+
+`finalize` re-runs the checks before it refreshes pins, so it cannot repair a
+binding the checks refuse. Rebind the material from the analysis project it was
+exported from, then finalize:
+
+```powershell
+python <film-analysis-directory>/pipeline/production.py rebind-source <output> --source-project <analysis-project>
+python <film-analysis-directory>/pipeline/production.py finalize <output>
+```
+
+`rebind-source` re-exports with the same read-only adapter and writes nothing
+unless the export records the film's fingerprint and has the same `source_id`
+and `revision_id` as the production's current material — a different film or
+revision needs a new production. It replaces the material file and updates only
+its own `sha256` pin; `finalize` then refreshes the outline and mapping pins that
+still name the previous material. It runs no JEV and no media generation. Do not
+edit hashes by hand.
 
 `shot-mapping.json` is a list, one row per storyboard cut. `scene_index`, `cut`
 and beat endpoints are 1-based, matching existing storyboard/script conventions:

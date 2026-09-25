@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -739,6 +740,23 @@ async def execute_seedance_canvas_edit(
                         )
                     if node_data.get("prompt") == proof["prompt"]:
                         break
+                    if action == "validate_generation":
+                        raise SeedanceError(
+                            "Generation node prompt differs from the selected creative artifact",
+                            code="CINE_GENERATION_NODE_PROMPT_MISMATCH",
+                        )
+                    recorded_prompt_hash = node_data.get("importedPromptSha256")
+                    if (
+                        isinstance(recorded_prompt_hash, str)
+                        and hashlib.sha256(
+                            str(node_data.get("prompt") or "").encode("utf-8")
+                        ).hexdigest()
+                        != recorded_prompt_hash
+                    ) or node_data.get("promptProvenance") is not None:
+                        raise SeedanceError(
+                            "Generation node prompt was edited on the canvas",
+                            code="CINE_GENERATION_NODE_PROMPT_EDITED",
+                        )
                     try:
                         update = await client.submit_command(
                             resolved_project_id,
@@ -748,6 +766,7 @@ async def execute_seedance_canvas_edit(
                                 "expectedRevision": snapshot.get("revision"),
                                 "patch": {
                                     "data": {
+                                        **node_data,
                                         "prompt": proof["prompt"],
                                         "promptProvenance": None,
                                     }

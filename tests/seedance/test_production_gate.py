@@ -352,6 +352,86 @@ async def test_turnaround_sends_portrait_reference_without_mutating_portrait(bun
 
 @pytest.mark.asyncio
 @respx.mock
+@pytest.mark.skipif(not shutil.which("node"), reason="requires native Node validators")
+@pytest.mark.parametrize(
+    ("action", "error_code"),
+    [
+        ("validate_generation", "CINE_GENERATION_NODE_PROMPT_MISMATCH"),
+        ("submit_generation", "CINE_GENERATION_NODE_PROMPT_EDITED"),
+    ],
+)
+async def test_generation_keeps_hand_edited_canvas_prompt(bundle, action, error_code):
+    mock_session(bundle.parent)
+    v3 = AsyncMock()
+    v3.get_snapshot.return_value = {
+        "revision": 1,
+        "nodes": [
+            {
+                "id": "turnaround",
+                "data": {
+                    "prompt": "hand edited",
+                    "importedPromptSha256": hashlib.sha256(b"old prompt").hexdigest(),
+                    "production_stage": "cast",
+                    "production_pointer": "/characters/0/image/sheet",
+                },
+            }
+        ],
+    }
+    async with httpx.AsyncClient(base_url=SERVER) as client:
+        result = await execute_seedance_canvas_edit(
+            client,
+            "topic",
+            action,
+            generation_allowed=True,
+            project_id="project",
+            node_id="turnaround",
+            production_dir="production",
+            source_text="source.txt",
+            production_stage="cast",
+            production_pointer="/characters/0/image/sheet",
+            trusted_skills_dir=SKILLS,
+            seedance_client=v3,
+        )
+    assert result["error_code"] == error_code
+    v3.submit_command.assert_not_called()
+    v3.validate_generation.assert_not_called()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_missing_state_reference_returns_production_error(monkeypatch, tmp_path):
+    from agentnexus.seedance import production_gate
+
+    mock_session(tmp_path)
+    monkeypatch.setattr(
+        production_gate,
+        "validate_submission",
+        AsyncMock(
+            return_value={
+                "prompt": "approved",
+                "report_paths": [],
+                "state_requirements": [{"asset_node_id": "character-state"}],
+            }
+        ),
+    )
+    v3 = AsyncMock()
+    async with httpx.AsyncClient(base_url=SERVER) as client:
+        result = await execute_seedance_canvas_edit(
+            client,
+            "topic",
+            "validate_generation",
+            project_id="project",
+            production_stage="storyboard",
+            production_pointer="/episodes/0/segments/0/h3Prompt",
+            trusted_skills_dir=SKILLS,
+            seedance_client=v3,
+        )
+    assert result["error_code"] == "CINE_CHARACTER_STATE_REFERENCE_REQUIRED"
+    v3.submit_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_missing_binding_fields_cannot_use_old_generation_route():
     v3 = AsyncMock()
     async with httpx.AsyncClient(base_url=SERVER) as client:

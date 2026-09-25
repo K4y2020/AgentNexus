@@ -103,6 +103,226 @@ def atomic_json(path, value):
         temp.unlink(missing_ok=True)
 
 
+def _atomic_bytes(path, raw):
+    """Replace ``path`` with exactly ``raw``, so its sha256 is known in advance."""
+    with tempfile.NamedTemporaryFile(
+        mode="wb", dir=path.parent, delete=False, suffix=".tmp"
+    ) as file:
+        temp = Path(file.name)
+        file.write(raw)
+    try:
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def source_transcript_candidates(directory):
+    """Find a transcript beside production or in its containing workspace."""
+    bases = [directory, directory.parent]
+    if directory.parent.name == "projects":
+        bases.append(directory.parent.parent)
+    if directory.parent.parent.name == "projects":
+        bases.append(directory.parent.parent.parent)
+    return (
+        directory / "source-transcript.json",
+        *(base / "inputs" / "source-transcript.json" for base in bases),
+    )
+
+
+def _source_identity():
+    try:
+        from .source_identity import fingerprint_of, transcript_matches_source
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from source_identity import fingerprint_of, transcript_matches_source
+    return fingerprint_of, transcript_matches_source
+
+
+def bound_source_fingerprint(directory):
+    """The film this production is bound to: (fingerprint, status, material path).
+
+    Only a faithful/adaptation production that binds ``source_material`` in
+    production.json has one. That material is exported by
+    ``handoff.py --source-project`` from the analysis project's committed
+    source.json and pinned by hash. Statuses:
+
+    - ``unbound``: original or text-only production; no film is invented.
+    - ``material_pin_mismatch``: production.json pins a different sha256 than
+      the material file now has — a stale or edited binding.
+    - ``material_without_fingerprint``: bound to a film, but the export
+      predates fingerprints, so nothing can be verified against it.
+    - ``bound`` / ``bound_unpinned``: a usable fingerprint, from a pinned
+      material or from a legacy manifest that records no pin.
+    Only the last two carry a fingerprint.
+    """
+    fingerprint_of, _matches = _source_identity()
+    manifest = directory / "production.json"
+    if not manifest.is_file():
+        return None, "unbound", None
+    document = read(manifest)
+    artifacts = document.get("artifacts") if isinstance(document, dict) else None
+    if (
+        not isinstance(artifacts, dict)
+        or document.get("mode") == "original"
+        or "source_material" not in artifacts
+    ):
+        return None, "unbound", None
+    material_path = stage_path(directory, "source_material")
+    entry = artifacts["source_material"]
+    pinned = entry.get("sha256") if isinstance(entry, dict) else None
+    if pinned is not None and pinned != digest(material_path):
+        return None, "material_pin_mismatch", material_path
+    material = read(material_path)
+    expected = (
+        fingerprint_of(material.get("source_fingerprint")) if isinstance(material, dict) else None
+    )
+    if expected is None:
+        return None, "material_without_fingerprint", material_path
+    return expected, "bound" if pinned is not None else "bound_unpinned", material_path
+
+
+def transcript_identity(directory, payload):
+    """(status, problem) of an ASR transcript against the production's film.
+
+    With a bound film, only a transcript recording that film's fingerprint may
+    reach JEV or the script validator: another video's transcript, or a legacy
+    one that records no fingerprint, is refused — and so is every transcript
+    while the binding itself is stale or cannot identify the film. Only an
+    original or text-only production (``unbound``) uses the transcript
+    unverified, as before.
+    """
+    fingerprint_of, matches = _source_identity()
+    expected, binding, path = bound_source_fingerprint(directory)
+    if binding == "unbound":
+        return binding, None
+    name = path.name if path is not None else "source_material"
+    # finalize cannot repin while this gate refuses the binding; rebind-source
+    # re-exports the material, checks it is the same film and repins it.
+    recover = (
+        f"`python production.py rebind-source {directory} --source-project <analysis project>`, "
+        f"then `python production.py finalize {directory}`"
+    )
+    if binding == "material_pin_mismatch":
+        return binding, (
+            f"production.json pins source_material to a different sha256 than {name} now has, so "
+            "the film binding is stale or was edited. Restore the pinned file, or rebind it "
+            f"from the analysis project it came from: {recover}."
+        )
+    if expected is None:
+        return binding, (
+            f"This production is bound to a film through {name}, but that export records no "
+            "source fingerprint, so no transcript can be verified against it. Rebind it from "
+            f"the analysis project it came from: {recover}."
+        )
+    if not isinstance(payload, dict) or fingerprint_of(payload.get("source_fingerprint")) is None:
+        return "transcript_unverified", (
+            "source-transcript.json records no source fingerprint, so it cannot be tied to this "
+            "production's source material; re-transcribe the film with film_analyze."
+        )
+    if not matches(payload, expected):
+        return "source_mismatch", (
+            "source-transcript.json was made from a different video than this production's "
+            "source material; transcribe the bound film before checking the script against it."
+        )
+    # A legacy manifest without a pin still verifies, but says so.
+    return ("verified" if binding == "bound" else "verified_unpinned"), None
+
+
+def rebind_source(directory, source_project):
+    """Re-export a bound source_material from its analysis project and repin only it.
+
+    The recovery for a legacy (no fingerprint) or stale film binding. finalize
+    cannot refresh pins while the identity gate refuses the binding, so this
+    re-exports the material with ``handoff.source_material`` (read-only on the
+    analysis project), requires that it records the film's fingerprint and is
+    the same source_id and revision_id the production was built from — a
+    different film or revision needs a new production — and only then writes.
+    It replaces the material file and its own sha256 pin; the outline and
+    mapping pins that name the old material are left for ``finalize``. No JEV
+    or media generation runs.
+    """
+    try:
+        from .handoff import source_material
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from handoff import source_material
+    fingerprint_of, _matches = _source_identity()
+
+    directory = Path(directory).resolve()
+    manifest_path = directory / "production.json"
+    if not manifest_path.is_file():
+        raise ValueError(
+            "rebind-source needs a production.json that binds source_material; "
+            "a production without one has no film to rebind"
+        )
+    manifest_raw = manifest_path.read_bytes()
+    manifest = json.loads(manifest_raw)
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+        raise ValueError("production.json schema_version must be 1")
+    if manifest.get("mode") not in ("faithful", "adaptation"):
+        raise ValueError(
+            "rebind-source applies only to faithful/adaptation productions; an original "
+            "production has no film binding"
+        )
+    artifacts = manifest.get("artifacts")
+    entry = artifacts.get("source_material") if isinstance(artifacts, dict) else None
+    if not isinstance(entry, dict):
+        raise ValueError(
+            "production.json has no source_material binding to rebind; this production is "
+            "not bound to a film"
+        )
+    material_path = stage_path(directory, "source_material")
+    material_raw = material_path.read_bytes()
+    current = json.loads(material_raw)
+    if not isinstance(current, dict) or not all(
+        isinstance(current.get(key), str) and current[key].strip()
+        for key in ("source_id", "revision_id")
+    ):
+        raise ValueError(
+            f"{material_path.name} records no source_id/revision_id, so the film it was built "
+            "from cannot be confirmed; start a new production from the analysis project"
+        )
+
+    exported = source_material(Path(source_project))
+    fingerprint = fingerprint_of(exported.get("source_fingerprint"))
+    if fingerprint is None:
+        raise ValueError(
+            "the analysis project's source.json records no size/head/tail fingerprint; index "
+            "the film again with film_analyze before rebinding"
+        )
+    for key in ("source_id", "revision_id"):
+        if exported.get(key) != current[key]:
+            raise ValueError(
+                f"{key} differs: this production was built from {current[key]!r} but the "
+                f"analysis project exports {exported.get(key)!r}. A different film or "
+                "revision needs a new production."
+            )
+
+    material_bytes = (json.dumps(exported, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    new_hash = hashlib.sha256(material_bytes).hexdigest()
+    previous = entry.get("sha256")
+    if manifest_path.read_bytes() != manifest_raw or material_path.read_bytes() != material_raw:
+        raise ValueError("the production changed during rebind-source; retry")
+    # Pin first, then the file: until both are written the pin names bytes the
+    # material file does not have, so an interruption leaves the identity gate
+    # refusing the binding (material_pin_mismatch) rather than trusting it.
+    entry["sha256"] = new_hash
+    atomic_json(manifest_path, manifest)
+    _atomic_bytes(material_path, material_bytes)
+    return {
+        "status": "source_rebound",
+        "production": str(directory),
+        "material_path": str(material_path),
+        "source_id": exported["source_id"],
+        "revision_id": exported["revision_id"],
+        "source_fingerprint": fingerprint,
+        "previous_sha256": previous,
+        "sha256": new_hash,
+        "next_step": (
+            f"Run `production.py finalize {directory}` to refresh the dependency pins that "
+            "still name the previous material (outline, mapping)."
+        ),
+    }
+
+
 def run_attribution(directory, *, model="jev-latest"):
     """Assign each ASR utterance to a cast character using JEV.
 
@@ -117,10 +337,7 @@ def run_attribution(directory, *, model="jev-latest"):
         from attribute_speakers import attribute_speakers
 
     cast_path = stage_path(directory, "cast")
-    rows_candidates = (
-        directory / "source-transcript.json",
-        directory / "inputs" / "source-transcript.json",
-    )
+    rows_candidates = source_transcript_candidates(directory)
     rows_path = next((p for p in rows_candidates if p.is_file()), None)
     if rows_path is None:
         return {
@@ -129,6 +346,14 @@ def run_attribution(directory, *, model="jev-latest"):
             "looked_in": [str(p) for p in rows_candidates],
         }
     payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
+    identity, problem = transcript_identity(directory, payload)
+    if problem:
+        return {
+            "status": "blocked",
+            "reason": problem,
+            "transcript": str(rows_path),
+            "transcript_identity": identity,
+        }
     segments = payload.get("segments") if isinstance(payload, dict) else payload
     scenes = payload.get("scenes") if isinstance(payload, dict) else None
     cast = json.loads(Path(cast_path).read_text(encoding="utf-8"))
@@ -144,6 +369,16 @@ def run_attribution(directory, *, model="jev-latest"):
     result = attribute_speakers(segments, cast, scenes=scenes, model=model)
     if "error" in result:
         return {"status": "error", **result}
+    if len(result.get("attributions", [])) != len(segments):
+        return {
+            "status": "error",
+            "reason": "speaker attribution did not cover every transcript segment",
+        }
+    result["input_sha256"] = {
+        "source_transcript": digest(rows_path),
+        "cast": digest(Path(cast_path)),
+    }
+    result["transcript_identity"] = identity
     target = directory / "source-transcript-attributed.json"
     atomic_json(target, result)
     needs_review = [a["id"] for a in result["attributions"] if a["needs_review"]]
@@ -153,6 +388,7 @@ def run_attribution(directory, *, model="jev-latest"):
         "model": result["model"],
         "segments": len(result["attributions"]),
         "needs_review": needs_review,
+        "transcript_identity": identity,
     }
 
 
@@ -347,17 +583,59 @@ def check_stage(
             # line order and speaker against the original instead of judging the
             # document only on its own internal coherence.
             attributed = directory / "source-transcript-attributed.json"
-            cast_file = stage_path(directory, "cast", must_exist=False)
-            if cast_file and cast_file.is_file():
-                if not attributed.is_file() or cast_file.stat().st_mtime > attributed.stat().st_mtime:
+            rows_path = next(
+                (p for p in source_transcript_candidates(directory) if p.is_file()), None
+            )
+            if rows_path is not None:
+                # Checked on every run, before a cached attribution can be
+                # reused: a transcript of another film must never reach the
+                # validator as this production's source.
+                identity, problem = transcript_identity(
+                    directory, json.loads(rows_path.read_text(encoding="utf-8-sig"))
+                )
+                row["transcript_identity"] = identity
+                _expected, _binding, material_path = bound_source_fingerprint(directory)
+                if material_path is not None:
+                    row["input_hashes"][str(material_path)] = fingerprint(material_path)
+                if problem:
+                    row.update(status="attribution_error", stderr=problem)
+                    return row
+                expected_hashes = {
+                    "source_transcript": digest(rows_path),
+                    "cast": digest(paths["cast"]),
+                }
+                try:
+                    current = read(attributed) if attributed.is_file() else {}
+                except (OSError, ValueError):
+                    current = {}
+                if current.get("input_sha256") != expected_hashes:
                     try:
-                        run_attribution(directory, model=jev_model)
-                    except Exception:
-                        pass
-            if attributed.is_file():
+                        attribution = run_attribution(directory, model=jev_model)
+                    except Exception as exc:  # noqa: BLE001
+                        row.update(
+                            status="attribution_error", stderr=f"{type(exc).__name__}: {exc}"
+                        )
+                        return row
+                    if attribution.get("status") != "attributed":
+                        row.update(
+                            status="attribution_error",
+                            stderr=str(
+                                attribution.get("reason")
+                                or attribution.get("error")
+                                or attribution
+                            ),
+                        )
+                        return row
+                row["input_hashes"][str(rows_path)] = expected_hashes["source_transcript"]
                 command.extend(["--source", str(attributed)])
                 files.append(attributed)
                 row["input_hashes"][str(attributed)] = fingerprint(attributed)
+            elif attributed.is_file():
+                row.update(
+                    status="attribution_error",
+                    stderr="source transcript for attribution is missing",
+                )
+                return row
         if stage == "storyboard":
             command.append("--no-log")
         row["command"] = command
@@ -595,6 +873,12 @@ def main(argv=None):
                 help="Require a passing TypeSafe JEV semantic gate for every checked stage.",
             )
             parser.add_argument("--jev-model", default="jev-latest")
+    rebind = sub.add_parser(
+        "rebind-source",
+        help="Re-export a bound source_material from its analysis project and repin only it.",
+    )
+    rebind.add_argument("directory", type=Path)
+    rebind.add_argument("--source-project", type=Path, required=True)
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
@@ -620,6 +904,8 @@ def main(argv=None):
             result = seed(directory, args.stage, replace_empty=args.replace_empty)
         elif args.action == "attribute":
             result = run_attribution(directory, model=args.jev_model)
+        elif args.action == "rebind-source":
+            result = rebind_source(directory, args.source_project.resolve())
         elif args.action == "check":
             result = check(
                 directory,
@@ -641,6 +927,7 @@ def main(argv=None):
         return int(
             (args.action == "check" and result["status"] != "native_validated")
             or (args.action == "finalize" and result["status"] != "production_finalized")
+            or (args.action == "rebind-source" and result["status"] != "source_rebound")
         )
     except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))

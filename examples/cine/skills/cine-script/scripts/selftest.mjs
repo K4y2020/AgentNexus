@@ -556,4 +556,114 @@ const skipped = gate(ordered, 'source-fidelity', {});
 ok(skipped.ok, '未提供源转写时本门不拦');
 ok(skipped.detail.includes('跳过'), '未提供源转写时明说跳过');
 
+/* ---------------- 换一个故事：不带样例剧情假设 ---------------- */
+
+// 另一个故事（渡口）。cast.json 按 schema 可以不带 id，源归属按名字记——对回大纲编号再比。
+const FERRY_OUTLINE = { characters: [
+  { id: 'C01', name: '老周' }, { id: 'C02', name: '沈知微' }, { id: 'C03', name: '小满' }, { id: 'C04', name: '小满娘' },
+] };
+const FERRY_CAST = { characters: [
+  { name: '老周', aliases: ['老伯', '船家'] }, { name: '沈知微', aliases: ['沈小姐'] },
+  { name: '小满', aliases: ['娃'] }, { name: '小满娘', aliases: ['船家'] },
+] };
+const FERRY_CTX = { outline: FERRY_OUTLINE, cast: FERRY_CAST };
+function ferryScript(flow, characters = ['C01', 'C02']) {
+  return {
+    source: '渡口', params: {}, episodes: [{ ep: 1, targetSeconds: 60, hook: 'h', cliff: 'c', hookBeat: [1, 1],
+      scenes: [{ sceneId: 'S01', lighting: 'l', characters,
+        characterStates: Object.fromEntries(characters.map((id) => [id, 'default'])), flow }] }],
+  };
+}
+const FERRY_SOURCE = { attributions: [
+  { id: 'a', text: '老伯，这雾什么时候散？', speaker: '沈知微', delivery: 'spoken', needs_review: false },
+  { id: 'b', text: '雾一厚，连自己的手都看不清。', speaker: '老周', delivery: 'spoken', needs_review: false },
+] };
+{
+  const faithful = ferryScript([
+    { action: '雾里，沈知微提着皮箱走上跳板。' },
+    { speaker: 'C02', line: '老伯，这雾什么时候散？' },
+    { speaker: 'C01', line: '雾一厚，连自己的手都看不清。' },
+  ]);
+  ok(gate(faithful, 'source-fidelity', { ...FERRY_CTX, source: FERRY_SOURCE }).ok,
+    '源归属按名字记（cast 卡无 id）时对回大纲编号，归属一致 -> 通过');
+  const swappedSpeakers = ferryScript([
+    { action: '雾里，沈知微提着皮箱走上跳板。' },
+    { speaker: 'C01', line: '老伯，这雾什么时候散？' },
+    { speaker: 'C01', line: '雾一厚，连自己的手都看不清。' },
+  ]);
+  const g = gate(swappedSpeakers, 'source-fidelity', { ...FERRY_CTX, source: FERRY_SOURCE });
+  ok(!g.ok && g.detail.includes('源片归属为 沈知微'), '换了故事，说话人错位照样拦下');
+}
+
+// cast.json 用另一套编号（R01…）时，按名字对回大纲编号再比
+{
+  const OUTLINE2 = { characters: [{ id: 'C01', name: '老周' }, { id: 'C02', name: '沈知微' }] };
+  const CAST2 = { characters: [{ id: 'R01', name: '老周', aliases: ['老伯'] }, { id: 'R02', name: '沈知微' }] };
+  const line = '雾一厚，连自己的手都看不清。';
+  const doc = ferryScript([{ action: '老周把缆绳甩上岸。' }, { speaker: 'C01', line }]);
+  const ctx = { outline: OUTLINE2, cast: CAST2 };
+  ok(gate(doc, 'source-fidelity', { ...ctx, source: { attributions: [{ id: 'a', text: line, speaker: 'R01', delivery: 'spoken' }] } }).ok,
+    'cast 编号 R01 按名字对回大纲 C01 -> 归属一致通过');
+  const wrong = gate(doc, 'source-fidelity', { ...ctx, source: { attributions: [{ id: 'a', text: line, speaker: 'R02', delivery: 'spoken' }] } });
+  ok(!wrong.ok && wrong.detail.includes('源片归属为 R02'), '两套编号对齐后，真错位照样拦下');
+  const ghost = gate(ferryScript([{ action: '老伯解开缆绳。' }], ['C02']), 'dialogue-causality', ctx);
+  ok(!ghost.ok && ghost.detail.includes('「C01」'), 'cast 别名按对回的大纲编号查在场，不因两套编号冲突漏报');
+}
+
+// cast 卡对不上唯一的大纲角色：不猜，不拦，计为待复核
+{
+  const OUTLINE3 = { characters: [
+    { id: 'C01', name: '周大', aliases: ['船家'] }, { id: 'C04', name: '周二', aliases: ['船家'] },
+  ] };
+  const CAST3 = { characters: [{ id: 'R07', name: '船家' }] };
+  const line = '开船咯，坐稳了。';
+  const doc = ferryScript([{ action: '船头一晃。' }, { speaker: 'C01', line }], ['C01', 'C04']);
+  const g = gate(doc, 'source-fidelity', { outline: OUTLINE3, cast: CAST3,
+    source: { attributions: [{ id: 'a', text: line, speaker: 'R07', delivery: 'spoken' }] } });
+  ok(g.ok && g.label.includes('1 句源归属待复核'), '说话人编号对应两个大纲角色 -> 不拦，计为待复核');
+}
+
+// 源归属待复核（JEV 没把握）时不拿它拦剧本，只计数报出来
+{
+  const UNSURE = { attributions: [
+    { id: 'a', text: '老伯，这雾什么时候散？', speaker: '老周', delivery: 'spoken', needs_review: true },
+    { id: 'b', text: '雾一厚，连自己的手都看不清。', speaker: 'unclear', delivery: 'spoken', needs_review: true },
+  ] };
+  const doc = ferryScript([
+    { action: '雾里，沈知微提着皮箱走上跳板。' },
+    { speaker: 'C02', line: '老伯，这雾什么时候散？' },
+    { speaker: 'C01', line: '雾一厚，连自己的手都看不清。' },
+  ]);
+  const g = gate(doc, 'source-fidelity', { ...FERRY_CTX, source: UNSURE });
+  ok(g.ok, '待复核的源归属与剧本不一致 -> 不拦（猜测不当源片事实）');
+  ok(g.label.includes('2 句源归属待复核'), '待复核句数写在门标签里');
+  // 说话人已确定、只有画外音待复核：说话人照样比对
+  const SPLIT = { attributions: [
+    { id: 'a', text: '老伯，这雾什么时候散？', speaker: '老周', delivery: 'unclear',
+      speaker_needs_review: false, delivery_needs_review: true, needs_review: true },
+  ] };
+  ok(!gate(doc, 'source-fidelity', { ...FERRY_CTX, source: SPLIT }).ok, '说话人已确定、只有画外音待复核 -> 说话人错位仍拦');
+}
+
+// 台词因果交给 JEV 剧本门：换个故事，喜讯后接一句狠话不会被关键词规则误拦
+{
+  const doc = ferryScript([
+    { action: '老周把缆绳甩上岸。' },
+    { speaker: 'C02', line: '我升官了，调去省城。' },
+    { speaker: 'C01', line: '男人靠不住，官也靠不住。' },
+  ]);
+  ok(gate(doc, 'dialogue-causality', FERRY_CTX).ok, '没有按样例台词关键词判因果');
+}
+
+// 在场对账：长名优先匹配；多人共用的别名不指认任何人；cast 卡无 id 也能对上编号
+{
+  const longer = ferryScript([{ action: '小满娘把篮子递上船。' }], ['C01', 'C04']);
+  ok(gate(longer, 'dialogue-causality', FERRY_CTX).ok, '「小满娘」在场时不把「小满」误算成幽灵出场');
+  const shared = ferryScript([{ action: '船家解开缆绳。' }], ['C01']);
+  ok(gate(shared, 'dialogue-causality', FERRY_CTX).ok, '两人共用的别名「船家」不指认任何人');
+  const ghost = ferryScript([{ action: '沈小姐在船头坐下。' }], ['C01']);
+  const g = gate(ghost, 'dialogue-causality', FERRY_CTX);
+  ok(!g.ok && g.detail.includes('C02'), '别名来自无 id 的 cast 卡，照样对回大纲编号拦下幽灵出场');
+}
+
 console.log(`✓ ${passed} 项自测全部通过`);

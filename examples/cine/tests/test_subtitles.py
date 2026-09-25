@@ -70,6 +70,12 @@ def test_review_data_loads_declared_subtitle_and_asr_together(tmp_path):
             {
                 "kind": "qualified_asr_transcript",
                 "source_media": "source.mp4",
+                # The fixture source's identity (size + head/tail hash).
+                "source_fingerprint": {
+                    "size_bytes": 0,
+                    "sha256_head": "a" * 64,
+                    "sha256_tail": "b" * 64,
+                },
                 "segments": [{"start": 1.1, "end": 1.9, "text": "ASR另一句"}],
             }
         ),

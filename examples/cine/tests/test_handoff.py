@@ -285,3 +285,16 @@ def test_empty_unreviewed_rows_are_compatible_not_promoted(tmp_path, status):
     write(tmp_path / "reviews/r1.json", [review])
     with pytest.raises(ValueError, match="UNREVIEWED_EVIDENCE_CONFLICT"):
         handoff.source_material(tmp_path)
+
+
+def test_material_exports_the_film_fingerprint_for_transcript_checks(tmp_path):
+    source_fixture(tmp_path)
+    fingerprint = {"size_bytes": 10, "sha256_head": "a" * 64, "sha256_tail": "b" * 64}
+    write(tmp_path / "source.json", {"source_id": "src", **fingerprint, "duration_pts": 1})
+    assert handoff.source_material(tmp_path)["source_fingerprint"] == fingerprint
+
+
+def test_material_without_a_complete_fingerprint_exports_none(tmp_path):
+    source_fixture(tmp_path)
+    write(tmp_path / "source.json", {"source_id": "src", "size_bytes": 10})
+    assert "source_fingerprint" not in handoff.source_material(tmp_path)

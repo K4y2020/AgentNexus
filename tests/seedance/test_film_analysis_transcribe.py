@@ -22,9 +22,10 @@ def test_serialized_transcript_is_explicitly_qualified(tmp_path):
         language="zh",
     )
     assert '"verbatim_certified": false' in json_text
+    assert '"text_refinement": "not_requested"' in json_text
     assert "qualified, not manually verified verbatim" in plain_text
     assert "[0001.250-0002.500] 你好" in plain_text
-    assert "00:00:01,250 --> 00:00:02,500" in srt_text
+    assert srt_text == "1\n00:00:01,250 --> 00:00:02,500\n你好\n"
 
 
 def test_asr_rejects_paths_outside_topic(tmp_path):

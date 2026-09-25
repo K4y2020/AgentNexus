@@ -6,6 +6,7 @@ from fractions import Fraction
 from pathlib import Path
 from urllib.parse import quote
 
+from .source_identity import transcript_matches_source
 from .subtitles import parse_subtitle_file, reconcile_dialogue
 
 
@@ -27,15 +28,33 @@ def _workspace_file(workspace, value):
     return path
 
 
+def _text_or_none(path):
+    try:
+        return path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 def _discover_subtitle(workspace, source):
+    """A subtitle file placed in inputs/, never the ASR tool's own output.
+
+    ``source-transcript.*`` is machine ASR — shown only through its JSON record,
+    whose source fingerprint is checked — and ``source.srt`` is just its
+    generated mirror while the two are identical. Neither is a subtitle.
+    """
     if workspace is None:
         return None
     root = Path(workspace).resolve()
+    machine_srt = _text_or_none(root / "inputs" / "source-transcript.srt")
     stem = Path(source.path).stem
-    for name in (stem, "source", "source-transcript", "transcript"):
+    for name in (stem, "source", "transcript"):
+        if name == "source-transcript":
+            continue
         for suffix in (".srt", ".vtt", ".ass", ".ssa"):
             path = root / "inputs" / f"{name}{suffix}"
             if path.is_file():
+                if machine_srt is not None and _text_or_none(path) == machine_srt:
+                    continue
                 return path
     return None
 
@@ -54,12 +73,11 @@ def _asr_rows(workspace, path_value, source, revision_id, input_files):
         raise FileNotFoundError(transcript_path)
     transcript = read_json_inside(Path(workspace).resolve(), transcript_path)
     input_files.append(str(transcript_path.resolve()))
-    media_name = Path(str(transcript.get("source_media", ""))).name
-    source_name = Path(source.path).name
-    if transcript.get("kind") != "qualified_asr_transcript" or (
-        media_name != source_name
-        and media_name != "source.mp4"
-        and transcript.get("source_media") != source_name
+    # Identity, not file name: every upload may be called source.mp4. A
+    # transcript that does not record the committed source's fingerprint is
+    # not shown as this film's dialogue.
+    if transcript.get("kind") != "qualified_asr_transcript" or not transcript_matches_source(
+        transcript, source
     ):
         raise ValueError("Transcript source mismatch")
     for field, expected in (("source_id", source.source_id), ("revision_id", revision_id)):

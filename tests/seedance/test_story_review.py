@@ -14,6 +14,25 @@ def write(path, value):
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
+# The committed source's identity (size + head/tail SHA-256), as in source.json.
+FINGERPRINT = {"size_bytes": 4096, "sha256_head": "1" * 64, "sha256_tail": "2" * 64}
+
+
+def write_asr(workspace, fingerprint=FINGERPRINT, name="inputs/source-transcript"):
+    """A qualified ASR transcript (.txt plus its machine .json record)."""
+    txt = workspace / f"{name}.txt"
+    txt.parent.mkdir(parents=True, exist_ok=True)
+    txt.write_text("[0.000-1.000] 别过来。", encoding="utf-8")
+    record = {
+        "kind": "qualified_asr_transcript",
+        "source_media": "source.mp4",
+        "segments": [{"start": 0.0, "end": 1.0, "text": "别过来。"}],
+    }
+    if fingerprint is not None:
+        record["source_fingerprint"] = fingerprint
+    write(workspace / f"{name}.json", record)
+
+
 @pytest.fixture
 def story_fixture(tmp_path):
     project = tmp_path / "project"
@@ -25,7 +44,13 @@ def story_fixture(tmp_path):
     write(project / "project.json", {"current_revision": "r1"})
     write(
         project / "source.json",
-        {"source_id": "s", "duration_pts": 60, "time_base_num": 1, "time_base_den": 1},
+        {
+            "source_id": "s",
+            "duration_pts": 60,
+            "time_base_num": 1,
+            "time_base_den": 1,
+            **FINGERPRINT,
+        },
     )
     write(rev / "source_shots.json", [])
     plan = {"source_id": "s", "revision_id": "r1", "batches": []}
@@ -162,9 +187,7 @@ async def test_quoted_dialogue_without_provenance_is_blocked(story_fixture):
 
 async def test_asr_dialogue_is_qualified_but_allowed(story_fixture):
     client, project, draft, _ = story_fixture
-    transcript = project.parent / "inputs/source-transcript.txt"
-    transcript.parent.mkdir(parents=True)
-    transcript.write_text("[0.000-1.000] 别过来。", encoding="utf-8")
+    write_asr(project.parent)
     draft["dialogue_provenance"] = {
         "status": "asr",
         "source_path": "inputs/source-transcript.txt",
@@ -175,3 +198,83 @@ async def test_asr_dialogue_is_qualified_but_allowed(story_fixture):
     assert result["status"] == "ready_for_adaptation"
     assert result["audio_review"] == "asr"
     assert any("ASR-derived" in warning["detail"] for warning in result["warnings"])
+
+
+@pytest.mark.parametrize(
+    ("fingerprint", "reason"),
+    [
+        ({**FINGERPRINT, "sha256_tail": "3" * 64}, "dialogue_provenance_asr_source_mismatch"),
+        (None, "dialogue_provenance_asr_source_unverified"),
+    ],
+)
+async def test_asr_of_another_source_is_not_accepted(story_fixture, fingerprint, reason):
+    """Same file name, different video: basename is not identity."""
+    client, project, draft, _ = story_fixture
+    write_asr(project.parent, fingerprint=fingerprint)
+    draft["dialogue_provenance"] = {"status": "asr", "source_path": "inputs/source-transcript.txt"}
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "needs_story_completion"
+    assert reason in {issue["reason"] for issue in result["issues"]}
+
+
+async def test_missing_asr_file_is_an_issue_not_a_crash(story_fixture):
+    client, project, draft, _ = story_fixture
+    draft["dialogue_provenance"] = {"status": "asr", "source_path": "inputs/nowhere.txt"}
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert "dialogue_provenance_asr_missing" in {issue["reason"] for issue in result["issues"]}
+
+
+async def test_subtitle_asr_is_accepted_with_both_files_and_stays_qualified(story_fixture):
+    client, project, draft, _ = story_fixture
+    workspace = project.parent
+    write_asr(workspace)
+    (workspace / "inputs/source.srt").write_text(
+        "1\n00:00:00,000 --> 00:00:01,000\n别过来。\n", encoding="utf-8"
+    )
+    draft["dialogue_provenance"] = {
+        "status": "subtitle_asr",
+        "subtitle_path": "inputs/source.srt",
+        "asr_path": "inputs/source-transcript.txt",
+    }
+    draft["sections"][0]["events"] = ["字幕与ASR记录她说：“别过来。”"]
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "ready_for_adaptation"
+    assert result["audio_review"] == "subtitle_asr"
+    assert any("qualified ASR" in warning["detail"] for warning in result["warnings"])
+
+
+@pytest.mark.parametrize(
+    ("provenance", "reason"),
+    [
+        (
+            {"status": "subtitle_asr", "asr_path": "inputs/source-transcript.txt"},
+            "dialogue_provenance_subtitle_missing",
+        ),
+        (
+            {
+                "status": "subtitle_asr",
+                "subtitle_path": "../outside.srt",
+                "asr_path": "inputs/source-transcript.txt",
+            },
+            "dialogue_provenance_subtitle_outside_workspace",
+        ),
+        (
+            {"status": "subtitle_asr", "subtitle_path": "inputs/source.srt"},
+            "dialogue_provenance_asr_missing",
+        ),
+    ],
+)
+async def test_subtitle_asr_requires_both_declared_files(story_fixture, provenance, reason):
+    client, project, draft, _ = story_fixture
+    workspace = project.parent
+    write_asr(workspace)
+    (workspace / "inputs/source.srt").write_text("1\n", encoding="utf-8")
+    (workspace.parent / "outside.srt").write_text("1\n", encoding="utf-8")
+    draft["dialogue_provenance"] = provenance
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "needs_story_completion"
+    assert reason in {issue["reason"] for issue in result["issues"]}

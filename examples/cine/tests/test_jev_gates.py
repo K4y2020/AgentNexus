@@ -2,6 +2,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -242,3 +243,40 @@ def test_advisory_jev_is_reported_without_blocking(monkeypatch, tmp_path):
     assert result["jev_status"] == "advisory_findings"
     assert result["stages"][0]["status"] == "passed"
     assert result["stages"][0]["jev"]["status"] == "unavailable"
+
+
+def test_stage_gate_retries_transport_failure(monkeypatch, tmp_path):
+    path = tmp_path / "outline.json"
+    outline(path)
+    attempts = []
+
+    class FlakyClient(Client):
+        def system_one(self, **_kwargs):
+            if len(attempts) == 1:
+                raise ConnectionError("temporary transport failure")
+            return self.response
+
+    def factory(_key, **kwargs):
+        attempts.append(kwargs)
+        return FlakyClient(response())
+
+    monkeypatch.setattr(
+        jev_gates,
+        "_transport_module",
+        lambda: SimpleNamespace(
+            open_http_client=lambda: None,
+            is_transport_error=lambda exc: isinstance(exc, ConnectionError),
+        ),
+    )
+    result = jev_gates.run_stage_gate(
+        "outline", {"outline": path}, api_key="test-key", client_factory=factory
+    )
+    assert result["status"] == "passed"
+    assert len(attempts) == 2
+
+
+def test_compact_enforces_total_character_budget():
+    large = {"groups": [{"items": [{"text": "x" * 1000} for _ in range(30)]} for _ in range(30)]}
+    compacted = json.dumps(jev_gates._compact(large), ensure_ascii=False)
+    assert len(compacted) <= 200_000
+    assert '"_compaction_truncated": true' in compacted

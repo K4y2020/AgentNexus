@@ -1,8 +1,10 @@
 """Practical adaptation readiness: temporal coverage plus a usable story outline."""
 
 import hashlib
+import json
 import re
 from fractions import Fraction
+from pathlib import Path
 
 from agentnexus.seedance.cine_contracts import _inside, _read, session_image_receipts
 from agentnexus.seedance.report_review import covered, interval_seconds
@@ -13,7 +15,68 @@ def nonempty(value):
 
 
 _DIALOGUE_QUOTE = re.compile(r"[“「『][^”」』]+[”」』]|(?<![A-Za-z0-9])[\"'][^\"'\r\n]{2,}[\"']")
-_DIALOGUE_PROVENANCE = {"unverified", "asr", "trusted_subtitles", "visible_subtitles"}
+_DIALOGUE_PROVENANCE = {
+    "unverified",
+    "asr",
+    "trusted_subtitles",
+    "visible_subtitles",
+    "subtitle_asr",
+}
+# film-analysis identifies source media by size plus the SHA-256 of its first
+# and last 256 KiB; source.json and each ASR transcript record the same fields.
+_FINGERPRINT = ("size_bytes", "sha256_head", "sha256_tail")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+
+
+def _fingerprint(record):
+    if not isinstance(record, dict):
+        return None
+    values = {field: record.get(field) for field in _FINGERPRINT}
+    size = values["size_bytes"]
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+        return None
+    hashes = (values["sha256_head"], values["sha256_tail"])
+    if not all(isinstance(digest, str) and _HEX64.fullmatch(digest) for digest in hashes):
+        return None
+    return values
+
+
+def _declared_file(workspace, value):
+    """(path, None) for a declared file inside the workspace, else (None, reason)."""
+    if not nonempty(value):
+        return None, "missing"
+    root = Path(workspace).resolve()
+    path = (root / value).resolve()
+    if not path.is_relative_to(root):
+        return None, "outside_workspace"
+    if not path.is_file():
+        return None, "missing"
+    return path, None
+
+
+def _asr_problem(workspace, value, source):
+    """Why the declared ASR transcript cannot stand for this source, or None.
+
+    The machine record beside a ``.txt`` transcript must be a qualified ASR
+    transcript whose recorded fingerprint equals the committed source's; a
+    file name cannot tell two uploads apart.
+    """
+    path, reason = _declared_file(workspace, value)
+    if path is None:
+        return reason
+    record_path = (path if path.suffix.lower() == ".json" else path.with_suffix(".json")).resolve()
+    if not record_path.is_relative_to(Path(workspace).resolve()) or not record_path.is_file():
+        return "source_unverified"
+    try:
+        record = json.loads(record_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return "source_unverified"
+    if not isinstance(record, dict) or record.get("kind") != "qualified_asr_transcript":
+        return "source_unverified"
+    recorded, expected = _fingerprint(record.get("source_fingerprint")), _fingerprint(source)
+    if recorded is None or expected is None:
+        return "source_unverified"
+    return None if recorded == expected else "source_mismatch"
 
 
 def _contains_quoted_dialogue(value):
@@ -164,18 +227,19 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
     if not isinstance(provenance, dict) or provenance.get("status") not in _DIALOGUE_PROVENANCE:
         raise ValueError("CINE_DIALOGUE_PROVENANCE_INVALID")
     provenance_status = provenance["status"]
-    if provenance_status in {"asr", "trusted_subtitles"}:
-        source_path = provenance.get("source_path")
-        if not nonempty(source_path):
-            issues.append({"reason": "dialogue_provenance_source_missing"})
-        else:
-            try:
-                transcript = _inside(workspace, workspace / source_path)
-            except ValueError:
-                issues.append({"reason": "dialogue_provenance_source_outside_workspace"})
-            else:
-                if not transcript.is_file():
-                    issues.append({"reason": "dialogue_provenance_source_missing"})
+    if provenance_status in {"asr", "subtitle_asr"}:
+        problem = _asr_problem(
+            workspace, provenance.get("asr_path") or provenance.get("source_path"), source
+        )
+        if problem:
+            issues.append({"reason": f"dialogue_provenance_asr_{problem}"})
+    if provenance_status in {"trusted_subtitles", "subtitle_asr"}:
+        subtitle = provenance.get("subtitle_path")
+        if provenance_status == "trusted_subtitles" and not subtitle:
+            subtitle = provenance.get("source_path")
+        _path, problem = _declared_file(workspace, subtitle)
+        if problem:
+            issues.append({"reason": f"dialogue_provenance_subtitle_{problem}"})
     quoted_dialogue = _contains_quoted_dialogue(
         {"characters": draft.get("characters"), "summary": summary, "sections": sections}
     )
@@ -183,6 +247,13 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
         issues.append({"reason": "quoted_dialogue_without_provenance"})
     if provenance_status == "asr":
         warnings.append({"detail": "Dialogue is ASR-derived and remains qualified."})
+    elif provenance_status == "subtitle_asr":
+        warnings.append(
+            {
+                "detail": "Dialogue combines declared subtitles with qualified ASR; where they "
+                "disagree, the difference stays visible for review rather than being resolved."
+            }
+        )
     elif provenance_status == "visible_subtitles":
         warnings.append(
             {"detail": "Dialogue is limited to subtitles visible in inspected image receipts."}

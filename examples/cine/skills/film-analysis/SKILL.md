@@ -144,9 +144,17 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    appears in the episode.
 
    The tool writes `inputs/source-transcript.{json,txt,srt}` and reports
-   `needs_review`, the count of lines JEV could not settle. Attribution comes
+   `needs_review`, the count of lines JEV could not settle. The JSON records
+   the source video's fingerprint; an existing transcript is reused only when it
+   matches this video and every line is attributed (unfinished attribution is
+   retried without redoing ASR), and readers reject a transcript of another
+   video even if it is also called `source.mp4`. `inputs/source.srt` is kept in
+   step only while it is the generated copy; a subtitle file you put there is
+   never overwritten. Attribution comes
    from the dialogue's own address terms, so it works before any cast document
-   exists. Later, once `cast.json` exists, re-running
+   exists; `identity_resolution` says whether JEV could decide which of those
+   roles are one person (without a confident answer they stay separate). Later,
+   once `cast.json` exists, re-running
    `production.py attribute <production>` re-attributes against the cast's
    stated relationships and is markedly more accurate — prefer it before
    handing the script to production.

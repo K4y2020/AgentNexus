@@ -1,7 +1,6 @@
 """Cine pipeline — ffprobe wrapper; integer PTS + rational time_base; VFR detection."""
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -10,8 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .schemas import SourceMediaRecord, StreamInfo
-
-CHUNK_SIZE = 256 * 1024  # 256 KiB for head/tail hash
+from .source_identity import CHUNK_SIZE, _sha256_chunk  # noqa: F401 - one identity rule
 
 # ---------------------------------------------------------------------------
 # Dependency check
@@ -31,20 +29,8 @@ def _ffprobe_available() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Hashing helpers
+# Hashing helpers (the head/tail hash itself lives in source_identity)
 # ---------------------------------------------------------------------------
-
-def _sha256_chunk(path: Path, *, tail: bool = False) -> str:
-    """SHA-256 of the first (or last) CHUNK_SIZE bytes of a file."""
-    size = path.stat().st_size
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        if tail and size > CHUNK_SIZE:
-            fh.seek(-CHUNK_SIZE, 2)
-        data = fh.read(CHUNK_SIZE)
-    h.update(data)
-    return h.hexdigest()
-
 
 def fast_changed(record: SourceMediaRecord, path: Path) -> bool:
     """Return True if size or mtime has changed since last probe."""

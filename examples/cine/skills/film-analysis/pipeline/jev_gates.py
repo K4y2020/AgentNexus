@@ -214,8 +214,14 @@ def _compact(value: Any, *, depth: int = 0, max_string: int = 3000) -> Any:
     stay short, but a whole source transcript has to survive intact or the
     source-comparison gates are judging a fragment.
     """
-    budget = _CharBudget(200_000)
-    return _compact_value(value, budget, max_string=max_string)
+    budget = _CharBudget(199_900)
+    result = _compact_value(value, budget, max_string=max_string)
+    if budget.truncated:
+        if isinstance(result, dict):
+            result["_compaction_truncated"] = True
+        elif isinstance(result, list):
+            result.append("[compaction truncated]")
+    return result
 
 
 class _CharBudget:
@@ -223,42 +229,103 @@ class _CharBudget:
 
     def __init__(self, limit: int):
         self.remaining = limit
+        self.truncated = False
 
-    def take(self, value: str) -> bool:
-        self.remaining -= len(value)
-        return self.remaining > 0
+    def reserve(self, size: int) -> bool:
+        if size > self.remaining:
+            return False
+        self.remaining -= size
+        return True
+
+    def take(self, value: str) -> str | None:
+        size = len(json.dumps(value, ensure_ascii=False))
+        if self.reserve(size):
+            return value
+        self.truncated = True
+        suffix = "..."
+        if self.remaining < len(json.dumps(suffix)):
+            return "" if self.reserve(2) else None
+        low, high = 0, len(value)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if len(json.dumps(value[:middle] + suffix, ensure_ascii=False)) <= self.remaining:
+                low = middle
+            else:
+                high = middle - 1
+        shortened = value[:low] + suffix
+        self.reserve(len(json.dumps(shortened, ensure_ascii=False)))
+        return shortened
+
+
+_BUDGET_EXHAUSTED = object()
 
 
 def _compact_value(
     value: Any, budget: "_CharBudget", *, depth: int = 0, max_string: int = 3000
 ) -> Any:
-    if budget.remaining <= 0:
-        return "[budget exhausted]"
-    if isinstance(value, str):
-        if len(value) <= max_string:
-            return value
-        return value[: max_string - 3] + "..."
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
     if depth >= 32:
-        return "[nested data omitted]"
+        budget.truncated = True
+        value = "[nested data omitted]"
+    if isinstance(value, str):
+        if len(value) > max_string:
+            value = value[: max_string - 3] + "..."
+        result = budget.take(value)
+        return result if result is not None else _BUDGET_EXHAUSTED
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value if budget.reserve(len(json.dumps(value))) else _BUDGET_EXHAUSTED
     if isinstance(value, list):
-        items = [
-            _compact_value(item, budget, depth=depth + 1, max_string=max_string) for item in value[:80]
-        ]
-        if len(value) > 80:
-            items.append(f"[{len(value) - 80} additional items omitted]")
+        if not budget.reserve(2):
+            return _BUDGET_EXHAUSTED
+        items = []
+        for item in value[:80]:
+            separator = 2 if items else 0
+            if not budget.reserve(separator):
+                break
+            compacted = _compact_value(item, budget, depth=depth + 1, max_string=max_string)
+            if compacted is _BUDGET_EXHAUSTED:
+                budget.remaining += separator
+                break
+            items.append(compacted)
+        omitted = len(value) - len(items)
+        if omitted:
+            budget.truncated = True
+            separator = 2 if items else 0
+            if budget.reserve(separator):
+                marker = budget.take(f"[{omitted} additional items omitted]")
+                if marker is None:
+                    budget.remaining += separator
+                else:
+                    items.append(marker)
         return items
     if isinstance(value, dict):
+        if not budget.reserve(2):
+            return _BUDGET_EXHAUSTED
         result = {}
-        for key, item in list(value.items())[:80]:
-            result[str(key)] = _compact_value(
-                item, budget, depth=depth + 1, max_string=max_string
-            )
-        if len(value) > 80:
-            result["_omitted_fields"] = len(value) - 80
+        for key, item in value.items():
+            if len(result) >= 80:
+                break
+            key = str(key)
+            prefix = (2 if result else 0) + len(json.dumps(key, ensure_ascii=False)) + 2
+            if not budget.reserve(prefix):
+                break
+            compacted = _compact_value(item, budget, depth=depth + 1, max_string=max_string)
+            if compacted is _BUDGET_EXHAUSTED:
+                budget.remaining += prefix
+                break
+            result[key] = compacted
+        omitted = len(value) - len(result)
+        if omitted:
+            budget.truncated = True
+            key = "_omitted_fields"
+            prefix = (2 if result else 0) + len(json.dumps(key)) + 2
+            if budget.reserve(prefix):
+                compacted = _compact_value(omitted, budget)
+                if compacted is _BUDGET_EXHAUSTED:
+                    budget.remaining += prefix
+                else:
+                    result[key] = compacted
         return result
-    return str(value)
+    return _compact_value(str(value), budget, depth=depth, max_string=max_string)
 
 
 def _question_objects(stage: str, *, include_source: bool = False):
@@ -384,7 +451,7 @@ def run_stage_gate(
                     )
                 break
             except Exception as exc:
-                if not _is_transport_error(exc) or not proxy_aware:
+                if not _transport_module().is_transport_error(exc) or not proxy_aware:
                     raise
                 last_error = exc
         if response is None:

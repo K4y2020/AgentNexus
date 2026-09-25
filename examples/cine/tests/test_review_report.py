@@ -9,6 +9,9 @@ from pipeline.render import refresh_report, render_report
 from pipeline.review_data import build_review_data
 from pipeline.schemas import EvidenceRecord, PtsInterval, SourceMediaRecord, SourceShot
 
+# The identity source_fixture's SourceMediaRecord records (size + head/tail hash).
+FINGERPRINT = {"size_bytes": 0, "sha256_head": "a" * 64, "sha256_tail": "b" * 64}
+
 
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,6 +70,7 @@ def source_fixture(tmp_path):
         {
             "kind": "qualified_asr_transcript",
             "source_media": "source.mp4",
+            "source_fingerprint": FINGERPRINT,
             "segments": [{"start": 2, "end": 4, "text": "Hello"}],
         },
     )
@@ -109,6 +113,7 @@ def test_feedback_edits_refresh_from_native_data_without_promoting_status(tmp_pa
         {
             "kind": "qualified_asr_transcript",
             "source_media": "source.mp4",
+            "source_fingerprint": FINGERPRINT,
             "segments": [{"start": 2, "end": 4, "text": "Hello", "speaker": "Mother"}],
         },
     )
@@ -144,7 +149,8 @@ def test_missing_screenshots_and_invalid_asr_do_not_fabricate_tracks(tmp_path):
         tmp_path / "inputs/transcript.json",
         {
             "kind": "qualified_asr_transcript",
-            "source_media": "other.mp4",
+            "source_media": "source.mp4",
+            "source_fingerprint": {**FINGERPRINT, "sha256_tail": "c" * 64},
             "segments": [{"start": 2, "end": 4, "text": "wrong film"}],
         },
     )
@@ -183,6 +189,7 @@ def test_asr_tail_clips_display_without_changing_source_or_dropping_good_rows(tm
         {
             "kind": "qualified_asr_transcript",
             "source_media": "source.mp4",
+            "source_fingerprint": FINGERPRINT,
             "segments": [
                 {"start": 2, "end": 4, "text": "Hello"},
                 {"start": 59, "end": 61, "text": "End"},
@@ -271,3 +278,53 @@ def test_refresh_cli_missing_input_returns_actionable_receipt(tmp_path, monkeypa
     assert receipt["error_code"] == "REPORT_INPUT_MISSING"
     assert "project.json" in receipt["error"]
     assert receipt["next_action"]
+
+
+def test_transcript_without_a_fingerprint_is_not_this_films_dialogue(tmp_path):
+    """source.mp4 is every upload's name; the basename alone proves nothing."""
+    rev, source, shots, evidence, _ = source_fixture(tmp_path)
+    write(
+        tmp_path / "inputs/transcript.json",
+        {
+            "kind": "qualified_asr_transcript",
+            "source_media": "source.mp4",
+            "segments": [{"start": 2, "end": 4, "text": "legacy"}],
+        },
+    )
+    data = build_review_data(rev, source, "r1", shots, evidence, tmp_path)
+    assert not any(cue["type"] == "dialogue" for cue in data["cues"])
+    assert data["warnings"]
+
+
+def test_matching_fingerprint_is_accepted_whatever_the_file_name(tmp_path):
+    rev, source, shots, evidence, _ = source_fixture(tmp_path)
+    write(
+        tmp_path / "inputs/transcript.json",
+        {
+            "kind": "qualified_asr_transcript",
+            "source_media": "renamed-upload.mkv",
+            "source_fingerprint": FINGERPRINT,
+            "segments": [{"start": 2, "end": 4, "text": "Hello"}],
+        },
+    )
+    data = build_review_data(rev, source, "r1", shots, evidence, tmp_path)
+    assert [cue["text"] for cue in data["cues"] if cue["type"] == "dialogue"] == ["Hello"]
+
+
+def test_machine_asr_srt_is_not_discovered_as_a_subtitle(tmp_path):
+    """Undeclared discovery must not show another video's ASR as subtitles."""
+    rev, source, shots, evidence, draft = source_fixture(tmp_path)
+    draft["dialogue_provenance"] = {"status": "unverified", "source_path": None}
+    write(rev.parent.parent / "story/r1.json", draft)
+    machine = "1\n00:00:02,000 --> 00:00:04,000\nwrong film\n"
+    (tmp_path / "inputs/source-transcript.srt").write_text(machine, encoding="utf-8")
+    (tmp_path / "inputs/source.srt").write_text(machine, encoding="utf-8")  # generated mirror
+    data = build_review_data(rev, source, "r1", shots, evidence, tmp_path)
+    assert not any(cue["type"] == "dialogue" for cue in data["cues"])
+
+    # A subtitle someone supplied as inputs/source.srt is still found.
+    (tmp_path / "inputs/source.srt").write_text(
+        "1\n00:00:02,000 --> 00:00:04,000\nsupplied line\n", encoding="utf-8"
+    )
+    data = build_review_data(rev, source, "r1", shots, evidence, tmp_path)
+    assert [cue["text"] for cue in data["cues"] if cue["type"] == "dialogue"] == ["supplied line"]

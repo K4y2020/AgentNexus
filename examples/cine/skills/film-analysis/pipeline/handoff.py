@@ -55,7 +55,8 @@ def source_material(project):
         isinstance(revision, str) and re.fullmatch(r"[A-Za-z0-9_-]+", revision),
         "COMMITTED_REVISION_REQUIRED",
     )
-    source_id = read("source.json").get("source_id")
+    source = read("source.json")
+    source_id = source.get("source_id")
     require(isinstance(source_id, str) and bool(source_id), "SOURCE_ID_REQUIRED")
     shots = unique(read(f"revisions/{revision}/source_shots.json"), "shot_id")
     review_path = root / "reviews" / f"{revision}.json"
@@ -115,6 +116,20 @@ def source_material(project):
         "shots": output,
         "receipt_authenticity": "not_checked_use_runtime_gate",
     }
+    # The film's media identity (size + head/tail SHA-256, as in source.json).
+    # A production bound to this material checks its ASR transcript against it.
+    fingerprint = {
+        field: source.get(field) for field in ("size_bytes", "sha256_head", "sha256_tail")
+    }
+    if (
+        type(fingerprint["size_bytes"]) is int
+        and fingerprint["size_bytes"] >= 0
+        and all(
+            isinstance(fingerprint[f], str) and re.fullmatch(r"[0-9a-f]{64}", fingerprint[f])
+            for f in ("sha256_head", "sha256_tail")
+        )
+    ):
+        result["source_fingerprint"] = fingerprint
     plan_relative = f"revisions/{revision}/story_plan.json"
     if (root / plan_relative).exists():
         plan = read(plan_relative)
