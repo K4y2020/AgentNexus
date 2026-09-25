@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from agentnexus.entities.conversation import MessageData, NewConversationItem
+from agentnexus.entities.conversation import MessageData, ModelFactData, NewConversationItem
 from agentnexus.runtime import pending_elicitations
 from agentnexus.session_lifecycle import CLOSED_LABEL_KEY, CLOSED_LABEL_VALUE
 from agentnexus.spec.types import AgentSpec, ExecutorSpec
@@ -393,6 +393,48 @@ def test_peek_returns_items_chronological(session_fixture: _Fixture) -> None:
     assert items[0]["content"] == "find the auth bug"
     assert items[1]["role"] == "assistant"
     assert items[1]["content"] == "looking at handlers.py"
+
+
+def test_peek_tail_skips_per_turn_metadata_items(session_fixture: _Fixture) -> None:
+    """
+    The ``model_fact`` item recorded after every turn has no content, so it
+    never uses up the tail: ``tail_items=1`` still returns the final message.
+    """
+    child_id = session_fixture.child_conv_id
+    session_fixture.conv_store.append(
+        child_id,
+        [
+            NewConversationItem(
+                type="model_fact",
+                response_id="resp_test_1",
+                data=ModelFactData(harness="openai-agents"),
+            ),
+            NewConversationItem(
+                type="message",
+                response_id="resp_test_2",
+                data=MessageData(
+                    role="assistant",
+                    content=[{"type": "output_text", "text": "fixed handlers.py"}],
+                    agent="researcher",
+                ),
+            ),
+            NewConversationItem(
+                type="model_fact",
+                response_id="resp_test_2",
+                data=ModelFactData(harness="openai-agents"),
+            ),
+        ],
+    )
+
+    def peek(tail_items: int) -> list[str | None]:
+        raw = SysSessionGetHistoryTool().invoke(
+            json.dumps({"conversation_id": child_id, "tail_items": tail_items}),
+            session_fixture.ctx,
+        )
+        return [item["content"] for item in json.loads(raw)["items"]]
+
+    assert peek(1) == ["fixed handlers.py"]
+    assert peek(2) == ["looking at handlers.py", "fixed handlers.py"]
 
 
 _HISTORY_CONTENT_SCENARIOS = [

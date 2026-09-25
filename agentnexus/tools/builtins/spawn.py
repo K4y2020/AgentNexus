@@ -55,6 +55,9 @@ _HISTORY_MAX_CHARS_PER_ITEM = 12000
 # The total budget intentionally follows the default preview and tail cap;
 # changing either value above also changes this budget.
 _HISTORY_MAX_TOTAL_CHARS = _HISTORY_MAX_TAIL * _ACTIVITY_MAX_CHARS
+# Per-turn inspector metadata (the model fact chain, smart-routing picks) has no
+# conversation content, so a history tail skips it rather than spend slots on it.
+_HISTORY_HIDDEN_ITEM_TYPES = frozenset({"model_fact", "routing_decision"})
 
 # sys_session_close still rewrites the stored title internally to free
 # the DB's ``(parent_conversation_id, title)`` unique slot. API display
@@ -1467,6 +1470,32 @@ def _bound_history_content_chars(*, tail_items: int, content_max_chars: int) -> 
     return min(content_max_chars, _HISTORY_MAX_TOTAL_CHARS // tail_items)
 
 
+def _history_tail(
+    conv_store: ConversationStore,
+    conversation_id: str,
+    tail_items: int,
+) -> list[ConversationItem]:
+    """
+    Return the newest ``tail_items`` history items, newest first.
+
+    Pages past :data:`_HISTORY_HIDDEN_ITEM_TYPES` so per-turn metadata never
+    displaces the content the caller asked for.
+
+    :param conv_store: Conversation store to read from.
+    :param conversation_id: Target conversation, e.g. ``"conv_abc123"``.
+    :param tail_items: Number of visible items wanted (already clamped).
+    :returns: Up to ``tail_items`` items in newest-first order.
+    """
+    kept: list[ConversationItem] = []
+    after: str | None = None
+    while True:
+        page = conv_store.list_items(conversation_id, limit=tail_items, after=after, order="desc")
+        kept.extend(item for item in page.data if item.type not in _HISTORY_HIDDEN_ITEM_TYPES)
+        if len(kept) >= tail_items or not page.has_more or page.last_id is None:
+            return kept[:tail_items]
+        after = page.last_id
+
+
 class SysSessionGetHistoryTool(Tool):
     """
     Return the recent conversation items (history) of a session.
@@ -1602,16 +1631,11 @@ class SysSessionGetHistoryTool(Tool):
             tail_items=tail_items,
             content_max_chars=content_max_chars,
         )
-        page = resolution.conv_store.list_items(
-            resolution.child.id,
-            limit=tail_items,
-            order="desc",
-        )
-        # ``list_items(order="desc")`` returns newest-first; reverse
-        # to chronological order so the LLM reads top-to-bottom.
+        tail = _history_tail(resolution.conv_store, resolution.child.id, tail_items)
+        # The tail is newest-first; reverse to chronological order so the
+        # LLM reads top-to-bottom.
         items: list[dict[str, Any]] = [
-            _project_activity_item(item, max_chars=content_max_chars)
-            for item in reversed(page.data)
+            _project_activity_item(item, max_chars=content_max_chars) for item in reversed(tail)
         ]
         # A parked elicitation never lands in the conversation store
         # (it lives only in the pending-elicitations index), so without

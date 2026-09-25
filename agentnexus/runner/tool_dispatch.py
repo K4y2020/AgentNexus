@@ -104,6 +104,7 @@ from agentnexus.tools.builtins.spawn import (
     _ACTIVITY_MAX_CHARS,
     _CLOSED_TITLE_INFIX,
     _HISTORY_DEFAULT_TAIL,
+    _HISTORY_HIDDEN_ITEM_TYPES,
     _bound_history_content_chars,
     _clamp_history_content_chars,
     _clamp_tail_items,
@@ -5887,25 +5888,36 @@ async def _session_get_history_via_rest(
         tail_items=tail_items,
         content_max_chars=content_max_chars,
     )
-    try:
-        resp = await server_client.get(
-            f"/v1/sessions/{target_id}/items",
-            params={"limit": tail_items, "order": "desc"},
-            timeout=30.0,
+    data: list[_JsonObject] = []
+    params: dict[str, str | int] = {"limit": tail_items, "order": "desc"}
+    while True:
+        try:
+            resp = await server_client.get(
+                f"/v1/sessions/{target_id}/items",
+                params=params,
+                timeout=30.0,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return json.dumps({"error": f"sys_session_get_history failed: {exc}"})
+        if resp.status_code == 404:
+            return json.dumps({"error": "session_not_found", "conversation_id": target_id})
+        if resp.status_code in (401, 403):
+            return json.dumps({"error": "session_out_of_tree", "conversation_id": target_id})
+        if resp.status_code != 200:
+            return json.dumps({"error": f"sys_session_get_history returned {resp.status_code}"})
+        page = resp.json()
+        # Page past per-turn metadata so it never displaces requested content.
+        data.extend(
+            it for it in page.get("data", []) if it.get("type") not in _HISTORY_HIDDEN_ITEM_TYPES
         )
-    except Exception as exc:  # noqa: BLE001
-        return json.dumps({"error": f"sys_session_get_history failed: {exc}"})
-    if resp.status_code == 404:
-        return json.dumps({"error": "session_not_found", "conversation_id": target_id})
-    if resp.status_code in (401, 403):
-        return json.dumps({"error": "session_out_of_tree", "conversation_id": target_id})
-    if resp.status_code != 200:
-        return json.dumps({"error": f"sys_session_get_history returned {resp.status_code}"})
-    data: list[_JsonObject] = resp.json().get("data", [])
+        last_id = page.get("last_id")
+        if len(data) >= tail_items or not page.get("has_more") or not isinstance(last_id, str):
+            break
+        params["after"] = last_id
     # ``order="desc"`` returns newest-first; reverse to chronological so
     # the LLM reads top-to-bottom (matches the in-process peek).
     items: list[_JsonObject] = [
-        _project_api_item(it, max_chars=content_max_chars) for it in reversed(data)
+        _project_api_item(it, max_chars=content_max_chars) for it in reversed(data[:tail_items])
     ]
     meta = await _fetch_peek_meta(target_id, server_client)
     # A parked elicitation never lands in the conversation store (it

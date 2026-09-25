@@ -5944,6 +5944,67 @@ async def test_session_peek_returns_chronological_projected_items() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_session_peek_pages_past_per_turn_metadata_items() -> None:
+    """
+    ``model_fact`` / ``routing_decision`` items carry no content, so the peek
+    pages past them: ``tail_items=1`` still returns the child's final message.
+    """
+    from agentnexus.runner.tool_dispatch import _execute_session_query_tool
+
+    newest_first: list[dict[str, object]] = [
+        {"id": "i4", "type": "model_fact", "harness": "openai-agents"},
+        {
+            "id": "i3",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": "found it"}],
+        },
+        {"id": "i2", "type": "routing_decision"},
+        {
+            "id": "i1",
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": "where is the bug"}],
+        },
+    ]
+    ids = [item["id"] for item in newest_first]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/sessions/conv_target/items":
+            after = request.url.params.get("after")
+            start = 0 if after is None else ids.index(after) + 1
+            end = start + int(request.url.params["limit"])
+            page = newest_first[start:end]
+            return httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": page,
+                    "last_id": page[-1]["id"] if page else None,
+                    "has_more": end < len(newest_first),
+                },
+            )
+        if request.url.path == "/v1/sessions/conv_target":
+            return httpx.Response(200, json={"id": "conv_target", "title": "researcher:auth"})
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    async def peek(tail_items: int) -> list[tuple[object, object]]:
+        async with _session_query_client(handler) as client:
+            out = json.loads(
+                await _execute_session_query_tool(
+                    "sys_session_get_history",
+                    json.dumps({"conversation_id": "conv_target", "tail_items": tail_items}),
+                    conversation_id="conv_caller",
+                    server_client=client,
+                )
+            )
+        return [(i["role"], i["text"]) for i in out["items"]]
+
+    assert await peek(1) == [("assistant", "found it")]
+    assert await peek(2) == [("user", "where is the bug"), ("assistant", "found it")]
+
+
 _REST_HISTORY_CONTENT_SCENARIOS = [
     pytest.param(3000, 4000, "R" * 3000, id="raised-limit"),
     pytest.param(3000, None, "R" * 2000 + " [truncated]", id="default-limit"),
