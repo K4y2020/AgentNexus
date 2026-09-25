@@ -159,6 +159,35 @@ async def test_upload_rejects_symlink_escaping_workspace(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_list_files_dispatches_through_execute_tool() -> None:
+    """
+    ``execute_tool`` routes a file tool to its handler with the keywords
+    the handler accepts, so the call reaches the session files endpoint.
+    """
+    captured: list[httpx.Request] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"data": [{"id": "file_abc123"}]})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(_handler), base_url="http://ap-server"
+    ) as client:
+        output = await execute_tool(
+            tool_name="list_files",
+            arguments="{}",
+            server_client=client,
+            conversation_id=_CONVERSATION_ID,
+            task_id="task_list_files",
+        )
+
+    assert json.loads(output) == {"data": [{"id": "file_abc123"}]}, output
+    assert [(r.method, r.url.path) for r in captured] == [
+        ("GET", f"/v1/sessions/{_CONVERSATION_ID}/resources/files")
+    ]
+
+
+@pytest.mark.asyncio
 async def test_upload_in_workspace_succeeds(tmp_path: Path) -> None:
     """
     An ``upload_file`` path inside the workspace uploads the file's raw
