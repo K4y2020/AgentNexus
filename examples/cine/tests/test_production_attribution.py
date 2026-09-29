@@ -677,3 +677,66 @@ def test_free_adaptation_is_not_compared_line_by_line(monkeypatch, tmp_path):
     assert "--source" not in row["command"]
     assert row["source_comparison"] == "skipped: free adaptation"
     assert seen["text"] is None
+
+
+# ---------------------------------------------------------------------------
+# Rows inside an opening teaser are neither attributed nor compared
+# ---------------------------------------------------------------------------
+
+TEASER_TRANSCRIPT = {
+    "kind": "qualified_asr_transcript",
+    "segments": [
+        {"id": "a", "start": 0.1, "end": 4.7, "text": "晚上见", "teaser": True},
+        {"id": "b", "start": 35.0, "end": 37.0, "text": "你好"},
+    ],
+}
+
+
+def test_teaser_rows_are_left_out_of_the_attributed_baseline(monkeypatch, tmp_path):
+    directory = _production(tmp_path, transcript=TEASER_TRANSCRIPT)
+    seen = []
+
+    def attribute(segments, _cast, **_kwargs):
+        seen.extend(s["text"] for s in segments)
+        return {
+            "model": "mock-jev",
+            "attributions": [
+                {"id": s["id"], "text": s["text"], "speaker": "C01", "needs_review": False}
+                for s in segments
+            ],
+        }
+
+    monkeypatch.setattr(attribute_speakers, "attribute_speakers", attribute)
+
+    result = production.run_attribution(directory)
+
+    assert result["status"] == "attributed" and seen == ["你好"]
+    saved = json.loads(
+        (directory / "source-transcript-attributed.json").read_text(encoding="utf-8")
+    )
+    assert [a["text"] for a in saved["attributions"]] == ["你好"]
+
+
+def test_scene_notes_are_placed_without_the_teaser_row(tmp_path):
+    """A teaser row would shift every exchange by one."""
+    directory = _production(tmp_path, transcript=TEASER_TRANSCRIPT)
+    _write(
+        directory / "source-material.json",
+        {
+            "adaptation_story": {
+                "sections": [
+                    {"batch_id": "B001", "events": ["开场"]},
+                    {"batch_id": "B002", "events": ["相遇"]},
+                ]
+            },
+            "adaptation_story_batches": [
+                {"batch_id": "B001", "start_seconds": 0.0, "end_seconds": 30.0},
+                {"batch_id": "B002", "start_seconds": 30.0, "end_seconds": 60.0},
+            ],
+        },
+    )
+
+    production.write_scene_notes(directory)
+
+    notes = json.loads((directory / "scene-notes.json").read_text(encoding="utf-8"))
+    assert notes == {"0": "相遇"}

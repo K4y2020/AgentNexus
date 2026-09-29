@@ -181,6 +181,13 @@ because each line is then weighed against neighbours from a different exchange.
 Treat any `needs_review` line as unresolved: it means JEV was not confident, or
 could not tell, and a human or a stronger model should decide it.
 
+Rows inside an opening teaser (`teaser: true` in the transcript, speaker `预告片段`;
+see `opening_teaser` in `story_plan.json` and in `source-material.json`) are left
+out of this file. That footage was cut in from later in the film, so its lines are
+heard again where they belong; attributing them against the neighbours of a
+montage is guesswork, and requiring the script to repeat them would generate the
+same scene twice. They take no part in the gates below.
+
 The script stage then reads that file automatically — `check_stage` appends
 `--source <output>/source-transcript-attributed.json` when it exists — so the
 script validator can compare line order, speaker and delivery against the

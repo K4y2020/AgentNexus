@@ -255,10 +255,15 @@ def run_pipeline(
         all_evidence: List[EvidenceRecord] = []
         story_plan = None
         if evidence_mode == "story":
+            from .opening_teaser import detect_opening_teaser
             from .story import extract_story_plan
 
+            # A film may open with footage cut in from later; only a scope that starts at
+            # the beginning can see it. The scan reports failure instead of raising.
+            opening_teaser = None if scope_in_seconds else detect_opening_teaser(media_path)
             story_plan, all_evidence = extract_story_plan(
                 media_path, source, revision_id, rev_dir, scope_start, scope_end_raw,
+                opening_teaser=opening_teaser,
             )
             story_plan["cut_detection_warning"] = detection_warning
         elif evidence_mode == "boundary":

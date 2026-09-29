@@ -145,6 +145,9 @@ def source_material(project):
             plan.get("source_id") == source_id and plan.get("revision_id") == revision,
             "STORY_REVISION_MISMATCH",
         )
+        if isinstance(plan.get("opening_teaser"), dict):
+            # Footage cut in from later to open the film: not events at 0:00.
+            result["opening_teaser"] = plan["opening_teaser"]
         draft_relative = f"story/{revision}.json"
         result["adaptation_story_status"] = "missing"
         if (root / draft_relative).exists():

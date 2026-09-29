@@ -128,6 +128,18 @@ cut density, including the final batch. The times are sampling seeks, not a clai
 frame-exact boundary detection. Cut detector failure is a warning in this profile:
 temporal sampling can still proceed. Missing media/decoding capability is a real blocker.
 
+Some films open with a teaser cut from their own later scenes. Indexing scans
+the opening for footage that plays again later, frame for frame; when it finds
+some, `story_plan.json` carries `opening_teaser` (`end_seconds`, and `clips`,
+each with the `twin_start` where the same footage plays in the body) and the
+first still of batch B001 is taken after the teaser, not at 0:00. Those seconds
+are not events at 0:00: read each clip where it belongs, and never write a
+teaser's content into B001. Transcript rows inside it carry `teaser: true` and
+the speaker `预告片段`; they are not attributed, and the attributed baseline and
+the script gates do not count them, because the same lines are heard again in
+the body. Only reused identical footage is found: a teaser that was re-graded,
+cropped or sped up, or one that only moves speech forward, is not.
+
 1. Read story_plan.json, evidence_index.json and the generated story draft path.
 2. Process every batch in order. Call sys_os_view_image with indexed path,
    evidence_index and evidence_id for representative images actually inspected.

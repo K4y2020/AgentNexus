@@ -375,6 +375,15 @@ def attribution_input_hashes(directory, rows_path, cast_path):
     return hashes
 
 
+def spoken_rows(segments):
+    """The transcript rows that are dialogue in their own right.
+
+    A row inside the opening teaser (footage cut in from later) is heard again where
+    it belongs, so it is neither attributed nor compared with the script.
+    """
+    return [s for s in segments or [] if not (isinstance(s, dict) and s.get("teaser"))]
+
+
 def source_material_path(directory):
     """Where a production keeps its source material: its binding, else the usual name."""
     try:
@@ -415,7 +424,7 @@ def write_scene_notes(directory):
     # The transcript is the tool's own output: a stray replacement character from ASR is
     # not the damage read() refuses.
     payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
-    segments = payload.get("segments") if isinstance(payload, dict) else payload
+    segments = spoken_rows(payload.get("segments") if isinstance(payload, dict) else payload)
     if any(isinstance(s, dict) and s.get("scene") is not None for s in segments or []):
         return {"status": "unavailable", "reason": "transcript already carries explicit scenes"}
     try:
@@ -473,7 +482,7 @@ def run_attribution(directory, *, model="jev-latest"):
             "transcript": str(rows_path),
             "transcript_identity": identity,
         }
-    segments = payload.get("segments") if isinstance(payload, dict) else payload
+    segments = spoken_rows(payload.get("segments") if isinstance(payload, dict) else payload)
     scenes = payload.get("scenes") if isinstance(payload, dict) else None
     cast = read(Path(cast_path))
 

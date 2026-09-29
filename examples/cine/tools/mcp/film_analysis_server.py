@@ -40,6 +40,8 @@ mcp = FastMCP("cine-film-analysis")
 
 _REVISION_ID = re.compile(r"[A-Za-z0-9_-]+")
 _DELIVERIES = {"spoken", "voice_over", "unclear"}
+# Label of a transcript row inside the opening teaser: shown in the .txt and .srt.
+TEASER_SPEAKER = "预告片段"
 _INDEXED = {"indexed_unreviewed", "indexed_semantic_reviewed"}
 # Transcription outcomes after which the workspace transcript is complete.
 _TRANSCRIBED = {"transcribed", "reused", "no_dialogue_detected"}
@@ -129,19 +131,32 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
     if not rows:
         return {"status": "no_dialogue_detected"}
 
-    attributed = attribute_speakers(rows, derived_cast(rows), scenes={})
-    if "error" in attributed:
-        return {"status": "attribution_unavailable", "detail": attributed}
+    # A row inside the opening teaser is footage cut in from later: its context is a
+    # montage, and the same line is heard where it belongs. It is not attributed.
+    live = [r for r in rows if not r.get("teaser")]
+    attributed: dict[str, Any] = {"attributions": []}
+    if live:
+        attributed = attribute_speakers(live, derived_cast(live), scenes={})
+        if "error" in attributed:
+            return {"status": "attribution_unavailable", "detail": attributed}
 
     attributions = attributed["attributions"]
-    if len(attributions) != len(rows):
+    if len(attributions) != len(live):
         return {
             "status": "attribution_incomplete",
-            "expected": len(rows),
+            "expected": len(live),
             "received": len(attributions),
         }
 
-    for row, entry in zip(rows, attributions, strict=True):
+    for row in rows:
+        if row.get("teaser"):
+            row["speaker"] = TEASER_SPEAKER
+            row["delivery"] = "unclear"
+            row["attribution_confidence"] = 0.0
+            row.pop("needs_review", None)
+            row.pop("review_reasons", None)
+
+    for row, entry in zip(live, attributions, strict=True):
         row["speaker"] = entry["speaker_name"]
         row["delivery"] = entry["delivery"]
         row["attribution_confidence"] = entry["confidence"]
@@ -159,6 +174,7 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
         "status": "transcribed",
         "model": attributed.get("model"),
         "segments": len(rows),
+        "teaser_rows": len(rows) - len(live),
         "needs_review": sum(1 for r in rows if r.get("needs_review")),
         # Whether JEV could decide which dialogue roles are one person. When it
         # could not, roles stay separate and their lines are flagged instead.
@@ -167,7 +183,41 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
     }
 
 
-def _transcribe(video: Path, workspace: Path) -> dict[str, Any]:
+def _opening_teaser(video: Path, plan_path: str | None = None) -> dict:
+    """The scan of the film's opening for footage cut in from later.
+
+    Indexing already scanned it when it built the story plan; otherwise (a reused
+    revision, or film_transcribe on its own) the scan runs now.
+    """
+    plan = _load_json(Path(plan_path)) if plan_path else None
+    known = plan.get("opening_teaser") if isinstance(plan, dict) else None
+    if isinstance(known, dict) and known.get("status") in ("found", "none"):
+        return known
+    from pipeline.opening_teaser import detect_opening_teaser
+
+    return detect_opening_teaser(video)
+
+
+def _teaser_pending(payload: dict) -> bool:
+    """A transcript made before the opening was scanned, or when the scan failed."""
+    summary = payload.get("opening_teaser")
+    return not isinstance(summary, dict) or summary.get("status") == "unavailable"
+
+
+def _tag_opening_teaser(payload: dict, teaser: dict) -> int:
+    """Mark the transcript rows inside the teaser and record the scan; returns the new marks."""
+    from pipeline.opening_teaser import tag_rows
+
+    rows = payload.get("segments") or []
+    marked = tag_rows(rows, teaser)
+    payload["opening_teaser"] = {
+        **{k: teaser[k] for k in ("status", "method", "end_seconds", "clips", "error") if k in teaser},
+        "rows_marked": sum(1 for r in rows if r.get("teaser")),
+    }
+    return marked
+
+
+def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> dict[str, Any]:
     """Transcribe the source and attribute speakers, using JEV for the labels.
 
     The LLM pass repairs text only. Attribution is JEV's job: it needs no cast
@@ -198,12 +248,14 @@ def _transcribe(video: Path, workspace: Path) -> dict[str, Any]:
         return {"status": "transcription_failed", "detail": result}
 
     payload = json.loads(Path(result["json_path"]).read_text(encoding="utf-8-sig"))
+    _tag_opening_teaser(payload, _opening_teaser(video, plan_path))
     outcome = _attribute(payload, inputs)
     return {
         **outcome,
         "asr": "ran",
         "json_path": result["json_path"],
         "captions": payload.get("burned_subtitles"),
+        "opening_teaser": payload.get("opening_teaser"),
     }
 
 
@@ -213,36 +265,63 @@ def _captions_pending(payload: dict) -> bool:
     return not isinstance(summary, dict) or summary.get("status") == "unavailable"
 
 
-def _read_captions(video: Path, payload: dict, inputs: Path) -> dict | None:
-    """Fold burned-in captions into an existing transcript without redoing ASR.
+def _read_captions(video: Path, payload: dict) -> dict | None:
+    """Fold burned-in captions into an existing transcript's rows, in memory.
 
     Returns the summary, or ``None`` when the reader is unavailable (the
-    transcript is left as it was, and the next run tries again). When captions
-    changed the rows, attribution is stale and the caller redoes it.
+    transcript is left as it was, and the next run tries again).
     """
     from pipeline.burned_subtitles import merge_into_transcript, read_burned_subtitles
-    from pipeline.transcribe import _atomic_text
 
     burned = read_burned_subtitles(video, language=payload.get("language") or "zh")
     if burned["status"] == "unavailable":
         return None
     rows, counts = merge_into_transcript(payload.get("segments") or [], burned["rows"])
     summary = {"status": burned["status"], "engine": burned["engine"], **counts}
-    changed = bool(counts["added"] or counts["corrected"])
     payload["burned_subtitles"] = summary
+    payload["segments"] = rows
+    return summary
+
+
+def _refresh_transcript(
+    video: Path, payload: dict, inputs: Path, plan_path: str | None
+) -> dict[str, Any] | None:
+    """Bring a transcript made by an older run up to date without redoing ASR.
+
+    Reads the captions and scans the opening for reused footage, whichever the
+    transcript predates. Returns what it did, or ``None`` when there was nothing to
+    do. When the rows changed, attribution is stale: the flag is dropped so the
+    caller redoes it.
+    """
+    from pipeline.transcribe import _atomic_text
+
+    done: dict[str, Any] = {}
+    changed = False
+    if _captions_pending(payload):
+        captions = _read_captions(video, payload)
+        if captions is not None:
+            done["captions"] = captions
+            changed = bool(captions["added"] or captions["corrected"])
+    if _teaser_pending(payload):
+        teaser = _opening_teaser(video, plan_path)
+        changed = bool(_tag_opening_teaser(payload, teaser)) or changed
+        done["opening_teaser"] = payload["opening_teaser"]
+    if not done:
+        return None
     if changed:
-        payload["segments"] = rows
         payload.pop("speaker_attribution", None)
     else:
-        # Nothing new to attribute; record that the captions were read.
+        # Nothing to attribute again; record that the passes ran.
         _atomic_text(
             inputs / "source-transcript.json",
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         )
-    return summary
+    return {"changed": changed, **done}
 
 
-def _transcription_for(video: Path, workspace: Path) -> dict[str, Any]:
+def _transcription_for(
+    video: Path, workspace: Path, plan_path: str | None = None
+) -> dict[str, Any]:
     """Reuse the workspace transcript only when it is this video's and complete.
 
     The transcript must record this video's fingerprint (size plus head/tail
@@ -258,31 +337,38 @@ def _transcription_for(video: Path, workspace: Path) -> dict[str, Any]:
     path = inputs / "source-transcript.json"
     payload = _load_json(path) if path.is_file() else None
     if isinstance(payload, dict) and transcript_matches_source(payload, media_fingerprint(video)):
-        if _captions_pending(payload) and _asr_rows_usable(payload.get("segments")):
-            captions = _read_captions(video, payload, inputs)
-            if captions and (captions["added"] or captions["corrected"]):
-                outcome = _attribute(payload, inputs)
-                return {
-                    **outcome,
-                    "asr": "reused",
-                    "captions": captions,
-                    "json_path": str(path),
-                }
+        refreshed = (
+            _refresh_transcript(video, payload, inputs, plan_path)
+            if _asr_rows_usable(payload.get("segments"))
+            else None
+        )
+        # What the refresh did (captions read, opening scanned) is reported with any outcome.
+        done = {k: v for k, v in (refreshed or {}).items() if k != "changed"}
+        if refreshed and refreshed["changed"]:
+            outcome = _attribute(payload, inputs)
+            return {**outcome, "asr": "reused", **done, "json_path": str(path)}
         rows = payload.get("segments")
         if rows == []:
-            return {"status": "no_dialogue_detected", "asr": "reused", "json_path": str(path)}
+            return {"status": "no_dialogue_detected", "asr": "reused", **done, "json_path": str(path)}
         if _attribution_complete(payload):
             return {
                 "status": "reused",
                 "asr": "reused",
+                **done,
                 "json_path": str(path),
                 "segments": len(rows),
                 "needs_review": sum(1 for r in rows if r.get("needs_review")),
             }
         if _asr_rows_usable(rows):
             outcome = _attribute(payload, inputs)
-            return {**outcome, "asr": "reused", "attribution": "retried", "json_path": str(path)}
-    return _transcribe(video, workspace)
+            return {
+                **outcome,
+                "asr": "reused",
+                "attribution": "retried",
+                **done,
+                "json_path": str(path),
+            }
+    return _transcribe(video, workspace, plan_path)
 
 
 def _blocked(reason: str, error: str) -> dict[str, Any]:
@@ -330,7 +416,10 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
 
     Creates the project, detects shots, samples the timeline, extracts frame
     evidence, renders the report, and transcribes the dialogue with speaker
-    attribution. Returns the project paths and the transcription summary.
+    attribution. It also scans the opening for a teaser cut from the film's own
+    later footage (`opening_teaser` in the story plan and the transcription
+    summary); the transcript rows inside it are marked, not attributed. Returns
+    the project paths and the transcription summary.
 
     Outer status: ``indexed`` only when the index and the transcript are both
     complete; ``index_blocked`` or ``transcription_incomplete`` otherwise.
@@ -381,7 +470,9 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
         }
 
     try:
-        transcription = _transcription_for(video_path, workspace_path)
+        transcription = _transcription_for(
+            video_path, workspace_path, result.get("story_plan_path")
+        )
     except Exception as exc:  # noqa: BLE001 - reported, never reported as success
         transcription = {"status": "transcription_failed", "error": f"{type(exc).__name__}: {exc}"}
 

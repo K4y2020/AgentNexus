@@ -7,11 +7,17 @@ from .evidence import _extract_frame, _ffmpeg_available, _ffmpeg_version, _sha25
 from .schemas import EvidenceRecord, PtsInterval
 
 
-def extract_story_plan(media, source, revision_id, revision_dir, start, end, batch_seconds=30):
+def extract_story_plan(
+    media, source, revision_id, revision_dir, start, end, batch_seconds=30, opening_teaser=None
+):
     base = source.time_base
     step = max(1, int(Fraction(batch_seconds) / base))
     if end <= start or batch_seconds <= 0:
         raise ValueError("story sampling requires a positive scope and batch size")
+    # A film that opens with a teaser of its own later footage: the first still must not
+    # be a frame of it, or the story reads a scene's outcome as the opening.
+    teaser = opening_teaser if (opening_teaser or {}).get("status") == "found" else None
+    teaser_pts = int(Fraction(str(teaser["end_seconds"])) / base) if teaser else 0
     folder = revision_dir / "evidence"
     folder.mkdir(exist_ok=True)
     records, batches = [], []
@@ -23,7 +29,8 @@ def extract_story_plan(media, source, revision_id, revision_dir, start, end, bat
             {low + (high - low) // 10, low + (high - low) // 2, low + (high - low) * 9 // 10}
         )
         if i == 1:
-            points[0] = low
+            points[0] = min(low + teaser_pts, high - 1)
+            points = sorted(set(points))
         ids = []
         for j, pts in enumerate(points):
             pts = min(pts, high - 1)
@@ -78,4 +85,11 @@ def extract_story_plan(media, source, revision_id, revision_dir, start, end, bat
         "not exact frame-PTS or continuous viewing.",
         "accuracy_percent": None,
     }
+    if opening_teaser is not None:
+        plan["opening_teaser"] = opening_teaser
+    if teaser:
+        plan["sampling_note"] += (
+            f" The film opens with a teaser of its own later footage (0-{teaser['end_seconds']} s);"
+            " the first still is taken after it."
+        )
     return plan, records

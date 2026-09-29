@@ -144,3 +144,112 @@ def test_resume_preserves_story_progress_and_refuses_changed_source(tmp_path, mo
 
     with pytest.raises(ValueError, match="Source media changed"):
         entry.index_media(media, project, resume=True)
+
+
+# ---------------------------------------------------------------------------
+# A film that opens with a teaser of its own later footage
+# ---------------------------------------------------------------------------
+
+TEASER = {"status": "found", "method": "frame_reuse", "end_seconds": 4.75, "clips": []}
+
+
+def _sampled(tmp_path, monkeypatch, teaser, end=8087999):
+    monkeypatch.setattr(story, "_ffmpeg_available", lambda: True)
+    monkeypatch.setattr(story, "_ffmpeg_version", lambda: "test")
+
+    def extract(_media, _seek, path):
+        path.write_bytes(b"test frame")
+        return ["ffmpeg", "test"]
+
+    monkeypatch.setattr(story, "_extract_frame", extract)
+    return story.extract_story_plan(
+        Path("video"), source(), "rev", tmp_path, 0, end, opening_teaser=teaser
+    )
+
+
+def _first_still(evidence):
+    return next(e for e in evidence if e.relative_path.endswith("B001_0.jpg"))
+
+
+def test_the_first_still_is_taken_after_an_opening_teaser(tmp_path, monkeypatch):
+    plan, evidence = _sampled(tmp_path, monkeypatch, TEASER)
+
+    assert _first_still(evidence).source_interval.in_pts == int(4.75 * 16000)
+    assert plan["opening_teaser"] == TEASER
+    assert "teaser of its own later footage" in plan["sampling_note"]
+
+
+def test_without_a_teaser_the_first_still_is_the_first_frame(tmp_path, monkeypatch):
+    plan, evidence = _sampled(tmp_path, monkeypatch, None)
+
+    assert _first_still(evidence).source_interval.in_pts == 0
+    assert "opening_teaser" not in plan
+
+
+def test_a_scan_that_found_nothing_is_recorded_and_moves_nothing(tmp_path, monkeypatch):
+    plan, evidence = _sampled(tmp_path, monkeypatch, {"status": "none", "method": "frame_reuse"})
+
+    assert _first_still(evidence).source_interval.in_pts == 0
+    assert plan["opening_teaser"]["status"] == "none"
+    assert "sampling_note" in plan and "teaser" not in plan["sampling_note"]
+
+
+def test_a_teaser_longer_than_a_batch_keeps_the_still_inside_the_batch(tmp_path, monkeypatch):
+    plan, evidence = _sampled(tmp_path, monkeypatch, {**TEASER, "end_seconds": 45.0})
+
+    batch = plan["batches"][0]["interval"]
+    assert _first_still(evidence).source_interval.in_pts < batch["out_pts"]
+
+
+def _pipeline(tmp_path, monkeypatch, **kwargs):
+    from pipeline import runner
+
+    media = tmp_path / "video"
+    media.write_bytes(b"media")
+    media_source = source()
+    media_source.path = str(media)
+    monkeypatch.setattr(runner, "_resolve_source", lambda *_a, **_kw: media_source)
+    monkeypatch.setattr(
+        runner, "detect_cuts", lambda *_a, **_kw: SimpleNamespace(status="unavailable")
+    )
+    monkeypatch.setattr(story, "_ffmpeg_available", lambda: True)
+    monkeypatch.setattr(story, "_ffmpeg_version", lambda: "test")
+
+    def extract(_media, _seek, path):
+        path.write_bytes(b"test frame")
+        return ["ffmpeg", "test"]
+
+    monkeypatch.setattr(story, "_extract_frame", extract)
+    result = runner.run_pipeline(media, tmp_path / "projects", evidence_mode="story", **kwargs)
+    return json.loads(Path(result["story_plan_path"]).read_text(encoding="utf-8"))
+
+
+def test_indexing_scans_the_opening_and_keeps_the_result_in_the_plan(tmp_path, monkeypatch):
+    from pipeline import opening_teaser
+
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", lambda _media: TEASER)
+
+    plan = _pipeline(tmp_path, monkeypatch)
+
+    assert plan["opening_teaser"] == TEASER
+
+
+def test_a_scope_that_starts_mid_film_does_not_look_for_a_teaser(tmp_path, monkeypatch):
+    from pipeline import opening_teaser
+
+    def refuse(_media):
+        raise AssertionError("only a scope that starts at the beginning can see a teaser")
+
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", refuse)
+
+    plan = _pipeline(tmp_path, monkeypatch, scope_in_seconds=10.0, scope_out_seconds=200.0)
+
+    assert "opening_teaser" not in plan
+
+
+def test_a_failed_scan_does_not_stop_indexing(tmp_path, monkeypatch):
+    """The fake media is not a video, so the real scan reports itself unavailable."""
+    plan = _pipeline(tmp_path, monkeypatch)
+
+    assert plan["opening_teaser"]["status"] == "unavailable"
+    assert Path(tmp_path / "projects").is_dir()

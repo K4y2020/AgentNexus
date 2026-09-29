@@ -111,7 +111,7 @@ def test_analyze_infers_workspace_above_projects(monkeypatch, tmp_path):
 
     monkeypatch.setattr(entry, "index_media", index_media)
     monkeypatch.setattr(
-        module, "_transcribe", lambda _video, workspace: {"workspace": str(workspace)}
+        module, "_transcribe", lambda _video, workspace, _plan=None: {"workspace": str(workspace)}
     )
     result = module.film_analyze(str(video), str(output))
 
@@ -262,7 +262,7 @@ def _analyze(monkeypatch, workspace, video, *, index="indexed_unreviewed", trans
     )
     calls = []
 
-    def fake_transcribe(target, _workspace):
+    def fake_transcribe(target, _workspace, _plan=None):
         calls.append(target)
         return transcribe() if transcribe else {"status": "transcribed"}
 
@@ -509,7 +509,7 @@ def _with_transcriptions(monkeypatch, *outcomes):
     pending = iter(outcomes)
     calls = []
 
-    def fake_transcribe(target, _workspace):
+    def fake_transcribe(target, _workspace, _plan=None):
         calls.append(target)
         return next(pending)
 
@@ -688,3 +688,160 @@ def test_an_unavailable_caption_reader_leaves_the_transcript_and_tries_again_lat
     assert result["status"] == "reused"
     saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
     assert "burned_subtitles" not in saved
+
+
+# ---------------------------------------------------------------------------
+# An opening teaser: footage cut in from later is not attributed and not compared
+# ---------------------------------------------------------------------------
+
+FOUND = {"status": "found", "method": "frame_reuse", "end_seconds": 4.75, "clips": []}
+
+
+def _recording_attribution(monkeypatch):
+    """Attribution that notes which rows it was asked about."""
+    from pipeline import attribute_speakers as attribution
+
+    seen = []
+
+    def fake_attribute(rows, _cast, **_kwargs):
+        seen.append([r["text"] for r in rows])
+        return {
+            "model": "jev-test",
+            "attributions": [
+                {
+                    "speaker_name": "船夫",
+                    "delivery": "spoken",
+                    "confidence": 0.9,
+                    "needs_review": False,
+                    "review_reasons": [],
+                }
+                for _ in rows
+            ],
+        }
+
+    monkeypatch.setattr(attribution, "attribute_speakers", fake_attribute)
+    monkeypatch.setattr(attribution, "derived_cast", lambda rows, **_kw: {"characters": []})
+    return seen
+
+
+def _teaser_rows(*, marked=True):
+    rows = [
+        {"start": 0.1, "end": 4.7, "text": "晚上见。你不是她！"},
+        {"start": 30.0, "end": 32.0, "text": "开船咯"},
+        {"start": 40.0, "end": 42.0, "text": "坐稳了"},
+    ]
+    if marked:
+        rows[0]["teaser"] = True
+    return rows
+
+
+def _attributed(rows):
+    """Rows as an earlier run left them: every line already attributed."""
+    return [
+        {**row, "speaker": "船夫", "delivery": "spoken", "attribution_confidence": 0.9}
+        for row in rows
+    ]
+
+
+def test_teaser_rows_are_left_out_of_attribution_and_labelled(monkeypatch, tmp_path):
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    payload = {"segments": _teaser_rows()}
+    seen = _recording_attribution(monkeypatch)
+    module = _load()
+
+    outcome = module._attribute(payload, inputs)
+
+    assert seen == [["开船咯", "坐稳了"]]
+    assert outcome["segments"] == 3 and outcome["teaser_rows"] == 1
+    saved = json.loads((inputs / "source-transcript.json").read_text(encoding="utf-8"))
+    teaser = saved["segments"][0]
+    assert (teaser["speaker"], teaser["delivery"], teaser["attribution_confidence"]) == (
+        module.TEASER_SPEAKER,
+        "unclear",
+        0.0,
+    )
+    assert "needs_review" not in teaser
+    assert module._attribution_complete(saved)
+    text = (inputs / "source-transcript.txt").read_text(encoding="utf-8")
+    assert "[预告片段] 晚上见。你不是她！" in text
+
+
+def test_an_older_transcript_gets_its_teaser_marked_without_asr(monkeypatch, tmp_path):
+    from pipeline import opening_teaser
+
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_attributed(_teaser_rows(marked=False)))
+    _stub_captions(monkeypatch, [])
+    seen = _recording_attribution(monkeypatch)
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", lambda _media: FOUND)
+    module = _load()
+
+    result = module._transcription_for(video, tmp_path)
+
+    assert result["status"] == "transcribed" and result["asr"] == "reused"
+    assert result["opening_teaser"]["rows_marked"] == 1
+    assert seen == [["开船咯", "坐稳了"]]
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert saved["segments"][0]["teaser"] is True and saved["opening_teaser"]["status"] == "found"
+
+    def scanned_again(_media):
+        raise AssertionError("the opening was already scanned for this transcript")
+
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", scanned_again)
+    assert module._transcription_for(video, tmp_path)["status"] == "reused"
+
+
+def test_a_scan_that_finds_no_teaser_is_recorded_and_attribution_is_not_redone(
+    monkeypatch, tmp_path
+):
+    from pipeline import attribute_speakers as attribution
+    from pipeline import opening_teaser
+
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [])
+    monkeypatch.setattr(
+        opening_teaser,
+        "detect_opening_teaser",
+        lambda _media: {"status": "none", "method": "frame_reuse"},
+    )
+
+    def no_jev(*_a, **_k):
+        raise AssertionError("nothing changed, so nothing is attributed again")
+
+    monkeypatch.setattr(attribution, "attribute_speakers", no_jev)
+    module = _load()
+
+    assert module._transcription_for(video, tmp_path)["status"] == "reused"
+
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert saved["opening_teaser"]["status"] == "none"
+    assert "teaser" not in saved["segments"][0]
+
+
+def test_indexing_has_already_scanned_the_opening_so_the_plan_answers(monkeypatch, tmp_path):
+    from pipeline import opening_teaser
+
+    def refuse(_media):
+        raise AssertionError("the story plan already holds the scan")
+
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", refuse)
+    plan = tmp_path / "story_plan.json"
+    plan.write_text(json.dumps({"opening_teaser": FOUND}), encoding="utf-8")
+
+    assert _load()._opening_teaser(tmp_path / "video.mp4", str(plan)) == FOUND
+
+
+def test_a_plan_without_a_usable_scan_falls_back_to_scanning(monkeypatch, tmp_path):
+    from pipeline import opening_teaser
+
+    monkeypatch.setattr(opening_teaser, "detect_opening_teaser", lambda _media: {"status": "none"})
+    plan = tmp_path / "story_plan.json"
+    plan.write_text(
+        json.dumps({"opening_teaser": {"status": "unavailable", "error": "x"}}), encoding="utf-8"
+    )
+    module = _load()
+
+    assert module._opening_teaser(tmp_path / "v.mp4", str(plan)) == {"status": "none"}
+    assert module._opening_teaser(tmp_path / "v.mp4", None) == {"status": "none"}
