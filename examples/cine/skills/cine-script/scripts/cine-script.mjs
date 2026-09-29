@@ -452,11 +452,15 @@ export function gateReport(doc, ctx = {}) {
   const SKIP_SOURCE = '未提供 source-transcript-attributed.json，本门跳过（视为通过）';
   const SKIP_CAST = '未提供 cast.json，无法识别无实体角色，本门跳过（视为通过）';
 
+  const SKIP_FAITHFUL = '非忠实模式，本门不适用（视为通过）';
+
   const fidelity = ctx.source
     ? sourceFidelity(ctx.source, eps, ctx)
-    : { bad: { order: [], speaker: [], delivery: [], missing: [], review: [] }, matched: 0, total: 0 };
+    : { bad: { order: [], speaker: [], delivery: [], review: [] }, matched: 0, total: 0 };
   const fidelityDetail = [...fidelity.bad.order, ...fidelity.bad.speaker, ...fidelity.bad.delivery].join('；');
   const unsettled = fidelity.bad.review.length ? `；${fidelity.bad.review.length} 句源归属待复核，未作比对` : '';
+  const coverage = ctx.source && ctx.outline?.params?.adaptMode === '忠实' ? sourceCoverage(ctx.source, eps, ctx.outline) : null;
+  const coverageSkip = !ctx.source ? SKIP_SOURCE : !ctx.outline ? SKIP_OUTLINE : SKIP_FAITHFUL;
 
   add('params-conservative', '时长与质量参数只能保持默认值或收紧', bad.params.length === 0, bad.params.join('；'));
   add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, bad.duration.join('；'));
@@ -473,6 +477,14 @@ export function gateReport(doc, ctx = {}) {
   add('hologram-physics', '虚像物理：cast.json 标为 hologram/virtual 的角色不与实物接触', bad.physics.length === 0, ctx.cast ? bad.physics.join('；') : SKIP_CAST);
   add('dialogue-causality', '动作里点名的角色都已声明在场（台词因果由 JEV 剧本门判断）', bad.causality.length === 0, bad.causality.join('；'));
   add('source-fidelity', `台词顺序与说话人对照源片转写（已匹配 ${fidelity.matched}/${fidelity.total} 句${unsettled}）`, fidelityDetail.length === 0, ctx.source ? fidelityDetail : SKIP_SOURCE);
+  add(
+    'source-coverage',
+    coverage
+      ? `忠实模式：源片台词逐句进剧本，删减在大纲 cut 里点名（保留 ${coverage.kept}/${coverage.total} 句，声明删减 ${coverage.excused} 句）`
+      : '忠实模式：源片台词逐句进剧本，删减在大纲 cut 里点名',
+    !coverage || coverage.missing.length === 0,
+    coverage ? coverageDetail(coverage) : coverageSkip,
+  );
 
   return gates;
 }
@@ -503,7 +515,7 @@ const deliveryUnsettled = (a) =>
   ((a?.delivery_needs_review ?? a?.needs_review) === true || UNSETTLED.has(String(a.delivery).trim()));
 
 function sourceFidelity(source, eps, ctx = {}) {
-  const bad = { order: [], speaker: [], delivery: [], missing: [], review: [] };
+  const bad = { order: [], speaker: [], delivery: [], review: [] };
   const attributions = Array.isArray(source?.attributions) ? source.attributions : [];
   if (!attributions.length) return { bad, matched: 0, total: 0 };
   const resolveSpeaker = speakerResolver(ctx);
@@ -592,15 +604,114 @@ function sourceFidelity(source, eps, ctx = {}) {
     }
   }
 
-  // 4. 漏句：源片里被丢弃的台词（改编删减属正常，这里只报不拦，供人工过目）
-  for (const [i, a] of normSource.entries()) {
-    if (!usedSource.has(i)) bad.missing.push(`源片「${a.text.slice(0, 18)}」(${a.speaker}) 未出现在剧本里`);
-  }
+  // 漏句不在这里查：只认能一一配上的句子，剧本改几个字就配不上。见 source-coverage 门。
   for (const { p, reason } of unsettled.values()) {
     bad.review.push(`${p.script.scene}「${p.script.beat.line.slice(0, 14)}」源片归属待复核：${reason}（${p.source.speaker ?? '?'} / ${p.source.delivery ?? '?'}）`);
   }
 
   return { bad, matched: pairs.length, total: normSource.length };
+}
+
+// ---- 忠实模式漏句门禁 (source-coverage) ----
+// 忠实 = 源片每一句台词都在剧本里。这条规则原先只在注释里：漏句被算出来却不拦、不报，
+// 模型自己丢了合唱笑点，还在总结里说「已归位」。现在漏了就不过，确要删的在大纲 cut 里点名。
+// 只管忠实：抽核、借壳本就是取舍，删句不算病。
+const norm = (s) => String(s ?? '').replace(/[^\p{L}\p{N}]+/gu, '');
+const cpLen = (s) => [...s].length;
+const clip = (s, n) => (cpLen(s) > n ? `${[...s].slice(0, n).join('')}…` : s);
+// 插曲歌词、片头片尾水印广告不是这部戏的台词。但 JEV 没把握的不能拿来豁免：一句齐声喊的口号
+// 被它以 0.17 的把握判成「歌词」，豁免就把这句招牌笑点漏掉了。
+const NOT_DIALOGUE = new Set(['lyrics', 'non_story']);
+const isDialogue = (a) => !(NOT_DIALOGUE.has(String(a?.speaker ?? '').trim()) && !speakerUnsettled(a));
+const COVERAGE_MIN = 0.6; // 一句源台词至少有这么多字，按序成段地落在剧本台词里，才算留下
+const RUN_MIN = 2; // 只数连续 2 字以上的匹配：散落各处的「的」「了」「我」不算
+const MIN_ROW_CHARS = 2; // 单字（嗯、妈）不要求
+const MAX_CELLS = 40_000_000;
+const LISTED = 20;
+
+/**
+ * 每句源台词有多大比例落在剧本台词里。源台词与剧本台词各拼成一串，先找最长的公共连续片段，
+ * 再在它两侧各自递归——两边的片段不能交叉，所以是按序对齐。只认 RUN_MIN 字以上的片段，
+ * 散落的常用字不算。重复的口号句各配各的：剧本只留一句，就有一句配不上。
+ * 太长放不下时返回 null。
+ */
+export function keptFractions(rows, scriptText) {
+  const src = [];
+  const owner = [];
+  rows.forEach((row, k) => {
+    for (const ch of row) {
+      src.push(ch);
+      owner.push(k);
+    }
+  });
+  const dst = [...scriptText];
+  const matched = rows.map(() => 0);
+  if (!src.length || !dst.length) return matched;
+  if (src.length * dst.length > MAX_CELLS) return null;
+  const pending = [[0, src.length, 0, dst.length]];
+  while (pending.length) {
+    const [alo, ahi, blo, bhi] = pending.pop();
+    const [i, j, len] = longestBlock(src, dst, alo, ahi, blo, bhi);
+    if (len < RUN_MIN) continue;
+    for (let q = i; q < i + len; q++) matched[owner[q]] += 1;
+    pending.push([alo, i, blo, j], [i + len, ahi, j + len, bhi]);
+  }
+  return matched.map((count, k) => count / cpLen(rows[k]));
+}
+
+/** src[alo..ahi) 与 dst[blo..bhi) 之间最长的公共连续片段：[在 src 的起点, 在 dst 的起点, 长度]。 */
+function longestBlock(src, dst, alo, ahi, blo, bhi) {
+  let best = [alo, blo, 0];
+  let prev = new Uint16Array(bhi - blo + 1);
+  let cur = new Uint16Array(bhi - blo + 1);
+  for (let i = alo; i < ahi; i++) {
+    for (let j = blo; j < bhi; j++) {
+      const c = j - blo + 1;
+      if (src[i] === dst[j]) {
+        cur[c] = prev[c - 1] + 1;
+        if (cur[c] > best[2]) best = [i - cur[c] + 1, j - cur[c] + 1, cur[c]];
+      } else cur[c] = 0;
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return best;
+}
+
+export function sourceCoverage(source, eps, outline) {
+  const attributions = Array.isArray(source?.attributions) ? source.attributions : [];
+  const rows = attributions
+    .filter(isDialogue)
+    .map((a) => ({ a, n: norm(a?.text) }))
+    .filter((r) => cpLen(r.n) >= MIN_ROW_CHARS);
+  const scriptText = eps
+    .flatMap((ep) => (ep?.scenes ?? []).flatMap((sc) => sc?.flow ?? []))
+    .filter((b) => typeof b?.line === 'string')
+    .map((b) => norm(b.line))
+    .join('');
+  const fractions = keptFractions(rows.map((r) => r.n), scriptText);
+  if (fractions === null) return { total: rows.length, kept: rows.length, excused: 0, missing: [], unchecked: true };
+  // 声明删减：cut 条目的 what（或 evidence）里逐字引用了这句源台词。
+  const declared = (outline?.adaptation?.cut ?? []).map((c) => norm(`${c?.what ?? ''}${c?.evidence ?? ''}`)).filter(Boolean);
+  const missing = [];
+  let excused = 0;
+  rows.forEach((row, i) => {
+    if (fractions[i] >= COVERAGE_MIN) return;
+    if (declared.some((d) => d.includes(row.n))) excused += 1;
+    else missing.push(row.a);
+  });
+  return { total: rows.length, kept: rows.length - missing.length - excused, excused, missing };
+}
+
+function coverageDetail(coverage) {
+  if (coverage.unchecked) return '台词太长，逐句对账放不下，本门未检查';
+  if (!coverage.missing.length) return '';
+  const listed = coverage.missing
+    .slice(0, LISTED)
+    .map((a) => `「${clip(String(a.text ?? '').trim(), 18)}」(${a.speaker_name ?? a.speaker ?? '?'})`)
+    .join('、');
+  const more = coverage.missing.length > LISTED ? ` 等共 ${coverage.missing.length} 句` : '';
+  return `源片有 ${coverage.missing.length} 句既不在剧本里（或没按源片顺序），也没在大纲 adaptation.cut 里点名：${listed}${more}。` +
+    '忠实模式逐句还原：按源片顺序补回剧本；确要删的，在 outline.adaptation.cut 加一条 {what: 逐字引用这句原话, why: 理由}';
 }
 
 export function validateScript(doc, ctx = {}) {
@@ -718,6 +829,7 @@ const GATE_LABELS_EN = {
   'beats-claimed': 'Outline beats claimed per episode',
   'refs-characters': 'Character references audited against the outline',
   'refs-scenes': 'Scenes / lighting / props audited against the art bible',
+  'source-coverage': 'Faithful mode: every source line is in the script, or declared cut in the outline',
 };
 const GATE_SKIPS_EN = {
     '未提供 outline.json，本门跳过（视为通过）': 'outline.json not provided — gate skipped (treated as passing)',
@@ -725,6 +837,8 @@ const GATE_SKIPS_EN = {
     '未提供 script.json，本门跳过（视为通过）': 'script.json not provided — gate skipped (treated as passing)',
     '未提供 outline/cast，本门跳过（视为通过）': 'outline/cast not provided — gate skipped (treated as passing)',
     '未提供 cast.json，本门跳过（视为通过）': 'cast.json not provided — gate skipped (treated as passing)',
+    '未提供 source-transcript-attributed.json，本门跳过（视为通过）': 'source transcript not provided — gate skipped (treated as passing)',
+    '非忠实模式，本门不适用（视为通过）': 'Not faithful mode — gate does not apply (treated as passing)',
 };
 /** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
 const gateText = (g, lang) => {

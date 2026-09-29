@@ -185,7 +185,7 @@ The script stage then reads that file automatically — `check_stage` appends
 `--source <output>/source-transcript-attributed.json` when it exists — so the
 script validator can compare line order, speaker and delivery against the
 original instead of judging the document only on its own internal coherence.
-Two gates depend on it:
+Three gates depend on it:
 
 - `speaker` / `source-fidelity` order check: a matched line that appears out of
   the source's order is reported as swapped. A script can reshuffle the
@@ -194,6 +194,13 @@ Two gates depend on it:
   and aliases to the outline id. A source line whose speaker or delivery is
   flagged for review is not compared — a guess is not source fact — and the
   gate label counts those lines instead.
+- `source-coverage` (faithful mode only): every source line must be in the script
+  or quoted verbatim in `outline.adaptation.cut`. Lines are aligned in order by
+  longest common runs, so trimmed wording still counts as kept, a heavy rewrite
+  or a swapped order does not, and a refrain that occurs twice needs two lines.
+  Sung lyrics and off-story audio are exempt only when JEV is confident about
+  the call: a chanted slogan once came back as "lyrics" at 0.17 and would have
+  been exempted. 抽核 and 借壳 skip the gate, since dropping lines is their job.
 - `dialogue-causality` ghost check: a character named in an *action* beat must
   be declared in that scene's cast list. It deliberately ignores names in
   dialogue, since a line may address or discuss someone who is not present

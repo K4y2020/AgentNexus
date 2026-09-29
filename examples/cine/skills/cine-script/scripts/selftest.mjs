@@ -89,7 +89,7 @@ ok(voEntry.lines[0].sceneId === 'S01', '台词条目带场景');
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带上游全部门通过');
 ok(gateReport(FIXTURE).every((g) => g.ok), '不带上游也全部通过（对账门跳过）');
-eq(gateReport(FIXTURE).length, 15, '十五道门');
+eq(gateReport(FIXTURE).length, 16, '十六道门');
 
 /* ---------------- 角色状态合同 ---------------- */
 
@@ -402,7 +402,7 @@ ok(html.includes('分集剧本'), '02 分集剧本');
 ok(html.includes('场次总表'), '03 场次总表');
 ok(html.includes('台词本'), '04 台词本');
 ok(html.includes('质量门'), '05 质量门');
-ok(html.includes('✓ 质量门 15 / 15'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 16 / 16'), '页眉徽章全绿');
 ok(html.includes('class="band"'), '时长条带目标区间');
 ok(html.includes('导出 JSON'), '导出按钮在');
 ok(html.includes('id="script-data"'), '数据内嵌');
@@ -445,7 +445,7 @@ ok(html.includes('lang="zh"'), '默认报告 html lang 是 zh');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('lang="en"'), 'en 报告的 html lang 属性正确');
   ok(en.includes('Export JSON'), 'en 导出按钮标签');
-  ok(en.includes('Quality gates 15 / 15'), 'en 页眉徽章全绿');
+  ok(en.includes('Quality gates 16 / 16'), 'en 页眉徽章全绿');
   ok(en.includes('Line book'), 'en 台词本标题');
   ok(en.includes('Duration gauge'), 'en 时长仪表标题');
   ok(!en.includes('导出 JSON'), 'en 报告不含中文导出标签');
@@ -555,6 +555,111 @@ ok(gate(taggedVO, 'source-fidelity', { source: VO_SOURCE }).ok, '标了 VO 就�
 const skipped = gate(ordered, 'source-fidelity', {});
 ok(skipped.ok, '未提供源转写时本门不拦');
 ok(skipped.detail.includes('跳过'), '未提供源转写时明说跳过');
+
+/* ---------------- 忠实模式漏句 (source-coverage) ---------------- */
+
+{
+  const FAITHFUL = { params: { adaptMode: '忠实' }, adaptation: { cut: [] }, characters: [] };
+  const withCut = (cut, mode = '忠实') => ({ ...FAITHFUL, params: { adaptMode: mode }, adaptation: { cut } });
+  const CHORUS = { attributions: [
+    { id: 'a', text: '老婆，我升官了！', speaker: 'C07', delivery: 'spoken' },
+    { id: 'b', text: '这种情况我们应该——', speaker: 'unclear', speaker_name: '管家', delivery: 'spoken' },
+    { id: 'c', text: '当然是陪伴啊！', speaker: 'C11', delivery: 'spoken' },
+    { id: 'd', text: '我来迟了！', speaker: 'C03', delivery: 'spoken' },
+    { id: 'e', text: '那这种情况我们又该——', speaker: 'C11', delivery: 'spoken' },
+    { id: 'f', text: '当然还是陪伴啊！', speaker: 'C11', delivery: 'spoken' },
+  ] };
+  const ALL = [
+    ['C07', '老婆，我升官了！'], ['C11', '这种情况我们应该——'], ['C11', '当然是陪伴啊！'],
+    ['C03', '我来迟了！'], ['C11', '那这种情况我们又该——'], ['C11', '当然还是陪伴啊！'],
+  ];
+  const cover = (lines, source = CHORUS, outline = FAITHFUL) => gate(scriptWith(lines), 'source-coverage', { source, outline });
+
+  ok(cover(ALL).ok, '源片台词全在剧本里 -> 通过');
+  ok(cover(ALL).label.includes('保留 6/6 句'), '标签报保留了几句');
+
+  // 漏掉合唱笑点：不过，并且点名漏了哪几句、告诉模型怎么办
+  const dropped = cover([ALL[0], ALL[3]]);
+  ok(!dropped.ok, '忠实模式漏了源片台词 -> 拦下');
+  ok(dropped.detail.includes('这种情况我们应该') && dropped.detail.includes('当然还是陪伴啊'), '报错逐句点名漏掉的台词');
+  ok(dropped.detail.includes('(管家)'), '带上源片的说话人名');
+  ok(dropped.detail.includes('adaptation.cut') && dropped.detail.includes('补回剧本'), '报错说明补回或在大纲 cut 里声明');
+  ok(dropped.label.includes('保留 2/6 句'), '标签报保留了几句');
+
+  // 声明删减：cut 的 what 或 evidence 逐字引用了原句 -> 放行；只写描述不引原句 -> 仍拦
+  const declared = cover([ALL[0], ALL[3]], CHORUS, withCut([
+    { what: '删掉管家领喊的口号「这种情况我们应该——当然是陪伴啊！」「那这种情况我们又该——当然还是陪伴啊！」', why: '群戏压缩' },
+  ]));
+  ok(declared.ok, 'cut 里逐字引用了被删的台词 -> 放行');
+  ok(declared.label.includes('声明删减 4 句'), '标签报声明删减了几句');
+  ok(cover([ALL[0], ALL[3]], CHORUS, withCut([
+    { what: '删掉', evidence: '这种情况我们应该 当然是陪伴啊 那这种情况我们又该 当然还是陪伴啊', why: '压缩' },
+  ])).ok, 'cut 的 evidence 里引用原句也算声明');
+  ok(!cover([ALL[0], ALL[3]], CHORUS, withCut([{ what: '删掉管家喊口号的群戏', why: '压缩' }])).ok,
+    'cut 只写描述、没引用原句 -> 仍拦（声明要指名）');
+  ok(!cover([ALL[0], ALL[3]], CHORUS, withCut([
+    { what: '删掉「这种情况我们应该——当然是陪伴啊！」', why: '压缩' },
+  ])).ok, '只声明了一部分 -> 没声明的照样拦');
+
+  // 抽核、借壳本来就取舍：不适用；没有大纲或源转写：明说跳过
+  const other = cover([ALL[0]], CHORUS, withCut([{ what: 'x', why: 'y' }], '抽核'));
+  ok(other.ok && other.detail.includes('非忠实模式'), '抽核不检查漏句，并明说不适用');
+  ok(cover([ALL[0]], CHORUS, withCut([{ what: 'x', why: 'y' }], '借壳')).ok, '借壳不检查漏句');
+  const noOutline = gate(scriptWith([ALL[0]]), 'source-coverage', { source: CHORUS });
+  ok(noOutline.ok && noOutline.detail.includes('未提供 outline.json'), '没给大纲时明说跳过，不静默通过');
+  const noSource = gate(scriptWith([ALL[0]]), 'source-coverage', { outline: FAITHFUL });
+  ok(noSource.ok && noSource.detail.includes('跳过'), '没给源转写时明说跳过');
+
+  // 剧本微调断句、删几个字不算漏；大改写算漏；重复的口号句各算各的
+  const trimmed = { attributions: [{ id: 'a', text: '我叫林黛玉，是林氏集团的继承人。老妈刚刚去世，家里一团乱麻，所以老爸让我来外婆家住一阵子。', speaker: 'C01', delivery: 'spoken' }] };
+  ok(cover([['C01', '我叫林黛玉，是林氏集团继承人。老妈刚刚去世，老爸让我来外婆家住一阵子。']], trimmed).ok, '剧本删了几个字 -> 仍算保留');
+  ok(cover([['C01', '我是林黛玉。'], ['C01', '我来外婆家住。']], trimmed).ok === false, '剧本大改写 -> 按漏句拦');
+  const oneOfTwo = cover([ALL[0], ALL[1], ALL[2], ALL[3], ALL[4]]);
+  ok(!oneOfTwo.ok && oneOfTwo.detail.includes('1 句') && oneOfTwo.detail.includes('当然还是陪伴啊'),
+    '口号句出现两次、剧本只留一句 -> 恰好一句被点名');
+
+  // 顺序被调换的句子对不上源片顺序：按漏句拦（顺序门另有自己的报错）
+  ok(!cover([ALL[3], ALL[0]]).ok, '剧本把两句颠倒了顺序 -> 后一句配不上，按漏句拦');
+
+  // 只有散落的常用字不算保留：「我们…应该…」被拆散在别的台词里
+  const scattered = { attributions: [{ id: 'a', text: '我们应该走了', speaker: 'C01', delivery: 'spoken' }] };
+  ok(!cover([['C01', '我不想和你去那里。'], ['C02', '你们该回家了，应当如此。'], ['C01', '好。']], scattered).ok,
+    '常用字散落在别的台词里 -> 不算保留');
+
+  // 插曲歌词、片外音频、单字语气词不要求；带标点的单字也是
+  const NOISE = { attributions: [
+    { id: 'a', text: '老婆，我升官了！', speaker: 'C07', delivery: 'spoken' },
+    { id: 'b', text: '不多的快乐你舍得，但愿你割舍的你割舍', speaker: 'lyrics', delivery: 'spoken' },
+    { id: 'c', text: '本视频仅供学习交流', speaker: 'non_story', delivery: 'spoken' },
+    { id: 'd', text: '嗯。', speaker: 'unclear', delivery: 'spoken' },
+    { id: 'e', text: '妈', speaker: 'C01', delivery: 'spoken' },
+  ] };
+  ok(cover([ALL[0]], NOISE).ok, '插曲、片外音频、单字不要求进剧本');
+
+  // JEV 没把握的「歌词」不豁免：齐声喊的口号曾被以 0.17 的把握判成歌词
+  const DOUBTFUL = { attributions: [
+    { id: 'a', text: '老婆，我升官了！', speaker: 'C07', delivery: 'spoken' },
+    { id: 'b', text: '当然是陪伴啊！', speaker: 'lyrics', speaker_name: '插曲', confidence: 0.17,
+      speaker_needs_review: true, needs_review: true, delivery: 'spoken' },
+  ] };
+  const doubtful = cover([ALL[0]], DOUBTFUL);
+  ok(!doubtful.ok && doubtful.detail.includes('当然是陪伴啊'), '没把握的「歌词」仍要求进剧本');
+  ok(cover([ALL[0]], { attributions: [DOUBTFUL.attributions[0], { ...DOUBTFUL.attributions[1], confidence: 0.95, speaker_needs_review: false, needs_review: false }] }).ok,
+    '有把握的歌词照样豁免');
+
+  // 说话人待复核的句子照样要求进剧本：谁说的不明，不等于不算台词
+  const UNSETTLED = { attributions: [{ id: 'a', text: '当然是陪伴啊！', speaker: 'unclear', needs_review: true, delivery: 'spoken' }] };
+  ok(!cover([ALL[0]], UNSETTLED).ok, '归属待复核的台词也要进剧本');
+
+  // 整份剧本没有台词 -> 所有源台词都算漏
+  const silent = gate({ ...scriptWith([]), episodes: [{ ...scriptWith([]).episodes[0], scenes: [{ ...scriptWith([]).episodes[0].scenes[0], flow: [{ action: '雾起。' }] }] }] },
+    'source-coverage', { source: CHORUS, outline: FAITHFUL });
+  ok(!silent.ok && silent.detail.includes('6 句'), '剧本没有台词 -> 全部算漏');
+
+  // 走 validate：漏句是质量门未过，validateScript 会带上完整提示
+  const problems = validateScript(scriptWith([ALL[0], ALL[3]]), { source: CHORUS, outline: FAITHFUL });
+  ok(problems.some((x) => x.includes('质量门未过：忠实模式') && x.includes('当然是陪伴啊')), 'validate 报出漏句，剧本因此不能通过');
+}
 
 /* ---------------- 换一个故事：不带样例剧情假设 ---------------- */
 

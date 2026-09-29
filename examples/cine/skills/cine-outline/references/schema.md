@@ -28,7 +28,7 @@
 
 ## adaptation 改编说明
 
-`core` 一句话核心，必填。`keep` / `cut` / `merge` 每条 `{what, why}`，`keep` 至少一条；**`adaptMode` 不是忠实时 `cut` 不能为空**。`keep` 可带 `evidence`——**原文逐字片段**，禁止凭书名脑补的对策就在这：关键取舍要能指回原文。`risks` 每条 `{what, plan}`。
+`core` 一句话核心，必填。`keep` / `cut` / `merge` 每条 `{what, why}`，`keep` 至少一条；**`adaptMode` 不是忠实时 `cut` 不能为空**。**忠实模式的 `cut` 是删句声明**：剧本若漏了源片台词，`what` 里要逐字引用被删的原句、`why` 写理由，否则剧本门 `source-coverage` 不通过。`keep` 可带 `evidence`——**原文逐字片段**，禁止凭书名脑补的对策就在这：关键取舍要能指回原文。`risks` 每条 `{what, plan}`。
 
 两个可选的**决策补注**，报告的「关键决策」区块会展示：
 
