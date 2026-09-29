@@ -160,6 +160,22 @@ def _escalate(
     return {"action": "escalate", "stage": stage, "reason": reason, "detail": detail, **run.summary()}
 
 
+def _refuse_damaged_inputs(directory: Path) -> None:
+    """Stop at the first call, not an hour in, when the text a run is built on is damaged."""
+    for path, remedy in (
+        (prod.source_material_path(directory), "export it again with `handoff.py --output`"),
+        (
+            directory / "scene-notes.json",
+            "delete it; `next` derives it again from the source material",
+        ),
+    ):
+        if path.is_file():
+            try:
+                prod.read_text(path)
+            except ValueError as exc:
+                raise ValueError(f"{exc} Fix: {remedy}, then run `next` again.") from exc
+
+
 def next_step(
     directory: Path,
     *,
@@ -169,11 +185,13 @@ def next_step(
 ) -> dict[str, Any]:
     """Return the one next action for an unattended production run."""
     directory = Path(directory).resolve()
+    _refuse_damaged_inputs(directory)
     if not prod.stage_path(directory, "outline", must_exist=False).exists():
         return {
             "action": "intake",
             "detail": "No outline yet: finish film analysis, export source-material.json with "
-            "handoff.py, then run production.py init with the user's adaptation mode.",
+            "`handoff.py --source-project <project> --output <production>/source-material.json` "
+            "(not a shell redirect), then run production.py init with the user's adaptation mode.",
         }
     run = _Run(directory)
     source_text = source_text or _default_source_text(directory)

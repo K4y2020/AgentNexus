@@ -239,9 +239,14 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
 2. Write `source-material.json` for a video-derived production. This is an
    editorial index into evidence, not new evidence. Format below. Separate the
    observation from its interpretation; receipt strings alone prove nothing.
-   `python <film-analysis>/pipeline/handoff.py --source-project <bound-project>`
-   prints this material from the committed ledger and review sidecar. Capture it
-   in the new output directory; absent reviews stay unverified. The adapter does
+   `python <film-analysis>/pipeline/handoff.py --source-project <bound-project> --output <production>/source-material.json`
+   writes this material from the committed ledger and review sidecar, as UTF-8, in
+   the new output directory. Do not redirect its output (`>`, `Out-File`): on
+   Windows the shell re-encodes the text and every Chinese character becomes a
+   replacement character, which once left the story draft and the scene notes
+   built from it unreadable while every check passed. `production.py` now refuses
+   such a file, and `handoff.py` refuses a story draft that is already damaged.
+   Absent reviews stay unverified. The adapter does
    not authenticate receipts or infer characters, dialogue or story facts. When
    story_plan.json exists, it also exports the matching story/<revision>.json as
    adaptation_story with source input hashes. Missing or mismatched story drafts

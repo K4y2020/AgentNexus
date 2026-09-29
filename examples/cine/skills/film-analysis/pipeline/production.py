@@ -47,8 +47,46 @@ def fingerprint(path):
     return digest(path) if path.exists() or path.is_symlink() else None
 
 
+# A write with the wrong encoding leaves a replacement character for every Chinese
+# character (hundreds at once). One or two stray ones are harmless: Whisper emits them.
+DAMAGED_MIN = 5
+_ENCODING_FIX = (
+    "Write it with the file tools, never a shell redirect (`>`, `Out-File`); source "
+    "material comes from `handoff.py --source-project <project> --output <file>`."
+)
+
+
+def read_text(path):
+    """A workspace text file as str, refusing what a wrong-encoding write leaves behind.
+
+    On Windows a shell redirect re-encodes a program's output: as UTF-16, or through a
+    code page the reader does not share. Chinese then arrives as replacement characters,
+    and everything built from the file inherits the damage while every check still
+    passes, so the file is refused at the read.
+    """
+    path = Path(path)
+    raw = path.read_bytes()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        raise ValueError(
+            f"{path.name} is UTF-16, which is what a PowerShell redirect writes. {_ENCODING_FIX}"
+        )
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(
+            f"{path.name} is not valid UTF-8 (byte {exc.start}). {_ENCODING_FIX}"
+        ) from exc
+    damaged = text.count("\N{REPLACEMENT CHARACTER}")
+    if damaged >= DAMAGED_MIN:
+        raise ValueError(
+            f"{path.name} holds {damaged} replacement characters (U+FFFD): its text was "
+            f"damaged when it was written. {_ENCODING_FIX}"
+        )
+    return text
+
+
 def read(path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(read_text(path))
 
 
 def stage_path(directory, stage, *, must_exist=True):
@@ -337,6 +375,15 @@ def attribution_input_hashes(directory, rows_path, cast_path):
     return hashes
 
 
+def source_material_path(directory):
+    """Where a production keeps its source material: its binding, else the usual name."""
+    try:
+        return stage_path(directory, "source_material")
+    except (OSError, ValueError):
+        # Without a manifest the material keeps its conventional hyphenated name.
+        return directory / "source-material.json"
+
+
 def write_scene_notes(directory):
     """Derive scene-notes.json from the exported story draft, placing exchanges by time.
 
@@ -347,15 +394,11 @@ def write_scene_notes(directory):
     target = directory / "scene-notes.json"
     if target.exists():
         return {"status": "kept", "path": str(target)}
-    try:
-        material_path = stage_path(directory, "source_material")
-    except (OSError, ValueError):
-        # Without a manifest the material keeps its conventional hyphenated name.
-        material_path = directory / "source-material.json"
-    try:
-        material = read(material_path)
-    except (OSError, ValueError):
+    material_path = source_material_path(directory)
+    if not material_path.is_file():
         return {"status": "unavailable", "reason": "no source material"}
+    # A damaged or malformed export raises, saying why, instead of passing as absent.
+    material = read(material_path)
     story = material.get("adaptation_story") if isinstance(material, dict) else None
     batches = [b for b in material.get("adaptation_story_batches") or [] if isinstance(b, dict)]
     sections = {
@@ -369,7 +412,9 @@ def write_scene_notes(directory):
     rows_path = next((p for p in source_transcript_candidates(directory) if p.is_file()), None)
     if rows_path is None:
         return {"status": "unavailable", "reason": "source-transcript.json not found"}
-    payload = read(rows_path)
+    # The transcript is the tool's own output: a stray replacement character from ASR is
+    # not the damage read() refuses.
+    payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
     segments = payload.get("segments") if isinstance(payload, dict) else payload
     if any(isinstance(s, dict) and s.get("scene") is not None for s in segments or []):
         return {"status": "unavailable", "reason": "transcript already carries explicit scenes"}
@@ -430,14 +475,14 @@ def run_attribution(directory, *, model="jev-latest"):
         }
     segments = payload.get("segments") if isinstance(payload, dict) else payload
     scenes = payload.get("scenes") if isinstance(payload, dict) else None
-    cast = json.loads(Path(cast_path).read_text(encoding="utf-8"))
+    cast = read(Path(cast_path))
 
     # Scene descriptions let the attribution weigh who is present and what just
     # happened; without them an address line can be credited to the addressee.
     if not scenes:
         scene_source = directory / "scene-notes.json"
         if scene_source.is_file():
-            notes = json.loads(scene_source.read_text(encoding="utf-8-sig"))
+            notes = read(scene_source)
             scenes = {int(k): v for k, v in notes.items()} if isinstance(notes, dict) else None
 
     result = attribute_speakers(segments, cast, scenes=scenes, model=model)

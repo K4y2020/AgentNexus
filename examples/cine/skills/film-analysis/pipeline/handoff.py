@@ -3,8 +3,15 @@
 import argparse
 import hashlib
 import json
+import os
 import re
+import sys
+import tempfile
 from pathlib import Path
+
+# A text damaged by a wrong-encoding write shows a replacement character for every
+# Chinese character (hundreds at once); a stray one or two is harmless.
+DAMAGED_MIN = 5
 
 DEPENDENCIES = {
     "source_material": (),
@@ -143,6 +150,13 @@ def source_material(project):
         if (root / draft_relative).exists():
             draft = read(draft_relative)
             require(isinstance(draft, dict), "STORY_DRAFT_INVALID")
+            damaged = json.dumps(draft, ensure_ascii=False).count("\N{REPLACEMENT CHARACTER}")
+            if damaged >= DAMAGED_MIN:
+                raise ValueError(
+                    f"STORY_DRAFT_DAMAGED: {draft_relative} holds {damaged} replacement "
+                    "characters, so its text was saved with the wrong encoding. Rewrite the "
+                    "draft with the file tools, then export again."
+                )
             require(
                 draft.get("source_id") == source_id and draft.get("revision_id") == revision,
                 "STORY_REVISION_MISMATCH",
@@ -381,18 +395,45 @@ def validate(path, stage=None):
     }
 
 
+def write_utf8(path, text):
+    """Replace ``path`` with ``text`` as UTF-8, whatever the console code page is."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="wb", dir=path.parent, delete=False, suffix=".tmp"
+    ) as file:
+        temp = Path(file.name)
+        file.write(text.encode("utf-8"))
+    try:
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
 def main(argv=None):
+    # Windows hands a redirected child the console code page, so Chinese printed
+    # to a file came out damaged. Print UTF-8 regardless, and let --output write the
+    # file itself so the shell never touches the text.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, nargs="?")
     parser.add_argument("--stage", choices=["outline", "cast", "art", "script"])
     parser.add_argument(
         "--source-project", type=Path, help="Print editorial source material, read-only"
     )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="With --source-project: write the material to this file as UTF-8 "
+        "instead of printing it. Prefer this to a shell redirect.",
+    )
     args = parser.parse_args(argv)
     if bool(args.manifest) == bool(args.source_project):
         parser.error("provide a manifest OR --source-project")
     if args.stage and args.source_project:
         parser.error("--stage applies only to a production manifest")
+    if args.output and not args.source_project:
+        parser.error("--output applies only to --source-project")
     try:
         result = (
             source_material(args.source_project)
@@ -402,6 +443,12 @@ def main(argv=None):
     except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
         print(json.dumps({"status": "blocked", "error": str(exc)}, ensure_ascii=False))
         return 1
+    if args.output:
+        text = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
+        write_utf8(args.output, text)
+        summary = {"status": "written", "path": str(args.output), "bytes": len(text.encode())}
+        print(json.dumps(summary, ensure_ascii=False))
+        return 0
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

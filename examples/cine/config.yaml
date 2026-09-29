@@ -56,7 +56,7 @@ prompt: |
   Auto-adaptation workflow (自动改编、跑通改编、生成提示词卡):
   Work autonomously within the Topic; do not wait for manual user steps or write ad-hoc helper scripts.
   Keep outline/cast/art/script/storyboard JSON and production.json together in the Topic's production/ directory; outputs/ holds only exported media.
-  1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript; for a video source export source-material.json with handoff.py. Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
+  1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript; for a video source export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
   2. Run `production.py next <production>` and do exactly the action it returns, then run it again. The controller seeds stages and runs scene notes, speaker attribution and every check itself (native validators decide; advisory JEV findings go to its review queue); do not run those separately.
      - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. Edit no other stage.
      - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`.

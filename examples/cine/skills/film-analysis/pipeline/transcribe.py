@@ -668,6 +668,10 @@ def transcribe(
 
 
 def main() -> None:
+    # The result names Chinese paths and errors; a legacy console code page must not
+    # decide how they are encoded.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser()
     parser.add_argument("--media", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
