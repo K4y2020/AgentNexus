@@ -1,6 +1,11 @@
 # Cine 通用拉片流水线实现方案
 
-> 状态：待实施方案 v1，不是完成报告。
+> **历史方案，已不反映现状。** 实际流程已从“证据拉片”转为“整片故事读取 → 改编 → 资产 → 分镜 → Seedance 画布”，
+> 逐镜精校降为可选的 forensic profile；Harness 为 `openai-agents`，不是下文的 claude-sdk；C0–C4 分期不再对应真实结构。
+> 现行规范以 `examples/cine/skills/film-analysis/SKILL.md` 与其 `references/production-handoff.md` 为准，
+> 入口与路由见 `examples/cine/config.yaml`。本文仅保留作设计动机参考，不再更新。
+>
+> 状态：待实施方案 v1，不是完成报告（原始状态，保留）。
 > 编写日期：2026-09-05。
 > 范围：AgentNexus 内的通用拉片 Bot；不绑定任何影片、素材目录或改编世界观。
 > 当前入口：`examples/cine/config.yaml`。
