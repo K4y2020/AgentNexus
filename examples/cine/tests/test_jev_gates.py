@@ -64,7 +64,7 @@ def response(hook=0.9, causal=0.9, score=2.0, confidence=0.8):
                 type="score", score=score, confidence=confidence, probabilities={"0": 0, "1": 0, "2": 1}
             ),
             "route_decision": Answer(type="choice", choice="advance", confidence=0.9),
-            "next_stage": Answer(type="choice", choice="assets", confidence=0.9),
+            "next_stage": Answer(type="choice", choice="cast", confidence=0.9),
             "repair_scope": Answer(type="choice", choice="artifact", confidence=0.9),
             "retry_allowed": Answer(type="noul", noul=0.1),
         }
@@ -84,7 +84,7 @@ def test_stage_gate_passes_and_records_actual_model(tmp_path):
     assert result["status"] == "passed"
     assert result["model"] == "jev-test-1"
     assert result["input_sha256"]["outline"]
-    assert result["scheduler"]["next_action"] == "advance_to_assets"
+    assert result["scheduler"]["next_action"] == "advance_to_cast"
     receipt = jev_gates.write_receipt(tmp_path, result)
     assert receipt.is_file()
     assert json.loads(receipt.read_text(encoding="utf-8"))["status"] == "passed"
@@ -111,6 +111,199 @@ def test_require_jev_without_credentials_is_a_real_block(monkeypatch, tmp_path):
     monkeypatch.setattr(jev_gates, "_find_api_key", lambda: "")
     result = jev_gates.run_stage_gate("outline", {"outline": path})
     assert result["status"] == "unavailable"
+
+
+def routed_gate(tmp_path, stage, *, decision, next_stage, scope="artifact", passing=True):
+    """Run a stage gate whose quality answers all pass (or all fail) with the given route."""
+    path = tmp_path / "artifact.json"
+    outline(path)
+    value = 0.9 if passing else 0.1
+    answers = {
+        name: Answer(type="score", score=2.0 if passing else 0.0, confidence=0.8)
+        if kind == "score"
+        else Answer(type="noul", noul=value)
+        for name, (kind, _) in jev_gates.STAGE_GATES[stage]["questions"].items()
+    }
+    answers.update(
+        route_decision=Answer(type="choice", choice=decision, confidence=0.9),
+        next_stage=Answer(type="choice", choice=next_stage, confidence=0.9),
+        repair_scope=Answer(type="choice", choice=scope, confidence=0.9),
+        retry_allowed=Answer(type="noul", noul=0.9),
+    )
+    return jev_gates.run_stage_gate(
+        stage,
+        {stage: path},
+        api_key="test-key",
+        client_factory=lambda _key: Client(Response(answers)),
+    )["scheduler"]
+
+
+def test_route_graph_matches_production_dependencies():
+    assert jev_gates.UPSTREAM_STAGES == {stage: set(inputs) for stage, inputs in production.INPUTS.items()}
+    choices = set(jev_gates.SUPERVISOR_QUESTIONS["next_stage"][1])
+    for stage, targets in jev_gates.NEXT_STAGES.items():
+        assert targets <= choices
+        assert stage in choices
+        # The next stage may not be one the current stage depends on.
+        assert not targets & jev_gates.UPSTREAM_STAGES[stage]
+
+
+def test_passed_cast_advances_to_art_not_script(tmp_path):
+    """Art reads the cast and must exist before the script, so cast cannot hand off to script."""
+    scheduler = routed_gate(tmp_path, "cast", decision="advance", next_stage="script")
+    assert scheduler["next_action"] == "advance_to_art"
+    assert "invalid_next_stage:script" in scheduler["reasons"]
+
+
+def test_artifact_repair_targets_the_current_stage(tmp_path):
+    scheduler = routed_gate(tmp_path, "script", decision="repair", next_stage="canvas", passing=False)
+    assert scheduler["next_action"] == "repair_artifact"
+    assert scheduler["next_stage"] == "script"
+    assert "invalid_repair_stage:canvas" in scheduler["reasons"]
+
+
+def test_failed_gate_that_proposed_advancing_repairs_in_place(tmp_path):
+    scheduler = routed_gate(tmp_path, "script", decision="advance", next_stage="storyboard", passing=False)
+    assert scheduler["decision"] == "repair"
+    assert scheduler["next_stage"] == "script"
+
+
+def test_upstream_repair_keeps_a_real_dependency(tmp_path):
+    scheduler = routed_gate(
+        tmp_path, "script", decision="repair", next_stage="art", scope="upstream", passing=False
+    )
+    assert scheduler["next_action"] == "repair_upstream"
+    assert scheduler["next_stage"] == "art"
+    assert scheduler["reasons"] == []
+
+
+@pytest.mark.parametrize("proposed", ["storyboard", "canvas", "script"])
+def test_upstream_repair_rejects_non_dependencies(tmp_path, proposed):
+    scheduler = routed_gate(
+        tmp_path, "script", decision="repair", next_stage=proposed, scope="upstream", passing=False
+    )
+    assert scheduler["next_stage"] == "stop"
+    assert f"invalid_repair_stage:{proposed}" in scheduler["reasons"]
+
+
+def test_upstream_prompts_become_presence_markers(tmp_path):
+    """Upstream sheets keep only their presence; the stage's own prompts stay intact."""
+    cast = tmp_path / "cast.json"
+    cast.write_text(
+        json.dumps(
+            {
+                "characters": [
+                    {"id": "C01", "name": "甲", "image": {"sheet": "full body sheet " * 50, "prompt": ""}},
+                    {"id": "C02", "name": "乙", "image": {"sheet": ""}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    art = tmp_path / "art.json"
+    art.write_text(json.dumps({"scenes": [{"id": "S01", "image": {"prompt": "rainy alley"}}]}), encoding="utf-8")
+    state, _ = jev_gates.build_state("art", {"art": art, "cast": cast})
+    characters = state["artifacts"]["cast"]["characters"]
+    assert characters[0]["image"]["sheet"].startswith("[generation prompt present:")
+    assert characters[0]["image"]["prompt"] == ""
+    assert characters[1]["image"]["sheet"] == ""
+    assert state["artifacts"]["art"]["scenes"][0]["image"]["prompt"] == "rainy alley"
+    assert state["compaction"]["upstream_prompts_projected"] == ["cast"]
+    assert "upstream_note" in state
+
+
+def test_state_stays_within_one_shared_budget(tmp_path):
+    """Oversized inputs are cut to one budget, spending it on the stage's own artifact first."""
+    script = tmp_path / "script.json"
+    flow = [{"speaker": "C01", "line": f"第{i}句台词，说清楚为什么。"} for i in range(60)]
+    script.write_text(json.dumps({"episodes": [{"scenes": [{"flow": flow}]}]}, ensure_ascii=False), encoding="utf-8")
+    cast = tmp_path / "cast.json"
+    personas = [{"id": f"C{i:02d}", "persona": {"motivation": "动机" * 1400}} for i in range(40)]
+    cast.write_text(json.dumps({"characters": personas}, ensure_ascii=False), encoding="utf-8")
+    source = tmp_path / "source.txt"
+    source.write_text("[甲] 原文台词。\n" * 4000, encoding="utf-8")
+
+    state, _ = jev_gates.build_state("script", {"script": script, "cast": cast}, source_text=source)
+    compaction = state["compaction"]
+    assert compaction["estimated_tokens"] <= jev_gates.STATE_TOKEN_BUDGET * 1.05
+    assert "script" not in compaction["truncated"]
+    assert {"cast", "source_material"} <= set(compaction["truncated"])
+    assert json.dumps(state["artifacts"]["script"], ensure_ascii=False).count("台词") == 60
+    # The transcript is weighted above upstream documents and is cut, not dropped.
+    assert len(state["source_material"]) > 5000
+    assert "truncation_note" in state
+    assert jev_gates._estimate_tokens(json.dumps(state, ensure_ascii=False)) < 30_000
+
+
+def test_storyboard_sees_asset_identities_not_characterization(tmp_path):
+    cast = tmp_path / "cast.json"
+    cast.write_text(
+        json.dumps({"characters": [{"id": "C01", "name": "甲", "persona": {"motivation": "长篇人物动机"},
+                                    "states": [{"id": "wet"}], "image": {"sheet": "sheet"}}]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    storyboard = tmp_path / "storyboard.json"
+    storyboard.write_text(json.dumps({"episodes": []}), encoding="utf-8")
+    state, _ = jev_gates.build_state("storyboard", {"storyboard": storyboard, "cast": cast})
+    character = state["artifacts"]["cast"]["characters"][0]
+    assert "persona" not in character
+    assert character["states"] == [{"id": "wet"}]
+    assert character["image"]["sheet"].startswith("[generation prompt present:")
+    assert "persona" in state["compaction"]["upstream_fields_dropped"]["cast"]
+    # The script stage still judges dialogue against characterization.
+    script = tmp_path / "script.json"
+    script.write_text(json.dumps({"episodes": []}), encoding="utf-8")
+    state, _ = jev_gates.build_state("script", {"script": script, "cast": cast})
+    assert "persona" in state["artifacts"]["cast"]["characters"][0]
+
+
+def test_structure_adds_to_the_token_estimate():
+    flat = {"text": "x" * 3000}
+    nested = {"items": [{"a": {"b": "x" * 3}} for _ in range(300)]}
+    assert jev_gates._estimate_value_tokens(nested) > jev_gates._estimate_value_tokens(flat)
+
+
+def test_budget_keeps_small_upstream_whole_beside_a_large_artifact():
+    """A large storyboard must not crowd out the cast and art it is checked against."""
+    allowances = jev_gates._share_budget(
+        {"storyboard": 50_000, "cast": 3_000, "art": 2_000},
+        {"storyboard": 2, "cast": 1, "art": 1},
+        26_000,
+    )
+    assert allowances["cast"] == 3_000 and allowances["art"] == 2_000
+    assert allowances["storyboard"] == 21_000
+
+
+def test_token_overflow_retries_once_with_a_smaller_state(tmp_path):
+    path = tmp_path / "outline.json"
+    outline(path)
+    calls = []
+
+    class Overflow(Client):
+        def system_one(self, **kwargs):
+            calls.append(kwargs["state"]["compaction"]["token_budget"])
+            if len(calls) == 1:
+                raise RuntimeError('400 {"detail":{"error_type":"max_tokens_exceeded"}}')
+            return self.response
+
+    result = jev_gates.run_stage_gate(
+        "outline",
+        {"outline": path},
+        api_key="test-key",
+        client_factory=lambda _key: Overflow(response()),
+    )
+    assert result["status"] == "passed"
+    assert calls == [jev_gates.STATE_TOKEN_BUDGET, int(jev_gates.STATE_TOKEN_BUDGET * jev_gates.RETRY_BUDGET_FRACTION)]
+    assert result["state_compaction"]["retried_after"] == "max_tokens_exceeded"
+
+
+def test_receipt_records_state_compaction(monkeypatch, tmp_path):
+    path = tmp_path / "outline.json"
+    outline(path)
+    monkeypatch.setattr(jev_gates, "_find_api_key", lambda: "")
+    result = jev_gates.run_stage_gate("outline", {"outline": path})
+    assert result["state_compaction"]["token_budget"] == jev_gates.STATE_TOKEN_BUDGET
+    assert result["state_compaction"]["truncated"] == []
 
 
 def test_compact_preserves_dialogue_at_artifact_depth():

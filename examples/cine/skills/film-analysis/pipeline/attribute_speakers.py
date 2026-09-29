@@ -48,18 +48,55 @@ import sys
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 _PIPELINE = Path(__file__).resolve().parent
 if str(_PIPELINE) not in sys.path:
     sys.path.insert(0, str(_PIPELINE))
 
-from jev_gates import _find_api_key  # noqa: E402
+from jev_gates import STATE_TOKEN_BUDGET, _estimate_value_tokens, _find_api_key  # noqa: E402
 from jev_transport import open_client  # noqa: E402
 
 
+
+def _ask_batched(client: Any, state: Any, questions: dict[str, Any], model: str) -> Any:
+    """Ask independent questions in as few requests as fit JEV's input limit.
+
+    Every question repeats the roster in its criteria, so one request per
+    episode overflows the limit. Questions in one request cannot see each
+    other's answers, so splitting them changes only the request count.
+    """
+    room = max(STATE_TOKEN_BUDGET - _estimate_value_tokens(state), 1)
+    batches: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    used = 0
+    for name, question in questions.items():
+        cost = _estimate_value_tokens(question.model_dump(exclude_none=True))
+        if current and used + cost > room:
+            batches.append(current)
+            current, used = {}, 0
+        current[name] = question
+        used += cost
+    if current:
+        batches.append(current)
+    answers: dict[str, Any] = {}
+    response_model = model
+    for batch in batches:
+        response = client.system_one(state=state, questions=batch, model=model)
+        answers.update(getattr(response, "answers", None) or {})
+        response_model = getattr(response, "model", response_model)
+    return SimpleNamespace(answers=answers, model=response_model)
+
 UNATTRIBUTED = "unclear"
 NO_ADDRESSEE = "none"
+# Audio that is no character's dialogue. Without these options a song or a
+# platform outro can only be "unclear", and a film with a soundtrack floods the
+# review queue with lines nobody could attribute.
+NON_DIALOGUE = {
+    "lyrics": "插曲：唱出来的歌词或背景歌曲，不是任何角色说的话",
+    "non_story": "片外音频：平台片头片尾、水印、广告口播等与剧情无关的声音",
+}
 MIN_CONFIDENCE = 0.55
 # Two candidates this close are an ambiguity, not an answer.
 MIN_MARGIN = 0.15
@@ -282,9 +319,7 @@ def _same_person_groups(
         )
     try:
         with open_client(key) as client:
-            response = client.system_one(
-                state={"dialogue": dialogue}, questions=questions, model=model
-            )
+            response = _ask_batched(client, {"dialogue": dialogue}, questions, model)
     except Exception as exc:  # noqa: BLE001 - any failure means "no merge"
         return singletons, outcome("failed", error=f"{type(exc).__name__}: {exc}")
 
@@ -416,6 +451,8 @@ def _name_for(cast: dict[str, Any], speaker_id: str) -> str:
     for character in cast.get("characters") or []:
         if _character_key(character) == speaker_id:
             return str(character.get("name") or speaker_id)
+    if speaker_id in NON_DIALOGUE:
+        return NON_DIALOGUE[speaker_id].split("：", 1)[0]
     return speaker_id
 
 
@@ -445,6 +482,7 @@ def _roster(cast: dict[str, Any]) -> dict[str, str]:
         if relations:
             parts.append("关系：" + "；".join(relations))
         roster[cid] = "｜".join(parts)
+    roster.update(NON_DIALOGUE)
     roster[UNATTRIBUTED] = "无法从给定信息判定说话人"
     return roster
 
@@ -649,7 +687,11 @@ def attribute_speakers(
     groups = {_character_key(c) for c in cast.get("characters") or [] if _is_group(c)}
     speakers = set(roster)
     listeners = {
-        **{cid: text for cid, text in roster.items() if cid != UNATTRIBUTED},
+        **{
+            cid: text
+            for cid, text in roster.items()
+            if cid != UNATTRIBUTED and cid not in NON_DIALOGUE
+        },
         NO_ADDRESSEE: "本句没有明确的听者，或听者不在名单中（如独白、旁白、对不在场的人说话）",
         UNATTRIBUTED: "无法从给定信息判定听者",
     }
@@ -698,7 +740,7 @@ def attribute_speakers(
     }
 
     with open_client(key) as client:
-        first = client.system_one(state=state, questions=addressee_questions, model=model)
+        first = _ask_batched(client, state, addressee_questions, model)
         # A missing or malformed addressee answer only means no exclusion.
         first_answers = getattr(first, "answers", None) or {}
         addressees: dict[str, tuple[str, float]] = {}
@@ -738,7 +780,7 @@ def attribute_speakers(
                 ),
                 criteria=DELIVERY_MODES,
             )
-        response = client.system_one(state=state, questions=questions, model=model)
+        response = _ask_batched(client, state, questions, model)
 
     # Every input line gets an attribution. A missing answer is reported as an
     # unresolved line, not dropped: dropping it would silently shorten the

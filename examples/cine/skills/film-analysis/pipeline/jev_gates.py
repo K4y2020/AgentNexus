@@ -27,10 +27,14 @@ STAGE_GATES: dict[str, dict[str, Any]] = {
     "cast": {
         "questions": {
             "role_distinctness": ("score", ["Roles are interchangeable", "Roles are usable but overlap", "Each principal role has a distinct dramatic function and behavior"]),
-            "state_assets_explicit": ("noul", "Are non-default character states explicit enough for downstream scene and storyboard continuity?"),
+            # Asked without the outline, this failed every cast with no states,
+            # including the reference example; the story decides which are needed.
+            "state_assets_explicit": ("noul", "Using `artifacts.outline` for what the story requires: does every non-default look the story puts a character in (injured, soaked, disguised, aged, transformed...) appear as an entry in that character's `states` in `artifacts.cast`? Answer yes when the story needs no such state."),
             "production_readiness": ("noul", "Can the cast document guide a production team without inventing missing identity or behavior details?"),
         },
-        "rules": {"role_distinctness": 1.0, "state_assets_explicit": 0.65, "production_readiness": 0.65},
+        # state_assets_explicit calibration: a needed state missing 0.06; defined
+        # or not needed 0.53-0.89.
+        "rules": {"role_distinctness": 1.0, "state_assets_explicit": 0.4, "production_readiness": 0.65},
     },
     "art": {
         "questions": {
@@ -43,19 +47,23 @@ STAGE_GATES: dict[str, dict[str, Any]] = {
     "script": {
         "questions": {
             "dialogue_naturalness": ("score", ["Dialogue is unnatural or semantically unclear", "Dialogue is usable but needs a focused pass", "Dialogue is speakable, specific, and preserves each character's intent"]),
-            "causal_continuity": ("noul", "In `artifacts.script`, does every line and action react to the beat immediately before it, so a viewer can follow why each thing is said and done?"),
+            # "Every line reacts to the beat before it" is false at every scene
+            # opening: it scored good and line-reversed scripts alike (0.19-0.30).
+            "causal_continuity": ("noul", "Within each scene of `artifacts.script`, does each line or action follow from what came before it in that scene, so a viewer can follow why it is said or done? A scene's opening beat may start fresh; a cut to a new scene is not a break. Answer no only if a line answers something not yet said, reacts to an event that has not happened yet, or beats are clearly out of order."),
             "visual_actionability": ("noul", "Can the scenes be staged through visible actions, objects, sound, and playable behavior rather than author explanation?"),
         },
-        "rules": {"dialogue_naturalness": 1.0, "causal_continuity": 0.65, "visual_actionability": 0.65},
+        # causal_continuity calibration: good scripts 0.58-0.79, line-reversed 0.29-0.39.
+        "rules": {"dialogue_naturalness": 1.0, "causal_continuity": 0.5, "visual_actionability": 0.65},
     },
     "storyboard": {
         "questions": {
             "beat_coverage": ("noul", "Does the storyboard visibly cover the script beats in order without silently dropping essential story actions or dialogue?"),
             "cross_shot_continuity": ("score", ["Adjacent shots are spatially or physically contradictory", "Continuity is mostly usable but has review risks", "Axis, positions, eyelines, motion, props, and action carry are coherent"]),
             "generation_feasibility": ("noul", "Are the shots and generation segments achievable from the supplied prompts without requiring unstated story or asset inventions?"),
-            "visual_asset_anchors_present": ("noul", "In `artifacts.cast` and `artifacts.art`, does every character and scene referenced by the storyboard cuts have explicit visual image specifications (model sheet and environment prompt) so downstream video cards have valid reference image anchors rather than generating drifting faces?"),
         },
-        "rules": {"beat_coverage": 0.65, "cross_shot_continuity": 1.0, "generation_feasibility": 0.65, "visual_asset_anchors_present": 0.65},
+        # Whether each referenced character/scene has a sheet or prompt is an
+        # exact lookup; production.check_stage verifies it in code instead.
+        "rules": {"beat_coverage": 0.65, "cross_shot_continuity": 1.0, "generation_feasibility": 0.65},
     },
 }
 
@@ -129,7 +137,9 @@ SUPERVISOR_QUESTIONS = {
     "next_stage": (
         "choice",
         {
-            "assets": "Create or revise cast and art assets",
+            "outline": "Create or revise the story outline",
+            "cast": "Create or revise the cast (character) document",
+            "art": "Create or revise the art (scene and prop) document",
             "script": "Create or revise the structured script",
             "storyboard": "Create or revise the storyboard",
             "canvas": "Synchronize the verified storyboard to Seedance",
@@ -149,12 +159,31 @@ SUPERVISOR_QUESTIONS = {
 }
 
 NEXT_STAGES = {
-    "outline": {"assets"},
-    "cast": {"script"},
+    "outline": {"cast"},
+    "cast": {"art"},
     "art": {"script"},
     "script": {"storyboard"},
     "storyboard": {"canvas"},
 }
+
+# Stages each artifact reads; mirrors production.INPUTS. An upstream repair
+# may only target one of these.
+UPSTREAM_STAGES = {
+    "outline": set(),
+    "cast": set(),
+    "art": {"cast"},
+    "script": {"outline", "cast", "art"},
+    "storyboard": {"outline", "cast", "art", "script"},
+}
+
+
+def _repair_target(stage: str, next_stage: str, repair_scope: str) -> str:
+    """Return a legal repair target for the scope, or ``stop`` when none is."""
+    if repair_scope == "artifact":
+        return stage
+    if repair_scope == "upstream" and next_stage in UPSTREAM_STAGES[stage]:
+        return next_stage
+    return "stop"
 
 
 def _find_api_key() -> str:
@@ -201,7 +230,76 @@ def _jev_client(client_factory, key: str, *, proxy_aware: bool):
         return client_factory(key)
 
 
-def _compact(value: Any, *, depth: int = 0, max_string: int = 3000) -> Any:
+# JEV rejects requests above roughly 32k input tokens (observed as
+# max_tokens_exceeded). The state gets this share; questions take the rest.
+STATE_TOKEN_BUDGET = 26_000
+# One retry after max_tokens_exceeded uses this fraction of the budget.
+RETRY_BUDGET_FRACTION = 0.6
+# Relative claim on a tight budget: the judged artifact and its source first.
+_PART_WEIGHTS = {"own": 2, "source": 2, "upstream": 1}
+
+# Generation-prompt fields. An upstream document is judged for what it
+# establishes, so these are reduced to presence markers there; the stage's own
+# artifact keeps them because its questions may judge the prompts themselves.
+GENERATION_PROMPT_KEYS = frozenset(
+    {"sheet", "prompt", "negativePrompt", "promptLocal", "h3Prompt", "frame"}
+)
+
+# Upstream fields a stage's questions never consult. The storyboard checks cast
+# and art only for identities, states and image anchors, not characterization.
+UPSTREAM_DROPPED_FIELDS: dict[str, dict[str, frozenset[str]]] = {
+    "storyboard": {
+        "cast": frozenset({"persona", "voice", "oneLiner", "summary"}),
+        "art": frozenset({"summary", "usage"}),
+    },
+}
+
+_CJK_RANGES =((0x3000, 0x303F), (0x3400, 0x9FFF), (0xFF00, 0xFFEF))
+
+
+def _estimate_tokens(text: str) -> int:
+    """Token estimate from measured JEV usage: CJK ~1.09/char, JSON ~0.29/char.
+
+    Rounded up to 1.1 and 0.3; on real cast/art states it runs about 5% high.
+    """
+    cjk = sum(1 for ch in text if any(low <= ord(ch) <= high for low, high in _CJK_RANGES))
+    return (cjk * 11 + (len(text) - cjk) * 3) // 10
+
+
+def _entries(value: Any) -> int:
+    if isinstance(value, dict):
+        return sum(1 + _entries(item) for item in value.values())
+    if isinstance(value, list):
+        return sum(1 + _entries(item) for item in value)
+    return 0
+
+
+def _estimate_value_tokens(value: Any) -> int:
+    """Estimate for structured state: JEV renders nesting at about 3 tokens per entry.
+
+    Without this, a deeply nested storyboard measured 28% above the text-only estimate.
+    """
+    return _estimate_tokens(json.dumps(value, ensure_ascii=False)) + 3 * _entries(value)
+
+
+def _project_upstream(value: Any, dropped: frozenset[str] = frozenset()) -> Any:
+    """Replace non-empty generation prompts with presence markers and drop unused fields."""
+    if isinstance(value, dict):
+        return {
+            key: f"[generation prompt present: {len(item)} chars]"
+            if key in GENERATION_PROMPT_KEYS and isinstance(item, str) and item.strip()
+            else _project_upstream(item, dropped)
+            for key, item in value.items()
+            if key not in dropped
+        }
+    if isinstance(value, list):
+        return [_project_upstream(item, dropped) for item in value]
+    return value
+
+
+def _compact(
+    value: Any, *, depth: int = 0, max_string: int = 3000, char_budget: int = 199_900
+) -> Any:
     """Keep JEV state bounded while preserving native field names and order.
 
     The depth limit is deliberately generous: dialogue-and-action beats sit
@@ -214,7 +312,7 @@ def _compact(value: Any, *, depth: int = 0, max_string: int = 3000) -> Any:
     stay short, but a whole source transcript has to survive intact or the
     source-comparison gates are judging a fragment.
     """
-    budget = _CharBudget(199_900)
+    budget = _CharBudget(char_budget)
     result = _compact_value(value, budget, max_string=max_string)
     if budget.truncated:
         if isinstance(result, dict):
@@ -375,35 +473,141 @@ def _answer_dump(answer: Any) -> dict[str, Any]:
 
 
 def build_state(
-    stage: str, paths: dict[str, Path], *, source_text: Path | None = None
+    stage: str,
+    paths: dict[str, Path],
+    *,
+    source_text: Path | None = None,
+    token_budget: int = STATE_TOKEN_BUDGET,
 ) -> tuple[dict[str, Any], dict[str, str]]:
+    """Assemble the JEV state within one shared token budget.
+
+    Upstream generation prompts are first reduced to presence markers, since
+    they rarely bear on the judgment but dominate cast and art documents. If
+    the state still exceeds the budget, parts that fit a fair share are kept
+    whole and the rest split the remainder, the stage's own artifact and the
+    source weighted above upstream documents.
+    """
     if stage not in STAGE_GATES:
         raise ValueError(f"unknown JEV production stage: {stage}")
-    documents = {}
+    raw_documents = {}
     hashes = {}
     for name, path in paths.items():
         resolved = path.resolve(strict=True)
         raw = resolved.read_bytes()
         hashes[name] = hashlib.sha256(raw).hexdigest()
-        documents[name] = _compact(json.loads(raw.decode("utf-8-sig")))
-    state: dict[str, Any] = {
-        "stage": stage,
-        "artifacts": documents,
-        "artifact_sha256": hashes,
-        "instruction": "Judge only the supplied structured text state. Do not infer unseen images, audio, or video.",
-    }
+        raw_documents[name] = json.loads(raw.decode("utf-8-sig"))
+    source = None
     if source_text is not None:
-        resolved = source_text.resolve(strict=True)
-        raw = resolved.read_bytes()
+        raw = source_text.resolve(strict=True).read_bytes()
         hashes["source_material"] = hashlib.sha256(raw).hexdigest()
+        source = raw.decode("utf-8-sig")
+
+    projected = []
+    # (name, value, per-string cap, weight)
+    parts: list[tuple[str, Any, int, int]] = []
+    if stage in raw_documents:
+        parts.append((stage, raw_documents[stage], 3000, _PART_WEIGHTS["own"]))
+    if source is not None:
         # The transcript is the comparison baseline, so it keeps far more of
         # its length than a caption or prompt field would.
-        state["source_material"] = _compact(raw.decode("utf-8-sig"), max_string=60_000)
+        parts.append(("source_material", source, 60_000, _PART_WEIGHTS["source"]))
+    dropped = UPSTREAM_DROPPED_FIELDS.get(stage, {})
+    for name, document in raw_documents.items():
+        if name != stage:
+            reduced = _project_upstream(document, dropped.get(name, frozenset()))
+            if reduced != document:
+                projected.append(name)
+            parts.append((name, reduced, 3000, _PART_WEIGHTS["upstream"]))
+
+    full = {name: _compact(value, max_string=cap) for name, value, cap, _ in parts}
+    costs = {name: _estimate_value_tokens(value) for name, value in full.items()}
+    allowances = _share_budget(costs, {name: weight for name, _, _, weight in parts}, token_budget)
+    fitted: dict[str, Any] = {}
+    truncated = []
+    used = 0
+    for name, value, cap, _ in parts:
+        if costs[name] <= allowances[name]:
+            fitted[name], tokens = full[name], costs[name]
+        else:
+            fitted[name], tokens = _fit(value, allowances[name], max_string=cap)
+            truncated.append(name)
+        used += tokens
+
+    state: dict[str, Any] = {
+        "stage": stage,
+        "artifacts": {name: fitted[name] for name in raw_documents},
+        "artifact_sha256": hashes,
+        "instruction": "Judge only the supplied structured text state. Do not infer unseen images, audio, or video.",
+        "compaction": {
+            "estimated_tokens": used,
+            "token_budget": token_budget,
+            "upstream_prompts_projected": projected,
+            "upstream_fields_dropped": {name: sorted(fields) for name, fields in dropped.items() if name in raw_documents},
+            "truncated": truncated,
+        },
+    }
+    if truncated:
+        state["truncation_note"] = (
+            "Parts listed in `compaction.truncated` were shortened to fit the request: long strings end "
+            "in '...' and omitted items are counted. Do not treat shortened or omitted text as missing "
+            "from the artifact."
+        )
+    if projected or dropped:
+        state["upstream_note"] = (
+            "Upstream generation prompts are shown as presence markers; judge whether they exist, "
+            "not their wording. Fields in `compaction.upstream_fields_dropped` were left out as "
+            "irrelevant to this stage and are not missing from the artifact."
+        )
+    if source is not None:
+        state["source_material"] = fitted["source_material"]
         state["source_material_note"] = (
             "`source_material` is the original material being adapted. Judge `artifacts` against it; "
             "`artifacts` holds the adaptation."
         )
     return state, hashes
+
+
+def _share_budget(costs: dict[str, int], weights: dict[str, int], budget: int) -> dict[str, int]:
+    """Weighted water-filling: parts under their share keep their full cost."""
+    allowances = {}
+    pending = dict(costs)
+    left = budget
+    while pending:
+        unit = left / sum(weights[name] for name in pending)
+        settled = {name: cost for name, cost in pending.items() if cost <= unit * weights[name]}
+        if not settled:
+            allowances.update({name: int(unit * weights[name]) for name in pending})
+            break
+        for name, cost in settled.items():
+            allowances[name] = cost
+            left -= cost
+            del pending[name]
+    return allowances
+
+
+def _fit(value: Any, allowance: int, *, max_string: int) -> tuple[Any, int]:
+    """Shorten long strings first, keeping every item; cut the tail only as a last resort.
+
+    A bare string (the source transcript) has no items to keep, so it is cut directly.
+    """
+    cap = max_string
+    if not isinstance(value, str):
+        for cap in (1500, 800, 400, 200):
+            if cap >= max_string:
+                continue
+            compacted = _compact(value, max_string=cap)
+            tokens = _estimate_value_tokens(compacted)
+            if tokens <= allowance:
+                return compacted, tokens
+        cap = min(max_string, 200)
+    capped = _compact(value, max_string=cap)
+    text = json.dumps(capped, ensure_ascii=False)
+    chars = len(text) * allowance // max(_estimate_value_tokens(capped), 1)
+    if chars < 100:
+        marker = "[omitted: JEV state budget exhausted]"
+        return marker, _estimate_tokens(marker)
+    compacted = _compact(value, max_string=cap, char_budget=chars)
+    return compacted, _estimate_value_tokens(compacted)
 
 
 def run_stage_gate(
@@ -432,6 +636,7 @@ def run_stage_gate(
             "model": model,
             "input_sha256": hashes,
             "source_compared": include_source,
+            "state_compaction": state["compaction"],
             "error": "TYPESAFE_API_KEY is not configured",
         }
     try:
@@ -439,23 +644,37 @@ def run_stage_gate(
             from typesafe_sdk import TypeSafeClient
 
             client_factory = lambda token, **kwargs: TypeSafeClient(api_key=token, **kwargs)
-        response = None
-        last_error: Exception | None = None
-        for proxy_aware in (True, False):
-            try:
-                with _jev_client(client_factory, key, proxy_aware=proxy_aware) as client:
-                    response = client.system_one(
-                        state=state,
-                        questions=_question_objects(stage, include_source=include_source),
-                        model=model,
-                    )
-                break
-            except Exception as exc:
-                if not _transport_module().is_transport_error(exc) or not proxy_aware:
-                    raise
-                last_error = exc
-        if response is None:
+
+        def ask(request_state: dict[str, Any]) -> Any:
+            last_error: Exception | None = None
+            for proxy_aware in (True, False):
+                try:
+                    with _jev_client(client_factory, key, proxy_aware=proxy_aware) as client:
+                        return client.system_one(
+                            state=request_state,
+                            questions=_question_objects(stage, include_source=include_source),
+                            model=model,
+                        )
+                except Exception as exc:
+                    if not _transport_module().is_transport_error(exc) or not proxy_aware:
+                        raise
+                    last_error = exc
             raise last_error or RuntimeError("no JEV transport available")
+
+        try:
+            response = ask(state)
+        except Exception as exc:
+            # The token estimate can still undershoot on unusual text; retry once smaller.
+            if "max_tokens_exceeded" not in str(exc):
+                raise
+            state, hashes = build_state(
+                stage,
+                paths,
+                source_text=source_text if include_source else None,
+                token_budget=int(STATE_TOKEN_BUDGET * RETRY_BUDGET_FRACTION),
+            )
+            state["compaction"]["retried_after"] = "max_tokens_exceeded"
+            response = ask(state)
         answers = getattr(response, "answers", None)
         if not isinstance(answers, dict):
             raise ValueError("JEV response did not contain answers")
@@ -507,8 +726,13 @@ def run_stage_gate(
         if status == "passed" and route_decision == "advance" and next_stage not in NEXT_STAGES[stage]:
             route_reasons.append(f"invalid_next_stage:{next_stage}")
             next_stage = sorted(NEXT_STAGES[stage])[0]
-        if route_decision != "advance":
-            next_stage = "stop" if route_decision in {"human_review", "blocked"} else next_stage
+        if route_decision == "repair":
+            target = _repair_target(stage, next_stage, repair_scope)
+            if target != next_stage:
+                route_reasons.append(f"invalid_repair_stage:{next_stage}")
+                next_stage = target
+        elif route_decision != "advance":
+            next_stage = "stop"
         scheduler = {
             "decision": route_decision,
             "next_stage": next_stage,
@@ -525,6 +749,7 @@ def run_stage_gate(
             "model": str(getattr(response, "model", model)),
             "input_sha256": hashes,
             "source_compared": include_source,
+            "state_compaction": state["compaction"],
             "evaluations": evaluations,
             "answers": {name: _answer_dump(answer) for name, answer in answers.items()},
             "failures": failures,
@@ -538,6 +763,7 @@ def run_stage_gate(
             "model": model,
             "input_sha256": hashes,
             "source_compared": include_source,
+            "state_compaction": state["compaction"],
             "error": f"{type(exc).__name__}: {exc}",
         }
 
