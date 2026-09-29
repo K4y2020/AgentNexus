@@ -28,6 +28,11 @@ INPUTS = {
     "script": ("outline", "art", "cast"),
     "storyboard": ("script", "outline", "cast", "art"),
 }
+# Adaptation modes whose script is not compared line by line with the source.
+FREE_ADAPT_MODES = {"借壳"}
+# Documents a stage's JEV review reads beyond its native inputs: whether a
+# character needs a non-default state is decided by the story, not the cast.
+JEV_CONTEXT = {"cast": ("outline",)}
 # Stage whose artifact is a JEV speaker attribution rather than a skill document,
 # so it has no node validator and its inputs are the cast plus the ASR rows.
 ATTRIBUTION_STAGE = "attribution"
@@ -323,6 +328,75 @@ def rebind_source(directory, source_project):
     }
 
 
+def attribution_input_hashes(directory, rows_path, cast_path):
+    """What a cached attribution depends on; scene notes change the answers too."""
+    hashes = {"source_transcript": digest(rows_path), "cast": digest(Path(cast_path))}
+    notes = directory / "scene-notes.json"
+    if notes.is_file():
+        hashes["scene_notes"] = digest(notes)
+    return hashes
+
+
+def write_scene_notes(directory):
+    """Derive scene-notes.json from the exported story draft, placing exchanges by time.
+
+    Attribution without scene setup can credit an address line to the person
+    addressed. Never overwrites an existing file: a written note outranks a
+    derived one.
+    """
+    target = directory / "scene-notes.json"
+    if target.exists():
+        return {"status": "kept", "path": str(target)}
+    try:
+        material_path = stage_path(directory, "source_material")
+    except (OSError, ValueError):
+        # Without a manifest the material keeps its conventional hyphenated name.
+        material_path = directory / "source-material.json"
+    try:
+        material = read(material_path)
+    except (OSError, ValueError):
+        return {"status": "unavailable", "reason": "no source material"}
+    story = material.get("adaptation_story") if isinstance(material, dict) else None
+    batches = [b for b in material.get("adaptation_story_batches") or [] if isinstance(b, dict)]
+    sections = {
+        s.get("batch_id"): s for s in (story or {}).get("sections") or [] if isinstance(s, dict)
+    }
+    if not batches or not sections:
+        return {
+            "status": "unavailable",
+            "reason": "source material has no timed story sections; re-export it with handoff.py",
+        }
+    rows_path = next((p for p in source_transcript_candidates(directory) if p.is_file()), None)
+    if rows_path is None:
+        return {"status": "unavailable", "reason": "source-transcript.json not found"}
+    payload = read(rows_path)
+    segments = payload.get("segments") if isinstance(payload, dict) else payload
+    if any(isinstance(s, dict) and s.get("scene") is not None for s in segments or []):
+        return {"status": "unavailable", "reason": "transcript already carries explicit scenes"}
+    try:
+        from .attribute_speakers import _scene_groups
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from attribute_speakers import _scene_groups
+
+    notes = {}
+    for index, group in enumerate(_scene_groups(segments or [])):
+        start = float(group[0][1].get("start", 0.0))
+        batch = next(
+            (
+                b
+                for position, b in enumerate(batches)
+                if b["start_seconds"] <= start
+                and (start < b["end_seconds"] or position == len(batches) - 1)
+            ),
+            None,
+        )
+        events = (sections.get(batch["batch_id"]) or {}).get("events") if batch else None
+        if events:
+            notes[str(index)] = "；".join(str(event) for event in events)
+    atomic_json(target, notes)
+    return {"status": "written", "path": str(target), "exchanges": len(notes)}
+
+
 def run_attribution(directory, *, model="jev-latest"):
     """Assign each ASR utterance to a cast character using JEV.
 
@@ -374,10 +448,7 @@ def run_attribution(directory, *, model="jev-latest"):
             "status": "error",
             "reason": "speaker attribution did not cover every transcript segment",
         }
-    result["input_sha256"] = {
-        "source_transcript": digest(rows_path),
-        "cast": digest(Path(cast_path)),
-    }
+    result["input_sha256"] = attribution_input_hashes(directory, rows_path, cast_path)
     result["transcript_identity"] = identity
     target = directory / "source-transcript-attributed.json"
     atomic_json(target, result)
@@ -391,6 +462,72 @@ def run_attribution(directory, *, model="jev-latest"):
         "transcript_identity": identity,
     }
 
+
+def adapt_mode(directory):
+    """The outline's adaptation mode (忠实 / 抽核 / 借壳), or None when unknown."""
+    try:
+        outline = read(stage_path(directory, "outline"))
+    except (OSError, ValueError):
+        return None
+    params = outline.get("params") if isinstance(outline, dict) else None
+    return params.get("adaptMode") if isinstance(params, dict) else None
+
+
+def render_attributed_source(directory, attributed):
+    """Write the cast-attributed transcript as the text JEV compares a script against.
+
+    The raw ASR labels can name the wrong character; judging a script against
+    them marks a correctly attributed line unfaithful. Unsettled speakers and
+    non-spoken delivery stay visible in the label.
+    """
+    lines = ["# Source transcript, speakers resolved against the cast (JEV attribution)."]
+    for row in read(attributed).get("attributions", []):
+        marks = ["speaker unsettled"] if row.get("speaker_needs_review") else []
+        if row.get("delivery") and row.get("delivery") != "spoken":
+            marks.append(str(row["delivery"]))
+        speaker = row.get("speaker_name") or row.get("speaker") or "?"
+        label = f"{speaker} ({', '.join(marks)})" if marks else speaker
+        lines.append(f"[{label}] {row.get('text', '')}")
+    target = directory / ".cine-validation" / "jev" / "source-attributed.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_bytes(target, ("\n".join(lines) + "\n").encode("utf-8"))
+    return target
+
+
+def storyboard_asset_anchors(directory, paths):
+    """Check in code that every referenced character/scene has a sheet or prompt.
+
+    Uses the canvas importer's own rule (a byte-identical copy of its module),
+    so this reports exactly what a later import_storyboard would refuse.
+    """
+    try:
+        from . import asset_anchors as anchors
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        import asset_anchors as anchors
+
+    storyboard = read(paths["storyboard"])
+    segments = [
+        (ep, seg)
+        for ep in storyboard.get("episodes", [])
+        for seg in ep.get("segments", [])
+        if seg.get("id")
+    ]
+    cast = (paths["cast"], read(paths["cast"]))
+    art = (paths["art"], read(paths["art"]))
+    outline = (
+        (paths["outline"], read(paths["outline"]))
+        if anchors._needs_outline(cast[1], anchors._referenced_characters(segments))
+        else None
+    )
+    problems = anchors._missing_visual_assets(
+        segments,
+        [],
+        cast,
+        art,
+        script_doc=read(paths["script"]),
+        cast_index=anchors._resolve_cast(cast[1], outline),
+    )
+    return {"status": "missing" if problems else "complete", "problems": problems}
 
 def script_path(stage):
     name = STAGES[stage]
@@ -578,7 +715,14 @@ def check_stage(
             command.append(str(source_text))
         for key in INPUTS[stage]:
             command.extend([f"--{key}", str(paths[key])])
-        if stage == "script":
+        jev_source = ("source_text", source_text) if source_text is not None else (None, None)
+        free_adaptation = stage == "script" and adapt_mode(directory) in FREE_ADAPT_MODES
+        if free_adaptation:
+            # 借壳 keeps the premise and rewrites the rest: the source's speakers,
+            # order and lines are not what this script is meant to reproduce.
+            jev_source = (None, None)
+            row["source_comparison"] = "skipped: free adaptation"
+        if stage == "script" and not free_adaptation:
             # The attributed transcript is what lets the script validator check
             # line order and speaker against the original instead of judging the
             # document only on its own internal coherence.
@@ -600,10 +744,7 @@ def check_stage(
                 if problem:
                     row.update(status="attribution_error", stderr=problem)
                     return row
-                expected_hashes = {
-                    "source_transcript": digest(rows_path),
-                    "cast": digest(paths["cast"]),
-                }
+                expected_hashes = attribution_input_hashes(directory, rows_path, paths["cast"])
                 try:
                     current = read(attributed) if attributed.is_file() else {}
                 except (OSError, ValueError):
@@ -628,6 +769,7 @@ def check_stage(
                         return row
                 row["input_hashes"][str(rows_path)] = expected_hashes["source_transcript"]
                 command.extend(["--source", str(attributed)])
+                jev_source = ("attributed", attributed)
                 files.append(attributed)
                 row["input_hashes"][str(attributed)] = fingerprint(attributed)
             elif attributed.is_file():
@@ -654,12 +796,30 @@ def check_stage(
             stderr=result.stderr,
             status="passed" if result.returncode == 0 else "failed",
         )
+        if stage == "storyboard" and row["status"] == "passed":
+            row["asset_anchors"] = storyboard_asset_anchors(directory, paths)
+            if row["asset_anchors"]["status"] == "missing":
+                row["status"] = "assets_missing"
         if row["status"] == "passed" and (require_jev or advise_jev):
             try:
                 from .jev_gates import run_stage_gate, write_receipt
             except ImportError:  # Direct CLI execution from the pipeline directory.
                 from jev_gates import run_stage_gate, write_receipt
-            receipt = run_stage_gate(stage, paths, model=jev_model, source_text=source_text)
+            kind, baseline = jev_source
+            if kind == "attributed":
+                # Judge against the same cast-resolved speakers the native validator uses.
+                baseline = render_attributed_source(directory, baseline)
+            jev_paths = dict(paths)
+            for name in JEV_CONTEXT.get(stage, ()):
+                context = stage_path(directory, name, must_exist=False)
+                if context.is_file():
+                    jev_paths.setdefault(name, context)
+            receipt = run_stage_gate(stage, jev_paths, model=jev_model, source_text=baseline)
+            receipt["source_baseline"] = {
+                "kind": kind,
+                "path": str(baseline) if baseline is not None else None,
+                "supplied_source_text": str(source_text) if source_text is not None else None,
+            }
             receipt["receipt_path"] = str(write_receipt(directory, receipt))
             row["jev"] = receipt
             row["next_action"] = (receipt.get("scheduler") or {}).get("next_action")
@@ -879,6 +1039,22 @@ def main(argv=None):
     )
     rebind.add_argument("directory", type=Path)
     rebind.add_argument("--source-project", type=Path, required=True)
+    step = sub.add_parser(
+        "next",
+        help="Return the next action of an unattended production run (autopilot).",
+    )
+    step.add_argument("directory", type=Path)
+    step.add_argument("--source-text", type=Path)
+    step.add_argument("--no-jev", action="store_true", help="Skip the advisory JEV review.")
+    step.add_argument(
+        "--retry", action="store_true", help="Clear escalations after the cause was fixed."
+    )
+    step.add_argument(
+        "--canvas-synced",
+        type=Path,
+        metavar="RECEIPT",
+        help="Record a successful import_storyboard receipt for the current storyboard.",
+    )
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
@@ -906,6 +1082,20 @@ def main(argv=None):
             result = run_attribution(directory, model=args.jev_model)
         elif args.action == "rebind-source":
             result = rebind_source(directory, args.source_project.resolve())
+        elif args.action == "next":
+            try:
+                from . import autopilot
+            except ImportError:  # Direct CLI execution from the pipeline directory.
+                import autopilot
+            if args.canvas_synced:
+                result = autopilot.record_canvas_sync(directory, args.canvas_synced.resolve())
+            else:
+                result = autopilot.next_step(
+                    directory,
+                    source_text=args.source_text.resolve() if args.source_text else None,
+                    jev=not args.no_jev,
+                    retry=args.retry,
+                )
         elif args.action == "check":
             result = check(
                 directory,

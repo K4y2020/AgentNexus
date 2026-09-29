@@ -149,6 +149,12 @@ def source_material(project):
             )
             result["adaptation_story"] = draft
             result["adaptation_story_status"] = "exported_unverified"
+            # Batch times let a production place each dialogue exchange in its story section.
+            result["adaptation_story_batches"] = [
+                {key: batch.get(key) for key in ("batch_id", "start_seconds", "end_seconds")}
+                for batch in plan.get("batches") or []
+                if isinstance(batch, dict)
+            ]
         result["adaptation_readiness"] = "not_checked_use_cine_verify_report"
     result["source_input_hashes"] = input_hashes
     return result

@@ -54,3 +54,16 @@ def test_media_project_delegates_to_canonical_pipeline(tmp_path, monkeypatch):
     video, output = tmp_path / "source.mp4", tmp_path / "film"
     assert module.initialize(video, output)["reviewed_shot_count"] == 0
     assert calls == [(video, output)]
+
+
+def test_asset_anchor_rule_is_one_module_in_both_places():
+    """The importer and the storyboard stage check must refuse the same storyboards.
+
+    The pipeline runs in a Topic whose python has no agentnexus, so it carries
+    its own copy; any edit has to land in both.
+    """
+    root = Path(__file__).resolve().parents[1]
+    importer = root / "agentnexus" / "seedance" / "asset_anchors.py"
+    pipeline = BUNDLE / "skills" / "film-analysis" / "pipeline" / "asset_anchors.py"
+    assert importer.read_bytes() == pipeline.read_bytes()
+    assert b"agentnexus" not in pipeline.read_bytes().split(b'"""')[-1]

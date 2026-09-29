@@ -527,3 +527,153 @@ def test_a_failed_manifest_write_leaves_the_binding_refused(monkeypatch, tmp_pat
     row = production.check_stage(directory, "script")
     assert row["status"] == "attribution_error"
     assert row["transcript_identity"] == "material_without_fingerprint"
+
+
+# ---------------------------------------------------------------------------
+# JEV judges the script against the cast-attributed transcript
+# ---------------------------------------------------------------------------
+
+
+def _capture_jev_baseline(monkeypatch):
+    from pipeline import jev_gates
+
+    seen = {}
+
+    def gate(stage, paths, *, model, source_text):
+        seen["text"] = Path(source_text).read_text(encoding="utf-8") if source_text else None
+        return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
+
+    monkeypatch.setattr(jev_gates, "run_stage_gate", gate)
+    return seen
+
+
+def test_jev_compares_the_script_with_the_attributed_transcript(monkeypatch, tmp_path):
+    """Raw ASR can credit a line to the wrong character; JEV sees the resolved speaker."""
+    directory = _production(tmp_path, transcript=_transcript(None))
+
+    def attribute(segments, _cast, **_kwargs):
+        return {
+            "model": "mock-jev",
+            "attributions": [
+                {"id": s["id"], "text": s["text"], "speaker": "C01", "speaker_name": "A",
+                 "speaker_needs_review": True, "needs_review": True, "delivery": "voiceover"}
+                for s in segments
+            ],
+        }
+
+    monkeypatch.setattr(attribute_speakers, "attribute_speakers", attribute)
+    _passing_validator(monkeypatch)
+    seen = _capture_jev_baseline(monkeypatch)
+    raw = tmp_path / "raw.txt"
+    raw.write_text("[someone else] Hi\n", encoding="utf-8")
+
+    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
+    assert row["status"] == "passed"
+    assert "[A (speaker unsettled, voiceover)] Hi" in seen["text"]
+    assert "someone else" not in seen["text"]
+    assert row["jev"]["source_baseline"]["kind"] == "attributed"
+    assert row["jev"]["source_baseline"]["supplied_source_text"] == str(raw)
+
+
+def test_jev_falls_back_to_the_supplied_text_without_a_transcript(monkeypatch, tmp_path):
+    directory = _production(tmp_path)
+    _passing_validator(monkeypatch)
+    seen = _capture_jev_baseline(monkeypatch)
+    raw = tmp_path / "treatment.txt"
+    raw.write_text("[A] Hi\n", encoding="utf-8")
+
+    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
+    assert seen["text"] == "[A] Hi\n"
+    assert row["jev"]["source_baseline"]["kind"] == "source_text"
+
+
+# ---------------------------------------------------------------------------
+# Storyboard asset anchors are checked in code, with the importer's rule
+# ---------------------------------------------------------------------------
+
+
+def _storyboard_production(tmp_path, *, sheet):
+    directory = _production(tmp_path)
+    _write(directory / "cast.json", {"source": "x", "characters": [
+        {"id": "C01", "name": "A", "image": {"sheet": "full sheet" if sheet else ""}}]})
+    _write(directory / "art.json", {"source": "x", "scenes": [
+        {"id": "S01", "name": "Room", "image": {"prompt": "a room"}}]})
+    _write(directory / "script.json", {"source": "x", "episodes": [{"ep": 1, "scenes": [{"sceneId": "S01"}]}]})
+    _write(directory / "storyboard.json", {"source": "x", "episodes": [{"ep": 1, "segments": [
+        {"id": "E01-01", "sceneIndex": 1, "cuts": [{"characters": ["C01"]}]}]}]})
+    manifest = json.loads((directory / "production.json").read_text(encoding="utf-8"))
+    manifest["artifacts"]["storyboard"] = {"path": "storyboard.json"}
+    _write(directory / "production.json", manifest)
+    return directory
+
+
+def test_storyboard_reports_a_character_without_a_sheet(monkeypatch, tmp_path):
+    directory = _storyboard_production(tmp_path, sheet=False)
+    _passing_validator(monkeypatch)
+    row = production.check_stage(directory, "storyboard")
+    assert row["status"] == "assets_missing"
+    assert row["asset_anchors"]["problems"] == ["Character C01 (A) has no image.sheet in cast.json."]
+
+
+def test_storyboard_with_every_anchor_passes(monkeypatch, tmp_path):
+    directory = _storyboard_production(tmp_path, sheet=True)
+    _passing_validator(monkeypatch)
+    row = production.check_stage(directory, "storyboard")
+    assert row["status"] == "passed"
+    assert row["asset_anchors"] == {"status": "complete", "problems": []}
+
+
+def test_attribution_questions_are_split_to_fit_the_request_limit():
+    """Each question repeats the roster, so a full episode must go out in several requests."""
+    from typesafe_sdk import Choice
+
+    batches = []
+
+    class Client:
+        def system_one(self, *, state, questions, model):
+            batches.append(list(questions))
+            return SimpleNamespace(model="jev-x", answers={name: name for name in questions})
+
+    roster = {f"C{i:02d}": "人物描述" * 300 for i in range(8)}
+    questions = {f"q{i}": Choice(instructions="谁在说话？", criteria=roster) for i in range(12)}
+    response = attribute_speakers._ask_batched(Client(), {"characters": {}}, questions, "jev-latest")
+
+    assert len(batches) > 1
+    assert sorted(name for batch in batches for name in batch) == sorted(questions)
+    assert response.answers == {name: name for name in questions}
+    assert response.model == "jev-x"
+
+
+def test_cast_review_sees_the_outline_it_judges_states_against(monkeypatch, tmp_path):
+    from pipeline import jev_gates
+
+    directory = _production(tmp_path)
+    _passing_validator(monkeypatch)
+    seen = {}
+
+    def gate(stage, paths, *, model, source_text):
+        seen["paths"] = set(paths)
+        return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
+
+    monkeypatch.setattr(jev_gates, "run_stage_gate", gate)
+    production.check_stage(directory, "cast", advise_jev=True)
+    assert seen["paths"] == {"cast", "outline"}
+
+
+def test_free_adaptation_is_not_compared_line_by_line(monkeypatch, tmp_path):
+    """借壳 rewrites the source; attributing its speakers or scoring fidelity is noise."""
+    directory = _production(tmp_path, transcript=_transcript(None))
+    outline = json.loads((directory / "outline.json").read_text(encoding="utf-8"))
+    outline["params"] = {"adaptMode": "借壳"}
+    _write(directory / "outline.json", outline)
+    _no_jev(monkeypatch)
+    _passing_validator(monkeypatch)
+    seen = _capture_jev_baseline(monkeypatch)
+    raw = tmp_path / "raw.txt"
+    raw.write_text("[A] Hi\n", encoding="utf-8")
+
+    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
+    assert row["status"] == "passed"
+    assert "--source" not in row["command"]
+    assert row["source_comparison"] == "skipped: free adaptation"
+    assert seen["text"] is None
