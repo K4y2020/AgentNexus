@@ -10,7 +10,8 @@ Do not build a second version of their schemas.
 ## Responsibility and modes
 
 - Cine plans, writes and revises production artifacts. V3 is the canvas, asset
-  store and generation workers. The V3 Agent is a QA role, not another author.
+  store and generation workers. V3 Agent delegation is disabled; QA reads
+  `seedance_read_canvas` snapshots.
 - `analysis`: original evidence only; stop before the novel production stages.
 - `faithful`: preserve verified source facts; unknown identity, dialogue and
   motion stay unknown. Missing evidence blocks source-faithful claims.
@@ -30,6 +31,32 @@ invented beat may instead be labeled new with its creative decision made explici
 On a review-only request, return findings and a proposed patch, not unsolicited
 rewrites. Missing historical hashes do not permanently invalidate a project:
 reconcile against today's approved inputs, review descendants, then establish pins.
+
+## Unattended runs: production.py next
+
+```powershell
+python <film-analysis>/pipeline/production.py next <output>
+```
+
+After `init`, an automatic run asks the controller for one action at a time and
+does only that. The controller walks outline → cast → art → script → storyboard,
+seeds a missing stage, writes `scene-notes.json` from the exported story before
+attribution (an existing file is kept), and runs each stage's check with the
+advisory JEV review. A stage that passed is not rechecked until one of its inputs
+changes. It returns:
+
+- `edit` — rewrite `file` with `skill` against the validator's `errors`. Each stage
+  allows `max_edits` failing versions (authoring plus two repairs); after that, or
+  after repeated calls without an edit, it escalates.
+- `import_canvas` — call the given tool, save the receipt, then run
+  `next --canvas-synced <receipt>`; the sync is keyed to the storyboard's hash.
+- `escalate` — stop. A person fixes the cause; editing the named file or
+  `next --retry` (for technical causes) reopens the stage with a fresh budget.
+- `done` — the current storyboard is on the canvas.
+
+`review-queue.json` beside the production lists blocking escalations and
+non-blocking review items: advisory JEV findings and unsettled speakers. Review
+items never trigger edits. State lives in `.cine-validation/autopilot.json`.
 
 ## Native stage entry
 
@@ -108,16 +135,24 @@ a source supplied, the script stage also runs source-comparison questions
 (speaker attribution, reaction order, setup/payoff, overall order fidelity) and
 records `source_compared: true` in the receipt. Without it, a script can
 reshuffle or reassign the source's lines and still read as coherent, because
-nothing in the state contradicts it.
+nothing in the state contradicts it. When `source-transcript-attributed.json`
+is in use, JEV is given that cast-attributed text instead of the raw ASR labels,
+so a line the attribution moved to its real speaker is not scored as unfaithful;
+`source_baseline` in the receipt records the choice.
 
 The source-comparison questions are only meaningful if the baseline is
 trustworthy, so the gate first asks whether each bracketed speaker label covers
 exactly one character. When that check fails the stage reports
 `baseline_unusable` with `repair_scope: upstream` and does not issue a fidelity
 verdict — a script must not be marked unfaithful for declining to reproduce a
-transcription error. That verdict means re-run the ASR refinement
-(`transcribe.py --llm-refine`) before re-checking; a segment mashing several
-speakers into one label will otherwise mislead every downstream stage.
+transcription error. That verdict means re-run `production.py attribute` (for a
+raw transcript, the `film_transcribe` tool) before re-checking; a segment mashing
+several speakers into one label will otherwise mislead every downstream stage.
+
+The storyboard stage checks in code, with the canvas importer's own rule, that
+every referenced character has an `image.sheet` and every scene an `image.prompt`.
+A gap reports `assets_missing` with the problem list under `asset_anchors`, the
+same list `import_storyboard` would refuse with.
 
 ASR speaker labels are unreliable in a second way: the same character appears as
 `[女儿]`, `[大姐]` and `[主角]` in different lines, and a line can be credited to
@@ -186,9 +221,6 @@ must exactly match the selected field; files must stay in this Topic workspace.
 Cast images validate cast/source text, art validates cast/art, and storyboards check
 all five artifacts. No episode gates are required for a character image revision.
 Native validation still does not prove provider compatibility or visual quality.
-Legacy `seedance_agent_message` is disabled, including draft requests, because
-the generic V3 Agent has no read-only enforcement. Use `initialize` on the direct
-canvas tool for binding and `seedance_read_canvas` for snapshot QA.
 
 This controls AgentNexus-managed tool submissions, not an unrestricted shell,
 manual V3 UI operations or separately authenticated calls to V3's own API.
@@ -232,8 +264,7 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    means blocked, not a fictional upload tool or a fake asset ID.
 8. QA is against an identified artifact hash/canvas revision. Report issue,
    affected ID, evidence and proposed correction; Cine performs approved fixes.
-   Until a read-only V3 Agent endpoint is enforced, Cine uses read-only snapshots
-   for QA. Do not call the generic mutating Agent endpoint and call it sandboxed.
+   QA uses `seedance_read_canvas` snapshots.
 
 ## Sidecar contract
 
@@ -327,6 +358,32 @@ Success is `handoff_validated`, **not production PASS or authorization**. The
 checker checks hashes, dependency pins and mapping, not natural-language truth,
 asset presence, all five native schemas or generation provider compatibility.
 Runtime source-shot receipt checks still apply; this sidecar cannot bypass them.
+
+## Managed generation
+
+Submission requires the user's explicit authorization scope, retries included.
+Submit runs validation itself: a separate `validate_generation` is optional for a
+preflight/review request, not a loop.
+
+- Jobs: read the exact returned job (`seedance_read_canvas` action=job, job_id) at
+  its suggested polling interval; never resubmit merely because it is pending.
+  Submission, output availability and visually accepted delivery are distinct.
+- Completion: use V3 nodeMedia/latest_job/output_url, not node.status=draft or
+  activeOutputRef alone. Missing activeOutputRef is not a repair task: V3 can
+  resolve an image from assets or succeeded jobs. Never patch output references
+  or guess revision numbers merely to make status look complete.
+  When all requested jobs are terminal, stop polling. Review each output once
+  and deliver the result, or report a specific visual/access failure. Optional
+  local report rendering must not delay the primary delivery; do not loop on
+  HTML link checks, guessed endpoints or repeated unchanged canvas snapshots.
+- Image export: a local://hash is a V3 storage identifier, NOT a Windows file path.
+  After an image job succeeds, call `seedance_edit_canvas` action=export_image with
+  job_id and optional output_path inside this Topic. The tool downloads and verifies
+  the image and returns its exact local path; use `sys_os_view_image` on that path.
+  Never glob drives, walk user folders, scan repositories or guess localhost ports
+  to locate a generated image. If export fails, report its error directly.
+- Character portraits and turnaround sheets follow cine-characters
+  `references/sheet.md`; scene/prop sheets follow cine-art `references/sheet.md`.
 
 ## Provider and completion boundary
 

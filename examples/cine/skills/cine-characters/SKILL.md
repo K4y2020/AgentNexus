@@ -42,10 +42,7 @@ metadata:
 先明确模式：`analysis` 只记录观察，`faithful` 忠实重建，`adaptation` 按已确认方案改编，`original` 原创。复用用户已给出的答案，只补缺失或冲突项；改编幅度不得默认“抽核”。来源观察保持不可变，与虚构改编分开保存；改编方案先于新分镜，按叙事功能映射来源，不逐切照搬。
 合同哈希与上游版本 pins 存在 sidecar，不改 outline/cast/art/script/storyboard 五份原生 schema。共享检查命令为 `python <film-analysis>/pipeline/handoff.py <production.json>`；只检查结构交接就绪，不替代原生 validator、视觉 QA 或运行时来源门，更不是 production PASS。共享文件/检查器不可用时明确交接检查受阻，不伪造通过。
 本文及下级参考中的风格、钩子、爽点门限用于短剧；非短剧保留原作节奏，不为过门改成爽剧。仅使用现有参数；不支持的风格/提供商门如实报告不兼容，不编造 CLI 开关或绕过校验。
-Cine 负责制作，V3 保留画布和 workers。先 `seedance_read_canvas` 再 `seedance_edit_canvas`；更新/删除带读到的 `expected_revision`，冲突先重读，删除另需 `confirm: true`。生成须已有明确范围授权才可 `submit_generation` 并置 `generation_allowed=true`，重试也须在授权范围内，不承诺免费。
-V3 Agent 仅定位为 QA；现有 `seedance_agent_message` 没有代码级只读隔离。只读 QA 强制隔离落实前，在本地或只读快照上检查，禁止用泛用 Agent 消息冒充安全 QA，也不通过它委托制作。禁止 codex `$imagegen` 及其 fallback。
-渲染图像字段只接受真实本地图像路径，不能填远程 asset ID。画布引用反过来需要已上传的真实资产及返回 ID，不能拿本地路径冒充远程引用；上传/引用能力不可用就阻塞。路径、旧文件、任务状态都不是图像证据；核对本次来源并实际看图后才可验收。不可用图像保持缺失，阶段校验通过不等于制作通过。
-`analysis` 在来源分析结束，不进入 novel 制作阶段。跨 skill 的 `source-material.json`、`shot-mapping.json` 按共享合同组织，原始观察与解读分离；未知身份、对白和动作保持未知。使用实际文件哈希，不能只刷新 pins 来消除过期错误，须先复核受影响的下游产物。
+画布读写、生成授权、V3 QA 与远程 asset ID 的规则由 Cine 系统提示词的 Tool boundaries 统一规定，本 skill 不另立一套。图像只有实际查看后才可验收；阶段校验通过不等于制作通过。
 
 
 输入一篇小说/短故事，输出每个角色的：人物画像、形象提示词、音色提示词、角色设定图。

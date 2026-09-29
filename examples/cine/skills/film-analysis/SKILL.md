@@ -74,14 +74,17 @@ python <film-analysis>/pipeline/production.py check <production> --stage storybo
 ```
 
 Always pass `--source-text` on the script stage when adapting existing material.
-Without it the gate can only ask whether the script is internally coherent,
+Without a source the gate can only ask whether the script is internally coherent,
 which a script that reorders or reassigns the source's lines satisfies while
-still getting the original story wrong. With it, the stage additionally judges
+still getting the original story wrong. With one, the stage additionally judges
 speaker attribution, reaction order, setup/payoff and overall order fidelity
-against the original, and records `source_compared` in the receipt. If the
-baseline's own speaker labels are unreliable the stage returns
-`baseline_unusable` with `repair_scope: upstream` instead of scoring the
-script against a corrupt baseline; re-run the ASR refinement and check again.
+against the original, and records `source_compared` in the receipt. When the
+production has a source transcript, the gate compares against the cast-attributed
+transcript the native validator uses, not the raw ASR labels; the receipt's
+`source_baseline` says which one it used. If the baseline's speaker labels are
+unreliable the stage returns `baseline_unusable` with `repair_scope: upstream`
+instead of scoring the script against a corrupt baseline; re-run
+`production.py attribute` (for a raw transcript, `film_transcribe`) and check again.
 
 These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
 actual model version, input hashes, typed answers, thresholds, decision and a
@@ -94,8 +97,10 @@ score. A missing `TYPESAFE_API_KEY` or provider error is reported as
 `unavailable`/`error` and does not block. Only when the user explicitly asks for
 a JEV-gated handoff, use `--require-jev` instead: then `failed`, `needs_review`,
 provider errors, missing keys and incomplete answer sets block the stage, and Cine
-follows `next_action` (advance on `advance_to_*`, repair the named stage on
-`repair_*`, stop on `human_review_*` or `blocked_*`). The review covers story
+follows `next_action` (advance on `advance_to_*`, repair the stage in
+`scheduler.next_stage` on `repair_*` — `stop` there means the defect lies outside
+the stage graph, such as the source transcript — and stop on `human_review_*` or
+`blocked_*`). The review covers story
 causality, role and asset readiness, dialogue/action readability, beat coverage,
 continuity and generation feasibility. Deterministic native validators remain
 authoritative for schema and exact contracts.
@@ -107,7 +112,7 @@ to visually `model_reviewed`.
 Use the directory returned by load_skill; do not recursively search for scripts.
 
 ```powershell
-uv run --with "scenedetect[opencv]>=0.6.4" --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" --with "typesafe-sdk>=0.7.0" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
+uv run --with "scenedetect>=0.6.4" --with opencv-python-headless --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" --with "typesafe-sdk>=0.7.0" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
 ```
 
 Omitting --end covers the source duration. An explicit --end selects a narrower
@@ -235,15 +240,14 @@ storyboard. New shots serve the adapted story. Source shot references are option
 inspiration, not a requirement to recreate every original cut. Retained/faithful
 claims remain stricter than newly invented/adapted material.
 
-Use pipeline/production.py init/seed/check and the five native JSON formats.
+Use pipeline/production.py init/seed/check and the five native JSON formats; an
+automatic adaptation run drives them through `production.py next` instead.
 Read [production-handoff.md](references/production-handoff.md) for native commands.
 Do not replace validators with printed PASS messages. Provider-specific export
 limitations do not block a usable draft, but cannot be mislabeled as ready-to-submit.
 
-Cine owns production; V3 provides the canvas and workers. Read before editing,
-preserve revisions, and require explicit authorization for paid generation or
-private-media uploads. seedance_agent_message is disabled. Do not use imagegen
-fallbacks or turn a local path into a fabricated remote asset ID.
+Cine owns production; V3 provides the canvas and workers. Canvas and generation
+rules are in the Cine prompt's Tool boundaries and the handoff's "Managed generation".
 
 ## Optional: forensic profile
 

@@ -11,7 +11,7 @@ Cine 负责制作，V3 提供画布和生成 workers：
 5. 图像不可用、缺参考或调用失败就保留 missing/blocked；可继续交结构化草稿，不用旧文件或路径存在宣称成图，也不把 native validator 通过当 production PASS。
 
 不使用 codex `$imagegen`、shell codex 或任何 fallback。工具不可用时不自动切换生成服务。
-V3 Agent 的定位仅为 QA；现有 `seedance_agent_message` 没有代码级只读隔离，因此不经该工具制作，也不发泛用消息声称安全 QA。强制只读 QA 实现前，在本地/只读画布快照做 QA；视觉结论必须来自实际查看的图像。
+QA 在 `seedance_read_canvas` 只读快照上做；视觉结论必须来自实际查看的图像。
 
 ## 分镜图是什么
 
