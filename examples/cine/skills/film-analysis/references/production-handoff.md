@@ -46,7 +46,7 @@ advisory JEV review. A stage that passed is not rechecked until one of its input
 changes. It returns:
 
 - `edit` — rewrite `file` with `skill` against the validator's `errors`. Each stage
-  allows `max_edits` failing versions (authoring plus two repairs); after that, or
+  allows `max_edits` edits (authoring plus four repairs); after that, or
   after repeated calls without an edit, it escalates.
 - `import_canvas` — call the given tool, save the receipt, then run
   `next --canvas-synced <receipt>`; the sync is keyed to the storyboard's hash.

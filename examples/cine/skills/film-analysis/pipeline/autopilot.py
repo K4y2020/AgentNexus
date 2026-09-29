@@ -19,9 +19,9 @@ except ImportError:  # Direct CLI execution from the pipeline directory.
     import production as prod
 
 ORDER = ("outline", "cast", "art", "script", "storyboard")
-# Failing versions of one stage before it is handed to a person: the first
-# authoring pass plus two repairs.
-MAX_EDITS = 3
+# Edits one stage gets before it is handed to a person: the authoring pass
+# plus four repairs.
+MAX_EDITS = 5
 # Calls that find the same failing file unedited before the controller gives up.
 MAX_UNCHANGED = 3
 # Failures of the environment rather than the artifact; retried once, never edited.
