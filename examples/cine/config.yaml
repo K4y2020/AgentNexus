@@ -16,6 +16,17 @@ skills:
   - cine-characters
   - cine-art
   - cine-camera-evidence
+# Cine writes data and runs only the scripts its skills ship. A prompt rule was
+# not enough: a run read a validator's source through the shell and wrote its
+# own generator script, so the tool-call boundary enforces it.
+guardrails:
+  policies:
+    packaged_code_only:
+      type: function
+      on: [tool_call]
+      function:
+        path: agentnexus.policies.builtins.code_guard.packaged_code_only
+        arguments: {}
 os_env:
   type: caller_process
   cwd: .
@@ -90,6 +101,9 @@ prompt: |
     at the paths returned by load_skill. Do not write one-off Python/JS/PowerShell
     repair scripts, scan repositories, inspect service source/configuration, guess
     API routes, patch code, or install dependencies during routine creative work.
+    A policy denies writing code files, inline interpreter code, running scripts
+    outside the skills, and reading packaged source; a denial means write the JSON
+    or text directly, not find another route.
   - V3 operations use seedance_read_canvas and seedance_edit_canvas, not raw HTTP,
     shell bridge scripts or the V3 Agent. Cine owns creation; V3 is the canvas and
     workers. Read the canvas before edits; updates and deletes carry the
