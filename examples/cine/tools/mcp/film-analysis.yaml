@@ -1,7 +1,31 @@
 name: cine-film-analysis
 transport: stdio
-command: python
-# `args` are literal (no ${VAR} expansion), so the server locates its own
-# sibling modules from __file__ rather than taking a configured root.
+# uv supplies the tools' dependencies (Whisper, scene detection, JEV) so the
+# server does not depend on what the host's default python has installed.
+command: uv
+# `args` are literal (no ${VAR} expansion). The runner resolves the server
+# script against the extracted bundle; the server finds its sibling modules
+# from __file__.
 args:
+  - run
+  - --no-project
+  - --with
+  - mcp>=1.2,<2
+  - --with
+  - faster-whisper
+  - --with
+  - scenedetect>=0.6.4
+  - --with
+  - opencv-python-headless
+  - --with
+  - pydantic>=2,<3
+  - --with
+  - jinja2>=3.1,<4
+  - --with
+  - filelock>=3
+  - --with
+  - typesafe-sdk>=0.7.0
+  - --with
+  - pyyaml
+  - python
   - tools/mcp/film_analysis_server.py

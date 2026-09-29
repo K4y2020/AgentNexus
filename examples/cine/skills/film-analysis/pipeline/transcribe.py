@@ -214,8 +214,11 @@ def llm_refine_transcript(
     context_summary: str | None = None,
     *,
     speakers: bool = True,
+    report: dict | None = None,
 ) -> list[dict]:
     """Refine ASR dialogue segments using an LLM via the AgentNexus gateway.
+
+    ``report`` receives an ``error`` when the pass could not be applied.
 
     ``speakers=False`` restricts the pass to text repair (homophones, BPE
     artifacts, punctuation) and leaves speaker labels untouched, so attribution
@@ -257,6 +260,8 @@ def llm_refine_transcript(
             pass
 
     if not base_url or not api_key or not model_id:
+        if report is not None:
+            report["error"] = "no refinement model configured"
         return rows
 
     endpoint = base_url.rstrip("/") + "/chat/completions"
@@ -279,8 +284,11 @@ def llm_refine_transcript(
         # calibrated answer without needing a cast document.
         attribution_rules = (
             "3. 只做文本修复，不要判断也不要改动说话人——说话人字段原样保留。"
-            "不要合并或拆分条目，保持条数与起止时间不变，只替换 text 字段。\n"
-            "4. 必须仅返回标准的 JSON 数组，格式为："
+            "不要合并条目；没有拆分的条目保持起止时间不变，只替换 text 字段。\n"
+            "4. 一条里明显是不同人物的几句话（抢话、对答被识别进同一条）时，按语义边界拆成多条："
+            "只在原条目的起止范围内切分时间，拆出的每条 speaker 写「说话人未标注」，"
+            "拼起来的文字必须仍是原话。拿不准就不要拆。\n"
+            "5. 必须仅返回标准的 JSON 数组，格式为："
             '[{"start": 0.0, "end": 0.92, "speaker": "原样保留", "text": "校对后台词。"}]'
         )
     prompt = (
@@ -316,7 +324,7 @@ def llm_refine_transcript(
         req = urllib.request.Request(
             endpoint, data=json.dumps(body).encode("utf-8"), headers=headers
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             resp_data = json.loads(resp.read().decode("utf-8"))
             content = resp_data["choices"][0]["message"]["content"]
             if "```json" in content:
@@ -324,9 +332,15 @@ def llm_refine_transcript(
             elif "```" in content:
                 content = content.split("```", 1)[1].split("```", 1)[0].strip()
             refined = json.loads(content)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - the ASR rows stand; the reason is reported
+        if report is not None:
+            detail = exc.read().decode("utf-8", "replace")[:300] if hasattr(exc, "read") else ""
+            report["error"] = f"{type(exc).__name__}: {exc} {detail}".strip()
         return rows
-    return _accepted_refinement(rows, refined, speakers=speakers)
+    accepted = _accepted_refinement(rows, refined, speakers=speakers)
+    if accepted is rows and report is not None:
+        report["error"] = "reply broke the refinement contract; ASR rows kept"
+    return accepted
 
 
 def _accepted_refinement(rows: list[dict], refined, *, speakers: bool) -> list[dict]:
@@ -350,17 +364,85 @@ def _accepted_refinement(rows: list[dict], refined, *, speakers: bool) -> list[d
             return rows
     if speakers:
         return refined
-    if len(refined) != len(rows):
+    groups = _pieces_per_row(rows, refined)
+    if groups is None:
         return rows
     kept = []
-    for original, row in zip(rows, refined, strict=True):
-        if (
-            abs(float(row["start"]) - float(original["start"])) > 0.01
-            or abs(float(row["end"]) - float(original["end"])) > 0.01
-        ):
-            return rows
-        kept.append({**original, "text": str(row["text"]).strip()})
+    for original, pieces in zip(rows, groups, strict=True):
+        if len(pieces) == 1:
+            kept.append({**original, "text": str(pieces[0]["text"]).strip()})
+            continue
+        # A split must still be the original words, just divided between speakers;
+        # one that does not look like it keeps that row as the ASR heard it.
+        if not _same_words(original.get("text", ""), "".join(str(p["text"]) for p in pieces)):
+            kept.append(original)
+            continue
+        for piece in pieces:
+            kept.append(
+                {
+                    **original,
+                    "start": round(float(piece["start"]), 3),
+                    "end": round(float(piece["end"]), 3),
+                    "text": str(piece["text"]).strip(),
+                    "speaker": UNLABELED_SPEAKER,
+                    "split": True,
+                }
+            )
     return kept
+
+
+UNLABELED_SPEAKER = "说话人未标注"
+# Homophone repair changes a few characters of a short line (优势→又是 scores
+# about 0.83); invented content scores near 0.1.
+_SPLIT_MIN_SIMILARITY = 0.6
+_SPLIT_LENGTH_RATIO = (0.7, 1.3)
+_TIME_TOLERANCE = 0.01
+
+
+def _pieces_per_row(rows: list[dict], refined: list[dict]) -> list[list[dict]] | None:
+    """Group reply rows by the ASR row they came from, or None if they cross rows.
+
+    An unsplit row must keep its exact timing. A split row's pieces must run in
+    order from its start to its end without leaving it; merging rows, moving
+    time between them or dropping one is rejected.
+    """
+    groups: list[list[dict]] = [[] for _ in rows]
+    index = 0
+    for piece in refined:
+        start, end = float(piece["start"]), float(piece["end"])
+        while index < len(rows) and start >= float(rows[index]["end"]) - _TIME_TOLERANCE and groups[index]:
+            index += 1
+        if index >= len(rows):
+            return None
+        row = rows[index]
+        if start < float(row["start"]) - _TIME_TOLERANCE or end > float(row["end"]) + _TIME_TOLERANCE:
+            return None
+        if groups[index] and start < float(groups[index][-1]["end"]) - _TIME_TOLERANCE:
+            return None
+        groups[index].append(piece)
+    for row, pieces in zip(rows, groups, strict=True):
+        if not pieces:
+            return None
+        if (
+            abs(float(pieces[0]["start"]) - float(row["start"])) > _TIME_TOLERANCE
+            or abs(float(pieces[-1]["end"]) - float(row["end"])) > _TIME_TOLERANCE
+        ):
+            return None
+    return groups
+
+
+def _same_words(original: str, joined: str) -> bool:
+    """Whether split pieces still say the original line, allowing typo repair."""
+    from difflib import SequenceMatcher
+
+    def words(text: str) -> str:
+        return "".join(ch for ch in text if ch.isalnum())
+
+    a, b = words(original), words(joined)
+    if not a or not b:
+        return False
+    low, high = _SPLIT_LENGTH_RATIO
+    return low <= len(b) / len(a) <= high and SequenceMatcher(None, a, b).ratio() >= _SPLIT_MIN_SIMILARITY
 
 
 def serialize_transcript(
@@ -421,10 +503,15 @@ def serialize_transcript(
         ]
 
     refinement = "not_requested"
+    refinement_error = None
     if llm_refine:
-        refined = llm_refine_transcript(rows, context_summary, speakers=refine_speakers)
+        report: dict = {}
+        refined = llm_refine_transcript(
+            rows, context_summary, speakers=refine_speakers, report=report
+        )
         # A failed, rejected or no-op pass hands back the ASR rows unchanged.
         refinement = "applied" if refined != rows else "not_applied"
+        refinement_error = report.get("error")
         rows = refined
 
     payload = {
@@ -437,6 +524,7 @@ def serialize_transcript(
         # verbatim; only a check against the audio by a person could.
         "verbatim_certified": False,
         "text_refinement": refinement,
+        **({"text_refinement_error": refinement_error} if refinement_error else {}),
         "segments": rows,
     }
     if source_fingerprint is not None:
@@ -497,6 +585,7 @@ def transcribe(
                 ],
                 check=True,
                 capture_output=True,
+                stdin=subprocess.DEVNULL,
             )
             subprocess.run(
                 [
@@ -506,6 +595,7 @@ def transcribe(
                 ],
                 check=True,
                 capture_output=True,
+                stdin=subprocess.DEVNULL,
             )
         if vocals_file.is_file():
             audio_to_transcribe = vocals_file

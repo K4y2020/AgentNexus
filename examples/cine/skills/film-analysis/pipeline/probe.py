@@ -22,6 +22,7 @@ def _ffprobe_available() -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=True,
+            stdin=subprocess.DEVNULL,
         )
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
@@ -62,7 +63,7 @@ def _run_ffprobe(path: Path) -> Dict[str, Any]:
         "-show_packets",       # needed for VFR detection via PTS gaps
         str(path),
     ]
-    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120)
+    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120, stdin=subprocess.DEVNULL)
     if result.returncode != 0:
         raise RuntimeError(
             f"ffprobe failed (exit {result.returncode}): {result.stderr.strip()}"
@@ -80,7 +81,7 @@ def _run_ffprobe_no_packets(path: Path) -> Dict[str, Any]:
         "-show_streams",
         str(path),
     ]
-    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120)
+    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120, stdin=subprocess.DEVNULL)
     if result.returncode != 0:
         raise RuntimeError(
             f"ffprobe failed (exit {result.returncode}): {result.stderr.strip()}"

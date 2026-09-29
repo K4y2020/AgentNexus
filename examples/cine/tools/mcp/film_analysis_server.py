@@ -500,7 +500,28 @@ def film_status(output: str) -> dict:
     return payload_out
 
 
+# Native extensions the tools load. On Windows a worker thread loading one
+# deadlocks while the stdio transport blocks reading stdin (zero CPU, no reply),
+# so they are loaded on the main thread before the transport starts.
+_NATIVE_MODULES = ("numpy", "cv2", "scenedetect", "scenedetect.detectors", "faster_whisper")
+
+
+def _preload_native_modules() -> list[str]:
+    """Import what is installed; a missing module is reported by the tool that needs it."""
+    import importlib
+
+    loaded = []
+    for name in _NATIVE_MODULES:
+        try:
+            importlib.import_module(name)
+            loaded.append(name)
+        except Exception:  # noqa: BLE001 - optional dependency
+            pass
+    return loaded
+
+
 def main() -> None:
+    _preload_native_modules()
     mcp.run()
 
 

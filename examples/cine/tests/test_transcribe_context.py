@@ -122,6 +122,68 @@ def test_text_only_refinement_that_merges_or_retimes_rows_is_rejected():
         assert transcribe._accepted_refinement(ROWS, reply, speakers=False) == ROWS
 
 
+MERGED = [
+    {"start": 0.0, "end": 3.0, "speaker": "父亲", "text": "宝贝懂了吧男人靠不住啊妈你算命的钱还是爸爸出的呢"},
+    {"start": 3.2, "end": 4.0, "speaker": "说话人未标注", "text": "我升官了"},
+]
+
+
+def test_text_only_refinement_may_split_a_row_holding_two_speakers():
+    """Merged speakers cannot be attributed; the split pieces are left for JEV to label."""
+    refined = [
+        {"start": 0.0, "end": 1.6, "speaker": "父亲", "text": "宝贝，懂了吧？男人靠不住啊。"},
+        {"start": 1.6, "end": 3.0, "speaker": "父亲", "text": "妈，你算命的钱还是爸爸出的呢。"},
+        {"start": 3.2, "end": 4.0, "speaker": "父亲", "text": "我升官了！"},
+    ]
+    kept = transcribe._accepted_refinement(MERGED, refined, speakers=False)
+    assert [(r["start"], r["end"]) for r in kept] == [(0.0, 1.6), (1.6, 3.0), (3.2, 4.0)]
+    assert [r["speaker"] for r in kept] == [transcribe.UNLABELED_SPEAKER] * 2 + ["说话人未标注"]
+    assert [r.get("split", False) for r in kept] == [True, True, False]
+
+
+def test_a_split_that_rewrites_the_words_keeps_that_row_as_heard():
+    invented = [
+        {"start": 0.0, "end": 1.6, "text": "宝贝，今天天气真好。"},
+        {"start": 1.6, "end": 3.0, "text": "我们去公园散步吧。"},
+        {"start": 3.2, "end": 4.0, "text": "我升官了！"},
+    ]
+    leaking = [
+        {"start": 0.0, "end": 1.6, "text": "宝贝，懂了吧？男人靠不住啊。"},
+        {"start": 1.6, "end": 3.5, "text": "妈，你算命的钱还是爸爸出的呢。"},
+        {"start": 3.5, "end": 4.0, "text": "我升官了！"},
+    ]
+    kept = transcribe._accepted_refinement(MERGED, invented, speakers=False)
+    assert kept[0] == MERGED[0]
+    assert kept[1]["text"] == "我升官了！"
+    # Pieces that leave their row cannot be placed at all.
+    assert transcribe._accepted_refinement(MERGED, leaking, speakers=False) == MERGED
+
+
+def test_homophone_repair_inside_a_split_is_accepted():
+    row = [{"start": 59.59, "end": 62.79, "speaker": "unclear", "text": "这位姐姐优势这不是姐姐妹"}]
+    reply = [
+        {"start": 59.59, "end": 61.2, "text": "这位姐姐又是……"},
+        {"start": 61.2, "end": 62.79, "text": "这不是姐姐，妹——"},
+    ]
+    kept = transcribe._accepted_refinement(row, reply, speakers=False)
+    assert [r["text"] for r in kept] == ["这位姐姐又是……", "这不是姐姐，妹——"]
+
+
+def test_a_failed_refinement_reports_why(monkeypatch):
+    import urllib.request
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("model_not_found")
+
+    monkeypatch.setenv("AGENTNEXUS_GATEWAY_URL", "http://gateway.test/v1")
+    monkeypatch.setenv("AGENTNEXUS_API_KEY", "test-key")
+    monkeypatch.setenv("AGENTNEXUS_TRANSCRIBE_MODEL", "missing-model")
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    report: dict = {}
+    assert transcribe.llm_refine_transcript(ROWS, None, speakers=False, report=report) == ROWS
+    assert "model_not_found" in report["error"]
+
+
 def test_refine_prompt_carries_no_sample_story_examples(monkeypatch):
     import urllib.request
 

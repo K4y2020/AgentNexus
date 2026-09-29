@@ -31,7 +31,8 @@ def _ffmpeg_version() -> str:
         try:
             r = subprocess.run(
                 ["ffmpeg", "-version"],
-                capture_output=True, text=True
+                capture_output=True, text=True,
+                stdin=subprocess.DEVNULL,
             )
             _FFMPEG_VERSION_CACHE = r.stdout.split("\n")[0] if r.stdout else "unknown"
         except FileNotFoundError:
@@ -101,7 +102,7 @@ def _extract_frame(
         tmp_path,
     ]
     try:
-        subprocess.run(argv, check=True, capture_output=True)
+        subprocess.run(argv, check=True, capture_output=True, stdin=subprocess.DEVNULL)
         # Verify non-zero size before replacing
         if os.path.getsize(tmp_path) == 0:
             raise RuntimeError("ffmpeg produced empty output")
@@ -156,7 +157,7 @@ def _extract_clip(
         tmp_path,
     ]
     try:
-        subprocess.run(argv, check=True, capture_output=True)
+        subprocess.run(argv, check=True, capture_output=True, stdin=subprocess.DEVNULL)
         if os.path.getsize(tmp_path) == 0:
             raise RuntimeError("ffmpeg produced empty clip")
         os.replace(tmp_path, str(output_path))

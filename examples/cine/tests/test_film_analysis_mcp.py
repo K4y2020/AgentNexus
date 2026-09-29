@@ -595,3 +595,22 @@ def test_a_foreign_output_directory_is_refused(monkeypatch, tmp_path, contents):
     assert result["transcription"]["status"] == "not_run"
     assert runs == [] and calls == []
     assert sorted(p.name for p in project.iterdir()) == sorted(contents)
+
+
+def test_server_launch_pins_its_own_dependencies():
+    """The server must not depend on the host python or on an unpinned mcp major.
+
+    The host python has no faster-whisper, scenedetect's opencv extra is gone,
+    and mcp 2.x removed FastMCP; each of these kept the tool from starting.
+    """
+    import yaml
+
+    config = yaml.safe_load(
+        (Path(__file__).parents[1] / "tools/mcp/film-analysis.yaml").read_text(encoding="utf-8")
+    )
+    assert config["command"] == "uv"
+    requirements = config["args"][config["args"].index("--with") :]
+    assert "mcp>=1.2,<2" in requirements
+    for needed in ("faster-whisper", "opencv-python-headless", "pyyaml"):
+        assert needed in requirements
+    assert config["args"][-1] == "tools/mcp/film_analysis_server.py"
