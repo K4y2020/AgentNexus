@@ -1070,12 +1070,44 @@ def _looks_like_file_path(path: str) -> bool:
     return "/" in path or os.sep in path or path.endswith((".py", ".ts"))
 
 
+def _mcp_servers_with_workdir_paths(spec: AgentSpec, workdir: Path) -> AgentSpec:
+    """Point stdio MCP args that name a bundle file at the extracted bundle.
+
+    A stdio server is spawned in the session workspace, where a bundle-relative
+    script such as ``tools/mcp/server.py`` does not exist, so the server never
+    starts. Only args that are an existing file under *workdir* are rewritten;
+    flags and other values are left as written.
+    """
+    servers = getattr(spec, "mcp_servers", None)
+    if not servers:
+        return spec
+    resolved_servers = []
+    changed = False
+    for server in servers:
+        args = list(server.args or [])
+        resolved_args = [
+            str((workdir / arg).resolve())
+            if server.transport == "stdio"
+            and not arg.startswith("-")
+            and not Path(arg).is_absolute()
+            and (workdir / arg).is_file()
+            else arg
+            for arg in args
+        ]
+        if resolved_args != args:
+            changed = True
+            server = dataclasses.replace(server, args=resolved_args)
+        resolved_servers.append(server)
+    return dataclasses.replace(spec, mcp_servers=resolved_servers) if changed else spec
+
+
 def _spec_with_workdir_paths(
     spec: AgentSpec | None,
     workdir: Path | None,
 ) -> AgentSpec | None:
     if workdir is None or spec is None:
         return spec
+    spec = _mcp_servers_with_workdir_paths(spec, workdir)
     local_tools = getattr(spec, "local_tools", None)
     if not local_tools:
         return spec

@@ -111,3 +111,47 @@ def test_dotted_path_untouched_regardless_of_language(
     assert resolved.local_tools[0].path == (
         "tests.resources.examples._shared.tool_functions.calculate"
     )
+
+
+def test_stdio_mcp_script_resolves_into_the_extracted_bundle(tmp_path: Path) -> None:
+    """A bundle-relative MCP script must not be looked up in the session workspace."""
+    from agentnexus.spec.types import MCPServerConfig
+
+    script = tmp_path / "tools" / "mcp" / "server.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("", encoding="utf-8")
+    spec = AgentSpec(
+        spec_version=1,
+        name="probe",
+        mcp_servers=[
+            MCPServerConfig(
+                name="local",
+                transport="stdio",
+                command="python",
+                args=["tools/mcp/server.py", "--verbose", "not/in/bundle.py"],
+            ),
+            MCPServerConfig(name="remote", transport="http", url="https://example.com/mcp"),
+        ],
+    )
+
+    resolved = _spec_with_workdir_paths(spec, tmp_path)
+
+    assert resolved.mcp_servers[0].args == [
+        str(script.resolve()),
+        "--verbose",
+        "not/in/bundle.py",
+    ]
+    assert resolved.mcp_servers[1] == spec.mcp_servers[1]
+
+
+def test_spec_without_bundle_files_in_mcp_args_is_unchanged(tmp_path: Path) -> None:
+    from agentnexus.spec.types import MCPServerConfig
+
+    spec = AgentSpec(
+        spec_version=1,
+        name="probe",
+        mcp_servers=[
+            MCPServerConfig(name="npx", transport="stdio", command="npx", args=["-y", "pkg"])
+        ],
+    )
+    assert _spec_with_workdir_paths(spec, tmp_path) is spec
