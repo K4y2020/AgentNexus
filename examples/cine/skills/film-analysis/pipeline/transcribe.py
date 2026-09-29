@@ -8,9 +8,11 @@ import tempfile
 from pathlib import Path
 
 try:
+    from .burned_subtitles import merge_into_transcript, read_burned_subtitles
     from .source_identity import cache_key, media_fingerprint
 except ImportError:  # loaded as a standalone module, outside the package
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from burned_subtitles import merge_into_transcript, read_burned_subtitles
     from source_identity import cache_key, media_fingerprint
 
 # Speaker label the refine pass uses for an unknown speaker; not written to SRT.
@@ -455,6 +457,7 @@ def serialize_transcript(
     llm_refine: bool = False,
     refine_speakers: bool = True,
     source_fingerprint: dict | None = None,
+    burned: dict | None = None,
 ) -> tuple[str, str, str]:
     rows = []
     PUNCT_SPLIT = set("。！？!?；;\n")
@@ -514,6 +517,17 @@ def serialize_transcript(
         refinement_error = report.get("error")
         rows = refined
 
+    burned_summary = None
+    if burned is not None:
+        # After the repair pass: captions are the film's own words, not ASR to fix.
+        rows, counts = merge_into_transcript(rows, burned.get("rows") or [])
+        burned_summary = {
+            "status": burned["status"],
+            "engine": burned.get("engine"),
+            **counts,
+            **({"error": burned["error"]} if burned.get("error") else {}),
+        }
+
     payload = {
         "schema_version": 1,
         "kind": "qualified_asr_transcript",
@@ -525,6 +539,7 @@ def serialize_transcript(
         "verbatim_certified": False,
         "text_refinement": refinement,
         **({"text_refinement_error": refinement_error} if refinement_error else {}),
+        **({"burned_subtitles": burned_summary} if burned_summary else {}),
         "segments": rows,
     }
     if source_fingerprint is not None:
@@ -551,6 +566,7 @@ def transcribe(
     separate_vocals: bool = False,
     llm_refine: bool = False,
     refine_speakers: bool = True,
+    burned_subtitles: bool = False,
 ) -> dict:
     media = _inside(workspace, media)
     if not media.is_file():
@@ -612,6 +628,7 @@ def transcribe(
         transcribe_kwargs["initial_prompt"] = initial_prompt
 
     segments, info = engine.transcribe(str(audio_to_transcribe), **transcribe_kwargs)
+    burned = read_burned_subtitles(media, language=language) if burned_subtitles else None
     json_text, plain_text, srt_text = serialize_transcript(
         list(segments),
         media=media,
@@ -621,6 +638,7 @@ def transcribe(
         llm_refine=llm_refine,
         refine_speakers=refine_speakers,
         source_fingerprint=fingerprint,
+        burned=burned,
     )
     json_path = output.with_suffix(".json")
     text_path = output.with_suffix(".txt")
@@ -643,6 +661,7 @@ def transcribe(
         "srt_path": str(srt_path),
         "verbatim_certified": False,
         "text_refinement": json.loads(json_text)["text_refinement"],
+        "burned_subtitles": json.loads(json_text).get("burned_subtitles"),
         "source_fingerprint": fingerprint,
         "srt_mirror": mirror,
     }
@@ -668,6 +687,12 @@ def main() -> None:
         "used for speaker attribution. Do not pass a bare name list.",
     )
     parser.add_argument("--separate-vocals", action="store_true", default=False)
+    parser.add_argument(
+        "--burned-subtitles",
+        action="store_true",
+        default=False,
+        help="Also read captions burned into the frames and merge what ASR missed.",
+    )
     parser.add_argument("--llm-refine", action="store_true", default=False)
     parser.add_argument(
         "--text-only-refine",
@@ -693,6 +718,7 @@ def main() -> None:
                 separate_vocals=args.separate_vocals,
                 llm_refine=args.llm_refine,
                 refine_speakers=not args.text_only_refine,
+                burned_subtitles=args.burned_subtitles,
             ),
             ensure_ascii=False,
         )

@@ -191,13 +191,55 @@ def _transcribe(video: Path, workspace: Path) -> dict[str, Any]:
         # Text repair only; JEV decides who is speaking below. Handing this to
         # the generative pass is what let a session's name list become labels.
         refine_speakers=False,
+        # Captions carry lines ASR never hears: an inner voice, a mumbled aside.
+        burned_subtitles=True,
     )
     if result.get("status") != "qualified_asr_complete":
         return {"status": "transcription_failed", "detail": result}
 
     payload = json.loads(Path(result["json_path"]).read_text(encoding="utf-8-sig"))
     outcome = _attribute(payload, inputs)
-    return {**outcome, "asr": "ran", "json_path": result["json_path"]}
+    return {
+        **outcome,
+        "asr": "ran",
+        "json_path": result["json_path"],
+        "captions": payload.get("burned_subtitles"),
+    }
+
+
+def _captions_pending(payload: dict) -> bool:
+    """A transcript made before captions were read, or when the reader was missing."""
+    summary = payload.get("burned_subtitles")
+    return not isinstance(summary, dict) or summary.get("status") == "unavailable"
+
+
+def _read_captions(video: Path, payload: dict, inputs: Path) -> dict | None:
+    """Fold burned-in captions into an existing transcript without redoing ASR.
+
+    Returns the summary, or ``None`` when the reader is unavailable (the
+    transcript is left as it was, and the next run tries again). When captions
+    changed the rows, attribution is stale and the caller redoes it.
+    """
+    from pipeline.burned_subtitles import merge_into_transcript, read_burned_subtitles
+    from pipeline.transcribe import _atomic_text
+
+    burned = read_burned_subtitles(video, language=payload.get("language") or "zh")
+    if burned["status"] == "unavailable":
+        return None
+    rows, counts = merge_into_transcript(payload.get("segments") or [], burned["rows"])
+    summary = {"status": burned["status"], "engine": burned["engine"], **counts}
+    changed = bool(counts["added"] or counts["corrected"])
+    payload["burned_subtitles"] = summary
+    if changed:
+        payload["segments"] = rows
+        payload.pop("speaker_attribution", None)
+    else:
+        # Nothing new to attribute; record that the captions were read.
+        _atomic_text(
+            inputs / "source-transcript.json",
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        )
+    return summary
 
 
 def _transcription_for(video: Path, workspace: Path) -> dict[str, Any]:
@@ -216,6 +258,16 @@ def _transcription_for(video: Path, workspace: Path) -> dict[str, Any]:
     path = inputs / "source-transcript.json"
     payload = _load_json(path) if path.is_file() else None
     if isinstance(payload, dict) and transcript_matches_source(payload, media_fingerprint(video)):
+        if _captions_pending(payload) and _asr_rows_usable(payload.get("segments")):
+            captions = _read_captions(video, payload, inputs)
+            if captions and (captions["added"] or captions["corrected"]):
+                outcome = _attribute(payload, inputs)
+                return {
+                    **outcome,
+                    "asr": "reused",
+                    "captions": captions,
+                    "json_path": str(path),
+                }
         rows = payload.get("segments")
         if rows == []:
             return {"status": "no_dialogue_detected", "asr": "reused", "json_path": str(path)}
@@ -503,7 +555,15 @@ def film_status(output: str) -> dict:
 # Native extensions the tools load. On Windows a worker thread loading one
 # deadlocks while the stdio transport blocks reading stdin (zero CPU, no reply),
 # so they are loaded on the main thread before the transport starts.
-_NATIVE_MODULES = ("numpy", "cv2", "scenedetect", "scenedetect.detectors", "faster_whisper")
+_NATIVE_MODULES = (
+    "numpy",
+    "cv2",
+    "scenedetect",
+    "scenedetect.detectors",
+    "faster_whisper",
+    "onnxruntime",
+    "rapidocr_onnxruntime",
+)
 
 
 def _preload_native_modules() -> list[str]:

@@ -142,14 +142,21 @@ temporal sampling can still proceed. Missing media/decoding capability is a real
    When the source has speech but no trusted subtitles, call the
    `cine-film-analysis` MCP tool `film_analyze` (or `film_transcribe` if the
    index already exists). It runs the whole transcription chain in fixed code:
-   Whisper, then text repair, then JEV speaker attribution. Do not assemble a
+   Whisper, then text repair, then the captions burned into the frames (read
+   with OCR; a caption ASR missed becomes a line marked `source:
+   "burned_subtitle"`, one it misheard corrects that line and keeps `asr_text`),
+   then JEV speaker attribution. Do not assemble a
    `transcribe.py` command line by hand — the arguments that matter are
    constructed inside the tool, and a hand-built invocation is how a bare name
    list once reached the attribution context and labelled a character who never
    appears in the episode.
 
    The tool writes `inputs/source-transcript.{json,txt,srt}` and reports
-   `needs_review`, the count of lines JEV could not settle. The JSON records
+   `needs_review`, the count of lines JEV could not settle, and `captions`
+   (`status`, and how many lines were `added` or `corrected`; `unavailable`
+   means the OCR reader was missing, so lines that are only on screen are absent).
+   A transcript made before captions were read gets them on the next run
+   without redoing ASR. The JSON records
    the source video's fingerprint; an existing transcript is reused only when it
    matches this video and every line is attributed (unfinished attribution is
    retried without redoing ASR), and readers reject a transcript of another

@@ -611,6 +611,80 @@ def test_server_launch_pins_its_own_dependencies():
     assert config["command"] == "uv"
     requirements = config["args"][config["args"].index("--with") :]
     assert "mcp>=1.2,<2" in requirements
-    for needed in ("faster-whisper", "opencv-python-headless", "pyyaml"):
+    for needed in ("faster-whisper", "opencv-python", "rapidocr-onnxruntime", "pyyaml"):
         assert needed in requirements
+    # rapidocr needs opencv-python; the headless build would install a second cv2.
+    assert "opencv-python-headless" not in requirements
     assert config["args"][-1] == "tools/mcp/film_analysis_server.py"
+
+
+def _stub_captions(monkeypatch, rows, status="read"):
+    from pipeline import burned_subtitles
+
+    monkeypatch.setattr(
+        burned_subtitles,
+        "read_burned_subtitles",
+        lambda *_a, **_k: {"status": status, "engine": "rapidocr", "rows": rows},
+    )
+
+
+def test_a_transcript_made_before_captions_were_read_gains_them_without_asr(monkeypatch, tmp_path):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [{"start": 5.0, "end": 6.0, "text": "宝少爷回来了"}])
+    _stub_attribution(monkeypatch)
+    module = _load()
+
+    result = module._transcription_for(video, tmp_path)
+
+    assert result["status"] == "transcribed"
+    assert result["asr"] == "reused"
+    assert result["captions"]["added"] == 1
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert [r["text"] for r in saved["segments"]] == ["开船咯", "宝少爷回来了"]
+    assert saved["burned_subtitles"]["status"] == "read"
+    assert module._attribution_complete(saved)
+
+
+def test_captions_are_read_once_and_then_the_transcript_is_reused(monkeypatch, tmp_path):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [])
+    module = _load()
+
+    assert module._transcription_for(video, tmp_path)["status"] == "reused"
+
+    from pipeline import burned_subtitles
+
+    def not_again(*_a, **_k):
+        raise AssertionError("captions were already read for this transcript")
+
+    monkeypatch.setattr(burned_subtitles, "read_burned_subtitles", not_again)
+    assert module._transcription_for(video, tmp_path)["status"] == "reused"
+
+
+def test_a_silent_film_with_captions_is_no_longer_dialogue_free(monkeypatch, tmp_path):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=False, rows=[])
+    _stub_captions(monkeypatch, [{"start": 1.0, "end": 2.0, "text": "搞什么鬼"}])
+    _stub_attribution(monkeypatch)
+
+    result = _load()._transcription_for(video, tmp_path)
+
+    assert result["status"] == "transcribed"
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert [r["text"] for r in saved["segments"]] == ["搞什么鬼"]
+
+
+def test_an_unavailable_caption_reader_leaves_the_transcript_and_tries_again_later(
+    monkeypatch, tmp_path
+):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [], status="unavailable")
+
+    result = _load()._transcription_for(video, tmp_path)
+
+    assert result["status"] == "reused"
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert "burned_subtitles" not in saved

@@ -1,7 +1,9 @@
 name: cine-film-analysis
 transport: stdio
-# uv supplies the tools' dependencies (Whisper, scene detection, JEV) so the
-# server does not depend on what the host's default python has installed.
+# uv supplies the tools' dependencies (Whisper, scene detection, caption OCR,
+# JEV) so the server does not depend on what the host's default python has
+# installed. One OpenCV build only: rapidocr requires opencv-python, and the
+# headless build would install a second cv2 over it.
 command: uv
 # `args` are literal (no ${VAR} expansion). The runner resolves the server
 # script against the extracted bundle; the server finds its sibling modules
@@ -16,7 +18,9 @@ args:
   - --with
   - scenedetect>=0.6.4
   - --with
-  - opencv-python-headless
+  - opencv-python
+  - --with
+  - rapidocr-onnxruntime
   - --with
   - pydantic>=2,<3
   - --with
