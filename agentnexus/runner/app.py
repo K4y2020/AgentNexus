@@ -1070,6 +1070,30 @@ def _looks_like_file_path(path: str) -> bool:
     return "/" in path or os.sep in path or path.endswith((".py", ".ts"))
 
 
+_INTERRUPTION_MARKER_PREFIX = "[System: interrupted]"
+
+
+def _is_interruption_marker(item: _JsonObject) -> bool:
+    """Whether *item* is the synthetic user message an interrupt appends.
+
+    It is recorded as a user message so the model reads it, but it answers no
+    request: a session ending in it is idle, and recovery must not start a turn
+    that resumes the work the user abandoned.
+    """
+    if item.get("type") != "message" or item.get("role") != "user":
+        return False
+    content = item.get("content")
+    if isinstance(content, str):
+        return content.startswith(_INTERRUPTION_MARKER_PREFIX)
+    if isinstance(content, list):
+        return any(
+            isinstance(part, dict)
+            and str(part.get("text") or "").startswith(_INTERRUPTION_MARKER_PREFIX)
+            for part in content
+        )
+    return False
+
+
 def _mcp_servers_with_workdir_paths(spec: AgentSpec, workdir: Path) -> AgentSpec:
     """Point stdio MCP args that name a bundle file at the extracted bundle.
 
@@ -3812,7 +3836,11 @@ def create_runner_app(
             last_type = last.get("type")
             last_role = last.get("role")
             needs_turn = (
-                (last_type == "message" and last_role == "user")
+                (
+                    last_type == "message"
+                    and last_role == "user"
+                    and not _is_interruption_marker(last)
+                )
                 or last_type == "function_call"
                 or last_type == "function_call_output"
             )
@@ -4417,7 +4445,7 @@ def create_runner_app(
 
     _CANCELLATION_TOOL_OUTPUT = "[Cancelled — tool execution was interrupted.]"
     _CANCELLATION_MARKER_TEXT = (
-        "[System: interrupted]\n"
+        f"{_INTERRUPTION_MARKER_PREFIX}\n"
         "The user interrupted and abandoned their previous request (the user "
         "message immediately before this one). Do not resume or act on that "
         "interrupted request unless the user asks for it again; treat the next "
@@ -10660,6 +10688,7 @@ def create_runner_app(
                     session_id not in _active_turns
                     and new_items
                     and new_items[-1].get("role") == "user"
+                    and not _is_interruption_marker(new_items[-1])
                 ):
                     _begin_turn_slot(session_id)
                     _publish_turn_status(session_id, "running")

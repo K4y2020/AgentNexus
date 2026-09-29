@@ -249,3 +249,70 @@ async def test_without_suppress_recovery_turn_starts_recovery_turn_from_history(
             "Expected two harness calls total (recovery turn + forward-triggered turn); "
             f"got {len(harness.posted_bodies)}"
         )
+
+
+_INTERRUPTED_HISTORY = {
+    "object": "list",
+    "data": [
+        _PENDING_USER_MESSAGE,
+        {
+            "id": "msg_002",
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "[System: interrupted]\n"
+                        "The user interrupted and abandoned their previous request."
+                    ),
+                }
+            ],
+        },
+    ],
+    "has_more": False,
+}
+
+
+class _InterruptedHistoryServerClient(_HistoryServerClient):
+    """History whose last item is the marker an interrupt appends."""
+
+    async def get(self, url: str, **kwargs: Any) -> _HistoryServerClient._Resp:
+        del kwargs
+        if url.rstrip("/").endswith("/items"):
+            return self._Resp(_INTERRUPTED_HISTORY)
+        return self._Resp({"model_override": None})
+
+
+@pytest.mark.asyncio
+async def test_an_interrupted_session_is_not_resumed_when_the_runner_reconnects() -> None:
+    """A server restart must not restart work the user interrupted.
+
+    The interrupt marker is a user-role message, so recovery used to read it as
+    an unanswered request and start a turn that finished the abandoned task.
+    """
+    app, _pm, harness = _build_sdk_app(_InterruptedHistoryServerClient())
+
+    async with _runner_client(app) as client:
+        init_resp = await client.post(
+            "/v1/sessions",
+            json=_session_init_payload(suppress_recovery_turn=False),
+        )
+        assert init_resp.status_code == 201, init_resp.text
+        await asyncio.sleep(0.1)
+
+        assert harness.posted_bodies == []
+        get_resp = await client.get(f"/v1/sessions/{SESSION_ID}")
+        assert get_resp.json().get("status") == "idle"
+
+
+def test_interruption_marker_is_recognised_in_both_content_shapes() -> None:
+    from agentnexus.runner.app import _is_interruption_marker
+
+    marker = "[System: interrupted]\nabandoned"
+    assert _is_interruption_marker({"type": "message", "role": "user", "content": marker})
+    assert _is_interruption_marker(
+        {"type": "message", "role": "user", "content": [{"type": "input_text", "text": marker}]}
+    )
+    assert not _is_interruption_marker(_PENDING_USER_MESSAGE)
+    assert not _is_interruption_marker({"type": "message", "role": "assistant", "content": marker})
