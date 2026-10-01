@@ -73,7 +73,7 @@ def test_a_utf8_bom_is_accepted(tmp_path):
 def test_utf16_is_refused_as_a_powershell_redirect(tmp_path):
     path = tmp_path / "source-material.json"
     path.write_bytes(json.dumps({"k": "值"}).encode("utf-16"))
-    with pytest.raises(ValueError, match="UTF-16.*PowerShell") as failure:
+    with pytest.raises(ValueError, match=r"UTF-16.*PowerShell") as failure:
         production.read(path)
     assert "--output" in str(failure.value)
 
@@ -127,7 +127,9 @@ def test_output_needs_a_source_project(tmp_path):
 
 def test_nothing_is_written_when_the_export_is_blocked(tmp_path, capsys):
     target = tmp_path / "source-material.json"
-    assert handoff.main(["--source-project", str(tmp_path / "missing"), "--output", str(target)]) == 1
+    assert (
+        handoff.main(["--source-project", str(tmp_path / "missing"), "--output", str(target)]) == 1
+    )
     assert json.loads(capsys.readouterr().out)["status"] == "blocked"
     assert not target.exists()
 
@@ -166,31 +168,17 @@ def _damaged(directory, name):
     _write(directory / name, {"adaptation_story": {"sections": [{"events": [DAMAGE * 30]}]}})
 
 
-def test_scene_notes_are_not_derived_from_a_damaged_export(tmp_path):
-    directory = tmp_path / "production"
-    _damaged(directory, "source-material.json")
-    with pytest.raises(ValueError, match="replacement characters"):
-        production.write_scene_notes(directory)
-
-
-def test_a_missing_export_is_still_just_unavailable(tmp_path):
-    directory = tmp_path / "production"
-    directory.mkdir()
-    assert production.write_scene_notes(directory)["status"] == "unavailable"
-
-
 def test_next_stops_at_the_first_call_on_a_damaged_export(tmp_path):
     directory = tmp_path / "production"
     _damaged(directory, "source-material.json")
-    with pytest.raises(ValueError, match="handoff.py --output"):
+    with pytest.raises(ValueError, match=r"handoff\.py --output"):
         autopilot.next_step(directory)
 
 
-def test_next_stops_on_damaged_scene_notes_and_says_to_delete_them(tmp_path):
+def test_next_ignores_unused_legacy_scene_notes(tmp_path):
     directory = tmp_path / "production"
     _damaged(directory, "scene-notes.json")
-    with pytest.raises(ValueError, match="delete it"):
-        autopilot.next_step(directory)
+    assert autopilot.next_step(directory)["action"] == "intake"
 
 
 def test_intake_names_the_safe_export_command(tmp_path):

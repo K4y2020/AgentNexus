@@ -14,7 +14,7 @@ tool and supplies a path, and the arguments that matter are constructed here.
 Transport: stdio. Tools:
   film_analyze(video, output, workspace)  — full index; transcribes if needed
   film_status(output)                     — what exists, what the next step is
-  film_transcribe(video, output)          — transcription + attribution only
+  film_transcribe(video, workspace, force=False) — transcription + attribution only
   film_review(output, workspace)          — JEV quality scorecard and defect audit
 
 None of these decides adaptation readiness: that is ``cine_verify_report``
@@ -23,6 +23,7 @@ None of these decides adaptation readiness: that is ``cine_verify_report``
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -47,7 +48,7 @@ _INDEXED = {"indexed_unreviewed", "indexed_semantic_reviewed"}
 _TRANSCRIBED = {"transcribed", "reused", "no_dialogue_detected"}
 _VERIFY = (
     "Adaptation readiness is decided only by cine_verify_report(scope='adaptation'), "
-    "which checks the story against inspected image receipts."
+    "which checks the story against current shot notes or inspected image receipts."
 )
 
 
@@ -58,9 +59,23 @@ def _load_json(path: Path) -> Any:
         return None
 
 
+def _reading_summary(value: dict | None) -> dict | None:
+    """Keep raw receipts on disk without repeating them in every tool response."""
+    if value is None:
+        return None
+    return {k: v for k, v in value.items() if k not in {"batches", "results"}}
+
+
 def _attribution_complete(payload: Any) -> bool:
-    """Every line carries a finished JEV judgment, not just the file-level marker."""
-    if not isinstance(payload, dict) or payload.get("speaker_attribution") != "jev":
+    """Every line carries a current judgment, including explicit unresolved evidence."""
+    from pipeline.speaker_evidence import METHOD
+
+    if not isinstance(payload, dict) or payload.get("speaker_attribution") not in ("jev", METHOD):
+        return False
+    if (payload.get("visual_people") or {}).get("schema_version") in (2, 3) and (
+        payload.get("speaker_attribution") != METHOD
+        or payload.get("attribution_input_sha256") != _attribution_inputs(payload)
+    ):
         return False
     rows = payload.get("segments")
     if not isinstance(rows, list) or not rows:
@@ -111,7 +126,7 @@ def _write_transcript_formats(payload: dict, rows: list[dict], inputs: Path) -> 
     )
 
     payload["segments"] = rows
-    payload["speaker_attribution"] = "jev"
+    payload.setdefault("speaker_attribution", "jev")
     srt_path = inputs / "source-transcript.srt"
     previous_srt = _read_text(srt_path)
     srt_text = render_srt(rows)
@@ -124,8 +139,9 @@ def _write_transcript_formats(payload: dict, rows: list[dict], inputs: Path) -> 
 
 
 def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
-    """Attribute every ASR line with JEV and rewrite the transcript formats."""
-    from pipeline.attribute_speakers import attribute_speakers, derived_cast
+    """Merge the frame reading and bounded context judgment before cast cards exist."""
+    from pipeline.attribute_speakers import attribute_speakers
+    from pipeline.transcribe import gateway_settings
 
     rows = payload.get("segments") or []
     if not rows:
@@ -136,7 +152,13 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
     live = [r for r in rows if not r.get("teaser")]
     attributed: dict[str, Any] = {"attributions": []}
     if live:
-        attributed = attribute_speakers(live, derived_cast(live), scenes={})
+        attributed = attribute_speakers(
+            live,
+            None,
+            shot_notes=payload.get("visual_people") or {},
+            context_rows=rows,
+            vision_model=gateway_settings()[2] or "",
+        )
         if "error" in attributed:
             return {"status": "attribution_unavailable", "detail": attributed}
 
@@ -157,7 +179,10 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
             row.pop("review_reasons", None)
 
     for row, entry in zip(live, attributions, strict=True):
-        row["speaker"] = entry["speaker_name"]
+        row["speaker"] = entry["speaker"] if entry.get("evidence") else entry["speaker_name"]
+        if entry.get("evidence"):
+            row["evidence"] = entry["evidence"]
+            row["speaker_needs_review"] = entry["speaker_needs_review"]
         row["delivery"] = entry["delivery"]
         row["attribution_confidence"] = entry["confidence"]
         # Each attribution replaces the last one: a line that is now settled
@@ -169,6 +194,8 @@ def _attribute(payload: dict, inputs: Path) -> dict[str, Any]:
             row.pop("needs_review", None)
             row.pop("review_reasons", None)
 
+    payload["speaker_attribution"] = attributed.get("method") or "jev"
+    payload["attribution_input_sha256"] = _attribution_inputs(payload)
     mirror = _write_transcript_formats(payload, rows, inputs)
     return {
         "status": "transcribed",
@@ -211,20 +238,18 @@ def _tag_opening_teaser(payload: dict, teaser: dict) -> int:
     rows = payload.get("segments") or []
     marked = tag_rows(rows, teaser)
     payload["opening_teaser"] = {
-        **{k: teaser[k] for k in ("status", "method", "end_seconds", "clips", "error") if k in teaser},
+        **{
+            k: teaser[k]
+            for k in ("status", "method", "end_seconds", "clips", "error")
+            if k in teaser
+        },
         "rows_marked": sum(1 for r in rows if r.get("teaser")),
     }
     return marked
 
 
 def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> dict[str, Any]:
-    """Transcribe the source and attribute speakers, using JEV for the labels.
-
-    The LLM pass repairs text only. Attribution is JEV's job: it needs no cast
-    document (none exists yet at this point), returns a calibrated confidence
-    per line, and flags the ones it cannot settle. Nothing here takes a name
-    list from the caller.
-    """
+    """Create a transcript with visual speaker evidence before cast cards exist."""
     from pipeline.transcribe import transcribe
 
     inputs = workspace / "inputs"
@@ -238,8 +263,7 @@ def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> d
         separate_vocals=True,
         llm_refine=True,
         context=None,
-        # Text repair only; JEV decides who is speaking below. Handing this to
-        # the generative pass is what let a session's name list become labels.
+        # Text repair cannot supply speaker identities.
         refine_speakers=False,
         # Captions carry lines ASR never hears: an inner voice, a mumbled aside.
         burned_subtitles=True,
@@ -248,7 +272,12 @@ def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> d
         return {"status": "transcription_failed", "detail": result}
 
     payload = json.loads(Path(result["json_path"]).read_text(encoding="utf-8-sig"))
+    payload["visual_people"] = (
+        _load_json(Path(plan_path).with_name("shot_notes.json")) if plan_path else {}
+    )
     _tag_opening_teaser(payload, _opening_teaser(video, plan_path))
+    _read_performance(video, payload, frame_cache=workspace / ".cine-cache" / "frames")
+    _read_judgments(video, payload, frame_cache=workspace / ".cine-cache" / "frames")
     outcome = _attribute(payload, inputs)
     return {
         **outcome,
@@ -256,7 +285,117 @@ def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> d
         "json_path": result["json_path"],
         "captions": payload.get("burned_subtitles"),
         "opening_teaser": payload.get("opening_teaser"),
+        "line_performance": _reading_summary(payload.get("line_performance")),
+        "line_judgment": _reading_summary(payload.get("line_judgment")),
+        "acceleration": result.get("acceleration"),
     }
+
+
+def _attribution_inputs(payload):
+    value = {
+        "notes": payload.get("visual_people"),
+        "rows": [
+            {
+                k: row.get(k)
+                for k in (
+                    "text",
+                    "start",
+                    "end",
+                    "teaser",
+                    "performance",
+                    "judgment",
+                    "sentence_boundary_review",
+                )
+            }
+            for row in payload.get("segments") or []
+        ],
+        "code": {
+            name: hashlib.sha256((_SKILL / "pipeline" / name).read_bytes()).hexdigest()
+            for name in (
+                "speaker_evidence.py",
+                "line_performance.py",
+                "line_judgment.py",
+                "transcribe.py",
+                "attribute_speakers.py",
+            )
+        },
+    }
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _performance_inputs(payload):
+    from pipeline.line_performance import eligible, performance_inputs
+
+    value = [
+        performance_inputs(payload.get("visual_people") or {}, row)
+        for row in payload.get("segments") or []
+        if eligible(row)
+    ]
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _performance_pending(payload: dict) -> bool:
+    """A transcript whose spoken lines were not all read for performance yet."""
+    summary = payload.get("line_performance")
+    if not isinstance(summary, dict) or summary.get("status") != "read":
+        return True
+    if (payload.get("visual_people") or {}).get("schema_version") in (2, 3):
+        from pipeline.transcribe import gateway_settings
+
+        return summary.get("model") != gateway_settings()[2] or summary.get(
+            "input_sha256"
+        ) != _performance_inputs(payload)
+    return False
+
+
+def _read_performance(video: Path, payload: dict, *, frame_cache: Path | None = None) -> dict:
+    """Record on each spoken row the emotion its frames show, and the summary.
+
+    A changed visual reading invalidates the speaker attribution.
+    """
+    from pipeline.line_performance import read_line_performance
+
+    notes = payload.get("visual_people")
+    summary = read_line_performance(
+        video, payload.get("segments") or [], shot_notes=notes, frame_cache=frame_cache
+    )
+    previous = payload.get("line_performance") or {}
+    summary["batches"] = [*(previous.get("batches") or []), *(summary.get("batches") or [])]
+    payload["line_performance"] = summary
+    if notes is not None:
+        summary["input_sha256"] = _performance_inputs(payload)
+    return _reading_summary(summary)
+
+
+def _judgments_pending(payload: dict) -> bool:
+    from pipeline.line_judgment import judgment_current
+    from pipeline.line_performance import eligible, performance_current
+    from pipeline.transcribe import gateway_settings
+
+    notes, rows = payload.get("visual_people") or {}, payload.get("segments") or []
+    model = gateway_settings()[2]
+    return any(
+        eligible(row)
+        and performance_current(notes, row, model)
+        and row["performance"]["speaker"] in {"offscreen", "unclear"}
+        and not judgment_current(notes, rows, i, model)
+        for i, row in enumerate(rows)
+    )
+
+
+def _read_judgments(video: Path, payload: dict, *, frame_cache: Path | None = None) -> dict:
+    from pipeline.line_judgment import read_line_judgments
+
+    summary = read_line_judgments(
+        video,
+        payload.get("segments") or [],
+        shot_notes=payload.get("visual_people") or {},
+        frame_cache=frame_cache,
+    )
+    previous = payload.get("line_judgment") or {}
+    summary["batches"] = [*(previous.get("batches") or []), *(summary.get("batches") or [])]
+    payload["line_judgment"] = summary
+    return _reading_summary(summary)
 
 
 def _captions_pending(payload: dict) -> bool:
@@ -293,7 +432,12 @@ def _refresh_transcript(
     do. When the rows changed, attribution is stale: the flag is dropped so the
     caller redoes it.
     """
-    from pipeline.transcribe import _atomic_text
+    from pipeline.transcribe import (
+        SENTENCE_SPLITTING,
+        _atomic_text,
+        render_plain,
+        split_repaired_rows,
+    )
 
     done: dict[str, Any] = {}
     changed = False
@@ -302,16 +446,37 @@ def _refresh_transcript(
         if captions is not None:
             done["captions"] = captions
             changed = bool(captions["added"] or captions["corrected"])
+    rows = payload.get("segments") or []
+    split_rows = split_repaired_rows(rows)
+    if payload.get("sentence_splitting") != SENTENCE_SPLITTING or split_rows != rows:
+        payload["segments"] = split_rows
+        payload["sentence_splitting"] = SENTENCE_SPLITTING
+        done["sentence_splitting"] = SENTENCE_SPLITTING
+        changed = split_rows != rows or changed
     if _teaser_pending(payload):
         teaser = _opening_teaser(video, plan_path)
         changed = bool(_tag_opening_teaser(payload, teaser)) or changed
         done["opening_teaser"] = payload["opening_teaser"]
+    if _performance_pending(payload):
+        # After captions, so a line they added is read too.
+        done["line_performance"] = _read_performance(
+            video, payload, frame_cache=inputs.parent / ".cine-cache" / "frames"
+        )
+        if payload.get("visual_people"):
+            changed = True
+    if _judgments_pending(payload):
+        done["line_judgment"] = _read_judgments(
+            video, payload, frame_cache=inputs.parent / ".cine-cache" / "frames"
+        )
+        changed = True
     if not done:
         return None
     if changed:
         payload.pop("speaker_attribution", None)
     else:
-        # Nothing to attribute again; record that the passes ran.
+        # Nothing to attribute again; record that the passes ran. The text form
+        # carries the performance notes, so it is rewritten with the JSON.
+        _atomic_text(inputs / "source-transcript.txt", render_plain(payload.get("segments") or []))
         _atomic_text(
             inputs / "source-transcript.json",
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -336,7 +501,19 @@ def _transcription_for(
     inputs = workspace / "inputs"
     path = inputs / "source-transcript.json"
     payload = _load_json(path) if path.is_file() else None
+    notes = _load_json(Path(plan_path).with_name("shot_notes.json")) if plan_path else None
     if isinstance(payload, dict) and transcript_matches_source(payload, media_fingerprint(video)):
+        if isinstance(notes, dict):
+            from pipeline.line_performance import migrate_performance_inputs
+
+            migrate_performance_inputs(
+                payload.get("visual_people") or {}, payload.get("segments") or []
+            )
+            payload["visual_people"] = notes
+            if (payload.get("line_performance") or {}).get("input_sha256") != _performance_inputs(
+                payload
+            ):
+                payload.pop("line_performance", None)
         refreshed = (
             _refresh_transcript(video, payload, inputs, plan_path)
             if _asr_rows_usable(payload.get("segments"))
@@ -349,7 +526,12 @@ def _transcription_for(
             return {**outcome, "asr": "reused", **done, "json_path": str(path)}
         rows = payload.get("segments")
         if rows == []:
-            return {"status": "no_dialogue_detected", "asr": "reused", **done, "json_path": str(path)}
+            return {
+                "status": "no_dialogue_detected",
+                "asr": "reused",
+                **done,
+                "json_path": str(path),
+            }
         if _attribution_complete(payload):
             return {
                 "status": "reused",
@@ -433,6 +615,7 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
         workspace: Session workspace root; inferred from a projects/<name> output.
     """
     from pipeline.entry import index_media
+    from pipeline.shot_notes import read_shot_notes
 
     video_path = Path(video).expanduser().resolve(strict=True)
     output_path = Path(output).expanduser().resolve()
@@ -447,9 +630,7 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
     resume, result = _index_plan(video_path, output_path)
     if result is None:
         try:
-            result = index_media(
-                video_path, output_path, workspace=workspace_path, resume=resume
-            )
+            result = index_media(video_path, output_path, workspace=workspace_path, resume=resume)
         except (ValueError, OSError, RuntimeError) as exc:
             # index_media's own refusals (changed source, a Topic bound to
             # another project) and missing tools or files end the run here.
@@ -462,11 +643,31 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
             "status": "index_blocked",
             "result": result,
             "transcription": {"status": "not_run", "reason": "index_blocked"},
+            "shot_notes": {"status": "not_run", "reason": "index_blocked", "locations": 0},
             "next": (
                 "Indexing did not complete; resolve `result.reason` (a changed source or a "
                 "non-project directory needs a new output directory), then run film_analyze "
                 f"again. {_VERIFY}"
             ),
+        }
+
+    try:
+        notes = read_shot_notes(
+            video_path, output_path, frame_cache=workspace_path / ".cine-cache" / "frames"
+        )
+        shot_notes = {
+            "status": notes["status"],
+            "model": notes.get("model"),
+            "locations": len(notes["locations"]),
+            "people": len(notes.get("people") or []),
+            "errors": notes.get("errors") or [],
+            "path": str(output_path / "revisions" / notes["revision_id"] / "shot_notes.json"),
+        }
+    except Exception as exc:  # noqa: BLE001 - visual failure must not prevent transcription
+        shot_notes = {
+            "status": "unavailable",
+            "locations": 0,
+            "errors": [f"{type(exc).__name__}: {exc}"],
         }
 
     try:
@@ -490,21 +691,59 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
         "status": status,
         "result": result,
         "transcription": transcription,
+        "shot_notes": shot_notes,
         "next": f"{next_step} {_VERIFY}",
     }
 
 
 @mcp.tool()
-def film_transcribe(video: str, workspace: str) -> dict:
+def film_transcribe(video: str, workspace: str, force: bool = False) -> dict:
     """Transcribe a source video and attribute each line to a speaker.
 
-    Text is repaired by the LLM; speaker labels are decided by JEV from the
-    dialogue's own address terms, so this works before any cast document
-    exists. Lines JEV cannot settle are marked `needs_review` rather than
-    returned as if certain.
+    Text is repaired by the LLM. The matching project's v2 people table supplies
+    visual candidates. Before cast cards exist, the transcript keeps P ids and
+    evidence; unclear speakers stay in review for production attribution.
+    Matching transcripts resume without redoing ASR or current visual readings.
+    Set force only when the source must be transcribed afresh.
     """
-    return _transcribe(Path(video).expanduser().resolve(strict=True),
-                       Path(workspace).expanduser().resolve())
+    from pipeline.source_identity import fingerprint_of, media_fingerprint
+
+    video_path = Path(video).expanduser().resolve(strict=True)
+    workspace_path = Path(workspace).expanduser().resolve()
+    expected = media_fingerprint(video_path)
+    plans = []
+    for project in (workspace_path / "projects").glob("*"):
+        if not project.resolve().is_relative_to(workspace_path):
+            continue
+        source = _load_json(project / "source.json")
+        if fingerprint_of(source) != expected:
+            continue
+        manifest = _load_json(project / "project.json")
+        revision = manifest.get("current_revision") if isinstance(manifest, dict) else None
+        if isinstance(revision, str) and _REVISION_ID.fullmatch(revision):
+            plan = project / "revisions" / revision / "story_plan.json"
+            if plan.is_file():
+                plans.append((project, plan))
+    if len(plans) > 1:
+        return {
+            "status": "transcription_incomplete",
+            "reason": "多个匹配原片的项目，请通过 film_analyze 指定项目。",
+        }
+    if plans:
+        from pipeline.shot_notes import read_shot_notes
+
+        project, plan = plans[0]
+        read_shot_notes(video_path, project, frame_cache=workspace_path / ".cine-cache" / "frames")
+        return (
+            _transcribe(video_path, workspace_path, str(plan))
+            if force
+            else _transcription_for(video_path, workspace_path, str(plan))
+        )
+    return (
+        _transcribe(video_path, workspace_path)
+        if force
+        else _transcription_for(video_path, workspace_path)
+    )
 
 
 def _find_transcript(project: Path) -> Path | None:
@@ -577,9 +816,25 @@ def film_status(output: str) -> dict:
         "evidence": bool(revision_dir and (revision_dir / "evidence_index.json").is_file()),
         "story_plan": bool(revision_dir and (revision_dir / "story_plan.json").is_file()),
         "story": bool(story_path and story_path.is_file()),
+        "shot_notes": bool(revision_dir and (revision_dir / "shot_notes.json").is_file()),
     }
 
     source = _load_json(project / "source.json")
+    notes = _load_json(revision_dir / "shot_notes.json") if has["shot_notes"] else None
+    notes_current = (
+        isinstance(notes, dict)
+        and isinstance(source, dict)
+        and notes.get("revision_id") == revision
+        and notes.get("source_id") == source.get("source_id")
+        and notes.get("schema_version") in (1, 2, 3)
+    )
+    shot_notes = {
+        "status": notes.get("status") if notes_current else "missing",
+        "locations": len(notes.get("locations") or []) if notes_current else 0,
+        "model": notes.get("model") if notes_current else None,
+        "errors": (notes.get("errors") or []) if notes_current else [],
+        "people": len(notes.get("people") or []) if notes_current else 0,
+    }
     story_gaps: list[str] = []
     if has["story"]:
         story_gaps = story_draft_gaps(
@@ -623,6 +878,7 @@ def film_status(output: str) -> dict:
             _transcript_status(payload, source) if transcript is not None else "absent"
         ),
         "lines_needing_review": lines_needing_review,
+        "shot_notes": shot_notes,
         "next": f"{next_step} {_VERIFY}",
     }
 

@@ -298,3 +298,109 @@ def test_material_without_a_complete_fingerprint_exports_none(tmp_path):
     source_fixture(tmp_path)
     write(tmp_path / "source.json", {"source_id": "src", "size_bytes": 10})
     assert "source_fingerprint" not in handoff.source_material(tmp_path)
+
+
+def test_material_exports_locations_dialogue_indices_and_tracks_inputs(tmp_path):
+    source_fixture(tmp_path)
+    fingerprint = {"size_bytes": 10, "sha256_head": "a" * 64, "sha256_tail": "b" * 64}
+    write(tmp_path / "source.json", {"source_id": "src", **fingerprint})
+    notes = {
+        "schema_version": 1,
+        "source_id": "src",
+        "revision_id": "r1",
+        "status": "read",
+        "model": "vision",
+        "errors": [],
+        "locations": [
+            {"id": "L1", "name": "算命摊", "spans": [{"start": 0, "end": 17.6}], "seconds": 17.6},
+            {"id": "L2", "name": "灵堂", "spans": [{"start": 17.6, "end": 21.3}], "seconds": 3.7},
+        ],
+        "shots": [{"shot_id": "s1", "place": "L1"}, {"shot_id": "s2", "place": "L2"}],
+    }
+    path = tmp_path / "revisions/r1/shot_notes.json"
+    write(path, notes)
+    before = path.read_bytes()
+    (tmp_path / "inputs").mkdir()
+    transcript = tmp_path / "inputs/source-transcript.json"
+    write(
+        transcript,
+        {
+            "source_fingerprint": fingerprint,
+            "segments": [
+                {"text": "预告", "start": 0, "end": 1, "teaser": True},
+                {"text": "算命", "start": 1, "end": 2},
+                {"text": "你的命怎么这么苦啊", "start": 17.6, "end": 19.5},
+                {"text": "已经离开", "start": 21.3, "end": 22},
+            ],
+        },
+    )
+    exported = handoff.source_material(tmp_path)
+    locations = exported["source_locations"]["locations"]
+    assert [loc["line_numbers"] for loc in locations] == [[2], [3]]
+    assert locations[1]["lines"][0]["text"] == "你的命怎么这么苦啊"
+    assert exported["source_locations"]["transcript_status"] == "matched"
+    assert "revisions/r1/shot_notes.json" in exported["source_input_hashes"]
+    assert str(transcript) in exported["source_input_hashes"]
+    assert path.read_bytes() == before
+    write(
+        transcript,
+        {
+            "source_fingerprint": {**fingerprint, "size_bytes": 11},
+            "segments": [{"start": 18, "text": "另一部片"}],
+        },
+    )
+    exported = handoff.source_material(tmp_path)
+    assert exported["source_locations"]["transcript_status"] == "mismatch"
+    assert all(loc["line_numbers"] == [] for loc in exported["source_locations"]["locations"])
+
+
+def test_material_exports_cross_cut_dialogue_to_substantial_locations(tmp_path):
+    source_fixture(tmp_path)
+    (tmp_path / "inputs").mkdir()
+    fingerprint = {"size_bytes": 10, "sha256_head": "a" * 64, "sha256_tail": "b" * 64}
+    write(tmp_path / "source.json", {"source_id": "src", **fingerprint})
+    write(
+        tmp_path / "revisions/r1/shot_notes.json",
+        {
+            "schema_version": 1,
+            "source_id": "src",
+            "revision_id": "r1",
+            "status": "read",
+            "locations": [
+                {"id": "L1", "name": "停车场", "spans": [{"start": 0, "end": 3}], "seconds": 3},
+                {"id": "L2", "name": "步道", "spans": [{"start": 3, "end": 8}], "seconds": 5},
+            ],
+            "shots": [{"shot_id": "s1", "place": "L1"}, {"shot_id": "s2", "place": "L2"}],
+        },
+    )
+    write(
+        tmp_path / "inputs/source-transcript.json",
+        {
+            "source_fingerprint": fingerprint,
+            "segments": [
+                {"text": "主体在步道", "start": 2.9, "end": 7.8},
+                {"text": "横跨两个地点", "start": 2, "end": 4},
+                {"text": "预告", "start": 2, "end": 4, "teaser": True},
+                {"text": "缺少结束时间", "start": 1},
+            ],
+        },
+    )
+    locations = handoff.source_material(tmp_path)["source_locations"]["locations"]
+    assert [loc["line_numbers"] for loc in locations] == [[2], [1, 2]]
+    assert locations[0]["lines"][0]["end"] == 4
+    assert locations[1]["lines"][0]["start"] == 2.9
+    assert locations[1]["lines"][0]["end"] == 7.8
+
+
+def test_material_rejects_stale_shot_notes(tmp_path):
+    source_fixture(tmp_path)
+    write(
+        tmp_path / "revisions/r1/shot_notes.json",
+        {
+            "schema_version": 1,
+            "source_id": "src",
+            "revision_id": "old",
+        },
+    )
+    with pytest.raises(ValueError, match="SHOT_NOTES_REVISION_MISMATCH"):
+        handoff.source_material(tmp_path)

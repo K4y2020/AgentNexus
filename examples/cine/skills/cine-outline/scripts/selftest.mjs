@@ -319,6 +319,10 @@ eq(primarySceneCap(undefined), 8, '没有集数信息给居中值 8');
   ok(!gate(o, 'risk-flag').ok, '梗概出现雨戏没进预警被拦');
   o.episodes[2].warnings = ['雨戏'];
   ok(gate(o, 'risk-flag').ok, '标了预警就放行');
+  o.episodes[2].warnings = ['[雨戏] 船篷上的雨点要和人物动作同步'];
+  ok(gate(o, 'risk-flag').ok, '预警写明难点并加说明也放行');
+  o.episodes[2].warnings = ['船篷上的雨点要同步'];
+  ok(!gate(o, 'risk-flag').ok, '说明里没点名难点仍被拦');
 }
 ok(Object.keys(RISK_PATTERNS).length === 4, '四类生成难点');
 ok(RISK_PATTERNS['肢体接触'].test('两人拥抱'), '拥抱触发肢体接触');

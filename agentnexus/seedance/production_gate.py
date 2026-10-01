@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -36,6 +37,11 @@ def native_checker(skills_dir):
     spec = importlib.util.spec_from_file_location("_cine_production_gate", path)
     if spec is None or spec.loader is None:
         raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
+    # Loaded outside its package, the module imports its siblings by name, as when
+    # run from the pipeline directory; they must resolve to this skill's copies.
+    pipeline = str(path.parent)
+    if pipeline not in sys.path:
+        sys.path.insert(0, pipeline)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

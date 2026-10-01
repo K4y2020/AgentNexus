@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from agentnexus.server.routes import session_mcp_servers as mcp_routes
+from agentnexus.server.schemas import UpsertMCPServerRequest
 from tests.server.helpers import create_test_session
 
 pytestmark = pytest.mark.asyncio
@@ -282,6 +283,19 @@ async def test_update_mcp_server_clears_headers_when_empty_dict_sent(
     bundle = await _agent_bundle(client, session_id)
     mcp_file = _mcp_file_from_bundle(bundle, "secure.yaml")
     assert "headers" not in mcp_file
+
+
+async def test_update_stdio_mcp_server_keeps_env_passthrough() -> None:
+    """Editing a stdio server file keeps its ``env_passthrough``, which the API cannot set."""
+    body = UpsertMCPServerRequest(name="film", transport="stdio", command="uv", args=["run"])
+    existing = {
+        "name": "film",
+        "transport": "stdio",
+        "command": "uv",
+        "env_passthrough": ["HF_HOME"],
+    }
+
+    assert mcp_routes._body_to_file_yaml(body, existing)["env_passthrough"] == ["HF_HOME"]
 
 
 async def _agent_bundle(client: httpx.AsyncClient, session_id: str) -> bytes:

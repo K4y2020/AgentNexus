@@ -18,6 +18,7 @@ from mcp.shared.exceptions import McpError
 from mcp.types import CONNECTION_CLOSED, CallToolResult, ErrorData, ImageContent, TextContent
 from mcp.types import Tool as McpToolDef
 
+from agentnexus.runner.identity import RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR
 from agentnexus.spec.types import MCPServerConfig, RetryPolicy
 from agentnexus.tools.mcp import (
     _CIRCUIT_BREAKER_COOLDOWN_SECONDS,
@@ -238,6 +239,23 @@ def test_cache_key_stdio_env_changes_key() -> None:
     assert _cache_key(_stdio_config_with_env({"A": "1", "B": "2"})) == _cache_key(
         _stdio_config_with_env({"B": "2", "A": "1"})
     )
+
+
+def test_cache_key_stdio_env_passthrough_changes_key() -> None:
+    """
+    ``env_passthrough`` names are part of a stdio cache key: a server
+    that receives ``MY_MCP_READONLY`` from the parent and one that
+    does not must not share a cached tools/list.
+    """
+    plain = _stdio_config_with_env({})
+    gated = MCPServerConfig(
+        name="my-mcp",
+        transport="stdio",
+        command="my-mcp",
+        args=["run"],
+        env_passthrough=["MY_MCP_READONLY"],
+    )
+    assert _cache_key(plain) != _cache_key(gated)
     # Secrets never appear verbatim in the key (keys reach logs).
     key_secret = _cache_key(_stdio_config_with_env({"TOKEN": "sk-hunter2"}))
     assert "sk-hunter2" not in key_secret
@@ -2124,6 +2142,52 @@ def test_open_stdio_transport_empty_env_inherits_fully() -> None:
     # None tells stdio_client to inherit the parent env as-is —
     # matches its documented behavior.
     assert captured["params"].env is None
+
+
+def test_open_stdio_transport_env_passthrough_forwards_set_names_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    ``env_passthrough`` hands the subprocess the named parent vars that
+    are set and nothing else: an unset name stays absent, an unnamed
+    provider key stays behind, and a named runner-auth secret is still
+    stripped, even re-cased (``os.environ`` ignores case on Windows).
+    The SDK merges the result over its default allowlist.
+    """
+    monkeypatch.setenv("PASS_SET", "on")
+    monkeypatch.delenv("PASS_UNSET", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-not-named")
+    monkeypatch.setenv(RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR, "runner-secret")
+    config = MCPServerConfig(
+        name="test-stdio",
+        transport="stdio",
+        command="fake-mcp",
+        env_passthrough=[
+            "PASS_SET",
+            "PASS_UNSET",
+            RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR,
+            RUNNER_TUNNEL_BINDING_TOKEN_ENV_VAR.lower(),
+        ],
+    )
+    captured: dict[str, Any] = {}
+
+    def _capture_stdio_client(params: Any) -> Any:
+        captured["params"] = params
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=(MagicMock(), MagicMock()))
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        return mock_ctx
+
+    conn = McpServerConnection(config=config)
+
+    with patch("agentnexus.tools.mcp.stdio_client", side_effect=_capture_stdio_client):
+        with patch(
+            "agentnexus.tools.mcp.ClientSession",
+            return_value=_mock_session(),
+        ):
+            asyncio.run(conn.connect())
+
+    assert captured["params"].env == {"PASS_SET": "on"}
 
 
 def _mock_session() -> AsyncMock:

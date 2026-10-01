@@ -12,6 +12,30 @@ ROOT = Path(__file__).parents[1]
 SERVER = ROOT / "tools" / "mcp" / "film_analysis_server.py"
 
 
+@pytest.fixture(autouse=True)
+def _no_vision_model(monkeypatch):
+    """Reading line performance calls a vision model; tests that need it stub it themselves."""
+    from pipeline import line_performance, shot_notes
+
+    monkeypatch.setattr(
+        shot_notes,
+        "read_shot_notes",
+        lambda _media, _project, **_k: {
+            "status": "unavailable",
+            "model": "test",
+            "revision_id": "r1",
+            "locations": [],
+            "errors": ["vision disabled in tests"],
+        },
+    )
+
+    monkeypatch.setattr(
+        line_performance,
+        "read_line_performance",
+        lambda _media, rows, **_k: {"status": "read", "lines": len(rows), "read": len(rows)},
+    )
+
+
 def _load():
     spec = importlib.util.spec_from_file_location("film_analysis_server", SERVER)
     module = importlib.util.module_from_spec(spec)
@@ -53,6 +77,45 @@ def test_status_reports_missing_project_without_raising(tmp_path):
     assert status["status"] == "missing"
 
 
+def test_status_reports_current_location_table_and_rejects_stale_one(tmp_path):
+    project = tmp_path / "projects" / "film"
+    _indexed(project)
+    path = project / "revisions/r1/shot_notes.json"
+    notes = {
+        "schema_version": 1,
+        "source_id": "src",
+        "revision_id": "r1",
+        "model": "vision",
+        "status": "partial",
+        "locations": [{"id": "L1"}],
+        "errors": ["batch failed"],
+    }
+    _write(path, notes)
+    result = _load().film_status(str(project))
+    assert result["shot_notes"] == {
+        "status": "partial",
+        "locations": 1,
+        "model": "vision",
+        "people": 0,
+        "errors": ["batch failed"],
+    }
+    _write(path, {**notes, "revision_id": "old"})
+    assert _load().film_status(str(project))["shot_notes"]["status"] == "missing"
+
+
+def test_location_request_failure_does_not_block_transcription(monkeypatch, tmp_path):
+    from pipeline import shot_notes
+
+    def fail(*_a, **_k):
+        raise OSError("vision request failed")
+
+    monkeypatch.setattr(shot_notes, "read_shot_notes", fail)
+    result, calls = _analyze(monkeypatch, tmp_path, _video(tmp_path))
+    assert calls and result["status"] == "indexed"
+    assert result["shot_notes"]["status"] == "unavailable"
+    assert "vision request failed" in result["shot_notes"]["errors"][0]
+
+
 @pytest.mark.skipif(not SERVER.is_file(), reason="server not installed")
 def test_server_starts_and_lists_tools_over_stdio():
     """A server that cannot start is worse than no server: the agent falls back."""
@@ -65,15 +128,23 @@ def test_server_starts_and_lists_tools_over_stdio():
         encoding="utf-8",
     )
     try:
+
         def send(obj):
             proc.stdin.write(json.dumps(obj) + "\n")
             proc.stdin.flush()
 
-        send({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                       "clientInfo": {"name": "test", "version": "1"}},
-        })
+        send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "1"},
+                },
+            }
+        )
         send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
         send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         import time
@@ -116,7 +187,7 @@ def test_analyze_infers_workspace_above_projects(monkeypatch, tmp_path):
     result = module.film_analyze(str(video), str(output))
 
     assert captured["workspace"] == tmp_path
-    assert captured["resume"] is False             # a new output directory is created
+    assert captured["resume"] is False  # a new output directory is created
     assert result["transcription"]["workspace"] == str(tmp_path)
 
 
@@ -618,6 +689,28 @@ def test_server_launch_pins_its_own_dependencies():
     assert config["args"][-1] == "tools/mcp/film_analysis_server.py"
 
 
+def test_server_receives_the_gpu_switches_by_name_only():
+    """The switches the pipeline reads reach the server by name; the YAML holds no values.
+
+    Without them a host's CINE_GPU=off never reached the tool. A non-empty `env`
+    would hand the server the runner's whole environment, and any value here
+    would be one machine's path.
+    """
+    import yaml
+    from pipeline import gpu_runtime
+
+    config = yaml.safe_load(
+        (Path(__file__).parents[1] / "tools/mcp/film-analysis.yaml").read_text(encoding="utf-8")
+    )
+    assert "env" not in config
+    assert set(config["env_passthrough"]) == {
+        gpu_runtime.MODE_VAR,
+        gpu_runtime.HOME_VAR,
+        "HF_HOME",
+        "TORCH_HOME",
+    }
+
+
 def _stub_captions(monkeypatch, rows, status="read"):
     from pipeline import burned_subtitles
 
@@ -720,7 +813,7 @@ def _recording_attribution(monkeypatch):
         }
 
     monkeypatch.setattr(attribution, "attribute_speakers", fake_attribute)
-    monkeypatch.setattr(attribution, "derived_cast", lambda rows, **_kw: {"characters": []})
+    monkeypatch.setattr(attribution, "derived_cast", lambda _rows, **_kw: {"characters": []})
     return seen
 
 
@@ -845,3 +938,225 @@ def test_a_plan_without_a_usable_scan_falls_back_to_scanning(monkeypatch, tmp_pa
 
     assert module._opening_teaser(tmp_path / "v.mp4", str(plan)) == {"status": "none"}
     assert module._opening_teaser(tmp_path / "v.mp4", None) == {"status": "none"}
+
+
+# ---------------------------------------------------------------------------
+# Line performance: the emotion each spoken line's frames show
+# ---------------------------------------------------------------------------
+
+CRYING = {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "盘发妇人", "at": [0.3, 0.75]}
+
+
+def _stub_performance(monkeypatch, status="read"):
+    from pipeline import line_performance
+
+    calls = []
+
+    def fake(_media, rows, **_k):
+        calls.append(len(rows))
+        if status == "read":
+            for row in rows:
+                row["performance"] = dict(CRYING)
+        return {"status": status, "lines": len(rows), "read": len(rows) if status == "read" else 0}
+
+    monkeypatch.setattr(line_performance, "read_line_performance", fake)
+    return calls
+
+
+def test_an_older_transcript_gains_line_performance_without_redoing_attribution(
+    monkeypatch, tmp_path
+):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [])
+    calls = _stub_performance(monkeypatch)
+    from pipeline import attribute_speakers as attribution
+
+    def no_jev(*_a, **_k):
+        raise AssertionError("performance does not change who speaks")
+
+    monkeypatch.setattr(attribution, "attribute_speakers", no_jev)
+
+    result = _load()._transcription_for(video, tmp_path)
+
+    assert result["status"] == "reused"
+    assert result["line_performance"]["status"] == "read"
+    saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
+    assert saved["segments"][0]["performance"]["emotion"] == "委屈痛哭"
+    text = (tmp_path / "inputs/source-transcript.txt").read_text(encoding="utf-8")
+    assert "开船咯  〔画面：盘发妇人，委屈痛哭：满脸泪水〕" in text
+    assert _load()._transcription_for(video, tmp_path)["status"] == "reused"
+    assert calls == [1]
+
+
+def test_an_unavailable_vision_model_is_recorded_and_tried_again(monkeypatch, tmp_path):
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [])
+    calls = _stub_performance(monkeypatch, status="unavailable")
+    module = _load()
+
+    assert (
+        module._transcription_for(video, tmp_path)["line_performance"]["status"] == "unavailable"
+    )
+    module._transcription_for(video, tmp_path)
+    assert calls == [1, 1]
+
+
+def test_v2_performance_summary_reopens_after_model_or_dialogue_change(monkeypatch):
+    from pipeline import transcribe
+
+    monkeypatch.setattr(transcribe, "gateway_settings", lambda: ("base", "key", "vision"))
+    module = _load()
+    payload = {
+        "visual_people": {"schema_version": 2, "people": [], "shots": []},
+        "segments": [{"text": "请坐", "start": 0, "end": 1}],
+    }
+    payload["line_performance"] = {
+        "status": "read",
+        "model": "vision",
+        "input_sha256": module._performance_inputs(payload),
+    }
+    assert not module._performance_pending(payload)
+    payload["segments"].append({"text": "好的", "start": 1, "end": 2})
+    assert module._performance_pending(payload)
+    payload["line_performance"]["input_sha256"] = module._performance_inputs(payload)
+    monkeypatch.setattr(transcribe, "gateway_settings", lambda: ("base", "key", "other"))
+    assert module._performance_pending(payload)
+
+
+def test_transcribe_loads_the_matching_visual_people_table_before_asr(monkeypatch, tmp_path):
+    from pipeline import shot_notes, source_identity
+
+    video = _video(tmp_path)
+    project = tmp_path / "projects/film"
+    plan = project / "revisions/r1/story_plan.json"
+    _write(project / "source.json", source_identity.media_fingerprint(video))
+    _write(project / "project.json", {"current_revision": "r1"})
+    _write(plan, {})
+    calls = []
+    monkeypatch.setattr(
+        shot_notes, "read_shot_notes", lambda *_a, **_k: calls.append("people") or {}
+    )
+    module = _load()
+    monkeypatch.setattr(
+        module, "_transcribe", lambda _v, _w, p: calls.append(p) or {"status": "transcribed"}
+    )
+    assert module.film_transcribe(str(video), str(tmp_path))["status"] == "transcribed"
+    assert calls == ["people", str(plan)]
+
+
+@pytest.mark.parametrize("with_project", [False, True])
+def test_transcribe_reuses_existing_transcript_and_force_is_explicit(
+    monkeypatch, tmp_path, with_project
+):
+    from pipeline import source_identity
+
+    video = _video(tmp_path)
+    _transcript(tmp_path, video, marker=True, rows=_rows(True))
+    _stub_captions(monkeypatch, [])
+    plan = tmp_path / "projects/film/revisions/r1/story_plan.json"
+    if with_project:
+        _write(plan.parent.parent.parent / "source.json", source_identity.media_fingerprint(video))
+        _write(plan.parent.parent.parent / "project.json", {"current_revision": "r1"})
+        _write(plan, {})
+        _write(plan.with_name("shot_notes.json"), {})
+    module = _load()
+    calls = []
+    monkeypatch.setattr(
+        module, "_transcribe", lambda *_a: calls.append(True) or {"status": "transcribed"}
+    )
+    assert module.film_transcribe(str(video), str(tmp_path))["asr"] == "reused"
+    assert module.film_transcribe(str(video), str(tmp_path))["asr"] == "reused"
+    assert not calls
+    assert module.film_transcribe(str(video), str(tmp_path), force=True)["status"] == "transcribed"
+    assert len(calls) == 1
+
+
+def test_refresh_splits_using_saved_word_times_before_reading_speakers(monkeypatch, tmp_path):
+    video = _video(tmp_path)
+    row = {
+        "text": "设备好了吗？现在好了。",
+        "start": 1,
+        "end": 4,
+        "timing_words": [
+            {"word": "设备好了吗", "start": 1, "end": 2},
+            {"word": "现在好了", "start": 2.1, "end": 4},
+        ],
+    }
+    payload = {
+        "segments": [row],
+        "burned_subtitles": {"status": "read"},
+        "opening_teaser": {"status": "none_found"},
+        "speaker_attribution": "jev",
+    }
+    module = _load()
+    monkeypatch.setattr(module, "_teaser_pending", lambda _p: False)
+    seen = []
+
+    def performance(_video, value, **_kwargs):
+        seen.extend(value["segments"])
+        return {"status": "read"}
+
+    monkeypatch.setattr(module, "_read_performance", performance)
+    result = module._refresh_transcript(video, payload, video.parent, None)
+    assert result["changed"] and "speaker_attribution" not in payload
+    assert [r["text"] for r in seen] == ["设备好了吗？", "现在好了。"]
+    assert [(r["start"], r["end"]) for r in seen] == [(1, 2), (2.1, 4)]
+
+
+def test_context_receipts_are_retained_without_repeating_raw_tool_output(monkeypatch, tmp_path):
+    from pipeline import line_judgment
+
+    reply = {"raw_response": "raw model receipt"}
+    monkeypatch.setattr(
+        line_judgment,
+        "read_line_judgments",
+        lambda *_a, **_k: {"status": "read", "lines": 1, "batches": [reply], "results": [{}]},
+    )
+    payload = {"segments": [], "line_judgment": {"batches": [{"raw_response": "previous"}]}}
+    result = _load()._read_judgments(tmp_path / "source.mp4", payload)
+    assert result == {"status": "read", "lines": 1}
+    assert payload["line_judgment"]["batches"] == [{"raw_response": "previous"}, reply]
+
+
+def test_unread_context_batch_is_retried_with_cached_a_without_asr(monkeypatch, tmp_path):
+    from pipeline import line_performance, transcribe
+
+    notes = {
+        "schema_version": 3,
+        "people": [{"id": "P1", "look": "短发售票员"}],
+        "shots": [{"start": 0, "end": 3, "people": ["P1"], "place": "L1", "crowd": False}],
+    }
+    row = {"start": 1, "end": 2, "text": "票已经取好。"}
+    row["performance"] = {
+        "schema_version": 2,
+        "model": "vision",
+        "speaker": "offscreen",
+        "emotion": "平静",
+        "input_sha256": line_performance.performance_inputs(notes, row),
+    }
+    module = _load()
+    monkeypatch.setattr(transcribe, "gateway_settings", lambda: ("url", "key", "vision"))
+    payload = {
+        "segments": [row],
+        "visual_people": notes,
+        "line_performance": {"status": "read", "model": "vision"},
+    }
+    payload["line_performance"]["input_sha256"] = module._performance_inputs(payload)
+    monkeypatch.setattr(module, "_captions_pending", lambda _p: False)
+    monkeypatch.setattr(module, "_teaser_pending", lambda _p: False)
+    monkeypatch.setattr(
+        module, "_read_performance", lambda *_a, **_k: pytest.fail("A was current")
+    )
+    calls = []
+    monkeypatch.setattr(
+        module, "_read_judgments", lambda *_a, **_k: calls.append(1) or {"status": "partial"}
+    )
+    assert module._refresh_transcript(tmp_path / "source.mp4", payload, tmp_path / "inputs", None)[
+        "changed"
+    ]
+    assert module._refresh_transcript(tmp_path / "source.mp4", payload, tmp_path / "inputs", None)[
+        "changed"
+    ]
+    assert calls == [1, 1] and row["performance"]["speaker"] == "offscreen"

@@ -372,7 +372,7 @@ export function gateReport(doc, ctx = {}) {
           if (lineChars(b.line) > params.maxLineChars) {
             bad.lineLen.push(`${label}「${b.line.slice(0, 12)}…」${lineChars(b.line)} 字`);
           }
-          if (b.speaker !== 'VO' && !cast.has(b.speaker)) {
+          if (b.speaker !== 'VO' && b.speaker !== 'extra' && !cast.has(b.speaker)) {
             bad.speaker.push(`${label} ${sc?.sceneId ?? '?'} 的「${b.speaker}」不在本场人物里`);
           }
           if (intangible.has(b.speaker) && CONTACT_OFFER_RE.test(b.line)) {
@@ -465,7 +465,7 @@ export function gateReport(doc, ctx = {}) {
   add('params-conservative', '时长与质量参数只能保持默认值或收紧', bad.params.length === 0, bad.params.join('；'));
   add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, bad.duration.join('；'));
   add('line-length', `单句台词 ≤ ${params.maxLineChars} 字`, bad.lineLen.length === 0, bad.lineLen.join('；'));
-  add('speaker', '说话人在本场人物里，或明确标画外音 VO', bad.speaker.length === 0, bad.speaker.join('；'));
+  add('speaker', '说话人在本场人物里，或标 VO / 非角色 extra', bad.speaker.length === 0, bad.speaker.join('；'));
   add('hook-cliff', '每集开场钩子与结尾悬念都落在纸面', eps.length > 0 && bad.hook.length === 0, bad.hook.join('；'));
   add('hook-open', `钩子的具象在全集前 ${params.hookWindow} 拍内兑现（hookBeat 认领）`, eps.length > 0 && bad.hookOpen.length === 0, bad.hookOpen.join('；'));
   add('has-action', '每场至少一个动作节拍——纯对白的场是广播剧', eps.length > 0 && bad.noAction.length === 0, bad.noAction.join('；'));
@@ -497,7 +497,14 @@ export function gateReport(doc, ctx = {}) {
 // 剧本若不读源转写，就会从大纲摘要里自行编排顺序：台词还在，但谁先谁后全靠猜。
 // 这一门拿已归属的源转写逐句对账，先保证「1:1 还原」再谈改编。
 const normLine = (s) =>
-  String(s ?? '').replace(/[\s，。！？、；：…—·「」『』“”"'（）()【】\/]/g, '');
+  String(s ?? '').replace(/[^\p{L}\p{N}]+/gu, '');
+const PARTIAL_LINE_CHARS = 6;
+const orderedSources = (attributions) => attributions.map((a, i) => {
+  const numberedId = /^seg(\d+)(?:\.\d+)?$/.exec(String(a.id ?? ''));
+  const order = Number.isInteger(a.source_index) ? a.source_index
+    : numberedId ? Number(numberedId[1]) : Number.isFinite(a.start) ? a.start : i;
+  return { ...a, sourceOrder: order, sourceKey: `${a.id ?? 'source'}:${order}` };
+}).sort((a, b) => a.sourceOrder - b.sourceOrder);
 // The script marks a voice-over either by the `VO` speaker convention or by a
 // delivery note. Both mean the line is not spoken to anyone in the scene.
 const isVoDelivery = (b) =>
@@ -517,11 +524,18 @@ const deliveryUnsettled = (a) =>
 function sourceFidelity(source, eps, ctx = {}) {
   const bad = { order: [], speaker: [], delivery: [], review: [] };
   const attributions = Array.isArray(source?.attributions) ? source.attributions : [];
-  if (!attributions.length) return { bad, matched: 0, total: 0 };
+  if (!attributions.length || ctx.outline?.params?.adaptMode === '借壳') return { bad, matched: 0, total: 0 };
   const resolveSpeaker = speakerResolver(ctx);
+  const names = new Map([...(ctx.cast?.characters ?? []), ...(ctx.outline?.characters ?? [])]
+    .filter((c) => c?.id && c?.name).map((c) => [c.id, c.name]));
+  const speakerLabel = (value) => {
+    if (value === 'extra') return '非角色人物（extra）';
+    const name = names.get(resolveSpeaker(value).id);
+    return name && name !== value ? `${name}（${value}）` : value;
+  };
   const unsettled = new Map();
 
-  const normSource = attributions.map((a) => ({ ...a, n: normLine(a.text) })).filter((a) => a.n);
+  const normSource = orderedSources(attributions).map((a) => ({ ...a, n: normLine(a.text) })).filter((a) => a.n);
 
   // 剧本按顺序取出所有台词节拍，逐句与源转写对照
   const scriptLines = [];
@@ -535,21 +549,31 @@ function sourceFidelity(source, eps, ctx = {}) {
     }
   }
 
-  // 匹配：规范化后相等，或一方包含另一方（允许剧本微调断句）
+  // Exact lines win before partial matches. Short source lines need a whole beat.
   const usedSource = new Set();
   const pairs = [];
   for (const sl of scriptLines) {
-    let hit = null;
-    for (const [i, a] of normSource.entries()) {
-      if (usedSource.has(i)) continue;
-      if (a.n === sl.n || (sl.n.length >= 6 && (a.n.includes(sl.n) || sl.n.includes(a.n)))) {
-        hit = { i, a };
-        break;
-      }
-    }
+    const available = normSource.filter((a) => !usedSource.has(a.sourceKey));
+    const a = available.find((a) => a.n === sl.n) ?? available.find((a) =>
+      cpLen(a.n) >= PARTIAL_LINE_CHARS && cpLen(sl.n) >= PARTIAL_LINE_CHARS &&
+      (a.n.includes(sl.n) || sl.n.includes(a.n)));
+    const hit = a ? { i: normSource.indexOf(a), a } : null;
     if (hit) {
-      usedSource.add(hit.i);
-      pairs.push({ script: sl, source: hit.a, sourceIndex: hit.i });
+      usedSource.add(hit.a.sourceKey);
+      pairs.push({ script: sl, source: hit.a, sourceIndex: hit.a.sourceOrder });
+      let position = sl.n.indexOf(hit.a.n);
+      if (position >= 0 && sl.n.length > hit.a.n.length) {
+        position += hit.a.n.length;
+        for (let i = hit.i + 1; i < normSource.length; i++) {
+          const a = normSource[i];
+          if (usedSource.has(a.sourceKey) || cpLen(a.n) < PARTIAL_LINE_CHARS) continue;
+          const found = sl.n.indexOf(a.n, position);
+          if (found < 0) continue;
+          usedSource.add(a.sourceKey);
+          pairs.push({ script: sl, source: a, sourceIndex: a.sourceOrder });
+          position = found + a.n.length;
+        }
+      }
     }
   }
 
@@ -570,18 +594,21 @@ function sourceFidelity(source, eps, ctx = {}) {
     const scripted = String(p.script.beat.speaker ?? '').trim();
     if (!scripted || scripted === 'VO') continue;
     if (speakerUnsettled(p.source)) {
-      unsettled.set(p.sourceIndex, { p, reason: 'JEV 归属待复核' });
+      unsettled.set(p.source.sourceKey, { p, reason: 'JEV 归属待复核' });
       continue;
     }
     const scriptedId = resolveSpeaker(scripted);
     const sourceId = resolveSpeaker(p.source.speaker);
     if (scriptedId.ambiguous || sourceId.ambiguous) {
-      unsettled.set(p.sourceIndex, { p, reason: '说话人对不上唯一的大纲角色' });
+      unsettled.set(p.source.sourceKey, { p, reason: '说话人对不上唯一的大纲角色' });
       continue;
     }
     if (scriptedId.id !== sourceId.id) {
+      const time = Number.isFinite(p.source.start) && Number.isFinite(p.source.end)
+        ? `；原片 ${p.source.start.toFixed(1)}–${p.source.end.toFixed(1)}s` : '';
       bad.speaker.push(
-        `${p.script.scene}「${p.script.beat.line.slice(0, 14)}」剧本标 ${scripted}，源片归属为 ${p.source.speaker}`
+        `${p.script.scene}「${p.script.beat.line.slice(0, 14)}」剧本标 ${speakerLabel(scripted)}，` +
+          `源片归属为 ${speakerLabel(p.source.speaker)}${time}`
       );
     }
   }
@@ -590,7 +617,7 @@ function sourceFidelity(source, eps, ctx = {}) {
   for (const p of pairs) {
     const voiced = isVoDelivery(p.script.beat);
     if (deliveryUnsettled(p.source)) {
-      if (!unsettled.has(p.sourceIndex)) unsettled.set(p.sourceIndex, { p, reason: 'JEV 画外音判断待复核' });
+      if (!unsettled.has(p.source.sourceKey)) unsettled.set(p.source.sourceKey, { p, reason: 'JEV 画外音判断待复核' });
       continue;
     }
     if (p.source.delivery === 'voice_over' && !voiced) {
@@ -607,6 +634,10 @@ function sourceFidelity(source, eps, ctx = {}) {
   // 漏句不在这里查：只认能一一配上的句子，剧本改几个字就配不上。见 source-coverage 门。
   for (const { p, reason } of unsettled.values()) {
     bad.review.push(`${p.script.scene}「${p.script.beat.line.slice(0, 14)}」源片归属待复核：${reason}（${p.source.speaker ?? '?'} / ${p.source.delivery ?? '?'}）`);
+  }
+  if (ctx.outline?.params?.adaptMode === '抽核') {
+    bad.review.push(...bad.speaker);
+    bad.speaker = [];
   }
 
   return { bad, matched: pairs.length, total: normSource.length };
@@ -679,24 +710,29 @@ function longestBlock(src, dst, alo, ahi, blo, bhi) {
 
 export function sourceCoverage(source, eps, outline) {
   const attributions = Array.isArray(source?.attributions) ? source.attributions : [];
-  const rows = attributions
+  const rows = orderedSources(attributions)
     .filter(isDialogue)
     .map((a) => ({ a, n: norm(a?.text) }))
     .filter((r) => cpLen(r.n) >= MIN_ROW_CHARS);
-  const scriptText = eps
+  const scriptLines = eps
     .flatMap((ep) => (ep?.scenes ?? []).flatMap((sc) => sc?.flow ?? []))
     .filter((b) => typeof b?.line === 'string')
-    .map((b) => norm(b.line))
-    .join('');
+    .map((b) => norm(b.line));
+  const scriptText = scriptLines.join('');
   const fractions = keptFractions(rows.map((r) => r.n), scriptText);
   if (fractions === null) return { total: rows.length, kept: rows.length, excused: 0, missing: [], unchecked: true };
   // 声明删减：cut 条目的 what（或 evidence）里逐字引用了这句源台词。
-  const declared = (outline?.adaptation?.cut ?? []).map((c) => norm(`${c?.what ?? ''}${c?.evidence ?? ''}`)).filter(Boolean);
+  const declared = (outline?.adaptation?.cut ?? []).map((c) => {
+    const fields = [String(c?.what ?? ''), String(c?.evidence ?? '')];
+    const quoted = fields.flatMap((s) => [...s.matchAll(/[「『“"']([^」』”"']+)[」』”"']/gu)].map((m) => norm(m[1])));
+    return { n: norm(fields.join('')), lines: [...fields.map(norm), ...quoted] };
+  });
   const missing = [];
   let excused = 0;
   rows.forEach((row, i) => {
-    if (fractions[i] >= COVERAGE_MIN) return;
-    if (declared.some((d) => d.includes(row.n))) excused += 1;
+    const short = cpLen(row.n) < PARTIAL_LINE_CHARS;
+    if (fractions[i] >= COVERAGE_MIN && (!short || scriptLines.includes(row.n))) return;
+    if (declared.some((d) => short ? d.lines.includes(row.n) : d.n.includes(row.n))) excused += 1;
     else missing.push(row.a);
   });
   return { total: rows.length, kept: rows.length - missing.length - excused, excused, missing };
@@ -821,7 +857,7 @@ const GATE_LABELS_EN = {
   'params-conservative': 'Timing and quality parameters keep or tighten conservative defaults',
   'duration': 'Episode duration within ±{0}% of target',
   'line-length': 'Every line ≤ {0} characters',
-  'speaker': 'Speaker is in the scene cast, or explicitly marked V.O.',
+  'speaker': 'Speaker is in the scene cast, or marked V.O. / anonymous extra.',
   'hook-cliff': 'Hook and cliffhanger on paper for every episode',
   'hook-open': 'The hook\'s concrete image lands within the first {0} beats (claimed by hookBeat)',
   'has-action': 'At least one action beat per scene — a dialogue-only scene is radio drama',
@@ -886,6 +922,7 @@ const I18N = {
     estLabel: (est, target) => `预估 ${est} 秒 / 目标 ${target} 秒`,
     sceneHead: (i) => `第 ${i} 场`,
     voLabel: '画外音',
+    extraLabel: '非角色人物',
     lightingLabel: '光照',
     showScenes: '▾ 展开全部场次',
     hideScenes: '▴ 收起场次',
@@ -942,6 +979,7 @@ const I18N = {
     estLabel: (est, target) => `est. ${est}s / target ${target}s`,
     sceneHead: (i) => `Scene ${i}`,
     voLabel: 'V.O.',
+    extraLabel: 'Anonymous speaker',
     lightingLabel: 'Lighting',
     showScenes: '▾ Show all scenes',
     hideScenes: '▴ Collapse scenes',
@@ -991,7 +1029,7 @@ function namer(ctx = {}, t = tOf()) {
   const propName = new Map((ctx.art?.props ?? []).map((p) => [p.id, p.name]));
   const voiceByName = new Map((ctx.cast?.characters ?? []).map((c) => [c.name, c?.voice?.prompt ?? '']));
   return {
-    char: (id) => (id === 'VO' ? t.voLabel : charName.get(id) ?? id),
+    char: (id) => (id === 'VO' ? t.voLabel : id === 'extra' ? t.extraLabel : charName.get(id) ?? id),
     scene: (id) => sceneName.get(id) ?? id,
     prop: (id) => propName.get(id) ?? id,
     // 台词本对接 TTS：给了 --cast 才有音色提示词（按 outline 名字对上 cast）
@@ -1449,6 +1487,8 @@ const USAGE = `cine-script.mjs — cine-script skill 的确定性工具（剧本
   validate <script.json> [--outline o.json] 校验；有违规逐条打印并 exit 1
            [--art a.json]                   给了上游才做对账（角色 / 场景光照道具 / 爽点认领）
   checkup <script.json> [--outline] [--art] 只打印质量门 ✓/✗，有未过项 exit 1
+  source-review <script.json> --source t.json [--outline o.json] [--cast c.json]
+                                         输出原片顺序／归属复核 JSON
   render <script.json> [--html|--md]        渲染报告到 stdout（默认 --md）
          [--lang zh|en]                     报告界面语言（默认中文，或跟 script.json 的 lang 字段）
          [--outline o.json] [--art a.json]  给了上游就把 ID 显示成名字
@@ -1491,6 +1531,15 @@ function main(argv) {
       epRange = m[2] ? [Number(m[1]), Number(m[2])] : [Number(m[1]), Number(m[1])];
     }
     console.log(JSON.stringify(seedFromOutline(readJson(path), epRange), null, 2));
+    return;
+  }
+
+  if (cmd === 'source-review') {
+    const [path] = rest;
+    const ctx = loadCtx(rest);
+    if (!path || !ctx.source) throw new Error('source-review 需要剧本和 --source 原片归属');
+    const result = sourceFidelity(ctx.source, readJson(path)?.episodes ?? [], ctx);
+    console.log(JSON.stringify(result));
     return;
   }
 

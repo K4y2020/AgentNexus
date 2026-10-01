@@ -568,6 +568,13 @@ _RUNNER_ENV_ALLOWLIST: frozenset[str] = frozenset(
         # ssh-agent auth, so git-over-SSH and SSH-cert-authenticated tooling
         # fail with "dial unix: missing address".
         "SSH_AUTH_SOCK",
+        # Cine film-analysis switches: a CPU/GPU mode flag and the GPU-env,
+        # Hugging Face and torch cache paths. Not secrets; the film-analysis MCP
+        # server lists them in env_passthrough, so a value set here reaches it.
+        "CINE_GPU",
+        "CINE_GPU_ENV",
+        "HF_HOME",
+        "TORCH_HOME",
         # Telemetry master opt-in. MUST propagate, or the daemon-spawned runner
         # (and the harness it spawns) never see AGENTNEXUS_TELEMETRY_ENABLED, so
         # telemetry.init() no-ops there and omni-runner / omni-harness export

@@ -115,16 +115,13 @@ class EvaluationContext:
         ``TOOL_CALL`` and ``TOOL_RESULT``; ``None`` on
         ``REQUEST``, ``RESPONSE``, ``LLM_REQUEST``, and
         ``LLM_RESPONSE``.
-    :param trajectory: Recent conversation items (oldest first)
-        the classifier may consume to produce situational
-        reason text — see designs/LIVE_POLICIES.md §4.1. The
-        engine populates this on every ``evaluate()`` call by
-        querying the conversation store; callers leave it
-        ``None``. ``FunctionPolicy`` ignores the field;
-        ``PromptPolicy`` formats it into the
-        classifier prompt. ``None`` means "engine never
-        populated it" (test contexts); empty list means
-        "brand-new conversation, no items yet."
+    :param trajectory: Recent conversation items (oldest first) as
+        plain dicts (see ``engine.trajectory_entry``). The engine
+        fills it on the ``RESPONSE`` phase when a policy fires
+        there, so a policy can check the final message against
+        what tools returned; ``FunctionPolicy`` passes it as
+        ``event["trajectory"]``. ``None`` on other phases and
+        when not fetched; empty list means "no items yet."
     :param actor: Identity of the principal executing the
         request. Shape:
         ``{"run_as": "<email>", "client_id": "<oauth-client>"}``.
@@ -216,6 +213,7 @@ class EvaluationContext:
     harness: str | None = None
     labels: dict[str, str] | None = None
     llm_client: PolicyLLMClient | None = None
+    trajectory: list[dict[str, object]] | None = None
 
 
 @dataclass(frozen=True)

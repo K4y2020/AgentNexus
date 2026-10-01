@@ -296,7 +296,7 @@ export function gateReport(outline) {
   for (const e of eps) {
     const text = EP_TEXT_FIELDS.map((f) => e?.[f] ?? '').join(' ');
     for (const [risk, re] of Object.entries(RISK_PATTERNS)) {
-      if (re.test(text) && !(e?.warnings ?? []).includes(risk)) riskBad.push(`第 ${e.ep} 集缺「${risk}」`);
+      if (re.test(text) && !(e?.warnings ?? []).some((w) => String(w).includes(risk))) riskBad.push(`第 ${e.ep} 集缺「${risk}」`);
     }
   }
   add('risk-flag', '生成难点已进预警清单', eps.length > 0 && riskBad.length === 0, riskBad.join('；'));

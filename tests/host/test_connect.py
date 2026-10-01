@@ -2276,6 +2276,44 @@ def test_build_runner_env_passthrough_survives_remote_daemon_hop(
     assert "DATABRICKS_UNNAMED" not in runner_env
 
 
+@pytest.mark.parametrize("server_url", [None, "https://example.databricksapps.com"])
+def test_build_runner_env_carries_cine_switches_through_daemon_hop(
+    monkeypatch: pytest.MonkeyPatch,
+    server_url: str | None,
+) -> None:
+    """Cine's film-analysis switches set on the host reach the runner unnamed.
+
+    They cross CLI→daemon and daemon→runner without
+    AGENTNEXUS_RUNNER_ENV_PASSTHROUGH; unset ones stay absent, not empty.
+    """
+    from agentnexus.cli import _build_host_daemon_env
+
+    switches = {
+        "CINE_GPU": "off",
+        "CINE_GPU_ENV": "/data/cine-gpu",
+        "HF_HOME": "/data/hf",
+        "TORCH_HOME": "/data/torch",
+    }
+    monkeypatch.delenv("AGENTNEXUS_RUNNER_ENV_PASSTHROUGH", raising=False)
+    for name, value in switches.items():
+        monkeypatch.setenv(name, value)
+
+    def runner_env() -> dict[str, str]:
+        return _build_runner_env(
+            _build_host_daemon_env(server_url=server_url),
+            server_url=server_url or "http://127.0.0.1:6767",
+            runner_id="runner_abc",
+            binding_token="tok",
+            workspace="/ws",
+            parent_pid=42,
+        )
+
+    assert {name: runner_env().get(name) for name in switches} == switches
+    for name in switches:
+        monkeypatch.delenv(name)
+    assert not set(switches) & set(runner_env())
+
+
 def test_build_runner_env_preserves_ambient_databricks_profile() -> None:
     """
     Ambient Databricks profile/config-file selectors reach host runners.

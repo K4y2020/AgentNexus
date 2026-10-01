@@ -13,6 +13,7 @@ The orchestration here handles composition.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from typing import Any
 
@@ -22,6 +23,7 @@ from agentnexus.policies.types import EvaluationContext, PolicyResult
 from agentnexus.spec.types import (
     DEFAULT_ASK_TIMEOUT,
     LabelDef,
+    Phase,
     PolicyAction,
     PolicySpec,
     StateUpdate,
@@ -29,14 +31,36 @@ from agentnexus.spec.types import (
 )
 from agentnexus.stores.conversation_store import ConversationStore
 
-# Number of recent conversation items the engine fetches from
-# the conversation store and threads onto :class:`EvaluationContext`
-# before dispatching to each policy. ``PromptPolicy``'s classifier
-# sees these items so its emitted ``reason`` text can be
-# situational ("agent ran ``pip install foo``" → reason mentions
-# ``foo``) rather than generic. Tunable later if needed; pinned
-# here so it surfaces in grep across the engine + prompt layers.
-# See designs/LIVE_POLICIES.md §4.1.
+# Recent conversation items the engine threads onto a RESPONSE-phase
+# :class:`EvaluationContext` (``ctx.trajectory``), so a policy can check the
+# final assistant message against what the turn's tools actually returned.
+# Fetched only when some policy fires on that phase.
+RESPONSE_TRAJECTORY_LIMIT = 1000
+
+
+def trajectory_entry(item: Any) -> dict[str, object]:
+    """One conversation item as a policy reads it.
+
+    ``{"type": "message", "role": ..., "text": ...}``,
+    ``{"type": "function_call", "name": ..., "arguments": ...}``,
+    ``{"type": "function_call_output", "output": ...}``; any other item
+    type carries only its ``type``.
+    """
+    data = item.data
+    entry: dict[str, object] = {"type": item.type}
+    if item.type == "message":
+        entry["role"] = getattr(data, "role", None)
+        entry["text"] = "\n".join(
+            str(block.get("text"))
+            for block in getattr(data, "content", None) or []
+            if isinstance(block, dict) and isinstance(block.get("text"), str)
+        )
+    elif item.type == "function_call":
+        entry["name"] = getattr(data, "name", None)
+        entry["arguments"] = getattr(data, "arguments", None)
+    elif item.type == "function_call_output":
+        entry["output"] = getattr(data, "output", None)
+    return entry
 
 
 class PolicyEngine:
@@ -347,6 +371,7 @@ class PolicyEngine:
         ctx = self._inject_model(ctx)
         ctx = self._inject_labels(ctx)
         ctx = self._inject_llm_client(ctx)
+        ctx = await self._inject_trajectory(ctx)
 
         for policy in self.policies:
             if not self._should_fire(policy.spec, ctx):
@@ -790,6 +815,33 @@ class PolicyEngine:
             ``llm_client`` set.
         """
         return replace(ctx, llm_client=self._llm_client)
+
+    async def _inject_trajectory(self, ctx: EvaluationContext) -> EvaluationContext:
+        """
+        Return *ctx* with the conversation's recent items on a RESPONSE phase.
+
+        The assistant message under evaluation is not persisted yet, so the
+        items are everything before it. Other phases, a caller-supplied
+        trajectory, or no policy that fires on RESPONSE and asks for the
+        items (``Policy.needs_trajectory``) leave *ctx* unchanged.
+
+        :param ctx: Original :class:`EvaluationContext` from the caller.
+        :returns: A copy with ``trajectory`` set to plain dicts, oldest first.
+        """
+        if ctx.phase != Phase.RESPONSE or ctx.trajectory is not None:
+            return ctx
+        if not any(
+            getattr(policy, "needs_trajectory", False) and self._should_fire(policy.spec, ctx)
+            for policy in self.policies
+        ):
+            return ctx
+        page = await asyncio.to_thread(
+            self._store.list_items,
+            self._conversation_id,
+            limit=RESPONSE_TRAJECTORY_LIMIT,
+            order="desc",
+        )
+        return replace(ctx, trajectory=[trajectory_entry(item) for item in reversed(page.data)])
 
     def _inject_session_state(self, ctx: EvaluationContext) -> EvaluationContext:
         """

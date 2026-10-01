@@ -40,10 +40,12 @@ python <film-analysis>/pipeline/production.py next <output>
 
 After `init`, an automatic run asks the controller for one action at a time and
 does only that. The controller walks outline → cast → art → script → storyboard,
-seeds a missing stage, writes `scene-notes.json` from the exported story before
-attribution (an existing file is kept), and runs each stage's check with the
+seeds a missing stage, binds the visual people table to cast cards in
+`person-map.json`, and runs each stage's check with the
 advisory JEV review. A stage that passed is not rechecked until one of its inputs
-changes. It returns:
+changes. After writing or repairing the named file, call `next` again; do not run
+separate `seed`, `attribute`, `check` or native `validate` commands during this
+automatic loop. The manual commands below are for standalone work. It returns:
 
 - `edit` — rewrite `file` with `skill` against the validator's `errors`. Each stage
   allows `max_edits` edits (authoring plus four repairs); after that, or
@@ -52,13 +54,31 @@ changes. It returns:
   `next --canvas-synced <receipt>`; the sync is keyed to the storyboard's hash.
 - `escalate` — stop. A person fixes the cause; editing the named file or
   `next --retry` (for technical causes) reopens the stage with a fresh budget.
-- `done` — the current storyboard is on the canvas.
+- `human_review_speakers` — stop in faithful mode when the script uses a line whose
+  speaker is unresolved. `lines` contains source ids, timings, scene ids, evidence
+  and reasons. Confirm the actual speaker against the source, record the resolution
+  in the attributed source row (`speaker`, `speaker_name`, `confidence`,
+  `speaker_needs_review: false` and a review record identifying the evidence), then
+  run `next` again. Do not change text or evidence to make an uncertainty disappear.
+- `done` — the current storyboard is on the canvas and no used faithful line has
+  an unresolved speaker.
 
 `review-queue.json` beside the production lists blocking escalations and
-non-blocking review items: advisory JEV findings and unsettled speakers. Review
-items never trigger edits. State lives in `.cine-validation/autopilot.json`.
+review items: advisory JEV findings and unresolved evidence. Used unsettled speakers
+stop faithful completion through `human_review_speakers`, even with a prior canvas
+receipt. Unused unsettled lines do not stop it. Review items never trigger creative
+edits. State lives in `.cine-validation/autopilot.json`.
 
-## Native stage entry
+`source-transcript-attributed.json` carries visual, present, voice and constrained
+text evidence. The script's native source-order gate checks resolved speaker ids
+against this same file. The additional people gate uses outline scene `from` ids:
+roles speaking in a source location or appearing in its majority of shots must be
+in the corresponding script scene's `characters`; extra unseen/unheard roles fail.
+Faithful mode blocks, extraction queues review, and free adaptation skips. Incomplete
+visual or identity evidence cannot prove absence and is queued for review. Old
+30-second `scene-notes.json` descriptions are no longer used for attribution.
+
+## Manual native stage entry
 
 Routine canvas production is skill-led, not software repair. Read/write the native
 creative artifacts directly; do not generate ad hoc bridge/repair scripts or inspect
@@ -163,17 +183,19 @@ stage before the script so the labels are resolved against the cast:
 python <film-analysis>/pipeline/production.py attribute <output>
 ```
 
-It reads `source-transcript.json` and `cast.json`, optionally taking scene
-descriptions from `scene-notes.json` (a map of exchange index to one line of
-setup), and writes `source-transcript-attributed.json` with a cast id (or the
-character's name, for a cast card without an `id`), a calibrated confidence, and
-`needs_review` / `speaker_needs_review` / `delivery_needs_review` flags per line.
-JEV is asked twice: first who each line is addressed to, then who speaks it,
-with a confident addressee written into that character's option as an
-exclusion. A line that opens by calling a cast name or alias (「老伯，……」) is
-treated the same way. Supply scene notes whenever an exchange contains an
-address term the cast does not list: without them such a line can still be
-attributed to the person addressed.
+It reads `source-transcript.json` and `cast.json`, binds the current visual P ids
+through `person-map.json`, and writes `source-transcript-attributed.json` with
+cast ids, confidence and review flags. Name captions match directly; appearance
+matches use bounded observations from their own shots, co-visible identities and
+confirmed captions, cached per person with those dependencies. Co-visible people
+cannot map to one cast role; another costume without co-visibility remains possible.
+Only remaining unresolved lines use the bounded text fallback against present roles,
+declared narrators and confirmed extras or unnumbered live crowds in overlapping shots.
+Crowd presence only adds an option: a protagonist's inner voice remains that person's
+voice even when the shot shows a crowd. The question receives
+the full ordered transcript with original ids and confirmed speakers, and overlapping
+shots plus one neighbor on either side; neighbors never expand presence. `scene-notes.json`
+is not used for attribution. Automatic production performs this through `next`.
 
 Segments are grouped into exchanges by silence (or by an explicit `scene`
 field). Judging the whole episode as one block measurably degrades accuracy,
@@ -214,6 +236,14 @@ Three gates depend on it:
   (「听见没？老周哥这一嗓子」 does not put 老周 in the scene). Whether one line
   follows causally from the last is a semantic question left to the JEV script
   gate (`causal_continuity`), not to keyword rules.
+- `performance` (faithful mode only; run by `production.py` after the native
+  validator passes): each source line carries the emotion its own frames show
+  (`performance`, read by `film_transcribe`; see below). The shared visual speaker
+  attribution determines whether the frame shows the speaker, including a confirmed
+  anonymous `extra`. JEV asks only whether the script's `delivery` and the
+  action before it keep that emotion. P(contradicts) >= 0.9 fails the stage with
+  the line named; 0.6-0.9, or a line with no performance cue, goes to the review
+  queue. Each line is its own small request: asked together, later judgments drifted.
 
 Lines the script invents are not failures — adaptation may add connective
 material. Only matched lines are checked, and unmatched source lines are
@@ -269,13 +299,17 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    `shot-mapping.json`: original narrative function -> adapted script beat range
    -> new cut. Allow split/merge/new cuts; do not mechanically replace nouns in
    the original shot list. A new cut has no fabricated source correspondence.
-6. Run native validators with all relevant upstream arguments, then the sidecar
+6. In manual production, run native validators with all relevant upstream arguments, then the sidecar
    checker. Hash pins detect stale files, not whether the story is good.
    Before downstream stages exist, use `handoff.py production.json --stage outline`
    or `--stage script`: only that stage's dependency closure is required, including
    source_material for video-derived work. The result is stage_inputs_validated,
    not whole-production approval. The default command still requires the full
    storyboard/mapping handoff. Do not fabricate future stages merely to run a check.
+   Automatic production uses `next` for these checks. Faithful script performance
+   judgments are cached per source evidence, script delivery/action, model setting
+   and question; unchanged lines reuse them and failed requests are retried. Native
+   checks still execute at managed submission boundaries.
 7. Inspect the bound V3 canvas; synchronize only authorized changes directly
    with `seedance_edit_canvas`, using `expected_revision` for updates. Use returned
    node/asset/job IDs. Local paths are not remote reference assets. Confirm asset
@@ -317,6 +351,26 @@ For `original`, omit source_material and its input pins; mapping is still requir
 and every cut is `new`. `analysis` uses the canonical pipeline, not this checker.
 
 `source-material.json`:
+
+视频来源额外导出 `source_locations` 对象（`schema_version`、`source_id`、
+`revision_id`、`model`、`status`、`locations`、`shots`、`errors`）。逐镜头的 `place`
+是 `Lx` / `insert` / `?`；地点的 `spans` 使用视频相对秒数，区间为 `[start, end)`。
+schema v3 的镜头还包含 `people: ["P1", ...]` 和必填布尔值 `crowd`。群像/反应镜头
+仍列出能认出的已有编号；未能可靠编号的现场人群用 `crowd: true`，两者可同时存在。
+照片或屏幕人物不算现场人群。v1/v2 视觉缓存不补猜该字段，而是按当前配置重读。
+地点 `line_numbers` 从 1 开始，引用原始 `source-transcript.json.segments`（teaser 行占
+原始序号但不归入地点）；`lines` 附对应原句和起止时间。台词按整句时间区间与地点
+spans 的重叠时长归属，占整句时长至少 30% 的地点都包含该句。插入/未知画面的时间
+仍计入整句时长；没有足够重叠或缺少有效起止时间时，地点无法判断，剧本检查进 review。
+`transcript_status` 是
+`matched` / `missing` / `mismatch`，只绑定指纹匹配的转写。
+忠实大纲必须覆盖有台词或累计不少于 3 秒的地点，剧本台词必须放在大纲 `from`
+含任一对应地点的场景；跨地点台词在两边均达到 30% 时，放在任一边都通过。
+剧本拆分一条原片台词时，各句仍使用原片整句的起止时间。
+抽核删除地点用 `adaptation.cut[].locations` 声明；借壳跳过。
+场景表缺失/部分失败和未知台词地点进入 review 队列。
+旧项目生成场景表后用 `production.py rebind-source <production> --source-project <project>`
+重新导出并更新来源绑定，再补已有场景的 `from` 并运行阶段检查。
 ```json
 {"source_id":"<canonical source>","revision_id":"<committed revision>",
  "source_fingerprint":{"size_bytes":734003200,"sha256_head":"<from source.json>","sha256_tail":"<from source.json>"},

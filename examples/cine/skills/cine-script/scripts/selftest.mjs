@@ -710,7 +710,7 @@ const FERRY_SOURCE = { attributions: [
   ok(gate(doc, 'source-fidelity', { ...ctx, source: { attributions: [{ id: 'a', text: line, speaker: 'R01', delivery: 'spoken' }] } }).ok,
     'cast 编号 R01 按名字对回大纲 C01 -> 归属一致通过');
   const wrong = gate(doc, 'source-fidelity', { ...ctx, source: { attributions: [{ id: 'a', text: line, speaker: 'R02', delivery: 'spoken' }] } });
-  ok(!wrong.ok && wrong.detail.includes('源片归属为 R02'), '两套编号对齐后，真错位照样拦下');
+  ok(!wrong.ok && wrong.detail.includes('源片归属为 沈知微（R02）'), '两套编号对齐后，真错位照样拦下');
   const ghost = gate(ferryScript([{ action: '老伯解开缆绳。' }], ['C02']), 'dialogue-causality', ctx);
   ok(!ghost.ok && ghost.detail.includes('「C01」'), 'cast 别名按对回的大纲编号查在场，不因两套编号冲突漏报');
 }
@@ -769,6 +769,90 @@ const FERRY_SOURCE = { attributions: [
   const ghost = ferryScript([{ action: '沈小姐在船头坐下。' }], ['C01']);
   const g = gate(ghost, 'dialogue-causality', FERRY_CTX);
   ok(!g.ok && g.detail.includes('C02'), '别名来自无 id 的 cast 卡，照样对回大纲编号拦下幽灵出场');
+}
+
+{
+  const wrong = ferryScript([{ action: '乘客走上船。' }, { speaker: 'C01', line: '老伯，这雾什么时候散？' }]);
+  const source = { attributions: [{ text: '老伯，这雾什么时候散？', speaker: 'C02', start: 1, end: 3,
+    delivery: 'spoken', speaker_needs_review: false }] };
+  for (const mode of ['忠实', '抽核', '借壳']) {
+    const g = gate(wrong, 'source-fidelity', { ...FERRY_CTX, source,
+      outline: { ...FERRY_OUTLINE, params: { adaptMode: mode } } });
+    ok(g.ok === (mode !== '忠实'), `${mode} 按模式处理原片说话人不符`);
+  }
+}
+
+{
+  const line = '请等车辆停稳再走。';
+  const source = { attributions: [{ text: line, speaker: 'extra', start: 1, end: 3,
+    delivery: 'spoken', speaker_needs_review: false, needs_review: false }] };
+  const proper = ferryScript([{ speaker: 'extra', line, delivery: '穿反光背心的工作人员提醒' }]);
+  ok(gate(proper, 'speaker', FERRY_CTX).ok, 'extra 不需要加入本场角色表');
+  ok(gate(proper, 'source-fidelity', { ...FERRY_CTX, source }).ok, '原片非角色台词保留 extra -> 通过');
+  for (const mode of ['忠实', '抽核', '借壳']) {
+    const wrong = ferryScript([{ speaker: 'C01', line }]);
+    const g = gate(wrong, 'source-fidelity', { ...FERRY_CTX, source,
+      outline: { ...FERRY_OUTLINE, params: { adaptMode: mode } } });
+    ok(g.ok === (mode !== '忠实'), `${mode} 按模式处理非角色台词写给角色`);
+    if (mode === '忠实') ok(g.detail.includes('非角色人物（extra）'), '匿名源说话人的报错名称可读');
+  }
+  const roleSource = { attributions: [{ ...source.attributions[0], speaker: 'C01' }] };
+  ok(!gate(proper, 'source-fidelity', { ...FERRY_CTX, source: roleSource }).ok,
+    '把主要角色台词写成 extra 仍拦截');
+  const reportDoc = clone(FIXTURE);
+  reportDoc.episodes[0].scenes[0].flow = proper.episodes[0].scenes[0].flow;
+  ok(renderMarkdown(reportDoc, FERRY_CTX).includes('非角色人物'), '中文报告显示匿名人物');
+  ok(renderHtml(reportDoc, FERRY_CTX).includes('非角色人物'), '中文 HTML 显示匿名人物');
+  ok(renderMarkdown(reportDoc, { ...FERRY_CTX, lang: 'en' }).includes('Anonymous speaker'), '英文报告显示匿名人物');
+  const merged = ferryScript([{ speaker: 'C01', line: '请在入口稍等一下，我拿好工具就过来。' }]);
+  const mergedSource = { attributions: [
+    { text: '请在入口稍等一下', speaker: 'C01', delivery: 'spoken', speaker_needs_review: false },
+    { text: '我拿好工具就过来', speaker: 'extra', delivery: 'spoken', speaker_needs_review: false },
+  ] };
+  const g = gate(merged, 'source-fidelity', { ...FERRY_CTX, source: mergedSource });
+  ok(!g.ok && g.detail.includes('非角色人物（extra）'), '合句中后半句非角色台词改给角色仍拦截');
+  ok(g.label.includes('已匹配 2/2 句'), '合句保留全部连续源台词的对照');
+  mergedSource.attributions[1] = { ...mergedSource.attributions[1], speaker: 'unclear', speaker_needs_review: true };
+  ok(gate(merged, 'source-fidelity', { ...FERRY_CTX, source: mergedSource }).label.includes('1 句源归属待复核'),
+    '合句中后半句的待确认仍可见');
+}
+
+{
+  const source = { attributions: [
+    { id: 'first', source_index: 4, text: '好', speaker: 'unclear', needs_review: true },
+    { id: 'middle', source_index: 8, text: '请沿着指示牌往左走', speaker: 'C01' },
+    { id: 'last', source_index: 12, text: '这条道路很好走', speaker: 'C01' },
+  ] };
+  const doc = scriptWith([['C01', '请沿着指示牌往左走'], ['C01', '这条道路很好走']]);
+  const g = gate(doc, 'source-fidelity', { source });
+  ok(g.ok && g.label.includes('已匹配 2/3 句'), '短句不匹配到长句中，指示牌复现不再误报顺序');
+  ok(!g.label.includes('待复核'), '长句不继承未使用短句的复核标记');
+  const standalone = scriptWith([['C01', '好！'], ['C01', '请沿着指示牌往左走'], ['C01', '这条道路很好走']]);
+  ok(gate(standalone, 'source-fidelity', { source }).label.includes('已匹配 3/3 句'), '独立短句归一化后整句相同，正常匹配');
+  source.attributions[0] = { ...source.attributions[0], speaker: 'extra', needs_review: false };
+  ok(!gate(standalone, 'source-fidelity', { source }).ok, '独立短句真正归错说话人仍拦截');
+  const shuffled = { attributions: [source.attributions[2], source.attributions[0], source.attributions[1]] };
+  ok(gate(doc, 'source-fidelity', { source: shuffled }).ok, '归属数组无序时按 source_index 判断实际顺序');
+  const swapped = scriptWith([['C01', '这条道路很好走'], ['C01', '请沿着指示牌往左走']]);
+  ok(!gate(swapped, 'source-fidelity', { source: shuffled }).ok, '数组重排不掩盖实际的顺序倒置');
+  const numbered = { attributions: [{ id: 'seg012', text: '这条道路很好走', speaker: 'C01' },
+                                    { id: 'seg008', text: '请沿着指示牌往左走', speaker: 'C01' }] };
+  ok(gate(doc, 'source-fidelity', { source: numbered }).ok, '没有 source_index 的标准 seg id 仍提供顺序');
+}
+{
+  const source = { attributions: [{ id: 's', source_index: 3, text: '好了', speaker: 'C01' }] };
+  const outline = { params: { adaptMode: '忠实' }, adaptation: { cut: [] } };
+  const doc = scriptWith([['C01', '这段路已经修好了。']]);
+  ok(!gate(doc, 'source-coverage', { source, outline }).ok, '长台词中出现短词不代表保留了独立短句');
+  const withCut = (what) => ({ ...outline, adaptation: { cut: [{ what, why: '压缩重复信息' }] } });
+  ok(!gate(scriptWith([]), 'source-coverage', { source, outline: withCut('这段路已经修好了') }).ok,
+    'cut 长句中含有短句子串不算点名删减');
+  ok(gate(scriptWith([]), 'source-coverage', { source, outline: withCut('删去「好了」这句') }).ok,
+    'cut 明确引用整句短台词可豁免');
+  ok(gate(scriptWith([]), 'source-coverage', { source, outline: withCut('好了') }).ok,
+    'cut 字段与整句短台词相同可豁免');
+  ok(gate(scriptWith([['C01', '好了！']]), 'source-coverage', { source, outline }).ok,
+    '实际单独保留短句可通过覆盖检查');
 }
 
 console.log(`✓ ${passed} 项自测全部通过`);

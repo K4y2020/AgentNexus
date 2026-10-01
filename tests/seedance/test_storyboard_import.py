@@ -988,7 +988,13 @@ async def test_unmatched_subjects_are_reported_and_not_renumbered(tmp_path):
     assert "E01-01" in result["next_step"]
     # The canvas cards' own data identified the references, so JEV was asked
     # to choose only among this production's characters.
-    assert set(calls[0][1]["subject_1"]["criteria"]) == {"char:C01", "char:C02", "unclear"}
+    # The scene card is connected too; it has no image yet but will be a reference.
+    assert set(calls[0][1]["subject_1"]["criteria"]) == {
+        "char:C01",
+        "char:C02",
+        "scene:S01",
+        "unclear",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1204,3 +1210,315 @@ async def test_two_cards_claiming_one_character_fail_before_canvas_mutation(tmp_
     error = await _rejected_before_canvas_write(tmp_path, "CINE_IMPORT_ASSETS_MISSING")
     (problem,) = error.detail["problems"]
     assert "more than one card" in problem
+
+
+@pytest.mark.asyncio
+async def test_a_keyframe_prompt_on_a_card_with_reference_images_is_reported():
+    """The canvas cards reference character sheets and scene art, not shot keyframes.
+
+    A prompt without subject definitions ("Picture 1 (from Shot 1) aligns with
+    0.00 s") would make the model take a character sheet for the first shot and
+    never use the scene; the import reports it instead of passing it on silently.
+    """
+    from agentnexus.seedance.storyboard_import import align_prompt_with_references
+
+    legacy = (
+        "How the reference pictures align with the target video — Picture 1 (from Shot 1) "
+        "aligns with the 0.00-second mark of the target video.\n\n"
+        "integrated_multimodal_description:\n[Shot 1] A woman waits.\n\n"
+        "overall_soundscape: rain\n\nnon_diegetic_music: N/A"
+    )
+    refs = [
+        {"id": "node:a", "kind": "image", "label": "林黛玉 · 角色三视图"},
+        {"id": "node:b", "kind": "image", "label": "街头算命摊 · 场景概念图"},
+    ]
+    issues = []
+    out = await align_prompt_with_references(legacy, refs, _FERRY_CAST, _FERRY_ART, issues=issues)
+    assert out == legacy
+    [issue] = issues
+    assert "defines no <Subject N>" in issue
+    assert "街头算命摊 · 场景概念图" in issue
+
+    # A card without reference images has nothing to tie.
+    quiet = []
+    await align_prompt_with_references(legacy, [], _FERRY_CAST, _FERRY_ART, issues=quiet)
+    assert quiet == []
+
+
+def _planned_canvas():
+    """Cards created in the order an import makes them: sheets first, then scenes."""
+    nodes = [
+        {"id": "sb", "type": "storyboard", "title": "EP01 分镜表", "data": {}},
+        {
+            "id": "c01",
+            "type": "image_prompt",
+            "title": "林黛玉 · 角色三视图",
+            "data": {"characterId": "C01"},
+        },
+        {
+            "id": "c04",
+            "type": "image_prompt",
+            "title": "贾敏 · 角色三视图",
+            "data": {"characterId": "C04"},
+        },
+        {
+            "id": "c06",
+            "type": "image_prompt",
+            "title": "算命先生 · 角色三视图",
+            "data": {"characterId": "C06"},
+        },
+        {
+            "id": "s01",
+            "type": "image_prompt",
+            "title": "街头算命摊 · 场景概念图",
+            "data": {"sceneId": "S01"},
+        },
+        {"id": "v1", "type": "video_prompt", "title": "E01-01", "data": {}},
+        {"id": "v0", "type": "video_prompt", "title": "E00", "data": {}},
+    ]
+    # Edges in the order the storyboard names them — not the order Seedance numbers by.
+    edges = [
+        {"from": "sb", "to": "v1", "kind": "derives"},
+        {"from": "c06", "to": "v1", "kind": "references"},
+        {"from": "c04", "to": "v1", "kind": "references"},
+        {"from": "c01", "to": "v1", "kind": "references"},
+        {"from": "s01", "to": "v1", "kind": "references"},
+        {"from": "v0", "to": "v1", "kind": "sequence"},
+    ]
+    return {"nodes": nodes, "edges": edges}
+
+
+def test_planned_references_follow_canvas_node_order_not_edge_order():
+    """Seedance numbers <Picture N> by node order and lists only sheets with an image.
+
+    Before any sheet is generated it reports no references at all, so an import
+    that trusted it never renumbered: a prompt written in speaking order kept
+    "<Subject 1> = the fortune teller from <Picture 1>", while Picture 1 is the
+    heroine's sheet (created first).
+    """
+    from agentnexus.seedance.storyboard_import import (
+        _references_for_alignment,
+        planned_image_references,
+    )
+
+    planned = planned_image_references(_planned_canvas(), "v1")
+    assert [r["id"] for r in planned] == ["node:c01", "node:c04", "node:c06", "node:s01"]
+
+    # No images yet: the planned order is used; with every image present, Seedance's own.
+    assert _references_for_alignment([], planned) == planned
+    actual = [
+        {"id": f"node:{i}", "kind": "image", "label": i} for i in ("c01", "c04", "c06", "s01")
+    ]
+    assert _references_for_alignment(actual, planned) == actual
+
+    canvas = _planned_canvas()
+    canvas["nodes"][5]["data"]["excludedReferenceIds"] = ["node:c04"]
+    assert "node:c04" not in [r["id"] for r in planned_image_references(canvas, "v1")]
+
+
+def test_a_speaking_order_prompt_is_renumbered_to_the_canvas_order_before_images_exist():
+    from agentnexus.seedance.storyboard_import import (
+        align_h3_prompt_to_references,
+        planned_image_references,
+    )
+
+    cast = {"characters": [{"id": "C01"}, {"id": "C04"}, {"id": "C06"}]}
+    art = {"scenes": [{"id": "S01"}]}
+    prompt = (
+        "subject_definitions:\n"
+        "<Subject 1> — C06, a street fortune teller; face and clothing come from <Picture 1>.\n"
+        "<Subject 2> — C04, the mother; face and clothing come from <Picture 2>.\n"
+        "<Subject 3> — C01, the daughter; face and clothing come from <Picture 3>.\n"
+        "<Subject 4> — S01, the street stall; layout and light come from <Picture 4>.\n"
+        "summary: A fortune is told.\n"
+        "retention_analysis: all retained.\n"
+        "detailed_description:\n"
+        "[Shot 1] <Subject 1> reads the palm of <Subject 2> at <Subject 4>.\n"
+        "[Shot 2] At 00:04.000, <Subject 3> rolls her eyes.\n"
+        "overall_soundscape: street\nnon_diegetic_music: N/A"
+    )
+    refs = planned_image_references(_planned_canvas(), "v1")
+    entities = {
+        "node:c01": ("char", "C01"),
+        "node:c04": ("char", "C04"),
+        "node:c06": ("char", "C06"),
+        "node:s01": ("scene", "S01"),
+    }
+    issues = []
+    aligned = align_h3_prompt_to_references(
+        prompt, refs, cast, art, ref_entities=entities, issues=issues
+    )
+    assert issues == []
+    assert "<Subject 1> — C01, the daughter; face and clothing come from <Picture 1>." in aligned
+    assert (
+        "<Subject 3> — C06, a street fortune teller; face and clothing come from <Picture 3>."
+        in aligned
+    )
+    assert "[Shot 1] <Subject 3> reads the palm of <Subject 2> at <Subject 4>." in aligned
+    assert "[Shot 2] At 00:04.000, <Subject 1> rolls her eyes." in aligned
+
+
+# ---------------------------------------------------------------------------
+# A segment that continues from the previous one's last frame
+# ---------------------------------------------------------------------------
+
+_FRAME_PROMPT = (
+    "subject_definitions:\n"
+    "<Subject 1> — E01-01, the last frame of the previous segment; the opening comes "
+    "entirely from <Picture 1>.\n"
+    "<Subject 2> — C01, the daughter; face and clothing come from <Picture 2>.\n"
+    "<Subject 3> — S01, the street stall; layout and light come from <Picture 3>.\n"
+    "summary: The scene carries on.\n"
+    "retention_analysis: <Subject 1>, <Subject 2> and <Subject 3> are retained.\n"
+    "detailed_description:\n"
+    "[Shot 1] Continuing from <Subject 1>, <Subject 2> turns at <Subject 3>.\n"
+    "overall_soundscape: street\nnon_diegetic_music: N/A"
+)
+
+
+def _updating_canvas(nodes):
+    """Like :func:`_canvas`, and node updates change the node's data."""
+    v3, state = _canvas(nodes)
+    create_or_connect = v3.submit_command.side_effect
+
+    async def submit(project_id, cmd):
+        if cmd.get("type") == "canvas.update_node":
+            node = next(n for n in state["nodes"] if n["id"] == cmd["nodeId"])
+            node["data"] = dict(cmd["patch"]["data"])
+            return {"accepted": True}
+        return await create_or_connect(project_id, cmd)
+
+    v3.submit_command.side_effect = submit
+    v3.get_node_references.return_value = []
+    return v3, state
+
+
+def _continuing_storyboard(second_prompt=""):
+    second = _segment("E01-02", prompt=second_prompt)
+    second["continuesFrom"] = "E01-01"
+    return {
+        "source": "Test",
+        "episodes": [{"ep": 1, "segments": [_segment("E01-01"), second, _segment("E01-03")]}],
+    }
+
+
+def _cards(state):
+    return {n["data"]["segmentId"]: n for n in state["nodes"] if n.get("type") == "video_prompt"}
+
+
+def _frames(state):
+    return [n for n in state["nodes"] if (n.get("data") or {}).get("continuationTargetNodeId")]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_continuing_segment_gets_a_slot_for_the_previous_last_frame(tmp_path):
+    storyboard = _continuing_storyboard()
+    _write_production(tmp_path, cast=_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    cards = _cards(state)
+    [frame] = _frames(state)
+    assert frame["type"] == "image"
+    assert frame["title"].endswith(" 尾帧") and frame["title"].startswith("E01-01")
+    assert frame["data"]["continuationSourceNodeId"] == cards["E01-01"]["id"]
+    assert frame["data"]["continuationTargetNodeId"] == cards["E01-02"]["id"]
+    assert {"from": frame["id"], "to": cards["E01-02"]["id"], "kind": "references"} in state[
+        "edges"
+    ]
+    assert cards["E01-02"]["data"]["lastFrameContinuation"] is True
+    assert cards["E01-02"]["data"]["continuesFrom"] == "E01-01"
+    for seg in ("E01-01", "E01-03"):
+        assert cards[seg]["data"]["lastFrameContinuation"] is False
+    # Every segment stays in order on the canvas; only the flag decides continuation.
+    sequence = {(e["from"], e["to"]) for e in state["edges"] if e["kind"] == "sequence"}
+    assert len(sequence) == 2
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    assert len(_frames(state)) == 1, "a re-import reuses the slot"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_last_frame_on_a_segment_that_does_not_continue_is_left_out(tmp_path):
+    storyboard = _continuing_storyboard()
+    _write_production(tmp_path, cast=_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    cards = _cards(state)
+    # Seedance attached E01-02's last frame to E01-03 before this flag existed.
+    state["nodes"].append(
+        {
+            "id": "worker_frame",
+            "type": "image",
+            "title": "E01-02 尾帧",
+            "data": {
+                "continuationSourceNodeId": cards["E01-02"]["id"],
+                "continuationTargetNodeId": cards["E01-03"]["id"],
+            },
+        }
+    )
+    state["edges"].append(
+        {"from": "worker_frame", "to": cards["E01-03"]["id"], "kind": "references"}
+    )
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    assert _cards(state)["E01-03"]["data"]["excludedReferenceIds"] == ["node:worker_frame"]
+    assert (
+        "excludedReferenceIds" not in _cards(state)["E01-02"]["data"]
+        or not _cards(state)["E01-02"]["data"]["excludedReferenceIds"]
+    )
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_the_frame_subject_is_numbered_where_the_frame_will_be(tmp_path):
+    storyboard = _continuing_storyboard(_FRAME_PROMPT)
+    _write_production(tmp_path, cast=_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    prompt = _cards(state)["E01-02"]["data"]["prompt"]
+    # The sheets were created before the slot, so the frame is the last picture.
+    assert "<Subject 3> — E01-01, the last frame of the previous segment" in prompt
+    assert "the opening comes entirely from <Picture 3>." in prompt
+    assert "<Subject 1> — C01, the daughter; face and clothing come from <Picture 1>." in prompt
+    assert "[Shot 1] Continuing from <Subject 3>, <Subject 1> turns at <Subject 2>." in prompt
+    saved = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+    assert saved["episodes"][0]["segments"][1]["h3Prompt"] == prompt
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_reimport_leaves_out_assets_a_segment_no_longer_uses(tmp_path):
+    cast = {
+        "characters": [
+            *_CAST["characters"],
+            {"id": "C02", "name": "贾母", "image": {"sheet": "16:9 sheet prompt"}},
+        ]
+    }
+    both = {
+        "source": "Test",
+        "episodes": [{"ep": 1, "segments": [_segment("E01-01", characters=("C01", "C02"))]}],
+    }
+    _write_production(tmp_path, cast=cast, art=_ART, storyboard=both, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    card = _cards(state)["E01-01"]
+    sheet = next(n for n in state["nodes"] if (n.get("data") or {}).get("characterId") == "C02")
+    # A reference image the user wired in by hand is not the importer's to drop.
+    state["nodes"].append({"id": "mood", "type": "image", "title": "mood board", "data": {}})
+    state["edges"].append({"from": "mood", "to": card["id"], "kind": "references"})
+
+    alone = {"source": "Test", "episodes": [{"ep": 1, "segments": [_segment("E01-01")]}]}
+    _write_production(tmp_path, cast=cast, art=_ART, storyboard=alone, script=_SCRIPT)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    assert _cards(state)["E01-01"]["data"]["excludedReferenceIds"] == [f"node:{sheet['id']}"]
+
+    _write_production(tmp_path, cast=cast, art=_ART, storyboard=both, script=_SCRIPT)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    assert _cards(state)["E01-01"]["data"]["excludedReferenceIds"] == []

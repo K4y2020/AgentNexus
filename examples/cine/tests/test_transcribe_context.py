@@ -4,8 +4,16 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[1] / "skills/film-analysis"))
-from pipeline import transcribe  # noqa: E402
+from pipeline import transcribe
+
+
+@pytest.fixture(autouse=True)
+def _cpu_only(monkeypatch):
+    """These tests never reach a real GPU environment, whichever machine runs them."""
+    monkeypatch.setenv("CINE_GPU", "off")
 
 
 def test_name_list_is_detected_as_unusable_context():
@@ -51,7 +59,7 @@ def test_context_from_cast_emits_relationships_not_names():
     }
     out = transcribe.context_from_cast(json.dumps(cast, ensure_ascii=False))
     assert "贾敏" in out
-    assert "黛玉之母、林如海之妻" in out     # kinship reaches the model
+    assert "黛玉之母、林如海之妻" in out  # kinship reaches the model
     assert "不要按人物出现顺序指派" in out
 
 
@@ -59,7 +67,11 @@ def test_context_from_cast_marks_a_group_as_speaking_in_unison():
     """A chorus line otherwise reads as one person's thought, or as narration."""
     cast = {
         "characters": [
-            {"id": "C08", "name": "佣人群体", "persona": {"gender": "群体", "identity": "贾府侍从"}}
+            {
+                "id": "C08",
+                "name": "佣人群体",
+                "persona": {"gender": "群体", "identity": "贾府侍从"},
+            }
         ]
     }
     out = transcribe.context_from_cast(json.dumps(cast, ensure_ascii=False))
@@ -123,7 +135,12 @@ def test_text_only_refinement_that_merges_or_retimes_rows_is_rejected():
 
 
 MERGED = [
-    {"start": 0.0, "end": 3.0, "speaker": "父亲", "text": "宝贝懂了吧男人靠不住啊妈你算命的钱还是爸爸出的呢"},
+    {
+        "start": 0.0,
+        "end": 3.0,
+        "speaker": "父亲",
+        "text": "宝贝懂了吧男人靠不住啊妈你算命的钱还是爸爸出的呢",
+    },
     {"start": 3.2, "end": 4.0, "speaker": "说话人未标注", "text": "我升官了"},
 ]
 
@@ -160,7 +177,9 @@ def test_a_split_that_rewrites_the_words_keeps_that_row_as_heard():
 
 
 def test_homophone_repair_inside_a_split_is_accepted():
-    row = [{"start": 59.59, "end": 62.79, "speaker": "unclear", "text": "这位姐姐优势这不是姐姐妹"}]
+    row = [
+        {"start": 59.59, "end": 62.79, "speaker": "unclear", "text": "这位姐姐优势这不是姐姐妹"}
+    ]
     reply = [
         {"start": 59.59, "end": 61.2, "text": "这位姐姐又是……"},
         {"start": 61.2, "end": 62.79, "text": "这不是姐姐，妹——"},
@@ -252,6 +271,141 @@ def _asr(start, end, text):
     from types import SimpleNamespace
 
     return SimpleNamespace(start=start, end=end, text=text)
+
+
+def test_repaired_sentences_use_word_times_and_preserve_exact_text(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    repaired = "找到出口了吗？ 还没有，继续找！"
+    _gateway(monkeypatch, [{"start": 1, "end": 4, "text": repaired}])
+    asr = _asr(1, 4, "找到出口了吗还没有继续找")
+    asr.words = [
+        SimpleNamespace(word=t, start=s, end=e)
+        for t, s, e in [("找到出口了吗", 1, 2), ("还没有", 2.2, 3), ("继续找", 3, 4)]
+    ]
+    payload = json.loads(
+        transcribe.serialize_transcript(
+            [asr],
+            media=tmp_path / "source.mp4",
+            model="small",
+            language="zh",
+            llm_refine=True,
+            refine_speakers=False,
+        )[0]
+    )
+    pieces = payload["segments"]
+    assert [p["text"] for p in pieces] == ["找到出口了吗？", " 还没有，继续找！"]
+    assert [(p["start"], p["end"]) for p in pieces] == [(1, 2), (2.2, 4)]
+    assert "".join(p["text"] for p in pieces) == repaired
+    assert all(p["split_timing"] == "timing_words" for p in pieces)
+    assert payload["sentence_splitting"] == transcribe.SENTENCE_SPLITTING
+
+
+def test_original_asr_segments_supply_a_cut_without_word_timestamps():
+    row = {
+        "id": "original",
+        "text": "检查完了吗？全部合格。",
+        "start": 1,
+        "end": 4,
+        "timing_segments": [
+            {"text": "检查完了吗", "start": 1, "end": 2},
+            {"text": "全部合格", "start": 2.2, "end": 4},
+        ],
+    }
+    pieces = transcribe.split_repaired_rows([row])
+    assert [p["id"] for p in pieces] == ["original.1", "original.2"]
+    assert [(p["start"], p["end"]) for p in pieces] == [(1, 2), (2.2, 4)]
+    assert all(p["split_timing"] == "timing_segments" for p in pieces)
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        [],
+        [{"word": "还没完成需要再试", "start": 1, "end": 4}],
+        [{"word": "完全不相干", "start": 1, "end": 2}, {"word": "另一句话", "start": 2, "end": 4}],
+    ],
+)
+def test_missing_or_unaligned_word_cut_never_invents_time(units):
+    row = {"text": "还没完成？需要再试。", "start": 1, "end": 4, "timing_words": units}
+    result = transcribe.split_repaired_rows([row])
+    assert result == [{**row, "sentence_boundary_review": True}]
+    assert transcribe.split_repaired_rows(result) == result
+
+
+def test_sentence_split_rejects_overlapping_times_and_keeps_same_words_constraint():
+    row = {
+        "text": "准备好吗？可以出发。",
+        "start": 1,
+        "end": 4,
+        "timing_words": [
+            {"word": "准备好吗", "start": 1, "end": 3},
+            {"word": "可以出发", "start": 2, "end": 4},
+        ],
+    }
+    assert transcribe.split_repaired_rows([row])[0]["sentence_boundary_review"]
+    assert not transcribe._same_words(row["text"], "全新台词，天气变化与旅途梦想。")
+
+
+def test_caption_correction_is_split_after_repair_and_before_inference(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    row = _asr(1, 4, "路通了吗还没全通")
+    row.words = [
+        SimpleNamespace(word=t, start=s, end=e)
+        for t, s, e in [("路通了吗", 1, 2), ("还没全通", 2.2, 4)]
+    ]
+    caption = "路通了吗？还没全通！"
+    monkeypatch.setattr(
+        transcribe,
+        "merge_into_transcript",
+        lambda rows, _c: ([{**rows[0], "text": caption}], {"corrected": 1, "added": 0}),
+    )
+    payload = json.loads(
+        transcribe.serialize_transcript(
+            [row],
+            media=tmp_path / "source.mp4",
+            model="small",
+            language="zh",
+            burned={"status": "read", "rows": [{"start": 1, "end": 4, "text": caption}]},
+        )[0]
+    )
+    assert [r["text"] for r in payload["segments"]] == ["路通了吗？", "还没全通！"]
+    assert [(r["start"], r["end"]) for r in payload["segments"]] == [(1, 2), (2.2, 4)]
+
+
+def test_model_split_times_are_replaced_by_recorded_word_boundaries():
+    row = {
+        "text": "到站了吗还没有",
+        "start": 1,
+        "end": 4,
+        "timing_words": [
+            {"word": "到站了吗", "start": 1, "end": 2},
+            {"word": "还没有", "start": 2.1, "end": 4},
+        ],
+    }
+    reply = [
+        {"text": "到站了吗？", "start": 1, "end": 3},
+        {"text": "还没有。", "start": 3, "end": 4},
+    ]
+    result = transcribe._accepted_refinement([row], reply, speakers=False)
+    assert [(r["start"], r["end"]) for r in result] == [(1, 2), (2.1, 4)]
+
+
+def test_interrupted_exchange_uses_recorded_boundary_without_changing_punctuation():
+    row = {
+        "text": "信号已经到了……等等，换个频道。",
+        "start": 1,
+        "end": 4,
+        "timing_words": [
+            {"word": "信号已经到了", "start": 1, "end": 2},
+            {"word": "等等换个频道", "start": 2.1, "end": 4},
+        ],
+    }
+    pieces = transcribe.split_repaired_rows([row])
+    assert [p["text"] for p in pieces] == ["信号已经到了……", "等等，换个频道。"]
+    assert [(p["start"], p["end"]) for p in pieces] == [(1, 2), (2.1, 4)]
+    assert "".join(p["text"] for p in pieces) == row["text"]
 
 
 def test_failed_refinement_does_not_certify_the_transcript(monkeypatch, tmp_path):

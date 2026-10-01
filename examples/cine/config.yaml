@@ -15,7 +15,6 @@ skills:
   - cine-outline
   - cine-characters
   - cine-art
-  - cine-camera-evidence
 # Cine writes data and runs only the scripts its skills ship. A prompt rule was
 # not enough: a run read a validator's source through the shell and wrote its
 # own generator script, so the tool-call boundary enforces it.
@@ -27,6 +26,16 @@ guardrails:
       function:
         path: agentnexus.policies.builtins.code_guard.packaged_code_only
         arguments: {}
+    # A report may only cite ids, codes and hashes that a tool returned: a model
+    # once answered a multi-step request with invented receipts and no tool calls.
+    grounded_report:
+      type: function
+      on: [response]
+      function:
+        path: agentnexus.policies.builtins.grounding.cited_evidence
+        arguments:
+          message: "这条回复引用了没有任何工具返回过的内容：{cited}。{turn}请实际调用工具完成任务，汇报里只引用工具真实返回的结果。"
+          no_calls_note: "本回合没有调用任何工具。"
 os_env:
   type: caller_process
   cwd: .
@@ -43,7 +52,6 @@ prompt: |
   outline / 剧集大纲 -> cine-outline;
   character settings / 角色设定 -> cine-characters;
   environments / props / 场景道具 -> cine-art;
-  camera evidence / 运镜参考 / 动作判例 -> cine-camera-evidence.
   Do not restart film analysis or reconstruct upstream story documents for a local asset revision.
 
   Load the owning skill with load_skill before working on its stage; its SKILL.md is the
@@ -57,12 +65,14 @@ prompt: |
   Work autonomously within the Topic; do not wait for manual user steps or write ad-hoc helper scripts.
   Keep outline/cast/art/script/storyboard JSON and production.json together in the Topic's production/ directory; outputs/ holds only exported media.
   1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript; for a video source export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
-  2. Run `production.py next <production>` and do exactly the action it returns, then run it again. The controller seeds stages and runs scene notes, speaker attribution and every check itself (native validators decide; advisory JEV findings go to its review queue); do not run those separately.
+  2. Run `production.py next <production>` and do exactly the action it returns, then run it again. After writing or repairing its named file, call next directly. The controller seeds stages and runs visual speaker attribution and every check itself (native validators decide; advisory JEV findings go to its review queue); do not additionally run seed, attribute, check or native validate commands even when a stage skill documents the manual procedure.
      - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. Edit no other stage.
      - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`.
      - escalate: stop and report the reason, detail and review queue; do not work around it or edit again.
+     - human_review_speakers: stop and report each unresolved used line, its timing and evidence; do not guess an identity or mark the run done.
      - done: report the canvas receipt and the review queue items.
   Writing rules the checks rely on: every character needs a complete 16:9 model sheet prompt (image.sheet) and every scene an image.prompt; every storyboard cut binds characters to cast IDs and scenes to art scene IDs.
+  Reports: describe only work this turn's tools did, and copy job/node ids, error codes and receipts exactly from tool output. A reply citing an id or code no tool returned is blocked.
   3. Generation: do not call submit_generation unless the user explicitly orders video generation. Stop at prompt-card synchronization and report the canvas receipt.
 
   For a short scene with a sufficient brief, go directly to script and shots;

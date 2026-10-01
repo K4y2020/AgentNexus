@@ -36,6 +36,8 @@ metadata:
 
 ## cine-characters
 
+自动改编由 `production.py next` 调度时，按它给出的错误编写或修复指定文件，然后直接再调用 `next`。下面的 seed、validate、checkup 命令用于独立手工流程；自动流程的播种、归属和检查由控制器执行。
+
 ### 跨 skill 交接与适用范围
 
 跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威；本 skill 仍可独立使用，独立产物不自动代表全管线就绪。

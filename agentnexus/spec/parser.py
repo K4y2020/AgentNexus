@@ -2722,9 +2722,9 @@ def _parse_http_mcp_server(
 
     HTTP transport requires ``url``; ``headers`` is optional and
     expanded via :func:`expand_env_vars` when *expand_env* is True.
-    Stdio-only fields (``command``, ``args``, ``env``, ``sandbox``)
-    are rejected loud — mixing transports silently would hide bugs
-    in the YAML.
+    Stdio-only fields (``command``, ``args``, ``env``,
+    ``env_passthrough``, ``sandbox``) are rejected loud — mixing
+    transports silently would hide bugs in the YAML.
 
     :param name: The ``name`` field from the YAML (already validated
         non-None by the caller), e.g. ``"github"``.
@@ -2742,7 +2742,7 @@ def _parse_http_mcp_server(
         name,
         raw,
         yaml_file,
-        disallowed=("command", "args", "env", "sandbox"),
+        disallowed=("command", "args", "env", "env_passthrough", "sandbox"),
         transport_name="http",
     )
     url = raw.get("url")
@@ -2796,7 +2796,8 @@ def _parse_stdio_mcp_server(
     YAML like ``env: {GITHUB_TOKEN: \"${GITHUB_TOKEN}\"}`` resolves
     at parse time. ``args`` are NOT expanded — they're treated as
     a literal argv (consistent with how :class:`LocalToolInfo`
-    treats command args).
+    treats command args). ``env_passthrough`` is a list of names
+    resolved at spawn time instead, so an unset name stays unset.
 
     :param name: The ``name`` field from the YAML (already validated
         non-None by the caller).
@@ -2808,9 +2809,9 @@ def _parse_stdio_mcp_server(
         ``env``.
     :returns: A fully populated :class:`MCPServerConfig` with
         ``transport == "stdio"``.
-    :raises AgentNexusError: If ``command`` is missing, ``args`` is
-        not a list, ``env`` is not a mapping, or an HTTP-only field
-        was supplied.
+    :raises AgentNexusError: If ``command`` is missing, ``args`` or
+        ``env_passthrough`` is not a list, ``env`` is not a mapping,
+        or an HTTP-only field was supplied.
     """
     _reject_wrong_transport_keys(
         name,
@@ -2840,6 +2841,13 @@ def _parse_stdio_mcp_server(
         )
     string_env = {str(key): str(value) for key, value in raw_env.items()}
     env = expand_env_vars(string_env) if expand_env else string_env
+    raw_passthrough = raw.get("env_passthrough", [])
+    if not isinstance(raw_passthrough, list):
+        raise AgentNexusError(
+            f"MCP server {name!r} (transport='stdio') 'env_passthrough' must be a list "
+            f"of variable names: {yaml_file}",
+            code=ErrorCode.INVALID_INPUT,
+        )
     if "sandbox" in raw:
         # Step 7: ``sandbox: <bool>`` was an AP-only no-op that
         # wrapped the stdio spawn with ``srt``. srt's default
@@ -2865,6 +2873,7 @@ def _parse_stdio_mcp_server(
         command=str(command),
         args=[str(a) for a in raw_args],
         env=env,
+        env_passthrough=[str(n) for n in raw_passthrough],
         description=str(raw_description) if raw_description is not None else None,
         timeout=(
             _parse_int_field(raw["timeout"], f"MCP server {name!r}.timeout")

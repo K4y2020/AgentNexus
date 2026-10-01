@@ -173,6 +173,49 @@ def source_material(project):
                 if isinstance(batch, dict)
             ]
         result["adaptation_readiness"] = "not_checked_use_cine_verify_report"
+    notes_relative = f"revisions/{revision}/shot_notes.json"
+    if (root / notes_relative).is_file():
+        notes = read(notes_relative)
+        require(
+            isinstance(notes, dict) and notes.get("schema_version") in (1, 2, 3),
+            "SHOT_NOTES_INVALID",
+        )
+        require(
+            notes.get("source_id") == source_id and notes.get("revision_id") == revision,
+            "SHOT_NOTES_REVISION_MISMATCH",
+        )
+        require(
+            {s["shot_id"] for s in notes.get("shots") or []} == set(shots),
+            "SHOT_NOTES_LEDGER_MISMATCH",
+        )
+        recorded = (notes.get("input_sha256") or {}).get("source_shots")
+        require(
+            recorded is None
+            or recorded == input_hashes[f"revisions/{revision}/source_shots.json"],
+            "SHOT_NOTES_LEDGER_MISMATCH",
+        )
+        result["source_locations"] = notes
+        notes["transcript_status"] = "missing"
+        try:
+            from .location_gate import attach_dialogue
+            from .source_identity import transcript_matches_source
+        except ImportError:
+            from location_gate import attach_dialogue
+            from source_identity import transcript_matches_source
+        attach_dialogue(notes, [])
+        for base in (root, root.parent, root.parent.parent):
+            path = base / "inputs" / "source-transcript.json"
+            if not path.is_file():
+                continue
+            raw = path.read_bytes()
+            input_hashes[str(path)] = hashlib.sha256(raw).hexdigest()
+            payload = json.loads(raw)
+            if not transcript_matches_source(payload, source):
+                notes["transcript_status"] = "mismatch"
+                continue
+            notes["transcript_status"] = "matched"
+            attach_dialogue(notes, payload.get("segments") or [])
+            break
     result["source_input_hashes"] = input_hashes
     return result
 

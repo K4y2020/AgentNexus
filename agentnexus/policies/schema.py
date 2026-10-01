@@ -233,6 +233,11 @@ class PolicyEvent(TypedDict, total=False):
     :param request_data: On ``tool_result`` phase only — the
         original tool-call payload so the policy can correlate
         request and response.
+    :param trajectory: On ``response`` phase only — the conversation's
+        items before this message, oldest first, e.g.
+        ``{"type": "function_call_output", "output": "..."}`` or
+        ``{"type": "message", "role": "user", "text": "..."}``.
+        Absent when the engine did not fetch them.
     """
 
     type: Literal[
@@ -252,6 +257,7 @@ class PolicyEvent(TypedDict, total=False):
     session_state: dict[str, object]
     llm_client: PolicyLLMClient | None
     request_data: object
+    trajectory: list[dict[str, object]]
 
 
 # ── Response (output from callable) ──────────────────────────────────────────

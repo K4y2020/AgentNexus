@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import re
 from fractions import Fraction
 from pathlib import Path
@@ -89,6 +90,66 @@ def _contains_quoted_dialogue(value):
     return False
 
 
+def _shot_reading(ledger, source):
+    """Timed model notes count only for every shot of this exact committed ledger."""
+    path = ledger.parent / "shot_notes.json"
+    if not path.is_file():
+        return []
+    try:
+        notes = _read(_inside(ledger.parent, path))
+        raw = ledger.read_bytes()
+        shots = json.loads(raw)
+        rows = notes.get("shots")
+        if (
+            notes.get("schema_version") not in (1, 2)
+            or notes.get("source_id") != source["source_id"]
+            or notes.get("revision_id") != ledger.parent.name
+            or notes.get("status") not in ("read", "partial")
+            or not nonempty(notes.get("model"))
+            or (notes.get("input_sha256") or {}).get("source_shots")
+            != hashlib.sha256(raw).hexdigest()
+            or not isinstance(shots, list)
+            or not shots
+            or not isinstance(rows, list)
+            or len(rows) != len(shots)
+        ):
+            return []
+        catalog = notes.get("location_catalog", notes.get("locations")) or []
+        locations = {item["id"] for item in catalog}
+        unread = set(notes.get("unread_shots") or [])
+        offset = source.get("start_pts", 0) * Fraction(
+            source["time_base_num"], source["time_base_den"]
+        )
+        reading = []
+        for index, (row, shot) in enumerate(zip(rows, shots, strict=True)):
+            low, high = interval_seconds(shot["interval"])
+            low, high = low - offset, high - offset
+            if (
+                row.get("index") != index
+                or row.get("shot_id") != shot["shot_id"]
+                or shot.get("source_id") != source["source_id"]
+                or shot.get("revision_id") != ledger.parent.name
+                or not math.isfinite(row["start"])
+                or not math.isfinite(row["end"])
+                or abs(float(low) - row["start"]) > 0.000001
+                or abs(float(high) - row["end"]) > 0.000001
+            ):
+                return []
+            reading.append(
+                {
+                    "index": index,
+                    "start": low,
+                    "end": high,
+                    "read": index not in unread
+                    and nonempty(row.get("what"))
+                    and row.get("place") in {"insert", *locations},
+                }
+            )
+        return reading
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return []
+
+
 async def verify_story(client, session_id, workspace, ledger, source, story_path=None):
     project = ledger.parent.parent.parent
     plan = _read(_inside(project, ledger.parent / "story_plan.json"))
@@ -125,6 +186,7 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
     ):
         raise ValueError("CINE_STORY_BATCH_IDS_INVALID")
     receipts = await session_image_receipts(client, session_id)
+    shot_reading = _shot_reading(ledger, source)
     evidence_rows = _read(_inside(project, ledger.parent / "evidence_index.json"))
     evidence = {e["evidence_id"]: e for e in evidence_rows}
     sections_by_id = {s["batch_id"]: s for s in sections}
@@ -187,7 +249,17 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             if digest == ev.get("sha256") == receipt.get("sha256"):
                 actual.append(receipt_id)
-        if not actual:
+        batch_shots = [s for s in shot_reading if s["start"] < high and s["end"] > low]
+        notes_read = (
+            bool(batch_shots)
+            and all(s["read"] for s in batch_shots)
+            and covered(
+                [(s["start"], s["end"]) for s in batch_shots],
+                low,
+                high,
+            )
+        )
+        if not actual and not notes_read:
             issues.append({"batch_id": batch["batch_id"], "reason": "no_current_batch_image"})
             continue
         uncertainty = row.get("uncertainties", [])
@@ -204,6 +276,8 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
                 "events": row["events"],
                 "connection": row["connection"],
                 "image_receipt_ids": actual,
+                "shot_notes_indices": [s["index"] for s in batch_shots] if notes_read else [],
+                "visual_basis": "image_receipts" if actual else "shot_notes",
                 "uncertainties": uncertainty,
             }
         )

@@ -97,7 +97,6 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset(
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
-        "cine_camera_evidence",
         "cine_jev_judge",
         "save_teammate_memory",
     }
@@ -128,6 +127,12 @@ def _non_lifecycle_schemas(
             and fn.get("name") in _ALWAYS_PRESENT_TOOLS
         )
     ]
+
+
+def test_camera_evidence_is_not_registered() -> None:
+    names = {schema["function"]["name"] for schema in ToolManager(_make_spec()).get_tool_schemas()}
+
+    assert "cine_camera_evidence" not in names
 
 
 def test_session_rename_is_registered_for_every_agent() -> None:

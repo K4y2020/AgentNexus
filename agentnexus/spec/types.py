@@ -954,6 +954,10 @@ class MCPServerConfig:
         subprocess (overlaid on the parent environment). Valid
         only on ``"stdio"``. Use for secrets the subprocess reads
         at startup, e.g. ``{"GITHUB_TOKEN": "${GITHUB_TOKEN}"}``.
+    :param env_passthrough: Names of parent-environment variables
+        the spawned subprocess receives when they are set, e.g.
+        ``["HF_HOME"]``; an unset name stays absent. Valid only on
+        ``"stdio"``.
     :param description: Optional human-readable summary of the
         server's purpose.
     :param timeout: Per-tool timeout in seconds. ``None`` inherits
@@ -980,6 +984,7 @@ class MCPServerConfig:
     command: str | None = None
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict, repr=False)
+    env_passthrough: list[str] = field(default_factory=list)
     # Optional per-server tool allow-list: only these tool names are exposed to
     # the model; others are filtered at registration (server/mcp_pool.py,
     # runner/mcp_manager.py). ``None`` exposes all. Applies to both transports
@@ -1009,7 +1014,7 @@ class MCPServerConfig:
             f"url={self.url!r}, headers={redacted_headers!r}, "
             f"databricks_profile={self.databricks_profile!r}, "
             f"command={self.command!r}, args={self.args!r}, "
-            f"env={redacted_env!r}, "
+            f"env={redacted_env!r}, env_passthrough={self.env_passthrough!r}, "
             f"timeout={self.timeout!r}, retry={self.retry!r})"
         )
 

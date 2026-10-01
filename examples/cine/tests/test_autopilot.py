@@ -28,18 +28,23 @@ class Checks:
         self.results: dict[str, dict] = {}
         self.calls: list[str] = []
         monkeypatch.setattr(production, "check_stage", self)
-        monkeypatch.setattr(production, "write_scene_notes", lambda _d: {"status": "kept"})
 
-    def __call__(self, directory, stage, source_text=None, **_kwargs):
+    def __call__(self, directory, stage, _source_text=None, **_kwargs):
         self.calls.append(stage)
         path = directory / f"{stage}.json"
-        row = {"stage": stage, "status": "passed", "input_hashes": {str(path): production.fingerprint(path)}}
+        row = {
+            "stage": stage,
+            "status": "passed",
+            "input_hashes": {str(path): production.fingerprint(path)},
+        }
         row.update(self.results.get(stage, {}))
         return row
 
 
 def edit(directory, stage, n):
-    (directory / f"{stage}.json").write_text(json.dumps({"stage": stage, "edit": n}), encoding="utf-8")
+    (directory / f"{stage}.json").write_text(
+        json.dumps({"stage": stage, "edit": n}), encoding="utf-8"
+    )
 
 
 def queue(directory):
@@ -94,23 +99,33 @@ def test_passed_stages_are_not_rechecked_until_an_input_changes(monkeypatch, dir
     assert checks.calls == list(STAGES)
     edit(directory, "art", 1)
     autopilot.next_step(directory, jev=False)
-    assert checks.calls[len(STAGES):] == ["art"]
+    assert checks.calls[len(STAGES) :] == ["art"]
 
 
 def test_missing_sheets_are_repaired_in_cast(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["storyboard"] = {
         "status": "assets_missing",
-        "asset_anchors": {"status": "missing", "problems": ["Character C01 (A) has no image.sheet in cast.json."]},
+        "asset_anchors": {
+            "status": "missing",
+            "problems": ["Character C01 (A) has no image.sheet in cast.json."],
+        },
     }
     step = autopilot.next_step(directory, jev=False)
-    assert (step["stage"], step["target_stage"], step["skill"]) == ("storyboard", "cast", "cine-characters")
+    assert (step["stage"], step["target_stage"], step["skill"]) == (
+        "storyboard",
+        "cast",
+        "cine-characters",
+    )
     assert step["file"].endswith("cast.json")
 
 
 def test_technical_failures_retry_once_then_wait_for_an_explicit_retry(monkeypatch, directory):
     checks = Checks(monkeypatch)
-    checks.results["script"] = {"status": "attribution_error", "stderr": "TYPESAFE_API_KEY missing"}
+    checks.results["script"] = {
+        "status": "attribution_error",
+        "stderr": "TYPESAFE_API_KEY missing",
+    }
     step = autopilot.next_step(directory, jev=False)
     assert step["reason"] == "technical_attribution_error"
     assert checks.calls.count("script") == 2
@@ -127,7 +142,8 @@ def test_advisory_findings_are_queued_without_blocking(monkeypatch, directory):
         "command": ["node", "cine-script.mjs", "validate", "--source", "attributed.json"],
     }
     (directory / "source-transcript-attributed.json").write_text(
-        json.dumps({"attributions": [{"text": "我来提示了！", "needs_review": True}]}), encoding="utf-8"
+        json.dumps({"attributions": [{"text": "我来提示了！", "needs_review": True}]}),
+        encoding="utf-8",
     )
     step = autopilot.next_step(directory)
     assert step["action"] == "import_canvas"
@@ -144,6 +160,93 @@ def test_canvas_sync_is_recorded_per_storyboard_version(monkeypatch, directory, 
     assert autopilot.record_canvas_sync(directory, receipt)["action"] == "done"
     edit(directory, "storyboard", 1)
     assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+
+
+def test_source_location_reviews_are_queued_and_cleared_on_recheck(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["outline"] = {
+        "locations": {
+            "status": "unavailable",
+            "review": [
+                {
+                    "reason": "source_locations_missing",
+                    "message": "场景表缺失",
+                }
+            ],
+        }
+    }
+    checks.results["script"] = {
+        "locations": {
+            "status": "passed",
+            "review": [
+                {
+                    "reason": "dialogue_location_unknown",
+                    "message": "台词地点无法判断",
+                }
+            ],
+        }
+    }
+    assert autopilot.next_step(directory, jev=False)["review_items"] == 2
+    assert {item["source"] for item in queue(directory)} == {"locations"}
+    checks.results.clear()
+    edit(directory, "outline", 1)
+    edit(directory, "script", 1)
+    assert autopilot.next_step(directory, jev=False)["review_items"] == 0
+
+
+def test_new_source_locations_reopen_passed_outline_and_script(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory, jev=False)
+    (directory / "source-material.json").write_text('{"source_locations": {}}', encoding="utf-8")
+    autopilot.next_step(directory, jev=False)
+    assert checks.calls[len(STAGES) :] == ["outline", "script"]
+
+
+def test_legacy_cached_stage_without_location_inputs_is_rechecked(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory, jev=False)
+    path = directory / autopilot.STATE
+    state = json.loads(path.read_text(encoding="utf-8"))
+    state["stages"]["outline"]["passed_inputs"].pop(str(directory / "source-material.json"))
+    path.write_text(json.dumps(state), encoding="utf-8")
+    autopilot.next_step(directory, jev=False)
+    assert checks.calls[len(STAGES) :] == ["outline"]
+
+
+def test_cards_whose_prompt_ignores_their_references_block_generation(
+    monkeypatch, directory, tmp_path
+):
+    """A card imported with its references untied to the prompt is queued as blocking.
+
+    The prompt called the character sheets shot keyframes and never named the
+    scene; generating it as it is would spend credits on the wrong picture.
+    """
+    Checks(monkeypatch)
+    autopilot.next_step(directory, jev=False)
+    receipt = tmp_path / "receipt.json"
+    review = [{"segmentId": "E01-01", "issues": ["The prompt defines no <Subject N>"]}]
+    receipt.write_text(
+        json.dumps({"status": "synced", "receipt": {"subject_alignment_review": review}}),
+        encoding="utf-8",
+    )
+    step = autopilot.record_canvas_sync(directory, receipt)
+    assert step["action"] == "done"
+    assert step["blocking_items"] == 1
+    [item] = queue(directory)
+    assert (item["stage"], item["source"], item["severity"]) == (
+        "storyboard",
+        "canvas",
+        "blocking",
+    )
+    assert item["detail"]["segmentId"] == "E01-01"
+
+    # A clean re-import clears it.
+    receipt.write_text(
+        json.dumps({"status": "synced", "receipt": {"subject_alignment_review": []}}),
+        encoding="utf-8",
+    )
+    assert autopilot.record_canvas_sync(directory, receipt)["blocking_items"] == 0
+    assert queue(directory) == []
 
 
 def test_seed_creates_a_missing_stage_before_checking(monkeypatch, directory):
@@ -186,3 +289,249 @@ def test_a_free_adaptation_raises_no_speaker_items(monkeypatch, directory):
     )
     autopilot.next_step(directory, jev=False)
     assert queue(directory) == []
+
+
+def test_performance_differences_are_queued_and_a_contradiction_is_repaired(
+    monkeypatch, directory
+):
+    checks = Checks(monkeypatch)
+    item = {"line": "去给三位小姐都请个假", "message": "表演可能和原片不一致"}
+    checks.results["script"] = {"performance": {"status": "passed", "review": [item]}}
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
+    assert [(i["reason"], i["detail"]) for i in queue(directory)] == [
+        ("performance_differs", item)
+    ]
+
+    edit(directory, "script", 1)
+    blocking = ["S01「宝贝懂了吧」表演和原片相反"]
+    checks.results["script"] = {
+        "status": "failed",
+        "errors": blocking,
+        "performance": {"status": "failed", "blocking": blocking},
+    }
+    step = autopilot.next_step(directory)
+    assert (step["action"], step["stage"], step["errors"]) == ("edit", "script", blocking)
+
+
+@pytest.mark.parametrize("synced", [False, True])
+def test_used_unsettled_speaker_stops_faithful_completion(monkeypatch, directory, synced):
+    Checks(monkeypatch)
+    (directory / "outline.json").write_text(
+        json.dumps({"params": {"adaptMode": "忠实"}}), encoding="utf-8"
+    )
+    (directory / "script.json").write_text(
+        json.dumps(
+            {
+                "episodes": [
+                    {"scenes": [{"sceneId": "S01", "flow": [{"speaker": "C01", "line": "请坐"}]}]}
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    source = {
+        "attributions": [
+            {
+                "id": "a",
+                "text": "请坐",
+                "start": 1,
+                "end": 2,
+                "speaker": "unclear",
+                "speaker_needs_review": True,
+                "evidence": {
+                    "a": {"speaker": "unclear"},
+                    "b": {},
+                    "present_people": [],
+                    "constraints": {"status": "review"},
+                },
+                "review_reasons": ["画面不明确"],
+            }
+        ]
+    }
+    (directory / "source-transcript-attributed.json").write_text(
+        json.dumps(source), encoding="utf-8"
+    )
+    if synced:
+        run = autopilot._Run(directory)
+        run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
+        run.save()
+    result = autopilot.next_step(directory, jev=False)
+    assert result["action"] == "human_review_speakers"
+    assert result["lines"][0]["evidence"] == source["attributions"][0]["evidence"]
+    assert autopilot.next_step(directory, jev=False)["action"] == "human_review_speakers"
+    source["attributions"][0].update(speaker="C01", speaker_needs_review=False)
+    (directory / "source-transcript-attributed.json").write_text(
+        json.dumps(source), encoding="utf-8"
+    )
+    assert autopilot.next_step(directory, jev=False)["action"] == (
+        "done" if synced else "import_canvas"
+    )
+    assert not [i for i in queue(directory) if i["source"] == "speakers"]
+
+
+def test_unused_unsettled_speaker_does_not_stop_completion(monkeypatch, directory):
+    Checks(monkeypatch)
+    (directory / "outline.json").write_text(
+        json.dumps({"params": {"adaptMode": "忠实"}}), encoding="utf-8"
+    )
+    (directory / "source-transcript-attributed.json").write_text(
+        json.dumps(
+            {
+                "attributions": [
+                    {"text": "请坐", "speaker": "unclear", "speaker_needs_review": True}
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+
+
+@pytest.mark.parametrize("synced", [False, True])
+def test_used_confirmed_extra_does_not_stop_faithful_completion(monkeypatch, directory, synced):
+    Checks(monkeypatch)
+    (directory / "outline.json").write_text(
+        json.dumps({"params": {"adaptMode": "忠实"}}), encoding="utf-8"
+    )
+    (directory / "script.json").write_text(
+        json.dumps(
+            {
+                "episodes": [
+                    {
+                        "scenes": [
+                            {
+                                "sceneId": "S01",
+                                "characters": [],
+                                "flow": [{"speaker": "extra", "line": "请坐"}],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (directory / "source-transcript-attributed.json").write_text(
+        json.dumps(
+            {
+                "attributions": [
+                    {
+                        "id": "a",
+                        "text": "请坐",
+                        "start": 1,
+                        "end": 2,
+                        "speaker": "extra",
+                        "speaker_needs_review": False,
+                        "needs_review": False,
+                        "delivery": "spoken",
+                        "delivery_needs_review": False,
+                        "evidence": {
+                            "a": {"speaker": "P1", "status": "extra"},
+                            "b": {},
+                            "present_people": ["P1"],
+                            "constraints": {"status": "passed"},
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    if synced:
+        run = autopilot._Run(directory)
+        run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
+        run.save()
+    assert autopilot.next_step(directory, jev=False)["action"] == (
+        "done" if synced else "import_canvas"
+    )
+    assert not [i for i in queue(directory) if i["source"] == "speakers"]
+
+
+def test_confirmed_extra_cannot_hide_an_unsettled_response_in_a_merged_beat(
+    monkeypatch, directory
+):
+    Checks(monkeypatch)
+    (directory / "outline.json").write_text(
+        json.dumps({"params": {"adaptMode": "忠实"}}), encoding="utf-8"
+    )
+    (directory / "script.json").write_text(
+        json.dumps(
+            {
+                "episodes": [
+                    {
+                        "scenes": [
+                            {
+                                "sceneId": "S01",
+                                "flow": [{"speaker": "extra", "line": "请稍等一下，马上就来"}],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    (directory / "source-transcript-attributed.json").write_text(
+        json.dumps(
+            {
+                "attributions": [
+                    {
+                        "id": "a",
+                        "text": "请稍等一下",
+                        "speaker": "extra",
+                        "speaker_needs_review": False,
+                    },
+                    {
+                        "id": "b",
+                        "text": "马上就来",
+                        "speaker": "unclear",
+                        "speaker_needs_review": True,
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    run = autopilot._Run(directory)
+    run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
+    run.save()
+    result = autopilot.next_step(directory, jev=False)
+    assert result["action"] == "human_review_speakers"
+    assert [r["source_id"] for r in result["lines"]] == ["b"]
+
+
+def test_legacy_passed_script_receipt_reopens_for_people_evidence(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory, jev=False)
+    run = autopilot._Run(directory)
+    run.stage("script")["passed_inputs"] = {
+        str(directory / "script.json"): production.fingerprint(directory / "script.json")
+    }
+    run.save()
+    checks.calls.clear()
+    autopilot.next_step(directory, jev=False)
+    assert checks.calls == ["script"]
+
+
+def test_native_source_review_findings_reach_the_review_queue(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["script"] = {
+        "source_review": {"bad": {"review": ["S01 说话人不符，原片 1.0–2.0s"]}}
+    }
+    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert any(i["reason"] == "source_speaker_review" for i in queue(directory))
+
+
+def test_changed_vision_model_reopens_script_without_rechecking_other_stages(
+    monkeypatch, directory
+):
+    current = ["vision-a"]
+    monkeypatch.setattr(production, "vision_model", lambda: current[0])
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory, jev=False)
+    checks.calls.clear()
+    autopilot.next_step(directory, jev=False)
+    assert checks.calls == []
+    current[0] = "vision-b"
+    autopilot.next_step(directory, jev=False)
+    assert checks.calls == ["script"]

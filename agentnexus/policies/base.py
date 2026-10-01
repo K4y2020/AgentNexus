@@ -69,6 +69,14 @@ class Policy(ABC):
             ``None`` — engine fills it on composed results).
         """
 
+    @property
+    def needs_trajectory(self) -> bool:
+        """Whether a RESPONSE evaluation should carry the conversation's items.
+
+        The engine fetches them from the store only for a policy that asks.
+        """
+        return False
+
     def reset_turn(self) -> None:  # noqa: B027 — intentional no-op default (see docstring)
         """
         Reset per-turn state, if any.

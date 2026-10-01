@@ -175,6 +175,163 @@ export function h3CutSlices(prompt, cutCount, lang = 'en') {
 }
 
 /* ------------------------------------------------------------------ */
+/* Ref2VA 参考对账                                                       */
+/* ------------------------------------------------------------------ */
+/*
+ * 画布上的视频卡只连角色三视图和场景概念图，没有逐镜关键帧。导入画布时按
+ * <Subject N> 定义里写明的 ID / 名字 / 别名认出它是哪张参考图，再按画布顺序
+ * 重排 <Picture N>——下面的规则与导入端逐条一致，这里过了导入才对得上。
+ */
+
+const SUBJECT_LINE = /<Subject (\d+)> — ([^\n]+)/g;
+const SUBJECT_TOKEN = /<Subject\s*(\d+)>/g;
+const PICTURE_TOKEN = /<Picture\s*\d+>/;
+
+/** subject_definitions 段里的 <Subject N> — 定义，按编号。 */
+export function subjectDefinitions(h3) {
+  const text = String(h3 ?? '');
+  const start = text.indexOf('subject_definitions:');
+  const end = text.indexOf('summary:');
+  const defs = new Map();
+  if (start < 0 || end < 0) return defs;
+  for (const m of text.slice(start, end).matchAll(SUBJECT_LINE)) defs.set(Number(m[1]), m[2]);
+  return defs;
+}
+
+/**
+ * 角色卡挂到大纲 ID 上（与导入端 _resolve_cast 同一规则）：卡自带的 ID 是大纲 ID
+ * （或没有大纲）就直接用；否则按名字、再按名字加别名唯一对上一个大纲角色；
+ * 对不上或两张卡抢一个 ID 的都不算。
+ */
+export function castView(cast, outline) {
+  const word = (v) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
+  const outlineChars = (outline?.characters ?? []).filter((c) => word(c?.id));
+  const outlineIds = new Set(outlineChars.map((c) => word(c.id)));
+  const byName = new Map();
+  const byWord = new Map();
+  const put = (table, key, id) => {
+    if (!key) return;
+    if (!table.has(key)) table.set(key, new Set());
+    table.get(key).add(id);
+  };
+  for (const c of outlineChars) {
+    put(byName, word(c.name), c.id);
+    for (const w of [c.name, ...(c.aliases ?? [])]) put(byWord, word(w), c.id);
+  }
+  const lookup = (table, words) => new Set(words.flatMap((w) => [...(table.get(word(w)) ?? [])]));
+  const claims = new Map();
+  for (const card of cast?.characters ?? []) {
+    if (!card || typeof card !== 'object') continue;
+    const own = word(card.id);
+    let target = null;
+    if (own && (!outlineChars.length || outlineIds.has(own))) {
+      target = outlineChars.find((c) => word(c.id) === own)?.id ?? card.id;
+    } else if (outlineChars.length) {
+      let hits = lookup(byName, [card.name]);
+      if (!hits.size) hits = lookup(byWord, [card.name, ...(card.aliases ?? [])]);
+      if (hits.size === 1) target = [...hits][0];
+    }
+    if (!target) continue;
+    if (!claims.has(target)) claims.set(target, []);
+    claims.get(target).push(card);
+  }
+  return {
+    characters: [...claims].filter(([, cards]) => cards.length === 1).map(([id, [card]]) => ({ ...card, id })),
+  };
+}
+
+/** 项目里每个角色、场景的 ID / 名字 / 别名；两个实体共用的词谁也不代表，长词优先。 */
+export function entityTerms(cast, art) {
+  const owners = new Map();
+  const claim = (term, key) => {
+    if (typeof term !== 'string' || term.trim().length < 2) return;
+    const t = term.trim().toLowerCase();
+    if (!owners.has(t)) owners.set(t, new Set());
+    owners.get(t).add(key);
+  };
+  for (const c of cast?.characters ?? []) {
+    if (!c?.id) continue;
+    for (const term of [c.id, c.name, ...(c.aliases ?? [])]) claim(term, `char:${c.id}`);
+  }
+  for (const sc of art?.scenes ?? []) {
+    if (!sc?.id) continue;
+    for (const term of [sc.id, sc.name, ...(sc.aliases ?? [])]) claim(term, `scene:${sc.id}`);
+  }
+  return [...owners]
+    .filter(([, keys]) => keys.size === 1)
+    .map(([term, keys]) => [term, [...keys][0]])
+    .sort((a, b) => b[0].length - a[0].length);
+}
+
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** 一行 <Subject N> 定义写明的唯一实体（char:C01 / scene:S02）；没写或写了两个就是 null。 */
+export function identifySubject(desc, terms) {
+  let rest = String(desc ?? '').toLowerCase();
+  const found = new Set();
+  for (const [term, key] of terms) {
+    // ASCII 的 ID / 名字按整词匹配：C1 不能命中 C10
+    const re = /^[a-z0-9_-]+$/.test(term)
+      ? new RegExp(`(?<![a-z0-9])${escapeRe(term)}(?![a-z0-9])`, 'g')
+      : new RegExp(escapeRe(term), 'g');
+    if (re.test(rest)) {
+      found.add(key);
+      rest = rest.replace(re, ' ');
+    }
+  }
+  return found.size === 1 ? [...found][0] : null;
+}
+
+/**
+ * 画布模式下一段的参考对账：本段连的场景图和每个出镜角色的三视图都要有一行
+ * <Subject N> 定义（写明 ID、引用来源 <Picture N>），并在 detailed_description 里用上。
+ */
+export function ref2vaReferenceProblems(sid, h3, required, terms) {
+  const problems = [];
+  const text = String(h3 ?? '');
+  if (!text.includes('subject_definitions:')) {
+    problems.push(`${sid} 画布上这段只连角色三视图和场景概念图：h3Prompt 必须用 Ref2VA 六段式（subject_definitions 开头），不能写首帧对齐行把设定图当成镜头画面`);
+    return problems;
+  }
+  const defs = subjectDefinitions(text);
+  if (defs.size === 0) {
+    problems.push(`${sid} subject_definitions 里没有「<Subject N> — …」定义行`);
+    return problems;
+  }
+  const nums = [...defs.keys()].sort((a, b) => a - b);
+  if (nums.some((n, i) => n !== i + 1)) problems.push(`${sid} <Subject N> 要从 1 起连续编号`);
+  const bodyStart = text.indexOf('detailed_description:');
+  const bodyEnd = text.indexOf('overall_soundscape:');
+  const body = bodyStart < 0 ? '' : text.slice(bodyStart, bodyEnd < 0 ? undefined : bodyEnd);
+  const used = new Set([...body.matchAll(SUBJECT_TOKEN)].map((m) => Number(m[1])));
+  const firstShot = new Set([...(body.match(/\[(?:Shot|镜头) 1\][^\n]*/)?.[0] ?? '').matchAll(SUBJECT_TOKEN)].map((m) => Number(m[1])));
+  const label = (key) => {
+    const [kind, id] = key.split(':');
+    return kind === 'frame' ? `上一段 ${id} 的尾帧` : `${kind === 'scene' ? '场景' : '角色'} ${id}`;
+  };
+  const defined = new Map();
+  for (const [num, desc] of defs) {
+    const key = identifySubject(desc, terms);
+    if (!key) {
+      problems.push(`${sid} <Subject ${num}> 要写明它是哪个角色、场景或哪一段的尾帧（写 ID，如 C01、S02、E01-01）——导入画布时靠它对上参考图`);
+      continue;
+    }
+    if (defined.has(key)) problems.push(`${sid} <Subject ${defined.get(key)}> 和 <Subject ${num}> 都是${label(key)}`);
+    defined.set(key, num);
+    if (!required.includes(key)) problems.push(`${sid} <Subject ${num}> 是${label(key)}，但画布上这一段不会连它的参考图`);
+    if (!PICTURE_TOKEN.test(desc)) problems.push(`${sid} <Subject ${num}> 的定义里要引用它的来源图 <Picture N>`);
+    if (!used.has(num)) problems.push(`${sid} <Subject ${num}>（${label(key)}）在 detailed_description 里一次都没用上`);
+    else if (key.startsWith('frame:') && !firstShot.has(num)) {
+      problems.push(`${sid} <Subject ${num}>（${label(key)}）要在 [Shot 1] 里用上：这一段从它接着开始`);
+    }
+  }
+  for (const key of required) {
+    if (!defined.has(key)) problems.push(`${sid} 画布上这段连了${label(key)} 的参考图，subject_definitions 里没有定义它`);
+  }
+  return problems;
+}
+
+/* ------------------------------------------------------------------ */
 /* 剧本节拍展开                                                          */
 /* ------------------------------------------------------------------ */
 /*
@@ -216,6 +373,427 @@ export function expandScript(script) {
 }
 
 export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) => n + (c?.seconds ?? 0), 0));
+
+/* ------------------------------------------------------------------ */
+/* Cinematic evaluation audit (read-only; separate from production gates) */
+/* ------------------------------------------------------------------ */
+
+const AUDIT_RULES = [
+  'style-consistency', 'video-no-film-still', 'no-background-music',
+  'dialogue-speaker-visible', 'one-speaker-per-cut', 'same-scene-continues-from',
+  'no-internal-labels', 'consistent-character-naming',
+  'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding',
+  'h3-vocal-source-ids', 'h3-summary-task-prefix', 'h3-retention-per-line',
+  'h3-synchronized-sound-placement', 'h3-voiceover-exact-format',
+];
+const AUDIT_REF_RULES = AUDIT_RULES.filter((rule) => rule.startsWith('h3-'));
+const auditText = (value) => typeof value === 'string' ? value.trim() : '';
+const auditWord = (value) => auditText(value).toLowerCase();
+const auditVo = (beat) => auditWord(beat?.speaker) === 'vo' ||
+  /\b(?:v\.?o\.?|voice[ -]?over)\b|画外音|内心|独白|旁白|心声/i.test(auditText(beat?.delivery));
+const auditVoPrompt = (text) => /\b(?:off[ -]screen(?:\s+voice[ -]?over)?|voice[ -]?over|v\.?o\.?)\b|画外音|旁白|心声|内心独白/i.test(text);
+const AUDIT_INTERNAL_LABEL = /(?<![a-z0-9_])(?:extra|unclear|non_story|speaker[_-]\d+|person[_-]\d+|[PC]\d+)(?![a-z0-9_])/gi;
+
+function auditLabels(text) {
+  return [...text.matchAll(AUDIT_INTERNAL_LABEL)].filter((match) => {
+    if (match[0].toLowerCase() !== 'extra') return true;
+    const before = text.slice(0, match.index);
+    const after = text.slice(match.index + match[0].length);
+    return /^[\s]*$/.test(before + after) || /[<\[]\s*$/.test(before) ||
+      /^\s*(?:[:：>\]]|[㐀-鿿]|(?:says|speaks|asks|replies|opens|closes|looks|walks|enters|leaves|holds)\b)/i.test(after);
+  }).map((match) => match[0]);
+}
+
+function auditMedium(text) {
+  const value = h3Remainder(text);
+  const families = [];
+  if (/\blive[ -]action\b|\bphoto(?:realistic|graph(?:ic|y)?)\b|真人实拍|照片写实/i.test(value)) families.push('live-action');
+  if (/\banime\b|\bghibli\b|吉卜力|手绘动画/i.test(value)) families.push('anime');
+  else if (/\bcartoon\b|\b2d\s+animation\b|卡通|二维动画/i.test(value)) families.push('cartoon');
+  else if (/\bpainterly\b|\bhand[ -]painted\b|\b(?:oil|watercolou?r)\s+paint(?:ing|ed)\b|绘画风|油画|水彩/i.test(value)) families.push('painted');
+  if (/\b3d\s+(?:render|animation)\b|三维动画/i.test(value)) families.push('3d');
+  return families;
+}
+
+function auditMusic(prompt) {
+  const match = /(?:non_diegetic_music:|非叙事配乐：)([\s\S]*)/.exec(prompt);
+  return match ? match[1].trim() : '';
+}
+
+function auditPromptBody(prompt) {
+  // IDs are required in Ref2VA definitions; they are metadata, not creative prose.
+  const summary = prompt.indexOf('summary:');
+  return prompt.includes('subject_definitions:') && summary >= 0 ? prompt.slice(summary) : prompt;
+}
+
+function auditDialogueVo(shot, line) {
+  let previousEnd = 0;
+  for (const match of shot.matchAll(/<d>\[[^\]]+\]\s*([\s\S]*?)\s*<\/d>/g)) {
+    const marked = auditVoPrompt(shot.slice(previousEnd, match.index));
+    previousEnd = match.index + match[0].length;
+    if (match[1].trim() === line && marked) return true;
+  }
+  return false;
+}
+
+function auditSections(prompt) {
+  const headers = [...prompt.matchAll(/(?:^|\n)\s*(subject_definitions|summary|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):/g)];
+  return new Map(headers.map((header, i) => [header[1], prompt.slice(header.index + header[0].length, headers[i + 1]?.index).trim()]));
+}
+
+function auditDialogueEvents(body) {
+  const events = [];
+  let previousEnd = 0;
+  for (const match of body.matchAll(/<d>(?:\[[^\]]+\])?\s*([\s\S]*?)\s*<\/d>/g)) {
+    const prefix = body.slice(previousEnd, match.index);
+    const sentence = prefix.split(/(?<=[.!?])\s+|\[Shot \d+\](?:\s+At \d+:\d+\.\d+,)?\s*/).at(-1).trim().replace(/\s+/g, ' ');
+    const end = match.index + match[0].length;
+    events.push({ prefix: sentence, line: match[1].trim(), after: body.slice(end), index: match.index });
+    previousEnd = end;
+  }
+  return events;
+}
+
+function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, lang) {
+  const sid = segment.id ?? '?';
+  if (lang !== 'en' || !prompt.includes('subject_definitions:')) {
+    const reason = lang !== 'en' ? 'Official Ref2VA guide specifies English sections; non-English prompt mode is unsupported by this format audit' : 'Not a Ref2VA prompt; official full-reference format was not evaluated';
+    for (const rule of AUDIT_REF_RULES) skip(rule, `${sid}.h3Prompt`, reason);
+    return;
+  }
+  const sections = auditSections(prompt);
+  const body = sections.get('detailed_description') ?? '';
+  const definitions = [...(sections.get('subject_definitions') ?? '').matchAll(/^\s*(<(Subject|Picture|Video|Audio) \d+>)([^\n]*)/gm)];
+  const labels = new Map(definitions.map((match) => [match[1], match[2]]));
+  const summaryRule = 'h3-summary-task-prefix';
+  evaluated(summaryRule);
+  const prefix = /^\[([^\]]+)\]\s*\S/.exec(sections.get('summary') ?? '');
+  const taskTypes = new Set(['keyframe completion', 'reference generation', 'video editing', 'video continuation', 'audio reuse', 'audio reference']);
+  const tasks = prefix?.[1].split(/\s*\+\s*/) ?? [];
+  if (!tasks.length || tasks.some((task) => !taskTypes.has(task)) || new Set(tasks).size !== tasks.length) {
+    issue(summaryRule, `${sid}.summary`, 'Summary must start with a bracketed combination of official task types', { prefix: prefix?.[1] ?? null });
+  }
+
+  const retentionRule = 'h3-retention-per-line';
+  const retention = sections.get('retention_analysis') ?? '';
+  const entries = [...retention.matchAll(/^\s*(<(Subject|Picture|Video|Audio) \d+>)([^\n]*)/gm)];
+  if (!labels.size) skip(retentionRule, `${sid}.subject_definitions`, 'No standalone reference definitions can be parsed; label coverage cannot be determined');
+  for (const [label, type] of labels) {
+    evaluated(retentionRule);
+    const lines = entries.filter((entry) => entry[1] === label);
+    const allowed = type === 'Audio' ? ['fully_copy', 'partially_copy', 'reference', 'weak_reference'] : ['fully_preserved', 'partially_preserved', 'attribute_transfer', 'weak_reference'];
+    const relation = lines.length === 1 ? /^([\s\S]*?)\b(fully_preserved|partially_preserved|attribute_transfer|weak_reference|fully_copy|partially_copy|reference)\b\s*[:\-–—]?\s*(\S[\s\S]*)$/.exec(lines[0][3]) : null;
+    const shotRefs = [...(relation?.[1] ?? '').matchAll(/\[Shot (\d+)\]/g)];
+    const hasShots = !['Subject', 'Picture'].includes(type) || shotRefs.length > 0;
+    const knownShots = shotRefs.every((shot) => body.includes(shot[0]));
+    if (!relation || !allowed.includes(relation[2]) || /<(?:Subject|Picture|Video|Audio) \d+>/.test(relation[1]) || !hasShots || !knownShots || /\(S\d+(?:,S\d+)*\)/.test(lines[0]?.[3] ?? '')) {
+      issue(retentionRule, `${sid}.retention_analysis.${label}`, 'Each standalone label needs one line, a role-appropriate relationship marker and explanation; visible subject/frame entries must identify existing shots and retention has no speaker IDs', { label, lines: lines.map((entry) => entry[0].trim()) });
+    }
+  }
+  for (const entry of entries.filter((entry) => !labels.has(entry[1]))) {
+    evaluated(retentionRule);
+    issue(retentionRule, `${sid}.retention_analysis.${entry[1]}`, 'Retention entry has no standalone definition; provenance-only labels do not need their own entry', { line: entry[0].trim() });
+  }
+
+  const soundRule = 'h3-synchronized-sound-placement';
+  const soundscape = sections.get('overall_soundscape') ?? '';
+  evaluated(soundRule);
+  if (!soundscape) issue(soundRule, `${sid}.overall_soundscape`, 'Overall soundscape is missing or empty');
+  else if (/\[Shot \d+\]|\b(?:At\s+)?\d{1,2}:\d{2}(?:\.\d+)?\b|\bat\s+\d+(?:\.\d+)?\s*(?:seconds?|s)\b|\b(?:synchronized|on impact|at (?:the |that )?(?:exact )?(?:moment|instant))\b|<d>/i.test(soundscape)) {
+    issue(soundRule, `${sid}.overall_soundscape`, 'Shot/time-bound events or dialogue belong in the corresponding detailed-description shot', { soundscape });
+  } else if (/\b(?:rings? once|slams?|crash(?:es)?|clicks? once|bangs? once|immediately after|as soon as)\b/i.test(soundscape)) {
+    skip(soundRule, `${sid}.overall_soundscape`, 'Possible discrete synchronized sound without an explicit shot/time anchor; placement semantics require review');
+  }
+
+  if (!body) {
+    for (const rule of ['h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
+      skip(rule, `${sid}.detailed_description`, 'Detailed description is unavailable; this format check cannot be evaluated');
+    }
+    return;
+  }
+  const styleRule = 'h3-style-before-shot1';
+  evaluated(styleRule);
+  const shot1 = body.indexOf('[Shot 1]');
+  const opening = shot1 >= 0 ? body.slice(0, shot1).trim() : '';
+  const proseOpening = opening.replace(/<(?:Subject|Picture|Video|Audio) \d+>/g, '').replace(/\(S\d+(?:,S\d+)*\)/g, '').trim();
+  if (shot1 < 0 || !/[a-z]{2}/i.test(proseOpening) || /^N\/A[.!]?$/i.test(proseOpening)) {
+    issue(styleRule, `${sid}.detailed_description`, 'Ref2VA needs English opening prose before [Shot 1]', { opening });
+  }
+
+  const bindingRule = 'h3-subject-inline-binding';
+  for (const [label, type] of labels) {
+    if (type !== 'Subject') continue;
+    evaluated(bindingRule);
+    const first = body.indexOf(label);
+    const before = first >= 0 ? body.slice(0, first).split(/(?<=[.!?])\s+|\[Shot \d+\]/).at(-1) : '';
+    const after = first >= 0 ? body.slice(first + label.length).split(/[.!?]\s+|\[Shot \d+\]/)[0] : '';
+    const clause = (before + label + after).replace(/\[Shot \d+\]|<(?:Subject|Picture|Video|Audio) \d+>|\(S\d+(?:,S\d+)*\)/g, '').replace(/[^a-z\s]/gi, ' ').trim();
+    const labelList = /\b(?:on\s+screen|visible\s+(?:subjects|references))\s*:[^.!?]*$/i.test(before) || /^(?:(?:and|in|on|with|at|from|the|screen|visible|subjects|references)\s*)*$/i.test(clause);
+    if (first < 0 || labelList) issue(bindingRule, `${sid}.detailed_description.${label}`, 'First label use must occur in descriptive prose, rather than a detached subject list', { label, first_clause: first < 0 ? null : before + label + after });
+  }
+
+  const events = auditDialogueEvents(body);
+  const subjectIds = new Map();
+  const idSubjects = new Map();
+  for (const [eventIndex, event] of events.entries()) {
+    const location = `${sid}.dialogue${eventIndex + 1}`;
+    const ids = [...event.prefix.matchAll(/\(S\d+(?:,S\d+)*\)/g)];
+    const bound = [...event.prefix.matchAll(/(<Subject \d+>)\s+(\(S\d+(?:,S\d+)*\))/g)];
+    const audioLabels = [...event.prefix.matchAll(/<Audio \d+>/g)].map((match) => match[0]);
+    const copiedAudioCue = !/<Subject \d+>|\b(?:narrator|woman|man|person|character|child|speaker)\b/i.test(event.prefix) && /\b(?:phrase|cue|lyric|track|soundtrack|reaches|plays)\b/i.test(event.prefix) && audioLabels.some((label) => entries.some((entry) => entry[1] === label && /\b(?:fully_copy|partially_copy)\b/.test(entry[3])));
+    evaluated('h3-vocal-source-ids');
+    if ((!ids.length || ids.some((match) => /\bS0\b/.test(match[0]))) && !copiedAudioCue) issue('h3-vocal-source-ids', location, 'Independent dialogue/singing/voice-over sources require IDs starting at S1; only cues inside a directly copied audio track may use Audio alone', { source_clause: event.prefix, line: event.line });
+    const expected = speakerSubjects.get(event.line);
+    const subjectMentioned = /^\s*<Subject \d+>/.test(event.prefix) || bound.length > 0;
+    if (subjectMentioned || expected?.size) {
+      evaluated('h3-referenced-speaker-binding');
+      if (!bound.length || (expected?.size === 1 && !bound.some((match) => expected.has(match[1])))) {
+        issue('h3-referenced-speaker-binding', location, 'A referenced speaker must be written as <Subject N> (Sx) in the clause introducing this dialogue', { source_clause: event.prefix, expected_subjects: expected ? [...expected] : null });
+      } else if (expected?.size > 1) skip('h3-referenced-speaker-binding', location, 'The same dialogue words map to multiple reference subjects; speaker semantics are ambiguous');
+      for (const match of bound) {
+        if (subjectIds.has(match[1]) && subjectIds.get(match[1]) !== match[2]) issue('h3-vocal-source-ids', location, 'A referenced vocal source changes its speaker ID', { subject: match[1], previous: subjectIds.get(match[1]), current: match[2] });
+        subjectIds.set(match[1], match[2]);
+        for (const id of match[2].match(/S\d+/g)) {
+          if (idSubjects.has(id) && idSubjects.get(id) !== match[1]) issue('h3-vocal-source-ids', location, 'Distinct referenced vocal sources share one speaker ID', { id, previous_subject: idSubjects.get(id), current_subject: match[1] });
+          idSubjects.set(id, match[1]);
+        }
+      }
+    }
+    if (/voice[ -]?over|\bv\.?o\.?\b|inner monologue|画外音|旁白|心声|内心独白/i.test(event.prefix)) {
+      evaluated('h3-voiceover-exact-format');
+      if (!event.prefix.includes('says in an off-screen voiceover') || !/^\s*while\s+[^.!?]*\blips remain completely closed\b/.test(event.after.replace(/\s+/g, ' '))) {
+        issue('h3-voiceover-exact-format', location, 'Each voice-over requires exact says in an off-screen voiceover and an immediately following while ... lips remain completely closed clause', { source_clause: event.prefix, following_text: event.after.split(/\n/)[0] });
+      }
+    }
+  }
+}
+
+/** Evaluation A only. This report does not alter validate/checkup or production behavior. */
+export function auditStoryboard(board, ctx = {}) {
+  const issues = [];
+  const skips = [];
+  const evaluated_checks = AUDIT_RULES.map((id) => ({ id, evaluated: 0, skipped: 0, issues: 0 }));
+  const rules = new Map(evaluated_checks.map((rule) => [rule.id, rule]));
+  const evaluated = (rule) => { rules.get(rule).evaluated += 1; };
+  const issue = (rule, location, detail, evidence = {}) => {
+    issues.push({ rule, location, detail, evidence });
+    rules.get(rule).issues += 1;
+  };
+  const skip = (rule, location, reason) => {
+    skips.push({ rule, location, reason });
+    rules.get(rule).skipped += 1;
+  };
+  const expanded = ctx.script ? expandScript(ctx.script) : null;
+  const characters = castView(ctx.cast, ctx.outline).characters;
+  const identityChars = characters.length ? characters : (ctx.outline?.characters ?? []);
+  const characterIds = new Set(identityChars.map((c) => c.id));
+  const nameOwners = new Map();
+  for (const character of identityChars) {
+    const outlined = (ctx.outline?.characters ?? []).find((c) => c.id === character.id);
+    for (const term of [character.id, character.name, ...(character.aliases ?? []), outlined?.name, ...(outlined?.aliases ?? [])]) {
+      if (!auditText(term)) continue;
+      const word = auditWord(term);
+      if (!nameOwners.has(word)) nameOwners.set(word, new Set());
+      nameOwners.get(word).add(character.id);
+    }
+  }
+  const resolveSpeaker = (speaker) => {
+    const matches = nameOwners.get(auditWord(speaker));
+    return matches?.size === 1 ? [...matches][0] : null;
+  };
+  const usage = new Map();
+  const noteName = (id, name, location) => {
+    if (!usage.has(id)) usage.set(id, new Map());
+    const forms = usage.get(id);
+    if (!forms.has(name)) forms.set(name, []);
+    forms.get(name).push(location);
+  };
+  const prose = [];
+  const collect = (location, value, names = true) => {
+    if (typeof value === 'string') prose.push({ location, text: value, names });
+  };
+  const styleRule = 'style-consistency';
+  for (const [label, doc] of [['cast', ctx.cast], ['art', ctx.art]]) {
+    if (!doc) skip(styleRule, label, `Missing ${label}.json; reference style metadata was not compared`);
+    else {
+      evaluated(styleRule);
+      if ((doc.style ?? DEFAULT_STYLE) !== (board?.style ?? DEFAULT_STYLE)) {
+        issue(styleRule, `${label}.style`, 'Reference and storyboard style IDs differ', {
+          reference: doc.style ?? DEFAULT_STYLE, storyboard: board?.style ?? DEFAULT_STYLE,
+        });
+      }
+    }
+  }
+  for (const episode of ctx.script?.episodes ?? []) {
+    const epLabel = `script.E${String(episode.ep).padStart(2, '0')}`;
+    collect(`${epLabel}.hook`, episode.hook, false);
+    collect(`${epLabel}.cliff`, episode.cliff, false);
+    for (const [sceneIndex, scene] of (episode.scenes ?? []).entries()) {
+      for (const [beatIndex, beat] of (scene.flow ?? []).entries()) {
+        const location = `${epLabel}.scene${sceneIndex + 1}.beat${beatIndex + 1}`;
+        collect(`${location}.action`, beat.action);
+        collect(`${location}.line`, beat.line, false);
+        collect(`${location}.delivery`, beat.delivery);
+        if (typeof beat.line !== 'string') continue;
+        const speaker = auditText(beat.speaker);
+        evaluated('no-internal-labels');
+        if (speaker.toUpperCase() !== 'VO' && !characterIds.has(speaker) && auditLabels(speaker).length) {
+          issue('no-internal-labels', `${location}.speaker`, 'An internal label is used as the speaker', { speaker });
+        }
+        const id = resolveSpeaker(speaker);
+        if (id) {
+          const name = characterIds.has(speaker) ? identityChars.find((c) => c.id === id)?.name : speaker;
+          noteName(id, auditWord(name), `${location}.speaker`);
+        } else if (speaker && speaker.toUpperCase() !== 'VO' && speaker !== 'extra') {
+          skip('consistent-character-naming', `${location}.speaker`, `Speaker ${speaker} has no unique cast/outline mapping`);
+        }
+      }
+    }
+  }
+  for (const episode of board?.episodes ?? []) {
+    const scriptEpisode = expanded?.get(episode.ep);
+    let previous = null;
+    for (const segment of episode.segments ?? []) {
+      const sid = segment.id ?? '?';
+      const prompt = auditText(segment.h3Prompt);
+      const scene = scriptEpisode?.scenes[segment.sceneIndex - 1];
+      evaluated('video-no-film-still');
+      if (!prompt) issue('video-no-film-still', `${sid}.h3Prompt`, 'Video prompt is missing');
+      else if (/\bfilm[\s-]+still\b/i.test(prompt)) issue('video-no-film-still', `${sid}.h3Prompt`, 'Video prompt contains film still', { matches: prompt.match(/\bfilm[\s-]+still\b/gi) });
+      collect(`${sid}.h3Prompt`, auditPromptBody(prompt));
+      collect(`${sid}.note`, segment.note);
+      const music = auditMusic(prompt);
+      evaluated('no-background-music');
+      if (music !== 'N/A') issue('no-background-music', `${sid}.non_diegetic_music`, 'Audience-only music is added by the user in post-production; every segment must write N/A', { music: music || null });
+      const speakerSubjects = new Map();
+      const terms = entityTerms({ characters: identityChars }, ctx.art);
+      const referenceCharacters = new Map();
+      const definitionText = auditSections(prompt).get('subject_definitions') ?? '';
+      for (const match of definitionText.matchAll(/^\s*(<Subject \d+>)([^\n]*)/gm)) {
+        const entity = identifySubject(match[2], terms);
+        if (entity?.startsWith('char:')) referenceCharacters.set(entity.slice(5), match[1]);
+      }
+      for (const cut of segment.cuts ?? []) {
+        const [from, to] = cut.beats ?? [];
+        if (!scene || !Number.isInteger(from) || !Number.isInteger(to) || from < 1 || from > to || to > scene.beats.length) continue;
+        for (const beat of scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line')) {
+          const subject = referenceCharacters.get(resolveSpeaker(beat.speaker) ?? beat.speaker);
+          if (!subject) continue;
+          if (!speakerSubjects.has(beat.text)) speakerSubjects.set(beat.text, new Set());
+          speakerSubjects.get(beat.text).add(subject);
+        }
+      }
+      auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, board?.promptLang ?? 'en');
+      if (previous) {
+        if (!Number.isInteger(segment.sceneIndex) || !Number.isInteger(previous.sceneIndex)) {
+          skip('same-scene-continues-from', sid, 'sceneIndex is missing or invalid');
+        } else if (previous.sceneIndex === segment.sceneIndex) {
+          evaluated('same-scene-continues-from');
+          if (segment.continuesFrom !== previous.id) issue('same-scene-continues-from', sid, 'Consecutive segments in the same scene must continue from the previous segment', { expected: previous.id, actual: segment.continuesFrom ?? null });
+        } else if (segment.continuesFrom != null) {
+          evaluated('same-scene-continues-from');
+          issue('same-scene-continues-from', sid, 'continuesFrom crosses a scene boundary', { previous: previous.id, continuesFrom: segment.continuesFrom });
+        }
+      } else if (segment.continuesFrom != null) {
+        evaluated('same-scene-continues-from');
+        issue('same-scene-continues-from', sid, 'The first segment cannot continue from a previous segment', { continuesFrom: segment.continuesFrom });
+      }
+      const videoMedium = auditMedium(prompt);
+      const references = (segment.cuts ?? []).map((cut, i) => ({ location: `${sid}#${i + 1}.frame`, text: cut.frame }));
+      if (scene) {
+        const artScene = (ctx.art?.scenes ?? []).find((item) => item.id === scene.sceneId);
+        if (artScene?.image) references.push({ location: `art.${scene.sceneId}.image`, text: [artScene.image.prompt, artScene.image.sheet].filter(Boolean).join(' ') });
+        else if (ctx.art) skip(styleRule, `art.${scene.sceneId}.image`, 'The used scene has no reference image prompt');
+      }
+      for (const id of new Set((segment.cuts ?? []).flatMap((cut) => cut.characters ?? []))) {
+        const character = characters.find((item) => item.id === id);
+        const states = new Set((segment.cuts ?? []).map((cut) => cut.characterStates?.[id]).filter(Boolean));
+        const images = states.size ? [...states].map((state) => state === 'default' ? character?.image : character?.states?.find((item) => item.id === state)?.image) : [character?.image];
+        for (const [i, image] of images.entries()) {
+          if (image) references.push({ location: `cast.${id}.image${i + 1}`, text: [image.prompt, image.sheet].filter(Boolean).join(' ') });
+          else if (ctx.cast) skip(styleRule, `cast.${id}.image${i + 1}`, 'The used character/state has no uniquely mapped reference image prompt');
+        }
+      }
+      for (const reference of references) {
+        const referenceMedium = auditMedium(reference.text);
+        if (!videoMedium.length || !referenceMedium.length) skip(styleRule, `${sid} <> ${reference.location}`, 'Explicit medium markers are missing; generic cinematic/realistic wording does not establish medium equivalence');
+        else {
+          evaluated(styleRule);
+          if (videoMedium.length !== 1 || referenceMedium.length !== 1 || videoMedium[0] !== referenceMedium[0]) {
+            issue(styleRule, `${sid} <> ${reference.location}`, 'Explicit reference and video medium markers conflict', { video: videoMedium, reference: referenceMedium });
+          }
+        }
+      }
+      const slices = h3CutSlices(prompt, (segment.cuts ?? []).length, board?.promptLang ?? 'en');
+      for (const [cutIndex, cut] of (segment.cuts ?? []).entries()) {
+        const cid = `${sid}#${cutIndex + 1}`;
+        collect(`${cid}.frame`, cut.frame);
+        collect(`${cid}.note`, cut.note);
+        const [from, to] = cut.beats ?? [];
+        if (!scene || !Number.isInteger(from) || !Number.isInteger(to) || from < 1 || from > to || to > scene.beats.length) {
+          for (const rule of ['dialogue-speaker-visible', 'one-speaker-per-cut']) skip(rule, cid, 'Valid script scene and beat range are required');
+          continue;
+        }
+        const lines = scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line');
+        evaluated('one-speaker-per-cut');
+        const speakers = new Set(lines.map((beat) => resolveSpeaker(beat.speaker) ?? auditText(beat.speaker)));
+        if (speakers.size > 1) issue('one-speaker-per-cut', cid, 'A cut contains lines from multiple speakers', { speakers: [...speakers] });
+        for (const beat of lines) {
+          evaluated('dialogue-speaker-visible');
+          const speaker = resolveSpeaker(beat.speaker) ?? beat.speaker;
+          const visible = (cut.characters ?? []).some((id) => (resolveSpeaker(id) ?? id) === speaker);
+          const promptVo = auditDialogueVo(slices[cutIndex] ?? '', beat.text);
+          if (!visible && !auditVo(beat) && !promptVo) issue('dialogue-speaker-visible', cid, 'The dialogue speaker is absent from this cut and the line is not marked voice-over', { speaker: beat.speaker, characters: cut.characters ?? [], line: beat.text });
+          if (auditVo(beat) && !promptVo) issue('dialogue-speaker-visible', cid, 'The script marks voice-over but the matching video dialogue block has no explicit voice-over marker', { speaker: beat.speaker, line: beat.text });
+        }
+      }
+      previous = segment;
+    }
+  }
+  const nameTerms = [...nameOwners].filter(([term]) => !characterIds.has(term.toUpperCase()) && term.length >= 2).sort((a, b) => b[0].length - a[0].length);
+  for (const entry of prose) {
+    evaluated('no-internal-labels');
+    const labels = auditLabels(entry.text);
+    if (labels.length) issue('no-internal-labels', entry.location, 'Internal labels appear in creative prose', { labels: [...new Set(labels)] });
+    if (!entry.names || !nameTerms.length) continue;
+    let rest = h3Remainder(entry.text).toLowerCase();
+    for (const [term, owners] of nameTerms) {
+      const re = /^[a-z0-9_-]+$/.test(term) ? new RegExp(`(?<![a-z0-9])${escapeRe(term)}(?![a-z0-9])`, 'g') : new RegExp(escapeRe(term), 'g');
+      if (!re.test(rest)) continue;
+      if (owners.size === 1) noteName([...owners][0], term, entry.location);
+      else skip('consistent-character-naming', entry.location, `Alias ${term} is shared by multiple characters`);
+      rest = rest.replace(re, ' ');
+    }
+  }
+  if (!ctx.script) skip('no-internal-labels', 'script', 'Missing script.json; script prose and speakers were not audited');
+  if (!(board?.episodes ?? []).some((episode) => (episode.segments ?? []).length)) {
+    for (const rule of AUDIT_RULES) skip(rule, 'storyboard', 'No storyboard segments are available to audit');
+  }
+  if (!nameOwners.size) skip('consistent-character-naming', 'cast/outline', 'No character name/alias mapping is available');
+  for (const [id, forms] of usage) {
+    evaluated('consistent-character-naming');
+    if (forms.size > 1) issue('consistent-character-naming', id, 'A uniquely mapped character has multiple narrative/speaker names', { forms: Object.fromEntries(forms) });
+  }
+  for (const rule of evaluated_checks) {
+    rule.status = rule.issues ? 'fail' : rule.skipped ? 'incomplete' : rule.evaluated ? 'pass' : 'not-applicable';
+  }
+  return {
+    audit_version: 2, scope: 'evaluation-only',
+    status: issues.length ? 'fail' : skips.length ? 'incomplete' : 'pass',
+    issue_count: issues.length, issues, skips, evaluated_checks,
+    limitations: [
+      'Medium matching uses explicit positive text markers; it cannot prove rendered visual consistency or judge cinematic quality.',
+      'Name consistency uses unique cast/outline mappings in narration and speaker labels; dialogue address forms and unknown identities are not inferred.',
+      'Voice-over checks require a marker before the matching dialogue block; unstructured speaker attribution inside prose is not inferred.',
+      'Official H3 checks apply to Ref2VA only; legacy keyframe/base prompts are skipped, rather than treated as conforming full-reference prompts.',
+      'Style opening and inline Subject checks prove prose/label placement only; appearance, position, action, style suitability and actual speaker semantics require calibrated review.',
+      'Vocal-source IDs are checked at explicit dialogue/lyric blocks; ordinary wind, rain, impacts and non-verbal sound effects are not assigned invented speaker IDs. Directly copied soundtrack cues may use Audio alone.',
+      'Summary task types and retention markers are checked for format and label/shot existence; their true asset roles and preservation semantics are not inferred.',
+      'Sound-placement violations require explicit shot/time/synchronization anchors or dialogue in soundscape. Possible unanchored discrete events are skipped; unrestricted natural-language sound semantics are not proved.',
+      'Existing schema has no required picture-design fields; this audit introduces none. Quality and transcription completeness require calibrated review.',
+    ],
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /* 镜头配方卡库（可选挂载）                                               */
@@ -614,8 +1192,10 @@ export function gateReport(board, ctx = {}) {
   const bad = {
     coverage: [], segCap: [], cutLen: [], fit: [], duration: [], crowd: [],
     id: [], size: [], camera: [], english: [], names: [], refs: [],
-    h3s: [], h3d: [], h3e: [], style: [], recipe: [], states: [], continuity: [],
+    h3s: [], h3d: [], h3e: [], h3r: [], style: [], recipe: [], states: [], continuity: [],
   };
+  // 画布模式（--ref2va）：视频卡只连角色图和场景图，提示词要把它们都定义成 Subject 并用上
+  const refTerms = ctx.ref2va ? entityTerms(castView(ctx.cast, ctx.outline), ctx.art) : null;
   const continuity = continuityReport(board);
   bad.continuity.push(...continuity.issues);
   // 配方卡库是可选挂载：ctx.recipes 为空就整门跳过（不是「没有 cut 带 recipe」就跳过）
@@ -651,8 +1231,24 @@ export function gateReport(board, ctx = {}) {
     });
 
     let prevSceneIndex = 0;
+    let prevSeg = null;
+    // 画布模式下，一段的 ID 也指上一段的尾帧：承接段把它定义成一个 Subject
+    const epTerms = refTerms
+      ? [...refTerms, ...(ep?.segments ?? []).filter((s) => typeof s?.id === 'string')
+        .map((s) => [s.id.toLowerCase(), `frame:${s.id}`])].sort((a, b) => b[0].length - a[0].length)
+      : null;
     for (const seg of ep?.segments ?? []) {
       const sid = seg?.id ?? '?';
+      const previous = prevSeg;
+      prevSeg = seg;
+      const continuesFrom = seg?.continuesFrom;
+      if (continuesFrom != null) {
+        if (!previous || continuesFrom !== previous.id) {
+          bad.continuity.push(`${sid} continuesFrom「${continuesFrom}」只能写紧挨着的上一段 ${previous?.id ?? '（本段是本集第一段，不能承接）'}`);
+        } else if (seg?.sceneIndex !== previous.sceneIndex) {
+          bad.continuity.push(`${sid} 换了场次（${previous.sceneIndex} → ${seg?.sceneIndex}），不能从上一段的尾帧接着拍，去掉 continuesFrom`);
+        }
+      }
       const cuts = seg?.cuts ?? [];
       const total = segSeconds(seg);
 
@@ -661,6 +1257,12 @@ export function gateReport(board, ctx = {}) {
       }
 
       const h3 = String(seg?.h3Prompt ?? '');
+      const musicFields = [...h3.matchAll(/(?:^|\n)[ \t]*(?:non_diegetic_music:|非叙事配乐：)/g)];
+      const musicValue = musicFields.length === 1
+        ? h3.slice(musicFields[0].index + musicFields[0][0].length).trim() : null;
+      if (musicValue !== 'N/A') {
+        bad.h3s.push(`${sid} 背景配乐字段必须独立成行、仅出现一次且值为 N/A；由用户在后期统一配乐，剧内音乐写在对应镜头描述里`);
+      }
       // Legacy storyboard packages align generated keyframes to cuts. Ref2VA
       // instead defines connected character/environment references as subjects;
       // those source images are not false first-frame or cut-frame anchors.
@@ -714,6 +1316,16 @@ export function gateReport(board, ctx = {}) {
       if (scene) {
         if (seg.sceneIndex < prevSceneIndex) bad.coverage.push(`${sid} 场次顺序倒退`);
         prevSceneIndex = Math.max(prevSceneIndex, seg.sceneIndex);
+      }
+      if (refTerms) {
+        // 与导入端 _resolve_scene_id 一致：剧本场次的 sceneId，没有就按场序 S0N
+        const sceneId = scene?.sceneId ?? (Number.isInteger(seg?.sceneIndex) ? `S${String(seg.sceneIndex).padStart(2, '0')}` : null);
+        const required = [
+          ...(sceneId ? [`scene:${sceneId}`] : []),
+          ...new Set(cuts.flatMap((c) => c?.characters ?? []).filter(Boolean).map((c) => `char:${c}`)),
+          ...(continuesFrom != null && continuesFrom === previous?.id ? [`frame:${continuesFrom}`] : []),
+        ];
+        bad.h3r.push(...ref2vaReferenceProblems(sid, h3, required, epTerms));
       }
 
       cuts.forEach((cut, ci) => {
@@ -887,6 +1499,7 @@ export function gateReport(board, ctx = {}) {
   const SKIP_NAMES = '未提供 outline/cast，本门跳过（视为通过）';
   const SKIP_SHOTS = '未挂载配方卡库（--shots <卡片目录>），本门跳过（视为通过）';
   const NO_RECIPE = '本批分镜没有引用配方';
+  const SKIP_REF2VA = '未指定 --ref2va（关键帧导出模式），本门跳过（视为通过）';
 
   add('coverage', '剧本节拍被恰好一次、按顺序、连续认领（分镜级）', bad.coverage.length === 0, script ? bad.coverage.join('；') : SKIP_SCRIPT);
   add('segment-cap', `每段 ${params.minSegmentSeconds} ≤ 总秒数 ≤ ${params.maxSegmentSeconds}（视频大模型生成的单段时长上下限）`, eps.length > 0 && bad.segCap.length === 0, bad.segCap.join('；'));
@@ -897,7 +1510,8 @@ export function gateReport(board, ctx = {}) {
   add('segment-id', '段号 E01-01 格式、按顺序连号', bad.id.length === 0, bad.id.join('；'));
   add('size-phrase', '景别短语写进分镜图提示词', bad.size.length === 0, bad.size.join('；'));
   add('camera-phrase', '运镜用 H3 官方词表，且出现在自己的 [Shot k] 段落里', bad.camera.length === 0, bad.camera.join('；'));
-  add('h3-structure', 'H3 首行对齐指令由分镜结构推导逐字对账，切点时刻逐个对', eps.length > 0 && bad.h3s.length === 0, bad.h3s.join('；'));
+  add('h3-structure', 'H3 首行对齐指令和切点对账，片段背景配乐固定 N/A', eps.length > 0 && bad.h3s.length === 0, bad.h3s.join('；'));
+  add('h3-references', 'Ref2VA：本段画布连的场景图和角色图都定义成 <Subject N>（写明 ID、引用 <Picture N>）并在正文里用上', bad.h3r.length === 0, ctx.ref2va ? bad.h3r.join('；') : SKIP_REF2VA);
   add('h3-dialogue', '认领节拍的台词逐字进 H3 提示词的 <d> 块', bad.h3d.length === 0, script ? bad.h3d.join('；') : SKIP_SCRIPT);
   add('h3-lang', `H3 提示词语言与设定一致（promptLang=${promptLang}，正文${promptLang === 'en' ? '全英文' : '中文'}、骨架 token 官方英文格式）`, bad.h3e.length === 0, bad.h3e.join('；'));
   add('style-phrase', `分镜图风格短语统一（${style ? `${styleId}：${style.phrase}` : '预设无效'}）——同剧不许画风漂`, bad.style.length === 0, bad.style.join('；'));
@@ -905,7 +1519,7 @@ export function gateReport(board, ctx = {}) {
   add('prompt-no-names', '英文提示词不含角色名（分镜图提示词恒查；中文 H3 提示词放行）', bad.names.length === 0, banned.length ? bad.names.join('；') : SKIP_NAMES);
   add('refs', '场次／人物／道具对账剧本', bad.refs.length === 0, script ? bad.refs.join('；') : SKIP_SCRIPT);
   add('character-states', '逐镜角色状态继承剧本场次，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
-  add('continuity', '相邻镜头轴线、位置、视线、运动方向和道具状态连续', bad.continuity.length === 0, continuity.enabled ? bad.continuity.join('；') : continuity.detail);
+  add('continuity', '相邻镜头轴线、位置、视线、运动方向和道具状态连续', bad.continuity.length === 0, continuity.enabled || bad.continuity.length ? bad.continuity.join('；') : continuity.detail);
   // 可选挂载的门放最后：没给 --shots 就跳过；给了但全篇没引用配方也算通过，但要明说，不静默
   add(
     'shot-recipe',
@@ -1082,7 +1696,8 @@ const GATE_LABELS_EN = {
   'segment-id': 'Segment IDs in E01-01 format, sequential',
   'size-phrase': 'Shot-size phrase present in the frame prompt',
   'camera-phrase': 'Camera move from the official H3 vocabulary, inside its own [Shot k] passage',
-  'h3-structure': 'H3 alignment line derived from the cut structure, audited verbatim; cut times match',
+  'h3-structure': 'H3 alignment and cut times match; segment background music is N/A',
+  'h3-references': 'Ref2VA: the scene and character images connected on the canvas are each a <Subject N> (with its ID, citing its <Picture N>) and are used in the description',
   'h3-dialogue': 'Claimed dialogue appears verbatim inside the H3 <d> blocks',
   'h3-lang': 'Prompt language matches the promptLang setting',
   'style-phrase': 'Frame-prompt style phrase consistent — one drama, one look',
@@ -1099,6 +1714,7 @@ const GATE_SKIPS_EN = {
     '未提供 cast.json，本门跳过（视为通过）': 'cast.json not provided — gate skipped (treated as passing)',
     '未挂载配方卡库（--shots <卡片目录>），本门跳过（视为通过）': 'no recipe card library mounted (--shots <cards dir>) — gate skipped (treated as passing)',
     '本批分镜没有引用配方': 'no cut in this batch references a recipe',
+    '未指定 --ref2va（关键帧导出模式），本门跳过（视为通过）': '--ref2va not given (keyframe export mode) — gate skipped (treated as passing)',
 };
 /** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
 const gateText = (g, lang) => {
@@ -1854,8 +2470,11 @@ const USAGE = `cine-storyboard.mjs — cine-storyboard skill 的确定性工具�
   validate <sb.json> --script <script.json>   校验；有违规逐条打印并 exit 1
            [--outline] [--cast] [--art]       outline/cast 查提示词人名；art 只管显示名字
            [--shots <卡片目录>]                挂载镜头配方卡库，开 shot-recipe 门（不给就跳过）
+           [--ref2va]                         画布模式：只有角色图/场景图参考，开 h3-references 门
   checkup <sb.json> --script <script.json>    只打印质量门 ✓/✗，有未过项 exit 1
           [--shots <卡片目录>]
+  audit <sb.json> --script <script.json>      只读的电影感循环评估 A，打印 JSON，不写门日志
+        [--outline] [--cast] [--art]           与生产 validate/checkup 分离；缺上下文标 incomplete
   render <sb.json> --script <script.json>     渲染报告到 stdout（默认 --md）
          [--html|--md] [--outline] [--art]    分镜图从 ./<段号>/f<切序>.png 找
          [--lang zh|en]                       报告界面语言（默认 zh；未指定时读取 JSON 顶层 lang 字段）
@@ -1902,6 +2521,7 @@ function loadCtx(rest) {
   return {
     script: get('--script'), outline: get('--outline'), cast: get('--cast'), art: get('--art'),
     recipes: shots ? loadShots(shots) : null,
+    ref2va: rest.includes('--ref2va'),
   };
 }
 
@@ -1924,6 +2544,15 @@ function main(argv) {
       epRange = m[2] ? [Number(m[1]), Number(m[2])] : [Number(m[1]), Number(m[1])];
     }
     console.log(JSON.stringify(seedFromScript(readJson(path), epRange), null, 2));
+    return;
+  }
+
+  if (cmd === 'audit') {
+    const [path] = rest;
+    if (!path) throw new Error('用法：audit <storyboard.json> --script <script.json> [--outline] [--cast] [--art]');
+    const report = auditStoryboard(readJson(path), loadCtx(rest));
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = report.status === 'pass' ? 0 : report.status === 'incomplete' ? 2 : 1;
     return;
   }
 

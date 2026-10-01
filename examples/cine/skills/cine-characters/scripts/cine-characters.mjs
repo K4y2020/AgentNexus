@@ -762,7 +762,7 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
       }
       const preset = stylePreset(style);
       if (typeof image.sheet === 'string' && !image.sheet.includes(preset.render)) {
-        at(name, `image.sheet 里没有 style=${style} 的渲染句，画风会飘`);
+        at(name, `image.sheet 里没有 style=${style} 的渲染句，画风会飘——要逐字包含：「${preset.render}」`);
       }
     }
 

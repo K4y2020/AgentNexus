@@ -35,6 +35,8 @@ metadata:
 
 ## cine-outline
 
+自动改编由 `production.py next` 调度时，按它给出的错误编写或修复指定文件，然后直接再调用 `next`。下面的 seed、validate、checkup 命令用于独立手工流程；自动流程的播种和检查由控制器执行。
+
 ### 跨 skill 交接与适用范围
 
 跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威；本 skill 仍可独立使用，独立产物不自动代表全管线就绪。
@@ -70,6 +72,13 @@ metadata:
 例外是用户手上已经有 `cast.json`（此前单独跑过 `cine-characters`）：那就拿来当人物原料，角色、别名、关系都是现成的，不用重拆原文。分档按 `importance` 反向映射：protagonist/major → `lead`，supporting → `support`，minor → `functional`。
 
 ### Step 1 — 定位输入
+
+视频来源先读 `source-material.json` 的 `source_locations`，场景从这份原片场景表来。
+忠实模式每个场景必填 `from: ["Lx"]`；有台词或累计不少于 3 秒的原片地点必须覆盖。
+合并多个地点时，场景 `from` 列全地点，并在 `adaptation.merge[].locations` 写相同的集合。
+抽核模式删掉这些地点必须在 `adaptation.cut[].locations` 点名；原创场景注明来源为空并进 review。
+借壳跳过地点检查。场景表缺失、部分失败或地点未知进 review，不能宣称原片地点已核对。
+小说、原创和独立文本工作流不要求原片地点 id。地点规则由 `production.py check` 在原生校验后执行。
 
 材料优先级，写死：
 

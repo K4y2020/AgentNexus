@@ -4,12 +4,13 @@ version: 1.7.0
 description: |
   给 AI 短剧出分镜：三层结构——段（一次视频生成，≤15 秒）→ 分镜（段内默认 2–5 秒、可配置的剪切，认领剧本节拍）
   → 分镜图（每切一张关键帧：主分镜图钉 0.00 秒，子分镜图钉各自切点）。
-  每段自带一条 MiniMax H3 视频提示词（官方口径默认英文、逐镜换行，promptLang 可切中文）：对齐指令和
+  每段自带一条 MiniMax H3 视频提示词（官方口径默认英文、逐镜换行，promptLang 可切中文）：画布流程用
+  Ref2VA（本段连的角色图、场景图各定义成 <Subject N> 并在正文里用上），有逐镜关键帧的导出包才用首帧对齐行；
   [Shot k] 切点时刻由分镜结构推导、逐字对账，台词逐字进 <d> 块（写法规范已内化为
   references/h3-prompt.md，不依赖外部 skill）。
   产出 storyboard.json + Markdown + 单页评审报告（分镜节奏带 / 分集分镜表 / 生成批次单 /
   配音对齐单，含导出 JSON）。Cine 先读 V3 画布再直接编辑卡片，以真实设定图为参考，经授权提交 workers 出图。
-  19 道质量门全部由脚本确定性检查（含角色状态、账本与画面动作/视线/表演状态一致性和相邻镜头连续性门；shot-recipe 仍为可选门）；
+  20 道质量门全部由脚本确定性检查（含角色状态、账本与画面动作/视线/表演状态一致性和相邻镜头连续性门；shot-recipe 仍为可选门）；
   export 一键导出 H3 投产包（每段提示词 + 按 Picture 序的分镜图清单）。本地脚本零依赖，生成仍可能计费。
   Use when asked to 分镜、出分镜、镜头表、切镜、storyboard for AI short drama。
 allowed-tools:
@@ -40,6 +41,8 @@ metadata:
 
 ## cine-storyboard
 
+自动改编由 `production.py next` 调度时，按它给出的错误编写或修复指定文件，然后直接再调用 `next`。下面的 seed、validate、checkup 命令用于独立手工流程；自动流程的播种和检查由控制器执行。
+
 ### V3 分镜交付入口
 
 生成图片取回：任务 succeeded 后调用 `seedance_edit_canvas(action="export_image", job_id="<真实任务ID>", output_path="outputs/h3-package/E01-01/f1.png")`，用返回的精确 path 调用 `sys_os_view_image`。`local://hash` 是 V3 存储标识，不是文件路径；禁止递归搜盘、猜端口或用临时脚本下载。导出只取回已有图片，不触发生成；已有不同内容的文件不会被覆盖。
@@ -69,7 +72,7 @@ metadata:
 | 段默认 ≤ 15 秒 | H3 工作流默认上限，使用现有 `params.maxSegmentSeconds` 配置；切长用 `params.minCutSeconds` / `params.maxCutSeconds` |
 | 台词装得下 | 认领节拍的台词秒数 ≤ 镜头秒数——逐镜检查，不是拍脑袋 |
 | 首帧 + 运动双提示词 | 首帧给图像模型（配合参考图），运动是模型无关的过程描述；景别、运镜是枚举，英文短语必须写进对应提示词 |
-| **H3 视频提示词（每镜一段）** | MiniMax H3 的 I2VA 结构：固定对齐指令 + integrated_multimodal_description + overall_soundscape + non_diegetic_music。**认领节拍的台词逐字进 `<d>[Chinese] …</d>` 块**——对白、声景、配乐一段提示词全带上 |
+| **H3 视频提示词（每镜一段）** | 画布流程：Ref2VA 六段式（subject_definitions → summary → retention_analysis → detailed_description → overall_soundscape → non_diegetic_music），本段连的场景图和出镜角色图各是一个 `<Subject N>`；关键帧导出包：首帧对齐指令 + integrated_multimodal_description + 声景 + `non_diegetic_music: N/A`。**认领节拍的台词逐字进 `<d>[Chinese] …</d>` 块**；片段背景配乐固定 `N/A`，由用户在后期剪辑时统一添加 |
 | 生成批次单 | 同场景 + 同光照的镜头归一批，共用同一张环境参考图——AI 版的顺场表，脚本自动汇总 |
 | 配音对齐单 | 每句台词对到镜号——TTS 音频贴到哪一段视频，脚本自动汇总 |
 
@@ -116,11 +119,10 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 2. **空间和调度**：地标、机位所在侧、人物初始站位、视线与出入方向、关键距离及道具持有状态。区分场景方向和画面左右；涉及躲藏时明确遮挡面与观察者视线，摄影机看得见不等于对手看得见。位置变化须有依据。
 3. **构图与景别**：前中后景如何形成关系，遮挡和留白表达什么，何时接近人物、何时让环境压过人物。
 4. **光影与材质**：从已确认美术设定选择有来源的主光、背景亮度与色彩关系，保持跨镜方向和材质连续。
-5. **表演与声音**：给决定和反应留多久，何处用环境声、画外音或安静衔接；音乐随整场变化，不每段换曲。
+5. **表演与声音**：给决定和反应留多久，何处用环境声、画外音或安静衔接。每段 `non_diegetic_music` 固定为 `N/A`，背景配乐由用户在后期剪辑时统一添加；角色听得到的收音机、现场演奏等音乐仍在对应镜头中交代声源和动作。
 
 随后把这些选择落实到 `frame` 的构图/状态、`camera` 的运动选择和每段视频提示词的动作/声源中。
 说明里写了但实际提示词没写，不算完成交接。参考图只选匹配本次版本、角色状态和场景的真实资产。
-需要具体运镜语法或镜头调度判例时，用 `cine_camera_evidence` 工具（或 `node examples/cine/camera-evidence/cli/query.mjs`）检索真实生产判例，作为视听句式与节奏的参考；只借鉴句式，不照搬其中的角色、设定与台词。
 
 #### 连续性与转场范围
 
@@ -188,7 +190,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 
 流程：先读剧本交接说明，按上方内联流程做整场视觉设计并审查0–3秒钩子，再按剧情与模型能力分段切镜。镜长默认2–5秒，可用现有 `params.minCutSeconds` / `params.maxCutSeconds` 配置；不强制三秒一切或问答正反打。视觉设计须落实到每切提示词，而非只写在报告中。
 
-**仅 H3 导出工作流每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写（官方方法论的内化版，**不依赖任何外部 skill**）。官方口径默认英文（`promptLang` 可切中文），**每个镜头独立一行**。要点：首行对齐指令和 `[Shot k]` 切点时刻**由分镜秒数推导，一个字符都不许漂**（validate 逐字对账）；认领台词**逐字**进 `<d>[Chinese] …</d>`；每切的运镜词写进自己那一行；声景与配乐分进后两个字段——**声景也是动作指令，画面改了声景一起改**。
+**仅 H3 导出工作流每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写（官方方法论的内化版，**不依赖任何外部 skill**）。官方口径默认英文（`promptLang` 可切中文），**每个镜头独立一行**。**先定格式**：交给画布（Cine 制作流程，`production.py` 用 `--ref2va` 校验）时，视频卡只连本段的角色三视图和场景概念图，必须写 Ref2VA——每张图一行 `<Subject N> — <ID>, …; … come entirely from <Picture N>.`（写 ID 不写人名），场景也算一个 Subject，并且每个 Subject 都要在 `detailed_description` 的镜头行里用上；同一场里动作直接接上一段的段落写 `continuesFrom`（上一段段号），画布会把上一段的尾帧接过来，它也是一个 Subject（ID 写上一段段号），在 `[Shot 1]` 里用上，换场或跳时间的段不写；只有真的逐镜出了关键帧的导出包才写首帧对齐行，把设定图写成“Picture 1 (from Shot 1)”会让模型把角色三视图当成第一镜画面、场景图一次都用不上。要点：`[Shot k]` 切点时刻（关键帧模式还有首行对齐指令）**由分镜秒数推导，一个字符都不许漂**（validate 逐字对账）；认领台词**逐字**进 `<d>[Chinese] …</d>`；每切的运镜词写进自己那一行；声景写进 overall_soundscape，non_diegetic_music 固定 N/A（用户后期统一配乐）——**声景也是动作指令，画面改了声景一起改**。
 
 切完把 `seedScenes` 删掉。
 
@@ -287,4 +289,4 @@ node {baseDir}/scripts/selftest.mjs
 
 ## 自带样例
 
-`{baseDir}/examples/渡口-storyboard.json`：《渡口》第 1 集完整分镜——10 段 34 切认领剧本全部 35 拍，平均 3.5 秒一切，共 119 秒 / 目标 120 秒，2 个生成批次，每段带完整的 H3 视频提示词（多图对齐 + 切点时刻全部对账通过）。当质量基准，也是自测夹具。
+`{baseDir}/examples/渡口-storyboard.json`：《渡口》第 1 集完整分镜——10 段 34 切认领剧本全部 35 拍，平均 3.5 秒一切，共 119 秒 / 目标 120 秒，2 个生成批次，每段带完整的 Ref2VA 视频提示词（本段场景和出镜角色各一个 Subject，逐镜点名，切点时刻全部对账通过），`--ref2va` 下全部门通过。当质量基准，也是自测夹具。同一集的关键帧模式版本在 `references/test-fixtures/渡口-storyboard-keyframes.json`。

@@ -306,7 +306,7 @@ def _validate_mcp_servers(spec: AgentSpec, result: ValidationResult) -> None:
     Per-transport field rules:
 
     - ``transport == "http"``: ``url`` is required; ``command``,
-      ``args``, ``env`` must not be populated.
+      ``args``, ``env``, ``env_passthrough`` must not be populated.
     - ``transport == "stdio"``: ``command`` is required; ``url``
       must not be populated and ``headers`` must be empty. ``args``
       and ``env`` are optional.
@@ -335,6 +335,8 @@ def _validate_mcp_servers(spec: AgentSpec, result: ValidationResult) -> None:
                 result.add(f"{prefix}.args", "not allowed when transport is 'http'")
             if mcp.env:
                 result.add(f"{prefix}.env", "not allowed when transport is 'http'")
+            if mcp.env_passthrough:
+                result.add(f"{prefix}.env_passthrough", "not allowed when transport is 'http'")
         elif mcp.transport == "stdio":
             if mcp.command is None:
                 result.add(f"{prefix}.command", "required when transport is 'stdio'")

@@ -66,6 +66,13 @@
 
 - `id` 格式 `S01`，全局唯一；`name` 必填；`primary` 必填布尔（主场景上限随集数动态，见 `thresholds`）
 - **在全剧只出现一次的场景必须带 `reusePlan`**（规避方案：复用哪个现有环境资产、换什么时段天气改出来）
+- 视频来源的 `from` 是地点 id 数组，例如 `["L2"]`，引用 `source-material.json.source_locations.locations`。
+  忠实模式必填且非空；有非 teaser 台词或累计不少于 3.0 秒的地点必须覆盖。
+  多地点合并必须有一条 `adaptation.merge` 的可选字段 `locations` 恰好列出相同集合（顺序无关）。
+  抽核模式未覆盖的必要地点必须出现在 `adaptation.cut[].locations`；无来源场景进 review。
+  `cut` / `merge` 的 `locations` 一旦提供必须是非空、无重复且存在的地点 id 数组。
+  借壳跳过地点检查；旧项目缺少场景表进 `source_locations_missing` review。
+  小说和原创场景不要求视频地点 id。此检查在 `production.py` 中读取 source material 后执行。
 
 ## props 叙事道具
 
@@ -92,7 +99,7 @@
 - `sceneIds` / `characterIds` 必填且必须指向已登记的 id；每个角色至少出现一集、每个场景至少用一次
 - `propIds` 可选（写了 `props` 才有意义），必须指向已登记的道具 id；每件道具至少出现一集
 - `characterIds` ≥ 3 的集必须写 `crowdPlan`（同框拆解方案）。**校验按人数判，是代理指标**——如果这一集三人实际不同框（分处不同场次），把这个事实写成方案即可：「三人分处两场，无同框，分场拍」，照样通过
-- `warnings`：梗概里扫到生成难点关键词（雨戏/肢体接触/人群/手部特写）就必须列进来，宁可多报
+- `warnings`：梗概里扫到生成难点关键词（雨戏/肢体接触/人群/手部特写）就必须列进来，宁可多报；每条要点名难点（如「肢体接触：父亲拥抱母亲」），可附说明
 
 ## 校验
 

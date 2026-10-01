@@ -2816,6 +2816,71 @@ def test_parse_mcp_stdio_with_args_and_env(
     assert mcp.env == {"GITHUB_TOKEN": "ghp_xyz"}
 
 
+def test_parse_mcp_stdio_env_passthrough_names_are_not_expanded(
+    agent_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    ``env_passthrough`` parses as a list of variable names that are
+    resolved at spawn time, so a name unset at parse time neither fails
+    the load (as an unset ``${VAR}`` in ``env`` does) nor adds an entry.
+
+    :param agent_dir: Temporary agent directory fixture.
+    :param monkeypatch: Pytest monkeypatch for env vars.
+    """
+    monkeypatch.delenv("CINE_GPU", raising=False)
+    mcp_dir = agent_dir / "tools" / "mcp"
+    mcp_dir.mkdir(parents=True)
+    mcp_config = {
+        "name": "film",
+        "transport": "stdio",
+        "command": "uv",
+        "env_passthrough": ["CINE_GPU", "HF_HOME"],
+    }
+    (mcp_dir / "film.yaml").write_text(yaml.dump(mcp_config))
+    mcp = parse(agent_dir).mcp_servers[0]
+    assert mcp.env_passthrough == ["CINE_GPU", "HF_HOME"]
+    assert mcp.env == {}
+
+
+@pytest.mark.parametrize(
+    ("mcp_config", "message"),
+    [
+        (
+            {"name": "film", "transport": "stdio", "command": "uv", "env_passthrough": "HF_HOME"},
+            r"'env_passthrough' must be a list",
+        ),
+        (
+            {
+                "name": "remote",
+                "transport": "http",
+                "url": "http://mcp.example.com/sse",
+                "env_passthrough": ["HF_HOME"],
+            },
+            r"wrong-transport field",
+        ),
+    ],
+)
+def test_parse_mcp_env_passthrough_rejects_bad_shapes(
+    agent_dir: Path,
+    mcp_config: dict[str, object],
+    message: str,
+) -> None:
+    """
+    A scalar ``env_passthrough``, or one on an HTTP server (which has no
+    subprocess), fails loud at parse time instead of being ignored.
+
+    :param agent_dir: Temporary agent directory fixture.
+    :param mcp_config: The MCP YAML mapping to write.
+    :param message: Expected error pattern.
+    """
+    mcp_dir = agent_dir / "tools" / "mcp"
+    mcp_dir.mkdir(parents=True)
+    (mcp_dir / "bad.yaml").write_text(yaml.dump(mcp_config))
+    with pytest.raises(AgentNexusError, match=message):
+        parse(agent_dir)
+
+
 def test_parse_mcp_stdio_rejects_legacy_sandbox_field(agent_dir: Path) -> None:
     """
     A YAML that still declares ``sandbox: <bool>`` on a stdio MCP

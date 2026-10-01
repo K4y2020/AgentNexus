@@ -383,7 +383,8 @@ def _cache_key(config: MCPServerConfig, cwd: Path | None = None) -> str:
     Invariant: the key contains every config field the SERVER can
     observe — anything that can change what ``tools/list`` returns.
     For stdio that is the spawned command line (``command`` /
-    ``args`` / ``cwd``) and the ``env`` overlay; for HTTP it is the
+    ``args`` / ``cwd``), the ``env`` overlay and the
+    ``env_passthrough`` names; for HTTP it is the
     ``url`` and the request identity (``headers``, and
     ``databricks_profile``, which resolves to an Authorization
     header at connect() time). A server may register different
@@ -409,7 +410,12 @@ def _cache_key(config: MCPServerConfig, cwd: Path | None = None) -> str:
         args_part = shlex.join(config.args) if config.args else ""
         cwd_part = "" if cwd is None else str(cwd)
         env_part = _mapping_digest(config.env)
-        return f"stdio:{config.name}:{config.command}:{args_part}:{cwd_part}:{env_part}"
+        # Variable names, not values: keyed verbatim.
+        passthrough_part = ",".join(config.env_passthrough)
+        return (
+            f"stdio:{config.name}:{config.command}:{args_part}:{cwd_part}:{env_part}"
+            f":{passthrough_part}"
+        )
     headers_part = _mapping_digest(config.headers)
     # databricks_profile resolves to an Authorization header at
     # connect() time, so it is an identity field even though the
@@ -417,6 +423,30 @@ def _cache_key(config: MCPServerConfig, cwd: Path | None = None) -> str:
     # a secret; keyed verbatim.
     profile_part = config.databricks_profile or ""
     return f"http:{config.name}:{config.url}:{profile_part}:{headers_part}"
+
+
+def _stdio_spawn_env(config: MCPServerConfig) -> dict[str, str] | None:
+    """
+    Environment the SDK merges over its default allowlist for a stdio spawn.
+
+    ``None`` leaves the SDK's ``get_default_environment`` allowlist
+    alone. ``env_passthrough`` adds the named parent vars that are
+    set; an unset name stays absent. A non-empty ``env`` overlays
+    author-declared vars (e.g. ``GITHUB_TOKEN``) on the full parent
+    env. Both read a copy without the runner-auth secrets: an MCP
+    server command is spec-author code. A plain dict, so a re-cased
+    secret name cannot match through Windows' case-insensitive
+    ``os.environ``.
+
+    :param config: The stdio MCP server configuration.
+    :returns: Vars for :class:`StdioServerParameters`, or ``None``.
+    """
+    if not (config.env or config.env_passthrough):
+        return None
+    parent = strip_runner_auth_secrets(os.environ)
+    if config.env:
+        return parent | config.env
+    return {name: parent[name] for name in config.env_passthrough if name in parent}
 
 
 def clear_discovery_cache() -> None:
@@ -1082,14 +1112,7 @@ class McpServerConnection:
             command=self.config.command,
             args=list(self.config.args),
             cwd=self.cwd,
-            # ``env=None`` inherits the SDK's ``get_default_environment``
-            # allowlist (no runner-auth secret). The ``config.env`` branch
-            # overlays author-declared vars (e.g. ``GITHUB_TOKEN``) on the
-            # full parent env, so strip the runner tunnel binding token
-            # first: an MCP server command is spec-author code.
-            env=(strip_runner_auth_secrets(os.environ) | self.config.env)
-            if self.config.env
-            else None,
+            env=_stdio_spawn_env(self.config),
         )
         read_stream, write_stream = await stack.enter_async_context(stdio_client(params))
         return read_stream, write_stream

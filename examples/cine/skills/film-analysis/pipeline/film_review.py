@@ -18,12 +18,12 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .attribute_speakers import _find_api_key, open_client
     from .draft_check import story_draft_gaps
+    from .jev_client import _find_api_key, open_client
     from .source_identity import fingerprint_of, transcript_matches_source
 except ImportError:
-    from attribute_speakers import _find_api_key, open_client
     from draft_check import story_draft_gaps
+    from jev_client import _find_api_key, open_client
     from source_identity import fingerprint_of, transcript_matches_source
 from typesafe_sdk import Noul, Score
 
@@ -148,9 +148,7 @@ def review_film_analysis(
         transcript = {}
 
     segments = (transcript.get("segments") or []) if isinstance(transcript, dict) else []
-    lines_sample = [
-        _transcript_line(s) for s in segments if isinstance(s, dict) and s.get("text")
-    ]
+    lines_sample = [_transcript_line(s) for s in segments if isinstance(s, dict) and s.get("text")]
     unsettled = sum(1 for s in segments if isinstance(s, dict) and s.get("needs_review"))
 
     state: dict[str, Any] = {

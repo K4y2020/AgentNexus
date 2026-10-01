@@ -219,9 +219,7 @@ def test_bound_production_refuses_a_transcript_that_is_not_its_film(
     assert row["status"] == "attribution_error"
     assert row["transcript_identity"] == identity
     assert phrase in row["stderr"]
-    assert str(directory / "source-material.json") in {
-        str(Path(p)) for p in row["input_hashes"]
-    }
+    assert str(directory / "source-material.json") in {str(Path(p)) for p in row["input_hashes"]}
 
 
 def test_a_cached_attribution_cannot_bypass_the_identity_check(monkeypatch, tmp_path):
@@ -252,9 +250,7 @@ def test_a_cached_attribution_cannot_bypass_the_identity_check(monkeypatch, tmp_
 def test_the_bound_films_transcript_is_attributed_and_checked(
     monkeypatch, tmp_path, pin, identity
 ):
-    directory = _production(
-        tmp_path, material=_material(), transcript=_transcript(FILM), pin=pin
-    )
+    directory = _production(tmp_path, material=_material(), transcript=_transcript(FILM), pin=pin)
     calls = _stub_jev(monkeypatch)
     monkeypatch.setattr(production.shutil, "which", lambda _name: "node")
     monkeypatch.setattr(
@@ -281,9 +277,7 @@ def test_the_bound_films_transcript_is_attributed_and_checked(
 )
 def test_unbound_productions_still_use_the_transcript(monkeypatch, tmp_path, mode, material):
     """Text-only workflows: no film binding is invented, and the status says so."""
-    directory = _production(
-        tmp_path, mode=mode, material=material, transcript=_transcript(None)
-    )
+    directory = _production(tmp_path, mode=mode, material=material, transcript=_transcript(None))
     calls = _stub_jev(monkeypatch)
     attribution = production.run_attribution(directory)
     assert attribution["status"] == "attributed"
@@ -414,9 +408,7 @@ def test_rebind_source_recovers_a_legacy_pinned_material(monkeypatch, tmp_path, 
     )
 
     # The documented command, through the real CLI. No JEV or validator runs.
-    code = production.main(
-        ["rebind-source", str(directory), "--source-project", str(analysis)]
-    )
+    code = production.main(["rebind-source", str(directory), "--source-project", str(analysis)])
     result = json.loads(capsys.readouterr().out)
     assert code == 0
     assert result["status"] == "source_rebound"
@@ -539,7 +531,7 @@ def _capture_jev_baseline(monkeypatch):
 
     seen = {}
 
-    def gate(stage, paths, *, model, source_text):
+    def gate(stage, _paths, *, source_text, **_kwargs):
         seen["text"] = Path(source_text).read_text(encoding="utf-8") if source_text else None
         return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
 
@@ -555,8 +547,15 @@ def test_jev_compares_the_script_with_the_attributed_transcript(monkeypatch, tmp
         return {
             "model": "mock-jev",
             "attributions": [
-                {"id": s["id"], "text": s["text"], "speaker": "C01", "speaker_name": "A",
-                 "speaker_needs_review": True, "needs_review": True, "delivery": "voiceover"}
+                {
+                    "id": s["id"],
+                    "text": s["text"],
+                    "speaker": "C01",
+                    "speaker_name": "A",
+                    "speaker_needs_review": True,
+                    "needs_review": True,
+                    "delivery": "voiceover",
+                }
                 for s in segments
             ],
         }
@@ -594,13 +593,37 @@ def test_jev_falls_back_to_the_supplied_text_without_a_transcript(monkeypatch, t
 
 def _storyboard_production(tmp_path, *, sheet):
     directory = _production(tmp_path)
-    _write(directory / "cast.json", {"source": "x", "characters": [
-        {"id": "C01", "name": "A", "image": {"sheet": "full sheet" if sheet else ""}}]})
-    _write(directory / "art.json", {"source": "x", "scenes": [
-        {"id": "S01", "name": "Room", "image": {"prompt": "a room"}}]})
-    _write(directory / "script.json", {"source": "x", "episodes": [{"ep": 1, "scenes": [{"sceneId": "S01"}]}]})
-    _write(directory / "storyboard.json", {"source": "x", "episodes": [{"ep": 1, "segments": [
-        {"id": "E01-01", "sceneIndex": 1, "cuts": [{"characters": ["C01"]}]}]}]})
+    _write(
+        directory / "cast.json",
+        {
+            "source": "x",
+            "characters": [
+                {"id": "C01", "name": "A", "image": {"sheet": "full sheet" if sheet else ""}}
+            ],
+        },
+    )
+    _write(
+        directory / "art.json",
+        {"source": "x", "scenes": [{"id": "S01", "name": "Room", "image": {"prompt": "a room"}}]},
+    )
+    _write(
+        directory / "script.json",
+        {"source": "x", "episodes": [{"ep": 1, "scenes": [{"sceneId": "S01"}]}]},
+    )
+    _write(
+        directory / "storyboard.json",
+        {
+            "source": "x",
+            "episodes": [
+                {
+                    "ep": 1,
+                    "segments": [
+                        {"id": "E01-01", "sceneIndex": 1, "cuts": [{"characters": ["C01"]}]}
+                    ],
+                }
+            ],
+        },
+    )
     manifest = json.loads((directory / "production.json").read_text(encoding="utf-8"))
     manifest["artifacts"]["storyboard"] = {"path": "storyboard.json"}
     _write(directory / "production.json", manifest)
@@ -612,7 +635,9 @@ def test_storyboard_reports_a_character_without_a_sheet(monkeypatch, tmp_path):
     _passing_validator(monkeypatch)
     row = production.check_stage(directory, "storyboard")
     assert row["status"] == "assets_missing"
-    assert row["asset_anchors"]["problems"] == ["Character C01 (A) has no image.sheet in cast.json."]
+    assert row["asset_anchors"]["problems"] == [
+        "Character C01 (A) has no image.sheet in cast.json."
+    ]
 
 
 def test_storyboard_with_every_anchor_passes(monkeypatch, tmp_path):
@@ -630,13 +655,15 @@ def test_attribution_questions_are_split_to_fit_the_request_limit():
     batches = []
 
     class Client:
-        def system_one(self, *, state, questions, model):
+        def system_one(self, *, questions, **_kwargs):
             batches.append(list(questions))
             return SimpleNamespace(model="jev-x", answers={name: name for name in questions})
 
     roster = {f"C{i:02d}": "人物描述" * 300 for i in range(8)}
     questions = {f"q{i}": Choice(instructions="谁在说话？", criteria=roster) for i in range(12)}
-    response = attribute_speakers._ask_batched(Client(), {"characters": {}}, questions, "jev-latest")
+    from pipeline.jev_client import _ask_batched
+
+    response = _ask_batched(Client(), {"characters": {}}, questions, "jev-latest")
 
     assert len(batches) > 1
     assert sorted(name for batch in batches for name in batch) == sorted(questions)
@@ -651,7 +678,7 @@ def test_cast_review_sees_the_outline_it_judges_states_against(monkeypatch, tmp_
     _passing_validator(monkeypatch)
     seen = {}
 
-    def gate(stage, paths, *, model, source_text):
+    def gate(stage, paths, **_kwargs):
         seen["paths"] = set(paths)
         return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
 
@@ -717,26 +744,31 @@ def test_teaser_rows_are_left_out_of_the_attributed_baseline(monkeypatch, tmp_pa
     assert [a["text"] for a in saved["attributions"]] == ["你好"]
 
 
-def test_scene_notes_are_placed_without_the_teaser_row(tmp_path):
-    """A teaser row would shift every exchange by one."""
-    directory = _production(tmp_path, transcript=TEASER_TRANSCRIPT)
-    _write(
-        directory / "source-material.json",
-        {
-            "adaptation_story": {
-                "sections": [
-                    {"batch_id": "B001", "events": ["开场"]},
-                    {"batch_id": "B002", "events": ["相遇"]},
-                ]
-            },
-            "adaptation_story_batches": [
-                {"batch_id": "B001", "start_seconds": 0.0, "end_seconds": 30.0},
-                {"batch_id": "B002", "start_seconds": 30.0, "end_seconds": 60.0},
-            ],
-        },
+def test_attribution_cache_records_the_current_vision_model(monkeypatch, tmp_path):
+    directory = _production(tmp_path, transcript=_transcript(None))
+    rows_path = tmp_path / "inputs/source-transcript.json"
+    cast_path = directory / "cast.json"
+    monkeypatch.setattr(production, "vision_model", lambda: "vision-a")
+    first = production.attribution_input_hashes(directory, rows_path, cast_path)
+    monkeypatch.setattr(production, "vision_model", lambda: "vision-b")
+    second = production.attribution_input_hashes(directory, rows_path, cast_path)
+    assert first["vision_model"] == "vision-a" and second["vision_model"] == "vision-b"
+    assert {k: v for k, v in first.items() if k != "vision_model"} == {
+        k: v for k, v in second.items() if k != "vision_model"
+    }
+
+
+def test_person_mapping_model_remains_an_attribution_cache_dependency(tmp_path):
+    directory = _production(tmp_path, transcript=_transcript(None))
+    rows_path = tmp_path / "inputs/source-transcript.json"
+    cast_path = directory / "cast.json"
+    first = production.attribution_input_hashes(
+        directory, rows_path, cast_path, mapper_model="mapper-a"
     )
-
-    production.write_scene_notes(directory)
-
-    notes = json.loads((directory / "scene-notes.json").read_text(encoding="utf-8"))
-    assert notes == {"0": "相遇"}
+    second = production.attribution_input_hashes(
+        directory, rows_path, cast_path, mapper_model="mapper-b"
+    )
+    assert first["person_map_model"] == "mapper-a" and second["person_map_model"] == "mapper-b"
+    assert {k: v for k, v in first.items() if k != "person_map_model"} == {
+        k: v for k, v in second.items() if k != "person_map_model"
+    }

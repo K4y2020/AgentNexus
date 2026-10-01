@@ -6,14 +6,11 @@
 
 ### 表演与时间
 
-切镜时间不等于表演秒表。剧本估时只用于预算；最终 H3 保留真实切点、总时长及明确需要同步的事件，镜内按因果与先后描述连续表演。不将每次眼神、伸手或停顿都补成 From/to 区间。用户指定的音乐踩点、口型和精确动作要求仍须保留，不能为“自然”删掉。动作信息的取舍服从故事，不以少写几个数字作为质量证明。
+切镜时间不等于表演秒表。剧本估时只用于预算；最终 H3 保留真实切点、总时长及明确需要同步的事件，镜内按因果与先后描述连续表演。不将每次眼神、伸手或停顿都补成 From/to 区间。用户指定的音乐踩点、口型和精确动作要求仍须保留，不能为“自然”删掉；后期音乐踩点只约束画面节奏，片段背景配乐仍写 `N/A`，剧内音乐则保留实际声源。动作信息的取舍服从故事，不以少写几个数字作为质量证明。
 
-下面的切点对齐模板供旧制作包 `h3Prompt` 草稿及导出校验使用，不是所有参考模式通用的最终提交格式。走 V3 时交给原生提示词优化器读取实际参考资产及 H3 规范后生成最终输入。
-只有角色图和场景图时使用 Ref2VA 六段式，不得把设定图声明为首帧或切点关键帧。`<Subject N>` 可表示人物或环境，来源图在定义内引用 `<Picture N>`。`retention_analysis` 表示参考内容保留，不是观众留存；开场钩子写入动作时间线。
-Ref2VA 的 `h3Prompt` 必须从 `subject_definitions:` 开始，随后依次且仅一次出现
-`summary:`、`retention_analysis:`、`detailed_description:`、
-`overall_soundscape:`、`non_diegetic_music:`。`detailed_description` 仍按
-`[Shot k]` 和真实累计切点承载本段分镜；不要在前面保留 Picture-to-cut 对齐行。
+**先按参考图的实际来源选格式。** 画布（Cine 制作流程）上的视频卡只连本段的角色三视图和场景概念图，没有逐镜关键帧——一律用下面的 **Ref2VA 六段式**，不得把设定图声明为首帧或切点关键帧。只有真的逐镜出了分镜图、按 Picture 序挂载的导出包，才用后面的**关键帧对齐格式**。
+
+事故记录：一次无人值守运行把“Picture 1 (from Shot 1) aligns with 0.00 s”写进了只连角色图和场景图的卡片——模型会把第一张角色三视图当成第一镜的画面，场景图从头到尾没被提到。`production.py` 现在用 `--ref2va` 校验分镜，这种写法过不了门。
 
 ### 旧制作包语言规则
 
@@ -21,7 +18,34 @@ Ref2VA 的 `h3Prompt` 必须从 `subject_definitions:` 开始，随后依次且�
 - 三样东西保留原文语言（官方规定）：**台词**（`<d>[Chinese] …</d>` 逐字原文，一个标点都不许动，门盯着）、歌词、画面里可见的文字（英文双引号原样引用）
 - `promptLang: 'zh'` 可切整条中文（对齐指令、字段名、镜头标记都有中文版，人名放行）——偏离官方推荐的备选项，实测中文效果不稳就回英文
 
-## 结构（validate 逐字对账的部分）
+## Ref2VA 结构（画布流程，`--ref2va` 逐条对账）
+
+```text
+subject_definitions:
+<Subject 1> — C01, a slight nineteen-year-old woman with two long braids, hugging an old leather suitcase; face, hair and costume come entirely from <Picture 1>.
+<Subject 2> — C03, a hunchbacked ferryman of about seventy; face, build and clothing come entirely from <Picture 2>.
+<Subject 3> — S02, an old wooden ferry pier reaching into dense white fog; layout, materials and lighting come entirely from <Picture 3>.
+
+summary: 一句话写这段发生什么（英文）。
+
+retention_analysis: <Subject 1>, <Subject 2> and <Subject 3> are retained exactly as referenced — the same faces, costumes, environment and lighting. Only the action, the camera and the timing are new.
+
+detailed_description:
+[Shot 1] Cinematic, live-action, … 这几秒发生什么、镜头怎么动、谁说了什么。On screen: <Subject 1>, in <Subject 3>.
+[Shot 2] At 00:03.000, the camera cuts … <d>[Chinese] 台词原文</d> On screen: <Subject 2>, in <Subject 3>.
+
+overall_soundscape: …
+
+non_diegetic_music: N/A
+```
+
+- **一张参考图一个 Subject**：本段场景（剧本场次的 `sceneId`）一个，`cuts[].characters` 里出现过的每个角色各一个；不多不少——画布只会给这段连这些图。编号从 1 连续，按出镜先后写、场景放最后即可；导入画布时会按 Seedance 实际的参考图顺序（画布上卡片的创建顺序，与连线顺序无关）统一重排编号，正文里的 `<Subject N>` 一起改。
+- **定义行写 ID**（`C01`、`S02`），用 `<Subject N> — ` 开头（长破折号），并引用自己的来源图 `<Picture N>`；英文模式正文禁人名，ID 不算人名。导入画布靠 ID 认出这是哪张参考图。
+- **每个 Subject 都要在 `detailed_description` 的镜头行里出现**，场景也一样——定义了却不用，模型照样可能忽略那张图。
+- **承接段（`continuesFrom`）多一张图：上一段的尾帧。** 上一段生成完，画布自动把它的最后一帧接到这一段，它也要定义成一个 Subject，ID 写上一段的段号，只写段号不写角色和场景 ID，并在 `[Shot 1]` 里用上：`<Subject 4> — E01-01, the last frame of the previous segment; positions, framing and light at the opening come entirely from <Picture 4>.`，`[Shot 1] Continuing directly from <Subject 4>, …`。编号放最后，导入时同样按画布重排。不承接的段不写它，画布也不会给它接尾帧。
+- 六个字段各出现一次、按序；`[Shot k]` 切点时刻规则与下面相同；`retention_analysis` 写参考内容保留，不是观众留存；开场钩子写进动作时间线。
+
+## 关键帧对齐结构（仅逐镜出了分镜图的导出包）
 
 ```text
 How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 3.00-second mark of the target video; ….
@@ -33,10 +57,12 @@ integrated_multimodal_description:
 
 overall_soundscape: 1–4 句英文：环境声、动作声、非语言人声。不复述台词。
 
-non_diegetic_music: 1–3 句英文写配器与速度（角色听不见、只有观众听得见）。没有就写 N/A。
+non_diegetic_music: N/A
 ```
 
-中文模式（promptLang=zh）的对应 token：`参考图与目标视频的对齐——` / `整体视听描述：` / `[镜头 k] 于 00:0X.XXX，`，配乐没有写「无」。
+每段背景配乐字段必须精确为 `N/A`，由用户在后期剪辑时统一添加配乐。不要在描述或声景中另写观众背景音乐。剧中人物听得到的收音机、现场演奏、手机外放等音乐仍写在对应镜头的描述里，交代实际声源。
+
+中文模式（promptLang=zh）的对应 token：`参考图与目标视频的对齐——` / `整体视听描述：` / `[镜头 k] 于 00:0X.XXX，` / `非叙事配乐：N/A`；Ref2VA 的六个字段名保持英文，配乐值也固定为 `N/A`。
 
 首行对齐指令和切点时刻**由分镜秒数推导**，改了秒数忘改提示词，validate 当场拦。
 
@@ -54,7 +80,7 @@ non_diegetic_music: 1–3 句英文写配器与速度（角色听不见、只有
 
 ## 声音字段的分工（踩过的坑）
 
-- 台词、歌声、剧内音乐 → 描述字段；环境与动作声 → `overall_soundscape`；配乐 → `non_diegetic_music`
+- 台词、歌声、剧内音乐 → 描述字段；环境与动作声 → `overall_soundscape`；`non_diegetic_music` → 固定 `N/A`，用户后期统一配乐
 - **声景也是动作指令**：画面动作改了，声景必须一起改——声景里写「铜铃在撞击时炸响」，视频就真把撞击演出来
 
 ## 关键帧怎么用

@@ -600,6 +600,26 @@ def test_mcp_http_with_stdio_field_invalid() -> None:
     assert any("not allowed when transport is 'http'" in e.message for e in result.errors)
 
 
+def test_mcp_http_with_env_passthrough_invalid() -> None:
+    """
+    Validator rejects ``env_passthrough`` on an HTTP MCP, which has no
+    subprocess to pass variables to.
+    """
+    spec = _minimal_spec(
+        mcp_servers=[
+            MCPServerConfig(
+                name="remote",
+                transport="http",
+                url="http://mcp.example.com",
+                env_passthrough=["HF_HOME"],
+            )
+        ]
+    )
+    result = validate(spec)
+    assert not result.valid
+    assert any(e.path.endswith(".env_passthrough") for e in result.errors)
+
+
 # ---------------------------------------------------------------------------
 # os_env sandbox combo checks.
 # ---------------------------------------------------------------------------

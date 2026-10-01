@@ -146,6 +146,87 @@ async def test_all_temporal_batches_allow_readiness_without_per_shot_reviews(sto
     assert not result["can_claim_full_audiovisual_analysis"]
 
 
+def write_shot_notes(project, *, status="read"):
+    rev = project / "revisions/r1"
+    shots, rows = [], []
+    for index in range(2):
+        shots.append(
+            {
+                "source_id": "s",
+                "revision_id": "r1",
+                "shot_id": f"s{index}",
+                "interval": {
+                    "in_pts": index * 30,
+                    "out_pts": (index + 1) * 30,
+                    "time_base_num": 1,
+                    "time_base_den": 1,
+                },
+            }
+        )
+        rows.append(
+            {
+                "index": index,
+                "shot_id": f"s{index}",
+                "start": index * 30,
+                "end": (index + 1) * 30,
+                "place": "L1",
+                "what": "大厅中两人交谈",
+            }
+        )
+    write(rev / "source_shots.json", shots)
+    notes = {
+        "schema_version": 1,
+        "source_id": "s",
+        "revision_id": "r1",
+        "model": "vision",
+        "status": status,
+        "shots": rows,
+        "locations": [{"id": "L1"}],
+        "input_sha256": {
+            "source_shots": hashlib.sha256((rev / "source_shots.json").read_bytes()).hexdigest()
+        },
+    }
+    write(rev / "shot_notes.json", notes)
+    return notes
+
+
+async def test_current_shot_notes_allow_story_reading_without_manual_images(story_fixture):
+    client, project, draft, _ = story_fixture
+    write_shot_notes(project)
+    for section in draft["sections"]:
+        section["image_receipt_ids"] = []
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "ready_for_adaptation"
+    assert [section["visual_basis"] for section in result["sections"]] == ["shot_notes"] * 2
+    assert not result["can_claim_full_audiovisual_analysis"]
+
+
+@pytest.mark.parametrize("problem", ["revision", "hash", "time", "unknown", "missing", "failed"])
+async def test_stale_or_unread_shot_notes_do_not_replace_inspected_images(story_fixture, problem):
+    client, project, draft, _ = story_fixture
+    notes = write_shot_notes(project)
+    for section in draft["sections"]:
+        section["image_receipt_ids"] = []
+    write(project / "story/r1.json", draft)
+    if problem == "revision":
+        notes["revision_id"] = "old"
+    elif problem == "hash":
+        notes["input_sha256"]["source_shots"] = "0" * 64
+    elif problem == "time":
+        notes["shots"][0]["end"] = 31
+    elif problem == "unknown":
+        notes["shots"][0]["place"] = "?"
+    elif problem == "missing":
+        notes["shots"].pop()
+    else:
+        notes["status"] = "partial"
+        notes["unread_shots"] = [0]
+    write(project / "revisions/r1/shot_notes.json", notes)
+    result = await verify_report(client, "topic", scope="adaptation")
+    assert result["status"] == "needs_story_completion"
+
+
 @pytest.mark.parametrize("missing", ["section", "ending", "receipt"])
 async def test_missing_plot_scope_does_not_pass(story_fixture, missing):
     client, project, draft, _ = story_fixture

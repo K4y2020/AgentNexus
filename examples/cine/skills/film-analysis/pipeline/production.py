@@ -33,7 +33,7 @@ FREE_ADAPT_MODES = {"借壳"}
 # Documents a stage's JEV review reads beyond its native inputs: whether a
 # character needs a non-default state is decided by the story, not the cast.
 JEV_CONTEXT = {"cast": ("outline",)}
-# Stage whose artifact is a JEV speaker attribution rather than a skill document,
+# Stage whose artifact merges speaker evidence rather than a skill document,
 # so it has no node validator and its inputs are the cast plus the ASR rows.
 ATTRIBUTION_STAGE = "attribution"
 ATTRIBUTION_INPUTS = ("cast",)
@@ -366,12 +366,32 @@ def rebind_source(directory, source_project):
     }
 
 
-def attribution_input_hashes(directory, rows_path, cast_path):
-    """What a cached attribution depends on; scene notes change the answers too."""
+def vision_model():
+    try:
+        from .transcribe import gateway_settings
+    except ImportError:
+        from transcribe import gateway_settings
+    return gateway_settings()[2] or ""
+
+
+def attribution_input_hashes(directory, rows_path, cast_path, *, mapper_model="jev-latest"):
+    """Evidence and identity changes invalidate the same shared attribution."""
     hashes = {"source_transcript": digest(rows_path), "cast": digest(Path(cast_path))}
-    notes = directory / "scene-notes.json"
-    if notes.is_file():
-        hashes["scene_notes"] = digest(notes)
+    hashes["source_material"] = fingerprint(source_material_path(directory))
+    hashes["person_map"] = fingerprint(directory / "person-map.json")
+    hashes["vision_model"] = vision_model()
+    hashes["person_map_model"] = mapper_model
+    for name in (
+        "speaker_evidence.py",
+        "attribute_speakers.py",
+        "person_map.py",
+        "line_judgment.py",
+        "jev_client.py",
+        "people_gate.py",
+        "line_performance.py",
+        "transcribe.py",
+    ):
+        hashes[name] = fingerprint(Path(__file__).with_name(name))
     return hashes
 
 
@@ -393,66 +413,8 @@ def source_material_path(directory):
         return directory / "source-material.json"
 
 
-def write_scene_notes(directory):
-    """Derive scene-notes.json from the exported story draft, placing exchanges by time.
-
-    Attribution without scene setup can credit an address line to the person
-    addressed. Never overwrites an existing file: a written note outranks a
-    derived one.
-    """
-    target = directory / "scene-notes.json"
-    if target.exists():
-        return {"status": "kept", "path": str(target)}
-    material_path = source_material_path(directory)
-    if not material_path.is_file():
-        return {"status": "unavailable", "reason": "no source material"}
-    # A damaged or malformed export raises, saying why, instead of passing as absent.
-    material = read(material_path)
-    story = material.get("adaptation_story") if isinstance(material, dict) else None
-    batches = [b for b in material.get("adaptation_story_batches") or [] if isinstance(b, dict)]
-    sections = {
-        s.get("batch_id"): s for s in (story or {}).get("sections") or [] if isinstance(s, dict)
-    }
-    if not batches or not sections:
-        return {
-            "status": "unavailable",
-            "reason": "source material has no timed story sections; re-export it with handoff.py",
-        }
-    rows_path = next((p for p in source_transcript_candidates(directory) if p.is_file()), None)
-    if rows_path is None:
-        return {"status": "unavailable", "reason": "source-transcript.json not found"}
-    # The transcript is the tool's own output: a stray replacement character from ASR is
-    # not the damage read() refuses.
-    payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
-    segments = spoken_rows(payload.get("segments") if isinstance(payload, dict) else payload)
-    if any(isinstance(s, dict) and s.get("scene") is not None for s in segments or []):
-        return {"status": "unavailable", "reason": "transcript already carries explicit scenes"}
-    try:
-        from .attribute_speakers import _scene_groups
-    except ImportError:  # Direct CLI execution from the pipeline directory.
-        from attribute_speakers import _scene_groups
-
-    notes = {}
-    for index, group in enumerate(_scene_groups(segments or [])):
-        start = float(group[0][1].get("start", 0.0))
-        batch = next(
-            (
-                b
-                for position, b in enumerate(batches)
-                if b["start_seconds"] <= start
-                and (start < b["end_seconds"] or position == len(batches) - 1)
-            ),
-            None,
-        )
-        events = (sections.get(batch["batch_id"]) or {}).get("events") if batch else None
-        if events:
-            notes[str(index)] = "；".join(str(event) for event in events)
-    atomic_json(target, notes)
-    return {"status": "written", "path": str(target), "exchanges": len(notes)}
-
-
 def run_attribution(directory, *, model="jev-latest"):
-    """Assign each ASR utterance to a cast character using JEV.
+    """Merge each utterance's frame reading and bounded context judgment.
 
     The ASR transcript's own speaker labels are unreliable — one segment can
     merge several people under a single label. The video pass identifies the
@@ -482,19 +444,40 @@ def run_attribution(directory, *, model="jev-latest"):
             "transcript": str(rows_path),
             "transcript_identity": identity,
         }
-    segments = spoken_rows(payload.get("segments") if isinstance(payload, dict) else payload)
-    scenes = payload.get("scenes") if isinstance(payload, dict) else None
+    source_rows = payload.get("segments") if isinstance(payload, dict) else payload
+    try:
+        from .transcribe import gateway_settings, split_repaired_rows
+    except ImportError:
+        from transcribe import gateway_settings, split_repaired_rows
+    source_rows = split_repaired_rows(source_rows or [])
+    segments = spoken_rows(source_rows)
     cast = read(Path(cast_path))
-
-    # Scene descriptions let the attribution weigh who is present and what just
-    # happened; without them an address line can be credited to the addressee.
-    if not scenes:
-        scene_source = directory / "scene-notes.json"
-        if scene_source.is_file():
-            notes = read(scene_source)
-            scenes = {int(k): v for k, v in notes.items()} if isinstance(notes, dict) else None
-
-    result = attribute_speakers(segments, cast, scenes=scenes, model=model)
+    try:
+        from .person_map import ensure_person_map
+    except ImportError:
+        from person_map import ensure_person_map
+    material_file = source_material_path(directory)
+    material = read(material_file) if material_file.is_file() else {}
+    notes = (
+        material.get("source_locations")
+        or (payload.get("visual_people") if isinstance(payload, dict) else None)
+        or {}
+    )
+    try:
+        from .line_performance import migrate_performance_inputs
+    except ImportError:
+        from line_performance import migrate_performance_inputs
+    migrate_performance_inputs(notes, segments)
+    mapping = ensure_person_map(directory, notes, cast_path, model=model)
+    result = attribute_speakers(
+        segments,
+        cast,
+        shot_notes=notes,
+        person_map=mapping,
+        model=model,
+        context_rows=source_rows,
+        vision_model=gateway_settings()[2] or "",
+    )
     if "error" in result:
         return {"status": "error", **result}
     if len(result.get("attributions", [])) != len(segments):
@@ -502,7 +485,9 @@ def run_attribution(directory, *, model="jev-latest"):
             "status": "error",
             "reason": "speaker attribution did not cover every transcript segment",
         }
-    result["input_sha256"] = attribution_input_hashes(directory, rows_path, cast_path)
+    result["input_sha256"] = attribution_input_hashes(
+        directory, rows_path, cast_path, mapper_model=model
+    )
     result["transcript_identity"] = identity
     target = directory / "source-transcript-attributed.json"
     atomic_json(target, result)
@@ -534,21 +519,91 @@ def render_attributed_source(directory, attributed):
     them marks a correctly attributed line unfaithful. Unsettled speakers and
     non-spoken delivery stay visible in the label.
     """
-    lines = ["# Source transcript, speakers resolved against the cast (JEV attribution)."]
+    try:
+        from .line_performance import describe as describe_performance
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from line_performance import describe as describe_performance
+
+    lines = ["# Source transcript, speakers resolved against the cast (A/B evidence)."]
     for row in read(attributed).get("attributions", []):
         marks = ["speaker unsettled"] if row.get("speaker_needs_review") else []
         if row.get("delivery") and row.get("delivery") != "spoken":
             marks.append(str(row["delivery"]))
         speaker = row.get("speaker_name") or row.get("speaker") or "?"
         label = f"{speaker} ({', '.join(marks)})" if marks else speaker
-        lines.append(f"[{label}] {row.get('text', '')}")
+        seen = describe_performance(row.get("performance"))
+        lines.append(f"[{label}] {row.get('text', '')}" + (f"  〔画面：{seen}〕" if seen else ""))
     target = directory / ".cine-validation" / "jev" / "source-attributed.txt"
     target.parent.mkdir(parents=True, exist_ok=True)
     _atomic_bytes(target, ("\n".join(lines) + "\n").encode("utf-8"))
     return target
 
 
-def storyboard_asset_anchors(directory, paths):
+def script_performance(directory, paths, attributed, jev_model):
+    """A faithful script's delivery of each line against the emotion the source frames show."""
+    try:
+        from .performance_gate import check_performance
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from performance_gate import check_performance
+
+    rows = read(attributed).get("attributions") or []
+    if not any(row.get("performance") for row in rows):
+        return {"status": "skipped", "reason": "the source transcript records no line performance"}
+    try:
+        return check_performance(
+            read(stage_path(directory, "script")),
+            read(Path(paths["cast"])),
+            rows,
+            model=jev_model,
+            cache_dir=directory / ".cine-validation" / "performance",
+        )
+    except Exception as exc:  # noqa: BLE001 - a broken check is a review item, not a verdict
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+
+
+def stage_locations(directory, stage, paths, input_hashes):
+    """Location checks share the source binding and keep absent inputs in the cache key."""
+    try:
+        from . import location_gate
+        from .source_identity import fingerprint_of
+    except ImportError:
+        import location_gate
+        from source_identity import fingerprint_of
+
+    for name in ("location_gate.py", "performance_gate.py"):
+        path = Path(__file__).with_name(name)
+        input_hashes[str(path)] = fingerprint(path)
+    outline = read(paths["outline"] if stage == "script" else paths[stage])
+    mode = (outline.get("params") or {}).get("adaptMode")
+    if stage == "outline" and mode not in ("忠实", "抽核"):
+        return location_gate.check_outline(outline, None)
+    if stage == "script" and mode != "忠实":
+        return location_gate.check_script(read(paths[stage]), outline, None, None)
+    material_path = source_material_path(directory)
+    input_hashes[str(material_path)] = fingerprint(material_path)
+    material = read(material_path) if material_path.is_file() else None
+    candidates = source_transcript_candidates(directory)
+    input_hashes.update({str(path): fingerprint(path) for path in candidates})
+    rows_path = next((p for p in candidates if p.is_file()), None)
+    rows = None
+    if rows_path is not None:
+        input_hashes[str(rows_path)] = fingerprint(rows_path)
+        payload = json.loads(rows_path.read_text(encoding="utf-8-sig"))
+        expected = fingerprint_of((material or {}).get("source_fingerprint"))
+        if expected is not None and fingerprint_of(payload.get("source_fingerprint")) == expected:
+            rows = payload.get("segments")
+        elif isinstance(material, dict) and isinstance(material.get("source_locations"), dict):
+            material["source_locations"]["transcript_status"] = "mismatch"
+    notes = (material or {}).get("source_locations")
+    if rows is not None and isinstance(notes, dict):
+        notes["transcript_status"] = "matched"
+        location_gate.attach_dialogue(notes, rows)
+    if stage == "outline":
+        return location_gate.check_outline(outline, material)
+    return location_gate.check_script(read(paths[stage]), outline, material, rows)
+
+
+def storyboard_asset_anchors(_directory, paths):
     """Check in code that every referenced character/scene has a sheet or prompt.
 
     Uses the canvas importer's own rule (a byte-identical copy of its module),
@@ -582,6 +637,7 @@ def storyboard_asset_anchors(directory, paths):
         cast_index=anchors._resolve_cast(cast[1], outline),
     )
     return {"status": "missing" if problems else "complete", "problems": problems}
+
 
 def script_path(stage):
     name = STAGES[stage]
@@ -756,7 +812,18 @@ def check_stage(
         row["validator_sha256"] = digest(tool)
         problems = []
         for key in (stage, *INPUTS[stage]):
-            problems.extend(f"{key}: {p}" for p in shape_errors(key, read(paths[key])))
+            try:
+                document = read(paths[key])
+            except json.JSONDecodeError as exc:
+                if key != stage:
+                    raise
+                # The file being written is broken JSON: the agent repairs it, not a person.
+                row.update(
+                    status="invalid_shape",
+                    errors=[f"{key}: {paths[key].name} 不是合法 JSON（{exc}），先修正语法再校验"],
+                )
+                return row
+            problems.extend(f"{key}: {p}" for p in shape_errors(key, document))
         if problems:
             row.update(status="invalid_shape", errors=problems)
             return row
@@ -798,11 +865,14 @@ def check_stage(
                 if problem:
                     row.update(status="attribution_error", stderr=problem)
                     return row
-                expected_hashes = attribution_input_hashes(directory, rows_path, paths["cast"])
+                expected_hashes = attribution_input_hashes(
+                    directory, rows_path, paths["cast"], mapper_model=jev_model
+                )
                 try:
                     current = read(attributed) if attributed.is_file() else {}
                 except (OSError, ValueError):
                     current = {}
+                row["vision_model"] = expected_hashes["vision_model"]
                 if current.get("input_sha256") != expected_hashes:
                     try:
                         attribution = run_attribution(directory, model=jev_model)
@@ -833,7 +903,9 @@ def check_stage(
                 )
                 return row
         if stage == "storyboard":
-            command.append("--no-log")
+            # A production ends on the canvas, where a video card references only the
+            # character sheets and the scene art: the prompt must define and use each one.
+            command.extend(["--no-log", "--ref2va"])
         row["command"] = command
         result = subprocess.run(
             command,
@@ -850,10 +922,73 @@ def check_stage(
             stderr=result.stderr,
             status="passed" if result.returncode == 0 else "failed",
         )
+        if stage == "script" and adapt_mode(directory) == "抽核" and jev_source[0] == "attributed":
+            reviewed = subprocess.run(
+                [*command[:2], "source-review", *command[3:]],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+            if reviewed.returncode:
+                row.update(status="failed", stderr=reviewed.stderr)
+            else:
+                row["source_review"] = json.loads(reviewed.stdout)
+        if stage in ("outline", "script"):
+            row["locations"] = stage_locations(directory, stage, paths, row["input_hashes"])
+            if row["locations"]["status"] == "failed":
+                row.update(status="failed", errors=row["locations"]["blocking"])
+        if stage == "script" and jev_source[0] == "attributed":
+            try:
+                from .people_gate import check_people
+            except ImportError:
+                from people_gate import check_people
+            material_file = source_material_path(directory)
+            material = read(material_file) if material_file.is_file() else {}
+            person_map_file = directory / "person-map.json"
+            mapping = read(person_map_file) if person_map_file.is_file() else {}
+            row["input_hashes"][str(person_map_file)] = fingerprint(person_map_file)
+            for name in (
+                "people_gate.py",
+                "speaker_evidence.py",
+                "person_map.py",
+                "line_judgment.py",
+                "jev_client.py",
+                "attribute_speakers.py",
+                "line_performance.py",
+            ):
+                code = Path(__file__).with_name(name)
+                row["input_hashes"][str(code)] = fingerprint(code)
+            row["people"] = check_people(
+                read(paths[stage]),
+                read(paths["outline"]),
+                material,
+                read(paths["cast"]),
+                mapping,
+                read(jev_source[1]).get("attributions") or [],
+            )
+            if row["people"]["status"] == "failed":
+                row.update(
+                    status="failed", errors=[*row.get("errors", []), *row["people"]["blocking"]]
+                )
         if stage == "storyboard" and row["status"] == "passed":
             row["asset_anchors"] = storyboard_asset_anchors(directory, paths)
             if row["asset_anchors"]["status"] == "missing":
                 row["status"] = "assets_missing"
+        if (
+            stage == "script"
+            and row["status"] == "passed"
+            and jev_source[0] == "attributed"
+            and adapt_mode(directory) == "忠实"
+        ):
+            row["performance"] = script_performance(directory, paths, jev_source[1], jev_model)
+            if row["performance"]["status"] == "failed":
+                row.update(
+                    status="failed",
+                    errors=[*row.get("errors", []), *row["performance"]["blocking"]],
+                )
         if row["status"] == "passed" and (require_jev or advise_jev):
             try:
                 from .jev_gates import run_stage_gate, write_receipt
@@ -883,6 +1018,7 @@ def check_stage(
         if (
             any(fingerprint(Path(p)) != h for p, h in row["input_hashes"].items())
             or digest(tool) != row["validator_sha256"]
+            or ("vision_model" in row and row["vision_model"] != vision_model())
         ):
             row["status"] = "inputs_changed"
     except subprocess.TimeoutExpired as exc:
@@ -929,7 +1065,9 @@ def check(
     for row in rows:
         if row["status"] == "passed":
             try:
-                if any(fingerprint(Path(path)) != h for path, h in row["input_hashes"].items()):
+                if any(
+                    fingerprint(Path(path)) != h for path, h in row["input_hashes"].items()
+                ) or ("vision_model" in row and row["vision_model"] != vision_model()):
                     row["status"] = "inputs_changed"
             except OSError:
                 row["status"] = "inputs_changed"
@@ -1079,7 +1217,10 @@ def main(argv=None):
             parser.add_argument(
                 "--jev-advisory",
                 action="store_true",
-                help="Run the TypeSafe JEV semantic review and report it without blocking any stage.",
+                help=(
+                    "Run the TypeSafe JEV semantic review and report it "
+                    "without blocking any stage."
+                ),
             )
             parser.add_argument(
                 "--require-jev",

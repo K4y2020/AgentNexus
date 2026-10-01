@@ -755,6 +755,12 @@ ok(
   'realistic 却禁 photorealistic 会报错',
 );
 eq(validateCast(CAST, SOURCE, 'zh', 'realistic').length, 0, '样例按 realistic 校验通过');
+const noRender = clone();
+noRender[0].image.sheet = noRender[0].image.sheet.replace(STYLE_PRESETS.realistic.render, '');
+ok(
+  validateCast(noRender, SOURCE, 'zh', 'realistic').some((x) => x.includes(`「${STYLE_PRESETS.realistic.render}」`)),
+  '缺渲染句时报错里写出要逐字包含的那句',
+);
 
 // 同剧角色画风必须一致——模型曾按各自服装/年龄写出四套画风，同框像四个画师
 // 样例已统一，应通过；故意改掉一个角色的 image.style 必须报错；仅空白差异不算不一致

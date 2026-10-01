@@ -2,16 +2,22 @@
 
 import argparse
 import json
+import math
 import os
+import re
+import shutil
 import sys
 import tempfile
+from itertools import pairwise
 from pathlib import Path
 
 try:
+    from . import gpu_runtime as gpu
     from .burned_subtitles import merge_into_transcript, read_burned_subtitles
     from .source_identity import cache_key, media_fingerprint
 except ImportError:  # loaded as a standalone module, outside the package
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gpu_runtime as gpu
     from burned_subtitles import merge_into_transcript, read_burned_subtitles
     from source_identity import cache_key, media_fingerprint
 
@@ -48,7 +54,20 @@ def format_srt_time(sec: float) -> str:
 
 
 def render_plain(rows: list[dict]) -> str:
-    """The human-readable ``.txt`` form of transcript rows."""
+    """The human-readable ``.txt`` form of transcript rows.
+
+    A line whose performance was read from its frames ends with a
+    ``〔画面：…〕`` note: what the faces show while it is spoken.
+    """
+    try:
+        from .line_performance import describe
+    except ImportError:  # loaded as a standalone module
+        from line_performance import describe
+
+    def note(row: dict) -> str:
+        seen = describe(row.get("performance"))
+        return f"  〔画面：{seen}〕" if seen else ""
+
     lines = [
         "# ASR transcript (qualified, not manually verified verbatim)",
         "",
@@ -56,6 +75,7 @@ def render_plain(rows: list[dict]) -> str:
             f"[{row['start']:08.3f}-{row['end']:08.3f}] "
             + (f"[{row['speaker']}] " if row.get("speaker") else "")
             + row["text"]
+            + note(row)
             for row in rows
         ],
         "",
@@ -211,6 +231,36 @@ def _looks_like_name_list(text: str) -> bool:
     return all(len(t) <= 6 for t in tokens)
 
 
+def gateway_settings() -> tuple[str | None, str | None, str | None]:
+    """The AgentNexus gateway's chat endpoint base, key and default model.
+
+    Environment variables win; ``~/.agentnexus/config.yaml`` fills what they leave out.
+    """
+    config_path = Path.home() / ".agentnexus/config.yaml"
+    base_url = os.environ.get("AGENTNEXUS_GATEWAY_URL") or os.environ.get("OPENAI_BASE_URL")
+    api_key = os.environ.get("AGENTNEXUS_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    model_id = os.environ.get("AGENTNEXUS_TRANSCRIBE_MODEL")
+
+    if config_path.is_file() and (not base_url or not api_key or not model_id):
+        try:
+            import yaml
+
+            data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+            providers = data.get("providers", {})
+            for p in providers.values():
+                if isinstance(p, dict):
+                    oa = p.get("openai") or p.get("anthropic")
+                    if isinstance(oa, dict):
+                        base_url = base_url or oa.get("base_url")
+                        api_key = api_key or oa.get("api_key")
+                        models = oa.get("models")
+                        if isinstance(models, dict):
+                            model_id = model_id or models.get("default")
+        except Exception:  # noqa: BLE001 — optional local config
+            pass
+    return base_url, api_key, model_id
+
+
 def llm_refine_transcript(
     rows: list[dict],
     context_summary: str | None = None,
@@ -238,29 +288,7 @@ def llm_refine_transcript(
         return rows
     import urllib.request
 
-    config_path = Path.home() / ".agentnexus/config.yaml"
-    base_url = os.environ.get("AGENTNEXUS_GATEWAY_URL") or os.environ.get("OPENAI_BASE_URL")
-    api_key = os.environ.get("AGENTNEXUS_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    model_id = os.environ.get("AGENTNEXUS_TRANSCRIBE_MODEL")
-
-    if config_path.is_file() and (not base_url or not api_key or not model_id):
-        try:
-            import yaml
-
-            data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-            providers = data.get("providers", {})
-            for p in providers.values():
-                if isinstance(p, dict):
-                    oa = p.get("openai") or p.get("anthropic")
-                    if isinstance(oa, dict):
-                        base_url = base_url or oa.get("base_url")
-                        api_key = api_key or oa.get("api_key")
-                        models = oa.get("models")
-                        if isinstance(models, dict):
-                            model_id = model_id or models.get("default")
-        except Exception:  # noqa: BLE001 — optional local config
-            pass
-
+    base_url, api_key, model_id = gateway_settings()
     if not base_url or not api_key or not model_id:
         if report is not None:
             report["error"] = "no refinement model configured"
@@ -287,9 +315,8 @@ def llm_refine_transcript(
         attribution_rules = (
             "3. 只做文本修复，不要判断也不要改动说话人——说话人字段原样保留。"
             "不要合并条目；没有拆分的条目保持起止时间不变，只替换 text 字段。\n"
-            "4. 一条里明显是不同人物的几句话（抢话、对答被识别进同一条）时，按语义边界拆成多条："
-            "只在原条目的起止范围内切分时间，拆出的每条 speaker 写「说话人未标注」，"
-            "拼起来的文字必须仍是原话。拿不准就不要拆。\n"
+            "4. 一条里有几句话时补上句末标点，仍保留同一条及原起止时间；不要猜切点。"
+            "程序会依据原逐词时间戳或 ASR 分段拆句，再分别判断说话人。\n"
             "5. 必须仅返回标准的 JSON 数组，格式为："
             '[{"start": 0.0, "end": 0.92, "speaker": "原样保留", "text": "校对后台词。"}]'
         )
@@ -379,6 +406,14 @@ def _accepted_refinement(rows: list[dict], refined, *, speakers: bool) -> list[d
         if not _same_words(original.get("text", ""), "".join(str(p["text"]) for p in pieces)):
             kept.append(original)
             continue
+        if "timing_words" in original or "timing_segments" in original:
+            texts = [str(p["text"]).strip() for p in pieces]
+            timed = _timed_pieces(original, texts)
+            if timed is None:
+                kept.append({**original, "text": "".join(texts), "sentence_boundary_review": True})
+            else:
+                kept.extend(timed)
+            continue
         for piece in pieces:
             kept.append(
                 {
@@ -412,12 +447,19 @@ def _pieces_per_row(rows: list[dict], refined: list[dict]) -> list[list[dict]] |
     index = 0
     for piece in refined:
         start, end = float(piece["start"]), float(piece["end"])
-        while index < len(rows) and start >= float(rows[index]["end"]) - _TIME_TOLERANCE and groups[index]:
+        while (
+            index < len(rows)
+            and start >= float(rows[index]["end"]) - _TIME_TOLERANCE
+            and groups[index]
+        ):
             index += 1
         if index >= len(rows):
             return None
         row = rows[index]
-        if start < float(row["start"]) - _TIME_TOLERANCE or end > float(row["end"]) + _TIME_TOLERANCE:
+        if (
+            start < float(row["start"]) - _TIME_TOLERANCE
+            or end > float(row["end"]) + _TIME_TOLERANCE
+        ):
             return None
         if groups[index] and start < float(groups[index][-1]["end"]) - _TIME_TOLERANCE:
             return None
@@ -444,7 +486,133 @@ def _same_words(original: str, joined: str) -> bool:
     if not a or not b:
         return False
     low, high = _SPLIT_LENGTH_RATIO
-    return low <= len(b) / len(a) <= high and SequenceMatcher(None, a, b).ratio() >= _SPLIT_MIN_SIMILARITY
+    return (
+        low <= len(b) / len(a) <= high
+        and SequenceMatcher(None, a, b).ratio() >= _SPLIT_MIN_SIMILARITY
+    )
+
+
+SENTENCE_SPLITTING = "timed_sentence_boundaries_v1"
+
+
+def _word_chars(text):
+    return "".join(ch for ch in str(text) if ch.isalnum())
+
+
+def _timed_pieces(row, texts):
+    """Only cut at a recorded unit boundary with matching text on both sides."""
+    from difflib import SequenceMatcher
+
+    joined = "".join(texts)
+    if joined != str(row.get("text") or "") and not _same_words(row.get("text", ""), joined):
+        return None
+    repaired = _word_chars(joined)
+    offsets = []
+    count = 0
+    for text in texts[:-1]:
+        count += len(_word_chars(text))
+        offsets.append(count)
+    for key in ("timing_words", "timing_segments"):
+        units = [u for u in row.get(key) or [] if _word_chars(u.get("text", u.get("word", "")))]
+        if len(units) < 2:
+            continue
+        try:
+            if any(not math.isfinite(float(u[k])) for u in units for k in ("start", "end")) or any(
+                float(u["start"]) >= float(u["end"]) for u in units
+            ):
+                continue
+            if any(float(a["end"]) > float(b["start"]) for a, b in pairwise(units)):
+                continue
+        except (KeyError, TypeError, ValueError):
+            continue
+        original = "".join(_word_chars(u.get("text", u.get("word", ""))) for u in units)
+        if not _same_words(original, joined):
+            continue
+        matches = {}
+        for block in SequenceMatcher(
+            None, original, repaired, autojunk=False
+        ).get_matching_blocks():
+            for i in range(block.size):
+                matches[block.b + i] = block.a + i
+        boundaries = {}
+        length = 0
+        for left, right in pairwise(units):
+            length += len(_word_chars(left.get("text", left.get("word", ""))))
+            boundaries[length] = (float(left["end"]), float(right["start"]))
+        cuts = []
+        for offset in offsets:
+            left, right = matches.get(offset - 1), matches.get(offset)
+            if left is None or right != left + 1 or right not in boundaries:
+                break
+            end, start = boundaries[right]
+            if not float(row["start"]) < end <= start < float(row["end"]):
+                break
+            cuts.append((end, start))
+        if len(cuts) != len(offsets):
+            continue
+        intervals = zip(
+            [float(row["start"]), *(c[1] for c in cuts)],
+            [*(c[0] for c in cuts), float(row["end"])],
+            strict=True,
+        )
+        pieces = []
+        for i, (text, (start, end)) in enumerate(zip(texts, intervals, strict=True)):
+            if start >= end:
+                break
+            piece = {
+                **row,
+                "text": text,
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "split": True,
+                "split_timing": key,
+            }
+            piece.pop("sentence_boundary_review", None)
+            # Evidence for a whole row cannot certify either half's speaker.
+            for field in (
+                "performance",
+                "judgment",
+                "evidence",
+                "attribution_confidence",
+                "attribution_evidence",
+                "needs_review",
+                "speaker_needs_review",
+                "delivery_needs_review",
+                "delivery",
+                "delivery_confidence",
+                "review_reasons",
+            ):
+                piece.pop(field, None)
+            if row.get("attribution_confidence") is not None:
+                piece["speaker"] = UNLABELED_SPEAKER
+            if row.get("id"):
+                piece.update(id=f"{row['id']}.{i + 1}", split_from=row["id"])
+            pieces.append(piece)
+        if len(pieces) == len(texts):
+            return pieces
+    return None
+
+
+def split_repaired_rows(rows):
+    """Redistribute exact repaired text before speaker inference; never guess time."""
+    result = []
+    for row in rows:
+        text = str(row.get("text") or "")
+        chunks = re.findall(r".*?(?:[。！？!?]+|…{2,}|—{2,})|.+$", text, flags=re.DOTALL)
+        texts = []
+        for chunk in chunks:
+            if _word_chars(chunk):
+                texts.append(chunk)
+            elif texts:
+                texts[-1] += chunk
+        if len(texts) < 2 or "".join(texts) != text:
+            result.append(row)
+            continue
+        pieces = _timed_pieces(row, texts)
+        result.extend(
+            pieces if pieces is not None else [{**row, "sentence_boundary_review": True}]
+        )
+    return result
 
 
 def serialize_transcript(
@@ -459,6 +627,7 @@ def serialize_transcript(
     source_fingerprint: dict | None = None,
     burned: dict | None = None,
 ) -> tuple[str, str, str]:
+    segments = list(segments)
     rows = []
     PUNCT_SPLIT = set("。！？!?；;\n")
 
@@ -505,6 +674,18 @@ def serialize_transcript(
             if clean_asr_text(item.text)
         ]
 
+    for row in rows:
+        row["timing_words"] = [
+            {"word": w["word"], "start": w["start"], "end": w["end"]}
+            for w in all_words
+            if w["start"] < row["end"] and w["end"] > row["start"]
+        ]
+        row["timing_segments"] = [
+            {"text": item.text, "start": float(item.start), "end": float(item.end)}
+            for item in segments
+            if item.start < row["end"] and item.end > row["start"]
+        ]
+
     refinement = "not_requested"
     refinement_error = None
     if llm_refine:
@@ -528,6 +709,7 @@ def serialize_transcript(
             **({"error": burned["error"]} if burned.get("error") else {}),
         }
 
+    rows = split_repaired_rows(rows)
     payload = {
         "schema_version": 1,
         "kind": "qualified_asr_transcript",
@@ -538,6 +720,7 @@ def serialize_transcript(
         # verbatim; only a check against the audio by a person could.
         "verbatim_certified": False,
         "text_refinement": refinement,
+        "sentence_splitting": SENTENCE_SPLITTING,
         **({"text_refinement_error": refinement_error} if refinement_error else {}),
         **({"burned_subtitles": burned_summary} if burned_summary else {}),
         "segments": rows,
@@ -552,6 +735,30 @@ def serialize_transcript(
         render_plain(rows),
         render_srt(rows),
     )
+
+
+def _cpu_transcribe(audio: Path, model: str, language: str | None, initial_prompt: str | None):
+    from faster_whisper import WhisperModel
+
+    engine = WhisperModel(model, device="cpu", compute_type="int8")
+    options = {"language": language, "vad_filter": True, "word_timestamps": True}
+    if initial_prompt:
+        options["initial_prompt"] = initial_prompt
+    return engine.transcribe(str(audio), **options)
+
+
+def _gpu_ready(acceleration: dict) -> bool:
+    """True when the GPU environment is set up and healthy; a broken one is reported once."""
+    state = gpu.status()
+    if state["state"] == "broken":
+        note = f"GPU environment unusable ({state.get('detail')}); run gpu_setup.py --check"
+        if note not in acceleration["fallbacks"]:
+            acceleration["fallbacks"].append(note)
+    return state["state"] == "ready"
+
+
+def _gpu_failed(acceleration: dict, step: str, error: Exception) -> None:
+    acceleration["fallbacks"].append(f"{step}: {error}")
 
 
 def transcribe(
@@ -575,12 +782,16 @@ def transcribe(
     fingerprint = media_fingerprint(media)
 
     audio_to_transcribe = media
+    # What ran where; "fallbacks" says why a GPU step was redone on the CPU.
+    acceleration: dict = {"separation": "off", "asr": "cpu", "fallbacks": []}
     if separate_vocals:
         # Keyed by the source's identity: a separation cached for another video
         # in this workspace (even one with the same file name) is never reused.
         sep_root = _inside(workspace, workspace / "inputs" / "separated" / cache_key(fingerprint))
         vocals_file = sep_root / "htdemucs" / "audio" / "vocals.wav"
-        if not vocals_file.is_file():
+        if vocals_file.is_file():
+            acceleration["separation"] = "cached"
+        else:
             import subprocess
 
             # Extract audio first
@@ -603,31 +814,53 @@ def transcribe(
                 capture_output=True,
                 stdin=subprocess.DEVNULL,
             )
-            subprocess.run(
-                [
-                    "uv", "run", "--with", "demucs", "--with", "torch", "--with", "numpy<2",
-                    "demucs", "--two-stems", "vocals", "-n", "htdemucs",
-                    "-o", str(sep_root), str(tmp_audio),
-                ],
-                check=True,
-                capture_output=True,
-                stdin=subprocess.DEVNULL,
-            )
+            acceleration["separation"] = "cpu"
+            if _gpu_ready(acceleration):
+                try:
+                    gpu.separate_vocals(tmp_audio, sep_root)
+                    acceleration["separation"] = "gpu"
+                except gpu.GpuUnavailable as exc:
+                    _gpu_failed(acceleration, "vocal separation", exc)
+                    # A half-written stem must not pass for the real one.
+                    shutil.rmtree(sep_root / "htdemucs", ignore_errors=True)
+            if acceleration["separation"] != "gpu":
+                subprocess.run(
+                    [
+                        "uv",
+                        "run",
+                        "--with",
+                        "demucs",
+                        "--with",
+                        "torch",
+                        "--with",
+                        "numpy<2",
+                        "demucs",
+                        "--two-stems",
+                        "vocals",
+                        "-n",
+                        "htdemucs",
+                        "-o",
+                        str(sep_root),
+                        str(tmp_audio),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    stdin=subprocess.DEVNULL,
+                )
         if vocals_file.is_file():
             audio_to_transcribe = vocals_file
 
-    from faster_whisper import WhisperModel
-
-    engine = WhisperModel(model, device="cpu", compute_type="int8")
-    transcribe_kwargs = {
-        "language": language,
-        "vad_filter": True,
-        "word_timestamps": True,
-    }
-    if initial_prompt:
-        transcribe_kwargs["initial_prompt"] = initial_prompt
-
-    segments, info = engine.transcribe(str(audio_to_transcribe), **transcribe_kwargs)
+    segments = info = None
+    if _gpu_ready(acceleration):
+        try:
+            segments, info = gpu.transcribe(
+                audio_to_transcribe, model=model, language=language, initial_prompt=initial_prompt
+            )
+            acceleration["asr"] = "gpu"
+        except gpu.GpuUnavailable as exc:
+            _gpu_failed(acceleration, "speech recognition", exc)
+    if segments is None:
+        segments, info = _cpu_transcribe(audio_to_transcribe, model, language, initial_prompt)
     burned = read_burned_subtitles(media, language=language) if burned_subtitles else None
     json_text, plain_text, srt_text = serialize_transcript(
         list(segments),
@@ -664,6 +897,7 @@ def transcribe(
         "burned_subtitles": json.loads(json_text).get("burned_subtitles"),
         "source_fingerprint": fingerprint,
         "srt_mirror": mirror,
+        "acceleration": acceleration,
     }
 
 
@@ -702,7 +936,7 @@ def main() -> None:
         "--text-only-refine",
         action="store_true",
         default=False,
-        help="Repair text only; leave speaker labels for JEV attribution.",
+        help="Repair text only; leave speaker labels for frame and context attribution.",
     )
     args = parser.parse_args()
     context = None

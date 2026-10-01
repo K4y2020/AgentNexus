@@ -287,6 +287,19 @@ async def test_shared_server_reused_across_different_specs(
     assert len(snapshot["specs"]) == 2
 
 
+def test_env_passthrough_separates_server_and_spec_hashes() -> None:
+    """Stdio configs differing only in ``env_passthrough`` never share a process.
+
+    The names decide which parent variables the subprocess sees.
+    """
+    plain = MCPServerConfig(name="jira", transport="stdio", command="python")
+    gated = MCPServerConfig(
+        name="jira", transport="stdio", command="python", env_passthrough=["JIRA_READONLY"]
+    )
+    assert compute_server_hash(plain) != compute_server_hash(gated)
+    assert compute_spec_hash([plain]) != compute_spec_hash([gated])
+
+
 @pytest.mark.asyncio
 async def test_invalid_tool_name_is_filtered(
     patch_connection: dict[str, Any],

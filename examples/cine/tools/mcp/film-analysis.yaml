@@ -33,3 +33,11 @@ args:
   - pyyaml
   - python
   - tools/mcp/film_analysis_server.py
+# The GPU switches and model caches the pipeline reads, taken from the host when
+# set and absent otherwise. Do not add `env:` for these: a non-empty `env` hands
+# the server the runner's whole environment, provider keys included.
+env_passthrough:
+  - CINE_GPU
+  - CINE_GPU_ENV
+  - HF_HOME
+  - TORCH_HOME

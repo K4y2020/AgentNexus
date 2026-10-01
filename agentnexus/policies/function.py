@@ -165,6 +165,11 @@ class FunctionPolicy(Policy):
         if callable(reset_fn):
             reset_fn()
 
+    @property
+    def needs_trajectory(self) -> bool:
+        """A callable asks for ``event["trajectory"]`` with ``needs_trajectory = True``."""
+        return getattr(self._callable, "needs_trajectory", False) is True
+
     async def _call(
         self,
         ctx: EvaluationContext,
@@ -250,6 +255,8 @@ def _build_event(ctx: EvaluationContext) -> PolicyEvent:
     }
     if ctx.request_data is not None:
         event["request_data"] = ctx.request_data
+    if ctx.trajectory is not None:
+        event["trajectory"] = ctx.trajectory
     return cast(PolicyEvent, event)
 
 

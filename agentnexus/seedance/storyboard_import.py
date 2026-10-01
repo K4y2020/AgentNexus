@@ -448,6 +448,11 @@ def align_h3_prompt_to_references(
                 f"environment {ident}; layout, materials and lighting come entirely "
                 f"from <Picture {idx}>."
             )
+        elif kind == "frame":
+            desc = (
+                f"{ident}, the last frame of the previous segment; positions, framing and "
+                f"light at the opening come entirely from <Picture {idx}>."
+            )
         else:
             clean_lbl = re.sub(r"[一-鿿]", "", label).strip(" ·-_")
             desc = (
@@ -570,15 +575,34 @@ async def align_prompt_with_references(
     ref_entities: dict[str, tuple[str, str]] | None = None,
     judge=None,
     issues: list[str] | None = None,
+    frame_ids: tuple[str, ...] = (),
 ) -> str:
-    """Align a prompt, asking JEV about subjects the project documents cannot name."""
+    """Align a prompt, asking JEV about subjects the project documents cannot name.
+
+    ``frame_ids`` are the segments whose last frame this card continues from: a
+    subject that names one of them is that frame (``("frame", id)``), not a
+    character or scene.
+    """
     issues = issues if issues is not None else []
     subjects = _subject_definitions(prompt)
     if not subjects:
+        images = [r for r in actual_refs if (r.get("kind") or "image") == "image"]
+        if images:
+            # Without subject definitions the references are unnamed: a keyframe
+            # alignment line would pass a character sheet off as a shot's frame.
+            labels = ", ".join(str(r.get("label") or r.get("id") or "?") for r in images)
+            issues.append(
+                f"The prompt defines no <Subject N>, so none of the card's {len(images)} "
+                f"reference images ({labels}) is tied to it; rewrite it in Ref2VA form."
+            )
         return prompt
     matched: dict[int, tuple[str, str]] = {}
     unresolved = {}
     for num, desc in subjects.items():
+        frame = next((f for f in frame_ids if _term_pattern(f.lower()).search(desc.lower())), None)
+        if frame:
+            matched[num] = ("frame", frame)
+            continue
         kind, ident = _identify_subject_entity(desc, cast_doc, art_doc)
         if kind == "unknown" or ident is None:
             unresolved[num] = desc
@@ -607,6 +631,49 @@ async def align_prompt_with_references(
         subject_entities=matched,
         issues=issues,
     )
+
+
+_IMAGE_NODE_TYPES = ("image", "image_prompt", "lookdev")
+
+
+def planned_image_references(snapshot: dict, card_id: str) -> list[dict]:
+    """The image references a video card will generate with, once every source has its image.
+
+    Seedance numbers <Picture N> in canvas node order (not edge order) and lists only
+    sources that already have media, so before the sheets are generated it reports
+    none. This is the same selection without the media requirement.
+    """
+    nodes = [n for n in snapshot.get("nodes") or [] if isinstance(n, dict)]
+    card = next((n for n in nodes if n.get("id") == card_id), {})
+    data = card.get("data") if isinstance(card.get("data"), dict) else {}
+    excluded = {i for i in data.get("excludedReferenceIds") or [] if isinstance(i, str)}
+    sources = {
+        e.get("from") or e.get("source")
+        for e in snapshot.get("edges") or []
+        if isinstance(e, dict) and card_id in (e.get("to"), e.get("target"))
+    }
+    planned: list[dict] = []
+    for node in nodes:
+        ref_id = f"node:{node.get('id')}"
+        label = str(node.get("title") or "")
+        if (
+            node.get("id") == card_id
+            or node.get("id") not in sources
+            or node.get("type") not in _IMAGE_NODE_TYPES
+            or ref_id in excluded
+            or any(p["label"] == label for p in planned)  # Seedance keeps one per label
+        ):
+            continue
+        planned.append({"id": ref_id, "label": label, "kind": "image"})
+    return planned
+
+
+def _references_for_alignment(actual: list[dict], planned: list[dict]) -> list[dict]:
+    """Align against the planned order while some connected sheet has no image yet."""
+    images = [r for r in actual if (r.get("kind") or "image") == "image"]
+    if len(images) >= len(planned):
+        return actual
+    return [*planned, *(r for r in actual if (r.get("kind") or "image") != "image")]
 
 
 def _prompt_edited_on_canvas(data: dict) -> bool:
@@ -666,6 +733,77 @@ async def _ensure_node_binding(client, project_id, node_id, stage, pointer) -> N
     result = await client.submit_command(project_id, command)
     if not result.get("accepted"):
         raise ProductionRejected("CINE_IMPORT_BINDING_REJECTED", {"node_id": node_id})
+
+
+def _position(node: dict) -> tuple[float, float]:
+    position = (node.get("data") or {}).get("position") or node.get("position") or {}
+    return float(position.get("x") or 0), float(position.get("y") or 0)
+
+
+async def _continuation_frame(
+    client, project_id, previous: dict, card_id: str
+) -> tuple[dict, dict]:
+    """The image node that will hold ``previous``'s last frame for this card.
+
+    Seedance fills a node carrying these two ids when ``previous`` finishes
+    generating, instead of making a new one; creating it now fixes the frame's
+    place among the card's references, so its <Picture N> is known before it exists.
+    Returns the node and the latest snapshot.
+    """
+    snapshot = await client.get_snapshot(project_id)
+    for node in snapshot.get("nodes", []):
+        data = node.get("data") or {}
+        if (
+            node.get("type") == "image"
+            and data.get("continuationSourceNodeId") == previous["id"]
+            and data.get("continuationTargetNodeId") == card_id
+        ):
+            return node, snapshot
+    card = next((n for n in snapshot.get("nodes", []) if n.get("id") == card_id), {})
+    (px, py), (cx, cy) = _position(previous), _position(card)
+    title = f"{(previous.get('title') or '').strip()} 尾帧"[:120]
+    return await _create_target(
+        client,
+        project_id,
+        node_type="image",
+        title=title,
+        data={
+            "position": {"x": round((px + cx) / 2 - 160), "y": round(min(py, cy) - 80)},
+            "description": "等上一段生成后自动填入它的最后一帧，这一段从这一帧接着拍。",
+            "continuationSourceNodeId": previous["id"],
+            "continuationTargetNodeId": card_id,
+        },
+    )
+
+
+def _asset_id(node: dict) -> str | None:
+    """The character or scene an importer-made asset card holds, else None."""
+    data = node.get("data") or {}
+    return data.get("characterId") or data.get("sceneId") or None
+
+
+async def _exclude_references(client, project_id, card_id, add: set, remove: set) -> None:
+    """Keep references this card no longer uses out of it: stray last frames, moved assets."""
+    snapshot = await client.get_snapshot(project_id)
+    node = next((n for n in snapshot.get("nodes", []) if n.get("id") == card_id), None)
+    if node is None:
+        return
+    data = node.get("data") or {}
+    current = [i for i in data.get("excludedReferenceIds") or [] if isinstance(i, str)]
+    wanted = [i for i in current if i not in remove] + sorted(add - set(current))
+    if wanted == current:
+        return
+    command = {
+        "type": "canvas.update_node",
+        "nodeId": card_id,
+        "patch": {"data": {**data, "excludedReferenceIds": wanted}},
+        "commandId": f"cine-frame-refs-{uuid.uuid4().hex[:8]}",
+    }
+    if snapshot.get("revision") is not None:
+        command["expectedRevision"] = snapshot["revision"]
+    result = await client.submit_command(project_id, command)
+    if not result.get("accepted"):
+        raise ProductionRejected("CINE_IMPORT_FRAME_REFERENCES_REJECTED", {"node_id": card_id})
 
 
 async def _connect_once(client, project_id, edges: set, source, target, kind, tag) -> None:
@@ -975,11 +1113,15 @@ async def import_storyboard(
             # Each episode's cards derive from its own storyboard node and form
             # their own sequence; nothing chains across episode boundaries.
             sb_node_id = episode_nodes.get(str(ep.get("ep")))
-            prev_card_id = None
+            prev_card_id = prev_seg_id = None
             for seg_index, seg in enumerate(ep.get("segments", [])):
                 seg_id = seg.get("id")
                 if not seg_id:
                     continue
+                # Picks up from the previous segment's last frame, which Seedance
+                # attaches to this card once that segment is generated.
+                continues = bool(prev_card_id) and seg.get("continuesFrom") == prev_seg_id
+                continued_from = prev_seg_id if continues else None
                 pointer = f"/episodes/{ep_index}/segments/{seg_index}/h3Prompt"
                 cuts = seg.get("cuts", [])
                 dur_sec = round(sum(c.get("seconds", 0) for c in cuts), 1)
@@ -1008,6 +1150,9 @@ async def import_storyboard(
                     "promptProvenance": None,
                     "production_stage": "storyboard",
                     "production_pointer": pointer,
+                    "continuesFrom": continued_from,
+                    # Seedance attaches the previous segment's last frame only when true.
+                    "lastFrameContinuation": continues,
                 }
 
                 existing = video_cards.get(seg_id)
@@ -1072,7 +1217,60 @@ async def import_storyboard(
                     await _connect_once(
                         client, bound, edges, prev_card_id, card_id, "sequence", f"seq-{seg_id}"
                     )
-                prev_card_id = card_id
+                frame_entities: dict[str, tuple[str, str]] = {}
+                frame_ref = None
+                if continues:
+                    previous = await client.get_snapshot(bound)
+                    prev_node = next(
+                        (n for n in previous.get("nodes", []) if n.get("id") == prev_card_id), None
+                    )
+                    if prev_node is None:
+                        raise ProductionRejected(
+                            "CINE_IMPORT_PREVIOUS_CARD_MISSING", {"segment": seg_id}
+                        )
+                    frame, _ = await _continuation_frame(client, bound, prev_node, card_id)
+                    await _connect_once(
+                        client, bound, edges, frame["id"], card_id, "references", f"lf-{seg_id}"
+                    )
+                    frame_ref = f"node:{frame['id']}"
+                    frame_entities = {frame_ref: ("frame", continued_from)}
+                wanted = {
+                    char_nodes[cid]["id"] for cid in segment_characters if cid in char_nodes
+                } | ({snode["id"]} if snode else set())
+                snapshot = await client.get_snapshot(bound)
+                linked = {
+                    e.get("from")
+                    for e in snapshot.get("edges") or []
+                    if isinstance(e, dict)
+                    and e.get("to") == card_id
+                    and e.get("kind") == "references"
+                }
+                # A re-import that moved a segment leaves its old cast, scene and
+                # frame edges behind; only the importer's own asset cards are dropped.
+                stale = {
+                    f"node:{n['id']}"
+                    for n in snapshot.get("nodes", [])
+                    if f"node:{n['id']}" != frame_ref
+                    and (
+                        (
+                            n.get("type") == "image"
+                            and (n.get("data") or {}).get("continuationTargetNodeId") == card_id
+                        )
+                        or (
+                            n["id"] in linked
+                            and n["id"] not in wanted
+                            and _asset_id(n) is not None
+                        )
+                    )
+                }
+                await _exclude_references(
+                    client,
+                    bound,
+                    card_id,
+                    stale,
+                    {f"node:{i}" for i in wanted} | ({frame_ref} if frame_ref else set()),
+                )
+                prev_card_id, prev_seg_id = card_id, seg_id
 
                 # Read actual canvas references and align H3 prompt <Picture N> tags
                 # strictly with canvas
@@ -1080,6 +1278,11 @@ async def import_storyboard(
                     client, "get_node_references"
                 ):
                     actual_refs = await client.get_node_references(bound, card_id)
+                    if isinstance(actual_refs, list):
+                        actual_refs = _references_for_alignment(
+                            actual_refs,
+                            planned_image_references(await client.get_snapshot(bound), card_id),
+                        )
                     if isinstance(actual_refs, list) and actual_refs:
                         current_prompt = card_data.get("prompt", "")
                         alignment_issues: list[str] = []
@@ -1088,18 +1291,22 @@ async def import_storyboard(
                             actual_refs,
                             cast_view,
                             art_doc,
-                            ref_entities=_reference_entities(
-                                [
-                                    *curr_nodes.values(),
-                                    *char_nodes.values(),
-                                    *scene_nodes.values(),
-                                ],
-                                referenced_scenes,
-                                legacy_scene_nodes,
-                                ambiguous_scene_indexes,
-                            ),
+                            ref_entities={
+                                **_reference_entities(
+                                    [
+                                        *curr_nodes.values(),
+                                        *char_nodes.values(),
+                                        *scene_nodes.values(),
+                                    ],
+                                    referenced_scenes,
+                                    legacy_scene_nodes,
+                                    ambiguous_scene_indexes,
+                                ),
+                                **frame_entities,
+                            },
                             judge=subject_judge,
                             issues=alignment_issues,
+                            frame_ids=(continued_from,) if continued_from else (),
                         )
                         if alignment_issues:
                             alignment_review.append(

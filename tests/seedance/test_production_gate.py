@@ -13,6 +13,7 @@ from agentnexus.seedance.client import SeedanceError
 from agentnexus.seedance.production_gate import (
     ProductionRejected,
     assert_current,
+    native_checker,
     storyboard_state_requirements,
     validate_submission,
 )
@@ -446,3 +447,16 @@ async def test_missing_binding_fields_cannot_use_old_generation_route():
         )
     assert result["error_code"] == "CINE_PRODUCTION_STAGE_REQUIRED"
     v3.submit_command.assert_not_called()
+
+
+def test_the_checker_resolves_its_sibling_modules_outside_the_package(tmp_path, monkeypatch):
+    pipeline = tmp_path / "skills/film-analysis/pipeline"
+    pipeline.mkdir(parents=True)
+    (pipeline / "gate_sibling_probe.py").write_text("VALUE = 7\n", encoding="utf-8")
+    (pipeline / "production.py").write_text(
+        "def sibling():\n    from gate_sibling_probe import VALUE\n    return VALUE\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("sys.path", list(__import__("sys").path))
+
+    assert native_checker(tmp_path / "skills").sibling() == 7

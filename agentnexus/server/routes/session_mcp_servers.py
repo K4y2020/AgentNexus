@@ -438,7 +438,7 @@ def _body_to_file_yaml(
         result["command"] = body.command
         if body.args:
             result["args"] = body.args
-        _preserve_keys(result, existing, ("env", "timeout", "retry"))
+        _preserve_keys(result, existing, ("env", "env_passthrough", "timeout", "retry"))
     return result
 
 

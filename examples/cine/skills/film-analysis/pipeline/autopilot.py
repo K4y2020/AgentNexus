@@ -73,12 +73,43 @@ class _Run:
         }
 
 
+def _location_inputs(directory: Path, stage: str) -> list[Path]:
+    if stage not in ("outline", "script"):
+        return []
+    return [
+        prod.source_material_path(directory),
+        Path(prod.__file__).with_name("location_gate.py"),
+        Path(prod.__file__).with_name("performance_gate.py"),
+    ]
+
+
 def _dependencies(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, str | None]:
     """Files whose change must re-open a passed stage."""
     paths = [Path(p) for p in row.get("input_hashes", {})]
-    if stage == "script":
-        paths.append(directory / "scene-notes.json")
+    paths.extend(_required_inputs(directory, stage))
     return {str(p): prod.fingerprint(p) for p in paths}
+
+
+def _required_inputs(directory: Path, stage: str) -> list[Path]:
+    paths = _location_inputs(directory, stage)
+    paths.append(prod.script_path(stage))
+    if stage == "script":
+        paths.append(directory / "person-map.json")
+        paths.extend(
+            Path(prod.__file__).with_name(name)
+            for name in (
+                "speaker_evidence.py",
+                "people_gate.py",
+                "person_map.py",
+                "attribute_speakers.py",
+                "line_judgment.py",
+                "jev_client.py",
+                "line_performance.py",
+            )
+        )
+        paths.extend(prod.source_transcript_candidates(directory))
+        paths.append(directory / "source-transcript-attributed.json")
+    return paths
 
 
 def _still_current(recorded: dict[str, str | None] | None) -> bool:
@@ -137,8 +168,39 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
         ]
         if unsettled:
             found["attribution"].append(
-                {"severity": "review", "reason": "speaker_unsettled", "detail": {"lines": unsettled}}
+                {
+                    "severity": "review",
+                    "reason": "speaker_unsettled",
+                    "detail": {"lines": unsettled},
+                }
             )
+    performance = row.get("performance") or {}
+    people = row.get("people") or {}
+    found["people"] = [
+        {"severity": "review", "reason": item["reason"], "detail": item}
+        for item in people.get("review") or []
+    ]
+    found["people"].extend(
+        {"severity": "review", "reason": "source_speaker_review", "detail": {"message": message}}
+        for message in (row.get("source_review") or {}).get("bad", {}).get("review", [])
+    )
+    locations = row.get("locations") or {}
+    found["locations"] = [
+        {"severity": "review", "reason": item["reason"], "detail": item}
+        for item in locations.get("review") or []
+    ]
+    found["performance"] = [
+        {"severity": "review", "reason": "performance_differs", "detail": item}
+        for item in performance.get("review") or []
+    ]
+    if performance.get("status") == "unavailable":
+        found["performance"].append(
+            {
+                "severity": "review",
+                "reason": "performance_unchecked",
+                "detail": {"error": performance.get("error") or performance.get("errors")},
+            }
+        )
     anchors = row.get("asset_anchors") or {}
     if anchors.get("status") in ("unavailable", "error"):
         found["assets"].append(
@@ -155,19 +217,23 @@ def _escalate(
         "file": str(file) if file else None,
         "sha": prod.fingerprint(file) if file else None,
     }
-    run.set_items(stage, "controller", [{"severity": "blocking", "reason": reason, "detail": detail}])
+    run.set_items(
+        stage, "controller", [{"severity": "blocking", "reason": reason, "detail": detail}]
+    )
     run.save()
-    return {"action": "escalate", "stage": stage, "reason": reason, "detail": detail, **run.summary()}
+    return {
+        "action": "escalate",
+        "stage": stage,
+        "reason": reason,
+        "detail": detail,
+        **run.summary(),
+    }
 
 
 def _refuse_damaged_inputs(directory: Path) -> None:
     """Stop at the first call, not an hour in, when the text a run is built on is damaged."""
     for path, remedy in (
         (prod.source_material_path(directory), "export it again with `handoff.py --output`"),
-        (
-            directory / "scene-notes.json",
-            "delete it; `next` derives it again from the source material",
-        ),
     ):
         if path.is_file():
             try:
@@ -215,11 +281,14 @@ def next_step(
                 prod.seed(directory, stage)
             except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
                 return _escalate(run, stage, "seed_failed", str(exc), None)
-        if _still_current(record.get("passed_inputs")):
+        recorded = record.get("passed_inputs") or {}
+        model_current = stage != "script" or record.get("vision_model") == prod.vision_model()
+        if (
+            model_current
+            and _still_current(recorded)
+            and all(str(path) in recorded for path in _required_inputs(directory, stage))
+        ):
             continue
-        if stage == "script":
-            record["scene_notes"] = prod.write_scene_notes(directory)
-
         row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
         if row["status"] in TECHNICAL:
             row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
@@ -228,6 +297,7 @@ def next_step(
                 record.setdefault("history", []).append({"status": "passed"})
             record.update(
                 passed_inputs=_dependencies(directory, stage, row),
+                vision_model=prod.vision_model() if stage == "script" else None,
                 failed_versions=[],
                 unchanged=0,
             )
@@ -273,6 +343,33 @@ def next_step(
 
     storyboard = prod.stage_path(directory, "storyboard")
     run.save()
+    if prod.adapt_mode(directory) == "忠实":
+        try:
+            from .people_gate import used_unsettled
+        except ImportError:
+            from people_gate import used_unsettled
+        attributed = _read_json(directory / "source-transcript-attributed.json", {})
+        uncertain = used_unsettled(
+            prod.read(prod.stage_path(directory, "script")), attributed.get("attributions") or []
+        )
+        if uncertain:
+            run.set_items(
+                "script",
+                "speakers",
+                [
+                    {"severity": "review", "reason": "speaker_unsettled", "detail": item}
+                    for item in uncertain
+                ],
+            )
+            run.save()
+            return {
+                "action": "human_review_speakers",
+                "stage": "script",
+                "lines": uncertain,
+                **run.summary(),
+            }
+        run.set_items("script", "speakers", [])
+        run.save()
     if run.state.get("canvas_synced", {}).get("sha") == prod.digest(storyboard):
         return {"action": "done", **run.summary()}
     return {
@@ -283,7 +380,8 @@ def next_step(
             "storyboard_file": str(storyboard),
             "script_file": str(prod.stage_path(directory, "script")),
         },
-        "after": "run production.py next with --canvas-synced <receipt file> once the import succeeds",
+        "after": "run production.py next with --canvas-synced <receipt file> "
+        "once the import succeeds",
         **run.summary(),
     }
 
@@ -292,9 +390,25 @@ def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
     """Mark the current storyboard as imported, keyed by its hash."""
     directory = Path(directory).resolve()
     run = _Run(directory)
+    recorded = _read_json(receipt, None)
     run.state["canvas_synced"] = {
         "sha": prod.digest(prod.stage_path(directory, "storyboard")),
-        "receipt": _read_json(receipt, None),
+        "receipt": recorded,
     }
+    # Cards whose prompt could not be tied to their reference images must not be
+    # generated as they are: the model would take a character sheet for a shot.
+    body = recorded if isinstance(recorded, dict) else {}
+    review = body.get("subject_alignment_review")
+    if review is None and isinstance(body.get("receipt"), dict):
+        review = body["receipt"].get("subject_alignment_review")
+    run.set_items(
+        "storyboard",
+        "canvas",
+        [
+            {"severity": "blocking", "reason": "prompt_references_unaligned", "detail": item}
+            for item in review or []
+            if isinstance(item, dict)
+        ],
+    )
     run.save()
     return next_step(directory, jev=False)

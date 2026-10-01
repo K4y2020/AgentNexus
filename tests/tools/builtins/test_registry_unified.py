@@ -42,6 +42,14 @@ def test_builtin_names_excludes_request_approval() -> None:
     assert "request_approval" not in BUILTIN_NAMES
 
 
+def test_camera_evidence_is_not_reserved_or_exported() -> None:
+    assert "cine_camera_evidence" not in BUILTIN_NAMES
+    assert "cine_camera_evidence" not in INSTANTIABLE_BUILTINS
+    assert get_builtin_tool("cine_camera_evidence") is None
+    assert "CineCameraEvidenceTool" not in _builtins_pkg.__all__
+    assert not hasattr(_builtins_pkg, "CineCameraEvidenceTool")
+
+
 def test_builtin_names_includes_framework_owned_tools() -> None:
     """web_fetch, list_comments, and update_comment
     are framework-owned (need runtime context, not instantiated
@@ -126,7 +134,6 @@ def test_builtin_names_size_matches_registry() -> None:
                 "seedance_agent_message",
                 "seedance_read_canvas",
                 "seedance_edit_canvas",
-                "cine_camera_evidence",
                 "cine_jev_judge",
                 "sys_os_view_image",
                 "save_teammate_memory",

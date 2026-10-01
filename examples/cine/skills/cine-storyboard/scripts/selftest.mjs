@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CAMERA_MOVES,
+  castView,
   continuityReport,
   DEFAULT_PARAMS,
   DEFAULT_STYLE,
@@ -22,6 +23,10 @@ import {
   GATE_LOG,
   gateLogEntries,
   gateReport,
+  identifySubject,
+  entityTerms,
+  ref2vaReferenceProblems,
+  subjectDefinitions,
   summarizeGateLog,
   h3AlignmentLine,
   h3CutSlices,
@@ -41,6 +46,8 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = JSON.parse(readFileSync(join(here, '../examples/渡口-storyboard.json'), 'utf8'));
+// 同一集的关键帧模式版本（首帧对齐行，Picture k = 第 k 镜的分镜图）：独立导出投产包用
+const KEYFRAMES = JSON.parse(readFileSync(join(here, '../references/test-fixtures/渡口-storyboard-keyframes.json'), 'utf8'));
 const SCRIPT = JSON.parse(readFileSync(join(here, '../../cine-script/examples/渡口-script.json'), 'utf8'));
 const OUTLINE = JSON.parse(readFileSync(join(here, '../../cine-outline/examples/渡口-outline.json'), 'utf8'));
 const CAST = JSON.parse(readFileSync(join(here, '../../cine-characters/examples/渡口-cast.json'), 'utf8'));
@@ -147,7 +154,7 @@ eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可
 /* ---------------- 质量门：全绿基线 ---------------- */
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带全部上游全部门通过');
-eq(gateReport(FIXTURE, CTX).length, 19, '十九道门');
+eq(gateReport(FIXTURE, CTX).length, 20, '二十道门');
 
 /* ---------------- 连续性 A/B：旧模式放过，新合同指出断点 ---------------- */
 {
@@ -384,9 +391,14 @@ eq(gateReport(FIXTURE, CTX).length, 19, '十九道门');
 }
 // h3-structure — 对齐指令由分镜结构推导，逐字对账
 {
-  const doc = clone(FIXTURE);
+  const doc = clone(KEYFRAMES);
   doc.episodes[0].segments[0].cuts[0].seconds = 4; // 时长改了、提示词没跟着改
   ok(gate(doc, 'h3-structure').detail.includes('对不上'), '分镜秒数一改，旧对齐指令立刻对不上');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].cuts[0].seconds = 4;
+  ok(gate(doc, 'h3-structure').detail.includes('[Shot 2] At 00:04.000,'), 'Ref2VA：分镜秒数一改，切点时刻立刻对不上');
 }
 {
   const doc = clone(FIXTURE);
@@ -397,10 +409,63 @@ eq(gateReport(FIXTURE, CTX).length, 19, '十九道门');
   ok(g.detail.includes('切点时刻'), '报出哪一处时刻错了');
 }
 {
-  const doc = clone(FIXTURE);
+  const doc = clone(KEYFRAMES);
   const seg = doc.episodes[0].segments[0];
   seg.h3Prompt = seg.h3Prompt.replace('overall_soundscape:', 'ambient_sound:');
   ok(gate(doc, 'h3-structure').detail.includes('核心字段'), '三字段缺失被拦');
+}
+{
+  const doc = clone(FIXTURE);
+  const seg = doc.episodes[0].segments[0];
+  seg.h3Prompt = seg.h3Prompt.replace('retention_analysis:', 'retention:');
+  ok(gate(doc, 'h3-structure').detail.includes('Ref2VA 六个字段'), 'Ref2VA 字段缺失被拦');
+}
+// 背景配乐由用户后期添加；关键帧和 Ref2VA 共用此生产门。
+for (const fixture of [FIXTURE, KEYFRAMES]) {
+  for (const value of ['Soft orchestral score.', 'None', '无', 'n/a', 'N/A.', 'N/A\nExtra instructions.', '']) {
+    const doc = clone(fixture);
+    doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace(/non_diegetic_music:[\s\S]*$/, `non_diegetic_music: ${value}`);
+    ok(gate(doc, 'h3-structure').detail.includes('背景配乐'), `配乐值「${value}」被生产门拦住`);
+    ok(validateStoryboard(doc, CTX).some((p) => p.includes('背景配乐')), 'validate 同样拒绝片段配乐');
+  }
+  for (const suffix of ['\nnon_diegetic_music: N/A', '\n非叙事配乐：N/A']) {
+    const doc = clone(fixture);
+    doc.episodes[0].segments[0].h3Prompt += suffix;
+    ok(gate(doc, 'h3-structure').detail.includes('背景配乐'), '重复或中英混写配乐字段被拦');
+  }
+  for (const replacement of ['No music field.', 'inline non_diegetic_music: N/A']) {
+    const doc = clone(fixture);
+    doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace('non_diegetic_music: N/A', replacement);
+    ok(gate(doc, 'h3-structure').detail.includes('背景配乐'), '缺少独立配乐字段被拦');
+  }
+  const doc = clone(fixture);
+  doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace('non_diegetic_music: N/A', 'non_diegetic_music:\n  N/A \r\n');
+  ok(gate(doc, 'h3-structure').ok, 'N/A 字段值允许前后空白和换行');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace('[Shot 1]', '[Shot 1] A portable radio plays a waltz that the characters can hear.');
+  ok(gate(doc, 'h3-structure').ok, '镜头中的剧内声源音乐保留，片段配乐仍为 N/A');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.promptLang = 'zh';
+  for (const seg of doc.episodes[0].segments) {
+    seg.h3Prompt = seg.h3Prompt.replace(/\[Shot (\d+)\]/g, '[镜头 $1]').replace(/\] At ([\d:.]+),/g, '] 于 $1，');
+  }
+  ok(gate(doc, 'h3-structure').ok, '中文 Ref2VA 保持英文配乐字段与 N/A');
+}
+{
+  const doc = clone(KEYFRAMES);
+  doc.promptLang = 'zh';
+  for (const seg of doc.episodes[0].segments) {
+    seg.h3Prompt = seg.h3Prompt.replace(h3AlignmentLine(seg.cuts), h3AlignmentLine(seg.cuts, 'zh'))
+      .replace('integrated_multimodal_description:', '整体视听描述：')
+      .replace('overall_soundscape:', '整体音景：')
+      .replace('non_diegetic_music:', '非叙事配乐：')
+      .replace(/\[Shot (\d+)\]/g, '[镜头 $1]').replace(/\] At ([\d:.]+),/g, '] 于 $1，');
+  }
+  ok(gate(doc, 'h3-structure').ok, '中文关键帧提示词使用中文配乐字段与 N/A');
 }
 // h3-dialogue
 {
@@ -657,7 +722,7 @@ eq(GATE_LOG, '.gates.jsonl', '日志文件名固定');
 /* ---------------- exportPack（H3 投产包） ---------------- */
 
 {
-  const pack = exportPack(FIXTURE, SCRIPT, { imageExists: () => false });
+  const pack = exportPack(KEYFRAMES, SCRIPT, { imageExists: () => false });
   eq(pack.files.length, 11, '十段 prompt.md + 一份 manifest');
   ok(pack.files.some((f) => f.path === 'E01-01/prompt.md'), '每段一个文件夹里的 prompt.md');
   const p01 = pack.files.find((f) => f.path === 'E01-01/prompt.md');
@@ -748,7 +813,7 @@ const md = renderMarkdown(FIXTURE, CTX);
 ok(md.includes('# 渡口 · 分镜（第 1 集）'), 'md 标题');
 ok(md.includes('### E01-01 · 渡口栈桥（浓雾清晨）'), 'md 段头带场景名与光照');
 ok(md.includes('H3 视频提示词'), 'md 带逐段 H3 提示词');
-ok(md.includes('How the reference pictures align'), '多分镜段的对齐指令完整可复制');
+ok(md.includes('subject_definitions:') && md.includes('<Subject 4> — S02'), 'Ref2VA 的参考定义完整可复制');
 ok(md.includes('[Shot 2] At 00:03.000,'), '切点时刻原样进 md');
 ok(md.includes('老周'), 'md 说话人显示名字');
 ok(md.includes('生成批次单') && md.includes('配音对齐单'), 'md 带两张工单');
@@ -763,7 +828,7 @@ ok(html.includes('分镜节奏带'), '01 分镜节奏带');
 ok(html.includes('分集分镜表'), '02 分集分镜表');
 ok(html.includes('生成批次单'), '03 生成批次单');
 ok(html.includes('配音对齐单'), '04 配音对齐单');
-ok(html.includes('✓ 质量门 19 / 19'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 20 / 20'), '页眉徽章全绿');
 ok(html.includes('class="rseg"'), '节奏带按段分组（粗分隔）');
 ok(html.includes('#seg-E01-01'), '节奏带段可跳转');
 ok(html.includes('主分镜图 · #1 未生成'), '主分镜图缺图时显示占位不装有');
@@ -781,7 +846,7 @@ ok(html.includes('展开全部段'), '每集自带展开按钮');
 ok(html.includes('H3 提示词'), '段卡带 H3 提示词面板');
 ok(html.includes('class="duo"'), '分镜列表与提示词面板五五分栏');
 ok(html.includes('static shot'), '英文提示词正文进面板');
-ok(html.includes('integrated_multimodal_description'), '官方骨架字段进面板');
+ok(html.includes('detailed_description'), '官方骨架字段进面板');
 ok(html.includes('[Shot 2] At'), '逐镜换行的结构化正文进面板');
 ok(html.includes('分镜图提示词'), '每个分镜带分镜图提示词复制按钮');
 ok(html.includes('id="lightbox"'), '点图放大');
@@ -823,7 +888,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('<html lang="en">'), 'en 报告的 html lang 属性跟着语言走');
   ok(en.includes('Export JSON'), 'en 界面：导出按钮英文');
-  ok(en.includes('Quality gates 19 / 19'), 'en 界面：页眉徽章英文');
+  ok(en.includes('Quality gates 20 / 20'), 'en 界面：页眉徽章英文');
   ok(en.includes('Cut rhythm strip'), 'en 界面：节奏带节标题英文');
   ok(en.includes('Segment cards'), 'en 界面：分镜表节标题英文');
   ok(en.includes('Generation batches'), 'en 界面：批次节标题英文');
@@ -832,7 +897,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   ok(!en.includes('导出 JSON'), 'en 界面不残留中文导出按钮');
   ok(!en.includes('生成批次单'), 'en 界面不残留中文批次标题');
   ok(!en.includes('配音对齐单'), 'en 界面不残留中文对齐标题');
-  ok(en.includes('How the reference pictures align'), 'en 界面下 H3 提示词数据原样不动');
+  ok(en.includes('subject_definitions:'), 'en 界面下 H3 提示词数据原样不动');
   ok(en.includes('[Shot 2] At 00:03.000,'), 'en 界面下切点时刻数据原样不动');
 }
 {
@@ -893,4 +958,117 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   ok(renderMarkdown(doc, CTX).includes('| ots-shot-reverse |'), '不挂卡库时配方列退回裸 id');
   ok(renderMarkdown(FIXTURE, CTX).includes('| — |'), '没引用配方的切在配方列写 —');
 }
+/* ---------------- Ref2VA 参考对账（画布模式 --ref2va） ---------------- */
+{
+  const REF = { ...CTX, ref2va: true };
+  const skipped = gate(FIXTURE, 'h3-references');
+  ok(skipped.ok && skipped.detail.includes('--ref2va'), '不开 --ref2va 时参考对账门跳过并说明');
+
+  // 真实事故：画布连了角色三视图和场景图，提示词却写首帧对齐行，场景一次没提
+  const legacy = gate(KEYFRAMES, 'h3-references', REF);
+  ok(!legacy.ok && legacy.detail.includes('Ref2VA 六段式'), '画布模式下首帧对齐格式被拦');
+  ok(gateReport(FIXTURE, REF).every((g) => g.ok), '样例（Ref2VA）在画布模式下全部门通过');
+
+  // 把 E01-01（场景 S02；角色 C01、C03、C04）改成 Ref2VA
+  const defs = [
+    '<Subject 1> — C01, a young woman in a plain qipao; face, hair and costume come from <Picture 1>.',
+    '<Subject 2> — C03, the weathered old ferryman; appearance comes from <Picture 2>.',
+    '<Subject 3> — C04, the middle-aged peddler; appearance comes from <Picture 3>.',
+    '<Subject 4> — S02, the foggy wooden pier; layout, materials and light come from <Picture 4>.',
+  ];
+  const toRef2va = (h3, subjectLines = defs, uses = true) => {
+    let body = h3.slice(h3.indexOf('integrated_multimodal_description:')).replace('integrated_multimodal_description:', 'detailed_description:');
+    if (uses) {
+      body = body
+        .replace('\n[Shot 2]', ' <Subject 1> runs past <Subject 4>.\n[Shot 2]')
+        .replace('\n[Shot 4]', ' <Subject 2> calls out.\n[Shot 4]')
+        .replace('\n\noverall_soundscape:', ' <Subject 3> hurries on.\n\noverall_soundscape:');
+    }
+    return `subject_definitions:\n${subjectLines.join('\n')}\nsummary: A girl reaches a fogbound pier as the ferry calls.\nretention_analysis: <Subject 1>, <Subject 2>, <Subject 3> and <Subject 4> are retained exactly as referenced.\n${body}`;
+  };
+  const withSeg1 = (h3) => {
+    const doc = clone(KEYFRAMES);
+    doc.episodes[0].segments[0].h3Prompt = h3;
+    return doc;
+  };
+  const seg1 = KEYFRAMES.episodes[0].segments[0];
+  const good = withSeg1(toRef2va(seg1.h3Prompt));
+  const goodGate = gate(good, 'h3-references', REF);
+  ok(!goodGate.detail.includes('E01-01'), 'Ref2VA 定义了场景和全部出镜角色并用上：本段通过');
+  ok(gate(good, 'h3-structure', REF).ok, 'Ref2VA 版本仍过 H3 结构门');
+  ok(gate(good, 'camera-phrase', REF).ok && gate(good, 'h3-dialogue', REF).ok, 'Ref2VA 版本运镜和台词门照过');
+  ok(gate(good, 'prompt-no-names', REF).ok, 'Subject 写 ID 不触发英文禁人名');
+
+  const noScene = gate(withSeg1(toRef2va(seg1.h3Prompt, defs.slice(0, 3)).replace(/ <Subject 4>/g, '').replace(' and <Subject 4>', '')), 'h3-references', REF);
+  ok(noScene.detail.includes('E01-01 画布上这段连了场景 S02 的参考图'), '漏定义场景被拦（本次事故）');
+
+  const unused = gate(withSeg1(toRef2va(seg1.h3Prompt, defs, false)), 'h3-references', REF);
+  ok(unused.detail.includes('<Subject 4>（场景 S02）在 detailed_description 里一次都没用上'), '定义了场景但正文没用上被拦');
+
+  const noId = [...defs];
+  noId[3] = '<Subject 4> — the foggy wooden pier; layout comes from <Picture 4>.';
+  ok(gate(withSeg1(toRef2va(seg1.h3Prompt, noId)), 'h3-references', REF).detail.includes('<Subject 4> 要写明它是哪个角色、场景或哪一段的尾帧'), '定义不写 ID 被拦');
+
+  const noPic = [...defs];
+  noPic[1] = '<Subject 2> — C03, the weathered old ferryman.';
+  ok(gate(withSeg1(toRef2va(seg1.h3Prompt, noPic)), 'h3-references', REF).detail.includes('<Subject 2> 的定义里要引用它的来源图'), '定义不引用 <Picture N> 被拦');
+
+  const extra = [...defs, '<Subject 5> — C02, a young man; appearance comes from <Picture 5>.'];
+  const extraGate = gate(withSeg1(toRef2va(seg1.h3Prompt, extra).replace(' <Subject 3> hurries on.', ' <Subject 3> hurries on. <Subject 5> waits.')), 'h3-references', REF);
+  ok(extraGate.detail.includes('<Subject 5> 是角色 C02，但画布上这一段不会连它的参考图'), '定义本段不连的角色被拦');
+
+  const twice = [...defs];
+  twice[2] = '<Subject 3> — C03 again; appearance comes from <Picture 3>.';
+  ok(gate(withSeg1(toRef2va(seg1.h3Prompt, twice)), 'h3-references', REF).detail.includes('<Subject 2> 和 <Subject 3> 都是角色 C03'), '两个 Subject 同一实体被拦');
+
+  // 导入端同一规则：没 id 的角色卡按名字挂到大纲 ID；C1 不命中 C10；两个实体共用的词不算
+  const view = castView(CAST, OUTLINE);
+  ok(view.characters.some((c) => c.id === 'C01' && c.name === '沈知微'), '无 id 的角色卡按名字挂到大纲 ID');
+  const terms = entityTerms({ characters: [{ id: 'C1', name: 'Ann' }, { id: 'C10', name: 'Bo' }] }, { scenes: [{ id: 'S1', name: 'Ann' }] });
+  eq(identifySubject('C10 in the rain', terms), 'char:C10', 'ID 整词匹配：C1 不命中 C10');
+  eq(identifySubject('Ann by the door', terms), null, '两个实体共用的名字谁也不代表');
+  eq(subjectDefinitions('subject_definitions:\n<Subject 1> — a\n<Subject 2> — b\nsummary: x').size, 2, 'subject 定义行按编号解析');
+  ok(ref2vaReferenceProblems('X', 'subject_definitions:\n<Subject 2> — C1 from <Picture 1>\nsummary: s\ndetailed_description: <Subject 2>', ['char:C1'], terms).some((p) => p.includes('从 1 起连续编号')), 'Subject 编号不从 1 起被拦');
+}
+
+/* ---------------- 承接上一段的尾帧（continuesFrom） ---------------- */
+{
+  // 画布上一段生成完，Seedance 把它的最后一帧挂到下一段：承接段的提示词必须把它定义成 Subject
+  const REF = { ...CTX, ref2va: true };
+  const FRAME = '<Subject 5> — E01-01, the last frame of the previous segment; positions, framing and light at the opening come entirely from <Picture 5>.';
+  const withSeg2 = (edit) => {
+    const doc = clone(FIXTURE);
+    const seg = doc.episodes[0].segments[1];
+    seg.continuesFrom = 'E01-01';
+    edit(seg, doc);
+    return doc;
+  };
+  const addFrame = (seg, use = 'first') => {
+    seg.h3Prompt = seg.h3Prompt.replace('\n\nsummary:', `\n${FRAME}\n\nsummary:`);
+    if (use === 'first') seg.h3Prompt = seg.h3Prompt.replace('\n[Shot 2]', ' It continues directly from <Subject 5>.\n[Shot 2]');
+    if (use === 'later') seg.h3Prompt = seg.h3Prompt.replace('\n[Shot 3]', ' Echoing <Subject 5>.\n[Shot 3]');
+  };
+
+  const missing = gate(withSeg2(() => {}), 'h3-references', REF);
+  ok(missing.detail.includes('E01-02 画布上这段连了上一段 E01-01 的尾帧 的参考图'), '承接段没定义尾帧 Subject 被拦');
+
+  const good = withSeg2((seg) => addFrame(seg));
+  ok(!gate(good, 'h3-references', REF).detail.includes('E01-02'), '尾帧定义成 Subject 并在 [Shot 1] 用上：本段通过');
+  ok(gate(good, 'continuity', REF).ok, '承接紧挨着的同场上一段：连续性门通过');
+
+  const later = gate(withSeg2((seg) => addFrame(seg, 'later')), 'h3-references', REF);
+  ok(later.detail.includes('要在 [Shot 1] 里用上'), '尾帧只在后面的镜头用上被拦');
+
+  const stray = gate(withSeg2((seg, doc) => { delete seg.continuesFrom; addFrame(seg); }), 'h3-references', REF);
+  ok(stray.detail.includes('是上一段 E01-01 的尾帧，但画布上这一段不会连它的参考图'), '不承接却定义尾帧 Subject 被拦');
+
+  const wrongId = gate(withSeg2((seg) => { seg.continuesFrom = 'E01-05'; }), 'continuity', REF);
+  ok(!wrongId.ok && wrongId.detail.includes('只能写紧挨着的上一段 E01-01'), 'continuesFrom 写的不是上一段被拦');
+
+  const crossScene = clone(FIXTURE);
+  crossScene.episodes[0].segments[3].continuesFrom = 'E01-03';
+  const cross = gate(crossScene, 'continuity', REF);
+  ok(!cross.ok && cross.detail.includes('换了场次（1 → 2）'), '跨场承接被拦');
+}
+
 console.log(`✓ ${passed} 项自测全部通过`);

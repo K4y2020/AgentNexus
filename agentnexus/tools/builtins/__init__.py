@@ -35,7 +35,6 @@ from agentnexus.tools.builtins.async_inbox import (
     SysCancelAsyncTool,
     SysReadInboxTool,
 )
-from agentnexus.tools.builtins.cine_camera_evidence import CineCameraEvidenceTool
 from agentnexus.tools.builtins.cine_jev_judge import CineJevJudgeTool
 from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
 from agentnexus.tools.builtins.list_comments import ListCommentsTool
@@ -82,7 +81,6 @@ from agentnexus.tools.builtins.web_search import WebSearchTool
 __all__ = [
     "BUILTIN_NAMES",
     "INSTANTIABLE_BUILTINS",
-    "CineCameraEvidenceTool",
     "CineJevJudgeTool",
     "CineVerifyReportTool",
     "ListCommentsTool",
@@ -282,7 +280,6 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     "seedance_read_canvas": None,
     "sys_os_view_image": None,
     "seedance_edit_canvas": None,
-    "cine_camera_evidence": None,
     "cine_jev_judge": None,
     "save_teammate_memory": None,
     "send_to_teammate": None,

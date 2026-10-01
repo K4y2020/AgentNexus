@@ -55,13 +55,18 @@ rather than inventing facts. A supplied full video is not an invitation to stop 
 
 ### JEV semantic production gates
 
+For an automatic adaptation, call `production.py next` after each edit. It owns
+seeding, attribution, native checks and advisory JEV review; do not additionally
+run `seed`, `attribute`, `check` or native `validate` commands. The commands below
+are for standalone manual checks and explicitly requested reviews.
+
 Jev is TypeSafe's text-only System One model. It may judge compact structured
 creative state, but it cannot see evidence images, video, or audio. Never write
 JEV rows into the visual `reviews/{revision_id}.json` sidecar and never invent
 image receipts from evidence paths. Visual claims still require Cine image
 inspection and real receipts.
 
-After each native artifact is written, run its stage check. The native validator
+In a manual production, after each native artifact is written, run its stage check. The native validator
 decides whether the stage passes; `--jev-advisory` also runs the TypeSafe JEV
 semantic review and adds its findings to the report without blocking:
 
@@ -111,6 +116,11 @@ to visually `model_reviewed`.
 
 Use the directory returned by load_skill; do not recursively search for scripts.
 
+For a new film in Cine, call the MCP tool `film_analyze` once with video, output
+and workspace. Repeating it resumes the same source and evidence. `film_transcribe`
+also resumes an existing transcript; use `force=true` only for an explicitly needed
+fresh ASR run. The CLI below is the index-only entry for standalone use.
+
 ```powershell
 uv run --with "scenedetect>=0.6.4" --with opencv-python-headless --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" --with "typesafe-sdk>=0.7.0" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
 ```
@@ -140,9 +150,25 @@ the script gates do not count them, because the same lines are heard again in
 the body. Only reused identical footage is found: a teaser that was re-graded,
 cropped or sped up, or one that only moves speech forward, is not.
 
-1. Read story_plan.json, evidence_index.json and the generated story draft path.
-2. Process every batch in order. Call sys_os_view_image with indexed path,
-   evidence_index and evidence_id for representative images actually inspected.
+1. Read story_plan.json, shot_notes.json, evidence_index.json and the generated
+   story draft path. `film_analyze` writes the committed revision's shot_notes.json:
+   schema v3 records each shot's visible action, location id and physically present
+   person ids (`people: ["P1", ...]`). The people catalog records visible appearance
+   (`look`) and burned-in name captions (`name_caption`, null when absent). Portraits
+   may identify a catalog person but do not count as physical presence. People and
+   locations keep their ids across batches; locations carry timed spans. Recognizable
+   people are listed in group and reaction shots too. Each shot has boolean `crowd`:
+   true means additional live people cannot be reliably numbered; it can coexist
+   with `people`. Portraits/screens do not count. V1/v2 caches are reread.
+   A complete reading with the same model and input hashes is reused. A partial
+   reading resumes its unfinished shots on the next run, using the configured
+   gateway model. `film_status` reports its status, location and people counts.
+2. Process every story-plan batch in order. First read its overlapping shots in
+   shot_notes.json, then combine their visible actions and locations with the
+   timed dialogue to write events. Every event names its location. Keep teaser
+   footage out of the opening events. Only unclear shots need sys_os_view_image
+   with indexed path, evidence_index and evidence_id; record the images actually
+   inspected. Missing/partial notes and unknown places remain uncertainties.
    Saved paths, ASCII art or pixel statistics are not image understanding.
 3. Use available subtitles/transcripts for dialogue and causal detail. If a current
    Topic contains SRT/VTT/ASS/SSA subtitles, declare `subtitle_path` in
@@ -157,14 +183,68 @@ cropped or sped up, or one that only moves speech forward, is not.
    Whisper, then text repair, then the captions burned into the frames (read
    with OCR; a caption ASR missed becomes a line marked `source:
    "burned_subtitle"`, one it misheard corrects that line and keeps `asr_text`),
-   then JEV speaker attribution. Do not assemble a
+   then sentence splitting at reliable word/ASR timing boundaries, then the
+   performance and visible speaker of every spoken line, then the shared
+   frame/context attribution: A reads visible performance and mouth evidence; B
+   fills only offscreen or unclear speakers using bounded context. Cast cards
+   later map the same person numbers to roles.
+   Repaired sentences and interrupted turns keep their exact wording. Word timestamps and original ASR
+   spans remain with each row; an interior sentence boundary without a reliable
+   timed cut stays in one row and requests speaker review.
+   Performance: two frames are taken while each line is spoken and a vision model
+   names what the faces show (`performance`: `emotion`, `visible`, and `who` —
+   the person on screen, possibly the listener); the text transcript shows it as
+   `〔画面：…〕`. The story stills are ten seconds apart and miss most lines, so a
+   faithful script takes a line's emotion from this, never from its wording.
+   `line_performance` in the report says how many lines were read; an older
+   transcript gets it on the next run without redoing ASR. Do not assemble a
    `transcribe.py` command line by hand — the arguments that matter are
    constructed inside the tool, and a hand-built invocation is how a bare name
    list once reached the attribution context and labelled a character who never
    appears in the episode.
 
+   The calibrated batch remains eight lines. `performance.speaker` is a candidate
+   P id seen in shots overlapping the line, `offscreen`, or `unclear`. Model,
+   dialogue/timing and overlapping visible candidates invalidate that line's evidence;
+   edits to other shots or location descriptions do not. Extracted frames are cached
+   in the Topic's `.cine-cache/frames` by source fingerprint, seek, image size and JPEG quality;
+   partial
+   failures retry only unread lines. No alternative vision model is used on failure.
+   Before cast cards exist, transcripts retain P ids and evidence, without deriving
+   another roster from text. `production.py attribute` binds them through
+   `production/person-map.json`, cached per person against appearance/name inputs,
+   bounded observations from that person's own shots, co-visible people and confirmed
+   caption matches. Unrelated shots, character voice or sheet-only edits do not remap
+   people. Names and aliases in captions resolve first; a character already matched
+   to a co-visible person is removed from this person's options, with the reason saved.
+   A caption match alone does not exclude another P id representing a costume change.
+   Appearance Choice includes extras and
+   needs confidence >= 0.70 without ambiguity. Unmatched identities stay in review.
+
+   Every attributed line carries `evidence.a`, `b`, `present_people`, and
+   `constraints`. A visible P speaker is final and spoken. B handles only A's
+   offscreen/unclear lines, without emotion or mouth judgments. For offscreen
+   lines, B cannot assign spoken dialogue to a person in a sampled-frame shot.
+   Spoken candidates require overlap or a neighbor in the same known location;
+   voice-over candidates add nobody to physical presence. Crowd needs actual
+   overlapping crowd or confirmed extra evidence. Unclear, absent evidence or
+   failed constraints request review, with reasons. Model confidence is unused.
+   Before cast cards exist, speakers retain P numbers; later person mapping
+   changes them to role ids. Confirmed anonymous people use `speaker: "extra"`
+   in the script, with a description in `delivery`.
+   Each batch retries malformed JSON, missing lines or duplicate lines once;
+   two failures leave the whole batch unread for the next run. Raw replies are
+   retained. Repeated runs reuse A and unchanged per-line B inputs.
+
+   On a machine prepared with `pipeline/gpu_setup.py` (a one-time download of
+   several gigabytes that only the user runs), the tool does Whisper and the vocal
+   separation on the GPU, about ten times faster, and redoes a step on the CPU when
+   its GPU run fails. `acceleration` in the report says what ran (`separation`,
+   `asr`, and any `fallbacks` with the reason). Never run the setup yourself and
+   never install CUDA packages during a production run.
+
    The tool writes `inputs/source-transcript.{json,txt,srt}` and reports
-   `needs_review`, the count of lines JEV could not settle, and `captions`
+   `needs_review`, the count of lines whose A/B or identity evidence needs review, and `captions`
    (`status`, and how many lines were `added` or `corrected`; `unavailable`
    means the OCR reader was missing, so lines that are only on screen are absent).
    A transcript made before captions were read gets them on the next run
@@ -174,18 +254,17 @@ cropped or sped up, or one that only moves speech forward, is not.
    retried without redoing ASR), and readers reject a transcript of another
    video even if it is also called `source.mp4`. `inputs/source.srt` is kept in
    step only while it is the generated copy; a subtitle file you put there is
-   never overwritten. Attribution comes
-   from the dialogue's own address terms, so it works before any cast document
-   exists; `identity_resolution` says whether JEV could decide which of those
-   roles are one person (without a confident answer they stay separate). Later,
+   never overwritten. Before cast cards exist, attribution retains visual P ids
+   and unresolved evidence. Later,
    once `cast.json` exists, re-running
    `production.py attribute <production>` re-attributes against the cast's
    stated relationships and is markedly more accurate — prefer it before
    handing the script to production.
 
-Never create `inputs/source.txt` from visual guesses.
-   After transcription, run `production.py attribute <workspace>` to resolve any remaining speaker
-   labels against the cast with JEV, and treat its `needs_review` lines as unresolved.
+   Never create `inputs/source.txt` from visual guesses. Automatic production uses
+   `next` for cast attribution. For a manual production, `production.py attribute
+   <production>` resolves remaining labels after cast cards exist; `needs_review`
+   lines remain unresolved.
 
    Voiceover & Off-screen dialogue handling:
    - When speech is heard without matching lip movement on screen (e.g. cold-open narration,
@@ -201,7 +280,9 @@ Never create `inputs/source.txt` from visual guesses.
    input needs a user question.
 6. Call cine_verify_report(scope="adaptation"). Missing batches/fields mean keep
    working, not a polished final answer. Noncritical uncertainty does not block
-   readiness. This check is not a guarantee that no semantic detail was missed.
+   readiness. Current per-shot notes count as visual reading when their source,
+   revision, ledger hash and shot times match; missing/unknown shots still need
+   inspected images. This check is not a guarantee that no semantic detail was missed.
 7. Refresh the playback report after saving story/transcript changes:
    `python <skill>/media_project.py --output <project> --workspace <workspace> --refresh-report`.
    This reuses the committed index; no extraction or generation is run. Deliver the
