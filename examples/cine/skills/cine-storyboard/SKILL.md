@@ -10,7 +10,7 @@ description: |
   references/h3-prompt.md，不依赖外部 skill）。
   产出 storyboard.json + Markdown + 单页评审报告（分镜节奏带 / 分集分镜表 / 生成批次单 /
   配音对齐单，含导出 JSON）。Cine 先读 V3 画布再直接编辑卡片，以真实设定图为参考，经授权提交 workers 出图。
-  20 道质量门全部由脚本确定性检查（含角色状态、账本与画面动作/视线/表演状态一致性和相邻镜头连续性门；shot-recipe 仍为可选门）；
+  质量门由脚本确定性检查（含参考格式、画风、角色状态、账本与画面动作/视线/表演状态一致性和相邻镜头连续性门；shot-recipe 仍为可选门）；
   export 一键导出 H3 投产包（每段提示词 + 按 Picture 序的分镜图清单）。本地脚本零依赖，生成仍可能计费。
   Use when asked to 分镜、出分镜、镜头表、切镜、storyboard for AI short drama。
 allowed-tools:
@@ -72,13 +72,13 @@ metadata:
 | 段默认 ≤ 15 秒 | H3 工作流默认上限，使用现有 `params.maxSegmentSeconds` 配置；切长用 `params.minCutSeconds` / `params.maxCutSeconds` |
 | 台词装得下 | 认领节拍的台词秒数 ≤ 镜头秒数——逐镜检查，不是拍脑袋 |
 | 首帧 + 运动双提示词 | 首帧给图像模型（配合参考图），运动是模型无关的过程描述；景别、运镜是枚举，英文短语必须写进对应提示词 |
-| **H3 视频提示词（每镜一段）** | 画布流程：Ref2VA 六段式（subject_definitions → summary → retention_analysis → detailed_description → overall_soundscape → non_diegetic_music），本段连的场景图和出镜角色图各是一个 `<Subject N>`；关键帧导出包：首帧对齐指令 + integrated_multimodal_description + 声景 + `non_diegetic_music: N/A`。**认领节拍的台词逐字进 `<d>[Chinese] …</d>` 块**；片段背景配乐固定 `N/A`，由用户在后期剪辑时统一添加 |
+| **H3 视频提示词（每段一条）** | 画布流程：Ref2VA 六段式（subject_definitions → summary → retention_analysis → detailed_description → overall_soundscape → non_diegetic_music），本段连接的场景和角色各定义一个 `<Subject N>`，首次出现就在镜头正文绑定；关键帧导出包保留首帧对齐格式。**认领节拍的台词逐字进语言标签正确的 `<d>` 块**；同步声音在对应镜头，贯穿环境底声在 overall_soundscape，片段背景配乐固定 `N/A`，由用户在后期添加 |
 | 生成批次单 | 同场景 + 同光照的镜头归一批，共用同一张环境参考图——AI 版的顺场表，脚本自动汇总 |
 | 配音对齐单 | 每句台词对到镜号——TTS 音频贴到哪一段视频，脚本自动汇总 |
 
 `{baseDir}` = 本文件所在目录。脚本 `{baseDir}/scripts/cine-storyboard.mjs`，零依赖，`node` 直接跑。
 
-**边界（不做的事）**：不写戏不改台词（`cine-script` 的活）、不出场景/角色/道具设定图（`cine-art` / `cine-characters` 的活）、不做视频生成与剪辑合成。口型/唇形同步暂不管——那是生成管线的事。
+**边界（不做的事）**：不写戏不改台词（`cine-script` 的活）、不出场景/角色/道具设定图（`cine-art` / `cine-characters` 的活）、不做视频生成与剪辑合成。提示词写明声源和画外音闭唇状态，实际口型同步由生成管线验证。
 
 ---
 
@@ -86,8 +86,8 @@ metadata:
 
 **script.json 是硬前提**——分镜离开剧本没有意义，validate/render 都必须给 `--script`。其余上游按有则用：
 
-- `--outline` / `--cast`：提示词禁人名检查 + 报告里 C01 显示成人名
-- `--art`：报告里 S01 显示成场景名 + 批次单嵌场景设定图
+- `--outline` / `--cast`：提示词禁人名检查 + 报告里 C01 显示成人名；cast 提供角色的实际画风
+- `--art`：报告里 S01 显示成场景名 + 批次单嵌场景设定图；art 提供场景的实际画风。Ref2VA 生产检查同时传 cast/art，核对风格来源
 - 新状态合同下，每个 cut 的 `characterStates` 必须完整覆盖自己的 `characters`，并逐字继承剧本场次状态。生成引用按 `C01@home_morning` 解析到状态资产，不能退回裸 `C01` 默认卡；状态资产缺图或 V3 reference edge 连接错误时阻断提交。
 - 新连续性合同下，storyboard 顶层必须设置 `continuityContractVersion: 1`；每个 cut 的 `continuity` 必须记录轴线、画面位置、视线目标、动作 `in/out`、运动方向和道具状态。越轴、换位、切断视线、交接或反向动作必须填写对应原因，不能只把连续性藏在 `frame` 的自然语言里。
 - `--shots <卡片目录>`：**可选**挂载 shot-recipes 的镜头配方卡库（指向 `shot-recipes/references/cards`，只接受目录不接受导出的 JSON），开启 `shot-recipe` 门。没装 shot-recipes 就别给——本 skill 自包含，不依赖它
@@ -99,17 +99,18 @@ metadata:
 ### Step 1 — seed 工作底稿
 
 ```bash
-node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workdir>/storyboard.json
+node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
+  --cast <cast.json> --art <art.json> > <workdir>/storyboard.json
 ```
 
-确定性展开：每场的节拍清单（编号、动作/台词、估算秒数、说话人）进 `seedScenes`。这些秒数是预算依据，不是实际表演测量；按现有参数校验，给动作和反应留时间，不虚报实测。shots 留空，切镜才是模型的活。
+确定性展开：每场的节拍清单（编号、动作/台词、估算秒数、说话人）进 `seedScenes`，从 cast/art 取预设并提供起稿风格句。这些秒数是预算依据，不是实际表演测量；按现有参数校验，给动作和反应留时间，不虚报实测。shots 留空，切镜才是模型的活。
 
 ### Step 2 — 逐集分段切镜
 
 <!-- cine-core:start -->
 以下是必读创作流程，已随入口完整返回，无需再次读取 pass 参考文件。
 读取原生剧本、当前角色/场景/道具设定及剧本交接说明；输出仍为 `segments/cuts`。
-风格服从剧本。电影感来自画面选择与连续的声画设计，不来自术语数量。
+叙事选择服从剧本，画风服从本片 cast/art 设定，默认半写实厚涂（semi-realistic painterly）。电影感来自画面选择与连续的声画设计，不来自术语数量。
 
 #### 整场视觉设计
 
@@ -157,10 +158,11 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 #### H3 最终交接
 
 制作包的 `h3Prompt` 是创作草稿，不等于可直接提交的最终 H3 输入。走 V3 时使用其原生提示词优化入口，根据实际连接的参考资产确定模式与编号，不靠记忆重写一套格式。
-保持角色与空间事实，集中定义参考身份；逐镜只补当下必要的状态变化，不重复整份设定。不得为了“更精确”补造镜内微动作时间码或移动厘米数；确有剧情/同步需要的数值照实保留。
+保持角色与空间事实，集中定义参考身份；每个 Subject 在镜头正文首次出现时直接绑定标签，同时写出可见特征、画面位置和当前动作，不用 On screen 尾句。后续只补必要状态变化。不得为了“更精确”补造镜内微动作时间码或移动厘米数；确有剧情/同步需要的数值照实保留。
 只有角色/场景参考图时使用 Ref2VA 六段式；不把这些图冒充首帧或分镜图。`<Subject N>` 可指角色或环境，不代表演员人数；在其定义内引用真实来源 `<Picture N>`。
-`retention_analysis` 只写参考内容如何保留、迁移或复用，不写观众留存或开场钩子。前三秒钩子与声画因果写入 `detailed_description` 的时间线，原因先于反应。
-首镜写 `[Shot 1]` 后直接描述；后续用 `[Shot 2] At 00:05.000, the camera cuts to ...`，切点取真实分镜起点且严格递增。不用 `From ... to ...` 范围替代原生切点标记。原生指南的详细描述篇幅建议不等于全提示词上限；避免为任意总字数截掉调度和声画因果。
+`summary` 以 `[reference generation]` 等实际任务类型前缀开头；承接尾帧图片的段加 `keyframe completion`，不把仍帧写成源视频接续。`retention_analysis` 每个独立标签一行，注明使用镜头、关系标记与具体保留说明，不写说话人编号、观众留存或开场钩子。前三秒钩子与声画因果写入 `detailed_description` 的时间线，原因先于反应。
+从 cast/art 的媒介、笔触、配色和光线推导全片一条英文风格句，可存于顶层 `styleSentence`；每段在 `[Shot 1]` 之前逐字复用，每切 `frame` 同样跟设定图走。首镜写 `[Shot 1]` 后直接描述；后续用 `[Shot 2] At 00:05.000, the camera cuts to ...`，切点取真实分镜起点且严格递增。不用 `From ... to ...` 范围替代原生切点标记，避免为任意总字数截掉调度和声画因果。
+引用角色发声写 `<Subject N> (Sx)`，其他独立声源写稳定身份加 `(Sx)`；本段从 S1 按首次发声顺序编号并复用。台词语言标签与原文一致。画外音与心声固定用 `says in an off-screen voiceover`，紧接对白写 `while ... lips remain completely closed`。同步脚步、撞击、铃声、笑声等放在对应镜头，`overall_soundscape` 只留贯穿全段的环境底声。
 按实际参考顺序核对引用覆盖和编号越界；格式通过不能证明空间关系、故事性或成片质量。用户不需要分镜图时不生成，也不声称已存在。
 
 #### 保持原生生产合同
@@ -178,7 +180,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 每个发现引用具体镜号及实际内容，给修复目标；允许没有发现，不为显得专业强加运镜或解释。
 区分确定断裂、合理省略、待确认意图和生成风险，不把四者统称失败。否定词与正向情节冲突时修正作用范围，不用“无额外人物/环境不变”掩盖已计划的配角或换场。
 已经写进剧情的配角优先列入允许出镜名单，只禁止名单之外的人；除非用户明确限定人数且不可更改，不默认删掉配角，也不撤掉全部人数约束。明确的回忆/状态变化不需要自动补解释，审查只针对仍缺失的连接。
-同阶段最多两轮定点返修。改镜后检查相邻镜、引用资产、对白声源和整场声景，未解决项留下。
+自动分镜生成未通过 validate 时，将实际错误反馈给模型，最多 3 次纠错重试，仍失败则记录失败；不把失败产物记成已生成。改镜后检查相邻镜、引用资产、对白声源和整场声景，未解决项留下。
 独立审查须实际存在独立上下文，否则如实标为自审。不得把自评分或结构全绿当作电影感通过。
 真实画面需实际观看后评价；文字只能支持设计判断，单帧不能证明表演、运动或声画节奏。
 <!-- cine-core:end -->
@@ -190,7 +192,9 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 
 流程：先读剧本交接说明，按上方内联流程做整场视觉设计并审查0–3秒钩子，再按剧情与模型能力分段切镜。镜长默认2–5秒，可用现有 `params.minCutSeconds` / `params.maxCutSeconds` 配置；不强制三秒一切或问答正反打。视觉设计须落实到每切提示词，而非只写在报告中。
 
-**仅 H3 导出工作流每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写（官方方法论的内化版，**不依赖任何外部 skill**）。官方口径默认英文（`promptLang` 可切中文），**每个镜头独立一行**。**先定格式**：交给画布（Cine 制作流程，`production.py` 用 `--ref2va` 校验）时，视频卡只连本段的角色三视图和场景概念图，必须写 Ref2VA——每张图一行 `<Subject N> — <ID>, …; … come entirely from <Picture N>.`（写 ID 不写人名），场景也算一个 Subject，并且每个 Subject 都要在 `detailed_description` 的镜头行里用上；同一场里动作直接接上一段的段落写 `continuesFrom`（上一段段号），画布会把上一段的尾帧接过来，它也是一个 Subject（ID 写上一段段号），在 `[Shot 1]` 里用上，换场或跳时间的段不写；只有真的逐镜出了关键帧的导出包才写首帧对齐行，把设定图写成“Picture 1 (from Shot 1)”会让模型把角色三视图当成第一镜画面、场景图一次都用不上。要点：`[Shot k]` 切点时刻（关键帧模式还有首行对齐指令）**由分镜秒数推导，一个字符都不许漂**（validate 逐字对账）；认领台词**逐字**进 `<d>[Chinese] …</d>`；每切的运镜词写进自己那一行；声景写进 overall_soundscape，non_diegetic_music 固定 N/A（用户后期统一配乐）——**声景也是动作指令，画面改了声景一起改**。
+**每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写；默认英文，每个镜头独立一行。画布流程用 Ref2VA，角色和场景定义保持 `<Subject N> — <ID>, … from <Picture N>.`，首次出现直接绑定到镜头描述。承接同场上一段时写 `continuesFrom`，保留上一段段号 Subject，并独立定义尾帧 Picture 锚点、在 Shot 1 用上；summary 加 `keyframe completion`。只有真实逐镜分镜图的导出包用关键帧对齐行。
+
+交付前核对：全片风格句与每切 frame 跟 cast/art 一致；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
 
 切完把 `seedScenes` 删掉。
 
@@ -198,11 +202,13 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 > <workd
 
 ```bash
 node {baseDir}/scripts/cine-storyboard.mjs validate <storyboard.json> \
-  --script <script.json> --outline <outline.json> --cast <cast.json> \
+  --script <script.json> --outline <outline.json> --cast <cast.json> --art <art.json> --ref2va \
   [--shots </path/to/cards>]
 ```
 
-19 道质量门全是代码：原有节拍、时长、H3、场次/人物/道具与配方门之外，新增逐镜角色状态和相邻镜头连续性门；`characterStates` 必须覆盖画内人物，`continuity` 必须记录轴线、位置、视线、动作 `in/out`、运动方向和道具状态，并在相邻镜头发生变化时给出原因。
+质量门检查节拍、时长、H3 参考格式与画风、场次/人物/道具、逐镜角色状态和相邻镜头连续性；`characterStates` 必须覆盖画内人物，`continuity` 必须记录轴线、位置、视线、动作 `in/out`、运动方向和道具状态，并在相邻镜头发生变化时给出原因。已有关键帧导出包不传 `--ref2va`，其对齐合同继续校验。
+
+`--ref2va` 同时执行八条 `h3-*` 格式 audit 和 `style-consistency`，错误和缺证据的跳过项都会拦截。未提供 cast/art 不能通过画风对账；没有人声或画外音时，对应规则可不适用。关键帧旧格式与中文提示词的兼容校验不传此标志，报告明确列出跳过项。标签位置检查仍需逐镜核对人物特征、位置、动作与剧情；文本 audit 不替代画面和声音验收。
 
 **适用的结构错误逐条修后重跑。** H3/短剧风格门不兼容则报告阻塞，不伪造提示词或重写原片来通过。
 
@@ -264,7 +270,7 @@ cine-storyboard → storyboard.json （怎么拍：镜头、首帧、批次）
 
 - 报告界面内置中英（`--lang`，默认中文）；提示词语言由 `promptLang` 单独控制（默认英文）
 - 秒数是**计划的生成时长**，不是已生成资产的实际时长——段上限按你的模型改 `params.maxSegmentSeconds`，切的节奏区间改 `min/maxCutSeconds`
-- 口型/唇形同步暂不管——那是生成管线的事
+- 提示词写明引用说话人、独立声源和画外音闭唇状态；实际口型同步由生成管线验证
 - 分镜图不追求一次到位——它是给视频模型的构图锚，构图对、资产对就够，微调交给重生成
 
 ## 门失败会累积
@@ -285,7 +291,7 @@ node {baseDir}/scripts/cine-storyboard.mjs stats
 node {baseDir}/scripts/selftest.mjs
 ```
 
-自测不调模型、不花额度。19 道质量门每一道都有击穿用例。改完脚本先跑这个。
+自测不调模型、不花额度。质量门有击穿用例；H3 参考格式与画风另见 `scripts/cinematic-audit-selftest.mjs`。改完脚本先跑自测。
 
 ## 自带样例
 

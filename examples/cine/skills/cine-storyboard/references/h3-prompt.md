@@ -1,90 +1,123 @@
 # H3 视频提示词 · 写法规范（内化版）
 
-方法论学自 MiniMax-H3 官方提示词指南（I2VA / 多图对齐模式），**内化成本 skill 自带文档——不依赖任何外部 skill**。写每段的 `h3Prompt` 照这份做，结构部分有质量门逐字对账。
+按 MiniMax H3 的参考关系组织提示词；规则在本 skill 内维护，不依赖外部 skill。先核实参考资产的用途，再选 Ref2VA 或已有关键帧格式。以下例子来自《渡口》，不是完整制作包。
 
-## 适用边界
+## 格式、语言与时间
 
-### 表演与时间
+画布视频卡只连接角色设定图和场景概念图时，用 **Ref2VA 六段式**。设定图提供身份与美术参考，不是视频的首帧。只有实际生成逐镜分镜图并按 Picture 序挂载的导出包，才使用后面的关键帧对齐格式。
 
-切镜时间不等于表演秒表。剧本估时只用于预算；最终 H3 保留真实切点、总时长及明确需要同步的事件，镜内按因果与先后描述连续表演。不将每次眼神、伸手或停顿都补成 From/to 区间。用户指定的音乐踩点、口型和精确动作要求仍须保留，不能为“自然”删掉；后期音乐踩点只约束画面节奏，片段背景配乐仍写 `N/A`，剧内音乐则保留实际声源。动作信息的取舍服从故事，不以少写几个数字作为质量证明。
+Ref2VA 六段的正文用英文，默认 `promptLang: "en"`。台词、歌词和画面可见文字保留原语言；台词逐字放入 `<d>[Chinese] …</d>` 或 `<d>[English] …</d>`，语言标签必须与内容一致。身份、音色和语气放在 `<d>` 外，正文用通用身份而非人名。已有 `promptLang: "zh"` 是兼容模式，不代表符合官方英文 Ref2VA 格式；其字段名仍用英文。
 
-**先按参考图的实际来源选格式。** 画布（Cine 制作流程）上的视频卡只连本段的角色三视图和场景概念图，没有逐镜关键帧——一律用下面的 **Ref2VA 六段式**，不得把设定图声明为首帧或切点关键帧。只有真的逐镜出了分镜图、按 Picture 序挂载的导出包，才用后面的**关键帧对齐格式**。
+切点取各 cut 的累计秒数。首镜写 `[Shot 1]`，后续写 `[Shot 2] At 00:03.000, ...`，每镜独立一行，每镜的运镜枚举短语落在自己那一行。镜内用因果和先后描述表演，不将剧本估时展开为逐个微动作的秒表；确有同步要求时保留必要时间锚点。详细描述应交代构图、位置、光线、动作、运镜和声源，不为了建议词数堆术语或截掉对白。
 
-事故记录：一次无人值守运行把“Picture 1 (from Shot 1) aligns with 0.00 s”写进了只连角色图和场景图的卡片——模型会把第一张角色三视图当成第一镜的画面，场景图从头到尾没被提到。`production.py` 现在用 `--ref2va` 校验分镜，这种写法过不了门。
+## 全片风格跟设定图走
 
-### 旧制作包语言规则
+从本片 cast 的 `image.style`、`image.prompt` / `image.sheet` 以及 art 的 `image.prompt`、`image.tags` 取共同的媒介、笔触、配色与光线。默认 `realistic` 预设是 **semi-realistic painterly**。上游明确为其他预设时跟随上游；角色与场景的媒介冲突先解决。
 
-- **默认整条英文**（`promptLang: 'en'`）——官方规范的口径：正文、对齐指令、字段名、镜头标记全英文，禁角色名（用 an old ferryman 这类通用身份）
-- 三样东西保留原文语言（官方规定）：**台词**（`<d>[Chinese] …</d>` 逐字原文，一个标点都不许动，门盯着）、歌词、画面里可见的文字（英文双引号原样引用）
-- `promptLang: 'zh'` 可切整条中文（对齐指令、字段名、镜头标记都有中文版，人名放行）——偏离官方推荐的备选项，实测中文效果不稳就回英文
+写出一条英文风格句，可存于顶层 `styleSentence`，全片每段逐字复用。Ref2VA 放在 `detailed_description:` 之后、`[Shot 1]` 之前，不在 Shot 1 里重复风格。每个 `frame` 沿用这套媒介与具体画风。`seed --cast <cast.json> --art <art.json>` 读取上游预设并提供起稿风格句；按真实设定改句子时，只改一次并同步全片。
 
-## Ref2VA 结构（画布流程，`--ref2va` 逐条对账）
+《渡口》的角色设定写半写实厚涂、低饱和冷调与晨雾柔光，场景标签也写 semi-realistic / painterly，因此采用：
+
+```text
+The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references.
+```
+
+## Ref2VA 六段式
+
+字段按此顺序各写一次：
 
 ```text
 subject_definitions:
-<Subject 1> — C01, a slight nineteen-year-old woman with two long braids, hugging an old leather suitcase; face, hair and costume come entirely from <Picture 1>.
-<Subject 2> — C03, a hunchbacked ferryman of about seventy; face, build and clothing come entirely from <Picture 2>.
-<Subject 3> — S02, an old wooden ferry pier reaching into dense white fog; layout, materials and lighting come entirely from <Picture 3>.
+<Subject 1> — C01, a nineteen-year-old woman in a navy student tunic and white collar, with two long braids tied in faded red string; her appearance comes from <Picture 1>.
+<Subject 2> — C03, a stooped elderly ferryman in faded indigo clothing with a straw hat and rain cape; his appearance comes from <Picture 2>.
+<Subject 3> — S02, a wet wooden ferry pier with a mooring stone and a tilted lantern pole in morning fog; its layout and materials come from <Picture 3>.
 
-summary: 一句话写这段发生什么（英文）。
+summary:
+[reference generation] <Subject 1> pauses beside <Subject 2> at the end of <Subject 3>, protecting her suitcase before boarding.
 
-retention_analysis: <Subject 1>, <Subject 2> and <Subject 3> are retained exactly as referenced — the same faces, costumes, environment and lighting. Only the action, the camera and the timing are new.
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the braids, student uniform and worn suitcase retain their referenced appearance.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the stooped build, indigo clothing and straw hat retain their referenced appearance.
+<Subject 3> (appears in [Shot 1], [Shot 2]): fully_preserved - the wet planks, mooring stone and lantern pole retain their referenced layout.
 
 detailed_description:
-[Shot 1] Cinematic, live-action, … 这几秒发生什么、镜头怎么动、谁说了什么。On screen: <Subject 1>, in <Subject 3>.
-[Shot 2] At 00:03.000, the camera cuts … <d>[Chinese] 台词原文</d> On screen: <Subject 2>, in <Subject 3>.
+The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references.
+[Shot 1] A medium static shot establishes <Subject 3>, the wet wooden pier receding from the foreground into pale fog as water moves under its pilings. <Subject 1>, the slim young woman in a navy student tunic with two red-tied braids, stands at the left edge of the gangplank hugging her worn leather suitcase. <Subject 2>, the stooped old ferryman in an indigo jacket and straw hat, waits at the right near the mooring stone and coils a rope with a soft rasp.
+[Shot 2] At 00:03.000, the camera cuts to a close-up and makes a slow push in on <Subject 1> (S1) at the left side of <Subject 3>; she tightens her arms around the suitcase and says in a quiet, guarded Mandarin voice, <d>[Chinese] 不劳烦。它跟我。</d> The leather gives a faint creak as her grip firms.
 
-overall_soundscape: …
+overall_soundscape:
+Low river wash and fog-muted wind continue throughout the segment.
 
-non_diegetic_music: N/A
+non_diegetic_music:
+N/A
 ```
 
-- **一张参考图一个 Subject**：本段场景（剧本场次的 `sceneId`）一个，`cuts[].characters` 里出现过的每个角色各一个；不多不少——画布只会给这段连这些图。编号从 1 连续，按出镜先后写、场景放最后即可；导入画布时会按 Seedance 实际的参考图顺序（画布上卡片的创建顺序，与连线顺序无关）统一重排编号，正文里的 `<Subject N>` 一起改。
-- **定义行写 ID**（`C01`、`S02`），用 `<Subject N> — ` 开头（长破折号），并引用自己的来源图 `<Picture N>`；英文模式正文禁人名，ID 不算人名。导入画布靠 ID 认出这是哪张参考图。
-- **每个 Subject 都要在 `detailed_description` 的镜头行里出现**，场景也一样——定义了却不用，模型照样可能忽略那张图。
-- **承接段（`continuesFrom`）多一张图：上一段的尾帧。** 上一段生成完，画布自动把它的最后一帧接到这一段，它也要定义成一个 Subject，ID 写上一段的段号，只写段号不写角色和场景 ID，并在 `[Shot 1]` 里用上：`<Subject 4> — E01-01, the last frame of the previous segment; positions, framing and light at the opening come entirely from <Picture 4>.`，`[Shot 1] Continuing directly from <Subject 4>, …`。编号放最后，导入时同样按画布重排。不承接的段不写它，画布也不会给它接尾帧。
-- 六个字段各出现一次、按序；`[Shot k]` 切点时刻规则与下面相同；`retention_analysis` 写参考内容保留，不是观众留存；开场钩子写进动作时间线。
+### 定义与首次出现
 
-## 关键帧对齐结构（仅逐镜出了分镜图的导出包）
+- 本段连接的角色和场景各定义一个 `<Subject N>`，编号从 1 连续；角色状态与来源图须匹配真实资产。定义行保留 **`<Subject N> — <ID>, …`**，如角色 `C01`、场景 `SC01` 或《渡口》的原生场景 `S02`，不能只剩描述或人名。画布导入靠 ID 查找实体。
+- 首次在镜头里出现时，把标签直接写进描述，同时交代其可见特征、画面位置和当前动作；环境写布局、位置和正在发生的变化。后续继续用同一标签，不追加 `On screen: <Subject …>` 尾句。
+- 图片仅提供身份参考时，在 Subject 定义内引用 `<Picture N>`，不另写 Picture 定义。图片实际担任首帧、关键帧或尾帧锚点时，才独立定义 Picture，并在正文与 retention 中记录用途。
+- 导入按画布实际参考顺序重排编号，所有引用随之改号，逐标签 retention 行、关系和说明应原样保留。
+
+### summary 与承接尾帧
+
+以方括号任务前缀开头，用已定义标签简述本段动作与引用用途。普通设定图写 `[reference generation]`，具体帧锚点加 `keyframe completion`。直接接续源视频用 `video continuation`，直接修改源视频用 `video editing`；复用音频信号用 `audio reuse`，仅参考音色或节奏用 `audio reference`。多种关系用 ` + ` 合并，每种只写一次。
+
+`continuesFrom` 只写紧邻、同场的上一段。画布连接的是上一段尾帧图片，因此保留导入所需的段号 Subject，同时定义具体 Picture 锚点：
 
 ```text
-How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 3.00-second mark of the target video; ….
-（单分镜的段改用官方 I2VA 固定句：For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.）
-
-integrated_multimodal_description:
-[Shot 1] Cinematic, live-action, cold gray-green palette. 按 <Picture 1> 的构图锚定人物与状态，再写这几秒发生什么、镜头怎么动、谁说了什么（全英文）。
-[Shot 2] At 00:03.000, the camera cuts to <Picture 2>: ……（**每个镜头独立一行**，切点时刻开头，等于前面分镜秒数的累计）
-
-overall_soundscape: 1–4 句英文：环境声、动作声、非语言人声。不复述台词。
-
-non_diegetic_music: N/A
+<Subject 4> — E01-01, the preceding segment's last-frame state; opening positions and light come from <Picture 4>.
+<Picture 4> is the opening-frame anchor for [Shot 1], using the last frame of E01-01.
+summary:
+[reference generation + keyframe completion] The opening uses <Picture 4> to preserve the visible state defined by <Subject 4> before the action continues.
+retention_analysis:
+<Subject 4> (appears in [Shot 1]): fully_preserved - the opening keeps the previous segment's positions and lighting.
+<Picture 4> ([Shot 1] first frame): fully_preserved - its composition anchors the opening before movement resumes.
 ```
 
-每段背景配乐字段必须精确为 `N/A`，由用户在后期剪辑时统一添加配乐。不要在描述或声景中另写观众背景音乐。剧中人物听得到的收音机、现场演奏、手机外放等音乐仍写在对应镜头的描述里，交代实际声源。
+`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态。换场、跳时或另起构图不写 `continuesFrom`，也不凭空增加尾帧引用。
 
-中文模式（promptLang=zh）的对应 token：`参考图与目标视频的对齐——` / `整体视听描述：` / `[镜头 k] 于 00:0X.XXX，` / `非叙事配乐：N/A`；Ref2VA 的六个字段名保持英文，配乐值也固定为 `N/A`。
+### retention_analysis 每个标签一行
 
-首行对齐指令和切点时刻**由分镜秒数推导**，改了秒数忘改提示词，validate 当场拦。
+只为 `subject_definitions` 独立定义的标签写行，不为单纯标明来源的 Picture 另写行。每行注明实际使用镜头、固定关系标记和具体说明，不合成总述，不写 `(Sx)`。
 
-## 运镜
-
-- 词表 20 种（schema.md 的 camera 枚举），可加幅度（小幅/大幅）与速度（缓/快），写成自然动作句：「镜头小幅缓推向掐白的指节」
-- **每个分镜的运镜词必须落在自己那一行里**：英文用官方词（static shot / push in / tracking shot……），中文模式用词表的中文词（固定/推/拉/跟拍……）——门按 `promptLang` 检查
+可见引用使用 `fully_preserved`、`partially_preserved`、`attribute_transfer` 或 `weak_reference`；音频引用使用 `fully_copy`、`partially_copy`、`reference` 或 `weak_reference`。标记服从已定义用途，不将新动作误写成身份参考损失。这里记录参考关系，开场钩子写在镜头动作中。
 
 ## 说话人与台词
 
-- 说话人第一次出现给足辨识信息（身份、年龄段、音色、语速），编号 `(S1)` `(S2)` 全段稳定；同说不同人用 `(S1,S2)`
-- `<d>` 里只放语言标签和台词原文；身份、音色、语气写在 `<d>` 外面
-- **画外音**：中文写「以画外音说（唇形完全闭合）」；英文用官方句式 `says in an off-screen voiceover … while their lips remain completely closed`
-- 画面里真实可见的文字（招牌、字条）用英文双引号原样引用，不翻译
+引用角色每次开口写 **`<Subject N> (Sx)`**，画外说话仍保留同一绑定。非引用角色、旁白、广播或其他独立人声用稳定身份描述加 `(Sx)`。按本段实际首次发声顺序从 S1 编号，之后每次复用；音频定义里的音色绑定也使用这个编号。笑声、呼吸写清人物来源并沿用其编号，风雨、碰撞等环境或物件声音不分配说话人编号。纯复用音轨内部的歌词提示若没有独立说话人，以 `<Audio N>` 为声源。
 
-## 声音字段的分工（踩过的坑）
+画外音和心声的英文句式固定为：
 
-- 台词、歌声、剧内音乐 → 描述字段；环境与动作声 → `overall_soundscape`；`non_diegetic_music` → 固定 `N/A`，用户后期统一配乐
-- **声景也是动作指令**：画面动作改了，声景必须一起改——声景里写「铜铃在撞击时炸响」，视频就真把撞击演出来
+```text
+<Subject 1> (S1) says in an off-screen voiceover, <d>[Chinese] 谁都别碰它。</d> while her lips remain completely closed.
+A calm narrator (S2) says in an off-screen voiceover, <d>[English] The crossing has begun.</d> while the visible woman's lips remain completely closed.
+```
 
-## 关键帧怎么用
+台词逐字写进认领它的本镜，不能因为在本段别的镜头出现过就算通过。画面可见文字用英文双引号原样引用。跨切点连续对白、结尾截断对白按实际情况使用 `<scenetrans>`、`<cutoff>` 并描述衔接，不主动截短剧本。
 
-- 主分镜图（f1）钉 0.00 秒，是这一段世界观的完全参照；每个 `[Shot k]` 先锚定 `<Picture k>` 的构图与人物状态，再写动作展开
-- 动作遵守 cine-script 的**常见动作原则**：挑担上船、搭手卸担这类模型见过千万次的动作；精确物理交互、微表情不要写
-- 人物**此刻的位置状态**（已上船 / 在舱内）要和分镜图一致——图与文对不上，模型听图的，动作就乱
+## 声音的分工
+
+与具体画面同步的脚步、碰撞、铃响、衣物摩擦、呼吸、笑声、台词和剧内音乐，写进 `detailed_description` 的对应镜头，交代声源与动作的关系。画面动作改变时检查该镜的声音是否仍然匹配。
+
+`overall_soundscape` 只概括贯穿本段的环境底声，如河水、风或室内底噪，不写某镜某秒的动作声，不重复对白。`non_diegetic_music` 的值精确为 `N/A`；背景配乐由用户在后期统一添加，人物听得到的音乐留在相应镜头。
+
+## 关键帧对齐格式（兼容已有导出包）
+
+逐镜真实分镜图已挂载时继续用原格式，单镜固定首句与多镜对齐行由结构推导，秒数改变后同步：
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 3.00-second mark of the target video.
+
+integrated_multimodal_description:
+[Shot 1] The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references. A medium static shot starts from <Picture 1>; the young woman waits beside the pier with her suitcase.
+[Shot 2] At 00:03.000, the camera cuts to <Picture 2> and makes a slow push in as she tightens her grip; the leather creaks softly.
+
+overall_soundscape: Low river wash continues throughout the segment.
+
+non_diegetic_music: N/A
+```
+
+单镜段保留 I2VA 对齐句：`For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.` 中文兼容模式仍用 `参考图与目标视频的对齐——` / `整体视听描述：` / `[镜头 k] 于 00:0X.XXX，` / `非叙事配乐：N/A`。
+
+每格 frame 与对应 Picture 的构图、人物位置和起始状态须一致。参考图与文字冲突时先核实并修正；格式校验不能证明资产存在或实际成片质量。

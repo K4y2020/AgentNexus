@@ -58,6 +58,25 @@ def test_storyboard_seed_can_replace_only_untouched_empty_seed(tmp_path):
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
+def test_storyboard_seed_inherits_reference_style_and_fingerprints(tmp_path):
+    example(tmp_path, "script")
+    for stage in ("cast", "art"):
+        example(tmp_path, stage)
+        path = tmp_path / f"{stage}.json"
+        document = production.read(path)
+        document["style"] = "ghibli"
+        production.atomic_json(path, document)
+    result = production.seed(tmp_path, "storyboard")
+    document = production.read(tmp_path / "storyboard.json")
+    assert document["style"] == "ghibli"
+    assert "hand-painted anime" in document["styleSentence"]
+    for stage in ("cast", "art"):
+        path = tmp_path / f"{stage}.json"
+        assert f"--{stage}" in result["command"]
+        assert result["input_hashes"][str(path)] == production.digest(path)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 def test_full_native_fixture_executes_five_validators(tmp_path):
     for stage in production.STAGES:
         example(tmp_path, stage)

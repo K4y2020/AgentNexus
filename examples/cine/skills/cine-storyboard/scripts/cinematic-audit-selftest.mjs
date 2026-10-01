@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Evaluation-only fixtures; independent of development films and generation prompts.
+// Invented fixtures for the read-only audit and production gates.
 import assert from 'node:assert/strict';
-import { auditStoryboard, gateReport } from './cine-storyboard.mjs';
+import { auditStoryboard, gateReport, STYLE_PRESETS, validateStoryboard } from './cine-storyboard.mjs';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const styleSentence = STYLE_PRESETS.realistic.sentence;
 const script = {
   episodes: [{ ep: 1, hook: 'A locked cabinet.', cliff: 'The bell rings.', scenes: [
     { sceneId: 'S01', characters: ['C01', 'C02'], flow: [
@@ -19,16 +20,16 @@ const script = {
 };
 const outline = { characters: [{ id: 'C01', name: 'Mara' }, { id: 'C02', name: 'Niko' }] };
 const cast = { style: 'realistic', characters: [
-  { id: 'C01', name: 'Mara', aliases: ['Assembler'], image: { prompt: 'Photorealistic character sheet.' } },
-  { id: 'C02', name: 'Niko', aliases: ['Keeper'], image: { prompt: 'Photorealistic character sheet.' } },
+  { id: 'C01', name: 'Mara', aliases: ['Assembler'], image: { prompt: 'Semi-realistic painterly character sheet.' } },
+  { id: 'C02', name: 'Niko', aliases: ['Keeper'], image: { prompt: 'Semi-realistic painterly character sheet.' } },
 ] };
 const art = { style: 'realistic', scenes: [
-  { id: 'S01', image: { prompt: 'Photorealistic empty workshop.' } },
-  { id: 'S02', image: { prompt: 'Photorealistic empty stairwell.' } },
+  { id: 'S01', image: { prompt: 'Semi-realistic painterly empty workshop.' } },
+  { id: 'S02', image: { prompt: 'Semi-realistic painterly empty stairwell.' } },
 ] };
 const prompt = (line, music = 'N/A', delivery = 'says') =>
-  `subject_definitions:\n<Subject 1> — ${line === '先关窗。' ? 'C02' : 'C01'}; the worker with a grey apron from <Picture 1>.\n<Subject 2> — ${line === '灯亮了。' ? 'S02' : 'S01'}; the room with a brick wall from <Picture 2>.\nsummary:\n[reference generation] The worker <Subject 1> opens a box in the room <Subject 2>.\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the worker's apron and appearance are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the room's brick wall is retained.\ndetailed_description:\nLive-action.\n[Shot 1] Static Shot. At frame left, <Subject 1> (S1), the worker in a grey apron, opens the box beside the brick wall of <Subject 2>. <Subject 1> (S1) ${delivery}: <d>[Chinese] ${line}</d> while the worker's lips remain completely closed.\noverall_soundscape: Wind through the window.\nnon_diegetic_music: ${music}`;
-const cut = (beats, characters) => ({ beats, characters, seconds: 4, size: 'medium', camera: 'Static Shot', frame: 'Photorealistic cinematic film still, medium shot of a worker.' });
+  `subject_definitions:\n<Subject 1> — ${line === '先关窗。' ? 'C02' : 'C01'}; the worker with a grey apron from <Picture 1>.\n<Subject 2> — ${line === '灯亮了。' ? 'S02' : 'S01'}; the room with a brick wall from <Picture 2>.\nsummary:\n[${line === '先关窗。' ? 'reference generation + keyframe completion' : 'reference generation'}] The worker <Subject 1> opens a box in the room <Subject 2>.\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the worker's apron and appearance are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the room's brick wall is retained.\ndetailed_description:\n${styleSentence}\n[Shot 1] Static Shot. At frame left, <Subject 1> (S1), the worker in a grey apron, opens the box beside the brick wall of <Subject 2>. <Subject 1> (S1) ${delivery}: <d>[Chinese] ${line}</d> while the worker's lips remain completely closed.\noverall_soundscape: Wind through the window.\nnon_diegetic_music: ${music}`;
+const cut = (beats, characters) => ({ beats, characters, seconds: 4, size: 'medium', camera: 'Static Shot', frame: 'Semi-realistic painterly illustration, medium shot of a worker.' });
 const board = { style: 'realistic', episodes: [{ ep: 1, segments: [
   { id: 'E01-01', sceneIndex: 1, cuts: [cut([1, 2], ['C01'])], h3Prompt: prompt('盒子到了。') },
   { id: 'E01-02', sceneIndex: 1, continuesFrom: 'E01-01', cuts: [cut([3, 4], ['C02'])], h3Prompt: prompt('先关窗。') },
@@ -48,18 +49,21 @@ const audit = (mutateBoard = () => {}, mutateContext = () => {}) => {
 const clean = audit();
 check(clean.status === 'pass' && !clean.issues.length && !clean.skips.length, 'complete Ref2VA fixture passes all applicable evaluation rules');
 check(clean.evaluated_checks.length === 16 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over is not applicable');
-check(!issues(clean, 'video-no-film-still').length, 'film still in frame is allowed');
+check(!issues(clean, 'video-no-film-still').length, 'painterly frames and video prompts contain no film-still instruction');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nFILM STILL'; }), 'video-no-film-still').length === 1, 'film still is rejected only in the video prompt');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nfilm-still'; }), 'video-no-film-still').length === 1, 'hyphenated film-still is rejected');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt = ''; }), 'video-no-film-still').length === 1, 'an empty prompt is not a successful check');
 
-check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Semi-realistic painterly medium shot.'; }), 'style-consistency').length === 1, 'painted reference and live-action video conflict');
+check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Photorealistic medium shot.'; }), 'style-consistency').length === 1, 'painted reference and live-action video conflict');
 check(issues(audit(() => {}, (c) => { c.cast.style = 'ghibli'; }), 'style-consistency').length === 1, 'style metadata mismatch is reported');
 check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }), 'style-consistency').length === 2, 'used cast references are compared to each segment');
 check(issues(audit(() => {}, (c) => { c.art.scenes[0].image.prompt = 'Cartoon empty workshop.'; }), 'style-consistency').length === 2, 'used scene references are compared');
 check(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Cinematic film still, medium shot.'; }).skips.some((item) => item.rule === 'style-consistency'), 'generic cinematic wording is recorded as insufficient evidence');
-check(audit((b) => { b.episodes[0].segments[0].h3Prompt = b.episodes[0].segments[0].h3Prompt.replace('Live-action.', 'Cinematic.'); }).status === 'incomplete', 'weak medium evidence cannot receive pass');
+check(audit((b) => { b.episodes[0].segments[0].h3Prompt = b.episodes[0].segments[0].h3Prompt.replace(styleSentence, 'Cinematic.'); }).skips.some((item) => item.rule === 'style-consistency'), 'weak medium evidence cannot receive pass');
 check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.negativePrompt = 'anime, cartoon'; }), 'style-consistency').length, 'negative prompt style markers are not positive style evidence');
+check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Portrait framed like an ID photograph, semi-realistic painterly rendering.'; }), 'style-consistency').length, 'ID-photo framing describes composition rather than a photographic medium');
+check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Semi-realistic painterly rendering without photographic micro-detail.'; }), 'style-consistency').length, 'a negated photographic detail is not positive medium evidence');
+check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Photorealistic rendering with painterly edges.'; }), 'style-consistency').length === 2, 'conflicting positive medium declarations remain rejected');
 check(issues(audit(() => {}, (c) => { c.cast.characters[0].states = [{ id: 'coat', image: { prompt: 'Cartoon character sheet.' } }]; c.script.episodes[0].scenes[0].characterStates = { C01: 'coat' }; }), 'style-consistency').length === 0, 'unused state image does not contaminate references');
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characterStates = { C01: 'coat' }; }, (c) => { c.cast.characters[0].states = [{ id: 'coat', image: { prompt: 'Cartoon character sheet.' } }]; }), 'style-consistency').length === 1, 'used state reference is audited');
 
@@ -108,26 +112,26 @@ check(auditStoryboard({ episodes: [] }, ctx).status === 'incomplete', 'an empty 
 const firstPrompt = (change) => audit((b) => { b.episodes[0].segments[0].h3Prompt = change(b.episodes[0].segments[0].h3Prompt); });
 const hasIssue = (change, rule) => issues(firstPrompt(change), rule).length > 0;
 const officialRules = clean.evaluated_checks.filter((rule) => rule.id.startsWith('h3-')).map((rule) => rule.id);
-check(clean.audit_version === 2 && clean.scope === 'evaluation-only', 'audit version identifies the updated evaluation policy');
+check(clean.audit_version === 3 && clean.scope === 'read-only', 'audit version identifies the updated evaluation policy');
 check(!clean.evaluated_checks.some((rule) => rule.id === 'scene-music-continuity'), 'superseded music-continuity rule is absent');
 check(clean.limitations.some((item) => item.includes('appearance, position, action')), 'inline binding does not certify visual-description semantics');
 check(clean.limitations.some((item) => item.includes('ordinary wind, rain, impacts')), 'speaker-ID boundary excludes ordinary physical sound sources');
 check(clean.limitations.some((item) => item.includes('true asset roles')), 'task-prefix and retention semantics are explicitly outside deterministic proof');
-const legacy = firstPrompt(() => 'integrated_multimodal_description:\n[Shot 1] Live-action. A worker (S1) says: <d>[Chinese] 盒子到了。</d>\noverall_soundscape: Wind.\nnon_diegetic_music: N/A');
+const legacy = firstPrompt(() => 'integrated_multimodal_description:\n[Shot 1] Semi-realistic painterly. A worker (S1) says: <d>[Chinese] 盒子到了。</d>\noverall_soundscape: Wind.\nnon_diegetic_music: N/A');
 check(legacy.status === 'incomplete' && officialRules.every((rule) => legacy.skips.some((item) => item.rule === rule)), 'legacy base/keyframe format is skipped for every official Ref2VA rule');
 const chinese = audit((b) => { b.promptLang = 'zh'; });
 check(chinese.status === 'incomplete' && officialRules.every((rule) => chinese.skips.some((item) => item.rule === rule && item.reason.includes('non-English'))), 'Chinese prompt mode is unsupported by the English official-format audit');
 check(firstPrompt((p) => p.replace(/\n/g, '\r\n')).status === 'pass', 'CRLF official sections preserve format recognition');
 check(firstPrompt((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1>\n(S1) says:\n')).status === 'pass', 'natural line wraps do not break a speaker binding or dialogue source');
 check(!hasIssue((p) => p.replace('brick wall of <Subject 2>', 'brick wall of\n<Subject 2>'), 'h3-subject-inline-binding'), 'line wraps do not turn descriptive reference use into a detached label list');
-check(firstPrompt((p) => p.replace('Live-action.', 'The video has a natural photographic texture.')).status === 'pass', 'style prose is not forced into one example phrase or style keyword');
-check(hasIssue((p) => p.replace('Live-action.\n[Shot 1]', '[Shot 1] Live-action.'), 'h3-style-before-shot1'), 'style after Shot 1 fails only the Ref2VA opening-placement check');
-check(hasIssue((p) => p.replace('Live-action.\n[Shot 1]', '<Subject 1>\n[Shot 1]'), 'h3-style-before-shot1'), 'bare reference labels are not style-opening prose');
+check(firstPrompt((p) => p.replace(styleSentence, 'The video uses painterly rendering with natural textured edges.')).issues.some((item) => item.rule === 'style-consistency'), 'a different style sentence in just one segment fails exact repetition');
+check(hasIssue((p) => p.replace(`${styleSentence}\n[Shot 1]`, `[Shot 1] ${styleSentence}`), 'h3-style-before-shot1'), 'style after Shot 1 fails only the Ref2VA opening-placement check');
+check(hasIssue((p) => p.replace(`${styleSentence}\n[Shot 1]`, '<Subject 1>\n[Shot 1]'), 'h3-style-before-shot1'), 'bare reference labels are not style-opening prose');
 check(hasIssue((p) => p.replace('[Shot 1] Static Shot.', '[Shot 2] Static Shot.'), 'h3-style-before-shot1'), 'missing Shot 1 is not a passing opening-placement check');
 check(hasIssue((p) => p.replace(/At frame left, <Subject 1> \(S1\),[^\n]*?while the worker's lips remain completely closed\./, 'The worker opens the box. On screen: <Subject 1>, in <Subject 2>.'), 'h3-subject-inline-binding'), 'first-use detached On screen list is rejected');
 check(issues(firstPrompt((p) => p.replace(/At frame left, <Subject 1> \(S1\),[^\n]*?while the worker's lips remain completely closed\./, 'A worker (S1) says: <d>[Chinese] 盒子到了。</d> On screen: <Subject 1>, in <Subject 2>.')), 'h3-subject-inline-binding').length === 2, 'post-dialogue detached roster remains a list despite original-language punctuation');
 check(hasIssue((p) => p.replace(/At frame left, <Subject 1> \(S1\),[^\n]*?while the worker's lips remain completely closed\./, '<Subject 1>, <Subject 2>.'), 'h3-subject-inline-binding'), 'bare subject list is rejected');
-check(hasIssue((p) => p.replace(/detailed_description:\n[\s\S]*?overall_soundscape:/, 'detailed_description:\nLive-action.\n[Shot 1] <Subject 1> opens the box.\noverall_soundscape:'), 'h3-subject-inline-binding'), 'a defined subject absent from description is rejected');
+check(hasIssue((p) => p.replace(/detailed_description:\n[\s\S]*?overall_soundscape:/, `detailed_description:\n${styleSentence}\n[Shot 1] <Subject 1> opens the box.\noverall_soundscape:`), 'h3-subject-inline-binding'), 'a defined subject absent from description is rejected');
 check(!hasIssue((p) => p.replace(/At frame left,[^\n]*?while the worker's lips remain completely closed\./, '<Subject 1> waits in <Subject 2>.'), 'h3-subject-inline-binding'), 'minimal inline prose passes placement without certifying appearance/position/action quality');
 check(firstPrompt((p) => p.replace('<Subject 1> — C01;', '<Subject 1> is Mara,').replace('<Subject 2> — S01;', '<Subject 2> is the workshop,')).status === 'pass', 'official natural is definitions are accepted alongside importer-specific dash definitions');
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', 'Mara (S1) says:'), 'h3-referenced-speaker-binding'), 'script-mapped referenced speaker needs a Subject label at this dialogue clause');
@@ -135,7 +139,19 @@ check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> says in v
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 2> (S1) says:'), 'h3-referenced-speaker-binding'), 'wrong referenced speaker label fails unique script mapping');
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> says:'), 'h3-vocal-source-ids'), 'speaker ID in a prior appearance sentence does not count for this vocal event');
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S0) says:'), 'h3-vocal-source-ids'), 'zero speaker ID fails the official numbering boundary');
+check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S3) says:'), 'h3-vocal-source-ids'), 'first vocal event starts at S1 rather than an arbitrary source number');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. Wind, cloth movement and a box impact are audible.'), 'h3-vocal-source-ids'), 'physical wind/cloth/impact events do not receive invented S IDs');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child cheers.'), 'h3-vocal-source-ids'), 'an independent non-verbal human voice needs a source ID');
+check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child (S1) cheers.').replace('<Subject 1> (S1) says:', '<Subject 1> (S2) says:'), 'h3-vocal-source-ids'), 'non-verbal voices precede later dialogue in source numbering');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> cheers.'), 'h3-vocal-source-ids'), 'a referenced cheering source needs its immediate speaker binding');
+check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> (S1) cheers.'), 'h3-vocal-source-ids'), 'one referenced source keeps its ID across cheering and speech');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> (S1) cheers.').replace('<Subject 1> (S1) says:', '<Subject 1> (S2) says:'), 'h3-vocal-source-ids'), 'a non-verbal referenced source cannot change identity at speech');
+check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. The worker silently laughs.'), 'h3-vocal-source-ids'), 'explicitly silent physical laughter is not a new audible voice');
+for (const sound of ['Distant footsteps.', 'The rustle of loose cash.', 'A structural rumble.', 'A car door closure.', 'The room drone transitions into street traffic.', 'An ominous drone.']) {
+  check(hasIssue((p) => p.replace('Wind through the window.', sound), 'h3-synchronized-sound-placement'), `event-specific soundscape is rejected: ${sound}`);
+}
+check(!hasIssue((p) => p.replace('Wind through the window.', 'A continuous breeze rustles overhead canvas.'), 'h3-synchronized-sound-placement'), 'wind-driven canvas ambience remains ambient');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. Cinematic film still.'), 'style-consistency'), 'video film-still styling also violates the shared reference style rule');
 check(!hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S1) sings:'), 'h3-vocal-source-ids'), 'singing uses the same vocal-source ID format');
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> sings:'), 'h3-vocal-source-ids'), 'sung lyrics also require a vocal-source ID');
 check(!hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S1) says off-screen:'), 'h3-referenced-speaker-binding'), 'off-screen physical speaking retains the reference/source binding');
@@ -154,6 +170,7 @@ check(hasIssue((p) => p.replace(/retention_analysis:\n[\s\S]*?detailed_descripti
 check(hasIssue((p) => p.replace("<Subject 1> (appears in [Shot 1]): fully_preserved - the worker's apron and appearance are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the room's brick wall is retained.", '<Subject 1>, <Subject 2> (appears in [Shot 1]): fully_preserved - both are retained.'), 'h3-retention-per-line'), 'multiple standalone labels in one retention entry fail');
 check(hasIssue((p) => p.replace('fully_preserved - the worker', 'fully_copy - the worker'), 'h3-retention-per-line'), 'audio copy marker cannot be used for visible content');
 check(hasIssue((p) => p.replace('fully_preserved - the worker', 'retained_exactly - the worker'), 'h3-retention-per-line'), 'nonofficial relationship marker fails');
+check(hasIssue((p) => p.replace('summary:', '<Subject 1> is a second definition of the worker.\nsummary:'), 'h3-retention-per-line'), 'duplicate definitions cannot hide behind a single retention row');
 check(hasIssue((p) => p.replace('<Subject 1> (appears in [Shot 1]):', '<Subject 1> (appears throughout):'), 'h3-retention-per-line'), 'visible subject retention names its shots');
 check(hasIssue((p) => p.replace('<Subject 1> (appears in [Shot 1]):', '<Subject 1> (appears in [Shot 9]):'), 'h3-retention-per-line'), 'retention cannot claim nonexistent shots');
 check(hasIssue((p) => p.replace("fully_preserved - the worker's apron and appearance are retained.", 'fully_preserved'), 'h3-retention-per-line'), 'relationship marker alone needs an explanation');
@@ -165,7 +182,7 @@ check(hasIssue((p) => p.replace('Wind through the window.', 'At 00:02.000, a lat
 check(hasIssue((p) => p.replace('Wind through the window.', 'A latch clicks at 2.0 seconds.'), 'h3-synchronized-sound-placement'), 'plain-second timestamp-bound sound belongs inside that shot');
 check(hasIssue((p) => p.replace('Wind through the window.', 'A metallic tick is synchronized to the hand contact.'), 'h3-synchronized-sound-placement'), 'explicit synchronization belongs inside the matching shot');
 check(hasIssue((p) => p.replace('Wind through the window.', 'A worker says <d>[English] Wait.</d>'), 'h3-synchronized-sound-placement'), 'soundscape cannot repeat dialogue');
-check(firstPrompt((p) => p.replace('Wind through the window.', 'The door slams.')).skips.some((item) => item.rule === 'h3-synchronized-sound-placement'), 'unanchored possible one-off sound reports uncertain placement rather than automatic failure or pass');
+check(hasIssue((p) => p.replace('Wind through the window.', 'The door slams.'), 'h3-synchronized-sound-placement'), 'recognizable one-off sound cannot be placed in continuous ambience');
 check(firstPrompt((p) => p.replace('Wind through the window.', 'Quiet room tone and a ventilation hum continue throughout the video.')).status === 'pass', 'explicit continuous ambience passes the placement-presence check');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. On impact, the box produces a hollow thud.').replace('Wind through the window.', 'Quiet room tone continues throughout.'), 'h3-synchronized-sound-placement'), 'synchronized sound written inside the shot passes placement check');
 check(hasIssue((p) => p.replace('Wind through the window.', ''), 'h3-synchronized-sound-placement'), 'empty soundscape cannot pass its format-presence check');
@@ -192,13 +209,87 @@ check(hasIssue((p) => audioCue(p, 'fully_preserved'), 'h3-retention-per-line'), 
 check(!hasIssue((p) => p.replace('summary:', '<Picture 3> is a keyframe for [Shot 1].\nsummary:').replace('detailed_description:', '<Picture 3> ([Shot 1] keyframe): fully_preserved - the frame composition is retained.\ndetailed_description:'), 'h3-retention-per-line'), 'standalone keyframe Picture has its own retention line with shot role');
 check(!hasIssue((p) => p.replace('summary:', '<Video 1> is a camera-structure reference.\nsummary:').replace('detailed_description:', '<Video 1> (cut and pacing structure): weak_reference - the timing is retained.\ndetailed_description:'), 'h3-retention-per-line'), 'Video structural retention does not require a visible appearance shot');
 
+const targetRules = [...officialRules, 'style-consistency'];
+const strictCtx = { ...ctx, ref2va: true };
+const strictGates = gateReport(board, strictCtx);
+check(strictGates.length === 29 && targetRules.length === 9, 'production exposes 29 gates including all nine reference-format and style rules');
+check(targetRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'complete invented reference fixture passes every selected production rule without skip details');
+for (const [rule, changePrompt, changeContext] of [
+  ['h3-style-before-shot1', (p) => p.replace(`${styleSentence}\n[Shot 1]`, `[Shot 1] ${styleSentence}`)],
+  ['h3-subject-inline-binding', (p) => p.replace(/At frame left, <Subject 1> \(S1\),[^\n]*?while the worker's lips remain completely closed\./, 'The worker opens the box. On screen: <Subject 1>, in <Subject 2>.')],
+  ['h3-referenced-speaker-binding', (p) => p.replace('<Subject 1> (S1) says:', '<Subject 2> (S1) says:')],
+  ['h3-vocal-source-ids', (p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S3) says:')],
+  ['h3-summary-task-prefix', (p) => p.replace('[reference generation]', 'reference generation')],
+  ['h3-retention-per-line', (p) => p.replace(/retention_analysis:\n[\s\S]*?detailed_description:/, 'retention_analysis:\nAll references are retained exactly.\ndetailed_description:')],
+  ['h3-synchronized-sound-placement', (p) => p.replace('Wind through the window.', 'A structural rumble.')],
+  ['h3-voiceover-exact-format', () => voiceover.replace('says in an off-screen voiceover', 'groans in an off-screen voiceover')],
+  ['style-consistency', (p) => p, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }],
+]) {
+  const badBoard = clone(board);
+  const badCtx = clone(strictCtx);
+  badBoard.episodes[0].segments[0].h3Prompt = changePrompt(badBoard.episodes[0].segments[0].h3Prompt);
+  changeContext?.(badCtx);
+  const failed = gateReport(badBoard, badCtx).find((gate) => gate.id === rule);
+  check(!failed.ok && failed.detail.includes(`[${rule}]`) && failed.detail.includes('E01-01'), `production gate rejects and identifies the ${rule} mutant`);
+  check(validateStoryboard(badBoard, badCtx).some((problem) => problem.includes(`[${rule}]`)), `production validate surfaces the ${rule} rejection`);
+}
+const noCompletion = clone(board);
+noCompletion.episodes[0].segments[1].h3Prompt = noCompletion.episodes[0].segments[1].h3Prompt.replace('[reference generation + keyframe completion]', '[reference generation]');
+check(!gateReport(noCompletion, strictCtx).find((gate) => gate.id === 'h3-summary-task-prefix').ok, 'production rejects a preceding tail-frame continuation without keyframe completion');
+
+for (const [label, mutate] of [
+  ['legacy keyframe', (b) => { b.episodes[0].segments[0].h3Prompt = 'integrated_multimodal_description:\n[Shot 1] Semi-realistic painterly. A worker (S1) says: <d>[Chinese] 盒子到了。</d>\noverall_soundscape: Wind.\nnon_diegetic_music: N/A'; }],
+  ['Chinese prompt mode', (b) => { b.promptLang = 'zh'; }],
+]) {
+  const unsupported = clone(board);
+  mutate(unsupported);
+  const compatibility = gateReport(unsupported, ctx).filter((gate) => targetRules.includes(gate.id));
+  check(compatibility.length === 9 && compatibility.every((gate) => gate.ok && gate.detail.includes('--ref2va') && gate.detail.includes('跳过')), `${label} keeps explicit flag-off compatibility for all nine new gates`);
+  const strict = gateReport(unsupported, strictCtx);
+  check(officialRules.every((rule) => strict.some((gate) => gate.id === rule && !gate.ok && gate.detail.includes(rule))), `${label} is rejected under explicit Ref2VA because official-format audit skips are incomplete evidence`);
+}
+const noDetail = clone(board);
+noDetail.episodes[0].segments[0].h3Prompt = noDetail.episodes[0].segments[0].h3Prompt.replace(/detailed_description:\n[\s\S]*?overall_soundscape:/, 'overall_soundscape:');
+check(issues(auditStoryboard(noDetail, ctx), 'h3-subject-inline-binding').length === 0, 'missing detail has no inline audit issue to masquerade as a production rejection');
+const noDetailGate = gateReport(noDetail, strictCtx).find((gate) => gate.id === 'h3-subject-inline-binding');
+check(!noDetailGate.ok && noDetailGate.detail.includes('Detailed description is unavailable'), 'production inline gate rejects a skip when detailed description is unavailable');
+const noDefinitions = clone(board);
+noDefinitions.episodes[0].segments[0].h3Prompt = noDefinitions.episodes[0].segments[0].h3Prompt
+  .replace(/subject_definitions:\n[\s\S]*?summary:/, 'subject_definitions:\nsummary:')
+  .replace(/retention_analysis:\n[\s\S]*?detailed_description:/, 'retention_analysis:\ndetailed_description:');
+const definitionSkip = auditStoryboard(noDefinitions, ctx);
+check(definitionSkip.skips.some((item) => item.rule === 'h3-retention-per-line' && item.reason.includes('No standalone reference definitions')), 'missing definitions are recorded as an audit skip');
+check(issues(definitionSkip, 'h3-retention-per-line').length === 0, 'unparsed definitions produce a pure retention skip without issue-based fallback');
+const noDefinitionGate = gateReport(noDefinitions, strictCtx).find((gate) => gate.id === 'h3-retention-per-line');
+check(!noDefinitionGate.ok && noDefinitionGate.detail.includes('No standalone reference definitions'), 'production retention gate rejects an unparsed-definition skip');
+for (const contextFile of ['cast', 'art']) {
+  const missing = clone(strictCtx);
+  delete missing[contextFile];
+  const failed = gateReport(board, missing).find((gate) => gate.id === 'style-consistency');
+  check(!failed.ok && failed.detail.includes(`Missing ${contextFile}.json`), `strict production style gate rejects missing ${contextFile} reference context`);
+  check(gateReport(board, { ...missing, ref2va: false }).filter((gate) => targetRules.includes(gate.id)).every((gate) => gate.ok && gate.detail.includes('--ref2va')), `missing ${contextFile} preserves explicit flag-off compatibility`);
+}
+const noScript = { ...strictCtx, script: undefined };
+check(gateReport(board, noScript).filter((gate) => targetRules.includes(gate.id)).every((gate) => gate.ok && !gate.detail), 'the nine reference-format gates retain sufficient cast/art and prompt evidence without a script');
+const silent = clone(board);
+for (const segment of silent.episodes[0].segments) segment.h3Prompt = segment.h3Prompt.replace(/<Subject 1> \(S1\) says: <d>[\s\S]*?<\/d> while the worker's lips remain completely closed\./, 'The worker closes the box silently.');
+const silentAudit = auditStoryboard(silent, ctx);
+for (const rule of ['h3-referenced-speaker-binding', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
+  const counts = silentAudit.evaluated_checks.find((item) => item.id === rule);
+  check(counts.evaluated === 0 && counts.skipped === 0 && counts.issues === 0, `${rule} is inapplicable rather than skipped when the prompt has no vocal or voiceover events`);
+  check(gateReport(silent, strictCtx).find((gate) => gate.id === rule).ok, `${rule} can pass production with zero applicable events and complete evidence`);
+}
+
 const frozen = clone({ board, ctx });
 const freeze = (value) => { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } };
 const before = JSON.stringify(frozen);
 const productionBefore = gateReport(frozen.board, frozen.ctx);
+const strictProductionBefore = gateReport(frozen.board, { ...frozen.ctx, ref2va: true });
 freeze(frozen);
 auditStoryboard(frozen.board, frozen.ctx);
 check(JSON.stringify(frozen) === before, 'audit never mutates input documents');
 check(JSON.stringify(gateReport(frozen.board, frozen.ctx)) === JSON.stringify(productionBefore), 'audit does not alter production gate behavior');
+check(JSON.stringify(gateReport(frozen.board, { ...frozen.ctx, ref2va: true })) === JSON.stringify(strictProductionBefore), 'strict production gates reuse the same audit results without mutation');
+check(JSON.stringify(frozen) === before, 'strict production validation leaves every frozen storyboard/context document unchanged');
 check(clean.issues.length === clean.evaluated_checks.reduce((sum, item) => sum + item.issues, 0), 'raw issue totals reconcile with rule counts');
 console.log(`✓ ${passed} cinematic audit checks passed`);

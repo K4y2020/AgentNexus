@@ -20,7 +20,7 @@ def test_build_structured_shots_preserves_dialogue_ownership():
                 "seconds": 4,
                 "size": "medium",
                 "camera": "Static Shot",
-                "frame": "medium shot of the server room",
+                "frame": "medium shot of a ferry deck",
                 "characters": ["C01", "C02"],
                 "props": ["P01"],
             }
@@ -33,10 +33,10 @@ def test_build_structured_shots_preserves_dialogue_ownership():
                 "scenes": [
                     {
                         "sceneId": "S01",
-                        "lighting": "cold blue light",
+                        "lighting": "soft light through river fog",
                         "flow": [
-                            {"action": "The engineer looks toward the hologram."},
-                            {"speaker": "C02", "line": "先喝水。", "delivery": "calm"},
+                            {"action": "The ferryman looks toward the signal lantern."},
+                            {"speaker": "C02", "line": "把绳结系稳。", "delivery": "calm"},
                         ],
                     }
                 ],
@@ -50,7 +50,7 @@ def test_build_structured_shots_preserves_dialogue_ownership():
         {
             "sourceRef": "script:1:1:2",
             "speaker": "C02",
-            "exactText": "先喝水。",
+            "exactText": "把绳结系稳。",
             "delivery": "calm",
         }
     ]
@@ -171,7 +171,7 @@ async def test_import_creates_missing_targets_deterministically(tmp_path):
 async def test_import_provisions_and_links_visual_assets(tmp_path):
     cast = {
         "characters": [
-            {"id": "C01", "name": "林黛玉", "image": {"sheet": "16:9 sheet prompt for Lin Daiyu"}},
+            {"id": "C01", "name": "顾青", "image": {"sheet": "16:9 sheet prompt for Gu Qing"}},
         ]
     }
     art = {
@@ -179,8 +179,8 @@ async def test_import_provisions_and_links_visual_assets(tmp_path):
             {
                 "id": "S01",
                 "sceneIndex": 1,
-                "name": "街头算命摊",
-                "image": {"prompt": "scene prompt for stall"},
+                "name": "南岸候船亭",
+                "image": {"prompt": "scene prompt for ferry pavilion"},
             },
         ]
     }
@@ -353,10 +353,10 @@ _TARGETS = [
     {"id": "summary", "type": "text", "title": "Cine 分镜同步总卡", "revision": 1},
     {"id": "ep1", "type": "storyboard", "title": "EP01 分镜表", "revision": 1},
 ]
-_CAST = {"characters": [{"id": "C01", "name": "林黛玉", "image": {"sheet": "16:9 sheet prompt"}}]}
+_CAST = {"characters": [{"id": "C01", "name": "顾青", "image": {"sheet": "16:9 sheet prompt"}}]}
 _ART = {
     "scenes": [
-        {"id": "S01", "sceneIndex": 1, "name": "街头算命摊", "image": {"prompt": "scene prompt"}}
+        {"id": "S01", "sceneIndex": 1, "name": "南岸候船亭", "image": {"prompt": "scene prompt"}}
     ]
 }
 _SCRIPT = {
@@ -567,38 +567,38 @@ def test_align_h3_prompt_to_references_reorders_correctly():
 
     cast = {
         "characters": [
-            {"id": "C01", "name": "林黛玉", "aliases": ["黛玉"]},
-            {"id": "C02", "name": "贾敏", "aliases": ["大姐"]},
-            {"id": "C07", "name": "林如海", "aliases": ["老爷"]},
+            {"id": "C01", "name": "顾青", "aliases": ["阿青"]},
+            {"id": "C02", "name": "杜禾", "aliases": ["大姐"]},
+            {"id": "C07", "name": "程砚", "aliases": ["老爷"]},
         ]
     }
     art = {
         "scenes": [
-            {"id": "S01", "name": "街头卦摊（白天）", "brief": "street stall"},
+            {"id": "S01", "name": "南岸候船亭（清晨）", "brief": "ferry pavilion"},
         ]
     }
 
     # Canvas references order: C01 (Picture 1), C02 (Picture 2), C07 (Picture 3), S01 (Picture 4)
     actual_refs = [
-        {"id": "node:c1", "label": "林黛玉 · 角色三视图", "kind": "image"},
-        {"id": "node:c2", "label": "贾敏 · 角色三视图", "kind": "image"},
-        {"id": "node:c7", "label": "林如海 · 角色三视图", "kind": "image"},
-        {"id": "node:s1", "label": "街头卦摊（白天） · 场景概念图", "kind": "image"},
+        {"id": "node:c1", "label": "顾青 · 角色三视图", "kind": "image"},
+        {"id": "node:c2", "label": "杜禾 · 角色三视图", "kind": "image"},
+        {"id": "node:c7", "label": "程砚 · 角色三视图", "kind": "image"},
+        {"id": "node:s1", "label": "南岸候船亭（清晨） · 场景概念图", "kind": "image"},
     ]
 
     # Inverted prompt: C07 is Picture 1, C01 is Picture 4!
     old_prompt = (
         "format: h3_ref2va\n"
         "subject_definitions:\n"
-        "<Subject 1> — a scholarly bureaucrat of forty-eight in a charcoal pinstripe "
-        "three-piece suit; face, costume and glasses come entirely from <Picture 1>.\n"
-        "<Subject 2> — a proud matriarch in her forties in an emerald-green embroidered "
+        "<Subject 1> — a middle-aged navigator in a weathered navy "
+        "coat; face, costume and glasses come entirely from <Picture 1>.\n"
+        "<Subject 2> — a retired cartographer in a plain grey wool "
         "jacket; face and costume come entirely from <Picture 2>.\n"
-        "<Subject 3> — the daytime street fortune-telling stall environment; layout, "
+        "<Subject 3> — the morning ferry pavilion environment; layout, "
         "materials and daylight come entirely from <Picture 3>.\n"
-        "<Subject 4> — a cool young woman of eighteen in a pearl-white silk shirt; "
+        "<Subject 4> — a young traveler in a rust-red windbreaker; "
         "face, hair and costume come entirely from <Picture 4>.\n"
-        "summary: Family meets at stall.\n"
+        "summary: Passengers wait beside the ferry.\n"
         "retention_analysis: <Subject 1>, <Subject 2>, <Subject 3>, <Subject 4> "
         "are retained exactly as referenced.\n"
         "detailed_description:\n"
@@ -621,14 +621,14 @@ def test_align_h3_prompt_to_references_reorders_correctly():
     )
 
     assert aligned.startswith("format: h3_ref2va\n")
-    assert "<Subject 1> — a cool young woman" in aligned
+    assert "<Subject 1> — a young traveler" in aligned
     assert "costume come entirely from <Picture 1>" in aligned
-    assert "<Subject 2> — a proud matriarch" in aligned
+    assert "<Subject 2> — a retired cartographer" in aligned
     assert "come entirely from <Picture 2>" in aligned
-    assert "<Subject 3> — a scholarly bureaucrat" in aligned
+    assert "<Subject 3> — a middle-aged navigator" in aligned
     # The author's own citation wording is kept, only renumbered.
     assert "costume and glasses come entirely from <Picture 3>" in aligned
-    assert "<Subject 4> — the daytime street fortune-telling stall" in aligned
+    assert "<Subject 4> — the morning ferry pavilion" in aligned
     assert "come entirely from <Picture 4>" in aligned
 
     assert "[Shot 1] <Subject 2> talks to <Subject 1>." in aligned
@@ -713,6 +713,86 @@ def test_subject_identification_uses_project_names_aliases_and_whole_ids():
     assert _identify_subject_entity("船家摇橹", cast, art) == ("unknown", None)
     # Two different entities in one definition is ambiguous.
     assert _identify_subject_entity("小满站在雾中渡口", cast, art) == ("unknown", None)
+
+
+@pytest.mark.parametrize("retention_separator", ["\n", " "])
+def test_reference_alignment_preserves_every_retention_role_and_definition(retention_separator):
+    from agentnexus.seedance.storyboard_import import align_h3_prompt_to_references
+
+    definitions = (
+        "subject_definitions:\n"
+        "<Subject 1> — S01, the foggy ferry landing; layout comes from <Picture 1>.\n"
+        "<Subject 2> — C01, a ferryman in a straw hat; appearance comes from <Picture 2>.\n"
+        "<Subject 3> — C02, a passenger in a white gown; appearance comes from <Picture 3>.\n"
+        "<Picture 1> — the first-frame composition for [Shot 1].\n"
+        "<Video 1> — an editing-rhythm reference.\n"
+        "<Audio 1> — a reused ferry-bell recording.\n"
+    )
+    retention = (
+        "<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the fog and pier remain.\n"
+        "<Subject 2> (appears in [Shot 1]): partially_preserved - the hat remains but is tilted.\n"
+        "<Subject 3> (appears in [Shot 2]): attribute_transfer - the gown's color is carried.\n"
+        "<Picture 1> ([Shot 1] first frame): fully_preserved - the opening composition matches.\n"
+        "<Video 1> (cut and pacing structure): weak_reference - only the slow rhythm is used.\n"
+        "<Audio 1>: partially_copy - one bell tone is mixed with the new river ambience.\n"
+    )
+    prompt = (
+        definitions
+        + "summary: [reference generation + keyframe completion] A passenger boards.\n"
+        + "retention_analysis:"
+        + retention_separator
+        + retention
+        + "detailed_description:\n"
+        + "Semi-realistic painterly style.\n"
+        + "[Shot 1] <Subject 2> unties the rope at <Subject 1>, beginning from <Picture 1>.\n"
+        + "[Shot 2] <Subject 3> steps onto the pier.\n"
+        + "overall_soundscape: A continuous river breeze.\nnon_diegetic_music: N/A"
+    )
+    refs = [_FERRY_REFS[1], {"id": "node:scene", "label": "雾中渡口"}, _FERRY_REFS[0]]
+    issues = []
+
+    aligned = align_h3_prompt_to_references(prompt, refs, _FERRY_CAST, _FERRY_ART, issues=issues)
+
+    expected_retention = (
+        "<Subject 2> (appears in [Shot 1], [Shot 2]): fully_preserved - the fog and pier remain.\n"
+        "<Subject 3> (appears in [Shot 1]): partially_preserved - the hat remains but is tilted.\n"
+        "<Subject 1> (appears in [Shot 2]): attribute_transfer - the gown's color is carried.\n"
+        "<Picture 2> ([Shot 1] first frame): fully_preserved - the opening composition matches.\n"
+        "<Video 1> (cut and pacing structure): weak_reference - only the slow rhythm is used.\n"
+        "<Audio 1>: partially_copy - one bell tone is mixed with the new river ambience.\n"
+    )
+    assert issues == []
+    assert "retention_analysis:" + retention_separator + expected_retention in aligned
+    assert "<Picture 2> — the first-frame composition for [Shot 1]." in aligned
+    assert "<Video 1> — an editing-rhythm reference." in aligned
+    assert "<Audio 1> — a reused ferry-bell recording." in aligned
+    assert "<Subject 1> — C02, a passenger" in aligned
+    assert "<Subject 2> — S01, the foggy ferry landing" in aligned
+    assert "<Subject 3> — C01, a ferryman" in aligned
+    assert (
+        "[Shot 1] <Subject 3> unties the rope at <Subject 2>, beginning from <Picture 2>."
+        in aligned
+    )
+    assert align_h3_prompt_to_references(aligned, refs, _FERRY_CAST, _FERRY_ART) == aligned
+
+
+@pytest.mark.parametrize("unknown_token", ["<Subject 9>", "<Picture 9>"])
+def test_reference_alignment_refuses_undefined_tokens_in_standalone_definitions(unknown_token):
+    from agentnexus.seedance.storyboard_import import align_h3_prompt_to_references
+
+    prompt = (
+        _FERRY_PROMPT.replace("<Subject 1> — ", "<Subject 1> — C02, ")
+        .replace("<Subject 2> — ", "<Subject 2> — C01, ")
+        .replace("summary:", f"<Audio 1> — a sound associated with {unknown_token}.\nsummary:")
+    )
+    issues = []
+
+    aligned = align_h3_prompt_to_references(
+        prompt, _FERRY_REFS, _FERRY_CAST, _FERRY_ART, issues=issues
+    )
+
+    assert aligned == prompt
+    assert any(unknown_token in issue for issue in issues)
 
 
 def _judge(answers, calls=None):
@@ -864,19 +944,72 @@ def _prompt_needing_alignment():
     # Authored with the scene as Picture 1; the canvas attaches the character first.
     return (
         "subject_definitions:\n"
-        "<Subject 1> — 街头算命摊; layout comes from <Picture 1>.\n"
-        "<Subject 2> — 林黛玉; face comes from <Picture 2>.\n"
-        "summary: test\n"
-        "retention_analysis: <Subject 1>, <Subject 2> retained.\n"
+        "<Subject 1> — 南岸候船亭; layout comes from <Picture 1>.\n"
+        "<Subject 2> — 顾青; face comes from <Picture 2>.\n"
+        "summary: [reference generation] A traveler reaches the ferry pavilion.\n"
+        "retention_analysis:\n"
+        "<Subject 1> (appears in [Shot 1]): fully_preserved - the pavilion's layout is retained.\n"
+        "<Subject 2> (appears in [Shot 1]): partially_preserved - "
+        "the face stays; posture changes.\n"
         "detailed_description:\n"
         "[Shot 1] <Subject 2> walks into <Subject 1>.\n"
     )
 
 
 _ALIGNMENT_REFS = [
-    {"id": "character", "label": "林黛玉 · 角色三视图", "kind": "image"},
-    {"id": "scene", "label": "街头算命摊 · 场景概念图", "kind": "image"},
+    {"id": "character", "label": "顾青 · 角色三视图", "kind": "image"},
+    {"id": "scene", "label": "南岸候船亭 · 场景概念图", "kind": "image"},
 ]
+
+
+def test_reference_alignment_keeps_retention_when_an_unclaimed_canvas_reference_is_added():
+    from agentnexus.seedance.storyboard_import import align_h3_prompt_to_references
+
+    prompt = _prompt_needing_alignment()
+    refs = [*_ALIGNMENT_REFS, {"id": "mood", "label": "dawn color palette", "kind": "image"}]
+
+    aligned = align_h3_prompt_to_references(prompt, refs, _CAST, _ART)
+
+    assert (
+        "retention_analysis:\n"
+        "<Subject 2> (appears in [Shot 1]): fully_preserved - the pavilion's layout is retained.\n"
+        "<Subject 1> (appears in [Shot 1]): partially_preserved - "
+        "the face stays; posture changes.\n"
+        "detailed_description:"
+    ) in aligned
+    retention = aligned.split("retention_analysis:", 1)[1].split("detailed_description:", 1)[0]
+    assert "<Subject 3>" not in retention
+
+
+@pytest.mark.asyncio
+async def test_reference_alignment_appends_only_the_known_continuation_frame_retention():
+    from agentnexus.seedance.storyboard_import import align_prompt_with_references
+
+    prompt = _prompt_needing_alignment()
+    refs = [*_ALIGNMENT_REFS, {"id": "node:frame", "label": "E01-01 尾帧", "kind": "image"}]
+    frame_entity = {"node:frame": ("frame", "E01-01")}
+
+    aligned = await align_prompt_with_references(
+        prompt, refs, _CAST, _ART, ref_entities=frame_entity, frame_ids=("E01-01",)
+    )
+
+    assert "<Subject 3> — E01-01, the last frame of the previous segment" in aligned
+    assert "light at the opening come entirely from <Picture 3>." in aligned
+    assert (
+        "retention_analysis:\n"
+        "<Subject 2> (appears in [Shot 1]): fully_preserved - the pavilion's layout is retained.\n"
+        "<Subject 1> (appears in [Shot 1]): partially_preserved - "
+        "the face stays; posture changes.\n"
+        "<Subject 3> ([Shot 1] opening frame): fully_preserved - positions, framing "
+        "and light at the opening carry from the preceding segment's last frame.\n"
+        "detailed_description:"
+    ) in aligned
+    assert (
+        await align_prompt_with_references(
+            aligned, refs, _CAST, _ART, ref_entities=frame_entity, frame_ids=("E01-01",)
+        )
+        == aligned
+    )
 
 
 @pytest.mark.asyncio
@@ -929,9 +1062,16 @@ async def test_successful_alignment_is_verified_against_final_storyboard(tmp_pat
     assert len(imports) == 2
     assert imports[-1]["document"] == saved
     aligned = saved["episodes"][0]["segments"][0]["h3Prompt"]
-    assert "<Subject 1> — 林黛玉; face comes from <Picture 1>." in aligned
-    assert "<Subject 2> — 街头算命摊; layout comes from <Picture 2>." in aligned
+    assert "<Subject 1> — 顾青; face comes from <Picture 1>." in aligned
+    assert "<Subject 2> — 南岸候船亭; layout comes from <Picture 2>." in aligned
     assert "[Shot 1] <Subject 1> walks into <Subject 2>." in aligned
+    assert (
+        "retention_analysis:\n"
+        "<Subject 2> (appears in [Shot 1]): fully_preserved - the pavilion's layout is retained.\n"
+        "<Subject 1> (appears in [Shot 1]): partially_preserved - "
+        "the face stays; posture changes.\n"
+        "detailed_description:"
+    ) in aligned
     assert result["receipt"]["subject_alignment_review"] == []
 
 
@@ -1078,7 +1218,7 @@ def test_resolve_cast_links_explicit_foreign_ids_and_refuses_ambiguity():
 async def test_idless_cast_resolves_through_the_outline_end_to_end(tmp_path):
     prompt = (
         "subject_definitions:\n"
-        "<Subject 1> — 街头算命摊; layout comes from <Picture 1>.\n"
+        "<Subject 1> — 南岸候船亭; layout comes from <Picture 1>.\n"
         "<Subject 2> — Al in a grey coat; face comes from <Picture 2>.\n"
         "summary: test\n"
         "retention_analysis: <Subject 1>, <Subject 2> retained.\n"
@@ -1229,15 +1369,15 @@ async def test_a_keyframe_prompt_on_a_card_with_reference_images_is_reported():
         "overall_soundscape: rain\n\nnon_diegetic_music: N/A"
     )
     refs = [
-        {"id": "node:a", "kind": "image", "label": "林黛玉 · 角色三视图"},
-        {"id": "node:b", "kind": "image", "label": "街头算命摊 · 场景概念图"},
+        {"id": "node:a", "kind": "image", "label": "顾青 · 角色三视图"},
+        {"id": "node:b", "kind": "image", "label": "南岸候船亭 · 场景概念图"},
     ]
     issues = []
     out = await align_prompt_with_references(legacy, refs, _FERRY_CAST, _FERRY_ART, issues=issues)
     assert out == legacy
     [issue] = issues
     assert "defines no <Subject N>" in issue
-    assert "街头算命摊 · 场景概念图" in issue
+    assert "南岸候船亭 · 场景概念图" in issue
 
     # A card without reference images has nothing to tie.
     quiet = []
@@ -1252,25 +1392,25 @@ def _planned_canvas():
         {
             "id": "c01",
             "type": "image_prompt",
-            "title": "林黛玉 · 角色三视图",
+            "title": "顾青 · 角色三视图",
             "data": {"characterId": "C01"},
         },
         {
             "id": "c04",
             "type": "image_prompt",
-            "title": "贾敏 · 角色三视图",
+            "title": "杜禾 · 角色三视图",
             "data": {"characterId": "C04"},
         },
         {
             "id": "c06",
             "type": "image_prompt",
-            "title": "算命先生 · 角色三视图",
+            "title": "巡渡员 · 角色三视图",
             "data": {"characterId": "C06"},
         },
         {
             "id": "s01",
             "type": "image_prompt",
-            "title": "街头算命摊 · 场景概念图",
+            "title": "南岸候船亭 · 场景概念图",
             "data": {"sceneId": "S01"},
         },
         {"id": "v1", "type": "video_prompt", "title": "E01-01", "data": {}},
@@ -1293,8 +1433,8 @@ def test_planned_references_follow_canvas_node_order_not_edge_order():
 
     Before any sheet is generated it reports no references at all, so an import
     that trusted it never renumbered: a prompt written in speaking order kept
-    "<Subject 1> = the fortune teller from <Picture 1>", while Picture 1 is the
-    heroine's sheet (created first).
+    "<Subject 1> = the harbor courier from <Picture 1>", while Picture 1 is the
+    traveler's sheet (created first).
     """
     from agentnexus.seedance.storyboard_import import (
         _references_for_alignment,
@@ -1326,16 +1466,16 @@ def test_a_speaking_order_prompt_is_renumbered_to_the_canvas_order_before_images
     art = {"scenes": [{"id": "S01"}]}
     prompt = (
         "subject_definitions:\n"
-        "<Subject 1> — C06, a street fortune teller; face and clothing come from <Picture 1>.\n"
-        "<Subject 2> — C04, the mother; face and clothing come from <Picture 2>.\n"
-        "<Subject 3> — C01, the daughter; face and clothing come from <Picture 3>.\n"
-        "<Subject 4> — S01, the street stall; layout and light come from <Picture 4>.\n"
-        "summary: A fortune is told.\n"
+        "<Subject 1> — C06, a harbor courier; face and clothing come from <Picture 1>.\n"
+        "<Subject 2> — C04, the cartographer; face and clothing come from <Picture 2>.\n"
+        "<Subject 3> — C01, the traveler; face and clothing come from <Picture 3>.\n"
+        "<Subject 4> — S01, the ferry pavilion; layout and light come from <Picture 4>.\n"
+        "summary: A parcel changes hands.\n"
         "retention_analysis: all retained.\n"
         "detailed_description:\n"
-        "[Shot 1] <Subject 1> reads the palm of <Subject 2> at <Subject 4>.\n"
-        "[Shot 2] At 00:04.000, <Subject 3> rolls her eyes.\n"
-        "overall_soundscape: street\nnon_diegetic_music: N/A"
+        "[Shot 1] <Subject 1> hands a parcel to <Subject 2> at <Subject 4>.\n"
+        "[Shot 2] At 00:04.000, <Subject 3> checks her wristwatch.\n"
+        "overall_soundscape: a continuous river breeze\nnon_diegetic_music: N/A"
     )
     refs = planned_image_references(_planned_canvas(), "v1")
     entities = {
@@ -1349,13 +1489,12 @@ def test_a_speaking_order_prompt_is_renumbered_to_the_canvas_order_before_images
         prompt, refs, cast, art, ref_entities=entities, issues=issues
     )
     assert issues == []
-    assert "<Subject 1> — C01, the daughter; face and clothing come from <Picture 1>." in aligned
+    assert "<Subject 1> — C01, the traveler; face and clothing come from <Picture 1>." in aligned
     assert (
-        "<Subject 3> — C06, a street fortune teller; face and clothing come from <Picture 3>."
-        in aligned
+        "<Subject 3> — C06, a harbor courier; face and clothing come from <Picture 3>." in aligned
     )
-    assert "[Shot 1] <Subject 3> reads the palm of <Subject 2> at <Subject 4>." in aligned
-    assert "[Shot 2] At 00:04.000, <Subject 1> rolls her eyes." in aligned
+    assert "[Shot 1] <Subject 3> hands a parcel to <Subject 2> at <Subject 4>." in aligned
+    assert "[Shot 2] At 00:04.000, <Subject 1> checks her wristwatch." in aligned
 
 
 # ---------------------------------------------------------------------------
@@ -1366,13 +1505,19 @@ _FRAME_PROMPT = (
     "subject_definitions:\n"
     "<Subject 1> — E01-01, the last frame of the previous segment; the opening comes "
     "entirely from <Picture 1>.\n"
-    "<Subject 2> — C01, the daughter; face and clothing come from <Picture 2>.\n"
-    "<Subject 3> — S01, the street stall; layout and light come from <Picture 3>.\n"
-    "summary: The scene carries on.\n"
-    "retention_analysis: <Subject 1>, <Subject 2> and <Subject 3> are retained.\n"
+    "<Subject 2> — C01, the traveler; face and clothing come from <Picture 2>.\n"
+    "<Subject 3> — S01, the ferry pavilion; layout and light come from <Picture 3>.\n"
+    "<Picture 1> — E01-01, the previous last frame used as [Shot 1]'s first frame.\n"
+    "summary: [reference generation + keyframe completion] The traveler turns, "
+    "opening from <Picture 1>.\n"
+    "retention_analysis:\n"
+    "<Subject 1> (appears in [Shot 1]): fully_preserved - the opening positions stay fixed.\n"
+    "<Subject 2> (appears in [Shot 1]): partially_preserved - appearance stays; pose changes.\n"
+    "<Subject 3> (appears in [Shot 1]): fully_preserved - the pavilion's light is retained.\n"
+    "<Picture 1> ([Shot 1] first frame): fully_preserved - its composition anchors the start.\n"
     "detailed_description:\n"
     "[Shot 1] Continuing from <Subject 1>, <Subject 2> turns at <Subject 3>.\n"
-    "overall_soundscape: street\nnon_diegetic_music: N/A"
+    "overall_soundscape: a continuous river breeze\nnon_diegetic_music: N/A"
 )
 
 
@@ -1486,8 +1631,25 @@ async def test_the_frame_subject_is_numbered_where_the_frame_will_be(tmp_path):
     # The sheets were created before the slot, so the frame is the last picture.
     assert "<Subject 3> — E01-01, the last frame of the previous segment" in prompt
     assert "the opening comes entirely from <Picture 3>." in prompt
-    assert "<Subject 1> — C01, the daughter; face and clothing come from <Picture 1>." in prompt
+    assert "<Subject 1> — C01, the traveler; face and clothing come from <Picture 1>." in prompt
     assert "[Shot 1] Continuing from <Subject 3>, <Subject 1> turns at <Subject 2>." in prompt
+    assert (
+        "<Picture 3> — E01-01, the previous last frame used as [Shot 1]'s first frame."
+    ) in prompt
+    assert (
+        "summary: [reference generation + keyframe completion] The traveler turns, "
+        "opening from <Picture 3>."
+    ) in prompt
+    assert (
+        "retention_analysis:\n"
+        "<Subject 3> (appears in [Shot 1]): fully_preserved - the opening positions stay fixed.\n"
+        "<Subject 1> (appears in [Shot 1]): partially_preserved - "
+        "appearance stays; pose changes.\n"
+        "<Subject 2> (appears in [Shot 1]): fully_preserved - the pavilion's light is retained.\n"
+        "<Picture 3> ([Shot 1] first frame): fully_preserved - "
+        "its composition anchors the start.\n"
+        "detailed_description:"
+    ) in prompt
     saved = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
     assert saved["episodes"][0]["segments"][1]["h3Prompt"] == prompt
 
@@ -1498,7 +1660,7 @@ async def test_a_reimport_leaves_out_assets_a_segment_no_longer_uses(tmp_path):
     cast = {
         "characters": [
             *_CAST["characters"],
-            {"id": "C02", "name": "贾母", "image": {"sheet": "16:9 sheet prompt"}},
+            {"id": "C02", "name": "罗婶", "image": {"sheet": "16:9 sheet prompt"}},
         ]
     }
     both = {

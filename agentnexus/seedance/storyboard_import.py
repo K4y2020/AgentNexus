@@ -404,10 +404,11 @@ def align_h3_prompt_to_references(
                 problems.append(f"<Picture {pic}> is cited for two different subjects.")
             picture_map[pic] = subject_map[num]
     rest = prompt[summary_start:]
-    for token in _SUBJECT_TOKEN.findall(rest):
+    referenced_text = prompt[subj_start:]
+    for token in _SUBJECT_TOKEN.findall(referenced_text):
         if int(token) not in subject_map:
             problems.append(f"<Subject {token}> is used but not defined.")
-    for token in _PICTURE_TOKEN.findall(rest):
+    for token in _PICTURE_TOKEN.findall(referenced_text):
         if int(token) not in picture_map:
             problems.append(f"<Picture {token}> is used but belongs to no defined subject.")
     if problems:
@@ -461,16 +462,23 @@ def align_h3_prompt_to_references(
             )
         lines.append(f"<Subject {idx}> — {desc}")
 
+    # Standalone frame, video and audio definitions retain their authored roles.
+    for line in prompt[subj_start + len("subject_definitions:") : summary_start].splitlines():
+        if line.strip() and not _SUBJECT_LINE.match(line.lstrip()):
+            lines.append(renumber(line))
+
     rest = renumber(rest)
-    everyone = [f"<Subject {i}>" for i in range(1, len(image_refs) + 1)]
-    retention = re.search(r"retention_analysis:\s*[^\n]+", rest)
-    if retention and not all(token in retention.group(0) for token in everyone):
-        rest = (
-            rest[: retention.start()]
-            + f"retention_analysis: {', '.join(everyone)} are retained exactly as referenced — "
-            "the same faces, costumes, environment and lighting. Only the action, the camera "
-            "and the timing are new." + rest[retention.end() :]
-        )
+    retention = re.search(r"retention_analysis:([\s\S]*?)(?=\ndetailed_description:|\Z)", rest)
+    frame_entries = [
+        f"<Subject {idx}> ([Shot 1] opening frame): fully_preserved - positions, framing "
+        "and light at the opening carry from the preceding segment's last frame."
+        for idx, kind, _ident, _label in extra
+        if kind == "frame"
+    ]
+    if retention and frame_entries:
+        end = retention.end()
+        separator = "" if rest[:end].endswith("\n") else "\n"
+        rest = rest[:end] + separator + "\n".join(frame_entries) + rest[end:]
     return prompt[:subj_start] + "\n".join(lines) + "\n" + rest
 
 
@@ -1233,7 +1241,7 @@ async def import_storyboard(
                         client, bound, edges, frame["id"], card_id, "references", f"lf-{seg_id}"
                     )
                     frame_ref = f"node:{frame['id']}"
-                    frame_entities = {frame_ref: ("frame", continued_from)}
+                    frame_entities = {frame_ref: ("frame", str(continued_from))}
                 wanted = {
                     char_nodes[cid]["id"] for cid in segment_characters if cid in char_nodes
                 } | ({snode["id"]} if snode else set())

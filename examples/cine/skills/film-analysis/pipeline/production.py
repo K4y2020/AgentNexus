@@ -744,6 +744,15 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     hashes = {str(p): fingerprint(p) for p in (path, tool, directory / "production.json")}
     hashes[str(manifest)] = binding_hash
     command = [node, str(tool), "seed", str(path)]
+    if stage == "storyboard":
+        bindings = read(manifest).get("artifacts", {}) if manifest.is_file() else None
+        for reference in ("cast", "art"):
+            if bindings is not None and reference not in bindings:
+                continue
+            reference_path = stage_path(directory, reference, must_exist=False)
+            if reference_path.is_file():
+                command.extend([f"--{reference}", str(reference_path)])
+                hashes[str(reference_path)] = fingerprint(reference_path)
     result = subprocess.run(
         command,
         cwd=directory,

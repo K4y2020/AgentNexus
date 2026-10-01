@@ -72,8 +72,14 @@ export const CAMERA_MOVES = {
 /** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（realistic / ghibli）。
  *  短语必须出现在每条分镜图提示词里——同一部剧的分镜图不许画风漂。 */
 export const STYLE_PRESETS = {
-  realistic: { zh: '半写实电影感', phrase: 'cinematic film still' },
-  ghibli: { zh: '吉卜力手绘', phrase: 'hand-painted anime film still' },
+  realistic: {
+    zh: '半写实厚涂', phrase: 'semi-realistic painterly',
+    sentence: 'The target video uses a semi-realistic painterly style with visible brush texture, grounded proportions and softly layered light matching the cast and art references.',
+  },
+  ghibli: {
+    zh: '吉卜力手绘', phrase: 'hand-painted anime',
+    sentence: 'The target video uses a hand-painted anime style with soft watercolour shading, readable shapes and gentle painted edges matching the cast and art references.',
+  },
 };
 export const DEFAULT_STYLE = 'realistic';
 
@@ -375,7 +381,7 @@ export function expandScript(script) {
 export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) => n + (c?.seconds ?? 0), 0));
 
 /* ------------------------------------------------------------------ */
-/* Cinematic evaluation audit (read-only; separate from production gates) */
+/* Cinematic audit (read-only)                                          */
 /* ------------------------------------------------------------------ */
 
 const AUDIT_RULES = [
@@ -405,7 +411,9 @@ function auditLabels(text) {
 }
 
 function auditMedium(text) {
-  const value = h3Remainder(text);
+  const value = h3Remainder(text)
+    .replace(/\b(?:framed|composed|posed|cropped)\s+(?:like|as)\s+(?:an?\s+)?(?:ID|passport|portrait)\s+photograph\b/gi, '')
+    .replace(/\b(?:no|not|without|avoid)\s+(?:photorealistic|photographic|live[ -]action|3d\s+render(?:ing)?)\b/gi, '');
   const families = [];
   if (/\blive[ -]action\b|\bphoto(?:realistic|graph(?:ic|y)?)\b|真人实拍|照片写实/i.test(value)) families.push('live-action');
   if (/\banime\b|\bghibli\b|吉卜力|手绘动画/i.test(value)) families.push('anime');
@@ -454,6 +462,23 @@ function auditDialogueEvents(body) {
   return events;
 }
 
+function auditVocalEvents(body) {
+  const events = auditDialogueEvents(body);
+  // Keep offsets while excluding quoted dialogue from non-verbal cue matching.
+  const prose = body.replace(/<d>[\s\S]*?<\/d>/g, (block) => ' '.repeat(block.length));
+  const cues = /\b(?:cheers?|cheering|laughs?|laughing|laughter|sobs?|sobbing|gasps?|gasping|sighs?|sighing|coughs?|coughing)\b/gi;
+  for (const cue of prose.matchAll(cues)) {
+    const before = prose.slice(0, cue.index).split(/[.!?\n]/).at(-1);
+    if (/\b(?:no|not|without|silent|silently)\s+(?:an?\s+)?(?:audible\s+)?$/i.test(before)) continue;
+    const subject = [...before.matchAll(/<Subject \d+>/g)].at(-1);
+    const ids = [...before.matchAll(/\(S\d+(?:,S\d+)*\)/g)];
+    if (!subject && !ids.length && !/\b(?:he|she|his|her|woman|man|worker|narrator|person|child|speaker)\b/i.test(before)) continue;
+    const prefix = subject ? before.slice(subject.index) : before;
+    events.push({ prefix: prefix.trim(), line: null, after: '', index: cue.index });
+  }
+  return events.sort((a, b) => a.index - b.index);
+}
+
 function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, lang) {
   const sid = segment.id ?? '?';
   if (lang !== 'en' || !prompt.includes('subject_definitions:')) {
@@ -473,10 +498,17 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   if (!tasks.length || tasks.some((task) => !taskTypes.has(task)) || new Set(tasks).size !== tasks.length) {
     issue(summaryRule, `${sid}.summary`, 'Summary must start with a bracketed combination of official task types', { prefix: prefix?.[1] ?? null });
   }
+  if (segment.continuesFrom != null && !tasks.includes('keyframe completion')) {
+    issue(summaryRule, `${sid}.summary`, 'A preceding segment tail-frame anchor requires keyframe completion in the task prefix', { continuesFrom: segment.continuesFrom });
+  }
 
   const retentionRule = 'h3-retention-per-line';
   const retention = sections.get('retention_analysis') ?? '';
   const entries = [...retention.matchAll(/^\s*(<(Subject|Picture|Video|Audio) \d+>)([^\n]*)/gm)];
+  if (definitions.length !== labels.size) {
+    evaluated(retentionRule);
+    issue(retentionRule, `${sid}.subject_definitions`, 'Each reference label must have one standalone definition');
+  }
   if (!labels.size) skip(retentionRule, `${sid}.subject_definitions`, 'No standalone reference definitions can be parsed; label coverage cannot be determined');
   for (const [label, type] of labels) {
     evaluated(retentionRule);
@@ -501,8 +533,8 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   if (!soundscape) issue(soundRule, `${sid}.overall_soundscape`, 'Overall soundscape is missing or empty');
   else if (/\[Shot \d+\]|\b(?:At\s+)?\d{1,2}:\d{2}(?:\.\d+)?\b|\bat\s+\d+(?:\.\d+)?\s*(?:seconds?|s)\b|\b(?:synchronized|on impact|at (?:the |that )?(?:exact )?(?:moment|instant))\b|<d>/i.test(soundscape)) {
     issue(soundRule, `${sid}.overall_soundscape`, 'Shot/time-bound events or dialogue belong in the corresponding detailed-description shot', { soundscape });
-  } else if (/\b(?:rings? once|slams?|crash(?:es)?|clicks? once|bangs? once|immediately after|as soon as)\b/i.test(soundscape)) {
-    skip(soundRule, `${sid}.overall_soundscape`, 'Possible discrete synchronized sound without an explicit shot/time anchor; placement semantics require review');
+  } else if (/\b(?:rings? once|slams?|crash(?:es)?|clicks? once|bangs? once|footsteps?|laughter|door (?:closure|closing)|structural rumble|ominous drone|immediately after|as soon as|transitions? into)\b|\brustl(?:e|ing)\b[^.!?\n]{0,50}\b(?:loose cash|banknotes|tailored fabrics|clothing|garments)\b/i.test(soundscape)) {
+    issue(soundRule, `${sid}.overall_soundscape`, 'Discrete sound events belong in their shot; overall soundscape contains only continuous ambience', { soundscape });
   }
 
   if (!body) {
@@ -518,6 +550,8 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   const proseOpening = opening.replace(/<(?:Subject|Picture|Video|Audio) \d+>/g, '').replace(/\(S\d+(?:,S\d+)*\)/g, '').trim();
   if (shot1 < 0 || !/[a-z]{2}/i.test(proseOpening) || /^N\/A[.!]?$/i.test(proseOpening)) {
     issue(styleRule, `${sid}.detailed_description`, 'Ref2VA needs English opening prose before [Shot 1]', { opening });
+  } else if ((proseOpening.match(/[.!?](?:\s|$)/g) ?? []).length !== 1) {
+    issue(styleRule, `${sid}.detailed_description`, 'Use one complete reference-derived style sentence before [Shot 1]', { opening });
   }
 
   const bindingRule = 'h3-subject-inline-binding';
@@ -532,9 +566,10 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
     if (first < 0 || labelList) issue(bindingRule, `${sid}.detailed_description.${label}`, 'First label use must occur in descriptive prose, rather than a detached subject list', { label, first_clause: first < 0 ? null : before + label + after });
   }
 
-  const events = auditDialogueEvents(body);
+  const events = auditVocalEvents(body);
   const subjectIds = new Map();
   const idSubjects = new Map();
+  const vocalIds = new Set();
   for (const [eventIndex, event] of events.entries()) {
     const location = `${sid}.dialogue${eventIndex + 1}`;
     const ids = [...event.prefix.matchAll(/\(S\d+(?:,S\d+)*\)/g)];
@@ -543,6 +578,12 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
     const copiedAudioCue = !/<Subject \d+>|\b(?:narrator|woman|man|person|character|child|speaker)\b/i.test(event.prefix) && /\b(?:phrase|cue|lyric|track|soundtrack|reaches|plays)\b/i.test(event.prefix) && audioLabels.some((label) => entries.some((entry) => entry[1] === label && /\b(?:fully_copy|partially_copy)\b/.test(entry[3])));
     evaluated('h3-vocal-source-ids');
     if ((!ids.length || ids.some((match) => /\bS0\b/.test(match[0]))) && !copiedAudioCue) issue('h3-vocal-source-ids', location, 'Independent dialogue/singing/voice-over sources require IDs starting at S1; only cues inside a directly copied audio track may use Audio alone', { source_clause: event.prefix, line: event.line });
+    for (const id of ids.flatMap((match) => match[0].match(/S\d+/g))) {
+      if (vocalIds.has(id)) continue;
+      const expectedId = `S${vocalIds.size + 1}`;
+      if (id !== expectedId) issue('h3-vocal-source-ids', location, 'New vocal sources must be numbered in their first-event order starting at S1', { expected: expectedId, actual: id });
+      vocalIds.add(id);
+    }
     const expected = speakerSubjects.get(event.line);
     const subjectMentioned = /^\s*<Subject \d+>/.test(event.prefix) || bound.length > 0;
     if (subjectMentioned || expected?.size) {
@@ -559,7 +600,7 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
         }
       }
     }
-    if (/voice[ -]?over|\bv\.?o\.?\b|inner monologue|画外音|旁白|心声|内心独白/i.test(event.prefix)) {
+    if (event.line !== null && /voice[ -]?over|\bv\.?o\.?\b|inner monologue|画外音|旁白|心声|内心独白/i.test(event.prefix)) {
       evaluated('h3-voiceover-exact-format');
       if (!event.prefix.includes('says in an off-screen voiceover') || !/^\s*while\s+[^.!?]*\blips remain completely closed\b/.test(event.after.replace(/\s+/g, ' '))) {
         issue('h3-voiceover-exact-format', location, 'Each voice-over requires exact says in an off-screen voiceover and an immediately following while ... lips remain completely closed clause', { source_clause: event.prefix, following_text: event.after.split(/\n/)[0] });
@@ -568,7 +609,7 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   }
 }
 
-/** Evaluation A only. This report does not alter validate/checkup or production behavior. */
+/** Read-only audit; selected rules also supply production validation gates. */
 export function auditStoryboard(board, ctx = {}) {
   const issues = [];
   const skips = [];
@@ -613,6 +654,7 @@ export function auditStoryboard(board, ctx = {}) {
     if (typeof value === 'string') prose.push({ location, text: value, names });
   };
   const styleRule = 'style-consistency';
+  let styleOpening = null;
   for (const [label, doc] of [['cast', ctx.cast], ['art', ctx.art]]) {
     if (!doc) skip(styleRule, label, `Missing ${label}.json; reference style metadata was not compared`);
     else {
@@ -657,9 +699,23 @@ export function auditStoryboard(board, ctx = {}) {
       const sid = segment.id ?? '?';
       const prompt = auditText(segment.h3Prompt);
       const scene = scriptEpisode?.scenes[segment.sceneIndex - 1];
+      if (prompt.includes('subject_definitions:') && (board?.promptLang ?? 'en') === 'en') {
+        const body = auditSections(prompt).get('detailed_description') ?? '';
+        const opening = body.split('[Shot 1]')[0].trim();
+        evaluated(styleRule);
+        if (styleOpening == null) styleOpening = opening;
+        const expected = board?.styleSentence ?? styleOpening;
+        if (!opening || opening !== expected) {
+          issue(styleRule, `${sid}.detailed_description.style`, 'Every segment must repeat the same reference-derived style sentence before [Shot 1]', { expected, actual: opening });
+        }
+      }
       evaluated('video-no-film-still');
       if (!prompt) issue('video-no-film-still', `${sid}.h3Prompt`, 'Video prompt is missing');
-      else if (/\bfilm[\s-]+still\b/i.test(prompt)) issue('video-no-film-still', `${sid}.h3Prompt`, 'Video prompt contains film still', { matches: prompt.match(/\bfilm[\s-]+still\b/gi) });
+      else if (/\bfilm[\s-]+still\b/i.test(prompt)) {
+        issue('video-no-film-still', `${sid}.h3Prompt`, 'Video prompt contains film still', { matches: prompt.match(/\bfilm[\s-]+still\b/gi) });
+        evaluated(styleRule);
+        issue(styleRule, `${sid}.h3Prompt`, 'Video prompts use the reference artwork medium, without film-still styling');
+      }
       collect(`${sid}.h3Prompt`, auditPromptBody(prompt));
       collect(`${sid}.note`, segment.note);
       const music = auditMusic(prompt);
@@ -715,6 +771,10 @@ export function auditStoryboard(board, ctx = {}) {
         }
       }
       for (const reference of references) {
+        if (reference.location.endsWith('.frame') && /\bfilm[\s-]+still\b/i.test(reference.text ?? '')) {
+          evaluated(styleRule);
+          issue(styleRule, reference.location, 'Frame prompts use the reference artwork medium, without film-still styling');
+        }
         const referenceMedium = auditMedium(reference.text);
         if (!videoMedium.length || !referenceMedium.length) skip(styleRule, `${sid} <> ${reference.location}`, 'Explicit medium markers are missing; generic cinematic/realistic wording does not establish medium equivalence');
         else {
@@ -778,7 +838,7 @@ export function auditStoryboard(board, ctx = {}) {
     rule.status = rule.issues ? 'fail' : rule.skipped ? 'incomplete' : rule.evaluated ? 'pass' : 'not-applicable';
   }
   return {
-    audit_version: 2, scope: 'evaluation-only',
+    audit_version: 3, scope: 'read-only',
     status: issues.length ? 'fail' : skips.length ? 'incomplete' : 'pass',
     issue_count: issues.length, issues, skips, evaluated_checks,
     limitations: [
@@ -787,9 +847,9 @@ export function auditStoryboard(board, ctx = {}) {
       'Voice-over checks require a marker before the matching dialogue block; unstructured speaker attribution inside prose is not inferred.',
       'Official H3 checks apply to Ref2VA only; legacy keyframe/base prompts are skipped, rather than treated as conforming full-reference prompts.',
       'Style opening and inline Subject checks prove prose/label placement only; appearance, position, action, style suitability and actual speaker semantics require calibrated review.',
-      'Vocal-source IDs are checked at explicit dialogue/lyric blocks; ordinary wind, rain, impacts and non-verbal sound effects are not assigned invented speaker IDs. Directly copied soundtrack cues may use Audio alone.',
+      'Vocal-source IDs are checked at explicit dialogue/lyric blocks and recognizable human vocal cues; ordinary wind, rain, impacts and other physical sounds are not assigned speaker IDs. Unstructured vocal attribution still requires review. Directly copied soundtrack cues may use Audio alone.',
       'Summary task types and retention markers are checked for format and label/shot existence; their true asset roles and preservation semantics are not inferred.',
-      'Sound-placement violations require explicit shot/time/synchronization anchors or dialogue in soundscape. Possible unanchored discrete events are skipped; unrestricted natural-language sound semantics are not proved.',
+      'Sound-placement checks reject explicit shot/time/synchronization anchors, dialogue and recognizable discrete events in soundscape; unrestricted natural-language sound semantics are not proved.',
       'Existing schema has no required picture-design fields; this audit introduces none. Quality and transcription completeness require calibrated review.',
     ],
   };
@@ -1300,6 +1360,19 @@ export function gateReport(board, ctx = {}) {
         }
       }
       const rest = h3Remainder(h3);
+      for (const match of h3.matchAll(/<d>([\s\S]*?)<\/d>/g)) {
+        if (!/^\[[^\]]+\]\s*\S/.test(match[1].trim())) {
+          bad.h3e.push(`${sid} 每个 <d> 块必须包含语言标签和非空台词`);
+        }
+      }
+      for (const match of h3.matchAll(/<d>\[([^\]]+)\]\s*([\s\S]*?)\s*<\/d>/g)) {
+        const language = match[1].toLowerCase();
+        const line = match[2].trim();
+        if ((language === 'english' && CJK.test(line))
+          || (language === 'chinese' && !CJK.test(line) && /[a-z]{2}/i.test(line))) {
+          bad.h3e.push(`${sid} <d>[${match[1]}] 的语言标签与台词实际语言不符`);
+        }
+      }
       if (promptLang === 'en') {
         if (CJK.test(rest)) bad.h3e.push(`${sid} 的 h3Prompt 设定英文却在 <d> 台词之外混入了中文`);
         // 英文提示词禁人名（图像/视频模型对英文语境的人名有偏见）；中文提示词人名放行——身份靠分镜图锚定
@@ -1420,10 +1493,9 @@ export function gateReport(board, ctx = {}) {
             const claimed = new Set(scene.beats.slice(from - 1, to)
               .filter((b) => b.kind === 'line')
               .map((b) => b.text));
-            const allDialogue = new Set(scene.beats.filter((b) => b.kind === 'line').map((b) => b.text));
             for (const match of String(shotSlice ?? '').matchAll(/<d>\[[^\]]+\]\s*([\s\S]*?)\s*<\/d>/g)) {
               const text = match[1].trim();
-              if (allDialogue.has(text) && !claimed.has(text)) {
+              if (!claimed.has(text)) {
                 bad.h3d.push(`${cid} 的本镜 h3Prompt 混入未认领节拍台词「${text.slice(0, 12)}…」`);
               }
             }
@@ -1528,6 +1600,27 @@ export function gateReport(board, ctx = {}) {
     recipes ? (bad.recipe.length ? bad.recipe.join('；') : recipeRefs ? '' : NO_RECIPE) : SKIP_SHOTS,
   );
 
+  // Ref2VA 投产复用只读 audit；缺证据的跳过项也必须阻止投产。
+  const referenceAudit = ctx.ref2va ? auditStoryboard(board, ctx) : null;
+  for (const [id, label] of [
+    ['h3-style-before-shot1', 'Ref2VA：统一画风句写在 [Shot 1] 之前'],
+    ['h3-subject-inline-binding', 'Ref2VA：参考对象首次出现就绑定在描述正文里'],
+    ['h3-referenced-speaker-binding', 'Ref2VA：参考对象的发声用 <Subject N> (Sx) 绑定'],
+    ['h3-vocal-source-ids', 'Ref2VA：独立人声按首次发声顺序编号并保持来源一致'],
+    ['h3-summary-task-prefix', 'Ref2VA：summary 使用任务前缀，尾帧承接包含 keyframe completion'],
+    ['h3-retention-per-line', 'Ref2VA：每个标签独立一行说明镜头、保留关系和内容'],
+    ['h3-synchronized-sound-placement', 'Ref2VA：同步声音写入对应镜头，整体声景只写持续环境声'],
+    ['h3-voiceover-exact-format', 'Ref2VA：画外音固定句式与紧随的闭唇说明完整'],
+    ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
+  ]) {
+    const failures = referenceAudit ? [
+      ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}`),
+      ...referenceAudit.skips.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.reason}`),
+    ] : [];
+    add(id, label, failures.length === 0,
+      referenceAudit ? (failures.length ? `[${id}] ${failures.join('；')}` : '') : SKIP_REF2VA);
+  }
+
   return gates;
 }
 
@@ -1585,7 +1678,7 @@ export function validateStoryboard(board, ctx = {}) {
 /* seed — 从 script.json 确定性预填                                      */
 /* ------------------------------------------------------------------ */
 
-export function seedFromScript(script, epRange = null) {
+export function seedFromScript(script, epRange = null, ctx = {}) {
   const expanded = expandScript(script);
   const inRange = (n) => !epRange || (n >= epRange[0] && n <= epRange[1]);
   const episodes = [];
@@ -1613,6 +1706,8 @@ export function seedFromScript(script, epRange = null) {
   }
   return {
     source: script?.source ?? '',
+    style: ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE,
+    styleSentence: STYLE_PRESETS[ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE]?.sentence ?? '',
     stateContractVersion: script?.stateContractVersion ?? 1,
     continuityContractVersion: CONTINUITY_CONTRACT_VERSION,
     episodes,
@@ -1705,6 +1800,15 @@ const GATE_LABELS_EN = {
   'prompt-no-names': 'English prompts carry no character names',
   'refs': 'Scenes / characters / props audited against the script',
   'shot-recipe': 'Referenced recipes exist, their must-phrases are in the frame prompt, multi-cut recipes run long enough',
+  'h3-style-before-shot1': 'Ref2VA: one shared style sentence before [Shot 1]',
+  'h3-subject-inline-binding': 'Ref2VA: first reference use bound inside descriptive prose',
+  'h3-referenced-speaker-binding': 'Ref2VA: referenced vocal sources bound as <Subject N> (Sx)',
+  'h3-vocal-source-ids': 'Ref2VA: stable vocal-source IDs in first-event order',
+  'h3-summary-task-prefix': 'Ref2VA: task-prefixed summary, including keyframe completion for a preceding tail frame',
+  'h3-retention-per-line': 'Ref2VA: one retention line per label with shots, relationship and explanation',
+  'h3-synchronized-sound-placement': 'Ref2VA: synchronized sounds in their shots; only continuous ambience overall',
+  'h3-voiceover-exact-format': 'Ref2VA: exact voiceover phrase and immediate closed-lips clause',
+  'style-consistency': 'Ref2VA: video, frames and used cast/art references share the same artwork medium',
 };
 const GATE_SKIPS_EN = {
     '未提供 outline.json，本门跳过（视为通过）': 'outline.json not provided — gate skipped (treated as passing)',
@@ -2543,7 +2647,7 @@ function main(argv) {
       if (!m) throw new Error('--eps 形如 3 或 1-6');
       epRange = m[2] ? [Number(m[1]), Number(m[2])] : [Number(m[1]), Number(m[1])];
     }
-    console.log(JSON.stringify(seedFromScript(readJson(path), epRange), null, 2));
+    console.log(JSON.stringify(seedFromScript(readJson(path), epRange, loadCtx(rest)), null, 2));
     return;
   }
 

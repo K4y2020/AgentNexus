@@ -154,7 +154,7 @@ eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可
 /* ---------------- 质量门：全绿基线 ---------------- */
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带全部上游全部门通过');
-eq(gateReport(FIXTURE, CTX).length, 20, '二十道门');
+eq(gateReport(FIXTURE, CTX).length, 29, '二十九道门');
 
 /* ---------------- 连续性 A/B：旧模式放过，新合同指出断点 ---------------- */
 {
@@ -499,6 +499,26 @@ for (const fixture of [FIXTURE, KEYFRAMES]) {
   ok(gate(doc, 'prompt-no-names').ok, '中文模式 H3 提示词人名放行——身份靠分镜图锚定');
 }
 eq(h3Remainder('a <d>[Chinese] 你好</d> b "营业中" c'), 'a   b   c', 'h3Remainder 剔除 <d> 块与画面文字');
+{
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace('[Chinese]', '[English]');
+  ok(!gate(doc, 'h3-lang').ok, 'Chinese dialogue cannot carry an English language tag');
+}
+for (const block of ['<d>The ferry is ready.</d>', '<d>[Chinese] The ferry is ready.</d>', '<d>[English] </d>']) {
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].h3Prompt += `\n${block}`;
+  ok(!gate(doc, 'h3-lang').ok, 'dialogue needs a matching language label and nonempty text');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].h3Prompt += '\n<d>[English] The ferry is ready.</d>';
+  ok(gate(doc, 'h3-lang').ok, 'English dialogue accepts its English language tag');
+}
+{
+  const doc = clone(FIXTURE);
+  doc.episodes[0].segments[0].h3Prompt = doc.episodes[0].segments[0].h3Prompt.replace('overall_soundscape:', '<Subject 1> (S3) says: <d>[English] The ferry is ready.</d>\noverall_soundscape:');
+  ok(!gate(doc, 'h3-dialogue').ok, 'invented dialogue is rejected even when it appears nowhere in the script');
+}
 // prompt-english
 {
   const doc = clone(FIXTURE);
@@ -548,7 +568,7 @@ eq(h3Remainder('a <d>[Chinese] 你好</d> b "营业中" c'), 'a   b   c', 'h3Rem
 }
 {
   const doc = clone(FIXTURE);
-  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace('cinematic film still', 'cinematic image');
+  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace(STYLE_PRESETS.realistic.phrase, 'cinematic image');
   const g = gate(doc, 'style-phrase');
   ok(!g.ok, '分镜图提示词缺风格短语被拦');
   ok(g.detail.includes('E01-01#1'), '点名到切');
@@ -828,7 +848,7 @@ ok(html.includes('分镜节奏带'), '01 分镜节奏带');
 ok(html.includes('分集分镜表'), '02 分集分镜表');
 ok(html.includes('生成批次单'), '03 生成批次单');
 ok(html.includes('配音对齐单'), '04 配音对齐单');
-ok(html.includes('✓ 质量门 20 / 20'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 29 / 29'), '页眉徽章全绿');
 ok(html.includes('class="rseg"'), '节奏带按段分组（粗分隔）');
 ok(html.includes('#seg-E01-01'), '节奏带段可跳转');
 ok(html.includes('主分镜图 · #1 未生成'), '主分镜图缺图时显示占位不装有');
@@ -888,7 +908,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('<html lang="en">'), 'en 报告的 html lang 属性跟着语言走');
   ok(en.includes('Export JSON'), 'en 界面：导出按钮英文');
-  ok(en.includes('Quality gates 20 / 20'), 'en 界面：页眉徽章英文');
+  ok(en.includes('Quality gates 29 / 29'), 'en 界面：页眉徽章英文');
   ok(en.includes('Cut rhythm strip'), 'en 界面：节奏带节标题英文');
   ok(en.includes('Segment cards'), 'en 界面：分镜表节标题英文');
   ok(en.includes('Generation batches'), 'en 界面：批次节标题英文');
@@ -930,6 +950,22 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   ok(gateEn.includes('Every cut 2–5s'), 'EN 报告的质量门标签翻译且阈值原样保留');
   ok(!gateEn.includes('每个分镜 2–5 秒'), 'EN 报告不再出现中文门标签');
   ok(gateEn.includes('no recipe card library mounted'), 'EN 报告的跳过说明也翻译');
+  ok(gateEn.includes('--ref2va not given (keyframe export mode) — gate skipped (treated as passing)'), 'EN 报告明确翻译 Ref2VA 兼容模式跳过');
+  const gateEnStrict = renderHtml(FIXTURE, { ...CTX, ref2va: true, lang: 'en' });
+  for (const label of [
+    'Ref2VA: one shared style sentence before [Shot 1]',
+    'Ref2VA: first reference use bound inside descriptive prose',
+    'Ref2VA: referenced vocal sources bound as <Subject N> (Sx)',
+    'Ref2VA: stable vocal-source IDs in first-event order',
+    'Ref2VA: task-prefixed summary, including keyframe completion for a preceding tail frame',
+    'Ref2VA: one retention line per label with shots, relationship and explanation',
+    'Ref2VA: synchronized sounds in their shots; only continuous ambience overall',
+    'Ref2VA: exact voiceover phrase and immediate closed-lips clause',
+    'Ref2VA: video, frames and used cast/art references share the same artwork medium',
+  ]) {
+    const escaped = label.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    ok(gateEn.includes(escaped) && gateEnStrict.includes(escaped), `EN HTML 在兼容与 Ref2VA 模式都翻译投产门：${label}`);
+  }
 }
 
 /* ---------------- 报告里的「配方」列（偏离只提示，不设门） ---------------- */
@@ -968,23 +1004,31 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const legacy = gate(KEYFRAMES, 'h3-references', REF);
   ok(!legacy.ok && legacy.detail.includes('Ref2VA 六段式'), '画布模式下首帧对齐格式被拦');
   ok(gateReport(FIXTURE, REF).every((g) => g.ok), '样例（Ref2VA）在画布模式下全部门通过');
+  eq(validateStoryboard(FIXTURE, REF).length, 0, '完整渡口样例通过 Ref2VA 生产 validate');
+  const aggregateRetention = clone(FIXTURE);
+  aggregateRetention.episodes[0].segments[0].h3Prompt = aggregateRetention.episodes[0].segments[0].h3Prompt
+    .replace(/retention_analysis:[\s\S]*?detailed_description:/, 'retention_analysis:\nAll references are retained exactly.\n\ndetailed_description:');
+  ok(validateStoryboard(aggregateRetention, REF).some((problem) => problem.includes('[h3-retention-per-line]')), '生产 validate 明确拒绝一行总述的保留分析并报告规则 ID');
+  eq(validateStoryboard(aggregateRetention, CTX).length, 0, '不开 --ref2va 保持原有兼容生产检查');
 
   // 把 E01-01（场景 S02；角色 C01、C03、C04）改成 Ref2VA
   const defs = [
-    '<Subject 1> — C01, a young woman in a plain qipao; face, hair and costume come from <Picture 1>.',
+    '<Subject 1> — C01, a young woman in a navy student tunic with two red-tied braids; face, hair and costume come from <Picture 1>.',
     '<Subject 2> — C03, the weathered old ferryman; appearance comes from <Picture 2>.',
     '<Subject 3> — C04, the middle-aged peddler; appearance comes from <Picture 3>.',
     '<Subject 4> — S02, the foggy wooden pier; layout, materials and light come from <Picture 4>.',
   ];
   const toRef2va = (h3, subjectLines = defs, uses = true) => {
     let body = h3.slice(h3.indexOf('integrated_multimodal_description:')).replace('integrated_multimodal_description:', 'detailed_description:');
+    body = body.replace(`[Shot 1] ${FIXTURE.styleSentence}`, `${FIXTURE.styleSentence}\n[Shot 1]`);
     if (uses) {
       body = body
         .replace('\n[Shot 2]', ' <Subject 1> runs past <Subject 4>.\n[Shot 2]')
         .replace('\n[Shot 4]', ' <Subject 2> calls out.\n[Shot 4]')
         .replace('\n\noverall_soundscape:', ' <Subject 3> hurries on.\n\noverall_soundscape:');
     }
-    return `subject_definitions:\n${subjectLines.join('\n')}\nsummary: A girl reaches a fogbound pier as the ferry calls.\nretention_analysis: <Subject 1>, <Subject 2>, <Subject 3> and <Subject 4> are retained exactly as referenced.\n${body}`;
+    const retention = subjectLines.map((line) => `${line.match(/<Subject \d+>/)[0]} (appears in [Shot 1]): fully_preserved - the visible reference appearance is retained.`);
+    return `subject_definitions:\n${subjectLines.join('\n')}\nsummary: [reference generation] A girl reaches a fogbound pier as the ferry calls.\nretention_analysis:\n${retention.join('\n')}\n${body}`;
   };
   const withSeg1 = (h3) => {
     const doc = clone(KEYFRAMES);
