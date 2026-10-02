@@ -49,9 +49,13 @@ automatic loop. The manual commands below are for standalone work. It returns:
 
 - `edit` — rewrite `file` with `skill` against the validator's `errors`. Each stage
   allows `max_edits` edits (authoring plus four repairs); after that, or
-  after repeated calls without an edit, it escalates.
+  after repeated calls without an edit, it escalates. The passed stages listed in
+  `frozen` stay as they are: the next call restores any of them that changed, keeps
+  the changed copy under `.cine-validation/reverted/` and queues a review item.
 - `import_canvas` — call the given tool, save the receipt, then run
   `next --canvas-synced <receipt>`; the sync is keyed to the storyboard's hash.
+  When the user wants text only, run `next --text-only` instead; the choice is
+  remembered for the production.
 - `escalate` — stop. A person fixes the cause; editing the named file or
   `next --retry` (for technical causes) reopens the stage with a fresh budget.
 - `human_review_speakers` — stop in faithful mode when the script uses a line whose
@@ -61,7 +65,9 @@ automatic loop. The manual commands below are for standalone work. It returns:
   `speaker_needs_review: false` and a review record identifying the evidence), then
   run `next` again. Do not change text or evidence to make an uncertainty disappear.
 - `done` — the current storyboard is on the canvas and no used faithful line has
-  an unresolved speaker.
+  an unresolved speaker. With `delivery: text` nothing was imported: it lists the
+  stage files and each validator's pass line (`receipts`) to quote. Stop there;
+  finalize and production.json belong to the manual flow below.
 
 `review-queue.json` beside the production lists blocking escalations and
 review items: advisory JEV findings and unresolved evidence. Used unsettled speakers

@@ -759,7 +759,7 @@ export function auditStoryboard(board, ctx = {}) {
           skip('same-scene-continues-from', sid, 'sceneIndex is missing or invalid');
         } else if (previous.sceneIndex === segment.sceneIndex) {
           evaluated('same-scene-continues-from');
-          if (segment.continuesFrom !== previous.id) issue('same-scene-continues-from', sid, 'Consecutive segments in the same scene must continue from the previous segment', { expected: previous.id, actual: segment.continuesFrom ?? null });
+          if (segment.continuesFrom !== previous.id) issue('same-scene-continues-from', sid, 'Consecutive segments in the same scene must continue from the previous segment: set continuesFrom and open [Shot 1] on its last frame as h3-prompt.md shows', { expected: previous.id, actual: segment.continuesFrom ?? null });
         } else if (segment.continuesFrom != null) {
           evaluated('same-scene-continues-from');
           issue('same-scene-continues-from', sid, 'continuesFrom crosses a scene boundary', { previous: previous.id, continuesFrom: segment.continuesFrom });
@@ -811,7 +811,7 @@ export function auditStoryboard(board, ctx = {}) {
         const lines = scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line');
         evaluated('one-speaker-per-cut');
         const speakers = new Set(lines.map((beat) => resolveSpeaker(beat.speaker) ?? auditText(beat.speaker)));
-        if (speakers.size > 1) issue('one-speaker-per-cut', cid, 'A cut contains lines from multiple speakers', { speakers: [...speakers] });
+        if (speakers.size > 1) issue('one-speaker-per-cut', cid, 'A cut contains lines from multiple speakers; give each speaker a cut of their own (a voice-over is a separate source)', { speakers: [...speakers], beats: [from, to] });
         for (const beat of lines) {
           evaluated('dialogue-speaker-visible');
           const speaker = resolveSpeaker(beat.speaker) ?? beat.speaker;
@@ -1263,6 +1263,8 @@ function auditHint(evidence = {}) {
   if (typeof clause === 'string' && clause.trim()) parts.push(`原文「…${clause.replace(/\s+/g, ' ').trim().slice(-100)}」`);
   if (Array.isArray(evidence.video) && Array.isArray(evidence.reference)) parts.push(`视频媒介 ${evidence.video.join('/')}，参考媒介 ${evidence.reference.join('/')}`);
   if (typeof evidence.expected === 'string') parts.push(`应为「${evidence.expected.slice(0, 200)}」`);
+  if (Array.isArray(evidence.speakers)) parts.push(`说话人 ${evidence.speakers.join('、')}`);
+  if (Array.isArray(evidence.beats)) parts.push(`节拍 ${evidence.beats.join('–')}`);
   return parts.length ? `（${parts.join('；')}）` : '';
 }
 
@@ -1636,7 +1638,13 @@ export function gateReport(board, ctx = {}) {
     ['h3-synchronized-sound-placement', 'Ref2VA：同步声音写入对应镜头，整体声景只写持续环境声'],
     ['h3-voiceover-exact-format', 'Ref2VA：画外音固定句式与紧随的闭唇说明完整'],
     ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
+    ['same-scene-continues-from', 'Ref2VA：同场相邻段从上一段尾帧接着拍（continuesFrom），换场不接'],
+    ['one-speaker-per-cut', '一个镜头只收一个人的台词，画外音单算一个声源'],
   ]) {
+    if (id === 'one-speaker-per-cut' && referenceAudit && !script) {
+      add(id, label, true, SKIP_SCRIPT);
+      continue;
+    }
     const failures = referenceAudit ? [
       ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}${auditHint(item.evidence)}`),
       ...referenceAudit.skips.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.reason}`),

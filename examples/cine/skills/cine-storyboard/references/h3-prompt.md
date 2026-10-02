@@ -63,7 +63,7 @@ N/A
 
 以方括号任务前缀开头，用已定义标签简述本段动作与引用用途。普通设定图写 `[reference generation]`，具体帧锚点加 `keyframe completion`。直接接续源视频用 `video continuation`，直接修改源视频用 `video editing`；复用音频信号用 `audio reuse`，仅参考音色或节奏用 `audio reference`。多种关系用 ` + ` 合并，每种只写一次。
 
-`continuesFrom` 只写紧邻、同场的上一段。画布连接的是上一段尾帧图片，因此保留导入所需的段号 Subject，同时定义具体 Picture 锚点：
+同一场的第二段起，每段都承接紧邻的上一段，`continuesFrom` 写上一段段号。画布连接的是上一段尾帧图片，因此保留导入所需的段号 Subject，同时定义具体 Picture 锚点：
 
 ```text
 <Subject 4> — E01-01, the preceding segment's last-frame state; opening positions and light come from <Picture 4>.
@@ -75,7 +75,7 @@ retention_analysis:
 <Picture 4> ([Shot 1] first frame): fully_preserved - its composition anchors the opening before movement resumes.
 ```
 
-`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态。换场、跳时或另起构图不写 `continuesFrom`，也不凭空增加尾帧引用。
+`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态：开场景别和机位就是上一段最后一个镜头的，要换构图就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
 
 ### retention_analysis 每个标签一行
 

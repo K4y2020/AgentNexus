@@ -9,6 +9,7 @@ so a restarted agent resumes from what the files say rather than from memory.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,14 @@ MAX_UNCHANGED = 3
 TECHNICAL = {"blocked", "attribution_error", "timeout", "inputs_changed"}
 STATE = Path(".cine-validation") / "autopilot.json"
 QUEUE = "review-queue.json"
+# Copies of the passed stages an open edit must leave alone, and of edits undone.
+FROZEN = Path(".cine-validation") / "frozen"
+REVERTED = Path(".cine-validation") / "reverted"
+TEXT_DONE = (
+    "Text delivery is complete: every stage file passed its checks. Report the files, "
+    "these receipts and the review queue, then stop. Nothing else needs to run: no canvas "
+    "import, finalize, check, validate or render, and no production.json."
+)
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -209,9 +218,85 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
     return found
 
 
+def _receipt(row: dict[str, Any]) -> str | None:
+    """The validator's own pass line, quoted in a text delivery instead of a rerun."""
+    lines = [line.strip() for line in (row.get("stdout") or "").splitlines() if line.strip()]
+    return lines[-1][:300] if lines else None
+
+
+def _freeze_others(run: _Run, stage: str, target_stage: str) -> list[str]:
+    """Snapshot the passed upstream files an edit of ``target_stage`` must leave alone."""
+    directory = run.directory
+    target = prod.stage_path(directory, target_stage, must_exist=False).resolve()
+    frozen: dict[str, str | None] = {}
+    for name in ORDER[: ORDER.index(stage)]:
+        if name == target_stage:
+            continue
+        for recorded in run.stage(name).get("passed_inputs") or {}:
+            path = Path(recorded).resolve()
+            if path == target or path.is_dir() or not path.is_relative_to(directory):
+                continue
+            relative = path.relative_to(directory).as_posix()
+            if relative.startswith(".cine-validation/") or relative in frozen:
+                continue
+            if path.is_file():
+                copy = directory / FROZEN / relative
+                copy.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, copy)
+            # An input that did not exist must not appear either.
+            frozen[relative] = prod.fingerprint(path)
+    run.state["pending_edit"] = {"stage": stage, "target_stage": target_stage, "frozen": frozen}
+    return sorted(frozen)
+
+
+def _restore_frozen(run: _Run) -> list[dict[str, str | None]]:
+    """Undo changes to files the last edit froze, keeping each changed version aside."""
+    pending = run.state.pop("pending_edit", None)
+    if not pending:
+        return []
+    directory = run.directory
+    reverted = []
+    for relative, sha in pending["frozen"].items():
+        path = directory / relative
+        snapshot = directory / FROZEN / relative
+        if path.is_dir() or prod.fingerprint(path) == sha:
+            continue
+        if sha is not None and not snapshot.is_file():
+            continue
+        kept = None
+        if path.is_file():
+            kept = REVERTED / f"{path.stem}-{prod.digest(path)[:12]}{path.suffix}"
+            (directory / kept).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, directory / kept)
+        if sha is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            prod._atomic_bytes(path, snapshot.read_bytes())
+        reverted.append({"file": relative, "edited_copy": kept.as_posix() if kept else None})
+    if reverted:
+        stage = pending["stage"]
+        earlier = [
+            i for i in run.queue["items"] if (i["stage"], i["source"]) == (stage, "upstream")
+        ]
+        run.set_items(
+            stage,
+            "upstream",
+            earlier
+            + [
+                {"severity": "review", "reason": "upstream_edit_reverted", "detail": item}
+                for item in reverted
+            ],
+        )
+    run.save()
+    return reverted
+
+
 def _escalate(
     run: _Run, stage: str, reason: str, detail: Any, file: Path | None
 ) -> dict[str, Any]:
+    # A person takes over from here and may change any stage.
+    run.state.pop("pending_edit", None)
     run.stage(stage)["escalated"] = {
         "reason": reason,
         "file": str(file) if file else None,
@@ -248,6 +333,7 @@ def next_step(
     source_text: Path | None = None,
     jev: bool = True,
     retry: bool = False,
+    text_only: bool = False,
 ) -> dict[str, Any]:
     """Return the one next action for an unattended production run."""
     directory = Path(directory).resolve()
@@ -260,7 +346,30 @@ def next_step(
             "(not a shell redirect), then run production.py init with the user's adaptation mode.",
         }
     run = _Run(directory)
-    source_text = source_text or _default_source_text(directory)
+    if text_only:
+        run.state["delivery"] = "text"
+    reverted = _restore_frozen(run)
+    result = _decide(run, source_text or _default_source_text(directory), jev=jev, retry=retry)
+    if reverted:
+        notice = (
+            "Undid changes to "
+            + ", ".join(item["file"] for item in reverted)
+            + ": while a stage is written or repaired, every other passed stage is frozen. "
+            "Change only the named `file`; report an upstream problem instead of editing it. "
+            "The changed versions are kept as "
+            + ", ".join(item["edited_copy"] or "(deleted)" for item in reverted)
+            + "."
+        )
+        result["reverted_upstream"] = reverted
+        if result.get("action") == "edit":
+            result["errors"] = [notice, *result["errors"]]
+        else:
+            result["notice"] = notice
+    return result
+
+
+def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> dict[str, Any]:
+    directory = run.directory
     for stage in ORDER:
         record = run.stage(stage)
         escalated = record.get("escalated")
@@ -300,6 +409,7 @@ def next_step(
                 vision_model=prod.vision_model() if stage == "script" else None,
                 failed_versions=[],
                 unchanged=0,
+                receipt=_receipt(row),
             )
             for source, items in _findings(directory, stage, row).items():
                 run.set_items(stage, source, items)
@@ -325,6 +435,7 @@ def next_step(
             return _escalate(run, stage, "repair_exhausted", _errors(row), target)
         if record["unchanged"] >= MAX_UNCHANGED:
             return _escalate(run, stage, "not_progressing", _errors(row), target)
+        frozen = _freeze_others(run, stage, target_stage)
         run.save()
         edit = len(record["failed_versions"])
         return {
@@ -338,6 +449,7 @@ def next_step(
             "errors": _errors(row),
             "edit": edit,
             "max_edits": MAX_EDITS,
+            "frozen": frozen,
             **run.summary(),
         }
 
@@ -372,6 +484,15 @@ def next_step(
         run.save()
     if run.state.get("canvas_synced", {}).get("sha") == prod.digest(storyboard):
         return {"action": "done", **run.summary()}
+    if run.state.get("delivery") == "text":
+        return {
+            "action": "done",
+            "delivery": "text",
+            "files": {stage: str(prod.stage_path(directory, stage)) for stage in ORDER},
+            "receipts": {stage: run.stage(stage).get("receipt") for stage in ORDER},
+            "detail": TEXT_DONE,
+            **run.summary(),
+        }
     return {
         "action": "import_canvas",
         "tool": "seedance_edit_canvas",
@@ -382,6 +503,8 @@ def next_step(
         },
         "after": "run production.py next with --canvas-synced <receipt file> "
         "once the import succeeds",
+        "text_only": "If the user asked for text only or no canvas change, do not import: "
+        "run next again with --text-only.",
         **run.summary(),
     }
 

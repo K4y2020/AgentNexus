@@ -216,7 +216,24 @@ check(!hasIssue((p) => p.replace('summary:', '<Video 1> is a camera-structure re
 const targetRules = [...officialRules, 'style-consistency'];
 const strictCtx = { ...ctx, ref2va: true };
 const strictGates = gateReport(board, strictCtx);
-check(strictGates.length === 29 && targetRules.length === 9, 'production exposes 29 gates including all nine reference-format and style rules');
+check(strictGates.length === 31 && targetRules.length === 9, 'production exposes 31 gates including all nine reference-format and style rules');
+const sceneRules = ['same-scene-continues-from', 'one-speaker-per-cut'];
+check(sceneRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'continuation and one-speaker gates pass the complete fixture');
+const unlinked = clone(board);
+delete unlinked.episodes[0].segments[1].continuesFrom;
+const unlinkedGate = gateReport(unlinked, strictCtx).find((gate) => gate.id === 'same-scene-continues-from');
+check(!unlinkedGate.ok && unlinkedGate.detail.includes('E01-02') && unlinkedGate.detail.includes('应为「E01-01」'), 'production rejects a same-scene segment that does not continue and names the segment to continue from');
+check(validateStoryboard(unlinked, strictCtx).some((problem) => problem.includes('[same-scene-continues-from]')), 'production validate surfaces the missing continuation');
+check(gateReport(unlinked, ctx).find((gate) => gate.id === 'same-scene-continues-from').detail.includes('--ref2va'), 'keyframe export mode does not require continuation');
+const twoVoices = clone(board);
+twoVoices.episodes[0].segments[0].cuts[0].beats = [1, 4];
+const twoVoicesGate = gateReport(twoVoices, strictCtx).find((gate) => gate.id === 'one-speaker-per-cut');
+check(!twoVoicesGate.ok && twoVoicesGate.detail.includes('E01-01#1') && twoVoicesGate.detail.includes('说话人 C01、C02'), 'production rejects a cut carrying two speakers and names them');
+const oneVoice = clone(twoVoices);
+const oneVoiceScript = clone(strictCtx);
+oneVoiceScript.script.episodes[0].scenes[0].flow[3].speaker = 'C01';
+check(gateReport(oneVoice, oneVoiceScript).find((gate) => gate.id === 'one-speaker-per-cut').ok, 'several lines by one speaker in a cut pass production');
+check(gateReport(board, { ...strictCtx, script: undefined }).find((gate) => gate.id === 'one-speaker-per-cut').detail.includes('script.json'), 'without a script the speaker gate is skipped like the other script gates');
 check(targetRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'complete invented reference fixture passes every selected production rule without skip details');
 for (const [rule, changePrompt, changeContext] of [
   ['h3-style-before-shot1', (p) => p.replace(`${styleSentence}\n[Shot 1]`, `[Shot 1] ${styleSentence}`)],

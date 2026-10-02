@@ -148,8 +148,9 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 - 戏剧节拍、镜头、生成段不一一对应：一镜可容纳多个节拍，一段可包含多镜；五秒事件段落不自动变成五秒切镜。先决定观众需要看见什么变化，再决定是否切。
 - 镜内按动机、因果、先后和起止状态写连续表演，不把剧本估时展开为每次眼神/伸手的绝对区间。默认只为实际切点、总时长和必要同步事件保留时间锚点，不能删除用户指定的踩点或口型要求。
 - 段是一次生成调用，不是强制的戏剧段落。按剧情单元与实际模型能力分段；当前 H3 合同每段不跨场且不超过15秒。
+- 同场的后一段一律从前一段的尾帧接着拍：写 `continuesFrom`，`[Shot 1]` 以前一段最后一个镜头的画面起幅，再继续表演、运镜或在 `[Shot 2]` 切走。因此分段点放在镜头进行中，不放在切点上；只有每场第一段不承接。
 - 镜长按信息、对白、动作与反应确定。现有 `params.minCutSeconds/maxCutSeconds` 默认2–5秒，可按已确认节奏配置；不编造开关或绕过真实限制。
-- 双人同框、听者反应、正反打或长镜都可选。切换应带来信息、关系或感受的变化，不按问答轮次机械切脸。
+- 一个镜头只收一个人的台词，画外音也单算一个声源：两人以上同镜开口时，视频模型容易把声音配到错的嘴上。换人说话就换镜；同一人连续的几句可以留在一镜。双人同框、过肩、听者反应或长镜都可选，镜内其他人只做无声反应。切换应带来信息、关系或感受的变化，不机械地来回切脸。
 - 固定或移动都有用途：揭示信息、跟随行为、改变关系。没有动机就不添加运动，不强制浅景深或统一滤镜。
 - 动作匹配保留起止状态。跨生成段重述必要状态，不能假定模型记得前段；运镜不能掩盖位置和道具错误。
 - 使用关键帧工作流时单切一张关键帧；用户只需要角色/场景参考时不强制生分镜图，缺图状态如实保留。需表现交互时明确参与者与起止状态，不堆多次换装、变形与长对白。
@@ -190,11 +191,11 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 - 创作流程使用上方内联正文；填写原生 JSON 时再读 `{baseDir}/references/schema.md`
 - 该集的 seedScenes 底稿 + 场景卡（art.json 的锚点与光照提示词）+ 角色卡（cast.json 的形象要点）
 
-流程：先读剧本交接说明，按上方内联流程做整场视觉设计并审查0–3秒钩子，再按剧情与模型能力分段切镜。镜长默认2–5秒，可用现有 `params.minCutSeconds` / `params.maxCutSeconds` 配置；不强制三秒一切或问答正反打。视觉设计须落实到每切提示词，而非只写在报告中。
+流程：先读剧本交接说明，按上方内联流程做整场视觉设计并审查0–3秒钩子，再按剧情与模型能力分段切镜。镜长默认2–5秒，可用现有 `params.minCutSeconds` / `params.maxCutSeconds` 配置；不强制三秒一切，对话按说话人换镜，不必机械正反打。视觉设计须落实到每切提示词，而非只写在报告中。
 
-**每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写；默认英文，每个镜头独立一行。画布流程用 Ref2VA，角色和场景定义保持 `<Subject N> — <ID>, … from <Picture N>.`，首次出现直接绑定到镜头描述。承接同场上一段时写 `continuesFrom`，保留上一段段号 Subject，并独立定义尾帧 Picture 锚点、在 Shot 1 用上；summary 加 `keyframe completion`。只有真实逐镜分镜图的导出包用关键帧对齐行。
+**每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写；默认英文，每个镜头独立一行。画布流程用 Ref2VA，角色和场景定义保持 `<Subject N> — <ID>, … from <Picture N>.`，首次出现直接绑定到镜头描述。同场的第二段起都要承接上一段：写 `continuesFrom`，保留上一段段号 Subject，并独立定义尾帧 Picture 锚点、在 Shot 1 用上；summary 加 `keyframe completion`。只有真实逐镜分镜图的导出包用关键帧对齐行。
 
-交付前核对：全片风格句与每切 frame 跟 cast/art 一致；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
+交付前核对：全片风格句与每切 frame 跟 cast/art 一致；同场相邻段都已承接，每个镜头只有一人开口；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
 
 切完把 `seedScenes` 删掉。
 
@@ -295,4 +296,4 @@ node {baseDir}/scripts/selftest.mjs
 
 ## 自带样例
 
-`{baseDir}/examples/渡口-storyboard.json`：《渡口》第 1 集完整分镜——10 段 34 切认领剧本全部 35 拍，平均 3.5 秒一切，共 119 秒 / 目标 120 秒，2 个生成批次，每段带完整的 Ref2VA 视频提示词（本段场景和出镜角色各一个 Subject，逐镜点名，切点时刻全部对账通过），`--ref2va` 下全部门通过。当质量基准，也是自测夹具。同一集的关键帧模式版本在 `references/test-fixtures/渡口-storyboard-keyframes.json`。
+`{baseDir}/examples/渡口-storyboard.json`：《渡口》第 1 集完整分镜——10 段 34 切认领剧本全部 35 拍，平均 3.5 秒一切，共 119 秒 / 目标 120 秒，2 个生成批次，每段带完整的 Ref2VA 视频提示词（本段场景和出镜角色各一个 Subject，逐镜点名，切点时刻全部对账通过；同场相邻段从上一段尾帧接着拍，每个镜头只有一人开口），`--ref2va` 下全部门通过。当质量基准，也是自测夹具。同一集的关键帧模式版本在 `references/test-fixtures/渡口-storyboard-keyframes.json`。

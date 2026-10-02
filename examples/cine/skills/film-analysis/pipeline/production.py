@@ -1259,6 +1259,11 @@ def main(argv=None):
         metavar="RECEIPT",
         help="Record a successful import_storyboard receipt for the current storyboard.",
     )
+    step.add_argument(
+        "--text-only",
+        action="store_true",
+        help="The user wants the text files only: finish with done instead of a canvas import.",
+    )
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
@@ -1299,6 +1304,7 @@ def main(argv=None):
                     source_text=args.source_text.resolve() if args.source_text else None,
                     jev=not args.no_jev,
                     retry=args.retry,
+                    text_only=args.text_only,
                 )
         elif args.action == "check":
             result = check(

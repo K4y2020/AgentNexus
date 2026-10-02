@@ -535,3 +535,75 @@ def test_changed_vision_model_reopens_script_without_rechecking_other_stages(
     current[0] = "vision-b"
     autopilot.next_step(directory, jev=False)
     assert checks.calls == ["script"]
+
+
+def test_a_text_only_run_ends_with_the_files_and_validator_receipts(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["storyboard"] = {"stdout": "warming up\n✓ 1 集 / 5 段全部通过校验\n"}
+    step = autopilot.next_step(directory, jev=False)
+    assert step["action"] == "import_canvas" and "--text-only" in step["text_only"]
+
+    step = autopilot.next_step(directory, jev=False, text_only=True)
+    assert (step["action"], step["delivery"]) == ("done", "text")
+    assert step["receipts"]["storyboard"] == "✓ 1 集 / 5 段全部通过校验"
+    assert step["files"]["script"].endswith("script.json")
+    assert "finalize" in step["detail"]
+    # The choice is remembered, so a later plain call still ends there.
+    assert autopilot.next_step(directory, jev=False)["delivery"] == "text"
+
+
+def test_upstream_edits_during_a_storyboard_repair_are_undone(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["storyboard"] = {"status": "failed", "stderr": "一个镜头两个人说话"}
+    step = autopilot.next_step(directory, jev=False)
+    assert step["action"] == "edit" and step["target_stage"] == "storyboard"
+    assert {"outline.json", "cast.json", "art.json", "script.json"} <= set(step["frozen"])
+    original = (directory / "script.json").read_bytes()
+
+    edit(directory, "script", 1)  # the repair rewrites dialogue upstream
+    (directory / "person-map.json").write_text("{}", encoding="utf-8")
+    edit(directory, "storyboard", 1)
+    step = autopilot.next_step(directory, jev=False)
+
+    assert (directory / "script.json").read_bytes() == original
+    assert not (directory / "person-map.json").exists()
+    assert step["action"] == "edit" and "script.json" in step["errors"][0]
+    reverted = {item["file"]: item["edited_copy"] for item in step["reverted_upstream"]}
+    kept = json.loads((directory / reverted["script.json"]).read_text(encoding="utf-8"))
+    assert kept == {"stage": "script", "edit": 1}
+    # The restored script still matches its pass, so it is not checked again.
+    assert checks.calls.count("script") == 1
+    items = [i for i in queue(directory) if i["reason"] == "upstream_edit_reverted"]
+    assert {i["detail"]["file"] for i in items} == {"script.json", "person-map.json"}
+    assert {i["severity"] for i in items} == {"review"}
+
+
+def test_a_repair_aimed_at_an_upstream_stage_may_change_it(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["storyboard"] = {
+        "status": "assets_missing",
+        "asset_anchors": {"status": "missing", "problems": ["Character C01 has no sheet."]},
+    }
+    # Later stages list the cast among their inputs; it stays editable all the same.
+    inputs = {str(directory / f"{s}.json"): None for s in ("cast", "art")}
+    checks.results["art"] = {"input_hashes": inputs}
+    step = autopilot.next_step(directory, jev=False)
+    assert step["target_stage"] == "cast" and "cast.json" not in step["frozen"]
+    assert "art.json" in step["frozen"]
+    edit(directory, "cast", 1)
+    step = autopilot.next_step(directory, jev=False)
+    assert "reverted_upstream" not in step
+    assert json.loads((directory / "cast.json").read_text(encoding="utf-8"))["edit"] == 1
+
+
+def test_a_person_may_change_upstream_stages_after_an_escalation(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    checks.results["storyboard"] = {"status": "failed"}
+    for n in range(autopilot.MAX_EDITS + 1):
+        result = autopilot.next_step(directory, jev=False)
+        edit(directory, "storyboard", n)
+    assert result["action"] == "escalate"
+    edit(directory, "script", 9)
+    step = autopilot.next_step(directory, jev=False)
+    assert "reverted_upstream" not in step
+    assert json.loads((directory / "script.json").read_text(encoding="utf-8"))["edit"] == 9

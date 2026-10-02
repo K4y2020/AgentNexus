@@ -63,14 +63,14 @@ prompt: |
 
   Auto-adaptation workflow (自动改编、跑通改编、生成提示词卡):
   Work autonomously within the Topic; do not wait for manual user steps or write ad-hoc helper scripts.
-  Keep outline/cast/art/script/storyboard JSON and production.json together in the Topic's production/ directory; outputs/ holds only exported media.
+  Keep outline/cast/art/script/storyboard JSON (and production.json when one exists) together in the Topic's production/ directory; outputs/ holds only exported media.
   1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript; for a video source export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
   2. Run `production.py next <production>` and do exactly the action it returns, then run it again. After writing or repairing its named file, call next directly. The controller seeds stages and runs visual speaker attribution and every check itself (native validators decide; advisory JEV findings go to its review queue); do not additionally run seed, attribute, check or native validate commands even when a stage skill documents the manual procedure.
-     - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. Edit no other stage.
-     - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`.
+     - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. Edit no other stage: the files in `frozen` belong to stages that already passed, and the controller undoes any change to them.
+     - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`. If the user asked for text only or no canvas change, do not import: run next again with `--text-only`.
      - escalate: stop and report the reason, detail and review queue; do not work around it or edit again.
      - human_review_speakers: stop and report each unresolved used line, its timing and evidence; do not guess an identity or mark the run done.
-     - done: report the canvas receipt and the review queue items.
+     - done: report the canvas receipt (with `delivery: text`, the `files` and `receipts` it returns) and the review queue items, then stop. Do not run finalize, check, validate or render, or write production.json, after it.
   Writing rules the checks rely on: every character needs a complete 16:9 model sheet prompt (image.sheet) and every scene an image.prompt; every storyboard cut binds characters to cast IDs and scenes to art scene IDs.
   Reports: describe only work this turn's tools did, and copy job/node ids, error codes and receipts exactly from tool output. A reply citing an id or code no tool returned is blocked.
   3. Generation: do not call submit_generation unless the user explicitly orders video generation. Stop at prompt-card synchronization and report the canvas receipt.
@@ -98,7 +98,7 @@ prompt: |
   Delivery discipline (写盘与交付):
   1. 不口头交付：涉及优化剧本、改台词、重构分镜、调整时长等剧作变更时，不得只在对话里声称“已优化/已定稿/已通过校验”。
   2. 先读后写：先读取 production/ 中当前的 script.json / storyboard.json，再用 sys_os_write 写回完整的原生 JSON；写盘前不汇报完成。
-  3. 真实回执：汇报前运行对应 skill 的 validate，“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。
+  3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate；手工流程汇报前运行对应 skill 的 validate。
 
   Tool boundaries:
   - Treat packaged Python/JS/templates as executable tools, not creative reference

@@ -115,7 +115,7 @@ def test_storyboard_core_distinguishes_h3_reference_semantics():
     assert "Ref2VA" in instructions
     assert "<Subject N>" in instructions
     assert "<Picture N>" in instructions
-    assert "不写观众留存或开场钩子" in instructions
+    assert "不写说话人编号、观众留存或开场钩子" in instructions
     assert "摄影机看得见不等于对手看得见" in instructions
     assert "[Shot 2] At 00:05.000" in instructions
     assert "范围替代原生切点标记" in instructions

@@ -154,7 +154,7 @@ eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可
 /* ---------------- 质量门：全绿基线 ---------------- */
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带全部上游全部门通过');
-eq(gateReport(FIXTURE, CTX).length, 29, '二十九道门');
+eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
 
 /* ---------------- 连续性 A/B：旧模式放过，新合同指出断点 ---------------- */
 {
@@ -848,7 +848,7 @@ ok(html.includes('分镜节奏带'), '01 分镜节奏带');
 ok(html.includes('分集分镜表'), '02 分集分镜表');
 ok(html.includes('生成批次单'), '03 生成批次单');
 ok(html.includes('配音对齐单'), '04 配音对齐单');
-ok(html.includes('✓ 质量门 29 / 29'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 31 / 31'), '页眉徽章全绿');
 ok(html.includes('class="rseg"'), '节奏带按段分组（粗分隔）');
 ok(html.includes('#seg-E01-01'), '节奏带段可跳转');
 ok(html.includes('主分镜图 · #1 未生成'), '主分镜图缺图时显示占位不装有');
@@ -908,7 +908,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('<html lang="en">'), 'en 报告的 html lang 属性跟着语言走');
   ok(en.includes('Export JSON'), 'en 界面：导出按钮英文');
-  ok(en.includes('Quality gates 29 / 29'), 'en 界面：页眉徽章英文');
+  ok(en.includes('Quality gates 31 / 31'), 'en 界面：页眉徽章英文');
   ok(en.includes('Cut rhythm strip'), 'en 界面：节奏带节标题英文');
   ok(en.includes('Segment cards'), 'en 界面：分镜表节标题英文');
   ok(en.includes('Generation batches'), 'en 界面：批次节标题英文');
@@ -1079,32 +1079,30 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
 {
   // 画布上一段生成完，Seedance 把它的最后一帧挂到下一段：承接段的提示词必须把它定义成 Subject
   const REF = { ...CTX, ref2va: true };
-  const FRAME = '<Subject 5> — E01-01, the last frame of the previous segment; positions, framing and light at the opening come entirely from <Picture 5>.';
   const withSeg2 = (edit) => {
     const doc = clone(FIXTURE);
-    const seg = doc.episodes[0].segments[1];
-    seg.continuesFrom = 'E01-01';
-    edit(seg, doc);
+    edit(doc.episodes[0].segments[1], doc);
     return doc;
   };
-  const addFrame = (seg, use = 'first') => {
-    seg.h3Prompt = seg.h3Prompt.replace('\n\nsummary:', `\n${FRAME}\n\nsummary:`);
-    if (use === 'first') seg.h3Prompt = seg.h3Prompt.replace('\n[Shot 2]', ' It continues directly from <Subject 5>.\n[Shot 2]');
-    if (use === 'later') seg.h3Prompt = seg.h3Prompt.replace('\n[Shot 3]', ' Echoing <Subject 5>.\n[Shot 3]');
-  };
+  eq(FIXTURE.episodes[0].segments[1].continuesFrom, 'E01-01', '样例同场第二段承接上一段尾帧');
 
-  const missing = gate(withSeg2(() => {}), 'h3-references', REF);
+  const missing = gate(withSeg2((seg) => { seg.h3Prompt = seg.h3Prompt.replace(/\n<Subject 5> — E01-01,[^\n]*/, ''); }), 'h3-references', REF);
   ok(missing.detail.includes('E01-02 画布上这段连了上一段 E01-01 的尾帧 的参考图'), '承接段没定义尾帧 Subject 被拦');
 
-  const good = withSeg2((seg) => addFrame(seg));
-  ok(!gate(good, 'h3-references', REF).detail.includes('E01-02'), '尾帧定义成 Subject 并在 [Shot 1] 用上：本段通过');
-  ok(gate(good, 'continuity', REF).ok, '承接紧挨着的同场上一段：连续性门通过');
+  ok(!gate(FIXTURE, 'h3-references', REF).detail.includes('E01-02'), '尾帧定义成 Subject 并在 [Shot 1] 用上：本段通过');
+  ok(gate(FIXTURE, 'continuity', REF).ok, '承接紧挨着的同场上一段：连续性门通过');
 
-  const later = gate(withSeg2((seg) => addFrame(seg, 'later')), 'h3-references', REF);
+  const later = gate(withSeg2((seg) => {
+    seg.h3Prompt = seg.h3Prompt.replace('the last frame of <Subject 5>, ', '').replace('\n[Shot 3]', ' Echoing <Subject 5>.\n[Shot 3]');
+  }), 'h3-references', REF);
   ok(later.detail.includes('要在 [Shot 1] 里用上'), '尾帧只在后面的镜头用上被拦');
 
-  const stray = gate(withSeg2((seg, doc) => { delete seg.continuesFrom; addFrame(seg); }), 'h3-references', REF);
+  const stray = gate(withSeg2((seg) => { delete seg.continuesFrom; }), 'h3-references', REF);
   ok(stray.detail.includes('是上一段 E01-01 的尾帧，但画布上这一段不会连它的参考图'), '不承接却定义尾帧 Subject 被拦');
+
+  const unlinked = gate(withSeg2((seg) => { delete seg.continuesFrom; }), 'same-scene-continues-from', REF);
+  ok(!unlinked.ok && unlinked.detail.includes('E01-02') && unlinked.detail.includes('应为「E01-01」'), '同场第二段不承接被拦，报错写明该接哪一段');
+  ok(gate(withSeg2((seg) => { delete seg.continuesFrom; }), 'same-scene-continues-from').ok, '关键帧导出模式不要求承接');
 
   const wrongId = gate(withSeg2((seg) => { seg.continuesFrom = 'E01-05'; }), 'continuity', REF);
   ok(!wrongId.ok && wrongId.detail.includes('只能写紧挨着的上一段 E01-01'), 'continuesFrom 写的不是上一段被拦');
