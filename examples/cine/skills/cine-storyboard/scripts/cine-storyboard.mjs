@@ -389,7 +389,7 @@ const AUDIT_RULES = [
   'dialogue-speaker-visible', 'one-speaker-per-cut', 'same-scene-continues-from',
   'no-internal-labels', 'consistent-character-naming',
   'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding',
-  'h3-vocal-source-ids', 'h3-summary-task-prefix', 'h3-retention-per-line',
+  'h3-vocal-source-ids', 'h3-nonverbal-vocal-cues', 'h3-summary-task-prefix', 'h3-retention-per-line',
   'h3-synchronized-sound-placement', 'h3-voiceover-exact-format',
 ];
 const AUDIT_REF_RULES = AUDIT_RULES.filter((rule) => rule.startsWith('h3-'));
@@ -474,7 +474,7 @@ function auditVocalEvents(body) {
     const ids = [...before.matchAll(/\(S\d+(?:,S\d+)*\)/g)];
     if (!subject && !ids.length && !/\b(?:he|she|his|her|woman|man|worker|narrator|person|child|speaker)\b/i.test(before)) continue;
     const prefix = subject ? before.slice(subject.index) : before;
-    events.push({ prefix: prefix.trim(), line: null, after: '', index: cue.index });
+    events.push({ prefix: prefix.trim(), line: null, after: '', index: cue.index, cue: cue[0] });
   }
   return events.sort((a, b) => a.index - b.index);
 }
@@ -570,14 +570,25 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   const subjectIds = new Map();
   const idSubjects = new Map();
   const vocalIds = new Set();
-  for (const [eventIndex, event] of events.entries()) {
-    const location = `${sid}.dialogue${eventIndex + 1}`;
+  let dialogueCount = 0;
+  let cueCount = 0;
+  for (const event of events) {
+    // Non-verbal cues (sobs, laughter …) stay advisory: the official guide numbers speech and singing.
+    const cue = event.cue != null;
+    const location = cue ? `${sid}.vocalcue${++cueCount}` : `${sid}.dialogue${++dialogueCount}`;
+    const sourceRule = cue ? 'h3-nonverbal-vocal-cues' : 'h3-vocal-source-ids';
+    const speakerRule = cue ? 'h3-nonverbal-vocal-cues' : 'h3-referenced-speaker-binding';
     const ids = [...event.prefix.matchAll(/\(S\d+(?:,S\d+)*\)/g)];
     const bound = [...event.prefix.matchAll(/(<Subject \d+>)\s+(\(S\d+(?:,S\d+)*\))/g)];
     const audioLabels = [...event.prefix.matchAll(/<Audio \d+>/g)].map((match) => match[0]);
     const copiedAudioCue = !/<Subject \d+>|\b(?:narrator|woman|man|person|character|child|speaker)\b/i.test(event.prefix) && /\b(?:phrase|cue|lyric|track|soundtrack|reaches|plays)\b/i.test(event.prefix) && audioLabels.some((label) => entries.some((entry) => entry[1] === label && /\b(?:fully_copy|partially_copy)\b/.test(entry[3])));
-    evaluated('h3-vocal-source-ids');
-    if ((!ids.length || ids.some((match) => /\bS0\b/.test(match[0]))) && !copiedAudioCue) issue('h3-vocal-source-ids', location, 'Independent dialogue/singing/voice-over sources require IDs starting at S1; only cues inside a directly copied audio track may use Audio alone', { source_clause: event.prefix, line: event.line });
+    evaluated(sourceRule);
+    if ((!ids.length || ids.some((match) => /\bS0\b/.test(match[0]))) && !copiedAudioCue) {
+      issue(sourceRule, location, cue
+        ? `Non-verbal cue "${event.cue}" has no vocal source ID`
+        : 'Independent dialogue/singing/voice-over sources require IDs starting at S1; only cues inside a directly copied audio track may use Audio alone',
+      { source_clause: event.prefix, line: event.line, ...(cue ? { cue: event.cue } : {}) });
+    }
     for (const id of ids.flatMap((match) => match[0].match(/S\d+/g))) {
       if (vocalIds.has(id)) continue;
       const expectedId = `S${vocalIds.size + 1}`;
@@ -587,10 +598,13 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
     const expected = speakerSubjects.get(event.line);
     const subjectMentioned = /^\s*<Subject \d+>/.test(event.prefix) || bound.length > 0;
     if (subjectMentioned || expected?.size) {
-      evaluated('h3-referenced-speaker-binding');
+      evaluated(speakerRule);
       if (!bound.length || (expected?.size === 1 && !bound.some((match) => expected.has(match[1])))) {
-        issue('h3-referenced-speaker-binding', location, 'A referenced speaker must be written as <Subject N> (Sx) in the clause introducing this dialogue', { source_clause: event.prefix, expected_subjects: expected ? [...expected] : null });
-      } else if (expected?.size > 1) skip('h3-referenced-speaker-binding', location, 'The same dialogue words map to multiple reference subjects; speaker semantics are ambiguous');
+        issue(speakerRule, location, cue
+          ? `Non-verbal cue "${event.cue}" from a referenced subject is not written as <Subject N> (Sx)`
+          : 'A referenced speaker must be written as <Subject N> (Sx) in the clause introducing this dialogue',
+        { source_clause: event.prefix, expected_subjects: expected ? [...expected] : null, ...(cue ? { cue: event.cue } : {}) });
+      } else if (expected?.size > 1) skip(speakerRule, location, 'The same dialogue words map to multiple reference subjects; speaker semantics are ambiguous');
       for (const match of bound) {
         if (subjectIds.has(match[1]) && subjectIds.get(match[1]) !== match[2]) issue('h3-vocal-source-ids', location, 'A referenced vocal source changes its speaker ID', { subject: match[1], previous: subjectIds.get(match[1]), current: match[2] });
         subjectIds.set(match[1], match[2]);
@@ -847,7 +861,7 @@ export function auditStoryboard(board, ctx = {}) {
       'Voice-over checks require a marker before the matching dialogue block; unstructured speaker attribution inside prose is not inferred.',
       'Official H3 checks apply to Ref2VA only; legacy keyframe/base prompts are skipped, rather than treated as conforming full-reference prompts.',
       'Style opening and inline Subject checks prove prose/label placement only; appearance, position, action, style suitability and actual speaker semantics require calibrated review.',
-      'Vocal-source IDs are checked at explicit dialogue/lyric blocks and recognizable human vocal cues; ordinary wind, rain, impacts and other physical sounds are not assigned speaker IDs. Unstructured vocal attribution still requires review. Directly copied soundtrack cues may use Audio alone.',
+      'Vocal-source IDs are checked at explicit dialogue/lyric blocks; recognizable non-verbal human cues (sobs, laughter …) are reported as advisory h3-nonverbal-vocal-cues and never block production; ordinary wind, rain, impacts and other physical sounds are not assigned speaker IDs. Unstructured vocal attribution still requires review. Directly copied soundtrack cues may use Audio alone.',
       'Summary task types and retention markers are checked for format and label/shot existence; their true asset roles and preservation semantics are not inferred.',
       'Sound-placement checks reject explicit shot/time/synchronization anchors, dialogue and recognizable discrete events in soundscape; unrestricted natural-language sound semantics are not proved.',
       'Existing schema has no required picture-design fields; this audit introduces none. Quality and transcription completeness require calibrated review.',
@@ -1242,6 +1256,16 @@ export function continuityReport(board) {
   return { enabled: true, issues, detail: issues.join('；') };
 }
 
+/** Short pointer to the offending text of an audit issue, for gate error messages. */
+function auditHint(evidence = {}) {
+  const parts = [];
+  const clause = evidence.source_clause ?? evidence.first_clause ?? evidence.soundscape ?? evidence.opening;
+  if (typeof clause === 'string' && clause.trim()) parts.push(`原文「…${clause.replace(/\s+/g, ' ').trim().slice(-100)}」`);
+  if (Array.isArray(evidence.video) && Array.isArray(evidence.reference)) parts.push(`视频媒介 ${evidence.video.join('/')}，参考媒介 ${evidence.reference.join('/')}`);
+  if (typeof evidence.expected === 'string') parts.push(`应为「${evidence.expected.slice(0, 200)}」`);
+  return parts.length ? `（${parts.join('；')}）` : '';
+}
+
 export function gateReport(board, ctx = {}) {
   const gates = [];
   const add = (id, label, ok, detail = '') => gates.push({ id, label, ok, detail });
@@ -1600,7 +1624,7 @@ export function gateReport(board, ctx = {}) {
     recipes ? (bad.recipe.length ? bad.recipe.join('；') : recipeRefs ? '' : NO_RECIPE) : SKIP_SHOTS,
   );
 
-  // Ref2VA 投产复用只读 audit；缺证据的跳过项也必须阻止投产。
+  // Ref2VA 投产复用只读 audit；缺证据的跳过项也必须阻止投产。错误附原文，模型才找得到出错的位置。
   const referenceAudit = ctx.ref2va ? auditStoryboard(board, ctx) : null;
   for (const [id, label] of [
     ['h3-style-before-shot1', 'Ref2VA：统一画风句写在 [Shot 1] 之前'],
@@ -1614,7 +1638,7 @@ export function gateReport(board, ctx = {}) {
     ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
   ]) {
     const failures = referenceAudit ? [
-      ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}`),
+      ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}${auditHint(item.evidence)}`),
       ...referenceAudit.skips.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.reason}`),
     ] : [];
     add(id, label, failures.length === 0,

@@ -48,7 +48,7 @@ const audit = (mutateBoard = () => {}, mutateContext = () => {}) => {
 };
 const clean = audit();
 check(clean.status === 'pass' && !clean.issues.length && !clean.skips.length, 'complete Ref2VA fixture passes all applicable evaluation rules');
-check(clean.evaluated_checks.length === 16 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over is not applicable');
+check(clean.evaluated_checks.length === 17 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format', 'h3-nonverbal-vocal-cues'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over and non-verbal cues are not applicable');
 check(!issues(clean, 'video-no-film-still').length, 'painterly frames and video prompts contain no film-still instruction');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nFILM STILL'; }), 'video-no-film-still').length === 1, 'film still is rejected only in the video prompt');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nfilm-still'; }), 'video-no-film-still').length === 1, 'hyphenated film-still is rejected');
@@ -111,7 +111,9 @@ check(auditStoryboard({ episodes: [] }, ctx).status === 'incomplete', 'an empty 
 
 const firstPrompt = (change) => audit((b) => { b.episodes[0].segments[0].h3Prompt = change(b.episodes[0].segments[0].h3Prompt); });
 const hasIssue = (change, rule) => issues(firstPrompt(change), rule).length > 0;
-const officialRules = clean.evaluated_checks.filter((rule) => rule.id.startsWith('h3-')).map((rule) => rule.id);
+// Advisory audit rules are reported but never become production gates.
+const advisoryRules = ['h3-nonverbal-vocal-cues'];
+const officialRules = clean.evaluated_checks.filter((rule) => rule.id.startsWith('h3-') && !advisoryRules.includes(rule.id)).map((rule) => rule.id);
 check(clean.audit_version === 3 && clean.scope === 'read-only', 'audit version identifies the updated evaluation policy');
 check(!clean.evaluated_checks.some((rule) => rule.id === 'scene-music-continuity'), 'superseded music-continuity rule is absent');
 check(clean.limitations.some((item) => item.includes('appearance, position, action')), 'inline binding does not certify visual-description semantics');
@@ -141,9 +143,11 @@ check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> says:'), 
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S0) says:'), 'h3-vocal-source-ids'), 'zero speaker ID fails the official numbering boundary');
 check(hasIssue((p) => p.replace('<Subject 1> (S1) says:', '<Subject 1> (S3) says:'), 'h3-vocal-source-ids'), 'first vocal event starts at S1 rather than an arbitrary source number');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. Wind, cloth movement and a box impact are audible.'), 'h3-vocal-source-ids'), 'physical wind/cloth/impact events do not receive invented S IDs');
-check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child cheers.'), 'h3-vocal-source-ids'), 'an independent non-verbal human voice needs a source ID');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child cheers.'), 'h3-nonverbal-vocal-cues'), 'an untagged non-verbal human voice is reported as an advisory cue');
+check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child cheers.'), 'h3-vocal-source-ids'), 'an untagged non-verbal voice is not a dialogue source-ID failure');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. A child (S1) cheers.').replace('<Subject 1> (S1) says:', '<Subject 1> (S2) says:'), 'h3-vocal-source-ids'), 'non-verbal voices precede later dialogue in source numbering');
-check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> cheers.'), 'h3-vocal-source-ids'), 'a referenced cheering source needs its immediate speaker binding');
+check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> cheers.'), 'h3-nonverbal-vocal-cues'), 'a referenced untagged cheer is reported as an advisory cue');
+check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> cheers.'), 'h3-referenced-speaker-binding'), 'an untagged cheer does not shift dialogue speaker-binding checks');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> (S1) cheers.'), 'h3-vocal-source-ids'), 'one referenced source keeps its ID across cheering and speech');
 check(hasIssue((p) => p.replace('Static Shot.', 'Static Shot. <Subject 1> (S1) cheers.').replace('<Subject 1> (S1) says:', '<Subject 1> (S2) says:'), 'h3-vocal-source-ids'), 'a non-verbal referenced source cannot change identity at speech');
 check(!hasIssue((p) => p.replace('Static Shot.', 'Static Shot. The worker silently laughs.'), 'h3-vocal-source-ids'), 'explicitly silent physical laughter is not a new audible voice');
@@ -233,6 +237,13 @@ for (const [rule, changePrompt, changeContext] of [
   check(!failed.ok && failed.detail.includes(`[${rule}]`) && failed.detail.includes('E01-01'), `production gate rejects and identifies the ${rule} mutant`);
   check(validateStoryboard(badBoard, badCtx).some((problem) => problem.includes(`[${rule}]`)), `production validate surfaces the ${rule} rejection`);
 }
+const sobbing = clone(board);
+sobbing.episodes[0].segments[0].h3Prompt = sobbing.episodes[0].segments[0].h3Prompt.replace('Static Shot.', 'Static Shot. <Subject 1> lowers the box as quiet sobs shake the shoulders.');
+check(auditStoryboard(sobbing, strictCtx).issues.some((item) => item.rule === 'h3-nonverbal-vocal-cues' && item.location === 'E01-01.vocalcue1'), 'audit reports an untagged sob as an advisory vocal cue');
+check(['h3-vocal-source-ids', 'h3-referenced-speaker-binding'].every((rule) => gateReport(sobbing, strictCtx).find((gate) => gate.id === rule).ok), 'an untagged non-verbal cue does not block production');
+const misbound = clone(board);
+misbound.episodes[0].segments[0].h3Prompt = misbound.episodes[0].segments[0].h3Prompt.replace('<Subject 1> (S1) says:', '<Subject 2> (S1) says:');
+check(gateReport(misbound, strictCtx).find((gate) => gate.id === 'h3-referenced-speaker-binding').detail.includes('原文「'), 'production gate errors quote the offending clause');
 const noCompletion = clone(board);
 noCompletion.episodes[0].segments[1].h3Prompt = noCompletion.episodes[0].segments[1].h3Prompt.replace('[reference generation + keyframe completion]', '[reference generation]');
 check(!gateReport(noCompletion, strictCtx).find((gate) => gate.id === 'h3-summary-task-prefix').ok, 'production rejects a preceding tail-frame continuation without keyframe completion');
