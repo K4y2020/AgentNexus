@@ -23,6 +23,8 @@ except ImportError:
     from transcribe import gateway_settings
 
 BATCH_SHOTS = 24
+# Extra passes over shots whose reply was malformed; transport failures wait for the next run.
+RETRIES = 2
 FRAME_WIDTH = 384
 FRAME_QUALITY = 4
 POINTS = (0.3, 0.7)
@@ -30,6 +32,32 @@ TIMEOUT = 300
 LOCATION_ID = re.compile(r"L[1-9][0-9]*")
 PERSON_ID = re.compile(r"P[1-9][0-9]*")
 SCHEMA_VERSION = 3
+# The storyboard's own vocabulary, so a source shot reads directly as a cut.
+SIZES = ("extreme-wide", "wide", "medium", "close", "extreme-close")
+CAMERAS = (
+    "Static Shot",
+    "Push In",
+    "Pull Out",
+    "Zoom In",
+    "Zoom Out",
+    "Pan Left",
+    "Pan Right",
+    "Truck Left",
+    "Truck Right",
+    "Tilt Up",
+    "Tilt Down",
+    "Pedestal Up",
+    "Pedestal Down",
+    "Arc Shot",
+    "Tracking Shot",
+    "Shake Slightly",
+    "Shake Strongly",
+    "POV",
+    "Roll Clockwise",
+    "Roll Counterclockwise",
+)
+# A cut within this many seconds of a black interval is a fade (dip to black).
+FADE_WINDOW = 0.35
 PROMPT = """你在给影片逐镜头拉片，整理拍摄地点和可见事件。每个镜头附两帧。
 地点指布景/实景本身，不是景别、机位、人物或故事章节。
 同一地点的不同角度、特写仍用同一 id；只在可见布景支持地点变化时新建地点。
@@ -45,10 +73,16 @@ people 和 crowd 可以同时存在；不要给看不清的人强造编号，也
 只把明确标注人物姓名的烧录字幕写进 name_caption，普通对白字幕不是人名；没有就填 null。
 照片中的人物也可登记入人物表，但镜头 people 只列现场真人，不列照片或屏幕中的人物。
 不要把照片、反应镜头里的人当成正在说话。
+size 是景别，按画面主体取 extreme-wide、wide、medium、close、extreme-close 之一。
+camera 是运镜，对比两帧判断，取 Static Shot、Push In、Pull Out、Zoom In、Zoom Out、
+Pan Left、Pan Right、Truck Left、Truck Right、Tilt Up、Tilt Down、Pedestal Up、
+Pedestal Down、Arc Shot、Tracking Shot、Shake Slightly、Shake Strongly、POV 之一；
+两帧取景没变就是 Static Shot。
 仅输出 JSON，所有镜头都必须返回：
 {"new":[{"id":"L2","name":"地下停车场","setting":"车位标线、承重柱、出口标牌"}],
  "people":[{"id":"P1","look":"成年男子，短发，灰色外套","name_caption":null}],
- "shots":[{"n":8,"place":"L2","what":"一人走向停在柱边的汽车","people":["P1"],"crowd":false}]}"""
+ "shots":[{"n":8,"place":"L2","what":"一人走向停在柱边的汽车","people":["P1"],"crowd":false,
+ "size":"wide","camera":"Tracking Shot"}]}"""
 
 
 class ReplyError(ValueError):
@@ -86,7 +120,9 @@ def _frame(media: Path, seconds: float, target: Path) -> bytes:
     return data
 
 
-def _ask(known: list[dict], batch: list[tuple[dict, list[bytes]]], gateway, *, people) -> dict:
+def _ask(
+    known: list[dict], batch: list[tuple[dict, list[bytes]]], gateway, *, people, hint=None
+) -> dict:
     import urllib.request
 
     base_url, key, model = gateway
@@ -95,6 +131,13 @@ def _ask(known: list[dict], batch: list[tuple[dict, list[bytes]]], gateway, *, p
         {"type": "text", "text": "已知地点：" + json.dumps(known, ensure_ascii=False)},
         {"type": "text", "text": "已知人物：" + json.dumps(people, ensure_ascii=False)},
     ]
+    if hint:
+        content.append(
+            {
+                "type": "text",
+                "text": "上一次回复里这些镜头没能收下，请按格式重新返回本批全部镜头：" + hint,
+            }
+        )
     for shot, frames in batch:
         content.append(
             {
@@ -167,29 +210,36 @@ def locations_for(shots: list[dict], known: list[dict], teaser_end: float = 0.0)
 
 def _accept(
     reply: dict, known: list[dict], wanted: set[int], people: list[dict]
-) -> tuple[list[dict], dict[int, dict], list[dict]]:
+) -> tuple[list[dict], dict[int, dict], list[dict], list[str]]:
+    """Keep every valid shot; a bad entry costs only the shots that depend on it."""
+    if not isinstance(reply.get("shots"), list):
+        raise ValueError("reply needs a shots array")
+    problems: list[str] = []
     locations = {item["id"]: item for item in known}
     new = reply.get("new", [])
-    if not isinstance(new, list) or not isinstance(reply.get("shots"), list):
-        raise ValueError("reply needs new and shots arrays")
-    used = {item.get("place") for item in reply["shots"] if isinstance(item, dict)}
+    if not isinstance(new, list):
+        problems.append("new must be an array")
+        new = []
     for item in new:
         if not isinstance(item, dict) or not LOCATION_ID.fullmatch(str(item.get("id", ""))):
-            raise ValueError("invalid new location")
+            problems.append(f"invalid new location {_label(item)}")
+            continue
         if item["id"] in locations:
             continue
         if not all(isinstance(item.get(k), str) and item[k].strip() for k in ("name", "setting")):
-            if item["id"] not in used:
-                continue
-            raise ValueError("invalid new location")
+            problems.append(f"invalid new location {item['id']}: name and setting are required")
+            continue
         value = {k: item[k].strip() for k in ("id", "name", "setting")}
         locations[value["id"]] = value
     persons = {item["id"]: dict(item) for item in people}
-    if not isinstance(reply.get("people"), list):
-        raise ValueError("reply needs a people array")
-    for item in reply["people"]:
+    reply_people = reply.get("people")
+    if not isinstance(reply_people, list):
+        problems.append("reply needs a people array")
+        reply_people = []
+    for item in reply_people:
         if not _valid_person(item):
-            raise ValueError("invalid person")
+            problems.append(f"invalid person {_label(item)}")
+            continue
         caption = (item["name_caption"] or "").strip() or None
         if item["id"] in persons:
             if not persons[item["id"]]["name_caption"]:
@@ -202,29 +252,83 @@ def _accept(
             }
     found = {}
     for item in reply["shots"]:
-        if not isinstance(item, dict) or type(item.get("n")) is not int or item["n"] not in wanted:
-            raise ValueError("unexpected shot in reply")
-        if item["n"] in found:
-            raise ValueError("duplicate shot in reply")
+        n = item.get("n") if isinstance(item, dict) else None
+        if type(n) is not int or n not in wanted:
+            problems.append(f"unexpected shot {n!r} in reply")
+            continue
+        if n in found:
+            problems.append(f"duplicate shot {n} in reply")
+            continue
         place, what = item.get("place"), item.get("what")
         if place not in {"insert", "?", *locations}:
-            raise ValueError(f"unknown location {place}")
+            problems.append(f"shot {n}: unknown location {place}")
+            continue
         if not isinstance(what, str) or not what.strip():
-            raise ValueError("shot action is missing")
+            problems.append(f"shot {n}: action is missing")
+            continue
         visible = item.get("people")
         if not isinstance(visible, list) or any(
             not isinstance(p, str) or p not in persons for p in visible
         ):
-            raise ValueError("invalid shot people")
+            problems.append(f"shot {n}: invalid shot people")
+            continue
         if type(item.get("crowd")) is not bool:
-            raise ValueError("shot crowd must be a boolean")
-        found[item["n"]] = {
+            problems.append(f"shot {n}: crowd must be a boolean")
+            continue
+        found[n] = {
             "place": place,
             "what": what.strip()[:40],
             "people": list(dict.fromkeys(visible)),
             "crowd": item["crowd"],
+            # Shot language guides the storyboard; an unreadable value stays unknown.
+            "size": item.get("size") if item.get("size") in SIZES else None,
+            "camera": item.get("camera") if item.get("camera") in CAMERAS else None,
         }
-    return list(locations.values()), found, list(persons.values())
+    return list(locations.values()), found, list(persons.values()), problems
+
+
+def _label(item) -> str:
+    return repr(item.get("id")) if isinstance(item, dict) else repr(item)[:40]
+
+
+def _black_intervals(media: Path) -> list[tuple[float, float]] | None:
+    """Black stretches of the picture, the mark of a fade between shots."""
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-nostats",
+                "-i",
+                str(media),
+                "-vf",
+                "blackdetect=d=0.04:pic_th=0.95:pix_th=0.10",
+                "-an",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            timeout=TIMEOUT,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    log = result.stderr.decode("utf-8", errors="replace")
+    return [
+        (float(start), float(end))
+        for start, end in re.findall(r"black_start:\s*([\d.]+)\s+black_end:\s*([\d.]+)", log)
+    ]
+
+
+def _transition(shot: dict, black: list[tuple[float, float]] | None) -> str | None:
+    """How a shot begins: ``fade`` beside a black stretch, otherwise ``cut``."""
+    if black is None:
+        return None
+    start = shot["start"]
+    near = any(a - FADE_WINDOW <= start <= b + FADE_WINDOW for a, b in black)
+    return "fade" if near else "cut"
 
 
 def _valid_person(item):
@@ -286,6 +390,9 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                 "people": [],
                 "crowd": False,
                 "teaser": end <= teaser_end,
+                "size": None,
+                "camera": None,
+                "transition": None,
             }
         )
     target = folder / "shot_notes.json"
@@ -358,7 +465,12 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
         for old, shot in zip(cached["shots"], shots, strict=True):
             if shot["index"] not in unread:
                 shot.update(
-                    place=old["place"], what=old["what"], people=old["people"], crowd=old["crowd"]
+                    place=old["place"],
+                    what=old["what"],
+                    people=old["people"],
+                    crowd=old["crowd"],
+                    size=old.get("size"),
+                    camera=old.get("camera"),
                 )
     result = {
         "schema_version": SCHEMA_VERSION,
@@ -382,67 +494,91 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
         from .frame_cache import FrameCache
 
         cache = FrameCache(media, frame_cache)
+        black = _black_intervals(Path(media))
+        for shot in shots:
+            shot["transition"] = _transition(shot, black)
+        last_error: dict[int, str] = {}
+        hint = None
         with tempfile.TemporaryDirectory(prefix="cine-shot-frames-") as temp:
-            for offset in range(0, len(shots), BATCH_SHOTS):
-                batch = [s for s in shots[offset : offset + BATCH_SHOTS] if s["index"] in unread]
-                if not batch:
-                    continue
-                metric = {
-                    "shots": [s["index"] for s in batch],
-                    "known_people": len(people),
-                    "known_locations": len(known),
-                    "status": "failed",
-                }
-                attempt["batches"].append(metric)
-                phase = time.monotonic()
-                try:
-                    numbered = []
-                    for shot in batch:
-                        frames = [
-                            cache.get(
-                                shot["start"] + (shot["end"] - shot["start"]) * p,
-                                FRAME_WIDTH,
-                                lambda p=p, k=k, shot=shot: _frame(
-                                    Path(media),
+            for round_number in range(1 + RETRIES):
+                pending = [s for s in shots if s["index"] in unread]
+                if not pending or (round_number and not hint):
+                    break
+                problems_this_round: list[str] = []
+                for offset in range(0, len(pending), BATCH_SHOTS):
+                    batch = pending[offset : offset + BATCH_SHOTS]
+                    metric = {
+                        "shots": [s["index"] for s in batch],
+                        "round": round_number,
+                        "known_people": len(people),
+                        "known_locations": len(known),
+                        "status": "failed",
+                    }
+                    attempt["batches"].append(metric)
+                    phase = time.monotonic()
+                    try:
+                        numbered = []
+                        for shot in batch:
+                            frames = [
+                                cache.get(
                                     shot["start"] + (shot["end"] - shot["start"]) * p,
-                                    Path(temp) / f"{shot['index']}_{k}.jpg",
-                                ),
-                                quality=FRAME_QUALITY,
-                            )
-                            for k, p in enumerate(POINTS)
-                        ]
-                        numbered.append((shot, frames))
-                    metric["frame_seconds"] = round(time.monotonic() - phase, 3)
-                    phase = time.monotonic()
-                    reply = _ask(known, numbered, gateway, people=people)
-                    metric["request_seconds"] = round(time.monotonic() - phase, 3)
-                    metric["request"] = reply.get("_request_stats")
-                    phase = time.monotonic()
-                    updated, found, people = _accept(
-                        reply,
-                        known,
-                        {s["index"] for s in batch},
-                        people,
-                    )
-                    known = updated
-                    for shot in batch:
-                        if shot["index"] in found:
-                            shot.update(found[shot["index"]])
-                            unread.discard(shot["index"])
-                    missing = [s["index"] for s in batch if s["index"] in unread]
-                    if missing:
-                        result["errors"].append(f"shots missing from reply: {missing}")
-                    metric["status"] = "partial" if missing else "read"
-                    metric["accept_seconds"] = round(time.monotonic() - phase, 3)
-                except Exception as exc:  # noqa: BLE001 - failed shots stay unknown
-                    metric["failure_seconds"] = round(time.monotonic() - phase, 3)
-                    if isinstance(exc, ReplyError):
-                        metric["request"] = exc.request_stats
-                        metric["request_seconds"] = metric["failure_seconds"]
-                    result["errors"].append(
-                        f"shots {batch[0]['index']}-{batch[-1]['index']}: "
-                        f"{type(exc).__name__}: {exc}"
-                    )
+                                    FRAME_WIDTH,
+                                    lambda p=p, k=k, shot=shot: _frame(
+                                        Path(media),
+                                        shot["start"] + (shot["end"] - shot["start"]) * p,
+                                        Path(temp) / f"{shot['index']}_{k}.jpg",
+                                    ),
+                                    quality=FRAME_QUALITY,
+                                )
+                                for k, p in enumerate(POINTS)
+                            ]
+                            numbered.append((shot, frames))
+                        metric["frame_seconds"] = round(time.monotonic() - phase, 3)
+                        phase = time.monotonic()
+                        extra = {"hint": hint} if round_number else {}
+                        reply = _ask(known, numbered, gateway, people=people, **extra)
+                        metric["request_seconds"] = round(time.monotonic() - phase, 3)
+                        metric["request"] = reply.get("_request_stats")
+                        phase = time.monotonic()
+                        known, found, people, problems = _accept(
+                            reply,
+                            known,
+                            {s["index"] for s in batch},
+                            people,
+                        )
+                        for shot in batch:
+                            if shot["index"] in found:
+                                shot.update(found[shot["index"]])
+                                unread.discard(shot["index"])
+                        missing = [s["index"] for s in batch if s["index"] in unread]
+                        if missing:
+                            reasons = problems or [f"shots missing from reply: {missing}"]
+                            message = f"shots {missing[0]}-{missing[-1]}: " + "; ".join(reasons)
+                            last_error.update(dict.fromkeys(missing, message))
+                            problems_this_round.extend(reasons)
+                        if problems:
+                            metric["problems"] = problems
+                        metric["status"] = "partial" if missing else "read"
+                        metric["accept_seconds"] = round(time.monotonic() - phase, 3)
+                    except Exception as exc:  # noqa: BLE001 - failed shots stay unknown
+                        metric["failure_seconds"] = round(time.monotonic() - phase, 3)
+                        if isinstance(exc, ReplyError):
+                            metric["request"] = exc.request_stats
+                            metric["request_seconds"] = metric["failure_seconds"]
+                        message = (
+                            f"shots {batch[0]['index']}-{batch[-1]['index']}: "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+                        last_error.update(dict.fromkeys((s["index"] for s in batch), message))
+                        # A malformed reply is worth asking again; an unreachable gateway is not.
+                        if not isinstance(
+                            exc, (OSError, subprocess.SubprocessError, RuntimeError)
+                        ):
+                            problems_this_round.append(f"{type(exc).__name__}: {exc}")
+                hint = "；".join(dict.fromkeys(problems_this_round))[:1500] or None
+        result["errors"] = list(
+            dict.fromkeys(last_error[i] for i in sorted(unread) if i in last_error)
+        )
         attempt["seconds"] = round(time.monotonic() - started, 3)
         result["attempts"].append(attempt)
         result["status"] = "partial" if unread else "read"

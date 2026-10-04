@@ -13,12 +13,24 @@ from pathlib import Path
 
 try:
     from . import gpu_runtime as gpu
-    from .burned_subtitles import merge_into_transcript, read_burned_subtitles
+    from .burned_subtitles import (
+        MERGE_METHOD,
+        _coverage,
+        _norm,
+        merge_into_transcript,
+        read_burned_subtitles,
+    )
     from .source_identity import cache_key, media_fingerprint
 except ImportError:  # loaded as a standalone module, outside the package
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import gpu_runtime as gpu
-    from burned_subtitles import merge_into_transcript, read_burned_subtitles
+    from burned_subtitles import (
+        MERGE_METHOD,
+        _coverage,
+        _norm,
+        merge_into_transcript,
+        read_burned_subtitles,
+    )
     from source_identity import cache_key, media_fingerprint
 
 # Speaker label the refine pass uses for an unknown speaker; not written to SRT.
@@ -569,19 +581,7 @@ def _timed_pieces(row, texts):
             }
             piece.pop("sentence_boundary_review", None)
             # Evidence for a whole row cannot certify either half's speaker.
-            for field in (
-                "performance",
-                "judgment",
-                "evidence",
-                "attribution_confidence",
-                "attribution_evidence",
-                "needs_review",
-                "speaker_needs_review",
-                "delivery_needs_review",
-                "delivery",
-                "delivery_confidence",
-                "review_reasons",
-            ):
+            for field in _ROW_JUDGMENTS:
                 piece.pop(field, None)
             if row.get("attribution_confidence") is not None:
                 piece["speaker"] = UNLABELED_SPEAKER
@@ -593,19 +593,115 @@ def _timed_pieces(row, texts):
     return None
 
 
+# Fields that judged a whole row; neither half of a split inherits them.
+_ROW_JUDGMENTS = (
+    "performance",
+    "judgment",
+    "evidence",
+    "attribution_confidence",
+    "attribution_evidence",
+    "needs_review",
+    "speaker_needs_review",
+    "delivery_needs_review",
+    "delivery",
+    "delivery_confidence",
+    "review_reasons",
+)
+# A caption match this good ties a caption line to one sentence of a row.
+CAPTION_MATCH = 0.6
+
+
+def _sentences(text):
+    chunks = re.findall(r".*?(?:[。！？!?]+|…{2,}|—{2,})|.+$", text, flags=re.DOTALL)
+    texts, leading = [], ""
+    for chunk in chunks:
+        if _word_chars(chunk):
+            texts.append(leading + chunk)
+            leading = ""
+        elif texts:
+            texts[-1] += chunk
+        else:
+            leading += chunk  # an opening dash belongs to the first sentence
+    return texts if texts and "".join(texts) == text else [text]
+
+
+def split_at_captions(rows, captions):
+    """Cut a row holding several sentences where the film's caption line changes.
+
+    Captions are timed per line, and a new line usually means a new speaker, so
+    two sentences ASR heard as one row are cut between the two caption lines that
+    spell them. Without such a pair the row stays whole.
+    """
+    if not captions:
+        return rows
+    result = []
+    for row in rows:
+        text = str(row.get("text") or "")
+        texts = _sentences(text)
+        start, end = float(row["start"]), float(row["end"])
+        nearby = sorted(
+            (c for c in captions if c["end"] > start - 0.3 and c["start"] < end + 0.3),
+            key=lambda c: c["start"],
+        )
+        cuts = {}
+        for k in range(len(texts) - 1):
+            left, right = _norm(texts[k]), _norm(texts[k + 1])
+            for first, second in pairwise(nearby):
+                if (
+                    _coverage(_norm(first["text"]), left) >= CAPTION_MATCH
+                    and _coverage(_norm(second["text"]), right) >= CAPTION_MATCH
+                    and first["end"] <= second["start"] + 0.2
+                ):
+                    at = round((first["end"] + second["start"]) / 2, 3)
+                    if start < at < end and all(at > c for c in cuts.values()):
+                        cuts[k] = at
+                        break
+        if len(texts) < 2 or not cuts or row.get("teaser"):
+            result.append(row)
+            continue
+        pieces, piece_start, buffer = [], start, ""
+        for k, chunk in enumerate(texts):
+            buffer += chunk
+            if k in cuts:
+                pieces.append((buffer, piece_start, cuts[k]))
+                piece_start, buffer = cuts[k], ""
+        pieces.append((buffer, piece_start, end))
+        for i, (piece_text, piece_start, piece_end) in enumerate(pieces):
+            piece = {
+                **row,
+                "text": piece_text,
+                "start": round(piece_start, 3),
+                "end": round(piece_end, 3),
+                "split": True,
+                "split_timing": "burned_subtitles",
+            }
+            piece.pop("sentence_boundary_review", None)
+            for field in _ROW_JUDGMENTS:
+                piece.pop(field, None)
+            for key in ("timing_words", "timing_segments"):
+                if isinstance(row.get(key), list):
+                    piece[key] = [
+                        u
+                        for u in row[key]
+                        if isinstance(u, dict)
+                        and float(u.get("start", 0)) < piece_end
+                        and float(u.get("end", 0)) > piece_start
+                    ]
+            if row.get("attribution_confidence") is not None:
+                piece["speaker"] = UNLABELED_SPEAKER
+            if row.get("id"):
+                piece.update(id=f"{row['id']}.{i + 1}", split_from=row["id"])
+            result.append(piece)
+    return result
+
+
 def split_repaired_rows(rows):
     """Redistribute exact repaired text before speaker inference; never guess time."""
     result = []
     for row in rows:
         text = str(row.get("text") or "")
-        chunks = re.findall(r".*?(?:[。！？!?]+|…{2,}|—{2,})|.+$", text, flags=re.DOTALL)
-        texts = []
-        for chunk in chunks:
-            if _word_chars(chunk):
-                texts.append(chunk)
-            elif texts:
-                texts[-1] += chunk
-        if len(texts) < 2 or "".join(texts) != text:
+        texts = _sentences(text)
+        if len(texts) < 2:
             result.append(row)
             continue
         pieces = _timed_pieces(row, texts)
@@ -702,10 +798,14 @@ def serialize_transcript(
     if burned is not None:
         # After the repair pass: captions are the film's own words, not ASR to fix.
         rows, counts = merge_into_transcript(rows, burned.get("rows") or [])
+        before = len(rows)
+        rows = split_at_captions(rows, burned.get("rows") or [])
         burned_summary = {
             "status": burned["status"],
             "engine": burned.get("engine"),
+            "merge": MERGE_METHOD,
             **counts,
+            "split": len(rows) - before,
             **({"error": burned["error"]} if burned.get("error") else {}),
         }
 

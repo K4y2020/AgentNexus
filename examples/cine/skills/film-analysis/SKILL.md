@@ -160,9 +160,18 @@ cropped or sped up, or one that only moves speech forward, is not.
    people are listed in group and reaction shots too. Each shot has boolean `crowd`:
    true means additional live people cannot be reliably numbered; it can coexist
    with `people`. Portraits/screens do not count. V1/v2 caches are reread.
-   A complete reading with the same model and input hashes is reused. A partial
-   reading resumes its unfinished shots on the next run, using the configured
-   gateway model. `film_status` reports its status, location and people counts.
+   Each shot also records its shot language in the storyboard's vocabulary:
+   `size` (extreme-wide … extreme-close) and `camera` (Static Shot, Push In,
+   Tracking Shot …) read from the two frames, null when unreadable, and
+   `transition` (`fade` beside a black stretch, else `cut`; dissolves are not told
+   apart). A malformed reply costs only the shots it garbles: they are asked
+   again in the same run, twice at most, with the problem quoted; an unreachable
+   gateway waits for the next run. A complete reading with the same model and
+   input hashes is reused. A partial reading resumes its unfinished shots on the
+   next run, using the configured gateway model. `film_analyze` reports
+   `notes_incomplete` while any shot is unread, and the source-material export
+   refuses such an analysis. `film_status` reports its status, location and people
+   counts.
 2. Process every story-plan batch in order. First read its overlapping shots in
    shot_notes.json, then combine their visible actions and locations with the
    timed dialogue to write events. Every event names its location. Keep teaser
@@ -182,8 +191,11 @@ cropped or sped up, or one that only moves speech forward, is not.
    index already exists). It runs the whole transcription chain in fixed code:
    Whisper, then text repair, then the captions burned into the frames (read
    with OCR; a caption ASR missed becomes a line marked `source:
-   "burned_subtitle"`, one it misheard corrects that line and keeps `asr_text`),
-   then sentence splitting at reliable word/ASR timing boundaries, then the
+   "burned_subtitle"`, one it misheard corrects that line and keeps `asr_text`,
+   and a caption read steadily respells the aligned words of a heard line — a
+   homophone, a dropped character — marked `wording`; editorial notes such as
+   （口误） are dropped; two sentences heard as one line are cut where the caption
+   line changes), then sentence splitting at reliable word/ASR timing boundaries, then the
    performance and visible speaker of every spoken line, then the shared
    frame/context attribution: A reads visible performance and mouth evidence; B
    fills only offscreen or unclear speakers using bounded context. Cast cards
@@ -225,7 +237,9 @@ cropped or sped up, or one that only moves speech forward, is not.
    `constraints`. A visible P speaker is final and spoken. B handles only A's
    offscreen/unclear lines, without emotion or mouth judgments. For offscreen
    lines, B cannot assign spoken dialogue to a person in a sampled-frame shot.
-   Spoken candidates require overlap or a neighbor in the same known location;
+   Spoken candidates require overlap or a neighbor in the same known location, or
+   someone entering within the next two shots (6 seconds) of that location: a voice
+   heard before its speaker walks in;
    voice-over candidates add nobody to physical presence. Crowd needs actual
    overlapping crowd or confirmed extra evidence. Unclear, absent evidence or
    failed constraints request review, with reasons. Model confidence is unused.
@@ -275,6 +289,9 @@ cropped or sped up, or one that only moves speech forward, is not.
      avoiding treating lyrical singing as spoken character dialogue.
 4. Save each batch into <project>/story/<revision>.json immediately. Resume saved
    progress after interruptions. Do not ask permission to continue each batch.
+   The source-material export refuses a draft with an empty summary, no
+   characters, or a plan batch without events and a connection, so a production
+   never starts from dialogue alone.
 5. Complete the ending and whole-film summary before final delivery. Noncritical
    ambiguity goes in uncertainties; only missing source or essential unresolved
    input needs a user question.

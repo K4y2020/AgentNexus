@@ -324,7 +324,7 @@ def rebind_source(directory, source_project):
             "from cannot be confirmed; start a new production from the analysis project"
         )
 
-    exported = source_material(Path(source_project))
+    exported = source_material(Path(source_project), require_complete=False)
     fingerprint = fingerprint_of(exported.get("source_fingerprint"))
     if fingerprint is None:
         raise ValueError(

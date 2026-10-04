@@ -610,3 +610,72 @@ def test_malformed_http_envelope_preserves_raw_and_retries_or_leaves_unread(
         second = lj.read_line_judgments("source.mp4", rows, shot_notes=NOTES, gateway=GATEWAY)
         assert second["status"] == "read" and second["read"] == 1
         assert second["batches"][0]["attempts"][0]["raw_response"] == good
+
+
+def _arrival_notes(second_start=3.0):
+    """A voice over P1's shot, a reaction shot, then the speaker walks in."""
+    return {
+        "locations": [{"id": "L1"}, {"id": "L2"}],
+        "people": [
+            {"id": f"P{i}", "look": f"人物{i}", "name_caption": None} for i in (1, 2, 3, 4)
+        ],
+        "shots": [
+            {
+                "start": 0,
+                "end": 2,
+                "place": "L1",
+                "what": "P1低头",
+                "people": ["P1"],
+                "crowd": False,
+            },
+            {
+                "start": 2,
+                "end": second_start,
+                "place": "L1",
+                "what": "P2转头",
+                "people": ["P2"],
+                "crowd": False,
+            },
+            {
+                "start": second_start,
+                "end": second_start + 3,
+                "place": "L1",
+                "what": "P3走进门",
+                "people": ["P3"],
+                "crowd": False,
+            },
+            {
+                "start": second_start + 3,
+                "end": second_start + 6,
+                "place": "L1",
+                "what": "P4坐下",
+                "people": ["P4"],
+                "crowd": False,
+            },
+        ],
+    }
+
+
+def test_a_voice_heard_before_its_speaker_walks_in_may_belong_to_who_enters():
+    notes = _arrival_notes()
+    row = with_a(
+        {"start": 0.5, "end": 1.8, "text": "我来晚了！"}, speaker="offscreen", notes=notes
+    )
+    entering = lj.check_constraints(judgment("P3"), notes, row)
+    assert not entering["needs_review"] and entering["ahead_people"] == ["P2", "P3"]
+    # Three shots later is no longer the voice's own entrance.
+    assert lj.check_constraints(judgment("P4"), notes, row)["needs_review"]
+    context = lj._line_state(notes, [row], 0)["shots"]
+    assert [shot["index"] for shot in context if shot["relation"] == "after"] == [1, 2]
+
+
+def test_an_entrance_long_after_the_line_or_in_another_place_does_not_count():
+    late = _arrival_notes(second_start=9.0)
+    row = with_a({"start": 0.5, "end": 1.8, "text": "我来晚了！"}, speaker="offscreen", notes=late)
+    assert lj.check_constraints(judgment("P3"), late, row)["needs_review"]
+    moved = _arrival_notes()
+    moved["shots"][1]["place"] = "L2"
+    row = with_a(
+        {"start": 0.5, "end": 1.8, "text": "我来晚了！"}, speaker="offscreen", notes=moved
+    )
+    assert lj.check_constraints(judgment("P3"), moved, row)["needs_review"]

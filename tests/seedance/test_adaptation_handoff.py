@@ -121,14 +121,28 @@ def source_fixture(root):
         "revisions/r1/story_plan.json": {
             "source_id": "source",
             "revision_id": "r1",
-            "batches": [],
+            "batches": [{"batch_id": "B001"}],
+        },
+        "revisions/r1/shot_notes.json": {
+            "schema_version": 3,
+            "source_id": "source",
+            "revision_id": "r1",
+            "status": "read",
+            "unread_shots": [],
+            "locations": [],
+            "shots": [],
         },
         "story/r1.json": {
             "source_id": "source",
             "revision_id": "r1",
             "characters": ["unknown"],
-            "summary": {"premise": "observed draft", "ending": "uncertain"},
-            "sections": [],
+            "summary": {
+                "premise": "observed draft",
+                "conflict": "unclear",
+                "turning_points": [],
+                "ending": "uncertain",
+            },
+            "sections": [{"batch_id": "B001", "events": ["a door opens"], "connection": "ends"}],
         },
     }
     for rel, value in values.items():
@@ -163,7 +177,9 @@ def test_adaptation_export_rejects_story_from_another_revision(handoff, tmp_path
 def test_missing_story_is_not_reported_ready(handoff, tmp_path):
     source_fixture(tmp_path)
     (tmp_path / "story/r1.json").unlink()
-    result = handoff.source_material(tmp_path)
+    with pytest.raises(ValueError, match="STORY_DRAFT_INCOMPLETE"):
+        handoff.source_material(tmp_path)
+    result = handoff.source_material(tmp_path, require_complete=False)
     assert result["adaptation_story_status"] == "missing"
     assert "adaptation_story" not in result
     assert result["can_claim_reviewed"] is False

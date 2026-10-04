@@ -413,3 +413,83 @@ def test_old_schema_and_missing_crowd_cache_are_reread(monkeypatch, project):
         write(path, old)
         assert notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)["schema_version"] == 3
     assert len(calls) == 3
+
+
+def test_one_bad_location_costs_only_its_shots_and_a_retry_recovers_them(monkeypatch, project):
+    root = project(4)
+    calls = []
+
+    def ask(_known, batch, _gateway, *, hint=None, **_kwargs):
+        calls.append(([s["index"] for s, _ in batch], hint))
+        result = reply(batch, new=[LOCATIONS[0]])
+        if hint is None:
+            # The new location has no setting, and two shots use it.
+            result["new"].append({"id": "L2", "name": "车间"})
+            result["shots"][2]["place"] = "L2"
+            result["shots"][3]["place"] = "L2"
+        else:
+            result["new"] = [LOCATIONS[1]]
+            for item in result["shots"]:
+                item["place"] = "L2"
+        return result
+
+    monkeypatch.setattr(notes, "_ask", ask)
+    result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
+    assert calls[0] == ([0, 1, 2, 3], None)
+    assert calls[1][0] == [2, 3] and "L2" in calls[1][1]
+    assert result["status"] == "read" and not result["unread_shots"] and not result["errors"]
+    assert [s["place"] for s in result["shots"]] == ["L1", "L1", "L2", "L2"]
+
+
+def test_a_reply_that_stays_malformed_is_retried_twice_then_left_partial(monkeypatch, project):
+    root = project(2)
+    calls = []
+
+    def ask(_known, _batch, _gateway, *, hint=None, **_kwargs):
+        calls.append(hint)
+        return {"new": [], "people": [], "shots": [{"n": 0, "place": "L9", "what": "交谈"}]}
+
+    monkeypatch.setattr(notes, "_ask", ask)
+    result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
+    assert len(calls) == 1 + notes.RETRIES and calls[0] is None and all(calls[1:])
+    assert result["status"] == "partial" and result["unread_shots"] == [0, 1]
+    assert "unknown location L9" in result["errors"][0]
+
+
+def test_an_unreachable_gateway_is_not_retried_in_the_same_run(monkeypatch, project):
+    root = project(2)
+    calls = []
+
+    def ask(*_args, **_kwargs):
+        calls.append(1)
+        raise OSError("gateway unreachable")
+
+    monkeypatch.setattr(notes, "_ask", ask)
+    result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
+    assert calls == [1] and result["status"] == "partial"
+
+
+def test_shot_language_is_kept_and_an_unknown_value_stays_empty(monkeypatch, project):
+    root = project(3)
+
+    def ask(_known, batch, _gateway, **_kwargs):
+        result = reply(batch, new=[LOCATIONS[0]])
+        for item, size, camera in zip(
+            result["shots"],
+            ["wide", "close", "huge"],
+            ["Static Shot", "Push In", "Spin"],
+            strict=True,
+        ):
+            item.update(size=size, camera=camera)
+        return result
+
+    monkeypatch.setattr(notes, "_ask", ask)
+    monkeypatch.setattr(notes, "_black_intervals", lambda _media: [(1.9, 2.1)])
+    result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
+    assert [(s["size"], s["camera"]) for s in result["shots"]] == [
+        ("wide", "Static Shot"),
+        ("close", "Push In"),
+        (None, None),
+    ]
+    # The third shot starts at 2 s, beside the black stretch: a dip to black.
+    assert [s["transition"] for s in result["shots"]] == ["cut", "cut", "fade"]

@@ -399,9 +399,13 @@ def _read_judgments(video: Path, payload: dict, *, frame_cache: Path | None = No
 
 
 def _captions_pending(payload: dict) -> bool:
-    """A transcript made before captions were read, or when the reader was missing."""
+    """Captions not read yet, the reader missing, or merged by an older method."""
+    from pipeline.burned_subtitles import MERGE_METHOD
+
     summary = payload.get("burned_subtitles")
-    return not isinstance(summary, dict) or summary.get("status") == "unavailable"
+    if not isinstance(summary, dict) or summary.get("status") == "unavailable":
+        return True
+    return summary.get("status") == "read" and summary.get("merge") != MERGE_METHOD
 
 
 def _read_captions(video: Path, payload: dict) -> dict | None:
@@ -410,13 +414,26 @@ def _read_captions(video: Path, payload: dict) -> dict | None:
     Returns the summary, or ``None`` when the reader is unavailable (the
     transcript is left as it was, and the next run tries again).
     """
-    from pipeline.burned_subtitles import merge_into_transcript, read_burned_subtitles
+    from pipeline.burned_subtitles import (
+        MERGE_METHOD,
+        merge_into_transcript,
+        read_burned_subtitles,
+    )
+    from pipeline.transcribe import split_at_captions
 
     burned = read_burned_subtitles(video, language=payload.get("language") or "zh")
     if burned["status"] == "unavailable":
         return None
     rows, counts = merge_into_transcript(payload.get("segments") or [], burned["rows"])
-    summary = {"status": burned["status"], "engine": burned["engine"], **counts}
+    before = len(rows)
+    rows = split_at_captions(rows, burned["rows"])
+    summary = {
+        "status": burned["status"],
+        "engine": burned["engine"],
+        "merge": MERGE_METHOD,
+        **counts,
+        "split": len(rows) - before,
+    }
     payload["burned_subtitles"] = summary
     payload["segments"] = rows
     return summary
@@ -445,7 +462,7 @@ def _refresh_transcript(
         captions = _read_captions(video, payload)
         if captions is not None:
             done["captions"] = captions
-            changed = bool(captions["added"] or captions["corrected"])
+            changed = any(captions.get(k) for k in ("added", "corrected", "worded", "split"))
     rows = payload.get("segments") or []
     split_rows = split_repaired_rows(rows)
     if payload.get("sentence_splitting") != SENTENCE_SPLITTING or split_rows != rows:
@@ -603,8 +620,9 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
     summary); the transcript rows inside it are marked, not attributed. Returns
     the project paths and the transcription summary.
 
-    Outer status: ``indexed`` only when the index and the transcript are both
-    complete; ``index_blocked`` or ``transcription_incomplete`` otherwise.
+    Outer status: ``indexed`` only when the index, the transcript and the
+    per-shot notes are all complete; ``index_blocked``, ``transcription_incomplete``
+    or ``notes_incomplete`` otherwise.
     Running it again resumes the same project for the same video (a committed,
     validated revision is reused); ASR never starts when indexing did not
     complete.
@@ -683,6 +701,14 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
             "The index is ready but the transcript is not; run film_analyze again (it "
             "re-attributes a matching transcript without redoing ASR) or treat dialogue as "
             "unverified."
+        )
+    elif shot_notes.get("status") != "read":
+        # Shots nobody looked at leave their people, places and action unknown.
+        status = "notes_incomplete"
+        next_step = (
+            "Some shots were not read (shot_notes.errors says why); run film_analyze again — "
+            "it reads only the unfinished shots. The analysis is not complete, and the "
+            "source-material export refuses it, until every shot is read."
         )
     else:
         status = "indexed"

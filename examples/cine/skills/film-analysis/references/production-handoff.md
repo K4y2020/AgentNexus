@@ -293,7 +293,11 @@ manual V3 UI operations or separately authenticated calls to V3's own API.
    not authenticate receipts or infer characters, dialogue or story facts. When
    story_plan.json exists, it also exports the matching story/<revision>.json as
    adaptation_story with source input hashes. Missing or mismatched story drafts
-   cannot be replaced by an older revision. Exported story content stays unverified;
+   cannot be replaced by an older revision. The export refuses an unfinished
+   analysis: `SHOT_NOTES_INCOMPLETE` while shots are unread (run film_analyze
+   again; it reads only those), `STORY_DRAFT_INCOMPLETE` while the draft lacks its
+   summary, characters, or events and connection for a plan batch. `next` sends a
+   production built on such material back to intake. Exported story content stays unverified;
    cine_verify_report(scope="adaptation") is still required for readiness claims.
    Extracted images or indexed_unreviewed alone never mean the film was understood.
 3. `cine-outline`: use reviewed material plus approved creative decisions.

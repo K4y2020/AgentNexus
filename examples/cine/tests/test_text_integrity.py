@@ -20,7 +20,7 @@ from pipeline import autopilot, handoff, production
 
 PIPELINE = Path(__file__).parents[1] / "skills/film-analysis/pipeline"
 DAMAGE = chr(0xFFFD)
-EVENTS = ["街头卦摊前，算命先生断言贾敏命中带苦。", "灵堂遗照前，林黛玉决定去外婆家借住。"]
+EVENTS = ["渡口雾中，船夫催促最后一位乘客上船。", "船舱里，商贩伸手去拿少女的皮箱被拦下。"]
 
 
 def _write(path, value):
@@ -47,7 +47,26 @@ def _project(tmp_path, *, events=EVENTS):
         {
             "source_id": "film",
             "revision_id": "r1",
-            "sections": [{"batch_id": "B001", "events": events}],
+            "characters": ["船夫", "商贩", "少女"],
+            "summary": {
+                "premise": "雾天渡口，一船陌生人同行。",
+                "conflict": "商贩想碰少女的皮箱。",
+                "turning_points": ["少女拍住皮箱。"],
+                "ending": "船驶进雾里。",
+            },
+            "sections": [{"batch_id": "B001", "events": events, "connection": "开船"}],
+        },
+    )
+    _write(
+        project / "revisions/r1/shot_notes.json",
+        {
+            "schema_version": 3,
+            "source_id": "film",
+            "revision_id": "r1",
+            "status": "read",
+            "unread_shots": [],
+            "locations": [],
+            "shots": [],
         },
     )
     return project
@@ -96,8 +115,8 @@ def test_replacement_characters_from_a_bad_write_are_refused(tmp_path):
 def test_a_stray_replacement_character_is_tolerated(tmp_path):
     """Whisper emits one now and then; that is not a damaged file."""
     path = tmp_path / "a.json"
-    _write(path, {"events": ["林黛玉" + DAMAGE * (production.DAMAGED_MIN - 1)]})
-    assert production.read(path)["events"][0].startswith("林黛玉")
+    _write(path, {"events": ["船夫" + DAMAGE * (production.DAMAGED_MIN - 1)]})
+    assert production.read(path)["events"][0].startswith("船夫")
 
 
 # ---------------------------------------------------------------------------

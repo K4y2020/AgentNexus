@@ -229,6 +229,18 @@ def source_fixture(tmp_path):
             {"shot_id": "s2", "source_id": "src", "revision_id": "r1", "interval": {"in_pts": 20}},
         ],
     )
+    write(
+        tmp_path / "revisions/r1/shot_notes.json",
+        {
+            "schema_version": 3,
+            "source_id": "src",
+            "revision_id": "r1",
+            "status": "read",
+            "unread_shots": [],
+            "locations": [],
+            "shots": [{"shot_id": "s1", "place": "?"}, {"shot_id": "s2", "place": "?"}],
+        },
+    )
 
 
 def test_material_adapter_never_promotes_missing_reviews(tmp_path):
@@ -312,8 +324,8 @@ def test_material_exports_locations_dialogue_indices_and_tracks_inputs(tmp_path)
         "model": "vision",
         "errors": [],
         "locations": [
-            {"id": "L1", "name": "算命摊", "spans": [{"start": 0, "end": 17.6}], "seconds": 17.6},
-            {"id": "L2", "name": "灵堂", "spans": [{"start": 17.6, "end": 21.3}], "seconds": 3.7},
+            {"id": "L1", "name": "码头", "spans": [{"start": 0, "end": 17.6}], "seconds": 17.6},
+            {"id": "L2", "name": "仓库", "spans": [{"start": 17.6, "end": 21.3}], "seconds": 3.7},
         ],
         "shots": [{"shot_id": "s1", "place": "L1"}, {"shot_id": "s2", "place": "L2"}],
     }
@@ -328,8 +340,8 @@ def test_material_exports_locations_dialogue_indices_and_tracks_inputs(tmp_path)
             "source_fingerprint": fingerprint,
             "segments": [
                 {"text": "预告", "start": 0, "end": 1, "teaser": True},
-                {"text": "算命", "start": 1, "end": 2},
-                {"text": "你的命怎么这么苦啊", "start": 17.6, "end": 19.5},
+                {"text": "开船", "start": 1, "end": 2},
+                {"text": "你怎么又来了", "start": 17.6, "end": 19.5},
                 {"text": "已经离开", "start": 21.3, "end": 22},
             ],
         },
@@ -337,7 +349,7 @@ def test_material_exports_locations_dialogue_indices_and_tracks_inputs(tmp_path)
     exported = handoff.source_material(tmp_path)
     locations = exported["source_locations"]["locations"]
     assert [loc["line_numbers"] for loc in locations] == [[2], [3]]
-    assert locations[1]["lines"][0]["text"] == "你的命怎么这么苦啊"
+    assert locations[1]["lines"][0]["text"] == "你怎么又来了"
     assert exported["source_locations"]["transcript_status"] == "matched"
     assert "revisions/r1/shot_notes.json" in exported["source_input_hashes"]
     assert str(transcript) in exported["source_input_hashes"]
@@ -404,3 +416,61 @@ def test_material_rejects_stale_shot_notes(tmp_path):
     )
     with pytest.raises(ValueError, match="SHOT_NOTES_REVISION_MISMATCH"):
         handoff.source_material(tmp_path)
+
+
+def test_material_refuses_shots_nobody_read(tmp_path):
+    source_fixture(tmp_path)
+    notes_path = tmp_path / "revisions/r1/shot_notes.json"
+    notes = json.loads(notes_path.read_text(encoding="utf-8"))
+    write(
+        notes_path,
+        {**notes, "status": "partial", "unread_shots": [1], "errors": ["shots 1-1: bad place"]},
+    )
+    with pytest.raises(ValueError, match=r"SHOT_NOTES_INCOMPLETE: 1 of 2 shots.*bad place"):
+        handoff.source_material(tmp_path)
+    notes_path.unlink()
+    with pytest.raises(ValueError, match=r"SHOT_NOTES_INCOMPLETE: .*does not exist"):
+        handoff.source_material(tmp_path)
+    # A maintenance re-export of a legacy production may still read what exists.
+    assert "source_locations" not in handoff.source_material(tmp_path, require_complete=False)
+
+
+def test_material_refuses_an_unwritten_story_draft(tmp_path):
+    source_fixture(tmp_path)
+    plan = {
+        "source_id": "src",
+        "revision_id": "r1",
+        "batches": [{"batch_id": "B001"}, {"batch_id": "B002"}],
+    }
+    write(tmp_path / "revisions/r1/story_plan.json", plan)
+    with pytest.raises(ValueError, match=r"STORY_DRAFT_INCOMPLETE: .*does not exist"):
+        handoff.source_material(tmp_path)
+    skeleton = {
+        "source_id": "src",
+        "revision_id": "r1",
+        "characters": [],
+        "summary": {"premise": "", "conflict": "", "turning_points": [], "ending": ""},
+        "sections": [{"batch_id": "B001", "events": []}, {"batch_id": "B002", "events": []}],
+    }
+    (tmp_path / "story").mkdir()
+    write(tmp_path / "story/r1.json", skeleton)
+    with pytest.raises(ValueError, match="STORY_DRAFT_INCOMPLETE") as failure:
+        handoff.source_material(tmp_path)
+    assert "summary_premise_missing" in str(failure.value)
+    assert "section_incomplete:B002" in str(failure.value)
+    written = {
+        **skeleton,
+        "characters": ["船夫"],
+        "summary": {
+            "premise": "雾天渡口。",
+            "conflict": "有人想碰皮箱。",
+            "turning_points": ["皮箱被拍住。"],
+            "ending": "船驶进雾里。",
+        },
+        "sections": [
+            {"batch_id": batch, "events": ["船夫撑船。"], "connection": "继续"}
+            for batch in ("B001", "B002")
+        ],
+    }
+    write(tmp_path / "story/r1.json", written)
+    assert handoff.source_material(tmp_path)["adaptation_story_status"] == "exported_unverified"

@@ -16,8 +16,10 @@ from typing import Any
 
 try:
     from . import production as prod
+    from .draft_check import story_draft_gaps
 except ImportError:  # Direct CLI execution from the pipeline directory.
     import production as prod
+    from draft_check import story_draft_gaps
 
 ORDER = ("outline", "cast", "art", "script", "storyboard")
 # Edits one stage gets before it is handed to a person: the authoring pass
@@ -315,6 +317,37 @@ def _escalate(
     }
 
 
+def _analysis_gaps(directory: Path) -> list[str]:
+    """What the film analysis behind this production left unfinished."""
+    path = prod.source_material_path(directory)
+    if not path.is_file():
+        return []
+    material = prod.read(path)
+    if not isinstance(material, dict) or not material.get("revision_id"):
+        return []
+    gaps = []
+    notes = material.get("source_locations")
+    if not isinstance(notes, dict):
+        gaps.append("shot_notes_missing")
+    elif notes.get("status") != "read" or notes.get("unread_shots"):
+        gaps.append(f"shots_unread:{len(notes.get('unread_shots') or [])}")
+    story = material.get("adaptation_story")
+    if not isinstance(story, dict):
+        gaps.append("story_draft_missing")
+    else:
+        plan = {
+            "revision_id": material.get("revision_id"),
+            "batches": material.get("adaptation_story_batches") or [],
+        }
+        gaps += story_draft_gaps(
+            story,
+            plan,
+            revision_id=material.get("revision_id"),
+            source_id=material.get("source_id"),
+        )
+    return gaps
+
+
 def _refuse_damaged_inputs(directory: Path) -> None:
     """Stop at the first call, not an hour in, when the text a run is built on is damaged."""
     for path, remedy in (
@@ -344,6 +377,18 @@ def next_step(
             "detail": "No outline yet: finish film analysis, export source-material.json with "
             "`handoff.py --source-project <project> --output <production>/source-material.json` "
             "(not a shell redirect), then run production.py init with the user's adaptation mode.",
+        }
+    gaps = _analysis_gaps(directory)
+    if gaps:
+        return {
+            "action": "intake",
+            "detail": "The film analysis this production is built on is unfinished ("
+            + ", ".join(gaps[:8])
+            + "). In film-analysis, run film_analyze again for unread shots and write the story "
+            "draft batch by batch through the ending; export source-material.json again with "
+            "`handoff.py --source-project <project> --output <production>/source-material.json`, "
+            "then run next.",
+            "gaps": gaps,
         }
     run = _Run(directory)
     if text_only:

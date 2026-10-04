@@ -49,6 +49,9 @@ except ImportError:
 METHOD = "visual_then_context_v1"
 SCHEMA_VERSION = 1
 CONTEXT_ROWS = 3
+# A voice heard before its speaker walks in: the next shots in the same place count.
+LOOKAHEAD_SHOTS = 2
+LOOKAHEAD_SECONDS = 6.0
 DELIVERIES = {"spoken", "voice_over"}
 BASES = {"context", "caption", "none"}
 _PERSON = re.compile(r"P[1-9][0-9]*\Z")
@@ -67,8 +70,10 @@ PROMPT = (
     "这条限制只指frame_people，不指每个重叠镜头的人物；"
     "台词末尾擦到下一镜头而帧未取到那里时，下一镜头的人仍可为画外说话人。"
     "A步unclear时，可由前后文或人名字幕辨认现场人物。"
-    "spoken的P编号须在实际重叠镜头，或同一已知地点的紧邻普通镜头中出现。"
-    "不能跨过插入画面、预告、未知地点或中间镜头借现场人物。"
+    "spoken的P编号须在实际重叠镜头、同一已知地点的紧邻普通镜头，"
+    "或台词之后同一地点接着出现的镜头（最多两个、6秒内）中出现："
+    "画外先闻其声、随后入画的人可以是说话人，看镜头记录里谁刚走进来。"
+    "不能跨过插入画面、预告或未知地点借现场人物。"
     "crowd只能依据实际重叠镜头中的人群或已对应非角色的人；"
     "能确定说话者属于这种匿名人群但无法唯一选择P编号时，选crowd；"
     "crowd同样可以是spoken或voice_over。"
@@ -139,6 +144,26 @@ def _adjacent(notes, overlap):
     return found
 
 
+def _ahead(notes, row, overlap):
+    """Ordinary shots right after the line in its known location, where a voice's owner enters."""
+    shots = notes.get("shots") or []
+    if not overlap or not _known_place(shots[overlap[-1]], notes):
+        return []
+    found = []
+    for index in range(overlap[-1] + 1, min(len(shots), overlap[-1] + 1 + LOOKAHEAD_SHOTS)):
+        previous, shot = shots[index - 1], shots[index]
+        if not (
+            _ordinary(shot)
+            and _known_place(shot, notes)
+            and shot["place"] == shots[overlap[-1]]["place"]
+            and math.isclose(previous["end"], shot["start"], rel_tol=0, abs_tol=1e-6)
+            and shot["start"] - row["end"] <= LOOKAHEAD_SECONDS
+        ):
+            break
+        found.append(index)
+    return found
+
+
 def _frame_people(notes, row):
     times = (row.get("performance") or {}).get("at")
     times = times if isinstance(times, list) and times else frame_times(row)
@@ -160,8 +185,10 @@ def check_constraints(judgment, notes, row, person_map=None):
     overlap = _overlaps(notes, row)
     actual = [i for i in overlap if _ordinary(shots[i])]
     adjacent = _adjacent(notes, overlap)
+    ahead = _ahead(notes, row, overlap)
     overlap_people = {p for i in actual for p in shots[i].get("people") or []} & people
     adjacent_people = {p for i in adjacent for p in shots[i].get("people") or []} & people
+    ahead_people = {p for i in ahead for p in shots[i].get("people") or []} & people
     frame_shots, frame_people = _frame_people(notes, row)
     mapped = {p.get("person_id"): p for p in (person_map or {}).get("people") or []}
     extra_people = {p for p in overlap_people if (mapped.get(p) or {}).get("status") == "extra"}
@@ -180,8 +207,8 @@ def check_constraints(judgment, notes, row, person_map=None):
     if speaker == "unclear":
         reasons.append("说话人无法确定")
     if valid_speaker and speaker in people and delivery == "spoken":
-        if speaker not in overlap_people | adjacent_people:
-            reasons.append("现场说话人未在重叠或同地点紧邻普通镜头中出现")
+        if speaker not in overlap_people | adjacent_people | ahead_people:
+            reasons.append("现场说话人未在重叠、同地点紧邻或随后入画的普通镜头中出现")
         if (row.get("performance") or {}).get(
             "speaker"
         ) == "offscreen" and speaker in frame_people:
@@ -212,7 +239,9 @@ def check_constraints(judgment, notes, row, person_map=None):
         "frame_people": frame_people,
         "overlap_people": sorted(overlap_people),
         "adjacent_people": sorted(adjacent_people),
-        "spoken_people": sorted(overlap_people | adjacent_people),
+        "ahead_shots": ahead,
+        "ahead_people": sorted(ahead_people),
+        "spoken_people": sorted(overlap_people | adjacent_people | ahead_people),
         "crowd": crowd,
         "extra_people": sorted(extra_people),
         "post_mapping_required": post_mapping_required,
@@ -225,7 +254,14 @@ def _shot_context(notes, row):
     overlap = _overlaps(notes, row)
     if not overlap:
         return []
-    selected = sorted({*overlap, max(0, overlap[0] - 1), min(len(shots) - 1, overlap[-1] + 1)})
+    selected = sorted(
+        {
+            *overlap,
+            max(0, overlap[0] - 1),
+            min(len(shots) - 1, overlap[-1] + 1),
+            *_ahead(notes, row, overlap),
+        }
+    )
     return [
         {
             "index": shots[i].get("index", i),

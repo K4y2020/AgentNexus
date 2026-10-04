@@ -6,9 +6,10 @@ source, and a faithful adaptation has to keep them. The captions sit in a band
 near the bottom of the frame, so the band is read with OCR at a fixed rate and
 consecutive identical readings become one timed row.
 
-Merging never removes a heard line: a caption that ASR already holds is dropped,
-a caption that ASR heard badly corrects that row's wording, and a caption with
-no matching speech becomes a new row with no speaker (attribution assigns it).
+Merging never removes a heard line: a caption that ASR already holds lends the
+row its spelling where the two align (a homophone, a dropped character), a
+caption that ASR heard badly corrects that row's wording, and a caption with no
+matching speech becomes a new row with no speaker (attribution assigns it).
 """
 
 from __future__ import annotations
@@ -31,6 +32,11 @@ REPRESENTED = 0.65  # share of a caption's characters ASR already holds
 CORRECTS = 0.4
 SHORT_FLOOR = 0.5  # the same, for a caption of 4 characters or fewer, beside a heard row
 TOUCH = 0.5  # seconds a heard row may sit apart from a caption and still be its wording
+STABLE_HITS = 2  # a caption read this often may respell heard words; one reading may be OCR noise
+WORDING = 0.5  # share of a caption's characters that must align before it respells a row
+MAX_SWAP = 3  # characters a caption may replace at one spot
+MAX_INSERT = 2  # characters a caption may add between two aligned ones
+MERGE_METHOD = "caption_wording_v1"
 _CJK = re.compile(r"[㐀-鿿]")
 _KEEP = re.compile(r"[\w㐀-鿿]+")
 _ANNOTATION = re.compile(r"[（(][^）)]*[）)]")  # an on-screen note such as （口误）, not speech
@@ -129,8 +135,11 @@ def _runs(samples: list[tuple[float, str, str]], duration: float) -> list[dict]:
             continue  # a single stray reading of a short string is noise
         row = {
             "start": round(max(0.0, run["first"] - SAMPLE_STEP / 2), 3),
-            "end": round(min(duration, run["last"] + SAMPLE_STEP / 2) if duration else run["last"], 3),
+            "end": round(
+                min(duration, run["last"] + SAMPLE_STEP / 2) if duration else run["last"], 3
+            ),
             "text": run["text"],
+            "hits": run["hits"],
         }
         if run["alt"]:
             row["alt_text"] = run["alt"]
@@ -152,7 +161,12 @@ def read_burned_subtitles(media: Path, *, language: str | None = "zh") -> dict:
         frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
         width, height = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         if fps <= 0 or frames <= 0 or width <= 0 or height <= 0:
-            return {"status": "unavailable", "engine": ENGINE, "rows": [], "error": "unreadable video"}
+            return {
+                "status": "unavailable",
+                "engine": ENGINE,
+                "rows": [],
+                "error": "unreadable video",
+            }
         duration = frames / fps
         step = SAMPLE_STEP * (2 if duration > LONG_VIDEO else 1)
         # The band is a thin strip: keep detection at its own size instead of
@@ -187,10 +201,75 @@ def read_burned_subtitles(media: Path, *, language: str | None = "zh") -> dict:
     return {"status": "read" if rows else "none_found", "engine": ENGINE, "rows": rows}
 
 
+def _chars(text: str) -> list[tuple[int, str]]:
+    """Word characters of ``text`` with their positions."""
+    return [(i, ch) for i, ch in enumerate(text) if _KEEP.fullmatch(ch)]
+
+
+def _take_wording(row: dict, caption: dict) -> bool:
+    """Spell a heard row the way the film's caption does, where the two align.
+
+    Only characters next to an aligned stretch change: a homophone swapped, a
+    dropped character put back. Words only ASR heard stay.
+    """
+    if row.get("source") or caption.get("hits", STABLE_HITS) < STABLE_HITS:
+        return False
+    text = str(row.get("text") or "")
+    heard, shown = _chars(text), _chars(str(caption.get("text") or ""))
+    a = "".join(ch.casefold() for _, ch in heard)
+    b = "".join(ch.casefold() for _, ch in shown)
+    if not a or not b:
+        return False
+    ops = SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    if sum(i2 - i1 for tag, i1, i2, _, _ in ops if tag == "equal") / len(b) < WORDING:
+        return False
+    edits = []
+    for k, (tag, i1, i2, j1, j2) in enumerate(ops):
+        before = k > 0 and ops[k - 1][0] == "equal"
+        after = k + 1 < len(ops) and ops[k + 1][0] == "equal"
+        width = j2 - j1
+        if tag == "insert" and before and after and width <= MAX_INSERT:
+            at = heard[i1][0]
+            edits.append((at, at, "".join(ch for _, ch in shown[j1:j2])))
+            continue
+        if tag != "replace" or width > MAX_SWAP or not (before or after):
+            continue
+        if before and after:
+            if i2 - i1 > MAX_SWAP:
+                continue
+            span = heard[i1:i2]
+        elif after:  # leading edge: the heard characters right before the aligned stretch
+            if i2 - i1 < width:
+                continue
+            span = heard[i2 - width : i2]
+        else:  # trailing edge: the heard characters right after it
+            if i2 - i1 < width:
+                continue
+            span = heard[i1 : i1 + width]
+        if span[-1][0] - span[0][0] != len(span) - 1:
+            continue  # punctuation in between: not one spelling
+        edits.append((span[0][0], span[-1][0] + 1, "".join(ch for _, ch in shown[j1:j2])))
+    spelled = text
+    for start, end, replacement in sorted(edits, reverse=True):
+        spelled = spelled[:start] + replacement + spelled[end:]
+    if spelled == text:
+        return False
+    row.setdefault("asr_text", text)
+    row["text"] = spelled
+    row["wording"] = SOURCE_TAG
+    return True
+
+
+def _best_row(rows: list[dict], text: str) -> dict | None:
+    scored = [(_coverage(text, _norm(str(r.get("text") or ""))), r) for r in rows]
+    scored = [item for item in scored if item[0] > 0]
+    return max(scored, key=lambda item: item[0])[1] if scored else None
+
+
 def merge_into_transcript(rows: list[dict], captions: list[dict]) -> tuple[list[dict], dict]:
     """Add what ASR missed and correct what it misheard; never drop a heard line."""
     merged = [dict(row) for row in rows]
-    added = corrected = 0
+    added = corrected = worded = 0
     for caption in captions:
         text = _norm(caption["text"])
         if not text:
@@ -203,6 +282,9 @@ def merge_into_transcript(rows: list[dict], captions: list[dict]) -> tuple[list[
         if max(_coverage(text, heard), _coverage(alt, heard) if alt else 0.0) >= (
             1.0 if short else REPRESENTED
         ):
+            row = _best_row(near, text)
+            if row is not None and _take_wording(row, caption):
+                worded += 1
             continue
         overlap = [
             r
@@ -231,7 +313,11 @@ def merge_into_transcript(rows: list[dict], captions: list[dict]) -> tuple[list[
         ]
         floor = SHORT_FLOOR if len(text) <= 4 else CORRECTS
         if any(_coverage(text, _norm(str(r.get("text") or ""))) >= floor for r in touching):
-            continue  # ASR heard this caption in its own homophones; that wording stands
+            # ASR heard this caption in its own homophones: the caption spells them.
+            row = _best_row(touching, text)
+            if row is not None and _take_wording(row, caption):
+                worded += 1
+            continue
         merged.append(
             {
                 "start": caption["start"],
@@ -242,4 +328,4 @@ def merge_into_transcript(rows: list[dict], captions: list[dict]) -> tuple[list[
         )
         added += 1
     merged.sort(key=lambda r: (r["start"], r["end"]))
-    return merged, {"added": added, "corrected": corrected}
+    return merged, {"added": added, "corrected": corrected, "worded": worded}

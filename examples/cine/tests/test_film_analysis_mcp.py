@@ -21,11 +21,11 @@ def _no_vision_model(monkeypatch):
         shot_notes,
         "read_shot_notes",
         lambda _media, _project, **_k: {
-            "status": "unavailable",
+            "status": "read",
             "model": "test",
             "revision_id": "r1",
             "locations": [],
-            "errors": ["vision disabled in tests"],
+            "errors": [],
         },
     )
 
@@ -111,7 +111,9 @@ def test_location_request_failure_does_not_block_transcription(monkeypatch, tmp_
 
     monkeypatch.setattr(shot_notes, "read_shot_notes", fail)
     result, calls = _analyze(monkeypatch, tmp_path, _video(tmp_path))
-    assert calls and result["status"] == "indexed"
+    # Transcription still runs, but an analysis with unread shots is not complete.
+    assert calls and result["status"] == "notes_incomplete"
+    assert "unfinished shots" in result["next"]
     assert result["shot_notes"]["status"] == "unavailable"
     assert "vision request failed" in result["shot_notes"]["errors"][0]
 

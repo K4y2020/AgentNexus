@@ -607,3 +607,37 @@ def test_a_person_may_change_upstream_stages_after_an_escalation(monkeypatch, di
     step = autopilot.next_step(directory, jev=False)
     assert "reverted_upstream" not in step
     assert json.loads((directory / "script.json").read_text(encoding="utf-8"))["edit"] == 9
+
+
+def test_an_unfinished_film_analysis_sends_the_run_back_to_intake(monkeypatch, directory):
+    Checks(monkeypatch)
+    story = {
+        "source_id": "src",
+        "revision_id": "r1",
+        "characters": [],
+        "summary": {"premise": "", "conflict": "", "turning_points": [], "ending": ""},
+        "sections": [{"batch_id": "B001", "events": []}],
+    }
+    material = {
+        "source_id": "src",
+        "revision_id": "r1",
+        "shots": [],
+        "source_locations": {"status": "partial", "unread_shots": [3, 4]},
+        "adaptation_story": story,
+        "adaptation_story_batches": [{"batch_id": "B001"}],
+    }
+    path = directory / "source-material.json"
+    path.write_text(json.dumps(material), encoding="utf-8")
+    step = autopilot.next_step(directory, jev=False)
+    assert step["action"] == "intake"
+    assert "shots_unread:2" in step["gaps"] and "summary_premise_missing" in step["gaps"]
+    assert "story draft" in step["detail"]
+
+    story.update(
+        characters=["船夫"],
+        summary={"premise": "渡口", "conflict": "皮箱", "turning_points": [], "ending": "开船"},
+        sections=[{"batch_id": "B001", "events": ["开船"], "connection": "完"}],
+    )
+    material["source_locations"] = {"status": "read", "unread_shots": []}
+    path.write_text(json.dumps(material), encoding="utf-8")
+    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"

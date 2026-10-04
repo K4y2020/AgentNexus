@@ -45,8 +45,32 @@ def unique(rows, key):
     return result
 
 
-def source_material(project):
-    """Copy current ledger/review fields without promoting unreviewed evidence."""
+def _story_draft_gaps():
+    """The draft checker beside this file, however this module was loaded."""
+    try:
+        from .draft_check import story_draft_gaps
+    except ImportError:
+        try:
+            from draft_check import story_draft_gaps
+        except ImportError:  # Loaded by path, outside the pipeline package.
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location(
+                "_cine_draft_check", Path(__file__).with_name("draft_check.py")
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            story_draft_gaps = module.story_draft_gaps
+    return story_draft_gaps
+
+
+def source_material(project, *, require_complete=True):
+    """Copy current ledger/review fields without promoting unreviewed evidence.
+
+    ``require_complete`` refuses an analysis that is not finished: shots nobody
+    read, or a story draft with empty fields or batches. A production built on
+    it would guess the story from the dialogue alone.
+    """
     root = Path(project).resolve(strict=True)
     input_hashes = {}
 
@@ -164,6 +188,16 @@ def source_material(project):
                 draft.get("source_id") == source_id and draft.get("revision_id") == revision,
                 "STORY_REVISION_MISMATCH",
             )
+            if require_complete:
+                gaps = _story_draft_gaps()(draft, plan, revision_id=revision, source_id=source_id)
+                if gaps:
+                    raise ValueError(
+                        f"STORY_DRAFT_INCOMPLETE: {draft_relative} leaves "
+                        f"{', '.join(gaps[:8])}{' …' if len(gaps) > 8 else ''} unfilled. "
+                        "Write the story draft batch by batch through the ending — summary, "
+                        "characters, and events plus connection for every story-plan batch — "
+                        "as film-analysis SKILL.md describes, then export again."
+                    )
             result["adaptation_story"] = draft
             result["adaptation_story_status"] = "exported_unverified"
             # Batch times let a production place each dialogue exchange in its story section.
@@ -172,6 +206,12 @@ def source_material(project):
                 for batch in plan.get("batches") or []
                 if isinstance(batch, dict)
             ]
+        if require_complete and result["adaptation_story_status"] == "missing":
+            raise ValueError(
+                f"STORY_DRAFT_INCOMPLETE: {draft_relative} does not exist. Write the story "
+                "draft batch by batch through the ending as film-analysis SKILL.md describes, "
+                "then export again."
+            )
         result["adaptation_readiness"] = "not_checked_use_cine_verify_report"
     notes_relative = f"revisions/{revision}/shot_notes.json"
     if (root / notes_relative).is_file():
@@ -194,6 +234,14 @@ def source_material(project):
             or recorded == input_hashes[f"revisions/{revision}/source_shots.json"],
             "SHOT_NOTES_LEDGER_MISMATCH",
         )
+        unread = notes.get("unread_shots") or []
+        if require_complete and (notes.get("status") != "read" or unread):
+            errors = "; ".join(str(e) for e in (notes.get("errors") or [])[:3])
+            raise ValueError(
+                f"SHOT_NOTES_INCOMPLETE: {len(unread)} of {len(shots)} shots were not read "
+                f"(status {notes.get('status')}{': ' + errors if errors else ''}). Run "
+                "film_analyze again — it reads only the unfinished shots — then export again."
+            )
         result["source_locations"] = notes
         notes["transcript_status"] = "missing"
         try:
@@ -216,6 +264,11 @@ def source_material(project):
             notes["transcript_status"] = "matched"
             attach_dialogue(notes, payload.get("segments") or [])
             break
+    elif require_complete:
+        raise ValueError(
+            f"SHOT_NOTES_INCOMPLETE: {notes_relative} does not exist. Run film_analyze, "
+            "which reads every shot, then export again."
+        )
     result["source_input_hashes"] = input_hashes
     return result
 
