@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import importlib.util
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -11,10 +12,23 @@ from agentnexus.runner.mcp_manager import RunnerMcpManager
 from agentnexus.spec import load
 from agentnexus.tools.manager import ToolManager
 
-BUNDLE = Path(__file__).resolve().parents[1] / "examples" / "cine"
+REPO = Path(__file__).resolve().parents[1]
+BUNDLE = REPO / "examples" / "cine"
 ENV_PROBE = (
     Path(__file__).resolve().parent / "tools" / "fixtures" / "env_probe_stdio_mcp_server.py"
 )
+# Code and agent instructions that Cine runs or reads at runtime.
+CINE_RUNTIME = (
+    "examples/cine/config.yaml",
+    "examples/cine/skills",
+    "examples/cine/tools",
+    "agentnexus/seedance",
+    "agentnexus/cine_review.py",
+    "agentnexus/server/routes/cine_review.py",
+    "agentnexus/tools/builtins/cine_*.py",
+    "agentnexus/tools/builtins/seedance_*.py",
+)
+DRIVE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:(?:\\{1,2}|/(?!/))[A-Za-z]")
 
 
 def test_cine_bundle_loads():
@@ -57,6 +71,47 @@ def test_cine_bundle_opts_into_its_tools():
     }
     advertised = {s["function"]["name"] for s in ToolManager(spec).get_tool_schemas()}
     assert declared <= advertised
+
+
+def test_cine_skills_use_skill_relative_paths():
+    """Skills run from the runner's bundle cache, where repo paths do not exist."""
+    skills = sorted((BUNDLE / "skills").glob("*/SKILL.md"))
+    assert skills
+    offenders = [
+        p.parent.name for p in skills if "examples/cine/" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def _cine_runtime_files() -> list[Path]:
+    files: list[Path] = []
+    for pattern in CINE_RUNTIME:
+        for path in sorted(REPO.glob(pattern)):
+            files += [path] if path.is_file() else sorted(path.rglob("*"))
+    # Skill examples/ hold sample fixtures and README files are for people.
+    return [
+        f
+        for f in files
+        if f.suffix in {".py", ".mjs", ".js", ".md", ".yaml", ".json", ".html"}
+        and "__pycache__" not in f.parts
+        and "examples" not in f.relative_to(REPO).parts[1:]
+        and not f.name.startswith("README")
+    ]
+
+
+def test_cine_code_has_no_developer_machine_paths():
+    """Cine runs on other machines, where a drive-letter path does not exist."""
+    files = _cine_runtime_files()
+    scanned = {f.relative_to(REPO).as_posix() for f in files}
+    assert "agentnexus/seedance/client.py" in scanned
+    assert "examples/cine/skills/film-analysis/pipeline/jev_review.py" in scanned
+    hits = [
+        f"{f.relative_to(REPO).as_posix()}:{number}: {line.strip()}"
+        for f in files
+        for number, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
+        if DRIVE_PATH.search(line)
+    ]
+    assert hits == []
 
 
 def test_media_project_delegates_to_canonical_pipeline(tmp_path, monkeypatch):

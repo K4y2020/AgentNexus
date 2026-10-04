@@ -7,21 +7,11 @@ live in ``jev_reviews/`` and never masquerade as visual source-shot review.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-    load_dotenv(Path(__file__).parent.parent.parent.parent.parent / ".env")
-    load_dotenv(Path(__file__).parent.parent.parent.parent.parent.parent / ".env")
-except ImportError:
-    pass
 
 from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
 
@@ -48,28 +38,18 @@ def _open_ts_client(api_key: str):
     return open_client(api_key)
 
 def _find_typesafe_key() -> str:
-    """Find TYPESAFE_API_KEY from environment or standard .env files without dependencies."""
-    key = os.environ.get("TYPESAFE_API_KEY")
-    if key:
-        return key.strip()
-    candidates = [
-        Path.home() / ".agentnexus" / ".env",
-        Path.home() / ".env",
-        Path("U:/AI/MultiAgent/.env"),
-        Path("U:/AI/MultiAgent/omnigent/.env"),
-    ]
-    for c in candidates:
-        if c.is_file():
-            try:
-                for line in c.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("TYPESAFE_API_KEY="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
-                            return val
-            except Exception:
-                pass
-    return ""
+    """Find TYPESAFE_API_KEY through the pipeline's shared lookup in ``jev_gates``."""
+    try:
+        from . import jev_gates
+    except ImportError:
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _pipeline = _Path(__file__).resolve().parent
+        if str(_pipeline) not in _sys.path:
+            _sys.path.insert(0, str(_pipeline))
+        import jev_gates
+    return jev_gates._find_api_key()
 
 
 def has_jev_configured() -> bool:

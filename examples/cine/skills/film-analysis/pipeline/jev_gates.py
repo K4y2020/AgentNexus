@@ -194,7 +194,6 @@ def _find_api_key() -> str:
         Path.cwd() / ".env",
         Path.home() / ".agentnexus" / ".env",
         Path.home() / ".env",
-        Path(__file__).resolve().parents[5] / ".env",
     ]
     for candidate in candidates:
         if not candidate.is_file():

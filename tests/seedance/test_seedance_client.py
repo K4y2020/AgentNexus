@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 import pytest
 import respx
@@ -78,6 +80,22 @@ def test_validate_seedance_base_url_security():
 def test_get_seedance_api_key_reads_env(monkeypatch):
     monkeypatch.setenv("SEEDANCE_API_KEY", "test-secret-key-123")
     assert get_seedance_api_key() == "test-secret-key-123"
+
+
+def test_get_seedance_api_key_without_env_is_none(monkeypatch, tmp_path):
+    monkeypatch.delenv("SEEDANCE_API_KEY", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+    assert get_seedance_api_key() is None
+
+
+def test_get_seedance_api_key_reads_agentnexus_env_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("SEEDANCE_API_KEY", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / ".env").write_text(
+        "OTHER=x\nSEEDANCE_API_KEY='from-file'\n", encoding="utf-8"
+    )
+    assert get_seedance_api_key() == "from-file"
 
 
 @pytest.mark.asyncio
