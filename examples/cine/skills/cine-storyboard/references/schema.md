@@ -30,7 +30,7 @@
 | --- | --- | --- |
 | `id` | string | 段号 `E01-01`：集号 + 两位序号，**按顺序连号**。它就是素材文件名（`E01-01.mp4` / `E01-01-f1.png`） |
 | `sceneIndex` | int | 这一段在剧本该集的第几场（1 起）。段内全部分镜同场 |
-| `continuesFrom` | string | 同场第二段起必填，值为紧邻上一段的段号；每场第一段不写。提示词保留段号 Subject 供导入查找，另定义 Picture 为真实起始帧锚点；summary 加 `keyframe completion`（见 h3-prompt.md） |
+| `continuesFrom` | string | 同场第二段起必填，值为紧邻上一段的段号；每场第一段不写。首镜从上一段末镜的画面起幅：`characters` 至少含上一段末镜里的一人，两镜都是固定机位时景别相同。提示词保留段号 Subject 供导入查找，另定义 Picture 为真实起始帧锚点；summary 加 `keyframe completion`（见 h3-prompt.md） |
 | `cuts` | cut[] | 段内分镜，按时间顺序。段总秒数 = 分镜秒数之和，**不单独存**——少一处会漂的冗余 |
 | `h3Prompt` | string | **一段一条 H3 视频提示词**，正文语言跟 `promptLang`（默认英文），结构见 `references/h3-prompt.md` |
 | `note` | string | 备注，可选 |

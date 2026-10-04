@@ -32,7 +32,7 @@ const prompt = (line, music = 'N/A', delivery = 'says') =>
 const cut = (beats, characters) => ({ beats, characters, seconds: 4, size: 'medium', camera: 'Static Shot', frame: 'Semi-realistic painterly illustration, medium shot of a worker.' });
 const board = { style: 'realistic', episodes: [{ ep: 1, segments: [
   { id: 'E01-01', sceneIndex: 1, cuts: [cut([1, 2], ['C01'])], h3Prompt: prompt('盒子到了。') },
-  { id: 'E01-02', sceneIndex: 1, continuesFrom: 'E01-01', cuts: [cut([3, 4], ['C02'])], h3Prompt: prompt('先关窗。') },
+  { id: 'E01-02', sceneIndex: 1, continuesFrom: 'E01-01', cuts: [cut([3, 4], ['C02', 'C01'])], h3Prompt: prompt('先关窗。') },
   { id: 'E01-03', sceneIndex: 2, cuts: [cut([1, 2], ['C01'])], h3Prompt: prompt('灯亮了。', 'N/A') },
 ] }] };
 const ctx = { script, outline, cast, art };
@@ -56,14 +56,14 @@ check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt = ''; }), 'video-
 
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Photorealistic medium shot.'; }), 'style-consistency').length === 1, 'painted reference and live-action video conflict');
 check(issues(audit(() => {}, (c) => { c.cast.style = 'ghibli'; }), 'style-consistency').length === 1, 'style metadata mismatch is reported');
-check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }), 'style-consistency').length === 2, 'used cast references are compared to each segment');
+check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }), 'style-consistency').length === 3, 'used cast references are compared to each segment');
 check(issues(audit(() => {}, (c) => { c.art.scenes[0].image.prompt = 'Cartoon empty workshop.'; }), 'style-consistency').length === 2, 'used scene references are compared');
 check(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Cinematic film still, medium shot.'; }).skips.some((item) => item.rule === 'style-consistency'), 'generic cinematic wording is recorded as insufficient evidence');
 check(audit((b) => { b.episodes[0].segments[0].h3Prompt = b.episodes[0].segments[0].h3Prompt.replace(styleSentence, 'Cinematic.'); }).skips.some((item) => item.rule === 'style-consistency'), 'weak medium evidence cannot receive pass');
 check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.negativePrompt = 'anime, cartoon'; }), 'style-consistency').length, 'negative prompt style markers are not positive style evidence');
 check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Portrait framed like an ID photograph, semi-realistic painterly rendering.'; }), 'style-consistency').length, 'ID-photo framing describes composition rather than a photographic medium');
 check(!issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Semi-realistic painterly rendering without photographic micro-detail.'; }), 'style-consistency').length, 'a negated photographic detail is not positive medium evidence');
-check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Photorealistic rendering with painterly edges.'; }), 'style-consistency').length === 2, 'conflicting positive medium declarations remain rejected');
+check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.sheet = 'Photorealistic rendering with painterly edges.'; }), 'style-consistency').length === 3, 'conflicting positive medium declarations remain rejected');
 check(issues(audit(() => {}, (c) => { c.cast.characters[0].states = [{ id: 'coat', image: { prompt: 'Cartoon character sheet.' } }]; c.script.episodes[0].scenes[0].characterStates = { C01: 'coat' }; }), 'style-consistency').length === 0, 'unused state image does not contaminate references');
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characterStates = { C01: 'coat' }; }, (c) => { c.cast.characters[0].states = [{ id: 'coat', image: { prompt: 'Cartoon character sheet.' } }]; }), 'style-consistency').length === 1, 'used state reference is audited');
 
@@ -91,6 +91,9 @@ check(issues(audit((b) => { delete b.episodes[0].segments[1].continuesFrom; }), 
 check(issues(audit((b) => { b.episodes[0].segments[1].continuesFrom = 'E01-00'; }), 'same-scene-continues-from').length === 1, 'continuation must target the immediately preceding segment');
 check(issues(audit((b) => { b.episodes[0].segments[2].continuesFrom = 'E01-02'; }), 'same-scene-continues-from').length === 1, 'cross-scene continuation fails');
 check(issues(audit((b) => { b.episodes[0].segments[0].continuesFrom = 'E00-01'; }), 'same-scene-continues-from').length === 1, 'first segment continuation fails');
+check(issues(audit((b) => { b.episodes[0].segments[1].cuts[0].characters = ['C02']; }), 'same-scene-continues-from').some((item) => item.location === 'E01-02#1'), 'a continuation that opens on none of the previous last-frame characters fails');
+check(issues(audit((b) => { b.episodes[0].segments[1].cuts[0].size = 'close'; }), 'same-scene-continues-from').length === 1, 'a static opening cannot change the previous static framing');
+check(!issues(audit((b) => { Object.assign(b.episodes[0].segments[1].cuts[0], { size: 'close', camera: 'Push In' }); }), 'same-scene-continues-from').length, 'a camera move may reframe a continuation that starts on the previous characters');
 
 check(issues(audit(() => {}, (c) => { c.script.episodes[0].scenes[0].flow[1].speaker = 'extra'; }), 'no-internal-labels').length === 1, 'extra speaker is reported without changing the production speaker gate');
 check(issues(audit(() => {}, (c) => { c.script.episodes[0].scenes[0].flow[0].action = 'C01 opens P01.'; }), 'no-internal-labels').length === 1, 'C/P IDs in prose are reported');
@@ -224,6 +227,9 @@ delete unlinked.episodes[0].segments[1].continuesFrom;
 const unlinkedGate = gateReport(unlinked, strictCtx).find((gate) => gate.id === 'same-scene-continues-from');
 check(!unlinkedGate.ok && unlinkedGate.detail.includes('E01-02') && unlinkedGate.detail.includes('应为「E01-01」'), 'production rejects a same-scene segment that does not continue and names the segment to continue from');
 check(validateStoryboard(unlinked, strictCtx).some((problem) => problem.includes('[same-scene-continues-from]')), 'production validate surfaces the missing continuation');
+const elsewhere = clone(board);
+elsewhere.episodes[0].segments[1].cuts[0].characters = ['C02'];
+check(gateReport(elsewhere, strictCtx).find((gate) => gate.id === 'same-scene-continues-from').detail.includes('上一段末镜 medium · C01 · Static Shot，本段首镜 medium · C02 · Static Shot'), 'production rejects an opening that drops the previous last-frame characters and shows both shots');
 check(gateReport(unlinked, ctx).find((gate) => gate.id === 'same-scene-continues-from').detail.includes('--ref2va'), 'keyframe export mode does not require continuation');
 const twoVoices = clone(board);
 twoVoices.episodes[0].segments[0].cuts[0].beats = [1, 4];

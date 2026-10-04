@@ -623,6 +623,21 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   }
 }
 
+/** A continuing segment opens on the previous last frame, so its first cut must be able to show it. */
+function auditOpening(previous, segment, issue) {
+  const last = (previous.cuts ?? []).at(-1);
+  const first = (segment.cuts ?? [])[0];
+  if (!last || !first) return;
+  const describe = (cut) => [cut.size, (cut.characters ?? []).join('/') || 'no characters', cut.camera].filter(Boolean).join(' · ');
+  const evidence = { previous_last: describe(last), first: describe(first) };
+  const opening = new Set(first.characters ?? []);
+  if ((last.characters ?? []).length && !last.characters.some((id) => opening.has(id))) {
+    issue('same-scene-continues-from', `${segment.id}#1`, `The opening frame is ${previous.id}'s last frame, but the first cut shows none of its characters: start [Shot 1] on them, list them in the cut, and move the camera to the new subject`, evidence);
+  } else if (last.camera === 'Static Shot' && first.camera === 'Static Shot' && last.size !== first.size) {
+    issue('same-scene-continues-from', `${segment.id}#1`, `A static opening keeps ${previous.id}'s last framing: use its shot size or move the camera`, evidence);
+  }
+}
+
 /** Read-only audit; selected rules also supply production validation gates. */
 export function auditStoryboard(board, ctx = {}) {
   const issues = [];
@@ -760,6 +775,7 @@ export function auditStoryboard(board, ctx = {}) {
         } else if (previous.sceneIndex === segment.sceneIndex) {
           evaluated('same-scene-continues-from');
           if (segment.continuesFrom !== previous.id) issue('same-scene-continues-from', sid, 'Consecutive segments in the same scene must continue from the previous segment: set continuesFrom and open [Shot 1] on its last frame as h3-prompt.md shows', { expected: previous.id, actual: segment.continuesFrom ?? null });
+          else auditOpening(previous, segment, issue);
         } else if (segment.continuesFrom != null) {
           evaluated('same-scene-continues-from');
           issue('same-scene-continues-from', sid, 'continuesFrom crosses a scene boundary', { previous: previous.id, continuesFrom: segment.continuesFrom });
@@ -1264,6 +1280,7 @@ function auditHint(evidence = {}) {
   if (Array.isArray(evidence.video) && Array.isArray(evidence.reference)) parts.push(`视频媒介 ${evidence.video.join('/')}，参考媒介 ${evidence.reference.join('/')}`);
   if (typeof evidence.expected === 'string') parts.push(`应为「${evidence.expected.slice(0, 200)}」`);
   if (Array.isArray(evidence.speakers)) parts.push(`说话人 ${evidence.speakers.join('、')}`);
+  if (typeof evidence.previous_last === 'string') parts.push(`上一段末镜 ${evidence.previous_last}，本段首镜 ${evidence.first}`);
   if (Array.isArray(evidence.beats)) parts.push(`节拍 ${evidence.beats.join('–')}`);
   return parts.length ? `（${parts.join('；')}）` : '';
 }
@@ -1638,7 +1655,7 @@ export function gateReport(board, ctx = {}) {
     ['h3-synchronized-sound-placement', 'Ref2VA：同步声音写入对应镜头，整体声景只写持续环境声'],
     ['h3-voiceover-exact-format', 'Ref2VA：画外音固定句式与紧随的闭唇说明完整'],
     ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
-    ['same-scene-continues-from', 'Ref2VA：同场相邻段从上一段尾帧接着拍（continuesFrom），换场不接'],
+    ['same-scene-continues-from', 'Ref2VA：同场相邻段从上一段尾帧接着拍（continuesFrom），首镜起幅接得上上一段末镜，换场不接'],
     ['one-speaker-per-cut', '一个镜头只收一个人的台词，画外音单算一个声源'],
   ]) {
     if (id === 'one-speaker-per-cut' && referenceAudit && !script) {

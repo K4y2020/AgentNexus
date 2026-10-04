@@ -75,7 +75,7 @@ retention_analysis:
 <Picture 4> ([Shot 1] first frame): fully_preserved - its composition anchors the opening before movement resumes.
 ```
 
-`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态：开场景别和机位就是上一段最后一个镜头的，要换构图就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
+`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态：开场景别和机位就是上一段最后一个镜头的，起幅画面里看得见的人写进 Shot 1 并列进首镜 `characters`；要换构图或换人，就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
 
 ### retention_analysis 每个标签一行
 
