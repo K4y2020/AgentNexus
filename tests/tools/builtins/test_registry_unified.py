@@ -131,7 +131,6 @@ def test_builtin_names_size_matches_registry() -> None:
                 "search_conversations",
                 "export_agent",
                 # Canvas, review, and teammate tools are reserved framework names.
-                "seedance_agent_message",
                 "seedance_read_canvas",
                 "seedance_edit_canvas",
                 "cine_jev_judge",
@@ -175,6 +174,12 @@ def test_builtin_names_size_matches_registry() -> None:
         )
         == BUILTIN_NAMES
     )
+
+
+def test_seedance_agent_message_is_gone() -> None:
+    """The V3 Agent delegation tool is removed, so its name is not reserved."""
+    assert "seedance_agent_message" not in BUILTIN_NAMES
+    assert get_builtin_tool("seedance_agent_message") is None
 
 
 def _all_builtin_tool_subclasses() -> list[type[Tool]]:

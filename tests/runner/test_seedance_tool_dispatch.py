@@ -1,4 +1,4 @@
-"""Tests for runner dispatch of seedance_agent_message."""
+"""Tests for runner dispatch of the Seedance canvas tools."""
 
 from __future__ import annotations
 
@@ -16,98 +16,20 @@ from agentnexus.spec.types import AgentSpec
 from agentnexus.tools.manager import ToolManager
 
 
-def test_should_dispatch_seedance_locally():
-    assert should_dispatch_locally("seedance_agent_message") is True
-
-
-def test_tool_manager_has_seedance_agent_message():
-    manager = ToolManager(AgentSpec(spec_version=1))
-    tool = manager.get_tool("seedance_agent_message")
-    assert tool is not None
-    schema = tool.get_schema()
-    assert schema["function"]["name"] == "seedance_agent_message"
-    assert "task" in schema["function"]["parameters"]["required"]
+def test_removed_agent_message_is_not_dispatched():
+    assert should_dispatch_locally("seedance_agent_message") is False
 
 
 @pytest.mark.asyncio
-async def test_seedance_dispatch_fails_without_server_client():
-    res = await execute_tool(
-        tool_name="seedance_agent_message",
-        arguments=json.dumps({"task": "Test task"}),
-        conversation_id="conv_123",
-        server_client=None,
-    )
-    data = json.loads(res)
-    assert "error" in data
-    assert "server access" in data["error"]
-
-
-@pytest.mark.asyncio
-async def test_seedance_dispatch_fails_without_conversation_id():
+async def test_removed_agent_message_does_not_reach_the_bridge():
     async with httpx.AsyncClient() as client:
         res = await execute_tool(
             tool_name="seedance_agent_message",
-            arguments=json.dumps({"task": "Test task"}),
-            conversation_id="",
-            server_client=client,
-        )
-        data = json.loads(res)
-        assert "error" in data
-        assert "conversation id" in data["error"]
-
-
-@pytest.mark.asyncio
-async def test_seedance_dispatch_fails_with_empty_task():
-    async with httpx.AsyncClient() as client:
-        res = await execute_tool(
-            tool_name="seedance_agent_message",
-            arguments=json.dumps({"task": ""}),
+            arguments=json.dumps({"task": "Sync shot S01-01"}),
             conversation_id="conv_123",
             server_client=client,
         )
-        data = json.loads(res)
-        assert "error" in data
-        assert "task" in data["error"]
-
-
-@pytest.mark.asyncio
-async def test_seedance_dispatch_success_payload():
-    mock_result = {
-        "status": "completed",
-        "outcome": "succeeded",
-        "target_teammate": "seedance",
-        "seedance_project_id": "proj_mock_1",
-        "seedance_agent_session_id": "sess_mock_1",
-        "seedance_canvas_url": "http://127.0.0.1:5173/?project=proj_mock_1",
-        "seedance_job_ids": ["job_mock_1"],
-        "seedance_asset_ids": [],
-        "channel_scope": "topic:conv_123",
-        "summary": "Sync OK",
-        "generation_allowed": False,
-    }
-
-    with patch(
-        "agentnexus.seedance.bridge.execute_seedance_agent_message",
-        new=AsyncMock(return_value=mock_result),
-    ):
-        async with httpx.AsyncClient() as client:
-            res = await execute_tool(
-                tool_name="seedance_agent_message",
-                arguments=json.dumps(
-                    {
-                        "task": "Sync shot S01-01 to canvas",
-                        "shot_ids": ["S01-01"],
-                        "generation_allowed": False,
-                    }
-                ),
-                conversation_id="conv_123",
-                server_client=client,
-            )
-            data = json.loads(res)
-            assert data["outcome"] == "succeeded"
-            assert data["seedance_project_id"] == "proj_mock_1"
-            assert data["seedance_canvas_url"] == "http://127.0.0.1:5173/?project=proj_mock_1"
-            assert data["seedance_job_ids"] == ["job_mock_1"]
+    assert "not in local dispatch table" in res
 
 
 def test_should_dispatch_seedance_read_canvas_locally():
@@ -136,6 +58,19 @@ async def test_seedance_read_canvas_fails_without_server_client():
     data = json.loads(res)
     assert "error" in data
     assert "server access" in data["error"]
+
+
+@pytest.mark.asyncio
+async def test_seedance_read_canvas_fails_without_conversation_id():
+    async with httpx.AsyncClient() as client:
+        res = await execute_tool(
+            tool_name="seedance_read_canvas",
+            arguments=json.dumps({}),
+            conversation_id="",
+            server_client=client,
+        )
+    data = json.loads(res)
+    assert "conversation id" in data["error"]
 
 
 @pytest.mark.asyncio

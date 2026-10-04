@@ -8,8 +8,6 @@ from agentnexus.seedance.bridge import (
     SEEDANCE_PROJECT_LABEL,
     SEEDANCE_SESSION_LABEL,
     SEEDANCE_STATUS_LABEL,
-    execute_seedance_agent_message,
-    format_shot_contract_message,
     resolve_or_create_topic_project_and_session,
 )
 from agentnexus.seedance.client import (
@@ -43,8 +41,6 @@ __all__ = [
     "SeedanceSecurityError",
     "SeedanceSessionBusyError",
     "SeedanceTimeoutError",
-    "execute_seedance_agent_message",
-    "format_shot_contract_message",
     "get_seedance_api_key",
     "resolve_or_create_topic_project_and_session",
     "validate_seedance_base_url",

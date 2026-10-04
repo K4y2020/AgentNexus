@@ -358,10 +358,9 @@ _NIMBLE_EXTRACT_TOOLS = frozenset({"nimble_extract"})
 # Teammate A2A dispatch tool. Enables cross-bot task communication.
 _TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
 
-# Seedance V3 canvas / agent message tool. Runner-local bridge to Seedance V3.
+# Seedance V3 canvas tools and the Cine report check; runner-local bridge to V3.
 _SEEDANCE_TOOLS = frozenset(
     {
-        "seedance_agent_message",
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
@@ -6966,13 +6965,13 @@ async def _execute_jev_tool(args: _JsonObject) -> str:
 async def _execute_seedance_tool(
     args: _JsonObject,
     *,
-    tool_name: str = "seedance_agent_message",
+    tool_name: str,
     server_client: httpx.AsyncClient | None,
     conversation_id: str | None,
     agent_spec: AgentSpec | None,
     task_id: str | None = None,  # noqa: ARG001
 ) -> str:
-    """Execute a Seedance V3 tool call (seedance_agent_message or seedance_read_canvas)."""
+    """Execute a Seedance canvas tool or cine_verify_report."""
     if server_client is None:
         return json.dumps({"error": f"{tool_name} requires server access"})
     if not conversation_id:
@@ -7151,57 +7150,7 @@ async def _execute_seedance_tool(
                 ensure_ascii=False,
             )
 
-    task = str(args.get("task") or "").strip()
-    if not task:
-        return json.dumps({"error": "seedance_agent_message requires 'task' (prompt instruction)"})
-
-    raw_shot_ids = args.get("shot_ids")
-    shot_ids: list[str] | None = None
-    if isinstance(raw_shot_ids, list):
-        shot_ids = [str(sid).strip() for sid in raw_shot_ids if str(sid).strip()]
-
-    generation_allowed = bool(args.get("generation_allowed", False))
-    model = _optional_string(args.get("model"))
-    wait = bool(args.get("wait", True))
-    try:
-        timeout_seconds = max(
-            10, min(int(cast(str | int | float, args.get("timeout_seconds", 60))), 300)
-        )
-    except (ValueError, TypeError, OverflowError):
-        return json.dumps({"error": "timeout_seconds must be an integer between 10 and 300"})
-
-    workspace = None
-    if agent_spec and getattr(agent_spec, "os_env", None):
-        workspace = getattr(agent_spec.os_env, "cwd", None)
-
-    try:
-        from agentnexus.seedance.bridge import execute_seedance_agent_message
-
-        result = await execute_seedance_agent_message(
-            server_client=server_client,
-            conversation_id=conversation_id,
-            task=task,
-            shot_ids=shot_ids,
-            generation_allowed=generation_allowed,
-            model=model,
-            wait=wait,
-            timeout_seconds=timeout_seconds,
-            workspace_dir=workspace,
-        )
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as exc:
-        _logger.error("Failed executing seedance_agent_message: %s", exc, exc_info=True)
-        return json.dumps(
-            {
-                "status": "failed",
-                "outcome": "failed",
-                "target_teammate": "seedance",
-                "error": f"Seedance bridge error: {exc}",
-                "task": task,
-                "generation_allowed": generation_allowed,
-            },
-            ensure_ascii=False,
-        )
+    return json.dumps({"error": f"unknown Seedance tool {tool_name!r}"})
 
 
 async def _execute_save_teammate_memory_tool(

@@ -2,7 +2,7 @@
 
 # cine-characters
 
-The [production handoff](../film-analysis/references/production-handoff.md) is authoritative for cross-skill pipelines; standalone use remains supported. Cine owns production: read with `seedance_read_canvas`, then use `seedance_edit_canvas`, passing `expected_revision` for updates/deletes. Submit to V3 workers only with explicit generation authorization. V3 Agent is intended for QA only, but `seedance_agent_message` is not a code-enforced read-only sandbox: use local/read-only snapshot QA until isolation exists, never generic agent messages for production or supposedly safe QA. No codex `$imagegen` or fallback. Verify actual local images and inspect them; remote IDs, paths and old files do not prove image presence. Missing images stay missing. Generation can cost money; stage validation is not production PASS.
+The [production handoff](../film-analysis/references/production-handoff.md) is authoritative for cross-skill pipelines; standalone use remains supported. Cine owns production: read with `seedance_read_canvas`, then use `seedance_edit_canvas`, passing `expected_revision` for updates/deletes. Submit to V3 workers only with explicit generation authorization. QA uses read-only `seedance_read_canvas` snapshots; Cine never messages the V3 Agent. No codex `$imagegen` or fallback. Verify actual local images and inspect them; remote IDs, paths and old files do not prove image presence. Missing images stay missing. Generation can cost money; stage validation is not production PASS.
 
 Feed it a novel or a short story, and get a complete design bible for every character:
 

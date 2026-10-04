@@ -57,7 +57,6 @@ from agentnexus.tools.builtins.scheduled_tasks import (
     SysScheduledTaskListTool,
     SysScheduledTaskUpdateTool,
 )
-from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
 from agentnexus.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
 from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
 from agentnexus.tools.builtins.session_rename import SysSessionRenameTool
@@ -89,7 +88,6 @@ __all__ = [
     "NimbleResearchTool",
     "ReadSkillFileTool",
     "SaveTeammateMemoryTool",
-    "SeedanceAgentMessageTool",
     "SeedanceEditCanvasTool",
     "SeedanceReadCanvasTool",
     "SysAdviseModelsTool",
@@ -276,7 +274,6 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     # here so user specs cannot shadow them. (Policy ASKs are
     # surfaced as MCP-shape elicitations on the SSE stream — not
     # via the tool registry — see omnigent/runtime/policies/approval.py.)
-    "seedance_agent_message": None,
     "seedance_read_canvas": None,
     "sys_os_view_image": None,
     "seedance_edit_canvas": None,

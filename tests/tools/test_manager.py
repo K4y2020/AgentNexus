@@ -93,7 +93,6 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset(
         "browser_type",
         "browser_screenshot",
         # Review/canvas tools are available without per-agent opt-in.
-        "seedance_agent_message",
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",

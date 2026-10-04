@@ -355,32 +355,6 @@ class SeedanceClient:
         except httpx.ConnectError as exc:
             raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
 
-    async def send_agent_message(
-        self,
-        session_id: str,
-        content: str,
-        model: str | None = None,
-        timeout_s: float | None = None,
-    ) -> dict[str, Any]:
-        """Send an instruction message to the Seedance Agent Session."""
-        url = f"{self.base_url}/v3/agent-sessions/{session_id}/messages"
-        body: dict[str, Any] = {"content": content}
-        if model:
-            body["model"] = model
-        req_timeout = timeout_s if timeout_s is not None else self.timeout_s
-        try:
-            resp = await self._client.post(
-                url, json=body, headers=self._headers(), timeout=req_timeout
-            )
-            self._handle_response_error(resp)
-            return resp.json()
-        except httpx.TimeoutException as exc:
-            raise SeedanceTimeoutError(
-                f"Agent message timed out after {req_timeout}s: {exc}"
-            ) from exc
-        except httpx.ConnectError as exc:
-            raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
-
     async def submit_command(
         self,
         project_id: str,

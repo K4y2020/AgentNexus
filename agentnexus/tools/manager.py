@@ -567,14 +567,12 @@ class ToolManager:
         or send peer messages to other teammate bots in the workspace.
         """
         from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
-        from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
         from agentnexus.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
         from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
         from agentnexus.tools.builtins.send_to_teammate import SendToTeammateTool
         from agentnexus.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 
         self._tools[SendToTeammateTool.name()] = SendToTeammateTool()
-        self._tools[SeedanceAgentMessageTool.name()] = SeedanceAgentMessageTool()
         self._tools[SeedanceReadCanvasTool.name()] = SeedanceReadCanvasTool()
         self._tools[SeedanceEditCanvasTool.name()] = SeedanceEditCanvasTool()
         self._tools[CineVerifyReportTool.name()] = CineVerifyReportTool()

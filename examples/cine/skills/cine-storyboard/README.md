@@ -2,7 +2,7 @@
 
 # cine-storyboard
 
-跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。V3 Agent 仅定位 QA，但现有 `seedance_agent_message` 不具代码级只读隔离，因此目前只做本地/只读快照 QA，不通过泛用消息制作或冒充安全 QA。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
+跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。QA 只用只读 `seedance_read_canvas` 快照，Cine 不向 V3 Agent 发消息。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
 
 给 AI 短剧出**分镜**：把 cine-script 的节拍流切成可以直接下单给视频模型的生成任务单。这是管线里第一个直接面对视频模型的层，前提刻在骨子里：生成与重试有成本，切镜节奏由叙事需求决定；下述 2–5 秒只是短剧默认值。所以结构是三层：
 

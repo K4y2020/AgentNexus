@@ -13,10 +13,7 @@ from agentnexus.seedance.bridge import (
     SEEDANCE_PROJECT_LABEL,
     SEEDANCE_SESSION_LABEL,
     SEEDANCE_STATUS_LABEL,
-    execute_seedance_agent_message,
     execute_seedance_canvas_edit,
-    format_shot_contract_message,
-    read_matching_shots,
     read_seedance_canvas_snapshot,
     read_seedance_generation,
     resolve_or_create_topic_project_and_session,
@@ -96,19 +93,6 @@ async def test_summary_preserves_existing_image_and_revision():
     assert nodes["empty"]["media_state"] == "unknown"
     assert "/v3/storage/existing" in result["summary_markdown"]
     v3.submit_command.assert_not_called()
-
-
-def test_format_shot_contract_generation_boundary():
-    draft = format_shot_contract_message("Draft", generation_allowed=False)
-    assert "unverified draft" in draft
-    assert "generation_allowed is FALSE" in draft
-    with pytest.raises(ValueError, match="CINE_SHOTS_REQUIRED"):
-        format_shot_contract_message("Generate", generation_allowed=True)
-
-
-def test_legacy_ledger_does_not_silently_fall_back(tmp_path):
-    with pytest.raises(ValueError, match="CINE_BINDING_REQUIRED"):
-        read_matching_shots(tmp_path, ["S01"])
 
 
 @pytest.mark.asyncio
@@ -191,21 +175,6 @@ async def test_resolve_existing_topic_reuses_project_and_session():
             assert pid == "proj_existing_99"
             assert sid == "sess_existing_99"
             assert scope == f"topic:{conv_id}"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("allowed", [False, True])
-@respx.mock
-async def test_legacy_agent_delegation_cannot_bypass_direct_gate(allowed):
-    async with httpx.AsyncClient(base_url=_SERVER) as client:
-        result = await execute_seedance_agent_message(
-            server_client=client,
-            conversation_id="topic",
-            task="Generate or draft",
-            generation_allowed=allowed,
-        )
-    assert result["error_code"] == "CINE_AGENT_DELEGATION_DISABLED"
-    assert not respx.calls
 
 
 @pytest.mark.asyncio

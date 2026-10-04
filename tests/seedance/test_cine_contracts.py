@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from agentnexus.seedance.bridge import execute_seedance_agent_message
 from agentnexus.seedance.cine_contracts import (
     current_ledger,
     reviewed_shots,
@@ -125,18 +124,9 @@ async def test_receipts_only_come_from_image_tool_history():
     assert await session_image_receipts(client, "topic1") == {}
 
 
-async def test_missing_contract_blocks_before_v3_creation(tmp_path):
-    client = AsyncMock()
-    client.get.return_value = httpx.Response(
-        200, request=httpx.Request("GET", "http://test"), json={"data": [], "has_more": False}
-    )
-    v3 = AsyncMock()
-    result = await execute_seedance_agent_message(
-        client, "topic1", "draft", shot_ids=["S01"], workspace_dir=tmp_path, seedance_client=v3
-    )
-    assert result["error_code"] == "CINE_AGENT_DELEGATION_DISABLED"
-    v3.create_project.assert_not_called()
-    v3.send_agent_message.assert_not_called()
+def test_unbound_workspace_does_not_silently_fall_back(tmp_path):
+    with pytest.raises(ValueError, match="CINE_BINDING_REQUIRED"):
+        reviewed_shots(tmp_path, None, ["S01"], {})
 
 
 def image_output():

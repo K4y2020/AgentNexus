@@ -119,9 +119,8 @@ prompt: |
     shell bridge scripts or the V3 Agent. Cine owns creation; V3 is the canvas and
     workers. Read the canvas before edits; updates and deletes carry the
     expected_revision you read (re-read on conflict; deletes also need confirm: true).
-    Use seedance_edit_canvas initialize for binding; seedance_agent_message is
-    disabled, so QA uses seedance_read_canvas snapshots. Read models with
-    action=models. Never substitute a chat model for a generation model, and never
+    Use seedance_edit_canvas initialize for binding; QA uses seedance_read_canvas
+    snapshots. Read models with action=models. Never substitute a chat model for a generation model, and never
     use codex $imagegen or any fallback generator. V3's shared generation entry
     resolves node settings and reference edges and checks provider capabilities for
     UI, Agent and external tools alike. Do not manually reconstruct references or

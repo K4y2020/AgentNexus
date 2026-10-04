@@ -2,7 +2,7 @@
 
 # cine-art
 
-跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。V3 Agent 仅定位 QA，但现有 `seedance_agent_message` 不具代码级只读隔离，因此目前只做本地/只读快照 QA，不通过泛用消息制作或冒充安全 QA。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
+跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。QA 只用只读 `seedance_read_canvas` 快照，Cine 不向 V3 Agent 发消息。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
 
 给 AI 短剧出**美术设定集**：场景 + 叙事道具。前提刻在骨子里：**这是 AI 生成，不是实拍**——没有堪景、搭景、置景采买，环境和道具都是要被生成几十次还得长一样的资产。交付物不是置景清单，是一致性方案。
 
