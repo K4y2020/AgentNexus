@@ -12,8 +12,18 @@ from agentnexus.runner.tool_dispatch import (
     execute_tool,
     should_dispatch_locally,
 )
-from agentnexus.spec.types import AgentSpec
+from agentnexus.spec.types import AgentSpec, BuiltinToolConfig, ToolsConfig
 from agentnexus.tools.manager import ToolManager
+
+
+def _canvas_tool_manager() -> ToolManager:
+    names = ("seedance_read_canvas", "seedance_edit_canvas")
+    return ToolManager(
+        AgentSpec(
+            spec_version=1,
+            tools=ToolsConfig(builtins=[BuiltinToolConfig(name=name) for name in names]),
+        )
+    )
 
 
 def test_removed_agent_message_is_not_dispatched():
@@ -37,7 +47,7 @@ def test_should_dispatch_seedance_read_canvas_locally():
 
 
 def test_tool_manager_has_seedance_read_canvas():
-    manager = ToolManager(AgentSpec(spec_version=1))
+    manager = _canvas_tool_manager()
     tool = manager.get_tool("seedance_read_canvas")
     assert tool is not None
     schema = tool.get_schema()
@@ -128,7 +138,7 @@ def test_should_dispatch_seedance_edit_canvas_locally():
 
 
 def test_tool_manager_has_seedance_edit_canvas():
-    manager = ToolManager(AgentSpec(spec_version=1))
+    manager = _canvas_tool_manager()
     tool = manager.get_tool("seedance_edit_canvas")
     assert tool is not None
     schema = tool.get_schema()

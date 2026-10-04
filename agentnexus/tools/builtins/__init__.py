@@ -267,6 +267,11 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     "download_file": _create_download_file,
     "search_conversations": _create_search_conversations,
     "export_agent": _create_export_agent,
+    # Cine production tools; only the Cine bundle declares them.
+    "seedance_read_canvas": lambda _config: SeedanceReadCanvasTool(),
+    "seedance_edit_canvas": lambda _config: SeedanceEditCanvasTool(),
+    "cine_verify_report": lambda _config: CineVerifyReportTool(),
+    "cine_jev_judge": lambda _config: CineJevJudgeTool(),
     # Framework-owned: need runtime context. ``web_fetch`` is
     # constructed by ToolManager before reaching this registry.
     # ``list_comments`` and ``update_comment`` are auto-registered by
@@ -274,10 +279,7 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     # here so user specs cannot shadow them. (Policy ASKs are
     # surfaced as MCP-shape elicitations on the SSE stream — not
     # via the tool registry — see omnigent/runtime/policies/approval.py.)
-    "seedance_read_canvas": None,
     "sys_os_view_image": None,
-    "seedance_edit_canvas": None,
-    "cine_jev_judge": None,
     "save_teammate_memory": None,
     "send_to_teammate": None,
     "web_fetch": None,
@@ -332,7 +334,7 @@ BUILTIN_NAMES: frozenset[str] = frozenset(_BUILTIN_REGISTRY.keys())
 # ground but keeps its own hand-maintained table, because it must
 # not import this package (see that module's docstring), so a new
 # builtin, or a new optional-extra gate, has to be added in both
-# places.
+# places. Cine tools are deliberately absent there: they need the Cine skills.
 INSTANTIABLE_BUILTINS: frozenset[str] = frozenset(
     name for name, factory in _BUILTIN_REGISTRY.items() if factory is not None
 )

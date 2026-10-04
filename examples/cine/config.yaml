@@ -15,6 +15,13 @@ skills:
   - cine-outline
   - cine-characters
   - cine-art
+# Cine's canvas, report-check and JEV tools are opt-in builtins.
+tools:
+  builtins:
+    - seedance_read_canvas
+    - seedance_edit_canvas
+    - cine_verify_report
+    - cine_jev_judge
 # Cine writes data and runs only the scripts its skills ship. A prompt rule was
 # not enough: a run read a validator's source through the shell and wrote its
 # own generator script, so the tool-call boundary enforces it.

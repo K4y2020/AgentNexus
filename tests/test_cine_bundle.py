@@ -9,6 +9,7 @@ from agentnexus.host.connect import _build_runner_env
 from agentnexus.runner.identity import RUNNER_AUTH_SECRET_ENV_VARS
 from agentnexus.runner.mcp_manager import RunnerMcpManager
 from agentnexus.spec import load
+from agentnexus.tools.manager import ToolManager
 
 BUNDLE = Path(__file__).resolve().parents[1] / "examples" / "cine"
 ENV_PROBE = (
@@ -43,6 +44,19 @@ def test_cine_bundle_loads():
         content = path.read_text(encoding="utf-8")
         assert "EVA" not in content
         assert "U:/movie" not in content
+
+
+def test_cine_bundle_opts_into_its_tools():
+    spec = load(BUNDLE)
+    declared = {b.name for b in spec.tools.builtins}
+    assert declared == {
+        "seedance_read_canvas",
+        "seedance_edit_canvas",
+        "cine_verify_report",
+        "cine_jev_judge",
+    }
+    advertised = {s["function"]["name"] for s in ToolManager(spec).get_tool_schemas()}
+    assert declared <= advertised
 
 
 def test_media_project_delegates_to_canonical_pipeline(tmp_path, monkeypatch):
