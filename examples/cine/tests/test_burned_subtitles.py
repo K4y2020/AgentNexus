@@ -147,6 +147,29 @@ def test_a_row_stays_whole_without_a_caption_pair_for_its_sentences():
     assert transcribe.split_at_captions([row], []) == [row]
 
 
+def test_a_comma_between_two_caption_lines_is_cut_only_where_the_picture_cuts():
+    row = {"start": 65.4, "end": 67.3, "text": "你好，这是你嫂子。"}
+    lines = [caption(65.3, 66.0, "你好"), caption(66.4, 67.3, "这是你嫂子")]
+    rows = transcribe.split_at_captions([row], lines, cuts=[30.0, 66.4])
+    assert [(r["text"], r["end"]) for r in rows] == [("你好，", 66.2), ("这是你嫂子。", 67.3)]
+    # Without a cut there, one speaker's sentence simply wrapped onto a second line.
+    assert transcribe.split_at_captions([row], lines, cuts=[30.0]) == [row]
+    assert transcribe.split_at_captions([row], lines) == [row]
+
+
+def test_speech_after_the_last_caption_that_no_caption_spells_becomes_its_own_row():
+    row = {"start": 102.5, "end": 106.3, "text": "完了，这个码头我听说过。好啦好啦，下次再见。"}
+    lines = [
+        caption(102.5, 103.4, "完了"),
+        caption(103.5, 104.6, "这个码头我听说过"),
+    ]
+    rows = transcribe.split_at_captions([row], lines)
+    assert [(r["text"], r["start"], r["end"]) for r in rows] == [
+        ("完了，这个码头我听说过。", 102.5, 104.6),
+        ("好啦好啦，下次再见。", 104.6, 106.3),
+    ]
+
+
 def test_readings_become_rows_and_a_single_blank_frame_does_not_split_a_caption():
     samples = [
         (0.0, "", ""),

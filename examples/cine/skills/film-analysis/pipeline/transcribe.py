@@ -625,40 +625,82 @@ def _sentences(text):
     return texts if texts and "".join(texts) == text else [text]
 
 
-def split_at_captions(rows, captions):
-    """Cut a row holding several sentences where the film's caption line changes.
+def _clauses(text):
+    """Sentences, and the comma-separated clauses inside them."""
+    chunks = re.findall(r".*?(?:[，,、；;：:。！？!?]+|…{2,}|—{2,})|.+$", text, flags=re.DOTALL)
+    texts, leading = [], ""
+    for chunk in chunks:
+        if _word_chars(chunk):
+            texts.append(leading + chunk)
+            leading = ""
+        elif texts:
+            texts[-1] += chunk
+        else:
+            leading += chunk
+    return texts if texts and "".join(texts) == text else [text]
 
-    Captions are timed per line, and a new line usually means a new speaker, so
-    two sentences ASR heard as one row are cut between the two caption lines that
-    spell them. Without such a pair the row stays whole.
+
+_SENTENCE_END = re.compile(r"(?:[。！？!?]+|…{2,}|—{2,})\s*$")
+# A caption change inside a sentence marks a new speaker only where the picture cuts too.
+CUT_NEAR = 0.35
+
+
+def _caption_of(clause, captions):
+    """The caption line that spells this clause, or None."""
+    text = _norm(clause)
+    if not text:
+        return None
+    scored = [(_coverage(text, _norm(c["text"])), i) for i, c in enumerate(captions)]
+    score, index = max(scored, default=(0.0, None))
+    return index if score >= CAPTION_MATCH else None
+
+
+def split_at_captions(rows, captions, cuts=None):
+    """Cut a row where the film's caption line changes and so, likely, the speaker.
+
+    Captions are timed per line. Between two sentences a new caption line is cut;
+    inside a sentence (a comma) only where the picture also cuts, since one
+    speaker's sentence often wraps onto a second caption line. Speech after the
+    last caption that no caption spells is cut off as its own row.
     """
     if not captions:
         return rows
+    shot_cuts = sorted(cuts or [])
     result = []
     for row in rows:
         text = str(row.get("text") or "")
-        texts = _sentences(text)
+        texts = _clauses(text)
         start, end = float(row["start"]), float(row["end"])
         nearby = sorted(
             (c for c in captions if c["end"] > start - 0.3 and c["start"] < end + 0.3),
             key=lambda c: c["start"],
         )
-        cuts = {}
+        owners = [_caption_of(t, nearby) for t in texts]
+        cuts_at = {}
         for k in range(len(texts) - 1):
-            left, right = _norm(texts[k]), _norm(texts[k + 1])
-            for first, second in pairwise(nearby):
-                if (
-                    _coverage(_norm(first["text"]), left) >= CAPTION_MATCH
-                    and _coverage(_norm(second["text"]), right) >= CAPTION_MATCH
-                    and first["end"] <= second["start"] + 0.2
-                ):
-                    at = round((first["end"] + second["start"]) / 2, 3)
-                    if start < at < end and all(at > c for c in cuts.values()):
-                        cuts[k] = at
-                        break
-        if len(texts) < 2 or not cuts or row.get("teaser"):
+            left, right = owners[k], owners[k + 1]
+            sentence = bool(_SENTENCE_END.search(texts[k]))
+            if left is None or left == right:
+                continue
+            if right is None:
+                # Uncaptioned speech after a captioned sentence is another voice or an aside.
+                at = nearby[left]["end"]
+                if not sentence or any(o is not None for o in owners[k + 1 :]):
+                    continue
+            else:
+                first, second = nearby[left], nearby[right]
+                if first["end"] > second["start"] + 0.2:
+                    continue
+                at = (first["end"] + second["start"]) / 2
+                if not sentence and not any(abs(at - c) <= CUT_NEAR for c in shot_cuts):
+                    continue
+            at = round(at, 3)
+            if start < at < end and all(at > c for c in cuts_at.values()):
+                cuts_at[k] = at
+        if len(texts) < 2 or not cuts_at or row.get("teaser"):
             result.append(row)
             continue
+        cuts = cuts_at
         pieces, piece_start, buffer = [], start, ""
         for k, chunk in enumerate(texts):
             buffer += chunk
@@ -722,6 +764,7 @@ def serialize_transcript(
     refine_speakers: bool = True,
     source_fingerprint: dict | None = None,
     burned: dict | None = None,
+    shot_cuts: list[float] | None = None,
 ) -> tuple[str, str, str]:
     segments = list(segments)
     rows = []
@@ -799,7 +842,7 @@ def serialize_transcript(
         # After the repair pass: captions are the film's own words, not ASR to fix.
         rows, counts = merge_into_transcript(rows, burned.get("rows") or [])
         before = len(rows)
-        rows = split_at_captions(rows, burned.get("rows") or [])
+        rows = split_at_captions(rows, burned.get("rows") or [], cuts=shot_cuts)
         burned_summary = {
             "status": burned["status"],
             "engine": burned.get("engine"),
@@ -874,6 +917,7 @@ def transcribe(
     llm_refine: bool = False,
     refine_speakers: bool = True,
     burned_subtitles: bool = False,
+    shot_cuts: list[float] | None = None,
 ) -> dict:
     media = _inside(workspace, media)
     if not media.is_file():
@@ -972,6 +1016,7 @@ def transcribe(
         refine_speakers=refine_speakers,
         source_fingerprint=fingerprint,
         burned=burned,
+        shot_cuts=shot_cuts,
     )
     json_path = output.with_suffix(".json")
     text_path = output.with_suffix(".txt")

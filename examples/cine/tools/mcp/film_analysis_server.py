@@ -248,12 +248,23 @@ def _tag_opening_teaser(payload: dict, teaser: dict) -> int:
     return marked
 
 
+def _shot_cuts(notes: Any) -> list[float]:
+    """Where the picture cuts, from the per-shot notes."""
+    shots = notes.get("shots") if isinstance(notes, dict) else None
+    return [
+        float(shot["start"])
+        for shot in (shots or [])[1:]
+        if isinstance(shot, dict) and isinstance(shot.get("start"), (int, float))
+    ]
+
+
 def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> dict[str, Any]:
     """Create a transcript with visual speaker evidence before cast cards exist."""
     from pipeline.transcribe import transcribe
 
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True, exist_ok=True)
+    notes = _load_json(Path(plan_path).with_name("shot_notes.json")) if plan_path else {}
     result = transcribe(
         video,
         inputs / "source-transcript",
@@ -267,14 +278,13 @@ def _transcribe(video: Path, workspace: Path, plan_path: str | None = None) -> d
         refine_speakers=False,
         # Captions carry lines ASR never hears: an inner voice, a mumbled aside.
         burned_subtitles=True,
+        shot_cuts=_shot_cuts(notes),
     )
     if result.get("status") != "qualified_asr_complete":
         return {"status": "transcription_failed", "detail": result}
 
     payload = json.loads(Path(result["json_path"]).read_text(encoding="utf-8-sig"))
-    payload["visual_people"] = (
-        _load_json(Path(plan_path).with_name("shot_notes.json")) if plan_path else {}
-    )
+    payload["visual_people"] = notes or {}
     _tag_opening_teaser(payload, _opening_teaser(video, plan_path))
     _read_performance(video, payload, frame_cache=workspace / ".cine-cache" / "frames")
     _read_judgments(video, payload, frame_cache=workspace / ".cine-cache" / "frames")
@@ -426,7 +436,7 @@ def _read_captions(video: Path, payload: dict) -> dict | None:
         return None
     rows, counts = merge_into_transcript(payload.get("segments") or [], burned["rows"])
     before = len(rows)
-    rows = split_at_captions(rows, burned["rows"])
+    rows = split_at_captions(rows, burned["rows"], cuts=_shot_cuts(payload.get("visual_people")))
     summary = {
         "status": burned["status"],
         "engine": burned["engine"],
