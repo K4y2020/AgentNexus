@@ -2,11 +2,11 @@
 
 import asyncio
 import hashlib
-import importlib.util
 import json
 import re
-import sys
 from pathlib import Path
+
+from agentnexus.seedance.skill_modules import SkillModuleUnavailable, pipeline_module
 
 
 class ProductionRejected(ValueError):
@@ -29,22 +29,10 @@ def inside(root, value):
 
 def native_checker(skills_dir):
     # This path comes from the registered agent spec, never from tool arguments.
-    if skills_dir is None:
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    path = Path(skills_dir) / "film-analysis/pipeline/production.py"
-    if not path.is_file():
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    spec = importlib.util.spec_from_file_location("_cine_production_gate", path)
-    if spec is None or spec.loader is None:
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    # Loaded outside its package, the module imports its siblings by name, as when
-    # run from the pipeline directory; they must resolve to this skill's copies.
-    pipeline = str(path.parent)
-    if pipeline not in sys.path:
-        sys.path.insert(0, pipeline)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    try:
+        return pipeline_module(skills_dir, "production")
+    except SkillModuleUnavailable as exc:
+        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE", {"message": str(exc)}) from exc
 
 
 def assert_current(proof):
