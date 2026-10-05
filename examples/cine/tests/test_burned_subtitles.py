@@ -148,10 +148,10 @@ def test_a_row_stays_whole_without_a_caption_pair_for_its_sentences():
 
 
 def test_a_comma_between_two_caption_lines_is_cut_only_where_the_picture_cuts():
-    row = {"start": 65.4, "end": 67.3, "text": "你好，这是你嫂子。"}
-    lines = [caption(65.3, 66.0, "你好"), caption(66.4, 67.3, "这是你嫂子")]
+    row = {"start": 65.4, "end": 67.3, "text": "船来了，大家上船。"}
+    lines = [caption(65.3, 66.0, "船来了"), caption(66.4, 67.3, "大家上船")]
     rows = transcribe.split_at_captions([row], lines, cuts=[30.0, 66.4])
-    assert [(r["text"], r["end"]) for r in rows] == [("你好，", 66.2), ("这是你嫂子。", 67.3)]
+    assert [(r["text"], r["end"]) for r in rows] == [("船来了，", 66.2), ("大家上船。", 67.3)]
     # Without a cut there, one speaker's sentence simply wrapped onto a second line.
     assert transcribe.split_at_captions([row], lines, cuts=[30.0]) == [row]
     assert transcribe.split_at_captions([row], lines) == [row]
@@ -173,16 +173,16 @@ def test_speech_after_the_last_caption_that_no_caption_spells_becomes_its_own_ro
 def test_readings_become_rows_and_a_single_blank_frame_does_not_split_a_caption():
     samples = [
         (0.0, "", ""),
-        (0.35, "完蛋了", ""),
+        (0.35, "开船咯", ""),
         (0.7, "", ""),
-        (1.05, "完蛋了", ""),
+        (1.05, "开船咯", ""),
         (1.4, "", ""),
         (1.75, "", ""),
         (2.1, "一个字", ""),
     ]
     rows = burned._runs(samples, duration=10.0)
     assert [(r["text"], r["start"], r["end"], r["hits"]) for r in rows] == [
-        ("完蛋了", 0.175, 1.225, 2)
+        ("开船咯", 0.175, 1.225, 2)
     ]
 
 

@@ -145,7 +145,7 @@ def test_dialogue_inversion_forces_penalty(tmp_path, monkeypatch):
     (project / "story" / "r1.json").write_text(
         json.dumps({
             "summary": {"premise": "x"},
-            "characters": ["林黛玉"],
+            "characters": ["陈小满"],
             "sections": [{"batch_id": "B001", "events": ["event 1"]}],
         }),
         encoding="utf-8",
@@ -274,10 +274,10 @@ def test_review_questions_quote_no_sample_story(tmp_path, monkeypatch):
         },
         ensure_ascii=False,
     )
-    for sample in ("王熙凤", "林黛玉", "黛玉", "嫂子", "我爸姓林"):
+    for sample in ("周秀娥", "陈小满", "小满", "舅妈", "我爹姓陈"):
         assert sample not in text
     findings = json.dumps(report["findings"], ensure_ascii=False)
-    assert all(sample not in findings for sample in ("嫂子", "我爸姓林"))
+    assert all(sample not in findings for sample in ("舅妈", "我爹姓陈"))
 
 
 def test_unsure_scores_cannot_make_a_ready_verdict(tmp_path, monkeypatch):

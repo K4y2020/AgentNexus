@@ -16,9 +16,9 @@ GATEWAY = ("http://gateway.test/v1", "key", "vision-model")
 
 def _rows():
     return [
-        {"start": 0.0, "end": 3.0, "text": "宝贝懂了吧，男人靠不住啊！"},
-        {"start": 3.0, "end": 3.4, "text": "妈"},
-        {"start": 4.0, "end": 5.0, "text": "老婆，我升官了！", "teaser": True},
+        {"start": 0.0, "end": 3.0, "text": "娃记住了吧，雾天别下水！"},
+        {"start": 3.0, "end": 3.4, "text": "娘"},
+        {"start": 4.0, "end": 5.0, "text": "娘子，船票买到了！", "teaser": True},
         {"start": 6.0, "end": 7.0, "text": "  "},
     ]
 
@@ -62,7 +62,7 @@ def test_only_spoken_lines_of_the_film_proper_are_read(monkeypatch, frames):
 
     summary = lp.read_line_performance("film.mp4", rows, gateway=GATEWAY)
 
-    assert asked == [["宝贝懂了吧，男人靠不住啊！", "妈"]]
+    assert asked == [["娃记住了吧，雾天别下水！", "娘"]]
     assert frames == [0.9, 2.25, 3.2]
     assert summary["status"] == "read" and summary["read"] == 2 and summary["lines"] == 2
     assert rows[0]["performance"] == {
@@ -86,7 +86,7 @@ def test_a_partial_reading_is_finished_later_without_rereading(monkeypatch):
     )
     summary = lp.read_line_performance("film.mp4", rows, gateway=GATEWAY)
 
-    assert asked == [["妈"]]
+    assert asked == [["娘"]]
     assert summary["status"] == "read"
     assert rows[0]["performance"]["emotion"] == "哭诉"
     assert rows[1]["performance"]["emotion"] == "平静"
@@ -166,17 +166,17 @@ def test_the_text_transcript_carries_what_the_frames_show():
         {
             "start": 0.0,
             "end": 3.0,
-            "text": "男人靠不住啊！",
-            "speaker": "贾敏",
-            "performance": {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "盘发妇人"},
+            "text": "雾天别下水！",
+            "speaker": "秀娥",
+            "performance": {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "包头巾的妇人"},
         },
         {"start": 3.0, "end": 4.0, "text": "来来来！", "performance": {"emotion": "看不清"}},
-        {"start": 4.0, "end": 5.0, "text": "妈"},
+        {"start": 4.0, "end": 5.0, "text": "娘"},
     ]
 
     text = render_plain(rows)
 
-    assert "[贾敏] 男人靠不住啊！  〔画面：盘发妇人，委屈痛哭：满脸泪水〕" in text
+    assert "[秀娥] 雾天别下水！  〔画面：包头巾的妇人，委屈痛哭：满脸泪水〕" in text
     assert text.count("〔画面") == 1
     assert lp.describe(rows[0]["performance"], who=False) == "委屈痛哭：满脸泪水"
 

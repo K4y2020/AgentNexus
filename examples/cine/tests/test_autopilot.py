@@ -295,7 +295,7 @@ def test_performance_differences_are_queued_and_a_contradiction_is_repaired(
     monkeypatch, directory
 ):
     checks = Checks(monkeypatch)
-    item = {"line": "去给三位小姐都请个假", "message": "表演可能和原片不一致"}
+    item = {"line": "去把三条船都拴牢了", "message": "表演可能和原片不一致"}
     checks.results["script"] = {"performance": {"status": "passed", "review": [item]}}
     assert autopilot.next_step(directory)["action"] == "import_canvas"
     assert [(i["reason"], i["detail"]) for i in queue(directory)] == [
@@ -303,7 +303,7 @@ def test_performance_differences_are_queued_and_a_contradiction_is_repaired(
     ]
 
     edit(directory, "script", 1)
-    blocking = ["S01「宝贝懂了吧」表演和原片相反"]
+    blocking = ["S01「娃记住了吧」表演和原片相反"]
     checks.results["script"] = {
         "status": "failed",
         "errors": blocking,

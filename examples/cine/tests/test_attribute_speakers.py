@@ -55,7 +55,7 @@ def test_derived_roles_come_from_the_dialogue_not_a_sample_story():
     assert attribute_speakers._self_introduced_names("我叫你别去！") == []
     assert attribute_speakers._self_introduced_names("我叫小明今年十岁") == []
     # Longer kinship terms are not double counted.
-    assert set(attribute_speakers._address_roles("我的好外孙女")) == {"外孙女"}
+    assert set(attribute_speakers._address_roles("乖外孙女，快过来")) == {"外孙女"}
 
 
 def test_derived_cast_merges_only_confident_jev_pairs_with_complete_linkage(monkeypatch):

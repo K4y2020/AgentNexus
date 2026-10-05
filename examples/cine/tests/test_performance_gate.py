@@ -12,36 +12,36 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "skills/film-analysis"))
 from pipeline import jev_client, production, speaker_evidence
 from pipeline import performance_gate as gate
 
-CRYING = {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "盘发白衣妇人"}
-PORTRAIT = {"emotion": "温和微笑", "visible": "", "who": "黑白遗照里的女子"}
+CRYING = {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "包蓝头巾的妇人"}
+LISTENER = {"emotion": "温和微笑", "visible": "", "who": "船头抽烟的老汉"}
 CAST = {
     "characters": [
         {
             "id": "C01",
-            "name": "林黛玉",
-            "image": {"prompt": "18-year-old young woman, ivory blouse"},
+            "name": "陈小满",
+            "image": {"prompt": "18-year-old young woman, straw hat"},
         },
-        {"id": "C04", "name": "贾敏", "image": {"prompt": "45-year-old woman, hair pinned up"}},
+        {"id": "C04", "name": "周秀娥", "image": {"prompt": "45-year-old woman, blue headscarf"}},
     ]
 }
 ROWS = [
-    {"text": "老夫夜观天象，看大姐你是命中带苦。"},
+    {"text": "老汉守渡四十年，看这雾是要出大事。"},
     {
-        "text": "宝贝懂了吧，男人靠不住啊！",
+        "text": "娃记住了吧，雾天别下水！",
         "performance": CRYING,
         "speaker": "C04",
         "speaker_needs_review": False,
         "evidence": {"a": {"current": True, "character_id": "C04", "person_id": "P1"}},
     },
-    {"text": "妈", "performance": PORTRAIT},
+    {"text": "娘", "performance": LISTENER},
 ]
 
 
-def _script(delivery, *, daughter="望着遗照喃喃呼唤"):
+def _script(delivery, *, daughter="拉着娘的衣角小声喊"):
     flow = [
-        {"action": "卦摊前，贾敏带着林黛玉坐下。"},
-        {"speaker": "C04", "line": "宝贝懂了吧，男人靠不住啊！", "delivery": delivery},
-        {"speaker": "C01", "line": "妈", "delivery": daughter},
+        {"action": "渡口边，秀娥拉着小满坐下。"},
+        {"speaker": "C04", "line": "娃记住了吧，雾天别下水！", "delivery": delivery},
+        {"speaker": "C01", "line": "娘", "delivery": daughter},
         {"speaker": "C01", "line": "这是剧本加的一句", "delivery": ""},
     ]
     scene = {"sceneId": "S01", "characters": ["C01", "C04"], "flow": flow}
@@ -90,10 +90,10 @@ def test_lines_are_paired_in_order_and_only_readable_frames_count():
     pairs = gate.pair_lines(_script("打趣"), rows)
 
     assert [(p["line"], p["source_text"]) for p in pairs] == [
-        ("宝贝懂了吧，男人靠不住啊！", "宝贝懂了吧，男人靠不住啊！"),
-        ("妈", "妈"),
+        ("娃记住了吧，雾天别下水！", "娃记住了吧，雾天别下水！"),
+        ("娘", "娘"),
     ]
-    assert pairs[0]["action_before"] == "卦摊前，贾敏带着林黛玉坐下。"
+    assert pairs[0]["action_before"] == "渡口边，秀娥拉着小满坐下。"
     assert pairs[0]["characters"] == ["C01", "C04"]
 
 
@@ -101,8 +101,8 @@ def test_a_split_source_line_pairs_every_part():
     script = _script("打趣")
     flow = script["episodes"][0]["scenes"][0]["flow"]
     flow[1:2] = [
-        {"speaker": "C04", "line": "宝贝懂了吧，", "delivery": "哭着"},
-        {"speaker": "C04", "line": "男人靠不住啊！", "delivery": "哭着"},
+        {"speaker": "C04", "line": "娃记住了吧，", "delivery": "哭着"},
+        {"speaker": "C04", "line": "雾天别下水！", "delivery": "哭着"},
     ]
     assert [p["source_text"] for p in gate.pair_lines(script, ROWS)][:2] == [ROWS[1]["text"]] * 2
 
@@ -115,14 +115,14 @@ def test_the_speaker_played_against_the_source_emotion_fails(monkeypatch):
     assert result["status"] == "failed"
     assert len(result["blocking"]) == 1
     message = result["blocking"][0]
-    assert "宝贝懂了吧" in message and "委屈痛哭" in message and "语带调侃" in message
+    assert "娃记住了吧" in message and "委屈痛哭" in message and "语带调侃" in message
     assert set(jev.states[0]) == {"line", "speaker", "source_frame", "script"}
     assert len(jev.states) == 1  # only the already identified speaker's performance
 
 
 def test_the_same_emotion_passes_and_a_frame_of_someone_else_is_not_compared(monkeypatch):
     FakeJev(monkeypatch)
-    # The frame of 「妈」 is the portrait; its smile says nothing about the speaker.
+    # The frame of 「娘」 shows a listener; its smile says nothing about the speaker.
     result = gate.check_performance(_script("抽泣着，满脸是泪", daughter="笑着调侃"), CAST, ROWS)
     assert result["status"] == "passed" and result["review"] == []
 
@@ -162,7 +162,7 @@ def test_a_weaker_contradiction_or_a_missing_cue_is_only_reviewed(monkeypatch):
     FakeJev(monkeypatch)
     result = gate.check_performance(_script(""), CAST, ROWS)
     assert result["status"] == "passed"
-    assert result["review"][0]["message"].startswith("S01「宝贝懂了吧")
+    assert result["review"][0]["message"].startswith("S01「娃记住了吧")
 
     FakeJev(monkeypatch, fit={"contradicts": 0.75, "consistent": 0.25, "no_cue": 0.0})
     result = gate.check_performance(_script("平静地说"), CAST, ROWS)
@@ -202,7 +202,7 @@ def test_the_script_check_reads_the_attributed_transcript(monkeypatch, tmp_path)
 
     assert production.script_performance(tmp_path, paths, attributed, "jev")["reused"] == 1
 
-    attributed.write_text(json.dumps({"attributions": [{"text": "妈"}]}), encoding="utf-8")
+    attributed.write_text(json.dumps({"attributions": [{"text": "娘"}]}), encoding="utf-8")
     assert production.script_performance(tmp_path, paths, attributed, "jev")["status"] == "skipped"
 
 
@@ -302,14 +302,14 @@ def test_manual_check_then_next_reuses_the_same_performance(monkeypatch, tmp_pat
 
 def test_the_jev_baseline_shows_what_the_frames_show(tmp_path):
     attributed = tmp_path / "source-transcript-attributed.json"
-    row = {"speaker_name": "贾敏", "text": "男人靠不住啊！", "performance": CRYING}
+    row = {"speaker_name": "秀娥", "text": "雾天别下水！", "performance": CRYING}
     attributed.write_text(
         json.dumps({"attributions": [row]}, ensure_ascii=False), encoding="utf-8"
     )
 
     text = production.render_attributed_source(tmp_path, attributed).read_text(encoding="utf-8")
 
-    assert "[贾敏] 男人靠不住啊！  〔画面：盘发白衣妇人，委屈痛哭：满脸泪水〕" in text
+    assert "[秀娥] 雾天别下水！  〔画面：包蓝头巾的妇人，委屈痛哭：满脸泪水〕" in text
 
 
 @pytest.mark.parametrize("carried", [True, False])

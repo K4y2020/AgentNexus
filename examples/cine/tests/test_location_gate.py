@@ -19,18 +19,18 @@ def material():
             "locations": [
                 {
                     "id": "L1",
-                    "name": "街头算命摊",
+                    "name": "江边茶水摊",
                     "seconds": 17.6,
                     "spans": [{"start": 0, "end": 17.6}],
                     "line_numbers": [1],
                 },
                 {
                     "id": "L2",
-                    "name": "灵堂",
+                    "name": "船舱",
                     "seconds": 3.7,
                     "spans": [{"start": 17.6, "end": 21.3}],
                     "line_numbers": [2],
-                    "lines": [{"text": "你的命怎么这么苦啊"}],
+                    "lines": [{"text": "这雾怎么一直不散啊"}],
                 },
             ],
             "shots": [],
@@ -47,8 +47,8 @@ def outline(mode="忠实"):
         "beats": [],
         "episodes": [],
         "scenes": [
-            {"id": "S01", "name": "街头算命摊", "from": ["L1"]},
-            {"id": "S02", "name": "灵堂", "from": ["L2"]},
+            {"id": "S01", "name": "江边茶水摊", "from": ["L1"]},
+            {"id": "S02", "name": "船舱", "from": ["L2"]},
         ],
     }
 
@@ -64,7 +64,7 @@ def script(scene="S01", lines=None):
                         "sceneId": scene,
                         "flow": [
                             {"speaker": "C01", "line": text}
-                            for text in (lines or ["你的命怎么这么苦啊"])
+                            for text in (lines or ["这雾怎么一直不散啊"])
                         ],
                     }
                 ],
@@ -89,11 +89,11 @@ def crossing_material(cut=3, end=10):
 
 def test_faithful_outline_reports_missing_location_and_invented_scene_together():
     doc = outline()
-    doc["scenes"][1] = {"id": "S04", "name": "贾府回廊过道"}
+    doc["scenes"][1] = {"id": "S04", "name": "周家后院柴房"}
     result = gate.check_outline(doc, material())
     assert result["status"] == "failed"
-    assert any("L2 灵堂" in e and "17.6–21.3s" in e for e in result["blocking"])
-    assert any("S04 贾府回廊过道" in e and "来源" in e for e in result["blocking"])
+    assert any("L2 船舱" in e and "17.6–21.3s" in e for e in result["blocking"])
+    assert any("S04 周家后院柴房" in e and "来源" in e for e in result["blocking"])
     assert gate.check_outline(outline(), material())["status"] == "passed"
 
 
@@ -112,7 +112,7 @@ def test_extraction_requires_declared_cuts_and_reviews_new_scenes():
     doc["scenes"][1] = {"id": "S04", "name": "原创场景"}
     result = gate.check_outline(doc, material())
     assert result["status"] == "failed" and result["review"]
-    doc["adaptation"]["cut"] = [{"locations": ["L2"], "what": "灵堂", "why": "压缩"}]
+    doc["adaptation"]["cut"] = [{"locations": ["L2"], "what": "船舱", "why": "压缩"}]
     result = gate.check_outline(doc, material())
     assert result["status"] == "passed"
     assert result["review"][0]["reason"] == "scene_location_original"
@@ -164,10 +164,10 @@ def test_partial_source_and_unknown_shots_are_reviewed_even_if_known_locations_a
 
 
 def test_wrong_scene_fails_without_any_performance_metadata():
-    rows = [{"id": "line1", "start": 18, "end": 19, "text": "你的命怎么这么苦啊"}]
+    rows = [{"id": "line1", "start": 18, "end": 19, "text": "这雾怎么一直不散啊"}]
     result = gate.check_script(script(), outline(), material(), rows)
     assert result["status"] == "failed" and result["checked"] == 1
-    assert "灵堂" in result["blocking"][0] and "街头算命摊（S01）" in result["blocking"][0]
+    assert "船舱" in result["blocking"][0] and "江边茶水摊（S01）" in result["blocking"][0]
     assert gate.check_script(script("S02"), outline(), material(), rows)["status"] == "passed"
 
 
@@ -183,7 +183,7 @@ def test_wrong_scene_fails_without_any_performance_metadata():
 )
 def test_cross_cut_dialogue_accepts_each_location_with_thirty_percent(cut, allowed):
     source = crossing_material(cut)
-    rows = [{"text": "你的命怎么这么苦啊", "start": 0, "end": 10}]
+    rows = [{"text": "这雾怎么一直不散啊", "start": 0, "end": 10}]
     for scene in ("S01", "S02"):
         result = gate.check_script(script(scene), outline(), source, rows)
         assert result["checked"] == 1
@@ -200,32 +200,32 @@ def test_split_dialogue_keeps_the_full_source_interval_across_a_cut():
     assert result["status"] == "failed" and len(result["blocking"]) == 3
 
 
-def test_red_mansion_cross_cut_lines_do_not_block_the_gate_and_hall_scenes():
+def test_cross_cut_lines_do_not_block_the_pier_and_shed_scenes():
     source = material()
     source["source_locations"]["locations"] = [
-        {"id": "L2", "name": "灵堂", "spans": [{"start": 17.6333125, "end": 21.2666875}]},
-        {"id": "L3", "name": "大门外", "spans": [{"start": 21.2666875, "end": 29.0333125}]},
-        {"id": "L4", "name": "大厅", "spans": [{"start": 29.0333125, "end": 104.0333125}]},
+        {"id": "L2", "name": "船舱", "spans": [{"start": 17.6333125, "end": 21.2666875}]},
+        {"id": "L3", "name": "栈桥", "spans": [{"start": 21.2666875, "end": 29.0333125}]},
+        {"id": "L4", "name": "茶棚", "spans": [{"start": 29.0333125, "end": 104.0333125}]},
     ]
     doc = outline()
     doc["scenes"] = [
-        {"id": "S01", "name": "算命摊", "from": ["L1"]},
-        {"id": "S02", "name": "大门外", "from": ["L3"]},
-        {"id": "S03", "name": "大厅", "from": ["L4"]},
+        {"id": "S01", "name": "茶水摊", "from": ["L1"]},
+        {"id": "S02", "name": "栈桥", "from": ["L3"]},
+        {"id": "S03", "name": "茶棚", "from": ["L4"]},
     ]
     voiceover = [
-        "我叫林黛玉，是林氏集团的继承人。",
-        "老妈刚刚去世，家里一团乱麻，",
-        "所以老爸让我来外婆家住一阵子。",
+        "我叫陈小满，是陈家船行唯一的传人。",
+        "老爹刚刚出事，船也没人撑了，",
+        "所以外公接我来渡口过冬。",
     ]
-    greeting = "我的好孙女，你妈怎么就忍心丢下我们走了！"
+    greeting = "小满来啦，路上雾大，快进屋暖和暖和！"
     rows = [
-        {"text": "妈", "start": 16.625, "end": 17.675},
-        {"text": "你的命怎么这么苦啊", "start": 18.025, "end": 19.775},
+        {"text": "娘", "start": 16.625, "end": 17.675},
+        {"text": "这雾怎么一直不散啊", "start": 18.025, "end": 19.775},
         {"text": "".join(voiceover), "start": 20.9, "end": 28.5},
         {"text": greeting, "start": 28.5, "end": 32.02},
     ]
-    screenplay = script(lines=["妈", "你的命怎么这么苦啊"])
+    screenplay = script(lines=["娘", "这雾怎么一直不散啊"])
     screenplay["episodes"][0]["scenes"].extend(
         [
             script("S02", voiceover)["episodes"][0]["scenes"][0],
@@ -234,8 +234,8 @@ def test_red_mansion_cross_cut_lines_do_not_block_the_gate_and_hall_scenes():
     )
     result = gate.check_script(screenplay, doc, source, rows)
     assert result["checked"] == 5 and len(result["blocking"]) == 1
-    assert "你的命怎么这么苦啊" in result["blocking"][0]
-    assert len(result["review"]) == 1 and "「妈」" in result["review"][0]["message"]
+    assert "这雾怎么一直不散啊" in result["blocking"][0]
+    assert len(result["review"]) == 1 and "「娘」" in result["review"][0]["message"]
     gate.attach_dialogue(source["source_locations"], rows)
     assert [loc["line_numbers"] for loc in source["source_locations"]["locations"]] == [
         [2],
@@ -249,7 +249,7 @@ def test_overlap_sums_revisited_spans_of_the_same_location():
     first, second = source["source_locations"]["locations"]
     first["spans"] = [{"start": 0, "end": 2}, {"start": 6, "end": 8}]
     second["spans"] = [{"start": 2, "end": 6}, {"start": 8, "end": 10}]
-    rows = [{"text": "你的命怎么这么苦啊", "start": 0, "end": 10}]
+    rows = [{"text": "这雾怎么一直不散啊", "start": 0, "end": 10}]
     for scene in ("S01", "S02"):
         assert gate.check_script(script(scene), outline(), source, rows)["status"] == "passed"
 
@@ -259,8 +259,8 @@ def test_inserted_frame_dialogue_with_only_a_sliver_in_a_location_is_reviewed():
     first, second = source["source_locations"]["locations"]
     first["spans"] = [{"start": 0, "end": 15.7}]
     second["spans"] = [{"start": 17.633, "end": 21.3}]
-    rows = [{"text": "妈", "start": 16.625, "end": 17.675}]
-    result = gate.check_script(script(lines=["妈"]), outline(), source, rows)
+    rows = [{"text": "娘", "start": 16.625, "end": 17.675}]
+    result = gate.check_script(script(lines=["娘"]), outline(), source, rows)
     assert result["status"] == "passed" and result["checked"] == 0
     assert result["review"][0]["reason"] == "dialogue_location_unknown"
     gate.attach_dialogue(source["source_locations"], rows)
@@ -269,7 +269,7 @@ def test_inserted_frame_dialogue_with_only_a_sliver_in_a_location_is_reviewed():
 
 @pytest.mark.parametrize("end", [None, 17, 18, float("nan"), float("inf"), True])
 def test_missing_or_invalid_line_duration_is_reviewed(end):
-    rows = [{"text": "你的命怎么这么苦啊", "start": 18, "end": end}]
+    rows = [{"text": "这雾怎么一直不散啊", "start": 18, "end": end}]
     result = gate.check_script(script("S02"), outline(), material(), rows)
     assert result["checked"] == 0 and not result["blocking"]
     assert result["review"][0]["reason"] == "dialogue_location_unknown"
@@ -277,8 +277,8 @@ def test_missing_or_invalid_line_duration_is_reviewed(end):
 
 def test_boundary_belongs_to_next_location_and_teaser_is_not_paired():
     rows = [
-        {"text": "你的命怎么这么苦啊", "start": 0, "end": 1, "teaser": True},
-        {"text": "你的命怎么这么苦啊", "start": 17.6, "end": 18},
+        {"text": "这雾怎么一直不散啊", "start": 0, "end": 1, "teaser": True},
+        {"text": "这雾怎么一直不散啊", "start": 17.6, "end": 18},
     ]
     result = gate.check_script(script("S02"), outline(), material(), rows)
     assert result["status"] == "passed" and result["checked"] == 1
@@ -286,16 +286,16 @@ def test_boundary_belongs_to_next_location_and_teaser_is_not_paired():
 
 def test_duplicate_lines_match_distinct_occurrences_in_order():
     rows = [
-        {"text": "妈", "start": 1, "end": 2},
-        {"text": "妈", "start": 18, "end": 19},
+        {"text": "娘", "start": 1, "end": 2},
+        {"text": "娘", "start": 18, "end": 19},
     ]
-    result = gate.check_script(script(lines=["妈", "妈"]), outline(), material(), rows)
+    result = gate.check_script(script(lines=["娘", "娘"]), outline(), material(), rows)
     assert result["checked"] == 2 and result["status"] == "failed"
     assert len(result["blocking"]) == 1
 
 
 def test_unknown_dialogue_location_is_reviewed():
-    rows = [{"text": "你的命怎么这么苦啊", "start": 99, "end": 100}]
+    rows = [{"text": "这雾怎么一直不散啊", "start": 99, "end": 100}]
     result = gate.check_script(script(), outline(), material(), rows)
     assert result["status"] == "passed" and result["checked"] == 0
     assert result["review"][0]["reason"] == "dialogue_location_unknown"
@@ -313,7 +313,7 @@ def test_production_runs_location_check_after_node_and_records_dependencies(monk
         lambda *_a, **_k: SimpleNamespace(returncode=0, stdout="", stderr=""),
     )
     result = production.check_stage(tmp_path, "outline")
-    assert result["status"] == "failed" and "灵堂" in result["errors"][0]
+    assert result["status"] == "failed" and "船舱" in result["errors"][0]
     assert result["input_hashes"][
         str(tmp_path / "source-material.json")
     ] == production.fingerprint(tmp_path / "source-material.json")
@@ -362,7 +362,7 @@ def test_production_script_check_uses_timed_rows_and_blocks_wrong_scene(monkeypa
     source = material()
     fingerprint = {"size_bytes": 10, "sha256_head": "a" * 64, "sha256_tail": "b" * 64}
     source["source_fingerprint"] = fingerprint
-    rows = [{"id": "a", "text": "你的命怎么这么苦啊", "start": 18, "end": 19}]
+    rows = [{"id": "a", "text": "这雾怎么一直不散啊", "start": 18, "end": 19}]
     docs = {
         "outline.json": outline(),
         "script.json": script(),
@@ -393,7 +393,7 @@ def test_production_script_check_uses_timed_rows_and_blocks_wrong_scene(monkeypa
     )
     result = production.check_stage(tmp_path, "script")
     assert result["status"] == "failed" and result["locations"]["checked"] == 1
-    assert "S01" in result["errors"][0] and "灵堂" in result["errors"][0]
+    assert "S01" in result["errors"][0] and "船舱" in result["errors"][0]
     production.atomic_json(tmp_path / "script.json", script("S02"))
     assert production.check_stage(tmp_path, "script")["status"] == "passed"
 
@@ -401,10 +401,10 @@ def test_production_script_check_uses_timed_rows_and_blocks_wrong_scene(monkeypa
 def test_locations_pair_after_many_declared_cuts_and_split_lines_keep_their_time():
     rows = [
         *({"text": f"不保留的台词{i}", "start": i, "end": i + 1} for i in range(12)),
-        {"text": "你的命怎么这么苦啊，妈", "start": 18, "end": 19},
+        {"text": "这雾怎么一直不散啊，娘", "start": 18, "end": 19},
     ]
     result = gate.check_script(
-        script("S02", ["你的命怎么这么苦啊", "妈"]), outline(), material(), rows
+        script("S02", ["这雾怎么一直不散啊", "娘"]), outline(), material(), rows
     )
     assert result["status"] == "passed" and result["checked"] == 2
 

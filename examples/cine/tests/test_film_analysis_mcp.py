@@ -726,7 +726,7 @@ def _stub_captions(monkeypatch, rows, status="read"):
 def test_a_transcript_made_before_captions_were_read_gains_them_without_asr(monkeypatch, tmp_path):
     video = _video(tmp_path)
     _transcript(tmp_path, video, marker=True, rows=_rows(True))
-    _stub_captions(monkeypatch, [{"start": 5.0, "end": 6.0, "text": "宝少爷回来了"}])
+    _stub_captions(monkeypatch, [{"start": 5.0, "end": 6.0, "text": "少东家回来了"}])
     _stub_attribution(monkeypatch)
     module = _load()
 
@@ -736,7 +736,7 @@ def test_a_transcript_made_before_captions_were_read_gains_them_without_asr(monk
     assert result["asr"] == "reused"
     assert result["captions"]["added"] == 1
     saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
-    assert [r["text"] for r in saved["segments"]] == ["开船咯", "宝少爷回来了"]
+    assert [r["text"] for r in saved["segments"]] == ["开船咯", "少东家回来了"]
     assert saved["burned_subtitles"]["status"] == "read"
     assert module._attribution_complete(saved)
 
@@ -761,14 +761,14 @@ def test_captions_are_read_once_and_then_the_transcript_is_reused(monkeypatch, t
 def test_a_silent_film_with_captions_is_no_longer_dialogue_free(monkeypatch, tmp_path):
     video = _video(tmp_path)
     _transcript(tmp_path, video, marker=False, rows=[])
-    _stub_captions(monkeypatch, [{"start": 1.0, "end": 2.0, "text": "搞什么鬼"}])
+    _stub_captions(monkeypatch, [{"start": 1.0, "end": 2.0, "text": "抓紧绳子"}])
     _stub_attribution(monkeypatch)
 
     result = _load()._transcription_for(video, tmp_path)
 
     assert result["status"] == "transcribed"
     saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
-    assert [r["text"] for r in saved["segments"]] == ["搞什么鬼"]
+    assert [r["text"] for r in saved["segments"]] == ["抓紧绳子"]
 
 
 def test_an_unavailable_caption_reader_leaves_the_transcript_and_tries_again_later(
@@ -821,7 +821,7 @@ def _recording_attribution(monkeypatch):
 
 def _teaser_rows(*, marked=True):
     rows = [
-        {"start": 0.1, "end": 4.7, "text": "晚上见。你不是她！"},
+        {"start": 0.1, "end": 4.7, "text": "天亮见。船不等人！"},
         {"start": 30.0, "end": 32.0, "text": "开船咯"},
         {"start": 40.0, "end": 42.0, "text": "坐稳了"},
     ]
@@ -859,7 +859,7 @@ def test_teaser_rows_are_left_out_of_attribution_and_labelled(monkeypatch, tmp_p
     assert "needs_review" not in teaser
     assert module._attribution_complete(saved)
     text = (inputs / "source-transcript.txt").read_text(encoding="utf-8")
-    assert "[预告片段] 晚上见。你不是她！" in text
+    assert "[预告片段] 天亮见。船不等人！" in text
 
 
 def test_an_older_transcript_gets_its_teaser_marked_without_asr(monkeypatch, tmp_path):
@@ -946,7 +946,7 @@ def test_a_plan_without_a_usable_scan_falls_back_to_scanning(monkeypatch, tmp_pa
 # Line performance: the emotion each spoken line's frames show
 # ---------------------------------------------------------------------------
 
-CRYING = {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "盘发妇人", "at": [0.3, 0.75]}
+CRYING = {"emotion": "委屈痛哭", "visible": "满脸泪水", "who": "包头巾的妇人", "at": [0.3, 0.75]}
 
 
 def _stub_performance(monkeypatch, status="read"):
@@ -986,7 +986,7 @@ def test_an_older_transcript_gains_line_performance_without_redoing_attribution(
     saved = json.loads((tmp_path / "inputs/source-transcript.json").read_text(encoding="utf-8"))
     assert saved["segments"][0]["performance"]["emotion"] == "委屈痛哭"
     text = (tmp_path / "inputs/source-transcript.txt").read_text(encoding="utf-8")
-    assert "开船咯  〔画面：盘发妇人，委屈痛哭：满脸泪水〕" in text
+    assert "开船咯  〔画面：包头巾的妇人，委屈痛哭：满脸泪水〕" in text
     assert _load()._transcription_for(video, tmp_path)["status"] == "reused"
     assert calls == [1]
 

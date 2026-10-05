@@ -713,7 +713,7 @@ def test_free_adaptation_is_not_compared_line_by_line(monkeypatch, tmp_path):
 TEASER_TRANSCRIPT = {
     "kind": "qualified_asr_transcript",
     "segments": [
-        {"id": "a", "start": 0.1, "end": 4.7, "text": "晚上见", "teaser": True},
+        {"id": "a", "start": 0.1, "end": 4.7, "text": "天亮见", "teaser": True},
         {"id": "b", "start": 35.0, "end": 37.0, "text": "你好"},
     ],
 }

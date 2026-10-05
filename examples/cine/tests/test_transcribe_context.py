@@ -19,29 +19,29 @@ def _cpu_only(monkeypatch):
 def test_name_list_is_detected_as_unusable_context():
     """A name list says who may appear, not who addresses whom.
 
-    Passing 「林黛玉 贾宝玉 贾母 贾敏…」 labelled 「男人靠不住」 as 贾母 and a
-    unison chorus line as 贾宝玉 — a character who never appears in the episode.
+    Passing 「陈小满 顾远舟 周母 秀娥…」 labelled 「雾天别下水」 as 周母 and a
+    unison chorus line as 顾远舟 — a character who never appears in the episode.
     """
-    assert transcribe._looks_like_name_list("林黛玉 贾宝玉 贾母 贾敏 林如海 算命 算命先生")
+    assert transcribe._looks_like_name_list("陈小满 顾远舟 周母 秀娥 陈大河 摆渡 摆渡老汉")
 
 
 def test_relational_context_is_not_mistaken_for_a_name_list():
-    assert not transcribe._looks_like_name_list("贾敏是林如海之妻、黛玉之母；贾母是黛玉的外婆")
+    assert not transcribe._looks_like_name_list("秀娥是陈大河之妻、小满之母；周母是小满的外婆")
     assert not transcribe._looks_like_name_list(
-        "人物设定与关系：\n- 林黛玉（别名黛玉；林氏集团独女继承人）"
+        "人物设定与关系：\n- 陈小满（别名小满；陈家船行独女继承人）"
     )
     assert not transcribe._looks_like_name_list("")
     assert not transcribe._looks_like_name_list("短片")
 
 
 def test_usable_context_warns_instead_of_silently_using_a_list():
-    out = transcribe._usable_context("林黛玉 贾宝玉 贾母 贾敏 林如海 算命 算命先生")
+    out = transcribe._usable_context("陈小满 顾远舟 周母 秀娥 陈大河 摆渡 摆渡老汉")
     assert "人名清单" in out
     assert "不要按人名顺序" in out
 
 
 def test_usable_context_passes_relationships_through_unchanged():
-    text = "贾敏是林如海之妻、黛玉之母"
+    text = "秀娥是陈大河之妻、小满之母"
     assert transcribe._usable_context(text) == text
 
 
@@ -50,16 +50,16 @@ def test_context_from_cast_emits_relationships_not_names():
         "characters": [
             {
                 "id": "C02",
-                "name": "贾敏",
-                "aliases": ["大姐"],
-                "oneLiner": "黛玉之母、林如海之妻",
-                "persona": {"gender": "女", "identity": "林夫人"},
+                "name": "周秀娥",
+                "aliases": ["秀娥"],
+                "oneLiner": "小满之母、陈大河之妻",
+                "persona": {"gender": "女", "identity": "陈家娘子"},
             }
         ]
     }
     out = transcribe.context_from_cast(json.dumps(cast, ensure_ascii=False))
-    assert "贾敏" in out
-    assert "黛玉之母、林如海之妻" in out  # kinship reaches the model
+    assert "周秀娥" in out
+    assert "小满之母、陈大河之妻" in out  # kinship reaches the model
     assert "不要按人物出现顺序指派" in out
 
 
@@ -69,8 +69,8 @@ def test_context_from_cast_marks_a_group_as_speaking_in_unison():
         "characters": [
             {
                 "id": "C08",
-                "name": "佣人群体",
-                "persona": {"gender": "群体", "identity": "贾府侍从"},
+                "name": "船工群体",
+                "persona": {"gender": "群体", "identity": "陈家船行伙计"},
             }
         ]
     }
@@ -99,11 +99,11 @@ def test_context_from_cast_carries_persona_relationships():
 
 def test_clean_asr_text_applies_no_story_specific_substitutions():
     """A fixed homophone table rewrites every other story's dialogue."""
-    for text in ("复课仪式开始了", "出世那碗饭", "储物隔里有信"):
+    for text in ("度口今天不开船", "马头那碗面", "船仓里有封信"):
         assert transcribe.clean_asr_text(text) == text
     # Story-independent repairs still apply.
     assert transcribe.clean_asr_text("你好、世界。") == "你好，世界"
-    assert transcribe.clean_asr_text("JakenＢ来了") == "Jaken，来了"
+    assert transcribe.clean_asr_text("MiloＢ来了") == "Milo，来了"
 
 
 ROWS = [
@@ -139,18 +139,18 @@ MERGED = [
         "start": 0.0,
         "end": 3.0,
         "speaker": "父亲",
-        "text": "宝贝懂了吧男人靠不住啊妈你算命的钱还是爸爸出的呢",
+        "text": "娃记住了吧雾天别下水娘你上回不也偷偷下水了吗",
     },
-    {"start": 3.2, "end": 4.0, "speaker": "说话人未标注", "text": "我升官了"},
+    {"start": 3.2, "end": 4.0, "speaker": "说话人未标注", "text": "船票买到了"},
 ]
 
 
 def test_text_only_refinement_may_split_a_row_holding_two_speakers():
     """Merged speakers cannot be attributed; the split pieces are left for JEV to label."""
     refined = [
-        {"start": 0.0, "end": 1.6, "speaker": "父亲", "text": "宝贝，懂了吧？男人靠不住啊。"},
-        {"start": 1.6, "end": 3.0, "speaker": "父亲", "text": "妈，你算命的钱还是爸爸出的呢。"},
-        {"start": 3.2, "end": 4.0, "speaker": "父亲", "text": "我升官了！"},
+        {"start": 0.0, "end": 1.6, "speaker": "父亲", "text": "娃，记住了吧？雾天别下水。"},
+        {"start": 1.6, "end": 3.0, "speaker": "父亲", "text": "娘，你上回不也偷偷下水了吗。"},
+        {"start": 3.2, "end": 4.0, "speaker": "父亲", "text": "船票买到了！"},
     ]
     kept = transcribe._accepted_refinement(MERGED, refined, speakers=False)
     assert [(r["start"], r["end"]) for r in kept] == [(0.0, 1.6), (1.6, 3.0), (3.2, 4.0)]
@@ -160,32 +160,30 @@ def test_text_only_refinement_may_split_a_row_holding_two_speakers():
 
 def test_a_split_that_rewrites_the_words_keeps_that_row_as_heard():
     invented = [
-        {"start": 0.0, "end": 1.6, "text": "宝贝，今天天气真好。"},
+        {"start": 0.0, "end": 1.6, "text": "娃，今天天气真好。"},
         {"start": 1.6, "end": 3.0, "text": "我们去公园散步吧。"},
-        {"start": 3.2, "end": 4.0, "text": "我升官了！"},
+        {"start": 3.2, "end": 4.0, "text": "船票买到了！"},
     ]
     leaking = [
-        {"start": 0.0, "end": 1.6, "text": "宝贝，懂了吧？男人靠不住啊。"},
-        {"start": 1.6, "end": 3.5, "text": "妈，你算命的钱还是爸爸出的呢。"},
-        {"start": 3.5, "end": 4.0, "text": "我升官了！"},
+        {"start": 0.0, "end": 1.6, "text": "娃，记住了吧？雾天别下水。"},
+        {"start": 1.6, "end": 3.5, "text": "娘，你上回不也偷偷下水了吗。"},
+        {"start": 3.5, "end": 4.0, "text": "船票买到了！"},
     ]
     kept = transcribe._accepted_refinement(MERGED, invented, speakers=False)
     assert kept[0] == MERGED[0]
-    assert kept[1]["text"] == "我升官了！"
+    assert kept[1]["text"] == "船票买到了！"
     # Pieces that leave their row cannot be placed at all.
     assert transcribe._accepted_refinement(MERGED, leaking, speakers=False) == MERGED
 
 
 def test_homophone_repair_inside_a_split_is_accepted():
-    row = [
-        {"start": 59.59, "end": 62.79, "speaker": "unclear", "text": "这位姐姐优势这不是姐姐妹"}
-    ]
+    row = [{"start": 59.59, "end": 62.79, "speaker": "unclear", "text": "船家几十开船今天不开雾"}]
     reply = [
-        {"start": 59.59, "end": 61.2, "text": "这位姐姐又是……"},
-        {"start": 61.2, "end": 62.79, "text": "这不是姐姐，妹——"},
+        {"start": 59.59, "end": 61.2, "text": "船家，几时开船……"},
+        {"start": 61.2, "end": 62.79, "text": "今天不开，雾——"},
     ]
     kept = transcribe._accepted_refinement(row, reply, speakers=False)
-    assert [r["text"] for r in kept] == ["这位姐姐又是……", "这不是姐姐，妹——"]
+    assert [r["text"] for r in kept] == ["船家，几时开船……", "今天不开，雾——"]
 
 
 def test_a_failed_refinement_reports_why(monkeypatch):
@@ -236,7 +234,7 @@ def test_refine_prompt_carries_no_sample_story_examples(monkeypatch):
     rows = transcribe.llm_refine_transcript(ROWS, None, speakers=False)
     assert sent["body"]["model"] == "test-transcribe-model"
     prompt = sent["body"]["messages"][1]["content"]
-    for sample in ("复课", "出世那碗", "储物隔", "母亲叹息", "女儿拆台", "卖惨"):
+    for sample in ("度口", "马头那碗", "船仓", "外婆叹气", "外孙抬杠", "装可怜"):
         assert sample not in prompt
     assert [r["text"] for r in rows] == ["外公，雾大吗？", "今天不开船。"]
 

@@ -323,9 +323,9 @@ def test_compact_preserves_dialogue_at_artifact_depth():
                         "sceneId": "S01",
                         "characters": ["C02", "C07"],
                         "flow": [
-                            {"speaker": "C06", "line": "老夫夜观天象，看大姐你是命中带苦。"},
-                            {"speaker": "C07", "line": "老婆，我升官了！"},
-                            {"speaker": "C02", "line": "宝贝懂了吧？男人靠不住啊。"},
+                            {"speaker": "C06", "line": "老汉守渡四十年，看这雾是要出大事。"},
+                            {"speaker": "C07", "line": "娘子，船票买到了！"},
+                            {"speaker": "C02", "line": "娃记住了吧？雾天别下水。"},
                         ],
                     }
                 ],
@@ -333,7 +333,7 @@ def test_compact_preserves_dialogue_at_artifact_depth():
         ]
     }
     compacted = json.dumps(jev_gates._compact(script), ensure_ascii=False)
-    for line in ("升官", "男人靠不住", "命中带苦"):
+    for line in ("船票", "雾天别下水", "要出大事"):
         assert line in compacted, f"{line} was truncated out of the JEV state"
 
 
@@ -369,9 +369,9 @@ def test_build_state_carries_source_material(tmp_path):
     path = tmp_path / "outline.json"
     outline(path)
     source = tmp_path / "source.txt"
-    source.write_text("[00:00] 算命先生：老夫夜观天象。\n", encoding="utf-8")
+    source.write_text("[00:00] 老船夫：老汉守渡四十年。\n", encoding="utf-8")
     state, hashes = jev_gates.build_state("script", {"outline": path}, source_text=source)
-    assert "老夫夜观天象" in state["source_material"]
+    assert "老汉守渡四十年" in state["source_material"]
     assert hashes["source_material"]
 
 
@@ -384,7 +384,7 @@ def test_unusable_baseline_blocks_instead_of_scoring_the_artifact(tmp_path):
     path = tmp_path / "outline.json"
     outline(path)
     source = tmp_path / "source.txt"
-    source.write_text("[女儿] 男人靠不住啊。妈，你算命的钱还是爸爸出的呢！我升官了！\n", encoding="utf-8")
+    source.write_text("[女儿] 雾天别下水。娘，你上回不也偷偷下水了吗！船票买到了！\n", encoding="utf-8")
 
     answers = {
         "dialogue_naturalness": Answer(type="score", score=2.0, confidence=0.8),
