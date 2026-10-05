@@ -456,17 +456,50 @@ def test_a_reply_that_stays_malformed_is_retried_twice_then_left_partial(monkeyp
     assert "unknown location L9" in result["errors"][0]
 
 
-def test_an_unreachable_gateway_is_not_retried_in_the_same_run(monkeypatch, project):
+def test_a_stalled_request_is_sent_once_more_at_once(monkeypatch, project):
     root = project(2)
     calls = []
 
-    def ask(*_args, **_kwargs):
+    def ask(_known, batch, _gateway, **_kwargs):
         calls.append(1)
+        if len(calls) == 1:
+            raise TimeoutError("timed out")
+        return reply(batch, new=[LOCATIONS[0]])
+
+    monkeypatch.setattr(notes, "_ask", ask)
+    result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
+    assert len(calls) == 2 and result["status"] == "read" and not result["errors"]
+    batch = result["attempts"][0]["batches"][0]
+    assert batch["status"] == "read" and batch["transport_errors"] == ["TimeoutError: timed out"]
+
+
+def test_a_gateway_that_fails_twice_stops_the_run(monkeypatch, project):
+    root = project(3)
+    monkeypatch.setattr(notes, "BATCH_SHOTS", 1)
+    calls = []
+
+    def ask(_known, batch, _gateway, **_kwargs):
+        calls.append([s["index"] for s, _ in batch])
         raise OSError("gateway unreachable")
 
     monkeypatch.setattr(notes, "_ask", ask)
     result = notes.read_shot_notes("film.mp4", root, gateway=GATEWAY)
-    assert calls == [1] and result["status"] == "partial"
+    # The first shot is asked twice; the other two are not sent at all.
+    assert calls == [[0], [0]]
+    assert result["status"] == "partial" and result["unread_shots"] == [0, 1, 2]
+    assert "gateway unreachable" in result["errors"][0]
+    assert "failed twice" in result["errors"][1]
+
+
+def test_only_black_at_a_cut_makes_a_fade():
+    # A blink 0.2 s into the opening shot lies inside it.
+    assert notes._transition({"start": 0.0}, [(0.2, 0.37)]) == "cut"
+    # Black ending at the cut, or starting a frame after it, opens the shot.
+    assert notes._transition({"start": 4.0}, [(3.0, 4.0)]) == "fade"
+    assert notes._transition({"start": 6.0}, [(6.07, 6.5)]) == "fade"
+    # A fade-in ramp just after the black still counts.
+    assert notes._transition({"start": 8.3}, [(7.5, 8.0)]) == "fade"
+    assert notes._transition({"start": 9.0}, None) is None
 
 
 def test_shot_language_is_kept_and_an_unknown_value_stays_empty(monkeypatch, project):

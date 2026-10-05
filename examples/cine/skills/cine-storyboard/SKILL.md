@@ -103,7 +103,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
   --cast <cast.json> --art <art.json> > <workdir>/storyboard.json
 ```
 
-确定性展开：每场的节拍清单（编号、动作/台词、估算秒数、说话人）进 `seedScenes`，从 cast/art 取预设并提供起稿风格句。这些秒数是预算依据，不是实际表演测量；按现有参数校验，给动作和反应留时间，不虚报实测。shots 留空，切镜才是模型的活。
+确定性展开：每场的节拍清单（编号、动作/台词、估算秒数、说话人）进 `seedScenes`，从 cast/art 取预设并提供起稿风格句；改编原片时，自动流程播种的底稿每场另带原片镜头 `sourceShots`。这些秒数是预算依据，不是实际表演测量；按现有参数校验，给动作和反应留时间，不虚报实测。shots 留空，切镜才是模型的活。
 
 ### Step 2 — 逐集分段切镜
 
@@ -122,7 +122,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 4. **光影与材质**：从已确认美术设定选择有来源的主光、背景亮度与色彩关系，保持跨镜方向和材质连续。
 5. **表演与声音**：给决定和反应留多久，何处用环境声、画外音或安静衔接。每段 `non_diegetic_music` 固定为 `N/A`，背景配乐由用户在后期剪辑时统一添加；角色听得到的收音机、现场演奏等音乐仍在对应镜头中交代声源和动作。
 
-改编原片时，先看 `production/source-material.json` 里 `source_locations.shots`：每个原片镜头记有地点 `place`、可见事件 `what`、景别 `size`、运镜 `camera` 和转场 `transition`，用词与本 skill 的枚举一致。按剧本场次对应的原片地点（outline 场次的 `from`）找到那场原片的镜头。原片里承担作用的镜头语言要在对应的戏里保留或换成更好的手法，不能整场退化成固定中景，例如：人物登场的跟拍或上摇、揭示用的推拉、反转处的硬切、渐黑带过的时间跳跃、交代空间的大全景。不逐镜照搬；改编改动过的戏按新剧情设计。
+改编原片时，底稿每场的 `seedScenes[].sourceShots` 列出这场戏对应原片地点（outline 场次的 `from`）的镜头：时间、景别、运镜、渐黑转场（`fade in`）、画面和这一镜里的台词，用词与本 skill 的枚举一致；全片镜头在 `production/source-material.json` 的 `source_locations.shots`。原片里承担作用的镜头语言要在对应的戏里保留或换成更好的手法，不能整场退化成固定中景，例如：人物登场的跟拍或上摇、揭示用的推拉、反转处的硬切、渐黑带过的时间跳跃、交代空间的大全景。不逐镜照搬；改编改动过的戏按新剧情设计。
 
 随后把这些选择落实到 `frame` 的构图/状态、`camera` 的运动选择和每段视频提示词的动作/声源中。
 说明里写了但实际提示词没写，不算完成交接。参考图只选匹配本次版本、角色状态和场景的真实资产。

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import http.client
 import json
 import math
 import re
@@ -23,12 +24,18 @@ except ImportError:
     from transcribe import gateway_settings
 
 BATCH_SHOTS = 24
-# Extra passes over shots whose reply was malformed; transport failures wait for the next run.
+# Extra passes over shots whose reply was malformed.
 RETRIES = 2
+# A stalled or dropped request is sent once more at once; failing again means the gateway
+# is down, so the remaining shots wait for the next run.
+TRANSPORT_RETRIES = 1
+TRANSPORT_ERRORS = (OSError, http.client.HTTPException)
 FRAME_WIDTH = 384
 FRAME_QUALITY = 4
 POINTS = (0.3, 0.7)
 TIMEOUT = 300
+# Most readings return within 90 s; a stalled request should not hold the run for long.
+REQUEST_TIMEOUT = 180
 LOCATION_ID = re.compile(r"L[1-9][0-9]*")
 PERSON_ID = re.compile(r"P[1-9][0-9]*")
 SCHEMA_VERSION = 3
@@ -56,8 +63,10 @@ CAMERAS = (
     "Roll Clockwise",
     "Roll Counterclockwise",
 )
-# A cut within this many seconds of a black interval is a fade (dip to black).
+# A shot opens with a fade (dip to black) when black runs into its cut: starting at most
+# FADE_LEAD after the cut, ending at most FADE_WINDOW before it. Later black lies inside the shot.
 FADE_WINDOW = 0.35
+FADE_LEAD = 0.1
 PROMPT = """你在给影片逐镜头拉片，整理拍摄地点和可见事件。每个镜头附两帧。
 地点指布景/实景本身，不是景别、机位、人物或故事章节。
 同一地点的不同角度、特写仍用同一 id；只在可见布景支持地点变化时新建地点。
@@ -162,7 +171,7 @@ def _ask(
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     started = time.monotonic()
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
         envelope = json.loads(response.read().decode("utf-8"))
     request_seconds = time.monotonic() - started
     stats = {
@@ -329,7 +338,7 @@ def _transition(shot: dict, black: list[tuple[float, float]] | None) -> str | No
     if black is None:
         return None
     start = shot["start"]
-    near = any(a - FADE_WINDOW <= start <= b + FADE_WINDOW for a, b in black)
+    near = any(a - FADE_LEAD <= start <= b + FADE_WINDOW for a, b in black)
     return "fade" if near else "cut"
 
 
@@ -501,13 +510,16 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
             shot["transition"] = _transition(shot, black)
         last_error: dict[int, str] = {}
         hint = None
+        gateway_down = False
         with tempfile.TemporaryDirectory(prefix="cine-shot-frames-") as temp:
             for round_number in range(1 + RETRIES):
                 pending = [s for s in shots if s["index"] in unread]
-                if not pending or (round_number and not hint):
+                if not pending or (round_number and not hint) or gateway_down:
                     break
                 problems_this_round: list[str] = []
                 for offset in range(0, len(pending), BATCH_SHOTS):
+                    if gateway_down:
+                        break
                     batch = pending[offset : offset + BATCH_SHOTS]
                     metric = {
                         "shots": [s["index"] for s in batch],
@@ -518,6 +530,7 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                     }
                     attempt["batches"].append(metric)
                     phase = time.monotonic()
+                    asking = False
                     try:
                         numbered = []
                         for shot in batch:
@@ -538,7 +551,17 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                         metric["frame_seconds"] = round(time.monotonic() - phase, 3)
                         phase = time.monotonic()
                         extra = {"hint": hint} if round_number else {}
-                        reply = _ask(known, numbered, gateway, people=people, **extra)
+                        asking = True
+                        for retry in range(1 + TRANSPORT_RETRIES):
+                            try:
+                                reply = _ask(known, numbered, gateway, people=people, **extra)
+                                break
+                            except TRANSPORT_ERRORS as exc:
+                                if retry == TRANSPORT_RETRIES:
+                                    raise
+                                metric.setdefault("transport_errors", []).append(
+                                    f"{type(exc).__name__}: {exc}"
+                                )
                         metric["request_seconds"] = round(time.monotonic() - phase, 3)
                         metric["request"] = reply.get("_request_stats")
                         phase = time.monotonic()
@@ -572,12 +595,21 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                             f"{type(exc).__name__}: {exc}"
                         )
                         last_error.update(dict.fromkeys((s["index"] for s in batch), message))
-                        # A malformed reply is worth asking again; an unreachable gateway is not.
-                        if not isinstance(
+                        # A malformed reply is asked again with a hint; a request that failed
+                        # twice means the gateway is down; a frame failure skips this batch only.
+                        if asking and isinstance(exc, TRANSPORT_ERRORS):
+                            gateway_down = True
+                        elif not isinstance(
                             exc, (OSError, subprocess.SubprocessError, RuntimeError)
                         ):
                             problems_this_round.append(f"{type(exc).__name__}: {exc}")
                 hint = "；".join(dict.fromkeys(problems_this_round))[:1500] or None
+        skipped = [i for i in sorted(unread) if i not in last_error]
+        if gateway_down and skipped:
+            message = (
+                f"shots {skipped[0]}-{skipped[-1]}: not sent, the gateway failed twice in a row"
+            )
+            last_error.update(dict.fromkeys(skipped, message))
         result["errors"] = list(
             dict.fromkeys(last_error[i] for i in sorted(unread) if i in last_error)
         )

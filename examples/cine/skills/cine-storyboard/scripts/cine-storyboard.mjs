@@ -69,6 +69,9 @@ export const CAMERA_MOVES = {
   'Roll Counterclockwise': '逆旋',
 };
 
+/** 固定镜头的段落里不该出现「镜头在动」的写法，否则视频模型拿到的是自相矛盾的指令。 */
+const CAMERA_MOVING = /\bcamera\s+(?:[a-z]+ly\s+)?(?:pans?|sweeps?|tracks?|follows?|pushes|pulls?|dolly|dollies|tilts?|cranes?|glides?|arcs?|orbits?|zooms?|swings?|whips?|drifts?|moves?|trucks?|travels?|circles?|rises?|lowers?|descends?|tightens?|widens?|creeps?|slides?|rolls?)\b|镜头(?:缓缓|慢慢|缓慢|快速|迅速|随之|随即|逐渐|一路)?(?:推进|推近|拉远|拉开|摇向|摇到|横摇|横移|跟随|跟着|上升|下降|环绕|旋转|甩向)/i;
+
 /** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（realistic / ghibli）。
  *  短语必须出现在每条分镜图提示词里——同一部剧的分镜图不许画风漂。 */
 export const STYLE_PRESETS = {
@@ -1468,6 +1471,11 @@ export function gateReport(board, ctx = {}) {
             bad.camera.push(`${cid} 在 h3Prompt 里找不到对应的 [Shot ${ci + 1}] 段落`);
           } else if (!(promptLang === 'en' ? slice.toLowerCase() : slice).includes(term)) {
             bad.camera.push(`${cid} 的 [Shot ${ci + 1}] 段落缺运镜词「${term}」`);
+          } else if (cut.camera === 'Static Shot') {
+            const moving = slice.match(CAMERA_MOVING);
+            if (moving) {
+              bad.camera.push(`${cid} 运镜是 Static Shot，[Shot ${ci + 1}] 段落却写「${moving[0]}」——固定镜头里镜头不动，改运镜或删掉这句`);
+            }
           }
         }
         const frame = String(cut?.frame ?? '');
@@ -1624,7 +1632,7 @@ export function gateReport(board, ctx = {}) {
   add('crowd', `单个分镜同框 ≤ ${params.maxOnScreen} 人，超了必须带拆解说明`, bad.crowd.length === 0, bad.crowd.join('；'));
   add('segment-id', '段号 E01-01 格式、按顺序连号', bad.id.length === 0, bad.id.join('；'));
   add('size-phrase', '景别短语写进分镜图提示词', bad.size.length === 0, bad.size.join('；'));
-  add('camera-phrase', '运镜用 H3 官方词表，且出现在自己的 [Shot k] 段落里', bad.camera.length === 0, bad.camera.join('；'));
+  add('camera-phrase', '运镜用 H3 官方词表，出现在自己的 [Shot k] 段落里；固定镜头的段落不写镜头在动', bad.camera.length === 0, bad.camera.join('；'));
   add('h3-structure', 'H3 首行对齐指令和切点对账，片段背景配乐固定 N/A', eps.length > 0 && bad.h3s.length === 0, bad.h3s.join('；'));
   add('h3-references', 'Ref2VA：本段画布连的场景图和角色图都定义成 <Subject N>（写明 ID、引用 <Picture N>）并在正文里用上', bad.h3r.length === 0, ctx.ref2va ? bad.h3r.join('；') : SKIP_REF2VA);
   add('h3-dialogue', '认领节拍的台词逐字进 H3 提示词的 <d> 块', bad.h3d.length === 0, script ? bad.h3d.join('；') : SKIP_SCRIPT);
@@ -1839,7 +1847,7 @@ const GATE_LABELS_EN = {
   'crowd': 'At most {0} characters on screen per cut; more requires a breakdown note',
   'segment-id': 'Segment IDs in E01-01 format, sequential',
   'size-phrase': 'Shot-size phrase present in the frame prompt',
-  'camera-phrase': 'Camera move from the official H3 vocabulary, inside its own [Shot k] passage',
+  'camera-phrase': 'Camera move from the official H3 vocabulary, inside its own [Shot k] passage; a static shot never says the camera moves',
   'h3-structure': 'H3 alignment and cut times match; segment background music is N/A',
   'h3-references': 'Ref2VA: the scene and character images connected on the canvas are each a <Subject N> (with its ID, citing its <Picture N>) and are used in the description',
   'h3-dialogue': 'Claimed dialogue appears verbatim inside the H3 <d> blocks',

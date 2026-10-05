@@ -714,6 +714,27 @@ def init_outline(directory, source, episodes, seconds, genre, adapt_mode):
     return {"status": "draft_seeded", "path": str(path), "validated": False}
 
 
+def _seed_source_shots(directory, stage, document):
+    """Put each scene's source shots in the seed, the file its writer reads first."""
+    try:
+        from .source_shots import add_source_shots
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from source_shots import add_source_shots
+    try:
+        material = read(source_material_path(directory))
+        outline = read(stage_path(directory, "outline"))
+    except (OSError, ValueError):
+        return 0
+    rows = []
+    attributed = directory / "source-transcript-attributed.json"
+    if attributed.is_file():
+        try:
+            rows = read(attributed).get("attributions") or []
+        except (OSError, ValueError, AttributeError):
+            rows = []
+    return add_source_shots(stage, document, material, outline, rows)
+
+
 def seed(directory, stage, timeout=30, *, replace_empty=False):
     if stage == "outline":
         raise ValueError("use init for the initial outline")
@@ -768,6 +789,8 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     problems = shape_errors(stage, document)
     if problems:
         raise ValueError("invalid native seed output: " + "; ".join(problems))
+    if stage in ("script", "storyboard"):
+        _seed_source_shots(directory, stage, document)
     if any(fingerprint(Path(p)) != h for p, h in hashes.items()):
         raise ValueError("upstream changed during seeding; retry after edits settle")
     target.parent.mkdir(parents=True, exist_ok=True)

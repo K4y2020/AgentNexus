@@ -163,10 +163,12 @@ cropped or sped up, or one that only moves speech forward, is not.
    Each shot also records its shot language in the storyboard's vocabulary:
    `size` (extreme-wide … extreme-close) and `camera` (Static Shot, Push In,
    Tracking Shot …) read from the two frames, null when unreadable, and
-   `transition` (`fade` beside a black stretch, else `cut`; dissolves are not told
-   apart). A malformed reply costs only the shots it garbles: they are asked
-   again in the same run, twice at most, with the problem quoted; an unreachable
-   gateway waits for the next run. A complete reading with the same model and
+   `transition` (`fade` when black runs into the shot's cut, else `cut`; black
+   inside a shot does not count, and dissolves are not told apart). A malformed
+   reply costs only the shots it garbles: they are asked again in the same run,
+   twice at most, with the problem quoted. A stalled or dropped request is sent
+   once more at once; when that fails too the gateway counts as down and the
+   remaining shots wait for the next run. A complete reading with the same model and
    input hashes is reused. A partial reading resumes its unfinished shots on the
    next run, using the configured gateway model. `film_analyze` reports
    `notes_incomplete` while any shot is unread, and the source-material export

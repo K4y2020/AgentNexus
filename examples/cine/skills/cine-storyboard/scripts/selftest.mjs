@@ -389,6 +389,21 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
   ok(!g.ok, '运镜词没写进自己的 [Shot k] 段落被拦');
   ok(g.detail.includes('E01-01#1'), '点名到切');
 }
+{
+  // 固定镜头的段落又写镜头在扫、在推：视频模型拿到的是自相矛盾的指令
+  const doc = clone(FIXTURE);
+  const seg = doc.episodes[0].segments[0];
+  ok(seg.cuts[1].camera === 'Static Shot' && gate(doc, 'camera-phrase').ok, '样例的固定镜头照过');
+  seg.h3Prompt = seg.h3Prompt.replace('Fog drifts between its pilings.', 'The camera slowly sweeps right along the pilings.');
+  const g = gate(doc, 'camera-phrase');
+  ok(!g.ok && g.detail.includes('E01-01#2') && g.detail.includes('camera slowly sweeps'), '固定镜头写了镜头移动被拦并点名');
+}
+{
+  const doc = clone(FIXTURE);
+  const seg = doc.episodes[0].segments[0];
+  seg.h3Prompt = seg.h3Prompt.replace('Fog drifts between its pilings.', 'The camera holds while fog drifts between its pilings and a gull tracks the water.');
+  ok(gate(doc, 'camera-phrase').ok, '镜头停住、画里的东西在动不算矛盾');
+}
 // h3-structure — 对齐指令由分镜结构推导，逐字对账
 {
   const doc = clone(KEYFRAMES);

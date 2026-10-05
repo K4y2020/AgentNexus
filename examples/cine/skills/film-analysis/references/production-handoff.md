@@ -378,6 +378,9 @@ spans 的重叠时长归属，占整句时长至少 30% 的地点都包含该句
 含任一对应地点的场景；跨地点台词在两边均达到 30% 时，放在任一边都通过。
 剧本拆分一条原片台词时，各句仍使用原片整句的起止时间。
 抽核删除地点用 `adaptation.cut[].locations` 声明；借壳跳过。
+`production.py` 播种剧本和分镜骨架时，把大纲场景 `from` 地点里的正片镜头抄进骨架：剧本每集
+`sourceShots`（按场列时间、景别·运镜、画面、说话人和台词），分镜每场 `seedScenes[].sourceShots`
+（时间、景别、运镜、`fade in`、画面和台词）。人物编号换成名牌字幕或外貌；一场超过 60 镜时均匀抽取。
 场景表缺失/部分失败和未知台词地点进入 review 队列。
 旧项目生成场景表后用 `production.py rebind-source <production> --source-project <project>`
 重新导出并更新来源绑定，再补已有场景的 `from` 并运行阶段检查。

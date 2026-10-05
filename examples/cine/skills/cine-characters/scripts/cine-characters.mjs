@@ -536,6 +536,8 @@ const MACHINE_FIELDS = { image: ['prompt', 'negativePrompt', 'sheet'], voice: ['
 const HUMAN_VOICE_FIELDS = ['timbre', 'pitch', 'pace', 'accent', 'emotion', 'referenceHint'];
 
 const normalise = (s) => String(s).replace(/\s+/g, '');
+/** 性别栏同时写了两种性别（「男/女」「男女」「male/female」）就是把一群人做成了一张卡。 */
+const TWO_GENDERS = /男\s*[/／、,，&和或与及]?\s*女|女\s*[/／、,，&和或与及]\s*男|\b(?:fe)?male\s*(?:\/|&|and|or)\s*(?:fe)?male\b|\bmixed\b|不限|均有|皆有/i;
 
 /**
  * @param characters 角色卡数组
@@ -632,6 +634,10 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
     } else {
       for (const f of PERSONA_STRINGS) {
         if (typeof persona[f] !== 'string' || !persona[f].trim()) at(name, `persona.${f} 缺失或为空`);
+      }
+      // 一张卡就是一个人：下游按它出一张参考图、配一个声音，几个人合成的组在视频里会共用一张脸
+      if (typeof persona.gender === 'string' && TWO_GENDERS.test(persona.gender)) {
+        at(name, `persona.gender「${persona.gender}」写了不止一种性别——一张角色卡只能是一个人（一张参考图、一个声音）；几个人合成的组要拆成各自的卡，或合成一个具体的人`);
       }
       if (!Array.isArray(persona.personality)) at(name, 'persona.personality 必须是数组');
       if (!Array.isArray(persona.relationships)) at(name, 'persona.relationships 必须是数组');

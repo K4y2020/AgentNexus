@@ -324,6 +324,19 @@ eq(validateCast(CAST, SOURCE).length, 0, '自带样例通过全部校验');
 }
 ok(validateCast([], SOURCE).length > 0, '空 cast 报错');
 {
+  // 一张卡只能是一个人：几个男女员工合成的「组」会在视频里共用一张脸、一个声音
+  for (const gender of ['男/女', '男女', '女、男', '男或女', 'Male/Female', 'female and male', '不限']) {
+    const group = clone();
+    group[0].persona.gender = gender;
+    ok(hits(group, '只能是一个人') === 1, `性别栏「${gender}」被当成多人卡拦下`);
+  }
+  for (const gender of ['女', '男', 'Female', '女（女扮男装）', '男（声音偏女性化）']) {
+    const single = clone();
+    single[0].persona.gender = gender;
+    eq(hits(single, '只能是一个人'), 0, `性别栏「${gender}」是一个人，不误拦`);
+  }
+}
+{
   const typed = clone();
   typed[0].embodiment = 'hologram';
   typed[1].embodiment = 'physical';
