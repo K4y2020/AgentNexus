@@ -5,11 +5,12 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+from agentnexus.seedance.env_keys import read_key
 
 logger = logging.getLogger(__name__)
 
@@ -90,23 +91,8 @@ def validate_seedance_base_url(url_str: str) -> str:
 
 
 def get_seedance_api_key() -> str | None:
-    """Read SEEDANCE_API_KEY from the environment, then from ``~/.agentnexus/.env``."""
-    key = os.environ.get("SEEDANCE_API_KEY", "").strip()
-    if key:
-        return key
-    env_file = Path.home() / ".agentnexus" / ".env"
-    if env_file.is_file():
-        try:
-            with env_file.open(encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("SEEDANCE_API_KEY="):
-                        val = line.split("=", 1)[1].strip().strip("\"'")
-                        if val:
-                            return val
-        except Exception:  # noqa: BLE001 - probe optional credential sources
-            pass
-    return None
+    """SEEDANCE_API_KEY from the environment or the ``.env`` files ``read_key`` searches."""
+    return read_key("SEEDANCE_API_KEY") or None
 
 
 class SeedanceClient:

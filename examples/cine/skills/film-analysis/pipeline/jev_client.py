@@ -2,18 +2,49 @@
 
 from __future__ import annotations
 
+import json
 import math
 from types import SimpleNamespace
 from typing import Any
 
 try:
-    from .jev_gates import STATE_TOKEN_BUDGET, _estimate_value_tokens
-    from .jev_gates import _find_api_key as _find_api_key
+    from .jev_transport import find_api_key as _find_api_key
     from .jev_transport import open_client as open_client
 except ImportError:
-    from jev_gates import STATE_TOKEN_BUDGET, _estimate_value_tokens
-    from jev_gates import _find_api_key as _find_api_key
+    from jev_transport import find_api_key as _find_api_key
     from jev_transport import open_client as open_client
+
+# JEV rejects requests above roughly 32k input tokens (observed as
+# max_tokens_exceeded). The state gets this share; questions take the rest.
+STATE_TOKEN_BUDGET = 26_000
+
+_CJK_RANGES = ((0x3000, 0x303F), (0x3400, 0x9FFF), (0xFF00, 0xFFEF))
+
+
+def _estimate_tokens(text: str) -> int:
+    """Token estimate from measured JEV usage: CJK ~1.09/char, JSON ~0.29/char.
+
+    Rounded up to 1.1 and 0.3; on real cast/art states it runs about 5% high.
+    """
+    cjk = sum(1 for ch in text if any(low <= ord(ch) <= high for low, high in _CJK_RANGES))
+    return (cjk * 11 + (len(text) - cjk) * 3) // 10
+
+
+def _entries(value: Any) -> int:
+    if isinstance(value, dict):
+        return sum(1 + _entries(item) for item in value.values())
+    if isinstance(value, list):
+        return sum(1 + _entries(item) for item in value)
+    return 0
+
+
+def _estimate_value_tokens(value: Any) -> int:
+    """Estimate for structured state: JEV renders nesting at about 3 tokens per entry.
+
+    Without this, a deeply nested storyboard measured 28% above the text-only estimate.
+    """
+    return _estimate_tokens(json.dumps(value, ensure_ascii=False)) + 3 * _entries(value)
+
 
 UNATTRIBUTED = "unclear"
 MIN_MARGIN = 0.15

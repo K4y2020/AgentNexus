@@ -1,4 +1,4 @@
-"""Shared HTTP transport for TypeSafe System One (JEV) calls.
+"""The TypeSafe System One (JEV) key and HTTP transport every pipeline caller uses.
 
 The SDK builds its HTTP client from the ambient environment. On a machine with
 a loopback proxy configured using an ``https://`` scheme — which is what a
@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import os
 import re
-from itertools import islice
+from pathlib import Path
+
+API_KEY_ENV = "TYPESAFE_API_KEY"
 
 _LOOPBACK_HTTP_SCHEME = re.compile(
     r"^https://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?/?$", re.IGNORECASE
@@ -31,6 +33,33 @@ _PROXY_ENV_VARS = (
     "HTTP_PROXY",
     "http_proxy",
 )
+
+
+def env_files() -> list[Path]:
+    """The .env files searched for the key, in order; agentnexus core reads the same."""
+    config_home = os.environ.get("AGENTNEXUS_CONFIG_HOME")
+    home = Path(config_home) if config_home else Path.home() / ".agentnexus"
+    return [Path.cwd() / ".env", home / ".env", Path.home() / ".env"]
+
+
+def find_api_key() -> str:
+    """The key from the environment, else from the first .env file that sets it."""
+    value = os.environ.get(API_KEY_ENV, "").strip()
+    if value:
+        return value
+    prefix = f"{API_KEY_ENV}="
+    for path in env_files():
+        try:
+            lines = path.read_text(encoding="utf-8-sig").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            line = line.strip()
+            if line.startswith(prefix):
+                value = line[len(prefix) :].strip().strip('"').strip("'")
+                if value:
+                    return value
+    return ""
 
 
 def effective_proxy() -> str | None:
@@ -106,8 +135,11 @@ def is_transport_error(exc: BaseException) -> bool:
 
 
 __all__ = [
+    "API_KEY_ENV",
     "client_kwargs",
     "effective_proxy",
+    "env_files",
+    "find_api_key",
     "is_transport_error",
     "open_client",
 ]

@@ -14,6 +14,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from .jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
+    from .jev_transport import find_api_key as _find_api_key
+except ImportError:  # Direct CLI execution from the pipeline directory.
+    from jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
+    from jev_transport import find_api_key as _find_api_key
+
 
 STAGE_GATES: dict[str, dict[str, Any]] = {
     "outline": {
@@ -186,30 +193,6 @@ def _repair_target(stage: str, next_stage: str, repair_scope: str) -> str:
     return "stop"
 
 
-def _find_api_key() -> str:
-    value = os.environ.get("TYPESAFE_API_KEY", "").strip()
-    if value:
-        return value
-    candidates = [
-        Path.cwd() / ".env",
-        Path.home() / ".agentnexus" / ".env",
-        Path.home() / ".env",
-    ]
-    for candidate in candidates:
-        if not candidate.is_file():
-            continue
-        try:
-            for line in candidate.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line.startswith("TYPESAFE_API_KEY="):
-                    value = line.split("=", 1)[1].strip().strip('"').strip("'")
-                    if value:
-                        return value
-        except OSError:
-            continue
-    return ""
-
-
 def _transport_module():
     try:
         from . import jev_transport  # type: ignore[attr-defined]
@@ -229,9 +212,6 @@ def _jev_client(client_factory, key: str, *, proxy_aware: bool):
         return client_factory(key)
 
 
-# JEV rejects requests above roughly 32k input tokens (observed as
-# max_tokens_exceeded). The state gets this share; questions take the rest.
-STATE_TOKEN_BUDGET = 26_000
 # One retry after max_tokens_exceeded uses this fraction of the budget.
 RETRY_BUDGET_FRACTION = 0.6
 # Relative claim on a tight budget: the judged artifact and its source first.
@@ -252,34 +232,6 @@ UPSTREAM_DROPPED_FIELDS: dict[str, dict[str, frozenset[str]]] = {
         "art": frozenset({"summary", "usage"}),
     },
 }
-
-_CJK_RANGES =((0x3000, 0x303F), (0x3400, 0x9FFF), (0xFF00, 0xFFEF))
-
-
-def _estimate_tokens(text: str) -> int:
-    """Token estimate from measured JEV usage: CJK ~1.09/char, JSON ~0.29/char.
-
-    Rounded up to 1.1 and 0.3; on real cast/art states it runs about 5% high.
-    """
-    cjk = sum(1 for ch in text if any(low <= ord(ch) <= high for low, high in _CJK_RANGES))
-    return (cjk * 11 + (len(text) - cjk) * 3) // 10
-
-
-def _entries(value: Any) -> int:
-    if isinstance(value, dict):
-        return sum(1 + _entries(item) for item in value.values())
-    if isinstance(value, list):
-        return sum(1 + _entries(item) for item in value)
-    return 0
-
-
-def _estimate_value_tokens(value: Any) -> int:
-    """Estimate for structured state: JEV renders nesting at about 3 tokens per entry.
-
-    Without this, a deeply nested storyboard measured 28% above the text-only estimate.
-    """
-    return _estimate_tokens(json.dumps(value, ensure_ascii=False)) + 3 * _entries(value)
-
 
 def _project_upstream(value: Any, dropped: frozenset[str] = frozenset()) -> Any:
     """Replace non-empty generation prompts with presence markers and drop unused fields."""

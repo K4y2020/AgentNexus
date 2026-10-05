@@ -82,15 +82,23 @@ def test_get_seedance_api_key_reads_env(monkeypatch):
     assert get_seedance_api_key() == "test-secret-key-123"
 
 
-def test_get_seedance_api_key_without_env_is_none(monkeypatch, tmp_path):
+@pytest.fixture
+def empty_home(monkeypatch, tmp_path):
+    """No key in the environment, an empty home and an empty working directory."""
     monkeypatch.delenv("SEEDANCE_API_KEY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_CONFIG_HOME", raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+@pytest.mark.usefixtures("empty_home")
+def test_get_seedance_api_key_without_env_is_none():
     assert get_seedance_api_key() is None
 
 
-def test_get_seedance_api_key_reads_agentnexus_env_file(monkeypatch, tmp_path):
-    monkeypatch.delenv("SEEDANCE_API_KEY", raising=False)
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+def test_get_seedance_api_key_reads_agentnexus_env_file(empty_home):
+    tmp_path = empty_home
     (tmp_path / ".agentnexus").mkdir()
     (tmp_path / ".agentnexus" / ".env").write_text(
         "OTHER=x\nSEEDANCE_API_KEY='from-file'\n", encoding="utf-8"

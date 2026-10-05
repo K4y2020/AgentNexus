@@ -7,33 +7,7 @@ to api.typesafe.ai/v1/systemone; answers come back typed with calibrated
 probabilities and confidence.
 """
 
-import os
-from pathlib import Path
-
 from agentnexus.tools.base import Tool, ToolContext
-
-_ENV_CANDIDATES = [
-    Path.home() / ".agentnexus" / ".env",
-    Path.home() / ".env",
-]
-
-
-def _find_api_key() -> str:
-    key = os.environ.get("TYPESAFE_API_KEY", "")
-    if key:
-        return key.strip()
-    for c in _ENV_CANDIDATES:
-        if c.is_file():
-            try:
-                for line in c.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("TYPESAFE_API_KEY="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
-                            return val
-            except OSError:
-                pass
-    return ""
 
 
 class CineJevJudgeTool(Tool):
