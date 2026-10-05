@@ -53,7 +53,7 @@ What comes across is what the outline already decided (character id, name, tier,
 
 ## Use
 
-For installation see the [repository README](../../README.en.md). Then:
+Then:
 
 ```
 /cine-characters ./your-novel.txt

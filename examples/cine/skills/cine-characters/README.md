@@ -59,7 +59,7 @@ node scripts/cine-characters.mjs seed outline.json > seed.json
 
 ## 使用
 
-安装见[仓库根 README](../../README.md)。装好后：
+装好后：
 
 ```
 /cine-characters ./你的小说.txt

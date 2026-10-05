@@ -92,7 +92,7 @@ def test_full_native_fixture_executes_five_validators(tmp_path):
     assert production.read(Path(result["report_path"]))["run_id"] == result["run_id"]
 
 
-LIVE_ARTIFACTS = Path(__file__).parents[3] / "docs/evaluations/cine-live-20260907/artifacts"
+LIVE_ARTIFACTS = Path(__file__).parents[3] / "docs/evaluations/cine/cine-live-20260907/artifacts"
 
 
 @pytest.mark.skipif(

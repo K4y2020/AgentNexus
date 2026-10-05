@@ -93,7 +93,7 @@ uv run python examples/cine/skills/film-analysis/pipeline/handoff.py <production
 
 ## Evidence and Release Boundary
 
-- 完整提示词、评审输入及限制：`docs/evaluations/cine-workflow-20260907/protocol.json`。
+- 完整提示词、评审输入及限制：`docs/evaluations/cine/cine-workflow-20260907/protocol.json`。
 - 原始答复：同目录 `output-a.md`、`output-b.md`、`output-b2.md`。
 - 六份原始评审：同目录 `round1-judge-*.md`、`round2-judge-*.md`。
 - 版本快照：`.codex-tmp/cine-workflow-ab/baseline/skills`、`optimized-skills`、`round2-skills`（本地未跟踪实验产物）。
