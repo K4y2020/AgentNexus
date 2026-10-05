@@ -132,6 +132,26 @@ export function reviewFeedback(report: CineReview, cue: ReviewCue, note: string)
     )
   );
 }
+/** mm:ss.t, truncated like the film-analysis report so 59.96 s never reads 00:60.0. */
 export function reviewTime(value: number) {
-  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${(value % 60).toFixed(1).padStart(4, "0")}`;
+  const tenths = Math.max(0, Math.floor(value * 10));
+  const minutes = String(Math.floor(tenths / 600)).padStart(2, "0");
+  const seconds = String(Math.floor(tenths / 10) % 60).padStart(2, "0");
+  return `${minutes}:${seconds}.${tenths % 10}`;
 }
+
+/** Storyboard shot sizes; mirrors SHOT_SIZES in cine-storyboard.mjs (a cine test keeps them equal). */
+export const SHOT_SIZE_LABELS: Record<string, string> = {
+  "extreme-wide": "大远景",
+  wide: "全景",
+  medium: "中景",
+  close: "特写",
+  "extreme-close": "大特写",
+};
+
+/** Adaptation mapping kinds the film-analysis handoff accepts. */
+export const MAPPING_KIND_LABELS: Record<string, string> = {
+  retained: "保留",
+  adapted: "改编",
+  new: "新增",
+};

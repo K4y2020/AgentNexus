@@ -20,6 +20,8 @@ DAMAGED_MIN = 5
 
 # Stages a partial handoff may check; the storyboard is only checked with its mapping.
 PARTIAL_STAGES = stage_graph.ORDER[:-1]
+# How an adapted cut relates to the source; the web adaptation view labels these.
+MAPPING_KINDS = ("retained", "adapted", "new")
 
 
 def require(condition, code):
@@ -441,7 +443,7 @@ def validate(path, stage=None):
         )
         mapped.add(key)
         kind = row.get("kind")
-        require(kind in ("retained", "adapted", "new"), "MAPPING_KIND_INVALID")
+        require(kind in MAPPING_KINDS, "MAPPING_KIND_INVALID")
         if mode == "faithful":
             require(kind == "retained", "FAITHFUL_CREATIVE_CHANGE")
         ids = row.get("source_shot_ids")

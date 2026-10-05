@@ -699,7 +699,7 @@ export function renderHtml(doc, lang = null) {
   ${gates
     .map(
       (g) => `<li class="${g.ok ? 'ok' : 'bad'}"><span class="m">${g.ok ? '✓' : '✗'}</span><span>${esc(gateText(g, t.langCode).label)}${
-        !g.ok && g.detail ? `<small>${esc(g.detail)}</small>` : g.id === 'no-names' && g.detail ? `<small>${esc(g.detail)}</small>` : ''
+        (!g.ok || g.id === 'no-names') && g.detail ? `<small>${esc(gateText(g, t.langCode).detail)}</small>` : ''
       }</span></li>`,
     )
     .join('\n  ')}
