@@ -16,16 +16,26 @@ import threading
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
-PIPELINE = Path("film-analysis") / "pipeline"
+SKILL = "film-analysis"
+PIPELINE = Path(SKILL) / "pipeline"
 # Pipeline modules core may run; everything else stays in the Topic.
-CORE_MODULES = frozenset({"production"})
+CORE_MODULES = frozenset({"production", "source_identity", "draft_check"})
 
 _lock = threading.Lock()
 
 
 class SkillModuleUnavailable(ValueError):
     """The registered bundle has no loadable pipeline module of that name."""
+
+
+def film_analysis_skills_dir(agent_spec: Any) -> Path | None:
+    """The skills directory of the agent's registered film-analysis skill, if any."""
+    for skill in getattr(agent_spec, "skills", None) or []:
+        if skill.name == SKILL and skill.skill_dir is not None:
+            return Path(skill.skill_dir).parent
+    return None
 
 
 def pipeline_module(skills_dir: str | Path | None, name: str) -> ModuleType:

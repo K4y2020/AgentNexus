@@ -1,12 +1,20 @@
 import base64
 import hashlib
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
-from agentnexus.seedance.report_review import verify_report
+from agentnexus.seedance.report_review import verify_report as _verify_report
+
+SKILLS = Path(__file__).resolve().parents[2] / "examples/cine/skills"
+
+
+def verify_report(*args, **kwargs):
+    """The Cine report check as the runner calls it, with the bundle's skills."""
+    return _verify_report(*args, skills_dir=SKILLS, **kwargs)
 
 
 def write(path, value):
@@ -359,3 +367,26 @@ async def test_subtitle_asr_requires_both_declared_files(story_fixture, provenan
     result = await verify_report(client, "topic", scope="adaptation")
     assert result["status"] == "needs_story_completion"
     assert reason in {issue["reason"] for issue in result["issues"]}
+
+
+async def test_draft_structure_uses_the_pipelines_issue_codes(story_fixture):
+    client, project, draft, _ = story_fixture
+    missing = draft["sections"].pop()["batch_id"]
+    draft["sections"][0]["connection"] = ""
+    del draft["summary"]
+    write(project / "story/r1.json", draft)
+    result = await verify_report(client, "topic", scope="adaptation")
+
+    assert result["status"] == "needs_story_completion"
+    assert {"reason": "section_missing", "batch_id": missing} in result["issues"]
+    assert {
+        "reason": "section_incomplete",
+        "batch_id": draft["sections"][0]["batch_id"],
+    } in result["issues"]
+    assert {"reason": "summary_missing"} in result["issues"]
+
+
+async def test_adaptation_readiness_needs_the_film_analysis_pipeline(story_fixture):
+    client, *_ = story_fixture
+    with pytest.raises(ValueError, match="no film-analysis skill"):
+        await _verify_report(client, "topic", scope="adaptation")

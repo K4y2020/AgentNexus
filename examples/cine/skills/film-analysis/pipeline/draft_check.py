@@ -18,43 +18,47 @@ def _text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def story_draft_gaps(
+def story_draft_issues(
     draft: Any,
     plan: Any,
     *,
     revision_id: str | None = None,
     source_id: str | None = None,
-) -> list[str]:
-    """Every documented field or temporal batch the draft leaves unfilled."""
+) -> list[dict[str, Any]]:
+    """Every documented field or temporal batch the draft leaves unfilled.
+
+    Each issue is ``{"reason": code}``, plus ``batch_id`` for a plan batch.
+    agentnexus's cine_verify_report loads this module for the same check.
+    """
     if not isinstance(draft, dict):
-        return ["story_draft_invalid"]
-    gaps: list[str] = []
+        return [{"reason": "story_draft_invalid"}]
+    issues: list[dict[str, Any]] = []
     if revision_id is not None and draft.get("revision_id") != revision_id:
-        gaps.append("story_revision_mismatch")
+        issues.append({"reason": "story_revision_mismatch"})
     if source_id is not None and draft.get("source_id") != source_id:
-        gaps.append("story_source_mismatch")
+        issues.append({"reason": "story_source_mismatch"})
 
     summary = draft.get("summary")
     if not isinstance(summary, dict):
-        gaps.append("summary_missing")
+        issues.append({"reason": "summary_missing"})
     else:
         for field in ("premise", "conflict", "ending"):
             if not _text(summary.get(field)):
-                gaps.append(f"summary_{field}_missing")
+                issues.append({"reason": f"summary_{field}_missing"})
         turning_points = summary.get("turning_points")
         if not isinstance(turning_points, list) or not all(_text(t) for t in turning_points):
-            gaps.append("turning_points_list_required")
+            issues.append({"reason": "turning_points_list_required"})
 
     characters = draft.get("characters")
     if not isinstance(characters, list) or not characters or not all(_text(c) for c in characters):
-        gaps.append("characters_required")
+        issues.append({"reason": "characters_required"})
 
     batches = plan.get("batches") if isinstance(plan, dict) else None
     if not isinstance(batches, list) or not batches:
-        gaps.append("story_plan_missing")
-        return gaps
+        issues.append({"reason": "story_plan_missing"})
+        return issues
     if revision_id is not None and plan.get("revision_id") != revision_id:
-        gaps.append("story_plan_revision_mismatch")
+        issues.append({"reason": "story_plan_revision_mismatch"})
     sections = draft.get("sections")
     by_id = (
         {s.get("batch_id"): s for s in sections if isinstance(s, dict)}
@@ -65,12 +69,28 @@ def story_draft_gaps(
         batch_id = batch.get("batch_id") if isinstance(batch, dict) else None
         row = by_id.get(batch_id)
         if row is None:
-            gaps.append(f"section_missing:{batch_id}")
+            issues.append({"reason": "section_missing", "batch_id": batch_id})
         elif not (
             isinstance(row.get("events"), list)
             and row["events"]
             and all(_text(e) for e in row["events"])
             and _text(row.get("connection"))
         ):
-            gaps.append(f"section_incomplete:{batch_id}")
-    return gaps
+            issues.append({"reason": "section_incomplete", "batch_id": batch_id})
+    return issues
+
+
+def story_draft_gaps(
+    draft: Any,
+    plan: Any,
+    *,
+    revision_id: str | None = None,
+    source_id: str | None = None,
+) -> list[str]:
+    """The same issues as codes, with ``:<batch_id>`` for a plan batch."""
+    return [
+        f"{issue['reason']}:{issue['batch_id']}" if "batch_id" in issue else issue["reason"]
+        for issue in story_draft_issues(
+            draft, plan, revision_id=revision_id, source_id=source_id
+        )
+    ]

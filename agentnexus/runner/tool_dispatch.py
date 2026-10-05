@@ -6814,6 +6814,7 @@ async def _execute_seedance_tool(
 
     if tool_name == "cine_verify_report":
         from agentnexus.seedance.report_review import verify_report
+        from agentnexus.seedance.skill_modules import film_analysis_skills_dir
 
         try:
             result = await verify_report(
@@ -6823,6 +6824,7 @@ async def _execute_seedance_tool(
                 start_seconds=args.get("start_seconds"),
                 end_seconds=args.get("end_seconds"),
                 ledger_path=args.get("ledger_path"),
+                skills_dir=film_analysis_skills_dir(agent_spec),
             )
             return json.dumps(result, ensure_ascii=False)
         except (OSError, ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
@@ -6915,14 +6917,9 @@ async def _execute_seedance_tool(
         if type(generation_allowed) is not bool:
             return json.dumps({"error": "generation_allowed must be a boolean"})
         model = _optional_string(args.get("model"))
-        trusted_skills_dir = next(
-            (
-                skill.skill_dir.parent
-                for skill in getattr(agent_spec, "skills", [])
-                if skill.name == "film-analysis" and skill.skill_dir is not None
-            ),
-            None,
-        )
+        from agentnexus.seedance.skill_modules import film_analysis_skills_dir
+
+        trusted_skills_dir = film_analysis_skills_dir(agent_spec)
 
         try:
             from agentnexus.seedance.bridge import execute_seedance_canvas_edit

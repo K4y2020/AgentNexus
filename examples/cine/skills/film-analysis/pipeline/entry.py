@@ -54,6 +54,7 @@ def index_media(
         validate_identifier(session_id, "session_id")
         if not output.is_relative_to(workspace):
             raise ValueError("Bound projects must remain within this session workspace")
+        # agentnexus.seedance.cine_contracts.current_ledger reads this binding.
         binding = workspace / ".cine" / "sessions" / f"{session_id}.json"
         if binding.exists():
             existing = json.loads(binding.read_text(encoding="utf-8"))
