@@ -238,3 +238,15 @@ def test_gpu_switches_set_on_the_host_reach_the_film_analysis_server(tmp_path, m
     assert _film_server_view(monkeypatch, _runner_env(host), list(switches)) == dict.fromkeys(
         switches, "<unset>"
     )
+
+
+def test_stage_skills_share_one_cross_skill_section():
+    # Each stage skill is loaded on its own, so the section is repeated in each;
+    # this keeps the copies from drifting apart.
+    heading = "### 跨 skill 交接与适用范围\n"
+    sections = {}
+    for name in ("cine-outline", "cine-characters", "cine-art", "cine-script", "cine-storyboard"):
+        text = (BUNDLE / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+        assert text.count(heading) == 1, name
+        sections[name] = text.split(heading, 1)[1].split("\n\n\n", 1)[0]
+    assert len(set(sections.values())) == 1, sections

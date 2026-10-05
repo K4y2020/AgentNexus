@@ -2,7 +2,7 @@
 
 # cine-characters
 
-跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。QA 只用只读 `seedance_read_canvas` 快照，Cine 不向 V3 Agent 发消息。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
+在 Cine 多 skill 管线中，交接合同以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为准，画布读写与生成规则见 Cine 系统提示词的 Tool boundaries；本 skill 也可独立使用。
 
 丢一本小说或一篇短故事进去，输出每个角色的完整设定：
 

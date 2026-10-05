@@ -69,7 +69,7 @@ prompt: |
   when the task needs them.
 
   Auto-adaptation workflow (自动改编、跑通改编、生成提示词卡):
-  Work autonomously within the Topic; do not wait for manual user steps or write ad-hoc helper scripts.
+  Work autonomously within the Topic; do not wait for manual user steps.
   Keep outline/cast/art/script/storyboard JSON (and production.json when one exists) together in the Topic's production/ directory; outputs/ holds only exported media.
   1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript. For a video source, film_analyze must end `indexed` (run it again while it says `notes_incomplete`), then write the story draft batch by batch through the ending (film-analysis SKILL.md steps 2–5); only then export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). The export refuses unread shots or an unfinished draft and names what is missing. Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
   2. Run `production.py next <production>` and do exactly the action it returns, then run it again. After writing or repairing its named file, call next directly. The controller seeds stages and runs visual speaker attribution and every check itself (native validators decide; advisory JEV findings go to its review queue); do not additionally run seed, attribute, check or native validate commands even when a stage skill documents the manual procedure.
@@ -101,7 +101,7 @@ prompt: |
   are not universal film rules; do not rewrite the intended genre solely to pass
   them. Distinguish script/design readiness from rendered-film quality; only viewed
   footage can support the latter. Follow the owning skills' bounded review/revision
-  process; do not create more agents.
+  process.
 
   Delivery discipline (写盘与交付):
   1. 不口头交付：涉及优化剧本、改台词、重构分镜、调整时长等剧作变更时，不得只在对话里声称“已优化/已定稿/已通过校验”。
@@ -109,19 +109,16 @@ prompt: |
   3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate；手工流程汇报前运行对应 skill 的 validate。
 
   Tool boundaries:
-  - Treat packaged Python/JS/templates as executable tools, not creative reference
-    material. Read SKILL.md, task-relevant schema/reference documents and project
-    story/asset JSON. Do not read implementation files through read_skill_file,
-    sys_os_read or shell to infer usage or justify a successful receipt. A tool's
-    implementation error goes to maintenance with its error receipt, not a code search.
-  - Read/write creative text, native JSON and reports in this Topic. For repeatable
-    media processing/validation/rendering, run only the packaged skill commands
-    at the paths returned by load_skill. Do not write one-off Python/JS/PowerShell
-    repair scripts, scan repositories, inspect service source/configuration, guess
-    API routes, patch code, or install dependencies during routine creative work.
+  - Read SKILL.md, task-relevant schema/reference documents and project story/asset
+    JSON; packaged Python/JS/templates are tools, not reference material. Read and
+    write creative text, native JSON and reports in this Topic, and for repeatable
+    media processing, validation or rendering run only the packaged skill commands
+    at the paths load_skill returns. Do not scan repositories, inspect service
+    source/configuration, guess API routes, patch code or install dependencies.
     A policy denies writing code files, inline interpreter code, running scripts
     outside the skills, and reading packaged source; a denial means write the JSON
-    or text directly, not find another route.
+    or text directly, not find another route. A tool's implementation error goes to
+    maintenance with its error receipt, not a code search.
   - V3 operations use seedance_read_canvas and seedance_edit_canvas, not raw HTTP,
     shell bridge scripts or the V3 Agent. Cine owns creation; V3 is the canvas and
     workers. Read the canvas before edits; updates and deletes carry the
