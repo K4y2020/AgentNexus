@@ -136,13 +136,12 @@ async def validate_submission(
     text_path = inside(root, source_text) if source_text else None
     if not directory.is_dir():
         raise ProductionRejected("CINE_PRODUCTION_DIRECTORY_REQUIRED")
-    # Scope checks to native dependencies; a character sheet does not need episode gates.
-    stages = {
-        "cast": ("cast",),
-        "art": ("cast", "art"),
-        "storyboard": ("outline", "cast", "art", "script", "storyboard"),
-    }[production_stage]
     native = native_checker(skills_dir)
+    # Scope checks to native dependencies; a character sheet does not need episode gates.
+    graph = getattr(native, "stage_graph", None)
+    if graph is None:
+        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE", {"message": "no stage graph"})
+    stages = graph.validation_scope(production_stage)
     try:
         paths = {stage: inside(root, str(native.stage_path(directory, stage))) for stage in stages}
     except (OSError, ValueError) as exc:

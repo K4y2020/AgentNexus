@@ -61,14 +61,10 @@ def fixture(tmp_path, mode="adaptation"):
             }
         ],
     }
-    deps = dict(handoff.DEPENDENCIES)
+    deps = handoff.stage_graph.provenance(mode)
     if mode == "original":
         del docs["source_material"]
-        del deps["source_material"]
         docs["mapping"][0].update(kind="new", source_shot_ids=[])
-    else:
-        deps["outline"] = ("source_material",)
-        deps["mapping"] += ("source_material",)
     if mode == "faithful":
         docs["mapping"][0]["kind"] = "retained"
     hashes = {name: write(tmp_path / f"{name}.json", doc) for name, doc in docs.items()}

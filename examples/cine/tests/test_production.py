@@ -11,7 +11,7 @@ from pipeline import production
 
 
 def example(directory, stage):
-    name = production.STAGES[stage]
+    name = production.stage_graph.STAGES[stage].skill
     source = next((production.SKILLS / name / "examples").glob(f"*-{stage}.json"))
     shutil.copyfile(source, directory / f"{stage}.json")
 
@@ -78,7 +78,7 @@ def test_storyboard_seed_inherits_reference_style_and_fingerprints(tmp_path):
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 def test_full_native_fixture_executes_five_validators(tmp_path):
-    for stage in production.STAGES:
+    for stage in production.stage_graph.ORDER:
         example(tmp_path, stage)
     source = next((production.SKILLS / "cine-characters/examples").glob("*.txt"))
     result = production.check(tmp_path, source_text=source)
@@ -96,7 +96,7 @@ LIVE_ARTIFACTS = Path(__file__).parents[3] / "docs/evaluations/cine-live-2026090
     not LIVE_ARTIFACTS.is_dir(), reason="live evaluation artifacts are not in the repository"
 )
 def test_real_live_failures_stay_failed(tmp_path):
-    for stage in production.STAGES:
+    for stage in production.stage_graph.ORDER:
         shutil.copyfile(LIVE_ARTIFACTS / f"{stage}.json", tmp_path / f"{stage}.json")
     result = production.check(tmp_path)
     assert result["status"] == "failed"

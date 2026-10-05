@@ -9,19 +9,17 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    from . import stage_graph
+except ImportError:  # Direct CLI execution from the pipeline directory.
+    import stage_graph
+
 # A text damaged by a wrong-encoding write shows a replacement character for every
 # Chinese character (hundreds at once); a stray one or two is harmless.
 DAMAGED_MIN = 5
 
-DEPENDENCIES = {
-    "source_material": (),
-    "outline": (),
-    "cast": ("outline",),
-    "art": ("outline",),
-    "script": ("outline", "cast", "art"),
-    "storyboard": ("script", "cast", "art"),
-    "mapping": ("script", "storyboard"),
-}
+# Stages a partial handoff may check; the storyboard is only checked with its mapping.
+PARTIAL_STAGES = stage_graph.ORDER[:-1]
 
 
 def require(condition, code):
@@ -286,16 +284,11 @@ def validate(path, stage=None):
     require(mode in ("original", "faithful", "adaptation"), "PRODUCTION_MODE_REQUIRED")
     artifacts = manifest.get("artifacts")
     require(isinstance(artifacts, dict), "ARTIFACTS_REQUIRED")
-    deps = dict(DEPENDENCIES)
-    if mode == "original":
-        del deps["source_material"]
-    else:
-        deps["outline"] = ("source_material",)
-        deps["mapping"] += ("source_material",)
+    deps = stage_graph.provenance(mode)
     if stage is None:
         require(set(artifacts) == set(deps), "ARTIFACT_SET_MISMATCH")
     else:
-        require(stage in ("outline", "cast", "art", "script"), "HANDOFF_STAGE_INVALID")
+        require(stage in PARTIAL_STAGES, "HANDOFF_STAGE_INVALID")
         required = set()
 
         def include(name):
@@ -516,7 +509,7 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, nargs="?")
-    parser.add_argument("--stage", choices=["outline", "cast", "art", "script"])
+    parser.add_argument("--stage", choices=PARTIAL_STAGES)
     parser.add_argument(
         "--source-project", type=Path, help="Print editorial source material, read-only"
     )

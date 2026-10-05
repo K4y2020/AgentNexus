@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
+    from . import stage_graph
     from .jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
     from .jev_transport import find_api_key as _find_api_key
 except ImportError:  # Direct CLI execution from the pipeline directory.
+    import stage_graph
     from jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
     from jev_transport import find_api_key as _find_api_key
 
@@ -165,22 +167,11 @@ SUPERVISOR_QUESTIONS = {
     "retry_allowed": ("noul", "Is one bounded correction and revalidation cycle appropriate?"),
 }
 
-NEXT_STAGES = {
-    "outline": {"cast"},
-    "cast": {"art"},
-    "art": {"script"},
-    "script": {"storyboard"},
-    "storyboard": {"canvas"},
-}
+NEXT_STAGES = {stage: {stage_graph.next_stage(stage)} for stage in stage_graph.ORDER}
 
-# Stages each artifact reads; mirrors production.INPUTS. An upstream repair
-# may only target one of these.
+# Stages each artifact's validator reads; an upstream repair may only target one.
 UPSTREAM_STAGES = {
-    "outline": set(),
-    "cast": set(),
-    "art": {"cast"},
-    "script": {"outline", "cast", "art"},
-    "storyboard": {"outline", "cast", "art", "script"},
+    stage: set(spec.validator_inputs) for stage, spec in stage_graph.STAGES.items()
 }
 
 

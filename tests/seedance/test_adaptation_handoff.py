@@ -7,11 +7,13 @@ import pytest
 
 
 @pytest.fixture
-def handoff():
+def handoff(monkeypatch):
     path = (
         Path(__file__).resolve().parents[2]
         / "examples/cine/skills/film-analysis/pipeline/handoff.py"
     )
+    # Run as `python handoff.py`, its own directory is on the import path.
+    monkeypatch.syspath_prepend(str(path.parent))
     spec = importlib.util.spec_from_file_location("_test_cine_handoff", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -139,7 +139,9 @@ def routed_gate(tmp_path, stage, *, decision, next_stage, scope="artifact", pass
 
 
 def test_route_graph_matches_production_dependencies():
-    assert jev_gates.UPSTREAM_STAGES == {stage: set(inputs) for stage, inputs in production.INPUTS.items()}
+    assert jev_gates.UPSTREAM_STAGES == {
+        stage: set(spec.validator_inputs) for stage, spec in production.stage_graph.STAGES.items()
+    }
     choices = set(jev_gates.SUPERVISOR_QUESTIONS["next_stage"][1])
     for stage, targets in jev_gates.NEXT_STAGES.items():
         assert targets <= choices

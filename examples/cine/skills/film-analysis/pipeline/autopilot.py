@@ -17,11 +17,12 @@ from typing import Any
 try:
     from . import production as prod
     from .draft_check import story_draft_gaps
+    from .stage_graph import ORDER, STAGES
 except ImportError:  # Direct CLI execution from the pipeline directory.
     import production as prod
     from draft_check import story_draft_gaps
+    from stage_graph import ORDER, STAGES
 
-ORDER = ("outline", "cast", "art", "script", "storyboard")
 # Edits one stage gets before it is handed to a person: the authoring pass
 # plus four repairs.
 MAX_EDITS = 5
@@ -166,8 +167,7 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
                 "detail": {
                     "failures": jev.get("failures"),
                     "error": jev.get("error"),
-                    "next_action": jev.get("next_action")
-                    or (jev.get("scheduler") or {}).get("next_action"),
+                    "next_action": (jev.get("scheduler") or {}).get("next_action"),
                     "receipt": jev.get("receipt_path"),
                 },
             }
@@ -488,7 +488,7 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
             "mode": "write" if edit == 1 else "repair",
             "stage": stage,
             "target_stage": target_stage,
-            "skill": prod.STAGES[target_stage],
+            "skill": STAGES[target_stage].skill,
             "file": str(target),
             "status": row["status"],
             "errors": _errors(row),
