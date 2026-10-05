@@ -451,7 +451,7 @@ def _unreadable(rows: list[dict]) -> int:
 def describe(performance: dict | None, *, who: bool = True) -> str:
     """The short note a transcript or a reviewer reads.
 
-    For example ``盘发白衣妇人，委屈痛哭：满脸泪水边哭边说``. The person is named
+    For example ``蓑衣老船夫，焦急催促：皱眉朝岸上连连挥手``. The person is named
     because a frame can show the listener rather than the speaker.
     """
     if not isinstance(performance, dict) or not performance.get("emotion"):

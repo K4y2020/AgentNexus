@@ -146,7 +146,7 @@ def clean_asr_text(text: str) -> str:
     """
     import re
 
-    # Clean Whisper BPE fullwidth artifacts after English words (e.g. "JakenＢ" -> "Jaken，")
+    # Clean Whisper BPE fullwidth artifacts after English words (e.g. "LeoＢ" -> "Leo，")
     text = re.sub(r"([a-zA-Z]+)[Ａ-Ｚａ-ｚ]", r"\1，", text)
     # Remove any remaining isolated fullwidth latin letters
     text = re.sub(r"[Ａ-Ｚａ-ｚ]", "", text)
@@ -441,8 +441,8 @@ def _accepted_refinement(rows: list[dict], refined, *, speakers: bool) -> list[d
 
 
 UNLABELED_SPEAKER = "说话人未标注"
-# Homophone repair changes a few characters of a short line (优势→又是 scores
-# about 0.83); invented content scores near 0.1.
+# Homophone repair changes a few characters of a short line (two characters of
+# thirteen score about 0.85); invented content scores near 0.1.
 _SPLIT_MIN_SIMILARITY = 0.6
 _SPLIT_LENGTH_RATIO = (0.7, 1.3)
 _TIME_TOLERANCE = 0.01
