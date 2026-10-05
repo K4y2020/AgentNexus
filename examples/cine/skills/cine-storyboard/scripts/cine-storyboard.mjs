@@ -482,7 +482,7 @@ function auditVocalEvents(body) {
   return events.sort((a, b) => a.index - b.index);
 }
 
-function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, lang) {
+function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, lang, extras = {}) {
   const sid = segment.id ?? '?';
   if (lang !== 'en' || !prompt.includes('subject_definitions:')) {
     const reason = lang !== 'en' ? 'Official Ref2VA guide specifies English sections; non-English prompt mode is unsupported by this format audit' : 'Not a Ref2VA prompt; official full-reference format was not evaluated';
@@ -599,6 +599,14 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
       vocalIds.add(id);
     }
     const expected = speakerSubjects.get(event.line);
+    if (!cue && extras.lines?.has(event.line) && !expected?.size) {
+      // An unnamed extra voiced through a cast reference renders as that character's face and voice.
+      evaluated(speakerRule);
+      const borrowed = bound.filter((match) => extras.subjects?.has(match[1])).map((match) => match[1]);
+      if (borrowed.length) {
+        issue(speakerRule, location, `The script gives this line to an unnamed extra, but it is voiced as ${borrowed.join(', ')}, a cast reference: describe the extra as their own speaker with a new (Sx), or give the line to that character in the script`, { source_clause: event.prefix, line: event.line });
+      }
+    }
     const subjectMentioned = /^\s*<Subject \d+>/.test(event.prefix) || bound.length > 0;
     if (subjectMentioned || expected?.size) {
       evaluated(speakerRule);
@@ -761,17 +769,22 @@ export function auditStoryboard(board, ctx = {}) {
         const entity = identifySubject(match[2], terms);
         if (entity?.startsWith('char:')) referenceCharacters.set(entity.slice(5), match[1]);
       }
+      const extraLines = new Set();
       for (const cut of segment.cuts ?? []) {
         const [from, to] = cut.beats ?? [];
         if (!scene || !Number.isInteger(from) || !Number.isInteger(to) || from < 1 || from > to || to > scene.beats.length) continue;
         for (const beat of scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line')) {
+          if (auditWord(beat.speaker) === 'extra') extraLines.add(beat.text);
           const subject = referenceCharacters.get(resolveSpeaker(beat.speaker) ?? beat.speaker);
           if (!subject) continue;
           if (!speakerSubjects.has(beat.text)) speakerSubjects.set(beat.text, new Set());
           speakerSubjects.get(beat.text).add(subject);
         }
       }
-      auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, board?.promptLang ?? 'en');
+      auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, board?.promptLang ?? 'en', {
+        lines: extraLines,
+        subjects: new Set(referenceCharacters.values()),
+      });
       if (previous) {
         if (!Number.isInteger(segment.sceneIndex) || !Number.isInteger(previous.sceneIndex)) {
           skip('same-scene-continues-from', sid, 'sceneIndex is missing or invalid');

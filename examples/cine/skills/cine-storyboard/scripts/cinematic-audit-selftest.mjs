@@ -168,6 +168,16 @@ check(hasIssue((p) => p.replace('overall_soundscape:', '<Subject 2> (S1) says: <
 check(!hasIssue((p) => p.replace('overall_soundscape:', '<Subject 1> (S1) says: <d>[English] A different line.</d>\noverall_soundscape:'), 'h3-vocal-source-ids'), 'repeated vocal events keep one stable reference/source ID');
 check(!hasIssue((p) => p.replace('overall_soundscape:', 'Two unseen children (S2,S3) shout: <d>[English] Here.</d>\noverall_soundscape:'), 'h3-vocal-source-ids'), 'official compound IDs are accepted for group speech');
 check(!hasIssue((p) => p.replace('overall_soundscape:', 'A low, measured narrator (S2) says: <d>[English] A different line.</d>\noverall_soundscape:'), 'h3-referenced-speaker-binding'), 'an unreferenced narrator may use a stable voice description and source ID');
+{
+  // A line the script gives to an unnamed extra must not borrow a cast member's face and voice.
+  const extraLine = (c) => { c.script.episodes[0].scenes[0].flow[1].speaker = 'extra'; };
+  const borrowed = issues(audit(() => {}, extraLine), 'h3-referenced-speaker-binding');
+  check(borrowed.length === 1 && borrowed[0].detail.includes('unnamed extra') && borrowed[0].detail.includes('<Subject 1>'), 'an extra line voiced through a cast reference is rejected');
+  const described = audit((b) => {
+    b.episodes[0].segments[0].h3Prompt = b.episodes[0].segments[0].h3Prompt.replace('<Subject 1> (S1) says:', 'a passing courier (S1) says:');
+  }, extraLine);
+  check(!issues(described, 'h3-referenced-speaker-binding').length, 'an extra described as their own speaker passes');
+}
 check(hasIssue((p) => p.replace('[reference generation]', '[cinematic adaptation]'), 'h3-summary-task-prefix'), 'invented summary task type is rejected');
 check(hasIssue((p) => p.replace('[reference generation]', 'reference generation'), 'h3-summary-task-prefix'), 'summary requires bracketed task prefix');
 check(hasIssue((p) => p.replace('[reference generation]', '[reference generation + reference generation]'), 'h3-summary-task-prefix'), 'summary cannot duplicate a task type');
