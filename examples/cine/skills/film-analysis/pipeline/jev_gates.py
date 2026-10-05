@@ -143,18 +143,6 @@ SUPERVISOR_QUESTIONS = {
             "blocked": "The production cannot continue with the supplied state",
         },
     ),
-    "next_stage": (
-        "choice",
-        {
-            "outline": "Create or revise the story outline",
-            "cast": "Create or revise the cast (character) document",
-            "art": "Create or revise the art (scene and prop) document",
-            "script": "Create or revise the structured script",
-            "storyboard": "Create or revise the storyboard",
-            "canvas": "Synchronize the verified storyboard to Seedance",
-            "stop": "Stop until an external decision or input is supplied",
-        },
-    ),
     "repair_scope": (
         "choice",
         {
@@ -167,21 +155,41 @@ SUPERVISOR_QUESTIONS = {
     "retry_allowed": ("noul", "Is one bounded correction and revalidation cycle appropriate?"),
 }
 
-NEXT_STAGES = {stage: {stage_graph.next_stage(stage)} for stage in stage_graph.ORDER}
-
-# Stages each artifact's validator reads; an upstream repair may only target one.
-UPSTREAM_STAGES = {
-    stage: set(spec.validator_inputs) for stage, spec in stage_graph.STAGES.items()
+# Asked only when an upstream repair is possible: which document the defect is in.
+UPSTREAM_QUESTION = "upstream_stage"
+OUTSIDE = "outside"
+_DOCUMENTS = {
+    "outline": "The story outline",
+    "cast": "The cast (character) document",
+    "art": "The art (scene and prop) document",
+    "script": "The structured script",
 }
 
 
-def _repair_target(stage: str, next_stage: str, repair_scope: str) -> str:
-    """Return a legal repair target for the scope, or ``stop`` when none is."""
+def supervisor_questions(stage: str) -> dict[str, tuple[str, Any]]:
+    """Routing questions for ``stage``; the next stage itself comes from the stage graph."""
+    questions = dict(SUPERVISOR_QUESTIONS)
+    upstreams = stage_graph.repair_upstreams(stage)
+    if upstreams:
+        criteria = {name: _DOCUMENTS[name] for name in upstreams}
+        criteria[OUTSIDE] = "None of these: the defect lies elsewhere, such as the source transcript"
+        questions[UPSTREAM_QUESTION] = ("choice", criteria)
+    return questions
+
+
+def _route(stage: str, decision: str, repair_scope: str, upstream: str | None) -> tuple[str, list[str]]:
+    """The stage to work on next, and why the controller departed from the answer."""
+    if decision == "advance":
+        return stage_graph.next_stage(stage), []
+    if decision != "repair":
+        return "stop", []
     if repair_scope == "artifact":
-        return stage
-    if repair_scope == "upstream" and next_stage in UPSTREAM_STAGES[stage]:
-        return next_stage
-    return "stop"
+        return stage, []
+    if repair_scope == "upstream" and upstream in stage_graph.repair_upstreams(stage):
+        return upstream, []
+    if repair_scope == "upstream" and upstream not in (None, OUTSIDE):
+        return "stop", [f"invalid_repair_stage:{upstream}"]
+    return "stop", []
 
 
 def _transport_module():
@@ -383,7 +391,7 @@ def _question_objects(stage: str, *, include_source: bool = False):
                 questions[name] = Choice(instructions=value, criteria=value if isinstance(value, dict) else {})
             else:
                 questions[name] = Score(instructions=value, criteria=value if isinstance(value, list) else [])
-    for name, (kind, value) in SUPERVISOR_QUESTIONS.items():
+    for name, (kind, value) in supervisor_questions(stage).items():
         if kind == "noul":
             questions[name] = Noul(instructions=value)
         else:
@@ -621,7 +629,7 @@ def run_stage_gate(
         if not isinstance(answers, dict):
             raise ValueError("JEV response did not contain answers")
         rules = gate_rules(stage, include_source=include_source)
-        expected = set(rules) | set(SUPERVISOR_QUESTIONS)
+        expected = set(rules) | set(supervisor_questions(stage))
         if set(answers) != expected:
             raise ValueError(f"JEV answer set mismatch: expected {sorted(expected)}, got {sorted(answers)}")
         evaluations = {}
@@ -650,31 +658,24 @@ def run_stage_gate(
             evaluations = {blocking: evaluations[blocking]}
             failures = [f"{blocking}={evaluations[blocking]['value']:.3f} < {evaluations[blocking]['threshold']:.3f}"]
         route_decision = str(getattr(answers["route_decision"], "choice", "stop"))
-        next_stage = str(getattr(answers["next_stage"], "choice", "stop"))
         repair_scope = str(getattr(answers["repair_scope"], "choice", "artifact"))
         retry_allowed = float(getattr(answers["retry_allowed"], "noul", 0.0)) >= 0.65
+        upstream = answers.get(UPSTREAM_QUESTION)
+        upstream = getattr(upstream, "choice", None) if upstream is not None else None
         route_reasons = []
         if status == "baseline_unusable":
             route_reasons.append("source_baseline_speaker_labels_unreliable")
             route_decision = "repair"
-            next_stage = "stop"
             repair_scope = "upstream"
+            upstream = OUTSIDE
         if status != "passed" and route_decision == "advance":
             route_decision = "repair"
             route_reasons.append("controller_overrode_advance_after_gate_failure")
         if status == "passed" and route_decision != "advance":
             status = "needs_review"
             route_reasons.append("controller_route_requires_review_before_handoff")
-        if status == "passed" and route_decision == "advance" and next_stage not in NEXT_STAGES[stage]:
-            route_reasons.append(f"invalid_next_stage:{next_stage}")
-            next_stage = sorted(NEXT_STAGES[stage])[0]
-        if route_decision == "repair":
-            target = _repair_target(stage, next_stage, repair_scope)
-            if target != next_stage:
-                route_reasons.append(f"invalid_repair_stage:{next_stage}")
-                next_stage = target
-        elif route_decision != "advance":
-            next_stage = "stop"
+        next_stage, reasons = _route(stage, route_decision, repair_scope, upstream)
+        route_reasons.extend(reasons)
         scheduler = {
             "decision": route_decision,
             "next_stage": next_stage,

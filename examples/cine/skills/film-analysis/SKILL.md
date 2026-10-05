@@ -94,9 +94,11 @@ instead of scoring the script against a corrupt baseline; re-run
 These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
 actual model version, input hashes, typed answers, thresholds, decision and a
 typed scheduler route (`advance_to_*`, `repair_*`, `human_review_*`, or
-`blocked_*`). The local production controller validates that route against the
-legal stage graph before exposing it to Cine. In advisory mode `next_action` is a
-recommendation: report failed or low-confidence findings with the native result,
+`blocked_*`). JEV judges only whether to advance, repair, ask for review or
+block, the repair scope and, for an upstream repair, which document the stage
+reads holds the defect; the next stage itself comes from the stage graph. In
+advisory mode `next_action` is a recommendation: report failed or
+low-confidence findings with the native result,
 repair only when a finding names a concrete defect, and never loop to raise a JEV
 score. A missing `TYPESAFE_API_KEY` or provider error is reported as
 `unavailable`/`error` and does not block. Only when the user explicitly asks for

@@ -64,7 +64,6 @@ def response(hook=0.9, causal=0.9, score=2.0, confidence=0.8):
                 type="score", score=score, confidence=confidence, probabilities={"0": 0, "1": 0, "2": 1}
             ),
             "route_decision": Answer(type="choice", choice="advance", confidence=0.9),
-            "next_stage": Answer(type="choice", choice="cast", confidence=0.9),
             "repair_scope": Answer(type="choice", choice="artifact", confidence=0.9),
             "retry_allowed": Answer(type="noul", noul=0.1),
         }
@@ -113,7 +112,7 @@ def test_require_jev_without_credentials_is_a_real_block(monkeypatch, tmp_path):
     assert result["status"] == "unavailable"
 
 
-def routed_gate(tmp_path, stage, *, decision, next_stage, scope="artifact", passing=True):
+def routed_gate(tmp_path, stage, *, decision, upstream=None, scope="artifact", passing=True):
     """Run a stage gate whose quality answers all pass (or all fail) with the given route."""
     path = tmp_path / "artifact.json"
     outline(path)
@@ -126,10 +125,13 @@ def routed_gate(tmp_path, stage, *, decision, next_stage, scope="artifact", pass
     }
     answers.update(
         route_decision=Answer(type="choice", choice=decision, confidence=0.9),
-        next_stage=Answer(type="choice", choice=next_stage, confidence=0.9),
         repair_scope=Answer(type="choice", choice=scope, confidence=0.9),
         retry_allowed=Answer(type="noul", noul=0.9),
     )
+    if jev_gates.UPSTREAM_QUESTION in jev_gates.supervisor_questions(stage):
+        answers[jev_gates.UPSTREAM_QUESTION] = Answer(
+            type="choice", choice=upstream or jev_gates.OUTSIDE, confidence=0.9
+        )
     return jev_gates.run_stage_gate(
         stage,
         {stage: path},
@@ -138,51 +140,70 @@ def routed_gate(tmp_path, stage, *, decision, next_stage, scope="artifact", pass
     )["scheduler"]
 
 
-def test_route_graph_matches_production_dependencies():
-    assert jev_gates.UPSTREAM_STAGES == {
-        stage: set(spec.validator_inputs) for stage, spec in production.stage_graph.STAGES.items()
-    }
-    choices = set(jev_gates.SUPERVISOR_QUESTIONS["next_stage"][1])
-    for stage, targets in jev_gates.NEXT_STAGES.items():
-        assert targets <= choices
-        assert stage in choices
-        # The next stage may not be one the current stage depends on.
-        assert not targets & jev_gates.UPSTREAM_STAGES[stage]
+def test_jev_is_never_asked_for_the_next_stage():
+    for stage in production.stage_graph.ORDER:
+        questions = jev_gates.supervisor_questions(stage)
+        assert "next_stage" not in questions
+        upstreams = production.stage_graph.repair_upstreams(stage)
+        if upstreams:
+            _kind, criteria = questions[jev_gates.UPSTREAM_QUESTION]
+            assert list(criteria) == [*upstreams, jev_gates.OUTSIDE]
+        else:
+            assert jev_gates.UPSTREAM_QUESTION not in questions
 
 
-def test_passed_cast_advances_to_art_not_script(tmp_path):
-    """Art reads the cast and must exist before the script, so cast cannot hand off to script."""
-    scheduler = routed_gate(tmp_path, "cast", decision="advance", next_stage="script")
+def test_passed_cast_advances_to_art(tmp_path):
+    """Art reads the cast and must exist before the script, so cast hands off to art."""
+    scheduler = routed_gate(tmp_path, "cast", decision="advance")
     assert scheduler["next_action"] == "advance_to_art"
-    assert "invalid_next_stage:script" in scheduler["reasons"]
+    assert scheduler["next_stage"] == "art"
+    assert scheduler["reasons"] == []
+
+
+def test_a_passed_storyboard_advances_to_the_canvas(tmp_path):
+    scheduler = routed_gate(tmp_path, "storyboard", decision="advance")
+    assert scheduler["next_action"] == "advance_to_canvas"
 
 
 def test_artifact_repair_targets_the_current_stage(tmp_path):
-    scheduler = routed_gate(tmp_path, "script", decision="repair", next_stage="canvas", passing=False)
+    scheduler = routed_gate(tmp_path, "script", decision="repair", upstream="art", passing=False)
     assert scheduler["next_action"] == "repair_artifact"
     assert scheduler["next_stage"] == "script"
-    assert "invalid_repair_stage:canvas" in scheduler["reasons"]
+    assert scheduler["reasons"] == []
 
 
 def test_failed_gate_that_proposed_advancing_repairs_in_place(tmp_path):
-    scheduler = routed_gate(tmp_path, "script", decision="advance", next_stage="storyboard", passing=False)
+    scheduler = routed_gate(tmp_path, "script", decision="advance", passing=False)
     assert scheduler["decision"] == "repair"
     assert scheduler["next_stage"] == "script"
 
 
 def test_upstream_repair_keeps_a_real_dependency(tmp_path):
     scheduler = routed_gate(
-        tmp_path, "script", decision="repair", next_stage="art", scope="upstream", passing=False
+        tmp_path, "script", decision="repair", upstream="art", scope="upstream", passing=False
     )
     assert scheduler["next_action"] == "repair_upstream"
     assert scheduler["next_stage"] == "art"
     assert scheduler["reasons"] == []
 
 
-@pytest.mark.parametrize("proposed", ["storyboard", "canvas", "script"])
-def test_upstream_repair_rejects_non_dependencies(tmp_path, proposed):
+def test_a_cast_review_may_send_a_repair_to_the_outline_it_read(tmp_path):
     scheduler = routed_gate(
-        tmp_path, "script", decision="repair", next_stage=proposed, scope="upstream", passing=False
+        tmp_path, "cast", decision="repair", upstream="outline", scope="upstream", passing=False
+    )
+    assert scheduler["next_stage"] == "outline"
+
+
+def test_a_defect_outside_the_documents_stops(tmp_path):
+    scheduler = routed_gate(tmp_path, "script", decision="repair", scope="upstream", passing=False)
+    assert scheduler["next_stage"] == "stop"
+    assert scheduler["reasons"] == []
+
+
+@pytest.mark.parametrize("proposed", ["storyboard", "canvas", "script"])
+def test_upstream_repair_rejects_an_answer_it_did_not_offer(tmp_path, proposed):
+    scheduler = routed_gate(
+        tmp_path, "script", decision="repair", upstream=proposed, scope="upstream", passing=False
     )
     assert scheduler["next_stage"] == "stop"
     assert f"invalid_repair_stage:{proposed}" in scheduler["reasons"]
@@ -398,7 +419,7 @@ def test_unusable_baseline_blocks_instead_of_scoring_the_artifact(tmp_path):
         "setup_payoff_preserved": Answer(type="noul", noul=0.2),
         "source_order_fidelity": Answer(type="score", score=0.4, confidence=0.8),
         "route_decision": Answer(type="choice", choice="advance", confidence=0.9),
-        "next_stage": Answer(type="choice", choice="storyboard", confidence=0.9),
+        "upstream_stage": Answer(type="choice", choice="outline", confidence=0.9),
         "repair_scope": Answer(type="choice", choice="artifact", confidence=0.9),
         "retry_allowed": Answer(type="noul", noul=0.1),
     }
