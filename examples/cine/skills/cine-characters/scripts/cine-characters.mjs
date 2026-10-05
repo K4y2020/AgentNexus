@@ -1075,7 +1075,7 @@ export function buildGraph(characters) {
         continue;
       }
       const [a, b] = [c.name, target].sort();
-      const k = `${a} ${b}`;
+      const k = `${a}\x00${b}`;
       if (!edges.has(k)) edges.set(k, { a, b, notes: [] });
       edges.get(k).notes.push({ from: c.name, text: String(r.relation ?? '') });
     }
