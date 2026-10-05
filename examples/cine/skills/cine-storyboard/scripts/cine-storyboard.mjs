@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // cine-storyboard — deterministic helpers for the cine-storyboard skill (分镜).
-// Zero dependencies on purpose: the skill must work in any directory
-// without an npm install. Node 18+ (stdlib only).
+// Zero npm dependencies on purpose: the skill must work in any directory
+// without an npm install. Node 18+ stdlib plus ../../_shared/cine-common.mjs.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 常量                                                                */
@@ -87,7 +87,6 @@ export const STYLE_PRESETS = {
 export const DEFAULT_STYLE = 'realistic';
 
 const CJK = /[㐀-鿿぀-ヿ가-힯]/;
-const r1 = (n) => Math.round(n * 10) / 10;
 
 /* ------------------------------------------------------------------ */
 /* H3 提示词的确定性骨架                                                 */
@@ -1831,11 +1830,7 @@ export function exportPack(board, script, { imageExists = () => false, dir = '.'
 /* ------------------------------------------------------------------ */
 
 export function slug(name) {
-  const cleaned = String(name)
-    .trim()
-    .replace(/[\s/\\:*?"<>|·]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'storyboard';
+  return safeStem(name, 'storyboard', { dot: true });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1891,14 +1886,7 @@ const GATE_SKIPS_EN = {
     '未指定 --ref2va（关键帧导出模式），本门跳过（视为通过）': '--ref2va not given (keyframe export mode) — gate skipped (treated as passing)',
 };
 /** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
-const gateText = (g, lang) => {
-  if (lang !== 'en') return { label: g.label, detail: g.detail };
-  const en = GATE_LABELS_EN[g.id];
-  // 阈值仍由门自己算：把中文标签里出现的数字按序填进 {0} {1}
-  const nums = String(g.label).match(/\d+(?:\.\d+)?/g) ?? [];
-  const label = en ? en.replace(/\{(\d)\}/g, (m, i) => nums[Number(i)] ?? m) : g.label;
-  return { label, detail: GATE_SKIPS_EN[g.detail] ?? g.detail };
-};
+const gateText = gateTextFor(GATE_LABELS_EN, GATE_SKIPS_EN);
 
 const I18N = {
   zh: {
@@ -2025,21 +2013,12 @@ const I18N = {
   },
 };
 
-const tOf = (lang) => {
-  if (lang && !I18N[lang]) throw new Error('报告界面语言目前内置 zh / en');
-  return I18N[lang ?? 'zh'];
-};
+const tOf = i18nLookup(I18N);
 
 /* ------------------------------------------------------------------ */
 /* render 公共                                                          */
 /* ------------------------------------------------------------------ */
 
-const esc = (s) =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 function namer(ctx = {}, t = I18N.zh) {
   const charName = new Map((ctx.outline?.characters ?? []).map((c) => [c.id, c.name]));
@@ -2078,8 +2057,6 @@ function cutBeats(cut, scene) {
 /* render — markdown                                                   */
 /* ------------------------------------------------------------------ */
 
-const mdRow = (cells) => `| ${cells.map((c) => String(c ?? '').replace(/\|/g, '\\|')).join(' | ')} |`;
-const mdHead = (cols) => [mdRow(cols), mdRow(cols.map(() => '---'))].join('\n');
 
 export function renderMarkdown(board, ctx = {}) {
   const t = tOf(ctx.lang ?? board?.lang);
@@ -2135,9 +2112,6 @@ export function renderMarkdown(board, ctx = {}) {
  * 没有就显示占位——不猜、不骗。
  */
 
-function embedDoc(doc) {
-  return JSON.stringify(doc).replace(/</g, '\\u003c');
-}
 
 export function renderHtml(board, ctx = {}) {
   const lang = ctx.lang ?? board?.lang ?? 'zh';
@@ -2569,7 +2543,7 @@ ${dlgRows}
 
 <div class="lightbox" id="lightbox"><img alt=""></div>
 
-<script type="application/json" id="storyboard-data">${embedDoc(board)}</script>
+<script type="application/json" id="storyboard-data">${embedJson(board)}</script>
 <script>
 const L = ${JSON.stringify({ copied: t.copied, failed: t.copyFailed, show: t.showSegs, hide: t.hideSegs })};
 
@@ -2663,14 +2637,7 @@ validate 与 checkup 每次都会把门的结果追加到当前目录的 .gates.
 积累几十次之后跑 stats，就知道模型最常违反哪条规则——那条规则的措辞该改。
 不想记就加 --no-log；写不进去会静默跳过，不影响校验本身。`;
 
-function readJson(path) {
-  return JSON.parse(readFileSync(resolve(path), 'utf8'));
-}
 
-function flag(rest, name, fallback = null) {
-  const i = rest.indexOf(name);
-  return i >= 0 && rest[i + 1] ? rest[i + 1] : fallback;
-}
 
 /*
  * --shots 只接受卡片目录，不接受导出的 shots.json：中间产物必然会漂，
@@ -2857,26 +2824,4 @@ function main(argv) {
   throw new Error(`未知命令 ${cmd}\n\n${USAGE}`);
 }
 
-// 软链安装时 argv[1] 是链接路径，两边都取 realpath 才能比得上
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
-  // `render ... | head` 这类管道提前关闭时安静退出，别甩 EPIPE 堆栈
-  process.stdout.on('error', (e) => {
-    if (e.code === 'EPIPE') process.exit(0);
-    throw e;
-  });
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
+runCli(import.meta.url, main);

@@ -85,6 +85,9 @@ def test_full_native_fixture_executes_five_validators(tmp_path):
     assert result["status"] == "native_validated", result
     assert len(result["stages"]) == 5
     assert all(r["exit_code"] == 0 and r["input_hashes"] for r in result["stages"])
+    # Every validator imports the shared helpers, so a run pins them too.
+    shared = str(production.SKILLS / "_shared" / "cine-common.mjs")
+    assert all(shared in r["input_hashes"] for r in result["stages"])
     assert not result["production_authorized"]
     assert production.read(Path(result["report_path"]))["run_id"] == result["run_id"]
 

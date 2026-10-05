@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // cine-art — deterministic helpers for the cine-art skill (场景 + 道具).
-// Zero dependencies on purpose: the skill must work in any directory
-// without an npm install. Node 18+ (stdlib only).
+// Zero npm dependencies on purpose: the skill must work in any directory
+// without an npm install. Node 18+ stdlib plus ../../_shared/cine-common.mjs.
 
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 画风预设（环境版）                                                    */
@@ -55,11 +55,7 @@ export const scenePreset = (id) => SCENE_STYLE_PRESETS[id] ?? SCENE_STYLE_PRESET
 /* ------------------------------------------------------------------ */
 
 export function slug(name) {
-  const cleaned = String(name)
-    .trim()
-    .replace(/[\s/\\:*?"<>|·]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'scene';
+  return safeStem(name, 'scene', { dot: true });
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,7 +126,6 @@ export function seedFromOutline(outline) {
  * 提示词语言、风格与反向词匹配、变体引用完整。
  */
 
-const thText = (s) => typeof s === 'string' && s.trim();
 /** 中日韩表意文字与假名、谚文——出图提示词里出现就说明串语言了。 */
 const CJK = /[㐀-鿿぀-ヿ가-힯]/;
 /** 环境参考图必须空景：反向提示词里必须把「人」禁掉。 */
@@ -398,14 +393,7 @@ const GATE_SKIPS_EN = {
     '未提供 cast.json，本门跳过（视为通过）': 'cast.json not provided — gate skipped (treated as passing)',
 };
 /** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
-const gateText = (g, lang) => {
-  if (lang !== 'en') return { label: g.label, detail: g.detail };
-  const en = GATE_LABELS_EN[g.id];
-  // 阈值仍由门自己算：把中文标签里出现的数字按序填进 {0} {1}
-  const nums = String(g.label).match(/\d+(?:\.\d+)?/g) ?? [];
-  const label = en ? en.replace(/\{(\d)\}/g, (m, i) => nums[Number(i)] ?? m) : g.label;
-  return { label, detail: GATE_SKIPS_EN[g.detail] ?? g.detail };
-};
+const gateText = gateTextFor(GATE_LABELS_EN, GATE_SKIPS_EN);
 
 const I18N = {
   zh: {
@@ -514,24 +502,13 @@ const I18N = {
   },
 };
 
-const tOf = (lang) => {
-  if (lang && !I18N[lang]) throw new Error('报告界面语言目前内置 zh / en');
-  return I18N[lang ?? 'zh'];
-};
+const tOf = i18nLookup(I18N);
 
 /* ------------------------------------------------------------------ */
 /* render — markdown                                                   */
 /* ------------------------------------------------------------------ */
 
-const esc = (s) =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
-const mdRow = (cells) => `| ${cells.map((c) => String(c ?? '').replace(/\|/g, '\\|')).join(' | ')} |`;
-const mdHead = (cols) => [mdRow(cols), mdRow(cols.map(() => '---'))].join('\n');
 
 export function renderMarkdown(doc, lang = null) {
   const t = tOf(lang ?? doc?.lang);
@@ -601,9 +578,6 @@ export function renderMarkdown(doc, lang = null) {
  * 全部平铺可 Cmd+F，零外部依赖。设计约定见 references/report-style.md。
  */
 
-function embedDoc(doc) {
-  return JSON.stringify(doc).replace(/</g, '\\u003c');
-}
 
 export function renderHtml(doc, lang = null) {
   const code = lang ?? doc?.lang ?? 'zh';
@@ -937,7 +911,7 @@ ${propCards}
   <img alt="">
 </div>
 
-<script type="application/json" id="art-data">${embedDoc(doc)}</script>
+<script type="application/json" id="art-data">${embedJson(doc)}</script>
 <script>
 const L = ${JSON.stringify({ copied: t.copied, failed: t.copyFailed })};
 
@@ -1001,14 +975,7 @@ const USAGE = `cine-art.mjs — cine-art skill 的确定性工具（场景 + 道
 
 render 会自动去 images/<slug>-sheet.png 找图，找到就嵌进报告。`;
 
-function readJson(path) {
-  return JSON.parse(readFileSync(resolve(path), 'utf8'));
-}
 
-function flag(rest, name, fallback = null) {
-  const i = rest.indexOf(name);
-  return i >= 0 && rest[i + 1] ? rest[i + 1] : fallback;
-}
 
 function main(argv) {
   const [cmd, ...rest] = argv;
@@ -1090,26 +1057,4 @@ function main(argv) {
   throw new Error(`未知命令 ${cmd}\n\n${USAGE}`);
 }
 
-// 软链安装时 argv[1] 是链接路径，两边都取 realpath 才能比得上
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
-  // `render ... | head` 这类管道提前关闭时安静退出，别甩 EPIPE 堆栈
-  process.stdout.on('error', (e) => {
-    if (e.code === 'EPIPE') process.exit(0);
-    throw e;
-  });
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
+runCli(import.meta.url, main);

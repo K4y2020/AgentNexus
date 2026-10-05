@@ -19,6 +19,8 @@ except ImportError:  # Direct CLI execution from the pipeline directory.
     import stage_graph
 
 SKILLS = Path(__file__).resolve().parents[2]
+# Helpers every stage script imports; a validation pins them like its inputs.
+SHARED_SCRIPTS = (SKILLS / "_shared" / "cine-common.mjs",)
 # Adaptation modes whose script is not compared line by line with the source.
 FREE_ADAPT_MODES = {"借壳"}
 
@@ -746,7 +748,9 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     if not node:
         raise ValueError("node is unavailable; no substitute seeder was run")
     tool = script_path(stage)
-    hashes = {str(p): fingerprint(p) for p in (path, tool, directory / "production.json")}
+    hashes = {
+        str(p): fingerprint(p) for p in (path, tool, *SHARED_SCRIPTS, directory / "production.json")
+    }
     hashes[str(manifest)] = binding_hash
     command = [node, str(tool), "seed", str(path)]
     if stage == "storyboard":
@@ -826,6 +830,7 @@ def check_stage(
             files.append(source_text)
         row["input_hashes"] = {str(p): fingerprint(p) for p in files}
         row["input_hashes"][str(manifest)] = binding_hash
+        row["input_hashes"].update({str(p): fingerprint(p) for p in SHARED_SCRIPTS})
         row["validator_sha256"] = digest(tool)
         problems = []
         for key in (stage, *inputs):

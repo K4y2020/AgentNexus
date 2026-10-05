@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 // cine-script — deterministic helpers for the cine-script skill (剧本).
-// Zero dependencies on purpose: the skill must work in any directory
-// without an npm install. Node 18+ (stdlib only).
+// Zero npm dependencies on purpose: the skill must work in any directory
+// without an npm install. Node 18+ stdlib plus ../../_shared/cine-common.mjs.
 
-import { readFileSync, realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 时长引擎                                                             */
@@ -55,7 +53,6 @@ function conservativeParamProblems(doc) {
 /** 台词计秒用的字符数：去空白，标点算时间（停顿也是时间）。 */
 export const lineChars = (line) => String(line ?? '').replace(/\s+/g, '').length;
 
-const r1 = (n) => Math.round(n * 10) / 10;
 
 /** 一场戏的估秒。flow 里台词按语速折算，动作节拍按固定秒数。 */
 export function sceneSeconds(scene, params = DEFAULT_PARAMS) {
@@ -139,7 +136,6 @@ export function computeStats(doc) {
  * 明说跳过——静默通过和撒谎只差一步。
  */
 
-const thText = (s) => typeof s === 'string' && s.trim();
 /** 动作描述必须是叙述体——台词只能进 dialogue 字段，混进 action 就没法计秒。 */
 const QUOTE_RE = /「|」|『|』|“|”/;
 /**
@@ -835,11 +831,7 @@ export function seedFromOutline(outline, epRange = null) {
 /* ------------------------------------------------------------------ */
 
 export function slug(name) {
-  const cleaned = String(name)
-    .trim()
-    .replace(/[\s/\\:*?"<>|·]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'script';
+  return safeStem(name, 'script', { dot: true });
 }
 
 /* ------------------------------------------------------------------ */
@@ -877,14 +869,7 @@ const GATE_SKIPS_EN = {
     '非忠实模式，本门不适用（视为通过）': 'Not faithful mode — gate does not apply (treated as passing)',
 };
 /** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
-const gateText = (g, lang) => {
-  if (lang !== 'en') return { label: g.label, detail: g.detail };
-  const en = GATE_LABELS_EN[g.id];
-  // 阈值仍由门自己算：把中文标签里出现的数字按序填进 {0} {1}
-  const nums = String(g.label).match(/\d+(?:\.\d+)?/g) ?? [];
-  const label = en ? en.replace(/\{(\d)\}/g, (m, i) => nums[Number(i)] ?? m) : g.label;
-  return { label, detail: GATE_SKIPS_EN[g.detail] ?? g.detail };
-};
+const gateText = gateTextFor(GATE_LABELS_EN, GATE_SKIPS_EN);
 
 const I18N = {
   zh: {
@@ -1003,24 +988,13 @@ const I18N = {
   },
 };
 
-export const tOf = (lang) => {
-  if (lang && !I18N[lang]) throw new Error('报告界面语言目前内置 zh / en');
-  return I18N[lang ?? 'zh'];
-};
+export const tOf = i18nLookup(I18N);
 
 /* ------------------------------------------------------------------ */
 /* render — markdown                                                   */
 /* ------------------------------------------------------------------ */
 
-const esc = (s) =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
-const mdRow = (cells) => `| ${cells.map((c) => String(c ?? '').replace(/\|/g, '\\|')).join(' | ')} |`;
-const mdHead = (cols) => [mdRow(cols), mdRow(cols.map(() => '---'))].join('\n');
 
 /** 显示名：给了上游映射就用名字，否则裸 ID。 */
 function namer(ctx = {}, t = tOf()) {
@@ -1085,9 +1059,6 @@ export function renderMarkdown(doc, ctx = {}) {
  * 零外部依赖。设计约定见 references/report-style.md。
  */
 
-function embedDoc(doc) {
-  return JSON.stringify(doc).replace(/</g, '\\u003c');
-}
 
 export function renderHtml(doc, ctx = {}) {
   const lang = langOf(doc, ctx);
@@ -1427,7 +1398,7 @@ ${castBlocks}
 <p class="foot">${esc(t.colophon)}</p>
 </div>
 
-<script type="application/json" id="script-data">${embedDoc(doc)}</script>
+<script type="application/json" id="script-data">${embedJson(doc)}</script>
 <script>
 const L = ${JSON.stringify({ copied: t.copied, failed: t.copyFailed, show: t.showScenes, hide: t.hideScenes })};
 
@@ -1495,14 +1466,7 @@ const USAGE = `cine-script.mjs — cine-script skill 的确定性工具（剧本
          [--cast cast.json]                 台词本带每个角色的音色提示词（对接 TTS）
   slug <name>                               剧名转安全文件名`;
 
-function readJson(path) {
-  return JSON.parse(readFileSync(resolve(path), 'utf8'));
-}
 
-function flag(rest, name, fallback = null) {
-  const i = rest.indexOf(name);
-  return i >= 0 && rest[i + 1] ? rest[i + 1] : fallback;
-}
 
 function loadCtx(rest) {
   const get = (name) => {
@@ -1592,26 +1556,4 @@ function main(argv) {
   throw new Error(`未知命令 ${cmd}\n\n${USAGE}`);
 }
 
-// 软链安装时 argv[1] 是链接路径，两边都取 realpath 才能比得上
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
-  // `render ... | head` 这类管道提前关闭时安静退出，别甩 EPIPE 堆栈
-  process.stdout.on('error', (e) => {
-    if (e.code === 'EPIPE') process.exit(0);
-    throw e;
-  });
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
+runCli(import.meta.url, main);

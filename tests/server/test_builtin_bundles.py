@@ -38,6 +38,8 @@ _NATIVE_BUILDERS = [(agent.key, f"{agent.agent_name}.yaml") for agent in _NATIVE
 _EXAMPLE_BUILDERS = [
     ("_build_debby_bundle", "config.yaml", True),
     ("_build_polly_bundle", "config.yaml", True),
+    # The cine stage scripts import helpers from beside the skills.
+    ("_build_cine_bundle", "skills/_shared/cine-common.mjs", True),
 ]
 
 
@@ -50,6 +52,7 @@ def _shipped_example_missing(builder: str) -> bool:
     source = {
         "_build_debby_bundle": app._DEBBY_BUNDLE_SOURCE,
         "_build_polly_bundle": app._POLLY_BUNDLE_SOURCE,
+        "_build_cine_bundle": app._CINE_BUNDLE_SOURCE,
     }[builder]
     return not (source / "config.yaml").is_file()
 
