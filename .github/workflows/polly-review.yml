@@ -587,6 +587,7 @@ jobs:
           echo "Created new comment"
 
       - name: Upload logs on failure
+        continue-on-error: true
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
@@ -594,5 +595,5 @@ jobs:
           path: |
             polly-stderr.log
             /tmp/polly_output.txt
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: ignore

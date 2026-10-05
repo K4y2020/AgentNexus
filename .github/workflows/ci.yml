@@ -240,12 +240,13 @@ jobs:
           fi
 
       - name: Upload pytest artifacts
+        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: pytest-${{ matrix.group }}-${{ github.run_id }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 1
           include-hidden-files: true  # the per-shard .coverage.<group> dotfile
 
   stores-postgres:
@@ -288,11 +289,12 @@ jobs:
             --timeout=300 \
             --junitxml=artifacts/pytest-stores-postgres.xml
       - if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pytest-stores-postgres-${{ github.run_id }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 1
 
   stores-mysql:
     name: Pytest (stores-mysql)
@@ -336,11 +338,12 @@ jobs:
             --timeout=300 \
             --junitxml=artifacts/pytest-stores-mysql.xml
       - if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pytest-stores-mysql-${{ github.run_id }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 1
 
   codex-parity:
     name: Pytest (codex-parity)
@@ -425,12 +428,13 @@ jobs:
               -v --tb=long --showlocals --log-level=INFO -r a
 
       - name: Upload pytest artifacts
+        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: pytest-codex-parity-${{ github.run_id }}
           path: artifacts/
-          retention-days: 14
+          retention-days: 1
 
   coverage-report:
     name: Coverage report
@@ -485,10 +489,11 @@ jobs:
           echo "Total coverage: $(cat coverage-summary/total.txt)%"
 
       - name: Upload coverage summary
+        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: coverage-summary-${{ github.run_id }}
           path: coverage-summary/
-          retention-days: 14
+          retention-days: 1
           if-no-files-found: ignore

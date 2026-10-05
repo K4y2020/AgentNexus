@@ -213,6 +213,7 @@ runs:
         fi
 
     - name: Upload logs on failure
+      continue-on-error: true
       if: ${{ failure() || cancelled() }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
       with:
@@ -222,6 +223,6 @@ runs:
           /tmp/agentnexus-compat-ui-${{ github.run_id }}/**/runner.log
           /tmp/agentnexus-compat-ui-${{ github.run_id }}/**/.agentnexus/logs/**/*.log
           /tmp/agentnexus-compat-ui-${{ github.run_id }}/junit.xml
-        retention-days: 7
+        retention-days: 1
         if-no-files-found: warn
         include-hidden-files: true

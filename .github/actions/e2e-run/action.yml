@@ -201,6 +201,7 @@ runs:
           || { rc=$?; [ "$rc" -eq 5 ] && echo "::notice::No tests collected in this shard; treating as a pass." || exit "$rc"; }
 
     - name: Upload server logs on failure
+      continue-on-error: true
       # cancelled() too: failure() misses step timeouts (#426).
       if: ${{ failure() || cancelled() }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
@@ -212,15 +213,16 @@ runs:
           /tmp/agentnexus-e2e-${{ github.run_id }}-shard${{ inputs.shard_id }}/**/.agentnexus/logs/**/*.log
           /tmp/agentnexus-e2e-${{ github.run_id }}-shard${{ inputs.shard_id }}/junit.xml
           /tmp/agentnexus-e2e-${{ github.run_id }}-shard${{ inputs.shard_id }}/progress/progress-*.log
-        retention-days: 7
+        retention-days: 1
         if-no-files-found: warn
         include-hidden-files: true
 
     - name: Upload token usage
+      continue-on-error: true
       if: ${{ always() }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
       with:
         name: e2e-tokens-${{ github.run_id }}-shard${{ inputs.shard_id }}${{ inputs.artifact_suffix }}
         path: /tmp/agentnexus-e2e-${{ github.run_id }}-shard${{ inputs.shard_id }}/tokens*.json
-        retention-days: 14
+        retention-days: 1
         if-no-files-found: warn

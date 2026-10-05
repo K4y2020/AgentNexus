@@ -793,6 +793,7 @@ jobs:
           PYEOF
 
       - name: Upload logs on failure
+        continue-on-error: true
         if: always() && steps.plan.outputs.proceed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
@@ -803,5 +804,5 @@ jobs:
             /tmp/classify_out.txt
             /tmp/draft_out.txt
             /tmp/site_pr_body.md
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: ignore
