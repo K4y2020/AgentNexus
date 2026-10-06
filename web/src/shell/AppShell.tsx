@@ -821,13 +821,17 @@ export function AppShell() {
   // display order (Files · Changes · Agents · Browser). Picking
   // the first available (rather than ping-ponging between two effects) keeps
   // this convergent even when several tabs vanish at once.
+  const sessionKnown = activeConv !== null || activeSession !== null;
   useEffect(() => {
     if (railTabsAvailable[rightRailTab]) return;
+    // The files gate reads closed until the session loads; falling back then
+    // would strand the rail on Agents once Files turns out to be available.
+    if (conversationId && !sessionKnown) return;
     const next = (["files", "changes", "subagents", "coordination", "browser"] as const).find(
       (t) => railTabsAvailable[t],
     );
     if (next) setRightRailTab(next);
-  }, [railTabsAvailable, rightRailTab]);
+  }, [railTabsAvailable, rightRailTab, conversationId, sessionKnown]);
 
   // Mount the relay at the always-present shell level (not BrowserPane, which
   // only mounts while its tab is selected) so it's listening before the first

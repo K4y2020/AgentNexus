@@ -2,8 +2,8 @@
 
 Drives the real move flow the ``useConversations`` unit tests cover in
 isolation: open the session row's context menu, pick *Add to project* →
-a first-class project, and assert the row regroups from the flat
-**Sessions** section into the (auto-expanded) project folder — then that
+a first-class project, and assert the row regroups from its teammate's
+topics into the (auto-expanded) project folder — then that
 the membership actually committed server-side (``project_id`` on
 ``GET /v1/sessions/{id}``). The sidebar paints the move optimistically,
 so the visual regroup must not wait on the PATCH round-trip, but the
@@ -21,7 +21,7 @@ import uuid
 import httpx
 from playwright.sync_api import Page, expect
 
-from tests.e2e_ui.conftest import _build_hello_world_bundle
+from tests.e2e_ui.conftest import _build_hello_world_bundle, _teammate_group
 
 
 def _seed_session(base_url: str, *, title: str) -> str:
@@ -78,11 +78,9 @@ def test_move_session_into_project_regroups_sidebar_row(
             has=page.get_by_role("button", name=re.compile(f"^{re.escape(project_name)}"))
         )
         expect(folder_section.get_by_text(title, exact=True)).to_be_visible()
-        # …and leaves the flat Sessions section (moved, not duplicated).
-        sessions_section = page.locator("section").filter(
-            has=page.get_by_role("button", name="Sessions", exact=True)
-        )
-        expect(sessions_section.get_by_text(title, exact=True)).to_have_count(0)
+        # …and leaves its teammate's topics (moved, not duplicated).
+        topics = _teammate_group(page, "hello_world")
+        expect(topics.get_by_text(title, exact=True)).to_have_count(0)
 
         # The optimistic paint must converge to a committed membership.
         deadline = time.monotonic() + 10.0

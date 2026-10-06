@@ -10,14 +10,14 @@ def test_agent_picker_shows_bound_agent(
     seeded_session: tuple[str, str],
     extra_agent: str,
 ) -> None:
-    """The read-only label shows the bound model; no dropdown, no config gear.
+    """The read-only label shows the bound model; no dropdown, no session config.
 
     When a session is bound to an agent, the runner is tied 1:1 to it and
     switching is impossible — so the composer shows a read-only ``<Model>``
     label rather than a dropdown. This custom web agent exposes no switchable
-    knob (no model picker, no effort, not routable), so the config gear is
-    absent too. ``extra_agent`` confirms global agents do not leak into the
-    bound session.
+    knob (no model picker, no effort, not routable), so its gear opens only the
+    agent's teammate settings. ``extra_agent`` confirms global agents do not
+    leak into the bound session.
 
     Starts from ``/c/<id>`` instead of ``/`` because the home route no
     longer renders a composer — see :func:`seeded_session`.
@@ -35,5 +35,10 @@ def test_agent_picker_shows_bound_agent(
     # The old dropdown trigger is gone.
     expect(page.get_by_test_id("agent-picker-trigger")).to_have_count(0)
 
-    # No switchable knob → no config gear on this session.
-    expect(page.get_by_test_id("composer-config-gear")).to_have_count(0)
+    # No switchable knob, so the gear only reaches the agent's teammate
+    # settings; there is no session config modal to open.
+    gear = page.get_by_test_id("composer-config-gear")
+    expect(gear).to_have_accessible_name("Configure hello_world")
+    gear.click()
+    expect(page.get_by_role("dialog").get_by_text("Persistent teammate bot")).to_be_visible()
+    expect(page.get_by_test_id("composer-config-modal")).to_have_count(0)

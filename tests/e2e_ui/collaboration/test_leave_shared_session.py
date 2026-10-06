@@ -74,7 +74,7 @@ def _grant(server: MultiUserServer, user_id: str, level: int) -> None:
 
 def _row(page: Page, session_id: str) -> Locator:
     """The sidebar row (``<li>``) for *session_id*, located by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def _open_row_menu(page: Page, session_id: str) -> None:

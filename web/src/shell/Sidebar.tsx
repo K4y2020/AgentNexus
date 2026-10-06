@@ -1713,11 +1713,14 @@ function ConversationList({
             (teammate.primaryConversationId && c.id === teammate.primaryConversationId) ||
             c.purpose === "primary",
         ) ?? null;
+      // Like the flat list, a topic shows once: pinned and filed sessions live
+      // under Pinned and their project folder instead.
       const topicList = rawList.filter(
         (c) =>
           c.id !== teammate.primaryConversationId &&
           c.purpose !== "primary" &&
-          !pinnedIdSet.has(c.id),
+          !pinnedIdSet.has(c.id) &&
+          !filedIds.has(c.id),
       );
       return {
         teammate,
@@ -2025,6 +2028,10 @@ function ConversationList({
     // Projects / Sessions walk covers both tabs (Projects is empty on shared).
     return [
       ...visible("Pinned", sections.pinned),
+      ...visible(
+        "Teammates",
+        sections.teammateGroups.flatMap((g) => g.topics),
+      ),
       ...sections.projectGroups.flatMap((g) => projectVisible(g.name, g.conversations)),
       ...visible("Chats", sections.sessions),
     ].map((c) => c.id);
@@ -2201,7 +2208,8 @@ function ConversationList({
                           pinnedConversationIds={pinnedConversationIds}
                           onRowClick={onRowClick}
                           onTogglePinned={onTogglePinned}
-                          selectionMode={selectionMode}
+                          // Like Pinned, topics sit outside both selection scopes.
+                          selectionMode={false}
                           selectedIds={selectedIds}
                           onToggleSelected={onToggleSelected}
                           onProjectAssigned={expandProject}

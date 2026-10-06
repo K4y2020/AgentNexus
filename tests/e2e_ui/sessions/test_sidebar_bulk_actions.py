@@ -25,7 +25,7 @@ import uuid
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e_ui.conftest import _build_hello_world_bundle
+from tests.e2e_ui.conftest import _build_hello_world_bundle, _post_native_claude_session
 
 # Reserved label key that stores project membership (see
 # ``sqlalchemy_store.list_projects`` and ``web/src/lib/sessionListCache.ts``).
@@ -57,6 +57,18 @@ def _set_title(base_url: str, session_id: str, title: str) -> None:
         timeout=10.0,
     )
     resp.raise_for_status()
+
+
+def _seed_flat_session(base_url: str, title: str) -> str:
+    """Create a titled session that lists in the flat Sessions list.
+
+    Sessions-scope selection acts on that list, which holds execution-harness
+    sessions; a ``hello_world`` session is a topic of its teammate instead. No
+    runner binding: the row only needs to list and be archived or deleted.
+    """
+    session_id = _post_native_claude_session(base_url)
+    _set_title(base_url, session_id, title)
+    return session_id
 
 
 def _seed_project_session(base_url: str, *, title: str, project: str) -> str:
@@ -109,7 +121,7 @@ def test_session_header_action_visibility(
     """Filter stays visible while Select reveals on hover or keyboard focus."""
     base_url, session_id = seeded_session
     title = f"e2e-header-actions-{uuid.uuid4().hex[:8]}"
-    _set_title(base_url, session_id, title)
+    flat_id = _seed_flat_session(base_url, title)
 
     page.set_viewport_size({"width": 1280, "height": 800})
     page.goto(f"{base_url}/c/{session_id}")
@@ -140,6 +152,8 @@ def test_session_header_action_visibility(
     filter_sessions.click()
     expect(page.get_by_test_id("session-filter-all")).to_be_visible()
 
+    _delete_sessions(base_url, [flat_id])
+
 
 def test_selection_mode_toggle(
     page: Page,
@@ -161,7 +175,7 @@ def test_selection_mode_toggle(
     """
     base_url, session_id = seeded_session
     title = f"e2e-bulk-toggle-{uuid.uuid4().hex[:8]}"
-    _set_title(base_url, session_id, title)
+    flat_id = _seed_flat_session(base_url, title)
 
     page.goto(f"{base_url}/c/{session_id}")
 
@@ -198,6 +212,8 @@ def test_selection_mode_toggle(
     expect(row_item.locator("svg.lucide-square-check")).to_have_count(0)
     expect(page.get_by_text("0 selected")).to_have_count(0)
 
+    _delete_sessions(base_url, [flat_id])
+
 
 def test_archive_action_disabled_until_selection(
     page: Page,
@@ -216,7 +232,7 @@ def test_archive_action_disabled_until_selection(
     """
     base_url, session_id = seeded_session
     title = f"e2e-bulk-disabled-{uuid.uuid4().hex[:8]}"
-    _set_title(base_url, session_id, title)
+    flat_id = _seed_flat_session(base_url, title)
 
     page.goto(f"{base_url}/c/{session_id}")
 
@@ -239,6 +255,8 @@ def test_archive_action_disabled_until_selection(
     expect(archive_btn).to_be_enabled()
     expect(delete_btn).to_be_enabled()
 
+    _delete_sessions(base_url, [flat_id])
+
 
 def test_bulk_archive_moves_session_to_archived(
     page: Page,
@@ -256,7 +274,7 @@ def test_bulk_archive_moves_session_to_archived(
     """
     base_url, session_id = seeded_session
     title = f"e2e-bulk-archive-{uuid.uuid4().hex[:8]}"
-    _set_title(base_url, session_id, title)
+    flat_id = _seed_flat_session(base_url, title)
 
     page.goto(f"{base_url}/c/{session_id}")
 
@@ -277,19 +295,15 @@ def test_bulk_archive_moves_session_to_archived(
     deadline = time.monotonic() + 15.0
     archived = False
     while time.monotonic() < deadline:
-        resp = httpx.get(f"{base_url}/v1/sessions/{session_id}", timeout=10.0)
+        resp = httpx.get(f"{base_url}/v1/sessions/{flat_id}", timeout=10.0)
         if resp.status_code == 200 and resp.json().get("archived") is True:
             archived = True
             break
         time.sleep(0.5)
     assert archived, "session should be archived on the server after bulk archive"
 
-    # Clean up: unarchive the session so it doesn't interfere with other tests.
-    httpx.patch(
-        f"{base_url}/v1/sessions/{session_id}",
-        json={"archived": False},
-        timeout=10.0,
-    ).raise_for_status()
+    # Clean up so the archived session doesn't interfere with other tests.
+    _delete_sessions(base_url, [flat_id])
 
 
 def test_bulk_delete_removes_sessions(
@@ -310,7 +324,7 @@ def test_bulk_delete_removes_sessions(
     """
     base_url, session_id = seeded_session
     title = f"e2e-bulk-delete-{uuid.uuid4().hex[:8]}"
-    _set_title(base_url, session_id, title)
+    flat_id = _seed_flat_session(base_url, title)
 
     page.goto(f"{base_url}/c/{session_id}")
 
@@ -341,7 +355,7 @@ def test_bulk_delete_removes_sessions(
     deadline = time.monotonic() + 15.0
     last_status = None
     while time.monotonic() < deadline:
-        last_status = httpx.get(f"{base_url}/v1/sessions/{session_id}", timeout=10.0).status_code
+        last_status = httpx.get(f"{base_url}/v1/sessions/{flat_id}", timeout=10.0).status_code
         if last_status == 404:
             break
         time.sleep(0.25)

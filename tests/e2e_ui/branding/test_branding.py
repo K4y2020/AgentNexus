@@ -80,7 +80,7 @@ def test_custom_branding_reshapes_the_landing(page: Page, seeded_session: tuple[
     )
 
     # The credit shows because branding is set.
-    expect(page.get_by_test_id("powered-by-omnigent")).to_be_visible()
+    expect(page.get_by_test_id("powered-by-agentnexus")).to_be_visible()
 
 
 def test_empty_heading_hides_the_hero_line(page: Page, seeded_session: tuple[str, str]) -> None:
@@ -96,7 +96,7 @@ def test_empty_heading_hides_the_hero_line(page: Page, seeded_session: tuple[str
     # Neither the custom nor the built-in default heading appears.
     expect(page.get_by_text("What should we build?")).to_have_count(0)
     # The landing did load branded (credit present), so this is a real hide.
-    expect(page.get_by_test_id("powered-by-omnigent")).to_be_visible()
+    expect(page.get_by_test_id("powered-by-agentnexus")).to_be_visible()
 
 
 def test_powered_by_false_hides_the_credit(page: Page, seeded_session: tuple[str, str]) -> None:
@@ -110,7 +110,7 @@ def test_powered_by_false_hides_the_credit(page: Page, seeded_session: tuple[str
     _open_landing(page, base_url)
 
     expect(page.get_by_role("heading", name="Acme Corp")).to_be_visible()
-    expect(page.get_by_test_id("powered-by-omnigent")).to_have_count(0)
+    expect(page.get_by_test_id("powered-by-agentnexus")).to_have_count(0)
 
 
 def test_unbranded_keeps_defaults_and_hides_credit(
@@ -123,4 +123,4 @@ def test_unbranded_keeps_defaults_and_hides_credit(
 
     expect(page.get_by_role("heading", name="What should we build?")).to_be_visible()
     expect(page.get_by_role("link", name="AgentNexus")).to_be_visible()
-    expect(page.get_by_test_id("powered-by-omnigent")).to_have_count(0)
+    expect(page.get_by_test_id("powered-by-agentnexus")).to_have_count(0)
