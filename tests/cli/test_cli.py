@@ -1877,9 +1877,20 @@ def test_start_cli_runner_process_reports_captured_log_path(
     assert ".log" in excinfo.value.message
 
 
+@pytest.fixture
+def skip_port_bind_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip the explicit-port bind preflight in tests that never listen.
+
+    Their fixed ports can be held by another xdist worker's ephemeral socket;
+    the preflight itself has its own tests below.
+    """
+    monkeypatch.setattr("agentnexus.cli._assert_server_port_bindable", lambda _host, _port: None)
+
+
 def test_server_command_reads_tunnel_token_and_does_not_spawn_runner(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    skip_port_bind_probe: None,
 ) -> None:
     """``omnigent server`` is a pure state server — no embedded runner.
 
@@ -1994,6 +2005,7 @@ def test_server_command_reads_tunnel_token_and_does_not_spawn_runner(
 def test_server_explicit_config_overrides_omnigent_config_env(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    skip_port_bind_probe: None,
 ) -> None:
     """An explicit ``-c`` is the single server and branding config source."""
     import uvicorn.server
@@ -2034,6 +2046,7 @@ def test_server_explicit_config_overrides_omnigent_config_env(
 def test_server_with_explicit_db_does_not_reuse_canonical_server(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    skip_port_bind_probe: None,
 ) -> None:
     """A `server` with explicit --database-uri binds its own port, never reuses.
 
@@ -2120,6 +2133,7 @@ def test_server_with_explicit_db_does_not_reuse_canonical_server(
 def test_server_with_explicit_port_does_not_check_canonical_server(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    skip_port_bind_probe: None,
 ) -> None:
     """
     An explicit ``--port`` starts a dedicated local server.
