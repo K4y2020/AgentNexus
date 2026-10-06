@@ -84,10 +84,10 @@ def test_move_session_into_new_project(
 ) -> None:
     """Filing a session into a freshly-created project moves the row into it.
 
-    The session starts under "Sessions"; after creating the project (+ button)
-    and picking it from "Add to project", a project folder with that name
-    appears under the "Projects" group and the row lives under it (once
-    expanded) and no longer under "Sessions".
+    The session starts among the hello_world teammate's topics; after creating
+    the project (+ button) and picking it from "Add to project", a project
+    folder with that name appears under the "Projects" group and the row lives
+    under it (once expanded) and no longer among the topics.
     """
     base_url, session_id = seeded_session
     title = f"e2e-proj-{uuid.uuid4().hex[:8]}"
@@ -98,7 +98,8 @@ def test_move_session_into_new_project(
 
     row = _row(page, session_id)
     expect(row).to_be_visible()
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
 
     _move_to_new_project(page, row, project)
 
@@ -109,7 +110,7 @@ def test_move_session_into_new_project(
     expect(header).to_have_attribute("aria-expanded", "true")
 
     expect(_section(page, project).locator(f'a[href="/c/{session_id}"]')).to_be_visible()
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 
 
 def test_fork_of_filed_session_joins_the_folder_without_reload(
@@ -175,7 +176,9 @@ def test_fork_of_filed_session_joins_the_folder_without_reload(
     expect(_section(page, project).locator(f'a[href="/c/{fork_id}"]')).to_be_visible(
         timeout=20_000
     )
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{fork_id}"]')).to_have_count(0)
+    expect(_teammate_group(page, "hello_world").locator(f'a[href="/c/{fork_id}"]')).to_have_count(
+        0
+    )
 
 
 def test_remove_session_from_project(
