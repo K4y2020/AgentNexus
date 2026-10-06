@@ -716,7 +716,9 @@ def test_repl_approve_always_caches_for_later_turns(
         # Echo line confirms the REPL parsed "a" as
         # APPROVE_ALWAYS, not as a generic non-"y" refusal.
         child.expect("approved always", timeout=5)
-        _wait_for_turn_complete(child, timeout=30)
+        # Terminal redraws can omit a contiguous idle marker. Wait for the
+        # scripted reply to confirm the approved turn reached the LLM.
+        child.expect("Hello there!", timeout=30)
 
         # Drain between turns so the next buffer is clean.
         _read_pending(child, seconds=1.5)
