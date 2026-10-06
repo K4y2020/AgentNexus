@@ -846,9 +846,10 @@ def film_refresh_report(output: str, workspace: str | None = None) -> dict:
     """Re-render the playback report of an indexed project from its committed revision.
 
     Runs no extraction, transcription or generation. Returns the receipt:
-    status ``report_refreshed`` with report_path, record counts, input files
+    status ``report_refreshed`` with report_path, report_link, record counts, input files
     and media status, or ``report_refresh_failed`` with error_code and
-    next_action.
+    next_action. Copy report_link verbatim into the reply; it opens the written
+    report in the workspace file viewer without a file:// URL.
 
     Args:
         output: The project directory.

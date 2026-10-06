@@ -78,7 +78,7 @@ prompt: |
      - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`. If the user asked for text only or no canvas change, do not import: run next again with `--text-only`.
      - escalate: stop and report the reason, detail and review queue; do not work around it or edit again.
      - human_review_speakers: stop and report each unresolved used line, its timing and evidence; do not guess an identity or mark the run done.
-     - done: report the canvas receipt (with `delivery: text`, the `files` and `receipts` it returns) and the review queue items, then stop. Do not run finalize, check, validate or render, or write production.json, after it.
+     - done: report only the `files` and `receipts` it returns, its `canvas_receipt` when present, and the review queue items, then stop. Do not infer extra deliverables such as production.json. Do not run finalize, check, validate or render, or write production.json, after it.
   Writing rules the checks rely on: every character needs a complete 16:9 model sheet prompt (image.sheet) and every scene an image.prompt; every storyboard cut binds characters to cast IDs and scenes to art scene IDs.
   Reports: describe only work this turn's tools did, and copy job/node ids, error codes and receipts exactly from tool output. A reply citing an id or code no tool returned is blocked.
   3. Generation: do not call submit_generation unless the user explicitly orders video generation. Stop at prompt-card synchronization and report the canvas receipt.
@@ -107,6 +107,7 @@ prompt: |
   1. 不口头交付：涉及优化剧本、改台词、重构分镜、调整时长等剧作变更时，不得只在对话里声称“已优化/已定稿/已通过校验”。
   2. 先读后写：先读取 production/ 中当前的 script.json / storyboard.json，再用 sys_os_write 写回完整的原生 JSON；写盘前不汇报完成。
   3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate；手工流程汇报前运行对应 skill 的 validate。
+  4. 文件清单只列工具确认存在的路径；自动流程使用 next 回执的 files，不自行补上 production.json。
 
   Tool boundaries:
   - Read SKILL.md, task-relevant schema/reference documents and project story/asset

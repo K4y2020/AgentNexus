@@ -35,10 +35,11 @@ QUEUE = "review-queue.json"
 # Copies of the passed stages an open edit must leave alone, and of edits undone.
 FROZEN = Path(".cine-validation") / "frozen"
 REVERTED = Path(".cine-validation") / "reverted"
-TEXT_DONE = (
-    "Text delivery is complete: every stage file passed its checks. Report the files, "
-    "these receipts and the review queue, then stop. Nothing else needs to run: no canvas "
-    "import, finalize, check, validate or render, and no production.json."
+DONE_DETAIL = (
+    "Delivery is complete: every stage file passed its checks. Report only these files, "
+    "receipts, the canvas receipt when present and the review queue, then stop. Nothing "
+    "else needs to run: no canvas import, finalize, check, validate or render, and no "
+    "production.json."
 )
 
 
@@ -83,6 +84,19 @@ class _Run:
             "blocking_items": sum(i["severity"] == "blocking" for i in items),
             "review_items": sum(i["severity"] == "review" for i in items),
         }
+
+    def done(self, delivery: str) -> dict[str, Any]:
+        result = {
+            "action": "done",
+            "delivery": delivery,
+            "files": {stage: str(prod.stage_path(self.directory, stage)) for stage in ORDER},
+            "receipts": {stage: self.stage(stage).get("receipt") for stage in ORDER},
+            "detail": DONE_DETAIL,
+            **self.summary(),
+        }
+        if delivery == "canvas":
+            result["canvas_receipt"] = self.state["canvas_synced"].get("receipt")
+        return result
 
 
 def _location_inputs(directory: Path, stage: str) -> list[Path]:
@@ -528,16 +542,9 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
         run.set_items("script", "speakers", [])
         run.save()
     if run.state.get("canvas_synced", {}).get("sha") == prod.digest(storyboard):
-        return {"action": "done", **run.summary()}
+        return run.done("canvas")
     if run.state.get("delivery") == "text":
-        return {
-            "action": "done",
-            "delivery": "text",
-            "files": {stage: str(prod.stage_path(directory, stage)) for stage in ORDER},
-            "receipts": {stage: run.stage(stage).get("receipt") for stage in ORDER},
-            "detail": TEXT_DONE,
-            **run.summary(),
-        }
+        return run.done("text")
     return {
         "action": "import_canvas",
         "tool": "seedance_edit_canvas",

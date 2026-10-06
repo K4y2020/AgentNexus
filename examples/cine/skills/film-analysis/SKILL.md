@@ -14,11 +14,14 @@ For refresh/update/rebuild of an existing playback report, call the MCP tool
 argument, directory listing, source-code reading or production-handoff reference.
 
 The tool resolves the committed revision itself. Its receipt provides report_path,
-report_bytes, source/revision IDs, record counts, input_files, media.status and warnings.
-When status is report_refreshed, return a clickable absolute report link and summarize
-the receipt. That completes a refresh request; no further file checks or browser call
-is needed. Only open a browser if the user asked to open it and that session has an
-available browser. Browser unavailability does not invalidate a generated report.
+report_link, report_bytes, source/revision IDs, record counts, input_files, media.status
+and warnings. When status is report_refreshed, copy report_link verbatim and summarize
+the receipt. It is an inline-code absolute path that the Web file viewer makes
+clickable, including on Windows; do not replace it with a file:// URL or a Markdown
+URL with a drive-letter scheme. That completes a refresh request; no further file
+checks or browser call is needed. Only open a browser if the user asked to open it
+and that session has an available browser. Browser unavailability does not invalidate
+a generated report.
 For select_local_file media status, explain that the page needs local video selection.
 The receipt reports file/data availability, not verified playback or story accuracy.
 
