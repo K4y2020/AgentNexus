@@ -99,6 +99,8 @@ web/package-lock.json
 !examples/**/assets/*.png
 !examples/**/assets/*.webp
 !examples/**/assets/*.jpg
+# Visual-snapshot baselines are committed (tests/e2e_ui/visual/README.md).
+!tests/e2e_ui/visual/snapshots/**/*.png
 
 # Runtime outputs / eval results — regenerated each run, never committed.
 outputs/
