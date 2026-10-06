@@ -30,6 +30,8 @@ const {
   pinnedIdsRef,
   projectSessionsMock,
   useHostsMock,
+  teammatesRef,
+  switchOrderRef,
 } = vi.hoisted(() => ({
   projectsMock: [] as string[],
   moveToProjectSpy: vi.fn(),
@@ -56,8 +58,20 @@ const {
   // prove a folder fetches its members independently of the global window.
   projectSessionsMock: { current: {} as Record<string, unknown[]> },
   useHostsMock: vi.fn(),
+  // Teammates (one per agent bot); empty unless a test seeds one.
+  teammatesRef: { current: [] as unknown[] },
+  // Ids the sidebar hands the Cmd/Ctrl+arrow session-switch hotkey.
+  switchOrderRef: { current: [] as readonly string[] },
 }));
 
+vi.mock("@/hooks/useSessionSwitchHotkey", () => ({
+  useSessionSwitchHotkey: (ids: readonly string[]) => {
+    switchOrderRef.current = ids;
+  },
+}));
+vi.mock("@/hooks/useTeammates", () => ({
+  useTeammates: () => ({ data: teammatesRef.current, refetch: vi.fn() }),
+}));
 vi.mock("@/hooks/useHosts", () => ({
   useHosts: useHostsMock,
 }));
@@ -179,6 +193,20 @@ function conv(id: string, agentName: string, partial: Partial<Conversation> = {}
   };
 }
 
+/** A ``hello_world`` teammate, as ``useTeammates`` returns it. */
+function helloTeammate() {
+  return {
+    agent: { id: "agent_hello", name: "hello_world", description: null },
+    bot: { id: "bot_hello", name: "hello_world", description: null, homePath: "/bots/hello" },
+    routines: [],
+    routineCount: 0,
+    lastActivityAt: null,
+    lastActivityStatus: null,
+    lastActivityConversationId: null,
+    primaryConversationId: null,
+  };
+}
+
 // Three distinct agent types, mirroring the user's report
 // (databricks_coding_agent / Claude Code / Codex).
 const THREE_TYPE_CONVERSATIONS = [
@@ -276,6 +304,7 @@ beforeEach(() => {
   fetchProjectSessionIdsMock.mockResolvedValue([]);
   projectSessionsMock.current = {};
   pinnedIdsRef.current = [];
+  teammatesRef.current = [];
   // Default to a multi-user server so the tab-based tests see the tabs.
   isServerLocalMock.mockReturnValue(false);
   // The bound session's startup signal (send in flight / PTY pending) feeds
@@ -1192,6 +1221,50 @@ describe("Sidebar tabs", () => {
     expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("conv_shared")).toBeInTheDocument();
+  });
+
+  it("puts teammate topics in the session-switch order after Pinned", () => {
+    // Cmd/Ctrl+arrow walks rows in render order: Pinned, then each teammate's
+    // topics, then project folders and the flat Sessions list.
+    teammatesRef.current = [helloTeammate()];
+    seedPins(["conv_pinned"]);
+    mockConversations([
+      conv("conv_pinned", "Claude Code"),
+      conv("conv_topic", "hello_world"),
+      conv("conv_flat", "Claude Code"),
+    ]);
+    renderSidebar();
+
+    expect(switchOrderRef.current).toEqual(["conv_pinned", "conv_topic", "conv_flat"]);
+  });
+
+  it("gives teammate topics no selection checkbox in selection mode", () => {
+    // Neither selection scope (flat Sessions, project folders) covers topics.
+    teammatesRef.current = [helloTeammate()];
+    mockConversations([conv("conv_topic", "hello_world"), conv("conv_flat", "Claude Code")]);
+    renderSidebar();
+
+    fireEvent.click(screen.getByTestId("toggle-selection-mode"));
+
+    const rowOf = (title: string) => screen.getByText(title).closest("li")!;
+    expect(rowOf("conv_flat").querySelector("svg.lucide-square")).not.toBeNull();
+    expect(rowOf("conv_topic").querySelector("svg.lucide-square")).toBeNull();
+  });
+
+  it("shows a filed teammate session only in its project folder", () => {
+    // Teammate topics skip filed sessions the way they skip pinned ones, so a
+    // session filed into a project is not listed a second time as a topic.
+    projectsMock.push("Alpha");
+    teammatesRef.current = [helloTeammate()];
+    mockConversations([
+      conv("conv_filed", "hello_world", { labels: { omni_project: "Alpha" } }),
+      conv("conv_topic", "hello_world"),
+    ]);
+    renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: /^Alpha/ }));
+
+    expect(screen.getAllByText("conv_filed")).toHaveLength(1);
+    expect(screen.getByText("conv_topic")).toBeInTheDocument();
   });
 
   it("keeps a shared session in the flat list on a project-name collision", () => {

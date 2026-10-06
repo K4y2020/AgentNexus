@@ -6164,6 +6164,8 @@ function SessionConfigModal({
   codexModelOptions,
   costRoutingEligible,
   subagentRoutingEligible,
+  teammateName = null,
+  onOpenTeammateSettings,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -6176,6 +6178,9 @@ function SessionConfigModal({
   codexModelOptions: readonly NativeModelOption[];
   costRoutingEligible: boolean;
   subagentRoutingEligible: boolean;
+  /** The session's teammate, when it has one; its settings open from the footer. */
+  teammateName?: string | null;
+  onOpenTeammateSettings?: () => void;
 }) {
   const selectedEffort = useSessionEffort();
   const claudePermissionMode = useChatStore((s) => s.claudePermissionMode);
@@ -6612,6 +6617,17 @@ function SessionConfigModal({
         </div>
 
         <DialogFooter className="border-t-0 bg-transparent">
+          {onOpenTeammateSettings && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="sm:mr-auto"
+              onClick={onOpenTeammateSettings}
+              data-testid="composer-config-teammate"
+            >
+              {teammateName ? `${teammateName} settings` : "Teammate settings"}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -6665,13 +6681,8 @@ function ComposerConfigGear({
   openNonce?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [teammateOpen, setTeammateOpen] = useState(false);
   const appliedOpenNonce = useRef(0);
-  useEffect(() => {
-    if (!openNonce || openNonce === appliedOpenNonce.current) return;
-    appliedOpenNonce.current = openNonce;
-    if (disabled) return;
-    setOpen(true);
-  }, [openNonce, disabled]);
 
   const conversationId = useChatStore((s) => s.conversationId);
   const { session } = useSession(conversationId);
@@ -6687,6 +6698,25 @@ function ComposerConfigGear({
     );
   }, [session?.agentName, teammates]);
 
+  // The session's own knobs come first; their modal links to the teammate's
+  // settings. A teammate session with no knobs opens the teammate directly.
+  const hasSessionSettings =
+    showModels ||
+    showEffort ||
+    costRoutingEligible ||
+    subagentRoutingEligible ||
+    showClaudePermissionMode;
+  const openConfig = useCallback(() => {
+    if (hasSessionSettings) setOpen(true);
+    else if (currentTeammate) setTeammateOpen(true);
+  }, [hasSessionSettings, currentTeammate]);
+  useEffect(() => {
+    if (!openNonce || openNonce === appliedOpenNonce.current) return;
+    appliedOpenNonce.current = openNonce;
+    if (disabled) return;
+    openConfig();
+  }, [openNonce, disabled, openConfig]);
+
   const summary = useSessionConfigSummary({
     harnessLabel,
     showModels,
@@ -6696,15 +6726,7 @@ function ComposerConfigGear({
     costRoutingEligible,
   });
 
-  if (
-    !showModels &&
-    !showEffort &&
-    !costRoutingEligible &&
-    !subagentRoutingEligible &&
-    !showClaudePermissionMode &&
-    !currentTeammate
-  )
-    return null;
+  if (!hasSessionSettings && !currentTeammate) return null;
 
   return (
     <>
@@ -6722,11 +6744,13 @@ function ComposerConfigGear({
               aria-disabled={disabled}
               onClick={() => {
                 if (disabled) return;
-                setOpen(true);
+                openConfig();
               }}
               data-testid="composer-config-gear"
               aria-label={
-                currentTeammate ? `Configure ${currentTeammate.agent.name}` : "Configure session"
+                currentTeammate && !hasSessionSettings
+                  ? `Configure ${currentTeammate.agent.name}`
+                  : "Configure session"
               }
             >
               <SettingsIcon className="size-4" data-icon-size="16" />
@@ -6748,17 +6772,27 @@ function ComposerConfigGear({
           )}
         </Tooltip>
       </TooltipProvider>
-      {open && currentTeammate ? (
+      {teammateOpen && currentTeammate ? (
         <TeammateSettingsDialog
           teammate={currentTeammate}
-          open={open}
-          onOpenChange={setOpen}
+          open={teammateOpen}
+          onOpenChange={setTeammateOpen}
           hostId={session?.hostId ?? null}
         />
-      ) : open ? (
+      ) : null}
+      {open ? (
         <SessionConfigModal
           open={open}
           onOpenChange={setOpen}
+          teammateName={currentTeammate?.agent.name ?? null}
+          onOpenTeammateSettings={
+            currentTeammate
+              ? () => {
+                  setOpen(false);
+                  setTeammateOpen(true);
+                }
+              : undefined
+          }
           harnessLabel={harnessLabel}
           showModels={showModels}
           showEffort={showEffort}

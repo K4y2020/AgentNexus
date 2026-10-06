@@ -12,7 +12,8 @@ import { clearSessionDrafts, hasSessionDraft } from "@/lib/sessionDrafts";
 import { setOmnigentHostConfig } from "@/lib/host";
 import { COMPOSER_SEND_SHORTCUT_STORAGE_KEY } from "@/lib/composerSendShortcutPreferences";
 
-const { useSessionMock, useHostModelOptionsMock } = vi.hoisted(() => ({
+const { useSessionMock, useHostModelOptionsMock, useTeammatesMock } = vi.hoisted(() => ({
+  useTeammatesMock: vi.fn(() => ({ data: [] as unknown[] })),
   useSessionMock: vi.fn(() => ({
     session: {
       hostId: null as string | null,
@@ -44,7 +45,11 @@ vi.mock("@/hooks/useWorkspaceChangedFiles", async (importOriginal) => {
 // session's host binding via TanStack Query. Stub the hooks so it self-hides
 // (no host bound) without needing a QueryClient provider around these renders.
 vi.mock("@/hooks/useTeammates", () => ({
-  useTeammates: () => ({ data: [] }),
+  useTeammates: () => useTeammatesMock(),
+}));
+vi.mock("@/components/teammates/TeammateSettingsDialog", () => ({
+  TeammateSettingsDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="teammate-settings-dialog" /> : null,
 }));
 vi.mock("@/hooks/useSession", async (importOriginal) => ({
   ...(await importOriginal<typeof UseSessionModule>()),
@@ -90,6 +95,7 @@ beforeEach(() => {
     error: null,
   });
   useHostModelOptionsMock.mockReset().mockReturnValue({ data: [] });
+  useTeammatesMock.mockReset().mockReturnValue({ data: [] });
 });
 
 // These tests pin the slash-command suggestions menu UX in the composer:
@@ -3050,5 +3056,45 @@ describe("shouldQueueSend", () => {
     // The ordering guard outranks always-steer: draining must stay in order, so
     // a direct send can't overtake a still-queued earlier one.
     expect(shouldQueueSend("conv_a", "streaming", "running", [q("conv_a")], true)).toBe(true);
+  });
+});
+
+describe("Composer config gear on a teammate session", () => {
+  beforeEach(() => {
+    useSessionMock.mockReturnValue({
+      session: { hostId: null, agentName: "hello_world", labels: {} },
+      isLoading: false,
+      error: null,
+    });
+    useTeammatesMock.mockReturnValue({
+      data: [{ agent: { id: "agent_hello", name: "hello_world" }, bot: { id: "bot_hello" } }],
+    });
+    useChatStore.setState({ conversationId: "conv_test" });
+  });
+
+  it("opens the session settings, which link to the teammate's settings", async () => {
+    renderWithTooltips(<Composer {...composerProps()} />);
+
+    const gear = screen.getByTestId("composer-config-gear");
+    expect(gear).toHaveAccessibleName("Configure session");
+    fireEvent.click(gear);
+    expect(await screen.findByTestId("composer-config-modal")).toBeInTheDocument();
+    expect(screen.queryByTestId("teammate-settings-dialog")).toBeNull();
+
+    const teammateButton = screen.getByTestId("composer-config-teammate");
+    expect(teammateButton).toHaveTextContent("hello_world settings");
+    fireEvent.click(teammateButton);
+    expect(await screen.findByTestId("teammate-settings-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("composer-config-modal")).toBeNull();
+  });
+
+  it("opens the teammate settings directly when the session has no knobs", async () => {
+    renderWithTooltips(<Composer {...composerProps({ showEffort: false })} />);
+
+    const gear = screen.getByTestId("composer-config-gear");
+    expect(gear).toHaveAccessibleName("Configure hello_world");
+    fireEvent.click(gear);
+    expect(await screen.findByTestId("teammate-settings-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("composer-config-modal")).toBeNull();
   });
 });

@@ -25,7 +25,7 @@ from agentnexus.entities import USER_SESSION_TITLE_MAX_CHARS
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 # Records the row's rendered title once per animation frame, so a title that is

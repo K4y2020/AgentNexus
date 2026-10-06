@@ -26,11 +26,23 @@ def snapshot_page(page: Page) -> Page:
     scheme pins the whole palette regardless of the runner's
     ``prefers-color-scheme`` default.
 
+    The teammate roster is stubbed empty: the live server auto-creates a bot
+    per registered agent, and ``hello_world`` gets a random id each boot, so the
+    real roster's order (and whether it has loaded at capture) varies per run.
+    A test that wants teammates on screen routes ``/v1/bots`` again; the later
+    route takes precedence.
+
     :param page: pytest-playwright page (fresh context per test).
     :returns: The same page, configured for a deterministic capture.
     """
     page.set_viewport_size(_VIEWPORT)
     page.emulate_media(color_scheme="light")
+    page.route(
+        "**/v1/bots",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps({"bots": []})
+        ),
+    )
     return page
 
 

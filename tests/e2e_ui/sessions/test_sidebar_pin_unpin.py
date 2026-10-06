@@ -27,6 +27,8 @@ import uuid
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e_ui.conftest import _teammate_group
+
 
 def _set_title(base_url: str, session_id: str, title: str) -> None:
     """Give a session a title via ``PATCH /v1/sessions/{id}``.
@@ -65,21 +67,21 @@ def _section(page: Page, title: str) -> Locator:
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def test_pin_moves_session_to_pinned_section(
     page: Page,
     seeded_session: tuple[str, str],
 ) -> None:
-    """Pinning a Sessions-list row lifts it into the Pinned section.
+    """Pinning a teammate topic lifts it into the Pinned section.
 
     Failure modes this catches that the mocked unit test can't:
 
-    - The live ``GET /v1/sessions`` row shape drifts so the owner split
-      drops the session out of "Sessions" (it would never be pinnable).
+    - The live ``GET /v1/sessions`` row shape drifts so the session drops
+      out of its teammate's topics (it would never be pinnable).
     - The pin toggle persists but the section peel regresses, leaving the
-      row under "Sessions" after a pin.
+      row among the topics after a pin.
 
     :param page: Playwright page fixture (fresh context per test).
     :param seeded_session: ``(base_url, session_id)`` for a pre-created
@@ -93,9 +95,10 @@ def test_pin_moves_session_to_pinned_section(
 
     row = _row(page, session_id)
     expect(row).to_be_visible()
-    # Owned, non-archived, unpinned → starts under "Sessions", never
-    # "Pinned" (no Pinned section exists yet).
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    # Owned, non-archived, unpinned → starts among the hello_world teammate's
+    # topics, never "Pinned" (no Pinned section exists yet).
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
     expect(_section(page, "Pinned").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 
     # Pin via the row's quick action. Hover first so the desktop
@@ -105,11 +108,11 @@ def test_pin_moves_session_to_pinned_section(
     expect(pin_button).to_have_attribute("aria-label", "Pin conversation")
     pin_button.click()
 
-    # The row now lives under "Pinned" and out of "Sessions", and the
+    # The row now lives under "Pinned" and out of the topics, and the
     # quick action flips to its unpin affordance — both prove the toggle
     # ran through the sidebar's pin state, not a local no-op.
     expect(_section(page, "Pinned").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
     expect(_row(page, session_id).get_by_test_id("quick-pin-conversation")).to_have_attribute(
         "aria-label", "Unpin conversation"
     )
@@ -119,11 +122,11 @@ def test_unpin_moves_session_back_to_recent(
     page: Page,
     seeded_session: tuple[str, str],
 ) -> None:
-    """Unpinning a pinned session drops its row back under Sessions.
+    """Unpinning a pinned session drops its row back among its teammate's topics.
 
     Pins first (so there's something to unpin), confirms the row is under
-    "Pinned", then unpins and asserts it returns to "Sessions" and the
-    "Pinned" section no longer holds it. Catches a regression where the
+    "Pinned", then unpins and asserts it returns to the hello_world teammate's
+    topics and the "Pinned" section no longer holds it. Catches a regression where the
     toggle is one-way (pin sticks, unpin no-ops) or the section peel
     fails to re-home the row.
 
@@ -156,8 +159,9 @@ def test_unpin_moves_session_back_to_recent(
     expect(unpin_button).to_have_attribute("aria-label", "Unpin conversation")
     unpin_button.click()
 
-    # Back under "Sessions", and no longer in "Pinned".
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    # Back among the teammate's topics, and no longer in "Pinned".
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
     expect(_section(page, "Pinned").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 
 

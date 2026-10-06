@@ -211,6 +211,16 @@ def _build_hello_world_bundle() -> bytes:
     return buf.getvalue()
 
 
+def _teammate_group(page: Page, agent_name: str) -> Locator:
+    """Locate the sidebar group of the teammate for *agent_name*.
+
+    Sessions of a teammate agent (``hello_world`` here) list as topics in that
+    group rather than in the flat Sessions list, which holds execution-harness
+    sessions.
+    """
+    return page.locator("li").filter(has=page.get_by_test_id(f"sidebar-teammate-{agent_name}"))
+
+
 # Time budget for the server's /health endpoint to come up after
 # spawn. ``serve`` does YAML parse + bundle materialization +
 # DBOS init + uvicorn boot, all of which take a few seconds on a cold
@@ -2365,37 +2375,20 @@ def custom_agent_session(
             respawned.wait(timeout=5)
 
 
-def _create_native_claude_session(
+def _post_native_claude_session(
     base_url: str,
-    runner_id: str,
     *,
     terminal_launch_args: list[str] | None = None,
 ) -> str:
-    """Register the ``claude-native`` wrapper agent and bind its session.
+    """Create a ``claude-native`` wrapper session without binding a runner.
 
-    Reuses the exact terminal-first spec ``agentnexus claude`` ships
-    (:func:`omnigent.claude_native._materialize_claude_agent_spec`) so the
-    fixture never drifts from production, and stamps the same wrapper /
-    terminal-first labels (``omnigent.wrapper`` + ``omnigent.ui = terminal``)
-    the CLI writes. The spec carries no ``spec_version``, so it is bundled
-    under a ``*.yaml`` arcname to route through the omnigent compat translator
-    (which preserves ``executor.harness`` + ``terminals:``); a ``config.yaml``
-    arcname would hit the strict parser and reject it.
-
-    Binding the session to the runner triggers the runner's claude-native
-    auto-bootstrap: it launches Claude Code in the session terminal, derives
-    the gateway auth from its own credentials, and pre-accepts the first-run
-    trust/onboarding prompts — no CLI client required.
+    Same spec and labels as :func:`_create_native_claude_session`; with no
+    runner bound, nothing launches. Its agent is an execution harness, so the
+    session lists in the sidebar's flat Sessions list, not under a teammate.
 
     :param base_url: Spawned server base URL.
-    :param runner_id: The token-bound runner id to bind.
     :param terminal_launch_args: Pass-through ``claude`` CLI args persisted on
-        the session (``conversations.terminal_launch_args``); the runner threads
-        them into the terminal launch before its own bridge/MCP/hook wiring (see
-        ``_build_claude_native_base_args`` in ``omnigent/runner/app.py``). Used
-        by the plan-mode fixture to pass ``["--permission-mode", "plan"]`` so
-        Claude boots into plan mode and reaches for ``ExitPlanMode``. ``None``
-        launches with the production defaults.
+        the session; see :func:`_create_native_claude_session`.
     :returns: The new session/conversation id.
     """
     import json as _json
@@ -2436,7 +2429,43 @@ def _create_native_claude_session(
         timeout=30.0,
     )
     create.raise_for_status()
-    session_id = str(create.json()["session_id"])
+    return str(create.json()["session_id"])
+
+
+def _create_native_claude_session(
+    base_url: str,
+    runner_id: str,
+    *,
+    terminal_launch_args: list[str] | None = None,
+) -> str:
+    """Register the ``claude-native`` wrapper agent and bind its session.
+
+    Reuses the exact terminal-first spec ``agentnexus claude`` ships
+    (:func:`omnigent.claude_native._materialize_claude_agent_spec`) so the
+    fixture never drifts from production, and stamps the same wrapper /
+    terminal-first labels (``omnigent.wrapper`` + ``omnigent.ui = terminal``)
+    the CLI writes. The spec carries no ``spec_version``, so it is bundled
+    under a ``*.yaml`` arcname to route through the omnigent compat translator
+    (which preserves ``executor.harness`` + ``terminals:``); a ``config.yaml``
+    arcname would hit the strict parser and reject it.
+
+    Binding the session to the runner triggers the runner's claude-native
+    auto-bootstrap: it launches Claude Code in the session terminal, derives
+    the gateway auth from its own credentials, and pre-accepts the first-run
+    trust/onboarding prompts — no CLI client required.
+
+    :param base_url: Spawned server base URL.
+    :param runner_id: The token-bound runner id to bind.
+    :param terminal_launch_args: Pass-through ``claude`` CLI args persisted on
+        the session (``conversations.terminal_launch_args``); the runner threads
+        them into the terminal launch before its own bridge/MCP/hook wiring (see
+        ``_build_claude_native_base_args`` in ``omnigent/runner/app.py``). Used
+        by the plan-mode fixture to pass ``["--permission-mode", "plan"]`` so
+        Claude boots into plan mode and reaches for ``ExitPlanMode``. ``None``
+        launches with the production defaults.
+    :returns: The new session/conversation id.
+    """
+    session_id = _post_native_claude_session(base_url, terminal_launch_args=terminal_launch_args)
     _bind_session_runner(base_url, session_id, runner_id)
     return session_id
 

@@ -26,7 +26,7 @@ def _set_title(base_url: str, session_id: str, title: str) -> None:
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar list item for *session_id* by its stable href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def _padding(locator: Locator) -> dict[str, float]:

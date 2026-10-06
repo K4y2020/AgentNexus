@@ -28,7 +28,7 @@ import uuid
 import httpx
 from playwright.sync_api import Browser, Locator, Page, expect
 
-from tests.e2e_ui.conftest import seed_committed_turn
+from tests.e2e_ui.conftest import _teammate_group, seed_committed_turn
 
 
 def _set_title(base_url: str, session_id: str, title: str) -> None:
@@ -51,7 +51,7 @@ def _section(page: Page, title: str) -> Locator:
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def _create_project(page: Page, name: str) -> None:
@@ -84,10 +84,10 @@ def test_move_session_into_new_project(
 ) -> None:
     """Filing a session into a freshly-created project moves the row into it.
 
-    The session starts under "Sessions"; after creating the project (+ button)
-    and picking it from "Add to project", a project folder with that name
-    appears under the "Projects" group and the row lives under it (once
-    expanded) and no longer under "Sessions".
+    The session starts among the hello_world teammate's topics; after creating
+    the project (+ button) and picking it from "Add to project", a project
+    folder with that name appears under the "Projects" group and the row lives
+    under it (once expanded) and no longer among the topics.
     """
     base_url, session_id = seeded_session
     title = f"e2e-proj-{uuid.uuid4().hex[:8]}"
@@ -98,7 +98,8 @@ def test_move_session_into_new_project(
 
     row = _row(page, session_id)
     expect(row).to_be_visible()
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
 
     _move_to_new_project(page, row, project)
 
@@ -109,7 +110,7 @@ def test_move_session_into_new_project(
     expect(header).to_have_attribute("aria-expanded", "true")
 
     expect(_section(page, project).locator(f'a[href="/c/{session_id}"]')).to_be_visible()
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 
 
 def test_fork_of_filed_session_joins_the_folder_without_reload(
@@ -175,17 +176,20 @@ def test_fork_of_filed_session_joins_the_folder_without_reload(
     expect(_section(page, project).locator(f'a[href="/c/{fork_id}"]')).to_be_visible(
         timeout=20_000
     )
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{fork_id}"]')).to_have_count(0)
+    expect(_teammate_group(page, "hello_world").locator(f'a[href="/c/{fork_id}"]')).to_have_count(
+        0
+    )
 
 
 def test_remove_session_from_project(
     page: Page,
     seeded_session: tuple[str, str],
 ) -> None:
-    """Removing a session from its project drops it back under "Sessions".
+    """Removing a session from its project drops it back among its teammate's topics.
 
     Moves the row into a fresh project first, then uses the kebab's
-    "Remove from <project>" item and asserts the row returns to "Sessions".
+    "Remove from <project>" item and asserts the row returns to the
+    hello_world teammate's topics.
     The folder itself stays (now a first-class project, it exists independently
     of its members and can be empty) — only the membership is cleared.
     """
@@ -220,9 +224,10 @@ def test_remove_session_from_project(
     # persists when emptied (nothing is deleted).
     page.get_by_role("menuitem", name=re.compile(rf"Remove from {re.escape(project)}")).click()
 
-    # Back under "Sessions". The first-class project folder persists (empty),
-    # since a first-class project exists independently of its members.
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    # Back among the teammate's topics. The first-class project folder persists
+    # (empty), since a first-class project exists independently of its members.
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
     expect(page.get_by_role("button", name=project, exact=True)).to_have_count(1)
     expect(_section(page, project).locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 

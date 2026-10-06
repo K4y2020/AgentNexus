@@ -609,7 +609,7 @@ async def _drive_fork_fresh(base_url: str, session_id: str) -> None:
 
 # A git repo whose main tree is the seeded workspace — the composer's worktree
 # probe reads this to decide the workspace is a git repo and can host a worktree.
-_GIT_REPO = "/work/omnigent"
+_GIT_REPO = "/work/agentnexus"
 # The user-global "always use a worktree" preference key (Settings › Git),
 # mirrors STORAGE_KEY in web/src/lib/worktreeDefaultPreferences.ts.
 _ALWAYS_WORKTREE_KEY = "agentnexus:always-use-worktree"
