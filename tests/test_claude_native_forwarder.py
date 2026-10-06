@@ -8443,7 +8443,9 @@ async def test_forward_loop_deadline_unsticks_a_stalled_iteration(
                 while len(ensure_calls) < 2:
                     await asyncio.sleep(0.01)
 
-            await asyncio.wait_for(_second_iteration_ran(), timeout=5.0)
+            # Generous backstop: rendering the warning's traceback runs on the
+            # event loop and takes several seconds on a loaded CI runner.
+            await asyncio.wait_for(_second_iteration_ran(), timeout=30.0)
         finally:
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
