@@ -417,7 +417,9 @@ async def test_host_tunnel_refreshes_harness_readiness_without_reconnect(
                 return
             await asyncio.sleep(0.01)
 
-    await asyncio.wait_for(_wait_until_ready(), timeout=0.5)
+    # The route writes readiness via a thread; disk contention on a busy CI
+    # worker can push that past half a second, so this is only a backstop.
+    await asyncio.wait_for(_wait_until_ready(), timeout=5.0)
 
     conn = registry.get(_HOST_ID)
     assert conn is not None
