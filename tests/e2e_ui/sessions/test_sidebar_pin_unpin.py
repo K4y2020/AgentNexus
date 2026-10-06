@@ -27,6 +27,8 @@ import uuid
 import httpx
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e_ui.conftest import _teammate_group
+
 
 def _set_title(base_url: str, session_id: str, title: str) -> None:
     """Give a session a title via ``PATCH /v1/sessions/{id}``.
@@ -65,7 +67,7 @@ def _section(page: Page, title: str) -> Locator:
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def test_pin_moves_session_to_pinned_section(
@@ -119,11 +121,11 @@ def test_unpin_moves_session_back_to_recent(
     page: Page,
     seeded_session: tuple[str, str],
 ) -> None:
-    """Unpinning a pinned session drops its row back under Sessions.
+    """Unpinning a pinned session drops its row back among its teammate's topics.
 
     Pins first (so there's something to unpin), confirms the row is under
-    "Pinned", then unpins and asserts it returns to "Sessions" and the
-    "Pinned" section no longer holds it. Catches a regression where the
+    "Pinned", then unpins and asserts it returns to the hello_world teammate's
+    topics and the "Pinned" section no longer holds it. Catches a regression where the
     toggle is one-way (pin sticks, unpin no-ops) or the section peel
     fails to re-home the row.
 
@@ -156,8 +158,9 @@ def test_unpin_moves_session_back_to_recent(
     expect(unpin_button).to_have_attribute("aria-label", "Unpin conversation")
     unpin_button.click()
 
-    # Back under "Sessions", and no longer in "Pinned".
-    expect(_section(page, "Sessions").locator(f'a[href="/c/{session_id}"]')).to_be_visible()
+    # Back among the teammate's topics, and no longer in "Pinned".
+    topics = _teammate_group(page, "hello_world")
+    expect(topics.locator(f'a[href="/c/{session_id}"]')).to_be_visible()
     expect(_section(page, "Pinned").locator(f'a[href="/c/{session_id}"]')).to_have_count(0)
 
 

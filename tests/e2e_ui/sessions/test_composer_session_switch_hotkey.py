@@ -59,7 +59,7 @@ def test_ctrl_arrow_switches_session_from_focused_composer(
     session_a_link = page.locator(f'a[href="/c/{session_a}"]')
     expect(session_a_link).to_be_visible(timeout=30_000)
     expect(page.locator(f'a[href="/c/{session_b}"]')).to_be_visible()
-    session_a_row = page.locator("li").filter(has=session_a_link)
+    session_a_row = page.locator("li:not(:has(li))").filter(has=session_a_link)
     draft_indicator = session_a_row.get_by_test_id("conversation-draft-indicator")
 
     # Focus the composer and leave an unsent draft — the exact condition the

@@ -38,7 +38,7 @@ from playwright.sync_api import Locator, Page, Request, expect
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def test_archive_session_removes_row_without_stop_event(

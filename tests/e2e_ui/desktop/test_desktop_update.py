@@ -153,7 +153,7 @@ def test_update_overlay_height_lifts_sonner_toaster(
 
     # Archive is a provider-free, real UI path that emits showToast(). Sonner
     # does not mount its positioned list until the first toast exists.
-    row = page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    row = page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
     expect(row).to_be_visible()
     row.hover()
     row.get_by_test_id("conversation-actions").click()

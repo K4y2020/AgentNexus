@@ -37,7 +37,7 @@ LONG_TITLE = "Fix badge opacity and inbox color in the sidebar"
 
 def _row(page: Page, session_id: str) -> Locator:
     """Locate the sidebar row (``<li>``) for *session_id* by its href."""
-    return page.locator("li").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
+    return page.locator("li:not(:has(li))").filter(has=page.locator(f'a[href="/c/{session_id}"]'))
 
 
 def _awaiting_tag(row: Locator) -> Locator:
