@@ -2,7 +2,7 @@
 
 # cine-storyboard
 
-The [production handoff](../film-analysis/references/production-handoff.md) is authoritative for cross-skill pipelines; standalone use remains supported. Cine owns production: read with `seedance_read_canvas`, then use `seedance_edit_canvas`, passing `expected_revision` for updates/deletes. Submit to V3 workers only with explicit generation authorization. V3 Agent is intended for QA only, but `seedance_agent_message` is not a code-enforced read-only sandbox: use local/read-only snapshot QA until isolation exists, never generic agent messages for production or supposedly safe QA. No codex `$imagegen` or fallback. Verify actual local images and inspect them; remote IDs, paths and old files do not prove image presence. Missing images stay missing. Generation can cost money; stage validation is not production PASS.
+In Cine's multi-skill pipeline the [production handoff](../film-analysis/references/production-handoff.md) governs the handoff contract and the Cine prompt's Tool boundaries govern canvas edits and generation; the skill also works standalone.
 
 Storyboarding for AI short drama: turns cine-script's beat flow into a worklist you can hand straight to a video model. This is the first layer in the pipeline that talks directly to that model, and the premise is baked in: generation and retries have costs; pacing follows narrative needs, with 2–5 seconds only a short-drama default. Hence a three-level structure:
 
@@ -51,7 +51,7 @@ Same stance as the other four skills in this repo: **a checklist the model grade
 
 The selftest **defeats every gate on purpose** to prove each one actually blocks.
 
-**Shot recipes are an optional vocabulary layer.** A cut may carry an optional `recipe` — a card id from an external optional card library, **per cut, not per segment**, with **multi-cut recipes expressed as a run of consecutive cuts sharing the id** rather than an array. Without an external card library installed everything still runs: this skill is self-contained, down to its own 25-line restricted frontmatter parser instead of a cross-directory import. A card's suggested sizes and cameras are **deliberately not gated** — the report's Recipe column marks deviations with `≠` (hover for the suggestion) and `checkup` prints a note. A recipe is vocabulary, not law; make an optional mount stricter and nobody mounts it, and **a gate that blocks wrongly is worse than no gate**.
+**Shot recipes are an optional vocabulary layer.** A cut may carry an optional `recipe` — a card id from an external optional card library, **per cut, not per segment**, with **multi-cut recipes expressed as a run of consecutive cuts sharing the id** rather than an array. Without an external card library installed everything still runs: cards are read by this skill's own 25-line restricted frontmatter parser, not imported from the card library; only small generic helpers come from `../_shared/cine-common.mjs`, which ships with the skills folder. A card's suggested sizes and cameras are **deliberately not gated** — the report's Recipe column marks deviations with `≠` (hover for the suggestion) and `checkup` prints a note. A recipe is vocabulary, not law; make an optional mount stricter and nobody mounts it, and **a gate that blocks wrongly is worse than no gate**.
 
 ## Gate failures accumulate, and `stats` tells you which rule the model breaks most
 

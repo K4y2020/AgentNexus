@@ -14,6 +14,15 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from . import stage_graph
+    from .jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
+    from .jev_transport import find_api_key as _find_api_key
+except ImportError:  # Direct CLI execution from the pipeline directory.
+    import stage_graph
+    from jev_client import STATE_TOKEN_BUDGET, _estimate_tokens, _estimate_value_tokens
+    from jev_transport import find_api_key as _find_api_key
+
 
 STAGE_GATES: dict[str, dict[str, Any]] = {
     "outline": {
@@ -134,18 +143,6 @@ SUPERVISOR_QUESTIONS = {
             "blocked": "The production cannot continue with the supplied state",
         },
     ),
-    "next_stage": (
-        "choice",
-        {
-            "outline": "Create or revise the story outline",
-            "cast": "Create or revise the cast (character) document",
-            "art": "Create or revise the art (scene and prop) document",
-            "script": "Create or revise the structured script",
-            "storyboard": "Create or revise the storyboard",
-            "canvas": "Synchronize the verified storyboard to Seedance",
-            "stop": "Stop until an external decision or input is supplied",
-        },
-    ),
     "repair_scope": (
         "choice",
         {
@@ -158,57 +155,41 @@ SUPERVISOR_QUESTIONS = {
     "retry_allowed": ("noul", "Is one bounded correction and revalidation cycle appropriate?"),
 }
 
-NEXT_STAGES = {
-    "outline": {"cast"},
-    "cast": {"art"},
-    "art": {"script"},
-    "script": {"storyboard"},
-    "storyboard": {"canvas"},
-}
-
-# Stages each artifact reads; mirrors production.INPUTS. An upstream repair
-# may only target one of these.
-UPSTREAM_STAGES = {
-    "outline": set(),
-    "cast": set(),
-    "art": {"cast"},
-    "script": {"outline", "cast", "art"},
-    "storyboard": {"outline", "cast", "art", "script"},
+# Asked only when an upstream repair is possible: which document the defect is in.
+UPSTREAM_QUESTION = "upstream_stage"
+OUTSIDE = "outside"
+_DOCUMENTS = {
+    "outline": "The story outline",
+    "cast": "The cast (character) document",
+    "art": "The art (scene and prop) document",
+    "script": "The structured script",
 }
 
 
-def _repair_target(stage: str, next_stage: str, repair_scope: str) -> str:
-    """Return a legal repair target for the scope, or ``stop`` when none is."""
+def supervisor_questions(stage: str) -> dict[str, tuple[str, Any]]:
+    """Routing questions for ``stage``; the next stage itself comes from the stage graph."""
+    questions = dict(SUPERVISOR_QUESTIONS)
+    upstreams = stage_graph.repair_upstreams(stage)
+    if upstreams:
+        criteria = {name: _DOCUMENTS[name] for name in upstreams}
+        criteria[OUTSIDE] = "None of these: the defect lies elsewhere, such as the source transcript"
+        questions[UPSTREAM_QUESTION] = ("choice", criteria)
+    return questions
+
+
+def _route(stage: str, decision: str, repair_scope: str, upstream: str | None) -> tuple[str, list[str]]:
+    """The stage to work on next, and why the controller departed from the answer."""
+    if decision == "advance":
+        return stage_graph.next_stage(stage), []
+    if decision != "repair":
+        return "stop", []
     if repair_scope == "artifact":
-        return stage
-    if repair_scope == "upstream" and next_stage in UPSTREAM_STAGES[stage]:
-        return next_stage
-    return "stop"
-
-
-def _find_api_key() -> str:
-    value = os.environ.get("TYPESAFE_API_KEY", "").strip()
-    if value:
-        return value
-    candidates = [
-        Path.cwd() / ".env",
-        Path.home() / ".agentnexus" / ".env",
-        Path.home() / ".env",
-        Path(__file__).resolve().parents[5] / ".env",
-    ]
-    for candidate in candidates:
-        if not candidate.is_file():
-            continue
-        try:
-            for line in candidate.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line.startswith("TYPESAFE_API_KEY="):
-                    value = line.split("=", 1)[1].strip().strip('"').strip("'")
-                    if value:
-                        return value
-        except OSError:
-            continue
-    return ""
+        return stage, []
+    if repair_scope == "upstream" and upstream in stage_graph.repair_upstreams(stage):
+        return upstream, []
+    if repair_scope == "upstream" and upstream not in (None, OUTSIDE):
+        return "stop", [f"invalid_repair_stage:{upstream}"]
+    return "stop", []
 
 
 def _transport_module():
@@ -230,9 +211,6 @@ def _jev_client(client_factory, key: str, *, proxy_aware: bool):
         return client_factory(key)
 
 
-# JEV rejects requests above roughly 32k input tokens (observed as
-# max_tokens_exceeded). The state gets this share; questions take the rest.
-STATE_TOKEN_BUDGET = 26_000
 # One retry after max_tokens_exceeded uses this fraction of the budget.
 RETRY_BUDGET_FRACTION = 0.6
 # Relative claim on a tight budget: the judged artifact and its source first.
@@ -253,34 +231,6 @@ UPSTREAM_DROPPED_FIELDS: dict[str, dict[str, frozenset[str]]] = {
         "art": frozenset({"summary", "usage"}),
     },
 }
-
-_CJK_RANGES =((0x3000, 0x303F), (0x3400, 0x9FFF), (0xFF00, 0xFFEF))
-
-
-def _estimate_tokens(text: str) -> int:
-    """Token estimate from measured JEV usage: CJK ~1.09/char, JSON ~0.29/char.
-
-    Rounded up to 1.1 and 0.3; on real cast/art states it runs about 5% high.
-    """
-    cjk = sum(1 for ch in text if any(low <= ord(ch) <= high for low, high in _CJK_RANGES))
-    return (cjk * 11 + (len(text) - cjk) * 3) // 10
-
-
-def _entries(value: Any) -> int:
-    if isinstance(value, dict):
-        return sum(1 + _entries(item) for item in value.values())
-    if isinstance(value, list):
-        return sum(1 + _entries(item) for item in value)
-    return 0
-
-
-def _estimate_value_tokens(value: Any) -> int:
-    """Estimate for structured state: JEV renders nesting at about 3 tokens per entry.
-
-    Without this, a deeply nested storyboard measured 28% above the text-only estimate.
-    """
-    return _estimate_tokens(json.dumps(value, ensure_ascii=False)) + 3 * _entries(value)
-
 
 def _project_upstream(value: Any, dropped: frozenset[str] = frozenset()) -> Any:
     """Replace non-empty generation prompts with presence markers and drop unused fields."""
@@ -441,7 +391,7 @@ def _question_objects(stage: str, *, include_source: bool = False):
                 questions[name] = Choice(instructions=value, criteria=value if isinstance(value, dict) else {})
             else:
                 questions[name] = Score(instructions=value, criteria=value if isinstance(value, list) else [])
-    for name, (kind, value) in SUPERVISOR_QUESTIONS.items():
+    for name, (kind, value) in supervisor_questions(stage).items():
         if kind == "noul":
             questions[name] = Noul(instructions=value)
         else:
@@ -679,7 +629,7 @@ def run_stage_gate(
         if not isinstance(answers, dict):
             raise ValueError("JEV response did not contain answers")
         rules = gate_rules(stage, include_source=include_source)
-        expected = set(rules) | set(SUPERVISOR_QUESTIONS)
+        expected = set(rules) | set(supervisor_questions(stage))
         if set(answers) != expected:
             raise ValueError(f"JEV answer set mismatch: expected {sorted(expected)}, got {sorted(answers)}")
         evaluations = {}
@@ -708,31 +658,24 @@ def run_stage_gate(
             evaluations = {blocking: evaluations[blocking]}
             failures = [f"{blocking}={evaluations[blocking]['value']:.3f} < {evaluations[blocking]['threshold']:.3f}"]
         route_decision = str(getattr(answers["route_decision"], "choice", "stop"))
-        next_stage = str(getattr(answers["next_stage"], "choice", "stop"))
         repair_scope = str(getattr(answers["repair_scope"], "choice", "artifact"))
         retry_allowed = float(getattr(answers["retry_allowed"], "noul", 0.0)) >= 0.65
+        upstream = answers.get(UPSTREAM_QUESTION)
+        upstream = getattr(upstream, "choice", None) if upstream is not None else None
         route_reasons = []
         if status == "baseline_unusable":
             route_reasons.append("source_baseline_speaker_labels_unreliable")
             route_decision = "repair"
-            next_stage = "stop"
             repair_scope = "upstream"
+            upstream = OUTSIDE
         if status != "passed" and route_decision == "advance":
             route_decision = "repair"
             route_reasons.append("controller_overrode_advance_after_gate_failure")
         if status == "passed" and route_decision != "advance":
             status = "needs_review"
             route_reasons.append("controller_route_requires_review_before_handoff")
-        if status == "passed" and route_decision == "advance" and next_stage not in NEXT_STAGES[stage]:
-            route_reasons.append(f"invalid_next_stage:{next_stage}")
-            next_stage = sorted(NEXT_STAGES[stage])[0]
-        if route_decision == "repair":
-            target = _repair_target(stage, next_stage, repair_scope)
-            if target != next_stage:
-                route_reasons.append(f"invalid_repair_stage:{next_stage}")
-                next_stage = target
-        elif route_decision != "advance":
-            next_stage = "stop"
+        next_stage, reasons = _route(stage, route_decision, repair_scope, upstream)
+        route_reasons.extend(reasons)
         scheduler = {
             "decision": route_decision,
             "next_stage": next_stage,

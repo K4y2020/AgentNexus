@@ -121,7 +121,7 @@ whole-pipeline rewrite, commit, service restart or paid generation was performed
 
 ## Artifacts and Reproduction
 
-`docs/evaluations/cine-live-20260907/` contains:
+`docs/evaluations/cine/cine-live-20260907/` contains:
 
 - `visual-observations.json`: unedited Cine observations; interpretations are not all ground truth.
 - `source-audit.json`: actual receipt/ledger checks and adapter error.

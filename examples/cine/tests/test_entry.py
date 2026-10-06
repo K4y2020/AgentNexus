@@ -89,3 +89,33 @@ def test_invalid_scope_does_not_create_project(tmp_path, start, end):
     with pytest.raises(ValueError):
         entry.index_media(video, tmp_path / "film", start=start, end=end)
     assert not (tmp_path / "film").exists()
+
+
+def test_core_reads_the_topic_binding_the_pipeline_writes(tmp_path, monkeypatch):
+    # The host reads this binding without the skill, so the two sides keep
+    # separate code; this pins the file they share.
+    from agentnexus.seedance.cine_contracts import current_ledger
+
+    workspace = tmp_path / "topics/topic123"
+    workspace.mkdir(parents=True)
+    video = workspace / "source.mp4"
+    video.write_bytes(b"source")
+    output = workspace / "projects/film"
+
+    def run(*_args, **_kwargs):
+        manifest = output / "project.json"
+        data = json.loads(manifest.read_text())
+        data["current_revision"] = "r1"
+        manifest.write_text(json.dumps(data))
+        ledger = output / "revisions/r1/source_shots.json"
+        ledger.parent.mkdir(parents=True)
+        ledger.write_text("[]")
+        return {"revision_id": "r1", "validation_passed": True, "report_path": "report.html"}
+
+    monkeypatch.setattr(entry, "run_pipeline", run)
+    entry.index_media(video, output, workspace=workspace, profile="forensic")
+
+    expected = (output / "revisions/r1/source_shots.json").resolve()
+    assert current_ledger(workspace, "topic123") == expected
+    # A runner session id that differs from the Topic id still finds its binding.
+    assert current_ledger(workspace, "runner-session") == expected

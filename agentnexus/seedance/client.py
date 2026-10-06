@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from agentnexus.seedance.env_keys import read_key
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEEDANCE_BASE_URL = "http://127.0.0.1:8893"
@@ -89,27 +91,8 @@ def validate_seedance_base_url(url_str: str) -> str:
 
 
 def get_seedance_api_key() -> str | None:
-    """Read SEEDANCE_API_KEY from environment or local seedance-v3 .env file fallback."""
-    key = os.environ.get("SEEDANCE_API_KEY", "").strip()
-    if key:
-        return key
-    candidate_paths = [
-        r"U:\AI\seedance-v3\.env",
-        os.path.expanduser(r"~\AI\seedance-v3\.env"),
-    ]
-    for p in candidate_paths:
-        if os.path.isfile(p):
-            try:
-                with open(p, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("SEEDANCE_API_KEY=") and not line.startswith("#"):
-                            val = line.split("=", 1)[1].strip().strip("\"'")
-                            if val:
-                                return val
-            except Exception:  # noqa: BLE001 - probe optional credential sources
-                pass
-    return None
+    """SEEDANCE_API_KEY from the environment or the ``.env`` files ``read_key`` searches."""
+    return read_key("SEEDANCE_API_KEY") or None
 
 
 class SeedanceClient:
@@ -352,32 +335,6 @@ class SeedanceClient:
             if not session or not isinstance(session, dict):
                 raise SeedanceError("Malformed create_agent_session response from Seedance")
             return session
-        except httpx.ConnectError as exc:
-            raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
-
-    async def send_agent_message(
-        self,
-        session_id: str,
-        content: str,
-        model: str | None = None,
-        timeout_s: float | None = None,
-    ) -> dict[str, Any]:
-        """Send an instruction message to the Seedance Agent Session."""
-        url = f"{self.base_url}/v3/agent-sessions/{session_id}/messages"
-        body: dict[str, Any] = {"content": content}
-        if model:
-            body["model"] = model
-        req_timeout = timeout_s if timeout_s is not None else self.timeout_s
-        try:
-            resp = await self._client.post(
-                url, json=body, headers=self._headers(), timeout=req_timeout
-            )
-            self._handle_response_error(resp)
-            return resp.json()
-        except httpx.TimeoutException as exc:
-            raise SeedanceTimeoutError(
-                f"Agent message timed out after {req_timeout}s: {exc}"
-            ) from exc
         except httpx.ConnectError as exc:
             raise SeedanceConnectionError(f"Failed to connect to Seedance: {exc}") from exc
 

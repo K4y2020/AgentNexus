@@ -2,11 +2,11 @@
 
 import asyncio
 import hashlib
-import importlib.util
 import json
 import re
-import sys
 from pathlib import Path
+
+from agentnexus.seedance.skill_modules import SkillModuleUnavailable, pipeline_module
 
 
 class ProductionRejected(ValueError):
@@ -29,22 +29,10 @@ def inside(root, value):
 
 def native_checker(skills_dir):
     # This path comes from the registered agent spec, never from tool arguments.
-    if skills_dir is None:
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    path = Path(skills_dir) / "film-analysis/pipeline/production.py"
-    if not path.is_file():
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    spec = importlib.util.spec_from_file_location("_cine_production_gate", path)
-    if spec is None or spec.loader is None:
-        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE")
-    # Loaded outside its package, the module imports its siblings by name, as when
-    # run from the pipeline directory; they must resolve to this skill's copies.
-    pipeline = str(path.parent)
-    if pipeline not in sys.path:
-        sys.path.insert(0, pipeline)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    try:
+        return pipeline_module(skills_dir, "production")
+    except SkillModuleUnavailable as exc:
+        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE", {"message": str(exc)}) from exc
 
 
 def assert_current(proof):
@@ -148,13 +136,12 @@ async def validate_submission(
     text_path = inside(root, source_text) if source_text else None
     if not directory.is_dir():
         raise ProductionRejected("CINE_PRODUCTION_DIRECTORY_REQUIRED")
-    # Scope checks to native dependencies; a character sheet does not need episode gates.
-    stages = {
-        "cast": ("cast",),
-        "art": ("cast", "art"),
-        "storyboard": ("outline", "cast", "art", "script", "storyboard"),
-    }[production_stage]
     native = native_checker(skills_dir)
+    # Scope checks to native dependencies; a character sheet does not need episode gates.
+    graph = getattr(native, "stage_graph", None)
+    if graph is None:
+        raise ProductionRejected("CINE_VALIDATOR_UNAVAILABLE", {"message": "no stage graph"})
+    stages = graph.validation_scope(production_stage)
     try:
         paths = {stage: inside(root, str(native.stage_path(directory, stage))) for stage in stages}
     except (OSError, ValueError) as exc:

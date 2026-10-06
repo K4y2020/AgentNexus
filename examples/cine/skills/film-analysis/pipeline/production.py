@@ -13,30 +13,16 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from . import stage_graph
+except ImportError:  # Direct CLI execution from the pipeline directory.
+    import stage_graph
+
 SKILLS = Path(__file__).resolve().parents[2]
-STAGES = {
-    "outline": "cine-outline",
-    "cast": "cine-characters",
-    "art": "cine-art",
-    "script": "cine-script",
-    "storyboard": "cine-storyboard",
-}
-INPUTS = {
-    "outline": (),
-    "cast": (),
-    "art": ("cast",),
-    "script": ("outline", "art", "cast"),
-    "storyboard": ("script", "outline", "cast", "art"),
-}
+# Helpers every stage script imports; a validation pins them like its inputs.
+SHARED_SCRIPTS = (SKILLS / "_shared" / "cine-common.mjs",)
 # Adaptation modes whose script is not compared line by line with the source.
 FREE_ADAPT_MODES = {"借壳"}
-# Documents a stage's JEV review reads beyond its native inputs: whether a
-# character needs a non-default state is decided by the story, not the cast.
-JEV_CONTEXT = {"cast": ("outline",)}
-# Stage whose artifact merges speaker evidence rather than a skill document,
-# so it has no node validator and its inputs are the cast plus the ASR rows.
-ATTRIBUTION_STAGE = "attribution"
-ATTRIBUTION_INPUTS = ("cast",)
 
 
 def digest(path):
@@ -640,7 +626,7 @@ def storyboard_asset_anchors(_directory, paths):
 
 
 def script_path(stage):
-    name = STAGES[stage]
+    name = stage_graph.STAGES[stage].skill
     return SKILLS / name / "scripts" / f"{name}.mjs"
 
 
@@ -753,7 +739,7 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
         if not replace_empty or not empty_storyboard:
             raise FileExistsError(f"refusing to overwrite {target}")
         replace_target = True
-    upstream = "script" if stage == "storyboard" else "outline"
+    upstream = stage_graph.STAGES[stage].seed_from
     path = stage_path(directory, upstream)
     problems = shape_errors(upstream, read(path))
     if problems:
@@ -762,7 +748,9 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     if not node:
         raise ValueError("node is unavailable; no substitute seeder was run")
     tool = script_path(stage)
-    hashes = {str(p): fingerprint(p) for p in (path, tool, directory / "production.json")}
+    hashes = {
+        str(p): fingerprint(p) for p in (path, tool, *SHARED_SCRIPTS, directory / "production.json")
+    }
     hashes[str(manifest)] = binding_hash
     command = [node, str(tool), "seed", str(path)]
     if stage == "storyboard":
@@ -818,6 +806,7 @@ def check_stage(
     jev_model="jev-latest",
 ):
     tool = script_path(stage)
+    inputs = stage_graph.STAGES[stage].validator_inputs
     row = {
         "stage": stage,
         "status": "blocked",
@@ -835,15 +824,16 @@ def check_stage(
         if not manifest.resolve().is_relative_to(directory.resolve()):
             raise ValueError("production.json must stay inside the production directory")
         binding_hash = fingerprint(manifest)
-        paths = {key: stage_path(directory, key) for key in (stage, *INPUTS[stage])}
+        paths = {key: stage_path(directory, key) for key in (stage, *inputs)}
         files = [*paths.values(), directory / "production.json"]
         if stage == "cast" and source_text is not None:
             files.append(source_text)
         row["input_hashes"] = {str(p): fingerprint(p) for p in files}
         row["input_hashes"][str(manifest)] = binding_hash
+        row["input_hashes"].update({str(p): fingerprint(p) for p in SHARED_SCRIPTS})
         row["validator_sha256"] = digest(tool)
         problems = []
-        for key in (stage, *INPUTS[stage]):
+        for key in (stage, *inputs):
             try:
                 document = read(paths[key])
             except json.JSONDecodeError as exc:
@@ -866,7 +856,7 @@ def check_stage(
         command = [node, str(tool), "validate", str(files[0])]
         if stage == "cast" and source_text is not None:
             command.append(str(source_text))
-        for key in INPUTS[stage]:
+        for key in inputs:
             command.extend([f"--{key}", str(paths[key])])
         jev_source = ("source_text", source_text) if source_text is not None else (None, None)
         free_adaptation = stage == "script" and adapt_mode(directory) in FREE_ADAPT_MODES
@@ -1031,7 +1021,7 @@ def check_stage(
                 # Judge against the same cast-resolved speakers the native validator uses.
                 baseline = render_attributed_source(directory, baseline)
             jev_paths = dict(paths)
-            for name in JEV_CONTEXT.get(stage, ()):
+            for name in stage_graph.STAGES[stage].jev_context:
                 context = stage_path(directory, name, must_exist=False)
                 if context.is_file():
                     jev_paths.setdefault(name, context)
@@ -1081,7 +1071,7 @@ def check(
     report_dir.mkdir(exist_ok=True)
     if not report_dir.resolve().is_relative_to(directory.resolve()):
         raise ValueError("validation report directory must stay inside the production directory")
-    stages = list(STAGES) if stage == "all" else [stage]
+    stages = list(stage_graph.ORDER) if stage == "all" else [stage]
     rows = [
         check_stage(
             directory,
@@ -1173,19 +1163,7 @@ def finalize(
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
         raise ValueError("production.json artifacts are required")
-    dependencies = {
-        "source_material": (),
-        "outline": ("source_material",),
-        "cast": ("outline",),
-        "art": ("outline",),
-        "script": ("outline", "cast", "art"),
-        "storyboard": ("script", "cast", "art"),
-        "mapping": ("source_material", "script", "storyboard"),
-    }
-    if manifest.get("mode") == "original":
-        dependencies.pop("source_material")
-        dependencies["outline"] = ()
-        dependencies["mapping"] = ("script", "storyboard")
+    dependencies = stage_graph.provenance(manifest.get("mode"))
     if set(artifacts) != set(dependencies):
         raise ValueError("production.json artifact set does not match its mode")
     hashes = {}
@@ -1234,7 +1212,7 @@ def main(argv=None):
         parser.add_argument("directory", type=Path)
         parser.add_argument(
             "--stage",
-            choices=[*STAGES, "all"] if action == "check" else list(STAGES),
+            choices=[*stage_graph.ORDER, "all"] if action == "check" else list(stage_graph.ORDER),
             default="all" if action == "check" else None,
             required=action == "seed",
         )

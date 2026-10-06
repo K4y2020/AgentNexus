@@ -3,15 +3,12 @@
 ## 直接画布调用契约
 
 跨 skill 交接以 [production-handoff.md](../../film-analysis/references/production-handoff.md) 为权威，独立使用仍可只交设定和提示词。
-Cine 负责制作，V3 提供画布和生成 workers：
-1. 用 `seedance_read_canvas` 读取当前 Topic 绑定项目、节点和版本。
-2. 用 `seedance_edit_canvas` 创建/更新卡片并连接实际参考资产。画布引用需要已确认上传的资产和真实返回 ID，本地路径不等于远程资产；上传/引用不可用就阻塞，不虚构上传工具。更新/删除必须带刚读取的 `expected_revision`，冲突先重读再协调；删除另需 `confirm: true`。版本保护不应被宣称覆盖工具未支持的所有操作。
-3. 明确授权覆盖目标、数量和重试后，才用 `action="submit_generation"`、`generation_allowed=true` 提交。提交不等于完成，可能计费。
-4. 核对返回资产与当前任务、上游 pins 的对应关系，将实际取得的图像落到下述本地路径并实际看图。远程 asset ID/URL 不能冒充 renderer 本地图像路径。
-5. 图像不可用、缺参考或调用失败就保留 missing/blocked；可继续交结构化草稿，不用旧文件或路径存在宣称成图，也不把 native validator 通过当 production PASS。
+画布读写、生成授权与任务轮询按 Cine 系统提示词的 Tool boundaries 和交接文档的“Managed generation”执行；本文只补设定图的落地：
+1. 核对返回资产与当前任务、上游 pins 的对应关系，将实际取得的图像落到下述本地路径并实际看图。远程 asset ID/URL 不能冒充 renderer 本地图像路径。
+2. 图像不可用、缺参考或调用失败就保留 missing/blocked；可继续交结构化草稿，不用旧文件或路径存在宣称成图，也不把 native validator 通过当 production PASS。
 
 不使用 codex `$imagegen`、shell codex 或任何 fallback。工具不可用时不自动切换生成服务。
-QA 在 `seedance_read_canvas` 只读快照上做；视觉结论必须来自实际查看的图像。
+视觉结论必须来自实际查看的图像。
 
 ## 分镜图是什么
 

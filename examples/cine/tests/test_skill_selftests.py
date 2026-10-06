@@ -34,3 +34,18 @@ def test_skill_selftest_passes(selftest):
         timeout=120,
     )
     assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+
+
+@pytest.mark.skipif(NODE is None, reason="skill self-tests require node")
+def test_shared_helpers_selftest_passes():
+    selftest = SKILLS / "_shared" / "selftest.mjs"
+    result = subprocess.run(
+        [NODE, str(selftest)],
+        cwd=selftest.parent,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]

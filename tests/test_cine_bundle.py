@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import importlib.util
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -9,11 +10,25 @@ from agentnexus.host.connect import _build_runner_env
 from agentnexus.runner.identity import RUNNER_AUTH_SECRET_ENV_VARS
 from agentnexus.runner.mcp_manager import RunnerMcpManager
 from agentnexus.spec import load
+from agentnexus.tools.manager import ToolManager
 
-BUNDLE = Path(__file__).resolve().parents[1] / "examples" / "cine"
+REPO = Path(__file__).resolve().parents[1]
+BUNDLE = REPO / "examples" / "cine"
 ENV_PROBE = (
     Path(__file__).resolve().parent / "tools" / "fixtures" / "env_probe_stdio_mcp_server.py"
 )
+# Code and agent instructions that Cine runs or reads at runtime.
+CINE_RUNTIME = (
+    "examples/cine/config.yaml",
+    "examples/cine/skills",
+    "examples/cine/tools",
+    "agentnexus/seedance",
+    "agentnexus/cine_review.py",
+    "agentnexus/server/routes/cine_review.py",
+    "agentnexus/tools/builtins/cine_*.py",
+    "agentnexus/tools/builtins/seedance_*.py",
+)
+DRIVE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:(?:\\{1,2}|/(?!/))[A-Za-z]")
 
 
 def test_cine_bundle_loads():
@@ -43,6 +58,60 @@ def test_cine_bundle_loads():
         content = path.read_text(encoding="utf-8")
         assert "EVA" not in content
         assert "U:/movie" not in content
+
+
+def test_cine_bundle_opts_into_its_tools():
+    spec = load(BUNDLE)
+    declared = {b.name for b in spec.tools.builtins}
+    assert declared == {
+        "seedance_read_canvas",
+        "seedance_edit_canvas",
+        "cine_verify_report",
+        "cine_jev_judge",
+    }
+    advertised = {s["function"]["name"] for s in ToolManager(spec).get_tool_schemas()}
+    assert declared <= advertised
+
+
+def test_cine_skills_use_skill_relative_paths():
+    """Skills run from the runner's bundle cache, where repo paths do not exist."""
+    skills = sorted((BUNDLE / "skills").glob("*/SKILL.md"))
+    assert skills
+    offenders = [
+        p.parent.name for p in skills if "examples/cine/" in p.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+def _cine_runtime_files() -> list[Path]:
+    files: list[Path] = []
+    for pattern in CINE_RUNTIME:
+        for path in sorted(REPO.glob(pattern)):
+            files += [path] if path.is_file() else sorted(path.rglob("*"))
+    # Skill examples/ hold sample fixtures and README files are for people.
+    return [
+        f
+        for f in files
+        if f.suffix in {".py", ".mjs", ".js", ".md", ".yaml", ".json", ".html"}
+        and "__pycache__" not in f.parts
+        and "examples" not in f.relative_to(REPO).parts[1:]
+        and not f.name.startswith("README")
+    ]
+
+
+def test_cine_code_has_no_developer_machine_paths():
+    """Cine runs on other machines, where a drive-letter path does not exist."""
+    files = _cine_runtime_files()
+    scanned = {f.relative_to(REPO).as_posix() for f in files}
+    assert "agentnexus/seedance/client.py" in scanned
+    assert "examples/cine/skills/film-analysis/pipeline/jev_review.py" in scanned
+    hits = [
+        f"{f.relative_to(REPO).as_posix()}:{number}: {line.strip()}"
+        for f in files
+        for number, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
+        if DRIVE_PATH.search(line)
+    ]
+    assert hits == []
 
 
 def test_media_project_delegates_to_canonical_pipeline(tmp_path, monkeypatch):
@@ -169,3 +238,15 @@ def test_gpu_switches_set_on_the_host_reach_the_film_analysis_server(tmp_path, m
     assert _film_server_view(monkeypatch, _runner_env(host), list(switches)) == dict.fromkeys(
         switches, "<unset>"
     )
+
+
+def test_stage_skills_share_one_cross_skill_section():
+    # Each stage skill is loaded on its own, so the section is repeated in each;
+    # this keeps the copies from drifting apart.
+    heading = "### 跨 skill 交接与适用范围\n"
+    sections = {}
+    for name in ("cine-outline", "cine-characters", "cine-art", "cine-script", "cine-storyboard"):
+        text = (BUNDLE / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+        assert text.count(heading) == 1, name
+        sections[name] = text.split(heading, 1)[1].split("\n\n\n", 1)[0]
+    assert len(set(sections.values())) == 1, sections

@@ -143,6 +143,7 @@ def render_report(
     return {
         "status": "report_refreshed",
         "report_path": str(out_path),
+        "report_link": f"`{out_path.as_posix()}`",
         "report_bytes": len(html.encode("utf-8")),
         "report_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
         "source_id": source.source_id,
@@ -158,7 +159,8 @@ def render_report(
         "media": {"status": media_status, "playback_verified": False},
         "warnings": review["warnings"],
         "content_review": "unverified",
-        "next_action": "Deliver the report link, counts and warnings. Refresh is complete; "
+        "next_action": "Copy report_link verbatim, then deliver the counts and warnings. "
+        "Do not convert it to a file:// URL. Refresh is complete; "
         "no source reads or browser call are needed.",
     }
 

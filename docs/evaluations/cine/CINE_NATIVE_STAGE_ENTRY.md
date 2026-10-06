@@ -3,7 +3,7 @@
 Date: 2026-09-07
 
 Deployment update: Cine v10 and the AgentNexus-managed generation gate are now
-live. See `docs/CINE_DEPLOYMENT_ACCEPTANCE.md` for the actual positive/negative
+live. See `docs/evaluations/cine/CINE_DEPLOYMENT_ACCEPTANCE.md` for the actual positive/negative
 no-generation checks and the remaining boundary. The release notes below describe
 the earlier CLI-only stage.
 

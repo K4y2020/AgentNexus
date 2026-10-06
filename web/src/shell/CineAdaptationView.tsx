@@ -14,9 +14,11 @@ import {
 import { cn } from "@/lib/utils";
 import {
   fetchCineReview,
+  MAPPING_KIND_LABELS,
   reviewAsset,
   reviewKey,
   reviewTime,
+  SHOT_SIZE_LABELS,
   type CineReview,
   type ReviewCue,
 } from "@/lib/cineReview";
@@ -34,21 +36,6 @@ function text(value: unknown): string {
 function oneBased(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
-const sizes: Record<string, string> = {
-  "extreme-close": "大特写",
-  close: "特写",
-  "medium-close": "近景",
-  medium: "中景",
-  "medium-wide": "中全景",
-  wide: "全景",
-  "extreme-wide": "远景",
-};
-const kinds: Record<string, string> = {
-  retained: "保留",
-  adapted: "改编",
-  merged: "合并",
-  new: "新增",
-};
 
 export function CineAdaptationView({
   session,
@@ -152,12 +139,16 @@ export function CineAdaptationView({
             duration,
             scene: sceneNames.get(text(scene?.sceneId)) || text(scene?.sceneId),
             frame: text(cut.frame),
-            size: sizes[text(cut.size)] || text(cut.size),
+            size: SHOT_SIZE_LABELS[text(cut.size)] || text(cut.size),
             camera: text(cut.camera),
             kind:
-              [...new Set(mappingRows.map((row) => kinds[text(row.kind)] || "关系未标注"))].join(
-                " / ",
-              ) || "未关联",
+              [
+                ...new Set(
+                  mappingRows.map(
+                    (row) => MAPPING_KIND_LABELS[text(row.kind)] || text(row.kind) || "关系未标注",
+                  ),
+                ),
+              ].join(" / ") || "未关联",
             sources,
             missingSources: sourceIds.length - sources.length,
             active: sources.some((cue) => current >= cue.start && current < cue.end),

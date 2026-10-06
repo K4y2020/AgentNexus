@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import os
 from pathlib import Path
@@ -30,53 +29,6 @@ SEEDANCE_SESSION_LABEL = "seedance.agent_session_id"
 SEEDANCE_BASE_URL_LABEL = "seedance.base_url"
 SEEDANCE_CURSOR_LABEL = "seedance.last_event_cursor"
 SEEDANCE_STATUS_LABEL = "seedance.status"
-
-
-def find_cine_shot_ledgers(workspace_dir, *, session_id=None):
-    from agentnexus.seedance.cine_contracts import current_ledger
-
-    return [current_ledger(workspace_dir, session_id)]
-
-
-def read_matching_shots(workspace_dir, shot_ids, *, session_id=None, receipts=None):
-    from agentnexus.seedance.cine_contracts import reviewed_shots
-
-    return reviewed_shots(workspace_dir, session_id, shot_ids, receipts or {})
-
-
-def format_shot_contract_message(
-    task,
-    shot_ids=None,
-    generation_allowed=False,
-    workspace_dir=None,
-    *,
-    session_id=None,
-    receipts=None,
-):
-    if generation_allowed and not shot_ids:
-        raise ValueError("CINE_SHOTS_REQUIRED: generation needs reviewed source shots")
-    lines = [task.strip()]
-    if shot_ids:
-        shots = read_matching_shots(
-            workspace_dir, shot_ids, session_id=session_id, receipts=receipts
-        )
-        lines.append("--- CINE SOURCE SHOT CONTRACT ---")
-        lines.append(json.dumps(shots, ensure_ascii=False))
-        lines.append(
-            "Model-reviewed visual observations only. Motion/audio require separate review; "
-            "do not present newly invented details as original-source facts."
-        )
-    else:
-        lines.append("[SOURCE STATUS]: unverified draft; no original-video accuracy is certified.")
-    if generation_allowed:
-        lines.append(
-            "[AUTHORIZATION]: generation_allowed is TRUE. The user has explicitly authorized generation."
-        )
-    else:
-        lines.append(
-            "[SAFETY POLICY]: generation_allowed is FALSE. You are STRICTLY FORBIDDEN from submitting image or video generation jobs. Draft cards only."
-        )
-    return "\n".join(lines)
 
 
 async def resolve_or_create_topic_project_and_session(
@@ -147,41 +99,6 @@ async def resolve_or_create_topic_project_and_session(
         logger.warning("Failed updating session %s labels: %s", conversation_id, exc)
 
     return project_id, agent_session_id, channel_scope
-
-
-async def execute_seedance_agent_message(
-    server_client: httpx.AsyncClient,
-    conversation_id: str,
-    task: str,
-    *,
-    shot_ids: list[str] | None = None,
-    generation_allowed: bool = False,
-    model: str | None = None,
-    wait: bool = True,
-    timeout_seconds: int = 60,
-    workspace_dir: str | Path | None = None,
-    seedance_client: SeedanceClient | None = None,
-) -> dict[str, Any]:
-    # Compatibility endpoint: the general V3 Agent cannot enforce read-only QA.
-    _ = (
-        server_client,
-        conversation_id,
-        task,
-        shot_ids,
-        generation_allowed,
-        model,
-        wait,
-        timeout_seconds,
-        workspace_dir,
-        seedance_client,
-    )
-    return {
-        "status": "rejected",
-        "outcome": "failed",
-        "error_code": "CINE_AGENT_DELEGATION_DISABLED",
-        "error": "V3 Agent delegation is disabled. Use seedance_read_canvas for QA, "
-        "seedance_edit_canvas initialize for binding, and native-validated direct submission.",
-    }
 
 
 async def read_seedance_canvas_snapshot(

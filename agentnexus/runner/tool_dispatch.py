@@ -31,10 +31,10 @@ import re
 import tempfile
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from agentnexus.json_types import JsonObject as _JsonObject
 
@@ -358,10 +358,9 @@ _NIMBLE_EXTRACT_TOOLS = frozenset({"nimble_extract"})
 # Teammate A2A dispatch tool. Enables cross-bot task communication.
 _TEAMMATE_DISPATCH_TOOLS = frozenset({"send_to_teammate"})
 
-# Seedance V3 canvas / agent message tool. Runner-local bridge to Seedance V3.
+# Seedance V3 canvas tools and the Cine report check; runner-local bridge to V3.
 _SEEDANCE_TOOLS = frozenset(
     {
-        "seedance_agent_message",
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
@@ -6786,193 +6785,28 @@ async def _execute_send_to_teammate_tool(
     )
 
 
-def _jev_http_client_kwargs() -> Iterator[dict[str, Any]]:
-    """Yield httpx.AsyncClient kwargs for the TypeSafe call, best option first.
-
-    A loopback proxy configured with an ``https://`` scheme (common on Windows,
-    where the value comes from the WinINET registry) makes httpx attempt a TLS
-    handshake with the plaintext proxy itself, which answers with an immediate
-    EOF. Normalizing the scheme to ``http://`` fixes it; the direct connection
-    is yielded as a fallback so a broken proxy cannot mask a reachable API.
-    """
-    import re
-    import urllib.request
-
-    proxy = ""
-    candidates = [
-        os.environ.get(var, "")
-        for var in (
-            "HTTPS_PROXY",
-            "https_proxy",
-            "ALL_PROXY",
-            "all_proxy",
-            "HTTP_PROXY",
-            "http_proxy",
-        )
-    ]
-    try:
-        detected = urllib.request.getproxies()
-    except Exception:  # noqa: BLE001 - proxy discovery is optional
-        detected = {}
-    candidates.extend(detected.get(scheme, "") for scheme in ("https", "http"))
-    for value in candidates:
-        value = (value or "").strip()
-        if value:
-            proxy = value
-            break
-
-    if proxy:
-        if re.match(r"^https://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?/?$", proxy, re.IGNORECASE):
-            proxy = "http://" + proxy[len("https://") :]
-        yield {"timeout": 30, "proxy": proxy, "trust_env": False}
-    yield {"timeout": 30, "trust_env": False}
-
-
 async def _execute_jev_tool(args: _JsonObject) -> str:
     """Execute cine_jev_judge: batch typed questions to TypeSafe System One API."""
-    import os
-    from pathlib import Path as _Path
+    from agentnexus.seedance.jev import DEFAULT_MODEL, ask_system_one
 
-    import httpx
-
-    state = args.get("state")
-    questions_raw = args.get("questions")
-    model = str(args.get("model") or "jev-latest")
-    if not isinstance(state, (dict, list, str)):
-        return json.dumps({"error": "state must be an object, array, or string"})
-    if not isinstance(questions_raw, dict) or not questions_raw:
-        return json.dumps({"error": "questions must be a non-empty object"})
-
-    # Normalize question specs into the API wire format
-    wire_questions: dict[str, dict] = {}
-    for qid, spec in questions_raw.items():
-        if not isinstance(spec, dict):
-            return json.dumps({"error": f"question {qid!r} must be an object"})
-        qtype = str(spec.get("type", "")).lower()
-        instructions = str(spec.get("instructions", "") or "")
-        criteria = spec.get("criteria")
-        if qtype == "choice":
-            wire_questions[str(qid)] = {
-                "type": "choice",
-                "instructions": instructions,
-                "criteria": criteria or {},
-            }
-        elif qtype == "noul":
-            wire_questions[str(qid)] = {"type": "noul", "instructions": instructions}
-        elif qtype == "score":
-            wire_questions[str(qid)] = {
-                "type": "score",
-                "instructions": instructions,
-                "criteria": criteria if isinstance(criteria, list) else [],
-            }
-        else:
-            return json.dumps({"error": f"question {qid} has unknown type {qtype!r}"})
-
-    api_key = os.environ.get("TYPESAFE_API_KEY", "")
-    if not api_key:
-        candidates = (
-            _Path.cwd() / ".env",
-            _Path.home() / ".agentnexus" / ".env",
-            _Path.home() / ".env",
-            _Path(__file__).resolve().parents[2] / ".env",
-        )
-        for cand in candidates:
-            if cand.is_file():
-                try:
-                    for line in cand.read_text(encoding="utf-8").splitlines():
-                        line = line.strip()
-                        if line.startswith("TYPESAFE_API_KEY="):
-                            api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            break
-                except OSError:
-                    pass
-            if api_key:
-                break
-    if not api_key:
-        return json.dumps({"error": "TYPESAFE_API_KEY is not configured on this host"})
-
-    payload = {"state": state, "model": model, "questions": wire_questions}
-    body: dict = {}
-    try:
-        for client_kwargs in _jev_http_client_kwargs():
-            try:
-                async with httpx.AsyncClient(**client_kwargs) as client:
-                    resp = await client.post(
-                        "https://api.typesafe.ai/v1/systemone",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                    )
-                    resp.raise_for_status()
-                    body = resp.json()
-                break
-            except (httpx.ConnectError, httpx.ProxyError, httpx.ConnectTimeout):
-                # A misconfigured loopback proxy often breaks only one of the
-                # two transports; the caller's direct connection may still work.
-                if not client_kwargs.get("proxy"):
-                    raise
-                continue
-            except httpx.HTTPStatusError:
-                raise
-        else:
-            raise httpx.ConnectError("no JEV transport available")
-        answers = body.get("answers", {})
-        if not isinstance(answers, dict) or set(answers) != set(wire_questions):
-            return json.dumps(
-                {
-                    "error": "typesafe api returned an incomplete answer set",
-                    "expected_questions": sorted(wire_questions),
-                    "received_answers": sorted(answers) if isinstance(answers, dict) else [],
-                },
-                ensure_ascii=False,
-            )
-    except httpx.HTTPStatusError as exc:
-        return json.dumps(
-            {"error": f"typesafe api {exc.response.status_code}: {exc.response.text[:200]}"}
-        )
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
-        return json.dumps({"error": f"jev call failed: {exc}"})
-
-    # Normalize answers into a flat, agent-friendly shape
-    out: dict[str, dict] = {}
-    for qid, a in answers.items():
-        atype = str(a.get("type", ""))
-        if atype == "choice":
-            out[qid] = {
-                "type": "choice",
-                "choice": a.get("choice"),
-                "probabilities": a.get("probabilities"),
-                "confidence": a.get("confidence"),
-            }
-        elif atype == "noul":
-            out[qid] = {"type": "noul", "noul": a.get("noul")}
-        elif atype == "score":
-            out[qid] = {
-                "type": "score",
-                "score": a.get("score"),
-                "probabilities": a.get("probabilities"),
-                "confidence": a.get("confidence"),
-            }
-        else:
-            out[qid] = a
-    return json.dumps(
-        {"model": body.get("model", model), "answers": out},
-        ensure_ascii=False,
+    result = await ask_system_one(
+        args.get("state"),
+        args.get("questions"),
+        model=str(args.get("model") or DEFAULT_MODEL),
     )
+    return json.dumps(result, ensure_ascii=False)
 
 
 async def _execute_seedance_tool(
     args: _JsonObject,
     *,
-    tool_name: str = "seedance_agent_message",
+    tool_name: str,
     server_client: httpx.AsyncClient | None,
     conversation_id: str | None,
     agent_spec: AgentSpec | None,
     task_id: str | None = None,  # noqa: ARG001
 ) -> str:
-    """Execute a Seedance V3 tool call (seedance_agent_message or seedance_read_canvas)."""
+    """Execute a Seedance canvas tool or cine_verify_report."""
     if server_client is None:
         return json.dumps({"error": f"{tool_name} requires server access"})
     if not conversation_id:
@@ -6980,6 +6814,7 @@ async def _execute_seedance_tool(
 
     if tool_name == "cine_verify_report":
         from agentnexus.seedance.report_review import verify_report
+        from agentnexus.seedance.skill_modules import film_analysis_skills_dir
 
         try:
             result = await verify_report(
@@ -6989,6 +6824,7 @@ async def _execute_seedance_tool(
                 start_seconds=args.get("start_seconds"),
                 end_seconds=args.get("end_seconds"),
                 ledger_path=args.get("ledger_path"),
+                skills_dir=film_analysis_skills_dir(agent_spec),
             )
             return json.dumps(result, ensure_ascii=False)
         except (OSError, ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
@@ -7081,14 +6917,9 @@ async def _execute_seedance_tool(
         if type(generation_allowed) is not bool:
             return json.dumps({"error": "generation_allowed must be a boolean"})
         model = _optional_string(args.get("model"))
-        trusted_skills_dir = next(
-            (
-                skill.skill_dir.parent
-                for skill in getattr(agent_spec, "skills", [])
-                if skill.name == "film-analysis" and skill.skill_dir is not None
-            ),
-            None,
-        )
+        from agentnexus.seedance.skill_modules import film_analysis_skills_dir
+
+        trusted_skills_dir = film_analysis_skills_dir(agent_spec)
 
         try:
             from agentnexus.seedance.bridge import execute_seedance_canvas_edit
@@ -7151,57 +6982,7 @@ async def _execute_seedance_tool(
                 ensure_ascii=False,
             )
 
-    task = str(args.get("task") or "").strip()
-    if not task:
-        return json.dumps({"error": "seedance_agent_message requires 'task' (prompt instruction)"})
-
-    raw_shot_ids = args.get("shot_ids")
-    shot_ids: list[str] | None = None
-    if isinstance(raw_shot_ids, list):
-        shot_ids = [str(sid).strip() for sid in raw_shot_ids if str(sid).strip()]
-
-    generation_allowed = bool(args.get("generation_allowed", False))
-    model = _optional_string(args.get("model"))
-    wait = bool(args.get("wait", True))
-    try:
-        timeout_seconds = max(
-            10, min(int(cast(str | int | float, args.get("timeout_seconds", 60))), 300)
-        )
-    except (ValueError, TypeError, OverflowError):
-        return json.dumps({"error": "timeout_seconds must be an integer between 10 and 300"})
-
-    workspace = None
-    if agent_spec and getattr(agent_spec, "os_env", None):
-        workspace = getattr(agent_spec.os_env, "cwd", None)
-
-    try:
-        from agentnexus.seedance.bridge import execute_seedance_agent_message
-
-        result = await execute_seedance_agent_message(
-            server_client=server_client,
-            conversation_id=conversation_id,
-            task=task,
-            shot_ids=shot_ids,
-            generation_allowed=generation_allowed,
-            model=model,
-            wait=wait,
-            timeout_seconds=timeout_seconds,
-            workspace_dir=workspace,
-        )
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as exc:
-        _logger.error("Failed executing seedance_agent_message: %s", exc, exc_info=True)
-        return json.dumps(
-            {
-                "status": "failed",
-                "outcome": "failed",
-                "target_teammate": "seedance",
-                "error": f"Seedance bridge error: {exc}",
-                "task": task,
-                "generation_allowed": generation_allowed,
-            },
-            ensure_ascii=False,
-        )
+    return json.dumps({"error": f"unknown Seedance tool {tool_name!r}"})
 
 
 async def _execute_save_teammate_memory_tool(

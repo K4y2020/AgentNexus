@@ -2,7 +2,7 @@
 
 # cine-storyboard
 
-跨 skill 管线以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为权威，独立使用仍保留。Cine 负责制作：先 `seedance_read_canvas`，再 `seedance_edit_canvas`，更新/删除携带 `expected_revision`；明确授权后才提交 V3 workers。V3 Agent 仅定位 QA，但现有 `seedance_agent_message` 不具代码级只读隔离，因此目前只做本地/只读快照 QA，不通过泛用消息制作或冒充安全 QA。禁止 codex `$imagegen` 及 fallback。实际本地图像与视觉验收必须独立核对，远程 ID、旧文件或路径不算成图，缺失保持缺失；生成可能计费，阶段通过不等于 production PASS。
+在 Cine 多 skill 管线中，交接合同以 [production-handoff.md](../film-analysis/references/production-handoff.md) 为准，画布读写与生成规则见 Cine 系统提示词的 Tool boundaries；本 skill 也可独立使用。
 
 给 AI 短剧出**分镜**：把 cine-script 的节拍流切成可以直接下单给视频模型的生成任务单。这是管线里第一个直接面对视频模型的层，前提刻在骨子里：生成与重试有成本，切镜节奏由叙事需求决定；下述 2–5 秒只是短剧默认值。所以结构是三层：
 
@@ -50,7 +50,7 @@ H3 导出与提示词校验仅支持 H3。Seedance 等不支持的提供商导�
 
 自测里每道门都有**击穿用例**——证明它真的会拦。
 
-**镜头配方是可选挂载的语汇层**：cut 上可以写一个可选的 `recipe`（外部可选卡库中的卡片 id，**cut 级不是 segment 级**，**多格配方靠连续同 id 的分镜表达**，不是数组）。没装外部卡库照跑不误——本 skill 自包含，连解析卡片 frontmatter 的那 25 行都是自己写的，不跨目录 import。卡片的**建议景别与运镜刻意不设门**，只在报告的「配方」列加 `≠` 标记（悬停看建议值）、`checkup` 末尾出一段提示：配方是语汇不是法条，可选挂载的东西一旦变严就没人挂了，**误拦的门比没有门更糟**。
+**镜头配方是可选挂载的语汇层**：cut 上可以写一个可选的 `recipe`（外部可选卡库中的卡片 id，**cut 级不是 segment 级**，**多格配方靠连续同 id 的分镜表达**，不是数组）。没装外部卡库照跑不误——解析卡片 frontmatter 的那 25 行是本 skill 自己写的，不从卡库 import；只有通用小工具来自随 skills 目录分发的 `../_shared/cine-common.mjs`。卡片的**建议景别与运镜刻意不设门**，只在报告的「配方」列加 `≠` 标记（悬停看建议值）、`checkup` 末尾出一段提示：配方是语汇不是法条，可选挂载的东西一旦变严就没人挂了，**误拦的门比没有门更糟**。
 
 ## 门失败会累积，`stats` 告诉你模型最常违反哪条规则
 

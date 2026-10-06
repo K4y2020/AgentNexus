@@ -2,7 +2,7 @@
 
 # cine-characters
 
-The [production handoff](../film-analysis/references/production-handoff.md) is authoritative for cross-skill pipelines; standalone use remains supported. Cine owns production: read with `seedance_read_canvas`, then use `seedance_edit_canvas`, passing `expected_revision` for updates/deletes. Submit to V3 workers only with explicit generation authorization. V3 Agent is intended for QA only, but `seedance_agent_message` is not a code-enforced read-only sandbox: use local/read-only snapshot QA until isolation exists, never generic agent messages for production or supposedly safe QA. No codex `$imagegen` or fallback. Verify actual local images and inspect them; remote IDs, paths and old files do not prove image presence. Missing images stay missing. Generation can cost money; stage validation is not production PASS.
+In Cine's multi-skill pipeline the [production handoff](../film-analysis/references/production-handoff.md) governs the handoff contract and the Cine prompt's Tool boundaries govern canvas edits and generation; the skill also works standalone.
 
 Feed it a novel or a short story, and get a complete design bible for every character:
 
@@ -53,7 +53,7 @@ What comes across is what the outline already decided (character id, name, tier,
 
 ## Use
 
-For installation see the [repository README](../../README.en.md). Then:
+Then:
 
 ```
 /cine-characters ./your-novel.txt

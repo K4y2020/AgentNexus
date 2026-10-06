@@ -31,6 +31,7 @@ from .asset_anchors import (  # noqa: F401 - re-exported for callers and tests
     _word,
 )
 from .client import SeedanceError
+from .jev import ask_system_one
 from .production_gate import ProductionRejected, inside
 
 logger = logging.getLogger(__name__)
@@ -512,12 +513,8 @@ def _entity_brief(kind: str, ident: str, cast_doc: dict, art_doc: dict) -> str:
 
 
 async def _default_subject_judge(state: dict, questions: dict) -> dict:
-    """Ask JEV through the runner's cine_jev_judge transport."""
-    try:
-        from agentnexus.runner.tool_dispatch import _execute_jev_tool
-    except Exception as exc:  # noqa: BLE001 - no JEV means no semantic match
-        return {"error": f"JEV unavailable: {type(exc).__name__}: {exc}"}
-    return json.loads(await _execute_jev_tool({"state": state, "questions": questions}))
+    """Ask JEV through the runner's TypeSafe client."""
+    return await ask_system_one(state, questions)
 
 
 async def _judge_subjects(
@@ -849,7 +846,7 @@ async def import_storyboard(
 
     ``subject_judge`` answers JEV questions (``async (state, questions) -> dict``)
     for H3 subject definitions that the cast and art documents cannot identify
-    by id, name or alias; it defaults to the runner's JEV transport.
+    by id, name or alias; it defaults to the runner's TypeSafe client.
     """
     response = await server.get(f"/v1/sessions/{session_id}", timeout=10)
     response.raise_for_status()

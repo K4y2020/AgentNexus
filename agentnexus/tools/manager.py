@@ -561,26 +561,15 @@ class ToolManager:
 
     def _register_teammate_tools(self) -> None:
         """
-        Auto-register send_to_teammate tool.
+        Auto-register send_to_teammate and save_teammate_memory.
 
         Framework-owned and always available so any bot can dispatch tasks
         or send peer messages to other teammate bots in the workspace.
         """
-        from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
-        from agentnexus.tools.builtins.seedance_agent_message import SeedanceAgentMessageTool
-        from agentnexus.tools.builtins.seedance_edit_canvas import SeedanceEditCanvasTool
-        from agentnexus.tools.builtins.seedance_read_canvas import SeedanceReadCanvasTool
         from agentnexus.tools.builtins.send_to_teammate import SendToTeammateTool
         from agentnexus.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 
         self._tools[SendToTeammateTool.name()] = SendToTeammateTool()
-        self._tools[SeedanceAgentMessageTool.name()] = SeedanceAgentMessageTool()
-        self._tools[SeedanceReadCanvasTool.name()] = SeedanceReadCanvasTool()
-        self._tools[SeedanceEditCanvasTool.name()] = SeedanceEditCanvasTool()
-        self._tools[CineVerifyReportTool.name()] = CineVerifyReportTool()
-        from agentnexus.tools.builtins.cine_jev_judge import CineJevJudgeTool
-
-        self._tools[CineJevJudgeTool.name()] = CineJevJudgeTool()
         self._tools[SaveTeammateMemoryTool.name()] = SaveTeammateMemoryTool()
 
     def _register_browser_tools(self) -> None:

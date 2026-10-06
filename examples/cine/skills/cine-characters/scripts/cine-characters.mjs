@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // cine-characters — deterministic helpers for the cine-characters skill.
-// Zero dependencies on purpose: the skill must work in any directory
-// without an npm install. Node 18+ (stdlib only).
+// Zero npm dependencies on purpose: the skill must work in any directory
+// without an npm install. Node 18+ stdlib plus ../../_shared/cine-common.mjs.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { esc, flag, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* chunk                                                               */
@@ -181,11 +181,7 @@ export function applyMerges(cast, merges) {
 
 /** Filesystem-safe stem for a character name, CJK preserved. */
 export function slug(name) {
-  const cleaned = String(name)
-    .trim()
-    .replace(/[\s/\\:*?"<>|]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return cleaned || 'character';
+  return safeStem(name, 'character');
 }
 
 /* ------------------------------------------------------------------ */
@@ -887,12 +883,6 @@ export function renderMarkdown(characters, source, summary = '', lang = DEFAULT_
  *   4. 打印时全部展开——屏幕上一次一个，纸上要是完整的一份
  */
 
-const esc = (s) =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 /** 推断标记：半角/全角 × 中英四种写法都要认，模型不挑食地乱产。 */
 const INFERRED = /（\s*(?:推断|inferred)[^）]*）|\(\s*(?:推断|inferred)[^)]*\)/gi;
@@ -1047,7 +1037,6 @@ function renderCharacter(c, index, t) {
 
 /** 节点大小按戏份分档，一眼能看出谁是主角。 */
 const NODE_R = { protagonist: 11, major: 9, supporting: 7, minor: 5.5 };
-const r1 = (n) => Math.round(n * 10) / 10;
 
 /**
  * 把 persona.relationships 解析成无向边。
@@ -1750,15 +1739,7 @@ render 选项：
   --images <dir>    图片目录名，默认 images
                     会去找 <dir>/<slug>-sheet.png`;
 
-function readJson(path) {
-  return JSON.parse(readFileSync(resolve(path), 'utf8'));
-}
 
-/** 取 --flag 的值，没有就返回 fallback。 */
-function flag(rest, name, fallback = null) {
-  const i = rest.indexOf(name);
-  return i >= 0 && rest[i + 1] ? rest[i + 1] : fallback;
-}
 
 /** cast.json 可以是 {source, lang, summary, characters}，也可以是裸数组（旧格式）。 */
 function loadCast(path) {
@@ -2010,28 +1991,4 @@ function main(argv) {
   throw new Error(`未知命令 ${cmd}\n\n${USAGE}`);
 }
 
-// 只有直接运行才跑 CLI —— selftest.mjs 需要 import 这些函数。
-// 两边都取 realpath：软链安装时 argv[1] 是链接路径，而 import.meta.url
-// 已被 Node 解析成真实路径，不归一化就永远不相等。
-function isMainModule() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isMainModule()) {
-  // `render ... | head` 这类管道提前关闭时安静退出，别甩 EPIPE 堆栈
-  process.stdout.on('error', (e) => {
-    if (e.code === 'EPIPE') process.exit(0);
-    throw e;
-  });
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
+runCli(import.meta.url, main);

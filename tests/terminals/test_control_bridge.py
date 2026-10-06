@@ -359,7 +359,9 @@ async def test_control_bridge_coalesces_burst_when_send_lags() -> None:
 
 @pytest.mark.skipif(not _HAS_TMUX, reason="tmux not installed")
 @pytest.mark.asyncio
-async def test_control_bridge_burst_then_exit_delivers_full_tail() -> None:
+async def test_control_bridge_burst_then_exit_delivers_full_tail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A burst-then-exit program's tail isn't dropped when %exit races the drain.
 
     The reader and forwarder are separate tasks; shutdown keys on the reader.
@@ -368,7 +370,7 @@ async def test_control_bridge_burst_then_exit_delivers_full_tail() -> None:
     draining the queued backlog. The bridge must let the forwarder finish
     draining the sentinel-terminated queue before teardown, or the tail is
     silently lost. Emit the burst then exit (no trailing sleep) behind a slow
-    send and assert the FULL payload still reaches the browser.
+    send and assert everything the reader got from tmux reaches the browser.
     """
     # The backlog must be too big to fully drain before the reader hits %exit,
     # or the forwarder finishes on its own and the race never triggers. 2 MB
@@ -385,6 +387,21 @@ async def test_control_bridge_burst_then_exit_delivers_full_tail() -> None:
         "sys.stdout.flush()'"
     )
     await asyncio.sleep(0.2)
+
+    # Count what the reader decodes: tmux itself drops output still pending
+    # for a lagging control client when the session ends, which on a loaded
+    # host can cost a few KB before the bridge ever sees it.
+    received_y = 0
+
+    def _counting_unescape(value: bytes) -> bytes:
+        nonlocal received_y
+        decoded = unescape_control_output(value)
+        received_y += decoded.count(b"Y")
+        return decoded
+
+    monkeypatch.setattr(
+        "agentnexus.terminals.control_bridge.unescape_control_output", _counting_unescape
+    )
 
     ws = _FakeWebSocket(inbound=[], send_delay_s=0.005)
     reader_done = asyncio.Event()
@@ -406,9 +423,11 @@ async def test_control_bridge_burst_then_exit_delivers_full_tail() -> None:
     await asyncio.wait_for(forward_done.wait(), timeout=20.0)
 
     total_y = sum(f.count(b"Y") for f in ws.sent)
-    assert total_y >= payload_len, (
-        f"burst-then-exit dropped the tail: got {total_y} Y bytes of {payload_len} "
-        "— forwarder was cancelled before draining the queued backlog"
+    # A large backlog must have reached the reader, or the race never ran.
+    assert received_y >= payload_len // 2, f"tmux delivered only {received_y} Y bytes"
+    assert total_y == received_y, (
+        f"burst-then-exit dropped the tail: sent {total_y} of the {received_y} Y bytes "
+        "the reader queued — forwarder was cancelled before draining the backlog"
     )
 
     await _kill_and_join(sock, task)

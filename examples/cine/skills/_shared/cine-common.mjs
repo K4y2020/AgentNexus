@@ -1,0 +1,100 @@
+// cine-common — helpers the five cine-* stage scripts share. Not a skill.
+// Zero npm dependencies (Node 18+ stdlib); it ships beside the skills, so
+// copy or link the whole skills/ folder, not a single skill.
+
+import { readFileSync, realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/* ------------------------------------------------------------------ */
+/* CLI                                                                 */
+/* ------------------------------------------------------------------ */
+
+export function readJson(path) {
+  return JSON.parse(readFileSync(resolve(path), 'utf8'));
+}
+
+export function flag(rest, name, fallback = null) {
+  const i = rest.indexOf(name);
+  return i >= 0 && rest[i + 1] ? rest[i + 1] : fallback;
+}
+
+// 软链安装时 argv[1] 是链接路径，两边都取 realpath 才能比得上
+export function isMainModule(metaUrl) {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+}
+
+/** 脚本是入口时跑 CLI：管道提前关闭安静退出，出错打印消息并 exit 1。 */
+export function runCli(metaUrl, main) {
+  if (!isMainModule(metaUrl)) return;
+  // `render ... | head` 这类管道提前关闭时安静退出，别甩 EPIPE 堆栈
+  process.stdout.on('error', (e) => {
+    if (e.code === 'EPIPE') process.exit(0);
+    throw e;
+  });
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 文本                                                                */
+/* ------------------------------------------------------------------ */
+
+const UNSAFE_STEM = /[\s/\\:*?"<>|]+/g;
+const UNSAFE_STEM_DOT = /[\s/\\:*?"<>|·]+/g;
+
+/** 名字转安全文件名；dot 为真时把间隔号「·」也换成连字符。 */
+export function safeStem(name, fallback, { dot = false } = {}) {
+  const cleaned = String(name)
+    .trim()
+    .replace(dot ? UNSAFE_STEM_DOT : UNSAFE_STEM, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+}
+
+export const thText = (s) => typeof s === 'string' && s.trim();
+export const r1 = (n) => Math.round(n * 10) / 10;
+
+export const esc = (s) =>
+  String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+export const mdRow = (cells) => `| ${cells.map((c) => String(c ?? '').replace(/\|/g, '\\|')).join(' | ')} |`;
+export const mdHead = (cols) => [mdRow(cols), mdRow(cols.map(() => '---'))].join('\n');
+
+/** 内嵌进 <script> 的 JSON：`<` 转义，防 `</script` 截断。 */
+export function embedJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/* ------------------------------------------------------------------ */
+/* 报告界面语言                                                         */
+/* ------------------------------------------------------------------ */
+
+/** 按界面语言取文案表；未内置的语言直接报错。 */
+export const i18nLookup = (table) => (lang) => {
+  if (lang && !table[lang]) throw new Error('报告界面语言目前内置 zh / en');
+  return table[lang ?? 'zh'];
+};
+
+/** 报告里的门文案：英文界面取映射，未命中或中文界面回落原文。 */
+export const gateTextFor = (labelsEn, skipsEn) => (g, lang) => {
+  if (lang !== 'en') return { label: g.label, detail: g.detail };
+  const en = labelsEn[g.enKey ?? g.id];
+  // 阈值仍由门自己算：把中文标签里出现的数字按序填进 {0} {1}
+  const nums = String(g.label).match(/\d+(?:\.\d+)?/g) ?? [];
+  const label = en ? en.replace(/\{(\d)\}/g, (m, i) => nums[Number(i)] ?? m) : g.label;
+  return { label, detail: skipsEn[g.detail] ?? g.detail };
+};

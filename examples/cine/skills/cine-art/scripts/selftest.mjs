@@ -476,5 +476,8 @@ eq(FIXTURE.props.length, 2, '样例带两件叙事道具');
   const gateEn = renderHtml(FIXTURE, 'en');
   ok(gateEn.includes('Consistency anchors, 3–5'), 'EN 报告的质量门标签翻译且阈值原样保留');
   ok(!gateEn.includes('一致性锚点 3–5 个'), 'EN 报告不再出现中文门标签');
+  // 没给 cast.json 时 no-names 门的跳过说明也要翻译
+  ok(gateEn.includes('cast.json not provided'), 'EN 报告的门跳过说明翻译成英文');
+  ok(!gateEn.includes('未提供 cast.json'), 'EN 报告不再出现中文跳过说明');
 }
 console.log(`✓ ${passed} 项自测全部通过`);

@@ -22,6 +22,8 @@ def current_ledger(workspace, session_id):
     if not workspace or not session_id or not re.fullmatch(r"[A-Za-z0-9_-]+", session_id):
         raise ValueError("CINE_BINDING_REQUIRED: current session and workspace are required")
     root = Path(workspace).resolve()
+    # film-analysis pipeline/entry.py writes this binding; the host reads it
+    # without the skill, so core keeps its own reader.
     binding_path = root / ".cine" / "sessions" / f"{session_id}.json"
     expected_binding_id = session_id
     if not binding_path.is_file() and root.parent.name.casefold() == "topics":

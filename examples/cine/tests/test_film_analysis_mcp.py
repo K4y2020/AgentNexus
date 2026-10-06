@@ -52,7 +52,13 @@ def test_server_exposes_the_pipeline_as_fixed_tools():
     """
     module = _load()
     names = {tool.name for tool in module.mcp._tool_manager.list_tools()}
-    assert names == {"film_analyze", "film_transcribe", "film_status", "film_review"}
+    assert names == {
+        "film_analyze",
+        "film_refresh_report",
+        "film_transcribe",
+        "film_status",
+        "film_review",
+    }
 
 
 def test_status_finds_a_transcript_two_levels_up(tmp_path):
@@ -161,7 +167,7 @@ def test_server_starts_and_lists_tools_over_stdio():
                 continue
         listed = next((p for p in payloads if p.get("id") == 2), None)
         assert listed is not None, "tools/list got no response"
-        assert len(listed["result"]["tools"]) == 4
+        assert len(listed["result"]["tools"]) == 5
     finally:
         proc.kill()
 
@@ -177,7 +183,7 @@ def test_analyze_infers_workspace_above_projects(monkeypatch, tmp_path):
     output.parent.mkdir()
     captured = {}
 
-    def index_media(_video, _output, *, workspace, resume):
+    def index_media(_video, _output, *, workspace, resume, **_scope):
         captured["workspace"] = workspace
         captured["resume"] = resume
         return {"analysis_status": "indexed_unreviewed"}
@@ -1162,3 +1168,77 @@ def test_unread_context_batch_is_retried_with_cached_a_without_asr(monkeypatch, 
         "changed"
     ]
     assert calls == [1, 1] and row["performance"]["speaker"] == "offscreen"
+
+
+# film_analyze scope and film_refresh_report: the MCP tools are the whole entry
+
+
+def test_analyze_forwards_profile_and_scope_to_the_indexer(monkeypatch, tmp_path):
+    module = _load()
+    from pipeline import entry
+
+    seen = {}
+
+    def index(*_args, **kwargs):
+        seen.update(kwargs)
+        return {"analysis_status": "blocked", "reason": "stop here"}
+
+    monkeypatch.setattr(entry, "index_media", index)
+    video = tmp_path / "source.mp4"
+    video.write_bytes(b"video")
+    module.film_analyze(
+        str(video), str(tmp_path / "projects/film"), profile="forensic", start=5, end=35
+    )
+
+    assert (seen["profile"], seen["start"], seen["end"]) == ("forensic", 5, 35)
+
+
+def test_analyze_rejects_an_unknown_profile_without_indexing(monkeypatch, tmp_path):
+    module = _load()
+    from pipeline import entry
+
+    monkeypatch.setattr(entry, "index_media", lambda *_a, **_k: pytest.fail("indexed"))
+    video = tmp_path / "source.mp4"
+    video.write_bytes(b"video")
+    result = module.film_analyze(str(video), str(tmp_path / "projects/film"), profile="fast")
+
+    assert result["status"] == "index_blocked"
+    assert result["result"]["reason"] == "invalid_profile"
+
+
+def test_refresh_report_on_a_missing_project_returns_an_actionable_receipt(tmp_path):
+    receipt = _load().film_refresh_report(str(tmp_path / "projects/film"))
+
+    assert receipt["status"] == "report_refresh_failed"
+    assert receipt["error_code"] == "REPORT_INPUT_MISSING"
+    assert receipt["next_action"]
+
+
+def test_refresh_report_returns_what_the_cli_prints(monkeypatch, tmp_path, capsys):
+    from pipeline import entry
+
+    project = tmp_path / "projects/film"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["entry", "--refresh-report", "--output", str(project), "--workspace", str(tmp_path)],
+    )
+    with pytest.raises(SystemExit):
+        entry.main()
+
+    printed = json.loads(capsys.readouterr().out)
+    assert printed == _load().film_refresh_report(str(project), str(tmp_path))
+
+
+def test_media_project_warns_that_it_is_deprecated(tmp_path):
+    script = ROOT / "skills" / "film-analysis" / "media_project.py"
+    done = subprocess.run(
+        [sys.executable, str(script), "--refresh-report", "--output", str(tmp_path / "nope")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+    )
+
+    assert "removed in 0.13.0" in done.stderr
+    assert json.loads(done.stdout)["status"] == "report_refresh_failed"

@@ -92,12 +92,7 @@ _ALWAYS_PRESENT_TOOLS: frozenset[str] = frozenset(
         "browser_click",
         "browser_type",
         "browser_screenshot",
-        # Review/canvas tools are available without per-agent opt-in.
-        "seedance_agent_message",
-        "seedance_read_canvas",
-        "seedance_edit_canvas",
-        "cine_verify_report",
-        "cine_jev_judge",
+        # Teammate memory is framework-owned, like send_to_teammate.
         "save_teammate_memory",
     }
 )
@@ -139,6 +134,36 @@ def test_session_rename_is_registered_for_every_agent() -> None:
     names = {schema["function"]["name"] for schema in ToolManager(_make_spec()).get_tool_schemas()}
 
     assert "sys_session_rename" in names
+
+
+# Cine/Seedance production tools that only a spec's tools.builtins enables.
+_CINE_TOOLS = frozenset(
+    {
+        "seedance_read_canvas",
+        "seedance_edit_canvas",
+        "cine_verify_report",
+        "cine_jev_judge",
+    }
+)
+
+
+def test_cine_tools_absent_without_opt_in() -> None:
+    names = {schema["function"]["name"] for schema in ToolManager(_make_spec()).get_tool_schemas()}
+
+    assert names.isdisjoint(_CINE_TOOLS)
+    assert "send_to_teammate" in names
+
+
+def test_cine_tools_register_from_tools_builtins(caplog: pytest.LogCaptureFixture) -> None:
+    spec = AgentSpec(
+        spec_version=1,
+        tools=ToolsConfig(builtins=[BuiltinToolConfig(name=name) for name in sorted(_CINE_TOOLS)]),
+    )
+    with caplog.at_level(logging.WARNING, logger="agentnexus.tools.manager"):
+        names = {schema["function"]["name"] for schema in ToolManager(spec).get_tool_schemas()}
+
+    assert names >= _CINE_TOOLS
+    assert not any("Unknown built-in tool" in r.getMessage() for r in caplog.records)
 
 
 @pytest.fixture()

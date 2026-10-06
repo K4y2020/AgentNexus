@@ -9,21 +9,19 @@ description: Whole-film story reading, reference-shot analysis and refreshing ex
 
 ## Existing report: refresh and deliver
 
-For refresh/update/rebuild of an existing playback report, execute this entrypoint
-directly with the supplied project and workspace. This mode needs no video argument,
-directory listing, source-code reading or production-handoff reference.
+For refresh/update/rebuild of an existing playback report, call the MCP tool
+`film_refresh_report(output=<project>, workspace=<workspace>)`. This needs no video
+argument, directory listing, source-code reading or production-handoff reference.
 
-```powershell
-python "<skill>/media_project.py" --output "<project>" --workspace "<workspace>" --refresh-report
-```
-
-Replace `<skill>` with the Skill directory returned below by load_skill. The command
-resolves the committed revision itself. Its JSON receipt provides report_path,
-report_bytes, source/revision IDs, record counts, input_files, media.status and warnings.
-When status is report_refreshed, return a clickable absolute report link and summarize
-the receipt. That completes a refresh request; no further file checks or browser call
-is needed. Only open a browser if the user asked to open it and that session has an
-available browser. Browser unavailability does not invalidate a generated report.
+The tool resolves the committed revision itself. Its receipt provides report_path,
+report_link, report_bytes, source/revision IDs, record counts, input_files, media.status
+and warnings. When status is report_refreshed, copy report_link verbatim and summarize
+the receipt. It is an inline-code absolute path that the Web file viewer makes
+clickable, including on Windows; do not replace it with a file:// URL or a Markdown
+URL with a drive-letter scheme. That completes a refresh request; no further file
+checks or browser call is needed. Only open a browser if the user asked to open it
+and that session has an available browser. Browser unavailability does not invalidate
+a generated report.
 For select_local_file media status, explain that the page needs local video selection.
 The receipt reports file/data availability, not verified playback or story accuracy.
 
@@ -94,9 +92,11 @@ instead of scoring the script against a corrupt baseline; re-run
 These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
 actual model version, input hashes, typed answers, thresholds, decision and a
 typed scheduler route (`advance_to_*`, `repair_*`, `human_review_*`, or
-`blocked_*`). The local production controller validates that route against the
-legal stage graph before exposing it to Cine. In advisory mode `next_action` is a
-recommendation: report failed or low-confidence findings with the native result,
+`blocked_*`). JEV judges only whether to advance, repair, ask for review or
+block, the repair scope and, for an upstream repair, which document the stage
+reads holds the defect; the next stage itself comes from the stage graph. In
+advisory mode `next_action` is a recommendation: report failed or
+low-confidence findings with the native result,
 repair only when a finding names a concrete defect, and never loop to raise a JEV
 score. A missing `TYPESAFE_API_KEY` or provider error is reported as
 `unavailable`/`error` and does not block. Only when the user explicitly asks for
@@ -117,20 +117,17 @@ to visually `model_reviewed`.
 Use the directory returned by load_skill; do not recursively search for scripts.
 
 For a new film in Cine, call the MCP tool `film_analyze` once with video, output
-and workspace. Repeating it resumes the same source and evidence. `film_transcribe`
-also resumes an existing transcript; use `force=true` only for an explicitly needed
-fresh ASR run. The CLI below is the index-only entry for standalone use.
+(`<workspace>/projects/<name>`) and workspace. Repeating it resumes the same source
+and evidence. `film_transcribe` also resumes an existing transcript; use `force=true`
+only for an explicitly needed fresh ASR run. `film_status` reports progress and
+`film_review` is the optional JEV scorecard.
 
-```powershell
-uv run --with "scenedetect>=0.6.4" --with opencv-python-headless --with "pydantic>=2,<3" --with "jinja2>=3.1,<4" --with "filelock>=3" --with "typesafe-sdk>=0.7.0" python <skill>/media_project.py --video <source> --output <workspace>/projects/<name> --workspace <workspace> --profile adaptation
-```
-
-Omitting --end covers the source duration. An explicit --end selects a narrower
-scope and must not be reported as full-film work. --resume preserves an unchanged
-adaptation revision and its saved story progress; changed scope creates a new revision.
-Source identity changes require a new project. Never copy old scratch analyses.
-In a canonical Bot `topics/<session-id>` workspace, the command derives the
-session binding from the directory. Do not invent or hand-copy a session ID.
+Omitting `end` covers the source duration. An explicit `end` selects a narrower
+scope and must not be reported as full-film work; a changed scope creates a new
+revision, an unchanged one keeps its saved story progress. Source identity changes
+require a new project. Never copy old scratch analyses. In a canonical Bot
+`topics/<session-id>` workspace, the tool derives the session binding from the
+directory. Do not invent or hand-copy a session ID.
 
 The pipeline generates a canonical cut index plus story_plan.json under its revision.
 It samples three representative stills per 30-second temporal batch, independent of
@@ -302,9 +299,8 @@ cropped or sped up, or one that only moves speech forward, is not.
    readiness. Current per-shot notes count as visual reading when their source,
    revision, ledger hash and shot times match; missing/unknown shots still need
    inspected images. This check is not a guarantee that no semantic detail was missed.
-7. Refresh the playback report after saving story/transcript changes:
-   `python <skill>/media_project.py --output <project> --workspace <workspace> --refresh-report`.
-   This reuses the committed index; no extraction or generation is run. Deliver the
+7. Refresh the playback report after saving story/transcript changes with
+   `film_refresh_report(output=<project>, workspace=<workspace>)`. This reuses the committed index; no extraction or generation is run. Deliver the
    returned report path. Its story batches, detected shots, qualified ASR dialogue
    and indexed screenshots remain separate records, all subject to review. Missing
    action timings or speakers are not inferred for the timeline. This view does not
@@ -370,8 +366,8 @@ rules are in the Cine prompt's Tool boundaries and the handoff's "Managed genera
 
 ## Optional: forensic profile
 
-Use --profile forensic for explicitly requested precise shot auditing; its default
-scope is 30 seconds unless --end is supplied. Inspect cuts and adjacent frames/clips,
+Use `film_analyze(..., profile="forensic")` for explicitly requested precise shot
+auditing; its default scope is 30 seconds unless `end` is supplied. Inspect cuts and adjacent frames/clips,
 write source reviews separately, and use cine_verify_report scope=sample/full.
 Do not edit committed source ledgers. Every source-reviewed claim still needs current
 receipts. This strict per-shot acceptance is not the default adaptation requirement.

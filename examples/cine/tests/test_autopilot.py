@@ -162,6 +162,26 @@ def test_canvas_sync_is_recorded_per_storyboard_version(monkeypatch, directory, 
     assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
 
 
+def test_canvas_delivery_returns_existing_files_and_receipts_after_restart(
+    monkeypatch, directory, tmp_path
+):
+    checks = Checks(monkeypatch)
+    checks.results["storyboard"] = {"stdout": "✓ 分镜全部通过校验\n"}
+    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    canvas_receipt = {"status": "imported", "generation_submitted": False}
+    receipt = tmp_path / "receipt.json"
+    receipt.write_text(json.dumps(canvas_receipt), encoding="utf-8")
+
+    done = autopilot.record_canvas_sync(directory, receipt)
+    assert (done["action"], done["delivery"]) == ("done", "canvas")
+    assert done["files"] == {stage: str(directory / f"{stage}.json") for stage in STAGES}
+    assert all(Path(path).is_file() for path in done["files"].values())
+    assert not (directory / "production.json").exists()
+    assert done["receipts"]["storyboard"] == "✓ 分镜全部通过校验"
+    assert done["canvas_receipt"] == canvas_receipt
+    assert autopilot.next_step(directory, jev=False) == done
+
+
 def test_source_location_reviews_are_queued_and_cleared_on_recheck(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["outline"] = {

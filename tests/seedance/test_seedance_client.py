@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 import pytest
 import respx
@@ -80,6 +82,30 @@ def test_get_seedance_api_key_reads_env(monkeypatch):
     assert get_seedance_api_key() == "test-secret-key-123"
 
 
+@pytest.fixture
+def empty_home(monkeypatch, tmp_path):
+    """No key in the environment, an empty home and an empty working directory."""
+    monkeypatch.delenv("SEEDANCE_API_KEY", raising=False)
+    monkeypatch.delenv("AGENTNEXUS_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: tmp_path))
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+@pytest.mark.usefixtures("empty_home")
+def test_get_seedance_api_key_without_env_is_none():
+    assert get_seedance_api_key() is None
+
+
+def test_get_seedance_api_key_reads_agentnexus_env_file(empty_home):
+    tmp_path = empty_home
+    (tmp_path / ".agentnexus").mkdir()
+    (tmp_path / ".agentnexus" / ".env").write_text(
+        "OTHER=x\nSEEDANCE_API_KEY='from-file'\n", encoding="utf-8"
+    )
+    assert get_seedance_api_key() == "from-file"
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_healthz_success():
@@ -136,8 +162,8 @@ async def test_create_agent_session_success():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_send_agent_message_busy_409():
-    respx.post(f"{_BASE}/v3/agent-sessions/sess_456/messages").mock(
+async def test_busy_409_maps_to_session_busy():
+    respx.post(f"{_BASE}/v3/projects/proj_123/agent-sessions").mock(
         return_value=httpx.Response(
             409,
             json={"accepted": False, "code": "AGENT_SESSION_BUSY", "message": "Session is busy."},
@@ -145,42 +171,42 @@ async def test_send_agent_message_busy_409():
     )
     async with SeedanceClient(base_url=_BASE, api_key="test-key") as client:
         with pytest.raises(SeedanceSessionBusyError, match="busy"):
-            await client.send_agent_message("sess_456", "Hello")
+            await client.create_agent_session("proj_123")
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_send_agent_message_timeout_504():
-    respx.post(f"{_BASE}/v3/agent-sessions/sess_456/messages").mock(
+async def test_gateway_timeout_504_maps_to_timeout():
+    respx.post(f"{_BASE}/v3/projects/proj_123/agent-sessions").mock(
         return_value=httpx.Response(504, json={"accepted": False, "code": "AGENT_TIMEOUT"})
     )
     async with SeedanceClient(base_url=_BASE, api_key="test-key") as client:
         with pytest.raises(SeedanceTimeoutError):
-            await client.send_agent_message("sess_456", "Run long task")
+            await client.create_agent_session("proj_123")
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_send_agent_message_unauthorized_401():
-    respx.post(f"{_BASE}/v3/agent-sessions/sess_456/messages").mock(
+async def test_unauthorized_401_maps_to_auth_error():
+    respx.post(f"{_BASE}/v3/projects/proj_123/agent-sessions").mock(
         return_value=httpx.Response(401, json={"code": "UNAUTHORIZED"})
     )
     async with SeedanceClient(base_url=_BASE, api_key="wrong-key") as client:
         with pytest.raises(SeedanceAuthError):
-            await client.send_agent_message("sess_456", "Hello")
+            await client.create_agent_session("proj_123")
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_send_agent_message_not_found_404():
-    respx.post(f"{_BASE}/v3/agent-sessions/sess_missing/messages").mock(
-        return_value=httpx.Response(404, json={"code": "SESSION_NOT_FOUND"})
+async def test_not_found_404_keeps_the_server_code():
+    respx.post(f"{_BASE}/v3/projects/proj_missing/agent-sessions").mock(
+        return_value=httpx.Response(404, json={"code": "PROJECT_NOT_FOUND"})
     )
     async with SeedanceClient(base_url=_BASE, api_key="test-key") as client:
         with pytest.raises(SeedanceNotFoundError) as exc_info:
-            await client.send_agent_message("sess_missing", "Hello")
-        assert exc_info.value.code == "SESSION_NOT_FOUND"
-        assert "SESSION_NOT_FOUND" in str(exc_info.value)
+            await client.create_agent_session("proj_missing")
+        assert exc_info.value.code == "PROJECT_NOT_FOUND"
+        assert "PROJECT_NOT_FOUND" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

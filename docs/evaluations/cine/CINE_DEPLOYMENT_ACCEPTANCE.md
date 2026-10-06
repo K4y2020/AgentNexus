@@ -26,10 +26,8 @@ submission. Native validation does not establish visual quality or provider supp
 
 `validate_generation` exercises the same native gate without submitting a V3 command.
 `initialize` performs project/session binding without invoking the V3 Agent.
-The old `seedance_agent_message` endpoint now returns
-`CINE_AGENT_DELEGATION_DISABLED` before any V3 call, even for draft requests.
-This closes the alternative AgentNexus delegation route; it does not implement a
-read-only V3 Agent. QA uses read-only canvas snapshots.
+The former `seedance_agent_message` delegation tool has been removed, so Cine has
+no route to the V3 Agent; QA uses read-only canvas snapshots.
 
 ## Live Verification
 

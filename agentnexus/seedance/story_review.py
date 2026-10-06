@@ -9,6 +9,7 @@ from pathlib import Path
 
 from agentnexus.seedance.cine_contracts import _inside, _read, session_image_receipts
 from agentnexus.seedance.report_review import covered, interval_seconds
+from agentnexus.seedance.skill_modules import pipeline_module
 
 
 def nonempty(value):
@@ -23,23 +24,6 @@ _DIALOGUE_PROVENANCE = {
     "visible_subtitles",
     "subtitle_asr",
 }
-# film-analysis identifies source media by size plus the SHA-256 of its first
-# and last 256 KiB; source.json and each ASR transcript record the same fields.
-_FINGERPRINT = ("size_bytes", "sha256_head", "sha256_tail")
-_HEX64 = re.compile(r"[0-9a-f]{64}")
-
-
-def _fingerprint(record):
-    if not isinstance(record, dict):
-        return None
-    values = {field: record.get(field) for field in _FINGERPRINT}
-    size = values["size_bytes"]
-    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
-        return None
-    hashes = (values["sha256_head"], values["sha256_tail"])
-    if not all(isinstance(digest, str) and _HEX64.fullmatch(digest) for digest in hashes):
-        return None
-    return values
 
 
 def _declared_file(workspace, value):
@@ -55,12 +39,13 @@ def _declared_file(workspace, value):
     return path, None
 
 
-def _asr_problem(workspace, value, source):
+def _asr_problem(workspace, value, source, fingerprint_of):
     """Why the declared ASR transcript cannot stand for this source, or None.
 
     The machine record beside a ``.txt`` transcript must be a qualified ASR
     transcript whose recorded fingerprint equals the committed source's; a
-    file name cannot tell two uploads apart.
+    file name cannot tell two uploads apart. ``fingerprint_of`` is the
+    film-analysis pipeline's own reader of that fingerprint.
     """
     path, reason = _declared_file(workspace, value)
     if path is None:
@@ -74,7 +59,8 @@ def _asr_problem(workspace, value, source):
         return "source_unverified"
     if not isinstance(record, dict) or record.get("kind") != "qualified_asr_transcript":
         return "source_unverified"
-    recorded, expected = _fingerprint(record.get("source_fingerprint")), _fingerprint(source)
+    recorded = fingerprint_of(record.get("source_fingerprint"))
+    expected = fingerprint_of(source)
     if recorded is None or expected is None:
         return "source_unverified"
     return None if recorded == expected else "source_mismatch"
@@ -150,7 +136,13 @@ def _shot_reading(ledger, source):
         return []
 
 
-async def verify_story(client, session_id, workspace, ledger, source, story_path=None):
+async def verify_story(
+    client, session_id, workspace, ledger, source, story_path=None, *, skills_dir=None
+):
+    # The draft structure and source fingerprint rules belong to the pipeline
+    # that writes them; skills_dir comes from the registered agent spec.
+    drafts = pipeline_module(skills_dir, "draft_check")
+    identity = pipeline_module(skills_dir, "source_identity")
     project = ledger.parent.parent.parent
     plan = _read(_inside(project, ledger.parent / "story_plan.json"))
     draft = _read(
@@ -194,6 +186,8 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
     offset = source.get("start_pts", 0) * base
     total = source["duration_pts"] * base
     windows, completed, issues, warnings, resolved = [], [], [], [], []
+    issues.extend(drafts.story_draft_issues(draft, plan))
+    unfilled = {issue["batch_id"] for issue in issues if "batch_id" in issue}
     if plan.get("cut_detection_warning"):
         warnings.append({"detail": plan["cut_detection_warning"]})
     cursor = Fraction(0)
@@ -206,20 +200,9 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
             raise ValueError("CINE_STORY_BATCH_SEQUENCE_INVALID")
         cursor = high
         windows.append((low, high))
-        row = sections_by_id.get(batch["batch_id"])
-        if not row:
-            issues.append({"batch_id": batch["batch_id"], "reason": "missing_section"})
+        if batch["batch_id"] in unfilled:
             continue
-        if (
-            not isinstance(row.get("events"), list)
-            or not row["events"]
-            or not all(nonempty(e) for e in row["events"])
-            or not nonempty(row.get("connection"))
-        ):
-            issues.append(
-                {"batch_id": batch["batch_id"], "reason": "events_or_connection_missing"}
-            )
-            continue
+        row = sections_by_id[batch["batch_id"]]
         actual = []
         receipt_ids = row.get("image_receipt_ids", [])
         if not isinstance(receipt_ids, list) or not all(nonempty(r) for r in receipt_ids):
@@ -281,29 +264,17 @@ async def verify_story(client, session_id, workspace, ledger, source, story_path
                 "uncertainties": uncertainty,
             }
         )
-    summary = draft.get("summary", {})
-    if not isinstance(summary, dict):
-        raise ValueError("CINE_STORY_SUMMARY_REQUIRED")
-    for field in ("premise", "conflict", "ending"):
-        if not nonempty(summary.get(field)):
-            issues.append({"reason": f"summary_{field}_missing"})
-    if not isinstance(summary.get("turning_points"), list) or not all(
-        nonempty(s) for s in summary["turning_points"]
-    ):
-        issues.append({"reason": "turning_points_list_required"})
-    if (
-        not isinstance(draft.get("characters"), list)
-        or not draft["characters"]
-        or not all(nonempty(c) for c in draft["characters"])
-    ):
-        issues.append({"reason": "characters_required"})
+    summary = draft.get("summary") if isinstance(draft.get("summary"), dict) else {}
     provenance = draft.get("dialogue_provenance") or {"status": "unverified"}
     if not isinstance(provenance, dict) or provenance.get("status") not in _DIALOGUE_PROVENANCE:
         raise ValueError("CINE_DIALOGUE_PROVENANCE_INVALID")
     provenance_status = provenance["status"]
     if provenance_status in {"asr", "subtitle_asr"}:
         problem = _asr_problem(
-            workspace, provenance.get("asr_path") or provenance.get("source_path"), source
+            workspace,
+            provenance.get("asr_path") or provenance.get("source_path"),
+            source,
+            identity.fingerprint_of,
         )
         if problem:
             issues.append({"reason": f"dialogue_provenance_asr_{problem}"})

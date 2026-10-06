@@ -11,7 +11,7 @@ from pipeline import production
 
 
 def example(directory, stage):
-    name = production.STAGES[stage]
+    name = production.stage_graph.STAGES[stage].skill
     source = next((production.SKILLS / name / "examples").glob(f"*-{stage}.json"))
     shutil.copyfile(source, directory / f"{stage}.json")
 
@@ -78,25 +78,28 @@ def test_storyboard_seed_inherits_reference_style_and_fingerprints(tmp_path):
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 def test_full_native_fixture_executes_five_validators(tmp_path):
-    for stage in production.STAGES:
+    for stage in production.stage_graph.ORDER:
         example(tmp_path, stage)
     source = next((production.SKILLS / "cine-characters/examples").glob("*.txt"))
     result = production.check(tmp_path, source_text=source)
     assert result["status"] == "native_validated", result
     assert len(result["stages"]) == 5
     assert all(r["exit_code"] == 0 and r["input_hashes"] for r in result["stages"])
+    # Every validator imports the shared helpers, so a run pins them too.
+    shared = str(production.SKILLS / "_shared" / "cine-common.mjs")
+    assert all(shared in r["input_hashes"] for r in result["stages"])
     assert not result["production_authorized"]
     assert production.read(Path(result["report_path"]))["run_id"] == result["run_id"]
 
 
-LIVE_ARTIFACTS = Path(__file__).parents[3] / "docs/evaluations/cine-live-20260907/artifacts"
+LIVE_ARTIFACTS = Path(__file__).parents[3] / "docs/evaluations/cine/cine-live-20260907/artifacts"
 
 
 @pytest.mark.skipif(
     not LIVE_ARTIFACTS.is_dir(), reason="live evaluation artifacts are not in the repository"
 )
 def test_real_live_failures_stay_failed(tmp_path):
-    for stage in production.STAGES:
+    for stage in production.stage_graph.ORDER:
         shutil.copyfile(LIVE_ARTIFACTS / f"{stage}.json", tmp_path / f"{stage}.json")
     result = production.check(tmp_path)
     assert result["status"] == "failed"

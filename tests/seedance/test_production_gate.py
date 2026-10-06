@@ -449,14 +449,92 @@ async def test_missing_binding_fields_cannot_use_old_generation_route():
     v3.submit_command.assert_not_called()
 
 
-def test_the_checker_resolves_its_sibling_modules_outside_the_package(tmp_path, monkeypatch):
-    pipeline = tmp_path / "skills/film-analysis/pipeline"
+def _pipeline(root, value):
+    pipeline = root / "skills/film-analysis/pipeline"
     pipeline.mkdir(parents=True)
-    (pipeline / "gate_sibling_probe.py").write_text("VALUE = 7\n", encoding="utf-8")
+    (pipeline / "gate_sibling_probe.py").write_text(f"VALUE = {value}\n", encoding="utf-8")
     (pipeline / "production.py").write_text(
-        "def sibling():\n    from gate_sibling_probe import VALUE\n    return VALUE\n",
+        "def sibling():\n"
+        "    try:\n"
+        "        from .gate_sibling_probe import VALUE\n"
+        "    except ImportError:\n"
+        "        from gate_sibling_probe import VALUE\n"
+        "    return VALUE\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr("sys.path", list(__import__("sys").path))
+    return root / "skills"
 
-    assert native_checker(tmp_path / "skills").sibling() == 7
+
+def test_the_checker_resolves_its_sibling_modules_without_touching_sys_path(tmp_path):
+    import sys
+
+    before = list(sys.path)
+
+    assert native_checker(_pipeline(tmp_path, 7)).sibling() == 7
+    assert sys.path == before
+
+
+def test_an_updated_bundle_does_not_reuse_an_older_bundles_siblings(tmp_path):
+    # Each bundle version is extracted to its own directory in the runner.
+    old = native_checker(_pipeline(tmp_path / "v1", 1))
+    new = native_checker(_pipeline(tmp_path / "v2", 2))
+
+    assert (old.sibling(), new.sibling()) == (1, 2)
+
+
+def test_an_edited_pipeline_is_loaded_again(tmp_path):
+    skills = _pipeline(tmp_path, 1)
+    first = native_checker(skills)
+    assert native_checker(skills) is first
+    (skills / "film-analysis/pipeline/gate_sibling_probe.py").write_text(
+        "VALUE = 2\n", encoding="utf-8"
+    )
+
+    assert native_checker(skills).sibling() == 2
+
+
+def test_a_bundle_without_the_pipeline_is_unavailable(tmp_path):
+    with pytest.raises(ProductionRejected) as missing:
+        native_checker(tmp_path / "skills")
+    with pytest.raises(ProductionRejected) as unregistered:
+        native_checker(None)
+
+    assert missing.value.code == unregistered.value.code == "CINE_VALIDATOR_UNAVAILABLE"
+
+
+def test_the_real_controller_imports_its_siblings_in_a_clean_interpreter(tmp_path):
+    # Other tests in this process put the pipeline on sys.path; the runner never does.
+    import subprocess
+    import sys
+
+    examples = {
+        "outline": "cine-outline/examples/渡口-outline.json",
+        "cast": "cine-characters/examples/渡口-cast.json",
+        "art": "cine-art/examples/渡口-art.json",
+        "script": "cine-script/examples/渡口-script.json",
+        "storyboard": "cine-storyboard/examples/渡口-storyboard.json",
+    }
+    paths = {stage: str(SKILLS / relative) for stage, relative in examples.items()}
+    code = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "from agentnexus.seedance.production_gate import native_checker\n"
+        "native = native_checker(sys.argv[1])\n"
+        "native._source_identity()\n"
+        "paths = {k: Path(v) for k, v in json.loads(sys.argv[2]).items()}\n"
+        "result = native.storyboard_asset_anchors(None, paths)\n"
+        "print(json.dumps({'anchors': result['status'], 'path': sys.path}))\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code, str(SKILLS), json.dumps(paths)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=60,
+        check=False,
+    )
+
+    assert done.returncode == 0, done.stderr
+    result = json.loads(done.stdout.strip().splitlines()[-1])
+    assert result["anchors"] in ("complete", "missing")
+    assert not any(p.endswith("pipeline") for p in result["path"])

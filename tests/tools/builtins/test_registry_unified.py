@@ -130,11 +130,12 @@ def test_builtin_names_size_matches_registry() -> None:
                 "download_file",
                 "search_conversations",
                 "export_agent",
-                # Canvas, review, and teammate tools are reserved framework names.
-                "seedance_agent_message",
+                # Cine production tools (opt-in via tools.builtins).
                 "seedance_read_canvas",
                 "seedance_edit_canvas",
+                "cine_verify_report",
                 "cine_jev_judge",
+                # Image viewing and teammate tools are reserved framework names.
                 "sys_os_view_image",
                 "save_teammate_memory",
                 "send_to_teammate",
@@ -175,6 +176,26 @@ def test_builtin_names_size_matches_registry() -> None:
         )
         == BUILTIN_NAMES
     )
+
+
+def test_cine_tools_are_instantiable() -> None:
+    """Each Cine tool has a factory, so specs can declare it and others cannot claim it."""
+    for name in (
+        "seedance_read_canvas",
+        "seedance_edit_canvas",
+        "cine_verify_report",
+        "cine_jev_judge",
+    ):
+        assert name in INSTANTIABLE_BUILTINS
+        tool = get_builtin_tool(name)
+        assert tool is not None
+        assert tool.name() == name
+
+
+def test_seedance_agent_message_is_gone() -> None:
+    """The V3 Agent delegation tool is removed, so its name is not reserved."""
+    assert "seedance_agent_message" not in BUILTIN_NAMES
+    assert get_builtin_tool("seedance_agent_message") is None
 
 
 def _all_builtin_tool_subclasses() -> list[type[Tool]]:

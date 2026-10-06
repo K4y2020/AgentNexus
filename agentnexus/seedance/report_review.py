@@ -37,7 +37,14 @@ def covered(intervals, start, end):
 
 
 async def verify_report(
-    client, session_id, *, scope="full", start_seconds=None, end_seconds=None, ledger_path=None
+    client,
+    session_id,
+    *,
+    scope="full",
+    start_seconds=None,
+    end_seconds=None,
+    ledger_path=None,
+    skills_dir=None,
 ):
     response = await client.get(f"/v1/sessions/{session_id}", timeout=10)
     response.raise_for_status()
@@ -58,7 +65,9 @@ async def verify_report(
             raise ValueError("CINE_ADAPTATION_READINESS_REQUIRES_FULL_SCOPE")
         from agentnexus.seedance.story_review import verify_story
 
-        return await verify_story(client, session_id, workspace, ledger, source, ledger_path)
+        return await verify_story(
+            client, session_id, workspace, ledger, source, ledger_path, skills_dir=skills_dir
+        )
     if scope == "full":
         if start_seconds is not None or end_seconds is not None:
             raise ValueError("CINE_FULL_SCOPE_CANNOT_BE_SHORTENED")

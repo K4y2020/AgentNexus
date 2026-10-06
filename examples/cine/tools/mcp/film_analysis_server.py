@@ -12,7 +12,9 @@ Exposing the pipeline as tools removes that improvisation: the agent picks a
 tool and supplies a path, and the arguments that matter are constructed here.
 
 Transport: stdio. Tools:
-  film_analyze(video, output, workspace)  — full index; transcribes if needed
+  film_analyze(video, output, workspace, profile, start, end)
+                                          — full index; transcribes if needed
+  film_refresh_report(output, workspace)  — re-render the playback report
   film_status(output)                     — what exists, what the next step is
   film_transcribe(video, workspace, force=False) — transcription + attribution only
   film_review(output, workspace)          — JEV quality scorecard and defect audit
@@ -619,8 +621,24 @@ def _index_plan(video: Path, output: Path) -> tuple[bool, dict[str, Any] | None]
     return True, None
 
 
+def _workspace_for(output_path: Path, workspace: str | None) -> Path:
+    """The session workspace: given, or the parent of a projects/<name> output."""
+    if workspace:
+        return Path(workspace).expanduser().resolve()
+    if output_path.parent.name == "projects":
+        return output_path.parent.parent
+    return output_path.parent
+
+
 @mcp.tool()
-def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
+def film_analyze(
+    video: str,
+    output: str,
+    workspace: str | None = None,
+    profile: str = "adaptation",
+    start: float = 0,
+    end: float | None = None,
+) -> dict:
     """Run the full film-analysis index on a source video.
 
     Creates the project, detects shots, samples the timeline, extracts frame
@@ -641,24 +659,35 @@ def film_analyze(video: str, output: str, workspace: str | None = None) -> dict:
         video: Path to the source video file.
         output: Project directory to create or resume.
         workspace: Session workspace root; inferred from a projects/<name> output.
+        profile: "adaptation" (whole-film story brief) or "forensic" (precise
+            shot audit; its scope defaults to the first 30 seconds).
+        start: Scope start in seconds.
+        end: Scope end in seconds; omit for the whole source. A narrower scope
+            must not be reported as full-film work.
     """
     from pipeline.entry import index_media
     from pipeline.shot_notes import read_shot_notes
 
     video_path = Path(video).expanduser().resolve(strict=True)
     output_path = Path(output).expanduser().resolve()
-    workspace_path = (
-        Path(workspace).expanduser().resolve()
-        if workspace
-        else output_path.parent.parent
-        if output_path.parent.name == "projects"
-        else output_path.parent
-    )
+    workspace_path = _workspace_for(output_path, workspace)
 
-    resume, result = _index_plan(video_path, output_path)
+    if profile in ("adaptation", "forensic"):
+        resume, result = _index_plan(video_path, output_path)
+    else:
+        resume = False
+        result = _blocked("invalid_profile", f"profile must be adaptation or forensic: {profile!r}")
     if result is None:
         try:
-            result = index_media(video_path, output_path, workspace=workspace_path, resume=resume)
+            result = index_media(
+                video_path,
+                output_path,
+                workspace=workspace_path,
+                resume=resume,
+                profile=profile,
+                start=start,
+                end=end,
+            )
         except (ValueError, OSError, RuntimeError) as exc:
             # index_media's own refusals (changed source, a Topic bound to
             # another project) and missing tools or files end the run here.
@@ -810,6 +839,26 @@ def _transcript_status(payload: Any, source: Any) -> str:
     if payload.get("segments") == []:
         return "no_dialogue"
     return "attributed" if _attribution_complete(payload) else "attribution_incomplete"
+
+
+@mcp.tool()
+def film_refresh_report(output: str, workspace: str | None = None) -> dict:
+    """Re-render the playback report of an indexed project from its committed revision.
+
+    Runs no extraction, transcription or generation. Returns the receipt:
+    status ``report_refreshed`` with report_path, report_link, record counts, input files
+    and media status, or ``report_refresh_failed`` with error_code and
+    next_action. Copy report_link verbatim into the reply; it opens the written
+    report in the workspace file viewer without a file:// URL.
+
+    Args:
+        output: The project directory.
+        workspace: Session workspace root; inferred from a projects/<name> output.
+    """
+    from pipeline.entry import refresh_receipt
+
+    output_path = Path(output).expanduser().resolve()
+    return refresh_receipt(output_path, _workspace_for(output_path, workspace))
 
 
 @mcp.tool()

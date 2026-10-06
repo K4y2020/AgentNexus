@@ -255,6 +255,24 @@ def test_refresh_cross_drive_receipt_requires_selection(tmp_path, monkeypatch):
     assert receipt["media"] == {"status": "select_local_file", "playback_verified": False}
 
 
+def test_report_receipt_links_to_the_written_file_with_spaces_and_unicode(tmp_path):
+    workspace = tmp_path / "放映室 (rough cut)"
+    rev, source, shots, evidence, _ = source_fixture(workspace)
+    receipt = render_report(
+        rev, source, "r1", [], shots, evidence, None, workspace=workspace, with_receipt=True
+    )
+
+    link = re.fullmatch(r"`([^`]+)`", receipt["report_link"])
+    assert link is not None
+    destination = link.group(1)
+    assert not destination.startswith("file:")
+    assert "\\" not in destination
+    report = Path(destination)
+    assert report.is_absolute() and report.is_file()
+    assert report == Path(receipt["report_path"])
+    assert "A visible event" in report.read_text(encoding="utf-8")
+
+
 def test_refresh_cli_missing_input_returns_actionable_receipt(tmp_path, monkeypatch, capsys):
     import pytest
     from pipeline import entry

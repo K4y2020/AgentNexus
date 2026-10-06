@@ -5,7 +5,7 @@ Reviewed 2026-09-07. Read-only audit; original files and conversation not modifi
 
 Follow-up: Cine v11 fixes sequential tool-call ID correlation, so all 11 real
 opening receipts now verify. The full-film claim still fails the new acceptance
-tool. See `docs/CINE_SOURCE_ACCEPTANCE_V11.md`; the original findings below are
+tool. See `docs/evaluations/cine/CINE_SOURCE_ACCEPTANCE_V11.md`; the original findings below are
 retained as the pre-fix audit record.
 
 ## Verdict

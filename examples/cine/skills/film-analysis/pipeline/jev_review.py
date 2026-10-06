@@ -7,74 +7,23 @@ live in ``jev_reviews/`` and never masquerade as visual source-shot review.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from typesafe_sdk import Choice, Noul, Score
+
 try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-    load_dotenv(Path(__file__).parent.parent.parent.parent.parent / ".env")
-    load_dotenv(Path(__file__).parent.parent.parent.parent.parent.parent / ".env")
-except ImportError:
-    pass
-
-from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
-
-
-
-
-def _open_ts_client(api_key: str):
-    """Open a TypeSafe client that survives a misconfigured loopback proxy.
-
-    The SDK otherwise inherits the ambient HTTP client, which fails with a bare
-    SSL EOF when the machine routes through a plaintext proxy configured with
-    an ``https://`` scheme. See ``jev_transport`` for the details.
-    """
-    try:
-        from .jev_transport import open_client
-    except ImportError:
-        import sys as _sys
-        from pathlib import Path as _Path
-
-        _pipeline = _Path(__file__).resolve().parent
-        if str(_pipeline) not in _sys.path:
-            _sys.path.insert(0, str(_pipeline))
-        from jev_transport import open_client
-    return open_client(api_key)
-
-def _find_typesafe_key() -> str:
-    """Find TYPESAFE_API_KEY from environment or standard .env files without dependencies."""
-    key = os.environ.get("TYPESAFE_API_KEY")
-    if key:
-        return key.strip()
-    candidates = [
-        Path.home() / ".agentnexus" / ".env",
-        Path.home() / ".env",
-        Path("U:/AI/MultiAgent/.env"),
-        Path("U:/AI/MultiAgent/omnigent/.env"),
-    ]
-    for c in candidates:
-        if c.is_file():
-            try:
-                for line in c.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("TYPESAFE_API_KEY="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
-                            return val
-            except Exception:
-                pass
-    return ""
+    from .jev_client import _find_api_key, open_client
+except ImportError:  # loaded as a standalone module, outside the package
+    from jev_client import _find_api_key, open_client
 
 
 def has_jev_configured() -> bool:
     """Check if TypeSafe JEV is configured via environment."""
-    return bool(_find_typesafe_key())
+    return bool(_find_api_key())
 
 
 def _find_video_file(project_dir: Path, source_data: dict) -> Optional[Path]:
@@ -166,7 +115,7 @@ def review_shots_with_jev(
     for inspecting the corresponding evidence image, so this function never
     writes the visual ``reviews/`` sidecar or image receipt IDs.
     """
-    key = api_key or _find_typesafe_key()
+    key = api_key or _find_api_key()
     if not key:
         return {"status": "skipped", "reason": "no_api_key", "reviewed_count": 0}
 
@@ -279,7 +228,7 @@ def review_shots_with_jev(
             "注意：JEV 只收到这些文字和元数据，不会看到证据图片、视频或音频。"
         )
 
-        with _open_ts_client(key) as client:
+        with open_client(key) as client:
             resp = client.system_one(
                 state={"shot_description": state_desc},
                 questions=questions,

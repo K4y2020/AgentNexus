@@ -98,7 +98,7 @@ const production = {
                   characters: ["C01"],
                   size: "close",
                 },
-                { seconds: 3, beats: [3, 3], frame: "At the door" },
+                { seconds: 3, beats: [3, 3], frame: "At the door", size: "extreme-wide" },
                 { seconds: 2, frame: "Unmapped closing shot" },
               ],
             },
@@ -203,6 +203,7 @@ describe("Cine review", () => {
     expect(screen.getByText("先别接。")).toBeVisible();
     expect(screen.getByText("Unmapped closing shot")).toBeVisible();
     expect(screen.getByText("新增镜头，无原片对应段落")).toBeVisible();
+    expect(screen.getByText("大远景")).toBeVisible();
     const video = screen.getByLabelText("原片播放器") as HTMLVideoElement;
     fireEvent.click(screen.getByRole("button", { name: "原片 00:25.0 · 镜头 002" }));
     expect(video.currentTime).toBe(25);
