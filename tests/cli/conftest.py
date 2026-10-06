@@ -2,7 +2,27 @@
 
 from __future__ import annotations
 
+import types
+from contextvars import ContextVar
+
 import pytest
+
+from agentnexus.runtime import _globals as runtime_globals
+
+
+@pytest.fixture(autouse=True)
+def _restore_runtime_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Undo the runtime stores that an in-process ``agentnexus server`` installs.
+
+    Left behind, they leak into later tests in the same worker (a stray
+    policy store turns on the coordination policy gate, for example).
+    """
+    for name, value in list(vars(runtime_globals).items()):
+        if name.startswith("__") or not name.startswith("_"):
+            continue
+        if isinstance(value, (ContextVar, types.ModuleType, types.FunctionType, type)):
+            continue
+        monkeypatch.setattr(runtime_globals, name, value)
 
 
 @pytest.fixture(autouse=True)
