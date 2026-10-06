@@ -60,9 +60,39 @@ env:
 permissions: {}
 
 jobs:
-  notify:
+  # The preview deploys to Databricks Apps; a repository without the Databricks
+  # secrets (e.g. a fork) skips it instead of failing every web push to main.
+  credentials:
     if: >-
-      github.event_name != 'push'
+      github.event_name == 'push'
+      || (
+        github.event.action != 'closed'
+        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        && github.event.pull_request.draft == false
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+        run: |
+          if [ -n "$DATABRICKS_HOST" ] && [ -n "$DATABRICKS_CLIENT_ID" ] && [ -n "$DATABRICKS_CLIENT_SECRET" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the UI preview: Databricks credentials are not configured for this repository."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  notify:
+    needs: credentials
+    if: >-
+      needs.credentials.outputs.configured == 'true'
+      && github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && github.event.pull_request.draft == false
@@ -99,13 +129,10 @@ jobs:
           fi
 
   build:
-    if: >-
-      github.event_name == 'push'
-      || (
-        github.event.action != 'closed'
-        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-        && github.event.pull_request.draft == false
-      )
+    needs: credentials
+    # The credentials job only runs for a push or a labelled, non-draft PR, so
+    # its result is the whole gate.
+    if: needs.credentials.outputs.configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
