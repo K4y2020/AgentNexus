@@ -2682,6 +2682,31 @@ def test_parse_executor_config_field(tmp_path: Path) -> None:
     }
 
 
+def test_parse_executor_config_retry_keeps_its_mapping(tmp_path: Path) -> None:
+    """``executor.config.retry`` stays a mapping so the harness spawn env can parse it."""
+    config = {
+        "spec_version": 1,
+        "executor": {
+            "type": "agentnexus",
+            "config": {"harness": "openai-agents", "retry": {"timeout_per_request_s": 540}},
+        },
+    }
+    (tmp_path / "config.yaml").write_text(yaml.dump(config))
+    spec = parse(tmp_path)
+
+    assert spec.executor.config["retry"] == {"timeout_per_request_s": 540}
+
+
+def test_parse_executor_config_retry_rejects_bad_values(tmp_path: Path) -> None:
+    config = {
+        "spec_version": 1,
+        "executor": {"type": "agentnexus", "config": {"retry": {"max_retries": "many"}}},
+    }
+    (tmp_path / "config.yaml").write_text(yaml.dump(config))
+    with pytest.raises(AgentNexusError, match="max_retries"):
+        parse(tmp_path)
+
+
 def test_parse_executor_config_missing_defaults_to_empty(
     tmp_path: Path,
 ) -> None:

@@ -8,6 +8,11 @@ executor:
     # preserves tool-call IDs for Gemini/DeepSeek/GPT gateway models; routing
     # those models through Claude SDK can replay or mis-pair tool results.
     harness: openai-agents
+    # Writing a whole stage file can keep the gateway silent for minutes; the
+    # default 120 s per request cut it off and restarted it until the 600 s
+    # turn watchdog failed the turn. Stay under that watchdog.
+    retry:
+      timeout_per_request_s: 540
 skills:
   - film-analysis
   - cine-script

@@ -91,7 +91,7 @@ _YAML_1_2_BOOL_RE = re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$")
 
 # ``executor.config`` keys kept as their nested YAML structure instead of
 # string-coerced — their consumers read the nested mapping/list shape.
-_STRUCTURED_EXECUTOR_CONFIG_KEYS: frozenset[str] = frozenset()
+_STRUCTURED_EXECUTOR_CONFIG_KEYS: frozenset[str] = frozenset({"retry"})
 
 # Copy the resolver dict onto the subclass before mutating — it's inherited
 # from SafeLoader by reference, so in-place edits below would strip
@@ -653,6 +653,9 @@ def _parse_executor(
             str(k): (v if k in _STRUCTURED_EXECUTOR_CONFIG_KEYS else str(v))
             for k, v in raw_config.items()
         }
+        if "retry" in config:
+            # Validate at load time; harness spawn env re-parses it (same keys as llm.retry).
+            _parse_retry(config["retry"])
     # Top-level ``executor.profile`` populates the concrete
     # ``ExecutorSpec.profile`` field for every executor type. For
     # ``omnigent`` we ALSO mirror it into ``config["profile"]``

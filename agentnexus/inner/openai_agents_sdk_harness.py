@@ -86,6 +86,10 @@ Env vars read at startup:
 - ``HARNESS_OPENAI_AGENTS_REASONING_ITEM_ID_POLICY``: optional Responses
   replay policy, either ``"preserve"`` or ``"omit"``. Unset uses the
   OpenAI Agents SDK default.
+- ``HARNESS_OPENAI_AGENTS_RETRY_POLICY``: JSON-encoded
+  :class:`RetryPolicy` (max retries, per-request timeout) for the
+  inner ``AsyncOpenAI`` client. Unset or malformed uses
+  ``RetryPolicy()`` defaults.
 """
 
 from __future__ import annotations
@@ -102,6 +106,7 @@ from agentnexus.inner.openai_agents_sdk_executor import (
     ReasoningItemIdPolicy,
 )
 from agentnexus.runtime.harnesses._executor_adapter import ExecutorAdapter
+from agentnexus.spec.types import RetryPolicy
 
 _logger = logging.getLogger(__name__)
 
@@ -115,6 +120,7 @@ _ENV_USE_RESPONSES = "HARNESS_OPENAI_AGENTS_USE_RESPONSES"
 _ENV_GATEWAY_BASE_URL = "HARNESS_OPENAI_AGENTS_GATEWAY_BASE_URL"
 _ENV_GATEWAY_AUTH_COMMAND = "HARNESS_OPENAI_AGENTS_GATEWAY_AUTH_COMMAND"
 _ENV_REASONING_ITEM_ID_POLICY = "HARNESS_OPENAI_AGENTS_REASONING_ITEM_ID_POLICY"
+_ENV_RETRY_POLICY = "HARNESS_OPENAI_AGENTS_RETRY_POLICY"
 # Direct OpenAI-compatible API key set when the agent spec declares
 # executor.auth: {type: api_key, api_key: …}. Takes precedence over
 # ambient OPENAI_API_KEY in the caller's environment.
@@ -180,6 +186,30 @@ def _parse_truthy(env_var: str, default: bool) -> bool:
     return raw in _TRUTHY_STRINGS
 
 
+def _resolve_retry_policy() -> RetryPolicy:
+    """
+    Resolve the inner client's :class:`RetryPolicy` from env config.
+
+    A malformed payload is logged and replaced by the defaults rather
+    than keeping the harness from booting.
+
+    :returns: The policy from :data:`_ENV_RETRY_POLICY`, or
+        ``RetryPolicy()`` when it is unset or invalid.
+    """
+    raw = os.environ.get(_ENV_RETRY_POLICY, "").strip()
+    if not raw:
+        return RetryPolicy()
+    try:
+        return RetryPolicy.from_json(raw)
+    except ValueError as exc:
+        _logger.warning(
+            "%s could not be parsed (%s); falling back to default RetryPolicy",
+            _ENV_RETRY_POLICY,
+            exc,
+        )
+        return RetryPolicy()
+
+
 def _build_openai_agents_sdk_executor() -> Executor:
     """
     Construct an :class:`OpenAIAgentsSDKExecutor` from env-var
@@ -231,6 +261,7 @@ def _build_openai_agents_sdk_executor() -> Executor:
         gateway_host=os.environ.get(_ENV_GATEWAY_HOST) or None,
         gateway_auth_command=os.environ.get(_ENV_GATEWAY_AUTH_COMMAND) or None,
         reasoning_item_id_policy=reasoning_item_id_policy,
+        retry_policy=_resolve_retry_policy(),
     )
 
 
