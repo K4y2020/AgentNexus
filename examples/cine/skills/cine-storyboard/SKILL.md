@@ -165,7 +165,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 只有角色/场景参考图时使用 Ref2VA 六段式；不把这些图冒充首帧或分镜图。`<Subject N>` 可指角色或环境，不代表演员人数；在其定义内引用真实来源 `<Picture N>`。
 `summary` 以 `[reference generation]` 等实际任务类型前缀开头；承接尾帧图片的段加 `keyframe completion`，不把仍帧写成源视频接续。`retention_analysis` 每个独立标签一行，注明使用镜头、关系标记与具体保留说明，不写说话人编号、观众留存或开场钩子。前三秒钩子与声画因果写入 `detailed_description` 的时间线，原因先于反应。
 从 cast/art 的媒介、笔触、配色和光线推导全片一条英文风格句，可存于顶层 `styleSentence`；每段在 `[Shot 1]` 之前逐字复用，每切 `frame` 同样跟设定图走。首镜写 `[Shot 1]` 后直接描述；后续用 `[Shot 2] At 00:05.000, the camera cuts to ...`，切点取真实分镜起点且严格递增。不用 `From ... to ...` 范围替代原生切点标记，避免为任意总字数截掉调度和声画因果。
-引用角色发声写 `<Subject N> (Sx)`，其他独立声源写稳定身份加 `(Sx)`；本段从 S1 按首次发声顺序编号并复用。台词语言标签与原文一致。画外音与心声固定用 `says in an off-screen voiceover`，紧接对白写 `while ... lips remain completely closed`。同步脚步、撞击、铃声、笑声等放在对应镜头，`overall_soundscape` 只留贯穿全段的环境底声。
+引用角色发声写 `<Subject N> (Sx)`，其他独立声源写稳定身份加 `(Sx)`；本段从 S1 按首次发声顺序编号并复用。台词语言标签与原文一致。画外音与心声固定用 `says in an off-screen voiceover`，紧接对白写 `while ... lips remain completely closed`。每段单独生成，引用角色在每段第一次开口前都要逐字写上角色卡 `voice.prompt` 的第一句，否则模型按画面猜嗓子；每句台词在 `<d>` 前写这一句的情绪和说法，依据剧本 `delivery` 和原片表演。同步脚步、撞击、铃声、笑声等放在对应镜头，`overall_soundscape` 只留贯穿全段的环境底声。
 按实际参考顺序核对引用覆盖和编号越界；格式通过不能证明空间关系、故事性或成片质量。用户不需要分镜图时不生成，也不声称已存在。
 
 #### 保持原生生产合同
@@ -197,7 +197,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 
 **每段写一条 `h3Prompt`**，照 `{baseDir}/references/h3-prompt.md` 写；默认英文，每个镜头独立一行。画布流程用 Ref2VA，角色和场景定义保持 `<Subject N> — <ID>, … from <Picture N>.`，首次出现直接绑定到镜头描述。同场的第二段起都要承接上一段：写 `continuesFrom`，保留上一段段号 Subject，并独立定义尾帧 Picture 锚点、在 Shot 1 用上；summary 加 `keyframe completion`。只有真实逐镜分镜图的导出包用关键帧对齐行。
 
-交付前核对：全片风格句与每切 frame 跟 cast/art 一致；同场相邻段都已承接，每个镜头只有一人开口；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
+交付前核对：全片风格句与每切 frame 跟 cast/art 一致；同场相邻段都已承接，每个镜头只有一人开口；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；每段每个开口的角色写了角色卡声音，每句写了说法；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
 
 切完把 `seedScenes` 删掉。
 

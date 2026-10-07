@@ -20,15 +20,16 @@ const script = {
 };
 const outline = { characters: [{ id: 'C01', name: 'Mara' }, { id: 'C02', name: 'Niko' }] };
 const cast = { style: 'realistic', characters: [
-  { id: 'C01', name: 'Mara', aliases: ['Assembler'], image: { prompt: 'Semi-realistic painterly character sheet.' } },
-  { id: 'C02', name: 'Niko', aliases: ['Keeper'], image: { prompt: 'Semi-realistic painterly character sheet.' } },
+  { id: 'C01', name: 'Mara', aliases: ['Assembler'], image: { prompt: 'Semi-realistic painterly character sheet.' }, voice: { prompt: 'Late-30s female, warm husky alto, low-mid pitch, steady chest support. Moderate volume, even pace. Focused.' } },
+  { id: 'C02', name: 'Niko', aliases: ['Keeper'], image: { prompt: 'Semi-realistic painterly character sheet.' }, voice: { prompt: 'Mid-50s male, dry reedy tenor, mid pitch, thin nasal resonance. Low volume, clipped pace. Wary.' } },
 ] };
+const voiceOf = (line) => (line === '先关窗。' ? 'mid-50s male, dry reedy tenor, mid pitch, thin nasal resonance' : 'late-30s female, warm husky alto, low-mid pitch, steady chest support');
 const art = { style: 'realistic', scenes: [
   { id: 'S01', image: { prompt: 'Semi-realistic painterly empty workshop.' } },
   { id: 'S02', image: { prompt: 'Semi-realistic painterly empty stairwell.' } },
 ] };
 const prompt = (line, music = 'N/A', delivery = 'says') =>
-  `subject_definitions:\n<Subject 1> — ${line === '先关窗。' ? 'C02' : 'C01'}; the worker with a grey apron from <Picture 1>.\n<Subject 2> — ${line === '灯亮了。' ? 'S02' : 'S01'}; the room with a brick wall from <Picture 2>.\nsummary:\n[${line === '先关窗。' ? 'reference generation + keyframe completion' : 'reference generation'}] The worker <Subject 1> opens a box in the room <Subject 2>.\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the worker's apron and appearance are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the room's brick wall is retained.\ndetailed_description:\n${styleSentence}\n[Shot 1] Static Shot. At frame left, <Subject 1> (S1), the worker in a grey apron, opens the box beside the brick wall of <Subject 2>. <Subject 1> (S1) ${delivery}: <d>[Chinese] ${line}</d> while the worker's lips remain completely closed.\noverall_soundscape: Wind through the window.\nnon_diegetic_music: ${music}`;
+  `subject_definitions:\n<Subject 1> — ${line === '先关窗。' ? 'C02' : 'C01'}; the worker with a grey apron from <Picture 1>.\n<Subject 2> — ${line === '灯亮了。' ? 'S02' : 'S01'}; the room with a brick wall from <Picture 2>.\nsummary:\n[${line === '先关窗。' ? 'reference generation + keyframe completion' : 'reference generation'}] The worker <Subject 1> opens a box in the room <Subject 2>.\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the worker's apron and appearance are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the room's brick wall is retained.\ndetailed_description:\n${styleSentence}\n[Shot 1] Static Shot. At frame left, <Subject 1> (S1), the worker in a grey apron with a ${voiceOf(line)} voice, opens the box beside the brick wall of <Subject 2>. <Subject 1> (S1) ${delivery}: <d>[Chinese] ${line}</d> while the worker's lips remain completely closed.\noverall_soundscape: Wind through the window.\nnon_diegetic_music: ${music}`;
 const cut = (beats, characters) => ({ beats, characters, seconds: 4, size: 'medium', camera: 'Static Shot', frame: 'Semi-realistic painterly illustration, medium shot of a worker.' });
 const board = { style: 'realistic', episodes: [{ ep: 1, segments: [
   { id: 'E01-01', sceneIndex: 1, cuts: [cut([1, 2], ['C01'])], h3Prompt: prompt('盒子到了。') },
@@ -48,7 +49,7 @@ const audit = (mutateBoard = () => {}, mutateContext = () => {}) => {
 };
 const clean = audit();
 check(clean.status === 'pass' && !clean.issues.length && !clean.skips.length, 'complete Ref2VA fixture passes all applicable evaluation rules');
-check(clean.evaluated_checks.length === 17 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format', 'h3-nonverbal-vocal-cues'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over and non-verbal cues are not applicable');
+check(clean.evaluated_checks.length === 18 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format', 'h3-nonverbal-vocal-cues'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over and non-verbal cues are not applicable');
 check(!issues(clean, 'video-no-film-still').length, 'painterly frames and video prompts contain no film-still instruction');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nFILM STILL'; }), 'video-no-film-still').length === 1, 'film still is rejected only in the video prompt');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nfilm-still'; }), 'video-no-film-still').length === 1, 'hyphenated film-still is rejected');
@@ -178,6 +179,19 @@ check(!hasIssue((p) => p.replace('overall_soundscape:', 'A low, measured narrato
   }, extraLine);
   check(!issues(described, 'h3-referenced-speaker-binding').length, 'an extra described as their own speaker passes');
 }
+{
+  // Segments are generated separately: a speaker with a cast voice repeats it before their first line in each one.
+  const unvoiced = (p) => p.replace(/ with a .*? voice,/, ',');
+  const missing = issues(firstPrompt(unvoiced), 'h3-speaker-voice');
+  check(missing.length === 1 && missing[0].location === 'E01-01.dialogue1' && missing[0].evidence.voice === voiceOf('盒子到了。'), 'a speaker without the cast voice is rejected and told which voice to write');
+  check(issues(audit((b) => { b.episodes[0].segments[1].h3Prompt = unvoiced(b.episodes[0].segments[1].h3Prompt); }), 'h3-speaker-voice').map((item) => item.location).join() === 'E01-02.dialogue1', 'only the segment that drops the voice fails');
+  check(hasIssue((p) => unvoiced(p).replace('remain completely closed.', `remain completely closed. Her voice is ${voiceOf('盒子到了。')}.`), 'h3-speaker-voice'), 'a voice written after the first line does not count');
+  check(!hasIssue((p) => p.replace(/ with a .*? voice,/, ' (voice: A Late-30s  female, warm husky alto, LOW-MID pitch, steady chest support),'), 'h3-speaker-voice'), 'case, spacing and a leading article do not matter');
+  check(!hasIssue((p) => p.replace('overall_soundscape:', '<Subject 1> (S1) says: <d>[English] Again.</d>\noverall_soundscape:'), 'h3-speaker-voice'), 'later lines by the same speaker need no repeat');
+  const noVoice = audit((b) => { b.episodes[0].segments[0].h3Prompt = unvoiced(b.episodes[0].segments[0].h3Prompt); }, (c) => { delete c.cast.characters[0].voice; });
+  check(!issues(noVoice, 'h3-speaker-voice').length && !noVoice.skips.some((item) => item.rule === 'h3-speaker-voice'), 'a character without a cast voice prompt is not checked');
+  check(gateReport(clone(board), { ...ctx, ref2va: true }).find((gate) => gate.id === 'h3-speaker-voice').ok, 'the voiced fixture passes the production gate');
+}
 check(hasIssue((p) => p.replace('[reference generation]', '[cinematic adaptation]'), 'h3-summary-task-prefix'), 'invented summary task type is rejected');
 check(hasIssue((p) => p.replace('[reference generation]', 'reference generation'), 'h3-summary-task-prefix'), 'summary requires bracketed task prefix');
 check(hasIssue((p) => p.replace('[reference generation]', '[reference generation + reference generation]'), 'h3-summary-task-prefix'), 'summary cannot duplicate a task type');
@@ -229,7 +243,7 @@ check(!hasIssue((p) => p.replace('summary:', '<Video 1> is a camera-structure re
 const targetRules = [...officialRules, 'style-consistency'];
 const strictCtx = { ...ctx, ref2va: true };
 const strictGates = gateReport(board, strictCtx);
-check(strictGates.length === 31 && targetRules.length === 9, 'production exposes 31 gates including all nine reference-format and style rules');
+check(strictGates.length === 32 && targetRules.length === 10, 'production exposes 32 gates including all ten reference-format and style rules');
 const sceneRules = ['same-scene-continues-from', 'one-speaker-per-cut'];
 check(sceneRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'continuation and one-speaker gates pass the complete fixture');
 const unlinked = clone(board);
@@ -260,6 +274,7 @@ for (const [rule, changePrompt, changeContext] of [
   ['h3-retention-per-line', (p) => p.replace(/retention_analysis:\n[\s\S]*?detailed_description:/, 'retention_analysis:\nAll references are retained exactly.\ndetailed_description:')],
   ['h3-synchronized-sound-placement', (p) => p.replace('Wind through the window.', 'A structural rumble.')],
   ['h3-voiceover-exact-format', () => voiceover.replace('says in an off-screen voiceover', 'groans in an off-screen voiceover')],
+  ['h3-speaker-voice', (p) => p.replace(/ with a .*? voice,/, ',')],
   ['style-consistency', (p) => p, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }],
 ]) {
   const badBoard = clone(board);
@@ -288,7 +303,7 @@ for (const [label, mutate] of [
   const unsupported = clone(board);
   mutate(unsupported);
   const compatibility = gateReport(unsupported, ctx).filter((gate) => targetRules.includes(gate.id));
-  check(compatibility.length === 9 && compatibility.every((gate) => gate.ok && gate.detail.includes('--ref2va') && gate.detail.includes('跳过')), `${label} keeps explicit flag-off compatibility for all nine new gates`);
+  check(compatibility.length === 10 && compatibility.every((gate) => gate.ok && gate.detail.includes('--ref2va') && gate.detail.includes('跳过')), `${label} keeps explicit flag-off compatibility for all ten new gates`);
   const strict = gateReport(unsupported, strictCtx);
   check(officialRules.every((rule) => strict.some((gate) => gate.id === rule && !gate.ok && gate.detail.includes(rule))), `${label} is rejected under explicit Ref2VA because official-format audit skips are incomplete evidence`);
 }
@@ -314,11 +329,11 @@ for (const contextFile of ['cast', 'art']) {
   check(gateReport(board, { ...missing, ref2va: false }).filter((gate) => targetRules.includes(gate.id)).every((gate) => gate.ok && gate.detail.includes('--ref2va')), `missing ${contextFile} preserves explicit flag-off compatibility`);
 }
 const noScript = { ...strictCtx, script: undefined };
-check(gateReport(board, noScript).filter((gate) => targetRules.includes(gate.id)).every((gate) => gate.ok && !gate.detail), 'the nine reference-format gates retain sufficient cast/art and prompt evidence without a script');
+check(gateReport(board, noScript).filter((gate) => targetRules.includes(gate.id)).every((gate) => gate.ok && !gate.detail), 'the ten reference-format gates retain sufficient cast/art and prompt evidence without a script');
 const silent = clone(board);
 for (const segment of silent.episodes[0].segments) segment.h3Prompt = segment.h3Prompt.replace(/<Subject 1> \(S1\) says: <d>[\s\S]*?<\/d> while the worker's lips remain completely closed\./, 'The worker closes the box silently.');
 const silentAudit = auditStoryboard(silent, ctx);
-for (const rule of ['h3-referenced-speaker-binding', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
+for (const rule of ['h3-referenced-speaker-binding', 'h3-speaker-voice', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
   const counts = silentAudit.evaluated_checks.find((item) => item.id === rule);
   check(counts.evaluated === 0 && counts.skipped === 0 && counts.issues === 0, `${rule} is inapplicable rather than skipped when the prompt has no vocal or voiceover events`);
   check(gateReport(silent, strictCtx).find((gate) => gate.id === rule).ok, `${rule} can pass production with zero applicable events and complete evidence`);
