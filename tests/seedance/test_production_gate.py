@@ -159,6 +159,40 @@ async def test_bridge_rejects_bad_native_data_without_v3_command(bundle):
             seedance_client=v3,
         )
     assert result["error_code"] == "CINE_NATIVE_VALIDATION_FAILED"
+    assert result["reason"].startswith("cast failed")
+    assert result["next_step"].startswith("Fix only the listed creative artifact")
+    v3.submit_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+@respx.mock
+@pytest.mark.skipif(not shutil.which("node"), reason="requires native Node validators")
+async def test_missing_source_text_rejection_names_the_argument(bundle):
+    mock_session(bundle.parent)
+    prompt = json.loads((bundle / "cast.json").read_text(encoding="utf-8"))["characters"][0][
+        "image"
+    ]["sheet"]
+    v3 = AsyncMock()
+    async with httpx.AsyncClient(base_url=SERVER) as client:
+        result = await execute_seedance_canvas_edit(
+            client,
+            "topic",
+            "submit_generation",
+            project_id="project",
+            prompt=prompt,
+            generation_allowed=True,
+            generation_kind="image",
+            production_dir="production",
+            production_stage="cast",
+            production_pointer="/characters/0/image/sheet",
+            trusted_skills_dir=SKILLS,
+            seedance_client=v3,
+        )
+    assert result["error_code"] == "CINE_NATIVE_VALIDATION_FAILED"
+    rows = [(row["stage"], row["status"], row["skipped_checks"]) for row in result["validation"]]
+    assert rows == [("cast", "passed", ["exact_source_quotes"])]
+    assert "pass source_text" in result["reason"]
+    assert result["next_step"].startswith("No artifact failed")
     v3.submit_command.assert_not_called()
 
 
