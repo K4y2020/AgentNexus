@@ -77,12 +77,17 @@ def test_storyboard_seed_inherits_reference_style_and_fingerprints(tmp_path):
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
-def test_full_native_fixture_executes_five_validators(tmp_path):
+def test_full_native_fixture_executes_five_validators(tmp_path, monkeypatch):
+    from pipeline import jev_client
+
+    # The storyboard's shot-state check asks JEV; without a key it reports and never blocks.
+    monkeypatch.setattr(jev_client, "_find_api_key", lambda: "")
     for stage in production.stage_graph.ORDER:
         example(tmp_path, stage)
     source = next((production.SKILLS / "cine-characters/examples").glob("*.txt"))
     result = production.check(tmp_path, source_text=source)
     assert result["status"] == "native_validated", result
+    assert result["stages"][-1]["shot_states"]["status"] == "unavailable"
     assert len(result["stages"]) == 5
     assert all(r["exit_code"] == 0 and r["input_hashes"] for r in result["stages"])
     # Every validator imports the shared helpers, so a run pins them too.

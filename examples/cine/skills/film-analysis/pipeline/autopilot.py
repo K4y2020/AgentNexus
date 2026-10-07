@@ -135,6 +135,8 @@ def _required_inputs(directory: Path, stage: str) -> list[Path]:
         )
         paths.extend(prod.source_transcript_candidates(directory))
         paths.append(directory / "source-transcript-attributed.json")
+    if stage == "storyboard":
+        paths.append(Path(prod.__file__).with_name("shot_state_gate.py"))
     return paths
 
 
@@ -224,6 +226,19 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
                 "severity": "review",
                 "reason": "performance_unchecked",
                 "detail": {"error": performance.get("error") or performance.get("errors")},
+            }
+        )
+    shot_states = row.get("shot_states") or {}
+    found["shot_states"] = [
+        {"severity": "review", "reason": item["reason"], "detail": item}
+        for item in shot_states.get("review") or []
+    ]
+    if shot_states.get("status") == "unavailable" or shot_states.get("errors"):
+        found["shot_states"].append(
+            {
+                "severity": "review",
+                "reason": "shot_states_unchecked",
+                "detail": {"error": shot_states.get("error") or shot_states.get("errors")},
             }
         )
     anchors = row.get("asset_anchors") or {}

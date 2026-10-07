@@ -213,6 +213,8 @@ node {baseDir}/scripts/cine-storyboard.mjs validate <storyboard.json> \
 
 `--ref2va` 同时执行八条 `h3-*` 格式 audit 和 `style-consistency`，错误和缺证据的跳过项都会拦截。未提供 cast/art 不能通过画风对账；没有人声或画外音时，对应规则可不适用。关键帧旧格式与中文提示词的兼容校验不传此标志，报告明确列出跳过项。标签位置检查仍需逐镜核对人物特征、位置、动作与剧情；文本 audit 不替代画面和声音验收。
 
+上面的 validate 不查 `[Shot k]` 正文有没有写出画内每个人的进镜姿态。这一步只在 `production.py check <production> --stage storyboard` 里，`next` 也会跑它。正文漏写或写反都会拦截，写法见 h3-prompt.md「定义与首次出现」；手上的动作没写只进复核队列，不拦截。制作目录里的分镜，手工改完也用这条命令检查。
+
 **适用的结构错误逐条修后重跑。** H3/短剧风格门不兼容则报告阻塞，不伪造提示词或重写原片来通过。
 
 **`shot-recipe`（可选挂载）**：给了 `--shots` 才查，不给就明说跳过。cut 上可以写一个可选的 `recipe`（配方卡 id，**cut 级不是 segment 级**，**多格配方靠连续同 id 的分镜表达**，不是数组），门查三条——id 在卡库里、卡片的每条 `must_phrases` 出现在该切的 `frame` 里（两边小写化后 `includes`）、卡片 `cuts` 下限 ≥ 2 时连续同 id 的分镜数不得低于该下限。卡片的**建议景别与运镜不设门**，只在报告的「配方」列和 `checkup` 末尾提示偏离：配方是语汇不是法条，可选挂载的东西一旦变严就没人挂。

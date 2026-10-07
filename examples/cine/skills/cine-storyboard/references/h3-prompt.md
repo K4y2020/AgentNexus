@@ -56,6 +56,7 @@ N/A
 
 - 本段连接的角色和场景各定义一个 `<Subject N>`，编号从 1 连续；角色状态与来源图须匹配真实资产。定义行保留 **`<Subject N> — <ID>, …`**，如角色 `C01`、场景 `SC01` 或《渡口》的原生场景 `S02`，不能只剩描述或人名。画布导入靠 ID 查找实体。
 - 首次在镜头里出现时，把标签直接写进描述，同时交代其可见特征、画面位置和当前动作；环境写布局、位置和正在发生的变化。后续继续用同一标签，不追加 `On screen: <Subject …>` 尾句。
+- 每个 `[Shot k]` 都要写出画内每个人进镜时的姿态和正在做的动作，即从上一镜延续下来的状态（`continuity.actionStates` 的 `in`）。例如仍坐在船头、还跪在地上、还被绑在桅杆上，或者手里还握着桨。视频模型只读 h3Prompt，`frame`、`continuity` 和尾帧图都到不了它那里；角色设定图是站姿，所以漏写的姿态会被画成站着。特写只需写脸上看得出的姿态，即倒吊和躺着。姿态在镜头之间变了，正文写新姿态，`frame` 和 `continuity` 同步改。
 - 图片仅提供身份参考时，在 Subject 定义内引用 `<Picture N>`，不另写 Picture 定义。图片实际担任首帧、关键帧或尾帧锚点时，才独立定义 Picture，并在正文与 retention 中记录用途。
 - 导入按画布实际参考顺序重排编号，所有引用随之改号，逐标签 retention 行、关系和说明应原样保留。
 
@@ -75,7 +76,7 @@ retention_analysis:
 <Picture 4> ([Shot 1] first frame): fully_preserved - its composition anchors the opening before movement resumes.
 ```
 
-`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态：开场景别和机位就是上一段最后一个镜头的，起幅画面里看得见的人写进 Shot 1 并列进首镜 `characters`；要换构图或换人，就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
+`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态，画内每个人的姿态仍要用文字写出：尾帧只拍到上一段最后一个镜头里的人，而且只起引导作用。开场景别和机位就是上一段最后一个镜头的，起幅画面里看得见的人写进 Shot 1 并列进首镜 `characters`；要换构图或换人，就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
 
 ### retention_analysis 每个标签一行
 
