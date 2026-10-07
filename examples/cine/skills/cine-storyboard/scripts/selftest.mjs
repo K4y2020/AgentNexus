@@ -200,10 +200,13 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
   const legacy = gateReport({ ...bad, continuityContractVersion: undefined }, {}).find((g) => g.id === 'continuity');
   ok(legacy.ok && legacy.detail.includes('跳过'), 'A：旧分镜没有连续性合同，兼容模式明确跳过');
   const strict = continuityReport(bad);
-  ok(strict.enabled && strict.issues.length >= 3, 'B：严格合同拦截位置跳变、道具跳变和反向运动');
-  ok(strict.detail.includes('positionChangeReason'), 'B：指出人物位置变化原因缺失');
-  ok(strict.detail.includes('propChangeReason'), 'B：指出道具状态变化原因缺失');
-  ok(strict.detail.includes('directionChangeReason'), 'B：指出运动方向变化原因缺失');
+  const reasons = strict.advisories.join('；');
+  ok(strict.enabled && strict.issues.length === 0 && strict.advisories.length >= 3, 'B：位置跳变、道具跳变和反向运动缺原因只提示，不拦截');
+  ok(reasons.includes('positionChangeReason'), 'B：指出人物位置变化原因缺失');
+  ok(reasons.includes('propChangeReason'), 'B：指出道具状态变化原因缺失');
+  ok(reasons.includes('directionChangeReason'), 'B：指出运动方向变化原因缺失');
+  const reasonGate = gateReport(bad, {}).find((g) => g.id === 'continuity-reasons');
+  ok(reasonGate?.ok && reasonGate.advisory && reasonGate.detail.includes('positionChangeReason'), 'B：缺原因作为提示项列出，不算未过');
   const fixed = structuredClone(bad);
   Object.assign(fixed.episodes[0].segments[0].cuts[1].continuity, {
     positionChangeReason: 'C01 与 C02 在上一镜结束后完成换位',
@@ -212,14 +215,14 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
     emotionCarryReason: 'C01 看到 P01 后从屏息转为专注并完成抓取',
     directionChangeReason: '人物转身后反向走回桌边',
   });
-  ok(continuityReport(fixed).issues.length === 0, 'B+：明确写出变化原因后通过');
+  ok(continuityReport(fixed).advisories.length === 0, 'B+：明确写出变化原因后提示消失');
 
   const eyeBreak = structuredClone(bad);
   eyeBreak.episodes[0].segments[0].cuts[1].characters = ['C01'];
   delete eyeBreak.episodes[0].segments[0].cuts[1].continuity.actionStates.C02;
   eyeBreak.episodes[0].segments[0].cuts[1].continuity.eyelineTarget = 'offscreen';
   const eyeIssues = continuityReport(eyeBreak);
-  ok(eyeIssues.detail.includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时要求说明切断原因');
+  ok(eyeIssues.advisories.join('；').includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时提示说明切断原因');
 
   const proseGap = structuredClone(bad);
   proseGap.episodes[0].segments[0].cuts[0].frame =
@@ -369,6 +372,9 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
   const doc = clone(FIXTURE);
   doc.episodes[0].segments[0].cuts[0].frame = 'a foggy pier at dawn, cinematic';
   ok(!gate(doc, 'size-phrase').ok, '分镜图提示词缺景别短语被拦');
+  const canvas = { ...CTX, ref2va: true };
+  ok(gate(doc, 'size-phrase', canvas).ok && gate(doc, 'frame-size-phrase', canvas)?.advisory,
+    '画布模式下分镜图提示词到不了视频模型：缺景别短语只提示');
 }
 {
   const doc = clone(FIXTURE);

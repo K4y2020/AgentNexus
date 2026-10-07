@@ -2,9 +2,12 @@
 
 import copy
 import json
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "skills/film-analysis"))
 from pipeline import autopilot, jev_client, production
@@ -233,3 +236,27 @@ def test_review_items_reach_the_review_queue(tmp_path):
     }
     found = autopilot._findings(tmp_path, "storyboard", row)["shot_states"]
     assert [item["reason"] for item in found] == ["hands_unwritten", "shot_states_unchecked"]
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
+def test_a_native_failure_still_runs_the_shot_state_check(monkeypatch, tmp_path):
+    monkeypatch.setattr(jev_client, "_find_api_key", lambda: "")
+    for stage in production.stage_graph.ORDER:
+        skill = production.stage_graph.STAGES[stage].skill
+        example = next((production.SKILLS / skill / "examples").glob(f"*-{stage}.json"))
+        shutil.copyfile(example, tmp_path / f"{stage}.json")
+    board = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+    board["episodes"][0]["segments"][0]["cuts"][0]["seconds"] = 99
+    (tmp_path / "storyboard.json").write_text(json.dumps(board, ensure_ascii=False), "utf-8")
+
+    row = production.check_stage(tmp_path, "storyboard")
+
+    assert row["status"] == "failed" and row["exit_code"] == 1
+    assert row["shot_states"]["status"] == "unavailable"
+
+
+def test_a_passing_validator_receipt_is_not_a_repair_error():
+    passed = {"exit_code": 0, "errors": ["E01-02 [Shot 1]: …"], "stdout": "✓ all passed", "stderr": ""}
+    assert autopilot._errors(passed) == ["E01-02 [Shot 1]: …"]
+    failed = {"exit_code": 1, "errors": [], "stdout": "", "stderr": "✗ 2 violations"}
+    assert autopilot._errors(failed) == ["✗ 2 violations"]

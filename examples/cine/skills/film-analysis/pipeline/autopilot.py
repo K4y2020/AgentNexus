@@ -156,7 +156,9 @@ def _default_source_text(directory: Path) -> Path | None:
 def _errors(row: dict[str, Any]) -> list[str]:
     errors = list(row.get("errors") or [])
     errors += (row.get("asset_anchors") or {}).get("problems") or []
-    for stream in ("stderr", "stdout"):
+    # A passing validator's stdout is its receipt and advisories, not an error.
+    streams = ("stderr",) if row.get("exit_code") == 0 else ("stderr", "stdout")
+    for stream in streams:
         text = (row.get(stream) or "").strip()
         if text:
             errors.append(text[-2000:])

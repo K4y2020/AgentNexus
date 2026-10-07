@@ -1021,7 +1021,8 @@ def check_stage(
             row["asset_anchors"] = storyboard_asset_anchors(directory, paths)
             if row["asset_anchors"]["status"] == "missing":
                 row["status"] = "assets_missing"
-        if stage == "storyboard" and row["status"] == "passed":
+        # Also after a native failure: one repair then fixes both kinds of errors.
+        if stage == "storyboard" and row["status"] in ("passed", "failed"):
             row["shot_states"] = storyboard_shot_states(
                 directory, paths, row["input_hashes"], jev_model
             )
