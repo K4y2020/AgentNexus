@@ -589,6 +589,28 @@ def stage_locations(directory, stage, paths, input_hashes):
     return location_gate.check_script(read(paths[stage]), outline, material, rows)
 
 
+def storyboard_shot_states(directory, paths, input_hashes, jev_model):
+    """Each shot's prompt text against the body position the storyboard plans for its people."""
+    try:
+        from .shot_state_gate import check_shot_states
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from shot_state_gate import check_shot_states
+
+    for name in ("shot_state_gate.py", "jev_client.py"):
+        code = Path(__file__).with_name(name)
+        input_hashes[str(code)] = fingerprint(code)
+    try:
+        return check_shot_states(
+            read(paths["storyboard"]),
+            read(paths["cast"]),
+            outline=read(paths["outline"]) if "outline" in paths else None,
+            model=jev_model,
+            cache_dir=directory / ".cine-validation" / "shot-states",
+        )
+    except Exception as exc:  # noqa: BLE001 - a broken check is a review item, not a verdict
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+
+
 def storyboard_asset_anchors(_directory, paths):
     """Check in code that every referenced character/scene has a sheet or prompt.
 
@@ -999,6 +1021,16 @@ def check_stage(
             row["asset_anchors"] = storyboard_asset_anchors(directory, paths)
             if row["asset_anchors"]["status"] == "missing":
                 row["status"] = "assets_missing"
+        # Also after a native failure: one repair then fixes both kinds of errors.
+        if stage == "storyboard" and row["status"] in ("passed", "failed"):
+            row["shot_states"] = storyboard_shot_states(
+                directory, paths, row["input_hashes"], jev_model
+            )
+            if row["shot_states"]["status"] == "failed":
+                row.update(
+                    status="failed",
+                    errors=[*row.get("errors", []), *row["shot_states"]["blocking"]],
+                )
         if (
             stage == "script"
             and row["status"] == "passed"

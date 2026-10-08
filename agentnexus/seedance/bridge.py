@@ -30,6 +30,49 @@ SEEDANCE_BASE_URL_LABEL = "seedance.base_url"
 SEEDANCE_CURSOR_LABEL = "seedance.last_event_cursor"
 SEEDANCE_STATUS_LABEL = "seedance.status"
 
+# A check skipped for a missing tool argument blocks the generation gate like a failure.
+_SKIPPED_CHECK_FIXES = {
+    "exact_source_quotes": (
+        "the cast check verifies quotes against the source transcript; pass source_text, "
+        "e.g. production/source-transcript.txt"
+    ),
+}
+_FIX_ARTIFACT = (
+    "Fix only the listed creative artifact/input. Do not invent upstream story data, "
+    "write repair scripts or inspect service source code."
+)
+
+
+def _validation_rows(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stage rows that kept a validation report from passing: failed, or passed with a skip."""
+    return [
+        {
+            "stage": row.get("stage"),
+            "status": row.get("status"),
+            "errors": row.get("errors", []),
+            "skipped_checks": row.get("skipped_checks", []),
+            "message": row.get("stderr", "")[:1800],
+        }
+        for report in reports
+        for row in report.get("stages", [])
+        if row.get("status") != "passed" or row.get("skipped_checks")
+    ]
+
+
+def _validation_reason(rows: list[dict[str, Any]]) -> tuple[str | None, bool]:
+    """One line naming why the gate refused, and whether only a tool argument is missing."""
+    parts = []
+    for row in rows:
+        if row["status"] != "passed":
+            first = next((text for text in (*row["errors"], row["message"]) if text), "")
+            label = f"{row['stage']} {row['status']}"
+            parts.append(f"{label}: {str(first)[:300]}" if first else label)
+        for check in row["skipped_checks"]:
+            fix = _SKIPPED_CHECK_FIXES.get(check, f"supply the input the {check} check needs")
+            parts.append(f"{row['stage']} skipped {check}: {fix}")
+    missing_input_only = bool(rows) and all(row["status"] == "passed" for row in rows)
+    return "; ".join(parts) or None, missing_input_only
+
 
 async def resolve_or_create_topic_project_and_session(
     server_client: httpx.AsyncClient,
@@ -1173,25 +1216,23 @@ async def execute_seedance_canvas_edit(
             }
         if isinstance(exc, ProductionRejected):
             detail = exc.detail
+            reason, next_step = None, _FIX_ARTIFACT
             if isinstance(detail, list):
-                detail = [
-                    {
-                        "stage": row.get("stage"),
-                        "status": row.get("status"),
-                        "errors": row.get("errors", []),
-                        "message": row.get("stderr", "")[:1800],
-                    }
-                    for report in detail
-                    for row in report.get("stages", [])
-                    if row.get("status") != "passed"
-                ]
+                detail = _validation_rows(detail)
+                reason, missing_input_only = _validation_reason(detail)
+                if missing_input_only:
+                    next_step = (
+                        "No artifact failed. Resubmit with the same arguments plus the missing "
+                        "input named in reason; do not edit the production files."
+                    )
             return {
                 "status": "rejected",
                 "outcome": "failed",
                 "error_code": exc.code,
                 "error": str(exc),
+                "reason": reason,
                 "validation": detail,
-                "next_step": "Fix only the listed creative artifact/input. Do not invent upstream story data, write repair scripts or inspect service source code.",
+                "next_step": next_step,
             }
         raise
     finally:

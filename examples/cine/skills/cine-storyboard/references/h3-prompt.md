@@ -43,7 +43,7 @@ retention_analysis:
 detailed_description:
 The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references.
 [Shot 1] A medium static shot establishes <Subject 3>, the wet wooden pier receding from the foreground into pale fog as water moves under its pilings. <Subject 1>, the slim young woman in a navy student tunic with two red-tied braids, stands at the left edge of the gangplank hugging her worn leather suitcase. <Subject 2>, the stooped old ferryman in an indigo jacket and straw hat, waits at the right near the mooring stone and coils a rope with a soft rasp.
-[Shot 2] At 00:03.000, the camera cuts to a close-up and makes a slow push in on <Subject 1> (S1) at the left side of <Subject 3>; she tightens her arms around the suitcase and says in a quiet, guarded Mandarin voice, <d>[Chinese] 不劳烦。它跟我。</d> The leather gives a faint creak as her grip firms.
+[Shot 2] At 00:03.000, the camera cuts to a close-up and makes a slow push in on <Subject 1> (S1) (voice: 19-year-old female, light breathy soprano, mid-to-high pitch, thin chest support, narrow dynamic range) at the left side of <Subject 3>; she tightens her arms around the suitcase and says in a quiet, guarded tone, barely above the river noise, <d>[Chinese] 不劳烦。它跟我。</d> The leather gives a faint creak as her grip firms.
 
 overall_soundscape:
 Low river wash and fog-muted wind continue throughout the segment.
@@ -56,6 +56,7 @@ N/A
 
 - 本段连接的角色和场景各定义一个 `<Subject N>`，编号从 1 连续；角色状态与来源图须匹配真实资产。定义行保留 **`<Subject N> — <ID>, …`**，如角色 `C01`、场景 `SC01` 或《渡口》的原生场景 `S02`，不能只剩描述或人名。画布导入靠 ID 查找实体。
 - 首次在镜头里出现时，把标签直接写进描述，同时交代其可见特征、画面位置和当前动作；环境写布局、位置和正在发生的变化。后续继续用同一标签，不追加 `On screen: <Subject …>` 尾句。
+- 每个 `[Shot k]` 都要写出画内每个人进镜时的姿态和正在做的动作，即从上一镜延续下来的状态（`continuity.actionStates` 的 `in`）。例如仍坐在船头、还跪在地上、还被绑在桅杆上，或者手里还握着桨。视频模型只读 h3Prompt，`frame`、`continuity` 和尾帧图都到不了它那里；角色设定图是站姿，所以漏写的姿态会被画成站着。特写只需写脸上看得出的姿态，即倒吊和躺着。姿态在镜头之间变了，正文写新姿态，`frame` 和 `continuity` 同步改。
 - 图片仅提供身份参考时，在 Subject 定义内引用 `<Picture N>`，不另写 Picture 定义。图片实际担任首帧、关键帧或尾帧锚点时，才独立定义 Picture，并在正文与 retention 中记录用途。
 - 导入按画布实际参考顺序重排编号，所有引用随之改号，逐标签 retention 行、关系和说明应原样保留。
 
@@ -75,7 +76,7 @@ retention_analysis:
 <Picture 4> ([Shot 1] first frame): fully_preserved - its composition anchors the opening before movement resumes.
 ```
 
-`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态：开场景别和机位就是上一段最后一个镜头的，起幅画面里看得见的人写进 Shot 1 并列进首镜 `characters`；要换构图或换人，就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
+`[Shot 1]` 自然写明从 `<Picture 4>` 起幅，并直接使用 `<Subject 4>` 的位置与动作状态，画内每个人的姿态仍要用文字写出：尾帧只拍到上一段最后一个镜头里的人，而且只起引导作用。开场景别和机位就是上一段最后一个镜头的，起幅画面里看得见的人写进 Shot 1 并列进首镜 `characters`；要换构图或换人，就在 Shot 1 里运镜过去，或在 `[Shot 2]` 切。每场第一段不写 `continuesFrom`，也不凭空增加尾帧引用。
 
 ### retention_analysis 每个标签一行
 
@@ -86,6 +87,10 @@ retention_analysis:
 ## 说话人与台词
 
 引用角色每次开口写 **`<Subject N> (Sx)`**，画外说话仍保留同一绑定。非引用角色、旁白、广播或其他独立人声用稳定身份描述加 `(Sx)`。剧本里 `speaker` 是 `extra` 的台词属于没有角色卡的人，写成 `a second attendant (S3) says` 这类描述，不能挂到某个角色的 `<Subject N>` 上，否则视频会用那个角色的脸和声音说这句；`--ref2va` 校验会拦。按本段实际首次发声顺序从 S1 编号，之后每次复用；音频定义里的音色绑定也使用这个编号。笑声、呼吸写清人物来源并沿用其编号，风雨、碰撞等环境或物件声音不分配说话人编号。纯复用音轨内部的歌词提示若没有独立说话人，以 `<Audio N>` 为声源。
+
+**每段都写声音。** 每段单独生成，视频模型只读这一段的提示词，不知道上一段谁是什么嗓子；没写就按画面猜，一位老者短促的呵斥会被配成尖细的女声。所以引用角色在本段第一次开口之前（画外音和心声也算），把角色卡 `voice.prompt` 的第一句逐字写进来，也就是年龄性别、音色和音区这些声音身份。常见写法是紧跟 `(Sx)` 写 `(voice: …)`，同一段里再开口写 `in the same … voice`。`--ref2va` 校验会查。`voice.prompt` 后面的音量、语速和默认情绪不照抄，换成这一句的说法。
+
+**每句写说法。** 每句台词在 `<d>` 前写清这一句的情绪和说法，依据剧本这句的 `delivery` 和拉片里这句的表演，例如 `in a short, low, clipped rebuke` 或 `wails, strained and breathless`，不能只写 `says`。一句里情绪有转折（先惊喜、再吃痛），把转折写出来。两人对话时，第二个开口的人同样绑定自己的 `<Subject N> (Sx)` 并写上声音；能让他出现在画面里就别放画外，画外的短句最容易配错声音。
 
 画外音和心声的英文句式固定为：
 

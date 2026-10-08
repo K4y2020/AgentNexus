@@ -20,6 +20,7 @@ import pytest
 
 from agentnexus.inner import openai_agents_sdk_harness
 from agentnexus.runtime.harnesses import _HARNESS_MODULES
+from agentnexus.spec.types import RetryPolicy
 
 
 def test_harness_module_registered_in_module_registry() -> None:
@@ -94,6 +95,7 @@ def test_executor_factory_reads_databricks_profile_env(
         gateway_host: str | None = None,
         gateway_auth_command: str | None = None,
         reasoning_item_id_policy: str | None = None,
+        retry_policy: Any = None,
     ) -> None:
         captured["client"] = client
         captured["profile"] = profile
@@ -347,3 +349,32 @@ def test_executor_factory_no_env_returns_blank_config(
     assert captured["model"] is None
     assert captured["use_responses"] is True
     assert captured["reasoning_item_id_policy"] is None
+
+
+def test_executor_factory_reads_retry_policy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``HARNESS_OPENAI_AGENTS_RETRY_POLICY`` sets the inner client's timeout and retries."""
+    monkeypatch.delenv("HARNESS_OPENAI_AGENTS_REASONING_ITEM_ID_POLICY", raising=False)
+    monkeypatch.setenv(
+        "HARNESS_OPENAI_AGENTS_RETRY_POLICY",
+        RetryPolicy(timeout_per_request_s=540.0, max_retries=2).to_json(),
+    )
+    captured: dict[str, Any] = {}
+
+    def _fake_init(self: Any, **kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    with patch(
+        "agentnexus.inner.openai_agents_sdk_harness.OpenAIAgentsSDKExecutor.__init__",
+        _fake_init,
+    ):
+        openai_agents_sdk_harness._build_openai_agents_sdk_executor()
+
+    assert captured["retry_policy"].timeout_per_request_s == 540.0
+    assert captured["retry_policy"].max_retries == 2
+
+
+def test_malformed_retry_policy_env_falls_back_to_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HARNESS_OPENAI_AGENTS_RETRY_POLICY", "{not json")
+    assert openai_agents_sdk_harness._resolve_retry_policy() == RetryPolicy()

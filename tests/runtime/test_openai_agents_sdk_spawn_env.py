@@ -14,12 +14,14 @@ path lives in the harness e2e tests.
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
 import pytest
 import yaml as _yaml
 
+from agentnexus.errors import AgentNexusError
 from agentnexus.runtime.workflow import _build_openai_agents_sdk_spawn_env, _load_global_auth
 from agentnexus.spec.types import (
     AgentSpec,
@@ -27,6 +29,7 @@ from agentnexus.spec.types import (
     DatabricksAuth,
     ExecutorSpec,
     LLMConfig,
+    RetryPolicy,
 )
 
 
@@ -540,3 +543,33 @@ def test_api_key_auth_without_base_url_omits_base_url_env_var() -> None:
 
     assert env["HARNESS_OPENAI_AGENTS_API_KEY"] == "sk-test-000"
     assert "HARNESS_OPENAI_AGENTS_GATEWAY_BASE_URL" not in env
+
+
+def test_executor_config_retry_threads_into_env_var() -> None:
+    """``executor.config.retry`` reaches the harness for specs without an ``llm:`` model."""
+    spec = _make_spec(model=None)
+    spec.executor.config["retry"] = {"timeout_per_request_s": 540, "max_retries": 2}
+    env = _build_openai_agents_sdk_spawn_env(spec)
+    payload = json.loads(env["HARNESS_OPENAI_AGENTS_RETRY_POLICY"])
+    assert payload["timeout_per_request_s"] == 540
+    assert payload["max_retries"] == 2
+
+
+def test_llm_retry_threads_into_env_var() -> None:
+    spec = _make_spec(model="gpt-4o")
+    assert spec.llm is not None
+    spec.llm.retry = RetryPolicy(timeout_per_request_s=300.0)
+    env = _build_openai_agents_sdk_spawn_env(spec)
+    assert json.loads(env["HARNESS_OPENAI_AGENTS_RETRY_POLICY"])["timeout_per_request_s"] == 300
+
+
+def test_default_retry_omits_env_var() -> None:
+    env = _build_openai_agents_sdk_spawn_env(_make_spec(model="gpt-4o"))
+    assert "HARNESS_OPENAI_AGENTS_RETRY_POLICY" not in env
+
+
+def test_malformed_executor_config_retry_fails_loudly() -> None:
+    spec = _make_spec(model=None)
+    spec.executor.config["retry"] = {"timeout_per_request_s": "soon"}
+    with pytest.raises(AgentNexusError, match="timeout_per_request_s"):
+        _build_openai_agents_sdk_spawn_env(spec)

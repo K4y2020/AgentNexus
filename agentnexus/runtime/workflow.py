@@ -81,7 +81,7 @@ from agentnexus.runtime.compaction import (
 from agentnexus.runtime.content_resolver import resolve_content_references
 from agentnexus.runtime.prompt import build_instructions, history_to_input_items
 from agentnexus.spec import AgentSpec
-from agentnexus.spec.parser import check_unresolved_env_vars
+from agentnexus.spec.parser import _parse_retry, check_unresolved_env_vars
 from agentnexus.spec.types import (
     ApiKeyAuth,
     DatabricksAuth,
@@ -1798,6 +1798,25 @@ def _set_openai_agents_reasoning_item_id_policy_env(
     env["HARNESS_OPENAI_AGENTS_REASONING_ITEM_ID_POLICY"] = value
 
 
+def _resolve_openai_agents_retry_policy(spec: AgentSpec) -> RetryPolicy | None:
+    """
+    Read the openai-agents retry policy off a spec.
+
+    A spec that leaves the model to the session has no ``llm:`` block,
+    so ``executor.config.retry`` (same keys as ``llm.retry``) carries
+    its policy and takes precedence.
+
+    :param spec: The agent spec.
+    :returns: The parsed ``executor.config.retry`` when declared, else
+        ``spec.llm.retry``, else ``None``.
+    :raises AgentNexusError: If ``executor.config.retry`` is malformed.
+    """
+    raw = spec.executor.config.get("retry")
+    if raw is not None:
+        return _parse_retry(raw)
+    return _resolve_retry_policy(spec)
+
+
 def _build_openai_agents_sdk_spawn_env(spec: AgentSpec) -> dict[str, str]:
     """
     Build the env-var dict the openai-agents harness wrap reads.
@@ -1837,6 +1856,9 @@ def _build_openai_agents_sdk_spawn_env(spec: AgentSpec) -> dict[str, str]:
         env,
         spec.executor.config.get("reasoning_item_id_policy"),
     )
+    retry_payload = _serialize_retry_policy(_resolve_openai_agents_retry_policy(spec))
+    if retry_payload is not None:
+        env["HARNESS_OPENAI_AGENTS_RETRY_POLICY"] = retry_payload
 
     # ── Auth resolution ────────────────────────────────────────────────
     # Priority: generic provider → spec.executor.auth → global config auth →

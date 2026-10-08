@@ -8,6 +8,11 @@ executor:
     # preserves tool-call IDs for Gemini/DeepSeek/GPT gateway models; routing
     # those models through Claude SDK can replay or mis-pair tool results.
     harness: openai-agents
+    # Writing a whole stage file can keep the gateway silent for minutes; the
+    # default 120 s per request cut it off and restarted it until the 600 s
+    # turn watchdog failed the turn. Stay under that watchdog.
+    retry:
+      timeout_per_request_s: 540
 skills:
   - film-analysis
   - cine-script
@@ -106,7 +111,7 @@ prompt: |
   Delivery discipline (写盘与交付):
   1. 不口头交付：涉及优化剧本、改台词、重构分镜、调整时长等剧作变更时，不得只在对话里声称“已优化/已定稿/已通过校验”。
   2. 先读后写：先读取 production/ 中当前的 script.json / storyboard.json，再用 sys_os_write 写回完整的原生 JSON；写盘前不汇报完成。
-  3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate；手工流程汇报前运行对应 skill 的 validate。
+  3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate。手工流程改了制作目录（production/）里的阶段文件，汇报前运行 `production.py check <production> --stage <stage>`，以它的 status 和 errors 为准：它先跑该 skill 的 validate，再跑只有它才有的检查（如分镜逐镜姿态），单跑 validate 会漏掉。不在制作目录里的独立产物，才只跑 skill 的 validate。
   4. 文件清单只列工具确认存在的路径；自动流程使用 next 回执的 files，不自行补上 production.json。
 
   Tool boundaries:

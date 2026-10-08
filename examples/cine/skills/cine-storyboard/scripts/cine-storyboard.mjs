@@ -390,7 +390,7 @@ const AUDIT_RULES = [
   'style-consistency', 'video-no-film-still', 'no-background-music',
   'dialogue-speaker-visible', 'one-speaker-per-cut', 'same-scene-continues-from',
   'no-internal-labels', 'consistent-character-naming',
-  'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding',
+  'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-speaker-voice',
   'h3-vocal-source-ids', 'h3-nonverbal-vocal-cues', 'h3-summary-task-prefix', 'h3-retention-per-line',
   'h3-synchronized-sound-placement', 'h3-voiceover-exact-format',
 ];
@@ -400,6 +400,9 @@ const auditWord = (value) => auditText(value).toLowerCase();
 const auditVo = (beat) => auditWord(beat?.speaker) === 'vo' ||
   /\b(?:v\.?o\.?|voice[ -]?over)\b|画外音|内心|独白|旁白|心声/i.test(auditText(beat?.delivery));
 const auditVoPrompt = (text) => /\b(?:off[ -]screen(?:\s+voice[ -]?over)?|voice[ -]?over|v\.?o\.?)\b|画外音|旁白|心声|内心独白/i.test(text);
+const voiceWords = (text) => auditText(text).toLowerCase().replace(/\s+/g, ' ').replace(/^(?:an?|the) /, '').replace(/[\s.!?;,]+$/, '');
+/** The first sentence of a cast voice prompt (age, gender, timbre, pitch): every segment repeats it verbatim. */
+export const voiceIdentity = (prompt) => voiceWords(auditText(prompt).split(/(?<=[.!?])\s+/)[0]);
 const AUDIT_INTERNAL_LABEL = /(?<![a-z0-9_])(?:extra|unclear|non_story|speaker[_-]\d+|person[_-]\d+|[PC]\d+)(?![a-z0-9_])/gi;
 
 function auditLabels(text) {
@@ -540,7 +543,7 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   }
 
   if (!body) {
-    for (const rule of ['h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
+    for (const rule of ['h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-speaker-voice', 'h3-vocal-source-ids', 'h3-voiceover-exact-format']) {
       skip(rule, `${sid}.detailed_description`, 'Detailed description is unavailable; this format check cannot be evaluated');
     }
     return;
@@ -572,6 +575,7 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
   const subjectIds = new Map();
   const idSubjects = new Map();
   const vocalIds = new Set();
+  const voiced = new Set();
   let dialogueCount = 0;
   let cueCount = 0;
   for (const event of events) {
@@ -622,6 +626,16 @@ function auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubj
           if (idSubjects.has(id) && idSubjects.get(id) !== match[1]) issue('h3-vocal-source-ids', location, 'Distinct referenced vocal sources share one speaker ID', { id, previous_subject: idSubjects.get(id), current_subject: match[1] });
           idSubjects.set(id, match[1]);
         }
+      }
+    }
+    // Each segment is generated alone: without the cast voice the model guesses one from the picture.
+    for (const match of cue ? [] : bound) {
+      const voice = extras.voices?.get(match[1]);
+      if (!voice || voiced.has(match[1])) continue;
+      voiced.add(match[1]);
+      evaluated('h3-speaker-voice');
+      if (!voiceWords(body.slice(0, event.index)).includes(voice.identity)) {
+        issue('h3-speaker-voice', location, `${match[1]} (${voice.id}) speaks for the first time in this segment without the cast voice; segments are generated separately, so the model guesses a voice from the picture: copy the first sentence of ${voice.id}'s cast voice.prompt into the clause introducing this line, then write how this line is delivered`, { source_clause: event.prefix, voice: voice.identity });
       }
     }
     if (event.line !== null && /voice[ -]?over|\bv\.?o\.?\b|inner monologue|画外音|旁白|心声|内心独白/i.test(event.prefix)) {
@@ -768,6 +782,11 @@ export function auditStoryboard(board, ctx = {}) {
         const entity = identifySubject(match[2], terms);
         if (entity?.startsWith('char:')) referenceCharacters.set(entity.slice(5), match[1]);
       }
+      const voices = new Map();
+      for (const [id, label] of referenceCharacters) {
+        const identity = voiceIdentity(characters.find((c) => c.id === id)?.voice?.prompt);
+        if (identity) voices.set(label, { id, identity });
+      }
       const extraLines = new Set();
       for (const cut of segment.cuts ?? []) {
         const [from, to] = cut.beats ?? [];
@@ -783,6 +802,7 @@ export function auditStoryboard(board, ctx = {}) {
       auditRefFormat(segment, prompt, { evaluated, issue, skip }, speakerSubjects, board?.promptLang ?? 'en', {
         lines: extraLines,
         subjects: new Set(referenceCharacters.values()),
+        voices,
       });
       if (previous) {
         if (!Number.isInteger(segment.sceneIndex) || !Number.isInteger(previous.sceneIndex)) {
@@ -890,6 +910,7 @@ export function auditStoryboard(board, ctx = {}) {
       'Medium matching uses explicit positive text markers; it cannot prove rendered visual consistency or judge cinematic quality.',
       'Name consistency uses unique cast/outline mappings in narration and speaker labels; dialogue address forms and unknown identities are not inferred.',
       'Voice-over checks require a marker before the matching dialogue block; unstructured speaker attribution inside prose is not inferred.',
+      "Speaker-voice checks only find the cast voice prompt's first sentence before a referenced speaker's first line in each segment; whether each line's delivery fits the scene requires review.",
       'Official H3 checks apply to Ref2VA only; legacy keyframe/base prompts are skipped, rather than treated as conforming full-reference prompts.',
       'Style opening and inline Subject checks prove prose/label placement only; appearance, position, action, style suitability and actual speaker semantics require calibrated review.',
       'Vocal-source IDs are checked at explicit dialogue/lyric blocks; recognizable non-verbal human cues (sobs, laughter …) are reported as advisory h3-nonverbal-vocal-cues and never block production; ordinary wind, rain, impacts and other physical sounds are not assigned speaker IDs. Unstructured vocal attribution still requires review. Directly copied soundtrack cues may use Audio alone.',
@@ -1120,6 +1141,8 @@ function reversedMotion(a, b) {
 const FRAME_ACTION_RE = /\b(?:seiz(?:es|ed|ing)|gripp(?:s|ed|ing)|wrench(?:es|ed|ing)|reach(?:es|ed|ing)|clap(?:s|ped|ping)|pat(?:s|ted|ting)|tilt(?:s|ed|ing)|smooth(?:s|ed|ing)|kneel(?:s|ed|ing)|trembl(?:es|ed|ing)|turn(?:s|ed|ing)|nod(?:s|ded|ding)|hurr(?:y|ies|ied|ying)|wrap(?:s|ped|ping)|wipe(?:s|d|ing)|pivot(?:s|ed|ing)|shout(?:s|ed|ing)|chant(?:s|ed|ing)|rais(?:es|ed|ing)|lift(?:s|ed|ing)|walk(?:s|ed|ing)|run(?:s|ran|ning)|step(?:s|ped|ping)|march(?:es|ed|ing)|stare(?:s|d|ing)|look(?:s|ed|ing)|watch(?:es|ed|ing)|gaze(?:s|d|ing)|blink(?:s|ed|ing)|laugh(?:s|ed|ing)|smil(?:es|ed|ing)|speak(?:s|spoke|ing)|call(?:s|ed|ing)|whisper(?:s|ed|ing)|bow(?:s|ed|ing)|clutch(?:es|ed|ing)|count(?:s|ed|ing)|lean(?:s|ed|ing)|enter(?:s|ed|ing)|exit(?:s|ed|ing)|approach(?:es|ed|ing)|freeze(?:s|d|ing)|howl(?:s|ed|ing)|throw(?:s|threw|ing))\b/i;
 const FRAME_GAZE_RE = /\b(?:look(?:s|ed|ing)?|watch(?:es|ed|ing)?|stare(?:s|d|ing)?|gaze(?:s|d|ing)?|eyes?\s+(?:fixed|locked|dragging|sliding|slide|turn(?:ed|ing)?|going|drawn))\b/i;
 const NOOP_ACTIONS = new Set(['idle']);
+// A missing change reason is ledger bookkeeping the video model never reads: report it, don't block.
+const MISSING_REASON = /缺 (?:establishing 或 )?\w+Reason$/;
 
 function actionLedgerIsNoop(actionStates, characters) {
   return characters.length > 0 && characters.every((character) => {
@@ -1284,7 +1307,9 @@ export function continuityReport(board) {
       }
     }
   }
-  return { enabled: true, issues, detail: issues.join('；') };
+  const blocking = issues.filter((issue) => !MISSING_REASON.test(issue));
+  const advisories = issues.filter((issue) => MISSING_REASON.test(issue));
+  return { enabled: true, issues: blocking, advisories, detail: blocking.join('；') };
 }
 
 /** Short pointer to the offending text of an audit issue, for gate error messages. */
@@ -1294,6 +1319,7 @@ function auditHint(evidence = {}) {
   if (typeof clause === 'string' && clause.trim()) parts.push(`原文「…${clause.replace(/\s+/g, ' ').trim().slice(-100)}」`);
   if (Array.isArray(evidence.video) && Array.isArray(evidence.reference)) parts.push(`视频媒介 ${evidence.video.join('/')}，参考媒介 ${evidence.reference.join('/')}`);
   if (typeof evidence.expected === 'string') parts.push(`应为「${evidence.expected.slice(0, 200)}」`);
+  if (typeof evidence.voice === 'string') parts.push(`要写的声音「${evidence.voice}」`);
   if (Array.isArray(evidence.speakers)) parts.push(`说话人 ${evidence.speakers.join('、')}`);
   if (typeof evidence.previous_last === 'string') parts.push(`上一段末镜 ${evidence.previous_last}，本段首镜 ${evidence.first}`);
   if (Array.isArray(evidence.beats)) parts.push(`节拍 ${evidence.beats.join('–')}`);
@@ -1312,10 +1338,13 @@ export function gateReport(board, ctx = {}) {
     id: [], size: [], camera: [], english: [], names: [], refs: [],
     h3s: [], h3d: [], h3e: [], h3r: [], style: [], recipe: [], states: [], continuity: [],
   };
+  // Reported without blocking: on the canvas neither reaches the video model.
+  const advisory = { continuity: [], size: [] };
   // 画布模式（--ref2va）：视频卡只连角色图和场景图，提示词要把它们都定义成 Subject 并用上
   const refTerms = ctx.ref2va ? entityTerms(castView(ctx.cast, ctx.outline), ctx.art) : null;
   const continuity = continuityReport(board);
   bad.continuity.push(...continuity.issues);
+  advisory.continuity.push(...(continuity.advisories ?? []));
   // 配方卡库是可选挂载：ctx.recipes 为空就整门跳过（不是「没有 cut 带 recipe」就跳过）
   const recipes = ctx.recipes ?? null;
   let recipeRefs = 0;
@@ -1472,7 +1501,7 @@ export function gateReport(board, ctx = {}) {
         if (!SHOT_SIZES[cut?.size]) {
           bad.size.push(`${cid} 景别「${cut?.size}」不在枚举里`);
         } else if (!String(cut?.frame ?? '').toLowerCase().includes(SHOT_SIZES[cut.size].phrase)) {
-          bad.size.push(`${cid} 分镜图提示词缺景别短语「${SHOT_SIZES[cut.size].phrase}」`);
+          (ctx.ref2va ? advisory.size : bad.size).push(`${cid} 分镜图提示词缺景别短语「${SHOT_SIZES[cut.size].phrase}」`);
         }
         if (!CAMERA_MOVES[cut?.camera]) {
           bad.camera.push(`${cid} 运镜「${cut?.camera}」不在 H3 词表里`);
@@ -1655,6 +1684,12 @@ export function gateReport(board, ctx = {}) {
   add('refs', '场次／人物／道具对账剧本', bad.refs.length === 0, script ? bad.refs.join('；') : SKIP_SCRIPT);
   add('character-states', '逐镜角色状态继承剧本场次，非默认状态在 cast.json 有独立资产', bad.states.length === 0, bad.states.join('；'));
   add('continuity', '相邻镜头轴线、位置、视线、运动方向和道具状态连续', bad.continuity.length === 0, continuity.enabled || bad.continuity.length ? bad.continuity.join('；') : continuity.detail);
+  if (advisory.continuity.length) {
+    gates.push({ id: 'continuity-reasons', label: '相邻镜头状态变化写明原因（只提示）', ok: true, advisory: true, detail: advisory.continuity.join('；') });
+  }
+  if (advisory.size.length) {
+    gates.push({ id: 'frame-size-phrase', label: '景别短语写进分镜图提示词（画布模式只提示）', ok: true, advisory: true, detail: advisory.size.join('；') });
+  }
   // 可选挂载的门放最后：没给 --shots 就跳过；给了但全篇没引用配方也算通过，但要明说，不静默
   add(
     'shot-recipe',
@@ -1669,6 +1704,7 @@ export function gateReport(board, ctx = {}) {
     ['h3-style-before-shot1', 'Ref2VA：统一画风句写在 [Shot 1] 之前'],
     ['h3-subject-inline-binding', 'Ref2VA：参考对象首次出现就绑定在描述正文里'],
     ['h3-referenced-speaker-binding', 'Ref2VA：参考对象的发声用 <Subject N> (Sx) 绑定'],
+    ['h3-speaker-voice', 'Ref2VA：每段里角色第一次开口前，写上角色卡声音提示（voice.prompt）的第一句'],
     ['h3-vocal-source-ids', 'Ref2VA：独立人声按首次发声顺序编号并保持来源一致'],
     ['h3-summary-task-prefix', 'Ref2VA：summary 使用任务前缀，尾帧承接包含 keyframe completion'],
     ['h3-retention-per-line', 'Ref2VA：每个标签独立一行说明镜头、保留关系和内容'],
@@ -1855,6 +1891,8 @@ const GATE_LABELS_EN = {
   'crowd': 'At most {0} characters on screen per cut; more requires a breakdown note',
   'segment-id': 'Segment IDs in E01-01 format, sequential',
   'size-phrase': 'Shot-size phrase present in the frame prompt',
+  'continuity-reasons': 'Adjacent-cut state changes give a reason (advisory)',
+  'frame-size-phrase': 'Shot-size phrase present in the frame prompt (advisory on the canvas)',
   'camera-phrase': 'Camera move from the official H3 vocabulary, inside its own [Shot k] passage; a static shot never says the camera moves',
   'h3-structure': 'H3 alignment and cut times match; segment background music is N/A',
   'h3-references': 'Ref2VA: the scene and character images connected on the canvas are each a <Subject N> (with its ID, citing its <Picture N>) and are used in the description',
@@ -1868,6 +1906,7 @@ const GATE_LABELS_EN = {
   'h3-style-before-shot1': 'Ref2VA: one shared style sentence before [Shot 1]',
   'h3-subject-inline-binding': 'Ref2VA: first reference use bound inside descriptive prose',
   'h3-referenced-speaker-binding': 'Ref2VA: referenced vocal sources bound as <Subject N> (Sx)',
+  'h3-speaker-voice': "Ref2VA: the first sentence of each speaker's cast voice prompt before their first line in every segment",
   'h3-vocal-source-ids': 'Ref2VA: stable vocal-source IDs in first-event order',
   'h3-summary-task-prefix': 'Ref2VA: task-prefixed summary, including keyframe completion for a preceding tail frame',
   'h3-retention-per-line': 'Ref2VA: one retention line per label with shots, relationship and explanation',
@@ -2750,6 +2789,7 @@ function main(argv) {
       for (const x of problems) console.error('  ' + x);
       process.exit(1);
     }
+    for (const g of gateReport(board, ctx)) if (g.advisory) console.log(`⚠️ ${g.label}：${g.detail}`);
     const st = computeStats(board, ctx.script);
     console.log(`✓ ${st.episodes.length} 集 / ${st.totals.segments} 段 / ${st.totals.cuts} 个分镜全部通过校验（共 ${st.totals.seconds}s / 目标 ${st.totals.targetSeconds}s / ${st.batches.length} 个生成批次）`);
     return;

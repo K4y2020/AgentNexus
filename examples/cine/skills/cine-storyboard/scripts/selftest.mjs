@@ -154,7 +154,7 @@ eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可
 /* ---------------- 质量门：全绿基线 ---------------- */
 
 ok(gateReport(FIXTURE, CTX).every((g) => g.ok), '样例带全部上游全部门通过');
-eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
+eq(gateReport(FIXTURE, CTX).length, 32, '三十二道门');
 
 /* ---------------- 连续性 A/B：旧模式放过，新合同指出断点 ---------------- */
 {
@@ -200,10 +200,13 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
   const legacy = gateReport({ ...bad, continuityContractVersion: undefined }, {}).find((g) => g.id === 'continuity');
   ok(legacy.ok && legacy.detail.includes('跳过'), 'A：旧分镜没有连续性合同，兼容模式明确跳过');
   const strict = continuityReport(bad);
-  ok(strict.enabled && strict.issues.length >= 3, 'B：严格合同拦截位置跳变、道具跳变和反向运动');
-  ok(strict.detail.includes('positionChangeReason'), 'B：指出人物位置变化原因缺失');
-  ok(strict.detail.includes('propChangeReason'), 'B：指出道具状态变化原因缺失');
-  ok(strict.detail.includes('directionChangeReason'), 'B：指出运动方向变化原因缺失');
+  const reasons = strict.advisories.join('；');
+  ok(strict.enabled && strict.issues.length === 0 && strict.advisories.length >= 3, 'B：位置跳变、道具跳变和反向运动缺原因只提示，不拦截');
+  ok(reasons.includes('positionChangeReason'), 'B：指出人物位置变化原因缺失');
+  ok(reasons.includes('propChangeReason'), 'B：指出道具状态变化原因缺失');
+  ok(reasons.includes('directionChangeReason'), 'B：指出运动方向变化原因缺失');
+  const reasonGate = gateReport(bad, {}).find((g) => g.id === 'continuity-reasons');
+  ok(reasonGate?.ok && reasonGate.advisory && reasonGate.detail.includes('positionChangeReason'), 'B：缺原因作为提示项列出，不算未过');
   const fixed = structuredClone(bad);
   Object.assign(fixed.episodes[0].segments[0].cuts[1].continuity, {
     positionChangeReason: 'C01 与 C02 在上一镜结束后完成换位',
@@ -212,14 +215,14 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
     emotionCarryReason: 'C01 看到 P01 后从屏息转为专注并完成抓取',
     directionChangeReason: '人物转身后反向走回桌边',
   });
-  ok(continuityReport(fixed).issues.length === 0, 'B+：明确写出变化原因后通过');
+  ok(continuityReport(fixed).advisories.length === 0, 'B+：明确写出变化原因后提示消失');
 
   const eyeBreak = structuredClone(bad);
   eyeBreak.episodes[0].segments[0].cuts[1].characters = ['C01'];
   delete eyeBreak.episodes[0].segments[0].cuts[1].continuity.actionStates.C02;
   eyeBreak.episodes[0].segments[0].cuts[1].continuity.eyelineTarget = 'offscreen';
   const eyeIssues = continuityReport(eyeBreak);
-  ok(eyeIssues.detail.includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时要求说明切断原因');
+  ok(eyeIssues.advisories.join('；').includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时提示说明切断原因');
 
   const proseGap = structuredClone(bad);
   proseGap.episodes[0].segments[0].cuts[0].frame =
@@ -369,6 +372,9 @@ eq(gateReport(FIXTURE, CTX).length, 31, '三十一道门');
   const doc = clone(FIXTURE);
   doc.episodes[0].segments[0].cuts[0].frame = 'a foggy pier at dawn, cinematic';
   ok(!gate(doc, 'size-phrase').ok, '分镜图提示词缺景别短语被拦');
+  const canvas = { ...CTX, ref2va: true };
+  ok(gate(doc, 'size-phrase', canvas).ok && gate(doc, 'frame-size-phrase', canvas)?.advisory,
+    '画布模式下分镜图提示词到不了视频模型：缺景别短语只提示');
 }
 {
   const doc = clone(FIXTURE);
@@ -863,7 +869,7 @@ ok(html.includes('分镜节奏带'), '01 分镜节奏带');
 ok(html.includes('分集分镜表'), '02 分集分镜表');
 ok(html.includes('生成批次单'), '03 生成批次单');
 ok(html.includes('配音对齐单'), '04 配音对齐单');
-ok(html.includes('✓ 质量门 31 / 31'), '页眉徽章全绿');
+ok(html.includes('✓ 质量门 32 / 32'), '页眉徽章全绿');
 ok(html.includes('class="rseg"'), '节奏带按段分组（粗分隔）');
 ok(html.includes('#seg-E01-01'), '节奏带段可跳转');
 ok(html.includes('主分镜图 · #1 未生成'), '主分镜图缺图时显示占位不装有');
@@ -923,7 +929,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   const en = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
   ok(en.includes('<html lang="en">'), 'en 报告的 html lang 属性跟着语言走');
   ok(en.includes('Export JSON'), 'en 界面：导出按钮英文');
-  ok(en.includes('Quality gates 31 / 31'), 'en 界面：页眉徽章英文');
+  ok(en.includes('Quality gates 32 / 32'), 'en 界面：页眉徽章英文');
   ok(en.includes('Cut rhythm strip'), 'en 界面：节奏带节标题英文');
   ok(en.includes('Segment cards'), 'en 界面：分镜表节标题英文');
   ok(en.includes('Generation batches'), 'en 界面：批次节标题英文');
@@ -971,6 +977,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
     'Ref2VA: one shared style sentence before [Shot 1]',
     'Ref2VA: first reference use bound inside descriptive prose',
     'Ref2VA: referenced vocal sources bound as <Subject N> (Sx)',
+    "Ref2VA: the first sentence of each speaker's cast voice prompt before their first line in every segment",
     'Ref2VA: stable vocal-source IDs in first-event order',
     'Ref2VA: task-prefixed summary, including keyframe completion for a preceding tail frame',
     'Ref2VA: one retention line per label with shots, relationship and explanation',
@@ -1020,6 +1027,18 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   ok(!legacy.ok && legacy.detail.includes('Ref2VA 六段式'), '画布模式下首帧对齐格式被拦');
   ok(gateReport(FIXTURE, REF).every((g) => g.ok), '样例（Ref2VA）在画布模式下全部门通过');
   eq(validateStoryboard(FIXTURE, REF).length, 0, '完整渡口样例通过 Ref2VA 生产 validate');
+
+  // 每段单独生成：角色卡的声音不写进这一段，模型就按画面猜嗓子（老者的短促呵斥被配成尖细女声）
+  const unvoiced = (index) => {
+    const doc = clone(FIXTURE);
+    const seg = doc.episodes[0].segments[index];
+    seg.h3Prompt = seg.h3Prompt.replace(/ \(voice: [^)]*\)/, '');
+    return gate(doc, 'h3-speaker-voice', REF);
+  };
+  const ferryman = unvoiced(0);
+  ok(!ferryman.ok && ferryman.detail.includes('E01-01.dialogue1') && ferryman.detail.includes('要写的声音「75-year-old male, gravelled husky bass-baritone'), '这一段没写说话人的角色卡声音被拦，并给出要写的声音');
+  ok(!ferryman.detail.includes('E01-02'), '只拦漏写的那一段');
+  ok(!unvoiced(9).ok, '画外音同样要写声音');
   const aggregateRetention = clone(FIXTURE);
   aggregateRetention.episodes[0].segments[0].h3Prompt = aggregateRetention.episodes[0].segments[0].h3Prompt
     .replace(/retention_analysis:[\s\S]*?detailed_description:/, 'retention_analysis:\nAll references are retained exactly.\n\ndetailed_description:');
